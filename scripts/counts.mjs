@@ -34,6 +34,17 @@
  *   chainL2.gateTotal         buildReport() (SO #34 independent derivation — never read back from a
  *                             report file it already wrote). NOT a claim of formal verification; see
  *                             fv-explainer.html's boundary statement for what L2 does and does not cover.
+ *   chainL2.sharedPass          L2-S shared-input coherence chain verdicts (pass/fail/indeterminate)
+ *   chainL2.sharedFail          and the number of shared input fields examined, from the same
+ *   chainL2.sharedIndeterminate buildReport() call as chainL2.gate* (WHITEPAPER-CORRECTIONS-1 —
+ *   chainL2.sharedFields        the paper's §11.7 L2-S sentence had no sentinel and rotted).
+ *   nodes.live         chaingraph.json nodes with status live (the paper's node headline;
+ *                      distinct from zk.provenTotal, which is the §18 proof-scope denominator
+ *                      even though the two coincide today)
+ *   chains.gated       chains with at least one step carrying a gate object
+ *   webmcp.pages       chaingraph/*.html pages carrying a WebMCP registerTool( call
+ *                      (WHITEPAPER-CORRECTIONS-1 — the paper's §8.4 count said 3 while 19
+ *                      pages were registered; a hand-typed registration count rots by tranche)
  *   hubTools.dora           } number of distinct ../tools/*.html links inside class="tool-card-link"
  *   hubTools.fraudRisk      } anchors on the named guides/*-hub.html page (CLAIMS-SENTINEL-TIER1-1,
  *   hubTools.sme            } audit Q7 — the hub hero paragraphs' spelled-out tool counts, unprotected
@@ -56,6 +67,19 @@ import { sourceDigest } from '../chaingraph/kernels/_buildid.mjs'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 export const repoRoot = resolve(__dirname, '..')
+
+// MERGEGROUP-HARD-GATES-1: overlay-read for the DERIVED inputs of these counts
+// (tools.html, chaingraph.json, mcp.html, data/mcp-counts.json). On merge_group
+// DERIVED_ROOT points at the ephemeral assembled tree — read the scratch copy
+// when the assembly produced one, the checkout otherwise. Authored inputs
+// (tools/, manifests/, guides/ directory scans) stay repo-rooted: they are not
+// derived, so the checkout is already authoritative for them.
+const DERIVED_ROOT = process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim()
+  ? resolve(repoRoot, process.env.DERIVED_ROOT.trim()) : null
+function readDerived(...parts) {
+  const scratch = DERIVED_ROOT ? resolve(DERIVED_ROOT, ...parts) : null
+  return readFileSync(scratch && existsSync(scratch) ? scratch : resolve(repoRoot, ...parts), 'utf8')
+}
 
 // countHubTools — number of distinct browser tools (../tools/*.html) a guides/*-hub.html page
 // links to via <a class="tool-card-link" href="../tools/...">. Attribute order varies across hub
@@ -91,7 +115,7 @@ export async function deriveCounts() {
     .filter(f => f.endsWith('-hub.html')).length
 
   // categories — class="cat-heading" spans in tools.html
-  const toolsHtml = readFileSync(resolve(repoRoot, 'tools.html'), 'utf8')
+  const toolsHtml = readDerived('tools.html')
   const categories = (toolsHtml.match(/class="cat-heading"/g) || []).length
 
   // cat.* — per-category .tool-card counts in tools.html (TOOLSHTML-CATCOUNT-GATE-1).
@@ -109,22 +133,24 @@ export async function deriveCounts() {
   }
 
   // chains
-  const chaingraph = JSON.parse(readFileSync(resolve(repoRoot, 'chaingraph', 'chaingraph.json'), 'utf8'))
+  const chaingraph = JSON.parse(readDerived('chaingraph', 'chaingraph.json'))
   const chains = (chaingraph.chains ?? []).length
 
   // workflows.recipes — data rows in the workflows table in mcp.html
-  const mcpHtml = readFileSync(resolve(repoRoot, 'mcp.html'), 'utf8')
+  const mcpHtml = readDerived('mcp.html')
   const wfStart = mcpHtml.indexOf('id="workflows"')
   const wfEnd   = mcpHtml.indexOf('</table>', wfStart)
   const wfSection = (wfStart !== -1 && wfEnd !== -1) ? mcpHtml.slice(wfStart, wfEnd) : ''
   const workflowsRecipes = (wfSection.match(/<tr><td>/g) || []).length
 
   // mcp.live — chaingraph live nodes + pilot widgets + utility tools
-  const mcpCountsData = JSON.parse(
-    readFileSync(resolve(repoRoot, 'data', 'mcp-counts.json'), 'utf8')
-  )
+  const mcpCountsData = JSON.parse(readDerived('data', 'mcp-counts.json'))
   const liveNodes = (chaingraph.nodes ?? []).filter(n => n.status === 'live').length
   const mcpLive = liveNodes + mcpCountsData.pilot_widgets + mcpCountsData.utility_tools
+
+  // chains.gated — chains with >=1 gated step (WHITEPAPER-CORRECTIONS-1; same derivation the
+  // 2026-09-02 claims audit used to confirm the paper's "64 of them gated").
+  const chainsGated = (chaingraph.chains ?? []).filter(c => (c.steps ?? []).some(s => s.gate)).length
   const mcpWidgets = mcpCountsData.pilot_widgets
 
   // openapi.ops — unique mcp_names: all manifests + chaingraph nodes not already covered
@@ -172,6 +198,18 @@ export async function deriveCounts() {
   const chainL2GateFail = l2Report.summary.edges_fail
   const chainL2GateIndeterminate = l2Report.summary.edges_indeterminate
   const chainL2GateTotal = l2Report.summary.gates_checked
+  const chainL2SharedPass = l2Report.l2s['L2S-pass']
+  const chainL2SharedFail = l2Report.l2s['L2S-fail']
+  const chainL2SharedIndeterminate = l2Report.l2s['L2S-indeterminate']
+  const chainL2SharedFields = l2Report.l2s.shared_fields_examined
+
+  // webmcp.pages — chaingraph pages that REGISTER a WebMCP tool (a registerTool( call, the
+  // construct itself), not pages that merely mention the API in prose; the whitepaper's own
+  // §8.4 <code> mentions carry no registerTool( and are excluded by construction.
+  const CGDIR = resolve(repoRoot, 'chaingraph')
+  const webmcpPages = readdirSync(CGDIR)
+    .filter(f => f.endsWith('.html'))
+    .filter(f => readFileSync(resolve(CGDIR, f), 'utf8').includes('registerTool(')).length
 
   // hubTools.* — CLAIMS-SENTINEL-TIER1-1 (audit Q7): the five hub hero paragraphs' spelled-out
   // tool counts, previously hand-typed prose with nothing re-deriving them from the page itself.
@@ -202,6 +240,13 @@ export async function deriveCounts() {
     'chainL2.gateFail':          chainL2GateFail,
     'chainL2.gateIndeterminate': chainL2GateIndeterminate,
     'chainL2.gateTotal':         chainL2GateTotal,
+    'chainL2.sharedPass':          chainL2SharedPass,
+    'chainL2.sharedFail':          chainL2SharedFail,
+    'chainL2.sharedIndeterminate': chainL2SharedIndeterminate,
+    'chainL2.sharedFields':        chainL2SharedFields,
+    'nodes.live':        liveNodes,
+    'chains.gated':      chainsGated,
+    'webmcp.pages':      webmcpPages,
     'hubTools.dora':             hubToolsDora,
     'hubTools.fraudRisk':        hubToolsFraudRisk,
     'hubTools.sme':              hubToolsSme,

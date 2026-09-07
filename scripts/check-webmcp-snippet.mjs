@@ -17,7 +17,11 @@
  *   4. description is >= 8 words (a real capability statement, not a stub).
  *   5. NO network call inside execute() — no fetch/XHR/WebSocket/
  *      EventSource/sendBeacon/dynamic import.
- *   6. exactly one registerTool call per page.
+ *   6. at least one registerTool call; EVERY call is checked individually
+ *      (LEDGER-WEBMCP-1: a hand-authored page may register several tools in
+ *      one block — the ledger page registers three — so rule 6 was widened
+ *      from "exactly 1" to "1..n, each fully linted"; rule 6 never allowed
+ *      zero calls and still does not).
  *   7. schema-minimality (W3C §6.3.3 anti-profiling control) — every
  *      inputSchema property must be read inside execute().
  *   8. annotations carry readOnlyHint:true, and untrustedContentHint is either
@@ -101,60 +105,60 @@ function checkSnippet(src, label) {
     issues.push('no registerTool call found');
     return issues;
   }
-  if (calls.length > 1) {
-    issues.push(`${calls.length} registerTool calls found, expected exactly 1`);
-  }
 
-  const call = calls[0];
+  for (let ci = 0; ci < calls.length; ci++) {
+    const call = calls[ci];
+    const label = calls.length > 1 ? `registerTool #${ci + 1}: ` : '';
 
-  // Rule 2: not event-gated — no addEventListener between the feature-detect
-  // guard and the registerTool call.
-  const preamble = src.slice(0, call.start);
-  const guardIdx = Math.max(preamble.lastIndexOf('if (mc)'), preamble.lastIndexOf('if(mc)'));
-  const scanFrom = guardIdx >= 0 ? guardIdx : Math.max(0, call.start - 400);
-  const between = src.slice(scanFrom, call.start);
-  if (/addEventListener\s*\(/.test(between)) {
-    issues.push('registerTool appears gated behind addEventListener, not called at top level on page load');
-  }
+    // Rule 2: not event-gated — no addEventListener between the feature-detect
+    // guard and the registerTool call.
+    const preamble = src.slice(0, call.start);
+    const guardIdx = Math.max(preamble.lastIndexOf('if (mc)'), preamble.lastIndexOf('if(mc)'));
+    const scanFrom = guardIdx >= 0 ? guardIdx : Math.max(0, call.start - 400);
+    const between = src.slice(scanFrom, call.start);
+    if (/addEventListener\s*\(/.test(between)) {
+      issues.push(label + 'registerTool appears gated behind addEventListener, not called at top level on page load');
+    }
 
-  const name = extractStringField(call.body, 'name');
-  if (!name || !/^[a-z][a-z0-9_]*$/.test(name)) {
-    issues.push(`tool name '${name}' is not snake_case`);
-  }
+    const name = extractStringField(call.body, 'name');
+    if (!name || !/^[a-z][a-z0-9_]*$/.test(name)) {
+      issues.push(label + `tool name '${name}' is not snake_case`);
+    }
 
-  const description = extractStringField(call.body, 'description');
-  const wordCount = description ? description.trim().split(/\s+/).filter(Boolean).length : 0;
-  if (wordCount < 8) {
-    issues.push(`description has ${wordCount} words, need >= 8`);
-  }
+    const description = extractStringField(call.body, 'description');
+    const wordCount = description ? description.trim().split(/\s+/).filter(Boolean).length : 0;
+    if (wordCount < 8) {
+      issues.push(label + `description has ${wordCount} words, need >= 8`);
+    }
 
-  const execBody = extractExecuteBody(call.body);
-  if (!execBody) {
-    issues.push('no execute() function found');
-  } else {
-    for (const pattern of NETWORK_PATTERNS) {
-      if (pattern.test(execBody)) {
-        issues.push(`execute() contains a network call matching ${pattern}`);
+    const execBody = extractExecuteBody(call.body);
+    if (!execBody) {
+      issues.push(label + 'no execute() function found');
+    } else {
+      for (const pattern of NETWORK_PATTERNS) {
+        if (pattern.test(execBody)) {
+          issues.push(label + `execute() contains a network call matching ${pattern}`);
+        }
       }
     }
-  }
 
-  const schemaProps = extractSchemaProperties(call.body);
-  if (execBody) {
-    for (const prop of schemaProps) {
-      const usedRe = new RegExp(`params(?:\\s*\\.\\s*${prop}\\b|\\s*\\[\\s*['"]${prop}['"]\\s*\\])`);
-      if (!usedRe.test(execBody)) {
-        issues.push(`inputSchema property '${prop}' is never read inside execute() (schema-minimality, W3C §6.3.3)`);
+    const schemaProps = extractSchemaProperties(call.body);
+    if (execBody) {
+      for (const prop of schemaProps) {
+        const usedRe = new RegExp(`params(?:\\s*\\.\\s*${prop}\\b|\\s*\\[\\s*['"]${prop}['"]\\s*\\])`);
+        if (!usedRe.test(execBody)) {
+          issues.push(label + `inputSchema property '${prop}' is never read inside execute() (schema-minimality, W3C §6.3.3)`);
+        }
       }
     }
-  }
 
-  if (!/readOnlyHint\s*:\s*true/.test(call.body)) issues.push('annotations missing readOnlyHint:true');
+    if (!/readOnlyHint\s*:\s*true/.test(call.body)) issues.push(label + 'annotations missing readOnlyHint:true');
+  }
   // Truthful-hint posture (WEBMCP-AUDIT-DRYRUN-1 #1616): a zero-UGC deterministic
   // local tool must NOT claim untrustedContentHint:true. Either it carries the
   // field truthfully for its answer class, or it omits the field AND states the
   // n/a rationale in the block comment. Silent absence of both is red.
-  if (!/untrustedContentHint\s*:\s*true/.test(call.body) && !/untrustedContentHint\s+is\s+not\s+applicable/.test(src)) {
+  if (!/untrustedContentHint\s*:\s*true/.test(src) && !/untrustedContentHint\s+is\s+not\s+applicable/.test(src)) {
     issues.push('untrustedContentHint: neither a true field nor an n/a rationale comment (truthful-hint posture)');
   }
 
@@ -243,7 +247,61 @@ mc.registerTool({
   hintRed.forEach((i) => console.log('  ✗ ' + i));
   console.log(hintRed.length > 0 ? 'HINT-GAP: FAIL (as expected)' : 'HINT-GAP: PASS (UNEXPECTED — lint is not catching the truthful-hint gap)');
 
-  const ok = redIssues.length > 0 && greenIssues.length === 0 && genGreen.length === 0 && hintRed.length > 0;
+  // Multi-tool page GREEN (LEDGER-WEBMCP-1): several registerTool calls in one
+  // block, every call fully linted.
+  const multiGreen = checkSnippet(`
+<script>
+const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+if (mc) {
+  mc.registerTool({
+    name: 'first_tool',
+    description: 'First tool of a multi-tool page with a real capability statement.',
+    inputSchema: { type: 'object', required: ['doc'], properties: { doc: { type: 'object' } } },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: async function(params) { return params.doc; }
+  });
+  mc.registerTool({
+    name: 'second_tool',
+    description: 'Second tool of a multi-tool page with a real capability statement.',
+    inputSchema: { type: 'object', required: ['frag'], properties: { frag: { type: 'string' } } },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: async function(params) { return params.frag; }
+  });
+}
+</script>
+`, 'multi-tool fixture');
+  console.log('--- Multi-tool fixture (expected: PASS) ---');
+  multiGreen.forEach((i) => console.log('  ✗ ' + i));
+  console.log(multiGreen.length === 0 ? 'MULTI-TOOL: PASS (as expected)' : 'MULTI-TOOL: FAIL (UNEXPECTED)');
+
+  // RED: on a multi-tool page only ONE call is bad — the verdict must still move.
+  const multiRed = checkSnippet(`
+<script>
+const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+if (mc) {
+  mc.registerTool({
+    name: 'good_tool_one',
+    description: 'Good tool of a multi-tool page with a real capability statement.',
+    inputSchema: { type: 'object', required: ['doc'], properties: { doc: { type: 'object' } } },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: async function(params) { return params.doc; }
+  });
+  mc.registerTool({
+    name: 'Bad Tool Name',
+    description: 'Bad tool whose name is not snake_case, failing the lint.',
+    inputSchema: { type: 'object', required: ['frag'], properties: { frag: { type: 'string' } } },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: async function(params) { return params.frag; }
+  });
+}
+</script>
+`, 'multi-tool-red fixture');
+  console.log('--- Multi-tool RED fixture (expected: FAIL) ---');
+  multiRed.forEach((i) => console.log('  ✗ ' + i));
+  console.log(multiRed.some((i) => i.startsWith('registerTool #2:')) ? 'MULTI-TOOL-RED: FAIL (as expected)' : 'MULTI-TOOL-RED: PASS (UNEXPECTED — lint missed the bad second call)');
+
+  const ok = redIssues.length > 0 && greenIssues.length === 0 && genGreen.length === 0 && hintRed.length > 0
+    && multiGreen.length === 0 && multiRed.some((i) => i.startsWith('registerTool #2:'));
   process.exit(ok ? 0 : 1);
 }
 

@@ -5,12 +5,12 @@ status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
 version_of_record: chaingraph.json#spec_version
-last_reconciled: 2026-07-02
+last_reconciled: 2026-09-03
 renders_to: openchain-graph-spec.html (hand-kept, guarded by spec-version-consistency.mjs)
 mirrors_to: PostOakLabs/chaingraph (GitHub Pages, generated)
 ---
 
-# OpenChainGraph Standard — v0.8.1
+# OpenChainGraph Standard — v0.8.13
 
 > **This file is the normative source of truth.** `openchain-graph-spec.html` renders it for the
 > web; `CONTRACT.md` §A3 references it; `chaingraph.json` + kernels validate against
@@ -63,7 +63,7 @@ additive updates). No single one of these should be read as "the OpenChainGraph 
 
 | Identifier | Where it lives | Answers | Current | Bumps when |
 |---|---|---|---|---|
-| `spec_version` | `chaingraph.json` (the version of record) | which OCG **release** is this? | `0.8.0` | every release (additive or breaking) |
+| `spec_version` | `chaingraph.json` (the version of record) | which OCG **release** is this? | `0.8.13` | every release (additive or breaking) |
 | `chaingraph_version` | every **artifact** envelope | which **schema** do I parse/validate this with? | `0.4.0` (frozen) | **only a breaking envelope change** |
 | `@context` URL | the artifact (`…/context/v0.3/…`) | which JSON-LD **vocabulary** applies? | `v0.3` | only when the context vocabulary changes |
 | `payloadType` `;version=` | `audit_signature` (the DSSE shell) | which **signing-envelope** shell? | `0.2` | only when the DSSE shell changes |
@@ -402,7 +402,7 @@ so an agent gets a verifiable artifact in one MCP round-trip.
   `meta`; registered in `kernels/index.mjs`; passes `kernel-hash-integrity.mjs` + `kernel-contract.test.mjs`.
 - The artifact records dispatch in `compute_mode` (`"server" | "browser"`), excluded from the hash preimage.
 - `gpu:true` nodes ignore `compute` and always delegate to the browser.
-- **Every `gpu:false` node MUST have a kernel** (`kernel-coverage.mjs --strict`) — a missing kernel
+- **Every `gpu:false` node MUST have a kernel** (`check-kernel-coverage.mjs --strict`) — a missing kernel
   FAILS CI; it is never a silent skip (lesson of the Arc-kernel incident, §15).
 
 ### §12.5 artifact delta
@@ -801,6 +801,68 @@ deferred until the proving queue clears it. Derive it from the gate rather than 
 `scripts/compute-proof-baseline.json` pins the downward-only ceiling.
 
 > Informative: a narrated walkthrough of how the AINumbers reference deployment reached full §18.6 coverage (universal guest, the deferred set, and the cross-engine determinism gate) is at [chaingraph/zkvm-compute-integrity.html](../chaingraph/zkvm-compute-integrity.html).
+
+**§18.7 Journal byte contract (NORMATIVE — clarifies §18.0/§18.1; no envelope change, no schema change).**
+§18.0 stores `journal` as a **decoded JSON object**, but the zkVM claim the `seal` commits to binds `sha256`
+over the **byte string the guest actually committed**. Those are not the same artifact, and §18.1's
+"reconstructs the named system's ReceiptClaim digest from `(imageId, journal)`" is only performable if the
+serialization from object back to bytes is specified. Absent that, a third party holding a published receipt
+cannot recompute the claim digest — which defeats the purpose of publishing receipts. This clause closes that
+gap. It states the contract the reference deployment has always implemented: no existing artifact, receipt,
+seal, or schema changes.
+
+- **The journal byte string MUST be the RFC 8785 (JCS) canonical serialization of the `journal` object,
+  encoded UTF-8** — compact, keys sorted at every nesting depth, no insignificant whitespace.
+- **The journal digest MUST be `sha256` over exactly those bytes**, and it is that digest which enters the
+  named system's ReceiptClaim (for risc0: `ReceiptClaim::ok(imageId, journalBytes)`).
+- **This is §4's canonicalizer, not a second one.** The same `cgCanon` (RFC 8785) that produces the
+  `execution_hash` preimage produces the journal bytes; a verifier MUST NOT introduce a parallel
+  canonicalization path. The shipped reference verifier does exactly this in one line —
+  `kernels/_computeproof.mjs`: `const journalBytes = enc(JSON.stringify(cgCanon(cp.journal)));` — and the §15
+  gate `compute-proof.test.mjs` fails if it ever stops being true, because wrongly-serialized journal bytes
+  yield a different claim digest and the BN254 pairing check then rejects a genuine receipt.
+- **Stored insertion order is NOT the contract.** A journal whose stored key order happens to be sorted
+  serializes identically under both readings; that coincidence is not evidence, and it is precisely why the
+  contract went undocumented for so long (see the evidence note).
+
+*Worked recompute — a verifier holding only the published receipt:*
+
+```
+journalBytes  = utf8( JCS( receipt.journal ) )
+journalDigest = sha256( journalBytes )
+claim         = ReceiptClaim::ok( receipt.imageId, journalBytes )
+verify( receipt.seal, claim, receipt.imageId )   ->   true for a genuine receipt
+```
+
+*Evidence (INFORMATIVE), including the correction that produced it.* The contract was settled empirically
+against real sealed receipts by an external verifier built independently of the reference implementation
+(`PostOakLabs/zkprof-web`, `docs/JOURNAL-BYTES-HYPOTHESIS.md`, headline **CONFIRMED-JCS**). The arc is recorded
+because the first answer over-claimed: an initial run reported the contract confirmed on three fixture receipts
+whose journals were **already key-sorted**, so JCS and compact-insertion-order produced byte-identical strings
+and the experiment discriminated only whitespace, never key ordering. Review caught it, the headline was
+downgraded to exactly what the experiment had shown, and the deciding receipt was then identified and run:
+`art-04-agent-identity-attestation-checker` (imageId `sha256:93c746e79afcf4b2…`, a different guest image) is the
+one receipt in the published corpus whose journal carries **unsorted nested keys**, so its two candidate
+serializations diverge. Under full risc0 3.0.5 Groth16 verification:
+
+| Candidate journal bytes | `sha256` of those bytes | Verification |
+|---|---|---|
+| RFC 8785 / JCS canonical | `3a089ca010da4cc939c482b41b52b659a6ff177a2b82df91c64a774164bcd4be` | **VERIFIES** |
+| compact, stored insertion order | `a92cceb5da47a360d4097c7585584aefac5036df9dd0d3be28b9cf0475243136` | **REJECTED** |
+
+Both directions on the one artifact that can separate them — a discriminating negative control, not a
+confirmation-only result. An independent `snarkjs` twin reproduces the same derivation byte-exactly.
+
+*Scope caveat (INFORMATIVE).* The corpus that settled this carries only finite, small JSON numbers. RFC 8785's
+number-serialization edge cases — negative zero, the exponent thresholds at which ECMAScript switches
+representation, and integers beyond the IEEE-754 safe range — are **not exercised** by any published receipt.
+§3's I-JSON guard already rejects such values on the `execution_hash` path; an implementer whose journal could
+carry them treats the RFC as authoritative over any implementation's shortcut.
+
+*Not specified here (INFORMATIVE).* Emitting the raw journal bytes, or an explicit `journalDigest` field, in
+**future** receipts would spare verifiers the re-derivation, and would be additive and hash-neutral for existing
+seals. That is a receipt-format change and is deliberately **not** specified by this clause, which documents the
+existing contract only.
 
 ## §20 Anchor Binding (NORMATIVE, OPTIONAL — new in v0.7)
 An artifact MAY carry portable, offline-verifiable evidence that its `execution_hash` was included in a
@@ -1688,7 +1750,7 @@ enforces it; the profile introduces no gate of its own.
 | D4 | **Wall-clock time** (`Date.*`, timers) | No `Date`, timestamp, or timer reading may enter `output_payload` or the §4 preimage. Time-bearing evidence (anchor `genTime`, escalation `opened_at`) is defined hash-EXCLUDED (§20, §22.8). The §18 guest disables `Date` at the intrinsic level (§18.5); VM-1 disables it identically. | §4 reproducibility (`golden-parity.test.mjs`, live `hash-sweep.mjs`); wall-clock exclusion of escalation records enforced by `test-escalate-emit.mjs` (§22.8.2 — asserts `record_hash` is identical across two escalation runs with different `opened_at`; `linear-hash-freeze.mjs`/`gate-parity.test.mjs` do not exercise escalation records, corrected SPECREF-GATEPARITY-FIX-1 2026-07-28). |
 | D5 | **Randomness** (`Math.random`, CSPRNG) | No nondeterministic randomness may reach `output_payload`. `Math.random` is stubbed out of the §18 guest and the VM-1 prelude. The one CSPRNG in the standard (§13.12 SD-JWT salts) is confined to disclosure material that is EXCLUDED from the artifact hash. | §4 determinism (`golden-parity.test.mjs`); SD-JWT salt-as-sole-nondeterminism is pinned by `sd-export-roundtrip.test.mjs`. |
 | D6 | **Locale / `Intl`** | No locale-sensitive formatting may affect `output_payload`. Locale-dependent number formatting routes through a pinned `en-US` formatter verified value-for-value against V8 (§18.5(a)); the §18 guest and the QuickJS-ng VM ship **no `Intl`** at all (a determinism gift, not a gap). | §4 cross-surface parity (`golden-parity.test.mjs`); the pinned formatter's equivalence is covered by the same golden fixtures. |
-| D7 | **Environment / platform APIs** | Where a rule would otherwise depend on a V8 platform API whose result is environment-sensitive or infeasible to prove in-guest, the kernel MUST substitute a fully specified deterministic replacement used **identically on every surface**, with its out-of-scope aspects stated in source (§18.5). Network, filesystem, and ambient I/O are already forbidden by CONTRACT §0 (zero-fetch). | §18.5 replacements + §12 kernel-coverage (`kernel-coverage.mjs --strict`); cross-surface identity by `golden-parity.test.mjs` and, for gated chains, `gate-parity.test.mjs`. |
+| D7 | **Environment / platform APIs** | Where a rule would otherwise depend on a V8 platform API whose result is environment-sensitive or infeasible to prove in-guest, the kernel MUST substitute a fully specified deterministic replacement used **identically on every surface**, with its out-of-scope aspects stated in source (§18.5). Network, filesystem, and ambient I/O are already forbidden by CONTRACT §0 (zero-fetch). | §18.5 replacements + §12 kernel-coverage (`check-kernel-coverage.mjs --strict`); cross-surface identity by `golden-parity.test.mjs` and, for gated chains, `gate-parity.test.mjs`. |
 
 Rows D1–D7 are exhaustive over the escape hatches the Wasm 3.0 Deterministic Profile enumerates for a
 JS/Wasm execution environment (float exceptions, memory/iteration nondeterminism, `NaN` bit-patterns, host calls,
@@ -2040,7 +2102,7 @@ The producer-local journal is append-only. Each entry carries: `journal_seq` (mo
 
 Run lifecycle states (`execution_state.state`): `draft` `validated` `queued` `running` `awaiting_data` `awaiting_review` `approved` `rejected` `overridden` `executing_action` `submitted` `acknowledged` `completed` `failed` `cancelled`.
 
-**Checkpoints** are signed (§26.2) summaries emitted periodically and at run completion: `{checkpoint_seq, per-stream {stream_id, journal_seq, rh}, journal_root_digest, anchors[]}`. Each `anchors[]` member is `{type, ...}` with `type` ∈ `rfc3161` | `opentimestamps` | `scitt-receipt` (reserved; SCITT is not yet an RFC — producers MUST NOT emit it under `@1`). Checkpoints SHOULD be anchored per §20 to at least one external authority. Unknown `anchors[].type` values MUST be reported as unrecognized, not as failures.
+**Checkpoints** are signed (§26.2) summaries emitted periodically and at run completion: `{checkpoint_seq, per-stream {stream_id, journal_seq, rh}, journal_root_digest, anchors[]}`. Each `anchors[]` member is `{type, ...}` with `type` ∈ `rfc3161` | `opentimestamps` | `scitt-receipt` (SCITT is now an RFC — architecture = RFC 9943, COSE Receipts = RFC 9942, both Proposed Standard, June 2026; see §XMAP-1). Checkpoints SHOULD be anchored per §20 to at least one external authority. Unknown `anchors[].type` values MUST be reported as unrecognized, not as failures.
 
 ### §26.6 Trust labels (NORMATIVE vocabulary)
 
@@ -3834,7 +3896,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | Rule | Gate | When |
 |---|---|---|
 | §4 canonical execution_hash | `kernel-hash-integrity.mjs`, `lint-forbidden-hash.mjs`, `golden-parity.test.mjs`, `determinism-replay.test.mjs` (N=3 idempotency + JCS key-order stability) | validate |
-| §12 every gpu:false node has a kernel (no silent skip) | `kernel-coverage.mjs --strict` | validate |
+| §12 every gpu:false node has a kernel (no silent skip) | `check-kernel-coverage.mjs --strict` | validate |
 | §4 buildArtifact reproduces hash offline | `kernel-contract.test.mjs` | validate |
 | §4 **live** re-verifiability of every deployed node | **`hash-sweep.mjs`** | post-deploy |
 | Live server registers every expected mcp_name | **`verify-mcp-registered.mjs`** (Addendum A) | post-deploy |
@@ -3849,7 +3911,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §13 export gate honored (incl. §13.11 `vc`: view-only, no new hash/proof, deterministic, base-profile) | `exporters/export.test.mjs` (unit) + `smoke-compute.mjs` (export round-trip) | validate + post-deploy |
 | §16 proof: eddsa-jcs-2022 whole-artifact at `audit_signature.proof`, no new hash, no `chaingraph_version` bump, deterministic, offline-verifiable, default-off | `proof-binding.test.mjs` (unit: sign→verify round-trip + tamper-detect + determinism + backward-compat) | validate |
 | §17 kernel identity binding: digest at `audit_signature.build_identity` ↔ Graph Index `compute_images` ↔ recomputed source, hash-excluded, no `chaingraph_version` bump | `kernel-identity.test.mjs` (unit: digest determinism + three-way cross-check + tamper-detect + backward-compat) | validate |
-| §18 compute-integrity proof: object structure, `imageId` ↔ Graph Index `compute_images`, journal ↔ `output_payload`, no new hash, version stays 0.4.0, default-off; PLUS the shipped self-contained BN254 Groth16 verifier accepts a real receipt fixture and rejects a tampered seal / wrong journal (stark stays vendor-delegated per §18.1) | `compute-proof.test.mjs` (unit: binding + real-receipt verify + tamper-detect + backward-compat) | validate |
+| §18 compute-integrity proof: object structure, `imageId` ↔ Graph Index `compute_images`, journal ↔ `output_payload`, no new hash, version stays 0.4.0, default-off; PLUS the shipped self-contained BN254 Groth16 verifier accepts a real receipt fixture and rejects a tampered seal / wrong journal (stark stays vendor-delegated per §18.1); PLUS §18.7's journal byte contract — the verifier derives journal bytes as `utf8(JCS(journal))` via §4's `cgCanon` and no second canonicalization path, which the real-receipt pairing check enforces by construction (wrong bytes ⇒ wrong claim digest ⇒ a genuine receipt is rejected) | `compute-proof.test.mjs` (unit: binding + real-receipt verify + tamper-detect + backward-compat) | validate |
 | §20 anchor binding: per-type proof verification (`rfc3161-tst` real TST vs pinned TSA root incl. messageImprint/CMS/chain/EKU/genTime, `opentimestamps` completed proof vs pinned Bitcoin block header, `c2sp-tlog-proof-v1` vs pinned test log key + cosigners + Merkle inclusion, `scitt-receipt-rfc9942` COSE receipt), `anchored_hash` == recomputed `execution_hash`, tampered proof / mismatched hash MUST fail, outside hash scope | `anchor-binding.test.mjs` | validate |
 | §13.12 SD-JWT export: redact→verify round-trip with disclosures, digest mismatch fails, always-disclosed set complete (no input leaks into always-disclosed, no output becomes redactable), fresh CSPRNG salts the only nondeterminism, JWS EdDSA under the §16 key | `sd-export-roundtrip.test.mjs` | validate |
 | §13.13 xBRL-JSON export profile `ocg-xbrl-json@1`: fixture round-trip determinism (re-canonicalize twice ⇒ byte-identical), `canonicalValues` conformance (every fact value canonical-lexical string, no raw number/boolean), Annex 1 FFIEC Call Report sample structurally valid (real MDRM concept names, no placeholder/null concept), never labeled submittable | `xbrl-json-fixtures.test.mjs` | validate |
@@ -3884,7 +3946,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §28 clause binding profile `ocg-clause-binding@1`: hash-excluded top-level `clause_bindings[]` (zero-entry artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` MUST root at `/policy_parameters` or `/output_payload` — a pointer rooted elsewhere is RED (§28.3); each resolved §28.1 citation object carries the five REQUIRED members (`scheme`, `id`, `in_force_from`, `mapped_by`, `mapped_at`), ISO-date fields validated, `interpretation_ref` when present is a `sha256:` content hash, no unknown members on the closed pinned form; a legacy bare-string citation is valid but classified UNPINNED and MUST NOT be declared in `clause_bindings`; unresolved pointer / malformed citation / off-preimage pointer MUST fail; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED; defaults OFF, absence conformant, new-artifacts-only (no migration path) | `clause-binding.test.mjs`, `schema-validate.mjs` | validate |
 | §21.6 ancestry_digest: bottom-up recompute over `{execution_hash, parent_ancestry_digests}` via the one `cgCanon` path, root uses `[]`, mutation-sensitive (an omitted/reordered/substituted ancestor MUST change the terminal digest — the exact `cgCanon`-object-not-string trap §PPH-1 already guards against, tested identically here), hash-EXCLUDED (byte-identical `execution_hash` with and without the member, both halves asserted), absence conformant + reported as no-claim, incomplete bundle reported as a distinct `incomplete-bundle` tier never conflated with `failed` | `ancestry-digest.test.mjs` (unit) + `schema-validate.mjs` (shape) | validate |
 | §20.3 retention profile: a verifier presented a hash-only survivor (leaf + inclusion proof + cosigned checkpoint, no body) reports `body-absent: anchored-hash-only`, never `verified`/`failed`; a `regulatory-N-years` fixture pruned before N elapses MUST fail a conformance check; `fixture`-class artifacts are NEVER eligible regardless of checkpoint state; top-level `retention_class` (§20.3.0, distinct from §23.4's per-attestation field of the same name) is hash-EXCLUDED (byte-identical `execution_hash` with and without the member); the tier is additive — an artifact/verifier that never encounters a pruned body behaves exactly as before v0.8.18 | `retention-profile.test.mjs` | validate |
-| §STPFWD-1 forward decision-outcome mandate: a NEW gpu:false live node emits `haGatePolicy` (§27.4) at `/output_payload/decision/gate_policy` and `haRunState` (§27.10) at `/output_payload/decision/execution_state`, both closed enums unchanged and both inside the §4 preimage; silent about every node published before this section; no schema property, no `required[]` entry, no MUST-emit on an existing artifact — enforced at build time (repo scripts/check-compute-proof-coverage.mjs ratchet, cited §18) rather than by a second §15 gate, since every in-scope node is already required to be proven-or-explicitly-deferred before it can ship | `kernel-coverage.mjs --strict`, `compute-proof.test.mjs` | validate |
+| §STPFWD-1 forward decision-outcome mandate: a NEW gpu:false live node emits `haGatePolicy` (§27.4) at `/output_payload/decision/gate_policy` and `haRunState` (§27.10) at `/output_payload/decision/execution_state`, both closed enums unchanged and both inside the §4 preimage; silent about every node published before this section; no schema property, no `required[]` entry, no MUST-emit on an existing artifact — enforced at build time (repo scripts/check-compute-proof-coverage.mjs ratchet, cited §18) rather than by a second §15 gate, since every in-scope node is already required to be proven-or-explicitly-deferred before it can ship | `check-kernel-coverage.mjs --strict`, `compute-proof.test.mjs` | validate |
 | §30 cited clause digest: a `chaingraph.json` `nodes[]` entry NEW or CHANGED on the current branch MUST declare `standards_basis` (`implements_standard`\|`not_applicable`) — undeclared FAILS, no silent default (§30.3); `implements_standard` MUST carry >=1 `cited_clause_digest[]` entry whose `digest` resolves to a registered `chaingraph/standard/clause-snapshot-registry.json` entry — a non-resolving digest FAILS (§30.5c); registry entries are written only by `pin-clause-snapshot.mjs`, which refuses any excerpt exceeding the clause-level size cap (§30.2, whole-document digests structurally impossible); a PRE-EXISTING/untouched node is NEVER retro-gated, reported as a count only (§30.4); hash-excluded, no `execution_hash`/`required[]` change (§30.6); gate output states plainly it proves retrieval, not correct interpretation (§30.0) | `check-clause-digest.mjs`, `check-clause-digest.test.mjs` | validate |
 | §NODEPAGE-1 pageless waiver: a node declaring `pageless` with no page owned PASSES (§NODEPAGE-1.1); a node declaring `pageless` while it OWNS a page (the canonical `chaingraph/<tool_id>.html`, or its own `url` resolving to an `.html` under `chaingraph/` or `tools/`) HARD FAILS naming the page that contradicts the waiver, with page existence RECOMPUTED from the filesystem and never read from the node's own claim (§NODEPAGE-1.3, SO #34); a page-bearing node with no declaration is untouched, reported as not-applicable rather than as a pass or a gap; a `pageless` key carrying a non-string or empty value is its own distinct FAIL, never a silent skip (SO #34c); page-ownership has ONE implementation, shared by the axis that accepts the waiver and the gate that polices it (§NODEPAGE-1.4); hash-excluded, no `execution_hash` or `required[]` change, `chaingraph_version` stays 0.4.0, and a catalog carrying a `pageless` node is schema-valid where the same catalog was invalid before the property was declared (§NODEPAGE-1.6) | `check-pageless-consistency.mjs`, `pageless-consistency.test.mjs`, `schema-validate.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |

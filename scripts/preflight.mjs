@@ -85,7 +85,7 @@
  */
 import { execSync, exec } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -174,6 +174,22 @@ assertRepoFresh(REPO, REPO_VIA, REPO_STRICT);
 // and in a plain terminal run, and only differ where they were previously WRONG — under a hook.
 const env = gitEnv({ PYTHONIOENCODING: 'utf-8' }); // Windows: python gates print ✓/✗
 
+// MERGEGROUP-HARD-GATES-1: on a merge_group run the workflow exports
+// DERIVED_ROOT (the ephemeral assembled tree). Preflight strips it from its own
+// process and from the shared child `env` so the SUITE-WIDE isMainContext()
+// stays PR-advisory — most advisory gates read in-tree artifacts that the
+// scratch tree does NOT cover. The captured value is re-injected, per
+// subprocess, ONLY for the DERIVED_ROOT_GATES commands (which know how to
+// overlay-read the scratch tree), and those gates are classified HARD below
+// via gateBlocks().
+const MERGE_GROUP_DERIVED_ROOT =
+  process.env.GITHUB_EVENT_NAME === 'merge_group' && process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim()
+    ? process.env.DERIVED_ROOT.trim() : '';
+if (MERGE_GROUP_DERIVED_ROOT) {
+  delete process.env.DERIVED_ROOT;
+  if (env.DERIVED_ROOT) delete env.DERIVED_ROOT;
+}
+
 // --changed <ref>: incremental mode for local/pre-push runs only (PREFLIGHT-BUDGET-1 §1).
 // Scopes verify_repo.py to files touched vs <ref>. CI never passes this — the
 // land-verify.yml / deploy-to-dreamhost.yml workflows call the gates directly with a
@@ -194,6 +210,17 @@ const KEEP_GOING_FLAG = process.argv.includes('--keep-going');
 // summary blocks. A green run under --quiet is therefore ~10 lines. Sessions that must READ
 // preflight output should use it; humans watching a terminal probably want the default.
 const QUIET = process.argv.includes('--quiet');
+// PREFLIGHT-QUICK-1: --quick — the fixed ≤90 s subset every builder runs before
+// push. The full suite measures ≈660 s on this machine, past the 600 s tool-call
+// cap, so dispatch guidance told builders to skip preflight and push — and the
+// cheapest gates (a baseline bump, a tool-number check, copy hallmarks) were
+// exactly the ones being skipped. --quick fixes the economics instead of the
+// guidance: a FIXED subset, in a FIXED order (QUICK_GATES below), finishing well
+// inside 90 s, printing its wall time AND the list of gates it did NOT run (a
+// green --quick must never read as "preflight ran" — SO #34c). `--quick
+// --self-test` asserts the subset ordering and the 90 s budget on a clean tree.
+// ⛔ It removes NO gate from the full suite below — the fence of its row.
+const QUICK = process.argv.includes('--quick');
 let _pendingLabel = null; // under --quiet we defer printing "▶ label" until we know it failed
 function gateStart(label) { if (QUIET) { _pendingLabel = label; return; } process.stdout.write(`▶ ${label} … `); }
 function gatePass(msg)    { if (QUIET) { _pendingLabel = null; return; } console.log(msg); }
@@ -325,7 +352,7 @@ function classifyExecFailure(e) {
  */
 function runAdvisoryChecker(cmd) {
   try {
-    return { state: 'RAN', out: execSync(cmd, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] }).toString(), reason: '' };
+    return { state: 'RAN', out: execSync(cmd, { cwd: REPO, env: gateEnvFor(cmd), stdio: ['ignore', 'pipe', 'pipe'] }).toString(), reason: '' };
   } catch (e) {
     const c = classifyExecFailure(e);
     const out = (e?.stdout?.toString() || '') + (e?.stderr?.toString() || '');
@@ -608,7 +635,10 @@ function runSelfTest() {
   return 0;
 }
 
-if (process.argv.includes('--self-test')) process.exit(runSelfTest());
+// PREFLIGHT-QUICK-1: `--quick --self-test` is the QUICK suite's own control and
+// runs further down (after GATES/QUICK_GATES exist); the generic --self-test
+// above stays the reporting machinery's control and keeps exiting here.
+if (!QUICK && process.argv.includes('--self-test')) process.exit(runSelfTest());
 
 // HELMGATE-DECOUPLE-1 (2026-07-31): the 4 helm drift/freshness gates below
 // assert helm.html against helm/version.json + helm/guide-freshness.json —
@@ -736,7 +766,7 @@ const TOUCHED_KERNEL_IDS = touchedKernelIdsFromJsdocSet(TOUCHED_KERNEL_FILES_JSD
 //
 // isMainContext() FAILS CLOSED — anything undeterminable blocks. The downgrade
 // has to be affirmatively earned, never inherited from a failed lookup.
-const { advisoryGates, isMainContext, COVERED } = await import('./derived-artifacts.mjs');
+const { advisoryGates, isMainContext, COVERED, DERIVED_ROOT_GATES } = await import('./derived-artifacts.mjs');
 
 // DERIVED-SET-SELFTEST-1: which files this push touches, for the live regen
 // self-test's scoping below. It ACTUALLY EXECUTES every declared regen command
@@ -780,6 +810,24 @@ function derivedRegenLiveScopeTouched() {
 const DERIVED_REGEN_LIVE_SCOPE_TOUCHED = derivedRegenLiveScopeTouched();
 const MAIN_CONTEXT = isMainContext();
 const ADVISORY_ON_PR = advisoryGates();
+
+// MERGEGROUP-HARD-GATES-1: per-gate HARD classification. An advisory gate is
+// blocking iff it is a main context (unchanged), OR we are on merge_group with
+// the ephemeral derived tree mounted AND this exact command is one of the
+// DERIVED_ROOT_GATES that overlay-reads that tree. Every other advisory gate
+// keeps its PR-advisory downgrade even on merge_group — its inputs are still
+// the stale in-tree artifacts, so HARD there would be a false red.
+function gateBlocks(cmd) {
+  return MAIN_CONTEXT || (Boolean(MERGE_GROUP_DERIVED_ROOT) && DERIVED_ROOT_GATES.has(cmd));
+}
+// Child env for a gate subprocess: re-inject the ephemeral tree ONLY for the
+// gates that read it (they were stripped above so nothing else inherits it).
+function gateEnvFor(cmd) {
+  if (MERGE_GROUP_DERIVED_ROOT && DERIVED_ROOT_GATES.has(cmd)) {
+    return { ...env, DERIVED_ROOT: MERGE_GROUP_DERIVED_ROOT };
+  }
+  return env;
+}
 
 // MERGEQUEUE-GATE-PARITY-1: a CI run in a MAIN context (push to main, schedule)
 // runs the suite to COMPLETION, not fail-fast.
@@ -899,6 +947,18 @@ const GATES = [
   ["Vow-vs-code lint fixture proof (SO #40b pairing)", "node scripts/check-vow-vs-code.test.mjs"],
   ["Frozen clock lint (NO-CLOCK-LINT-1)", "node scripts/lint-frozen-clock.mjs"],
   ["Frozen clock lint fixture proof (SO #40b pairing)", "node scripts/lint-frozen-clock.test.mjs"],
+  // COMPARATOR-EPSILON-LINT-1 (boundary-semantics program 2026-09-01): the art-234 L106
+  // inversion (`> X - 1e-5` fires AT x where the regulation is strict) is a MECHANICALLY
+  // DETECTABLE shape -- an epsilon whose sign widens a strict comparator across the
+  // boundary. Scans chaingraph/kernels/*.kernel.mjs for comparator+epsilon shapes;
+  // widening-strict (`> X - eps` / `< X + eps`) is the flagged ratchet class behind
+  // scripts/comparator-epsilon-baseline.json (counts only go DOWN; art-234 L93+L106
+  // pinned at ship time -- their fix row owns the fix); tightening is informational;
+  // widening-inclusive is census-only; plain comparators stay audit-lane. ⛔ Never grow
+  // the baseline to make the gate pass. Paired red-proof (SO #40b / GATE-SELFTEST-META-1):
+  // the fixture proof entry below.
+  ["Comparator epsilon lint (COMPARATOR-EPSILON-LINT-1)", "node scripts/lint-comparator-epsilon.mjs"],
+  ["Comparator epsilon lint fixture proof (SO #40b pairing)", "node scripts/lint-comparator-epsilon.test.mjs"],
   // KERNEL-PREFLIGHT-1: one entry per kernel id touched by this push (TOUCHED_KERNEL_IDS
   // above) — the FULL per-kernel composite (syntax/exports/hash-lint/guest-builtin/VM-
   // parity/tsc/proptest-floor/registration/hub-categories/node-page/clause-digest), not
@@ -930,6 +990,12 @@ const GATES = [
   ['Page determinism (preimage-reachable, warn-only)', 'node scripts/check-page-determinism.mjs --warn-only',
     { note: 'runs with --warn-only, which exits 0 even on a new defect — a green here reports, it does not verdict' }],
   ['Page determinism gate controls', 'node scripts/check-page-determinism.test.mjs'],
+  // TOOLPAGE-DEEPLINK-1: fragment-only prefill-and-run deep links on every
+  // registered WebMCP page — dynamic vm harness asserting fixture-0
+  // execution_hash reproduction + the fragment-only grep gate. Pre-existing
+  // fixture/manifest/page divergences are baselined WARN (downward ratchet).
+  ['Deep-link contract (fragment-only prefill+run)', 'node scripts/check-deeplink-contract.mjs'],
+  ['Deep-link contract gate controls', 'node scripts/check-deeplink-contract.test.mjs'],
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
   // REGISTRY-RESOLVE-STATIC-1: positive-half kernel_digest -> spec_digest resolution
   // records (registry/kernel/<hex>.json). NODE-FANOUT-REGEN-CLOSE-1 (2026-08-21)
@@ -1043,6 +1109,8 @@ const GATES = [
   ['Rule-registry table freshness (ACCT-RULEREG-K-1)', 'node scripts/gen-rule-registry.mjs --check'],
   ['Rule-registry generator mutation control (SO #34)', 'node scripts/gen-rule-registry.test.mjs'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
+  ['Install-link anchors embed the canonical MCP endpoint (MCP-INSTALL-LINKS-1)', 'node scripts/check-install-links.mjs'],
+  ['Install-link gate mutation controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-install-links.test.mjs'],
   // Two nav gates, deliberately: the plain one is a CONTENT gate (a new page no
   // nav reaches) and is hard in every context; --baseline-check is the
   // derived-artifact freshness gate (advisory on PR, repaired on main). Folding
@@ -1061,11 +1129,28 @@ const GATES = [
   ['Deadline-wall freshness (SI-DEADLINE-FRESH-1)', 'node scripts/check-deadline-freshness.mjs'],
   ['Bank-fact freshness (REVERIFY-BANK-1)', 'node scripts/check-bank-fact-freshness.mjs'],
   ['Tool-number uniqueness',       'node scripts/check-tool-number-unique.mjs'],
+  // PR-ID-COLLISION-GATE-1 (2026-09-06): art-685/art-686 each collided twice in one
+  // evening across OPEN PRs, which no in-tree uniqueness gate can ever see. This gate
+  // scopes NEW node/manifest/tool ids in the PR diff against (a) origin/main,
+  // (b) chaingraph/graph/RESERVATIONS.json (the lock — same-line JSON conflicts in the
+  // merge queue are the mechanical backstop), (c) other open PRs (gh, token-free;
+  // skipped on merge_group — serial queue — and NAMED when unavailable, never silent).
+  ['ID-collision gate (PR-ID-COLLISION-GATE-1)', 'node scripts/check-id-collision.mjs'],
+  ['ID-collision gate controls (RED/GREEN fixtures, SO #34c pairing)', 'node scripts/check-id-collision.mjs --self-test'],
   ['Tool-node pairing registry',   'node scripts/check-tool-node-pairings.mjs'],
   ['Topic cross-link registry (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/check-topic-links.mjs'],
   ['Topic cross-link block freshness (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/apply-topic-links.mjs --check'],
   ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
   ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
+  // AIN-AGENT-KIT-1: agent-kit artifacts are generator-emitted (gen-agent-kit.mjs from
+  // agent-kit/kit.json); this gate regenerates twice into temp, byte-compares determinism
+  // and freshness, and validates SKILL.md frontmatter + plugin.json against the vendored schema.
+  ['Agent kit freshness + schema (AIN-AGENT-KIT-1)', 'node scripts/check-agent-kit.mjs'],
+  ['Agent kit gate controls (GREEN + RED mutations + zip known-answer)', 'node scripts/check-agent-kit.mjs --self-test'],
+  ['Showcase prompts SSOT (EXAMPLE-PROMPTS-JSON-1)', 'node scripts/check-showcase-prompts.mjs'],
+  ['Showcase prompts gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-prompts.mjs --self-test'],
+  ['PII banner exact text (CONTRACT §1.3, PIIBANNER-GATE-SWEEP-1)', 'node scripts/check-pii-banner.mjs'],
+  ['PII banner gate controls (RED+GREEN mutation)', 'node scripts/check-pii-banner.test.mjs'],
   // STALE-PHASING-NOTE-SWEEP-1 (2026-08-23). The documentation twin of the silent-green gate: a comment
   // that states a temporary condition and names its own exit ("only 5 of ~79 kernels ship fixtures
   // today ... Flip to --strict once every kernel has a fixture") is read as permanent fact forever,
@@ -1089,8 +1174,25 @@ const GATES = [
   ['Retired ap2_version tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-ap2-version.test.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
   ['Credits page freshness (generated from registry)', 'node scripts/gen-credits.mjs repo --check'],
+  // VENDOR-DIGEST-GATE-1 (ESTATE-ATTACK-SURFACE SC-3, top-5 #5): the vendored crypto bytes that
+  // decide whether forged proofs/cosignatures/seals VERIFY (the noble bn254/ed25519/secp256k1
+  // bundles + the inlined noble ML-DSA/SLH-DSA blocks in _proof.mjs) had provenance comments but
+  // NO digest gate — a skimmed green PR swapping curve code would slide through and generate.mjs
+  // would propagate the swap to the live worker. The worker's check-vendor-fresh.mjs asserts
+  // worker==SITE equality, so it ASSUMES this side; this gate is the site-side anchor: site bytes
+  // ≡ sha256 pins in chaingraph/kernels/VENDORED.md (the anchor-suite VENDORED.md pattern,
+  // replicated). Scope enumerates _noble-*.bundle.mjs LIVE, so a new noble bundle with no pin row
+  // is itself red. Upgrade protocol in the table's header: same-PR pin edit, visible, never
+  // impossible.
+  ['Vendored crypto digest pins (VENDOR-DIGEST-GATE-1)', 'node scripts/check-vendored-digests.mjs'],
+  ['Vendored crypto digest fixture proof (1-byte perturbation RED, SO #34c)', 'node scripts/check-vendored-digests.test.mjs'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
   ['Manifest schema (SSOT-SCHEMA-1)', 'node scripts/check-manifest-schema.mjs'],
+  // OUTPUTSCHEMA-GAP-1: every live-node manifest either declares output_schema or sits under the
+  // down-only baseline ceiling (scripts/output-schema-baseline.json); every declared output_schema
+  // is re-validated against its node's fixture output_payloads on every run.
+  ['MCP output-schema coverage (OUTPUTSCHEMA-GAP-1)', 'node scripts/check-output-schema-coverage.mjs'],
+  ['MCP output-schema coverage controls (RED/GREEN fixtures, GATE-SELFTEST-META-1 pair)', 'node scripts/check-output-schema-coverage.test.mjs'],
   ['Node-manifest generator dry-run (MFSTGEN-1)', 'node scripts/generate-node-manifest.mjs --all --check'],
   // MANIFEST-SCHEMA-BACKFILL-1: derived input schemas carry
   // x_schema_provenance derived-from-kernel-reads <date>; any hand-edit to a
@@ -1110,6 +1212,11 @@ const GATES = [
   ['Kernel citation comments fixture proof (KERNEL-CITATION-CLASS-1, TOUCHTAX-DIFFSCOPE-1)', 'node chaingraph/kernels/lint-kernel-citation-comments.test.mjs'],
   ['Branch inventory reachability (AUTHORING-STANDARD §1)', 'node scripts/check-branch-inventory.mjs'],
   ['Branch inventory fixture proof (SO #40b pairing)', 'node scripts/check-branch-inventory.test.mjs'],
+  // CONSUMES-EDGE-CHECK-1: the checker itself runs as the ADVISORY report-only
+  // entry near the end of this file; its controls (scanner, equivalence classes,
+  // mutation-adequacy RED fixture, both-direction declared-expectation surprises)
+  // run here so they cannot rot unrun.
+  ['Declared consumes-edge checker controls (RED fixture + expectations, CONSUMES-EDGE-CHECK-1)', 'node scripts/check-consumes-edges.test.mjs'],
   ['Flag-mirror doctrine (AUTHORING-STANDARD §2)', 'node scripts/check-flag-mirror.mjs'],
   ['Flag-mirror doctrine fixture proof (SO #40b pairing)', 'node scripts/check-flag-mirror.test.mjs'],
   ['Chain composer-url existence (CHAINURL-GATE-1)', 'node scripts/check-chain-composer-urls.mjs'],
@@ -1140,17 +1247,56 @@ const GATES = [
   // so a schema that drifts after landing turns the freshness gate red too.
   ['WebMCP registration freshness (WEBMCP-GEN-FROM-MANIFEST-1)', 'node scripts/gen-webmcp-registrations.mjs --check'],
   ['WebMCP registration generator controls (RED+GREEN)', 'node scripts/gen-webmcp-registrations.mjs --self-test'],
+  // WEBMCP-MANIFEST-1: /.well-known/webmcp.json directory manifest. The gate
+  // string is derived-artifacts.mjs COVERED id 'webmcp-manifest''s own `gate`,
+  // so the generic ADVISORY_ON_PR categorisation downgrades it on a PR (the
+  // file is a SO #35 single-writer artifact written main-side) while it stays
+  // BLOCKING on main.
+  ['WebMCP directory manifest freshness (WEBMCP-MANIFEST-1)', 'node scripts/gen-webmcp-registrations.mjs --manifest --check'],
   // Same gate family as the worker's check-tool-names (CONTRACT §A4.1): 600+
   // registration names in one browser namespace must never collide with each
   // other or with the worker's live mcp_names.
   ['WebMCP name uniqueness (check-tool-names family)', 'node scripts/check-webmcp-name-uniqueness.mjs'],
   ['WebMCP name uniqueness controls (RED+GREEN)', 'node scripts/check-webmcp-name-uniqueness.mjs --self-test'],
+  // TOOLPAGE-ASK-AGENT-1 (AGENT-REACH-BUILD-SPEC 3.6): the ask-your-agent block
+  // is a derived artifact. --check rebuilds every marker-delimited block from
+  // its manifest and reds any hand-edit (byte drift), duplication, tool-name
+  // mismatch vs the node's mcp_name, or coverage regression.
+  ['Ask-agent block freshness (TOOLPAGE-ASK-AGENT-1)', 'node scripts/check-ask-agent-block.mjs'],
+  ['Ask-agent block controls (RED+GREEN)', 'node scripts/check-ask-agent-block.mjs --self-test'],
+  // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: parity gate A (in-repo SSOT recompute of every
+  // chain plan hash vs the committed derived set + page-literal sample) and parity
+  // gate B fixtures (session-receipt Merkle; the site-side routine test is
+  // session-root-parity.test.mjs, the worker side runs in the worker repo's tests).
+  ['Chain plan parity (COMPOSER-PLAN-AND-ROOT-WEBMCP-1)', 'node scripts/check-chain-plan-parity.mjs'],
+  ['Chain plan parity fixture proof (COMPOSER-PLAN-AND-ROOT-WEBMCP-1)', 'node scripts/check-chain-plan-parity.test.mjs'],
+  ['Session-root fixture freshness (COMPOSER-PLAN-AND-ROOT-WEBMCP-1)', 'node scripts/gen-session-root-fixtures.mjs --check'],
+  ['Session-root parity controls, site side (COMPOSER-PLAN-AND-ROOT-WEBMCP-1)', 'node scripts/session-root-parity.test.mjs'],
   ['OCG conformance roster self-claim (OCG-CONFROSTER-BUILD-1)', 'node scripts/gen-ocg-conformance-roster.mjs --check'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
   ['Hub node-card coverage (HUB-GEN-1)', 'node scripts/gen-chaingraph-hub.mjs --check'],
   ['Guides index coverage (GUIDES-INDEX-GEN-1)', 'node scripts/gen-guides-index.mjs --check'],
   ['llms-full.txt freshness (§M2.3)', 'node scripts/gen-llms-full.mjs --check'],
+  // AI-CATALOG-1 (AGENT-REACH-BUILD-SPEC §3.2): both well-known catalogs from one
+  // generator. Freshness is advisory on a PR via the generic ADVISORY_ON_PR
+  // categorisation (derived-artifacts.mjs COVERED ids ai-catalog + api-catalog):
+  // the artifacts are single-writer (SO #35), written by derived-artifacts-regen.yml
+  // on main, so absence on a fresh PR checkout is expected and REDs only the
+  // advisory gate. Schema/linkset validation of the files themselves rides the
+  // existing 'SSOT schema-validate' gate above (blocking, both contexts).
+  ['Well-known catalog freshness (AI-CATALOG-1)', 'node scripts/gen-wellknown-catalogs.mjs --check'],
+  // A2A-CARD-SIGN-1 (AGENT-REACH-BUILD-SPEC §3.8): the committed A2A Signed Agent
+  // Card verifies with WebCrypto against the published /.well-known/jwks.json.
+  // BLOCKING in both contexts (unlike the generator freshness gates above): the
+  // card is committed, not regen-on-main (private-key EXCLUDED entry in
+  // derived-artifacts.mjs), so this gate is the drift guard — any card edit
+  // without a local re-sign (scripts/sign-agent-card.mjs) must RED the push.
+  ['Agent card signature (A2A-CARD-SIGN-1)', 'node scripts/check-agent-card-sig.mjs'],
+  // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the --self-test mode flips
+  // one real card byte and asserts the WebCrypto verify FAILS, then re-verifies the
+  // untampered card — the gate is proven to read the bytes, not rubber-stamp.
+  ['Agent card signature fixture proof (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-agent-card-sig.mjs --self-test'],
   ['llms.txt estate map freshness', 'node scripts/gen-estate-map.mjs --check'],
   ['start.html search index freshness', 'node scripts/gen-start-index.mjs --check'],
   ['sitemap.xml freshness (DISCOVER-1)', 'node scripts/regen-sitemap.mjs --check'],
@@ -1222,6 +1368,7 @@ const GATES = [
   ['§17 kernel-identity coverage', 'node chaingraph/kernels/gen-kernel-identity.mjs --check'],
   ['§17 kernel-identity coverage (shard, KERNELID-GATE-1)', 'node chaingraph/kernels/gen-kernel-identity.mjs --check --shard'],
   ['Property-testing floor',       changedRef ? `node scripts/run-proptests.mjs --base ${changedRef}` : 'node scripts/run-proptests.mjs'],
+  ['Property-vacuity backlog ratchet (PROPTEST-KILL-ATTRIBUTION-1)', 'node scripts/gen-property-vacuity-backlog.mjs --check'],
   // MUTATION-TIERED-ROLLOUT-1: pure classifier self-test, always runs (milliseconds, no Stryker
   // invocation) — proves chaingraph/kernels/mutation-tier-split.mjs still correctly separates
   // money-math (compute() + its module-scope helpers) from peripheral (buildArtifact()/meta)
@@ -1368,6 +1515,8 @@ const GATES = [
   ['Verify-path no-egress (AV-NOEGRESS-1)', 'node scripts/check-verify-no-egress.mjs'],
   ['Site static egress scan (EGRESS-SITE-1)', 'node scripts/check-site-egress.mjs'],
   ['Ledger hermetic',              'node scripts/check-ledger-hermetic.mjs'],
+  ['Ledger §18 Groth16 seal parity (LEDGER-GROTH16-VERIFY-1)', 'node scripts/check-ledger-proof-parity.mjs'],
+  ['Ledger §18 Groth16 seal parity red-proof (GATE-SELFTEST-META-1 pair)', 'node scripts/check-ledger-proof-parity.mjs --self-test'],
   ['Playground hermetic (A8)',     'node scripts/check-playground-hermetic.mjs'],
   ['Ledger codec round-trip',      'node scripts/codec-roundtrip.test.mjs'],
   ['Ledger gate-replay tamper (shipped source)', 'node scripts/gate-replay-tamper.test.mjs'],
@@ -1381,6 +1530,12 @@ const GATES = [
   // label only when a gate actually exercises signature verification.
   ['art-424 checkpoint root/origin tamper (signature legs NOT exercised) (AV-REJECT-FIX-1)', 'node scripts/witness-checkpoint-424-tamper.test.mjs'],
   ['Generator coverage (meta-gate)', 'node scripts/check-generator-coverage.mjs'],
+  // PREFLIGHT-QUICK-1: setup-hooks.mjs grew a `--check` wiring verifier, and the
+  // generator-coverage meta-gate above demands every --check-capable script be
+  // called from preflight — so the hook wiring itself is now a gate. Verifies
+  // core.hooksPath = .githooks (the pre-push gate is actually enabled on this
+  // clone) without writing anything.
+  ['Pre-push hook wiring (setup-hooks --check, PREFLIGHT-QUICK-1)', 'node scripts/setup-hooks.mjs --check'],
   // GATE-SELFTEST-META-1 (0xAlpha 2026-08-21 audit, Tier B Rec 1 / SO #40b): natural
   // home alongside the generator-coverage meta-gate above — same shape, different
   // question ("does every NEW blocking check-X.mjs gate carry a paired red-proof
@@ -1485,6 +1640,19 @@ const GATES = [
   // last block also re-derives the gate set from the real workflow, so removing
   // those steps (or breaking the parse) goes red here rather than on main.
   ['Deploy supersede classifier control (mutation + live derivation)', 'node scripts/check-deploy-superseded.test.mjs'],
+  // SERVED-EGRESS-CHECK-1: the control for scripts/check-served-egress.mjs, the
+  // post-deploy smoke step deploy-to-dreamhost.yml runs against the LIVE site.
+  // That script is main-only by construction (a branch push has no deployment
+  // of itself to compare served bytes against), so it is CI_ONLY in
+  // check-workflow-gate-parity.mjs and THIS fixture proof is where it gets its
+  // pre-push coverage — same shape as the deploy-supersede control above. RED
+  // controls: the exact art-129 incident shape (Cloudflare Web Analytics
+  // beacon in served bytes), a served-but-not-source external ref, a sha256
+  // mismatch vs deploy-checksums.txt, all 10 row patterns, and the stale-cache
+  // downgrade (beacon on a HIT-class copy + clean unique-key refetch is a WARN,
+  // not a red). No network: every control runs the real exported detectors
+  // against synthetic bodies.
+  ['Served-egress detector control (RED/GREEN fixtures, SERVED-EGRESS-CHECK-1)', 'node scripts/check-served-egress.test.mjs'],
   // DUP-TABLE-HASH-GATE-1: a regulatory schedule vendored into more than one
   // kernel (the 2026-08-21 time-decaying-constants audit's phantom 2025 QM/HOEPA
   // row shipped identically fabricated into art-218/art-220/art-234) can pass a
@@ -1566,6 +1734,136 @@ if (EXPECT_RED.length) {
 
 let failed = null;
 const timings = []; // [label, ms]
+// ── PREFLIGHT-QUICK-1: the ≤90 s subset every builder runs before push ──────
+// Fixed subset, fixed order (row PREFLIGHT-QUICK-1). This is a PRE-FLIGHT, not
+// a replacement: it removes NO gate from the full suite and never affects any
+// path above or below — when QUICK is unset, every line here is dead code.
+const QUICK_REF = 'origin/main';
+const QUICK_BUDGET_MS = 90_000;
+const QUICK_GATES = [
+  // 1. JS syntax gate on CHANGED files only (`git diff --name-only origin/main`,
+  //    via the shared _changed-files-lib.js scoping: committed diff ∪ uncommitted
+  //    diff ∪ working-tree status, fail-closed).
+  ['JS syntax (CHANGED files, quick)', `node scripts/check_tools.js --changed ${QUICK_REF}`],
+  // 2. The §18 ratchet — RED means "run --update-baseline and commit it".
+  ['§18 compute-proof coverage (ratchet; RED → run --update-baseline and commit it)', 'node scripts/check-compute-proof-coverage.mjs'],
+  // 3. Tool-number uniqueness.
+  ['Tool-number uniqueness (quick)', 'node scripts/check-tool-number-unique.mjs'],
+  // 4. ID-collision gate, if present (PR-ID-COLLISION-GATE-1).
+  ...(existsSync(resolve(REPO, 'scripts/check-id-collision.mjs'))
+    ? [['ID-collision gate (quick, PR-ID-COLLISION-GATE-1)', 'node scripts/check-id-collision.mjs']]
+    : []),
+  // 5. Copy hallmarks, CHANGED scope.
+  ['Copy hallmarks (§1.4, CHANGED scope, quick)', `node scripts/check-copy-hallmarks.mjs --changed ${QUICK_REF}`],
+  // 6. PII banner. The script has no --changed scoping of its own, and a FULL
+  //    scan measures ≈0.1 s — the full scan is a strict superset of "on changed
+  //    tool HTML" and cheaper than porting a second diff-scope into it.
+  ['PII banner exact text (full scan ≈0.1 s; supersedes CHANGED scope, quick)', 'node scripts/check-pii-banner.mjs'],
+  // 7. chaingraph.json shard freshness. `--check` validates the assembled
+  //    monolith against ALL shards — the changed-shard subset is implied by it,
+  //    at the same ≈0.1 s cost.
+  ['chaingraph.json shard freshness (CGSHARD-1, quick)', 'node scripts/assemble-chaingraph.mjs --check'],
+];
+
+async function runQuickSuite(selfTest) {
+  const t0 = Date.now();
+  const red = [];
+  const green = [];
+  const waived = [];
+  for (const [label, cmd] of QUICK_GATES) {
+    process.stdout.write(`▶ ${label} … `);
+    const g0 = Date.now();
+    try {
+      execSync(cmd, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] });
+      console.log(`✓ (${Date.now() - g0}ms)`);
+      green.push(label);
+    } catch (e) {
+      console.log(`✗ (${Date.now() - g0}ms)`);
+      console.log('\n' + ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim() + '\n');
+      // EXPECTRED-QUICK-GAP-1: --expect-red must bind the quick subset exactly as
+      // it binds the full suite — a by-construction CGSHARD-1 red on a shard
+      // branch is declared via the documented AINUM_EXPECT_RED hook route, and a
+      // declaration the quick leg ignores is a waiver that waives nothing.
+      // Measured live 2026-09-06: the hook ACK'd the declaration and still
+      // blocked, because this exit path counted any red. Declared reds are
+      // EXPECTED-RED (waived, named) and never stop the subset; undeclared reds
+      // keep the fail-fast stop.
+      const declared = expectedRedFor(label);
+      if (declared) {
+        console.log(`   [EXPECTED-RED via --expect-red ${declared}] — waived for this invocation only`);
+        waived.push(label);
+        continue;
+      }
+      red.push(label);
+      break; // fail-fast, like the default full run
+    }
+  }
+  const wallMs = Date.now() - t0;
+  // The gates --quick did NOT run: every GATES entry whose command is not one of
+  // the quick subset's, plus the inline mfstSec check. NAMED, never absorbed
+  // (SO #34c) — a green --quick is a pre-flight verdict, never "preflight ran".
+  const quickCmds = new Set(QUICK_GATES.map(([, c]) => c));
+  const notRun = GATES.filter(([, c]) => !quickCmds.has(c)).map(([l]) => l);
+  console.log('');
+  console.log(`--quick: ${green.length}/${QUICK_GATES.length} quick gates green, ${waived.length} EXPECTED-RED (declared), wall time ${(wallMs / 1000).toFixed(1)} s (budget ${QUICK_BUDGET_MS / 1000} s).`);
+  if (waived.length) console.log(`⚠ EXPECTED-RED (waived, this invocation only): ${waived.join(', ')}`);
+  if (red.length) {
+    console.log(`⛔ RED: ${red[0]}`);
+    console.log('   Fix it and re-run. (Ratchet gate only: run the --update-baseline command it names, then COMMIT the baseline.)');
+  }
+  console.log(`Gates NOT run by --quick (${notRun.length} of the full ${RUN_LIST_SIZE}-gate suite — run \`node scripts/preflight.mjs\` for all of them):`);
+  let wrap = '';
+  for (const l of notRun) {
+    if (wrap.length && wrap.length + l.length + 2 > 100) { console.log('  ' + wrap); wrap = ''; }
+    wrap += (wrap ? ', ' : '') + l;
+  }
+  if (wrap) console.log('  ' + wrap);
+  if (selfTest) {
+    const failures = [];
+    // (a) SUBSET ORDER — the mandated fixed order, asserted structurally.
+    const orderMarkers = ['JS syntax', 'compute-proof coverage', 'Tool-number uniqueness', 'ID-collision gate', 'Copy hallmarks', 'PII banner', 'shard freshness'];
+    const quickLabels = QUICK_GATES.map(([l]) => l);
+    let searchFrom = 0;
+    let orderOk = true;
+    for (const m of orderMarkers) {
+      const idx = quickLabels.findIndex((l, i) => i >= searchFrom && l.includes(m));
+      if (idx === -1) { orderOk = false; failures.push(`ordering: no gate matching "${m}" found at or after position ${searchFrom}`); break; }
+      searchFrom = idx + 1;
+    }
+    if (orderOk) console.log('✓ --quick --self-test: subset ordering matches the mandated fixed order');
+    // (b) BUDGET — the ≤90 s premise, measured on this very run.
+    if (wallMs > QUICK_BUDGET_MS) failures.push(`budget: wall time ${(wallMs / 1000).toFixed(1)} s exceeds the ${QUICK_BUDGET_MS / 1000} s budget`);
+    else console.log(`✓ --quick --self-test: wall time ${(wallMs / 1000).toFixed(1)} s is within the ${QUICK_BUDGET_MS / 1000} s budget`);
+    // (c) CLEAN TREE — the documented control: with no UNCOMMITTED changes
+    //     (git status --porcelain empty) every quick gate is green. Branch-vs-
+    //     main drift is not dirt — a committed branch is exactly the state a
+    //     builder self-tests in.
+    let porcelain = 'undeterminable';
+    try { porcelain = execSync('git status --porcelain', { cwd: REPO, env, encoding: 'utf8' }); } catch { /* leave sentinel */ }
+    const dirtyCount = porcelain === 'undeterminable' ? -1 : porcelain.split('\n').filter(Boolean).length;
+    if (dirtyCount === 0) {
+      if (red.length || green.length !== QUICK_GATES.length) failures.push('clean tree: not every quick gate ran green');
+      else console.log(`✓ --quick --self-test: clean tree (${green.length}/${QUICK_GATES.length} quick gates green)`);
+    } else if (dirtyCount < 0) {
+      console.log('(clean-tree assertion skipped — git status undeterminable)');
+    } else {
+      console.log(`(clean-tree assertion skipped — ${dirtyCount} uncommitted path(s) in the tree)`);
+    }
+    // (d) PRESENCE-CONDITIONAL GATE — check-id-collision.mjs included iff it exists.
+    const idcPresent = existsSync(resolve(REPO, 'scripts/check-id-collision.mjs'));
+    const idcIncluded = quickLabels.some((l) => l.includes('ID-collision gate'));
+    if (idcPresent !== idcIncluded) failures.push('ID-collision gate presence mismatch (exists but omitted, or included but missing)');
+    else console.log(`✓ --quick --self-test: ID-collision gate ${idcPresent ? 'present and included' : 'absent and correctly omitted'}`);
+    if (failures.length) {
+      for (const f of failures) console.error(`   ✗ ${f}`);
+      console.error(`❌ --quick --self-test FAILED: ${failures.length} assertion(s) red.`);
+      process.exit(1);
+    }
+    console.log('✅ --quick --self-test PASSED — ordering, ≤90 s budget, clean-tree and presence controls all green.');
+  }
+  process.exit(red.length ? 1 : 0);
+}
+if (QUICK) await runQuickSuite(process.argv.includes('--self-test'));
 // PREFLIGHT-KEEPGOING-1: per-gate outcome ledger — { label, state, ms, note }.
 // state ∈ PASS | FAIL | EXPECTED-RED | DID-NOT-RUN. Written on every path, read
 // ONLY by the --keep-going summary, so it cannot affect default behaviour.
@@ -1593,7 +1891,7 @@ if (!KEEP_GOING) {
     gateStart(label);
     const t0 = Date.now();
     try {
-      execSync(cmd, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] });
+      execSync(cmd, { cwd: REPO, env: gateEnvFor(cmd), stdio: ['ignore', 'pipe', 'pipe'] });
       const ms = Date.now() - t0;
       timings.push([label, ms]);
       gatePass(`✓ (${ms}ms)`);
@@ -1602,7 +1900,7 @@ if (!KEEP_GOING) {
       const ms = Date.now() - t0;
       timings.push([label, ms]);
       const out = (e.stdout?.toString() || '') + (e.stderr?.toString() || '');
-      if (!MAIN_CONTEXT && ADVISORY_ON_PR.has(cmd)) {
+      if (!gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) {
         const c = classifyExecFailure(e);
         if (c.ran) {
           gateFail(`⚠ (${ms}ms) ADVISORY`);
@@ -1617,7 +1915,7 @@ if (!KEEP_GOING) {
         }
         continue;
       }
-      if (MAIN_CONTEXT && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
+      if (gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
       gateFail(`✗ (${ms}ms)`);
       console.log('\n' + out.trim() + '\n');
       results.push({ label, state: 'FAIL', ms, note: meta?.note });
@@ -1666,7 +1964,7 @@ if (!KEEP_GOING) {
     const [label, cmd, meta] = GATES[i];
     const t0 = Date.now();
     const { err, stdout, stderr } = await new Promise((res) => {
-      exec(cmd, { cwd: REPO, env }, (err, stdout, stderr) => res({ err, stdout, stderr }));
+      exec(cmd, { cwd: REPO, env: gateEnvFor(cmd) }, (err, stdout, stderr) => res({ err, stdout, stderr }));
     });
     const ms = Date.now() - t0;
     timings.push([label, ms]);
@@ -1687,7 +1985,7 @@ if (!KEEP_GOING) {
     err.stdout = stdout;
     err.stderr = stderr;
     const out = (stdout?.toString() || '') + (stderr?.toString() || '');
-    if (!MAIN_CONTEXT && ADVISORY_ON_PR.has(cmd)) {
+    if (!gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) {
       const c = classifyExecFailure(err);
       if (c.ran) {
         advisoryFailures.push([label, cmd]);
@@ -1702,7 +2000,7 @@ if (!KEEP_GOING) {
       }
       return;
     }
-    if (MAIN_CONTEXT && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
+    if (gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
     const declared = expectedRedFor(label);
     if (failed === null) failed = label; // truthiness only under --keep-going; see PROBE_LABEL below
     slots[i] = {
@@ -2163,6 +2461,50 @@ gateStart(SCHEMA_DIV_LABEL);
     gateUnavailable(SCHEMA_DIV_LABEL, r.reason, r.out);
   } else {
     const line = (r.out || '').trim().split('\n').filter(Boolean).pop() || 'no summary line printed — see node scripts/check-schema-read-divergence.mjs';
+    gatePass(line);
+    if (r.state === 'WARNED') gateFail(`   ⚠ note: ${r.reason} (its documented contract is exit 0 always)`);
+  }
+}
+
+// ── Advisory (non-blocking): declared consumes: edges vs suppliers ──────────
+// CONSUMES-EDGE-CHECK-1 (2026-09-05). Every kernel that declares `consumes:`
+// (a supplier threshold table pinned locally for deterministic compute) is
+// probed through its own compute() per year and compared with the supplier's
+// published table — equivalence classes BYTE-EQUAL / SUBSET-BY-YEAR / MISMATCH,
+// declared expectations per edge (art-234's known silent year-fallback is
+// DECLARED MISMATCH while CCPP-FIX-ART234-1 is open; observed-vs-declared
+// disagreement in either direction is a reported SURPRISE). RED control:
+// scripts/check-consumes-edges.test.mjs (mutation-adequacy fixture, in GATES).
+// ADVISORY BY DESIGN, exit 0 always: report-only first; blocking promotion is a
+// SEPARATE decision with measured cost — never a side effect of this line.
+const CONSUMES_EDGE_LABEL = 'declared consumes: edges vs suppliers (advisory report, CONSUMES-EDGE-CHECK-1)';
+gateStart(CONSUMES_EDGE_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/check-consumes-edges.mjs --summary');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(CONSUMES_EDGE_LABEL, r.reason, r.out);
+  } else {
+    const line = (r.out || '').trim().split('\n').filter(Boolean).pop() || 'no output — see node scripts/check-consumes-edges.mjs';
+    gatePass(line);
+    if (r.state === 'WARNED') gateFail(`   ⚠ note: ${r.reason} (its documented contract is exit 0 always)`);
+  }
+}
+
+// ── Advisory (non-blocking): Lighthouse llms.txt audit (LLMS-TXT-AGENTIC-1) ──
+// Runs Chrome Lighthouse's llms.txt audit (agentic-browsing) against the local
+// llms.txt IF a lighthouse binary is already on PATH; otherwise prints SKIP.
+// Advisory by design, exit 0 always, never installs anything (SO #10). The
+// mechanical gate for the llms.txt agent-tasks block remains the derived-
+// artifact freshness gate (gen-estate-map.mjs --check, COVERED id estate-map).
+// Last preflight line per the row's fence.
+const LH_LLMS_LABEL = 'llms.txt Lighthouse audit (advisory, LLMS-TXT-AGENTIC-1)';
+gateStart(LH_LLMS_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/check-llms-lighthouse.mjs');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(LH_LLMS_LABEL, r.reason, r.out);
+  } else {
+    const line = (r.out || '').trim().split('\n').filter(Boolean).pop() || 'no output — see node scripts/check-llms-lighthouse.mjs';
     gatePass(line);
     if (r.state === 'WARNED') gateFail(`   ⚠ note: ${r.reason} (its documented contract is exit 0 always)`);
   }
