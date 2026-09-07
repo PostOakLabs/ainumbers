@@ -1,6 +1,6 @@
 name: Unwired Gates
 
-# Wire 16 standalone gate scripts (all green on main, ~21s total, node stdlib
+# Wire 18 standalone gate scripts (all green on main, ~21s total, node stdlib
 # only — zero npm deps) as one parallel CI job, so a PR that breaks or weakens
 # any of them is caught before merge instead of never.
 #
@@ -35,7 +35,7 @@ permissions:
 
 jobs:
   gates:
-    name: 16 measured-green gates + surface-parity report
+    name: 18 measured-green gates + surface-parity report
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -91,6 +91,15 @@ jobs:
             node "$g"
             echo "::endgroup::"
           done
+
+      # The F2 registry absence-tree gates, wired here so they are enforced in
+      # CI and not only in preflight (raw `node` lines — the gate-parity
+      # checker credits explicit `node <script>` invocations only).
+      - name: Run the 2 registry absence-tree gates
+        run: |
+          set -e
+          node scripts/gen-registry-absence-tree.mjs --check
+          node scripts/gen-registry-absence-tree.test.mjs
 
       # REPORT MODE only: surface-parity is red today (171/624 divergent).
       # continue-on-error + summary artifact — never blocking.
