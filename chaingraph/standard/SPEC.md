@@ -3545,8 +3545,12 @@ so a copyrighted primary-source excerpt (e.g. a FASB ASU) is never committed to 
 
 **§30.3 In-scope declaration — explicit, never silent (NORMATIVE).** Not every node implements a
 published standard; some are pure math or format converters. A node declares itself in scope by setting
-`standards_basis: "implements_standard"`, or explicitly out of scope by setting
-`standards_basis: "not_applicable"`. There is no silent default: `check-clause-digest.mjs` REQUIRES one
+`standards_basis: "implements_standard"` (a conformance verdict about an artifact against a published
+specification, or a computation performed against a regulatory or accounting clause), or explicitly out
+of scope by setting `standards_basis: "not_applicable"`. Naming a specification whose structure a node
+recomputes, converts, decodes, compares, or scores is not a standards citation for this purpose; a
+conformance verdict about an artifact against a published specification, or a computation performed
+against a regulatory or accounting clause, is. There is no silent default: `check-clause-digest.mjs` REQUIRES one
 of the three values (`implements_standard`, `not_applicable`, `cites_informative`) on every NEW or
 CHANGED node (branch-aware, the same detection `check-shard-assembly.mjs` uses), and a node carrying
 none of them fails the gate naming itself.
@@ -3645,7 +3649,16 @@ this is additive. A catalog carrying a `pageless` node is schema-valid; the same
 before this section only because `$defs/node` is `additionalProperties: false`.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **v0.8.24 (2026-08-13 — SPEC-TEXT PASS adding §5.1 pm:* Prediction/
+See `standard/CHANGELOG.md`. **SPEC-TEXT PASS (2026-09-06 — §30.3 `standards_basis` gloss, staged by
+`SPEC-30-3-GLOSS-1`; the record `spec_version` stays at whatever `chaingraph.json` carries, same
+separation as every prior text pass):** §30.3's gloss states the declaration vocabulary's existing
+shape explicitly: naming a specification whose structure a node recomputes, converts, decodes, compares,
+or scores is not a standards citation for this purpose, while a conformance verdict about an artifact
+against a published specification, or a computation performed against a regulatory or accounting clause,
+is. Derived from the estate's own declarations (spec-naming `not_applicable` nodes `art-26`, `art-590`,
+`art-591`; the conformance-verdict `implements_standard` node `art-651`). Purely prose: no schema,
+shard, hash, or gate change, every existing artifact and declaration stays byte-identical.
+**v0.8.24 (2026-08-13 — SPEC-TEXT PASS adding §5.1 pm:* Prediction/
 Event-Market Provenance Extension, staged by `PM-OCG-SCHEMA-SPEC-1` carrying the
 `SECO-OCG-Prediction-Market-Scoping.md` §4.1 ratified scoping and Tim's 2026-08-13 provenance-layer-only
 ruling; the record `spec_version` stays at whatever `chaingraph.json` carries until the next coordinated
