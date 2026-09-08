@@ -14,15 +14,32 @@ name: Mutation Tier Scan (scheduled)
 # WHY A MATRIX, NOT ONE JOB: the earlier pilot measured ~67s/kernel average
 # (Stryker startup + N-mutant run, command-runner mode — one child process
 # per mutant). Extrapolated serially across the ~633-kernel estate that is
-# ~11.7 hours, past GitHub Actions' 6-hour hosted-runner ceiling. Sharded 8
-# ways via scripts/run-mutation-tier.mjs's own `--shard <i> <n>` flag (simple
+# ~11.7 hours, past GitHub Actions' 6-hour hosted-runner ceiling. Sharded via
+# scripts/run-mutation-tier.mjs's own `--shard <i> <n>` flag (simple
 # `id-index % n === i` split over the SAME sorted kernel-id list every shard
-# computes independently — no coordination file, no race), each shard is
-# ~79 kernels, comfortably inside the ceiling even at 2-3x the pilot's
-# average.
+# computes independently — no coordination file, no race).
+#
+# WHY 16 SHARDS (measured nightly evidence, run 34137426698 of 2026-09-07):
+# at 8 shards (~83 kernels each) the slowest completed shard took 5h15m and
+# FIVE shards were still running at exactly the six-hour mark (21:16, six
+# hours after the 15:16 start) and were killed by the hosted-runner ceiling
+# — five of eight kernels-slates never reported. Worst completed shard:
+# 5h15m / ~84 kernels ≈ 3.75 min/kernel; each killed shard ran ≥6h over ≤83
+# kernels ≈ ≥4.3 min/kernel lower bound. At 16 shards (~41 kernels each)
+# that measured lower bound projects ≈3h/shard — comfortable margin inside
+# the job's explicit `timeout-minutes: 330` (set BELOW the 360-minute hosted
+# ceiling so an overrunning shard dies as a visible timeout on its own job
+# rather than an unexplained ceiling cancellation alongside its siblings,
+# which is indistinguishable from `fail-fast` cancelling it).
+#
+# COMPLETION IS THE FINDING: every shard exports its scan step's outcome as a
+# named job output (empty = the job was killed/timed out before it could
+# record), and the summarize job counts them. A shard below its break floor
+# and a shard that did not complete (cancelled) are DIFFERENT findings and
+# get different, distinct error lines below.
 #
 # dry_run INPUT: this workflow's only irreversible-adjacent cost is TIME — a
-# full 8-shard run takes over an hour of runner time even though it writes
+# full 16-shard run takes over an hour of runner time even though it writes
 # nothing. dry_run=true (the default for a manual dispatch) instead runs the
 # original 10-kernel pilot sample in a single job, proving the whole
 # pipeline (npx-ephemeral Stryker fetch, scratch-copy, tier split, threshold
@@ -80,7 +97,7 @@ jobs:
         # END-TO-END in CI on every dispatch — it is the pipeline proof surface for the new
         # reporting shape (decomposedGateMode ships 'advisory' + propertyKillsBreakFloor 0,
         # so this cannot red the job). The SCHEDULED shards below deliberately do NOT pass
-        # it: the full-estate scan already overruns the 6-hour hosted-runner ceiling (4/8
+        # it: the full-estate scan already overruns the 6-hour hosted-runner ceiling (6/8
         # shards cancelled in recent cycles) and --decomposed doubles per-kernel runtime.
         run: |
           node scripts/run-mutation-tier.mjs --decomposed --kernel \
@@ -120,15 +137,25 @@ jobs:
           echo "✅ dry run clean."
 
   mutation-shard:
-    name: Full estate — shard ${{ matrix.shard }}/8
+    name: Full estate — shard ${{ matrix.shard }}/16
     if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+    timeout-minutes: 330   # below the 360-min hosted-runner ceiling on purpose: an overrunning shard dies as a VISIBLE timeout on its own job, never as an unexplained 6h cancellation
     runs-on: ubuntu-latest
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    # Per-shard completion verdict: the scan step's own outcome, recorded by a
+    # LATER step (`steps.verdict`) so a shard killed by `timeout-minutes` (or
+    # cancelled another way) exports an EMPTY output — "shard did not
+    # complete" — while a shard that ran to the floor check exports
+    # `success` or `failure` (a floor breach is a MEASURED finding, not an
+    # incomplete scan). The summarize job reads all 16 and files the two
+    # different finding classes as different error lines.
+    outputs:
+      shard_${{ matrix.shard }}: ${{ steps.verdict.outputs.status }}
     steps:
       - name: 📥 Checkout Repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -141,10 +168,15 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 🧬 Mutation tier scan — shard ${{ matrix.shard }}/8
+      - name: 🧬 Mutation tier scan — shard ${{ matrix.shard }}/16
         run: |
-          node scripts/run-mutation-tier.mjs --all --shard ${{ matrix.shard }} 8 \
+          node scripts/run-mutation-tier.mjs --all --shard ${{ matrix.shard }} 16 \
             --json "$RUNNER_TEMP/mutation-shard-${{ matrix.shard }}.json"
+
+      - name: 🧾 Record shard verdict
+        id: verdict
+        if: always()
+        run: echo "status=${{ steps.scan.outcome }}" >> "$GITHUB_OUTPUT"
 
   summarize:
     name: Summarize full-estate scan
@@ -154,21 +186,45 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: ⬢ Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
       - name: 📋 Summarize
         env:
-          RESULT: ${{ needs.mutation-shard.result }}
+          OUTPUTS_JSON: ${{ toJSON(needs.mutation-shard.outputs) }}
+          result: ${{ needs.mutation-shard.result }}
         run: |
+          CLEAN=0; REPORTED=0; INCOMPLETE=0; INCOMPLETE_LIST=""
+          for i in $(seq 0 15); do
+            s=$(node -e "process.stdout.write(String(JSON.parse(process.env.OUTPUTS_JSON)['shard_'+process.argv[1]] ?? ''))" "$i")
+            case "$s" in
+              success) CLEAN=$((CLEAN+1)) ;;
+              failure) REPORTED=$((REPORTED+1)) ;;
+              *) INCOMPLETE=$((INCOMPLETE+1)); INCOMPLETE_LIST="$INCOMPLETE_LIST $i" ;;
+            esac
+          done
           {
-            echo "## Mutation Tier Scan — full estate (8 shards)"
+            echo "## Mutation Tier Scan — full estate (16 shards)"
             echo ""
-            echo "Shards result: $RESULT"
+            echo "Shards that ran to completion: $((CLEAN + REPORTED)) of 16 shards reported ($CLEAN clean, $REPORTED with floor findings)."
+            echo "Shards that did NOT complete (cancelled / timed out / missing): $INCOMPLETE of 16."
+            echo "Jobs-level needs result: $result"
             echo ""
             echo "Report-only: this workflow never blocks a merge or deploy and never writes"
-            echo "to the repo. A red shard above is the finding — see that shard's own job log"
-            echo "for which kernel(s) fell below their tier floor."
+            echo "to the repo. A completed-but-red shard is a floor finding — see that"
+            echo "shard's own job log for which kernel(s) fell below their tier floor."
           } >> "$GITHUB_STEP_SUMMARY"
-          if [ "$RESULT" != "success" ]; then
-            echo "::error title=Mutation Tier Scan::One or more shards had a kernel below its break floor (or a hard failure) this cycle — see that shard's job log."
+          # INCOMPLETE SCAN = a screen of its own: a cancelled/missing shard is NOT a
+          # floor breach — its kernels were never measured this cycle. It must never
+          # share one error line with the floor-breach finding.
+          if [ "$INCOMPLETE" -gt 0 ]; then
+            echo "::error title=Mutation Tier Scan::Scan is INCOMPLETE: $INCOMPLETE of 16 shard(s) did not complete (cancelled — timed out or killed)$INCOMPLETE_LIST — the kernels in those shard(s) were NOT measured this cycle. Compare with the floor-breach finding, which is only reported for shards that ran to completion."
             exit 1
           fi
-          echo "✅ all 8 shards clean this cycle."
+          if [ "$REPORTED" -gt 0 ]; then
+            echo "::error title=Mutation Tier Scan::All 16 shards reported this cycle; $REPORTED shard(s) had a kernel below its break floor (or a hard failure) — see those shards' job logs."
+            exit 1
+          fi
+          echo "✅ all 16 shards ran to completion and are clean this cycle (16/16 shards reported, 0 cancelled)."
