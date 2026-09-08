@@ -10,15 +10,32 @@
 // happened four times (FreeBuff Tasks 13/14/16 and the Opus grade of 16). Four tools broke; zero
 // kernels did. This module makes every reader correct; it does NOT normalise any kernel.
 //
-// SPEC STATUS (recorded, per the row's step 1). SPEC.md does NOT mandate a kernel return shape.
-// §12 requires only that a kernel export `compute(pp)`, `async buildArtifact(pp, opts)` and
-// `meta`. §24.0 writes the compute surface as `compute(policy_parameters) → output_payload`, but
-// that is the profile naming the value that feeds the §4 preimage, not a normative statement that
-// `compute()` returns the payload unwrapped — and §4's preimage is defined over the artifact's
-// `{ policy_parameters, output_payload }`, which `buildArtifact` assembles either way. The spec is
-// SILENT on the return shape, and that silence is why two shapes coexist. This module therefore
-// reads both rather than picking a winner; which shape SHOULD be canonical is deliberately left
-// open.
+// SPEC STATUS (recorded, per the row's step 1). SPEC.md carries NO normative sentence on what
+// `compute()` returns — no MUST, anywhere, about the return shape. §12 (line 401) requires only
+// that a kernel export `compute(pp)`, `async buildArtifact(pp, opts)` and `meta`. §4 (line 116)
+// puts its MUST on the hash PREIMAGE — "exactly `{ policy_parameters, output_payload }`" — which
+// `buildArtifact` assembles either way, so it does not constrain `compute()`'s return.
+//
+// But the spec is not neutral either, and a successor deciding the canonical shape must not be
+// told it is. Two measured facts point the same way:
+//   - §24.0 (line 1732) is the ONLY place SPEC writes the compute surface with a shape:
+//     "The profile governs a kernel's `compute(policy_parameters) → output_payload` under §12: the
+//     function whose result feeds the §4 preimage." That is a SCOPE clause naming the governed
+//     function, not a shape mandate — but its arrow describes the FLAT return.
+//   - `compliance_flags` appears in SPEC exactly twice (lines 98 and 470), both times as a field
+//     of the ARTIFACT envelope. SPEC never sanctions `{ output_payload, compliance_flags }` as a
+//     `compute()` RETURN value.
+//
+// So: no mandate, but the only textual lean is toward flat, and the 93.2% wrapped majority has no
+// basis in the spec at all. Read "the estate contradicts its own spec at 617 nodes" rather than
+// "the spec is silent". That is a SPEC-vs-estate divergence and a finding for 7F/Tim, NOT
+// something this module resolves — and it emphatically does not license normalising kernels here.
+//
+// Note the consequence for THIS module: a `readOutcome` that followed the §24.0 lean strictly
+// would refuse to descend, and would then misread 617 of 662 live kernels. The reader must stay
+// tolerant of BOTH shapes precisely because the estate and its spec disagree. This module
+// therefore reads both rather than picking a winner; which shape SHOULD be canonical is
+// deliberately left open.
 //
 // This module is for TOOLS that read kernels — gates, harnesses, generators. It is NOT for kernels
 // to import: a kernel may import `./_hash.mjs` and nothing else (the §18 guest / VM-1 ESM strip
