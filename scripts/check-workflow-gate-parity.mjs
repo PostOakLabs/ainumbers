@@ -339,6 +339,16 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── SHOWCASE-CALLSHAPE-1 (2026-09-08) ──────────────────────────────────────
+  ["check-showcase-callshape.mjs",
+    "Showcase prompt call-shape gate: every node-calling showcase entry must show " +
+    "the policy_parameters wrapper, gpu-touching entries must route verification " +
+    "in-page, and verify sentences must name claimed_hash. Preflight-only BY " +
+    "SUBJECT MATTER: it validates prompt PROSE of a hand-authored SSOT data file " +
+    "(mcp/showcase-prompts.json) whose projections (agent-kit command pages) are " +
+    "already freshness-gated in CI by check-agent-kit; the prose rules themselves " +
+    "have no workflow-side observable to drift against. Paired self-test: " +
+    "check-showcase-callshape.mjs --self-test (GATE-SELFTEST-META-1)."],
   // ── PREFLIGHT-QUICK-1 (2026-09-06) ─────────────────────────────────────────
   ["setup-hooks.mjs",
     "Pre-push hook wiring verifier (the `--check` leg): asserts core.hooksPath = .githooks so " +
