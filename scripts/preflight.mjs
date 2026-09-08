@@ -1293,7 +1293,7 @@ const GATES = [
   // blocking on main) via the gen-infrastructure-page --check string below.
   ['Infrastructure registry freshness (INFRA-PAGE-1)', 'node scripts/gen-infra-registry.mjs --check'],
   ['Infrastructure registry gate (INFRA-PAGE-1)', 'node scripts/check-infra-registry.mjs'],
-  ['Infrastructure registry gate controls (RED-then-GREEN, INFRA-PAGE-1)', 'node scripts/check-infra-registry.mjs --selftest'],
+  ['Infrastructure registry gate controls (RED-then-GREEN, INFRA-PAGE-1)', 'node scripts/check-infra-registry.selftest.mjs'],
   ['Infrastructure page freshness (INFRA-PAGE-1)', 'node scripts/gen-infrastructure-page.mjs --check'],
   ['llms-full.txt freshness (§M2.3)', 'node scripts/gen-llms-full.mjs --check'],
   // PAGE-MD-TWINS-1 (AGENT-REACH-BUILD-SPEC §2): markdown twin freshness. The
