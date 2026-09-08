@@ -132,6 +132,7 @@ function adjudicateNode(node, repoRoot) {
     sample,
     pageUrl,
     webmcpRegistered,
+    isGpu: node.gpu === true,
   });
   return { id, pageRel, pageAbs, pageSrc, expected, mcpName: node.mcp_name, toolName: def.name, sample };
 }
@@ -284,8 +285,16 @@ if (RED_GREEN) {
   assert((block.match(/<pre id="ask-agent-copy"/g) || []).length === 1, 'exactly one copy surface (a single pre carrying the paragraph)');
   assert(block.includes('verify_execution_hash') && block.includes('https://ledger.ainumbers.co/'), 'verify + ledger sentences present');
   assert(verifyFragment(block, { k: 1 }) === null, 'emitted block fragment decodes to the sample');
+  const gpuBlock = buildAskAgentBlock({
+    manifestPath: 'manifests/selftest.manifest.json', toolName: 'self_test_tool',
+    description: 'Validates the self-test. Twice.', sample: { k: 1 },
+    pageUrl: 'https://ainumbers.co/chaingraph/self-test.html', webmcpRegistered: false, isGpu: true,
+  });
+  assert(gpuBlock.includes('computes in your browser'), 'gpu block routes the agent to the in-page run');
+  assert(gpuBlock.includes('Policy Mandate artifact'), 'gpu block names the page-produced artifact to verify');
+  assert(!gpuBlock.includes('with the parameter `claimed_hash`'), 'gpu block never promises a server-side hash');
   redGreen();
-  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, mutation red-green).');
+  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, gpu sentence, mutation red-green).');
 } else {
   run();
 }

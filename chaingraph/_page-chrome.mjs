@@ -906,13 +906,19 @@ export const ASK_AGENT_PII_SENTENCE = 'All inputs are processed locally in your 
  *   sample        policy_parameters object (manifest example, else fixture 0)
  *   pageUrl       the node's canonical url from chaingraph.json (deep-link base)
  *   webmcpRegistered  true when the page carries a generated WebMCP registration
+ *   isGpu         true when the node is gpu-flagged (OCG SPEC §9.2: the compute
+ *                 stays client-side, so the MCP endpoint returns no artifact and
+ *                 no execution_hash — the verify sentence routes the agent to
+ *                 the page-produced Policy Mandate artifact instead)
  */
-export function buildAskAgentBlock({ manifestPath, toolName, description, sample, pageUrl, webmcpRegistered }) {
+export function buildAskAgentBlock({ manifestPath, toolName, description, sample, pageUrl, webmcpRegistered, isGpu }) {
   const task = askAgentImperative(description);
   const deepLink = pageUrl.split('#')[0] + encodeAskAgentFragment(sample);
-  const verify = webmcpRegistered
-    ? `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`, or re-run the in-page WebMCP tool \`${toolName}\`.`
-    : `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`.`;
+  const verify = isGpu
+    ? `Verify before trusting: this node computes in your browser, so the MCP endpoint returns no execution_hash. Run the tool in the page, export the Policy Mandate artifact it produces, and call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with that artifact.` + (webmcpRegistered ? ` You can also re-run the in-page WebMCP tool \`${toolName}\`.` : '')
+    : webmcpRegistered
+      ? `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`, or re-run the in-page WebMCP tool \`${toolName}\`.`
+      : `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`.`;
   const copyText = [
     `Run the AINumbers MCP tool \`${toolName}\`. Task: ${task}`,
     `Call it with arguments: ${JSON.stringify({ policy_parameters: sample })}`,
