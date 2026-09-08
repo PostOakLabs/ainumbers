@@ -23,8 +23,11 @@
 // This module is for TOOLS that read kernels — gates, harnesses, generators. It is NOT for kernels
 // to import: a kernel may import `./_hash.mjs` and nothing else (the §18 guest / VM-1 ESM strip
 // depends on that), so nothing here is on any kernel's compute path and no `execution_hash` moves.
-
-import { readFileSync } from 'node:fs';
+//
+// It imports NOTHING — no `node:fs`, no builtins — for the same reason `_hash.mjs` does not: a
+// module in this directory must stay runnable wherever a kernel runs, and the JSDoc CheckJS gate
+// (this repo installs no `@types/node`) blocks a new node-builtin import here. So `readCases`
+// takes an already-parsed fixture value; its callers do their own `readFileSync` + `JSON.parse`.
 
 /**
  * readOutcome(result) — return the innermost payload of a kernel `compute()` result.
@@ -80,10 +83,11 @@ function assertIsCase(candidate, where) {
 }
 
 /**
- * readCases(fixtureFile) — return the array of cases from any committed fixture shape.
+ * readCases(fixture) — return the array of cases from any committed fixture shape.
  *
- * Accepts either an already-parsed fixture value or a path/URL string to a JSON file (a string is
- * never itself a fixture shape, so the two cannot be confused). Handles, in this order:
+ * Takes an ALREADY-PARSED fixture value (see the note above on why this module reads no files).
+ * `label` is an optional caller-supplied name — normally the fixture path — used only in error
+ * messages. Handles, in this order:
  *   `{ tool_id, note, vectors: [...] }`  — 671 of the 683 committed fixture files
  *   `{ cases: [...] }`                   — defensive; not currently present in the corpus
  *   `[ ... ]`                            — a bare array of cases
@@ -94,13 +98,9 @@ function assertIsCase(candidate, where) {
  * fixture as if it were a case, executed the wrapper, lost three of the nine scalar fields and
  * published three phantom field-level gaps off the loss.
  */
-export function readCases(fixtureFile) {
-  let value = fixtureFile;
-  let where = '';
-  if (typeof fixtureFile === 'string') {
-    where = fixtureFile;
-    value = JSON.parse(readFileSync(fixtureFile, 'utf8'));
-  }
+export function readCases(fixture, label = '') {
+  const value = fixture;
+  const where = label;
 
   if (Array.isArray(value)) return value.map((c) => assertIsCase(c, where));
   if (value !== null && typeof value === 'object') {

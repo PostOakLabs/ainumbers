@@ -104,7 +104,7 @@ export async function recomputeJournalOutput(node, { kernelsDir = KERNELS_DIR, f
   const kernelSource = readFileSync(kernelPath, 'utf8');
   let vectors;
   // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
-  try { vectors = readCases(fixturePath); }
+  try { vectors = readCases(JSON.parse(readFileSync(fixturePath, 'utf8')), fixturePath); }
   catch (e) { return { state: 'no-fixtures', detail: `fixtures unparseable: ${e.message}`, vectorIndex: -1 }; }
   if (!vectors.length) return { state: 'no-fixtures', detail: 'fixtures file has zero vectors', vectorIndex: -1 };
 

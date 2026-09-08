@@ -835,7 +835,9 @@ const DECLARED_SOFTENERS = new Map([
   // step's continue-on-error. The key carries a LINE NUMBER: any edit above
   // that line must refresh the key (a stale key fails this checker by design
   // and points here).
-  ["deploy-to-dreamhost.yml:continue-on-error:762",
+  // KERNEL-OUTPUT-READER-1 moved this from :762 to :763 — the shape-reader gate added one line
+  // to the kernel-gates `run:` block above it. The declaration is line-pinned by design.
+  ["deploy-to-dreamhost.yml:continue-on-error:763",
    "attest step is advisory-first by design; promotion criterion on the step"],
   ["unwired-gates.yml:continue-on-error:108",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +

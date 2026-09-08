@@ -114,7 +114,8 @@ function* iterFixtures() {
     const kernelPath = resolve(KERNELS_DIR, kernelId + '.kernel.mjs');
     if (!existsSync(kernelPath)) continue;
     // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local shape guess.
-    const vectors = readCases(resolve(FIXTURES_DIR, f));
+    const fpath = resolve(FIXTURES_DIR, f);
+    const vectors = readCases(JSON.parse(readFileSync(fpath, 'utf8')), fpath);
     yield { kernelId, kernelPath, vectors };
   }
 }
