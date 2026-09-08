@@ -110,11 +110,14 @@ async function adjudicateNode(node, repoRoot) {
   if (!def || typeof def.name !== 'string' || typeof def.description !== 'string') {
     return { id, exclude: `${manifestRel} lacks mcp_tool_definition.name/description` };
   }
-  // sample: manifest example when declared, else fixture 0 policy_parameters
+  // sample: manifest example when declared (top-level legacy, or
+  // mcp_tool_definition.example — the schema-legal home, used by the five §25
+  // private-input manifests for raw witnesses), else fixture 0 policy_parameters
   let sample = null;
-  if (manifest.example && typeof manifest.example === 'object' && !Array.isArray(manifest.example)) {
-    sample = manifest.example.policy_parameters && typeof manifest.example.policy_parameters === 'object'
-      ? manifest.example.policy_parameters : manifest.example;
+  const ex = manifest.example ?? manifest.mcp_tool_definition?.example;
+  if (ex && typeof ex === 'object' && !Array.isArray(ex)) {
+    sample = ex.policy_parameters && typeof ex.policy_parameters === 'object'
+      ? ex.policy_parameters : ex;
   }
   if (!sample) {
     const fixturePath = join(repoRoot, 'chaingraph', 'kernels', 'fixtures', `${id}.fixtures.json`);
