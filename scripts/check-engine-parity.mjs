@@ -28,6 +28,7 @@ import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { fileURLToPath } from 'node:url';
+import { readOutcome, readCases } from '../chaingraph/kernels/_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -112,9 +113,9 @@ function* iterFixtures() {
     const kernelId = f.replace('.fixtures.json', '');
     const kernelPath = resolve(KERNELS_DIR, kernelId + '.kernel.mjs');
     if (!existsSync(kernelPath)) continue;
-    const fixture = JSON.parse(readFileSync(resolve(FIXTURES_DIR, f), 'utf8'));
-    // Fixture format: { tool_id, vectors: [{ name, policy_parameters, ... }] }
-    const vectors = Array.isArray(fixture) ? fixture : (fixture.vectors ?? []);
+    // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local shape guess.
+    const fpath = resolve(FIXTURES_DIR, f);
+    const vectors = readCases(JSON.parse(readFileSync(fpath, 'utf8')), fpath);
     yield { kernelId, kernelPath, vectors };
   }
 }
@@ -283,7 +284,8 @@ for (const { kernelId, kernelPath, vectors } of iterFixtures()) {
       console.error(`  ✗ ${kernelId}/${vname}: compute() threw — ${e.message}`);
       process.exit(1);
     }
-    const op = (result && result.output_payload !== undefined) ? result.output_payload : result;
+    // KERNEL-OUTPUT-READER-1: one shared reader for the two kernel return shapes.
+    const op = readOutcome(result);
     MANIFEST[kernelId][vname] = sha256hex(preimage(pp, op));
   }
 }
