@@ -30,6 +30,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runKernelArtifactInVM } from '../chaingraph/vm/kernel-vm.mjs';
+import { readCases } from '../chaingraph/kernels/_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO = resolve(HERE, '..');
@@ -102,7 +103,8 @@ export async function recomputeJournalOutput(node, { kernelsDir = KERNELS_DIR, f
 
   const kernelSource = readFileSync(kernelPath, 'utf8');
   let vectors;
-  try { vectors = JSON.parse(readFileSync(fixturePath, 'utf8')).vectors ?? []; }
+  // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
+  try { vectors = readCases(fixturePath); }
   catch (e) { return { state: 'no-fixtures', detail: `fixtures unparseable: ${e.message}`, vectorIndex: -1 }; }
   if (!vectors.length) return { state: 'no-fixtures', detail: 'fixtures file has zero vectors', vectorIndex: -1 };
 

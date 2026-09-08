@@ -42,6 +42,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readCases } from '../chaingraph/kernels/_shape.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CG_PATH = resolve(ROOT, 'chaingraph/chaingraph.json');
@@ -85,7 +86,10 @@ function kernelDigestOf(id, nodesDir = NODES_DIR) {
 
 function outputVectors(id, fixDir = FIX_DIR) {
   const fx = readJson(resolve(fixDir, `${id}.fixtures.json`));
-  return ((fx && fx.vectors) || []).map((v) => v && v.output_payload).filter((p) => p && typeof p === 'object' && !Array.isArray(p));
+  // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
+  // `v.output_payload` here is the case's own PINNED payload field, not a compute() return.
+  const cases = fx ? readCases(fx) : [];
+  return cases.map((v) => v && v.output_payload).filter((p) => p && typeof p === 'object' && !Array.isArray(p));
 }
 
 // Nested-object recursion depth cap. The deepest live gate pointer is 3 segments

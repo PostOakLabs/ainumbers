@@ -51,6 +51,7 @@
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { readOutcome, readCases } from '../chaingraph/kernels/_shape.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const KERNELS_DIR = resolve(REPO, 'chaingraph', 'kernels');
@@ -106,8 +107,11 @@ export function fixtureInputs(toolId, fixturesDir = FIXTURES_DIR) {
   if (!existsSync(p)) return [];
   let parsed;
   try { parsed = JSON.parse(readFileSync(p, 'utf8')); } catch { return []; }
-  const vectors = Array.isArray(parsed) ? parsed : (parsed.vectors || parsed.cases || parsed.fixtures || []);
-  if (!Array.isArray(vectors)) return [];
+  // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local shape guess. The old
+  // `parsed.fixtures` arm is dropped with it — measured over all 683 committed fixture files, no
+  // file carries a top-level `fixtures` array, so that arm was dead defensive code.
+  let vectors;
+  try { vectors = readCases(parsed); } catch { return []; }
   return vectors.filter((v) => v && typeof v === 'object' && v.policy_parameters).map((v) => v.policy_parameters);
 }
 
@@ -133,7 +137,10 @@ export async function classifyKernel(toolId, { kernelsDir = KERNELS_DIR, fixture
     // unavailable. It becomes UNCLASSIFIED only if EVERY input is unavailable.
     try { r = compute(structuredClone(pp)); } catch { continue; }
     const flags = Array.isArray(r?.compliance_flags) ? r.compliance_flags.slice().sort() : [];
-    runs.push({ key: JSON.stringify(flags), raised: flags.length > 0, payload: r?.output_payload });
+    // KERNEL-OUTPUT-READER-1: readOutcome unwraps the 93.2% majority shape and returns a flat
+    // payload unchanged — the old `r?.output_payload` handed `undefined` to mirrorsPresent() for
+    // every one of the 45 flat kernels, so their mirrors were invisible to this census.
+    runs.push({ key: JSON.stringify(flags), raised: flags.length > 0, payload: readOutcome(r) });
   }
   if (runs.length === 0) return { ...base, verdict: 'UNCLASSIFIED' };
 

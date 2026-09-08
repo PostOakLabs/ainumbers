@@ -13,8 +13,8 @@
 // on a clean run (a caught throw inside the kernel is a FINDING, not a worker
 // failure); a non-zero exit / timeout means the parent records "hang_or_crash".
 
-import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { readCases } from '../chaingraph/kernels/_shape.mjs';
 
 const [, , kernelId, kernelPath, fixturesPath, seedArg] = process.argv;
 const seed = Number(seedArg);
@@ -22,8 +22,8 @@ const seed = Number(seedArg);
 async function main() {
   const { mulberry32, runDiscoveryLeg } = await import(new URL('../chaingraph/kernels/__proptests__/_pbt-common.mjs', import.meta.url));
   const { compute } = await import(pathToFileURL(kernelPath).href);
-  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
-  const baselineVec = (fixtures.vectors || []).find((v) => Object.keys(v.policy_parameters || {}).length > 0);
+  // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
+  const baselineVec = readCases(fixturesPath).find((v) => Object.keys(v.policy_parameters || {}).length > 0);
   const baseline = baselineVec ? baselineVec.policy_parameters : {};
   const rng = mulberry32(seed);
   const findings = Object.keys(baseline).length ? runDiscoveryLeg(kernelId, compute, baseline, rng) : [];
