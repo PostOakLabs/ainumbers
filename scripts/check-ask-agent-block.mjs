@@ -38,7 +38,7 @@
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import {
   ASK_AGENT_END, askAgentImperative, buildAskAgentBlock, encodeAskAgentFragment,
@@ -58,18 +58,22 @@ function assert(cond, what) {
  *  1. pristine tree clean (GREEN before), 2. one byte inside one page's emitted
  *  block mutated -> collect() reports a drift problem (RED), 3. page restored ->
  *  clean again (GREEN after). */
-function redGreen() {
-  const before = collect();
+/** SO #34c RED-then-GREEN proof, in-process (never exits non-zero):
+ *  1. pristine tree clean (GREEN before), 2. one byte inside one page's emitted
+ *  block mutated -> collect() reports a drift problem (RED), 3. page restored ->
+ *  clean again (GREEN after). */
+async function redGreen() {
+  const before = await collect();
   if (before.problems.length) fail('tree is not green before the red-green proof');
   const target = before.adjudicated.find((d) => regionsOf(d.pageSrc).length === 1);
   if (!target) fail('no emitted block found to mutate for the red-green proof');
   const mutated = target.pageSrc.replace('Run the AINumbers MCP tool', 'Run the AINumbers MCP t00l');
   if (mutated === target.pageSrc) fail('mutation did not apply');
   writeFileSync(target.pageAbs, mutated, 'utf8');
-  const during = collect();
+  const during = await collect();
   const redOk = during.problems.some((p) => p.startsWith(target.pageRel) && p.includes('drifted'));
   writeFileSync(target.pageAbs, target.pageSrc, 'utf8'); // restore
-  const after = collect();
+  const after = await collect();
   if (!redOk) fail('mutated tree did NOT red the gate — the gate is deaf');
   if (after.problems.length) fail('tree still red after restore');
   console.log(`RED-GREEN OK: mutated block in ${target.pageRel} redded the gate (${during.problems.length} problem(s), first: "${during.problems[0]}"); restored tree is clean again.`);
@@ -92,7 +96,7 @@ function liveNodes() {
 /** The adjudicated per-page inputs; { exclude } + reason when the block cannot
  *  be emitted for this node today (honest exclusion, never a guess — same
  *  posture as gen-webmcp-registrations.mjs). */
-function adjudicateNode(node, repoRoot) {
+async function adjudicateNode(node, repoRoot) {
   const id = node.tool_id;
   const pageRel = `chaingraph/${id}.html`;
   const pageAbs = resolve(repoRoot, pageRel);
@@ -106,11 +110,14 @@ function adjudicateNode(node, repoRoot) {
   if (!def || typeof def.name !== 'string' || typeof def.description !== 'string') {
     return { id, exclude: `${manifestRel} lacks mcp_tool_definition.name/description` };
   }
-  // sample: manifest example when declared, else fixture 0 policy_parameters
+  // sample: manifest example when declared (top-level legacy, or
+  // mcp_tool_definition.example — the schema-legal home, used by the five §25
+  // private-input manifests for raw witnesses), else fixture 0 policy_parameters
   let sample = null;
-  if (manifest.example && typeof manifest.example === 'object' && !Array.isArray(manifest.example)) {
-    sample = manifest.example.policy_parameters && typeof manifest.example.policy_parameters === 'object'
-      ? manifest.example.policy_parameters : manifest.example;
+  const ex = manifest.example ?? manifest.mcp_tool_definition?.example;
+  if (ex && typeof ex === 'object' && !Array.isArray(ex)) {
+    sample = ex.policy_parameters && typeof ex.policy_parameters === 'object'
+      ? ex.policy_parameters : ex;
   }
   if (!sample) {
     const fixturePath = join(repoRoot, 'chaingraph', 'kernels', 'fixtures', `${id}.fixtures.json`);
@@ -121,6 +128,27 @@ function adjudicateNode(node, repoRoot) {
     const fx = vectors[0];
     if (!fx || !fx.policy_parameters) return { id, exclude: 'fixture 0 lacks policy_parameters' };
     sample = fx.policy_parameters;
+  }
+  // ASKAGENT-SAMPLE-EXEC-GATE-1: the published sample must actually RUN through
+  // the node's own kernel. SPEC.md §25 private-input nodes take the RAW witness
+  // as buildArtifact input, so fixture-derived post-commitment samples are
+  // exactly the class this execution catches (D6: five pages shipped samples
+  // that always threw "salt must be a hex string..."). Import by pathToFileURL
+  // per SO #34's rider — no eval, same pattern as the other kernel gates.
+  const kernelPath = join(repoRoot, 'chaingraph', 'kernels', `${id}.kernel.mjs`);
+  if (!existsSync(kernelPath)) return { id, exclude: `no kernel shard chaingraph/kernels/${id}.kernel.mjs to execute the published sample` };
+  let kernel;
+  try { kernel = await import(pathToFileURL(kernelPath).href); }
+  catch (e) { return { id, exclude: `kernel shard chaingraph/kernels/${id}.kernel.mjs unimportable: ${e.message}` }; }
+  if (typeof kernel.buildArtifact !== 'function') return { id, exclude: `kernel shard chaingraph/kernels/${id}.kernel.mjs lacks buildArtifact()` };
+  let artifact;
+  try {
+    artifact = await kernel.buildArtifact(sample, { now: new Date('2026-01-01T00:00:00Z'), parent_hashes: [], parent_tool_ids: [], chain_depth: 0 });
+  } catch (e) {
+    return { id, pageRel: `chaingraph/${id}.html`, sampleError: `published sample cannot run — kernel threw "${e.message}"` };
+  }
+  if (!artifact || typeof artifact.execution_hash !== 'string' || artifact.execution_hash.length === 0) {
+    return { id, pageRel: `chaingraph/${id}.html`, sampleError: 'published sample cannot run — kernel produced no execution_hash' };
   }
   const pageSrc = readFileSync(pageAbs, 'utf8');
   const pageUrl = String(node.url || `https://ainumbers.co/chaingraph/${id}.html`);
@@ -169,14 +197,15 @@ function verifyFragment(expected, sample) {
 }
 
 /** Collect gate results. problems[] non-empty means RED. */
-function collect() {
+async function collect() {
   const live = liveNodes();
   const problems = [];
   const excluded = [];
   const adjudicated = [];
   for (const node of live) {
-    const d = adjudicateNode(node, REPO);
+    const d = await adjudicateNode(node, REPO);
     if (d.exclude) { excluded.push(d); continue; }
+    if (d.sampleError) { problems.push(`${d.pageRel}: ${d.sampleError}`); continue; }
     if (d.mcpName && d.mcpName !== d.toolName) {
       problems.push(`${d.pageRel}: block tool name '${d.toolName}' != node mcp_name '${d.mcpName}'`);
       continue;
@@ -203,8 +232,8 @@ function printExcluded(excluded) {
   excluded.forEach((e) => console.log(`  EXCLUDED ${e.id}: ${e.exclude}`));
 }
 
-function run() {
-  const { live, problems, excluded, adjudicated } = collect();
+async function run() {
+  const { live, problems, excluded, adjudicated } = await collect();
   if (WRITE) {
     let written = 0;
     let exact = 0;
@@ -293,8 +322,8 @@ if (RED_GREEN) {
   assert(gpuBlock.includes('computes in your browser'), 'gpu block routes the agent to the in-page run');
   assert(gpuBlock.includes('Policy Mandate artifact'), 'gpu block names the page-produced artifact to verify');
   assert(!gpuBlock.includes('with the parameter `claimed_hash`'), 'gpu block never promises a server-side hash');
-  redGreen();
-  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, gpu sentence, mutation red-green).');
+  await redGreen();
+  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, gpu sentence, sample execution, mutation red-green).');
 } else {
-  run();
+  await run();
 }
