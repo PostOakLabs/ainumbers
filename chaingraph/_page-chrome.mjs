@@ -911,11 +911,11 @@ export function buildAskAgentBlock({ manifestPath, toolName, description, sample
   const task = askAgentImperative(description);
   const deepLink = pageUrl.split('#')[0] + encodeAskAgentFragment(sample);
   const verify = webmcpRegistered
-    ? `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the returned execution_hash, or re-run the in-page WebMCP tool \`${toolName}\`.`
-    : `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the returned execution_hash.`;
+    ? `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`, or re-run the in-page WebMCP tool \`${toolName}\`.`
+    : `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`.`;
   const copyText = [
     `Run the AINumbers MCP tool \`${toolName}\`. Task: ${task}`,
-    `Synthetic sample input (policy_parameters): ${JSON.stringify(sample)}`,
+    `Call it with arguments: ${JSON.stringify({ policy_parameters: sample })}`,
     verify,
     `Return the ledger link ${ASK_AGENT_LEDGER_URL} so a human can re-verify without contacting us.`,
     `PII rule: ${ASK_AGENT_PII_SENTENCE}`,
