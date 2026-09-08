@@ -80,7 +80,7 @@ export async function scan(repo, doCheckRegistry) {
     'start.html', 'tools.html', 'sitemap.html', 'chaingraph/chaingraph-hub.html',
     'guides/index.html', 'euc-register.html', 'chaingraph/integrator-profile.html',
     'chaingraph/conformance-roster.html', 'chaingraph/clause-edge-report.html',
-    'chaingraph/kernel-vm-explainer.html', 'docs/index.html',
+    'chaingraph/kernel-vm-explainer.html', 'chaingraph/agentic-payments-map.html', 'docs/index.html',
   ];
   const isShim = (html) => {
     const t = html.replace(/\s+/g, '');

@@ -66,6 +66,7 @@ const EXEMPT = new Map([
   ['chaingraph/conformance-roster.html', 'whole-file derived artifact (gen-ocg-conformance-roster.mjs)'],
   ['chaingraph/clause-edge-report.html', 'whole-file derived artifact (gen-clause-edge-report-page.mjs)'],
   ['chaingraph/kernel-vm-explainer.html', 'whole-file derived artifact (gen-kernel-vm-explainer.mjs)'],
+  ['chaingraph/agentic-payments-map.html', 'whole-file derived artifact (gen-agentic-payments-map.mjs: --check byte-compares the whole page against its ROWS source table; a hand meta tag drifts it)'],
   ['docs/index.html', 'whole-file derived artifact (gen-openapi.mjs)'],
 ]);
 
