@@ -662,8 +662,17 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
    // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
    // Measured both sides, not assumed: 512/630 fresh + 118 stale on origin/main,
    // 513/631 fresh + 118 stale on this branch; the failing assert printed got 631 before this edit.
-   assert(total === 631, `expected 631 in-scope gpu:false proven nodes, got ${total}`);
-   assert(fresh.length === 513, `expected 513 fresh (calibration set), got ${fresh.length}`);
+   // 631 -> 632 post-DEFERRED-FAST-PROVE-BATCH-1 node 9 (2026-09-08, art-680 ninth §18 GPU prove):
+   // art-680-control-attestation-campaign-roll-up flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:ee9ed419... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 116s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 513/631 fresh + 118 stale on origin/main,
+   // 514/632 fresh + 118 stale on this branch; the failing assert printed got 632 before this edit.
+   assert(total === 632, `expected 632 in-scope gpu:false proven nodes, got ${total}`);
+   assert(fresh.length === 514, `expected 514 fresh (calibration set), got ${fresh.length}`);
    assert(stale.length === 118, `expected 118 stale (see 2026-09-01 note above), got ${stale.length}`);
  });
 
