@@ -86,6 +86,7 @@
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { readCases } from "../chaingraph/kernels/_shape.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CG = resolve(ROOT, "chaingraph");
@@ -968,8 +969,9 @@ async function kernelPayloadKeys(id) {
   const vectors = [];
   if (existsSync(fpath)) {
     try {
+      // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
       const fx = JSON.parse(readFileSync(fpath, "utf8"));
-      for (const v of fx.vectors || []) vectors.push(v.policy_parameters ?? {});
+      for (const v of readCases(fx, fpath)) vectors.push(v.policy_parameters ?? {});
     } catch (e) {
       return { keys: null, notes: [`fixtures unreadable: ${e.message}`] };
     }

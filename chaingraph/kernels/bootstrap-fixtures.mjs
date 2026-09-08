@@ -22,6 +22,7 @@
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readOutcome } from './_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = resolve(HERE, 'fixtures');
@@ -382,8 +383,10 @@ for (const [toolId, kernelPath] of Object.entries(KERNEL_FILES)) {
     const mod = await import(kernelPath);
     const result = mod.compute(samplePp);
 
-    // result should be { output_payload, compliance_flags }
-    const outputPayload = result.output_payload ?? result;
+    // KERNEL-OUTPUT-READER-1: one shared reader for the two kernel return shapes, replacing the
+    // local `result.output_payload ?? result` guess (which also mis-handled a wrapped result whose
+    // payload was legitimately null or absent).
+    const outputPayload = readOutcome(result);
 
     const fixture = {
       tool_id: toolId,
