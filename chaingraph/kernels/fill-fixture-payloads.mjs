@@ -10,6 +10,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath }    from 'node:url';
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { KERNELS }          from './index.mjs';
+import { readCases }        from './_shape.mjs';
 
 const HERE   = dirname(fileURLToPath(import.meta.url));
 const FIXDIR = resolve(HERE, 'fixtures');
@@ -33,7 +34,8 @@ for (const ff of files) {
     continue;
   }
   let dirty = false;
-  for (const v of (doc.vectors ?? [])) {
+  // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
+  for (const v of readCases(doc)) {
     const art = await kernel.buildArtifact(v.policy_parameters, { now: null });
     if (!art.output_payload) {
       console.error(`✗ ${doc.tool_id}/${v.name}: buildArtifact returned no output_payload`);

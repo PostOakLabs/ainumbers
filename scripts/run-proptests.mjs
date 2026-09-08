@@ -63,6 +63,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync, execSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
 import { assertDenominatorOrExit, committedFileCountOrExit } from './denominator-sentinel.mjs';
+import { readCases } from '../chaingraph/kernels/_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -230,7 +231,8 @@ async function runDiscoveryLegMode() {
       allFindings.push({ kernelId, key: null, nastyDesc: null, outcome: { kind: 'load_error', message: `unreadable fixtures: ${String(err && err.message || err)}` } });
       continue;
     }
-    const hasBaseline = (fixtures.vectors || []).some((v) => Object.keys(v.policy_parameters || {}).length > 0);
+    // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
+    const hasBaseline = readCases(fixtures).some((v) => Object.keys(v.policy_parameters || {}).length > 0);
     if (!hasBaseline) { skippedNoBaseline++; continue; }
 
     // Isolated per-kernel child process, same shape as the committed-seed floor

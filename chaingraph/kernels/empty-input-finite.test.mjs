@@ -20,6 +20,7 @@
 
 import { KERNELS } from './index.mjs';
 import { canonicalPreimage } from './_hash.mjs';
+import { readOutcome } from './_shape.mjs';
 
 let fails = 0, ok = 0, threw = 0;
 for (const [tool_id, k] of Object.entries(KERNELS)) {
@@ -34,7 +35,10 @@ for (const [tool_id, k] of Object.entries(KERNELS)) {
   }
   try {
     // Throws on NaN/Infinity/unsafe-int anywhere in the returned output_payload.
-    canonicalPreimage({}, (out && out.output_payload) ?? {});
+    // KERNEL-OUTPUT-READER-1: readOutcome replaces `(out && out.output_payload) ?? {}`, which
+    // handed an EMPTY object to the canonicalizer for every one of the 45 flat kernels — a
+    // vacuous pass. Their real payloads are now canonicalized like everyone else's.
+    canonicalPreimage({}, readOutcome(out) ?? {});
     ok++;
   } catch (e) {
     console.error(`X ${tool_id}: empty-input output is NOT canonicalizable — ${String(e.message).slice(0, 120)}`);
