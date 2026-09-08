@@ -1150,11 +1150,14 @@ const GATES = [
   ['Agent kit gate controls (GREEN + RED mutations + zip known-answer)', 'node scripts/check-agent-kit.mjs --self-test'],
   ['Showcase prompts SSOT (EXAMPLE-PROMPTS-JSON-1)', 'node scripts/check-showcase-prompts.mjs'],
   ['Showcase prompts gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-prompts.mjs --self-test'],
+<<<<<<< HEAD
   ['Showcase call shape: policy_parameters wrapper + GPU in-page route (SHOWCASE-CALLSHAPE-1)', 'node scripts/check-showcase-callshape.mjs'],
   ['Helm-OpenClaw page markers + structure (HELM-OPENCLAW-PAGE-1)', 'node scripts/check-helm-openclaw-page.mjs'],
   ['Helm-OpenClaw page gate controls (RED/GREEN mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-helm-openclaw-page.test.mjs'],
   ['Helm-OpenClaw snippet freshness (generator --check, required by the Generator coverage meta-gate)', 'node scripts/gen-helm-openclaw-snippets.mjs --check'],
   ['Showcase call-shape gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-callshape.mjs --self-test'],
+=======
+>>>>>>> 3f7483ed (fix(infra-page-1): declare the three INFRA gates PREFLIGHT_ONLY (CI route = scripts-verify full preflight) in workflow-gate-parity)
   ['PII banner exact text (CONTRACT §1.3, PIIBANNER-GATE-SWEEP-1)', 'node scripts/check-pii-banner.mjs'],
   ['PII banner gate controls (RED+GREEN mutation)', 'node scripts/check-pii-banner.test.mjs'],
   // STALE-PHASING-NOTE-SWEEP-1 (2026-08-23). The documentation twin of the silent-green gate: a comment

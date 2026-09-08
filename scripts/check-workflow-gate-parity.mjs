@@ -339,6 +339,7 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+<<<<<<< HEAD
   // ── HELM-OPENCLAW-PAGE-1 (2026-09-08) ───────────────────────────────────────
   ["check-helm-openclaw-page.mjs",
     "Helm-OpenClaw page gate (HELM-OPENCLAW-PAGE-1): asserts helm-openclaw.html's six " +
@@ -365,6 +366,27 @@ const PREFLIGHT_ONLY = new Map([
     "already freshness-gated in CI by check-agent-kit; the prose rules themselves " +
     "have no workflow-side observable to drift against. Paired self-test: " +
     "check-showcase-callshape.mjs --self-test (GATE-SELFTEST-META-1)."],
+=======
+  // ── INFRA-PAGE-1 (2026-09-08) ───────────────────────────────────────────────
+  ["gen-infra-registry.mjs",
+    "Derived page-registry freshness (gen-infra-registry --check byte-compares data/infra-" +
+    "registry.json against a re-derivation over every published page). Hard in preflight; its " +
+    "CI route is scripts-verify.yml's full preflight (the workflow literally runs " +
+    "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the same " +
+    "suite. Reads only tracked repo files. Declared COVERED id 'infra-registry' in " +
+    "derived-artifacts.mjs (main-side regen)."],
+  ["check-infra-registry.mjs",
+    "PR-side HARD content gate over the same registry: every in-scope page must carry an " +
+    "in-enum ain:category meta (a page exists, so it is on the map), stale registry entries " +
+    "red; --selftest is the GATE-SELFTEST-META-1 paired red-proof. Hard in preflight; its CI " +
+    "route is scripts-verify.yml's full preflight, so a named workflow step would only " +
+    "duplicate the same suite. Reads only tracked repo files."],
+  ["gen-infrastructure-page.mjs",
+    "infrastructure.html freshness (byte-compare against a regeneration from the registry). " +
+    "Hard in preflight; its CI route is scripts-verify.yml's full preflight, so a named " +
+    "workflow step would only duplicate the same suite. Reads only tracked repo files. " +
+    "Declared COVERED id 'infrastructure-page' in derived-artifacts.mjs (main-side regen)."],
+>>>>>>> 3f7483ed (fix(infra-page-1): declare the three INFRA gates PREFLIGHT_ONLY (CI route = scripts-verify full preflight) in workflow-gate-parity)
   // ── PREFLIGHT-QUICK-1 (2026-09-06) ─────────────────────────────────────────
   ["setup-hooks.mjs",
     "Pre-push hook wiring verifier (the `--check` leg): asserts core.hooksPath = .githooks so " +

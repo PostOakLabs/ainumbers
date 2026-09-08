@@ -13,7 +13,7 @@ You are a trade-reporting agent at an EU counterparty. The trade report is confi
    - art-157 validate_emir_lifecycle_event
    - art-158 run_emir_reporting_fit
    Record each verdict and execution_hash. Confirm zero network requests during each call.
-3. Call verify_execution_hash (send the artifact or its hash as claimed_hash) on mcp.ainumbers.co for each artifact, sending ONLY the artifact (policy_parameters + output_payload as emitted by the page). State whether every recompute matches.
+3. Call verify_execution_hash on mcp.ainumbers.co for each artifact, sending ONLY the artifact (policy_parameters + output_payload as emitted by the page). State whether every recompute matches.
 4. Call build_evidence_pack with the four hashes, labelled by node, plus the four kernel_digest values from chaingraph.json.
 5. Call anchor_batch on anchor.ainumbers.co with the four hashes and the pack digest. Use two authorities: Sigstore TSA and OpenTimestamps.
 6. Build the ledger fragment link for the art-158 artifact and open it. Report the verify chips.

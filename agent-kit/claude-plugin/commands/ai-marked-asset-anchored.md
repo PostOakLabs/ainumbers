@@ -13,7 +13,6 @@ A marketing team is about to publish an AI-generated product image with a C2PA m
 5. Call anchor_hash with the disclosure manifest root on OpenTimestamps. Then call upgrade_ots_proof and report whether the proof is still pending or already Bitcoin-attested (pending is expected within the first hours; say so).
 6. Build the ledger link for the composite chain artifact. Open it and report the §17 kernel identity and §18 compute proof lines.
 7. Write the publish decision: ship / do not ship, the Art. 50 findings, and a verification recipe a journalist could follow without contacting us (ledger link, OTS proof, kernel digest).
-Call shape: every ChainGraph node tool takes its arguments nested under one wrapper object, e.g. {"policy_parameters": { ... }}; flat arguments are discarded by schema validation.
 
 ---
 
