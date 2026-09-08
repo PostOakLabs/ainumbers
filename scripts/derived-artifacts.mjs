@@ -115,15 +115,6 @@ export const COVERED = [
   },
 
   {
-    id: 'estate-map',
-    regen: 'node scripts/gen-estate-map.mjs',
-    gate: 'node scripts/gen-estate-map.mjs --check',
-    artifacts: ['llms.txt'],
-    share: '1%',
-  },
-
-
-  {
     id: 'guides-index',
     regen: 'node scripts/gen-guides-index.mjs',
     gate: 'node scripts/gen-guides-index.mjs --check',
@@ -273,6 +264,10 @@ export const COVERED = [
       'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
       'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
       'guides/capital-markets-settlement-hub.html',
+      // INFRA-PAGE-1: infrastructure.html carries a data-count="infra_pages"
+      // sentinel now listed in verify-counts.mjs's file list — undeclared here
+      // the regen's anti-escape guard would reject the write (SO #47 precedent).
+      'infrastructure.html',
     ],
     // DERIVED-DECLARE-PARITY-1: verify-counts.mjs writes via a `write(rel, …)`
     // helper called mostly with loop/lookup variables (ATTR_RULES `.file`,
@@ -290,12 +285,63 @@ export const COVERED = [
       'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
       'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
       'guides/capital-markets-settlement-hub.html',
+      'infrastructure.html',
     ],
     share: '27%',
     // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): counts reads
     // chaingraph.json (counts.mjs:123) — assembler precedes it now (B7 also
     // fixed: stats reads mcp.html before counts rewrote its sentinels).
     after: 'chaingraph-assemble',
+  },
+  {
+    // INFRA-PAGE-1 (2026-09-08): the derived page registry over every non-tool
+    // published page (gen-infra-registry.mjs — scope walk over
+    // published-dirs.json, node/tool/chain pages excluded, redirect shims
+    // auto-exempt like the nav gate). One entry per tagged page:
+    // { path, title, description, category, featured, facts }. Sorted by
+    // category then title; no wall-clock field, so a second pass is
+    // byte-identical (idempotency proof). Reads every page (like nav-island)
+    // and chaingraph.json (node-url exclusion), so it must run AFTER the
+    // page/HTML writers it reads within a pass; `after: counts` pins the
+    // sentinel writer that touches index.html/start.html/fv-explainer.html.
+    id: 'infra-registry',
+    regen: 'node scripts/gen-infra-registry.mjs',
+    gate: 'node scripts/gen-infra-registry.mjs --check',
+    // write target is a module-level constant path in the generator, not a
+    // literal at the call site (counts precedent) — mirrored in `writes`.
+    writes: ['data/infra-registry.json'],
+    artifacts: ['data/infra-registry.json'],
+    after: 'counts',
+    share: 'n/a (new 2026-09-08, INFRA-PAGE-1)',
+  },
+  {
+    // INFRA-PAGE-1: infrastructure.html, generated from the registry above
+    // (one section per category, one card per registry entry, JSON-LD
+    // CollectionPage ItemList, data-count="infra_pages" sentinel). Consumes
+    // ONLY data/infra-registry.json — ordered after it.
+    id: 'infrastructure-page',
+    regen: 'node scripts/gen-infrastructure-page.mjs',
+    gate: 'node scripts/gen-infrastructure-page.mjs --check',
+    writes: ['infrastructure.html'],
+    artifacts: ['infrastructure.html'],
+    after: 'infra-registry',
+    share: 'n/a (new 2026-09-08, INFRA-PAGE-1)',
+  },
+  {
+    // estate-map, MOVED here by INFRA-PAGE-1 (was array position 2): the
+    // generator now also renders the "Infrastructure map" marker block from
+    // data/infra-registry.json, so within one regen pass it must run AFTER
+    // 'infra-registry' — running it early would render the block from the
+    // previous pass's registry bytes, the exact intermediate-commit cascade
+    // REGEN-COVERED-ORDER-FIX-3 exists to prevent. It reads suite-map.json,
+    // mcp/showcase-prompts.json and agent-kit/kit.json (no pass-internal
+    // writers of those), so this edge is the only ordering constraint.
+    id: 'estate-map',
+    regen: 'node scripts/gen-estate-map.mjs',
+    gate: 'node scripts/gen-estate-map.mjs --check',
+    artifacts: ['llms.txt'],
+    after: 'infra-registry',
+    share: '1%',
   },
   {
     id: 'webmcp-manifest',
@@ -738,6 +784,17 @@ export const COVERED = [
  * fails that gate. Prose alone never caught this and never will.
  */
 export const EXCLUDED = [
+  {
+    what: 'scripts/check-infra-registry.mjs (INFRA-PAGE-1 gate)',
+    script: 'scripts/check-infra-registry.mjs',
+    share: 'n/a — a gate, not a generator',
+    why: 'NOT A GENERATOR. It reads chaingraph.json only to EXCLUDE node pages from the '
+       + 'page-derived scope (the same negative half the nav gate applies), and it reads every '
+       + 'in-scope page for its ain:category meta. It has no regen mode and writes no repo '
+       + 'artifact: its only writeFileSync targets are temp-dir self-test fixtures (removed on '
+       + 'exit). The derived artifact it verifies, data/infra-registry.json, is COVERED above '
+       + '(id infra-registry). Listed so the fan-out coverage gate reads a decision, not a gap.',
+  },
   {
     what: 'consume-vow evidence reads (via scripts/check-vow-vs-code.mjs)',
     script: 'scripts/check-vow-vs-code.mjs',

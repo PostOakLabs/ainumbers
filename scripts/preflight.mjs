@@ -1283,6 +1283,15 @@ const GATES = [
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
   ['Hub node-card coverage (HUB-GEN-1)', 'node scripts/gen-chaingraph-hub.mjs --check'],
   ['Guides index coverage (GUIDES-INDEX-GEN-1)', 'node scripts/gen-guides-index.mjs --check'],
+  // INFRA-PAGE-1: the page registry is derived, so a built surface cannot drift
+  // off the map again. The registry gate is PR-side HARD (a missing/out-of-enum
+  // category meta is a content defect the PR must fix, like a new island); its
+  // --selftest is the GATE-SELFTEST-META-1 paired red-proof. infrastructure.html
+  // freshness rides the COVERED 'infrastructure-page' entry (advisory on PR,
+  // blocking on main) via the gen-infrastructure-page --check string below.
+  ['Infrastructure registry gate (INFRA-PAGE-1)', 'node scripts/check-infra-registry.mjs'],
+  ['Infrastructure registry gate controls (RED-then-GREEN, INFRA-PAGE-1)', 'node scripts/check-infra-registry.mjs --selftest'],
+  ['Infrastructure page freshness (INFRA-PAGE-1)', 'node scripts/gen-infrastructure-page.mjs --check'],
   ['llms-full.txt freshness (§M2.3)', 'node scripts/gen-llms-full.mjs --check'],
   // PAGE-MD-TWINS-1 (AGENT-REACH-BUILD-SPEC §2): markdown twin freshness. The
   // gate string is derived-artifacts.mjs COVERED id 'page-md-twins' own `gate`,
