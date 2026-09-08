@@ -29,29 +29,61 @@ const gpuNames = new Set(nodes.filter((n) => n.gpu === true).map((n) => n.mcp_na
 
 const WRAPPER = 'policy_parameters';
 const IN_PAGE_MARKER = 'computes in your browser';
-const problems = [];
-let checked = 0;
-let gpuChecked = 0;
 
-for (const entry of prompts) {
-  const id = entry.id ?? entry.slug ?? entry.title ?? '<untitled>';
-  const tools = Array.isArray(entry.tools) ? entry.tools : [];
-  const body = typeof entry.body === 'string' ? entry.body : JSON.stringify(entry.body ?? '');
-  const nodeHits = tools.filter((t) => nodeName.has(t));
-  if (nodeHits.length === 0) continue;
-  checked++;
-  const touchesGpu = nodeHits.some((t) => gpuNames.has(t));
-  if (touchesGpu) gpuChecked++;
-  if (!body.includes(WRAPPER)) {
-    problems.push(`${id}: calls node tool(s) ${nodeHits.join(', ')} but never shows the ${WRAPPER} wrapper`);
+function analyze(prompts, nodes) {
+  const nodeName = new Map(nodes.map((n) => [n.mcp_name, n]));
+  const gpuNames = new Set(nodes.filter((n) => n.gpu === true).map((n) => n.mcp_name));
+  const problems = [];
+  let checked = 0;
+  let gpuChecked = 0;
+  for (const entry of prompts) {
+    const id = entry.id ?? entry.slug ?? entry.title ?? '<untitled>';
+    const tools = Array.isArray(entry.tools) ? entry.tools : [];
+    const body = typeof entry.body === 'string' ? entry.body : JSON.stringify(entry.body ?? '');
+    const nodeHits = tools.filter((t) => nodeName.has(t));
+    if (nodeHits.length === 0) continue;
+    checked++;
+    const touchesGpu = nodeHits.some((t) => gpuNames.has(t));
+    if (touchesGpu) gpuChecked++;
+    if (!body.includes(WRAPPER)) {
+      problems.push(`${id}: calls node tool(s) ${nodeHits.join(', ')} but never shows the ${WRAPPER} wrapper`);
+    }
+    if (touchesGpu && !body.includes(IN_PAGE_MARKER)) {
+      problems.push(`${id}: calls gpu node tool(s) ${nodeHits.filter((t) => gpuNames.has(t)).join(', ')} but does not route the run in-page (must say the tool ${IN_PAGE_MARKER} and the artifact is passed to verify_execution_hash as a full artifact)`);
+    }
+    if (body.includes('verify_execution_hash') && !body.includes('claimed_hash')) {
+      problems.push(`${id}: instructs verify_execution_hash without naming its parameter claimed_hash`);
+    }
   }
-  if (touchesGpu && !body.includes(IN_PAGE_MARKER)) {
-    problems.push(`${id}: calls gpu node tool(s) ${nodeHits.filter((t) => gpuNames.has(t)).join(', ')} but does not route the run in-page (must say the tool ${IN_PAGE_MARKER} and the artifact is passed to verify_execution_hash as a full artifact)`);
-  }
-  if (body.includes('verify_execution_hash') && !body.includes('claimed_hash')) {
-    problems.push(`${id}: instructs verify_execution_hash without naming its parameter claimed_hash`);
-  }
+  return { problems, checked, gpuChecked };
 }
+
+const SELF_TEST = process.argv.includes('--self-test');
+if (SELF_TEST) {
+  // GATE-SELFTEST-META-1 pair: prove the three rules RED by mutation, then the
+  // shipped data GREEN. In-memory only; the file on disk is never touched.
+  const live = JSON.parse(readFileSync(join(repoRoot, 'mcp', 'showcase-prompts.json'), 'utf8'));
+  const fail = (msg) => { console.error('GEN-ERROR: ' + msg); process.exit(1); };
+  const stripOne = (needle) => {
+    const mutated = JSON.parse(JSON.stringify(live));
+    for (const e of mutated) {
+      if (typeof e.body === 'string' && e.body.includes(needle)) { e.body = e.body.replace(needle, ''); break; }
+    }
+    return mutated;
+  };
+  const clean = analyze(live, nodes);
+  if (clean.problems.length !== 0) fail('shipped data is not green for the self-test: ' + clean.problems[0]);
+  const noWrapper = analyze(stripOne(WRAPPER), nodes);
+  if (noWrapper.problems.length === 0) fail('mutation (strip wrapper) did NOT red the gate');
+  const noInPage = analyze(stripOne(IN_PAGE_MARKER), nodes);
+  if (!noInPage.problems.some((p) => p.includes('does not route the run in-page'))) fail('mutation (strip in-page marker) did NOT red the gpu rule');
+  const noHash = analyze(stripOne('claimed_hash'), nodes);
+  if (!noHash.problems.some((p) => p.includes('claimed_hash'))) fail('mutation (strip claimed_hash) did NOT red the verify rule');
+  console.log(`SELF-TEST PASS (3 RED mutations red their rules; shipped data GREEN: ${clean.checked} node-calling entries, ${clean.gpuChecked} gpu-touching).`);
+  process.exit(0);
+}
+
+const { problems, checked, gpuChecked } = analyze(prompts, nodes);
 
 if (problems.length) {
   console.error(`✗ showcase call-shape FAILED (${problems.length} of ${checked} node-calling entries, ${gpuChecked} gpu-touching):`);

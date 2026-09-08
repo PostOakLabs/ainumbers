@@ -1151,6 +1151,7 @@ const GATES = [
   ['Showcase prompts SSOT (EXAMPLE-PROMPTS-JSON-1)', 'node scripts/check-showcase-prompts.mjs'],
   ['Showcase prompts gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-prompts.mjs --self-test'],
   ['Showcase call shape: policy_parameters wrapper + GPU in-page route (SHOWCASE-CALLSHAPE-1)', 'node scripts/check-showcase-callshape.mjs'],
+  ['Showcase call-shape gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-callshape.mjs --self-test'],
   ['PII banner exact text (CONTRACT §1.3, PIIBANNER-GATE-SWEEP-1)', 'node scripts/check-pii-banner.mjs'],
   ['PII banner gate controls (RED+GREEN mutation)', 'node scripts/check-pii-banner.test.mjs'],
   // STALE-PHASING-NOTE-SWEEP-1 (2026-08-23). The documentation twin of the silent-green gate: a comment
