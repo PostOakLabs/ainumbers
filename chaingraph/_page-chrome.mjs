@@ -12,6 +12,14 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 /** Canonical OCG spec version, derived from chaingraph.json (the version-of-record) — never hardcode this. */
 export const SPEC_VERSION = JSON.parse(readFileSync(join(__dir, 'chaingraph.json'), 'utf-8')).spec_version;
 
+/** PAGE-MD-TWINS-1: the one canonical markdown-twin <link> tag. Emitted into
+ *  every generated node/chain page <head> by scripts/gen-page-md-twins.mjs
+ *  (its own single writer); detection key is the rel+type pair below. */
+export const MD_TWIN_LINK_REL = 'rel="alternate" type="text/markdown"';
+export function buildMarkdownAlternateLink(pageAbsUrl) {
+  return `<link ${MD_TWIN_LINK_REL} href="${pageAbsUrl.replace(/\.html$/, '.md')}">`;
+}
+
 /** Build the canonical nav for a node page. breadcrumbCurrent = "ART-NN · Title" */
 export function buildNav(breadcrumbCurrent) {
   return `<nav>
