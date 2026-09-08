@@ -1289,6 +1289,7 @@ const GATES = [
   // --selftest is the GATE-SELFTEST-META-1 paired red-proof. infrastructure.html
   // freshness rides the COVERED 'infrastructure-page' entry (advisory on PR,
   // blocking on main) via the gen-infrastructure-page --check string below.
+  ['Infrastructure registry freshness (INFRA-PAGE-1)', 'node scripts/gen-infra-registry.mjs --check'],
   ['Infrastructure registry gate (INFRA-PAGE-1)', 'node scripts/check-infra-registry.mjs'],
   ['Infrastructure registry gate controls (RED-then-GREEN, INFRA-PAGE-1)', 'node scripts/check-infra-registry.mjs --selftest'],
   ['Infrastructure page freshness (INFRA-PAGE-1)', 'node scripts/gen-infrastructure-page.mjs --check'],
