@@ -1,0 +1,58 @@
+# Witness Cosignature Verifier
+
+Verifies a C2SP tlog-checkpoint + witness-cosignature note (SPEC.md §20.2) offline: confirms the note's origin and root match a §20/§20.1 batch anchor's declared anchored_hash, then checks each pinned witness's cosignature against a k-of-n threshold. Supports both Ed25519 cosignature/v1 and ML-DSA-44 (the suite §20.2 names alongside it under the §PQC-1 reserved-extension discipline). Consumes a caller-supplied checkpoint note (e.g. from a c2sp.org/tlog-proof bundle), verify-side only, zero log operation, zero network fetch. Golden fixtures dogfood the tool's own output, including a tampered negative fixture that must fail. States only that ≥k pinned witnesses signed this root; does not establish log honesty, key ownership, or leaf inclusion (see art-280/art-279 and SPEC.md §20.1 for those checks).
+
+- Page: https://ainumbers.co/chaingraph/art-424-witness-cosignature-verifier.html
+- Markdown twin: https://ainumbers.co/chaingraph/art-424-witness-cosignature-verifier.md
+- MCP tool: verify_witness_cosignatures (endpoint https://mcp.ainumbers.co/mcp)
+
+## Inputs
+
+- anchored_hash (unknown, required)
+- checkpoint_note (unknown, required)
+- consistency_proof (unknown, required)
+- log_origin (unknown, required)
+- mode (unknown, required)
+- new_checkpoint_note (unknown, required)
+- old_checkpoint_note (unknown, required)
+- threshold (unknown, required)
+- witness_keys (unknown, required)
+
+## Outputs
+
+- __async (boolean, optional)
+- anchored_hash (string, optional)
+- checks (array, optional)
+- log_origin (string, optional)
+- mode (string, optional)
+- not_proven (array, optional)
+- parsed (object, optional)
+- threshold (integer, optional)
+- witness_keys (array, optional)
+
+## Sample
+
+```json
+{
+  "anchored_hash": "sha256:1a48948724b049112cff2467561ab5307cf76b60dd11b63847449daf155c5485",
+  "log_origin": "witness-verify-1-fixture-log.example.org",
+  "checkpoint_note": "witness-verify-1-fixture-log.example.org\n42\nGkiUhySwSREs/yRnVhq1MHz3a2DdEbY4R0SdrxVcVIU=\n\n— witness-ed25519-1 ug/AhAAAAABobWYAaccGWkwwp5YCyD1NxFIT3tTt3sa+GKUYMe5QfPIbsGhNlhVvMOYbOyFwWb4Ie4qmw1veCD/8fadoGxyR72/XAg==\n— witness-mldsa44-1 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\n",
+  "witness_keys": [
+    {
+      "name": "witness-ed25519-1",
+      "algorithm": "ed25519",
+      "public_key_b64": "0fN6s6H2ctimNrsDRNlBLbK1wST+50DANLqoPidppTY="
+    },
+    {
+      "name": "witness-mldsa44-1",
+      "algorithm": "ml-dsa-44",
+      "public_key_b64": "tf0mhz7oIabShCTchLbxRpMiL8zFDKsGRcGbU0hBqbL6/ZegtljiRLQ67FBEOjHg0En+FiD2GifLWua1n+q2pO4JHiTmZibhukyZauWwGZAZTgZHBgi2JljF5aIa0aNwLhupiLuoiK2AroNKZJy29fgEaFRj7T0znwn8Djw8bAmzFkGcMdKDSjutv60wQA3ng4fpeg+BPGvpNIcThRP/dLyC0HOQqlc9WZKucXeYIvwgF5Od8m4sgc9CNuqfCWV075gMOx+oZz+VMfw9/eHK5mezqBh7Fo2dXRc1LURTChnbO5SoCT/AQ+dUu+WI6yfTJT5kfYr7TLJWosqlfiq+j1y156Mp4OZywFJH4BuHKruwGGgjYwg+RR3RnpJpuI500UKE+qu6HGvZgsxjHeIvEGHw7Lxubi4cnQ2ZP5h0mjXOpIf/mKTkNElY/Rr0YJq4whvFzQ9xWjhV9tn6bs5DRq6IM7Cs0GgRW0YlRvTdRxNuOD66wuLDXHo6RiobU1RQAbvjCRGU8f1EeLtZfCleVosyjPzmYVR3f24qvCizyitMtAI5iMOAhQGIaetTLVlQQFkOAhExAiIm5snNccg+UiUJODTeQ2vc+F2g1Smlcxd+nVuONYmb10U0e7O6EPXN3xFapS02wJeh7ezW4A8gC1hwnKj51QLOuOVHHIeLlzIZkNUmFVVs4OQ1/QGSnkCFbTkt+fjWYGdRz8JyLte23wVXPCJBBvv2fFRPLnKu+C/d2SzLS2OHWW3HoUlMcniEb9ZotMl4jghWTq38pa6r9AApL3S1Rbz8dbEOEd2vCiIVGNn9aYctCMaT1oxwTgZ3k9zJHjBI9TvfV5yIM0Yxgxn6yecSWDEl4fhIFZB037+dRx+0salm/Xzc35cOjcOoOWLfFOnezdOyi0qdVgMjmLNVSn2S5CLyF0lo/wEGnnJsUmB/KzBg4micLBzQhSul/ZxmBMAulN05KpnCtp+A4nxIlBBc44PcAFovohrPjcWW81vzewDhU+UwyVj/BwQxkZesRrfSAKTZhedQfpU5eKC0uT5dPSIMNbQyp44TeKHdhdnJXbLaF57xfiBfS4Xq+TPgDJXH35b+z2/WThMUYwG2urTBCa4mr1BDkXNQucZ2z+TpJyTJs+9klEK4cNCl12sQ3ATo99pPpQq68PTZhu+yAzfLtRiaSkwwpslCp3DNkkpxGaNz/XolsDXl2Qn2V1joQQkokrLKwszfbPxsFHevIg2cJjCdUTp9f0bJ2EeP3HCs+Jxb46b0oz77b3DFdfUmIWcJITLAFVpehZ/5ih3xyyyGVx7JBIlVi8AgxByja5LU5hVWiIMcikFidxo8Dk0KFelTFc8OElxtqPMwgtAUAtoQzFuW4KFBwVXzQvEdJqLLIxo+WsGHacyVwMhUWT5prYip7WzoI9vI3X+dvGzH8hdJ3C4K4FVJEcMSJLeqzNxKiKzNZNTyX1nj9fMQX/WFPxHf/MuKKKDvmhMhDb1KZMPprwN5yMHaT8yCfB1v5g3qCXQFDGHTytnfwIF55xqMEDKKLHLE5gm8j9ezMtmu0wtKWYXE/DnVK46w87AB1d3w42F+lGlU2+Y8xBy2RPE/UCDdKFiKrtL59c63rhBhHZ/RlyI/R3q2G8pGnZDdTJesCvWNWaYB2bu6W0T8AhW17GJ/w2BPF6yWv4hNpWF2MvlUZn4x5bUS5FbDS8I13xYbQUGvwlmHHZfnfILr3UDQaGmvv5fddEOl7+igVg=="
+    }
+  ],
+  "threshold": 2
+}
+```
+
+## Verify
+
+Run the sample policy_parameters through MCP tool `verify_witness_cosignatures` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
