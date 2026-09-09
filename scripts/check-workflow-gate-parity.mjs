@@ -339,6 +339,22 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── HELM-OPENCLAW-PAGE-1 (2026-09-08) ───────────────────────────────────────
+  ["check-helm-openclaw-page.mjs",
+    "Helm-OpenClaw page gate (HELM-OPENCLAW-PAGE-1): asserts helm-openclaw.html's six " +
+    "HELMKIT marker regions are byte-fresh against data/helm-kit/ and the spec's eight " +
+    "sections + head metas + JSON-LD TechArticle are present. Hard in preflight; its CI " +
+    "route is scripts-verify.yml's full preflight (the workflow literally runs " +
+    "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the " +
+    "same suite. Reads only tracked repo files — no CI-only input. Paired self-test: " +
+    "check-helm-openclaw-page.test.mjs (GATE-SELFTEST-META-1)."],
+  ["check-helm-openclaw-page.test.mjs", SELF_TEST],
+  ["gen-helm-openclaw-snippets.mjs",
+    "Helm-OpenClaw snippet generator --check (HELM-OPENCLAW-PAGE-1): re-renders the six " +
+    "marker regions from data/helm-kit/ and byte-compares. Hard in preflight; its CI route " +
+    "is scripts-verify.yml's full preflight, so a named workflow step would only duplicate " +
+    "the same suite. Reads only tracked repo files — no CI-only input. The --write half is " +
+    "a builder command, never a workflow (no derived-artifacts writer)."],
   // ── SHOWCASE-CALLSHAPE-1 (2026-09-08) ──────────────────────────────────────
   ["check-showcase-callshape.mjs",
     "Showcase prompt call-shape gate: every node-calling showcase entry must show " +
