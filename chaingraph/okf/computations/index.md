@@ -601,6 +601,7 @@ status: stable
 - [GL Tie-Out Recompute](./art-665-gl-tieout-recompute.md)
 - [Algo Execution Schedule Simulator](./art-669-algo-execution-schedule-simulator.md)
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md)
+- [Examination Readiness Pack](./art-670-examination-readiness-pack.md)
 - [Short-Sale Locate and SSR Checker](./art-671-short-sale-locate-ssr-checker.md)
 - [FX Funding Sequencer](./art-672-fx-funding-sequencer.md)
 - [Lending Recall Prioritizer](./art-673-lending-recall-prioritizer.md)
