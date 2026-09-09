@@ -1,5 +1,5 @@
 // check-showcase-prompts.mjs — gate for the example-prompts SSOT (mcp/showcase-prompts.json).
-// EXAMPLE-PROMPTS-JSON-1. Five checks:
+// EXAMPLE-PROMPTS-JSON-1 + PROMPT-RUNNER-1. Seven checks:
 //   (a) every tools[] entry is a live name: an mcp_name in chaingraph/chaingraph.json, a worker
 //       utility name (UTILITY_TOOL_NAMES in the vendored worker utility-tools copy), or a helmd
 //       name (helm/hub/mcp.mjs TOOLS, written "helmd:<name>"). RED otherwise.
@@ -11,9 +11,20 @@
 //   (e) copy-hallmarks over title/one_line is enforced by scripts/check-copy-hallmarks.mjs
 //       (already in preflight); this script re-runs its scoped assertions for the file so the
 //       gate is self-contained under --selftest.
+//   (f) PROMPT-RUNNER-1: every runner_steps[].tool is a live name (same universes as (a));
+//       each step is a tool step {tool, args} or a manual step {manual}, never both, never
+//       neither; every thread ref has the form "<stepIndex>.<execution_hash|artifact|
+//       session_receipt_root>" (1-based within that entry's runner_steps), points at a tool
+//       step in range, and its literal value appears in some step's args (so the runner's
+//       ref-substitution can never miss).
+//   (g) PROMPT-RUNNER-1 drift guard: mcp-playground.html embeds the runner manifest it renders
+//       (const RUNNER_PROMPTS = [...]) because the page's CSP may not fetch even a same-origin
+//       JSON file. This check deep-equal-compares the embedded copy against the SSOT per id —
+//       the page copy can never silently drift from the JSON.
 //
 // --selftest runs the RED-then-GREEN mutation battery: injects one bad tool name, one unlisted
-// body tool, a duplicate id, a bad group, and a count drop, and requires each to fail.
+// body tool, a duplicate id, a bad group, a count drop, a bad runner tool name, a broken thread
+// ref, and a runner-steps drift, and requires each to fail.
 
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -38,7 +49,15 @@ function loadUniverses() {
   // a tool that disappears goes red here, which is the point.
   const utilNames = new Set(baseline.utility_tools ?? []);
   const helmNames = new Set(baseline.helm_tools ?? []);
-  return { mcpNames, utilNames, helmNames, baseline };
+  // PROMPT-RUNNER-1: the runner manifest embedded in mcp-playground.html (strict JSON so it
+  // parses here; the page's CSP forbids fetching even same-origin JSON at runtime).
+  const playgroundPath = resolve(REPO, 'mcp-playground.html');
+  let pageRunner = null;
+  if (existsSync(playgroundPath)) {
+    const m = readFileSync(playgroundPath, 'utf8').match(/const RUNNER_PROMPTS = (\[[\s\S]*?\n\]);/);
+    if (m) pageRunner = JSON.parse(m[1]);
+  }
+  return { mcpNames, utilNames, helmNames, baseline, pageRunner };
 }
 function check(sp, universes) {
   const errs = [];
@@ -84,6 +103,52 @@ function check(sp, universes) {
       }
     }
   }
+  // (f) PROMPT-RUNNER-1: runner_steps — live tool names + resolvable thread refs.
+  const THREAD_PATHS = /^(\d+)\.(execution_hash|artifact|session_receipt_root)$/;
+  for (const e of sp) {
+    const where = `prompt ${e.id}`;
+    const steps = e.runner_steps ?? [];
+    if (!steps.length) continue;
+    steps.forEach((s, i) => {
+      const idx = i + 1; // 1-based, matching thread-ref step indices
+      if (s.manual !== undefined) {
+        if (typeof s.manual !== 'string' || !s.manual.trim()) errs.push(`${where}: runner step ${idx} has empty manual text`);
+        if (s.tool) errs.push(`${where}: runner step ${idx} declares both manual and tool`);
+        return;
+      }
+      if (!s.tool) { errs.push(`${where}: runner step ${idx} declares neither tool nor manual`); return; }
+      if (!live(s.tool)) errs.push(`${where}: runner_steps[${idx}].tool "${s.tool}" is not a live mcp_name / utility / helmd name`);
+      if (!s.args || typeof s.args !== 'object' || Array.isArray(s.args)) errs.push(`${where}: runner step ${idx} (tool ${s.tool}) is missing its args object`);
+    });
+    const argsBlob = JSON.stringify(steps.map((s) => s.args ?? {}));
+    for (const [k, v] of steps.flatMap((s) => Object.entries(s.thread ?? {}))) {
+      const m = THREAD_PATHS.exec(String(v));
+      if (!m) { errs.push(`${where}: thread "${k}" -> "${v}" is not <stepIndex>.execution_hash|artifact|session_receipt_root`); continue; }
+      const tIdx = Number(m[1]);
+      if (tIdx < 1 || tIdx > steps.length) { errs.push(`${where}: thread "${k}" references step ${tIdx}, out of range 1..${steps.length}`); continue; }
+      if (!steps[tIdx - 1].tool) { errs.push(`${where}: thread "${k}" references manual step ${tIdx}, which produces no result`); continue; }
+      if (!argsBlob.includes(`"${v}"`)) errs.push(`${where}: thread "${k}" value "${v}" does not appear verbatim in any step args (runner ref-substitution would miss it)`);
+    }
+  }
+  // (g) PROMPT-RUNNER-1: the page's embedded runner manifest must mirror the SSOT exactly.
+  const pageRunner = universes.pageRunner;
+  if (!pageRunner) {
+    errs.push('mcp-playground.html: no parseable `const RUNNER_PROMPTS = [...]` block found (the panel renders from this embedded copy)');
+  } else {
+    const pageById = new Map(pageRunner.map((p) => [p.id, p]));
+    for (const e of sp) {
+      if (!e.runner_steps?.length) continue;
+      const p = pageById.get(e.id);
+      if (!p) { errs.push(`prompt ${e.id}: has runner_steps in the JSON but is missing from the embedded RUNNER_PROMPTS`); continue; }
+      if (JSON.stringify(p.runner_steps) !== JSON.stringify(e.runner_steps)) {
+        errs.push(`prompt ${e.id}: embedded RUNNER_PROMPTS runner_steps drifted from mcp/showcase-prompts.json`);
+      }
+    }
+    for (const p of pageRunner) {
+      const e = sp.find((x) => x.id === p.id);
+      if (!e || !e.runner_steps?.length) errs.push(`mcp-playground.html RUNNER_PROMPTS: entry "${p.id}" has no runner_steps in the JSON`);
+    }
+  }
   return errs;
 }
 
@@ -111,7 +176,10 @@ if (SELFTEST) {
   expectRed('bad doorway', (m) => { m[0].doorways.push('carrier-pigeon'); });
   expectRed('count drop', (m) => { m.length = 45; });
   expectRed('em-dash in title', (m) => { m[9].title = 'A — B'; });
-  console.log('✓ check-showcase-prompts --selftest: all 8 mutations went RED.');
+  expectRed('bad runner tool name', (m) => { const e = m.find((x) => x.runner_steps); e.runner_steps.find((s) => s.tool).tool = 'totally_fake_tool'; });
+  expectRed('broken thread ref', (m) => { const e = m.find((x) => x.runner_steps); const s = e.runner_steps.find((x) => x.thread); Object.values(s.thread).forEach((_, i) => { const k = Object.keys(s.thread)[i]; s.thread[k] = '99.execution_hash'; }); });
+  expectRed('runner drift vs page', (m) => { const e = m.find((x) => x.runner_steps); e.runner_steps[0].label = 'drifted label'; });
+  console.log('✓ check-showcase-prompts --selftest: all 11 mutations went RED.');
   process.exit(0);
 }
 
@@ -123,4 +191,4 @@ if (errs.length) {
 }
 const groups = {};
 for (const e of sp) groups[e.group] = (groups[e.group] || 0) + 1;
-console.log(`✓ showcase-prompts: ${sp.length} entries, groups {${Object.entries(groups).map(([k, v]) => `${k}:${v}`).join(', ')}}, all tools live, no unlisted body tools, ids/groups/requires/doorways clean, count ≥ baseline.`);
+console.log(`✓ showcase-prompts: ${sp.length} entries, groups {${Object.entries(groups).map(([k, v]) => `${k}:${v}`).join(', ')}}, all tools live, no unlisted body tools, ids/groups/requires/doorways clean, count ≥ baseline, runner_steps live+threaded${sp.filter((e) => e.runner_steps?.length).length ? ` (${sp.filter((e) => e.runner_steps?.length).length} entries, embedded copy in sync)` : ''}.`);
