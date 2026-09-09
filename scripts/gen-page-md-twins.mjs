@@ -56,6 +56,16 @@ function pageRelFromUrl(url) {
   return p;
 }
 
+/**
+ * Twins cover the generated node/chain page trees only (tools/ + chaingraph/).
+ * A live node whose URL is a root-level hub surface (e.g. the MCP server card
+ * mcp.html) is a hand-authored hub page, not a generated page — skipped, and
+ * counted as such in the run summary.
+ */
+function isTwinScope(pageRel) {
+  return pageRel.startsWith('tools/') || pageRel.startsWith('chaingraph/');
+}
+
 function relToAbs(rel) { return resolve(REPO, rel); }
 
 function typeLabel(schemaType) {
@@ -74,6 +84,7 @@ export function collectTwinTargets(repo) {
   for (const n of cg.nodes ?? []) {
     if (n.status !== 'live') continue;
     const pageRel = pageRelFromUrl(n.url);
+    if (!isTwinScope(pageRel)) continue;
     if (!existsRaw(resolve(repo, pageRel))) continue;
     const twinRel = pageRel.replace(/\.html$/, '.md');
     const rec = {
@@ -164,6 +175,18 @@ export function collectTwinTargets(repo) {
 
   targets.sort((a, b) => a.twinRel.localeCompare(b.twinRel));
   return targets;
+}
+
+/** Live nodes whose page sits outside the twin scope, with the reason. */
+export function outOfScopeNodes(repo) {
+  const cg = JSON.parse(readFileSync(resolve(repo, 'chaingraph', 'chaingraph.json'), 'utf8'));
+  const out = [];
+  for (const n of cg.nodes ?? []) {
+    if (n.status !== 'live') continue;
+    const pageRel = pageRelFromUrl(n.url);
+    if (!isTwinScope(pageRel)) out.push({ toolId: n.tool_id, pageRel, url: n.url });
+  }
+  return out;
 }
 
 // tiny existsSync wrapper (imported lazily so the top import list stays honest)
@@ -291,7 +314,9 @@ function main() {
     process.exit(1);
   }
   const mode = CHECK ? '--check: fresh' : 'written';
-  console.log(`gen-page-md-twins ${mode}: ${summary.twins} twins (${targets.filter((t) => t.kind === 'node').length} node pages, ${targets.filter((t) => t.kind === 'chain').length} chain pages), ${summary.heads} head links${CHECK ? '' : ` (${summary.twinsWritten} twin writes, ${summary.headsWritten} head writes)`}.`);
+  const oos = outOfScopeNodes(REPO).map((n) => `${n.toolId} (${n.pageRel})`).join(', ');
+  const oosNote = oos ? `; out of scope: ${oos} (root-level hub page, not a generated node page)` : '';
+  console.log(`gen-page-md-twins ${mode}: ${summary.twins} twins (${targets.filter((t) => t.kind === 'node').length} node pages, ${targets.filter((t) => t.kind === 'chain').length} chain pages), ${summary.heads} head links${CHECK ? '' : ` (${summary.twinsWritten} twin writes, ${summary.headsWritten} head writes)`}${oosNote}.`);
 }
 
 function writeIfChanged(absPath, next) {
