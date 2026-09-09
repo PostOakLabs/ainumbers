@@ -898,7 +898,7 @@ export function buildA11yEnhancementScript(a11yTable, runTarget) {
   var VERDICT_KEYS = ${JSON.stringify(A11Y_VERDICT_KEYS)};
   var st = null;
   function ensureRegion() {
-    if (st && document.body && document.body.contains(st)) return st;
+    if (st && document.body && typeof document.body.contains === 'function' && document.body.contains(st)) return st;
     st = document.createElement('div');
     st.id = 'ocg-a11y-status';
     st.setAttribute('role', 'status');
