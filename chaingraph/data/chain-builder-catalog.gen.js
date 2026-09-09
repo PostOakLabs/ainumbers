@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (662 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (663 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6942,6 +6942,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-33-mcp-server-self-attestation-pack",
       "art-62-ap2-payment-receipt-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-670-examination-readiness-pack",
+    "display_name": "Examination Readiness Pack",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-670-examination-readiness-pack.html",
+    "description": "One pack, two selectable regime modules, five stages of regulatory exam management over an institution's own supplied request list (EXAM-REA",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
