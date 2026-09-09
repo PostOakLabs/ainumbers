@@ -925,8 +925,8 @@ export function buildAskAgentBlock({ manifestPath, toolName, description, sample
   const verify = isGpu
     ? `Verify before trusting: this node computes in your browser, so the MCP endpoint returns no execution_hash. Run the tool in the page, export the Policy Mandate artifact it produces, and call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with that artifact.` + (webmcpRegistered ? ` You can also re-run the in-page WebMCP tool \`${toolName}\`.` : '')
     : webmcpRegistered
-      ? `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`, or re-run the in-page WebMCP tool \`${toolName}\`.`
-      : `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`.`;
+      ? `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`, passing the full artifact the run returned (the object containing \`policy_parameters\` + \`output_payload\` + \`execution_hash\`; equivalently \`policy_parameters\` + \`output_payload\` with \`claimed_hash\`), not the bare hash string, or re-run the in-page WebMCP tool \`${toolName}\`.`
+      : `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`, passing the full artifact the run returned (the object containing \`policy_parameters\` + \`output_payload\` + \`execution_hash\`; equivalently \`policy_parameters\` + \`output_payload\` with \`claimed_hash\`), not the bare hash string.`;
   const copyText = [
     `Run the AINumbers MCP tool \`${toolName}\`. Task: ${task}`,
     `Call it with arguments: ${JSON.stringify({ policy_parameters: sample })}`,
