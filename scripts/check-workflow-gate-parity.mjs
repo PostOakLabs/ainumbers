@@ -463,6 +463,18 @@ const PREFLIGHT_ONLY = new Map([
     "browser-side). Hard in preflight; same CI route as above via scripts-verify.yml's full " +
     "preflight. Reads tracked pages + chaingraph.json only — no CI-only input."],
 
+  // ── PAGE-MD-TWINS-1 (2026-09-08) ──────────────────────────────────────────
+  ["gen-page-md-twins.mjs",
+    "Markdown twin freshness (<page>.md + <link rel=alternate type=text/markdown> for every " +
+    "generated node/chain page, AGENT-REACH-BUILD-SPEC section 2 wave 2). Hard in preflight. " +
+    "DELIBERATELY not wired as a named CI step: the twins, their head links and the llms-full.txt " +
+    "'Markdown twins' section are SO #35 single-writer output (derived-artifacts.mjs COVERED id " +
+    "'page-md-twins', writes declared as the tools/ + chaingraph/ trees) that do not exist on a PR " +
+    "checkout until main's derived-artifacts-regen.yml writes them, so a hard CI --check would red " +
+    "every PR for an absence the PR is forbidden to fix. Blocking routes: derived-artifacts-regen.yml " +
+    "runs the regen + fixpoint verification on main, scripts-verify.yml runs the full preflight " +
+    "(this gate's own diff shape) on scripts/** changes, and the main push runs preflight too. " +
+    "Advisory on a PR by the generic ADVISORY_ON_PR categorisation, same class as gen-wellknown-catalogs."],
   // ── AI-CATALOG-1 (2026-09-05) ──────────────────────────────────────────────
   ["gen-wellknown-catalogs.mjs",
     "Well-known catalogs freshness (ai-catalog.json + RFC 9727 api-catalog, one generator). " +
