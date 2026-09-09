@@ -462,6 +462,17 @@ const PREFLIGHT_ONLY = new Map([
     "full preflight, so a named workflow step would only duplicate the same suite. Reads only " +
     "tracked repo files — no CI-only input."],
 
+  // ── TOOLPAGE-A11Y-1 (2026-09-09) ─────────────────────────────────────────
+  ["check-a11y-tree.mjs",
+    "Accessibility-tree gate on every generated node page (AGENT-REACH-BUILD-SPEC §2 wave 2): " +
+    "aria-label === inputSchema property on every static form control, exactly one role=\"status\" " +
+    "live region announcing execution_hash + verdict, no duplicate accessible names, byte-fresh " +
+    "A11Y-TREE region + <meta name=\"ai-tool\"> + role=\"main\" landmark, down-only baseline ratchet. " +
+    "Hard in preflight; its CI route is scripts-verify.yml's full preflight (the workflow literally " +
+    "runs `node scripts/preflight.mjs`), so a named workflow step would only duplicate the same " +
+    "suite. Reads only tracked repo files — no CI-only input. Paired self-test: the same script's " +
+    "--self-test mode as its own GATES entry (GATE-SELFTEST-META-1)."],
+
   // ── TOOLPAGE-DEEPLINK-1 (2026-09-05) ─────────────────────────────────────
   ["check-deeplink-contract.mjs",
     "Fragment-only prefill-and-run deep links on every registered WebMCP page (dynamic vm " +
