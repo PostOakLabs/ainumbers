@@ -378,6 +378,23 @@ export const COVERED = [
     share: 'n/a (new 2026-09-05, A2A-CARD-SIGN-1)',
   },
   {
+    // PAGE-MD-TWINS-1 (AGENT-REACH-BUILD-SPEC §2 wave 2): one generated markdown
+    // twin (<page>.md + <link rel=alternate type=text/markdown>) per live node
+    // page and chain page. Writes are runtime-named (one twin per page), so the
+    // write targets are declared as the two generator-owned trees it writes
+    // inside (euc-register/okf directory precedent). ORDERED AFTER
+    // 'chaingraph-assemble' (reads chaingraph.json) and BEFORE 'llms-full'
+    // (gen-llms-full.mjs imports collectTwinTargets from gen-page-md-twins.mjs,
+    // so the twin set must exist before llms-full renders its twin section).
+    id: 'page-md-twins',
+    regen: 'node scripts/gen-page-md-twins.mjs',
+    gate: 'node scripts/gen-page-md-twins.mjs --check',
+    writes: ['tools', 'chaingraph'],
+    artifacts: ['tools', 'chaingraph'],
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-09-08, PAGE-MD-TWINS-1)',
+  },
+  {
     id: 'llms-full',
     regen: 'node scripts/gen-llms-full.mjs',
     gate: 'node scripts/gen-llms-full.mjs --check',
