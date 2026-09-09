@@ -87,6 +87,11 @@
  *       prints the per-page buckets.)
  *   node scripts/gen-webmcp-registrations.mjs --selftest
  *
+ * WEBMCP-OT-META-1: every write/check mode above also carries the origin-trial
+ * <meta> region in each generator-owned page's <head> (token from
+ * chaingraph/webmcp-ot-token.txt; placeholder = nothing emitted) and --check
+ * runs the OT token gate (origin/feature/expiry, 14-day renewal floor).
+ *
  * Exit: 0 clean; 1 on any --check drift or hard-guard failure.
  */
 import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync, mkdirSync } from 'node:fs';
@@ -111,6 +116,96 @@ export const END = '<!-- WEBMCP:GEN-END -->';
 
 function beginLine(manifestPath) {
   return `<!-- WEBMCP:GEN-BEGIN manifest=${manifestPath} generator=scripts/gen-webmcp-registrations.mjs -->`;
+}
+
+// ── Origin-trial meta emitter + token gate (WEBMCP-OT-META-1) ────────────────
+/**
+ * Chrome's WebMCP origin trial exposes document.modelContext only when the page
+ * serves a first-party OT token. The token file (`chaingraph/webmcp-ot-token.txt`,
+ * real token from PR #1726) is read at generation time:
+ *   - with a real token, every generator-owned registered page's <head> carries
+ *     `<meta http-equiv="origin-trial" content="...">` inside its own marker
+ *     region (OT_META_BEGIN/END), byte-exact under --check;
+ *   - with the placeholder, nothing is emitted and pages stay byte-identical.
+ * The --check gate decodes the token (base64 envelope, JSON payload at the tail)
+ * and goes RED when origin/feature mismatch or expiry is < 14 days out (the
+ * expiry gate IS the renewal alarm — no cron, no workflow); placeholder prints
+ * ADVISORY: OT-TOKEN ABSENT. Registration needs a Google account (no API), so
+ * the token paste is the operator's one-line commit (WEBMCP-OT-TOKEN-PASTE).
+ */
+export const OT_META_BEGIN = '<!-- WEBMCP:OT-META-BEGIN generator=scripts/gen-webmcp-registrations.mjs -->';
+export const OT_META_END = '<!-- WEBMCP:OT-META-END -->';
+export const OT_TOKEN_PLACEHOLDER = 'PLACEHOLDER-SET-BY-OPERATOR';
+export const OT_MIN_DAYS = 14;
+
+/** Read + classify the OT token file. `present` is true only for a real token. */
+export function readOtToken(repoRoot) {
+  const abs = resolve(repoRoot || REPO, OT_TOKEN_REL);
+  if (!existsSync(abs)) return { present: false, placeholder: true, token: '' };
+  const token = readFileSync(abs, 'utf8').trim();
+  if (!token || token === OT_TOKEN_PLACEHOLDER) return { present: false, placeholder: true, token };
+  return { present: true, placeholder: false, token };
+}
+
+/** Decode the token envelope: base64 bytes whose tail carries the JSON payload
+ *  {origin, feature, expiry (seconds), isSubdomain}. Returns {ok, payload} or
+ *  {ok:false, error}. */
+export function decodeOtToken(token) {
+  let bytes;
+  try {
+    bytes = Buffer.from(String(token).replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('latin1');
+  } catch (e) {
+    return { ok: false, error: `token is not base64: ${e.message}` };
+  }
+  const m = bytes.match(/\{[^{}]*\}\s*$/);
+  if (!m) return { ok: false, error: 'decoded token carries no JSON payload at its tail' };
+  try { return { ok: true, payload: JSON.parse(m[0]) }; }
+  catch (e) { return { ok: false, error: `token JSON payload is not valid JSON: ${e.message}` }; }
+}
+
+/** Pure OT gate: [] when the token is acceptable, else one string per RED. */
+export function otTokenGateErrors(token, now = new Date()) {
+  const dec = decodeOtToken(token);
+  if (!dec.ok) return [`OT token does not decode: ${dec.error}`];
+  const p = dec.payload;
+  const reasons = [];
+  // The payload carries the port (https://ainumbers.co:443); :443 is the default
+  // HTTPS port, so it normalizes to the bare origin.
+  const origin = typeof p.origin === 'string' ? p.origin.replace(/:443$/, '') : p.origin;
+  if (origin !== 'https://ainumbers.co') reasons.push(`OT token origin ${JSON.stringify(p.origin)} !== https://ainumbers.co`);
+  if (p.feature !== 'WebMCP') reasons.push(`OT token feature ${JSON.stringify(p.feature)} !== 'WebMCP'`);
+  const days = typeof p.expiry === 'number' ? (p.expiry * 1000 - now.getTime()) / 86400000 : NaN;
+  if (!Number.isFinite(days)) reasons.push('OT token expiry missing or unparseable (seconds-since-epoch expected)');
+  else if (days < OT_MIN_DAYS) reasons.push(`OT token expires in ${days.toFixed(1)} days — below the ${OT_MIN_DAYS}-day renewal floor (renew the token: origin-trials.google.com)`);
+  return reasons;
+}
+
+/** The marker-delimited <head> region carrying the meta tag. */
+export function otMetaBlock(token) {
+  return [OT_META_BEGIN, `<meta http-equiv="origin-trial" content="${token}">`, OT_META_END].join('\n');
+}
+
+function otMetaRegionOf(pageSrc) {
+  const b = pageSrc.indexOf(OT_META_BEGIN);
+  if (b === -1) return null;
+  const e = pageSrc.indexOf(OT_META_END, b);
+  if (e === -1) return null;
+  return { start: b, end: e + OT_META_END.length };
+}
+
+/** Idempotent <head> writer: with `block`, the region sits on the first line
+ *  after <head>; with null, any existing region is stripped (byte-identical
+ *  with a never-tokenized page). */
+export function applyOtMeta(pageSrc, block) {
+  let src = pageSrc;
+  const region = otMetaRegionOf(src);
+  if (region) src = src.slice(0, region.start) + src.slice(region.end).replace(/^\n/, '');
+  if (!block) return src;
+  const m = /<head\b[^>]*>/.exec(src);
+  if (!m) throw new Error('page has no <head> to carry the origin-trial meta region');
+  let at = m.index + m[0].length;
+  if (src[at] === '\n') at += 1;
+  return src.slice(0, at) + block + '\n' + src.slice(at);
 }
 
 // ── Per-tool manifest-property → element-id map (WEBMCP-GEN-IDMAP-1) ──────────
@@ -1280,16 +1375,18 @@ export function expectedChainBlocks(repoRoot) {
 
 function runChainMode(write) {
   const entries = expectedChainBlocks(REPO);
+  const ot = readOtToken(REPO);
+  const otBlock = ot.present ? otMetaBlock(ot.token) : null;
   let written = 0, drifted = 0;
   for (const e of entries) {
     const pageAbs = resolve(REPO, e.page);
     const src = readFileSync(pageAbs, 'utf8');
-    const updated = insertIntoPage(src, e.block);
+    const updated = applyOtMeta(insertIntoPage(src, e.block), otBlock);
     if (updated !== src) {
       if (!write) { drifted++; console.error(`DRIFT ${e.page}: chain registration region missing or stale (run with --write)`); continue; }
       writeFileSync(pageAbs, updated);
       written++;
-      console.log(`wrote ${e.page} (chain registrations: plan_chain, assemble_session_receipt, apply_delegation_bundle${e.hasRunner ? '; runner link in cfg' : ''})`);
+      console.log(`wrote ${e.page} (chain registrations: plan_chain, assemble_session_receipt, apply_delegation_bundle${e.hasRunner ? '; runner link in cfg' : ''}${ot.present ? '; OT meta in head' : ''})`);
     }
   }
   if (!write) {
@@ -1392,6 +1489,38 @@ function runCheck() {
   // re-parsed and re-probed against fixture 0 — wrapper-byte drift, entry
   // drift, or a failed probe is RED, never silent.
   await checkDerivedEntries(manifestIndex, mcpNameByTool, (p) => problems.push(p));
+  // 4. OT token gate + meta region freshness (WEBMCP-OT-META-1). The expiry
+  // check IS the renewal alarm: main goes RED 14 days before expiry and the
+  // nightly opener surfaces it — no cron, no workflow.
+  const ot = readOtToken(REPO);
+  if (ot.present) {
+    const reasons = otTokenGateErrors(ot.token);
+    if (reasons.length > 0) {
+      console.error('✗ OT token gate FAILED (WEBMCP-OT-META-1):');
+      reasons.forEach((r) => console.error('    ' + r));
+      process.exit(1);
+    }
+    const days = ((decodeOtToken(ot.token).payload.expiry * 1000 - Date.now()) / 86400000).toFixed(1);
+    console.log(`✓ OT token gate GREEN — origin https://ainumbers.co (subdomain match), feature WebMCP, expiry ${days} days out (floor ${OT_MIN_DAYS}).`);
+  } else {
+    console.log('ADVISORY: OT-TOKEN ABSENT — no origin-trial meta emitted; pages stay byte-identical (paste a real token to chaingraph/webmcp-ot-token.txt).');
+  }
+  if (ot.present) {
+    const expectedOt = otMetaBlock(ot.token);
+    for (const p of listPages(REPO)) {
+      let pageSrc;
+      try { pageSrc = readRepoFile(p, REPO); } catch { continue; }
+      if (!pageSrc.includes(BEGIN)) continue; // only generator-owned pages; pilot pages are another row's
+      const region = otMetaRegionOf(pageSrc);
+      if (!region) {
+        problems.push(`${p}: no origin-trial meta region in <head> (token present) — run node scripts/gen-webmcp-registrations.mjs --all --write and node scripts/gen-webmcp-registrations.mjs --chains --write`);
+        continue;
+      }
+      if (pageSrc.slice(region.start, region.end) !== expectedOt) {
+        problems.push(`${p}: origin-trial meta region drifted from chaingraph/webmcp-ot-token.txt — regenerate with --write`);
+      }
+    }
+  }
 
   if (problems.length) {
     console.error(`✗ webmcp-registration freshness FAILED (${problems.length}):`);
@@ -1408,6 +1537,8 @@ function runCheck() {
 
 function runReportOrWrite(write, onlyTool) {
   const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(REPO);
+  const ot = readOtToken(REPO);
+  const otBlock = ot.present ? otMetaBlock(ot.token) : null;
   let emitted = 0;
   let exact = 0;
   const exclusions = [];
@@ -1422,8 +1553,9 @@ function runReportOrWrite(write, onlyTool) {
     const pageAbs = resolve(REPO, d.detail.page);
     if (write) {
       const pageSrc = readFileSync(pageAbs, 'utf8');
-      const next = insertIntoPage(pageSrc, block);
-      if (next !== pageSrc) { writeFileSync(pageAbs, next, 'utf8'); emitted++; console.log(`✓ emitted WebMCP registration into ${d.detail.page} (name: ${d.detail.name})`); }
+      // WEBMCP-OT-META-1: the <head> OT meta region rides the same write pass.
+      const next = applyOtMeta(insertIntoPage(pageSrc, block), otBlock);
+      if (next !== pageSrc) { writeFileSync(pageAbs, next, 'utf8'); emitted++; console.log(`✓ wrote ${d.detail.page} (name: ${d.detail.name}${ot.present ? '; OT meta in head' : ''})`); }
       else { exact++; }
     } else {
       emitted++;
@@ -2839,6 +2971,33 @@ async function selftest(){
       : { ok: false };
     check('probe RED: a corrupted binding path fails (parse or probe)', !probeCorrupt.ok);
 
+    // 15. OT token gate + meta emitter (WEBMCP-OT-META-1). RED-then-GREEN on the
+    // pure gate, byte-identity on the head writer.
+    const b64tok = (o) => Buffer.from(JSON.stringify(o), 'utf8').toString('base64');
+    const DAY = 86400; // expiry is seconds since epoch
+    const past = b64tok({ origin: 'https://ainumbers.co:443', feature: 'WebMCP', expiry: Math.floor(Date.now() / 1000) - DAY, isSubdomain: true });
+    const expiredFix = b64tok({ origin: 'https://ainumbers.co:443', feature: 'WebMCP', expiry: Math.floor(Date.now() / 1000) + 1, isSubdomain: true });
+    const wrongOrigin = b64tok({ origin: 'https://evil.example', feature: 'WebMCP', expiry: Math.floor(Date.now() / 1000) + 45 * DAY });
+    const wrongFeature = b64tok({ origin: 'https://ainumbers.co:443', feature: 'NotWebMCP', expiry: Math.floor(Date.now() / 1000) + 45 * DAY });
+    const shortExpiry = b64tok({ origin: 'https://ainumbers.co:443', feature: 'WebMCP', expiry: Math.floor(Date.now() / 1000) + 5 * DAY });
+    const good = b64tok({ origin: 'https://ainumbers.co:443', feature: 'WebMCP', expiry: Math.floor(Date.now() / 1000) + 45 * DAY, isSubdomain: true });
+    check('OT gate: past-expiry fixture token is RED', otTokenGateErrors(past).length > 0);
+    check('OT gate: token expiring in 1 second is RED (expired)', otTokenGateErrors(expiredFix).some((r) => r.includes('expires')));
+    check('OT gate: wrong origin is RED', otTokenGateErrors(wrongOrigin).some((r) => r.includes('origin')));
+    check('OT gate: wrong feature is RED', otTokenGateErrors(wrongFeature).some((r) => r.includes('feature')));
+    check('OT gate: expiry below the 14-day floor is RED (renewal alarm)', otTokenGateErrors(shortExpiry).some((r) => r.includes('14-day')));
+    check('OT gate: :443 origin + future expiry GREEN (the port normalizes)', otTokenGateErrors(good).length === 0);
+    const headPage = '<html><head>\n<title>t</title>\n</head><body>x</body></html>';
+    const metaBlock = otMetaBlock('tok-fixture');
+    const withMeta = applyOtMeta(headPage, metaBlock);
+    check('OT meta: region inserted on the first line after <head>', withMeta.startsWith('<html><head>\n' + metaBlock + '\n'));
+    check('OT meta: insert is idempotent', applyOtMeta(withMeta, metaBlock) === withMeta);
+    check('OT meta: placeholder strips back to byte-identical', applyOtMeta(withMeta, null) === headPage);
+    check('OT meta: no <head> is refused, never guessed', (() => { try { applyOtMeta('<html><body></body></html>', metaBlock); return false; } catch { return true; } })());
+    writeFileSync(join(tmp, 'chaingraph', 'webmcp-ot-token.txt'), OT_TOKEN_PLACEHOLDER + '\n');
+    check('OT read: the placeholder classifies ABSENT (no meta emitted)', readOtToken(tmp).present === false && readOtToken(tmp).placeholder === true);
+    writeFileSync(join(tmp, 'chaingraph', 'webmcp-ot-token.txt'), 'real-token-shape\n');
+    check('OT read: a non-placeholder token classifies present', readOtToken(tmp).present === true && readOtToken(tmp).placeholder === false);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
