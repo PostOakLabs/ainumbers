@@ -42,9 +42,9 @@ whitepaper falsifiable counts, art-283 roundtrip) are deliberately NOT re-tasked
 |----|-------|--------|--------|
 | T1 | `CLINE-T1-WRAPPER-PARSE-COUNTERVERIFY-TASKING-2026-09-09.md` | wrapper-parse 3/462 split (self-verified) | PROPOSED |
 | T2 | `CLINE-T2-DOORWAY-CENSUS-REPRO-TASKING-2026-09-09.md` | 89/96 demo-exclusion census (single-agent) | PROPOSED |
-| T3 | `CLINE-T3-ESTATE-COUNTS-RECONCILE-TASKING-2026-09-09.md` | conflicting estate counts (697/535/96/…) | PROPOSED |
+| T3 | `CLINE-T3-ESTATE-COUNTS-RECONCILE-TASKING-2026-09-09.md` | conflicting estate counts (697/535/96/…) | REPORTED 2026-09-09 → `research/ESTATE-COUNTS-RECONCILE-2026-09-09.md` + `estate-counts-raw-2026-09-09.json` |
 | T4 | `CLINE-T4-PARITY-INSTRUMENTS-COUNTERVERIFY-TASKING-2026-09-09.md` | value-parity 26 Tier-1 + surface-parity 171 divergent | PROPOSED |
-| T5 | `CLINE-T5-EXTERNAL-CLAIMS-VERIFY-TASKING-2026-09-09.md` | never-fetched external/site claims | PROPOSED |
+| T5 | `CLINE-T5-EXTERNAL-CLAIMS-VERIFY-TASKING-2026-09-09.md` | never-fetched external/site claims | DISPATCHED 2026-09-09 |
 
 Suggested order: T3 (light, produces the count baseline other tasks cite) → T5 → T1
 → T4 → T2 (heaviest).
@@ -58,3 +58,24 @@ The workspace root is a deny-by-default evidence repo (`.gitignore` EVIDENCE-GIT
 `*` is ignored, tracked files stay tracked, and new evidence lands via
 `git add -f Cline/` — the same path the 2026-09-09 WRAPPER-PARSE report commit used.
 New files in this folder will not show in `git status` until force-added.
+
+## Dispatch mechanics (empirical, 2026-09-09 — for the orchestrator's next runs)
+
+1. Cline task/session records: `C:\Users\Disco\.cline\data\sessions\<id>\<id>.json`
+   (status: running / pending / idle / completed / failed) and `<id>.messages.json`
+   (array `messages`; a trailing assistant `tool_use` with no `tool_result` = blocked
+   on approval). Monitor from disk; touch the UI only for approvals.
+2. Dispatch recipe that works: panel "+" (new task, ≈(741,25) raster) → a11y
+   `set_value` the draft into the message field → click INTO the textarea (~(400,630))
+   for real keyboard focus → press **Enter**. Enter does nothing without the real-focus
+   click first.
+3. Mode chip geometry (raster px, 1280x696 app-state space): Plan ≈(771,669),
+   Act ≈(787,669), send triangle ≈(789,654). a11y AXPress on the Act element does
+   nothing; use raw event clicks. Ctrl+Shift+A is captured by the Azure extension —
+   do not use it.
+4. With Edit auto-approve OFF, every file write needs a UI Save click (Save ≈
+   element [78] in the approval card). Cline's `editor` tool rejects single writes
+   over ~4 KB ("Editor input too large") — instruct chunked writes (~3.5 KB with
+   `<!--P2-->`-style continuation markers); approve each chunk.
+5. Dispatch briefs by absolute path (`C:\dev\Claude\Projects\AINumbers\Cline\…`);
+   outside-workspace writes to `research/` succeed once approved.
