@@ -219,6 +219,15 @@ export async function deriveCounts() {
   const hubToolsTradetech      = countHubTools('tradetech-hub.html')
   const hubToolsCapitalMarkets = countHubTools('capital-markets-settlement-hub.html')
 
+  // infra_pages — INFRA-PAGE-1: the derived page registry (data/infra-registry.json,
+  // written by gen-infra-registry.mjs). infrastructure.html renders one card per
+  // entry behind a data-count="infra_pages" sentinel; the count must re-derive
+  // from the registry, never a hand-typed number.
+  let infraPages = 0
+  try {
+    infraPages = JSON.parse(readFileSync(resolve(repoRoot, 'data', 'infra-registry.json'), 'utf8')).length
+  } catch { /* registry absent — sentinel stays unverified rather than guessing */ }
+
   return {
     'tools.browser':     toolsBrowser,
     'manifests':         manifests,
@@ -252,6 +261,7 @@ export async function deriveCounts() {
     'hubTools.sme':              hubToolsSme,
     'hubTools.tradetech':        hubToolsTradetech,
     'hubTools.capitalMarkets':   hubToolsCapitalMarkets,
+    'infra_pages':       infraPages,
   }
 }
 

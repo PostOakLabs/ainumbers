@@ -401,6 +401,9 @@ for (const rel of [
   'chaingraph/zkvm-compute-integrity.html',
   'chaingraph/why-openchain-graph.html',
   'fv-explainer.html',
+  // INFRA-PAGE-1: the generated infrastructure page's data-count="infra_pages"
+  // sentinel (key derived in counts.mjs from data/infra-registry.json).
+  'infrastructure.html',
   // CLAIMS-SENTINEL-TIER1-1 (audit Q7) — the five hub hero paragraphs' spelled-out tool counts,
   // now numeral + <!--COUNT:hubTools.*--> sentinels alongside every same-page copy of the figure
   // (hero-eyebrow, sec-heading(s), last-reviewed, sec-sub). tradetech-hub.html's meta/og/JSON-LD

@@ -41,6 +41,19 @@ const END = '<!--ESTATE-MAP:end-->';
 const AGENT_HEADING = '## What an agent can do here';
 const AGENT_START = '<!--AGENT-TASKS:start-->';
 const AGENT_END = '<!--AGENT-TASKS:end-->';
+// INFRA-PAGE-1 (2026-09-08): third marker region owned by this single writer —
+// the "Infrastructure map" block, one line per category with its page count,
+// sourced from the derived registry (data/infra-registry.json, written by
+// gen-infra-registry.mjs; the human map and the agent map stay one file).
+const INFRA_REGISTRY_PATH = resolve(REPO, 'data', 'infra-registry.json');
+const INFRA_HEADING = '## Infrastructure map';
+const INFRA_START = '<!--INFRA-MAP:start-->';
+const INFRA_END = '<!--INFRA-MAP:end-->';
+const CATEGORY_ORDER = ['run', 'verify', 'anchor', 'convert', 'agents', 'learn', 'helm', 'guide'];
+const CATEGORY_LABELS = {
+  run: 'Run', verify: 'Verify', anchor: 'Anchor', convert: 'Convert',
+  agents: 'Agents', learn: 'Learn', helm: 'Helm', guide: 'Guide',
+};
 
 function audienceLabel(a) {
   if (a === 'agent') return 'agent';
@@ -160,12 +173,34 @@ export function renderAgentTasks() {
   return lines.join('\n');
 }
 
+export function renderInfraMap() {
+  if (!existsSync(INFRA_REGISTRY_PATH)) {
+    // Registry not on disk yet (fresh PR checkout before gen-infra-registry
+    // runs): keep the sentinels EMPTY rather than emitting a stale hand list.
+    return '';
+  }
+  const registry = JSON.parse(readFileSync(INFRA_REGISTRY_PATH, 'utf8'));
+  const lines = [];
+  lines.push(`Every non-tool page, derived from the page registry (category meta in each page's head) and rendered at https://ainumbers.co/infrastructure.html. ${registry.length} pages:`);
+  lines.push('');
+  const counts = new Map();
+  for (const r of registry) counts.set(r.category, (counts.get(r.category) || 0) + 1);
+  for (const cat of CATEGORY_ORDER) {
+    if (!counts.has(cat)) continue;
+    lines.push(`- **${CATEGORY_LABELS[cat]}** -> ${counts.get(cat)} page(s)`);
+  }
+  lines.push('');
+  lines.push('Per-page detail (title, description, category, facts): `https://ainumbers.co/data/infra-registry.json`.');
+  return lines.join('\n');
+}
+
 function main() {
   const check = process.argv.includes('--check');
   const map = JSON.parse(readFileSync(MAP_PATH, 'utf8'));
   const body = renderEstateMap(map);
   const block = `${START}\n${body}\n${END}`;
   const agentBlock = `${AGENT_HEADING}\n${AGENT_START}\n${renderAgentTasks()}\n${AGENT_END}`;
+  const infraBlock = `${INFRA_HEADING}\n${INFRA_START}\n${renderInfraMap()}\n${INFRA_END}`;
 
   let src = readFileSync(LLMS_PATH, 'utf8');
   const re = new RegExp(`${START}[\\s\\S]*?${END}`);
@@ -189,6 +224,16 @@ function main() {
     }
     const at = anchor + END.length;
     next = next.slice(0, at) + '\n\n' + agentBlock + next.slice(at);
+  }
+
+  // INFRA-MAP region (INFRA-PAGE-1): same insert-if-absent pattern as
+  // AGENT-TASKS so one run heals main.
+  const infraRe = new RegExp(`${INFRA_HEADING}\\n${INFRA_START}[\\s\\S]*?${INFRA_END}`);
+  if (infraRe.test(next)) {
+    next = next.replace(infraRe, infraBlock);
+  } else {
+    const at = next.indexOf(AGENT_END) + AGENT_END.length;
+    next = next.slice(0, at) + '\n\n' + infraBlock + next.slice(at);
   }
 
   if (check) {
