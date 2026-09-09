@@ -40,11 +40,11 @@ whitepaper falsifiable counts, art-283 roundtrip) are deliberately NOT re-tasked
 
 | ID | Brief | Target | Status |
 |----|-------|--------|--------|
-| T1 | `CLINE-T1-WRAPPER-PARSE-COUNTERVERIFY-TASKING-2026-09-09.md` | wrapper-parse 3/462 split (self-verified) | PROPOSED |
+| T1 | `CLINE-T1-WRAPPER-PARSE-COUNTERVERIFY-TASKING-2026-09-09.md` | wrapper-parse 3/462 split (self-verified) | DISPATCHED 2026-09-09 |
 | T2 | `CLINE-T2-DOORWAY-CENSUS-REPRO-TASKING-2026-09-09.md` | 89/96 demo-exclusion census (single-agent) | PROPOSED |
 | T3 | `CLINE-T3-ESTATE-COUNTS-RECONCILE-TASKING-2026-09-09.md` | conflicting estate counts (697/535/96/…) | REPORTED 2026-09-09 → `research/ESTATE-COUNTS-RECONCILE-2026-09-09.md` + `estate-counts-raw-2026-09-09.json` |
 | T4 | `CLINE-T4-PARITY-INSTRUMENTS-COUNTERVERIFY-TASKING-2026-09-09.md` | value-parity 26 Tier-1 + surface-parity 171 divergent | PROPOSED |
-| T5 | `CLINE-T5-EXTERNAL-CLAIMS-VERIFY-TASKING-2026-09-09.md` | never-fetched external/site claims | DISPATCHED 2026-09-09 |
+| T5 | `CLINE-T5-EXTERNAL-CLAIMS-VERIFY-TASKING-2026-09-09.md` | never-fetched external/site claims | REPORTED 2026-09-09 → `research/EXTERNAL-CLAIMS-VERIFY-2026-09-09.md` + `EXTERNAL-CLAIMS-FETCH-LOG-2026-09-09.md` |
 
 Suggested order: T3 (light, produces the count baseline other tasks cite) → T5 → T1
 → T4 → T2 (heaviest).
