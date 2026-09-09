@@ -1272,6 +1272,13 @@ const GATES = [
   // mismatch vs the node's mcp_name, or coverage regression.
   ['Ask-agent block freshness (TOOLPAGE-ASK-AGENT-1)', 'node scripts/check-ask-agent-block.mjs'],
   ['Ask-agent block controls (RED+GREEN)', 'node scripts/check-ask-agent-block.mjs --self-test'],
+  // TOOLPAGE-A11Y-1 (AGENT-REACH-BUILD-SPEC §2 wave 2): every generated node page's
+  // accessibility tree is manifest-derived — aria-label === inputSchema property on
+  // every static form control, exactly one role="status" live region announcing
+  // execution_hash + verdict, no duplicate accessible names, byte-fresh region,
+  // <meta name="ai-tool">, role="main" landmark; down-only baseline ratchet.
+  ['Node page accessibility tree (TOOLPAGE-A11Y-1)', 'node scripts/check-a11y-tree.mjs'],
+  ['Node page accessibility tree controls (RED+GREEN)', 'node scripts/check-a11y-tree.mjs --self-test'],
   // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: parity gate A (in-repo SSOT recompute of every
   // chain plan hash vs the committed derived set + page-literal sample) and parity
   // gate B fixtures (session-receipt Merkle; the site-side routine test is
