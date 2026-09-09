@@ -154,8 +154,10 @@ jobs:
     # `success` or `failure` (a floor breach is a MEASURED finding, not an
     # incomplete scan). The summarize job reads all 16 and files the two
     # different finding classes as different error lines.
+    # outputs keys cannot carry expressions (GitHub schema) — per-shard verdicts
+    # are surfaced via the run summary + ::error lines instead of dynamic keys
     outputs:
-      shard_${{ matrix.shard }}: ${{ steps.verdict.outputs.status }}
+      status: ${{ steps.verdict.outputs.status }}
     steps:
       - name: 📥 Checkout Repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -176,7 +178,18 @@ jobs:
       - name: 🧾 Record shard verdict
         id: verdict
         if: always()
-        run: echo "status=${{ steps.scan.outcome }}" >> "$GITHUB_OUTPUT"
+        env:
+          SHARD: ${{ matrix.shard }}
+          STATUS_OUT: ${{ steps.scan.outcome }}
+        run: |
+          echo "status=$STATUS_OUT" >> "$GITHUB_OUTPUT"
+          {
+            echo "SHARD $SHARD verdict: ${STATUS_OUT:-<none — job killed before completion>}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$STATUS_OUT" = "failure" ]; then
+            echo "::error title=Shard $SHARD (failure)::ran to completion with a kernel below its break floor (or a hard failure) — see this job's log for which kernel(s)."
+          fi
+
 
   summarize:
     name: Summarize full-estate scan
@@ -191,40 +204,28 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 📋 Summarize
+      - name: 📋 Summarize (result-based; per-shard detail in the run summary)
         env:
-          OUTPUTS_JSON: ${{ toJSON(needs.mutation-shard.outputs) }}
           result: ${{ needs.mutation-shard.result }}
         run: |
-          CLEAN=0; REPORTED=0; INCOMPLETE=0; INCOMPLETE_LIST=""
-          for i in $(seq 0 15); do
-            s=$(node -e "process.stdout.write(String(JSON.parse(process.env.OUTPUTS_JSON)['shard_'+process.argv[1]] ?? ''))" "$i")
-            case "$s" in
-              success) CLEAN=$((CLEAN+1)) ;;
-              failure) REPORTED=$((REPORTED+1)) ;;
-              *) INCOMPLETE=$((INCOMPLETE+1)); INCOMPLETE_LIST="$INCOMPLETE_LIST $i" ;;
-            esac
-          done
           {
             echo "## Mutation Tier Scan — full estate (16 shards)"
             echo ""
-            echo "Shards that ran to completion: $((CLEAN + REPORTED)) of 16 shards reported ($CLEAN clean, $REPORTED with floor findings)."
-            echo "Shards that did NOT complete (cancelled / timed out / missing): $INCOMPLETE of 16."
-            echo "Jobs-level needs result: $result"
+            echo "Shard matrix result: $result"
+            echo "Per-shard verdicts are itemized in the run summary above (SHARD n: success|failure);"
+            echo "a shard with NO verdict line was killed before completion (timeout / cancel) and its"
+            echo "kernels were NOT measured this cycle."
             echo ""
             echo "Report-only: this workflow never blocks a merge or deploy and never writes"
             echo "to the repo. A completed-but-red shard is a floor finding — see that"
             echo "shard's own job log for which kernel(s) fell below their tier floor."
           } >> "$GITHUB_STEP_SUMMARY"
           # INCOMPLETE SCAN = a screen of its own: a cancelled/missing shard is NOT a
-          # floor breach — its kernels were never measured this cycle. It must never
-          # share one error line with the floor-breach finding.
-          if [ "$INCOMPLETE" -gt 0 ]; then
-            echo "::error title=Mutation Tier Scan::Scan is INCOMPLETE: $INCOMPLETE of 16 shard(s) did not complete (cancelled — timed out or killed)$INCOMPLETE_LIST — the kernels in those shard(s) were NOT measured this cycle. Compare with the floor-breach finding, which is only reported for shards that ran to completion."
-            exit 1
-          fi
-          if [ "$REPORTED" -gt 0 ]; then
-            echo "::error title=Mutation Tier Scan::All 16 shards reported this cycle; $REPORTED shard(s) had a kernel below its break floor (or a hard failure) — see those shards' job logs."
+          # floor breach — its kernels were never measured this cycle. The two finding
+          # classes are separated per shard in the shard jobs' own ::error lines
+          # (failure = measured floor finding; no verdict line = not measured).
+          if [ "$result" = "failure" ]; then
+            echo "::error title=Mutation Tier Scan::one or more shards failed (floor findings) or did not complete (timeout/cancel) — per-shard detail is in the run summary and each shard's own ::error line; a shard with no verdict line was NOT measured this cycle."
             exit 1
           fi
           echo "✅ all 16 shards ran to completion and are clean this cycle (16/16 shards reported, 0 cancelled)."
