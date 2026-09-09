@@ -339,6 +339,25 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── INFRA-PAGE-1 (2026-09-08) ───────────────────────────────────────────────
+  ["gen-infra-registry.mjs",
+    "Infrastructure registry generator --check (INFRA-PAGE-1): re-derives " +
+    "data/infra-registry.json from the ain:category metas and byte-compares. Hard in " +
+    "preflight; its CI route is scripts-verify.yml full preflight (the workflow runs " +
+    "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the same " +
+    "suite. The --write half is a builder command, never a workflow. Reads only tracked " +
+    "repo files — no CI-only input."],
+  ["check-infra-registry.mjs",
+    "Infrastructure registry gate (INFRA-PAGE-1): every in-scope page carries an " +
+    "ain:category meta inside the enum, every registry entry resolves to a live file. Hard " +
+    "in preflight; its CI route is scripts-verify.yml full preflight, so a named workflow " +
+    "step would only duplicate the same suite. Paired self-test: " +
+    "check-infra-registry.selftest.mjs (GATE-SELFTEST-META-1)."],
+  ["gen-infrastructure-page.mjs",
+    "Infrastructure page generator --check (INFRA-PAGE-1): re-renders infrastructure.html " +
+    "from the registry and byte-compares (card set 1:1, JSON-LD ItemList). Hard in " +
+    "preflight; its CI route is scripts-verify.yml full preflight, so a named workflow step " +
+    "would only duplicate the same suite. Reads only tracked repo files — no CI-only input."],
   // ── HELM-OPENCLAW-PAGE-1 (2026-09-08) ───────────────────────────────────────
   ["check-helm-openclaw-page.mjs",
     "Helm-OpenClaw page gate (HELM-OPENCLAW-PAGE-1): asserts helm-openclaw.html's six " +
@@ -365,6 +384,7 @@ const PREFLIGHT_ONLY = new Map([
     "already freshness-gated in CI by check-agent-kit; the prose rules themselves " +
     "have no workflow-side observable to drift against. Paired self-test: " +
     "check-showcase-callshape.mjs --self-test (GATE-SELFTEST-META-1)."],
+  ["check-infra-registry.selftest.mjs", SELF_TEST],
   // ── PREFLIGHT-QUICK-1 (2026-09-06) ─────────────────────────────────────────
   ["setup-hooks.mjs",
     "Pre-push hook wiring verifier (the `--check` leg): asserts core.hooksPath = .githooks so " +
