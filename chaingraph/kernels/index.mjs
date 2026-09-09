@@ -606,6 +606,7 @@ import * as art676    from './art-676-proxy-voting-record.kernel.mjs';
 import * as art677    from './art-677-whistleblowing-channel-clock.kernel.mjs';
 import * as art678    from './art-678-consultation-response-tracker.kernel.mjs';
 import * as art679    from './art-679-orsa-readiness-pack.kernel.mjs';
+import * as art670    from './art-670-examination-readiness-pack.kernel.mjs';
 import * as art68     from './art-68-carbon-compliance-fit-diagnostic.kernel.mjs';
 import * as art680    from './art-680-control-attestation-campaign-roll-up.kernel.mjs';
 import * as art681    from './art-681-best-execution-evidence-pack.kernel.mjs';
@@ -1270,6 +1271,7 @@ export const KERNELS = {
   'art-677-whistleblowing-channel-clock':                       art677,
   'art-678-consultation-response-tracker':                      art678,
   'art-679-orsa-readiness-pack':                                art679,
+  'art-670-examination-readiness-pack':                         art670,
   'art-68-carbon-compliance-fit-diagnostic':                    art68,
   'art-680-control-attestation-campaign-roll-up':               art680,
   'art-681-best-execution-evidence-pack':                       art681,
