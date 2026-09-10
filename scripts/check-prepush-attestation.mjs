@@ -46,7 +46,11 @@
  *                   class/run/PR carried inside the reason text.
  *   AUTOMATION      committed by the PINNED single-writer app — exactly
  *                   `ainumbers-spec-sync[bot] <ainumbers-spec-sync[bot]@users.noreply.github.com>`
- *                   (app slug ainumbers-spec-sync resolving to app id 4152587)
+ *                   whose committer resolves on the commits API to bot user id
+ *                   297170542 (PRIMARY pin, works under the CI token), with the
+ *                   app-slug → app id 4152587 lookup as SECONDARY corroboration
+ *                   whose failure is logged, never fatal, once the primary pin
+ *                   matched (PREPUSH-ATTEST-BOT-RESOLUTION-1)
  *                   AND every file of the commit inside the derived-surface set
  *                   `scripts/derived-artifacts.mjs` declares — the same SSOT the
  *                   regen workflow stages from (single-writer alignment). LOGGED,
@@ -128,7 +132,8 @@
  *       be seen going red on a missing note rather than merely asserting it does.
  *       Scenarios: note-present · note-absent · declared-bypass · notes-ref-absent ·
  *       unprotected-only · squash-note-on-pr-head · squash-pr-green · squash-pr-red ·
- *       bot-in-scope · bot-out-of-scope · bot-wrong-app · adjudicated-note
+ *       bot-in-scope · bot-out-of-scope · bot-wrong-app · bot-app-lookup-fails ·
+ *       bot-wrong-user-id · bot-resolution-unavailable · adjudicated-note
  *   node scripts/check-prepush-attestation.mjs --attest-adjudicated "<reason>" [--sha <sha>]
  *       Write a RETROACTIVE-ADJUDICATION note (PREFLIGHT-ADJUDICATED) on <sha>
  *       (default HEAD) and push the notes ref. This is the backfill instrument for
@@ -189,19 +194,30 @@ export function isProtectedPath(file) {
 }
 
 /**
- * The PINNED single writer (PREPUSH-ATTEST-MECHANICS-1, item 2). Before this
- * constant, ANY `[bot]` string in the committer identity took the AUTOMATION
- * carve-out — a decorative allowlist: it passed dependabot, github-actions, or a
- * rogue app exactly as readily as the real writer. Now the identity must be the
- * spec-sync bot's exact name+email pair AND the app slug must resolve (via the
- * GitHub API, at check time) to app id 4152587 — the org-owned
- * `ainumbers-spec-sync` App that mints the derived-artifacts-regen push token.
- * (Verified live 2026-09-03: GET /apps/ainumbers-spec-sync → id 4152587; its bot
- * USER id is a different number, 297170542 — the pin is the APP id.)
+ * The PINNED single writer (PREPUSH-ATTEST-MECHANICS-1, item 2; resolution
+ * re-pinned by PREPUSH-ATTEST-BOT-RESOLUTION-1). Before this constant, ANY
+ * `[bot]` string in the committer identity took the AUTOMATION carve-out — a
+ * decorative allowlist: it passed dependabot, github-actions, or a rogue app
+ * exactly as readily as the real writer. The identity must be the spec-sync
+ * bot's exact name+email pair AND its user id must resolve at check time.
+ *
+ * PRIMARY pin (BOT-RESOLUTION-1): the bot USER id 297170542, proven through
+ * `GET /repos/{slug}/commits/{sha}` → `.committer` — the same repo API the
+ * checker already reads check-runs from, which works under the CI job token.
+ * The commits API reports the bot regen commit 7460ee63's committer as
+ * `{ login: "ainumbers-spec-sync[bot]", id: 297170542, type: "Bot" }` (quoted
+ * from run 34090033671's failing commit).
+ *
+ * SECONDARY corroboration: `GET /apps/{slug}` → app id 4152587. Under the CI
+ * token this endpoint is denied (run 34090033671: `app ainumbers-spec-sync
+ * could not be resolved`, attempt 2 — not transient), so a FAILED app lookup
+ * is LOGGED, never fatal, when the primary user-id pin matched. A successful
+ * one must AGREE (id 4152587); disagreement means not the pinned writer.
  */
 export const SPEC_SYNC_APP = Object.freeze({
   appSlug: 'ainumbers-spec-sync',
   appId: 4152587,
+  botUserId: 297170542,
   botName: 'ainumbers-spec-sync[bot]',
   botEmail: 'ainumbers-spec-sync[bot]@users.noreply.github.com',
 });
@@ -400,7 +416,19 @@ function makeGhApi() {
         return { ok: true, runs: tsv(r.out).map(([name, conclusion, id]) => ({ name, conclusion, id: Number(id) })) };
       });
     },
-    /** App id behind an app slug (public endpoint; used for the single-writer pin). */
+    /** Committer identity on a commit: {login, id, type} (the PRIMARY single-writer pin). */
+    committer(slug, sha) {
+      return memo(`committer:${sha}`, () => {
+        const r = call(['api', `repos/${slug}/commits/${sha}`,
+          '--jq', '[.committer.login, (.committer.id | tostring), .committer.type] | @tsv']);
+        if (!r.ok) return { ok: false, committer: null };
+        const parts = r.out.split('\t').map((s) => s.trim());
+        const id = Number(parts[1]);
+        if (!parts[0] || !Number.isFinite(id)) return { ok: false, committer: null };
+        return { ok: true, committer: { login: parts[0], id, type: parts[2] || '' } };
+      });
+    },
+    /** App id behind an app slug (SECONDARY corroboration for the single-writer pin). */
     app(appSlug) {
       return memo(`app:${appSlug}`, () => {
         const r = call(['api', `apps/${appSlug}`, '--jq', '.id']);
@@ -527,30 +555,47 @@ export function runCheck({
     }
 
     // 3. the PINNED single-writer bot, path-scoped (PREPUSH-ATTEST-MECHANICS-1
-    //    item 2). The old carve-out took ANY `[bot]` string; now only the exact
-    //    spec-sync identity, only inside the regen's own declared pathspec, and
-    //    only once the app slug has resolved to the pinned app id.
+    //    item 2; resolution re-pinned by PREPUSH-ATTEST-BOT-RESOLUTION-1). The
+    //    old carve-out took ANY `[bot]` string; now only the exact spec-sync
+    //    identity, only inside the regen's own declared pathspec, and only once
+    //    the bot USER id resolves — PRIMARY via the commits API (works under the
+    //    CI job token), with the app-slug lookup kept as SECONDARY corroboration
+    //    whose failure is logged, never fatal, when the primary pin matched.
     if (isBotIdentity(c.committerName, c.committerEmail)) {
       if (isSpecSyncCommitter(c.committerName, c.committerEmail)) {
         const outOfFence = c.files.filter((f) => !isDeclaredDerivedPath(f));
         if (outOfFence.length === 0) {
-          const app = api.app(SPEC_SYNC_APP.appSlug);
-          if (!app.ok) {
+          const resolved = api.committer(slug, c.sha);
+          const primaryMatched = resolved.ok && resolved.committer
+            && resolved.committer.id === SPEC_SYNC_APP.botUserId
+            && resolved.committer.type === 'Bot'
+            && resolved.committer.login === SPEC_SYNC_APP.botName;
+          if (!resolved.ok) {
             apiFailed = true;
-            say(`  ! committer is ${SPEC_SYNC_APP.botName}, but app ${SPEC_SYNC_APP.appSlug} could not be resolved to prove id ${SPEC_SYNC_APP.appId}.`);
-          } else if (app.id === SPEC_SYNC_APP.appId) {
-            verdicts.push({ sha: c.sha, verdict: 'AUTOMATION' });
-            say(`  · AUTOMATION      ${label}   [${SPEC_SYNC_APP.appSlug} app id ${app.id} — main-side single writer, SO #35; ${c.files.length} file(s), all inside the declared derived set]`);
-            continue;
+            say(`  ! committer is ${SPEC_SYNC_APP.botName}, but the commits API could not resolve ${short} to check the pinned bot user id ${SPEC_SYNC_APP.botUserId}.`);
+          } else if (primaryMatched) {
+            const app = api.app(SPEC_SYNC_APP.appSlug);
+            if (!app.ok) {
+              say(`  ! app lookup unavailable under CI token; bot identity pinned by user id ${SPEC_SYNC_APP.botUserId}.`);
+              verdicts.push({ sha: c.sha, verdict: 'AUTOMATION' });
+              say(`  · AUTOMATION      ${label}   [${SPEC_SYNC_APP.botName} user id ${SPEC_SYNC_APP.botUserId} — main-side single writer, SO #35; ${c.files.length} file(s), all inside the declared derived set]`);
+              continue;
+            } else if (app.id === SPEC_SYNC_APP.appId) {
+              verdicts.push({ sha: c.sha, verdict: 'AUTOMATION' });
+              say(`  · AUTOMATION      ${label}   [${SPEC_SYNC_APP.appSlug} app id ${app.id}, bot user id ${SPEC_SYNC_APP.botUserId} — main-side single writer, SO #35; ${c.files.length} file(s), all inside the declared derived set]`);
+              continue;
+            } else {
+              say(`  ! committer claims ${SPEC_SYNC_APP.botName} but app ${SPEC_SYNC_APP.appSlug} resolves to id ${app.id}, not ${SPEC_SYNC_APP.appId} — not the pinned single writer.`);
+            }
           } else {
-            say(`  ! committer claims ${SPEC_SYNC_APP.botName} but app ${SPEC_SYNC_APP.appSlug} resolves to id ${app.id}, not ${SPEC_SYNC_APP.appId} — not the pinned single writer.`);
+            say(`  ! committer is ${SPEC_SYNC_APP.botName} but resolves to user id ${resolved.committer ? resolved.committer.id : 'unknown'}, not the pinned ${SPEC_SYNC_APP.botUserId} — not the pinned single writer.`);
           }
         } else {
           say(`  ! ${SPEC_SYNC_APP.botName} identity, but the commit writes OUTSIDE the declared derived set (single-writer fence, SO #35):`);
           say(`      ${outOfFence.slice(0, 4).join(', ')}${outOfFence.length > 4 ? ` (+${outOfFence.length - 4} more)` : ''}`);
         }
       } else {
-        say(`  ! bot committer ${c.committerEmail || c.committerName} is not the pinned single writer (${SPEC_SYNC_APP.botName}, app id ${SPEC_SYNC_APP.appId}) — no carve-out.`);
+        say(`  ! bot committer ${c.committerEmail || c.committerName} is not the pinned single writer (${SPEC_SYNC_APP.botName}, user id ${SPEC_SYNC_APP.botUserId}) — no carve-out.`);
       }
     }
 
@@ -648,6 +693,10 @@ export const SCENARIOS = [
   'bot-in-scope',           // GREEN: pinned app, every file inside the declared derived set
   'bot-out-of-scope',       // RED:   pinned app writing outside its single-writer fence
   'bot-wrong-app',          // RED:   a different [bot] identity — the old "any [bot] passes" hole, closed
+  // PREPUSH-ATTEST-BOT-RESOLUTION-1 — the user-id pin's own control shapes:
+  'bot-app-lookup-fails',   // GREEN: user id pins the bot; the app lookup failing under the CI token is logged, not fatal
+  'bot-wrong-user-id',      // RED:   exact bot login but a DIFFERENT user id — not the pinned single writer
+  'bot-resolution-unavailable', // INDETERMINATE: both the commits API and the app lookup failed — absence not established
   'adjudicated-note',       // GREEN: retroactive adjudication note, reason printed into the log
 ];
 
@@ -663,6 +712,9 @@ const EXPECTED = {
   'bot-in-scope': { exitCode: 0, verdict: 'AUTOMATION', state: 'PASS' },
   'bot-out-of-scope': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
   'bot-wrong-app': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
+  'bot-app-lookup-fails': { exitCode: 0, verdict: 'AUTOMATION', state: 'PASS' },
+  'bot-wrong-user-id': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
+  'bot-resolution-unavailable': { exitCode: 1, verdict: 'INDETERMINATE', state: 'FAIL' },
   'adjudicated-note': { exitCode: 0, verdict: 'BYPASS-DECLARED', state: 'PASS' },
 };
 
@@ -715,14 +767,14 @@ function buildFixture(scenario, dir) {
     commitProtected('feat(scripts): fixture protected-path change (#4242)', 'squashed change');
   } else if (scenario === 'squash-pr-green' || scenario === 'squash-pr-red') {
     commitProtected('feat(scripts): fixture protected-path change (#4242)', 'squashed change');
-  } else if (scenario === 'bot-in-scope' || scenario === 'bot-wrong-app') {
+  } else if (scenario === 'bot-in-scope' || scenario === 'bot-wrong-app' || scenario === 'bot-app-lookup-fails' || scenario === 'bot-wrong-user-id' || scenario === 'bot-resolution-unavailable') {
     // chaingraph/kernels/index.mjs is BOTH protected (chaingraph/kernels/**) and
     // declared (derived-artifacts.mjs id 'kernel-index') — the real overlap the
     // carve-out exists for.
     mkdirSync(join(dir, 'chaingraph', 'kernels'), { recursive: true });
     writeFileSync(join(dir, 'chaingraph', 'kernels', 'index.mjs'), '// fixture declared derived surface\n');
     g('add', '--', 'chaingraph/kernels/index.mjs');
-    if (scenario === 'bot-in-scope') {
+    if (scenario === 'bot-in-scope' || scenario === 'bot-app-lookup-fails' || scenario === 'bot-wrong-user-id' || scenario === 'bot-resolution-unavailable') {
       g('-c', `user.name=${SPEC_SYNC_APP.botName}`, `-c`, `user.email=${SPEC_SYNC_APP.botEmail}`,
         'commit', '-q', '-m', 'chore(derived): regenerate shared derived artifacts on main');
     } else {
@@ -755,7 +807,8 @@ function buildFixture(scenario, dir) {
     // The hook's note went on the PR HEAD, not on the squash sha — that is the
     // entire point of this scenario.
     g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m', `PREFLIGHT-VERIFIED sha=${prHead} ts=${ts}`, prHead);
-  } else if (scenario === 'bot-in-scope' || scenario === 'bot-out-of-scope' || scenario === 'bot-wrong-app') {
+  } else if (scenario === 'bot-in-scope' || scenario === 'bot-out-of-scope' || scenario === 'bot-wrong-app'
+    || scenario === 'bot-app-lookup-fails' || scenario === 'bot-wrong-user-id' || scenario === 'bot-resolution-unavailable') {
     g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m', `PREFLIGHT-VERIFIED sha=${base} ts=${ts}`, base);
   }
   // 'notes-ref-absent' deliberately creates no note at all.
@@ -784,12 +837,30 @@ function fixtureApi(scenario, { head, prHead }) {
     prsBySha[head] = [{ number: 4242, head, mergedAt: '2026-09-03T00:00:00Z' }];
     runsBySha[head] = runs({ anchor: 'failure' });
   }
+  // PREPUSH-ATTEST-BOT-RESOLUTION-1: the committer-resolution shapes. The bot
+  // regen commit's committer, as the commits API reports it for 7460ee63.
+  const BOT_COMMITTER = { login: SPEC_SYNC_APP.botName, id: SPEC_SYNC_APP.botUserId, type: 'Bot' };
+  let committerFor = () => ({ ok: true, committer: BOT_COMMITTER });
+  let appFor = () => ({ ok: true, id: SPEC_SYNC_APP.appId });
+  if (scenario === 'bot-app-lookup-fails') {
+    // The CI failure this row fixes: GET /apps/{slug} denied under the job token.
+    appFor = () => ({ ok: false, id: null });
+  } else if (scenario === 'bot-wrong-user-id') {
+    // Right login string, wrong user — a spoofed identity, conclusively not ours.
+    committerFor = () => ({ ok: true, committer: { ...BOT_COMMITTER, id: 999999999 } });
+    appFor = () => ({ ok: true, id: SPEC_SYNC_APP.appId });
+  } else if (scenario === 'bot-resolution-unavailable') {
+    // Both resolution steps failed — absence was never established (SO #34c).
+    committerFor = () => ({ ok: false, committer: null });
+    appFor = () => ({ ok: false, id: null });
+  }
   return {
     pullsForCommit: (slug, sha) => ({ ok: true, prs: prsBySha[sha] || [] }),
     prCommits: () => ({ ok: true, shas: [] }),
     requiredContexts: () => ({ ok: true, contexts: REQUIRED }),
     checkRuns: (slug, sha) => ({ ok: true, runs: runsBySha[sha] || [] }),
-    app: () => ({ ok: true, id: SPEC_SYNC_APP.appId }),
+    committer: (slug, sha) => committerFor(slug, sha),
+    app: (appSlug) => appFor(appSlug),
   };
 }
 

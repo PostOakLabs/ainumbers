@@ -21,6 +21,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KERNELS } from './index.mjs';
+import { readOutcome, readCases } from './_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXDIR = resolve(HERE, 'fixtures');
@@ -61,12 +62,14 @@ for (const [id, kernel] of Object.entries(KERNELS)) {
   }
 
   const doc = JSON.parse(readFileSync(vpath, 'utf8'));
-  const vectors = doc.vectors ?? [];
+  // KERNEL-OUTPUT-READER-1: cases come from _shape.mjs, not a local `.vectors` guess.
+  const vectors = readCases(doc);
   if (vectors.length === 0) { console.error(`✗ ${id}: test-vectors.json has no vectors.`); fail++; continue; }
 
   let fidelityMismatches = 0, agree = 0;
   for (const v of vectors) {
-    const { output_payload } = kernel.compute({ normalized_fixp16: v.normalized_fixp16 });
+    // KERNEL-OUTPUT-READER-1: one shared reader for the two kernel return shapes.
+    const output_payload = readOutcome(kernel.compute({ normalized_fixp16: v.normalized_fixp16 }));
     const decision = output_payload?.decision;
     if (decision !== v.quantized_prediction) fidelityMismatches++;
     if (decision === v.float_prediction) agree++;

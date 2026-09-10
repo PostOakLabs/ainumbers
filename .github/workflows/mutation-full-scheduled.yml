@@ -14,15 +14,32 @@ name: Mutation Tier Scan (scheduled)
 # WHY A MATRIX, NOT ONE JOB: the earlier pilot measured ~67s/kernel average
 # (Stryker startup + N-mutant run, command-runner mode — one child process
 # per mutant). Extrapolated serially across the ~633-kernel estate that is
-# ~11.7 hours, past GitHub Actions' 6-hour hosted-runner ceiling. Sharded 8
-# ways via scripts/run-mutation-tier.mjs's own `--shard <i> <n>` flag (simple
+# ~11.7 hours, past GitHub Actions' 6-hour hosted-runner ceiling. Sharded via
+# scripts/run-mutation-tier.mjs's own `--shard <i> <n>` flag (simple
 # `id-index % n === i` split over the SAME sorted kernel-id list every shard
-# computes independently — no coordination file, no race), each shard is
-# ~79 kernels, comfortably inside the ceiling even at 2-3x the pilot's
-# average.
+# computes independently — no coordination file, no race).
+#
+# WHY 16 SHARDS (measured nightly evidence, run 34137426698 of 2026-09-07):
+# at 8 shards (~83 kernels each) the slowest completed shard took 5h15m and
+# FIVE shards were still running at exactly the six-hour mark (21:16, six
+# hours after the 15:16 start) and were killed by the hosted-runner ceiling
+# — five of eight kernels-slates never reported. Worst completed shard:
+# 5h15m / ~84 kernels ≈ 3.75 min/kernel; each killed shard ran ≥6h over ≤83
+# kernels ≈ ≥4.3 min/kernel lower bound. At 16 shards (~41 kernels each)
+# that measured lower bound projects ≈3h/shard — comfortable margin inside
+# the job's explicit `timeout-minutes: 330` (set BELOW the 360-minute hosted
+# ceiling so an overrunning shard dies as a visible timeout on its own job
+# rather than an unexplained ceiling cancellation alongside its siblings,
+# which is indistinguishable from `fail-fast` cancelling it).
+#
+# COMPLETION IS THE FINDING: every shard exports its scan step's outcome as a
+# named job output (empty = the job was killed/timed out before it could
+# record), and the summarize job counts them. A shard below its break floor
+# and a shard that did not complete (cancelled) are DIFFERENT findings and
+# get different, distinct error lines below.
 #
 # dry_run INPUT: this workflow's only irreversible-adjacent cost is TIME — a
-# full 8-shard run takes over an hour of runner time even though it writes
+# full 16-shard run takes over an hour of runner time even though it writes
 # nothing. dry_run=true (the default for a manual dispatch) instead runs the
 # original 10-kernel pilot sample in a single job, proving the whole
 # pipeline (npx-ephemeral Stryker fetch, scratch-copy, tier split, threshold
@@ -80,7 +97,7 @@ jobs:
         # END-TO-END in CI on every dispatch — it is the pipeline proof surface for the new
         # reporting shape (decomposedGateMode ships 'advisory' + propertyKillsBreakFloor 0,
         # so this cannot red the job). The SCHEDULED shards below deliberately do NOT pass
-        # it: the full-estate scan already overruns the 6-hour hosted-runner ceiling (4/8
+        # it: the full-estate scan already overruns the 6-hour hosted-runner ceiling (6/8
         # shards cancelled in recent cycles) and --decomposed doubles per-kernel runtime.
         run: |
           node scripts/run-mutation-tier.mjs --decomposed --kernel \
@@ -120,15 +137,27 @@ jobs:
           echo "✅ dry run clean."
 
   mutation-shard:
-    name: Full estate — shard ${{ matrix.shard }}/8
+    name: Full estate — shard ${{ matrix.shard }}/16
     if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+    timeout-minutes: 330   # below the 360-min hosted-runner ceiling on purpose: an overrunning shard dies as a VISIBLE timeout on its own job, never as an unexplained 6h cancellation
     runs-on: ubuntu-latest
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    # Per-shard completion verdict: the scan step's own outcome, recorded by a
+    # LATER step (`steps.verdict`) so a shard killed by `timeout-minutes` (or
+    # cancelled another way) exports an EMPTY output — "shard did not
+    # complete" — while a shard that ran to the floor check exports
+    # `success` or `failure` (a floor breach is a MEASURED finding, not an
+    # incomplete scan). The summarize job reads all 16 and files the two
+    # different finding classes as different error lines.
+    # outputs keys cannot carry expressions (GitHub schema) — per-shard verdicts
+    # are surfaced via the run summary + ::error lines instead of dynamic keys
+    outputs:
+      status: ${{ steps.verdict.outputs.status }}
     steps:
       - name: 📥 Checkout Repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -141,10 +170,26 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 🧬 Mutation tier scan — shard ${{ matrix.shard }}/8
+      - name: 🧬 Mutation tier scan — shard ${{ matrix.shard }}/16
         run: |
-          node scripts/run-mutation-tier.mjs --all --shard ${{ matrix.shard }} 8 \
+          node scripts/run-mutation-tier.mjs --all --shard ${{ matrix.shard }} 16 \
             --json "$RUNNER_TEMP/mutation-shard-${{ matrix.shard }}.json"
+
+      - name: 🧾 Record shard verdict
+        id: verdict
+        if: always()
+        env:
+          SHARD: ${{ matrix.shard }}
+          STATUS_OUT: ${{ steps.scan.outcome }}
+        run: |
+          echo "status=$STATUS_OUT" >> "$GITHUB_OUTPUT"
+          {
+            echo "SHARD $SHARD verdict: ${STATUS_OUT:-<none — job killed before completion>}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$STATUS_OUT" = "failure" ]; then
+            echo "::error title=Shard $SHARD (failure)::ran to completion with a kernel below its break floor (or a hard failure) — see this job's log for which kernel(s)."
+          fi
+
 
   summarize:
     name: Summarize full-estate scan
@@ -153,22 +198,72 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # Read by the report-red job below (the nightly scheduled-red-issue reporter). Written
+    # BEFORE this job's own `exit 1`, so a red cycle still reports its verdict
+    # and its first failure line to the tracker instead of only to the Actions
+    # tab. Nothing about what this workflow RUNS changes.
+    outputs:
+      state: ${{ steps.sum.outputs.state }}
+      failure_line: ${{ steps.sum.outputs.failure_line }}
     steps:
-      - name: 📋 Summarize
+      - name: ⬢ Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: 📋 Summarize (result-based; per-shard detail in the run summary)
+        id: sum
         env:
-          RESULT: ${{ needs.mutation-shard.result }}
+          result: ${{ needs.mutation-shard.result }}
         run: |
           {
-            echo "## Mutation Tier Scan — full estate (8 shards)"
+            echo "## Mutation Tier Scan — full estate (16 shards)"
             echo ""
-            echo "Shards result: $RESULT"
+            echo "Shard matrix result: $result"
+            echo "Per-shard verdicts are itemized in the run summary above (SHARD n: success|failure);"
+            echo "a shard with NO verdict line was killed before completion (timeout / cancel) and its"
+            echo "kernels were NOT measured this cycle."
             echo ""
             echo "Report-only: this workflow never blocks a merge or deploy and never writes"
-            echo "to the repo. A red shard above is the finding — see that shard's own job log"
-            echo "for which kernel(s) fell below their tier floor."
+            echo "to the repo. A completed-but-red shard is a floor finding — see that"
+            echo "shard's own job log for which kernel(s) fell below their tier floor."
           } >> "$GITHUB_STEP_SUMMARY"
-          if [ "$RESULT" != "success" ]; then
-            echo "::error title=Mutation Tier Scan::One or more shards had a kernel below its break floor (or a hard failure) this cycle — see that shard's job log."
+          # INCOMPLETE SCAN = a screen of its own: a cancelled/missing shard is NOT a
+          # floor breach — its kernels were never measured this cycle. The two finding
+          # classes are separated per shard in the shard jobs' own ::error lines
+          # (failure = measured floor finding; no verdict line = not measured).
+          if [ "$result" = "failure" ]; then
+            {
+              echo "state=red"
+              echo "failure_line=Shard matrix result: failure. One or more shards fell below a break floor or did not complete (timeout/cancel); a shard with no verdict line was NOT measured this cycle."
+            } >> "$GITHUB_OUTPUT"
+            echo "::error title=Mutation Tier Scan::one or more shards failed (floor findings) or did not complete (timeout/cancel) — per-shard detail is in the run summary and each shard's own ::error line; a shard with no verdict line was NOT measured this cycle."
             exit 1
           fi
-          echo "✅ all 8 shards clean this cycle."
+          {
+            echo "state=green"
+            echo "failure_line=none"
+          } >> "$GITHUB_OUTPUT"
+          echo "✅ all 16 shards ran to completion and are clean this cycle (16/16 shards reported, 0 cancelled)."
+
+  # Nightly red reporter: a red here used to open nothing. Scheduled runs
+  # only — a manual dry-run dispatch is a rehearsal, not a finding, and an
+  # ordinary PR/CI red never reaches this workflow at all (it has no
+  # pull_request trigger). The tracker keeps ONE open issue for this surface,
+  # comments on it for each further red, and closes it on the next green.
+  # ⛔ The scan itself stays non-blocking and unchanged.
+  report-red:
+    name: Scheduled-red tracking issue
+    needs: summarize
+    if: ${{ always() && github.event_name == 'schedule' && needs.summarize.result != 'skipped' }}
+    uses: ./.github/workflows/scheduled-red-issue.yml
+    permissions:
+      contents: read
+      issues: write
+    with:
+      surface: mutation-nightly
+      # Fails CLOSED: anything that is not an explicit green (including a
+      # summarize job killed before it could record a verdict) is reported as
+      # red, because "did not report" is never evidence of a clean cycle.
+      state: ${{ needs.summarize.outputs.state == 'green' && 'green' || 'red' }}
+      failure-line: ${{ needs.summarize.outputs.failure_line || 'The summarize job did not record a verdict this cycle (killed or cancelled) - the estate was NOT measured.' }}

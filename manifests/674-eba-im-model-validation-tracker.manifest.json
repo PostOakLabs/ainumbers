@@ -1,0 +1,50 @@
+{
+  "tool_id": "674-eba-im-model-validation-tracker",
+  "version": "1.0.0",
+  "title": "EBA IM-Model Validation Tracker",
+  "description": "Deterministic roll-up arithmetic over a caller-declared internal-model inventory: counts by declared status (submitted, approved, rejected), lists pending ids in declared order, ages each pending submission in whole calendar days from its declared submitted date to the declared as_of date, and issues an overall verdict under a named 180-day aging rule (TRACKING_EMPTY, TRACKING_AGED, TRACKING_CURRENT). No register, no network, no clock.",
+  "category": "compliance",
+  "tags": ["EBA", "internal models", "model validation", "model inventory", "pending age", "supervisory tracking", "zero network", "zero-PII"],
+  "audience": ["risk", "model validation", "compliance"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "as_of": { "type": "string", "description": "Inventory snapshot date, YYYY-MM-DD; never a wall-clock read." },
+      "models": { "type": "array", "description": "Declared model entries: { id, status (submitted|approved|rejected), submitted (YYYY-MM-DD) }, at most 4096." }
+    },
+    "required": ["as_of", "models"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "approved": { "type": ["number", "null"], "description": "Count of models with declared status approved; null on the fail-closed path." },
+      "pending": { "type": ["number", "null"], "description": "Count of models with declared status submitted; null on the fail-closed path." },
+      "pending_ids": { "type": ["array", "null"], "description": "Pending model ids in declared order." },
+      "pending_age_days": { "type": ["object", "null"], "description": "Whole days from each pending model's submitted date to as_of, keyed by id." },
+      "trace": { "type": "string", "description": "Per-pending aging sentences in declared order, or the fail-closed reasons naming each rejected input." },
+      "overall": { "type": "string", "description": "TRACKING_CURRENT, TRACKING_AGED, TRACKING_EMPTY, or FAIL_CLOSED." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_eba_im_model_validation_tracker",
+    "description": "Rolls up a caller-declared internal-model inventory: counts by declared status, lists pending submission ids, ages each pending submission in whole days to the declared as_of, and issues an overall verdict under a named 180-day aging rule. Tracker over declared synthetic inputs only: no register, no SSR tape, no cutoff feed, no network, no recommendation.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "as_of": { "type": "string", "description": "YYYY-MM-DD snapshot date" },
+        "models": { "type": "array", "description": "entries: id, status (submitted|approved|rejected), submitted (YYYY-MM-DD)" }
+      },
+      "required": ["as_of", "models"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/674-eba-im-model-validation-tracker.html",
+    "function_name": "runSimulation",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "source": "authored by EBA-IM-TRACKER-BUILD-1 per EBA-IM-TRACKER-BUILD-SPEC.md. Tracker positioning: arithmetic of a declared inventory under named rules, not a regulatory determination, not advice, and not a check of any live register, SSR tape, or cutoff feed (not_proven); absent or invalid inputs are refused fail-closed and named, never silently repaired."
+}

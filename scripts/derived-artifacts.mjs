@@ -83,12 +83,15 @@
  *                                                 # COVERED gate; a red a second pass heals = exit 1
  *                                                 # (cascade class); a red that persists = warn+0
  *                                                 # (content red the bot cannot heal). NOT preflight.
+ *   node scripts/derived-artifacts.mjs --verify --self-test  # embedded self-test: ephemeral mode runs
+ *                                                 # DERIVED_ROOT-aware gates only; non-aware gates SKIP
  *   node scripts/derived-artifacts.mjs --context  # print "main" or "pr"
  */
 import { execSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
-import { existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { existsSync, mkdtempSync, rmSync, mkdirSync, cpSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -110,34 +113,7 @@ export const COVERED = [
     artifacts: ['chaingraph/kernels/index.mjs'],
     share: '81%',
   },
-  {
-    id: 'llms-full',
-    regen: 'node scripts/gen-llms-full.mjs',
-    gate: 'node scripts/gen-llms-full.mjs --check',
-    artifacts: ['llms-full.txt'],
-    share: '39%',
-  },
-  {
-    id: 'estate-map',
-    regen: 'node scripts/gen-estate-map.mjs',
-    gate: 'node scripts/gen-estate-map.mjs --check',
-    artifacts: ['llms.txt'],
-    share: '1%',
-  },
-  {
-    id: 'sitemap-html',
-    regen: 'node scripts/gen-sitemap-html.mjs',
-    gate: 'node scripts/gen-sitemap-html.mjs --check',
-    artifacts: ['sitemap.html'],
-    share: '91%',
-  },
-  {
-    id: 'start-index',
-    regen: 'node scripts/gen-start-index.mjs',
-    gate: 'node scripts/gen-start-index.mjs --check',
-    artifacts: ['start.html'],
-    share: '23%',
-  },
+
   {
     id: 'guides-index',
     regen: 'node scripts/gen-guides-index.mjs',
@@ -145,41 +121,11 @@ export const COVERED = [
     artifacts: ['guides/index.html'],
     share: '13%',
   },
-  {
-    id: 'chain-index',
-    regen: 'node scripts/gen-chain-index.mjs',
-    gate: 'node scripts/gen-chain-index.mjs --check',
-    artifacts: ['chaingraph/chaingraph-hub.html'],
-    share: '8%',
-  },
-  {
-    id: 'chaingraph-hub',
-    regen: 'node scripts/gen-chaingraph-hub.mjs',
-    gate: 'node scripts/gen-chaingraph-hub.mjs --check',
-    artifacts: ['chaingraph/chaingraph-hub.html'],
-    share: '8%',
-  },
-  {
-    id: 'chainbuilder-catalog',
-    regen: 'node scripts/gen-chainbuilder-catalog.mjs',
-    gate: 'node scripts/gen-chainbuilder-catalog.mjs --check',
-    artifacts: ['chaingraph/data/chain-builder-catalog.gen.js'],
-    share: '2%',
-  },
-  {
-    id: 'workbench',
-    regen: 'node scripts/gen-workbench.mjs',
-    gate: 'node scripts/gen-workbench.mjs --check',
-    artifacts: ['chaingraph/workbench/workbench.html'],
-    share: '2%',
-  },
-  {
-    id: 'canvas',
-    regen: 'node scripts/gen-canvas.mjs',
-    gate: 'node scripts/gen-canvas.mjs --check',
-    artifacts: ['chaingraph/workbench/canvas.html'],
-    share: '8%',
-  },
+
+
+
+
+
   {
     id: 'kernel-vm-explainer',
     regen: 'node chaingraph/vm/scripts/gen-kernel-vm-explainer.mjs',
@@ -188,21 +134,37 @@ export const COVERED = [
     share: '71%',
   },
   {
-    id: 'nav-island',
-    // The baseline is the allowlist of by-design island pages. A new page that
-    // is reachable REMOVES entries; one that is not ADDS them. Either way the
-    // baseline is shared state every page-adding shard rewrites.
-    // --prune, NOT --update: regen may only remove entries that became
-    // reachable. --update accepts every current island and would baseline an
-    // unlinked page within a minute of it landing (bot commit 130b63db did).
-    regen: 'node scripts/check-nav-reachability.mjs --prune',
-    // ⚠ --baseline-check ONLY. The plain command (new-island detection) is a
-    // content gate, hard in every context — it is NOT a derived-artifact gate
-    // and must never be listed here, or a PR that ships an unlinked page goes
-    // green (PR #1309, 2026-08-16, chaingraph/integrator-profile.html).
-    gate: 'node scripts/check-nav-reachability.mjs --baseline-check',
-    artifacts: ['scripts/nav-island-baseline.json'],
-    share: '57%',
+    id: 'chaingraph-assemble',
+    // ASSEMBLE-MAINSIDE-1 (SO #35 extended): chaingraph.json joins the shared
+    // single-writer set. The assembler itself refuses (no write, exit 0) when
+    // the shard diff includes node removals/renames or any graph/chains/
+    // change — those stay explicit ASSEMBLE/LAND rows, never auto-committed
+    // here. Gate command is intentionally identical to preflight.mjs's
+    // existing 'chaingraph.json shard freshness (CGSHARD-1)' entry — that
+    // string match is what makes it advisory-on-PR/blocking-on-main via the
+    // generic ADVISORY_ON_PR categorisation in preflight.mjs, no second gate
+    // needed.
+    // --enroll (ASSEMBLE-MAINSIDE-ENROLL-1): MAINSIDE-1 shipped assembly
+    // without enrolment, so a node shard present on disk but absent from
+    // order.nodes (art-662, PR #1412) was silently never assembled. --enroll
+    // appends any such id to order.nodes (append-only, no re-sort) BEFORE
+    // assembling, closing that gap at the source.
+    // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): hoisted BEFORE
+    // catalog/stats/counts — all three transitively read chaingraph.json
+    // (regen_catalog.py:171, sync-stats.mjs:89, counts.mjs:123), so the
+    // assembler is a producer that must precede them (report B3/B4/B7).
+    regen: 'node scripts/assemble-chaingraph.mjs --enroll',
+    gate: 'node scripts/assemble-chaingraph.mjs --check',
+    // chaingraph.meta.json (ENROLL-DECLARE-META-1): --enroll appends new node
+    // ids to order.nodes in this file. Undeclared, this write escaped the
+    // anti-escape guard and failed the whole regen run (RED-MAIN incident).
+    // Explicit `writes:` (declare-parity): the assembler also carries a
+    // dynamic --out scratch write (merge-group ephemeral assembly) the static
+    // parser cannot resolve — the declared list names the real, default-path
+    // write targets, which is exactly what this field is for.
+    writes: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
+    artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
+    share: '8%',
   },
   {
     id: 'catalog',
@@ -236,6 +198,10 @@ export const COVERED = [
       'mcp/catalog.json', 'mcp/server.json',
       '.well-known/mcp.json', 'llms.txt', 'tools.html', 'index.html',
     ],
+    // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): catalog
+    // transitively reads chaingraph.json (regen_catalog.py:171 →
+    // counts.mjs:123), written by the assembler that now precedes it (B3).
+    after: 'chaingraph-assemble',
     share: '15-27%',
   },
   {
@@ -258,31 +224,313 @@ export const COVERED = [
     // helper called with a variable, not a literal at the writeFileSync call
     // site — unresolvable by static source analysis. Mirrors `artifacts`.
     writes: ['mcp.html', 'chaingraph/chaingraph-hub.html'],
+    // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): stats reads
+    // chaingraph.json (sync-stats.mjs:89 → counts.mjs:123) and mcp.html —
+    // both written earlier in the pass now (report B4/B7).
+    after: 'chaingraph-assemble',
     share: '27%',
   },
   {
-    id: 'chaingraph-assemble',
-    // ASSEMBLE-MAINSIDE-1 (SO #35 extended): chaingraph.json joins the shared
-    // single-writer set. The assembler itself refuses (no write, exit 0) when
-    // the shard diff includes node removals/renames or any graph/chains/
-    // change — those stay explicit ASSEMBLE/LAND rows, never auto-committed
-    // here. Gate command is intentionally identical to preflight.mjs's
-    // existing 'chaingraph.json shard freshness (CGSHARD-1)' entry — that
-    // string match is what makes it advisory-on-PR/blocking-on-main via the
-    // generic ADVISORY_ON_PR categorisation in preflight.mjs, no second gate
-    // needed.
-    // --enroll (ASSEMBLE-MAINSIDE-ENROLL-1): MAINSIDE-1 shipped assembly
-    // without enrolment, so a node shard present on disk but absent from
-    // order.nodes (art-662, PR #1412) was silently never assembled. --enroll
-    // appends any such id to order.nodes (append-only, no re-sort) BEFORE
-    // assembling, closing that gap at the source.
-    regen: 'node scripts/assemble-chaingraph.mjs --enroll',
-    gate: 'node scripts/assemble-chaingraph.mjs --check',
-    // chaingraph.meta.json (ENROLL-DECLARE-META-1): --enroll appends new node
-    // ids to order.nodes in this file. Undeclared, this write escaped the
-    // anti-escape guard and failed the whole regen run (RED-MAIN incident).
-    artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
+    id: 'counts',
+    // Count sentinels (<!--COUNT:key-->N<!--/COUNT-->, data-count="key") across
+    // every page that publishes one. File list mirrors verify-counts.mjs's own
+    // sentinel list + ATTR_RULES targets.
+    regen: 'node scripts/verify-counts.mjs --fix',
+    gate: 'node scripts/verify-counts.mjs --check',
+    artifacts: [
+      'docs/index.html', 'index.html', 'start.html', 'about.html',
+      'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
+      'mcp.html', 'chaingraph/chaingraph-hub.html',
+      'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
+      // fv-explainer.html carries count sentinels too (verify-counts.mjs's own
+      // list includes it). Omitting it here made the regen bot's anti-escape
+      // guard reject the whole run — "a generator wrote outside the declared
+      // set" — which stalled every downstream regen and kept main red.
+      // Reconciled against verify-counts.mjs's full 16-file list, not patched
+      // one file at a time. (DERIVED-SET-SELFTEST-1, 2026-08-22: this entry
+      // used to list the path TWICE — a pure authoring duplicate with zero
+      // effect on coveredPaths()'s Set-dedupe, but caught as a genuine
+      // within-entry CLASS C finding by check-derived-regen-live.mjs, which
+      // treats that shape as always a bug, unlike the cross-entry sharing
+      // check-derived-declare-parity.mjs's WARN allows by design. Collapsed
+      // to one entry here so that gate can be wired blocking.)
+      'fv-explainer.html',
+      '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
+      'llms.txt',
+      // CLAIMS-SENTINEL-TIER1-1: verify-counts.mjs's comment-sentinel scan now also covers the
+      // five hub hero pages (hubTools.* — audit Q7). SO #47: any write verify-counts.mjs --fix
+      // gains must be declared here in the same diff, or the main-side regen's anti-escape guard
+      // rejects the whole run exactly like the fv-explainer.html omission above did.
+      'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
+      'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
+      'guides/capital-markets-settlement-hub.html',
+      // INFRA-PAGE-1: infrastructure.html carries a data-count="infra_pages"
+      // sentinel now listed in verify-counts.mjs's file list — undeclared here
+      // the regen's anti-escape guard would reject the write (SO #47 precedent).
+      'infrastructure.html',
+    ],
+    // DERIVED-DECLARE-PARITY-1: verify-counts.mjs writes via a `write(rel, …)`
+    // helper called mostly with loop/lookup variables (ATTR_RULES `.file`,
+    // the HTML-sentinel loop's `rel`), not literals at the call site —
+    // unresolvable by static source analysis. Mirrors `artifacts` (already
+    // reconciled against verify-counts.mjs's own file list, see comment above).
+    writes: [
+      'docs/index.html', 'index.html', 'start.html', 'about.html',
+      'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
+      'mcp.html', 'chaingraph/chaingraph-hub.html',
+      'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
+      'fv-explainer.html',
+      '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
+      'llms.txt',
+      'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
+      'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
+      'guides/capital-markets-settlement-hub.html',
+      'infrastructure.html',
+    ],
+    share: '27%',
+    // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): counts reads
+    // chaingraph.json (counts.mjs:123) — assembler precedes it now (B7 also
+    // fixed: stats reads mcp.html before counts rewrote its sentinels).
+    after: 'chaingraph-assemble',
+  },
+  {
+    // INFRA-PAGE-1 (2026-09-08): the derived page registry over every non-tool
+    // published page (gen-infra-registry.mjs — scope walk over
+    // published-dirs.json, node/tool/chain pages excluded, redirect shims
+    // auto-exempt like the nav gate). One entry per tagged page:
+    // { path, title, description, category, featured, facts }. Sorted by
+    // category then title; no wall-clock field, so a second pass is
+    // byte-identical (idempotency proof). Reads every page (like nav-island)
+    // and chaingraph.json (node-url exclusion), so it must run AFTER the
+    // page/HTML writers it reads within a pass; `after: counts` pins the
+    // sentinel writer that touches index.html/start.html/fv-explainer.html.
+    id: 'infra-registry',
+    regen: 'node scripts/gen-infra-registry.mjs',
+    gate: 'node scripts/gen-infra-registry.mjs --check',
+    // write target is a module-level constant path in the generator, not a
+    // literal at the call site (counts precedent) — mirrored in `writes`.
+    writes: ['data/infra-registry.json'],
+    artifacts: ['data/infra-registry.json'],
+    after: 'counts',
+    share: 'n/a (new 2026-09-08, INFRA-PAGE-1)',
+  },
+  {
+    // INFRA-PAGE-1: infrastructure.html, generated from the registry above
+    // (one section per category, one card per registry entry, JSON-LD
+    // CollectionPage ItemList, data-count="infra_pages" sentinel). Consumes
+    // ONLY data/infra-registry.json — ordered after it.
+    id: 'infrastructure-page',
+    regen: 'node scripts/gen-infrastructure-page.mjs',
+    gate: 'node scripts/gen-infrastructure-page.mjs --check',
+    writes: ['infrastructure.html'],
+    artifacts: ['infrastructure.html'],
+    after: 'infra-registry',
+    share: 'n/a (new 2026-09-08, INFRA-PAGE-1)',
+  },
+  {
+    // estate-map, MOVED here by INFRA-PAGE-1 (was array position 2): the
+    // generator now also renders the "Infrastructure map" marker block from
+    // data/infra-registry.json, so within one regen pass it must run AFTER
+    // 'infra-registry' — running it early would render the block from the
+    // previous pass's registry bytes, the exact intermediate-commit cascade
+    // REGEN-COVERED-ORDER-FIX-3 exists to prevent. It reads suite-map.json,
+    // mcp/showcase-prompts.json and agent-kit/kit.json (no pass-internal
+    // writers of those), so this edge is the only ordering constraint.
+    id: 'estate-map',
+    regen: 'node scripts/gen-estate-map.mjs',
+    gate: 'node scripts/gen-estate-map.mjs --check',
+    artifacts: ['llms.txt'],
+    after: 'infra-registry',
+    share: '1%',
+  },
+  {
+    id: 'webmcp-manifest',
+    // WEBMCP-MANIFEST-1: /.well-known/webmcp.json, emitted from the live WebMCP
+    // registration set by the same generator that emits the page registrations
+    // (--manifest --write). The directory listing can never claim a tool the
+    // pages do not register: --manifest --check recomputes the file from the
+    // live adjudication and reds any drift. Deterministic (no timestamps), so
+    // two passes over the same tree are byte-identical (idempotency measured:
+    // second --write prints "already byte-exact — no write"). The generator
+    // reads ONLY committed sources (manifests/, kernels, tool pages, the OT
+    // token file) — nothing any COVERED entry writes within a pass, so it has
+    // no after: edge; placed after 'counts' per REGEN-COVERED-ORDER-FIX-2, and
+    // BEFORE 'ai-catalog' below on purpose: gen-wellknown-catalogs.mjs includes
+    // .well-known/webmcp.json in its entries ONLY IF the file exists, so within
+    // one regen pass the webmcp.json write must precede the catalog build.
+    regen: 'node scripts/gen-webmcp-registrations.mjs --manifest --write',
+    gate: 'node scripts/gen-webmcp-registrations.mjs --manifest --check',
+    // DERIVED-DECLARE-PARITY-1: the emitter's writeFileSync call site names a
+    // module-level constant (MANIFEST_REL), not a literal — mirrors `artifacts`.
+    writes: ['.well-known/webmcp.json'],
+    artifacts: ['.well-known/webmcp.json'],
+    // prAbsentOk (AI-CATALOG-1's precedent): the file BY DESIGN does not exist
+    // on a PR checkout (SO #35 single-writer; derived-artifacts-regen.yml writes
+    // it on main after merge and a PR is forbidden to commit it) — --check-paths
+    // skips it in a PR context only; the existence check stays hard on main.
+    prAbsentOk: true,
+    share: '0% (new artifact, no co-modification sample yet)',
+  },
+  {
+    // AI-CATALOG-1 (AGENT-REACH-BUILD-SPEC §3.2): Agentic Resource Discovery
+    // catalog + RFC 9727 api-catalog. ONE generator, two entries — separate ids
+    // so each artifact's freshness is named individually by the workflow, but a
+    // single regen command writes both (the second entry's regen is the same
+    // command; it is a no-op second pass, byte-identical by construction since
+    // the generator is deterministic). ORDERED AFTER 'counts' ON PURPOSE: the
+    // generator READS .well-known/mcp.json, which 'counts' writes — it must not
+    // run before counts in the regen sequence. It consumes nothing from
+    // chaingraph.json, so no `after: chaingraph-assemble` is needed.
+    // (WEBMCP-MANIFEST-1: and AFTER 'webmcp-manifest' above — see its comment.)
+    id: 'ai-catalog',
+    regen: 'node scripts/gen-wellknown-catalogs.mjs',
+    gate: 'node scripts/gen-wellknown-catalogs.mjs --check',
+    artifacts: ['.well-known/ai-catalog.json'],
+    // prAbsentOk: the artifact BY DESIGN does not exist on a PR checkout (SO #35
+    // single-writer; derived-artifacts-regen.yml writes it on main after merge and
+    // a PR is forbidden to commit it). --check-paths skips it in a PR context only;
+    // the existence check stays hard on main, and freshness stays advisory-on-PR /
+    // blocking-on-main via the generic downgrade.
+    prAbsentOk: true,
+    // Explicit `writes` (counts precedent): the generator has ONE shared regen
+    // command for both artifacts, so static resolution attributes BOTH paths to
+    // EACH entry — declare the single path each entry owns.
+    writes: ['.well-known/ai-catalog.json'],
+    share: 'n/a (new 2026-09-05, AI-CATALOG-1)',
+  },
+  {
+    id: 'api-catalog',
+    regen: 'node scripts/gen-wellknown-catalogs.mjs',
+    gate: 'node scripts/gen-wellknown-catalogs.mjs --check',
+    artifacts: ['.well-known/api-catalog'],
+    prAbsentOk: true, // see the ai-catalog entry above
+    writes: ['.well-known/api-catalog'],
+    share: 'n/a (new 2026-09-05, AI-CATALOG-1)',
+  },
+  {
+    // A2A-CARD-SIGN-1 (AGENT-REACH-BUILD-SPEC §3.8): public key of the A2A Signed
+    // Agent Card, emitted by the SAME generator as ai-catalog/api-catalog (third
+    // write of one regen command — same no-op-second-pass determinism argument).
+    // Its INPUT is .well-known/agent-card.json's committed signatures[] (public
+    // material only; the PRIVATE key never touches any runner — see the EXCLUDED
+    // entry for scripts/sign-agent-card.mjs). ORDERED AFTER 'counts' like its
+    // siblings; it consumes nothing from chaingraph.json.
+    id: 'jwks',
+    regen: 'node scripts/gen-wellknown-catalogs.mjs',
+    gate: 'node scripts/gen-wellknown-catalogs.mjs --check',
+    artifacts: ['.well-known/jwks.json'],
+    prAbsentOk: true, // see the ai-catalog entry above
+    writes: ['.well-known/jwks.json'],
+    share: 'n/a (new 2026-09-05, A2A-CARD-SIGN-1)',
+  },
+  {
+    // PAGE-MD-TWINS-1 (AGENT-REACH-BUILD-SPEC §2 wave 2): one generated markdown
+    // twin (<page>.md + <link rel=alternate type=text/markdown>) per live node
+    // page and chain page. Writes are runtime-named (one twin per page), so the
+    // write targets are declared as the two generator-owned trees it writes
+    // inside (euc-register/okf directory precedent). ORDERED AFTER
+    // 'chaingraph-assemble' (reads chaingraph.json) and BEFORE 'llms-full'
+    // (gen-llms-full.mjs imports collectTwinTargets from gen-page-md-twins.mjs,
+    // so the twin set must exist before llms-full renders its twin section).
+    id: 'page-md-twins',
+    regen: 'node scripts/gen-page-md-twins.mjs',
+    gate: 'node scripts/gen-page-md-twins.mjs --check',
+    writes: ['tools', 'chaingraph'],
+    artifacts: ['tools', 'chaingraph'],
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-09-08, PAGE-MD-TWINS-1)',
+  },
+  {
+    id: 'llms-full',
+    regen: 'node scripts/gen-llms-full.mjs',
+    gate: 'node scripts/gen-llms-full.mjs --check',
+    artifacts: ['llms-full.txt'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '39%',
+  },  {
+    id: 'sitemap-html',
+    regen: 'node scripts/gen-sitemap-html.mjs',
+    gate: 'node scripts/gen-sitemap-html.mjs --check',
+    artifacts: ['sitemap.html'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '91%',
+  },  {
+    id: 'start-index',
+    regen: 'node scripts/gen-start-index.mjs',
+    gate: 'node scripts/gen-start-index.mjs --check',
+    artifacts: ['start.html'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '23%',
+  },  {
+    id: 'chain-index',
+    regen: 'node scripts/gen-chain-index.mjs',
+    gate: 'node scripts/gen-chain-index.mjs --check',
+    artifacts: ['chaingraph/chaingraph-hub.html'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
     share: '8%',
+  },  {
+    id: 'chaingraph-hub',
+    regen: 'node scripts/gen-chaingraph-hub.mjs',
+    gate: 'node scripts/gen-chaingraph-hub.mjs --check',
+    artifacts: ['chaingraph/chaingraph-hub.html'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '8%',
+  },  {
+    id: 'chainbuilder-catalog',
+    regen: 'node scripts/gen-chainbuilder-catalog.mjs',
+    gate: 'node scripts/gen-chainbuilder-catalog.mjs --check',
+    artifacts: ['chaingraph/data/chain-builder-catalog.gen.js'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '2%',
+  },  {
+    id: 'workbench',
+    regen: 'node scripts/gen-workbench.mjs',
+    gate: 'node scripts/gen-workbench.mjs --check',
+    artifacts: ['chaingraph/workbench/workbench.html'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '2%',
+  },  {
+    id: 'canvas',
+    regen: 'node scripts/gen-canvas.mjs',
+    gate: 'node scripts/gen-canvas.mjs --check',
+    artifacts: ['chaingraph/workbench/canvas.html'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '8%',
+  },
+  {
+    // COMPOSER-PLAN-AND-ROOT-WEBMCP-1 (2026-09-05): the committed chain plan-hash
+    // set. check-chain-plan-parity.mjs recomputes every chain's §4 plan hash from
+    // chaingraph.json with kernels/_hash.mjs (cgCanon + SHA-256); --write emits
+    // the set, the gate form is the parity gate in preflight. Consumes
+    // chaingraph.json — after the assembler.
+    id: 'chain-plan-hashes',
+    regen: 'node scripts/check-chain-plan-parity.mjs --write',
+    gate: 'node scripts/check-chain-plan-parity.mjs',
+    artifacts: ['data/chain-plan-hashes.json'],
+    writes: ['data/chain-plan-hashes.json'],
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-09-05, COMPOSER-PLAN-AND-ROOT-WEBMCP-1)',
+  },
+  {
+    // COMPOSER-PLAN-AND-ROOT-WEBMCP-1 (2026-09-05): session-receipt Merkle fixtures
+    // (>= 5 ordered hash lists with expected roots), generated by ONE script and
+    // vendored into the worker via generate.mjs so the site routine and the REAL
+    // build_session_receipt assert the SAME roots. Consumes nothing from
+    // chaingraph.json (the fixture lists are seed-derived).
+    id: 'session-root-fixtures',
+    regen: 'node scripts/gen-session-root-fixtures.mjs',
+    gate: 'node scripts/gen-session-root-fixtures.mjs --check',
+    artifacts: ['data/session-root-fixtures.json'],
+    writes: ['data/session-root-fixtures.json'],
+    share: 'n/a (new 2026-09-05, COMPOSER-PLAN-AND-ROOT-WEBMCP-1)',
   },
   {
     // REGEN-CASCADE-CONSOLIDATE-1 (2026-09-03): this entry used to sit at array
@@ -309,9 +557,11 @@ export const COVERED = [
     // (see scripts/gen-openapi.mjs's own header comment), not by regen_catalog.py —
     // undeclared here until ASSEMBLE-ART628-1-FIX2 (2026-08-16), which is why it read
     // as an "escaped" write the first time art-628's tool-count bump made it drift.
-    // ⚠ 'catalog' (mcp/catalog.json) must ALSO precede this entry — it sits before
-    // 'chaingraph-assemble' in the array, so the enforced edge below pins it
-    // transitively. Do not move 'catalog' after 'chaingraph-assemble'.
+    // ⚠ 'catalog' (mcp/catalog.json) must ALSO precede this entry — since the
+    // DERIVED-DEP-MAP-1 reorder it sits after 'chaingraph-assemble' with its own
+    // enforced `after:` edge, and this entry's edge below still orders it before
+    // 'openapi' (check-derived-fanout-coverage.mjs only pins the LAST writer, so
+    // the catalog-before-openapi half is array order — do not re-sort it away).
     after: 'chaingraph-assemble',
     artifacts: ['openapi.json', 'docs/openapi.json', 'docs/catalog.json', 'docs/index.html'],
     share: '27%',
@@ -359,6 +609,31 @@ export const COVERED = [
     writes: ['registry/kernel'],
     artifacts: ['registry/kernel'],
     share: '100% (3/3 node registrations on 2026-08-21)',
+  },
+  {
+    id: 'registry-absence-tree',
+    // REGISTRY-ABSENCE-TREE-BUILD-1. The F2 NEGATIVE half: the ainumbers-simple-v1
+    // sorted-key absence tree over registry/kernel/*, published as ONE fixed-path
+    // artifact (registry/absence/tree.json). COVERED-safe by construction: pure
+    // function of the key set (no wall-clock, no network), byte-identical on a
+    // second pass, fixed literal path list — unlike its lineage/errata siblings
+    // in EXCLUDED below, nothing here writes an unbounded tile set.
+    // ⚠ The lineage BINDING is a different surface with a different writer: the
+    // {tree_root, key_count} entry is appended to registry-lineage-records.json
+    // and published via gen-registry-lineage.mjs (EXCLUDED — Sigsum budget + tile
+    // paths). When a node registration grows the key set, THIS regen updates
+    // tree.json automatically, and the binding half of
+    // `gen-registry-absence-tree.mjs --check` (wired directly into preflight.mjs,
+    // hard in every context) goes red BY DESIGN until the two-command
+    // append+publish remedy runs — printed with the failure. That is the same
+    // deliberate red-until-anchored philosophy as the node-registration gap gate.
+    regen: 'node scripts/gen-registry-absence-tree.mjs --write',
+    gate: 'node scripts/gen-registry-absence-tree.mjs --check',
+    artifacts: ['registry/absence/tree.json'],
+    // Reads the registry/kernel output of registry-kernel-resolve; a stale key
+    // set would publish a stale tree. Order is load-bearing, as with euc-register.
+    after: 'registry-kernel-resolve',
+    share: 'n/a (new 2026-08-30, REGISTRY-ABSENCE-TREE-BUILD-1)',
   },
   {
     id: 'euc-register',
@@ -428,60 +703,6 @@ export const COVERED = [
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
   {
-    id: 'counts',
-    // Count sentinels (<!--COUNT:key-->N<!--/COUNT-->, data-count="key") across
-    // every page that publishes one. File list mirrors verify-counts.mjs's own
-    // sentinel list + ATTR_RULES targets.
-    regen: 'node scripts/verify-counts.mjs --fix',
-    gate: 'node scripts/verify-counts.mjs --check',
-    artifacts: [
-      'docs/index.html', 'index.html', 'start.html', 'about.html',
-      'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
-      'mcp.html', 'chaingraph/chaingraph-hub.html',
-      'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
-      // fv-explainer.html carries count sentinels too (verify-counts.mjs's own
-      // list includes it). Omitting it here made the regen bot's anti-escape
-      // guard reject the whole run — "a generator wrote outside the declared
-      // set" — which stalled every downstream regen and kept main red.
-      // Reconciled against verify-counts.mjs's full 16-file list, not patched
-      // one file at a time. (DERIVED-SET-SELFTEST-1, 2026-08-22: this entry
-      // used to list the path TWICE — a pure authoring duplicate with zero
-      // effect on coveredPaths()'s Set-dedupe, but caught as a genuine
-      // within-entry CLASS C finding by check-derived-regen-live.mjs, which
-      // treats that shape as always a bug, unlike the cross-entry sharing
-      // check-derived-declare-parity.mjs's WARN allows by design. Collapsed
-      // to one entry here so that gate can be wired blocking.)
-      'fv-explainer.html',
-      '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
-      'llms.txt',
-      // CLAIMS-SENTINEL-TIER1-1: verify-counts.mjs's comment-sentinel scan now also covers the
-      // five hub hero pages (hubTools.* — audit Q7). SO #47: any write verify-counts.mjs --fix
-      // gains must be declared here in the same diff, or the main-side regen's anti-escape guard
-      // rejects the whole run exactly like the fv-explainer.html omission above did.
-      'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
-      'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
-      'guides/capital-markets-settlement-hub.html',
-    ],
-    // DERIVED-DECLARE-PARITY-1: verify-counts.mjs writes via a `write(rel, …)`
-    // helper called mostly with loop/lookup variables (ATTR_RULES `.file`,
-    // the HTML-sentinel loop's `rel`), not literals at the call site —
-    // unresolvable by static source analysis. Mirrors `artifacts` (already
-    // reconciled against verify-counts.mjs's own file list, see comment above).
-    writes: [
-      'docs/index.html', 'index.html', 'start.html', 'about.html',
-      'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
-      'mcp.html', 'chaingraph/chaingraph-hub.html',
-      'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
-      'fv-explainer.html',
-      '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
-      'llms.txt',
-      'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
-      'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
-      'guides/capital-markets-settlement-hub.html',
-    ],
-    share: '27%',
-  },
-  {
     id: 'sitemap-xml',
     // SITEMAP-MAINSIDE-1 (2026-08-29): migrates the ORIGINAL SITEMAP-MAIN-REGEN-1
     // exclusion in from DISCOVER-1 territory. sitemap.xml had the HIGHEST measured
@@ -498,6 +719,37 @@ export const COVERED = [
     share: '94% (124/132; the highest measured skew of any artifact in this file)',
   },
   {
+    id: 'nav-island',
+    // REGEN-COVERED-ORDER-FIX-4 (2026-09-06, main 60bb7dff red: "debt-ledger was
+    // stale after pass 1 and fresh after pass 2"): nav-island now runs BEFORE
+    // debt-ledger. gen-debt-ledger.mjs reads every *-baseline.json, including
+    // scripts/nav-island-baseline.json this entry prunes, so the ledger must
+    // follow the prune. debt-ledger's own write is one region inside
+    // fv-explainer.html (a table, never a page or a nav link), so reachability
+    // does not depend on it and nav-island need not follow it. Edge recorded in
+    // workspace scripts/check-incident-replays.mjs (covered-order fixture).
+    // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): moved from the
+    // head of the array (was position 4, before every html writer). The check
+    // READS every *.html (check-nav-reachability.mjs:131,141) plus
+    // chaingraph.json (:186), so it must run AFTER all of them — earliest
+    // position yet widest read set (report B5/B6). The baseline is the
+    // allowlist of by-design island pages. A new page that is reachable
+    // REMOVES entries; one that is not ADDS them. Either way the baseline is
+    // shared state every page-adding shard rewrites.
+    // --prune, NOT --update: regen may only remove entries that became
+    // reachable. --update accepts every current island and would baseline an
+    // unlinked page within a minute of it landing (bot commit 130b63db did).
+    regen: 'node scripts/check-nav-reachability.mjs --prune',
+    // ⚠ --baseline-check ONLY. The plain command (new-island detection) is a
+    // content gate, hard in every context — it is NOT a derived-artifact gate
+    // and must never be listed here, or a PR that ships an unlinked page goes
+    // green (PR #1309, 2026-08-16, chaingraph/integrator-profile.html).
+    gate: 'node scripts/check-nav-reachability.mjs --baseline-check',
+    artifacts: ['scripts/nav-island-baseline.json'],
+    after: 'chaingraph-assemble',
+    share: '57%',
+  },
+  {
     id: 'debt-ledger',
     // DEBT-LEDGER-1 (0xAlpha/2026-08-21-mechanical-verification-audit.md
     // Finding 3): owns ONE self-delimited region of fv-explainer.html
@@ -505,11 +757,14 @@ export const COVERED = [
     // `<!--COUNT:-->` sentinels the 'counts' entry above already owns on
     // this same page — same "two generators, two regions, one shared file"
     // pattern as 'chain-index' and 'chaingraph-hub' both declaring
-    // chaingraph/chaingraph-hub.html below. New today; no co-modification
-    // history yet to measure a share rate from.
+    // chaingraph/chaingraph-hub.html below.
+    // REGEN-COVERED-ORDER-FIX-4: LAST in the array, pinned after nav-island —
+    // it reads scripts/nav-island-baseline.json (every *-baseline.json) and
+    // must see the pruned state in the same pass (60bb7dff fixpoint incident).
     regen: 'node scripts/gen-debt-ledger.mjs --write',
     gate: 'node scripts/gen-debt-ledger.mjs --check',
     artifacts: ['fv-explainer.html'],
+    after: 'nav-island',
     share: 'n/a (new 2026-08-21, DEBT-LEDGER-1)',
   },
 ];
@@ -529,6 +784,17 @@ export const COVERED = [
  * fails that gate. Prose alone never caught this and never will.
  */
 export const EXCLUDED = [
+  {
+    what: 'scripts/check-infra-registry.mjs (INFRA-PAGE-1 gate)',
+    script: 'scripts/check-infra-registry.mjs',
+    share: 'n/a — a gate, not a generator',
+    why: 'NOT A GENERATOR. It reads chaingraph.json only to EXCLUDE node pages from the '
+       + 'page-derived scope (the same negative half the nav gate applies), and it reads every '
+       + 'in-scope page for its ain:category meta. It has no regen mode and writes no repo '
+       + 'artifact: its only writeFileSync targets are temp-dir self-test fixtures (removed on '
+       + 'exit). The derived artifact it verifies, data/infra-registry.json, is COVERED above '
+       + '(id infra-registry). Listed so the fan-out coverage gate reads a decision, not a gap.',
+  },
   {
     what: 'consume-vow evidence reads (via scripts/check-vow-vs-code.mjs)',
     script: 'scripts/check-vow-vs-code.mjs',
@@ -701,6 +967,19 @@ export const EXCLUDED = [
        + 'network call) is wired into scripts/preflight.mjs directly, same as lineage\'s. Publishing a new entry '
        + 'set stays a manual/generated run: `node scripts/gen-registry-errata.mjs`.',
   },
+  {
+    what: '.well-known/agent-card.json signatures[] (via scripts/sign-agent-card.mjs — A2A-CARD-SIGN-1)',
+    script: 'scripts/sign-agent-card.mjs',
+    share: 'n/a',
+    why: 'SIGNING NEEDS THE PRIVATE KEY (AGENT-REACH-BUILD-SPEC §3.8). The A2A Signed Agent Card\'s detached '
+       + 'JWS is produced by the estate\'s §16 signer (the worker\'s key.pem), which exists only on Tim\'s '
+       + 'machine — it is never present on the main-regen runner, by the same law that keeps it out of the '
+       + 'site repo entirely. So the card + signature CANNOT be a regen-on-main artifact: the single writer '
+       + 'is sign-agent-card.mjs run LOCALLY, and the signed card is committed by the signing row\'s PR. '
+       + 'Drift is guarded instead by scripts/check-agent-card-sig.mjs (wired into preflight): any later '
+       + 'card content edit without a local re-sign goes RED. Only PUBLIC material (the signatures[] block '
+       + 'and .well-known/jwks.json, COVERED id jwks) ever touches main-side generation.',
+  },
 ];
 
 /** Every path the regen may write, deduped and sorted — the commit pathspec. */
@@ -725,6 +1004,53 @@ export function missingPaths() {
 }
 
 /**
+ * MERGEGROUP-HARD-GATES-1: the advisory freshness gates that read $DERIVED_ROOT
+ * (the ephemeral derived tree a merge_group job assembles). On merge_group with
+ * DERIVED_ROOT set, isMainContext() is HARD — but ONLY these commands may see
+ * the variable, because only they know how to read the scratch tree. Any other
+ * advisory gate would read the still-stale in-tree artifacts and falsely red.
+ * Callers that spawn gates (preflight.mjs per gate, --verify below) MUST strip
+ * DERIVED_ROOT from the child env for commands not in this set.
+ *
+ * ⛔ Keep in sync with the overlay readers in the gate scripts themselves; the
+ * self-test in check-compute-proof-coverage.test.mjs pins the mechanism.
+ *
+ * MERGEGROUP-DERIVED-REGEN-FIX-1: in EPHEMERAL mode --verify runs ONLY the gates
+ * in this set. Every other covered gate is main-regen-owned (regenerated by
+ * derived-artifacts-regen.yml on main after merge, per SO #35) and is not
+ * DERIVED_ROOT-aware, so its --check reads the still-stale committed artifact
+ * and reds every kernel-adding PR inside the queue (#1749, run 34086751113).
+ * Such gates are SKIPPED with a printed reason, never executed.
+ */
+export const DERIVED_ROOT_GATES = new Set([
+  'node scripts/check-compute-proof-coverage.mjs',           // §18 deferred ratchet (reads the monolith)
+  'node scripts/verify-counts.mjs --check',                  // count drift (reads counts sentinels + counts.mjs inputs)
+  'node scripts/derived-artifacts.mjs --verify',             // derived freshness (self; re-scopes per gate below)
+  'python scripts/check_index_sync.py --strict --no-color',  // index-sync (reads tools.html)
+  'node scripts/regen-sitemap.mjs --check',                  // sitemap freshness (reads sitemap.xml)
+  'node scripts/check-nav-reachability.mjs',                 // nav islands (reads the monolith for dynamic roots)
+  'node scripts/check-nav-reachability.mjs --baseline-check',// nav-island baseline freshness
+]);
+
+/** The non-empty DERIVED_ROOT, or '' — CI merge_group jobs only by convention,
+ *  but any caller that sets the variable explicitly opts in to the overlay. */
+export function derivedRoot() {
+  const dr = process.env.DERIVED_ROOT;
+  return dr && dr.trim() ? dr.trim() : '';
+}
+
+/** Resolve a repo-relative derived-artifact path against the ephemeral tree
+ *  when one is mounted, falling back to the real repo (overlay semantics: only
+ *  files the assembly actually produced come from the scratch root). Accepts
+ *  path segments, e.g. derivedResolve('chaingraph', 'chaingraph.json'). */
+export function derivedResolve(...parts) {
+  const rel = parts.join('/');
+  const dr = derivedRoot();
+  const scratch = dr ? resolve(REPO, dr, ...parts) : null;
+  return scratch && existsSync(scratch) ? scratch : resolve(REPO, ...parts);
+}
+
+/**
  * Is this a MAIN context (gates block) or a PR context (gates warn)?
  *
  * ⚠ FAILS CLOSED. Anything undeterminable returns true — a gate stays BLOCKING
@@ -739,16 +1065,35 @@ export function isMainContext() {
   // context probe, not by review.) Only an affirmative proof of a PR may earn
   // the downgrade; every other state blocks.
 
-  // CI: `pull_request` AND `merge_group` are both PR proofs — the regen bot
-  // writes these artifacts AFTER merge (SO #35), so staleness inside the merge
-  // queue is by-construction, exactly as on a `pull_request`. Treating
-  // `merge_group` as MAIN made a queued assemble that obeys SO #35 get
+  // CI: `pull_request` is a PR proof — the regen bot writes these artifacts
+  // AFTER merge (SO #35), so staleness on a branch is by-construction.
+  // Treating `merge_group` as MAIN made a queued assemble that obeys SO #35 get
   // ejected by its own freshness gate (ASSEMBLE-LAND-0817-1 folded-in step,
   // 2026-08-17). push-to-main, schedule, workflow_dispatch, workflow_call and
   // anything unrecognised still BLOCK.
+  //
+  // MERGEGROUP-HARD-GATES-1 (2026-09-06) — `merge_group` gains a THIRD state.
+  // SO #35's rationale (the branch cannot regenerate a single-writer artifact)
+  // is TRUE for `pull_request` and FALSE for `merge_group`: the merge_group ref
+  // is byte-for-byte the tree that will be main, and the merge_group job now
+  // assembles the derived tree EPHEMERALLY into $DERIVED_ROOT (assemble-chaingraph
+  // --out + derived-artifacts --out; nothing is ever written to the checkout, and
+  // nothing derived is ever committed). Fresh inputs exist, so the gates go HARD
+  // there — that is the whole point of the row: the four same-day red-mains
+  // (#1697/#1700, #1727 class, #1759) were all `exit 0 + ::warning` on
+  // merge_group and `exit 1` only on push:main.
+  //   pull_request                                  → PR-advisory (inputs stale by construction)
+  //   merge_group, DERIVED_ROOT set (non-empty)     → HARD (inputs are the assembled speculative tree)
+  //   merge_group, DERIVED_ROOT absent/empty        → PR-advisory (legacy shape: a workflow that
+  //                                                   has not grown the assembly step yet)
+  //   anything else in CI                           → HARD (fail closed, unchanged)
   if (process.env.GITHUB_ACTIONS === 'true') {
     const event = process.env.GITHUB_EVENT_NAME;
-    return event !== 'pull_request' && event !== 'merge_group';
+    if (event === 'pull_request') return false;
+    if (event === 'merge_group') {
+      return Boolean(process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim());
+    }
+    return true;
   }
 
   // Local pre-push: a feature branch is the PR proof. It must RESOLVE, and be
@@ -786,6 +1131,45 @@ function runRegenPass() {
   }
 }
 
+/** One freshness-gate pass for --verify (MERGEGROUP-DERIVED-REGEN-FIX-1): in
+ *  ephemeral mode (DERIVED_ROOT set, unless opts.ephemeral overrides) a covered
+ *  gate NOT in DERIVED_ROOT_GATES is main-regen-owned and SKIPS with a printed
+ *  reason — it can never be fresh against a tree it cannot see. Aware gates
+ *  still run HARD. The opts hooks (list/awareSet/exec) exist for the embedded
+ *  --verify --self-test only; production calls pass nothing. */
+function runVerifyGates(passLabel, opts = {}) {
+  const ephemeral = opts.ephemeral ?? Boolean(derivedRoot());
+  const list = opts.list ?? COVERED;
+  const awareSet = opts.awareSet ?? DERIVED_ROOT_GATES;
+  const execGate = opts.exec ?? ((cmd, o) => execSync(cmd, o));
+  const failed = [], skipped = [];
+  for (const c of list) {
+    if (!c.gate) continue;
+    if (ephemeral && !awareSet.has(c.gate)) {
+      console.log(`▶ [${passLabel}] ${c.id} … skip (main-regen-owned, not DERIVED_ROOT-aware; regenerated by derived-artifacts-regen.yml on main)`);
+      skipped.push(c.id);
+      continue;
+    }
+    const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
+    // MERGEGROUP-HARD-GATES-1: only DERIVED_ROOT_GATES may see the scratch
+    // mount — any other COVERED gate would read the still-stale in-tree
+    // artifacts and hard-fail under the merge_group context flip.
+    if (ephemeral && !awareSet.has(c.gate)) delete env.DERIVED_ROOT;
+    process.stdout.write(`▶ [${passLabel}] ${c.id} … `);
+    try {
+      execGate(c.gate, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] });
+      console.log('ok');
+    } catch (e) {
+      console.log('STALE');
+      if (e?.simulated !== true) {
+        console.error(`\n${c.gate}\n` + ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim());
+      }
+      failed.push(c.id);
+    }
+  }
+  return { failed, skipped };
+}
+
 const isMain = process.argv[1] &&
   resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
 
@@ -801,12 +1185,24 @@ if (isMain) {
     }
     console.log(coveredPaths().join('\n'));
   } else if (arg === '--check-paths') {
-    const missing = missingPaths();
+    // AI-CATALOG-1: entries flagged `prAbsentOk` declare artifacts that BY DESIGN
+    // do not exist on a PR checkout (SO #35: written by this regen workflow on
+    // main after merge; a PR is forbidden to commit them). In a PR context the
+    // existence check skips them — freshness is still enforced by their --check
+    // gates via the generic advisory downgrade, and the existence check stays
+    // HARD on main, where the regen has no excuse. isMainContext fails closed,
+    // so an undeterminable context keeps the full hard check.
+    const prSkip = new Set(
+      isMainContext()
+        ? []
+        : COVERED.filter((c) => c.prAbsentOk).flatMap((c) => c.artifacts)
+    );
+    const missing = missingPaths().filter((p) => !prSkip.has(p));
     if (missing.length) {
       console.log(`✗ derived-artifacts: ${missing.length} declared artifact(s) missing on disk:\n  ${missing.join('\n  ')}`);
       process.exit(1);
     }
-    console.log(`✓ derived-artifacts: all ${coveredPaths().length} declared artifacts exist on disk.`);
+    console.log(`✓ derived-artifacts: all declared artifacts exist on disk${prSkip.size ? ` (${prSkip.size} prAbsentOk path(s) skipped in PR context)` : ''}.`);
   } else if (arg === '--context') {
     console.log(isMainContext() ? 'main' : 'pr');
   } else if (arg === '--regen') {
@@ -815,6 +1211,87 @@ if (isMain) {
     // a half-regenerated tree must never reach a commit.
     runRegenPass();
     console.log('\nregen complete');
+  } else if (arg === '--out') {
+    // MERGEGROUP-HARD-GATES-1: assemble the ENTIRE derived tree ephemerally,
+    // for the merge_group job. The single-writer law (SO #35) is untouched —
+    // nothing is written to the checkout; the job asserts a clean tree after.
+    //   node scripts/derived-artifacts.mjs --out <scratch-dir>
+    // Mechanism: a THROWAWAY GIT WORKTREE of HEAD carries the full regen pass
+    // (every COVERED generator resolves paths module-relative, so running the
+    // worktree's own copy of this script writes only inside the worktree), then
+    // every COVERED artifact is copied out to <scratch-dir> preserving its
+    // repo-relative path. The workflow points DERIVED_ROOT at the scratch dir
+    // and the DERIVED_ROOT-aware gates overlay-read from it.
+    const out = process.argv[3];
+    if (!out || process.argv[4]) {
+      console.error('usage: node scripts/derived-artifacts.mjs --out <scratch-dir>');
+      process.exit(2);
+    }
+    const OUT = resolve(out);
+    const tmpBase = mkdtempSync(join(tmpdir(), 'derived-out-'));
+    const wt = join(tmpBase, 'wt');
+    // gitEnv() (GIT-ENV-LEAK-SWEEP-1): the worktree spawns must not inherit the
+    // ambient GIT_* environment under the pre-push hook, and must never see the
+    // scratch mount (DERIVED_ROOT) — a nested regen must re-derive, not recurse.
+    const envNoDerived = gitEnv();
+    delete envNoDerived.DERIVED_ROOT;
+    try {
+      execSync(`git worktree add --detach ${JSON.stringify(wt)} HEAD`, { cwd: REPO, env: envNoDerived, stdio: 'pipe' });
+      console.log(`▶ ephemeral regen pass in throwaway worktree ${wt} …`);
+      execSync(`${JSON.stringify(process.execPath)} scripts/derived-artifacts.mjs --regen`, {
+        cwd: wt, env: envNoDerived, stdio: 'inherit',
+      });
+      mkdirSync(OUT, { recursive: true });
+      let copied = 0, missing = [];
+      for (const p of coveredPaths()) {
+        const src = join(wt, p);
+        if (!existsSync(src)) { missing.push(p); continue; }
+        const dst = join(OUT, p);
+        // Some COVERED artifacts are DIRECTORIES (e.g. chaingraph/okf) — copy
+        // recursively either way.
+        cpSync(src, dst, { recursive: true, force: true });
+        copied++;
+      }
+      console.log(`✓ derived-artifacts --out: ${copied} artifact(s) copied to ${OUT}` +
+        (missing.length ? `\n  ⚠ absent after regen (overlay falls back to the checkout for these): ${missing.join(', ')}` : ''));
+    } finally {
+      try { execSync(`git worktree remove --force ${JSON.stringify(wt)}`, { cwd: REPO, env: envNoDerived, stdio: 'pipe' }); } catch { /* best effort */ }
+      try { rmSync(tmpBase, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+  } else if (arg === '--verify' && process.argv[3] === '--self-test') {
+    // MERGEGROUP-DERIVED-REGEN-FIX-1 — embedded self-test for the ephemeral
+    // skip rule (no processes spawned; the gate exec is injected). Pins BOTH
+    // directions:
+    //   (a) a stale DERIVED_ROOT-AWARE gate in ephemeral mode still FAILS (hard);
+    //   (b) a stale non-aware gate in ephemeral mode SKIPS (never executes);
+    //   (c) outside ephemeral mode nothing is skipped — every gate still runs.
+    const AWARE = 'node scripts/verify-counts.mjs --check'; // a real DERIVED_ROOT_GATES command
+    const fail = (msg) => { console.error(`✗ self-test: ${msg}`); process.exit(1); };
+    const staleErr = Object.assign(new Error('stale (simulated)'), { simulated: true, stdout: '', stderr: '' });
+    const list = [
+      { id: 'selftest-aware-stale', gate: AWARE },
+      { id: 'selftest-nonaware-stale', gate: 'node scripts/derived-artifacts.mjs --selftest-nonaware-sentinel' },
+    ];
+    const execStale = () => { throw staleErr; };
+    const okExec = () => {};
+
+    const a = runVerifyGates('selftest', { list, ephemeral: true, awareSet: new Set([AWARE]), exec: execStale });
+    a.failed.length === 1 && a.failed[0] === 'selftest-aware-stale' || fail(`aware stale gate must FAIL in ephemeral mode, got failed=${JSON.stringify(a.failed)}`);
+    a.skipped.length === 1 && a.skipped[0] === 'selftest-nonaware-stale' || fail(`non-aware stale gate must SKIP in ephemeral mode, got skipped=${JSON.stringify(a.skipped)}`);
+    console.log('✓ self-test (a): stale DERIVED_ROOT-aware gate FAILED hard in ephemeral mode');
+
+    const b = runVerifyGates('selftest', { list: [list[1]], ephemeral: true, awareSet: new Set([AWARE]), exec: execStale });
+    b.failed.length === 0 && b.skipped.length === 1 || fail(`non-aware stale gate must exit-0-skip in ephemeral mode, got failed=${JSON.stringify(b.failed)} skipped=${JSON.stringify(b.skipped)}`);
+    console.log('✓ self-test (b): stale non-aware gate SKIPPED (exit-0 class) in ephemeral mode');
+
+    const c = runVerifyGates('selftest', { list, ephemeral: false, exec: execStale });
+    c.failed.length === 2 && c.skipped.length === 0 || fail(`non-ephemeral mode must not skip, got failed=${JSON.stringify(c.failed)} skipped=${JSON.stringify(c.skipped)}`);
+    console.log('✓ self-test (c): non-ephemeral mode still executes every gate (no skips)');
+
+    const d = runVerifyGates('selftest', { list, ephemeral: true, awareSet: new Set([AWARE]), exec: okExec });
+    d.failed.length === 0 && d.skipped.length === 1 || fail(`green ephemeral run must not fail, got failed=${JSON.stringify(d.failed)} skipped=${JSON.stringify(d.skipped)}`);
+    console.log('\n✓ derived-artifacts --verify --self-test: all directions green.');
+    process.exit(0);
   } else if (arg === '--verify') {
     // REGEN-CASCADE-CONSOLIDATE-1 (2026-09-03): prove the regen pass left every
     // covered surface fresh, BEFORE the bot commits. Two-tier verdict, because
@@ -846,36 +1323,32 @@ if (isMain) {
     // ADVISORY BY DESIGN (SO #35 — a shard is forbidden from satisfying them), so
     // this mode would red every honest PR. It exists for the main-side writer to
     // prove its own tree before committing it.
-    const runGates = (passLabel) => {
-      const failed = [];
-      for (const c of COVERED) {
-        if (!c.gate) continue;
-        process.stdout.write(`▶ [${passLabel}] ${c.id} … `);
-        try {
-          execSync(c.gate, {
-            cwd: REPO,
-            env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-            stdio: ['ignore', 'pipe', 'pipe'],
-          });
-          console.log('ok');
-        } catch (e) {
-          console.log('STALE');
-          console.error(`\n${c.gate}\n` + ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim());
-          failed.push(c.id);
-        }
-      }
-      return failed;
-    };
+    const EPHEMERAL = Boolean(derivedRoot());
     const gateCount = COVERED.filter((c) => c.gate).length;
-
-    const red1 = runGates('pass-1');
+    const { failed: red1, skipped: skipped1 } = runVerifyGates('pass-1');
     if (red1.length === 0) {
-      console.log(`\n✓ derived-artifacts --verify: all ${gateCount} covered freshness gates green — one pass is a fixpoint on this tree.`);
+      console.log(`\n✓ derived-artifacts --verify: ${gateCount - skipped1.length}/${gateCount} covered freshness gates green` +
+        (skipped1.length ? `, ${skipped1.length} skipped (main-regen-owned, not DERIVED_ROOT-aware)` : '') +
+        ' — one pass is a fixpoint on this tree.');
       process.exit(0);
+    }
+    if (EPHEMERAL) {
+      // MERGEGROUP-HARD-GATES-1: in ephemeral mode (merge_group + DERIVED_ROOT)
+      // this invocation is a GATE, not the bot's self-check. The in-tree second
+      // regen pass below would WRITE to the checkout — the exact thing the
+      // ephemeral design forbids — and could never heal a red anyway, because
+      // the scratch tree, not the checkout, is the gate's input. Fail hard and
+      // name the red set: the speculative merge result is stale/broken and the
+      // queue must refuse it.
+      console.error(`\n✗ derived-artifacts --verify (ephemeral DERIVED_ROOT): ${red1.length} covered freshness gate(s) RED against the assembled speculative tree: ${red1.join(', ')}` +
+        (skipped1.length ? ` (${skipped1.length} main-regen-owned gate(s) skipped as not DERIVED_ROOT-aware)` : ''));
+      console.error('  The merge_group ref is byte-for-byte the tree that will be main, so this drift');
+      console.error('  would red main post-merge. Fix it in the PR; nothing is written to the checkout.');
+      process.exit(1);
     }
     console.error(`\n⚠ pass-1 red set (${red1.length}): ${red1.join(', ')} — running ONE second regen pass to classify (fixpoint violation vs un-healable content red) …\n`);
     runRegenPass();
-    const red2 = runGates('pass-2');
+    const { failed: red2 } = runVerifyGates('pass-2');
     const healed = red1.filter((id) => !red2.includes(id));
     const newlyRed = red2.filter((id) => !red1.includes(id));
     if (healed.length || newlyRed.length) {

@@ -42,6 +42,12 @@ const PROFILES = {
   // frame-src 'self' for the same-origin composer bridge iframe. No worker
   // usage in this bridge, so worker-src stays 'none' (same as CSP_STANDARD).
   CSP_COMPOSER: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
+  // TOOLPAGE-FILE-IMPORT-1 — Web Share Target host page. start.html links the
+  // site web-app manifest (manifest.webmanifest, share_target text-only routed
+  // to the local tool search), so its manifest-src must be 'self' instead of
+  // the 'none' every other profile carries. Everything else is byte-identical
+  // to CSP_WASM_VM (start.html runs the suite in-browser VM profile).
+  CSP_MANIFEST: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self';`,
   // CONTRACT §A10.2 — docs/ API-portal carve-out. connect-src 'self' covers
   // the same-origin ./catalog.json + ./openapi.json GETs (§A10.1); worker-src
   // 'self' blob: mirrors CSP_WASM_VM (Redoc is vendored, no CDN host named).

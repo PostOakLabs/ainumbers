@@ -47,6 +47,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { KERNELS } from './index.mjs';
 import { runKernelInVM } from '../vm/kernel-vm.mjs';
+import { readCases } from './_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXDIR = resolve(HERE, 'fixtures');
@@ -131,8 +132,8 @@ for (const id of toolIds) {
   const kernelSource = readFileSync(kernelPath, 'utf8');
   const guestShapedSource = `${DELETE_PRELUDE}\n${kernelSource}`;
 
-  const doc = JSON.parse(readFileSync(fpath, 'utf8'));
-  for (const v of doc.vectors ?? []) {
+  // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
+  for (const v of readCases(JSON.parse(readFileSync(fpath, 'utf8')), fpath)) {
     const tag = `${id}/${v.name}`;
     checked++; // EVERY fixture vector, not vectors[0] — a guard-branch vector proves nothing about the others.
 

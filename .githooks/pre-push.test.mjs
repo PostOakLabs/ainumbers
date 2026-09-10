@@ -13,9 +13,10 @@
  * without ever letting the declaration wave through a red gate it did not name.
  *
  * What it proves (red-before-green, per the row's own "PROVE IT" discipline):
- *   1. DEFAULT PATH UNCHANGED — no AINUM_EXPECT_RED set ⇒ preflight is invoked
- *      with exactly the same argv as before this row (`--changed origin/main`,
- *      nothing appended).
+ *   1. DEFAULT PATH — no AINUM_EXPECT_RED set ⇒ preflight is invoked with
+ *      exactly the quick-first argv of PREFLIGHT-QUICK-1 (`--quick`, nothing
+ *      appended; the full `--changed origin/main` leg only runs when
+ *      PREFLIGHT_FULL=1 or the diff touches the gated machinery).
  *   2. PARSING — a comma-separated declaration (with stray whitespace) becomes
  *      one `--expect-red <id>` pair per id, in order, forwarded to preflight.
  *   3. GREEN CONTROL — a declared id + preflight exiting 0 (the by-construction
@@ -109,6 +110,7 @@ function runHook(dir, envOverrides) {
       // leak into a scenario that expects it absent (the no-persistence check).
       AINUM_EXPECT_RED: '',
       AINUM_EXPECT_RED_ROW: '',
+      PREFLIGHT_FULL: '', // PREFLIGHT-QUICK-1: a leaked outer value must not force the full leg
       ...envOverrides,
     },
     encoding: 'utf8',
@@ -128,7 +130,7 @@ function runHook(dir, envOverrides) {
   writeFileSync(join(dir, 'metrics.jsonl'), ''); // exists but empty — file must exist for the hook's `[ -f ]` guard
   const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
   assert(r.status === 0, 'default path (no AINUM_EXPECT_RED): hook exits 0 on a green mock preflight');
-  assert(JSON.stringify(r.argv) === JSON.stringify(['--changed', 'origin/main']),
+  assert(JSON.stringify(r.argv) === JSON.stringify(['--quick']),
     `default path forwards nothing extra to preflight (got ${JSON.stringify(r.argv)})`);
   assert(r.metricsLines.length === 0, 'default path appends nothing to the metrics log');
   rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
@@ -139,7 +141,7 @@ function runHook(dir, envOverrides) {
   const dir = makeSandbox();
   writeFileSync(join(dir, 'metrics.jsonl'), '');
   const r = runHook(dir, { AINUM_EXPECT_RED: ' gate-a ,gate-b ', MOCK_PREFLIGHT_EXIT: '0' });
-  const expected = ['--changed', 'origin/main', '--expect-red', 'gate-a', '--expect-red', 'gate-b'];
+  const expected = ['--quick', '--expect-red', 'gate-a', '--expect-red', 'gate-b'];
   assert(JSON.stringify(r.argv) === JSON.stringify(expected),
     `comma-separated declaration becomes one --expect-red pair per id, trimmed, in order (got ${JSON.stringify(r.argv)})`);
   rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
@@ -202,7 +204,7 @@ let greenDenied;
   // pre-existing, never-touched-by-this-row push against the same red gate.
   const plain = runHook(dir, { MOCK_PREFLIGHT_EXIT: '1' });
   assert(plain.status !== 0, 'NO PERSISTENCE: a second push with no flag still blocks (nothing carried over)');
-  assert(JSON.stringify(plain.argv) === JSON.stringify(['--changed', 'origin/main']),
+  assert(JSON.stringify(plain.argv) === JSON.stringify(['--quick']),
     'NO PERSISTENCE: the unflagged push forwards no --expect-red args (no state survived)');
   assert(plain.metricsLines.length === linesAfterFlagged,
     `NO PERSISTENCE: the unflagged push appended nothing new to the metrics log (had ${linesAfterFlagged}, now ${plain.metricsLines.length})`);
@@ -217,7 +219,7 @@ let greenDenied;
   writeFileSync(join(dir, 'metrics.jsonl'), '');
   writeFileSync(join(dir, '.git', 'AINUM_EXPECT_RED'), 'gate-c\nTEST-ROW-2\n');
   const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' }); // AINUM_EXPECT_RED unset — file is the ONLY channel here
-  assert(JSON.stringify(r.argv) === JSON.stringify(['--changed', 'origin/main', '--expect-red', 'gate-c']),
+  assert(JSON.stringify(r.argv) === JSON.stringify(['--quick', '--expect-red', 'gate-c']),
     `file-based route forwards the declared id exactly like the env form (got ${JSON.stringify(r.argv)})`);
   assert(r.status === 0, 'file-based route: GREEN control — declared id + preflight accepts ⇒ push proceeds');
   assert(!existsSync(join(dir, '.git', 'AINUM_EXPECT_RED')),
@@ -254,7 +256,7 @@ let greenDenied;
   assert(first.status === 0, 'file-route setup: first push (with declaration) succeeds');
   const second = runHook(dir, { MOCK_PREFLIGHT_EXIT: '1' });
   assert(second.status !== 0, 'NO PERSISTENCE (file route): a later push with no file and a genuine red still blocks');
-  assert(JSON.stringify(second.argv) === JSON.stringify(['--changed', 'origin/main']),
+  assert(JSON.stringify(second.argv) === JSON.stringify(['--quick']),
     'NO PERSISTENCE (file route): the later push forwards no --expect-red (the file did not survive)');
   rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }
@@ -266,10 +268,23 @@ let greenDenied;
   writeFileSync(join(dir, 'metrics.jsonl'), '');
   writeFileSync(join(dir, '.git', 'AINUM_EXPECT_RED'), 'gate-from-file\n');
   const r = runHook(dir, { AINUM_EXPECT_RED: 'gate-from-env', MOCK_PREFLIGHT_EXIT: '0' });
-  assert(JSON.stringify(r.argv) === JSON.stringify(['--changed', 'origin/main', '--expect-red', 'gate-from-env']),
+  assert(JSON.stringify(r.argv) === JSON.stringify(['--quick', '--expect-red', 'gate-from-env']),
     `env wins when both are present (got ${JSON.stringify(r.argv)})`);
   assert(!existsSync(join(dir, '.git', 'AINUM_EXPECT_RED')),
     'a stale file is still deleted even when the env form is the one actually used');
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+}
+
+// ── 10. PREFLIGHT_FULL=1 — the FULL suite leg runs after (and behind) quick,
+//      forwarding `--changed origin/main` plus any --expect-red args
+//      (PREFLIGHT-QUICK-1: quick first, full only when it can be owed).
+{
+  const dir = makeSandbox();
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  const r = runHook(dir, { PREFLIGHT_FULL: '1', AINUM_EXPECT_RED: 'gate-f', MOCK_PREFLIGHT_EXIT: '0' });
+  assert(r.status === 0, 'PREFLIGHT_FULL=1: hook exits 0 when both legs are green');
+  assert(JSON.stringify(r.argv) === JSON.stringify(['--changed', 'origin/main', '--expect-red', 'gate-f']),
+    `PREFLIGHT_FULL=1: the full leg forwards --changed origin/main plus declared ids (last invocation got ${JSON.stringify(r.argv)})`);
   rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }
 
