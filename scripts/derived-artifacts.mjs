@@ -83,6 +83,8 @@
  *                                                 # COVERED gate; a red a second pass heals = exit 1
  *                                                 # (cascade class); a red that persists = warn+0
  *                                                 # (content red the bot cannot heal). NOT preflight.
+ *   node scripts/derived-artifacts.mjs --verify --self-test  # embedded self-test: ephemeral mode runs
+ *                                                 # DERIVED_ROOT-aware gates only; non-aware gates SKIP
  *   node scripts/derived-artifacts.mjs --context  # print "main" or "pr"
  */
 import { execSync } from 'node:child_process';
@@ -111,15 +113,6 @@ export const COVERED = [
     artifacts: ['chaingraph/kernels/index.mjs'],
     share: '81%',
   },
-
-  {
-    id: 'estate-map',
-    regen: 'node scripts/gen-estate-map.mjs',
-    gate: 'node scripts/gen-estate-map.mjs --check',
-    artifacts: ['llms.txt'],
-    share: '1%',
-  },
-
 
   {
     id: 'guides-index',
@@ -271,6 +264,10 @@ export const COVERED = [
       'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
       'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
       'guides/capital-markets-settlement-hub.html',
+      // INFRA-PAGE-1: infrastructure.html carries a data-count="infra_pages"
+      // sentinel now listed in verify-counts.mjs's file list — undeclared here
+      // the regen's anti-escape guard would reject the write (SO #47 precedent).
+      'infrastructure.html',
     ],
     // DERIVED-DECLARE-PARITY-1: verify-counts.mjs writes via a `write(rel, …)`
     // helper called mostly with loop/lookup variables (ATTR_RULES `.file`,
@@ -288,12 +285,63 @@ export const COVERED = [
       'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
       'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
       'guides/capital-markets-settlement-hub.html',
+      'infrastructure.html',
     ],
     share: '27%',
     // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): counts reads
     // chaingraph.json (counts.mjs:123) — assembler precedes it now (B7 also
     // fixed: stats reads mcp.html before counts rewrote its sentinels).
     after: 'chaingraph-assemble',
+  },
+  {
+    // INFRA-PAGE-1 (2026-09-08): the derived page registry over every non-tool
+    // published page (gen-infra-registry.mjs — scope walk over
+    // published-dirs.json, node/tool/chain pages excluded, redirect shims
+    // auto-exempt like the nav gate). One entry per tagged page:
+    // { path, title, description, category, featured, facts }. Sorted by
+    // category then title; no wall-clock field, so a second pass is
+    // byte-identical (idempotency proof). Reads every page (like nav-island)
+    // and chaingraph.json (node-url exclusion), so it must run AFTER the
+    // page/HTML writers it reads within a pass; `after: counts` pins the
+    // sentinel writer that touches index.html/start.html/fv-explainer.html.
+    id: 'infra-registry',
+    regen: 'node scripts/gen-infra-registry.mjs',
+    gate: 'node scripts/gen-infra-registry.mjs --check',
+    // write target is a module-level constant path in the generator, not a
+    // literal at the call site (counts precedent) — mirrored in `writes`.
+    writes: ['data/infra-registry.json'],
+    artifacts: ['data/infra-registry.json'],
+    after: 'counts',
+    share: 'n/a (new 2026-09-08, INFRA-PAGE-1)',
+  },
+  {
+    // INFRA-PAGE-1: infrastructure.html, generated from the registry above
+    // (one section per category, one card per registry entry, JSON-LD
+    // CollectionPage ItemList, data-count="infra_pages" sentinel). Consumes
+    // ONLY data/infra-registry.json — ordered after it.
+    id: 'infrastructure-page',
+    regen: 'node scripts/gen-infrastructure-page.mjs',
+    gate: 'node scripts/gen-infrastructure-page.mjs --check',
+    writes: ['infrastructure.html'],
+    artifacts: ['infrastructure.html'],
+    after: 'infra-registry',
+    share: 'n/a (new 2026-09-08, INFRA-PAGE-1)',
+  },
+  {
+    // estate-map, MOVED here by INFRA-PAGE-1 (was array position 2): the
+    // generator now also renders the "Infrastructure map" marker block from
+    // data/infra-registry.json, so within one regen pass it must run AFTER
+    // 'infra-registry' — running it early would render the block from the
+    // previous pass's registry bytes, the exact intermediate-commit cascade
+    // REGEN-COVERED-ORDER-FIX-3 exists to prevent. It reads suite-map.json,
+    // mcp/showcase-prompts.json and agent-kit/kit.json (no pass-internal
+    // writers of those), so this edge is the only ordering constraint.
+    id: 'estate-map',
+    regen: 'node scripts/gen-estate-map.mjs',
+    gate: 'node scripts/gen-estate-map.mjs --check',
+    artifacts: ['llms.txt'],
+    after: 'infra-registry',
+    share: '1%',
   },
   {
     id: 'webmcp-manifest',
@@ -374,6 +422,23 @@ export const COVERED = [
     prAbsentOk: true, // see the ai-catalog entry above
     writes: ['.well-known/jwks.json'],
     share: 'n/a (new 2026-09-05, A2A-CARD-SIGN-1)',
+  },
+  {
+    // PAGE-MD-TWINS-1 (AGENT-REACH-BUILD-SPEC §2 wave 2): one generated markdown
+    // twin (<page>.md + <link rel=alternate type=text/markdown>) per live node
+    // page and chain page. Writes are runtime-named (one twin per page), so the
+    // write targets are declared as the two generator-owned trees it writes
+    // inside (euc-register/okf directory precedent). ORDERED AFTER
+    // 'chaingraph-assemble' (reads chaingraph.json) and BEFORE 'llms-full'
+    // (gen-llms-full.mjs imports collectTwinTargets from gen-page-md-twins.mjs,
+    // so the twin set must exist before llms-full renders its twin section).
+    id: 'page-md-twins',
+    regen: 'node scripts/gen-page-md-twins.mjs',
+    gate: 'node scripts/gen-page-md-twins.mjs --check',
+    writes: ['tools', 'chaingraph'],
+    artifacts: ['tools', 'chaingraph'],
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-09-08, PAGE-MD-TWINS-1)',
   },
   {
     id: 'llms-full',
@@ -546,6 +611,31 @@ export const COVERED = [
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
   {
+    id: 'registry-absence-tree',
+    // REGISTRY-ABSENCE-TREE-BUILD-1. The F2 NEGATIVE half: the ainumbers-simple-v1
+    // sorted-key absence tree over registry/kernel/*, published as ONE fixed-path
+    // artifact (registry/absence/tree.json). COVERED-safe by construction: pure
+    // function of the key set (no wall-clock, no network), byte-identical on a
+    // second pass, fixed literal path list — unlike its lineage/errata siblings
+    // in EXCLUDED below, nothing here writes an unbounded tile set.
+    // ⚠ The lineage BINDING is a different surface with a different writer: the
+    // {tree_root, key_count} entry is appended to registry-lineage-records.json
+    // and published via gen-registry-lineage.mjs (EXCLUDED — Sigsum budget + tile
+    // paths). When a node registration grows the key set, THIS regen updates
+    // tree.json automatically, and the binding half of
+    // `gen-registry-absence-tree.mjs --check` (wired directly into preflight.mjs,
+    // hard in every context) goes red BY DESIGN until the two-command
+    // append+publish remedy runs — printed with the failure. That is the same
+    // deliberate red-until-anchored philosophy as the node-registration gap gate.
+    regen: 'node scripts/gen-registry-absence-tree.mjs --write',
+    gate: 'node scripts/gen-registry-absence-tree.mjs --check',
+    artifacts: ['registry/absence/tree.json'],
+    // Reads the registry/kernel output of registry-kernel-resolve; a stale key
+    // set would publish a stale tree. Order is load-bearing, as with euc-register.
+    after: 'registry-kernel-resolve',
+    share: 'n/a (new 2026-08-30, REGISTRY-ABSENCE-TREE-BUILD-1)',
+  },
+  {
     id: 'euc-register',
     // EUC-SITE-1. Was EXCLUDED as NON-IDEMPOTENT ("601 wall-clock rewrites per
     // invocation"). ⛔ THAT REASON IS NO LONGER TRUE and the stale exclusion is
@@ -694,6 +784,17 @@ export const COVERED = [
  * fails that gate. Prose alone never caught this and never will.
  */
 export const EXCLUDED = [
+  {
+    what: 'scripts/check-infra-registry.mjs (INFRA-PAGE-1 gate)',
+    script: 'scripts/check-infra-registry.mjs',
+    share: 'n/a — a gate, not a generator',
+    why: 'NOT A GENERATOR. It reads chaingraph.json only to EXCLUDE node pages from the '
+       + 'page-derived scope (the same negative half the nav gate applies), and it reads every '
+       + 'in-scope page for its ain:category meta. It has no regen mode and writes no repo '
+       + 'artifact: its only writeFileSync targets are temp-dir self-test fixtures (removed on '
+       + 'exit). The derived artifact it verifies, data/infra-registry.json, is COVERED above '
+       + '(id infra-registry). Listed so the fan-out coverage gate reads a decision, not a gap.',
+  },
   {
     what: 'consume-vow evidence reads (via scripts/check-vow-vs-code.mjs)',
     script: 'scripts/check-vow-vs-code.mjs',
@@ -913,6 +1014,13 @@ export function missingPaths() {
  *
  * ⛔ Keep in sync with the overlay readers in the gate scripts themselves; the
  * self-test in check-compute-proof-coverage.test.mjs pins the mechanism.
+ *
+ * MERGEGROUP-DERIVED-REGEN-FIX-1: in EPHEMERAL mode --verify runs ONLY the gates
+ * in this set. Every other covered gate is main-regen-owned (regenerated by
+ * derived-artifacts-regen.yml on main after merge, per SO #35) and is not
+ * DERIVED_ROOT-aware, so its --check reads the still-stale committed artifact
+ * and reds every kernel-adding PR inside the queue (#1749, run 34086751113).
+ * Such gates are SKIPPED with a printed reason, never executed.
  */
 export const DERIVED_ROOT_GATES = new Set([
   'node scripts/check-compute-proof-coverage.mjs',           // §18 deferred ratchet (reads the monolith)
@@ -1023,6 +1131,45 @@ function runRegenPass() {
   }
 }
 
+/** One freshness-gate pass for --verify (MERGEGROUP-DERIVED-REGEN-FIX-1): in
+ *  ephemeral mode (DERIVED_ROOT set, unless opts.ephemeral overrides) a covered
+ *  gate NOT in DERIVED_ROOT_GATES is main-regen-owned and SKIPS with a printed
+ *  reason — it can never be fresh against a tree it cannot see. Aware gates
+ *  still run HARD. The opts hooks (list/awareSet/exec) exist for the embedded
+ *  --verify --self-test only; production calls pass nothing. */
+function runVerifyGates(passLabel, opts = {}) {
+  const ephemeral = opts.ephemeral ?? Boolean(derivedRoot());
+  const list = opts.list ?? COVERED;
+  const awareSet = opts.awareSet ?? DERIVED_ROOT_GATES;
+  const execGate = opts.exec ?? ((cmd, o) => execSync(cmd, o));
+  const failed = [], skipped = [];
+  for (const c of list) {
+    if (!c.gate) continue;
+    if (ephemeral && !awareSet.has(c.gate)) {
+      console.log(`▶ [${passLabel}] ${c.id} … skip (main-regen-owned, not DERIVED_ROOT-aware; regenerated by derived-artifacts-regen.yml on main)`);
+      skipped.push(c.id);
+      continue;
+    }
+    const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
+    // MERGEGROUP-HARD-GATES-1: only DERIVED_ROOT_GATES may see the scratch
+    // mount — any other COVERED gate would read the still-stale in-tree
+    // artifacts and hard-fail under the merge_group context flip.
+    if (ephemeral && !awareSet.has(c.gate)) delete env.DERIVED_ROOT;
+    process.stdout.write(`▶ [${passLabel}] ${c.id} … `);
+    try {
+      execGate(c.gate, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] });
+      console.log('ok');
+    } catch (e) {
+      console.log('STALE');
+      if (e?.simulated !== true) {
+        console.error(`\n${c.gate}\n` + ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim());
+      }
+      failed.push(c.id);
+    }
+  }
+  return { failed, skipped };
+}
+
 const isMain = process.argv[1] &&
   resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
 
@@ -1111,6 +1258,40 @@ if (isMain) {
       try { execSync(`git worktree remove --force ${JSON.stringify(wt)}`, { cwd: REPO, env: envNoDerived, stdio: 'pipe' }); } catch { /* best effort */ }
       try { rmSync(tmpBase, { recursive: true, force: true }); } catch { /* best effort */ }
     }
+  } else if (arg === '--verify' && process.argv[3] === '--self-test') {
+    // MERGEGROUP-DERIVED-REGEN-FIX-1 — embedded self-test for the ephemeral
+    // skip rule (no processes spawned; the gate exec is injected). Pins BOTH
+    // directions:
+    //   (a) a stale DERIVED_ROOT-AWARE gate in ephemeral mode still FAILS (hard);
+    //   (b) a stale non-aware gate in ephemeral mode SKIPS (never executes);
+    //   (c) outside ephemeral mode nothing is skipped — every gate still runs.
+    const AWARE = 'node scripts/verify-counts.mjs --check'; // a real DERIVED_ROOT_GATES command
+    const fail = (msg) => { console.error(`✗ self-test: ${msg}`); process.exit(1); };
+    const staleErr = Object.assign(new Error('stale (simulated)'), { simulated: true, stdout: '', stderr: '' });
+    const list = [
+      { id: 'selftest-aware-stale', gate: AWARE },
+      { id: 'selftest-nonaware-stale', gate: 'node scripts/derived-artifacts.mjs --selftest-nonaware-sentinel' },
+    ];
+    const execStale = () => { throw staleErr; };
+    const okExec = () => {};
+
+    const a = runVerifyGates('selftest', { list, ephemeral: true, awareSet: new Set([AWARE]), exec: execStale });
+    a.failed.length === 1 && a.failed[0] === 'selftest-aware-stale' || fail(`aware stale gate must FAIL in ephemeral mode, got failed=${JSON.stringify(a.failed)}`);
+    a.skipped.length === 1 && a.skipped[0] === 'selftest-nonaware-stale' || fail(`non-aware stale gate must SKIP in ephemeral mode, got skipped=${JSON.stringify(a.skipped)}`);
+    console.log('✓ self-test (a): stale DERIVED_ROOT-aware gate FAILED hard in ephemeral mode');
+
+    const b = runVerifyGates('selftest', { list: [list[1]], ephemeral: true, awareSet: new Set([AWARE]), exec: execStale });
+    b.failed.length === 0 && b.skipped.length === 1 || fail(`non-aware stale gate must exit-0-skip in ephemeral mode, got failed=${JSON.stringify(b.failed)} skipped=${JSON.stringify(b.skipped)}`);
+    console.log('✓ self-test (b): stale non-aware gate SKIPPED (exit-0 class) in ephemeral mode');
+
+    const c = runVerifyGates('selftest', { list, ephemeral: false, exec: execStale });
+    c.failed.length === 2 && c.skipped.length === 0 || fail(`non-ephemeral mode must not skip, got failed=${JSON.stringify(c.failed)} skipped=${JSON.stringify(c.skipped)}`);
+    console.log('✓ self-test (c): non-ephemeral mode still executes every gate (no skips)');
+
+    const d = runVerifyGates('selftest', { list, ephemeral: true, awareSet: new Set([AWARE]), exec: okExec });
+    d.failed.length === 0 && d.skipped.length === 1 || fail(`green ephemeral run must not fail, got failed=${JSON.stringify(d.failed)} skipped=${JSON.stringify(d.skipped)}`);
+    console.log('\n✓ derived-artifacts --verify --self-test: all directions green.');
+    process.exit(0);
   } else if (arg === '--verify') {
     // REGEN-CASCADE-CONSOLIDATE-1 (2026-09-03): prove the regen pass left every
     // covered surface fresh, BEFORE the bot commits. Two-tier verdict, because
@@ -1144,38 +1325,11 @@ if (isMain) {
     // prove its own tree before committing it.
     const EPHEMERAL = Boolean(derivedRoot());
     const gateCount = COVERED.filter((c) => c.gate).length;
-    const gateEnv = (gateCmd) => {
-      // MERGEGROUP-HARD-GATES-1: only DERIVED_ROOT_GATES may see the scratch
-      // mount — any other COVERED gate would read the still-stale in-tree
-      // artifacts and hard-fail under the merge_group context flip.
-      const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
-      if (EPHEMERAL && !DERIVED_ROOT_GATES.has(gateCmd)) delete env.DERIVED_ROOT;
-      return env;
-    };
-    const runGates = (passLabel) => {
-      const failed = [];
-      for (const c of COVERED) {
-        if (!c.gate) continue;
-        process.stdout.write(`▶ [${passLabel}] ${c.id} … `);
-        try {
-          execSync(c.gate, {
-            cwd: REPO,
-            env: gateEnv(c.gate),
-            stdio: ['ignore', 'pipe', 'pipe'],
-          });
-          console.log('ok');
-        } catch (e) {
-          console.log('STALE');
-          console.error(`\n${c.gate}\n` + ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim());
-          failed.push(c.id);
-        }
-      }
-      return failed;
-    };
-
-    const red1 = runGates('pass-1');
+    const { failed: red1, skipped: skipped1 } = runVerifyGates('pass-1');
     if (red1.length === 0) {
-      console.log(`\n✓ derived-artifacts --verify: all ${gateCount} covered freshness gates green — one pass is a fixpoint on this tree.`);
+      console.log(`\n✓ derived-artifacts --verify: ${gateCount - skipped1.length}/${gateCount} covered freshness gates green` +
+        (skipped1.length ? `, ${skipped1.length} skipped (main-regen-owned, not DERIVED_ROOT-aware)` : '') +
+        ' — one pass is a fixpoint on this tree.');
       process.exit(0);
     }
     if (EPHEMERAL) {
@@ -1186,14 +1340,15 @@ if (isMain) {
       // the scratch tree, not the checkout, is the gate's input. Fail hard and
       // name the red set: the speculative merge result is stale/broken and the
       // queue must refuse it.
-      console.error(`\n✗ derived-artifacts --verify (ephemeral DERIVED_ROOT): ${red1.length} covered freshness gate(s) RED against the assembled speculative tree: ${red1.join(', ')}`);
+      console.error(`\n✗ derived-artifacts --verify (ephemeral DERIVED_ROOT): ${red1.length} covered freshness gate(s) RED against the assembled speculative tree: ${red1.join(', ')}` +
+        (skipped1.length ? ` (${skipped1.length} main-regen-owned gate(s) skipped as not DERIVED_ROOT-aware)` : ''));
       console.error('  The merge_group ref is byte-for-byte the tree that will be main, so this drift');
       console.error('  would red main post-merge. Fix it in the PR; nothing is written to the checkout.');
       process.exit(1);
     }
     console.error(`\n⚠ pass-1 red set (${red1.length}): ${red1.join(', ')} — running ONE second regen pass to classify (fixpoint violation vs un-healable content red) …\n`);
     runRegenPass();
-    const red2 = runGates('pass-2');
+    const { failed: red2 } = runVerifyGates('pass-2');
     const healed = red1.filter((id) => !red2.includes(id));
     const newlyRed = red2.filter((id) => !red1.includes(id));
     if (healed.length || newlyRed.length) {

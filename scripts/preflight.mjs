@@ -916,6 +916,7 @@ const GATES = [
   ['Guest builtin safety (GUEST-BUILTIN-GATE-1)', 'node chaingraph/kernels/check-guest-builtin-safety.mjs'],
   ['Guest builtin safety controls (canary + mutation)', 'node chaingraph/kernels/check-guest-builtin-safety.test.mjs'],
   ['Kernel empty-input finite',    'node chaingraph/kernels/empty-input-finite.test.mjs'],
+  ['Kernel/fixture shape reader (KERNEL-OUTPUT-READER-1)', 'node scripts/shape-reader.test.mjs'],
   ['Quantization parity (§24.6)',  'node chaingraph/kernels/quantization-parity.test.mjs'],
   ['Seed replay (§24.6.2)',        'node chaingraph/kernels/seed-replay.test.mjs'],
   ['Kernel determinism lint',      'node scripts/check-kernel-determinism.mjs'],
@@ -1149,6 +1150,13 @@ const GATES = [
   ['Agent kit gate controls (GREEN + RED mutations + zip known-answer)', 'node scripts/check-agent-kit.mjs --self-test'],
   ['Showcase prompts SSOT (EXAMPLE-PROMPTS-JSON-1)', 'node scripts/check-showcase-prompts.mjs'],
   ['Showcase prompts gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-prompts.mjs --self-test'],
+  ['Showcase call shape: policy_parameters wrapper + GPU in-page route (SHOWCASE-CALLSHAPE-1)', 'node scripts/check-showcase-callshape.mjs'],
+  ['Helm-OpenClaw page markers + structure (HELM-OPENCLAW-PAGE-1)', 'node scripts/check-helm-openclaw-page.mjs'],
+  ['Helm-OpenClaw page gate controls (RED/GREEN mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-helm-openclaw-page.test.mjs'],
+  ['Helm-OpenClaw snippet freshness (generator --check, required by the Generator coverage meta-gate)', 'node scripts/gen-helm-openclaw-snippets.mjs --check'],
+  ['Showcase call-shape gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-callshape.mjs --self-test'],
+  ['Showcase call shape: policy_parameters wrapper + GPU in-page route (SHOWCASE-CALLSHAPE-1)', 'node scripts/check-showcase-callshape.mjs'],
+  ['Showcase call-shape gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-callshape.mjs --self-test'],
   ['PII banner exact text (CONTRACT §1.3, PIIBANNER-GATE-SWEEP-1)', 'node scripts/check-pii-banner.mjs'],
   ['PII banner gate controls (RED+GREEN mutation)', 'node scripts/check-pii-banner.test.mjs'],
   // STALE-PHASING-NOTE-SWEEP-1 (2026-08-23). The documentation twin of the silent-green gate: a comment
@@ -1264,6 +1272,13 @@ const GATES = [
   // mismatch vs the node's mcp_name, or coverage regression.
   ['Ask-agent block freshness (TOOLPAGE-ASK-AGENT-1)', 'node scripts/check-ask-agent-block.mjs'],
   ['Ask-agent block controls (RED+GREEN)', 'node scripts/check-ask-agent-block.mjs --self-test'],
+  // TOOLPAGE-A11Y-1 (AGENT-REACH-BUILD-SPEC §2 wave 2): every generated node page's
+  // accessibility tree is manifest-derived — aria-label === inputSchema property on
+  // every static form control, exactly one role="status" live region announcing
+  // execution_hash + verdict, no duplicate accessible names, byte-fresh region,
+  // <meta name="ai-tool">, role="main" landmark; down-only baseline ratchet.
+  ['Node page accessibility tree (TOOLPAGE-A11Y-1)', 'node scripts/check-a11y-tree.mjs'],
+  ['Node page accessibility tree controls (RED+GREEN)', 'node scripts/check-a11y-tree.mjs --self-test'],
   // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: parity gate A (in-repo SSOT recompute of every
   // chain plan hash vs the committed derived set + page-literal sample) and parity
   // gate B fixtures (session-receipt Merkle; the site-side routine test is
@@ -1277,7 +1292,23 @@ const GATES = [
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
   ['Hub node-card coverage (HUB-GEN-1)', 'node scripts/gen-chaingraph-hub.mjs --check'],
   ['Guides index coverage (GUIDES-INDEX-GEN-1)', 'node scripts/gen-guides-index.mjs --check'],
+  // INFRA-PAGE-1: the page registry is derived, so a built surface cannot drift
+  // off the map again. The registry gate is PR-side HARD (a missing/out-of-enum
+  // category meta is a content defect the PR must fix, like a new island); its
+  // --selftest is the GATE-SELFTEST-META-1 paired red-proof. infrastructure.html
+  // freshness rides the COVERED 'infrastructure-page' entry (advisory on PR,
+  // blocking on main) via the gen-infrastructure-page --check string below.
+  ['Infrastructure registry freshness (INFRA-PAGE-1)', 'node scripts/gen-infra-registry.mjs --check'],
+  ['Infrastructure registry gate (INFRA-PAGE-1)', 'node scripts/check-infra-registry.mjs'],
+  ['Infrastructure registry gate controls (RED-then-GREEN, INFRA-PAGE-1)', 'node scripts/check-infra-registry.selftest.mjs'],
+  ['Infrastructure page freshness (INFRA-PAGE-1)', 'node scripts/gen-infrastructure-page.mjs --check'],
   ['llms-full.txt freshness (§M2.3)', 'node scripts/gen-llms-full.mjs --check'],
+  // PAGE-MD-TWINS-1 (AGENT-REACH-BUILD-SPEC §2): markdown twin freshness. The
+  // gate string is derived-artifacts.mjs COVERED id 'page-md-twins' own `gate`,
+  // so the generic ADVISORY_ON_PR categorisation downgrades it on a PR (the
+  // twins and their <link rel=alternate> head tags are SO #35 single-writer
+  // artifacts written main-side) while it stays BLOCKING on main.
+  ['Markdown twin freshness (PAGE-MD-TWINS-1)', 'node scripts/gen-page-md-twins.mjs --check'],
   // AI-CATALOG-1 (AGENT-REACH-BUILD-SPEC §3.2): both well-known catalogs from one
   // generator. Freshness is advisory on a PR via the generic ADVISORY_ON_PR
   // categorisation (derived-artifacts.mjs COVERED ids ai-catalog + api-catalog):
@@ -1324,6 +1355,20 @@ const GATES = [
   // Sigsum submit token + SIGSUM-BUDGET-COUNTER-1 landed. See derived-artifacts.mjs
   // registration status alongside this gate for whether output now exists on disk.
   ['F1 registry errata log freshness (REGISTRY-ERRATA-RETRY-1)', 'node scripts/gen-registry-errata.mjs --check'],
+  // REGISTRY-ABSENCE-TREE-BUILD-1: the F2 absence lane. --check = tree.json freshness
+  // (recomputed from registry/kernel/*, SO #34) PLUS the lineage binding (the lineage log's
+  // ainumbers-absence-tree-v1 entry must equal the recomputed root + key count, BUILD-SPEC
+  // §4.4). The binding half goes red BY DESIGN when a node registration grows the key set
+  // without a lineage append — the two-command remedy is printed with the failure (same
+  // red-until-anchored philosophy as the node-registration gap gate; the lineage publish is
+  // manual/generated by design, see the EXCLUDED entry in derived-artifacts.mjs).
+  ['F2 absence-tree freshness + lineage binding (REGISTRY-ABSENCE-TREE-BUILD-1)', 'node scripts/gen-registry-absence-tree.mjs --check'],
+  // The proof pipeline itself: every existence + every gap non-existence proof over the real
+  // F2 key set verified against ics23-verify.mjs's pinned AINUMBERS_SIMPLE_SPEC, plus the
+  // caller-supplied-spec rejection (BUILD-SPEC §4.3 pinning rule), the adjacency mutation
+  // (valid but non-adjacent proofs rejected as non-existence) and the empty/single-leaf
+  // failing states (SO #34c). Controls need a runner or they are a control that never fires.
+  ['Absence-tree proof pipeline controls (REGISTRY-ABSENCE-TREE-BUILD-1)', 'node scripts/gen-registry-absence-tree.test.mjs'],
   ['EUC register entries freshness (EUC-SITE-1)', 'node scripts/gen-euc-register.mjs --check'],
   // GENERATOR-STATUS-FILTER-1: the write path now PRUNES the stale entries it owns,
   // so the drift the gate above reports is finally repairable by main's writer —
@@ -2487,6 +2532,37 @@ gateStart(CONSUMES_EDGE_LABEL);
     const line = (r.out || '').trim().split('\n').filter(Boolean).pop() || 'no output — see node scripts/check-consumes-edges.mjs';
     gatePass(line);
     if (r.state === 'WARNED') gateFail(`   ⚠ note: ${r.reason} (its documented contract is exit 0 always)`);
+  }
+}
+
+// ── Advisory (non-blocking): cross-kernel consistency surprises ─────────────
+// CCPP-GATE-WIRE-1 (7F gate-lift ruling 2026-09-07T11:17Z). The cross-kernel
+// consistency property harness (chaingraph/kernels/__consistency__/, pilot
+// PR #1649) wired in per the pilot report §8.2: the runner's exit code already
+// implements the declared-expectation invariant (exit 1 on any observed-vs-
+// declared mismatch, either direction — NEVER a property-count or must-be-green
+// gate), and "the wiring is a preflight entry and nothing else". Deliberately
+// ADVISORY here, same shape as CONSUMES-EDGE-CHECK-1 above: three properties
+// declare VIOLATION today (open findings whose fix rows CCPP-FIX-ART06-1 /
+// ART234-1 / ART236-1 are serialized on this row), so a blocking gate would
+// red main on the very defects those rows exist to fix. A surprise prints a
+// loud SURPRISES block and never fails preflight; the blocking flip is
+// CCPP-GATE-BLOCK-1 (the wrapper scripts/run-consistency.mjs already carries
+// the --enforce disposition for it). Wall-seconds are printed on every run.
+const CCPP_CONSISTENCY_LABEL = 'cross-kernel consistency surprises (advisory report, CCPP-GATE-WIRE-1)';
+gateStart(CCPP_CONSISTENCY_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/run-consistency.mjs');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(CCPP_CONSISTENCY_LABEL, r.reason, r.out);
+  } else {
+    const line = (r.out || '').trim().split('\n').filter(Boolean).find((l) => l.startsWith('run-consistency:'))
+      || 'no summary line printed — see node scripts/run-consistency.mjs';
+    gatePass(line);
+    if (r.state === 'WARNED') {
+      gateFail('   ⚠ SURPRISES — an observed-vs-declared mismatch fired in the consistency harness (ADVISORY: printed, NOT blocking; blocking flip is CCPP-GATE-BLOCK-1)');
+      console.log('\n' + r.out.trim() + '\n');
+    }
   }
 }
 

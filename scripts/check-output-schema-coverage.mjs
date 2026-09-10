@@ -36,6 +36,7 @@ import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadRatchetBaselineOrExit, readBaselineForUpdate } from './ratchet-baseline.mjs';
+import { readCases } from '../chaingraph/kernels/_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -123,7 +124,8 @@ export function validateSubset(schema, data, path, errs) {
 
 // ── AGENT-REACH-BUILD-SPEC §3.10 derivation from fixture output_payloads ──
 export function deriveSchema(fixtures) {
-  const payloads = (fixtures.vectors || []).map((v) => v.output_payload);
+  // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
+  const payloads = readCases(fixtures).map((v) => v.output_payload);
   if (!payloads.length) throw new Error('no fixture vectors to derive from');
   return deriveObject(payloads);
 }
@@ -223,7 +225,8 @@ function fixtureMismatches(cg) {
     if (!existsSync(fp)) continue; // fixture presence is check-node-complete.mjs's axis (e)
     let fx;
     try { fx = readJson(fp); } catch { failures.push(`${n.tool_id}: fixtures file does not parse`); continue; }
-    const payloads = (fx.vectors || []).map((v) => v.output_payload).filter((p) => p !== undefined);
+    // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
+    const payloads = readCases(fx).map((v) => v.output_payload).filter((p) => p !== undefined);
     if (!payloads.length) { failures.push(`${n.tool_id}: fixtures carry no output_payload to validate`); continue; }
     payloads.forEach((p, i) => {
       checked++;

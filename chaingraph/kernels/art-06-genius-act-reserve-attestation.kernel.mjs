@@ -57,15 +57,24 @@ const AICPA_ITEMS = [
  * }
  */
 export function compute(pp) {
-  const tokens     = Number(pp.outstanding_tokens ?? 0);
+  const assetsProvided = Array.isArray(pp.assets);
+  const tokensProvided = pp.outstanding_tokens != null && pp.outstanding_tokens !== '';
+  const tokens     = tokensProvided ? Number(pp.outstanding_tokens) : 0;
   const price      = Number(pp.token_price ?? 1);
   const issuerType = pp.issuer_type ?? 'nonbank_state';
-  const assets     = pp.assets ?? [];
+  const assets     = assetsProvided ? pp.assets : [];
   const aicpaAnswers = pp.aicpa_answers ?? {};
 
   const totalLiab    = tokens * price;
   const totalReserve = assets.reduce((s, a) => s + Number(a.usd ?? 0), 0);
-  const coverageRatio = totalLiab > 0 ? totalReserve / totalLiab : 0;
+  // Explicit-absence handling (art-582/art-512 sibling pattern): a coverage ratio
+  // that cannot be computed is never a ratio of zero. A missing or non-positive
+  // outstanding-tokens input, or an absent reserve input, yields an explicitly
+  // named INDETERMINATE — collapsing the uncomputable ratio to 0 and testing it
+  // against 1 manufactures a RESERVE_DEFICIENCY finding about an issuer about
+  // whom nothing was measured.
+  const coverageComputable = assetsProvided && tokensProvided && tokens > 0;
+  const coverageRatio = coverageComputable ? totalReserve / totalLiab : null;
 
   // Per-asset eligibility analysis
   const assetResults = assets.map(a => {
@@ -105,9 +114,10 @@ export function compute(pp) {
   }
   const aicpaScore = aicpaTotal > 0 ? aicpaEarned / aicpaTotal : 1;
 
-  // Failing dimensions
+  // Failing dimensions — measured failures only. An uncomputable coverage ratio
+  // is never listed here: the absence is named in the determination and flags.
   const failingDimensions = [];
-  if (coverageRatio < 1) {
+  if (coverageRatio !== null && coverageRatio < 1) {
     failingDimensions.push({
       dim: 'Coverage ratio < 100%',
       detail: `Reserves (${totalReserve.toFixed(2)}) cover only ${(coverageRatio * 100).toFixed(2)}% of outstanding tokens. Shortfall: ${(totalLiab - totalReserve).toFixed(2)}.`,
@@ -123,24 +133,46 @@ export function compute(pp) {
     failingDimensions.push({ dim: `AICPA attestation — ${item.id.toUpperCase()}`, detail: 'Required attestation item not met', ref: 'AICPA 2025 Criteria' });
   }
 
-  // Determination
+  // Determination — measured hard failures first; an uncomputable coverage ratio
+  // yields INDETERMINATE (the sibling pattern), never a deficiency verdict.
   const highWeightAicpaFail = AICPA_ITEMS.filter(i => i.weight > 1).some(i => aicpaAnswers[i.id] === false);
+  const hasMeasuredHardFail = (coverageRatio !== null && coverageRatio < 1) || prohibitedTotal > 0 || highWeightAicpaFail;
+  const hasMeasuredWarn = conditionalTotal > 0 || aicpaScore < 0.80;
   let determination;
-  if (coverageRatio < 1 || prohibitedTotal > 0 || highWeightAicpaFail) determination = 'FAIL';
-  else if (conditionalTotal > 0 || aicpaScore < 0.80)                  determination = 'WARN';
-  else                                                                   determination = 'PASS';
+  if (hasMeasuredHardFail) determination = 'FAIL';
+  else if (!coverageComputable)                                            determination = 'INDETERMINATE';
+  else if (hasMeasuredWarn)                                                determination = 'WARN';
+  else                                                                     determination = 'PASS';
+
+  // Flag-mirror doctrine (chaingraph/standard/AUTHORING-STANDARD.md, flag-mirror section): the flag set is conditional, so the
+  // payload carries a `warnings` mirror — truthy exactly when a non-PASS (flag-carrying)
+  // determination is emitted, empty on the clean PASS path. The INDETERMINATE arm names
+  // the absence explicitly rather than implying a measured zero.
+  const warnings = determination === 'INDETERMINATE'
+    ? [
+        ...(assetsProvided ? [] : ['Reserve asset input (assets) is absent — total reserves cannot be measured.']),
+        ...(tokensProvided
+          ? (tokens > 0 ? [] : ['Outstanding tokens input is missing or non-positive — the coverage ratio is uncomputable.'])
+          : ['Outstanding tokens input is missing — the coverage ratio is uncomputable.']),
+      ]
+    : determination === 'FAIL'
+      ? ['Attestation readiness failed on measured signals — see failing_dimensions.']
+      : determination === 'WARN'
+        ? ['Conditional or incomplete attestation items present — see failing_dimensions and conditional_assets_usd.']
+        : [];
 
   const output_payload = {
     attestation_readiness_determination: determination,
-    coverage_ratio_pct:     parseFloat((coverageRatio * 100).toFixed(4)),
+    coverage_ratio_pct:     coverageRatio === null ? null : parseFloat((coverageRatio * 100).toFixed(4)),
     total_reserves_usd:     totalReserve,
     total_liabilities_usd:  totalLiab,
-    reserve_shortfall_usd:  parseFloat(Math.max(0, totalLiab - totalReserve).toFixed(2)),
+    reserve_shortfall_usd:  coverageRatio === null ? null : parseFloat(Math.max(0, totalLiab - totalReserve).toFixed(2)),
     prohibited_assets_usd:  prohibitedTotal,
     conditional_assets_usd: conditionalTotal,
     aicpa_2025_score_pct:   Math.round(aicpaScore * 100),
     asset_results:          assetResults.map(a => ({ type: a.type, usd: a.usd, pct: a.pct, eligibility: a.def.eligibility, has_fail: a.has_fail, issues: a.issues })),
     failing_dimensions:     failingDimensions,
+    warnings:               warnings,
     applicable_deadline:    '2027-01-18',
     regulatory_framework:   'GENIUS Act S.394 · AICPA 2025 Attestation Criteria',
   };
@@ -149,7 +181,13 @@ export function compute(pp) {
     ? ['GENIUS_ACT_ATTESTATION_FAIL', 'RESERVE_DEFICIENCY']
     : determination === 'WARN'
       ? ['GENIUS_ACT_ATTESTATION_WARN', 'CONDITIONAL_ASSETS_PRESENT']
-      : ['GENIUS_ACT_ATTESTATION_READY'];
+      : determination === 'INDETERMINATE'
+        ? [
+            'GENIUS_ACT_ATTESTATION_INDETERMINATE',
+            ...(assetsProvided ? [] : ['RESERVE_INPUT_ABSENT']),
+            ...(tokensProvided ? (tokens > 0 ? [] : ['OUTSTANDING_TOKENS_NONPOSITIVE']) : ['OUTSTANDING_TOKENS_ABSENT']),
+          ]
+        : ['GENIUS_ACT_ATTESTATION_READY'];
 
   return { output_payload, compliance_flags };
 }
