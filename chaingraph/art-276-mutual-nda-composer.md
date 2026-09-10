@@ -35,7 +35,17 @@ Assembles a Common Paper Mutual NDA (Version 1.0, CC BY 4.0) from your Cover Pag
 ## Sample
 
 ```json
-{}
+{
+  "purpose": "Evaluating a potential vendor relationship for cloud infrastructure services.",
+  "effective_date": "2026-07-10",
+  "mnda_term_mode": "expires_after_period",
+  "mnda_term_years": 1,
+  "confidentiality_term_mode": "fixed_period",
+  "confidentiality_term_years": 3,
+  "governing_law": "Delaware",
+  "jurisdiction": "New Castle, DE",
+  "modifications": ""
+}
 ```
 
 ## Verify
