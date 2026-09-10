@@ -30,7 +30,14 @@ Binds a party's acceptance to a specific assembled agreement artifact, reference
 ## Sample
 
 ```json
-{}
+{
+  "referenced_execution_hash": "b8f9d0a0210a5fa2b704fcb625119fe6ae03b819ec9b59f3b3377cdd48f13729",
+  "template_id": "common-paper-mnda-v1.0",
+  "body_sha256": "51accb97035821280371ff3088871e3866927ef0ce60e64ed5244883f11b6cfe",
+  "accepting_party_role": "party_a",
+  "previous_proof_hash": "",
+  "acceptance_statement": ""
+}
 ```
 
 ## Verify

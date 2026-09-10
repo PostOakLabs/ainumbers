@@ -37,7 +37,9 @@ Solves present value, future value, or payment for an ordinary annuity or annuit
   "nper": 24,
   "pmt": -100,
   "fv": 0,
-  "solve_for": "pv"
+  "solve_for": "pv",
+  "pv": 0,
+  "due": false
 }
 ```
 
