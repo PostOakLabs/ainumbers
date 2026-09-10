@@ -24,7 +24,7 @@ entries); scale batch size up as confidence grows.
 | Batch | Branch | Scope | Status | Result |
 |-------|--------|-------|--------|--------|
 | proof-1 | `CLINE-COPYROT-PROOF-1` | 3 files | REPORTED → PUSHED to origin (PR pending) | `35d1bd57`, 8563→8560, gates re-verified green independently |
-| batch-2 | `CLINE-COPYROT-BATCH-2` | ≤12 smallest-count files | REPORTED 2026-09-09 | `a0d76492` local, 12 files fixed (9 entries fully cleared), em-dash 4654→4642, 23 iters/4 min/$0, gates independently green; push pending Tim's word |
+| batch-2 | `CLINE-COPYROT-BATCH-2` | ≤12 smallest-count files | REPORTED → PUSHED to origin (PR pending) | `a0d76492`, 12 files fixed (9 entries fully cleared), em-dash 4654→4642, 23 iters/4 min/$0, gates independently green |
 | batch-3+ | — | scale 15–25 files/run | PROPOSED | after batch-2 receipt reviewed |
 
 Push policy for sweep branches (empirical note): full preflight ran 130 s and FAILED at
