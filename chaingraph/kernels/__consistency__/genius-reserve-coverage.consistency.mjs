@@ -171,9 +171,11 @@ export default defineFamily({
     {
       id: 'P-B3-degenerate-domain-agreement',
       statement: 'With no tokens outstanding the coverage ratio is undefined, and neither kernel asserts a coverage deficiency.',
-      // DECLARED BEFORE RUNNING: art-06 collapses an uncomputable ratio to 0 and then
-      // tests it against 1, while art-582 returns INDETERMINATE. Expect a violation.
-      expect: EXPECT.VIOLATION,
+      // EXPECTATION FLIPPED VIOLATION -> HOLDS by CCPP-FIX-ART06-1: art-06 adopted the
+      // siblings' explicit-absence handling (INDETERMINATE with the absence named,
+      // never a silent-0 collapse), so both kernels now refuse a deficiency verdict on
+      // an uncomputable ratio. Declared after the fix, verified by running it.
+      expect: EXPECT.HOLDS,
       run: pB3,
     },
   ],

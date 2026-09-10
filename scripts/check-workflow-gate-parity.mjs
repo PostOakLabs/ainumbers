@@ -234,6 +234,13 @@ const NOT_A_GATE = new Map([
     "on commits that exist only after a merge, and the note it reads is written by the very " +
     "hook that would invoke it. Pre-push there is nothing to check, so parity has nothing to " +
     "demand (PREPUSH-ATTEST-CHECK-1)."],
+  ["scheduled-red-issue.yml",
+    "workflow_call only (NIGHTLY-RED-ISSUE-OPENER-1) — the shared reusable tracker the three " +
+    "report-only surfaces call as a final job to open/update/close ONE tracking issue per " +
+    "surface. It gates nothing: it has no pull_request, merge_group or push trigger of its own, " +
+    "and its callers (mutation-full-scheduled.yml, fullsuite-schedule.yml, prepush-attestation.yml) " +
+    "are each NOT_A_GATE here for their own reasons. Its node invocations are the tracker script " +
+    "and its own control suite, neither of which is an estate gate preflight could usefully run."],
   ["ruleset-apply.yml",
     "push main (.github/rulesets/** only) + workflow_dispatch — applies a ruleset after merge."],
   ["ruleset-drift-gate.yml",
@@ -339,6 +346,52 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── INFRA-PAGE-1 (2026-09-08) ───────────────────────────────────────────────
+  ["gen-infra-registry.mjs",
+    "Infrastructure registry generator --check (INFRA-PAGE-1): re-derives " +
+    "data/infra-registry.json from the ain:category metas and byte-compares. Hard in " +
+    "preflight; its CI route is scripts-verify.yml full preflight (the workflow runs " +
+    "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the same " +
+    "suite. The --write half is a builder command, never a workflow. Reads only tracked " +
+    "repo files — no CI-only input."],
+  ["check-infra-registry.mjs",
+    "Infrastructure registry gate (INFRA-PAGE-1): every in-scope page carries an " +
+    "ain:category meta inside the enum, every registry entry resolves to a live file. Hard " +
+    "in preflight; its CI route is scripts-verify.yml full preflight, so a named workflow " +
+    "step would only duplicate the same suite. Paired self-test: " +
+    "check-infra-registry.selftest.mjs (GATE-SELFTEST-META-1)."],
+  ["gen-infrastructure-page.mjs",
+    "Infrastructure page generator --check (INFRA-PAGE-1): re-renders infrastructure.html " +
+    "from the registry and byte-compares (card set 1:1, JSON-LD ItemList). Hard in " +
+    "preflight; its CI route is scripts-verify.yml full preflight, so a named workflow step " +
+    "would only duplicate the same suite. Reads only tracked repo files — no CI-only input."],
+  // ── HELM-OPENCLAW-PAGE-1 (2026-09-08) ───────────────────────────────────────
+  ["check-helm-openclaw-page.mjs",
+    "Helm-OpenClaw page gate (HELM-OPENCLAW-PAGE-1): asserts helm-openclaw.html's six " +
+    "HELMKIT marker regions are byte-fresh against data/helm-kit/ and the spec's eight " +
+    "sections + head metas + JSON-LD TechArticle are present. Hard in preflight; its CI " +
+    "route is scripts-verify.yml's full preflight (the workflow literally runs " +
+    "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the " +
+    "same suite. Reads only tracked repo files — no CI-only input. Paired self-test: " +
+    "check-helm-openclaw-page.test.mjs (GATE-SELFTEST-META-1)."],
+  ["check-helm-openclaw-page.test.mjs", SELF_TEST],
+  ["gen-helm-openclaw-snippets.mjs",
+    "Helm-OpenClaw snippet generator --check (HELM-OPENCLAW-PAGE-1): re-renders the six " +
+    "marker regions from data/helm-kit/ and byte-compares. Hard in preflight; its CI route " +
+    "is scripts-verify.yml's full preflight, so a named workflow step would only duplicate " +
+    "the same suite. Reads only tracked repo files — no CI-only input. The --write half is " +
+    "a builder command, never a workflow (no derived-artifacts writer)."],
+  // ── SHOWCASE-CALLSHAPE-1 (2026-09-08) ──────────────────────────────────────
+  ["check-showcase-callshape.mjs",
+    "Showcase prompt call-shape gate: every node-calling showcase entry must show " +
+    "the policy_parameters wrapper, gpu-touching entries must route verification " +
+    "in-page, and verify sentences must name claimed_hash. Preflight-only BY " +
+    "SUBJECT MATTER: it validates prompt PROSE of a hand-authored SSOT data file " +
+    "(mcp/showcase-prompts.json) whose projections (agent-kit command pages) are " +
+    "already freshness-gated in CI by check-agent-kit; the prose rules themselves " +
+    "have no workflow-side observable to drift against. Paired self-test: " +
+    "check-showcase-callshape.mjs --self-test (GATE-SELFTEST-META-1)."],
+  ["check-infra-registry.selftest.mjs", SELF_TEST],
   // ── PREFLIGHT-QUICK-1 (2026-09-06) ─────────────────────────────────────────
   ["setup-hooks.mjs",
     "Pre-push hook wiring verifier (the `--check` leg): asserts core.hooksPath = .githooks so " +
@@ -416,6 +469,17 @@ const PREFLIGHT_ONLY = new Map([
     "full preflight, so a named workflow step would only duplicate the same suite. Reads only " +
     "tracked repo files — no CI-only input."],
 
+  // ── TOOLPAGE-A11Y-1 (2026-09-09) ─────────────────────────────────────────
+  ["check-a11y-tree.mjs",
+    "Accessibility-tree gate on every generated node page (AGENT-REACH-BUILD-SPEC §2 wave 2): " +
+    "aria-label === inputSchema property on every static form control, exactly one role=\"status\" " +
+    "live region announcing execution_hash + verdict, no duplicate accessible names, byte-fresh " +
+    "A11Y-TREE region + <meta name=\"ai-tool\"> + role=\"main\" landmark, down-only baseline ratchet. " +
+    "Hard in preflight; its CI route is scripts-verify.yml's full preflight (the workflow literally " +
+    "runs `node scripts/preflight.mjs`), so a named workflow step would only duplicate the same " +
+    "suite. Reads only tracked repo files — no CI-only input. Paired self-test: the same script's " +
+    "--self-test mode as its own GATES entry (GATE-SELFTEST-META-1)."],
+
   // ── TOOLPAGE-DEEPLINK-1 (2026-09-05) ─────────────────────────────────────
   ["check-deeplink-contract.mjs",
     "Fragment-only prefill-and-run deep links on every registered WebMCP page (dynamic vm " +
@@ -453,6 +517,18 @@ const PREFLIGHT_ONLY = new Map([
     "browser-side). Hard in preflight; same CI route as above via scripts-verify.yml's full " +
     "preflight. Reads tracked pages + chaingraph.json only — no CI-only input."],
 
+  // ── PAGE-MD-TWINS-1 (2026-09-08) ──────────────────────────────────────────
+  ["gen-page-md-twins.mjs",
+    "Markdown twin freshness (<page>.md + <link rel=alternate type=text/markdown> for every " +
+    "generated node/chain page, AGENT-REACH-BUILD-SPEC section 2 wave 2). Hard in preflight. " +
+    "DELIBERATELY not wired as a named CI step: the twins, their head links and the llms-full.txt " +
+    "'Markdown twins' section are SO #35 single-writer output (derived-artifacts.mjs COVERED id " +
+    "'page-md-twins', writes declared as the tools/ + chaingraph/ trees) that do not exist on a PR " +
+    "checkout until main's derived-artifacts-regen.yml writes them, so a hard CI --check would red " +
+    "every PR for an absence the PR is forbidden to fix. Blocking routes: derived-artifacts-regen.yml " +
+    "runs the regen + fixpoint verification on main, scripts-verify.yml runs the full preflight " +
+    "(this gate's own diff shape) on scripts/** changes, and the main push runs preflight too. " +
+    "Advisory on a PR by the generic ADVISORY_ON_PR categorisation, same class as gen-wellknown-catalogs."],
   // ── AI-CATALOG-1 (2026-09-05) ──────────────────────────────────────────────
   ["gen-wellknown-catalogs.mjs",
     "Well-known catalogs freshness (ai-catalog.json + RFC 9727 api-catalog, one generator). " +
@@ -722,6 +798,22 @@ const DECLARED_DIVERGENCES = new Map([
       "stay red (SO #54, ASSEMBLE-LAND-ART231-1). Aligning the two is a hard-gate decision and belongs " +
       "to L2-HARDLEG-BLOCKING-1, not here.",
   }],
+  ["unwired-gates.yml :: node scripts/gen-registry-absence-tree.mjs --check", {
+    ci: HARD,
+    preflight: SPLIT,
+    decided: "2026-09-07",
+    by: "REGISTRY-ABSENCE-TREE-BUILD-1 heal — recording the wiring decision, not deciding coverage.",
+    why:
+      "unwired-gates.yml's job is BLOCKING BY PURPOSE: it exists so standalone preflight gates are " +
+      "independently enforced in CI ('green preflight ⇒ green CI' says nothing about the converse). " +
+      "The absence-tree --check gate is repairable inside the branch (node scripts/" +
+      "gen-registry-absence-tree.mjs --write, then the lineage append/publish remedy the gate itself " +
+      "prints), so no PR is structurally unable to satisfy it. preflight.mjs classifies it " +
+      "advisory-on-PR (derived-artifacts.mjs advisoryGates()); CI staying HARD is the whole point of " +
+      "the heal — downgrading CI to match the local advisory would re-create the unwired-gate hole " +
+      "this wiring closes. Same shape as the two land-verify.yml entries above: the local surface " +
+      "under-reports; aligning the two is a hard-gate decision for L2-HARDLEG-BLOCKING-1.",
+  }],
   ["land-verify.yml :: node scripts/assemble-chaingraph.mjs --check", {
     ci: HARD,
     preflight: SPLIT,
@@ -819,9 +911,11 @@ const DECLARED_SOFTENERS = new Map([
   // step's continue-on-error. The key carries a LINE NUMBER: any edit above
   // that line must refresh the key (a stale key fails this checker by design
   // and points here).
-  ["deploy-to-dreamhost.yml:continue-on-error:762",
+  // KERNEL-OUTPUT-READER-1 moved this from :762 to :763 — the shape-reader gate added one line
+  // to the kernel-gates `run:` block above it. The declaration is line-pinned by design.
+  ["deploy-to-dreamhost.yml:continue-on-error:763",
    "attest step is advisory-first by design; promotion criterion on the step"],
-  ["unwired-gates.yml:continue-on-error:99",
+  ["unwired-gates.yml:continue-on-error:108",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
    "continue-on-error is deliberate so the job surfaces drift without blocking. " +
    "Promotion to blocking removes this entry together with the continue-on-error."],

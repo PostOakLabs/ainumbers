@@ -1,0 +1,99 @@
+{
+  "tool_id": "art-670-examination-readiness-pack",
+  "version": "1.0.0",
+  "title": "Examination Readiness Pack",
+  "description": "One pack, two selectable regime modules, five stages of regulatory exam management over an institution's own supplied request list. Stage 1 validates intake with a DECLARED as_of date: no runtime clock, so the same inputs always grade the same regardless of when the run happens. Stage 2 rolls up delivered/open/overdue counts and overdue ids. Stage 3 scores readiness as the one-decimal delivered share and grades overall READY (all delivered, zero overdue), NOT_READY (nothing delivered), or AT_RISK (between). Stage 4 (optional input) grades a module-specific checklist: sec-2026 items are AI-use supervision, channel-neutral records preservation, and controls-operate evidence (SEC Division of Examinations FY2026 priorities secs I.B and VII.B; 2022 Rule 17a-4 electronic-recordkeeping amendments, 87 FR 66412); amla items track the EU AML Authority's direct-supervision selection (Regulation (EU) 2024/1620 Arts 12-13, recital 86; first selection concludes by 2028-01-01, direct supervision commences six months after list publication, pre-effective marker before that). Stage 5 (optional input) emits only a pointer set to the existing binder chain (T574 casefile-binder-composer, T575 casefile-binder-verifier, T576 evidence-handover-bundle): composition, never a rebuilt binder. Request lists are synthetic identifiers; not legal advice.",
+  "category": "consent-order-remediation-aml-lookback-and-recordkeeping-validators",
+  "tags": ["exam-readiness", "sec-exam-priorities", "amla", "regtech", "readiness-score", "evidence-binder", "compliance_control"],
+  "input_schema": {
+    "type": "object",
+    "required": ["as_of", "module", "requests"],
+    "properties": {
+      "as_of": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "description": "Declared assessment date (YYYY-MM-DD). Never a runtime clock." },
+      "module": { "type": "string", "enum": ["sec-2026", "amla"], "description": "The pack's regime module selector; one pack, module as input." },
+      "requests": {
+        "type": "array", "minItems": 1,
+        "items": {
+          "type": "object", "required": ["id", "status", "due_date"],
+          "properties": {
+            "id": { "type": "string", "description": "Synthetic request identifier, unique within the list." },
+            "status": { "type": "string", "enum": ["delivered", "open"] },
+            "due_date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }
+          }
+        }
+      },
+      "module_checklist": {
+        "type": "array", "description": "Optional; arms stage 4 (regime-module annex).",
+        "items": {
+          "type": "object", "required": ["item", "status"],
+          "properties": {
+            "item": { "type": "string", "enum": ["ai_supervision", "records_channel_controls", "controls_operate_evidence", "six_member_state_eligibility", "high_risk_selection_evidence", "supervision_commencement_tracking"] },
+            "status": { "type": "string", "enum": ["PASS", "FAIL", "NOT_ASSESSED"] },
+            "note": { "type": "string" }
+          }
+        }
+      },
+      "evidence_request_ids": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Optional; arms stage 5 (binder-chain pointer set). Ids must match requests[].id." }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "description": "Refusal shape: { valid: false, errors: string[] }. Valid shape below; module_annex and evidence_handoff keys appear only when their inputs were supplied.",
+    "properties": {
+      "valid": { "type": "boolean" },
+      "errors": { "type": "array", "items": { "type": "string" } },
+      "total": { "type": "integer" },
+      "delivered": { "type": "integer" },
+      "open": { "type": "integer" },
+      "overdue_count": { "type": "integer" },
+      "overdue_ids": { "type": "array", "items": { "type": "string" } },
+      "readiness_pct": { "type": "number", "description": "delivered/total as a one-decimal percentage (IEEE-754 binary64, no intermediate rounding)." },
+      "findings": { "type": "array", "items": { "type": "object", "properties": { "check": { "type": "string", "enum": ["overdue_requests"] }, "status": { "type": "string", "enum": ["PASS", "FAIL"] }, "detail": { "type": "string" } } } },
+      "overall": { "type": "string", "enum": ["READY", "AT_RISK", "NOT_READY"] },
+      "module_annex": {
+        "type": "object",
+        "properties": {
+          "module": { "type": "string", "enum": ["sec-2026", "amla"] },
+          "edition": { "type": "string" },
+          "items": { "type": "array", "items": { "type": "object", "properties": { "item": { "type": "string" }, "status": { "type": "string", "enum": ["PASS", "FAIL", "NOT_ASSESSED"] }, "assessed": { "type": "boolean" }, "note": { "type": "string" } } } },
+          "summary": { "type": "object", "properties": { "pass": { "type": "integer" }, "fail": { "type": "integer" }, "not_assessed": { "type": "integer" }, "missing": { "type": "integer" } } },
+          "annex_verdict": { "type": "string", "enum": ["COMPLETE", "GAPS", "INCOMPLETE"] },
+          "first_selection_deadline": { "type": "string" },
+          "pre_effective": { "type": "boolean" },
+          "commencement_rule": { "type": "string" }
+        }
+      },
+      "evidence_handoff": {
+        "type": "object",
+        "properties": {
+          "mode": { "type": "string", "enum": ["composition"] },
+          "binder_tools": { "type": "array", "items": { "type": "object", "properties": { "tool_id": { "type": "string" }, "path": { "type": "string" }, "role": { "type": "string" } } } },
+          "per_request": { "type": "array", "items": { "type": "object", "properties": { "request_id": { "type": "string" }, "handover": { "type": "string", "enum": ["ELIGIBLE", "BLOCKED_NOT_DELIVERED", "BLOCKED_OVERDUE"] } } } }
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "assess_exam_readiness_pack",
+    "description": "Five-stage regulatory exam readiness over a declared request list: intake with declared as_of (no runtime clock), delivered/open/overdue roll-up, readiness score (READY/AT_RISK/NOT_READY), sec-2026 or amla regime-module annex checklist, and a compose-only T574-T576 binder evidence pointer set. Use when an agent needs a deterministic readiness roll-up and regime-module checklist verdict over a supplied exam request list, not legal advice or a prediction of examiner conduct.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["as_of", "module", "requests"],
+      "properties": {
+        "as_of": { "type": "string", "description": "Declared assessment date, YYYY-MM-DD." },
+        "module": { "type": "string", "enum": ["sec-2026", "amla"] },
+        "requests": { "type": "array", "description": "Exam requests: {id, status: delivered|open, due_date}." },
+        "module_checklist": { "type": "array", "description": "Optional module checklist assessments {item, status, note?}." },
+        "evidence_request_ids": { "type": "array", "description": "Optional request ids to hand off to the binder chain." }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-670-examination-readiness-pack.html",
+    "function_name": "run",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "authored in-row (EXAMPACK-BUILD-1) after scripts/generate-node-manifest.mjs --tool-id declined (node not yet assembled into chaingraph.json, main-side writer per SO #35); output_schema derived from the node's golden conformance fixture (worked-example + annex + refusal vectors), per CONTRACT.md section 2.7 truth-maintenance rule"
+}

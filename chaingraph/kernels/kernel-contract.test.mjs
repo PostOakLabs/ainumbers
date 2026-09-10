@@ -34,6 +34,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { executionHash } from './_hash.mjs';
 import { KERNELS } from './index.mjs';
+import { readCases } from './_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXDIR = resolve(HERE, 'fixtures');
@@ -79,7 +80,8 @@ for (const id of toolIds) {
     fail++; continue;
   }
   const doc = JSON.parse(readFileSync(fpath, 'utf8'));
-  const vectors = doc.vectors ?? [];
+  // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
+  const vectors = readCases(doc);
   if (vectors.length === 0) { console.error(`✗ ${id}: fixture has no vectors.`); fail++; continue; }
 
   for (const v of vectors) {

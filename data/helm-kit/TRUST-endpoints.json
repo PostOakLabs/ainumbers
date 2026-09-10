@@ -1,0 +1,90 @@
+{
+  "_source": "Verbatim extraction of helm repo docs/TRUST.md §1 (Network-behavior doc, runtime-calls table rows 1-12), read 2026-09-08 from the local helm checkout. TODO-KIT: the scheduled vendor step copies this again when HELM-AGENT-KIT-1 lands.",
+  "section": "TRUST.md §1 runtime calls (helmd / browser UI, normal use)",
+  "endpoints": [
+    {
+      "n": 1,
+      "endpoint": "POST https://anchor.ainumbers.co/relay/<ca>",
+      "trigger": "On by default. Fired by helmd itself, in the background, right after each checkpoint it takes. Never blocks daemon startup; a relay failure yields a queued/skipped marker instead of a real anchor.",
+      "payload": "Raw TSQ DER built from the checkpoint's SHA-256 hash only. No document content.",
+      "disable": "set \"anchorOnCheckpoint\": false in ~/.helm/config.json; the daemon then skips the relay call and every checkpoint is saved with a skipped/egress_blocked marker"
+    },
+    {
+      "n": 2,
+      "endpoint": "POST https://{a,b}.pool.opentimestamps.org, https://alice.btc.calendar.opentimestamps.org/digest",
+      "trigger": "OpenTimestamps anchoring. Present in code, not called by anything at runtime.",
+      "payload": "Raw SHA-256 digest bytes only.",
+      "disable": null
+    },
+    {
+      "n": 3,
+      "endpoint": "Connector-defined host (via performEgress, DNS-rebind checked, redirect: manual)",
+      "trigger": "Any installed, signed connector contract.",
+      "payload": "Whatever that connector's send() builds; scoped to its own allowlisted host.",
+      "disable": "do not install or sign the connector contract"
+    },
+    {
+      "n": 4,
+      "endpoint": "GET https://www.googleapis.com/drive/v3/files/{fileId}?alt=media",
+      "trigger": "Google Drive fetch connector. fileId is curated, compile-time-only config, never a live workflow.run caller value.",
+      "payload": "OAuth bearer token out; file bytes back, kept in-process.",
+      "disable": "remove the connector binding"
+    },
+    {
+      "n": 5,
+      "endpoint": "POST {tokenEndpoint} (RFC 8252 loopback PKCE); shipped preset https://github.com/login/oauth/access_token",
+      "trigger": "User clicks Connect in the UI.",
+      "payload": "Authorization code + PKCE verifier + client_id + redirect_uri. No client secret.",
+      "disable": "do not click Connect"
+    },
+    {
+      "n": 6,
+      "endpoint": "POST {revocationEndpoint} (RFC 7009)",
+      "trigger": "User clicks Disconnect.",
+      "payload": "Token revocation only.",
+      "disable": "do not click Disconnect"
+    },
+    {
+      "n": 7,
+      "endpoint": "https://github.com/login/oauth/authorize (browser navigation)",
+      "trigger": "User clicks Connect.",
+      "payload": "Standard OAuth authorize redirect. Not a server-side call.",
+      "disable": "do not click Connect"
+    },
+    {
+      "n": 8,
+      "endpoint": "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/{authorize,token}, https://accounts.google.com/o/oauth2/v2/auth, https://oauth2.googleapis.com/token",
+      "trigger": "Browser-only mode (no helmd installed); user connects a provider.",
+      "payload": "PKCE code exchange; response tokens land in sessionStorage/vault.",
+      "disable": "install helmd; stay in daemon mode"
+    },
+    {
+      "n": 9,
+      "endpoint": "GET https://api.github.com/user with Authorization: Bearer <pasted PAT>",
+      "trigger": "User pastes a fine-grained PAT to verify it.",
+      "payload": "The pasted PAT, to GitHub only, to confirm it is valid.",
+      "disable": "do not paste a PAT"
+    },
+    {
+      "n": 10,
+      "endpoint": "GET https://ainumbers.co/helm/version.json",
+      "trigger": "On by default. Fired by helmd on behalf of row 12, once on every UI boot and then hourly; also once whenever helmd doctor runs.",
+      "payload": "Bare GET, no request body, no identifiers, no user or workflow data. Response is a static version-notice JSON used only to show a passive update banner; never downloaded or applied automatically. Like any HTTP request it necessarily reveals the caller's IP and User-Agent to the server.",
+      "disable": "set \"versionCheckUrl\": \"\" (or omit and let a falsy value pass) in ~/.helm/config.json; the /version-check handler then returns { checked: false, reason: \"disabled\" } without making row 10's outbound call at all"
+    },
+    {
+      "n": 11,
+      "endpoint": "GET http://127.0.0.1:{port}/version",
+      "trigger": "Browser UI probing a local helmd for handoff, only on explicit user click, never on page load.",
+      "payload": "Loopback only. Never leaves the machine.",
+      "disable": null
+    },
+    {
+      "n": 12,
+      "endpoint": "GET http://127.0.0.1:{port}/version-check",
+      "trigger": "Browser UI, authenticated loopback call that triggers row 10: once on boot, then hourly.",
+      "payload": "Loopback only. Never leaves the machine; the outbound leg it triggers is row 10.",
+      "disable": "see row 10"
+    }
+  ]
+}
