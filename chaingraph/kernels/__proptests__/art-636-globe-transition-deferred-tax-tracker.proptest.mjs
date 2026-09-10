@@ -1,6 +1,6 @@
 // art-636-globe-transition-deferred-tax-tracker.proptest.mjs — FV property-test FLOOR
 // (PILLAR2-DTTRANSITION-K-1).
-// kernel_digest_at_authoring: sha256:381375695efa58f8b47e3c7ea2e6ab96ceb63350656696fc6ac4c4ae24d24086
+// kernel_digest_at_authoring: sha256:e169d6aa944749b9901ee5551ceac66d0aa1aabd278d1b6d5262313806bfa9c3
 // spec: research/PILLAR2-DTTRANSITION-K-1.spec.md (workspace root, untracked)
 // human_sign_off: PENDING
 //
@@ -24,7 +24,10 @@
 // P9  double-rounding avoidance / P10 idempotence at the declared precisions.
 // P12 threshold-boundary FORCING, not sampling: the cut-off date is exercised at the day
 //     before, the day of, and the day after, on BOTH the Article 9.1.2 exclusion limb and
-//     the Article 9.1.3 basis limb.
+//     the Article 9.1.3 basis limb. The Transition Year start is forced as an UPPER bound on
+//     both windows that declare one — the Article 9.1.3 basis limb, and the Commentary
+//     8.5(c) new-CIT-basis step-up exclusion limb, which is bounded at both ends. Forcing
+//     only the lower bound is what let the missing 8.5(c) upper bound survive review.
 // P13 +0/-0 identical through the rounding path, and no signed zero reaches the payload.
 // P17 composition/associativity: the roll-forward is a declared-order reduction, and its
 //     value does not depend on the reassociation an input permutation would induce.
@@ -295,7 +298,19 @@ function checkP12_cutoff_boundary_forced() {
     (o) => o.items[0].basis_source !== 'reported_carrying_amount'
       ? 'a transfer ON the Transition Year start is not before it and must not take the disposing basis' : null);
 
-  return { name: 'P12_cutoff_boundary_forced_both_limbs', trials: rows.length, violations, rows: rows.filter((r) => !r.ok) };
+  // Limb 3 — the Commentary 8.5(c) new-CIT-basis step-up exclusion, which the guidance
+  // bounds at BOTH ends: after the cut-off AND before the Transition Year. Forced at the
+  // day before the Transition Year start, ON it, and well after it. The middle case is the
+  // one that distinguishes a both-ends window from a lower-bound-only one; asserting only
+  // the lower bound is what let the missing upper bound ship.
+  for (const [date, shouldExclude] of [['2023-12-31', true], ['2024-01-01', false], ['2030-06-15', false]]) {
+    one('cmt_8_5_c_step_up_exclusion_' + date,
+      pp([item({ arising_date: date, arises_from_new_cit_basis_step_up: true })]),
+      (o) => o.items[0].excluded !== shouldExclude
+        ? `expected excluded=${shouldExclude} on ${date}, got ${o.items[0].excluded}` : null);
+  }
+
+  return { name: 'P12_cutoff_and_transition_year_boundaries_forced_all_limbs', trials: rows.length, violations, rows: rows.filter((r) => !r.ok) };
 }
 
 // ---------- P13 ----------

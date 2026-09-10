@@ -74,6 +74,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # Read by the report-red job below (the nightly scheduled-red-issue reporter). Written
+    # BEFORE this job's own `exit 1`, so a red cycle reports which of the four
+    # checks failed to the tracker rather than only to the Actions tab. Nothing
+    # about what this workflow RUNS changes.
+    outputs:
+      state: ${{ steps.summary.outputs.state }}
+      failure_line: ${{ steps.summary.outputs.failure_line }}
     steps:
       - name: 📥 Checkout site repo (main)
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -84,6 +91,14 @@ jobs:
           # verify_repo, the touched-floor-files diff. Under depth 1 the history those
           # gates diff against is absent, so this "full suite" run was reporting on a
           # subset of what it claims to cover, with no signal that it had.
+          #
+          # Second reason: the same suite runs the debt-ledger
+          # freshness gate (gen-debt-ledger.mjs --check), which dates every ratchet file
+          # from per-file `git log -1` and REFUSES with exit 2 in a shallow clone
+          # (assertFullHistory — fails closed, never publishes a guessed date). Under
+          # depth 1 every scheduled run reds on that refusal: scheduled run 32745608342
+          # (2026-08-24) was exactly this shape. Depth 0 is what makes this weekly
+          # report a measurement instead of a refusal.
           fetch-depth: 0
           persist-credentials: false
 
@@ -112,6 +127,12 @@ jobs:
       - name: 🧪 Site — full preflight gate suite (bare, no --changed)
         id: preflight
         continue-on-error: true
+        # Refusal semantics: if this checkout ever loses its
+        # history again, gen-debt-ledger --check fails closed with exit 2
+        # ("REFUSING to run in a shallow clone"). That refusal is NOT_EVALUABLE —
+        # never a pass, and never a "stale" verdict: this report-only step surfaces
+        # it as a failed step naming the cause, and the remediation is the
+        # fetch-depth above, not a rerun.
         run: node scripts/preflight.mjs
 
       - name: 📥 Checkout worker repo (mcp-apps-poc, for post-deploy sweeps)
@@ -147,6 +168,7 @@ jobs:
           MCP_SMOKE_URL: https://mcp.ainumbers.co/mcp
 
       - name: 📋 Summarize (report-only — this run's own red/green IS the finding surface)
+        id: summary
         if: always()
         env:
           PREFLIGHT: ${{ steps.preflight.outcome }}
@@ -171,11 +193,40 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           FAIL=0
-          for R in "$PREFLIGHT" "$HASHSWEEP" "$VERIFYREG" "$SMOKE"; do
-            if [ "$R" != "success" ]; then FAIL=1; fi
+          FAILED=""
+          for PAIR in "site-preflight:$PREFLIGHT" "worker-hash-sweep:$HASHSWEEP" \
+                      "worker-verify-mcp-registered:$VERIFYREG" "worker-smoke-mcp:$SMOKE"; do
+            R="${PAIR#*:}"
+            if [ "$R" != "success" ]; then FAIL=1; FAILED="$FAILED ${PAIR%%:*}=$R"; fi
           done
           if [ "$FAIL" -eq 1 ]; then
+            {
+              echo "state=red"
+              echo "failure_line=Failed this cycle:$FAILED (each check is continue-on-error, so the others still ran - see the run summary table)."
+            } >> "$GITHUB_OUTPUT"
             echo "::error title=Full Suite (scheduled)::One or more checks failed this cycle — see the job summary. Report-only: does not block any merge/deploy."
             exit 1
           fi
+          {
+            echo "state=green"
+            echo "failure_line=none"
+          } >> "$GITHUB_OUTPUT"
           echo "✅ full estate + live worker sweeps clean this cycle."
+
+  # Nightly red reporter: this weekly run's red used to open nothing.
+  # Scheduled runs only — a manual dispatch is a rehearsal, not a finding.
+  # ⛔ The suite itself stays report-only and unchanged.
+  report-red:
+    name: Scheduled-red tracking issue
+    needs: full-suite
+    if: ${{ always() && github.event_name == 'schedule' && needs.full-suite.result != 'skipped' }}
+    uses: ./.github/workflows/scheduled-red-issue.yml
+    permissions:
+      contents: read
+      issues: write
+    with:
+      surface: fullsuite-weekly
+      # Fails CLOSED: anything that is not an explicit green is reported red,
+      # because "did not report" is never evidence of a clean cycle.
+      state: ${{ needs.full-suite.outputs.state == 'green' && 'green' || 'red' }}
+      failure-line: ${{ needs.full-suite.outputs.failure_line || 'The full-suite job did not record a verdict this cycle (killed or cancelled) - the estate was NOT measured.' }}

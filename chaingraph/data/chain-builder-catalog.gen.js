@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (640 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (663 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -2034,7 +2034,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Conforming Loan Limit Check",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-223-conforming-loan-limit.html",
-    "description": "FHFA annual conforming loan limit classifier. 2026 baseline: $806,500 (1-unit), $1,032,650 (2-unit), $1,248,150 (3-unit), $1,550,400 (4-unit",
+    "description": "FHFA annual conforming loan limit classifier. 2026 baseline: $832,750 (1-unit), $1,066,250 (2-unit), $1,288,800 (3-unit), $1,601,750 (4-unit",
     "consumes": [],
     "feeds": [
       "art-222-agency-eligibility-matrix"
@@ -6767,7 +6767,7 @@ window.CHAINBUILDER_CATALOG = [
     "tool_id": "art-653-pta-verifier",
     "display_name": "Pta Verifier",
     "mandate_type": "compliance_control",
-    "url": "https://ainumbers.co/tools/653-pta-verifier.html",
+    "url": "https://ainumbers.co/mcp.html",
     "description": "Verifies a plain-text-accounting journal supplied as synthetic text: parses dated transactions and their indented postings, checks each tran",
     "consumes": [],
     "feeds": [],
@@ -6829,6 +6829,18 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-659-publish-fund-nav-head",
+    "display_name": "Publish Fund NAV Head",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-659-publish-fund-nav-head.html",
+    "description": "Publishes one SPEC.md §HEAD-1 head-commit publication event for a tokenized fund's daily-NAV stream, so a fund's NAV-per-share history (art-",
+    "consumes": [
+      "art-373-recompute-fund-nav"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-66-fria-postmarket-monitoring-builder",
     "display_name": "FRIA & Post-Market Monitoring Plan Builder",
     "mandate_type": "compliance_mandate",
@@ -6877,6 +6889,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-663-apy-earned-recompute",
+    "display_name": "APY-Earned Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/663-apy-earned-recompute.html",
+    "description": "Recomputes the annual percentage yield earned for a periodic statement from caller-declared inputs: the interest actually earned for the per",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-664-loan-servicing-waterfall-recompute",
     "display_name": "Loan Servicing Waterfall Recompute",
     "mandate_type": "compliance_control",
@@ -6892,6 +6914,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/665-gl-tieout-recompute.html",
     "description": "Independently recomputes subledger-to-GL tie-out totals from a caller-supplied posted ledger and the caller's own declared product_code -> g",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-669-algo-execution-schedule-simulator",
+    "display_name": "Algo Execution Schedule Simulator",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/tools/669-algo-execution-schedule-simulator.html",
+    "description": "Deterministic execution-schedule arithmetic over caller-declared synthetic inputs. Slices a declared order three ways -- VWAP (across a decl",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -6913,6 +6945,106 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-670-examination-readiness-pack",
+    "display_name": "Examination Readiness Pack",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-670-examination-readiness-pack.html",
+    "description": "One pack, two selectable regime modules, five stages of regulatory exam management over an institution's own supplied request list (EXAM-REA",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-671-short-sale-locate-ssr-checker",
+    "display_name": "Short-Sale Locate and SSR Checker",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/tools/671-short-sale-locate-ssr-checker.html",
+    "description": "Deterministic locate-documentation and SSR-flag arithmetic over caller-declared synthetic inputs. Classifies a declared short-sale order aga",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-672-fx-funding-sequencer",
+    "display_name": "FX Funding Sequencer",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-672-fx-funding-sequencer.html",
+    "description": "Orders a trade's declared currency legs by FX cutoff and computes margin-to-cutoff minutes from the declared confirm time, for one declared ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-673-lending-recall-prioritizer",
+    "display_name": "Lending Recall Prioritizer",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/673-lending-recall-prioritizer.html",
+    "description": "Deterministic ranking arithmetic over a caller-declared synthetic recall queue. Ranks declared recalls by due date ascending, then declared ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-674-eba-im-model-validation-tracker",
+    "display_name": "EBA IM-Model Validation Tracker",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/tools/674-eba-im-model-validation-tracker.html",
+    "description": "Deterministic roll-up arithmetic over a caller-declared internal-model inventory. Counts the declared inventory by status (submitted, approv",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-675-recordkeeping-completeness-mapper",
+    "display_name": "Recordkeeping Completeness Mapper",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/tools/675-recordkeeping-completeness-mapper.html",
+    "description": "Channel inventory roll-up for books-and-records completeness. The caller declares each books-and-records channel (email, chat, voice, messag",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-676-proxy-voting-record",
+    "display_name": "Proxy Voting Record",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/676-proxy-voting-record.html",
+    "description": "Deterministic proxy-voting record arithmetic over caller-declared synthetic inputs. From a declared meeting record date and vote deadline, d",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-677-whistleblowing-channel-clock",
+    "display_name": "Whistleblowing Channel Clock Checker",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/677-whistleblowing-channel-clock.html",
+    "description": "Pure calendar-clock arithmetic for a whistleblowing channel over caller-declared synthetic dates. Checks the declared acknowledgement date a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-678-consultation-response-tracker",
+    "display_name": "Consultation Response Tracker",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/tools/678-consultation-response-tracker.html",
+    "description": "Open/closed roll-up over a caller-declared set of regulatory consultations against a declared as-of date: open count (a consultation whose c",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-679-orsa-readiness-pack",
+    "display_name": "ORSA Readiness Pack",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/679-orsa-readiness-pack.html",
+    "description": "Deterministic ORSA readiness arithmetic over caller-declared synthetic inputs, checked against the duties inserted into Solvency II by Direc",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-68-carbon-compliance-fit-diagnostic",
     "display_name": "Carbon & Climate Compliance Fit Diagnostic",
     "mandate_type": "agent_guardrail_mandate",
@@ -6927,6 +7059,106 @@ window.CHAINBUILDER_CATALOG = [
       "art-76-climate-scenario-applicator",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-680-control-attestation-campaign-roll-up",
+    "display_name": "Control Attestation Campaign Roll Up",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/680-control-attestation-campaign-roll-up.html",
+    "description": "Roll-up of a caller-declared control-attestation campaign: completion percentage (attested / controls_total, 2dp half-up), exception rate, a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-681-best-execution-evidence-pack",
+    "display_name": "Best-Execution Evidence Pack",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/681-best-execution-evidence-pack.html",
+    "description": "Compiles a caller-declared best-execution monitoring evidence pack: the fill-weighted average price improvement in basis points across decla",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-682-rule-605-publication-composer",
+    "display_name": "Rule 605 Publication Composer",
+    "mandate_type": "regulatory_reporting",
+    "url": "https://ainumbers.co/tools/682-rule-605-publication-composer.html",
+    "description": "Rule 605 publication composer over caller-declared best-ex/669-shaped inputs: the effective-vs-quoted spread ratio (eq_ratio, 2dp half-up), ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-683-consolidation-cta-minority-interest",
+    "display_name": "Consolidation with CTA and Minority Interest",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/tools/683-consolidation-cta-minority-interest.html",
+    "description": "Deterministic foreign-subsidiary consolidation arithmetic over caller-declared synthetic inputs, per the translation method. From a declared",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-684-intercompany-elimination-netting",
+    "display_name": "Intercompany Elimination and Netting Workflow",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/684-intercompany-elimination-netting.html",
+    "description": "Deterministic intercompany elimination and netting arithmetic over caller-declared synthetic entity pairs. For each declared pair the kernel",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-685-direct-indexing-fit-screen",
+    "display_name": "Direct Indexing Fit Screen",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-685-direct-indexing-fit-screen.html",
+    "description": "Computes a direct-indexing fit screen from caller-declared synthetic inputs: the net benefit in basis points is the declared expected tax al",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-686-ltc-funding-comparator",
+    "display_name": "LTC Funding Comparator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/686-ltc-funding-comparator.html",
+    "description": "Computes the arithmetic of a declared long-term-care funding comparison over a declared horizon: simple sums of the declared self-fund annua",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-687-wash-sale-window-guard",
+    "display_name": "Wash-Sale Window Guard",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-687-wash-sale-window-guard.html",
+    "description": "Computes a wash-sale window screen from caller-declared synthetic inputs: the 61-day acquisition window of the declared wash-sale method (sa",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-688-education-funding-gap-calculator",
+    "display_name": "Education Funding Gap Calculator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/688-education-funding-gap-calculator.html",
+    "description": "Computes the arithmetic of a declared education funding plan: the future value of a declared current balance grown at a declared annual retu",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-689-pack-dependency-map",
+    "display_name": "Pack Dependency Map",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-689-pack-dependency-map.html",
+    "description": "Maps the blast radius of a changed component across caller-declared pack-to-component usage lists: each declared pack carries the component ",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

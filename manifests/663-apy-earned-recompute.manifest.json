@@ -1,0 +1,153 @@
+{
+  "tool_id": "663-apy-earned-recompute",
+  "version": "1.0.0",
+  "title": "APY-Earned Recompute",
+  "description": "Recomputes the annual percentage yield earned for a periodic statement from caller-declared inputs: interest actually earned for the period, the average daily balance (supplied directly or derived as the days-weighted mean of caller-declared balance spans), and the actual days in the period, using the compound general formula of the cited rule text (100*((1+I/B)^(365/D)-1)), then diffs the recomputed yield against the disclosed figure within a declared accuracy band whose 0.05pp default is the rule text own accuracy statement. Returns MATCHES, DIVERGES with the exact difference, or INDETERMINATE when inputs are outside the declared domain or no disclosed figure exists to diff against. The statement-more-often-than-compounding special formula is declared unsupported and refused, never approximated. An independent recompute-and-receipt over caller-declared contract inputs, not an audit of or substitution for any core platform, and not a claim about what any institution should have disclosed.",
+  "category": "compliance",
+  "tags": [
+    "apy earned",
+    "periodic statement",
+    "yield recompute",
+    "core verification",
+    "recompute",
+    "disclosure",
+    "accuracy band"
+  ],
+  "audience": [
+    "compliance",
+    "finance",
+    "engineer"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "interest_earned",
+      "days_in_period"
+    ],
+    "properties": {
+      "interest_earned": {
+        "type": "number",
+        "description": "Interest actually earned on the account for the period (non-negative)."
+      },
+      "days_in_period": {
+        "type": "integer",
+        "description": "The actual number of days for the period (1..366)."
+      },
+      "average_daily_balance": {
+        "type": "number",
+        "description": "The days-weighted mean balance for the same period, supplied directly."
+      },
+      "balance_segments": {
+        "type": "array",
+        "description": "Optional {balance, days} spans; their days must sum to days_in_period exactly and the kernel derives the days-weighted mean."
+      },
+      "disclosed_apy_earned": {
+        "type": "number",
+        "description": "The yield figure as disclosed on the periodic statement. Absent yields INDETERMINATE."
+      },
+      "accuracy_band_pp": {
+        "type": "number",
+        "description": "Symmetric accuracy band in percentage points; default 0.05pp from the cited accuracy statement."
+      },
+      "special_formula_declared": {
+        "type": "boolean",
+        "description": "Declare true when statements are issued more often than the compounding period; the kernel refuses this case rather than approximating."
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "verdict": {
+        "type": "string",
+        "enum": [
+          "MATCHES",
+          "DIVERGES",
+          "INDETERMINATE"
+        ]
+      },
+      "apy_earned_computed": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Unrounded recomputed yield, percentage points."
+      },
+      "apy_earned_computed_rounded": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Recomputed yield at two decimals (display only; never feeds the verdict)."
+      },
+      "abs_difference_pp": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Absolute difference between computed and disclosed, percentage points."
+      },
+      "accuracy_band_pp": {
+        "type": "number"
+      },
+      "within_accuracy_band": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "average_daily_balance": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "manual_review_required": {
+        "type": "boolean"
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_apy_earned_recompute",
+    "description": "Recomputes the periodic-statement APY-earned from caller-declared interest earned, average daily balance (direct or days-weighted from balance spans) and days in period, then diffs it against the disclosed figure within a declared accuracy band. Returns MATCHES, DIVERGES with the exact difference, or INDETERMINATE. Use when an agent needs an independent recompute-and-receipt of a disclosed periodic-statement yield, not an audit of the core itself.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "interest_earned",
+        "days_in_period"
+      ],
+      "properties": {
+        "interest_earned": {
+          "type": "number"
+        },
+        "days_in_period": {
+          "type": "integer"
+        },
+        "average_daily_balance": {
+          "type": "number"
+        },
+        "balance_segments": {
+          "type": "array"
+        },
+        "disclosed_apy_earned": {
+          "type": "number"
+        },
+        "accuracy_band_pp": {
+          "type": "number"
+        },
+        "special_formula_declared": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/663-apy-earned-recompute.html",
+    "function_name": "runApyRecompute",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}

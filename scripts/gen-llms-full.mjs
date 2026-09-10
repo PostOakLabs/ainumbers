@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deriveCounts } from './counts.mjs';
+import { collectTwinTargets } from './gen-page-md-twins.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -87,6 +88,10 @@ async function renderBody() {
 
   const guides = collectGuides(REPO);
 
+  // PAGE-MD-TWINS-1: the markdown twin set, listed from the SAME walk the twin
+  // generator uses (collectTwinTargets), never a second enumeration.
+  const twins = collectTwinTargets(REPO);
+
   const lines = [];
   lines.push('# AINumbers.co - Full Tool & Workflow Inventory (llms-full.txt)');
   lines.push('');
@@ -113,6 +118,14 @@ async function renderBody() {
   lines.push('## Guides (' + guides.length + ')');
   lines.push('');
   for (const g of guides) lines.push(`- guides/${g.name}.html :: ${g.title} - ${g.desc}`);
+  lines.push('');
+  lines.push(`## Markdown twins (${twins.length})`);
+  lines.push('');
+  lines.push('Every generated node/workflow page ships a token-cheap markdown twin at the');
+  lines.push('same path with a .md extension (rel=alternate on the page). Fetch the .md');
+  lines.push('instead of parsing HTML:');
+  lines.push('');
+  for (const t of twins) lines.push(`- ${t.twinRel} :: ${t.title}`);
   lines.push('');
   return lines.join('\n') + '\n';
 }

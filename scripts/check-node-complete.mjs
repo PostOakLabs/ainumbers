@@ -143,11 +143,13 @@ function checkRegistration(id) {
     else if (/node shard\(s\) not yet in the assembled chaingraph\.json/.test(line)) section = 'leaked';
     else if (/node\(s\) registered in chaingraph\.json with NO backing shard/.test(line)) section = 'orphan';
     else if (/under an explicit PAGE_BLOCKED_WAIVER/.test(line)) section = 'waived';
+    else if (/WRITER-BLOCKED — \d+ node shard/.test(line)) section = 'writer-blocked';
     else if (/^check-shard-assembly: OK/.test(line) || /^check-shard-assembly: exiting 0/.test(line)) section = null;
     if (idLineRe.test(line)) {
       if (section === 'pending') return { status: 'PASS', detail: `PENDING-ASSEMBLE — new shard, not yet on origin/main; ASSEMBLE-LAND owns registration, not this row.` };
       if (section === 'leaked') return { status: 'FAIL', detail: `NODE-REGISTRATION-GAP-1 shape — shard present but not registered/assembled (check-shard-assembly.mjs).` };
       if (section === 'waived') return { status: 'PASS', detail: `explicit PAGE_BLOCKED_WAIVER entry (informational).` };
+      if (section === 'writer-blocked') return { status: 'PASS', detail: `WRITER-BLOCKED — the shard is on origin/main but the main-side single writer is red, so the committed chaingraph.json lags its shards; the bot assembles it on its next green run, and a copy-repair PR is the sanctioned unblock (REGEN-VALIDATE-RED-1).` };
     }
   }
   // Not mentioned anywhere in check-shard-assembly.mjs output at all ⇒ fully assembled + registered.

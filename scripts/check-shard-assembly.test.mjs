@@ -9,16 +9,33 @@
 // `origin`, pushes a real main, and runs the REAL scripts/check-shard-assembly.mjs
 // against it, asserting the exit code and the printed diagnosis.
 //
-// THE THREE STATES THE ROW REQUIRES (SO #34c — a gate never seen red is not a
+// THE FOUR STATES THE ROW REQUIRES (SO #34c — a gate never seen red is not a
 // gate, and a gate that stops being red where it should is worse):
 //   (a) a NEW shard on a branch, absent from origin/main → PENDING-ASSEMBLE, exit 0
-//   (b) a shard PRESENT on origin/main and still unregistered → RED, exit 1
+//   (b) a shard PRESENT on origin/main and absent from the BASE's committed
+//       chaingraph.json on a non-assembling branch → WRITER-BLOCKED, exit 0
+//       (REGEN-VALIDATE-RED-1: the state exists at the base tip — the main-side
+//       single writer is behind; a non-assembling PR neither caused it nor can
+//       repair it, and main's own regen run is the blocking surface. Before
+//       ASSEMBLE-MAINSIDE-ENROLL-1 gave the writer auto-enrolment this same
+//       git state was the six-node NODE-REGISTRATION-GAP-1 leak, which is why
+//       the OLD (b) expected RED here; on a healthy writer the state now
+//       self-heals within one bot run, and on a broken writer it reds MAIN.)
 //   (c) an assembled, registered shard → OK, exit 0
 //
-// Plus the mutation control that makes (a) and (b) one fact rather than two:
-// the SAME shard id, GREEN as pending while it lives only on the branch,
-// turns RED the moment it reaches origin/main. If that flip ever stops
-// happening, the exemption has eaten the check it was carved out of.
+// Plus the mutation control that makes the classification one fact rather
+// than three: the SAME shard id is PENDING(green) while it lives only on the
+// branch, WRITER-BLOCKED(green, different label) once it reaches
+// origin/main, and RED the moment the branch itself touches
+// chaingraph.meta.json (an assembling branch could actually register it, so
+// the exemption must be unreachable for exactly that actor). If the turn to
+// RED ever stops happening, the exemption has eaten the check it was carved
+// out of.
+//
+// Plus the stale-branch control: an on-base id the BASE's committed
+// chaingraph.json ALREADY has (main healed it after the branch point) is
+// still RED — the writer-blocked exemption is exactly "the state exists at
+// the base tip", nothing wider.
 //
 // Plus both guards, each proven to FAIL CLOSED:
 //   guard 1 — base ref unresolvable (bad ref / empty base tree / no git at all)
@@ -310,22 +327,60 @@ test('STATE (a) — an UNCOMMITTED new shard is pending too (a row that has not 
   assert(/PENDING-ASSEMBLE/.test(out) && /art-B/.test(out), `expected art-B pending, got:\n${out}`)
 })
 
-// ── STATE (b): shard on origin/main, unregistered ⇒ RED ───────────────────
-test('STATE (b) — a shard PRESENT on origin/main and unregistered is RED', () => {
+// ── STATE (b): shard on origin/main, absent from the base's committed CG ⇒ WRITER-BLOCKED ──
+test('STATE (b) — a shard PRESENT on origin/main but absent from the BASE committed chaingraph.json is WRITER-BLOCKED (exit 0) on a non-assembling branch', () => {
   const { work } = makeFixture()
   nodeShard(work, 'art-LEAK', 'tool_leak') // registered nowhere
-  commit(work, 'art-LEAK shard, never appended to order.nodes')
+  commit(work, 'art-LEAK shard, writer is behind on assembling it')
   git(work, ['push', '-q', 'origin', 'main'])
   const { status, out } = runGate(work)
-  assert(status === 1, `expected exit 1 for a published unregistered shard, got ${status}\n${out}`)
-  assert(/1 node shard\(s\) not yet in the assembled chaingraph.json/.test(out), `expected the leak line, got:\n${out}`)
+  assert(status === 0, `expected exit 0 for a writer-blocked backlog shard, got ${status}\n${out}`)
+  assert(/WRITER-BLOCKED — 1 node shard/.test(out), `expected the writer-blocked line, got:\n${out}`)
   assert(/art-LEAK/.test(out), `expected art-LEAK named, got:\n${out}`)
   assert(!/PENDING-ASSEMBLE/.test(out), `a published shard must NEVER be reported pending:\n${out}`)
-  assert(/FAILING — node case is BLOCKING/.test(out), `expected the blocking verdict, got:\n${out}`)
+  assert(!/FAILING/.test(out), `writer-blocked is informational, not a failure:\n${out}`)
+  assert(/blocking surface is main's own regen run/.test(out), `expected the writer-blocked diagnosis naming the real blocking surface, got:\n${out}`)
 })
 
-// ── THE MUTATION CONTROL — same shard, green then red ─────────────────────
-test('MUTATION — the same shard flips PENDING(green) → RED the moment it reaches origin/main', () => {
+test('STATE (b)-RED — the SAME base state on a branch that edits chaingraph.meta.json is RED (guard 2 outranks the writer-blocked exemption)', () => {
+  const { work } = makeFixture()
+  nodeShard(work, 'art-LEAK', 'tool_leak')
+  commit(work, 'art-LEAK shard on main, unassembled')
+  git(work, ['push', '-q', 'origin', 'main'])
+  git(work, ['checkout', '-q', '-b', 'sneaky'])
+  // Touch meta.json WITHOUT registering art-LEAK — a branch that edits the
+  // order file is an assembler and could actually register the shard, so the
+  // exemption must not be reachable for it.
+  writeJson(join(work, 'chaingraph/chaingraph.meta.json'), { order: { nodes: ['art-A'], chains: ['chain-A'], touched: true } })
+  commit(work, 'touches meta.json without registering art-LEAK')
+  const { status, out } = runGate(work)
+  assert(status === 1, `expected exit 1 on a meta.json-editing branch, got ${status}\n${out}`)
+  assert(/ASSEMBLING branch/.test(out), `expected the assembler diagnosis, got:\n${out}`)
+  assert(/art-LEAK/.test(out), `expected art-LEAK named, got:\n${out}`)
+})
+
+test('STATE (b)-RED — an on-base id the BASE committed CG already has is still RED on a stale branch (the exemption is exactly the base-tip state)', () => {
+  const { work } = makeFixture()
+  git(work, ['checkout', '-q', '-b', 'stale-row'])
+  nodeShard(work, 'art-M', 'tool_m')
+  commit(work, 'art-M shard on the branch')
+  // main assembles art-M after the branch point (the writer healed it there).
+  git(work, ['checkout', '-q', 'main'])
+  nodeShard(work, 'art-M', 'tool_m')
+  writeAssembled(work, ['art-A', 'art-M'], ['chain-A'])
+  commit(work, 'main assembles art-M')
+  git(work, ['push', '-q', 'origin', 'main'])
+  git(work, ['checkout', '-q', 'stale-row'])
+
+  const { status, out } = runGate(work)
+  assert(status === 1, `expected exit 1 — the base committed CG already has art-M, got ${status}\n${out}`)
+  assert(/1 node shard\(s\) not yet in the assembled chaingraph\.json/.test(out), `expected the leak line, got:\n${out}`)
+  assert(/art-M/.test(out), `expected art-M named, got:\n${out}`)
+  assert(!/WRITER-BLOCKED/.test(out), `a shard main already assembled must not be exempted as writer-blocked:\n${out}`)
+})
+
+// ── THE MUTATION CONTROL — same shard, green → green(different label) → red ──
+test('MUTATION — the same shard flips PENDING(green) → WRITER-BLOCKED(green) on publish → RED the moment the branch edits meta.json', () => {
   const { work } = makeFixture()
   git(work, ['checkout', '-q', '-b', 'shard-row'])
   nodeShard(work, 'art-M', 'tool_m')
@@ -334,23 +389,36 @@ test('MUTATION — the same shard flips PENDING(green) → RED the moment it rea
   const before = runGate(work)
   assert(before.status === 0 && /PENDING-ASSEMBLE/.test(before.out), `pre-publish expected pending+0, got ${before.status}\n${before.out}`)
 
-  // Publish it, unregistered — exactly the NODE-REGISTRATION-GAP-1 leak.
+  // Publish it unregistered — post-ASSEMBLE-MAINSIDE-ENROLL-1 this is the
+  // writer's backlog, loudly labelled, not a PR-side failure.
   git(work, ['checkout', '-q', 'main'])
   git(work, ['merge', '-q', '--ff-only', 'shard-row'])
   git(work, ['push', '-q', 'origin', 'main'])
 
   const after = runGate(work)
-  assert(after.status === 1, `post-publish expected exit 1, got ${after.status}\n${after.out}`)
+  assert(after.status === 0, `post-publish expected exit 0 (writer-blocked), got ${after.status}\n${after.out}`)
   assert(!/PENDING-ASSEMBLE/.test(after.out), `post-publish must not be pending:\n${after.out}`)
-  assert(/art-M/.test(after.out), `expected art-M named in the failure, got:\n${after.out}`)
+  assert(/WRITER-BLOCKED/.test(after.out) && /art-M/.test(after.out), `expected art-M writer-blocked, got:\n${after.out}`)
+
+  // The flip that must never stop happening: a branch that touches the order
+  // file IS the actor that could register the shard — the exemption is
+  // unreachable for it, and the gate goes RED again.
+  git(work, ['checkout', '-q', '-b', 'assembler'])
+  writeJson(join(work, 'chaingraph/chaingraph.meta.json'), { order: { nodes: ['art-A'], chains: ['chain-A'], touched: true } })
+  commit(work, 'touches meta.json without registering art-M')
+  const assembling = runGate(work)
+  assert(assembling.status === 1, `assembling-branch expected exit 1, got ${assembling.status}\n${assembling.out}`)
+  assert(/art-M/.test(assembling.out), `expected art-M named in the failure, got:\n${assembling.out}`)
 })
 
-test('MUTATION — registering the published shard turns it GREEN again (red → green closes the loop)', () => {
+test('MUTATION — registering the published shard turns it GREEN again (writer-blocked → assembled closes the loop)', () => {
   const { work } = makeFixture()
   nodeShard(work, 'art-M', 'tool_m')
-  commit(work, 'art-M shard, unregistered')
+  commit(work, 'art-M shard, unassembled on main')
   git(work, ['push', '-q', 'origin', 'main'])
-  assert(runGate(work).status === 1, 'expected the unregistered published shard to be red first')
+  const pre = runGate(work)
+  assert(pre.status === 0 && /WRITER-BLOCKED/.test(pre.out), 'expected the unassembled published shard to be writer-blocked first')
+  assert(pre.out.includes('art-M'), 'expected art-M named while writer-blocked')
 
   writeAssembled(work, ['art-A', 'art-M'], ['chain-A'])
   const { status, out } = runGate(work)
@@ -447,19 +515,19 @@ test('NO-REGRESSION — the chain half stays ADVISORY (unassembled chain shard, 
   assert(/1 chain shard\(s\) not yet in the assembled chaingraph.json/.test(out), `expected the chain line, got:\n${out}`)
 })
 
-test('NO-REGRESSION — a published unregistered shard is RED even alongside a pending one', () => {
+test('NO-REGRESSION — a published unassembled shard is WRITER-BLOCKED alongside a pending one, and the run stays GREEN', () => {
   const { work } = makeFixture()
   nodeShard(work, 'art-LEAK', 'tool_leak')
-  commit(work, 'published leak')
+  commit(work, 'published, writer behind on assembly')
   git(work, ['push', '-q', 'origin', 'main'])
   git(work, ['checkout', '-q', '-b', 'shard-row'])
   nodeShard(work, 'art-NEW', 'tool_new')
   commit(work, 'new shard on the branch')
   const { status, out } = runGate(work)
-  assert(status === 1, `expected exit 1 — the leak must still bite, got ${status}\n${out}`)
+  assert(status === 0, `expected exit 0 — both classifications are informational, got ${status}\n${out}`)
   assert(/PENDING-ASSEMBLE/.test(out) && /art-NEW/.test(out), `expected art-NEW pending, got:\n${out}`)
-  assert(/art-LEAK/.test(out), `expected art-LEAK still reported, got:\n${out}`)
-  assert(/FAILING — node case is BLOCKING/.test(out), `expected the blocking verdict, got:\n${out}`)
+  assert(/WRITER-BLOCKED/.test(out) && /art-LEAK/.test(out), `expected art-LEAK writer-blocked, got:\n${out}`)
+  assert(!/FAILING/.test(out), `neither state may fail the run:\n${out}`)
 })
 
 // ── SCHEMA CONFORMANCE (SHARD-SCHEMA-PARITY-1) ─────────────────────────────

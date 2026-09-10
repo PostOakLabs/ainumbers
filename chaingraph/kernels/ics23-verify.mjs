@@ -85,7 +85,7 @@ function encodeVarintProto(n) {
 
 async function doHash(hashOp, data) {
   if (hashOp === HashOp.SHA256) return sha256(data);
-  throw new Error(`ics23-verify: unsupported HashOp ${hashOp} — the three pinned presets (iavl/tendermint/smt) need only SHA256`);
+  throw new Error(`ics23-verify: unsupported HashOp ${hashOp} — the pinned presets need only SHA256`);
 }
 
 async function doHashOrNoop(hashOp, data) {
@@ -98,7 +98,7 @@ function doLengthOp(lengthOp, data) {
     case LengthOp.NO_PREFIX: return data;
     case LengthOp.VAR_PROTO: return concatBytes(encodeVarintProto(data.length), data);
     default:
-      throw new Error(`ics23-verify: unsupported LengthOp ${lengthOp} — the three pinned presets need only NO_PREFIX/VAR_PROTO`);
+      throw new Error(`ics23-verify: unsupported LengthOp ${lengthOp} — the pinned presets need only NO_PREFIX/VAR_PROTO`);
   }
 }
 
@@ -127,8 +127,9 @@ export const InnerOp = {
 };
 
 // ---------------------------------------------------------------------------------------------
-// ProofSpec presets — BUILD-SPEC §2.2, transcribed byte-for-byte from cosmos/ics23/go/proof.go.
-// These are the ONLY three specs this module knows about. No constructor exposed.
+// ProofSpec presets — BUILD-SPEC §2.2, transcribed byte-for-byte from cosmos/ics23/go/proof.go,
+// plus ainumbers-simple-v1 (REGISTRY-TILES-BUILD-SPEC.md §4.2, transcribed field-by-field).
+// These are the ONLY four specs this module knows about. No constructor exposed.
 // ---------------------------------------------------------------------------------------------
 
 export const IAVL_SPEC = Object.freeze({
@@ -169,6 +170,87 @@ export const SMT_SPEC = Object.freeze({
   }),
   max_depth: 256, min_depth: 0, prehash_key_before_comparison: true,
 });
+
+// ainumbers-simple-v1 — the F2 absence-lane tree (REGISTRY-TILES-BUILD-SPEC.md §4.1/§4.2,
+// transcribed field-by-field; ⛔ do not re-pick the shape). Sorted-key binary Merkle tree over
+// the registry/kernel key set: keys are the raw 32 bytes of kernel_digest sorted by raw byte
+// value (raw-byte sorting is what makes ICS23 neighbour-adjacency mechanically checkable),
+// values are RFC 8785/JCS-canonical record bytes, RFC 6962 dense structure split at the largest
+// power of two below n. Node hashes: leaf = SHA-256(0x00 ‖ key(32) ‖ SHA-256(value)),
+// inner = SHA-256(0x01 ‖ left(32) ‖ right(32)) — identical in shape to the two RFC 6962
+// implementations the estate already ships. empty_child is deliberately ABSENT: a dense,
+// complete-left tree defines no placeholder and needs none. The two legal InnerOp shapes
+// (left child: prefix len 1 / suffix len 32; right child: prefix len 33 / suffix len 0) derive
+// from the bounds below via getPadding/orderFromPadding — nothing about them is hardcoded, and
+// there is no IAVL-style varint prefix to confuse, so no tree-specific hardening pass applies
+// (domain separation: inner prefix begins 0x01, leaf prefix is 0x00).
+export const AINUMBERS_SIMPLE_SPEC = Object.freeze({
+  name: 'ainumbers-simple-v1',
+  leaf_spec: Object.freeze({
+    hash: HashOp.SHA256, prehash_key: HashOp.NO_HASH, prehash_value: HashOp.SHA256,
+    length: LengthOp.NO_PREFIX, prefix: Uint8Array.of(0x00),
+  }),
+  inner_spec: Object.freeze({
+    child_order: Object.freeze([0, 1]), min_prefix_length: 1, max_prefix_length: 1,
+    child_size: 32, hash: HashOp.SHA256,
+  }),
+  max_depth: 64, min_depth: 0, prehash_key_before_comparison: false,
+});
+
+// ---------------------------------------------------------------------------------------------
+// Pinned-spec enforcement — REGISTRY-TILES-BUILD-SPEC.md §4.3, the pinning rule restated as
+// code: the verify entry points accept ONLY one of the four frozen presets above, compared
+// structurally field-by-field (a byte-equal behavioural clone of a preset constrains the proof
+// identically and is accepted; any rule-bearing difference is not). A spec supplied alongside
+// the proof, or constructed ad hoc by a caller, is rejected before any hash runs — a checker
+// must never take the rule it checks against from the thing being checked (STANDING-ORDERS #34;
+// the VSA-2022-103 lesson one level up). checkAgainstSpec() stays spec-agnostic by design: it
+// is the step-attribution helper the upstream vector harness drives with decoded fixtures, not
+// a verify entry point. sameBytes() treats undefined and length-0 alike: for empty_child the
+// two are behaviourally indistinguishable in this module (both compare against EMPTY).
+// ---------------------------------------------------------------------------------------------
+
+const PINNED_SPECS = [IAVL_SPEC, TENDERMINT_SPEC, SMT_SPEC, AINUMBERS_SIMPLE_SPEC];
+
+function sameBytes(a, b) {
+  const aa = a ?? EMPTY, bb = b ?? EMPTY;
+  if (aa.length !== bb.length) return false;
+  for (let i = 0; i < aa.length; i++) if (aa[i] !== bb[i]) return false;
+  return true;
+}
+
+function sameChildOrder(a, b) {
+  const al = a?.length ?? -1, bl = b?.length ?? -1;
+  if (al !== bl) return false;
+  for (let i = 0; i < al; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function matchesPinnedSpec(spec, pinned) {
+  if (spec === pinned) return true;
+  if (!spec || typeof spec !== 'object') return false;
+  const l = spec.leaf_spec, pl = pinned.leaf_spec;
+  const i = spec.inner_spec, pi = pinned.inner_spec;
+  if (!l || !i) return false;
+  return spec.name === pinned.name
+    && spec.max_depth === pinned.max_depth && spec.min_depth === pinned.min_depth
+    && spec.prehash_key_before_comparison === pinned.prehash_key_before_comparison
+    && (l.hash ?? HashOp.NO_HASH) === pl.hash
+    && (l.prehash_key ?? HashOp.NO_HASH) === pl.prehash_key
+    && (l.prehash_value ?? HashOp.NO_HASH) === pl.prehash_value
+    && (l.length ?? LengthOp.NO_PREFIX) === pl.length
+    && sameBytes(l.prefix, pl.prefix)
+    && (i.hash ?? HashOp.NO_HASH) === pi.hash
+    && sameChildOrder(i.child_order, pi.child_order)
+    && i.min_prefix_length === pi.min_prefix_length && i.max_prefix_length === pi.max_prefix_length
+    && i.child_size === pi.child_size
+    && sameBytes(i.empty_child, pi.empty_child);
+}
+
+export function assertPinnedSpec(spec) {
+  if (PINNED_SPECS.some((p) => matchesPinnedSpec(spec, p))) return spec;
+  throw new Error("ics23-verify: spec is not one of this module's four pinned build-time presets (iavl/tendermint/smt/ainumbers-simple-v1) — a ProofSpec is a hash-pinned build-time constant selected by name (REGISTRY-TILES-BUILD-SPEC.md §4.3) and is never accepted from a caller or from the proof");
+}
 
 // over-declares equality (matches go/proof.go SpecEquals), used only to decide whether a spec's
 // tree-specific hardening pass (validateIavlOps / validateTendermintOps) applies — never to accept
@@ -317,6 +399,7 @@ async function calculateRoot(proof) {
 }
 
 export async function verifyExistence(proof, spec, root, key, value) {
+  assertPinnedSpec(spec);
   checkAgainstSpec(proof, spec);
   if (!bytesEqual(key, proof.key)) throw new Error('ics23-verify: provided key does not match proof');
   if (!bytesEqual(value, proof.value)) throw new Error('ics23-verify: provided value does not match proof');
@@ -440,6 +523,7 @@ function isLeftNeighbor(spec, leftPath, rightPath) {
 
 // nonExistenceProof: {key, left: ExistenceProof|null, right: ExistenceProof|null}
 export async function verifyNonExistence(proof, spec, root, key) {
+  assertPinnedSpec(spec);
   let leftKey = null, rightKey = null;
   if (proof.left) {
     await verifyExistence(proof.left, spec, root, proof.left.key, proof.left.value);

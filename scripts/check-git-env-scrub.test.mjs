@@ -18,15 +18,36 @@
  * Run: node scripts/check-git-env-scrub.test.mjs
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, cpSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { gitEnv, isolatedChildEnv } from './_git-env-lib.mjs';
+import { deriveSandboxFiles, REPO_ROOT } from './lib-sandbox-deps.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const GATE = resolve(REPO, 'scripts', 'check-git-env-scrub.mjs');
+
+// ── _git-env-lib.mjs IS DERIVED-AND-COPIED-VERBATIM, NOT REPRODUCED (SANDBOX-FILELIST-SWEEP-2) ──
+// This used to write a HAND-WRITTEN reimplementation of _git-env-lib.mjs's gitEnv()/
+// isolatedChildEnv() into the fixture — never fresh, a private copy of the file this very gate
+// exists to complain about other files having. Replaced with deriveSandboxFiles()'s
+// derive-then-copy-verbatim shape (scripts/check-shard-assembly.test.mjs, SANDBOX-FILELIST-GATE-1):
+// the real file, copied byte-identical from the working tree.
+//
+// check-git-env-scrub.mjs itself STAYS on the `git show HEAD:...` copy below, NOT run through
+// deriveSandboxFiles as a root — measured, not a style choice: this gate's own PATTERN_DEFINERS/
+// FIXTURE_BEARING sets carry the literal string 'scripts/check-git-env-scrub.test.mjs' as DATA
+// (files exempted from its OWN coverage scan), and deriveSandboxFiles's shell-out heuristic (any
+// module-extension string literal that resolves to a real repo file) reads that literal as a spawn
+// target, pulls THIS test file into its own derivation, and false-trips the createRequire guard on
+// lib-sandbox-deps.mjs's own source (which necessarily contains the word "createRequire" as its own
+// detection pattern). check-git-env-scrub.mjs is not in this row's fence to fix, so the gate file
+// keeps its existing fresh-via-git-show copy; only _git-env-lib.mjs — whose closure is provably
+// just itself (zero imports, zero module-extension literals) — goes through derivation.
+const SANDBOX_ROOTS = ['scripts/_git-env-lib.mjs'];
+const SANDBOX_FILES = deriveSandboxFiles({ roots: SANDBOX_ROOTS });
 
 let passed = 0;
 let failed = 0;
@@ -79,12 +100,12 @@ function runGateOver(files, { pad = true } = {}) {
     mkdirSync(dirname(join(dir, rel)), { recursive: true });
     writeFileSync(join(dir, rel), body, 'utf8');
   }
-  writeFileSync(join(dir, 'scripts', '_git-env-lib.mjs'),
-    'export function gitEnv(extra = {}, base = process.env) {\n' +
-    '  const e = {};\n' +
-    '  for (const [k, v] of Object.entries(base)) if (!/^GIT_/i.test(k) && v !== undefined) e[k] = v;\n' +
-    '  return { ...e, ...extra };\n' +
-    '}\nexport function isolatedChildEnv() { return {}; }\nexport const CHILD_ENV_ALLOWLIST = [];\n', 'utf8');
+  // DERIVED-AND-COPIED-VERBATIM, not reproduced — see SANDBOX_FILES above.
+  for (const rel of SANDBOX_FILES) {
+    const dest = join(dir, rel);
+    mkdirSync(dirname(dest), { recursive: true });
+    cpSync(resolve(REPO_ROOT, rel), dest);
+  }
   writeFileSync(join(dir, 'scripts', 'check-git-env-scrub.mjs'),
     execFileSync('git', ['show', 'HEAD:scripts/check-git-env-scrub.mjs'], { cwd: REPO, env: gitEnv(), encoding: 'utf8' }), 'utf8');
   git(['add', '-A']);

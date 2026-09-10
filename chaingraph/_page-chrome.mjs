@@ -12,6 +12,14 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 /** Canonical OCG spec version, derived from chaingraph.json (the version-of-record) — never hardcode this. */
 export const SPEC_VERSION = JSON.parse(readFileSync(join(__dir, 'chaingraph.json'), 'utf-8')).spec_version;
 
+/** PAGE-MD-TWINS-1: the one canonical markdown-twin <link> tag. Emitted into
+ *  every generated node/chain page <head> by scripts/gen-page-md-twins.mjs
+ *  (its own single writer); detection key is the rel+type pair below. */
+export const MD_TWIN_LINK_REL = 'rel="alternate" type="text/markdown"';
+export function buildMarkdownAlternateLink(pageAbsUrl) {
+  return `<link ${MD_TWIN_LINK_REL} href="${pageAbsUrl.replace(/\.html$/, '.md')}">`;
+}
+
 /** Build the canonical nav for a node page. breadcrumbCurrent = "ART-NN · Title" */
 export function buildNav(breadcrumbCurrent) {
   return `<nav>
@@ -110,6 +118,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${cg}guide-iso20022.html">ISO 20022 Profile</a>
         <a href="${cg}guide-okf.html">Open Knowledge Format</a>
         <a href="${root}guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="${root}guides/webmcp-field-notes.html">WebMCP Field Notes</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-label">Data &amp; Artifacts</div>
@@ -259,3 +268,807 @@ export const FOOTER_REQUIRED_TOKENS = [
   'class="footer-col"',
   'OpenChainGraph Suite',
 ];
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * OCG-DEEPLINK v1 — fragment-only prefill-and-run deep links.
+ * Contract: AGENT-REACH-BUILD-SPEC.md §3.1 (row TOOLPAGE-DEEPLINK-1).
+ *   Fragment shape:  #p=v1.<base64url(gzip(JSON policy_parameters))>[&run=1]
+ * Fragment-only by construction: the payload never reaches a server, a log,
+ * or a query string — the zero-egress property holds with no enforcement.
+ * Emitted into WebMCP-registered node pages by scripts/gen-webmcp-registrations.mjs
+ * (single writer, SO #35); the bytes below are the single source of truth.
+ * The size cap and error surface mirror the ledger: over-cap shows the PII
+ * banner sentence + "payload too large" and never truncates or executes.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/** Marker injected with the emitted <script> block — the generator's freshness
+ *  check and check-deeplink-contract.mjs detect presence by this string. */
+export const DEEPLINK_MARKER = '/* OCG-DEEPLINK v1 */';
+
+/** Compressed-fragment budget — same constant as the ledger's FRAGMENT_BUDGET_BYTES (ledger/index.html:435). */
+export const DEEPLINK_BUDGET_BYTES = 30_000;
+
+/**
+ * Build the inline <script> body for one node page. PURE: same inputs, same bytes.
+ *   prefillTable: JSON string of { manifest_property: [element_id, via], … } —
+ *     the page's slice of the generator's authored propertyIdMap (WEBMCP-GEN-IDMAP-1),
+ *     plus the literal-id default, via ∈ string|json|checked|boolstring (same
+ *     semantics as the emitted execute() mapping lines). The reader additionally
+ *     JSON-stringifies non-primitive values bound via 'string', so an object-valued
+ *     parameter always lands in its control as parseable JSON text.
+ *   runTarget: the page-verified zero-arg wrapper (G3b) — same target execute() awaits.
+ * The codec functions (b64uDec/gunzip) are copied VERBATIM from ledger/index.html
+ * lines 812-857 (the "#a=v1." FRAGMENT CODEC), per the row's copy-don't-rederive
+ * order; only decodeFragment's prefix changes (#a= → #p=) and decode-only halves
+ * are carried (b64uEnc/encodeArtifactFragment stay ledger-side).
+ */
+export function buildDeeplinkScript(prefillTable, runTarget) {
+  return `${DEEPLINK_MARKER}
+/* Fragment-only prefill-and-run deep link: #p=v1.<b64url(gzip(JSON policy_parameters))>[&run=1]
+   Contract: AGENT-REACH-BUILD-SPEC.md section 3.1 (TOOLPAGE-DEEPLINK-1). Zero egress
+   by construction — a URL fragment is never sent to any server. Codec copied verbatim
+   from ledger/index.html lines 812-857 (gzip/gunzip/b64uEnc/b64uDec). DO NOT
+   hand-edit; emitted by scripts/gen-webmcp-registrations.mjs from chaingraph/_page-chrome.mjs. */
+(function () {
+  'use strict';
+  var BUDGET = ${DEEPLINK_BUDGET_BYTES};
+  var RUN_TARGET = ${JSON.stringify(runTarget)};
+  var PREFILL = ${prefillTable};
+  var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
+
+  function b64uDec(s) {
+    const p = s.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = (4 - p.length % 4) % 4;
+    const b64 = p + '='.repeat(pad);
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  async function gunzip(bytes) {
+    const cs = new DecompressionStream('gzip');
+    const w = cs.writable.getWriter();
+    w.write(bytes); w.close();
+    const chunks = [];
+    const reader = cs.readable.getReader();
+    while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+    const total = chunks.reduce((a, c) => a + c.length, 0);
+    const out = new Uint8Array(total); let off = 0;
+    for (const c of chunks) { out.set(c, off); off += c.length; }
+    return new TextDecoder().decode(out);
+  }
+
+  function fail(msg) {
+    try {
+      var el = document.createElement('div');
+      el.setAttribute('role', 'alert');
+      el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;border:2px solid #b45309;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:.72rem;background:#1a1206;color:#f4e8d4;max-height:40vh;overflow:auto';
+      el.textContent = PII_BANNER + ' Deep link rejected: ' + msg + ' Nothing was truncated, prefilled, or executed.';
+      document.body.appendChild(el);
+      if (typeof console !== 'undefined' && console.warn) console.warn('[deeplink]', msg);
+    } catch (e) { /* never let the banner path throw */ }
+  }
+
+  function typeOk(v, t) {
+    switch (t) {
+      case 'string': return typeof v === 'string';
+      case 'number': return typeof v === 'number' && Number.isFinite(v);
+      case 'boolean': return typeof v === 'boolean';
+      case 'array': return Array.isArray(v);
+      case 'object': return v !== null && typeof v === 'object' && !Array.isArray(v);
+      default: return true; /* 'unknown' or undeclared — value-shape handled at prefill */
+    }
+  }
+
+  async function run() {
+    var done;
+    window.__ocgDeeplinkDone = new Promise(function (res) { done = res; });
+    try {
+      if (!location.hash || location.hash.indexOf('#p=v1.') !== 0) return;
+      var parts = location.hash.slice(1).split('&');
+      var payload = null, doRun = false;
+      for (var i = 0; i < parts.length; i++) {
+        if (parts[i].indexOf('p=v1.') === 0) payload = parts[i].slice(5);
+        else if (parts[i] === 'run=1') doRun = true;
+      }
+      if (!payload) return;
+      var compressed;
+      try { compressed = b64uDec(payload); }
+      catch (e) { fail('payload is not valid base64url'); return; }
+      if (compressed.length > BUDGET) { fail('payload too large (' + compressed.length + ' bytes compressed; cap is ' + BUDGET + ')'); return; }
+      var json;
+      try { json = await gunzip(compressed); }
+      catch (e) { fail('payload failed gzip decompression'); return; }
+      var params;
+      try { params = JSON.parse(json); }
+      catch (e) { fail('payload is not valid JSON'); return; }
+      if (!params || typeof params !== 'object' || Array.isArray(params)) { fail('payload must be a JSON object of policy_parameters'); return; }
+      var schema = (typeof MANIFEST !== 'undefined' && MANIFEST.mcp_tool_definition && MANIFEST.mcp_tool_definition.inputSchema) || null;
+      if (schema) {
+        var required = Array.isArray(schema.required) ? schema.required : [];
+        for (var r = 0; r < required.length; r++) {
+          if (!(required[r] in params)) { fail('missing required parameter "' + required[r] + '"'); return; }
+        }
+        var props = schema.properties || {};
+        for (var name in params) {
+          if (!(name in props)) { fail('unknown parameter "' + name + '" is not declared in the tool inputSchema'); return; }
+          var t = props[name] && props[name].type;
+          /* A declared 'string' carrying a JSON object/array is prefilled as JSON
+             text — several pages' controls are JSON-text areas whose kernels read
+             the parsed value, so serializing is the faithful binding. Hard type
+             mismatches that cannot be serialized faithfully still reject. */
+          if ((t === 'number' || t === 'boolean') && !typeOk(params[name], t)) { fail('parameter "' + name + '" does not match the declared type "' + t + '"'); return; }
+          if ((t === 'object' || t === 'array') && params[name] !== null && typeof params[name] !== 'object') { fail('parameter "' + name + '" must be a JSON ' + t); return; }
+        }
+      }
+      var prefilled = 0, paramCount = 0;
+      for (var prop in PREFILL) {
+        if (!(prop in params)) continue;
+        paramCount++;
+        var ent = PREFILL[prop];
+        var el = document.getElementById(ent[0]);
+        if (!el) continue;
+        var v = params[prop];
+        if (ent[1] === 'checked') el.checked = (v === true);
+        else if (ent[1] === 'boolstring') el.value = String(v === true);
+        else if (ent[1] === 'json' || (v !== null && typeof v === 'object')) el.value = JSON.stringify(v);
+        else el.value = String(v);
+        prefilled++;
+      }
+      /* A parameter-free tool (empty policy_parameters) is legitimate — prefill
+         is a no-op and run=1 still executes the declared compute. */
+      if (prefilled === 0 && paramCount > 0) { fail('no form control matched any parameter'); return; }
+      if (!doRun) return;
+      var fn = null;
+      try { fn = (typeof MANIFEST !== 'undefined' && MANIFEST.execution && MANIFEST.execution.function_name) || null; } catch (e) {}
+      var target = (fn && typeof window[fn] === 'function') ? fn : (typeof window[RUN_TARGET] === 'function' ? RUN_TARGET : null);
+      if (!target) { fail('execution function not found on page'); return; }
+      await window[target]();
+      /* Expose the produced artifact on window for programmatic consumers (the
+         deep-link contract gate). _lastArtifact/_lastResult are page globals —
+         top-level let/const bindings are visible here lexically but not as
+         window properties, so re-read them by name. */
+      try {
+        if (typeof _lastArtifact !== 'undefined') window.__ocgDeeplinkArtifact = _lastArtifact;
+        else if (typeof _lastResult !== 'undefined') window.__ocgDeeplinkArtifact = _lastResult;
+      } catch (e2) { /* pages without either global simply expose nothing */ }
+    } catch (e) {
+      fail('execution failed: ' + ((e && e.message) || e));
+    } finally {
+      done();
+    }
+  }
+
+  window.__ocgDeeplinkRun = run;
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { run(); });
+  else run();
+})();`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * OCG-FILE-IMPORT v1 — drag-drop / file-picker import, zero upload.
+ * Contract: AGENT-REACH-BUILD-SPEC.md §2 wave 1 (row TOOLPAGE-FILE-IMPORT-1).
+ *   Accepted: .json parsed as a policy_parameters object (validated against
+ *   the manifest inputSchema exactly like the deep-link reader, prefilled via
+ *   the same mapping table) and .csv (ONLY when the schema declares exactly
+ *   one array-of-objects input; header row supplies the keys, values stay
+ *   strings). Bytes stay in memory; nothing is stored, nothing is uploaded.
+ * Picker detection order copied from GoogleChromeLabs/browser-fs-access
+ * (MIT) README as of main commit 686165d55fc159dae80ef95dc2a70472923aeccd:
+ *   1. window.showOpenFilePicker (File System Access API) when present;
+ *   2. else a transient <input type="file"> fallback. Drop path:
+ *   DataTransferItem.getAsFileSystemHandle() when present, else getAsFile().
+ * Emitted into WebMCP-registered node pages by scripts/gen-webmcp-registrations.mjs
+ * (single writer, SO #35), in the same marked region as the deep-link reader.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/** Marker injected with the emitted <script> block — the generator's freshness
+ *  check and check-deeplink-contract.mjs's file-import case detect presence by this string. */
+export const FILE_IMPORT_MARKER = '/* OCG-FILE-IMPORT v1 */';
+
+/** In-memory cap for an imported file's TEXT length. No storage, no upload —
+ *  this only keeps a stray huge drop from wedging the tab. */
+export const FILE_IMPORT_MAX_BYTES = 1_000_000;
+
+/**
+ * Build the inline <script> body for one node page. PURE: same inputs, same bytes.
+ *   prefillTable / runTarget: identical semantics to buildDeeplinkScript — one
+ *     mapping table, one verified zero-arg wrapper; import is a third doorway
+ *     onto the SAME computation (fragment deep link, WebMCP execute(), file).
+ */
+export function buildFileImportScript(prefillTable, runTarget) {
+  return `${FILE_IMPORT_MARKER}
+/* Drag-drop / file-picker import of policy inputs, zero upload: .json is
+   parsed as policy_parameters and validated against the manifest inputSchema;
+   .csv is accepted only when the schema declares exactly one array-of-objects
+   input. Bytes stay in memory — no storage, no network. Picker detection
+   order per GoogleChromeLabs/browser-fs-access (MIT) README as of main
+   commit 686165d55fc159dae80ef95dc2a70472923aeccd. DO NOT hand-edit; emitted
+   by scripts/gen-webmcp-registrations.mjs from chaingraph/_page-chrome.mjs. */
+(function () {
+  'use strict';
+  var MAX = ${FILE_IMPORT_MAX_BYTES};
+  var RUN_TARGET = ${JSON.stringify(runTarget)};
+  var PREFILL = ${prefillTable};
+  var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
+
+  function fail(msg) {
+    try {
+      var el = document.createElement('div');
+      el.setAttribute('role', 'alert');
+      el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;border:2px solid #b45309;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:.72rem;background:#1a1206;color:#f4e8d4;max-height:40vh;overflow:auto';
+      el.textContent = PII_BANNER + ' File import rejected: ' + msg + ' Nothing was truncated, prefilled, or executed.';
+      document.body.appendChild(el);
+      if (typeof console !== 'undefined' && console.warn) console.warn('[file-import]', msg);
+    } catch (e) { /* never let the banner path throw */ }
+  }
+
+  /* Minimal RFC 4180 CSV reader: quoted fields, escaped quotes, CRLF/CR/LF. */
+  function csvParse(text) {
+    var rows = [[]], field = '', inQ = false, i, c;
+    for (i = 0; i < text.length; i++) {
+      c = text[i];
+      if (inQ) {
+        if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false; }
+        else field += c;
+      } else if (c === '"') inQ = true;
+      else if (c === ',') { rows[rows.length - 1].push(field); field = ''; }
+      else if (c === '\\n' || c === '\\r') {
+        if (c === '\\r' && text[i + 1] === '\\n') i++;
+        rows[rows.length - 1].push(field); field = '';
+        rows.push([]);
+      } else field += c;
+    }
+    rows[rows.length - 1].push(field);
+    while (rows.length && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === '') rows.pop();
+    return rows;
+  }
+
+  function typeOk(v, t) {
+    switch (t) {
+      case 'string': return typeof v === 'string';
+      case 'number': return typeof v === 'number' && Number.isFinite(v);
+      case 'boolean': return typeof v === 'boolean';
+      case 'array': return Array.isArray(v);
+      case 'object': return v !== null && typeof v === 'object' && !Array.isArray(v);
+      default: return true;
+    }
+  }
+
+  function schema() {
+    return (typeof MANIFEST !== 'undefined' && MANIFEST.mcp_tool_definition && MANIFEST.mcp_tool_definition.inputSchema) || null;
+  }
+
+  /* Same validation + binding semantics as the deep-link reader: required
+     members, faithful type checks, PREFILL-table mapping ('string'|'json'|
+     'checked'|'boolstring'; object values bound via 'string' are JSON-
+     stringified). Returns the number of controls actually prefilled. */
+  function validateAndPrefill(params) {
+    if (!params || typeof params !== 'object' || Array.isArray(params)) throw new Error('payload must be a JSON object of policy_parameters');
+    var s = schema();
+    if (s) {
+      var required = Array.isArray(s.required) ? s.required : [];
+      for (var r = 0; r < required.length; r++) {
+        if (!(required[r] in params)) throw new Error('missing required parameter "' + required[r] + '"');
+      }
+      var props = s.properties || {};
+      for (var name in params) {
+        if (!(name in props)) throw new Error('unknown parameter "' + name + '" is not declared in the tool inputSchema');
+        var t = props[name] && props[name].type;
+        if ((t === 'number' || t === 'boolean') && !typeOk(params[name], t)) throw new Error('parameter "' + name + '" does not match the declared type "' + t + '"');
+        if ((t === 'object' || t === 'array') && params[name] !== null && typeof params[name] !== 'object') throw new Error('parameter "' + name + '" must be a JSON ' + t);
+      }
+    }
+    var prefilled = 0, paramCount = 0;
+    for (var prop in PREFILL) {
+      if (!(prop in params)) continue;
+      paramCount++;
+      var ent = PREFILL[prop];
+      var el = document.getElementById(ent[0]);
+      if (!el) continue;
+      var v = params[prop];
+      if (ent[1] === 'checked') el.checked = (v === true);
+      else if (ent[1] === 'boolstring') el.value = String(v === true);
+      else if (ent[1] === 'json' || (v !== null && typeof v === 'object')) el.value = JSON.stringify(v);
+      else el.value = String(v);
+      prefilled++;
+    }
+    if (prefilled === 0 && paramCount > 0) throw new Error('no form control matched any parameter');
+    return prefilled;
+  }
+
+  /* The schema's single array-of-objects input, or null when the count is not exactly one. */
+  function singleArrayObjectProp() {
+    var s = schema();
+    if (!s || !s.properties) return null;
+    var hit = null, n = 0;
+    for (var name in s.properties) {
+      var p = s.properties[name];
+      if (p && p.type === 'array' && p.items && p.items.type === 'object') { hit = name; n++; }
+    }
+    return n === 1 ? hit : null;
+  }
+
+  function runCompute() {
+    var fn = null;
+    try { fn = (typeof MANIFEST !== 'undefined' && MANIFEST.execution && MANIFEST.execution.function_name) || null; } catch (e) {}
+    var target = (fn && typeof window[fn] === 'function') ? fn : (typeof window[RUN_TARGET] === 'function' ? RUN_TARGET : null);
+    if (!target) throw new Error('execution function not found on page');
+    return window.__ocgComputeGate = window.__ocgComputeGate.then(function () { return window[target](); });
+  }
+
+  function capture() {
+    try {
+      if (typeof _lastArtifact !== 'undefined') window.__ocgDeeplinkArtifact = _lastArtifact;
+      else if (typeof _lastResult !== 'undefined') window.__ocgDeeplinkArtifact = _lastResult;
+    } catch (e2) { /* pages without either global simply expose nothing */ }
+  }
+
+  /* files: [{ name, text }] — the harness and both UI paths (picker, drop) feed the same entry point. */
+  async function importFiles(files) {
+    try {
+      if (!files || !files.length || !files[0] || typeof files[0].name !== 'string') return { ok: false, error: 'no file handed to the page' };
+      var f = files[0];
+      var text = typeof f.text === 'string' ? f.text : await f.text();
+      if (text.length > MAX) { fail('file too large (' + text.length + ' characters; cap is ' + MAX + ')'); return { ok: false, error: 'file too large' }; }
+      var lower = f.name.toLowerCase(), params, prop, rows, header, r, row, c;
+      if (lower.endsWith('.json')) {
+        try { params = JSON.parse(text); }
+        catch (e) { fail('file is not valid JSON'); return { ok: false, error: 'invalid JSON' }; }
+        if (params && typeof params === 'object' && !Array.isArray(params)
+          && Object.keys(params).length === 1 && params.policy_parameters
+          && typeof params.policy_parameters === 'object' && !Array.isArray(params.policy_parameters)) {
+          params = params.policy_parameters; /* accept the {policy_parameters:{…}} wrapper too */
+        }
+      } else if (lower.endsWith('.csv')) {
+        prop = singleArrayObjectProp();
+        if (!prop) { fail('.csv is accepted only when the tool declares exactly one array-of-objects input'); return { ok: false, error: 'no single array-of-objects input' }; }
+        rows = csvParse(text);
+        if (rows.length < 2) { fail('.csv needs a header row and at least one data row'); return { ok: false, error: 'csv missing data rows' }; }
+        header = rows[0];
+        params = {};
+        params[prop] = [];
+        for (r = 1; r < rows.length; r++) {
+          row = {};
+          for (c = 0; c < header.length; c++) row[header[c]] = rows[r][c] === undefined ? '' : rows[r][c];
+          params[prop].push(row);
+        }
+      } else {
+        fail('unsupported file type — named .json or .csv files are accepted');
+        return { ok: false, error: 'unsupported extension' };
+      }
+      var prefilled;
+      try { prefilled = validateAndPrefill(params); }
+      catch (e) { fail(e.message); return { ok: false, error: e.message }; }
+      try { await runCompute(); capture(); } catch (e3) { fail('execution failed: ' + ((e3 && e3.message) || e3)); return { ok: false, error: 'execution failed' }; }
+      return { ok: true, prefilled: prefilled, artifact: window.__ocgDeeplinkArtifact || null };
+    } catch (e) {
+      fail('import failed: ' + ((e && e.message) || e));
+      return { ok: false, error: 'import failed' };
+    }
+  }
+
+  window.__ocgFileImport = importFiles;
+  /* Serialize computes so a second drop cannot interleave with a running one. */
+  window.__ocgComputeGate = (typeof window.__ocgComputeGate !== 'undefined') ? window.__ocgComputeGate : Promise.resolve();
+
+  /* ── UI: a "Load file" control + a whole-page drop zone ─────────────────── */
+  function handleFiles(fileList) {
+    var files = [];
+    var pending = 0, left = fileList.length;
+    if (!left) return;
+    var step = function (f) {
+      if (f && typeof f.text === 'function') return f.text().then(function (t) { return { name: f.name, text: t }; });
+      return Promise.resolve({ name: f.name, text: String(f.text || '') });
+    };
+    for (var i = 0; i < fileList.length; i++) {
+      (function (f) {
+        pending++;
+        step(f).then(function (rec) { files.push(rec); })
+          .catch(function () { /* unreadable file: skip it */ })
+          .then(function () { if (--pending === 0) importFiles(files); });
+      })(fileList[i]);
+    }
+  }
+
+  /* Detection order (browser-fs-access README, commit 686165d5): the File
+     System Access picker when the browser has it, else <input type=file>. */
+  function pickAndImport() {
+    if (typeof window.showOpenFilePicker === 'function') {
+      window.showOpenFilePicker({ multiple: false, types: [{ description: 'Policy inputs', accept: { 'application/json': ['.json'], 'text/csv': ['.csv'] } }] })
+        .then(function (handles) { return handles[0].getFile(); })
+        .then(function (file) { handleFiles([file]); })
+        .catch(function (e) { if (e && e.name !== 'AbortError') fail('picker failed: ' + e.message); });
+    } else {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,.csv';
+      input.style.display = 'none';
+      input.addEventListener('change', function () {
+        var list = input.files || [];
+        var arr = []; for (var i = 0; i < list.length; i++) arr.push(list[i]);
+        handleFiles(arr);
+      });
+      document.body.appendChild(input);
+      input.click();
+    }
+  }
+
+  function wire() {
+    try {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = 'Load file (.json / .csv — stays in this tab)';
+      btn.setAttribute('aria-label', 'Load policy inputs from a local JSON or CSV file; the file never leaves your browser');
+      btn.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:9998;border:1px solid var(--border-2,#3b4a66);border-radius:8px;padding:8px 12px;font-family:monospace;font-size:.68rem;background:var(--bg-2,#101a2e);color:var(--body,#c7d3e8);cursor:pointer';
+      btn.addEventListener('click', pickAndImport);
+      document.body.appendChild(btn);
+
+      /* Drop zone over the whole page: the overlay lights up on dragover so a
+         drop anywhere lands on the import path, never on browser defaults. */
+      var zone = document.createElement('div');
+      zone.setAttribute('aria-hidden', 'true');
+      zone.textContent = 'Drop a .json or .csv file to prefill this tool — processed locally, nothing is uploaded';
+      zone.style.cssText = 'position:fixed;inset:0;z-index:9997;display:none;align-items:center;justify-content:center;border:3px dashed rgba(20,184,166,.6);background:rgba(8,14,26,.72);color:#e6eefc;font-family:monospace;font-size:.85rem;text-align:center;padding:24px';
+      var depth = 0;
+      var show = function () { depth++; zone.style.display = 'flex'; };
+      var hide = function () { depth = Math.max(0, depth - 1); if (!depth) zone.style.display = 'none'; };
+      document.addEventListener('dragenter', function (e) { e.preventDefault(); show(); });
+      document.addEventListener('dragover', function (e) { e.preventDefault(); });
+      document.addEventListener('dragleave', function (e) { e.preventDefault(); hide(); });
+      document.addEventListener('drop', function (e) {
+        e.preventDefault(); depth = 0; zone.style.display = 'none';
+        var items = (e.dataTransfer && e.dataTransfer.items) || null;
+        var files = [];
+        if (items && items.length) {
+          var pending = 0, left = items.length, collected = [];
+          for (var i = 0; i < items.length; i++) {
+            (function (item) {
+              if (item.kind !== 'file') { left--; return; }
+              if (typeof item.getAsFileSystemHandle === 'function') {
+                pending++;
+                item.getAsFileSystemHandle().then(function (h) { return h.getFile(); })
+                  .then(function (f) { collected.push(f); })
+                  .catch(function () { /* undrop-able entry: skip */ })
+                  .then(function () { if (--pending === 0) handleFiles(collected); });
+              } else {
+                var f = typeof item.getAsFile === 'function' ? item.getAsFile() : null;
+                if (f) files.push(f);
+              }
+            })(items[i]);
+          }
+          if (files.length && pending === 0) handleFiles(files);
+        } else if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+          var arr = []; for (var j = 0; j < e.dataTransfer.files.length; j++) arr.push(e.dataTransfer.files[j]);
+          handleFiles(arr);
+        }
+      });
+      document.body.appendChild(zone);
+    } catch (e) { /* a chrome-less harness must never break the tool itself */ }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+})();`;
+}
+
+/* ==========================================================================
+ * OCG-ASK-AGENT v1 — the "Ask your agent" copyable block on node pages.
+ * Contract: AGENT-REACH-BUILD-SPEC.md section 3.6 (row TOOLPAGE-ASK-AGENT-1).
+ * Emitted from the node's manifest by scripts/check-ask-agent-block.mjs
+ * (generator + freshness gate, SO #35 shape); the bytes below are the single
+ * source of truth. Pure: same inputs, same bytes (two renders are byte-equal).
+ * ========================================================================== */
+
+/** End marker of the emitted ask-agent region — the gate detects the region by
+ *  BEGIN(manifest-pathed) + this END pair. */
+export const ASK_AGENT_END = '<!-- ASK-AGENT:END -->';
+
+/** Begin marker line for one node page (manifest-pathed for provenance). */
+export function askAgentBeginLine(manifestPath) {
+  return `<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=${manifestPath} -->`;
+}
+
+/**
+ * The FIXED verb table — the whole description transform, no LLM (row fence).
+ * First word of the manifest description's first sentence, third-person
+ * singular to imperative. A first word not in this table keeps the sentence
+ * verbatim (measured 2026-09-05 over all 579 live-node manifests: the table
+ * covers every verb-led description; noun-led ones like "Basel III…", "TRID…"
+ * pass through unchanged by design).
+ */
+export const ASK_AGENT_VERB_TABLE = {
+  'Validates': 'Validate', 'Validates,': 'Validate,',
+  'Recomputes': 'Recompute', 'Recomputes,': 'Recompute,',
+  'Computes': 'Compute', 'Checks': 'Check', 'Classifies': 'Classify',
+  'Scores': 'Score', 'Verifies': 'Verify', 'Maps': 'Map', 'Lints': 'Lint',
+  'Assembles': 'Assemble', 'Models': 'Model', 'Builds': 'Build',
+  'Evaluates': 'Evaluate', 'Runs': 'Run', 'Compares': 'Compare',
+  'Composes': 'Compose', 'Reconciles': 'Reconcile', 'Tests': 'Test',
+  'Rolls': 'Roll', 'Binds': 'Bind', 'Generates': 'Generate',
+  'Publishes': 'Publish', 'Assesses': 'Assess', 'Parses': 'Parse',
+  'Estimates': 'Estimate', 'Aggregates': 'Aggregate',
+  'Calculates': 'Calculate', 'Turns': 'Turn', 'Attests': 'Attest',
+  'Simulates': 'Simulate', 'Decodes': 'Decode', 'Resolves': 'Resolve',
+  'Converts': 'Convert', 'Applies': 'Apply', 'Routes': 'Route',
+  'Screens': 'Screen', 'Determines': 'Determine', 'Gives': 'Give',
+  'Packages': 'Package', 'Cross-validates': 'Cross-validate',
+  'Pre-checks': 'Pre-check', 'Machine-checks': 'Machine-check',
+  'Cross-checks': 'Cross-check', 'Batch-verifies': 'Batch-verify',
+  'Stress-tests': 'Stress-test', 'Identifies': 'Identify',
+  'Analyzes': 'Analyze', 'Itemizes': 'Itemize', 'Allocates': 'Allocate',
+  'Benchmarks': 'Benchmark', 'Decomposes': 'Decompose',
+  'Compiles': 'Compile', 'Extends': 'Extend', 'Layers': 'Layer',
+  'Solves': 'Solve', 'Tracks': 'Track', 'Constructs': 'Construct',
+  'Translates': 'Translate', 'Diffs': 'Diff', 'Registers': 'Register',
+  'Closes': 'Close', 'Values': 'Value', 'Derives': 'Derive',
+  'Sweeps': 'Sweep', 'Recovers': 'Recover', 'Correlates': 'Correlate',
+  'Reports': 'Report', 'Confirms': 'Confirm', 'Detects': 'Detect',
+  'Transforms': 'Transform', 'Prices': 'Price', 'Selects': 'Select',
+  'Sequences': 'Sequence', 'Walks': 'Walk', 'Renders': 'Render',
+  'Re-derives': 'Re-derive', 'Ties': 'Tie', 'Hashes': 'Hash',
+  'Joins': 'Join', 'Starts': 'Start', 'Counts': 'Count',
+  'Answers': 'Answer', 'Decides': 'Decide', 'Takes': 'Take',
+  'Sizes': 'Size', 'Rates': 'Rate', 'Shows': 'Show', 'Records': 'Record',
+  'Flags': 'Flag', 'Measures': 'Measure', 'Audits': 'Audit',
+};
+
+/**
+ * First sentence of a description + fixed verb-fronting. Deterministic:
+ * sentence split on the first ". " (or the terminal "."), first word mapped
+ * through ASK_AGENT_VERB_TABLE, unknown first word keeps the sentence
+ * verbatim. Pure.
+ */
+export function askAgentImperative(description) {
+  const d = String(description || '').trim();
+  if (!d) return '';
+  const cut = d.indexOf('. ');
+  const sentence = cut === -1 ? d : d.slice(0, cut + 1);
+  const sp = sentence.indexOf(' ');
+  const first = sp === -1 ? sentence : sentence.slice(0, sp);
+  const rest = sp === -1 ? '' : sentence.slice(sp);
+  const mapped = ASK_AGENT_VERB_TABLE[first];
+  return mapped ? mapped + rest : sentence;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * OCG-A11Y-TREE v1 — accessibility-tree support on generated node pages.
+ * Contract: AGENT-REACH-BUILD-SPEC.md §2 wave 2 (row TOOLPAGE-A11Y-1).
+ *   - Static labeling (aria-label = manifest property name, aria-description =
+ *     the property's description) is emitted into the page markup by
+ *     scripts/check-a11y-tree.mjs --write from the manifest inputSchema +
+ *     the WEBMCP-GEN-IDMAP-1 propertyIdMap — the same mapping decisions the
+ *     deep-link reader uses, so `aria-label === property` is derivable and
+ *     WEBMCP-GEN-IDMAP-1's mapping table gains a cross-check surface.
+ *   - This emitter owns the RUNTIME half: the single role="status" live
+ *     region and the post-compute announcement (execution_hash + verdict).
+ * Emitted into WebMCP-registered node pages by scripts/check-a11y-tree.mjs
+ * (generator + freshness gate, SO #35 shape); the bytes below are the single
+ * source of truth. Pure: same inputs, same bytes.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/** End marker of the emitted a11y region — the gate detects the region by
+ *  BEGIN(manifest-pathed) + this END pair. */
+export const A11Y_END = '<!-- A11Y-TREE:END -->';
+
+/** Begin marker line for one node page (manifest-pathed for provenance). */
+export function a11yBeginLine(manifestPath) {
+  return `<!-- A11Y-TREE:BEGIN generator=scripts/check-a11y-tree.mjs manifest=${manifestPath} -->`;
+}
+
+/** Marker injected with the emitted <script> block — the gate detects the
+ *  enhancement by this string. */
+export const A11Y_MARKER = '/* OCG-A11Y-TREE v1 */';
+
+/**
+ * Output-payload members consulted, in order, for the post-compute verdict
+ * announcement. First STRING member wins verbatim; a boolean/number member is
+ * announced as "key: value". The generic scan (first top-level boolean) is the
+ * fallback so every tool announces at least a hash. Fixed list, no LLM.
+ */
+export const A11Y_VERDICT_KEYS = [
+  'verdict', 'final_verdict', 'overall_verdict', 'significance_verdict',
+  'classification', 'entity_classification', 'conclusion', 'outcome',
+  'decision', 'grade', 'overall_status', 'status',
+];
+
+/**
+ * Build the inline <script> body for one node page. PURE: same inputs, same bytes.
+ *   a11yTable: JSON string of { manifest_property: [element_id, description|null], … }
+ *     — the page's manifest-derived labeling table (the SAME mapping decisions
+ *     as the deep-link prefill table; description from the schema property).
+ *   runTarget: the page-verified zero-arg wrapper (same target execute() awaits).
+ * Responsibilities (exactly these, nothing more — labeling itself is static):
+ *   1. create THE single role="status" aria-live="polite" region;
+ *   2. wrap the page's own run target so every completed compute announces
+ *      execution_hash + verdict into that region.
+ */
+export function buildA11yEnhancementScript(a11yTable, runTarget) {
+  return `${A11Y_MARKER}
+/* Accessibility-tree enhancement for this node page. DO NOT hand-edit; emitted
+   by scripts/check-a11y-tree.mjs from chaingraph/_page-chrome.mjs (row
+   TOOLPAGE-A11Y-1). Form-control labels are emitted statically from the
+   manifest (aria-label = property name); this script owns the single
+   aria-live status region and the post-compute announcement. */
+(function () {
+  'use strict';
+  var RUN_TARGET = ${JSON.stringify(runTarget)};
+  var TABLE = ${a11yTable};
+  var VERDICT_KEYS = ${JSON.stringify(A11Y_VERDICT_KEYS)};
+  var st = null;
+  function ensureRegion() {
+    if (st && document.body && typeof document.body.contains === 'function' && document.body.contains(st)) return st;
+    st = document.createElement('div');
+    st.id = 'ocg-a11y-status';
+    st.setAttribute('role', 'status');
+    st.setAttribute('aria-live', 'polite');
+    st.style.cssText = 'position:absolute!important;width:1px!important;height:1px!important;margin:-1px!important;padding:0!important;border:0!important;clip:rect(0 0 0 0)!important;clip-path:inset(50%)!important;overflow:hidden!important;white-space:nowrap!important';
+    (document.body || document.documentElement).appendChild(st);
+    return st;
+  }
+  function artifact() {
+    var cands = ['_lastResult', '_lastArtifact'];
+    for (var i = 0; i < cands.length; i++) {
+      try {
+        var v = window[cands[i]];
+        if (v && typeof v === 'object' && typeof v.execution_hash === 'string' && v.execution_hash) return v;
+      } catch (e) { /* pages without either global simply expose nothing */ }
+    }
+    return null;
+  }
+  function verdictOf(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+    for (var i = 0; i < VERDICT_KEYS.length; i++) {
+      var v = payload[VERDICT_KEYS[i]];
+      if (typeof v === 'string' && v) return v;
+      if (typeof v === 'boolean' || typeof v === 'number') return VERDICT_KEYS[i] + ': ' + v;
+    }
+    for (var k in payload) {
+      var v2 = payload[k];
+      if (typeof v2 === 'boolean') return k + ': ' + v2;
+    }
+    return null;
+  }
+  function announce() {
+    var region = ensureRegion();
+    var a = artifact();
+    if (!a) { region.textContent = 'Run complete. See the result panel for the full verdict.'; return; }
+    var msg = 'Run complete. execution_hash ' + a.execution_hash;
+    var v = verdictOf(a.output_payload);
+    if (v) msg += '. Verdict: ' + v;
+    region.textContent = msg;
+  }
+  function wrap() {
+    try {
+      var orig = window[RUN_TARGET];
+      if (typeof orig !== 'function' || orig.__ocgA11yWrapped) return;
+      var wrapped = function () {
+        var r = orig.apply(this, arguments);
+        Promise.resolve(r).then(announce, function () { /* the page's own error surface reports failures */ });
+        return r;
+      };
+      wrapped.__ocgA11yWrapped = true;
+      window[RUN_TARGET] = wrapped;
+    } catch (e) { /* a chrome-less harness must never break the tool itself */ }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wrap);
+  else wrap();
+})();`;
+}
+
+/* CRC32 (IEEE 802.3, reflected) for the deterministic gzip container below. */
+const ASK_AGENT_CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function askAgentCrc32(buf) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < buf.length; i++) c = ASK_AGENT_CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+/**
+ * DETERMINISTIC gzip container (DEFLATE *stored* blocks, fixed header):
+ *   header 1f 8b 08 00 00000000(mtime=0) 00(XFL) ff(OS=unknown), then stored
+ *   BTYPE=00 blocks of <=65535 raw bytes, then CRC32 + ISIZE trailer.
+ * WHY NOT zlib.gzipSync: zlib's compressed output varies across zlib
+ * builds/versions (measured 2026-09-06: local vs CI blocks disagree), which
+ * redded the byte-exact freshness gate in CI. Stored blocks are fully
+ * specified by RFC 1951/1952 and byte-identical in every environment; valid
+ * gzip everywhere (DecompressionStream/gunzipSync decode it unchanged).
+ * Measured sample budget: largest live-node fixture 0 policy_parameters is
+ * 14,024 JSON bytes -> ~14 KB stored, well under the 30 KB fragment cap.
+ */
+export function askAgentDeterministicGzip(buf) {
+  const head = Buffer.from([0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff]);
+  const parts = [];
+  let off = 0;
+  do {
+    const chunk = buf.subarray(off, off + 65535);
+    off += chunk.length;
+    const last = off >= buf.length;
+    parts.push(Buffer.from([last ? 0x01 : 0x00]));
+    const len = Buffer.alloc(4);
+    len.writeUInt16LE(chunk.length, 0);
+    len.writeUInt16LE(~chunk.length & 0xFFFF, 2);
+    parts.push(len, chunk);
+  } while (off < buf.length);
+  const trailer = Buffer.alloc(8);
+  trailer.writeUInt32LE(askAgentCrc32(buf), 0);
+  trailer.writeUInt32LE(buf.length >>> 0, 4);
+  return Buffer.concat([head, ...parts, trailer]);
+}
+
+/**
+ * The section 3.1 deep-link fragment for a policy_parameters object, matching
+ * the in-page reader byte-for-byte: `#p=v1.<base64url(gzip(JSON))>` — the same
+ * shape buildDeeplinkScript's reader decodes (b64uDec + DecompressionStream
+ * gunzip). Node-side twin of the ledger codec, compressed with
+ * askAgentDeterministicGzip (stored blocks) so two renders are byte-equal in
+ * EVERY environment, not just one zlib build. Pure.
+ */
+export function encodeAskAgentFragment(params) {
+  const json = JSON.stringify(params);
+  const gz = askAgentDeterministicGzip(Buffer.from(json, 'utf8'));
+  return '#p=v1.' + gz.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** Estate URLs from the agent kit (AIN-AGENT-KIT-1 #1740) — never hardcoded here. */
+const ASK_AGENT_KIT = JSON.parse(readFileSync(join(__dir, '..', 'agent-kit', 'kit.json'), 'utf-8'));
+export const ASK_AGENT_MCP_URL = ASK_AGENT_KIT.estate.mcp_url;
+export const ASK_AGENT_LEDGER_URL = ASK_AGENT_KIT.estate.ledger_url;
+
+/** The PII banner sentence — verbatim from buildDeeplinkScript's PII_BANNER. */
+export const ASK_AGENT_PII_SENTENCE = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
+
+/**
+ * Build the ask-your-agent block for one node page. PURE: same inputs, same
+ * bytes. Inputs are the already-adjudicated per-page facts the gate derives
+ * from the manifest + chaingraph.json; this function computes the rest
+ * (imperative sentence, deep link, verify sentence) and renders the bytes.
+ *   manifestPath  repo-relative manifest path (provenance in the BEGIN marker)
+ *   toolName      mcp_tool_definition.name (equals the node's mcp_name — gated)
+ *   description   mcp_tool_definition.description (sentence + verb table applied here)
+ *   sample        policy_parameters object (manifest example, else fixture 0)
+ *   pageUrl       the node's canonical url from chaingraph.json (deep-link base)
+ *   webmcpRegistered  true when the page carries a generated WebMCP registration
+ *   isGpu         true when the node is gpu-flagged (OCG SPEC §9.2: the compute
+ *                 stays client-side, so the MCP endpoint returns no artifact and
+ *                 no execution_hash — the verify sentence routes the agent to
+ *                 the page-produced Policy Mandate artifact instead)
+ */
+export function buildAskAgentBlock({ manifestPath, toolName, description, sample, pageUrl, webmcpRegistered, isGpu }) {
+  const task = askAgentImperative(description);
+  const deepLink = pageUrl.split('#')[0] + encodeAskAgentFragment(sample);
+  const verify = isGpu
+    ? `Verify before trusting: this node computes in your browser, so the MCP endpoint returns no execution_hash. Run the tool in the page, export the Policy Mandate artifact it produces, and call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with that artifact.` + (webmcpRegistered ? ` You can also re-run the in-page WebMCP tool \`${toolName}\`.` : '')
+    : webmcpRegistered
+      ? `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`, passing the full artifact the run returned (the object containing \`policy_parameters\` + \`output_payload\` + \`execution_hash\`; equivalently \`policy_parameters\` + \`output_payload\` with \`claimed_hash\`), not the bare hash string, or re-run the in-page WebMCP tool \`${toolName}\`.`
+      : `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`, passing the full artifact the run returned (the object containing \`policy_parameters\` + \`output_payload\` + \`execution_hash\`; equivalently \`policy_parameters\` + \`output_payload\` with \`claimed_hash\`), not the bare hash string.`;
+  const copyText = [
+    `Run the AINumbers MCP tool \`${toolName}\`. Task: ${task}`,
+    `Call it with arguments: ${JSON.stringify({ policy_parameters: sample })}`,
+    verify,
+    `Return the ledger link ${ASK_AGENT_LEDGER_URL} so a human can re-verify without contacting us.`,
+    `PII rule: ${ASK_AGENT_PII_SENTENCE}`,
+    `Open the tool with the sample prefilled: ${deepLink}`,
+  ].join('\n');
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `${askAgentBeginLine(manifestPath)}
+<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">${esc(copyText)}</pre>
+</section>
+${ASK_AGENT_END}`;
+}

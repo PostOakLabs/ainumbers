@@ -42,6 +42,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { executionHash } from './_hash.mjs';
 import { KERNELS } from './index.mjs';
 import { runKernelArtifactInVM } from '../vm/kernel-vm.mjs';
+import { readCases } from './_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXDIR = resolve(HERE, 'fixtures');
@@ -126,7 +127,8 @@ for (const id of toolIds) {
   const kernelSource = readFileSync(kernelPath, 'utf8');
 
   const doc = JSON.parse(readFileSync(fpath, 'utf8'));
-  for (const v of doc.vectors ?? []) {
+  // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
+  for (const v of readCases(doc)) {
     const tag = `${id}/${v.name}`;
     checked++;
 

@@ -151,7 +151,64 @@ def _pii_scan_dirs():
     return dirs
 
 
+# PII-GATE-ABSENCE-1 (2026-08-29): the old regex only ever matched literal
+# <div class="pii-notice"> / "pii-bar"> with no other attributes. Measured
+# against the live estate (git grep, sha 8cdb82d6), the disclosure sentence
+# actually ships under at least eight different wrapper shapes across template
+# generations — class="pii-notice", "pii", "pii-notice-inline", "pii-banner",
+# "scope-note" (+ a <span data-i18n="pii.banner">, or on a few older pages a
+# bare unlabeled <span>), "disclaimer", "privacy-text", "req-pii-note" — and
+# new ones keep appearing (see tools/152-baas-provider-comparator.html, the
+# template CLAUDE.md itself names, which the old regex never matched at all).
+# Enumerating wrapper classes is therefore a losing game. Instead: does the
+# canonical sentence appear anywhere on the page (pass); if not, does the
+# page still carry a recognizable ATTEMPT at it (the phrase "processed
+# locally", present in every variant seen, canonical or drifted) — that's a
+# wording drift, not an absence; if neither, the page never got a notice at
+# all. All three states are real per SO #34c ("absence is not a pass").
+PII_ATTEMPT_SIGNAL = "processed locally"
+
+# fixture-only strings — no real page is read or written by this self-test.
+_PII_FIXTURE_MISSING = "<html><body><main><h1>Fixture</h1><p>No disclosure text at all.</p></main></body></html>"
+_PII_FIXTURE_CANONICAL = f"<html><body><div class=\"scope-note\">{CANON_PII_PREFIX} Do not enter real personal data.</div></body></html>"
+_PII_FIXTURE_DRIFTED = "<html><body><div class=\"disclaimer\">Inputs are processed locally in your browser only.</div></body></html>"
+
+
+def _pii_old_regex_result(text):
+    """Reproduces the pre-PII-GATE-ABSENCE-1 matcher: only ever looked inside
+    a literal <div class="pii-notice"|"pii-bar"> — a page with no such div was
+    never counted and never flagged. Returns True if the OLD code would have
+    silently passed (no fail, no count) on `text`."""
+    m = re.search(r'<div\s+class="(?:pii-notice|pii-bar)">(.*?)</div>', text, re.S)
+    return m is None
+
+
+def pii_gate_self_test():
+    """SO #40b fixture proof: proves the fail-closed fix actually changed
+    behavior on the exact silent-pass shape PII-GATE-ABSENCE-1 found — a page
+    with no `pii-notice`/`pii-bar` div, which the old regex simply never saw."""
+    assert _pii_old_regex_result(_PII_FIXTURE_MISSING) is True, \
+        "self-test broken: the OLD-regex reproduction no longer silently passes the missing fixture"
+
+    def _new_verdict(text):
+        if CANON_PII_PREFIX in text:
+            return "PASS"
+        if PII_ATTEMPT_SIGNAL in text:
+            return "FAIL (non-canonical text)"
+        return "FAIL (MISSING privacy notice)"
+
+    got_missing = _new_verdict(_PII_FIXTURE_MISSING)
+    got_canonical = _new_verdict(_PII_FIXTURE_CANONICAL)
+    got_drifted = _new_verdict(_PII_FIXTURE_DRIFTED)
+    assert got_missing == "FAIL (MISSING privacy notice)", f"missing fixture: expected fail-closed, got {got_missing}"
+    assert got_canonical == "PASS", f"canonical fixture: expected PASS, got {got_canonical}"
+    assert got_drifted == "FAIL (non-canonical text)", f"drifted fixture: expected non-canonical fail, got {got_drifted}"
+    print("  ✅ PII gate self-test: OLD matcher silently passed a no-banner fixture (SO #34c shape) "
+          "→ NEW matcher fails closed (MISSING); canonical fixture PASSes; drifted fixture fails non-canonical.")
+
+
 def check_pii_text(changed=None):
+    pii_gate_self_test()
     bad = []
     scanned = 0
     n = 0
@@ -159,18 +216,21 @@ def check_pii_text(changed=None):
         for path in _touched(sorted(d.glob("*.html")), changed):
             scanned += 1
             text = path.read_text(encoding="utf-8", errors="replace")
-            m = re.search(r'<div\s+class="(?:pii-notice|pii-bar)">(.*?)</div>', text, re.S)
-            if m:
+            if CANON_PII_PREFIX in text:
                 n += 1
-                if CANON_PII_PREFIX not in m.group(1):
-                    bad.append(str(path.relative_to(REPO)))
+                continue
+            rel = str(path.relative_to(REPO))
+            if PII_ATTEMPT_SIGNAL in text:
+                bad.append(f"{rel}  (non-canonical text)")
+            else:
+                bad.append(f"{rel}  (MISSING privacy notice)")
     if bad:
-        fail(f"[PII] {len(bad)} page(s) have wrong pii-notice text (CONTRACT §1.3):")
+        fail(f"[PII] {len(bad)} page(s) missing or with non-canonical pii-notice text (CONTRACT §1.3):")
         for f in bad:
             fail(f"  {f}")
     else:
         scope = f"{scanned} touched page(s)" if changed is not None else f"{scanned} pages scanned across tools/ + chaingraph/workbench/ + chaingraph/canvas/"
-        print(f"  ✅ PII text: {n} pii-notice divs all carry canonical §1.3 text ({scope})")
+        print(f"  ✅ PII text: {n} pages carry canonical §1.3 text ({scope})")
 
 
 # ── Check 2: Manifest coverage ────────────────────────────────────────────────

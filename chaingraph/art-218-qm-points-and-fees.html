@@ -7,6 +7,7 @@
 <title>QM Points and Fees Test &middot; ART-218 &middot; OpenChainGraph &middot; AINumbers.co</title>
 <meta name="description" content="Qualified Mortgage points-and-fees test per Reg Z §1026.43(e)(3). 5-tier table lookup with version-pinned CFPB annual adjustments. Returns pass/fail with limit type, tier label, and headroom.">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-218-qm-points-and-fees.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-218-qm-points-and-fees.md">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -206,6 +207,22 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
   <div id="mfstBody"><pre id="mfstCode"></pre></div>
 </div>
+
+<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-218-qm-points-and-fees.manifest.json -->
+<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `check_qm_points_and_fees`. Task: Qualified Mortgage points-and-fees test per Reg Z §1026.43(e)(3).
+Call it with arguments: {"policy_parameters":{"loan_amount":450000,"points_and_fees":12000,"year":2026}}
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
+Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
+PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
+Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-218-qm-points-and-fees.html#p=v1.H4sIAAAAAAAA_wE6AMX_eyJsb2FuX2Ftb3VudCI6NDUwMDAwLCJwb2ludHNfYW5kX2ZlZXMiOjEyMDAwLCJ5ZWFyIjoyMDI2fUiZJko6AAAA</pre>
+</section>
+<!-- ASK-AGENT:END -->
 
 <footer>
   <div class="footer-inner">
@@ -528,7 +545,7 @@ const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.m
 if (mc) {
   mc.registerTool({
     name: 'art-218-qm-points-and-fees-compute',
-    description: 'QM points-and-fees test per Reg Z §1026.43(e)(3). 5-tier table, version-pinned 2021-2026 CFPB adjustments.',
+    description: 'QM points-and-fees test per Reg Z §1026.43(e)(3). 5-tier table, version-pinned 2021-2026 CFPB adjustments. Returns pass/fail, applicable tier, dollar limit, limit type, and headroom.',
     inputSchema: {
       type: 'object',
       required: ['loanAmount', 'totalFees'],
@@ -538,8 +555,11 @@ if (mc) {
         tableYear: { type: 'number', enum: [2021, 2022, 2023, 2024, 2025, 2026], description: 'CFPB adjusts thresholds annually. Use consummation year.' }
       }
     },
-    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    annotations: { readOnlyHint: true },
     execute: function(params) {
+      if (typeof params.loanAmount !== 'number' || !isFinite(params.loanAmount)) throw new Error('loanAmount must be a number: total principal in dollars, e.g. 450000.');
+      if (typeof params.totalFees !== 'number' || !isFinite(params.totalFees) || params.totalFees < 0) throw new Error('totalFees must be a non-negative number: sum of QM-qualified points and fees in dollars, e.g. 12000.');
+      if (params.tableYear !== undefined && [2021, 2022, 2023, 2024, 2025, 2026].indexOf(params.tableYear) === -1) throw new Error('tableYear must be one of 2021, 2022, 2023, 2024, 2025, 2026 (consummation year); received ' + JSON.stringify(params.tableYear) + '.');
       document.getElementById('loanAmount').value = String(params.loanAmount);
       document.getElementById('totalFees').value = String(params.totalFees);
       if (params.tableYear !== undefined) document.getElementById('tableYear').value = String(params.tableYear);
