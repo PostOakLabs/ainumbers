@@ -1,0 +1,100 @@
+name: Scheduled-surface red tracker (reusable)
+
+# NIGHTLY-RED-ISSUE-OPENER-1. A scheduled surface that goes red and opens
+# nothing is a gate nobody reads.
+#
+# Three surfaces here report and never block — the mutation nightly
+# (mutation-full-scheduled.yml), the weekly full suite (fullsuite-schedule.yml)
+# and the report-only pre-push attestation check (prepush-attestation.yml). Each
+# one's red is a status on the Actions tab and nothing more, and nobody watches
+# the Actions tab. This workflow is called by all three as a final job and turns
+# a red into exactly one tracking issue per surface.
+#
+# ⛔ NOTHING HERE MAKES ANY NIGHTLY BLOCKING. The callers' own jobs decide
+# red/green exactly as they did before; this only changes what happens
+# afterwards. (If blocking is the real fix that is a separate decision with its
+# own cost — this row reports it rather than doing it.)
+#
+# IDEMPOTENT, COPIED NOT INVENTED: the resolution shape is
+# helm-guide-freshness-schedule.yml's — resolve one OPEN issue by exact title,
+# comment if it exists, create only if it does not — lifted into
+# scripts/scheduled-red-issue.mjs so three callers share one implementation and
+# one title registry instead of three inline copies free to drift. The close-on-
+# green half is the only behaviour added over that pattern.
+#
+# PERMISSIONS ARE THE WHOLE SECURITY SURFACE and they are scoped to the job that
+# needs them: contents: read + issues: write on the caller's own GITHUB_TOKEN.
+# No PAT, no GitHub App, no repo-settings change, and no new third-party Action
+# (gh ships preinstalled on ubuntu-latest).
+
+on:
+  workflow_call:
+    inputs:
+      surface:
+        description: 'Surface key from scripts/scheduled-red-issue.mjs SURFACES (mutation-nightly | fullsuite-weekly | prepush-attestation)'
+        required: true
+        type: string
+      state:
+        description: 'red = this cycle failed, green = this cycle passed'
+        required: true
+        type: string
+      failure-line:
+        description: 'First line of the failure, the thing a reader needs to act on'
+        required: false
+        default: '(caller supplied no failure line)'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  track:
+    name: Open, update or close the tracking issue
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The only write in this whole mechanism, and the narrowest one that can
+      # do the job: create/comment/close an issue on this repo.
+      issues: write
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: ⬢ Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: 🧪 Controls for the tracker itself (a bug here MUST red this job)
+        # Same shape as helm-guide-freshness-schedule.yml's gate-unit-test step:
+        # the mechanism proves it can still open/update/close/stay-quiet before
+        # it is allowed to touch a real issue. The suite uses a simulated issue
+        # store, so it manufactures no red on the shared repo.
+        run: node --test --test-reporter=dot scripts/scheduled-red-issue.test.mjs
+
+      - name: 🚨 Report the surface's state
+        # Every input reaches the script through env and is passed as an argv
+        # element, never interpolated into this shell.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          # In a reusable workflow these resolve to the CALLER's run, which is
+          # the run a reader needs to open.
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EVENT_NAME: ${{ github.event_name }}
+          SURFACE: ${{ inputs.surface }}
+          STATE: ${{ inputs.state }}
+          FAILURE_LINE: ${{ inputs.failure-line }}
+        run: |
+          set -euo pipefail
+          node scripts/scheduled-red-issue.mjs \
+            --surface "$SURFACE" \
+            --state "$STATE" \
+            --event "$EVENT_NAME" \
+            --run-id "$RUN_ID" \
+            --run-url "$RUN_URL" \
+            --failure-line "$FAILURE_LINE"

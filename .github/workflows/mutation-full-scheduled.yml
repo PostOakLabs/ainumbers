@@ -198,6 +198,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # Read by the report-red job below (NIGHTLY-RED-ISSUE-OPENER-1). Written
+    # BEFORE this job's own `exit 1`, so a red cycle still reports its verdict
+    # and its first failure line to the tracker instead of only to the Actions
+    # tab. Nothing about what this workflow RUNS changes.
+    outputs:
+      state: ${{ steps.sum.outputs.state }}
+      failure_line: ${{ steps.sum.outputs.failure_line }}
     steps:
       - name: ⬢ Setup Node
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
@@ -205,6 +212,7 @@ jobs:
           node-version: '20'
 
       - name: 📋 Summarize (result-based; per-shard detail in the run summary)
+        id: sum
         env:
           result: ${{ needs.mutation-shard.result }}
         run: |
@@ -225,7 +233,37 @@ jobs:
           # classes are separated per shard in the shard jobs' own ::error lines
           # (failure = measured floor finding; no verdict line = not measured).
           if [ "$result" = "failure" ]; then
+            {
+              echo "state=red"
+              echo "failure_line=Shard matrix result: failure. One or more shards fell below a break floor or did not complete (timeout/cancel); a shard with no verdict line was NOT measured this cycle."
+            } >> "$GITHUB_OUTPUT"
             echo "::error title=Mutation Tier Scan::one or more shards failed (floor findings) or did not complete (timeout/cancel) — per-shard detail is in the run summary and each shard's own ::error line; a shard with no verdict line was NOT measured this cycle."
             exit 1
           fi
+          {
+            echo "state=green"
+            echo "failure_line=none"
+          } >> "$GITHUB_OUTPUT"
           echo "✅ all 16 shards ran to completion and are clean this cycle (16/16 shards reported, 0 cancelled)."
+
+  # NIGHTLY-RED-ISSUE-OPENER-1: a red here used to open nothing. Scheduled runs
+  # only — a manual dry-run dispatch is a rehearsal, not a finding, and an
+  # ordinary PR/CI red never reaches this workflow at all (it has no
+  # pull_request trigger). The tracker keeps ONE open issue for this surface,
+  # comments on it for each further red, and closes it on the next green.
+  # ⛔ The scan itself stays non-blocking and unchanged.
+  report-red:
+    name: Scheduled-red tracking issue
+    needs: summarize
+    if: ${{ always() && github.event_name == 'schedule' && needs.summarize.result != 'skipped' }}
+    uses: ./.github/workflows/scheduled-red-issue.yml
+    permissions:
+      contents: read
+      issues: write
+    with:
+      surface: mutation-nightly
+      # Fails CLOSED: anything that is not an explicit green (including a
+      # summarize job killed before it could record a verdict) is reported as
+      # red, because "did not report" is never evidence of a clean cycle.
+      state: ${{ needs.summarize.outputs.state == 'green' && 'green' || 'red' }}
+      failure-line: ${{ needs.summarize.outputs.failure_line || 'The summarize job did not record a verdict this cycle (killed or cancelled) - the estate was NOT measured.' }}

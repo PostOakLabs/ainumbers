@@ -234,6 +234,13 @@ const NOT_A_GATE = new Map([
     "on commits that exist only after a merge, and the note it reads is written by the very " +
     "hook that would invoke it. Pre-push there is nothing to check, so parity has nothing to " +
     "demand (PREPUSH-ATTEST-CHECK-1)."],
+  ["scheduled-red-issue.yml",
+    "workflow_call only (NIGHTLY-RED-ISSUE-OPENER-1) — the shared reusable tracker the three " +
+    "report-only surfaces call as a final job to open/update/close ONE tracking issue per " +
+    "surface. It gates nothing: it has no pull_request, merge_group or push trigger of its own, " +
+    "and its callers (mutation-full-scheduled.yml, fullsuite-schedule.yml, prepush-attestation.yml) " +
+    "are each NOT_A_GATE here for their own reasons. Its node invocations are the tracker script " +
+    "and its own control suite, neither of which is an estate gate preflight could usefully run."],
   ["ruleset-apply.yml",
     "push main (.github/rulesets/** only) + workflow_dispatch — applies a ruleset after merge."],
   ["ruleset-drift-gate.yml",
