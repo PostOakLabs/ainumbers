@@ -105,18 +105,35 @@ function policyRiskVerdict(failRate, bypassPaths) {
   return 'LOW';
 }
 
+// ── numeric input guard (NAN-GUARD-HARDENING-1) ──────────────────────────────
+// `x ?? d` catches only null/undefined: `NaN ?? d` keeps NaN and a JSON-legal
+// string like `("abc" ?? d)` keeps the string, after which Math.min/max and
+// `<` comparisons propagate it silently (`rng() < NaN` is always false), so
+// malformed input scored as a benign verdict. null/undefined still default
+// silently (legitimately missing); any other non-finite value takes the
+// DEFAULT path and is NAMED in output_payload.input_guards, never passed through.
+function guardNum(notes, field, raw, fallback) {
+  if (raw === undefined || raw === null) return fallback;
+  if (Number.isFinite(raw)) return raw;
+  notes.push(`${field}=${String(raw)} (${typeof raw}) is not a finite number; defaulted to ${fallback}`);
+  return fallback;
+}
+
 // ── compute ───────────────────────────────────────────────────────────────────
 export function compute(pp) {
-  const seed      = pp.seed       ?? 42;
-  const n_txns    = Math.min(Math.max(pp.n_txns ?? 200, 10), 2000);
-  const hnpRatio  = pp.hnp_ratio  ?? 0.05;
-  const chaos     = pp.chaos      ?? 0.20;
-  const dripFreq  = pp.drip_freq  ?? 0.10;
+  const guardNotes = [];
+  const num = (field, raw, fallback) => guardNum(guardNotes, field, raw, fallback);
+
+  const seed      = num('seed',       pp.seed,       42);
+  const n_txns    = Math.min(Math.max(num('n_txns', pp.n_txns, 200), 10), 2000);
+  const hnpRatio  = num('hnp_ratio',  pp.hnp_ratio,  0.05);
+  const chaos     = num('chaos',      pp.chaos,      0.20);
+  const dripFreq  = num('drip_freq',  pp.drip_freq,  0.10);
 
   const policy = {
-    per_tx_limit:        pp.per_tx_limit        ?? 500,
-    daily_limit:         pp.daily_limit          ?? 2000,
-    monthly_limit:       pp.monthly_limit        ?? 20000,
+    per_tx_limit:        num('per_tx_limit', pp.per_tx_limit,   500),
+    daily_limit:         num('daily_limit',  pp.daily_limit,    2000),
+    monthly_limit:       num('monthly_limit', pp.monthly_limit, 20000),
     blocked_categories:  pp.blocked_categories   ?? [],
     blocked_merchants:   pp.blocked_merchants    ?? [],
     allowed_methods:     pp.allowed_methods      ?? null,
@@ -172,6 +189,7 @@ export function compute(pp) {
     top_fail_reasons:    failReasons,
     bypass_paths_detected: bypassPaths,
     compliance_flags,
+    ...(guardNotes.length > 0 ? { input_guards: guardNotes } : {}),
   };
 }
 
