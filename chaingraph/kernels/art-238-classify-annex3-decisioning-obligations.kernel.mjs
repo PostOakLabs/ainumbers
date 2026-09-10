@@ -88,9 +88,18 @@ export function compute(pp) {
   const compliance_gaps = [];
 
   // Art 12(2) — Logging
+  // Obligation text aligned to the estate-declared required-field set
+  // (CCPP-FIX-ART236-1, 2026-09-10): the pinned primary-text snapshot pins no
+  // named-field minimum for this node's Annex III 5(b)/(5(c) scope — the
+  // four-element field list in the primary text is scoped to remote biometric
+  // identification systems only — so the field set is the one art-236's
+  // completeness check enforces. "Natural-person-ID field" wording removed: it
+  // over-read the biometric-verification element outside its scope and
+  // contradicted the builder's structural subject_ref (synthetic/opaque IDs,
+  // never a real identity).
   obligations.push({
     article: 'Art 12(2)',
-    obligation: 'Log inputs, outputs, timestamps, model version, override flags, natural-person-ID field. Retain >= 6 months.',
+    obligation: 'Log model identifier, model version, input digest, output digest, decision label, event timestamp, override flag, and a structural subject reference (synthetic/opaque case ID, never a real natural-person identifier). Retain >= 6 months.',
     status: logging_implemented ? 'IMPLEMENTED' : 'REQUIRED',
   });
   if (!logging_implemented) {
