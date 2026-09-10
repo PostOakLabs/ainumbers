@@ -9,6 +9,9 @@ Five checks, all hard failures that block deploy:
   4. Sitemap coverage      — every published page (scripts/published-dirs.json's dir
                              list: tools/, guides/, chaingraph/, disclosures/, docs/,
                              ledger/, attestations/) is in sitemap.xml (DISCOVER-1 §D-2)
+  4b. Content-Signal line  — robots.txt carries the countersigned
+                             "Content-Signal: search=yes, ai-input=yes, ai-train=yes"
+                             line (ROBOTS-CONTENT-SIGNAL-1, TIM 2026-09-10)
   5. Hash + syntax gates   — Node: JS syntax parse, forbidden-hash lint, golden
                              execution_hash parity, art-01 canonicalizer self-test,
                              kernel contract (--strict: a registered kernel with no
@@ -40,6 +43,10 @@ TOOLS = REPO / "tools"
 GUIDES = REPO / "guides"
 MANIFESTS = REPO / "manifests"
 SITEMAP = REPO / "sitemap.xml"
+ROBOTS = REPO / "robots.txt"
+# ROBOTS-CONTENT-SIGNAL-1 (TIM-COUNTERSIGNED 2026-09-10): the one value the
+# estate publicly signals. Locked here so drift fails the deploy gate.
+CONTENT_SIGNAL_LINE = "Content-Signal: search=yes, ai-input=yes, ai-train=yes"
 KERNELS = REPO / "chaingraph" / "kernels"
 WORKBENCH = REPO / "chaingraph" / "workbench"
 CANVAS = REPO / "chaingraph" / "canvas"
@@ -452,6 +459,22 @@ def check_sitemap(changed=None):
         print(f"  ✅ Sitemap: {scope} present ({dirs_checked}){note}")
 
 
+# ── Check 4b: Content-Signal line in robots.txt (ROBOTS-CONTENT-SIGNAL-1) ─────
+def check_robots(changed=None):
+    if not _touched([ROBOTS], changed):
+        return  # incremental mode: robots.txt untouched this push, nothing to re-judge
+    if not ROBOTS.exists():
+        fail("[ROBOTS] robots.txt not found")
+        return
+    # Exact-line match: the countersigned value is public wording — any drift
+    # (missing signal, extra signal, yes/no flip) is a deploy blocker.
+    if CONTENT_SIGNAL_LINE not in ROBOTS.read_text(encoding="utf-8").splitlines():
+        fail("[ROBOTS] robots.txt lacks the countersigned Content-Signal line (ROBOTS-CONTENT-SIGNAL-1, TIM 2026-09-10):")
+        fail(f"  expected: {CONTENT_SIGNAL_LINE}")
+        return
+    print("  ✅ Robots: Content-Signal line present with the countersigned value")
+
+
 # ── Check 5: Node hash + syntax gates ─────────────────────────────────────────
 def _hash_relevant(changed):
     """True if any touched path could affect kernel hash/syntax integrity.
@@ -517,6 +540,7 @@ def main():
     check_manifests(changed)
     check_ap2(changed)
     check_sitemap(changed)
+    check_robots(changed)
     check_hash_gates(changed)
 
     if errors:
