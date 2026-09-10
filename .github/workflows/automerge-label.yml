@@ -12,10 +12,22 @@ name: Automerge Label
 # ainumbers-spec-sync App installation token that regen uses, scoped to
 # pull-requests:write only (no contents write needed here — the merge itself
 # is done via `gh pr merge --auto`, not a push this job authors).
+#
+# MERGEQUEUE-REQUEUE-ON-TIMEOUT-1 (2026-09-10): also fires on the
+# `pull_request` activity type `dequeued`. The merge queue (ruleset
+# main-ci-anchor, 20721322) removes an entry whose checks outlive
+# check_response_timeout_minutes (30) and publishes webhook
+# `pull_request.dequeued` with reason enum value `CI_TIMEOUT` (GraphQL
+# RemovedFromMergeQueueEvent.reason == checks_timed_out); the PR stays open
+# and labelled with nothing re-arming it. On that event — and ONLY that one;
+# CI_FAILURE / MERGE_CONFLICT / MANUAL / BRANCH_PROTECTIONS are never
+# re-queued — the same enable/enqueue step re-queues the PR, capped at 3
+# CI_TIMEOUT removals counted from the PR timeline; at the cap a comment is
+# posted and the PR is left un-queued.
 
 on:
   pull_request:
-    types: [labeled]
+    types: [labeled, dequeued]
 
 permissions:
   contents: read
@@ -24,7 +36,7 @@ permissions:
 jobs:
   enable-automerge:
     name: Enable auto-merge on labeled PR
-    if: github.event.label.name == 'automerge'
+    if: (github.event.action == 'labeled' && github.event.label.name == 'automerge') || (github.event.action == 'dequeued' && github.event.reason == 'CI_TIMEOUT' && contains(github.event.pull_request.labels.*.name, 'automerge'))
     runs-on: ubuntu-latest
     steps:
       # Held-draft shard PRs must never auto-merge (board/STANDING-ORDERS.md
@@ -68,6 +80,49 @@ jobs:
           permission-pull-requests: write
           permission-contents: write
 
+      # MERGEQUEUE-REQUEUE-ON-TIMEOUT-1 (2026-09-10): dequeued runs only —
+      # count this PR's prior removals from the merge queue and re-queue on
+      # the CI_TIMEOUT path below only while the count is under 3. Counted
+      # from the PR timeline (RemovedFromMergeQueueEvent, last 10), filtering
+      # reason == checks_timed_out (the GraphQL spelling of the webhook's
+      # CI_TIMEOUT enum). The removal that fired this run is already on the
+      # timeline when the dequeued webhook delivers, so it is counted too:
+      # removal 3 is the cap — that one posts the comment and does not
+      # re-queue. Removals for any other reason are not counted and never
+      # reach this job (job `if`).
+      - name: Cap CI_TIMEOUT re-queues
+        if: github.event.action == 'dequeued'
+        id: timeout-cap
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          NODE_ID=$(gh pr view "$PR" -R "$REPO" --json id -q .id)
+
+          COUNT=$(gh api graphql -f query='
+            query($id: ID!) {
+              node(id: $id) {
+                ... on PullRequest {
+                  timelineItems(itemTypes: [REMOVED_FROM_MERGE_QUEUE_EVENT], last: 10) {
+                    nodes {
+                      ... on RemovedFromMergeQueueEvent { reason }
+                    }
+                  }
+                }
+              }
+            }' -f id="$NODE_ID" | jq '[.data.node.timelineItems.nodes[] | select(.reason == "checks_timed_out")] | length')
+
+          echo "merge queue removed this PR for CI_TIMEOUT $COUNT time(s) including this one"
+          if [ "$COUNT" -ge 3 ]; then
+            gh pr comment "$PR" -R "$REPO" --body "merge-queue: removed for CI_TIMEOUT 3 times; not re-queuing. Split the PR or raise check_response_timeout_minutes (ruleset 20721322)."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+
       # `gh pr merge --auto` silently no-ops on a PR that is ALREADY green
       # at label time, given the active merge_queue rule (main-ci-anchor,
       # 20721322) — measured 2026-08-17 on PR #1348, run 32029898577: the
@@ -80,7 +135,7 @@ jobs:
       # state via GraphQL and falls back to enqueuePullRequest directly
       # when native auto-merge left the PR untouched.
       - name: Enable auto-merge / enqueue
-        if: steps.guard.outputs.proceed == 'true'
+        if: steps.guard.outputs.proceed == 'true' && steps.timeout-cap.outputs.proceed != 'false'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR: ${{ github.event.pull_request.number }}
