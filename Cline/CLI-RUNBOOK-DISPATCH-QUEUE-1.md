@@ -32,7 +32,7 @@ Deep-link contract on `art-330`/`art-331` (`o is not defined`) — **proven pre-
 base `0f95fe56`** (identical failure before the Cline commit). Per repo doctrine the push
 used `git push --no-verify` with CI as backstop. This red is itself a fix-row candidate (see C9).
 
-## T4 re-issue (READY — UNBLOCKED: T1 REPORTED 2026-09-09 via GUI, runbook may dispatch)
+## T4 re-issue (SPLIT into T4a/T4b — runbook dispatch, deliverables inside worktree `report/`)
 
 Original brief: `Cline/CLINE-T4-PARITY-INSTRUMENTS-COUNTERVERIFY-TASKING-2026-09-09.md`.
 GUI T1 completion: `research/WEBMCP-WRAPPER-PARSE-COUNTERVERIFY-2026-09-09.md` (PARTIAL
@@ -40,9 +40,14 @@ header — live-probe sample cut short at handoff; classifier results complete, 
 `research/WEBMCP-WRAPPER-PARSE-COUNTERVERIFY-RAW-2026-09-09.json`).
 Runbook adaptation: worktree cwd; Cline writes deliverables INSIDE the worktree under
 `report/` (headless gate fences edits to cwd — `editFilesExternally:false`); ZCode
-reviews, copies to `research/PARITY-INSTRUMENTS-COUNTERVERIFY-2026-09-09.md`, and
-commits. Same independence discipline: derive first, compare second, evidence classes,
-RED-then-GREEN. No live-probing needed — node scripts on the worktree only.
+reviews, copies to `research/`, and commits. Same independence discipline: derive first,
+compare second, evidence classes, RED-then-GREEN. No live-probing needed — node scripts
+on the worktree only.
+
+| Part | Branch / worktree | Status | Result |
+|------|-------------------|--------|--------|
+| T4a value-parity | `CLINE-T4-PARITY-1` | REPORTED 2026-09-09 | 59 iters/8.9 min/$0. **Original 55/26/28 CONFIRMED under its own method** — the auditor re-ran `scripts/gen-value-parity-pairs.mjs` on this worktree and every headline reproduced exactly; 657→663 is estate growth (73 kernel commits since Sep 5), not error. Independent keyed-numeric lens (663 scanned/43 candidates/31 Tier-1; art-220 48-occ/18-distinct) corroborates defect DIRECTION. 10 pairs hand-verified: **3 CONFIRMED regulatory defects** (art-220 page carries year-shifted tables + is missing HPML/CARD tables + stale FR citations; art-218 kernel tier geometry absent from page; art-167 kernel HS-map superset of page), 7/10 DOWNGRADED to fixture/citation/hex-slice artifacts → generator needs chrome filters. 5 PROPOSED rows incl. VALUE-PARITY-FIX-220-1. Report: `research/PARITY-T4A-VALUE-2026-09-09.md` + summary JSON + instrument .mjs. ZCode independently spot-verified all 4 anchor file:line quotes — all matched. |
+| T4b surface-parity | `CLINE-T4-PARITY-1` (same branch, second run, own report/ files) | DISPATCHED 2026-09-09 | (pending) — claims: 624/171/164/40, 5 hard-throw kernels + salt-defect attribution, 8-of-10 pageless denominator |
 
 ## T2 note (stays GUI-side)
 
