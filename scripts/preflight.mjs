@@ -1478,6 +1478,10 @@ const GATES = [
   ['git-env scrub controls (RED x6 + wrong-tree contrast)', 'node scripts/check-git-env-scrub.test.mjs'],
   ['FV floor coverage ratchet (FV-COVERAGE-GATE-1)', 'node scripts/check-fv-floor-coverage.mjs'],
   ['FV floor coverage fixture proof', 'node scripts/check-fv-floor-coverage.test.mjs'],
+  // FV-KEYLESS-SIGN-LANE-1: the keyless signing lane's refusal fixtures (wrong artifact, wrong
+  // workflow identity, wrong OIDC issuer, no log entry, unpinned verify) plus the explicit-only
+  // witness deferral. All synthetic and offline — the live-run legs are quoted in the PR body.
+  ['Keyless signing lane controls (RED x11 + calibration, FV-KEYLESS-SIGN-LANE-1)', 'node scripts/fv-keyless-sign-lane.test.mjs'],
   // FV-FLOOR-DIGEST-GATE-1: enforces the executed-digest authoring rule (FV-PBT-FLOOR-BUILD-SPEC.md §4,
   // amended by PR #1176) on ONLY the floor files THIS push touches (TOUCHED_FLOOR_FILES above) — never the
   // full floor estate, which would false-fail on legitimate later staleness. No-ops when nothing touched.

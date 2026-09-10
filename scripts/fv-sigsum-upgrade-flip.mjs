@@ -48,7 +48,17 @@
 //     --policy-key <ssh-ed25519 priv key> --allowed-signers <file> --principal <name> \
 //     --sigsum-key <sigsum priv.jwk.json> [--sigsum-token-key <k> --sigsum-domain <d>] \
 //     [--out-dir <dir>] [--dry-run]
+//   node fv-sigsum-upgrade-flip.mjs flip --signer keyless \
+//     --artifact <artifact.json> --gate-input <evidence.json> \
+//     --certificate-identity https://github.com/PostOakLabs/ainumbers/.github/workflows/land-verify.yml@refs/heads/main \
+//     --defer-witness-to-log-root-row FV-SIGSUM-LOGROOT-WATCH-1
 //   import { planFlip, runFlip } from './fv-sigsum-upgrade-flip.mjs'   # pure/injectable, no I/O forced
+//
+// KEYLESS LANE (FV-KEYLESS-SIGN-LANE-1, 2026-09-10): `--signer keyless` swaps
+// step (a) for a Sigstore keyless bundle (ephemeral Fulcio cert bound to the
+// workflow's OIDC identity — no long-lived key, no Actions secret). Everything
+// else above is untouched: same guards, same evidence flow, SSHSIG still the
+// default. See the KEYLESS LANE section below.
 
 import { readFileSync, writeFileSync, mkdtempSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -136,6 +146,189 @@ export function sshKeygenSign({ message, privateKeyPath, allowedSignersText, pri
 }
 
 // ---------------------------------------------------------------------------
+// KEYLESS LANE (FV-KEYLESS-SIGN-LANE-1, Tim's signing-architecture ruling B,
+// 2026-09-10). ADDED beside sshKeygenSign, never replacing it: the SSHSIG path
+// above is untouched, and every fail-closed guard in planFlip/runFlip is
+// signer-agnostic and unchanged.
+//
+// Identity: an ephemeral Fulcio certificate bound to the GitHub workflow's own
+// OIDC token — no long-lived key, no Actions secret, no Sigsum domain submit
+// token (the two blockers that left the SSHSIG+Sigsum chain inert). The
+// artifact field this lane stamps is
+// `signing_identity_nature: ci-oidc-workflow-identity`
+// (workspace-root FORMALVERIF-BUILD-SPEC.md §7a). ⛔ `attestation_grade` is NOT
+// touched by this lane — §7a: "the grade records the policy validation, never
+// the signing identity".
+//
+// VERIFICATION IS PINNED, ALWAYS. An unpinned verify proves only that somebody
+// signed. Both pins are mandatory here and there is no flag to drop them:
+//   --certificate-identity     <workflow URI>
+//   --certificate-oidc-issuer  https://token.actions.githubusercontent.com
+// ---------------------------------------------------------------------------
+
+export const KEYLESS_OIDC_ISSUER = 'https://token.actions.githubusercontent.com';
+export const KEYLESS_SIGNING_IDENTITY_NATURE = 'ci-oidc-workflow-identity';
+// Fulcio X.509 extension OIDs, dotted form as it appears in a decoded cert
+// (SHA-256 of the DER is not needed — these land as literal bytes in the DER):
+//   1.3.6.1.4.1.57264.1.8  = OIDC issuer (v2)
+//   1.3.6.1.4.1.57264.1.9  = build signer URI
+const FULCIO_ISSUER_OID_BYTES = Buffer.from([0x2b, 0x06, 0x01, 0x04, 0x01, 0xd9, 0x79, 0x01, 0x08]);
+
+function decodeCertificateBytes(bundle) {
+  const material = bundle?.verificationMaterial;
+  const b64 =
+    material?.certificate?.rawBytes ??
+    material?.x509CertificateChain?.certificates?.[0]?.rawBytes ??
+    null;
+  return b64 ? Buffer.from(b64, 'base64') : null;
+}
+
+function bundleSubjectDigests(bundle) {
+  // Two bundle shapes reach this lane:
+  //  * `cosign sign-blob --bundle` → messageSignature.messageDigest (raw digest bytes)
+  //  * `actions/attest`            → DSSE in-toto statement, digests under subject[].digest.sha256
+  const out = [];
+  const md = bundle?.messageSignature?.messageDigest;
+  if (md?.digest) out.push(Buffer.from(md.digest, 'base64').toString('hex'));
+  const payloadB64 = bundle?.dsseEnvelope?.payload;
+  if (payloadB64) {
+    try {
+      const statement = JSON.parse(Buffer.from(payloadB64, 'base64').toString('utf8'));
+      for (const subject of statement?.subject ?? []) {
+        if (subject?.digest?.sha256) out.push(String(subject.digest.sha256).toLowerCase());
+      }
+    } catch {
+      /* fall through — an unparseable payload yields no digests and the binding check fails closed */
+    }
+  }
+  return out;
+}
+
+/**
+ * Fail-closed PRE-CHECK over a Sigstore bundle's envelope, run before the
+ * bundle is trusted for anything.
+ *
+ * ⚠ SCOPE, stated honestly: this is NOT cryptographic verification and is not
+ * offered as a substitute for one. It checks that the bundle in hand is bound
+ * to the digest we signed, carries a transparency-log entry, and carries the
+ * identity + issuer we pinned. The cryptographic verify is delegated to
+ * `cosign verify-blob --offline` / `gh attestation verify
+ * --custom-trusted-root` (verifyKeylessBundleOffline below), which this lane
+ * ALWAYS runs — this function exists so a bundle that is merely wrong (wrong
+ * artifact, wrong workflow, missing log entry) is refused with an exact,
+ * quotable message rather than being handed to a verifier that would report a
+ * less specific failure.
+ *
+ * The identity/issuer legs are byte-presence checks over the DER — a full
+ * X.509 SAN/extension parse is the verifier's job, and duplicating it here
+ * would be a second, unreviewed implementation of the thing that matters most.
+ */
+export function assertKeylessBundleBinding({ bundle, digestHex, certificateIdentity, certificateOidcIssuer = KEYLESS_OIDC_ISSUER }) {
+  const fail = (msg) => { throw new Error(`keyless bundle binding FAILED: ${msg}`); };
+
+  if (!bundle || typeof bundle !== 'object') fail('bundle missing or not an object');
+  if (!certificateIdentity) fail('no --certificate-identity pinned — an unpinned verify proves only that somebody signed (FORMALVERIF-BUILD-SPEC.md §7a)');
+  if (!certificateOidcIssuer) fail('no --certificate-oidc-issuer pinned — see FORMALVERIF-BUILD-SPEC.md §7a');
+
+  if (!/^application\/vnd\.dev\.sigstore\.bundle/.test(String(bundle.mediaType ?? ''))) {
+    fail(`unrecognised mediaType ${JSON.stringify(bundle.mediaType ?? null)} — expected a application/vnd.dev.sigstore.bundle* envelope`);
+  }
+
+  const tlogEntries = bundle.verificationMaterial?.tlogEntries ?? [];
+  if (!Array.isArray(tlogEntries) || tlogEntries.length === 0) {
+    fail('no transparency-log entry in verificationMaterial.tlogEntries — an unlogged keyless signature carries none of the properties this lane claims');
+  }
+
+  const digests = bundleSubjectDigests(bundle);
+  if (digests.length === 0) fail('bundle carries no subject digest (neither messageSignature.messageDigest nor a parseable in-toto subject)');
+  if (!digests.includes(String(digestHex).toLowerCase())) {
+    fail(`bundle is not bound to this artifact — signed digest(s) ${JSON.stringify(digests)}, artifact digest ${digestHex}`);
+  }
+
+  const certBytes = decodeCertificateBytes(bundle);
+  if (!certBytes) fail('no signing certificate in verificationMaterial — a keyless bundle without its Fulcio certificate cannot bind any identity');
+  if (!certBytes.includes(Buffer.from(certificateIdentity, 'utf8'))) {
+    fail(`pinned --certificate-identity ${certificateIdentity} not present in the signing certificate`);
+  }
+  if (!certBytes.includes(Buffer.from(certificateOidcIssuer, 'utf8'))) {
+    fail(`pinned --certificate-oidc-issuer ${certificateOidcIssuer} not present in the signing certificate`);
+  }
+  if (!certBytes.includes(FULCIO_ISSUER_OID_BYTES)) {
+    fail('signing certificate carries no Fulcio OIDC-issuer extension (OID 1.3.6.1.4.1.57264.1.8) — not a keyless workflow-identity certificate');
+  }
+
+  return { ok: true, digests, tlogEntryCount: tlogEntries.length, certificateIdentity, certificateOidcIssuer };
+}
+
+/**
+ * Offline verification of a produced bundle. ZERO network: `--offline` for
+ * cosign, `--custom-trusted-root` for gh (the trusted root is fetched ONCE, in
+ * CI, exactly as land-verify.yml's attest-fv-artifacts job already does), so
+ * this is the same offline posture as register-sigsum.mjs's CHAINPOINT GUARD —
+ * every byte checked was fetched at signing time.
+ */
+export function verifyKeylessBundleOffline({ artifactPath, bundlePath, certificateIdentity, certificateOidcIssuer = KEYLESS_OIDC_ISSUER, tool = 'cosign', cosignBin = 'cosign', ghBin = 'gh', trustedRootPath, owner }) {
+  if (tool === 'gh') {
+    if (!trustedRootPath) throw new Error('gh attestation verify requires --trusted-root (fetch once with `gh attestation trusted-root`) — refusing a verify that would call the network');
+    const args = ['attestation', 'verify', artifactPath, '--bundle', bundlePath, '--custom-trusted-root', trustedRootPath];
+    if (owner) args.push('--owner', owner);
+    const r = spawnSync(ghBin, args, { encoding: 'utf8' });
+    if (r.status !== 0) throw new Error(`gh attestation verify FAILED (exit ${r.status}): ${r.stdout ?? ''}${r.stderr ?? ''}`);
+    return { tool: 'gh', command: `${ghBin} ${args.join(' ')}`, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }
+  const args = ['verify-blob', '--bundle', bundlePath, '--offline', '--certificate-identity', certificateIdentity, '--certificate-oidc-issuer', certificateOidcIssuer, artifactPath];
+  const r = spawnSync(cosignBin, args, { encoding: 'utf8' });
+  if (r.status !== 0) throw new Error(`cosign verify-blob FAILED (exit ${r.status}): ${r.stdout ?? ''}${r.stderr ?? ''}`);
+  return { tool: 'cosign', command: `${cosignBin} ${args.join(' ')}`, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+/**
+ * Real keyless signer — the `sign` injection point's second implementation,
+ * shaped exactly like sshKeygenSign: produce, then verify our own output
+ * before trusting it (same "a signer that lies about succeeding must not be
+ * trusted silently" discipline), then return.
+ *
+ * Runs `cosign sign-blob --bundle` (a plain pinned binary step — ⛔ no new
+ * third-party GitHub Action is introduced by this lane; `actions/attest` is
+ * the alternative producer and is already SHA-pinned in land-verify.yml).
+ */
+export function keylessSign({ message, certificateIdentity, certificateOidcIssuer = KEYLESS_OIDC_ISSUER, outDir, cosignBin = 'cosign' }) {
+  if (!certificateIdentity) {
+    throw new Error('keylessSign requires certificateIdentity (the workflow URI to pin) — refusing to sign into an unpinnable verify');
+  }
+  const workDir = outDir ?? mkdtempSync(join(tmpdir(), 'fv-keyless-flip-'));
+  const messagePath = join(workDir, 'keyless-message');
+  const bundlePath = join(workDir, 'keyless-signature.sigstore.json');
+  writeFileSync(messagePath, message);
+
+  const signResult = spawnSync(cosignBin, ['sign-blob', '--yes', '--bundle', bundlePath, messagePath], { encoding: 'utf8' });
+  if (signResult.status !== 0) {
+    throw new Error(`cosign sign-blob exited ${signResult.status}: ${signResult.stdout ?? ''}${signResult.stderr ?? ''}`);
+  }
+
+  const bundle = JSON.parse(readFileSync(bundlePath, 'utf8'));
+  const digestHex = message.toString('utf8');
+  const binding = assertKeylessBundleBinding({
+    bundle,
+    digestHex: /^[0-9a-f]{64}$/i.test(digestHex) ? digestHex : Buffer.from(message).toString('hex'),
+    certificateIdentity,
+    certificateOidcIssuer,
+  });
+  const verify = verifyKeylessBundleOffline({ artifactPath: messagePath, bundlePath, certificateIdentity, certificateOidcIssuer, cosignBin });
+
+  return {
+    bundlePath,
+    bundle,
+    binding,
+    verifyStdout: verify.stdout,
+    verifyCommand: verify.command,
+    signingIdentityNature: KEYLESS_SIGNING_IDENTITY_NATURE,
+    certificateIdentity,
+    certificateOidcIssuer,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Real Sigsum register+verify: spawns the EXISTING register-sigsum.mjs —
 // never edited, never re-implemented (SIGSUM-NAMED-POLICY-1 owns that
 // file's pinned policy; ⚠ never concurrent with that row per this row's
@@ -174,7 +367,7 @@ export function registerAndVerifyWithSigsum({ digestHex, sigsumKeyPath, sigsumTo
 // call to Sigsum. The CLI below wires the real functions.
 // ---------------------------------------------------------------------------
 
-export async function runFlip({ artifactPath, artifact, gateEvidence, sign, registerAndVerify, outDir, dryRun }) {
+export async function runFlip({ artifactPath, artifact, gateEvidence, sign, registerAndVerify, outDir, dryRun, witnessDeferredTo }) {
   const plan = planFlip({ artifact, gateEvidence });
   if (!plan.proceed) {
     return { flipped: false, reason: plan.reason, verdict: plan.verdict };
@@ -184,19 +377,46 @@ export async function runFlip({ artifactPath, artifact, gateEvidence, sign, regi
   const digestHex = Buffer.from(await subtle.digest('SHA-256', artifactBytes)).toString('hex');
 
   const sigResult = sign({ message: Buffer.from(digestHex, 'utf8') });
-  const sigsumResult = registerAndVerify({ digestHex, outDir });
+
+  // Witness leg. DEFAULT IS UNCHANGED: one Sigsum leaf per flip, exactly as
+  // before. `witnessDeferredTo` exists because Tim's ruling B moves Sigsum
+  // witnessing up one level (the log root / manifest root, at checkpoint
+  // frequency) rather than retiring it — and the row that builds that watcher
+  // is a separate, later row. ⛔ The deferral is NEVER implicit: it must be
+  // asked for by name, it names the successor row in the artifact's own
+  // status_history, and the entry says in words that no per-artifact witness
+  // is present. Quietly dropping the witness design is precisely what the
+  // scope memo forbids.
+  const sigsumResult = witnessDeferredTo ? null : registerAndVerify({ digestHex, outDir });
 
   const historyEntry = {
     status: artifact.status,
     attestation_basis: artifact.attestation_basis,
     date: new Date().toISOString(),
-    reason: 'Sigsum-witnessed countersignature registered — the witnessed log entry proves the challenge window ran its course',
+    reason: sigsumResult
+      ? 'Sigsum-witnessed countersignature registered — the witnessed log entry proves the challenge window ran its course'
+      : `countersignature registered WITHOUT a per-artifact Sigsum leaf — independent witnessing is deferred to the log-root watcher (${witnessDeferredTo}); this entry carries a signature and a transparency-log entry, but no third-party witness cosignature over this artifact`,
     actor: 'fv-sigsum-upgrade-flip.mjs',
-    sigsum_leaf_index: sigsumResult.record.inclusion_proof.leaf_index,
-    sigsum_tree_size: sigsumResult.record.tree_head.size,
-    sigsum_log_url: sigsumResult.record.log_url,
-    sigsum_record_file: basename(sigsumResult.recordPath),
+    ...(sigsumResult
+      ? {
+          sigsum_leaf_index: sigsumResult.record.inclusion_proof.leaf_index,
+          sigsum_tree_size: sigsumResult.record.tree_head.size,
+          sigsum_log_url: sigsumResult.record.log_url,
+          sigsum_record_file: basename(sigsumResult.recordPath),
+        }
+      : { sigsum_witness: 'deferred-to-log-root', sigsum_witness_deferred_to: witnessDeferredTo }),
     ssh_signature_present: Boolean(sigResult.armoredText),
+    // §7a identity predicate — stamped only by a signer that reports one, so
+    // the SSHSIG path's entry stays byte-identical to what it produced before.
+    // ⛔ attestation_grade is not written here, by this lane or any other.
+    ...(sigResult.signingIdentityNature
+      ? {
+          signing_identity_nature: sigResult.signingIdentityNature,
+          keyless_bundle_file: sigResult.bundlePath ? basename(sigResult.bundlePath) : undefined,
+          keyless_certificate_identity: sigResult.certificateIdentity,
+          keyless_certificate_oidc_issuer: sigResult.certificateOidcIssuer,
+        }
+      : {}),
     digest_sha256: digestHex,
   };
 
@@ -210,8 +430,11 @@ export async function runFlip({ artifactPath, artifact, gateEvidence, sign, regi
     dryRun: Boolean(dryRun),
     digestHex,
     historyEntry,
-    sigsumRecordPath: sigsumResult.recordPath,
-    verifyJson: sigsumResult.verifyJson,
+    sigsumRecordPath: sigsumResult ? sigsumResult.recordPath : null,
+    verifyJson: sigsumResult ? sigsumResult.verifyJson : null,
+    witnessDeferredTo: witnessDeferredTo ?? null,
+    keylessBundlePath: sigResult.bundlePath ?? null,
+    keylessVerifyCommand: sigResult.verifyCommand ?? null,
   };
 }
 
@@ -227,7 +450,15 @@ function flag(args, name, fallback) {
 async function main() {
   const [, , cmd, ...rest] = process.argv;
   if (cmd !== 'flip') {
-    console.error('usage: fv-sigsum-upgrade-flip.mjs flip --artifact <artifact.json> --gate-input <evidence.json> --policy-key <k> --allowed-signers <f> --principal <n> --sigsum-key <k> [--sigsum-token-key <k> --sigsum-domain <d>] [--out-dir <dir>] [--dry-run]');
+    console.error([
+      'usage: fv-sigsum-upgrade-flip.mjs flip --artifact <artifact.json> --gate-input <evidence.json>',
+      '         [--signer sshsig|keyless]  (default sshsig — the original path, unchanged)',
+      '         sshsig:  --policy-key <k> --allowed-signers <f> --principal <n>',
+      '         keyless: --certificate-identity <workflow URI> [--certificate-oidc-issuer <iss>]',
+      '         witness: --sigsum-key <k> [--sigsum-token-key <k> --sigsum-domain <d>]',
+      '                  | --defer-witness-to-log-root-row <ROW-ID>   (explicit deferral only)',
+      '         [--out-dir <dir>] [--dry-run]',
+    ].join('\n'));
     process.exitCode = 2;
     return;
   }
@@ -242,26 +473,54 @@ async function main() {
   const sigsumDomain = flag(rest, 'sigsum-domain');
   const outDir = resolve(flag(rest, 'out-dir', dirname(artifactPath)));
   const dryRun = rest.includes('--dry-run');
+  const signer = flag(rest, 'signer', 'sshsig');
+  const certificateIdentity = flag(rest, 'certificate-identity');
+  const certificateOidcIssuer = flag(rest, 'certificate-oidc-issuer', KEYLESS_OIDC_ISSUER);
+  const witnessDeferredTo = flag(rest, 'defer-witness-to-log-root-row');
 
-  if (!artifactPath || !gateInputPath || !policyKeyPath || !allowedSignersPath || !principal || !sigsumKeyPath) {
+  if (signer !== 'sshsig' && signer !== 'keyless') {
+    console.error(`unknown --signer ${signer} — expected "sshsig" (the SSHSIG+Sigsum path, unchanged) or "keyless" (FV-KEYLESS-SIGN-LANE-1)`);
+    process.exitCode = 2;
+    return;
+  }
+
+  if (!artifactPath || !gateInputPath) {
     console.error('missing required flag(s) — see usage');
+    process.exitCode = 2;
+    return;
+  }
+  if (signer === 'sshsig' && (!policyKeyPath || !allowedSignersPath || !principal)) {
+    console.error('missing required flag(s) for --signer sshsig — see usage');
+    process.exitCode = 2;
+    return;
+  }
+  if (signer === 'keyless' && !certificateIdentity) {
+    console.error('--signer keyless requires --certificate-identity <workflow URI> — an unpinned verify proves only that somebody signed (FORMALVERIF-BUILD-SPEC.md §7a)');
+    process.exitCode = 2;
+    return;
+  }
+  if (!witnessDeferredTo && !sigsumKeyPath) {
+    console.error('missing --sigsum-key — the per-artifact Sigsum witness leg is the default for BOTH signers; pass --defer-witness-to-log-root-row <ROW-ID> to defer it explicitly (never implicitly)');
     process.exitCode = 2;
     return;
   }
 
   const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
   const gateEvidence = JSON.parse(readFileSync(gateInputPath, 'utf8'));
-  const allowedSignersText = readFileSync(allowedSignersPath, 'utf8');
+  const allowedSignersText = signer === 'sshsig' ? readFileSync(allowedSignersPath, 'utf8') : null;
   const scriptPath = join(dirname(fileURLToPath(import.meta.url)), 'register-sigsum.mjs');
 
   const result = await runFlip({
     artifactPath,
     artifact,
     gateEvidence,
-    sign: ({ message }) => sshKeygenSign({ message, privateKeyPath: policyKeyPath, allowedSignersText, principal }),
+    sign: signer === 'keyless'
+      ? ({ message }) => keylessSign({ message, certificateIdentity, certificateOidcIssuer, outDir })
+      : ({ message }) => sshKeygenSign({ message, privateKeyPath: policyKeyPath, allowedSignersText, principal }),
     registerAndVerify: ({ digestHex, outDir: od }) => registerAndVerifyWithSigsum({ digestHex, sigsumKeyPath, sigsumTokenKeyPath, sigsumDomain, outDir: od, scriptPath }),
     outDir,
     dryRun,
+    witnessDeferredTo,
   });
 
   console.log(JSON.stringify(result, null, 2));
