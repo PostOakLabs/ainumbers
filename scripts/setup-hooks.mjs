@@ -5,17 +5,39 @@
 // and future worktree of this clone. A fresh `git clone` needs it run once (no package.json
 // here, so there is no npm "prepare" auto-hook — this script is the bootstrap).
 import { execSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 
+// PREFLIGHT-QUICK-1: `--check` verifies the wiring WITHOUT writing — exit 0 when
+// core.hooksPath is already .githooks, exit 1 (with the fix command) when not.
+const CHECK_ONLY = process.argv.includes('--check');
+
+// env: gitEnv() (GIT-ENV-LEAK-SWEEP-1) — this script WRITES `git config --local`, and it passes no
+// `cwd`, so the repository it configures is whatever git discovers. An inherited GIT_DIR wins that
+// discovery outright, which would point core.hooksPath at a DIFFERENT clone's config than the one
+// the operator is standing in. SO #50 already records what a leaked `config --local` costs: a
+// stray user.name=selftest mis-authored every branch commit until it was found.
 try {
   const current = (() => {
-    try { return execSync('git config --get core.hooksPath', { encoding: 'utf8' }).trim(); }
+    try { return execSync('git config --get core.hooksPath', { env: gitEnv(), encoding: 'utf8' }).trim(); }
     catch { return ''; }
   })();
   if (current === '.githooks') {
     console.log('✓ core.hooksPath already = .githooks — pre-push preflight gate active.');
     process.exit(0);
   }
-  execSync('git config core.hooksPath .githooks', { stdio: 'inherit' });
+  if (CHECK_ONLY) {
+    // CI checkouts never carry clone-local git config, so core.hooksPath is unwired there by
+    // construction — the wiring this gate verifies cannot exist (measured: CI run 34038760287
+    // failed this gate while the same tree passed locally). Advisory there, hard only locally.
+    if (process.env.GITHUB_ACTIONS === 'true') {
+      console.log('✓ CI checkout: core.hooksPath is clone-local and not applicable here — wiring advisory skipped.');
+      process.exit(0);
+    }
+    console.error('✗ --check: core.hooksPath is NOT .githooks — the pre-push gate is NOT wired.');
+    console.error('   Fix: node scripts/setup-hooks.mjs   (enables it for this clone and all its worktrees)');
+    process.exit(1);
+  }
+  execSync('git config core.hooksPath .githooks', { env: gitEnv(), stdio: 'inherit' });
   console.log('✓ core.hooksPath set to .githooks — pre-push preflight gate now active for this clone (and its worktrees).');
 } catch (e) {
   console.error('✗ failed to set core.hooksPath:', e.message);

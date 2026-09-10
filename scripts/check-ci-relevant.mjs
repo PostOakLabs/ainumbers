@@ -31,6 +31,7 @@
  * pull_request branch, with the same fail-open-on-unresolvable rule.
  */
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { readFileSync, appendFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -76,7 +77,7 @@ function main() {
     let resolvable = base && head;
     if (resolvable) {
       try {
-        execFileSync('git', ['cat-file', '-e', base], { cwd: ROOT, stdio: 'ignore' });
+        execFileSync('git', ['cat-file', '-e', base], { cwd: ROOT, env: gitEnv(), stdio: 'ignore' });
       } catch {
         resolvable = false;
       }
@@ -89,6 +90,7 @@ function main() {
     }
     const out = execFileSync('git', ['diff', '--name-only', '--diff-filter=ACMR', base, head], {
       cwd: ROOT,
+      env: gitEnv(),
       encoding: 'utf8',
     });
     const files = out.split('\n').filter(Boolean);

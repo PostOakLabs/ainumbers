@@ -13,10 +13,21 @@
  * and the breakage was invisible until users hit it. This is the gate that catches
  * it. NEVER commit tool HTML without a green run. See CONTRACT (MCP/manifest +
  * QA-gate clause).
+ *
+ * --changed <REF> (PREREQ-CHANGED-SCOPING-1, B2 of GATE-MANIFEST-DRAFT.md §1):
+ * scope the scan to tools touched vs <REF> instead of every tools/*.html.
+ * Undeterminable diff (no git / unresolvable ref) BLOCKS (fail-closed) rather
+ * than silently widening to a full scan — see scripts/_changed-files-lib.js.
  */
 const fs = require('fs'), path = require('path'), vm = require('vm');
+const { resolveChangedScope, isTouched } = require('./_changed-files-lib.js');
 const toolsDir = path.join(path.resolve(__dirname, '..'), 'tools');
+const REPO = path.resolve(__dirname, '..');
 const JS_TYPES = ['', 'text/javascript', 'application/javascript', 'module', 'text/babel'];
+
+const changedIdx = process.argv.indexOf('--changed');
+const changedRef = changedIdx !== -1 ? process.argv[changedIdx + 1] : null;
+const changed = resolveChangedScope(changedRef, { gate: 'check_tools.js (B2)', failClosed: true });
 
 function listTools() {
   const ents = fs.readdirSync(toolsDir, { withFileTypes: true });
@@ -24,7 +35,9 @@ function listTools() {
     .map(e => [e.name, path.join(toolsDir, e.name, 'index.html')]);
   const flat = ents.filter(e => e.isFile() && e.name.endsWith('.html'))
     .map(e => [e.name, path.join(toolsDir, e.name)]);
-  return nested.concat(flat).sort((a, b) => a[0].localeCompare(b[0]));
+  let all = nested.concat(flat).sort((a, b) => a[0].localeCompare(b[0]));
+  if (changed) all = all.filter(([, p]) => isTouched(path.relative(REPO, p), changed));
+  return all;
 }
 
 let bad = 0, total = 0;
@@ -45,5 +58,5 @@ for (const [name, p] of listTools()) {
   }
   if (failed) { bad++; console.log('FAIL  ' + name + '  ::  ' + failed); }
 }
-console.log(`\n${bad} of ${total} tools have a real JS syntax error.`);
+console.log(`\n${bad} of ${total} tool(s)${changed ? ' (touched-scope)' : ''} have a real JS syntax error.`);
 process.exit(bad ? 1 : 0);

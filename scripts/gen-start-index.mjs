@@ -11,6 +11,13 @@
  *     380 node pages had no start.html search entry at all, discoverable only
  *     via sitemap.html or a chain composer link.
  *
+ * STATUS-AWARE (GENERATOR-STATUS-FILTER-1): both discovery paths above are
+ * filtered through scripts/_node-status.mjs. A node that has LEFT SERVICE is
+ * dropped from the index EVEN THOUGH ITS FILE IS STILL PRESENT — the file is
+ * retained on purpose when a successor will inherit the URL, so file presence
+ * was never a liveness test. Pages the graph does not know (most tools/*.html)
+ * are untouched: absence from the graph is not a departure.
+ *
  * Extracts the display title from each file's <title> tag (part before " | ").
  * Injects a `const SEARCH_INDEX=[...];` script block between the
  *   <!--START-INDEX--> ... <!--/START-INDEX-->
@@ -23,6 +30,7 @@
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadStatusLens, isNonLive } from './_node-status.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO  = resolve(HERE, '..');
@@ -48,11 +56,21 @@ function slug(filename) {
   return basename(filename, '.html');
 }
 
-function scanDir(dirPath, relPrefix, isWorkflow) {
+// ── STATUS FILTER (GENERATOR-STATUS-FILTER-1) ────────────────────────────────
+// `lens` drops any file whose repo-relative path is the page of a node the graph
+// says has LEFT SERVICE. A directory glob cannot see that on its own: the file
+// is still there (ART99-GHOST-CLEANUP-1 keeps art-99's page as a retirement stub
+// so a successor can inherit the URL), so before this filter the search index
+// kept offering the departed node as a result.
+// ⛔ Only paths the graph KNOWS are dropped. Most tools/*.html pages are
+// standalone tools with no chaingraph node at all — they are not in the lens, so
+// they are never touched by it. Absence from the graph is not a departure.
+function scanDir(dirPath, relPrefix, isWorkflow, lens) {
   let entries;
   try { entries = readdirSync(dirPath); } catch { return []; }
   return entries
     .filter(f => f.endsWith('.html') && !f.startsWith('_'))
+    .filter(f => !lens.isNonLivePath(relPrefix + '/' + f))
     .sort()
     .map(f => {
       const full = resolve(dirPath, f);
@@ -70,6 +88,11 @@ function scanChaingraphNodes(repo) {
   try { cg = JSON.parse(readFileSync(resolve(repo, 'chaingraph', 'chaingraph.json'), 'utf8')); } catch { return []; }
   return (cg.nodes || [])
     .filter(n => (n.url || '').includes('/chaingraph/') && !(n.url || '').includes('/chaingraph/chains/'))
+    // GENERATOR-STATUS-FILTER-1: URL shape said "this is a node page"; it never
+    // said the node was still in service. Measured: start.html:474 carried
+    // {"n":"art-99-mica-transitional-deadline-router",…,"ocg":true} through
+    // every regen after the node was deprecated.
+    .filter(n => !isNonLive(n))
     .map(n => {
       const u = (n.url || '').replace('https://ainumbers.co/', '');
       const name = basename(u, '.html');
@@ -79,8 +102,9 @@ function scanChaingraphNodes(repo) {
 }
 
 function buildIndex() {
-  const tools     = scanDir(resolve(REPO, 'tools'),                  'tools',                  false);
-  const workflows = scanDir(resolve(REPO, 'chaingraph', 'chains'),   'chaingraph/chains',       true);
+  const lens      = loadStatusLens(REPO);
+  const tools     = scanDir(resolve(REPO, 'tools'),                  'tools',                  false, lens);
+  const workflows = scanDir(resolve(REPO, 'chaingraph', 'chains'),   'chaingraph/chains',       true,  lens);
   const nodes     = scanChaingraphNodes(REPO);
   return { tools, workflows, nodes, all: [...tools, ...workflows, ...nodes] };
 }

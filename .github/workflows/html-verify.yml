@@ -28,12 +28,40 @@ on:
     # Always-report shape (2026-08-16): NO `paths:` filter here anymore —
     # see scripts-verify.yml's identical comment. The `relevant` job below
     # decides against scripts/ci-paths.json key "html-verify".
-    types: [opened, synchronize, reopened, ready_for_review]
+    #
+    # converted_to_draft added (2026-08-30): a PR opened
+    # non-draft that goes RED by design, then converted to draft AFTER the
+    # run already failed, kept the stale red forever — nothing re-dispatched
+    # this workflow on that transition. Measured on PR #1584 (land-verify.yml
+    # class): opened 13:44:08Z, run failed by 13:44:33Z, converted_to_draft
+    # 13:54:49Z, red check untouched afterward. This re-fires the workflow on
+    # that exact transition so the draft==false skip below supersedes the
+    # stale red.
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   # merge_group: see scripts-verify.yml's identical comment — required checks
   # must fire on merge_group or the queue deadlocks waiting on a status that
   # never reports.
   merge_group:
     types: [checks_requested]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A newer push/synchronize on the same PR ref supersedes its prior
+  # in-progress run (2026-08-30) — letting the stale one
+  # finish is redundant CI time, not lost coverage. Also cancels a stale
+  # push:main run: derived-artifacts-regen.yml commits a regen fix-up on
+  # the same `github.ref` shortly after most human pushes to main, and this
+  # workflow has no push-only downstream job depending on it (unlike
+  # land-verify.yml's attest-fv-artifacts) — so the newer commit's run
+  # fully supersedes the older one. Measured 2026-08-30 run 33315676452:
+  # scripts-verify.yml's own push run stayed red on stale derived
+  # artifacts (debt-ledger) for 9 minutes while the regen bot's own push,
+  # 36s later, produced a clean green run for the same ref; same race
+  # shape hits every workflow gating a COVERED derived artifact on
+  # push:main. NEVER cancel a merge_group run — a cancelled merge_group
+  # run reports nothing back to the queue, which deadlocks it rather than
+  # just leaving a stale red.
+  cancel-in-progress: ${{ github.event_name != 'merge_group' }}
 
 permissions:
   contents: read
@@ -90,13 +118,57 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          fetch-depth: 1
+          # fetch-depth 0 (was 1, 2026-08-27): the Nav reachability gate
+          # below shells to check-shard-assembly.mjs, which needs to resolve
+          # origin/main to tell a mid-flight PENDING-ASSEMBLE
+          # shard from a genuinely unlinked island. depth 1 leaves origin/main
+          # unresolvable on a pull_request checkout (single-branch, tip-only),
+          # so resolveBase() fails closed (SO #34c) and the excuse never
+          # applies — every brand-new node page reported as a false-positive
+          # island. Same requirement scripts-verify.yml already solved this way
+          # (2026-08-16, for check-clause-digest.mjs).
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node 20
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '20'
+
+      - name: Assert base ref resolvable
+        # The tripwire for the fetch-depth above. The Nav reachability gate
+        # below reaches check-shard-assembly.mjs, which resolves origin/<base>;
+        # if the checkout does not carry that ref the sub-gate fails closed, and
+        # this job's real subject is then a CHECKOUT defect, not a content
+        # defect. Asserting it HERE makes that a three-second red naming the
+        # cause instead of a twenty-minute hunt for a page that is not broken.
+        # Plain git, no gate script: an environment precondition, not a gate, so
+        # it adds nothing for check-workflow-gate-parity.mjs to pair against.
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="origin/${GITHUB_BASE_REF:-main}"
+          if ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+            echo "::error::base ref $BASE does not resolve in this checkout. Base-ref-consuming gates in this job would fail CLOSED and mis-report. Set fetch-depth: 0 on this job's actions/checkout step."
+            exit 1
+          fi
+          echo "base-ref: RESOLVED $BASE @ $(git rev-parse --short=12 "$BASE")"
+
+      # On merge_group, assemble the derived tree
+      # EPHEMERALLY so the nav-reachability gates below read the assembled
+      # speculative monolith (their only DYNAMIC root) instead of the possibly
+      # stale committed one — a genuinely unlinked page FAILS the queue there.
+      # pull_request/push:main skip this step and are unchanged.
+      - name: Ephemeral derived tree (merge_group)
+        id: derived
+        if: github.event_name == 'merge_group'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRATCH="${RUNNER_TEMP}/derived-tree"
+          node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
+          node scripts/derived-artifacts.mjs --out "${SCRATCH}"
+          echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
 
       - name: Binary/control-byte gate (NUL + stray control bytes)
         # Runs first: a NUL byte makes a file read as BINARY to grep and ripgrep,
@@ -146,6 +218,13 @@ jobs:
         # cannot repair it, so it is never advisory. (Measured 2026-08-16: this
         # step used to be advisory on PRs and PR #1309 shipped
         # chaingraph/integrator-profile.html unlinked, green.)
+        # (the a62d8601 incident): on pull_request a
+        # chaingraph/<id>.html page whose shard is on disk is treated as
+        # REACHABLE-PENDING-REGEN (advisory) — a regen failure on main must not
+        # block the fix PR. On merge_group the gate reads the ephemeral assembled
+        # monolith (DERIVED_ROOT below) and the page either resolves or FAILS.
+        env:
+          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
         run: node scripts/check-nav-reachability.mjs
 
       - name: Nav-island baseline freshness (shared derived artifact)
@@ -162,8 +241,27 @@ jobs:
         # contexts and emits a visible ::warning:: annotation when it fails on a
         # PR. Only the exit code differs. run-gate.mjs (LAND-VERIFY-ADVISORY-
         # SPLIT-1) is the one place this split lives now, shared with
-        # land-verify.yml's count-drift gate.
+        # land-verify.yml's count-drift gate. On merge_group, DERIVED_ROOT
+        # (the DERIVED_ROOT mount) makes isMainContext() HARD and the gate reads
+        # the ephemeral assembled tree, so a stale baseline REFUSES the queue.
+        env:
+          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
         run: node scripts/run-gate.mjs node scripts/check-nav-reachability.mjs --baseline-check
+
+      # Nothing derived is EVER committed from the
+      # ephemeral assembly — proven, not assumed.
+      - name: Assert clean tree (merge_group — nothing derived was committed)
+        if: github.event_name == 'merge_group'
+        shell: bash
+        run: |
+          set -euo pipefail
+          s="$(git status --porcelain)"
+          if [ -n "$s" ]; then
+            echo "::error::merge_group job dirtied the checkout — the ephemeral derived tree must never touch it:"
+            printf '%s\n' "$s"
+            exit 1
+          fi
+          echo "checkout clean — the ephemeral derived tree touched nothing."
 
       - name: Node-page chrome (nav/footer)
         run: node scripts/check-node-page-chrome.mjs

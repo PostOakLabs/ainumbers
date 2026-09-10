@@ -72,6 +72,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COVERED, REPO } from './derived-artifacts.mjs';
+import { gitEnv } from './_git-env-lib.mjs';
 
 // GIT-ENV HYGIENE (measured, not theoretical): the pre-push hook invokes
 // preflight.mjs from INSIDE a `git push`, and git sets GIT_DIR/GIT_INDEX_FILE
@@ -84,13 +85,15 @@ import { COVERED, REPO } from './derived-artifacts.mjs';
 // fixture self-test). `cwd`/`-C` alone is not enough to override these — the
 // env vars win. Strip them from every git invocation's env so `cwd` is the
 // only thing that decides which repository a call operates on.
-const GIT_ENV_OVERRIDE_KEYS = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_PREFIX', 'GIT_CEILING_DIRECTORIES'];
-function cleanGitEnv(base = process.env) {
-  const out = { ...base };
-  for (const k of GIT_ENV_OVERRIDE_KEYS) delete out[k];
-  return out;
-}
-const GIT_EXEC_OPTS = { stdio: ['ignore', 'pipe', 'pipe'], env: cleanGitEnv() };
+//
+// GIT-ENV-LEAK-SWEEP-1 (2026-08-23): this file's private cleanGitEnv() deleted eight NAMED keys.
+// It is now an alias for the estate-wide gitEnv() in scripts/_git-env-lib.mjs, which drops every
+// key matching /^GIT_/i. That is a strict SUPERSET of the old eight — nothing this file used to
+// scrub is inherited now, the widening only removes MORE ambient git state, and the next variable
+// git invents is excluded without anyone remembering to extend a list here. The alias name stays
+// because check-regen-repairable.mjs and check-derived-regen-live.test.mjs both import it.
+const cleanGitEnv = gitEnv;
+const GIT_EXEC_OPTS = { stdio: ['ignore', 'pipe', 'pipe'], env: gitEnv() };
 
 // ── path helpers ─────────────────────────────────────────────────────────────
 

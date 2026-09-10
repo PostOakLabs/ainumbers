@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Plain-Text Accounting Verifier · T642 · AINumbers.co</title>
+<meta name="description" content="Paste a plain-text-accounting journal (hledger/Beancount-style, synthetic) and verify double-entry balance, balance assertions, and an RFC 6962 Merkle root entirely offline in your browser. Emits an AINumbers Evidence Envelope v0.1 receipt. Zero network calls. Client-side, zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/642-plain-text-accounting-verifier.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Plain-Text Accounting Verifier · T642","url":"https://ainumbers.co/tools/642-plain-text-accounting-verifier.html","description":"Verifies double-entry balance, balance assertions, and an RFC 6962 Merkle root of a plain-text-accounting journal entirely offline in the browser, emitting an AINumbers Evidence Envelope v0.1 receipt.","applicationCategory":"FinanceApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<!-- manifest.json
+{
+  "tool_id": "642-plain-text-accounting-verifier",
+  "version": "1.0.0",
+  "title": "Plain-Text Accounting Verifier",
+  "description": "Parses a plain-text-accounting journal (hledger/Beancount-style, synthetic) locally, validates double-entry balance and any inline balance assertions, computes an RFC 6962 Merkle root over the parsed transactions, and emits an AINumbers Evidence Envelope v0.1 receipt. Mirrors the art-653 verification kernel. Zero network calls.",
+  "category": "mcp",
+  "tags": ["plain text accounting", "hledger", "Beancount", "double-entry", "balance assertion", "Merkle root", "evidence envelope", "execution_hash", "offline verifier", "zero network"],
+  "audience": ["compliance", "auditor", "engineer", "finance"],
+  "input_schema": {"type":"object","properties":{"journal_text":{"type":"string","description":"Plain-text-accounting journal text (synthetic; hledger/Beancount-style subset)."}},"required":["journal_text"]},
+  "output_schema": {"type":"object","properties":{"parsed_transaction_count":{"type":"number"},"balanced_transaction_count":{"type":"number"},"imbalanced_transactions":{"type":"array"},"balance_assertions_checked":{"type":"number"},"balance_assertion_failures":{"type":"array"},"unsupported_directives":{"type":"array"},"accounts":{"type":"object"},"merkle_root":{"type":"string"},"evidence_envelope":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"verify_plain_text_accounting_journal","description":"Parses a plain-text-accounting (hledger/Beancount-style) journal, validates double-entry balance and inline balance assertions, computes an RFC 6962 Merkle root over transactions, and returns an AINumbers Evidence Envelope v0.1 receipt with execution_hash. Use when an agent needs to independently verify a synthetic accounting journal's arithmetic integrity.","inputSchema":{"type":"object","properties":{"journal_text":{"type":"string"}},"required":["journal_text"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/642-plain-text-accounting-verifier.html","function_name":"runPTAVerify","timeout_ms":5000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+select,input,textarea{font-family:'Sora',sans-serif}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:#2DD4BF}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.7rem);color:var(--white);max-width:800px;margin-bottom:.75rem}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:700px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+
+.fence{border:1px solid var(--warn);border-left:3px solid var(--warn);background:rgba(245,158,11,.06);padding:1rem 1.25rem;margin-bottom:2rem;font-size:.78rem;color:var(--body);line-height:1.75;border-radius:var(--radius)}
+.fence-label{display:block;color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
+.fence strong{color:var(--bright)}
+
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);padding-bottom:.6rem;border-bottom:1px solid var(--border);margin-bottom:1.75rem}
+.main-content{position:relative;z-index:1;padding:3rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:2rem;overflow:hidden}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-body{padding:1.5rem}
+.form-group{display:flex;flex-direction:column;gap:.45rem;margin-bottom:1.1rem}
+.form-group label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text)}
+.form-group textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.7rem .85rem;border-radius:var(--radius);font-size:.72rem;font-family:'JetBrains Mono',monospace;min-height:220px;resize:vertical;line-height:1.65}
+.form-group textarea:focus{outline:none;border-color:var(--teal)}
+.fixture-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.btn-fixture{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.4rem .8rem;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-3);color:var(--body);transition:all .2s}
+.btn-fixture:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:none;padding:.65rem 2rem;border-radius:var(--radius);transition:opacity .2s}
+.run-btn:hover{opacity:.85}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.run-btn.sec{background:var(--bg-4);color:var(--text);border:1px solid var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+
+.drop-zone{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:1.5rem 1.25rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--muted);transition:border-color .2s;cursor:pointer;margin-bottom:1rem}
+.drop-zone.drag{border-color:var(--teal)}
+.drop-zone strong{color:var(--text)}
+
+.finding{border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-3);padding:1rem 1.1rem;margin-bottom:.9rem}
+.finding-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.5rem;flex-wrap:wrap}
+.finding-title{font-family:'DM Serif Display',serif;font-size:.98rem;color:var(--bright)}
+.finding-status{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .6rem;border-radius:3px;border:1px solid currentColor}
+.st-ok{color:var(--green);background:var(--green-dim)}
+.st-bad{color:var(--red);background:var(--red-dim)}
+.st-warn{color:var(--warn);background:var(--warn-dim)}
+.st-info{color:var(--muted);background:var(--bg-4)}
+.finding-detail{font-size:.76rem;color:var(--body);line-height:1.65;margin-bottom:.5rem}
+.finding-mono{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);word-break:break-all;background:var(--bg-4);border-radius:4px;padding:.5rem .6rem;margin-top:.4rem;line-height:1.6}
+.check-list{display:flex;flex-direction:column;gap:.4rem;margin-top:.5rem}
+.check-row{display:flex;align-items:flex-start;gap:.6rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.4rem .6rem;background:var(--bg-4);border-radius:4px}
+.check-pass{color:var(--green)}.check-fail{color:var(--red)}
+.check-name{color:var(--bright);min-width:170px;flex-shrink:0}
+.check-detail{color:var(--body)}
+
+.verdict{padding:.9rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:600;margin-bottom:1rem}
+.verdict.pass{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.verdict.fail{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.25rem}
+@media(max-width:640px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
+.sg-cell{background:var(--bg-3);padding:.9rem 1rem;text-align:center}
+.sg-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.sg-val{font-family:'DM Serif Display',serif;font-size:1.3rem}
+.sg-ok{color:var(--green)}.sg-bad{color:var(--red)}.sg-warn{color:var(--warn)}
+
+.acct-table{width:100%;border-collapse:collapse;font-size:.72rem;margin-top:.5rem}
+.acct-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.acct-table td{padding:.4rem .65rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text)}
+.acct-table tr:last-child td{border-bottom:none}
+.acct-bal-pos{color:var(--green)}.acct-bal-neg{color:var(--red)}
+
+.errbox{display:none;margin-top:.65rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--red)}
+.exclusion-note{font-size:.68rem;color:var(--muted);line-height:1.6;margin-top:.75rem;padding:.6rem .85rem;background:var(--bg-4);border-left:3px solid var(--warn);border-radius:4px}
+.gen-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-bottom:1rem}
+
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:#2DD4BF}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div></div>
+    </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-642</span></div>
+    <div class="nav-right"><a href="../tools.html#cat-mcp" class="nav-cta">Category &#8594;</a></div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">T642 &middot; MCP &amp; Agentic Commerce &middot; Plain-Text Accounting &middot; Offline</div>
+    <h1>Plain-Text Accounting Verifier</h1>
+    <p class="hero-desc">Paste a plain-text-accounting journal in the hledger/Beancount style, and this tool parses it, validates double-entry balance and any inline balance assertions, computes an RFC 6962 Merkle root over the transactions, and builds an AINumbers Evidence Envelope v0.1 receipt &ndash; entirely in your browser, with zero network calls. The same verification logic is published as the <code>art-653-pta-verifier</code> chain kernel; this page is its browser-side reference implementation.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">Double-Entry</span>
+      <span class="hero-badge badge-gold">Balance Assertions</span>
+      <span class="hero-badge badge-purple">RFC 6962 Merkle Root</span>
+      <span class="hero-badge badge-muted"><span>Evidence Envelope v0.1</span></span>
+      <span class="hero-badge badge-muted"><span>v1.0</span></span>
+    </div>
+  </div>
+</section>
+
+<main class="main-content">
+  <div class="container">
+
+    <div class="fence">
+      <span class="fence-label">Parser scope &ndash; read before use</span>
+      Transactions start on an unindented <code>YYYY-MM-DD</code> line; postings are indented lines of the form <code>Account&nbsp;&nbsp;Amount</code> (2+ spaces or a tab between them), optionally followed by <code>&nbsp;=&nbsp;assertion</code> to check the running balance after that posting. Amounts are plain decimals with no currency symbol (<code>100.00</code>, not <code>$100.00</code>). At most one posting per transaction may omit its amount (auto-balanced from the others). A blank line closes a transaction. Any other line &ndash; account/commodity/include directives, comments, tags &ndash; is parsed as an unsupported directive: it is listed explicitly below and never silently dropped or guessed at.
+    </div>
+
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <div class="panel">
+      <div class="panel-label">Journal Text (synthetic)</div>
+      <div class="panel-body">
+        <div class="fixture-row">
+          <button class="btn-fixture" onclick="loadFixture('balanced')">Load balanced fixture (expect PASS)</button>
+          <button class="btn-fixture" onclick="loadFixture('imbalanced')">Load imbalanced fixture (expect FAIL)</button>
+        </div>
+        <div class="form-group">
+          <label>hledger / Beancount-style journal</label>
+          <textarea id="journalInput" placeholder="2026-01-05 Coffee purchase&#10;    Expenses:Food           12.50&#10;    Assets:Cash            -12.50" spellcheck="false"></textarea>
+        </div>
+        <button class="run-btn" onclick="runPTAVerify()">Verify Journal &#8594;</button>
+        <div id="verifyErr" class="errbox"></div>
+      </div>
+    </div>
+
+    <div id="verifyResult"></div>
+
+  </div>
+</main>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../tools/568-ocg-receipt-verifier.html">OCG Receipt Verifier</a>
+      <a href="../chaingraph/verify.html">Artifact Verifier</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   OCG-CORE v1 (inline, single-file port of chaingraph/kernels/
+   _hash.mjs). Byte-identical canon/hash to tools/566, 568, 624.
+   This is the ONLY canonicalization/hash path used below, and the
+   ONLY place execution_hash is computed (CONTRACT envelope
+   discipline: executionHash() only, never a hand-built preimage).
+══════════════════════════════════════════════════════════════ */
+var OCG = (function(){
+  function assertIJson(v){
+    if(typeof v==='number'){
+      if(!Number.isFinite(v)) throw new Error('Non-finite number is not valid I-JSON.');
+      if(Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('Integer exceeds 2^53.');
+    } else if(Array.isArray(v)){ v.forEach(assertIJson); }
+    else if(v && typeof v==='object'){ for(var k in v) if(Object.prototype.hasOwnProperty.call(v,k)) assertIJson(v[k]); }
+  }
+  function cgCanon(v){
+    if(Array.isArray(v)) return v.map(cgCanon);
+    if(v && typeof v==='object'){
+      var keys=Object.keys(v).sort(); var o={};
+      for(var i=0;i<keys.length;i++) o[keys[i]]=cgCanon(v[keys[i]]);
+      return o;
+    }
+    return v;
+  }
+  function canonicalPreimage(policy_parameters, output_payload){
+    var obj={policy_parameters:policy_parameters, output_payload:output_payload};
+    assertIJson(obj);
+    return JSON.stringify(cgCanon(obj));
+  }
+  async function executionHash(policy_parameters, output_payload){
+    var bytes=new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+    var digest=await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }
+  async function sha256Hex(bytes){
+    var d=await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(d)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }
+  return {cgCanon:cgCanon, canonicalPreimage:canonicalPreimage, executionHash:executionHash, sha256Hex:sha256Hex};
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   PTA verification logic. Ported from chaingraph/kernels/
+   art-653-pta-verifier.kernel.mjs's compute() — same parser, same
+   double-entry / balance-assertion / Merkle-root algorithm, so a
+   journal verified here and verified by the kernel produce the
+   same output_payload. The kernel hand-rolls SHA-256 because it
+   must run inside a QuickJS-ng guest with no crypto.subtle; this
+   page runs in a browser, so it uses the native WebCrypto SHA-256
+   for the exact same RFC 6962 Merkle construction (0x00/0x01
+   leaf/interior prefixes) — identical digests, for identical bytes.
+══════════════════════════════════════════════════════════════ */
+function utf8Bytes(str){ return new TextEncoder().encode(str); }
+function concatBytes(parts){
+  var total=0; for(var i=0;i<parts.length;i++) total+=parts[i].length;
+  var out=new Uint8Array(total); var off=0;
+  for(var j=0;j<parts.length;j++){ out.set(parts[j], off); off+=parts[j].length; }
+  return out;
+}
+async function sha256Bytes(bytes){ return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)); }
+function bytesToHex(b){ return Array.from(b).map(function(x){return x.toString(16).padStart(2,'0');}).join(''); }
+
+async function merkleLeafHash(dataBytes){ return sha256Bytes(concatBytes([new Uint8Array([0x00]), dataBytes])); }
+async function merkleInteriorHash(left,right){ return sha256Bytes(concatBytes([new Uint8Array([0x01]), left, right])); }
+async function merkleRoot(leafDataList){
+  var n=leafDataList.length;
+  if(n===0) return sha256Bytes(new Uint8Array(0));
+  if(n===1) return merkleLeafHash(leafDataList[0]);
+  var k=1; while(k*2<n) k*=2;
+  var left=await merkleRoot(leafDataList.slice(0,k));
+  var right=await merkleRoot(leafDataList.slice(k));
+  return merkleInteriorHash(left,right);
+}
+
+function canonicalStringify(v){ return JSON.stringify(OCG.cgCanon(v)); }
+
+/* decimal-string -> integer cents (avoids float drift) */
+function amountToCents(raw){
+  var s=raw.replace(/,/g,'').trim();
+  var neg=s.charAt(0)==='-';
+  var unsigned=neg?s.slice(1):(s.charAt(0)==='+'?s.slice(1):s);
+  var parts=unsigned.split('.');
+  var intPartRaw=parts[0], decPartRaw=parts.length>1?parts[1]:'';
+  var intPart=intPartRaw===''?'0':intPartRaw;
+  var decPart=(decPartRaw+'00').slice(0,2);
+  if(!/^\d+$/.test(intPart) || !/^\d{0,2}$/.test(decPartRaw)) return null;
+  var cents=parseInt(intPart,10)*100+parseInt(decPart,10);
+  return neg?-cents:cents;
+}
+
+var DATE_RE=/^\d{4}[-/]\d{2}[-/]\d{2}/;
+var POSTING_RE=/^[ \t]+(\S(?:[^\t]*?\S)?)(?:[ \t]{2,}|\t)(-?\+?[\d,]+\.?\d*)(?:\s*=\s*(-?\+?[\d,]+\.?\d*))?\s*$/;
+var POSTING_NOAMOUNT_RE=/^[ \t]+(\S(?:.*\S)?)\s*$/;
+
+function parseJournal(journalText){
+  var lines=String(journalText||'').split('\n');
+  var transactions=[];
+  var unsupported_directives=[];
+  var cur=null;
+
+  function closeCurrent(){ if(cur) transactions.push(cur); cur=null; }
+
+  for(var ln=0; ln<lines.length; ln++){
+    var raw=lines[ln];
+    var lineNo=ln+1;
+    if(raw.trim()===''){ closeCurrent(); continue; }
+
+    var isIndented=/^[ \t]/.test(raw);
+    if(!isIndented){
+      if(DATE_RE.test(raw)){
+        closeCurrent();
+        var m=raw.match(DATE_RE);
+        var date=m[0];
+        var description=raw.slice(m[0].length).trim();
+        cur={date:date, description:description, postings:[], line:lineNo};
+      } else {
+        closeCurrent();
+        unsupported_directives.push({line:lineNo, text:raw});
+      }
+      continue;
+    }
+
+    if(!cur){ unsupported_directives.push({line:lineNo, text:raw}); continue; }
+    var pm=raw.match(POSTING_RE);
+    if(pm){
+      var account=pm[1].trim();
+      var cents=amountToCents(pm[2]);
+      var assertedCents=pm[3]!=null?amountToCents(pm[3]):null;
+      if(cents===null){ unsupported_directives.push({line:lineNo, text:raw}); continue; }
+      cur.postings.push({account:account, cents:cents, elided:false, assertedCents:assertedCents, line:lineNo});
+      continue;
+    }
+    var nm=raw.match(POSTING_NOAMOUNT_RE);
+    if(nm){
+      cur.postings.push({account:nm[1].trim(), cents:null, elided:true, assertedCents:null, line:lineNo});
+      continue;
+    }
+    unsupported_directives.push({line:lineNo, text:raw});
+  }
+  closeCurrent();
+
+  return {transactions:transactions, unsupported_directives:unsupported_directives};
+}
+
+/* Runs the full kernel-equivalent compute(): parse -> balance ->
+   assertions -> Merkle root -> Evidence Envelope v0.1 fields.
+   Async because the Merkle root and execution_hash use WebCrypto. */
+async function computePTA(journal_text){
+  var parsed=parseJournal(journal_text);
+  var transactions=parsed.transactions, unsupported_directives=parsed.unsupported_directives;
+
+  var accountBalancesCents={};
+  var imbalanced_transactions=[];
+  var balance_assertion_failures=[];
+  var balanced_transaction_count=0;
+  var balance_assertions_checked=0;
+  var leafDataList=[];
+
+  for(var idx=0; idx<transactions.length; idx++){
+    var txn=transactions[idx];
+    var elidedPostings=txn.postings.filter(function(p){return p.elided;});
+    var resolvedPostings=txn.postings;
+    var status='balanced';
+    var imbalanceCents=0;
+
+    if(elidedPostings.length>1){
+      status='unsupported_multiple_elided_postings';
+    } else {
+      var known=txn.postings.filter(function(p){return !p.elided;});
+      var sum=known.reduce(function(s,p){return s+p.cents;},0);
+      if(elidedPostings.length===1){
+        var filled=-sum;
+        resolvedPostings=txn.postings.map(function(p){return p.elided?Object.assign({},p,{cents:filled,elided:false}):p;});
+        imbalanceCents=0;
+      } else {
+        imbalanceCents=sum;
+      }
+      if(imbalanceCents!==0) status='imbalanced';
+    }
+
+    if(status==='balanced'){
+      balanced_transaction_count++;
+    } else {
+      imbalanced_transactions.push({index:idx, date:txn.date, description:txn.description, reason:status, imbalance_cents:imbalanceCents});
+    }
+
+    if(status!=='unsupported_multiple_elided_postings'){
+      for(var pi=0; pi<resolvedPostings.length; pi++){
+        var p=resolvedPostings[pi];
+        var prev=accountBalancesCents[p.account]||0;
+        var next=prev+(p.cents||0);
+        accountBalancesCents[p.account]=next;
+        if(p.assertedCents!==null){
+          balance_assertions_checked++;
+          if(p.assertedCents!==next){
+            balance_assertion_failures.push({account:p.account, line:p.line, expected_cents:p.assertedCents, actual_cents:next});
+          }
+        }
+      }
+    }
+
+    leafDataList.push(utf8Bytes(canonicalStringify({
+      index:idx, date:txn.date, description:txn.description,
+      postings:resolvedPostings.map(function(p){return {account:p.account, cents:p.cents};})
+    })));
+  }
+
+  var accounts={};
+  Object.keys(accountBalancesCents).sort().forEach(function(k){ accounts[k]=accountBalancesCents[k]; });
+
+  var rootBytes=await merkleRoot(leafDataList);
+  var merkle_root_hex='sha256:'+bytesToHex(rootBytes);
+
+  var result_status=(imbalanced_transactions.length===0 && balance_assertion_failures.length===0)?'success':'error';
+  var input_hash='sha256:'+(await OCG.sha256Hex(utf8Bytes(journal_text)));
+
+  var findings={
+    parsed_transaction_count: transactions.length,
+    balanced_transaction_count: balanced_transaction_count,
+    imbalanced_transactions: imbalanced_transactions,
+    balance_assertions_checked: balance_assertions_checked,
+    balance_assertion_failures: balance_assertion_failures,
+    unsupported_directives: unsupported_directives,
+    accounts: accounts,
+    merkle_root: merkle_root_hex
+  };
+  var output_hash='sha256:'+(await OCG.sha256Hex(utf8Bytes(canonicalStringify(findings))));
+
+  var evidence_envelope={
+    schema: 'ainumbers.evidence.v0.1',
+    event_type: 'journal_verification',
+    source_adapter: 'native-tool',
+    result_status: result_status,
+    input_hash: input_hash,
+    output_hash: output_hash,
+    links: [],
+    extensions: {
+      transaction_count: transactions.length,
+      balanced_transaction_count: balanced_transaction_count,
+      imbalanced_count: imbalanced_transactions.length,
+      balance_assertions_checked: balance_assertions_checked,
+      balance_assertion_failure_count: balance_assertion_failures.length,
+      unsupported_directive_count: unsupported_directives.length
+    },
+    unprotected: {proofs: {merkle_root: merkle_root_hex}}
+  };
+
+  var output_payload=Object.assign({}, findings, {evidence_envelope: evidence_envelope});
+
+  var compliance_flags=['PTA_DOUBLE_ENTRY_VALIDATED'];
+  if(imbalanced_transactions.length>0) compliance_flags.push('PTA_IMBALANCED_TRANSACTIONS_FOUND');
+  if(balance_assertion_failures.length>0) compliance_flags.push('PTA_BALANCE_ASSERTION_FAILED');
+  if(unsupported_directives.length>0) compliance_flags.push('PTA_UNSUPPORTED_DIRECTIVES_SKIPPED');
+  if(result_status==='success') compliance_flags.push('PTA_JOURNAL_VERIFIED');
+
+  return {output_payload: output_payload, compliance_flags: compliance_flags, findings: findings};
+}
+
+/* buildArtifact()-equivalent: wraps compute() output in the full OCG
+   envelope, using OCG.executionHash() for execution_hash (the ONLY
+   path — CONTRACT envelope discipline). compute_mode is 'browser'
+   because this instance actually ran here, unlike the kernel's
+   'server' default. */
+async function buildArtifact(journal_text){
+  var policy_parameters={journal_text: journal_text};
+  var r=await computePTA(journal_text);
+  var hash=await OCG.executionHash(policy_parameters, r.output_payload);
+  return {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_control',
+    tool_id: 'art-653-pta-verifier',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: {parent_hashes: [], parent_tool_ids: [], chain_depth: 0},
+    policy_parameters: policy_parameters,
+    output_payload: r.output_payload,
+    compliance_flags: r.compliance_flags,
+    compute_mode: 'browser',
+    compute_proof_ready: 'deferred',
+    audit_signature: {payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: []}
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════
+   UI wiring
+══════════════════════════════════════════════════════════════ */
+var FIXTURES = {
+  balanced: "2026-01-05 Coffee purchase\n    Expenses:Food           12.50\n    Assets:Cash            -12.50\n\n2026-01-06 Payroll\n    Assets:Bank            2000.00\n    Income:Salary\n",
+  imbalanced: "2026-01-07 Bad entry\n    Expenses:Misc            5.00\n    Assets:Cash              -4.00\n"
+};
+function loadFixture(name){
+  var el=document.getElementById('journalInput');
+  el.value=FIXTURES[name]||'';
+  document.getElementById('verifyErr').style.display='none';
+}
+
+function centsToStr(c){
+  var neg=c<0; var abs=Math.abs(c);
+  var s=(abs/100).toFixed(2);
+  return (neg?'-':'')+s;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+window._lastArtifact = null;
+
+async function runPTAVerify(){
+  var errEl=document.getElementById('verifyErr');
+  errEl.style.display='none';
+  var journalText=document.getElementById('journalInput').value;
+  if(!journalText || !journalText.trim()){
+    errEl.textContent='Paste a journal above first.';
+    errEl.style.display='block';
+    return;
+  }
+  var artifact;
+  try{
+    artifact=await buildArtifact(journalText);
+  } catch(e){
+    errEl.textContent='Verification error: '+e.message;
+    errEl.style.display='block';
+    return;
+  }
+  window._lastArtifact=artifact;
+  renderResult(artifact);
+}
+
+function renderResult(artifact){
+  var op=artifact.output_payload;
+  var env=op.evidence_envelope;
+  var pass=env.result_status==='success';
+
+  var reasons=[];
+  op.imbalanced_transactions.forEach(function(t){
+    reasons.push('Transaction #'+t.index+' ('+t.date+' '+escapeHtml(t.description)+'): '+
+      (t.reason==='unsupported_multiple_elided_postings'
+        ? 'more than one posting omitted its amount &mdash; cannot auto-balance'
+        : 'imbalanced by '+centsToStr(t.imbalance_cents)+' (postings do not sum to zero)'));
+  });
+  op.balance_assertion_failures.forEach(function(f){
+    reasons.push('Balance assertion failed at line '+f.line+' for '+escapeHtml(f.account)+': expected '+centsToStr(f.expected_cents)+', running balance is '+centsToStr(f.actual_cents));
+  });
+
+  var acctRows=Object.keys(op.accounts).map(function(k){
+    var v=op.accounts[k];
+    var cls=v<0?'acct-bal-neg':'acct-bal-pos';
+    return '<tr><td>'+escapeHtml(k)+'</td><td class="'+cls+'">'+centsToStr(v)+'</td></tr>';
+  }).join('');
+
+  var unsupportedRows=op.unsupported_directives.map(function(u){
+    return '<div class="check-row"><span class="check-name">line '+u.line+'</span><span class="check-detail">'+escapeHtml(u.text)+'</span></div>';
+  }).join('');
+
+  var html='';
+  html+='<div class="panel"><div class="panel-body">';
+  html+='<div class="verdict '+(pass?'pass':'fail')+'">'+(pass?'✓ PASS':'✗ FAIL')+' &mdash; '+op.parsed_transaction_count+' transaction(s) parsed, result_status: '+env.result_status+'</div>';
+  html+='<div class="gen-at">generated_at: '+escapeHtml(artifact.generated_at)+'</div>';
+
+  if(!pass){
+    html+='<div class="finding"><div class="finding-head"><span class="finding-title">Why this failed</span><span class="finding-status st-bad">'+reasons.length+' issue(s)</span></div>';
+    reasons.forEach(function(r){ html+='<div class="finding-detail">&bull; '+r+'</div>'; });
+    html+='</div>';
+  }
+
+  html+='<div class="summary-grid">';
+  html+='<div class="sg-cell"><div class="sg-lbl">Balanced Txns</div><div class="sg-val '+(op.imbalanced_transactions.length?'sg-warn':'sg-ok')+'">'+op.balanced_transaction_count+' / '+op.parsed_transaction_count+'</div></div>';
+  html+='<div class="sg-cell"><div class="sg-lbl">Assertions Checked</div><div class="sg-val">'+op.balance_assertions_checked+'</div></div>';
+  html+='<div class="sg-cell"><div class="sg-lbl">Assertion Failures</div><div class="sg-val '+(op.balance_assertion_failures.length?'sg-bad':'sg-ok')+'">'+op.balance_assertion_failures.length+'</div></div>';
+  html+='<div class="sg-cell"><div class="sg-lbl">Unsupported Lines</div><div class="sg-val '+(op.unsupported_directives.length?'sg-warn':'sg-ok')+'">'+op.unsupported_directives.length+'</div></div>';
+  html+='</div>';
+
+  html+='<div class="finding"><div class="finding-head"><span class="finding-title">Account Balances</span></div>';
+  html+=acctRows ? '<table class="acct-table"><thead><tr><th>Account</th><th>Balance</th></tr></thead><tbody>'+acctRows+'</tbody></table>' : '<div class="finding-detail">No postings applied.</div>';
+  html+='</div>';
+
+  html+='<div class="finding"><div class="finding-head"><span class="finding-title">Unsupported Directives</span><span class="finding-status '+(op.unsupported_directives.length?'st-warn':'st-ok')+'">'+(op.unsupported_directives.length?op.unsupported_directives.length+' skipped':'none')+'</span></div>';
+  html+=unsupportedRows ? '<div class="check-list">'+unsupportedRows+'</div>' : '<div class="finding-detail">Every line was either a transaction header or a recognised posting &mdash; nothing was skipped.</div>';
+  html+='</div>';
+
+  html+='<div class="finding"><div class="finding-head"><span class="finding-title">Evidence Envelope Receipt (ainumbers.evidence.v0.1)</span></div>';
+  html+='<div class="check-list">';
+  html+='<div class="check-row"><span class="check-name">merkle_root</span><span class="check-detail finding-mono" style="flex:1">'+op.merkle_root+'</span></div>';
+  html+='<div class="check-row"><span class="check-name">input_hash</span><span class="check-detail finding-mono" style="flex:1">'+env.input_hash+'</span></div>';
+  html+='<div class="check-row"><span class="check-name">output_hash</span><span class="check-detail finding-mono" style="flex:1">'+env.output_hash+'</span></div>';
+  html+='<div class="check-row"><span class="check-name">execution_hash</span><span class="check-detail finding-mono" style="flex:1">'+artifact.execution_hash+'</span></div>';
+  html+='</div>';
+  html+='<div class="fixture-row" style="margin-top:.9rem"><button class="btn-fixture" onclick="downloadReceipt()">Download Receipt (.ocg.json)</button><button class="btn-fixture" onclick="copyReceipt()">Copy Receipt JSON</button></div>';
+  html+='<div class="exclusion-note">This receipt is the full OCG artifact (<code>policy_parameters</code> + <code>output_payload</code> + <code>execution_hash</code>), the same shape the <code>art-653-pta-verifier</code> chain kernel emits. Verify it independently &ndash; without trusting this page &ndash; by pasting the downloaded JSON into the <a href="../tools/568-ocg-receipt-verifier.html" style="color:var(--teal)">OCG Receipt Verifier</a> or the <a href="../chaingraph/verify.html" style="color:var(--teal)">Artifact Verifier</a>; either recomputes <code>execution_hash</code> from scratch and reports PASS/FAIL on its own.</div>';
+  html+='</div>';
+
+  html+='</div></div>';
+  document.getElementById('verifyResult').innerHTML=html;
+}
+
+function downloadReceipt(){
+  if(!window._lastArtifact){ return; }
+  var json=JSON.stringify(window._lastArtifact, null, 2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  var ts=(window._lastArtifact.generated_at||new Date().toISOString()).replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14);
+  a.download='642-plain-text-accounting-verifier_'+ts+'.ocg.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function copyReceipt(){
+  if(!window._lastArtifact){ return; }
+  var json=JSON.stringify(window._lastArtifact, null, 2);
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(json); }
+}
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "642-plain-text-accounting-verifier", "version": "1.0.0", "title": "Plain-Text Accounting Verifier", "description": "Parses a plain-text-accounting journal (hledger/Beancount-style, synthetic) locally, validates double-entry balance and any inline balance assertions, computes an RFC 6962 Merkle root over the parsed transactions, and emits an AINumbers Evidence Envelope v0.1 receipt. Mirrors the art-653 verification kernel. Zero network calls.", "category": "mcp", "tags": ["plain text accounting", "hledger", "Beancount", "double-entry", "balance assertion", "Merkle root", "evidence envelope", "execution_hash", "offline verifier", "zero network"], "audience": ["compliance", "auditor", "engineer", "finance"], "input_schema": {"type": "object", "properties": {"journal_text": {"type": "string", "description": "Plain-text-accounting journal text (synthetic; hledger/Beancount-style subset)."}}, "required": ["journal_text"]}, "output_schema": {"type": "object", "properties": {"parsed_transaction_count": {"type": "number"}, "balanced_transaction_count": {"type": "number"}, "imbalanced_transactions": {"type": "array"}, "balance_assertions_checked": {"type": "number"}, "balance_assertion_failures": {"type": "array"}, "unsupported_directives": {"type": "array"}, "accounts": {"type": "object"}, "merkle_root": {"type": "string"}, "evidence_envelope": {"type": "object"}}}, "mcp_tool_definition": {"name": "verify_plain_text_accounting_journal", "description": "Parses a plain-text-accounting (hledger/Beancount-style) journal, validates double-entry balance and inline balance assertions, computes an RFC 6962 Merkle root over transactions, and returns an AINumbers Evidence Envelope v0.1 receipt with execution_hash. Use when an agent needs to independently verify a synthetic accounting journal arithmetic integrity.", "inputSchema": {"type": "object", "properties": {"journal_text": {"type": "string"}}, "required": ["journal_text"]}}, "execution": {"type": "browser-javascript", "entry": "tools/642-plain-text-accounting-verifier.html", "function_name": "runPTAVerify", "timeout_ms": 5000}, "ap2_export": false}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+</body>
+</html>

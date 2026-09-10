@@ -26,10 +26,17 @@
  * every finding below but ALWAYS EXITS 0 while BLOCKING is false. Flip it to a
  * real hard-fail gate at board-clear by changing exactly one line:
  *
- *     const BLOCKING = false;   // <-- flip to `true` at board-clear (TPL-GATE-1)
+ *     const BLOCKING = false;   // see the flip switch below (TPL-GATE-1)
  *
  * No other code changes needed — findings/failures are already fully computed;
  * only the exit-code decision below is gated on this flag.
+ *
+ * ⛔ "at board-clear" is not a condition anyone re-reads, so here is how to
+ * re-evaluate it instead of inheriting this sentence: run
+ * `node scripts/check-template-integrity.mjs` and read the finding count it
+ * prints — that is the debt the flip would turn red. Last evaluated
+ * 2026-08-23 (STALE-PHASING-NOTE-SWEEP-1): still advisory, still pending.
+ * Re-date this line when you re-check it.
  *
  * Usage:
  *   node scripts/check-template-integrity.mjs
@@ -50,7 +57,11 @@ const TEMPLATES_ROOT = process.env.TEMPLATE_ROOT
 const AUDIT_OUT = resolve(REPO, 'data', 'template-audit.json');
 
 // ── the flip switch (named explicitly per the WU check-off) ────────────────
-const BLOCKING = false; // <-- flip to `true` at board-clear (TPL-GATE-1)
+// TPL-GATE-1. The condition for turning this on, and how to check where it
+// stands rather than trusting this comment: `node scripts/check-template-
+// integrity.mjs` prints the live finding count that flipping would turn red.
+// Last evaluated 2026-08-23 (STALE-PHASING-NOTE-SWEEP-1): still pending.
+const BLOCKING = false;
 
 const EMDASH = /—/g;
 const SMARTQUOTES = /[‘’“”]/g;

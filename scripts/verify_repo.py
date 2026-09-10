@@ -28,6 +28,7 @@ kernel regardless of git diff, so skipping is only safe when nothing they cover 
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -87,6 +88,21 @@ def fail(msg):
     errors.append(msg)
 
 
+# ── git child environment (GIT-ENV-LEAK-SWEEP-1, 2026-08-23) ───────────────────
+# THE PYTHON HALF of scripts/_git-env-lib.mjs's gitEnv(). Python cannot import an .mjs module, so
+# this is the one sanctioned second copy in the estate — scripts/check-git-env-scrub.mjs names this
+# file explicitly for that reason, and a THIRD copy in any language reds that gate.
+#
+# Why it is needed at all: git exports GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE into the environment
+# of every hook it runs, and this module is reached from scripts/preflight.mjs, which .githooks/
+# pre-push invokes from inside `git push`. Those variables BEAT `cwd` in git's repository discovery,
+# so without the scrub `get_changed_files` would return the OUTER repository's changed files and
+# verify_repo would check a set of paths that has nothing to do with the tree it is verifying.
+# Deleting every key with a GIT_ prefix (not a list of remembered names) excludes the next one too.
+def _git_env():
+    return {k: v for k, v in os.environ.items() if not k.upper().startswith("GIT_")}
+
+
 # ── --changed support ──────────────────────────────────────────────────────────
 def get_changed_files(ref):
     """Union of files touched vs <ref> (committed) and in the working tree (uncommitted).
@@ -95,7 +111,7 @@ def get_changed_files(ref):
         return None
     try:
         subprocess.run(["git", "rev-parse", "--verify", ref],
-                        cwd=str(REPO), capture_output=True, text=True, check=True)
+                        cwd=str(REPO), env=_git_env(), capture_output=True, text=True, check=True)
     except Exception:
         print(f"  ⚠️  --changed {ref}: ref not resolvable — falling back to full scan")
         return None
@@ -103,7 +119,7 @@ def get_changed_files(ref):
     for cmd in (["git", "diff", "--name-only", f"{ref}...HEAD"],
                 ["git", "diff", "--name-only", "HEAD"],
                 ["git", "status", "--porcelain"]):
-        res = subprocess.run(cmd, cwd=str(REPO), capture_output=True, text=True)
+        res = subprocess.run(cmd, cwd=str(REPO), env=_git_env(), capture_output=True, text=True)
         if res.returncode != 0:
             print(f"  ⚠️  `{' '.join(cmd)}` failed (exit {res.returncode}) — falling back to full scan")
             return None
@@ -135,7 +151,64 @@ def _pii_scan_dirs():
     return dirs
 
 
+# PII-GATE-ABSENCE-1 (2026-08-29): the old regex only ever matched literal
+# <div class="pii-notice"> / "pii-bar"> with no other attributes. Measured
+# against the live estate (git grep, sha 8cdb82d6), the disclosure sentence
+# actually ships under at least eight different wrapper shapes across template
+# generations — class="pii-notice", "pii", "pii-notice-inline", "pii-banner",
+# "scope-note" (+ a <span data-i18n="pii.banner">, or on a few older pages a
+# bare unlabeled <span>), "disclaimer", "privacy-text", "req-pii-note" — and
+# new ones keep appearing (see tools/152-baas-provider-comparator.html, the
+# template CLAUDE.md itself names, which the old regex never matched at all).
+# Enumerating wrapper classes is therefore a losing game. Instead: does the
+# canonical sentence appear anywhere on the page (pass); if not, does the
+# page still carry a recognizable ATTEMPT at it (the phrase "processed
+# locally", present in every variant seen, canonical or drifted) — that's a
+# wording drift, not an absence; if neither, the page never got a notice at
+# all. All three states are real per SO #34c ("absence is not a pass").
+PII_ATTEMPT_SIGNAL = "processed locally"
+
+# fixture-only strings — no real page is read or written by this self-test.
+_PII_FIXTURE_MISSING = "<html><body><main><h1>Fixture</h1><p>No disclosure text at all.</p></main></body></html>"
+_PII_FIXTURE_CANONICAL = f"<html><body><div class=\"scope-note\">{CANON_PII_PREFIX} Do not enter real personal data.</div></body></html>"
+_PII_FIXTURE_DRIFTED = "<html><body><div class=\"disclaimer\">Inputs are processed locally in your browser only.</div></body></html>"
+
+
+def _pii_old_regex_result(text):
+    """Reproduces the pre-PII-GATE-ABSENCE-1 matcher: only ever looked inside
+    a literal <div class="pii-notice"|"pii-bar"> — a page with no such div was
+    never counted and never flagged. Returns True if the OLD code would have
+    silently passed (no fail, no count) on `text`."""
+    m = re.search(r'<div\s+class="(?:pii-notice|pii-bar)">(.*?)</div>', text, re.S)
+    return m is None
+
+
+def pii_gate_self_test():
+    """SO #40b fixture proof: proves the fail-closed fix actually changed
+    behavior on the exact silent-pass shape PII-GATE-ABSENCE-1 found — a page
+    with no `pii-notice`/`pii-bar` div, which the old regex simply never saw."""
+    assert _pii_old_regex_result(_PII_FIXTURE_MISSING) is True, \
+        "self-test broken: the OLD-regex reproduction no longer silently passes the missing fixture"
+
+    def _new_verdict(text):
+        if CANON_PII_PREFIX in text:
+            return "PASS"
+        if PII_ATTEMPT_SIGNAL in text:
+            return "FAIL (non-canonical text)"
+        return "FAIL (MISSING privacy notice)"
+
+    got_missing = _new_verdict(_PII_FIXTURE_MISSING)
+    got_canonical = _new_verdict(_PII_FIXTURE_CANONICAL)
+    got_drifted = _new_verdict(_PII_FIXTURE_DRIFTED)
+    assert got_missing == "FAIL (MISSING privacy notice)", f"missing fixture: expected fail-closed, got {got_missing}"
+    assert got_canonical == "PASS", f"canonical fixture: expected PASS, got {got_canonical}"
+    assert got_drifted == "FAIL (non-canonical text)", f"drifted fixture: expected non-canonical fail, got {got_drifted}"
+    print("  ✅ PII gate self-test: OLD matcher silently passed a no-banner fixture (SO #34c shape) "
+          "→ NEW matcher fails closed (MISSING); canonical fixture PASSes; drifted fixture fails non-canonical.")
+
+
 def check_pii_text(changed=None):
+    pii_gate_self_test()
     bad = []
     scanned = 0
     n = 0
@@ -143,18 +216,21 @@ def check_pii_text(changed=None):
         for path in _touched(sorted(d.glob("*.html")), changed):
             scanned += 1
             text = path.read_text(encoding="utf-8", errors="replace")
-            m = re.search(r'<div\s+class="(?:pii-notice|pii-bar)">(.*?)</div>', text, re.S)
-            if m:
+            if CANON_PII_PREFIX in text:
                 n += 1
-                if CANON_PII_PREFIX not in m.group(1):
-                    bad.append(str(path.relative_to(REPO)))
+                continue
+            rel = str(path.relative_to(REPO))
+            if PII_ATTEMPT_SIGNAL in text:
+                bad.append(f"{rel}  (non-canonical text)")
+            else:
+                bad.append(f"{rel}  (MISSING privacy notice)")
     if bad:
-        fail(f"[PII] {len(bad)} page(s) have wrong pii-notice text (CONTRACT §1.3):")
+        fail(f"[PII] {len(bad)} page(s) missing or with non-canonical pii-notice text (CONTRACT §1.3):")
         for f in bad:
             fail(f"  {f}")
     else:
         scope = f"{scanned} touched page(s)" if changed is not None else f"{scanned} pages scanned across tools/ + chaingraph/workbench/ + chaingraph/canvas/"
-        print(f"  ✅ PII text: {n} pii-notice divs all carry canonical §1.3 text ({scope})")
+        print(f"  ✅ PII text: {n} pages carry canonical §1.3 text ({scope})")
 
 
 # ── Check 2: Manifest coverage ────────────────────────────────────────────────
@@ -253,6 +329,56 @@ def check_ap2(changed=None):
 # scope-drift apart independently (DISCOVER-1 §D-2).
 PUBLISHED_DIRS = json.loads((REPO / "scripts" / "published-dirs.json").read_text(encoding="utf-8"))
 
+# ── STATUS FILTER (GENERATOR-STATUS-FILTER-1) ────────────────────────────────
+# ⛔ SCOPE IS SHARED WITH THE GENERATOR, AND SO IS LIVENESS. The directory scope
+# above already comes from one manifest so generator and gate cannot drift. The
+# MEMBERSHIP rule had no such pairing: regen-sitemap.mjs now withholds the URL of
+# a page whose node has LEFT SERVICE, while this gate still demanded that every
+# .html file on disk appear in sitemap.xml. Two rules, opposite verdicts, same
+# file — measured: with only the generator fixed, this gate failed with
+# "[SITEMAP] 1 file(s) missing: chaingraph/art-99-….html" and the row's own
+# requirement was unsatisfiable.
+#
+# The file legitimately stays: ART99-GHOST-CLEANUP-1 (PR #1501) kept art-99's
+# page as a retirement-banner stub so a rebuilt successor can inherit the URL.
+# ⇒ File presence is not publishability. Same shape as the `noindex` guides skip
+# below, which this estate has accepted since DISCOVER-1.
+#
+# ⛔ The asymmetry matches scripts/_node-status.mjs exactly and deliberately:
+# ONLY an explicit, non-"live" status withholds a page. A missing status, or a
+# page with no node at all, is published as before — this filter can only ever
+# subtract pages the graph NAMES as departed.
+_NON_LIVE_PAGES_CACHE = None
+
+
+def _non_live_page_paths():
+    """Repo-relative page paths of nodes chaingraph.json declares NOT live."""
+    global _NON_LIVE_PAGES_CACHE
+    if _NON_LIVE_PAGES_CACHE is not None:
+        return _NON_LIVE_PAGES_CACHE
+    base = "https://ainumbers.co/"
+    paths = set()
+    try:
+        cg = json.loads((REPO / "chaingraph" / "chaingraph.json").read_text(encoding="utf-8"))
+    except Exception:
+        # Unreadable graph -> filter NOTHING. This gate then behaves exactly as it
+        # did before this change (every file must be listed), which is the strict
+        # direction. A broken read must never quietly excuse a missing URL.
+        _NON_LIVE_PAGES_CACHE = paths
+        return paths
+    for node in cg.get("nodes", []):
+        status = node.get("status")
+        if not isinstance(status, str) or status == "" or status == "live":
+            continue
+        url = node.get("url")
+        if not isinstance(url, str) or not url.startswith(base):
+            continue
+        rel = url[len(base):].split("#")[0].split("?")[0]
+        if rel:
+            paths.add(rel)
+    _NON_LIVE_PAGES_CACHE = paths
+    return paths
+
 
 def _walk_html(dir_path, exclude_rel_prefixes):
     for p in sorted(dir_path.rglob("*.html")):
@@ -273,24 +399,43 @@ def check_sitemap(changed=None):
     )
 
     missing = []
+    non_live = _non_live_page_paths()
+    withheld = []
 
     for dname in PUBLISHED_DIRS["flatDirs"]:
         d = REPO / dname
         for path in _touched(sorted(d.glob("*.html")), changed):
+            rel = f"{dname}/{path.name}"
+            if rel in non_live:
+                withheld.append(rel)   # node left service; the generator withholds the URL
+                continue
             if dname in ("tools", "guides"):
                 content = path.read_text(encoding="utf-8", errors="replace")
                 if dname == "guides" and "noindex" in content:
                     continue  # redirect stubs don't belong in sitemap
-            if f"{dname}/{path.name}" not in sitemap_locs:
-                missing.append(f"{dname}/{path.name}")
+            if rel not in sitemap_locs:
+                missing.append(rel)
 
     for dname in PUBLISHED_DIRS["recursiveDirs"]:
         d = REPO / dname
         exclude = [ex for ex in PUBLISHED_DIRS.get("recursiveExcludeSubdirs", []) if ex.startswith(dname + "/")]
         for path in _touched(list(_walk_html(d, exclude)), changed):
             rel = str(path.relative_to(REPO)).replace("\\", "/")
+            if rel in non_live:
+                withheld.append(rel)   # node left service; the generator withholds the URL
+                continue
             if rel not in sitemap_locs:
                 missing.append(rel)
+
+    # THE OTHER HALF OF THE SAME RULE, and it is the half that catches a
+    # regression. A withheld page must be ABSENT from sitemap.xml, not merely
+    # excused from being present — otherwise reverting the generator's status
+    # filter would sail through this gate unnoticed.
+    still_listed = sorted(p for p in withheld if p in sitemap_locs)
+    if still_listed:
+        fail(f"[SITEMAP] {len(still_listed)} departed page(s) still advertised in sitemap.xml:")
+        for f in still_listed[:25]:
+            fail(f"  {f} — node is not live; run: node scripts/regen-sitemap.mjs")
 
     if missing:
         fail(f"[SITEMAP] {len(missing)} file(s) missing from sitemap.xml:")
@@ -298,10 +443,13 @@ def check_sitemap(changed=None):
             fail(f"  {f}")
         if len(missing) > 25:
             fail(f"  ... and {len(missing) - 25} more — run: node scripts/regen-sitemap.mjs")
+    elif still_listed:
+        pass  # already failed above; do not print a green line over a red result
     else:
         dirs_checked = ", ".join(PUBLISHED_DIRS["flatDirs"] + PUBLISHED_DIRS["recursiveDirs"])
         scope = "touched pages" if changed is not None else "all pages"
-        print(f"  ✅ Sitemap: {scope} present ({dirs_checked})")
+        note = f"; {len(withheld)} withheld (node not live, file kept)" if withheld else ""
+        print(f"  ✅ Sitemap: {scope} present ({dirs_checked}){note}")
 
 
 # ── Check 5: Node hash + syntax gates ─────────────────────────────────────────

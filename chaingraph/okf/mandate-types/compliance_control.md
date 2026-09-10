@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-77"]
+tags: ["compliance_control", "count-92"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-77 tool(s) in this mandate-type group:
+92 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -87,5 +87,20 @@ status: stable
 - [Verify Receipt](../tools/art-652-verify-receipt.md)
 - [Interest Accrual Recompute](../tools/art-661-interest-accrual-recompute.md)
 - [Overdraft / NSF Fee Recomputation](../tools/art-662-odnsf-fee-recompute.md)
+- [APY-Earned Recompute](../tools/art-663-apy-earned-recompute.md)
 - [Loan Servicing Waterfall Recompute](../tools/art-664-loan-servicing-waterfall-recompute.md)
 - [GL Tie-Out Recompute](../tools/art-665-gl-tieout-recompute.md)
+- [Examination Readiness Pack](../tools/art-670-examination-readiness-pack.md)
+- [FX Funding Sequencer](../tools/art-672-fx-funding-sequencer.md)
+- [Lending Recall Prioritizer](../tools/art-673-lending-recall-prioritizer.md)
+- [Proxy Voting Record](../tools/art-676-proxy-voting-record.md)
+- [Whistleblowing Channel Clock Checker](../tools/art-677-whistleblowing-channel-clock.md)
+- [ORSA Readiness Pack](../tools/art-679-orsa-readiness-pack.md)
+- [Control Attestation Campaign Roll Up](../tools/art-680-control-attestation-campaign-roll-up.md)
+- [Best-Execution Evidence Pack](../tools/art-681-best-execution-evidence-pack.md)
+- [Intercompany Elimination and Netting Workflow](../tools/art-684-intercompany-elimination-netting.md)
+- [Direct Indexing Fit Screen](../tools/art-685-direct-indexing-fit-screen.md)
+- [LTC Funding Comparator](../tools/art-686-ltc-funding-comparator.md)
+- [Wash-Sale Window Guard](../tools/art-687-wash-sale-window-guard.md)
+- [Education Funding Gap Calculator](../tools/art-688-education-funding-gap-calculator.md)
+- [Pack Dependency Map](../tools/art-689-pack-dependency-map.md)

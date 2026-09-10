@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:d86f9301b3835cd8d80c1ed5bfa8cc607bbeb1876e91b2482c16eb64316db228
+// kernel_digest_at_authoring: sha256:fdefc00a406661e194bea25330e113e996c7bfc3ae6c0d103cac27d8f5649c12
 //
 // FV-PROPFLOOR-SHARD-B7-1 — property-test floor for art-233-check-card-act-ability-to-pay.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (annual_income/12 division through r4 rounding,

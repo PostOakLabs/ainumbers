@@ -82,6 +82,7 @@
  *       ONLY. Patch-id alone can never produce a UNIQUE verdict here.
  */
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -248,8 +249,12 @@ export function classifyBranch(m) {
 
 /* ──────────────────────────── git / gh plumbing ──────────────────────── */
 
+// env: gitEnv() — this module runs as `node scripts/reconcile-guard.mjs --prepush` FROM
+// .githooks/pre-push, i.e. the one place in the estate guaranteed to have GIT_DIR exported. It
+// classifies branches and refuses pushes, so answering about the outer repo would refuse (or
+// permit) on another tree's ref graph. `opts` is spread last so a caller can still override.
 function git(args, opts = {}) {
-  return execFileSync('git', args, { cwd: REPO, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...opts }).trim();
+  return execFileSync('git', args, { cwd: REPO, env: gitEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...opts }).trim();
 }
 
 function gitOrNull(args) {

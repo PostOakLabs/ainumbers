@@ -35,6 +35,7 @@
  * the SPEC.md §15 conformance-gate matrix (so spec-gate-coverage.mjs enforces it exists).
  */
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from '../../scripts/_git-env-lib.mjs';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -61,7 +62,7 @@ export function urlToRelPath(url) {
 function fileExistsOnOriginMain(repoRoot, relPath) {
   try {
     execFileSync('git', ['cat-file', '-e', `origin/main:${relPath}`], {
-      cwd: repoRoot, stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: repoRoot, env: gitEnv(), stdio: ['ignore', 'pipe', 'pipe'],
     });
     return true;
   } catch {

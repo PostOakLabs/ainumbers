@@ -51,6 +51,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 
 // ── DenominatorSentinelError ─────────────────────────────────────────────────────────────────────
 // Carries the machine-readable `state` alongside the human message, so the self-test asserts on the
@@ -159,11 +160,10 @@ export function assertSsotPresent(path, { label, what, remedy }) {
 // under the pre-push hook, because a temp directory that is not a repository still answered successfully
 // through the leaked GIT_DIR. Building the child env by DELETING every `GIT_*` key excludes the next one
 // too, which is the same by-construction argument check-shard-assembly.test.mjs makes for its allowlist.
-function gitEnv() {
-  const env = { ...process.env };
-  for (const k of Object.keys(env)) if (/^GIT_/i.test(k)) delete env[k];
-  return env;
-}
+//
+// GIT-ENV-LEAK-SWEEP-1 (2026-08-23): that by-construction argument is now the estate's, not this
+// file's. gitEnv() moved verbatim into scripts/_git-env-lib.mjs and is imported above; RED #5b in
+// denominator-sentinel.test.mjs still pins the behaviour from this end.
 
 export function committedFileCount({ repoRoot, pathspec, match, label, remedy }) {
   let out;

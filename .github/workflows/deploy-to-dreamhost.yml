@@ -14,23 +14,121 @@ permissions:
   contents: read
 
 jobs:
+  # ── Is this run already SUPERSEDED by the derived-artifacts regen? ─────────
+  # This workflow and derived-artifacts-regen.yml BOTH trigger on `push: main`,
+  # so they start together and this one races the regen. Measured 2026-08-23:
+  #
+  #   Deploy to DreamHost: failure  e7e6ef34  (the merge commit, run 32659409887)
+  #        gen-llms-full --check: llms-full.txt is stale.
+  #   Deploy to DreamHost: success  57f6b05e  (the regen bot's commit, 34s later)
+  #
+  # llms-full.txt is a SHARED DERIVED ARTIFACT: the main-side regen workflow is
+  # its single writer and the merging pull request is forbidden to regenerate it.
+  # So the merge commit is stale BY CONSTRUCTION and the bot repairs it seconds
+  # later. 3 of the last 20 Deploy runs on main were that same false alarm. A
+  # red-main alert that is routinely wrong is one people learn to ignore — and a
+  # GENUINE red main already went unnoticed for 15 hours here on 2026-08-22/23.
+  #
+  # ⛔ THE LINE THIS DOES NOT CROSS: it does NOT make Deploy tolerate stale
+  # derived artifacts. A superseded run deploys NOTHING — exactly what today's
+  # failed run deploys — so no window is opened; only the red is removed. The
+  # tree that eventually ships is the REPAIRED one, gated in full by the Deploy
+  # run that the bot's commit fires. And a stale artifact the regen will NOT
+  # repair still reaches the preflight job below and still fails it (proven by
+  # scripts/check-deploy-superseded.test.mjs, and live against a real refused
+  # assemble — see the pull request body).
+  #
+  # ⚠ If the regen job itself fails, no repair commit is pushed and this merge
+  # never deploys. That is not silent: `Derived Artifacts Regen` goes red on main
+  # (its own alert channel), and deploy-drift-check.yml compares the live deploy
+  # stamp to origin/main every 4 hours.
+  supersede:
+    name: Superseded-by-regen check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      superseded: ${{ steps.classify.outputs.superseded }}
+      reason: ${{ steps.classify.outputs.reason }}
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          # fetch-depth: 0 is REQUIRED, and for the same reason
+          # derived-artifacts-regen.yml gives at its own checkout: the probe below
+          # runs the declared regen chain, and gen-debt-ledger.mjs reads per-file
+          # commit dates via `git log -1 -- <file>`. On a shallow clone that
+          # returns one date for every file, so the probe would measure a
+          # different repair than the bot performs. A check has to run in the
+          # environment of the thing it validates, or it is measuring something
+          # else.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: ⬢ Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: ⏳ Regen lag, or genuinely stale?
+        # Derives the shared-derived-artifact gates THIS workflow runs raw (11
+        # today) from the workflow's own text, runs them, and for any that are red
+        # re-uses the existing repairability probe (scripts/check-regen-repairable.mjs)
+        # in a throwaway worktree to DEMONSTRATE — never assume — that the
+        # main-side regen erases the drift. superseded=true only when every red is
+        # repaired. Always exits 0: its only power is to make Deploy stand down,
+        # so every unknown resolves to "do not stand down" = today's behaviour.
+        id: classify
+        run: node scripts/check-deploy-superseded.mjs
+
   # ── Pre-flight checks (run before touching the server) ─────────────────────
   preflight:
     name: Pre-flight checks
     runs-on: ubuntu-latest
+    needs: supersede
+    # Skipped only when the regen bot is provably about to repair every stale
+    # shared artifact at this commit — the run is moot, and its successor run on
+    # the bot's commit re-runs every gate below against a superset of this
+    # content before anything is deployed.
+    if: needs.supersede.outputs.superseded != 'true'
     permissions:
       contents: read
     steps:
       - name: 📥 Checkout Repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          fetch-depth: 1
+          # fetch-depth 0 (was 1, 2026-08-27): this job runs base-ref-consuming
+          # gates — the Nav reachability gate below reaches check-shard-assembly.mjs,
+          # which resolves origin/main. On the push:main trigger depth 1 happens to
+          # leave origin/main resolvable (it is HEAD), but the workflow_dispatch
+          # trigger can run this job from any ref, where depth 1 leaves origin/main
+          # absent entirely and every base-ref gate fails closed — measured
+          # 2026-08-27 as the cause of false "new island" reports. Depth 0 makes the
+          # guarantee unconditional instead of trigger-dependent. The helm-scope step
+          # below is unaffected: its `git fetch --depth=1 origin "$BEFORE"` is a no-op
+          # when the object is already present.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: ⬢ Setup Node (for hash + syntax gates)
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '20'
+
+      - name: 🧭 Assert base ref resolvable
+        # The tripwire for the fetch-depth above. Three-second red naming the cause
+        # instead of a twenty-minute hunt for a page that is not broken. Plain git,
+        # no gate script: an environment precondition, not a gate, so it adds nothing
+        # for check-workflow-gate-parity.mjs to pair against.
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="origin/${GITHUB_BASE_REF:-main}"
+          if ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+            echo "::error::base ref $BASE does not resolve in this checkout. Base-ref-consuming gates in this job would fail CLOSED or silently degrade. Set fetch-depth: 0 on this job's actions/checkout step."
+            exit 1
+          fi
+          echo "base-ref: RESOLVED $BASE @ $(git rev-parse --short=12 "$BASE")"
 
       - name: 🪖 Detect helm-relevant changes
         # The helm drift/guide-freshness gates below assert helm.html against
@@ -107,6 +205,7 @@ jobs:
           node chaingraph/kernels/determinism-replay.test.mjs
           node chaingraph/kernels/vm-parity-gate.mjs --strict
           node chaingraph/kernels/empty-input-finite.test.mjs
+          node scripts/shape-reader.test.mjs
           node scripts/check-kernel-determinism.mjs
           node chaingraph/kernels/parity-art-01.test.mjs
           node chaingraph/kernels/inline-hash-equality.test.mjs
@@ -373,14 +472,60 @@ jobs:
             echo "✅ All tools contain the mfstSec manifest panel"
           fi
 
+      - name: 🧾 Deploy manifest preview (what a real deploy would publish + attest)
+        # Dry-run duty for the provenance steps: the deploy job (which writes
+        # the real manifest and calls the attest action) is skipped entirely
+        # under workflow_dispatch dry_run=true, so the safe half of that work
+        # runs HERE, where a dry run does reach, and prints exactly what a
+        # real deploy would publish and attest. Nothing
+        # is written into the shipped tree from this job and the attestation is
+        # NOT created here — publishing to the attestations API is the
+        # irreversible step the dry run exists to skip. Keep the derivation
+        # pipeline BYTE-IDENTICAL to the deploy job's "Build deploy manifest"
+        # step below: this preview is only honest while both agree.
+        run: |
+          set -euo pipefail
+          PREVIEW="$RUNNER_TEMP/deploy-checksums-preview.txt"
+          find . -type f \
+            ! -path './.git/*' ! -name '.git' ! -path './.github/*' ! -path './node_modules/*' \
+            ! -path './scripts/*' ! -path './specs/*' ! -path './docs/*' ! -path './reconciled/*' \
+            ! -name '.gitattributes' ! -name '.gitignore' ! -name '.DS_Store' \
+            ! -name 'Thumbs.db' ! -name 'CANONICAL_TOOL_EXAMPLE.html' \
+            ! -name '.env' ! -name '.env.*' \
+            ! -name 'deploy-stamp.json' ! -name 'deploy-manifest.json' ! -name 'deploy-checksums.txt' \
+            -print0 \
+            | sed -z 's|^\./||' \
+            | awk 'BEGIN{RS="\0"} /\.md$/ && $0 !~ /^chaingraph\/okf\// && $0 != "chaingraph/standard/SPEC.md" {next} {printf "%s%c", $0, 0}' \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed -e 's/ \*/  /' -e 's|  \./|  |' \
+            > "$PREVIEW"
+          DIGEST=$(sha256sum "$PREVIEW" | cut -d' ' -f1)
+          COUNT=$(wc -l < "$PREVIEW")
+          echo "SO40a dry-run receipt: a real deploy would publish /.well-known/deploy-manifest.json"
+          echo "  site_content_digest: sha256:$DIGEST over $COUNT published files"
+          echo "  and attest it (plus its checksum list) via actions/attest-build-provenance"
+
   # ── Deploy (only runs if preflight passes and dry_run is not set) ─────────
   deploy:
     name: Deploy to DreamHost
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: preflight
-    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.dry_run }}
+      # Deploy-provenance attestation: the attest step
+      # below signs with a short-lived Sigstore keyless certificate (needs the
+      # OIDC identity token) and uploads the attestation to this repo's
+      # attestations API. Both scopes are job-level and read-only otherwise —
+      # the same least-privilege shape land-verify.yml's attest job already
+      # ships. See the docs quote in the PR body.
+      id-token: write
+      attestations: write
+    needs: [supersede, preflight]
+    # The `needs` alone already skips this job when preflight is skipped; the
+    # explicit superseded clause is belt-and-braces and states the intent at the
+    # one place it matters: a superseded run must publish NOTHING. Standing down
+    # is declining to publish the stale tree, not tolerating it.
+    if: ${{ (github.event_name != 'workflow_dispatch' || !inputs.dry_run) && needs.supersede.outputs.superseded != 'true' }}
     steps:
       - name: 📥 Checkout Repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -451,6 +596,80 @@ jobs:
             > .well-known/deploy-stamp.json
           cat .well-known/deploy-stamp.json
 
+      - name: 🧾 Build deploy manifest (site content digest)
+        # The estate attests kernel computations and the
+        # FV artifacts (land-verify.yml attest job), but the DEPLOY itself
+        # shipped with no provenance: a verifier could check every receipt yet
+        # not that the bytes on ainumbers.co came from a green main build.
+        # This step closes that link, the same way the deploy stamp above is
+        # written HERE at rsync time: it hashes exactly the set of files this
+        # rsync is about to publish — the mirror of the rsync --include/
+        # --exclude set below — into a sorted "<sha256>  <path>" list, then a
+        # JSON manifest carrying the sha256 OVER that list as the SITE CONTENT
+        # digest. Both files ship in the rsync below, so verification is
+        # self-serve at /.well-known/deploy-manifest.json: fetch it, check out
+        # the commit it names, re-run this same derivation, compare bytes.
+        #
+        # Two deliberate exclusions beyond the rsync mirror:
+        #   .well-known/deploy-stamp.json — carries deployed_at, a run
+        #     timestamp, so no third party could ever reproduce its bytes;
+        #   .well-known/deploy-manifest.json / deploy-checksums.txt — a file
+        #     cannot contain its own hash.
+        #
+        # Plain find/sort/sha256sum/node (the land-verify.yml manifest
+        # precedent): shell tooling keeps this step outside
+        # check-workflow-gate-parity.mjs's node-gate scope, so no parity
+        # declaration is owed for it, and the derivation is locally runnable
+        # on any checkout. Node is runner-preinstalled; no setup-node needed
+        # for two fs reads and a write. Keep this pipeline BYTE-IDENTICAL to
+        # the preflight job's "Deploy manifest preview" step above.
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p .well-known
+          find . -type f \
+            ! -path './.git/*' ! -name '.git' ! -path './.github/*' ! -path './node_modules/*' \
+            ! -path './scripts/*' ! -path './specs/*' ! -path './docs/*' ! -path './reconciled/*' \
+            ! -name '.gitattributes' ! -name '.gitignore' ! -name '.DS_Store' \
+            ! -name 'Thumbs.db' ! -name 'CANONICAL_TOOL_EXAMPLE.html' \
+            ! -name '.env' ! -name '.env.*' \
+            ! -name 'deploy-stamp.json' ! -name 'deploy-manifest.json' ! -name 'deploy-checksums.txt' \
+            -print0 \
+            | sed -z 's|^\./||' \
+            | awk 'BEGIN{RS="\0"} /\.md$/ && $0 !~ /^chaingraph\/okf\// && $0 != "chaingraph/standard/SPEC.md" {next} {printf "%s%c", $0, 0}' \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed -e 's/ \*/  /' -e 's|  \./|  |' \
+            > .well-known/deploy-checksums.txt
+          export DEPLOY_GENERATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          DEPLOY_MANIFEST_DIGEST=$(sha256sum .well-known/deploy-checksums.txt | cut -d' ' -f1)
+          export DEPLOY_MANIFEST_DIGEST
+          # Values cross via env, never as a template expression inside the
+          # script text (same rule as the SSH step above); the JSON is
+          # assembled by node from those env vars only.
+          node -e '
+            const fs = require("fs");
+            const sums = fs.readFileSync(".well-known/deploy-checksums.txt", "utf8");
+            const files = sums.split("\n").filter((l) => l.length > 0).map((l) => {
+              const i = l.indexOf("  ");
+              return { sha256: l.slice(0, i), path: l.slice(i + 2) };
+            });
+            const manifest = {
+              schema: "ainumbers/deploy-manifest@v1",
+              deployed_commit: process.env.DEPLOY_SHA,
+              generated_at: process.env.DEPLOY_GENERATED_AT,
+              file_count: files.length,
+              site_content_digest: "sha256:" + process.env.DEPLOY_MANIFEST_DIGEST,
+              digest_input: "sha256 over the exact bytes of .well-known/deploy-checksums.txt: one \"<sha256>  <repo-relative-path>\" line per published file, sorted by path (sha256sum format). Excluded from the list: .well-known/deploy-stamp.json (carries a run timestamp, irreproducible by design) and this manifest plus its checksum list (a file cannot contain its own hash).",
+              files: files
+            };
+            fs.writeFileSync(".well-known/deploy-manifest.json", JSON.stringify(manifest, null, 2) + "\n");
+          '
+          echo "site_content_digest: sha256:$DEPLOY_MANIFEST_DIGEST over $(wc -l < .well-known/deploy-checksums.txt) published files"
+          echo "publishing: /.well-known/deploy-manifest.json + /.well-known/deploy-checksums.txt"
+          echo "| Deploy manifest | \`.well-known/deploy-manifest.json\` — site_content_digest \`sha256:$DEPLOY_MANIFEST_DIGEST\` |" >> "$GITHUB_STEP_SUMMARY"
+
       - name: 🔍 Dry-run rsync (shows what will change — no writes)
         # Two narrow carve-outs before the blanket .md exclude below: chaingraph/okf/
         # is the CI-freshness-gated (generate-okf.mjs --check) machine-knowledge bundle,
@@ -514,6 +733,40 @@ jobs:
 
           echo "✅ rsync completed successfully."
 
+      - name: 🪪 Attest deploy provenance
+        # actions/attest-build-provenance is new to this repo's workflow set;
+        # its authorization is recorded in the pull request that adds it.
+        # Full-commit-SHA pinned (zizmor keeps this green).
+        #
+        # What it signs (docs quoted in the PR body, retrieved 2026-09-01,
+        # actions/attest-build-provenance v4.2.2 README): an in-toto statement
+        # binding the subjects (a named artifact plus its digest) to an SLSA
+        # v1.0 build-provenance predicate, signed with a short-lived Sigstore
+        # certificate (public-good Sigstore for public repos) and "uploaded to
+        # the GH attestations API and associated with the repository from
+        # which the workflow was initiated". Subjects here are BOTH published
+        # provenance files — the manifest and the checksum list it digests —
+        # so one `gh attestation verify` against either fetches it.
+        #
+        # Scope honesty (same rule as land-verify.yml's attest job): this is a
+        # PROCESS claim — this workflow, at this commit, produced these bytes —
+        # never a content-correctness or review claim; no copy anywhere may
+        # present it as one.
+        #
+        # ADVISORY-FIRST: provenance automation here adds zero human steps
+        # and soft-fails to unsigned; the deploy is load-bearing and a
+        # Sigstore/API outage must never block shipping. PROMOTION CRITERION:
+        # continue-on-error comes off only after 10 CONSECUTIVE post-merge
+        # deploy runs in which this step concluded success (checkable from run
+        # history); promotion is itself a follow-up row's one-line diff.
+        id: attest
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            .well-known/deploy-manifest.json
+            .well-known/deploy-checksums.txt
+
       - name: ☁️ Purge Cloudflare cache
         # ainumbers.co is fronted by Cloudflare. Static assets (.jsonld profiles + contexts,
         # chaingraph.json, spec/guide HTML, tool exports) are edge-cached and otherwise serve
@@ -566,6 +819,40 @@ jobs:
             echo "❌ Site returned HTTP $HTTP_CODE — deploy may have failed"
             exit 1
           fi
+
+      - name: 🛡 Served-egress + byte-integrity check (edge-injection class)
+        # The smoke test above proves the site answers; this proves the bytes
+        # the edge SERVES are the bytes this repo declared. Cloudflare edge
+        # features (Web Analytics beacon, Rocket Loader, Zaraz, email-decode,
+        # challenge platform) rewrite HTML AT THE EDGE — the injected markup
+        # exists in NO repo file, so every source-scanning egress/CSP gate is
+        # structurally blind to it. Live finding (Tim DevTools, art-129):
+        # static.cloudflareinsights.com/beacon.min.js auto-injected into
+        # served pages. The gate scans the fixed live sample (index, one tool,
+        # one chaingraph node, mcp.html, one docs.ainumbers.co page) with the
+        # injector pattern set, diffs every external <script src>/<link href>
+        # against repo source, AND closes the byte-integrity gap: it fetches
+        # /.well-known/deploy-checksums.txt (written two steps up at rsync
+        # time), samples ≥10 listed URLs and sha256s the served bytes — one
+        # lane covers BOTH edge injection and origin tampering. Every finding
+        # reports cf-cache-status; a finding seen only on a HIT-class copy is
+        # re-fetched under a unique query key so a pre-toggle cached copy
+        # cannot false-RED alone. Reviewing exceptions live in
+        # scripts/served-egress-allowlist.json (EMPTY by design, every entry
+        # needs a reason naming the transform).
+        #
+        # POST-DEPLOY by necessity: there is no live deployment of a branch to
+        # compare against pre-push, which is why check-workflow-gate-parity.mjs
+        # declares it CI_ONLY; its no-network RED/GREEN fixture proof
+        # (scripts/check-served-egress.test.mjs) is the preflight-side control.
+        # Plain `node` — runner-preinstalled, same precedent as the deploy
+        # manifest step above; no new Action, no setup-node.
+        env:
+          # Same secret the smoke test uses, as an override only — the script's
+          # built-in default is the public site URL, so the gate still runs
+          # (rather than silently skipping) when the secret is unset.
+          DH_SITE_URL: ${{ secrets.DH_SITE_URL }}
+        run: node scripts/check-served-egress.mjs
 
       - name: 📊 Deploy summary
         env:

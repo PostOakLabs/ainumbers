@@ -11,16 +11,28 @@
  * ADVISORY-ONLY SWITCH: FAIL_ON_DRIFT (below). Currently false — this script
  * always exits 0, reporting only. Flip to true once the false-positive rate
  * (CDN cache lag, in-flight deploys) is known, per STANDING ORDERS #14/GATE-FREEZE.
+ * ⛔ That condition has no owner and no gate, so do not read the sentence above as a
+ * statement of where things stand — re-derive it. `node scripts/check-deploy-drift.mjs`,
+ * run a few minutes after a main-push deploy, IS the measurement: a DRIFT that clears on
+ * a re-run is a false positive, one that persists is real. Last evaluated 2026-08-23
+ * (STALE-PHASING-NOTE-SWEEP-1): the rate has never been measured, so the condition is
+ * still pending. Re-date this line when you re-check it.
  */
 
 import { execSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const FAIL_ON_DRIFT = false;
 
 const STAMP_URL = process.env.DEPLOY_STAMP_URL || 'https://ainumbers.co/.well-known/deploy-stamp.json';
 
 async function main() {
+  // env: gitEnv() — `ls-remote <url>` needs no local repository, but an inherited GIT_DIR still
+  // brings that repo's config (insteadOf rewrites, url.<base>.pushInsteadOf) into scope, which can
+  // silently redirect which remote answers. Credentials are unaffected: this URL is public, and the
+  // estate carries no GIT_ASKPASS/GIT_SSH_COMMAND in any workflow env (verified 2026-08-23).
   const headSha = execSync('git ls-remote https://github.com/PostOakLabs/ainumbers.git refs/heads/main', {
+    env: gitEnv(),
     encoding: 'utf8',
   })
     .trim()

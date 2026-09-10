@@ -5,17 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>MCP Agent Demo · Watch an Agent Use AINumbers · AINumbers.co</title>
-<meta name="description" content="A live MCP agent session replay: the agent discovers AINumbers.co via suite-registry.json, selects the fraud score simulator, constructs a typed invocation, and receives a deterministic JSON response. Client-side replay. Zero PII.">
+<meta name="description" content="A live MCP agent session replay: the agent discovers AINumbers.co via .well-known/mcp.json and mcp/catalog.json, selects the fraud score simulator, constructs a typed invocation, and receives a deterministic JSON response. Client-side replay. Zero PII.">
+<meta name="ain:category" content="guide">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Post Oak Labs">
 <link rel="canonical" href="https://ainumbers.co/guides/mcp-agent-demo">
 <meta property="og:type" content="website">
 <meta property="og:title" content="MCP Agent Demo · Watch an Agent Use AINumbers · AINumbers.co">
-<meta property="og:description" content="A live MCP agent session replay: discover, select, invoke, and receive. 351 tools. Typed schemas. Deterministic JSON. Zero server calls. Zero inference.">
+<meta property="og:description" content="A live MCP agent session replay: discover, select, invoke, and receive. Typed schemas. Deterministic JSON. Zero server calls. Zero inference.">
 <meta property="og:url" content="https://ainumbers.co/guides/mcp-agent-demo">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebPage","name":"MCP Agent Demo · Watch an Agent Use AINumbers","url":"https://ainumbers.co/guides/mcp-agent-demo","description":"A live MCP agent session replay showing tool discovery, typed invocation, and deterministic JSON response. 351 tools. AP2 v1.0. MCP v1+. Zero PII.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"publisher":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+{"@context":"https://schema.org","@type":"WebPage","name":"MCP Agent Demo · Watch an Agent Use AINumbers","url":"https://ainumbers.co/guides/mcp-agent-demo","description":"A live MCP agent session replay showing tool discovery, typed invocation, and deterministic JSON response. AP2 v1.0. MCP v1+. Zero PII.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"publisher":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -24,10 +25,12 @@
   --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
   --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
   --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
-  --teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
   --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
   --green:#22C55E;--green-dim:rgba(34,197,94,.12);
-  --red:#EF4444;--warn:#F59E0B;
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
   --radius:6px;--radius-lg:10px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -47,27 +50,32 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 /* nav */
 nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:300;backdrop-filter:blur(8px)}
 .nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
-.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
-.logo-name .ai{color:var(--teal)}.logo-name .co{color:var(--muted);font-size:.8rem}
-.nav-links{display:flex;align-items:center;gap:18px}
-.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);transition:color .2s}
-.nav-links a:hover{color:var(--teal-lt)}
-.nav-cta{color:var(--bg) !important;background:var(--teal);padding:.3rem .85rem;border-radius:var(--radius);font-weight:500}
-.nav-cta:hover{opacity:.88}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.logo-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);line-height:1}
+.nav-links{display:flex;align-items:center;gap:1rem}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);transition:color .2s}
+.nav-link:hover{color:var(--teal)}
+.nav-end{flex:1;display:flex;justify-content:flex-end}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:6px;transition:all .2s}
+.nav-cta:hover{opacity:.85}
 
 /* hero */
-.hero{padding:3rem 0 1.5rem;position:relative;z-index:1}
-.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.8rem;display:flex;align-items:center;gap:.6rem}
-.hero-eyebrow::before{content:'';display:inline-block;width:18px;height:1px;background:var(--teal);opacity:.6}
-.hero h1{font-family:'DM Serif Display',serif;font-size:2.4rem;color:var(--white);margin-bottom:.8rem;line-height:1.12}
-.hero h1 em{color:var(--teal);font-style:italic}
-.hero-desc{font-size:.86rem;color:var(--body);line-height:1.8;max-width:640px;margin-bottom:1.2rem}
-.hero-badges{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:2rem}
-.badge{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .65rem;border-radius:3px;border:1px solid}
-.b-teal{color:var(--teal);border-color:rgba(20,184,166,.3);background:rgba(20,184,166,.06)}
-.b-gold{color:var(--gold);border-color:rgba(212,168,71,.3);background:rgba(212,168,71,.06)}
-.b-green{color:var(--green);border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.06)}
-.b-body{color:var(--body);border-color:var(--border)}
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(20,184,166,.05) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.9rem);color:var(--white);max-width:760px;margin-bottom:.75rem}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:660px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
 
 /* terminal */
 .terminal-wrap{position:relative;z-index:1;margin-bottom:3.5rem}
@@ -158,19 +166,21 @@ nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:
 .related-link:hover{border-color:var(--teal);color:var(--teal)}
 .related-link.primary{border-color:rgba(20,184,166,.3);color:var(--teal);background:rgba(20,184,166,.05)}
 
-footer{border-top:1px solid var(--border);background:var(--bg-2);padding:1.4rem 0}
-.footer-inner{max-width:960px;margin:0 auto;padding:0 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
-.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.8rem;font-weight:500;color:var(--bright)}
-.footer-badge{font-size:.6rem;color:var(--muted);margin-top:.15rem}
-.footer-links{display:flex;gap:1.1rem;flex-wrap:wrap}
-.footer-links a{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);transition:color .2s}
-.footer-links a:hover{color:var(--teal)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem;position:relative;z-index:1}
+.footer-inner-ai{max-width:960px;margin:0 auto;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-brand-link{display:flex;align-items:center;gap:.6rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+.footer-cat-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);line-height:1.4;margin-top:.15rem}
+.footer-links-ai{display:flex;gap:1.25rem;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
 
 @media(max-width:640px){
-  .hero h1{font-size:1.75rem}
+  .nav-links{gap:.5rem}
   .cards{grid-template-columns:1fr}
   .tool-links-grid{grid-template-columns:1fr}
-  .nav-links a:not(:last-child):not(:nth-last-child(2)){display:none}
+  .nav-links .nav-link:not(:last-child){display:none}
   .term-screen{font-size:.62rem;padding:.9rem 1rem}
 }
 </style>
@@ -181,13 +191,31 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:1.4rem 
 
 <nav>
   <div class="nav-inner">
-    <a href="../index.html">
-      <span class="logo-name"><span class="ai">AI</span>Numbers<span class="co">.co</span></span>
+    <a href="../index.html" class="logo" style="flex:1">
+      <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-text">
+        <span class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></span>
+        <span class="logo-tag">MCP Agent Demo</span>
+      </div>
     </a>
     <div class="nav-links">
-      <a href="../index.html">All Tools</a>
-      <a href="../index.html#cat-1">RBE Suite</a>
-      <a href="../chaingraph/chains/agentic-policy.html">Agentic Workflow</a>
+      <a href="../index.html" class="nav-link">All Tools</a>
+      <a href="../index.html#cat-1" class="nav-link">RBE Suite</a>
+      <a href="../chaingraph/chains/agentic-policy.html" class="nav-link">Agentic Workflow</a>
+    </div>
+    <div class="nav-end">
       <a href="../index.html" class="nav-cta">Browse MCP Tools →</a>
     </div>
   </div>
@@ -198,12 +226,12 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:1.4rem 
   <div class="container">
     <div class="hero-eyebrow">MCP AGENT DEMO · LIVE INVOCATION</div>
     <h1>Watch an Agent Use AINumbers</h1>
-    <p class="hero-desc">A real MCP session: the agent discovers the suite via <code style="font-family:'JetBrains Mono',monospace;font-size:.8em;color:var(--teal)">suite-registry.json</code>, selects a tool, constructs a typed invocation, and receives a deterministic JSON response. Zero server calls. Zero inference. Client-side replay.</p>
-    <div class="hero-badges">
-      <span class="badge b-teal">MCP v1+</span>
-      <span class="badge b-gold">AP2 v1.0</span>
-      <span class="badge b-green">Deterministic</span>
-      <span class="badge b-body">Zero PII</span>
+    <p class="hero-desc">A real MCP session: the agent discovers the suite via <code style="font-family:'JetBrains Mono',monospace;font-size:.8em;color:var(--teal)">.well-known/mcp.json</code>, selects a tool, constructs a typed invocation, and receives a deterministic JSON response. Zero server calls. Zero inference. Client-side replay.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">MCP v1+</span>
+      <span class="hero-badge badge-gold">AP2 v1.0</span>
+      <span class="hero-badge badge-green">Deterministic</span>
+      <span class="hero-badge badge-muted">Zero PII</span>
     </div>
     <div class="sr2602-notice" style="background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:1rem 0 0;color:#9aa7b8"><span style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Supersession notice (added 2026-07-27):</span> On 17 April 2026 the Federal Reserve issued <a href="https://www.federalreserve.gov/supervisionreg/srletters/SR2602.htm" style="color:var(--teal)">SR 26-2, Revised Guidance on Model Risk Management</a>, which supersedes and replaces SR 11-7. Any reference to SR 11-7 on this page describes the framework as it stood before that date.</div>
   </div>
@@ -252,13 +280,13 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:1.4rem 
       <div class="card">
         <div class="card-num">01</div>
         <div class="card-title">Discovery</div>
-        <div class="card-body">The agent reads <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">suite-registry.json</code> at the root. 351 tools, typed schemas, MCP v1+ compliant manifest entries. No API key needed: the registry is public and machine-readable.</div>
-        <span class="card-tag">suite-registry.json</span>
+        <div class="card-body">The agent reads <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">.well-known/mcp.json</code> at the root. It points to <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">mcp/server.json</code> for server capabilities and <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">mcp/catalog.json</code> for the full tool list with typed schemas. No API key needed: both are public and machine-readable.</div>
+        <span class="card-tag">.well-known/mcp.json</span>
       </div>
       <div class="card">
         <div class="card-num">02</div>
         <div class="card-title">Typed Invocation</div>
-        <div class="card-body">Every tool exposes a <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">manifest.json</code> with a full <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">inputSchema</code> (JSON Schema Draft-07). The agent constructs a validated call: no prompt engineering, no natural-language parsing required.</div>
+        <div class="card-body">Every tool ships a manifest at <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">manifests/{tool}.manifest.json</code>, and each catalog entry carries the same <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">inputSchema</code> inline (JSON Schema Draft-07). The agent constructs a validated call: no prompt engineering, no natural-language parsing required.</div>
         <span class="card-tag">JSON Schema · Draft-07</span>
       </div>
       <div class="card">
@@ -323,38 +351,53 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:1.4rem 
     <div class="mcp-block" id="mcp-block">
       <button class="mcp-header" onclick="toggleMcp()">
         <div class="mcp-header-left">
-          <span class="mcp-title">Connection snippet &amp; registry preview</span>
+          <span class="mcp-title">Connection snippet &amp; discovery preview</span>
           <span class="mcp-tag">Expandable</span>
         </div>
         <span class="mcp-chevron" id="mcp-chev">&#9660;</span>
       </button>
       <div class="mcp-body" id="mcp-body">
-        <p class="mcp-desc">Connect once. Discover 351 tools via the registry. Each tool's <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">manifest.json</code> provides the full <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">inputSchema</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">outputSchema</code>, and <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">policy_mandate</code> envelope spec.</p>
+        <p class="mcp-desc">Connect once. Discover the tool set via <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">.well-known/mcp.json</code>, which resolves to <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">mcp/catalog.json</code>. Each tool's manifest under <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">manifests/</code> provides the full <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">inputSchema</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">outputSchema</code>, and <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">policy_mandate</code> envelope spec.</p>
         <div class="mcp-connect">
           <div class="mcp-connect-label">Connect command</div>
           <div class="mcp-connect-cmd">mcp connect https://ainumbers.co/mcp</div>
         </div>
         <div class="code-block">
-          <div class="code-label">suite-registry.json · excerpt</div>
+          <div class="code-label">.well-known/mcp.json · excerpt</div>
           <pre class="code-pre">{
-  <span class="ck">"registry_version"</span>: <span class="cv">"1.0.0"</span>,
-  <span class="ck">"mcp_version"</span>: <span class="cv">"1+"</span>,
-  <span class="ck">"tool_count"</span>: <span class="cn">351</span>,
-  <span class="ck">"categories"</span>: [
-    <span class="cv">"fraud-risk"</span>, <span class="cv">"payments"</span>, <span class="cv">"aml"</span>, <span class="cv">"compliance"</span>,
-    <span class="cv">"esg"</span>, <span class="cv">"credit"</span>, <span class="cv">"capital"</span>, <span class="cv">"liquidity"</span>,
-    <span class="cv">"rbe-deterministic"</span>, <span class="cv">"iso20022"</span>
-  ],
-  <span class="ck">"tools"</span>: [
+  <span class="ck">"schema_version"</span>: <span class="cv">"well-known-mcp-v1"</span>,
+  <span class="ck">"servers"</span>: [
     {
-      <span class="ck">"id"</span>: <span class="cv">"fraud-score-simulator"</span>,
-      <span class="ck">"category"</span>: <span class="cv">"fraud-risk"</span>,
-      <span class="ck">"manifest"</span>: <span class="cv">"https://ainumbers.co/tools/04-fraud-score-simulator/manifest.json"</span>,
-      <span class="ck">"ap2"</span>: <span class="cn">true</span>,
-      <span class="ck">"deterministic"</span>: <span class="cn">true</span>
+      <span class="ck">"id"</span>: <span class="cv">"ainumbers-fintech-suite"</span>,
+      <span class="ck">"server_url"</span>: <span class="cv">"https://ainumbers.co/mcp/server.json"</span>,
+      <span class="ck">"catalog_url"</span>: <span class="cv">"https://ainumbers.co/mcp/catalog.json"</span>,
+      <span class="ck">"execution_model"</span>: <span class="cv">"browser-reference"</span>
     },
-    <span class="cv">"... 350 more tools"</span>
-  ]
+    {
+      <span class="ck">"id"</span>: <span class="cv">"ainumbers-apps"</span>,
+      <span class="ck">"endpoint_url"</span>: <span class="cv">"https://mcp.ainumbers.co/mcp"</span>,
+      <span class="ck">"execution_model"</span>: <span class="cv">"mcp-apps-widgets"</span>
+    }
+  ],
+  <span class="ck">"llms_txt"</span>: <span class="cv">"https://ainumbers.co/llms.txt"</span>,
+  <span class="ck">"sitemap"</span>: <span class="cv">"https://ainumbers.co/sitemap.xml"</span>
+}</pre>
+        </div>
+        <div class="code-block">
+          <div class="code-label">mcp/catalog.json · one tool entry, abridged</div>
+          <pre class="code-pre">{
+  <span class="ck">"name"</span>: <span class="cv">"simulate_fraud_score"</span>,
+  <span class="ck">"inputSchema"</span>: {
+    <span class="ck">"type"</span>: <span class="cv">"object"</span>,
+    <span class="ck">"required"</span>: [<span class="cv">"amount"</span>]
+  },
+  <span class="ck">"metadata"</span>: {
+    <span class="ck">"tool_id"</span>: <span class="cv">"fraud-score-simulator"</span>,
+    <span class="ck">"category"</span>: <span class="cv">"fraud-risk"</span>,
+    <span class="ck">"url"</span>: <span class="cv">"https://ainumbers.co/tools/04-fraud-score-simulator.html"</span>,
+    <span class="ck">"ap2_export"</span>: <span class="cn">true</span>,
+    <span class="ck">"execution_type"</span>: <span class="cv">"browser-reference"</span>
+  }
 }</pre>
         </div>
       </div>
@@ -375,18 +418,21 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:1.4rem 
 </div>
 
 <footer>
-  <div class="footer-inner">
-    <a href="../index.html" style="display:flex;align-items:center;gap:.6rem">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
       <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
       <div>
         <div class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></div>
-        <div class="footer-badge">CC BY 4.0 · Post Oak Labs</div>
+        <div class="footer-cat-tag">Cat-MCP · MCP Agent Demo</div>
       </div>
     </a>
-    <div class="footer-links">
+    <div class="footer-links-ai">
       <a href="../index.html">All Tools</a>
       <a href="../chaingraph/chains/agentic-policy.html">Agentic Workflow</a>
       <a href="rbe-deterministic-suite-hub.html">RBE Suite</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
     </div>
   </div>
 </footer>
@@ -401,10 +447,10 @@ var STEPS = [
     lines: [
       {type:'cmd',  text:'$ mcp connect ainumbers.co/mcp'},
       {type:'out',  text:'<span class="c-check">✓</span> Connected to AINumbers MCP server'},
-      {type:'out',  text:'<span class="c-check">✓</span> Loaded suite-registry.json — <span class="c-num">351</span> tools available'},
+      {type:'out',  text:'<span class="c-check">✓</span> Read .well-known/mcp.json, catalog at mcp/catalog.json'},
       {type:'blank'},
       {type:'cmd',  text:'$ mcp list-tools --category "fraud-risk"'},
-      {type:'out',  text:'<span class="c-arrow">→</span> Returning <span class="c-num">10</span> tools in category <span class="c-str">fraud-risk</span>...'},
+      {type:'out',  text:'<span class="c-arrow">→</span> Returning tools in category <span class="c-str">fraud-risk</span>...'},
     ],
     pause: 600
   },
@@ -413,21 +459,20 @@ var STEPS = [
     label: 'Step 2 · Tool selection',
     lines: [
       {type:'blank'},
-      {type:'cmd',  text:'$ mcp describe-tool fraud_score_simulator'},
+      {type:'cmd',  text:'$ mcp describe-tool simulate_fraud_score'},
       {type:'json', text:
 '{\n' +
-'  <span class="c-key">"name"</span>: <span class="c-str">"fraud_score_simulator"</span>,\n' +
-'  <span class="c-key">"description"</span>: <span class="c-str">"Simulate ML-style fraud scoring on synthetic payment\\n  transactions with configurable feature weights. Returns\\n  risk score 0–1000, tier classification, and SAR-ready\\n  narrative."</span>,\n' +
+'  <span class="c-key">"name"</span>: <span class="c-str">"simulate_fraud_score"</span>,\n' +
+'  <span class="c-key">"description"</span>: <span class="c-str">"Run a fraud scoring simulation on a transaction\\n  parameter set. Returns score (0-100), risk band,\\n  recommended action, and the rules that fired."</span>,\n' +
 '  <span class="c-key">"inputSchema"</span>: {\n' +
 '    <span class="c-key">"type"</span>: <span class="c-str">"object"</span>,\n' +
 '    <span class="c-key">"properties"</span>: {\n' +
-'      <span class="c-key">"amount_usd"</span>:       { <span class="c-key">"type"</span>: <span class="c-str">"number"</span> },\n' +
-'      <span class="c-key">"country_code"</span>:     { <span class="c-key">"type"</span>: <span class="c-str">"string"</span> },\n' +
-'      <span class="c-key">"merchant_category"</span>: { <span class="c-key">"type"</span>: <span class="c-str">"string"</span> },\n' +
-'      <span class="c-key">"velocity_24h"</span>:     { <span class="c-key">"type"</span>: <span class="c-str">"integer"</span> },\n' +
-'      <span class="c-key">"is_new_payee"</span>:     { <span class="c-key">"type"</span>: <span class="c-str">"boolean"</span> }\n' +
+'      <span class="c-key">"amount"</span>:        { <span class="c-key">"type"</span>: <span class="c-str">"number"</span> },\n' +
+'      <span class="c-key">"velocity_1h"</span>:    { <span class="c-key">"type"</span>: <span class="c-str">"number"</span> },\n' +
+'      <span class="c-key">"device_match"</span>:   { <span class="c-key">"type"</span>: <span class="c-str">"boolean"</span> },\n' +
+'      <span class="c-key">"country_risk"</span>:   { <span class="c-key">"type"</span>: <span class="c-str">"string"</span> }\n' +
 '    },\n' +
-'    <span class="c-key">"required"</span>: [<span class="c-str">"amount_usd"</span>, <span class="c-str">"country_code"</span>]\n' +
+'    <span class="c-key">"required"</span>: [<span class="c-str">"amount"</span>]\n' +
 '  }\n' +
 '}'},
     ],
@@ -438,12 +483,11 @@ var STEPS = [
     label: 'Step 3 · Invocation',
     lines: [
       {type:'blank'},
-      {type:'cmd',  text:'$ mcp invoke fraud_score_simulator \\'},
-      {type:'cont', text:'    --amount_usd 47500 \\'},
-      {type:'cont', text:'    --country_code "NG" \\'},
-      {type:'cont', text:'    --merchant_category "wire_transfer" \\'},
-      {type:'cont', text:'    --velocity_24h 7 \\'},
-      {type:'cont', text:'    --is_new_payee true'},
+      {type:'cmd',  text:'$ mcp invoke simulate_fraud_score \\'},
+      {type:'cont', text:'    --amount 47500 \\'},
+      {type:'cont', text:'    --velocity_1h 7 \\'},
+      {type:'cont', text:'    --device_match false \\'},
+      {type:'cont', text:'    --country_risk "high"'},
     ],
     pause: 500
   },
@@ -454,22 +498,18 @@ var STEPS = [
       {type:'json', text:
 '{\n' +
 '  <span class="c-key">"tool_id"</span>: <span class="c-str">"fraud-score-simulator"</span>,\n' +
-'  <span class="c-key">"version"</span>: <span class="c-str">"1.0.0"</span>,\n' +
+'  <span class="c-key">"version"</span>: <span class="c-str">"1.1.0"</span>,\n' +
 '  <span class="c-key">"execution_ms"</span>: <span class="c-num">2</span>,\n' +
 '  <span class="c-key">"result"</span>: {\n' +
-'    <span class="c-key">"fraud_score"</span>: <span class="c-num">847</span>,\n' +
-'    <span class="c-key">"tier"</span>: <span class="c-str">"HIGH_RISK"</span>,\n' +
-'    <span class="c-key">"tier_label"</span>: <span class="c-str">"Refer to Senior Analyst"</span>,\n' +
-'    <span class="c-key">"score_components"</span>: {\n' +
-'      <span class="c-key">"amount_risk"</span>:    <span class="c-num">0.72</span>,\n' +
-'      <span class="c-key">"geography_risk"</span>: <span class="c-num">0.89</span>,\n' +
-'      <span class="c-key">"category_risk"</span>:  <span class="c-num">0.81</span>,\n' +
-'      <span class="c-key">"velocity_risk"</span>:  <span class="c-num">0.76</span>,\n' +
-'      <span class="c-key">"new_payee_risk"</span>: <span class="c-num">0.90</span>\n' +
-'    },\n' +
-'    <span class="c-key">"recommended_action"</span>: <span class="c-str">"BLOCK_PENDING_REVIEW"</span>,\n' +
-'    <span class="c-key">"sar_threshold_triggered"</span>: <span class="c-bool">true</span>,\n' +
-'    <span class="c-key">"sar_narrative_preview"</span>: <span class="c-str">"Transaction of $47,500 to new payee\\n      in NG flagged for elevated velocity (7 txn/24h) and\\n      high-risk merchant category wire_transfer..."</span>\n' +
+'    <span class="c-key">"score"</span>: <span class="c-num">87</span>,\n' +
+'    <span class="c-key">"risk"</span>: <span class="c-str">"HIGH"</span>,\n' +
+'    <span class="c-key">"action"</span>: <span class="c-str">"BLOCK"</span>,\n' +
+'    <span class="c-key">"triggered_rules"</span>: [\n' +
+'      <span class="c-str">"high_amount"</span>,\n' +
+'      <span class="c-str">"velocity_spike"</span>,\n' +
+'      <span class="c-str">"device_mismatch"</span>,\n' +
+'      <span class="c-str">"high_risk_country"</span>\n' +
+'    ]\n' +
 '  },\n' +
 '  <span class="c-key">"ap2_envelope"</span>: {\n' +
 '    <span class="c-key">"mandate_type"</span>: <span class="c-str">"risk_assessment"</span>,\n' +
@@ -485,9 +525,9 @@ var STEPS = [
     label: 'Step 5 · Agent action',
     lines: [
       {type:'blank'},
-      {type:'out', text:'<span class="c-check">✓</span> Score: <span class="c-num">847</span>/1000 — <span style="color:#EF4444;font-weight:500">HIGH_RISK</span>'},
+      {type:'out', text:'<span class="c-check">✓</span> Score: <span class="c-num">87</span>/100, risk <span style="color:#EF4444;font-weight:500">HIGH</span>'},
       {type:'out', text:'<span class="c-check">✓</span> AP2 Policy Mandate generated: <span class="c-str">pm_fraud_20260603_847</span>'},
-      {type:'out', text:'<span class="c-check">✓</span> SAR narrative threshold triggered — escalating to compliance queue'},
+      {type:'out', text:'<span class="c-check">✓</span> Triggered rules: high_amount, velocity_spike, device_mismatch, high_risk_country'},
       {type:'out', text:'<span class="c-arrow">→</span> Agent action: <span style="color:#EF4444">BLOCK</span> transaction + log to AML system'},
       {type:'blank'},
       {type:'prompt'},

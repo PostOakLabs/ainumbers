@@ -413,7 +413,7 @@ return log;
 const log2 = (function () {
 // NOTE: rtoy's log2.js assigns p_h/p_l/z_h/z_l as implicit globals (valid in its
 // non-strict <script> origin). ESM is always strict, so declare them here. Pure
-// scoping fix; the numeric algorithm is unchanged.
+// scoping fix; the numeric algorithm is unchanged as of the rtoy/fdlibm-js gh-pages log2.js source (re-verified 2026-08-30).
 var p_h, p_l, z_h, z_l;
 //
 // ====================================================
@@ -1614,14 +1614,27 @@ function buildCholesky(n, rho) {
 // ── Sector vols (from source SECTOR_VOLS) ────────────────────────────────────
 const SECTOR_VOLS = [0.25, 0.20, 0.18, 0.30, 0.15, 0.22, 0.28, 0.16, 0.24, 0.19];
 
-// ── Normal quantile map (from source zMap) ────────────────────────────────────
-const Z_MAP = { '0.95': 1.645, '0.99': 2.326, '0.999': 3.090 };
+// ── Inverse standard normal CDF (Abramowitz-Stegun 26.2.23, sign-corrected) ──
+// Replaces the Z_MAP-with-silent-fallback: an unmapped confLevel was silently pinned
+// to z=2.326 while alpha tracked the requested level, desynchronizing z from alpha
+// (at the FRTB-IMA ES setting 0.975: parametric ES understated ~54%, VaR overstated
+// ~19%). z = normInv(confLevel) keeps z and alpha consistent BY CONSTRUCTION for any
+// confidence level in (0,1). Accuracy: max abs error 4.5e-4 in z (A&S 26.2.23 bound);
+// round-trip table against an independent Phi in the row evidence.
+function normInv(p) {
+  if (!(p > 0 && p < 1)) throw new Error(`normInv: p must be in (0,1), got ${p}`);
+  const a = [2.515517, 0.802853, 0.010328];
+  const b = [1.432788, 0.189269, 0.001308];
+  const t = Math.sqrt(-2 * det.log(p < 0.5 ? p : 1 - p));
+  const x = t - (a[0] + t * (a[1] + t * a[2])) / (1 + t * (b[0] + t * (b[1] + t * b[2])));
+  return p < 0.5 ? -x : x;
+}
 
 // ── Parametric VaR/ES ────────────────────────────────────────────────────────
 function parametricVaR(portVol, hp, confLevel) {
-  const z = Z_MAP[String(confLevel)] ?? 2.326;
+  const z = normInv(confLevel);
   const varP = portVol * Math.sqrt(hp / 252) * z;
-  // ES ≈ z * phi(z) / (1-alpha) * portVol * sqrt(hp/252) — standard normal ES
+  // ES ≈ phi(z) / (1-alpha) * portVol * sqrt(hp/252) — standard normal ES
   const phi = det.exp(-z * z / 2) / Math.sqrt(2 * Math.PI);
   const alpha = 1 - confLevel;
   const esP = portVol * Math.sqrt(hp / 252) * phi / alpha;
@@ -1631,12 +1644,29 @@ function parametricVaR(portVol, hp, confLevel) {
 // ── compute ───────────────────────────────────────────────────────────────────
 export function compute(pp) {
   const n_assets      = Math.min(Math.max(pp.n_assets     ?? 10, 2), SECTOR_VOLS.length);
-  const n_paths       = Math.min(Math.max(pp.n_paths      ?? 2000, 100), 10000);
-  const holding_period = pp.holding_period ?? 10;      // trading days
-  const conf_level    = pp.conf_level      ?? 0.99;
-  const correlation   = pp.correlation     ?? 0.30;    // equal pairwise correlation
+  // MCP manifest parity (node page inputSchema): the declared names confidence_level /
+  // mc_sims / holding_period_days / avg_correlation were previously SILENTLY DROPPED
+  // (compute read only the kernel-local names, so a declared input fell back to the
+  // default with no signal). Read the declared name first, kernel-local name second.
+  const n_paths       = Math.min(Math.max(pp.mc_sims ?? pp.n_paths ?? 2000, 100), 10000);
+  const holding_period = pp.holding_period_days ?? pp.holding_period ?? 10;      // trading days
+  const conf_level    = pp.confidence_level ?? pp.conf_level ?? 0.99;
+  const correlation   = pp.avg_correlation ?? pp.correlation ?? 0.30;  // equal pairwise correlation
   const portfolio_value_mm = pp.portfolio_value_mm ?? 100; // $M
   const seed          = pp.seed            ?? (42 + n_assets);
+
+  // Input validation (QFA02-VAR-SILENT-LOWRISK-1, defect F1/F2 read side):
+  // - conf_level outside (0,1) makes alpha <= 0 (ES negative/infinite) and desynchronizes
+  //   every quantile from its tail probability;
+  // - an equal-correlation matrix is PSD only on rho in [-1/(n-1), 1]; outside it the
+  //   Cholesky collapses (rho=1 -> L[k][k]=0 -> 0/0 -> NaN) or portVarAnn goes negative
+  //   (sqrt -> NaN). Broken input previously propagated NaN into every risk number and
+  //   the verdict emitted LOW_RISK / VAR_WITHIN_LIMITS. All of it is a hard error now.
+  if (!(conf_level > 0 && conf_level < 1)) throw new Error(`conf_level must be in (0,1), got ${conf_level}`);
+  const rho_min = -1 / (n_assets - 1);
+  if (!Number.isFinite(correlation) || correlation < rho_min || correlation > 1) {
+    throw new Error(`correlation ${correlation} outside PSD range [${rho_min}, 1] for n_assets=${n_assets}`);
+  }
 
   // Asset weights (equal weight)
   const wt = 1 / n_assets;
@@ -1699,6 +1729,16 @@ export function compute(pp) {
   const portfolio_vol_hp = +(portVolAnn * Math.sqrt(holding_period / 252) * 100).toFixed(4);
   const var_dollar_mm    = +(mc_var_pct * portfolio_value_mm).toFixed(4);
   const es_dollar_mm     = +(mc_es_pct  * portfolio_value_mm).toFixed(4);
+
+  // Load-bearing guard (QFA02-VAR-SILENT-LOWRISK-1, defect F1): NaN compares false
+  // against every threshold, so a non-finite risk number used to fall through to
+  // LOW_RISK / VAR_WITHIN_LIMITS — a stress engine returning "all clear" precisely on
+  // the broken input a stress test exists to model. A non-finite risk number is a hard
+  // error, never the safe label.
+  const riskNumbers = { mc_var_pct, mc_es_pct, param_var_pct, param_es_pct, hist_var_pct, portfolio_vol_hp, var_dollar_mm, es_dollar_mm };
+  for (const [k, v] of Object.entries(riskNumbers)) {
+    if (!Number.isFinite(v)) throw new Error(`non-finite risk number ${k}=${v} — refusing the verdict (broken input must never map to LOW_RISK)`);
+  }
 
   const compliance_flags = [];
   if (mc_var_pct > 0.10) compliance_flags.push('HIGH_VAR_BREACH_RISK');

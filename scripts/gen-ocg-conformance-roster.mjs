@@ -16,6 +16,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -63,7 +64,7 @@ function specVersion() {
 
 function headCommit() {
   try {
-    return execFileSync('git', ['rev-parse', '--short=8', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
+    return execFileSync('git', ['rev-parse', '--short=8', 'HEAD'], { cwd: REPO, env: gitEnv(), encoding: 'utf8' }).trim();
   } catch {
     return '(unknown)';
   }

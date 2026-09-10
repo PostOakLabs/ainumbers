@@ -113,7 +113,8 @@ import { execSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COVERED } from './derived-artifacts.mjs';
-import { withScratchWorktree, cleanGitEnv } from './check-derived-regen-live.mjs';
+import { withScratchWorktree } from './check-derived-regen-live.mjs';
+import { gitEnv } from './_git-env-lib.mjs';
 
 // The literal command derived-artifacts-regen.yml runs on main (line 139). Kept
 // as one constant so the escalation below can never drift from what the bot does.
@@ -123,11 +124,13 @@ export const FULL_REGEN_CMD = 'node scripts/derived-artifacts.mjs --regen';
 // (gen-debt-ledger.mjs, gen-rule-registry.mjs) shell out to `git` themselves, and
 // preflight.mjs runs from inside `git push` via .githooks/pre-push, which exports
 // GIT_DIR/GIT_INDEX_FILE for the whole process tree. cwd alone does not win
-// against those; cleanGitEnv() strips them so cwd is the only thing deciding
-// which repository a nested git call touches.
+// against those; gitEnv() strips them so cwd is the only thing deciding
+// which repository a nested git call touches. (GIT-ENV-LEAK-SWEEP-1: this used to reach the same
+// helper via cleanGitEnv() re-exported from check-derived-regen-live.mjs; it is now imported
+// straight from scripts/_git-env-lib.mjs, which is where the one copy lives.)
 const EXEC_OPTS = (dir) => ({
   cwd: dir,
-  env: { ...cleanGitEnv(), PYTHONIOENCODING: 'utf-8' },
+  env: gitEnv({ PYTHONIOENCODING: 'utf-8' }),
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 

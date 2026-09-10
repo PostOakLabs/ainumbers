@@ -44,3 +44,45 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
 - **Note:** BSD-2-Clause has no NOTICE-file concept — copyright retention duty is met inline (original SunPro + rtoy headers preserved verbatim in the bundle). Not on the original borrow-audit candidate list — surfaced by check-credits-coverage.mjs's own scan while building this registry, confirmed present via file header read.
 - **Path(s) in this repo:**
   - `chaingraph/kernels/_detmath.bundle.mjs`
+
+## chainlink-protos-cre (sdk.proto only)
+
+- **Version:** n/a
+- **License:** MIT
+- **Upstream:** https://github.com/smartcontractkit/chainlink-protos
+- **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** proto schema only; BUSL-1.1 @chainlink/cre-sdk explicitly NOT vendored (see PROVENANCE.md). repo/ slice vendored at pinned commit c1accce563a86e68ed46f9bed352bf7529c9444b (PROVENANCE.md §Source) — backfilled LICENCE-VENDOR-GATE-1, 2026-09-03, after the vendor/ path-segment regex fix made the gate see it.
+- **Path(s) in this repo:**
+  - `chaingraph/kernels/vendor/chainlink-protos-cre/`
+
+## Redoc (redoc.standalone.js)
+
+- **Version:** 2.5.3
+- **License:** MIT
+- **Upstream:** https://github.com/Redocly/redoc
+- **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** OpenAPI reference renderer for the docs/ API portal (CONTRACT §A10 carve-out). Pinned bundle + stripped-license sidecar (redoc.standalone.js.LICENSE.txt); loaded on explicit user action only, script-src 'self', no CDN host. sha256 1320f442151c57c447d3b70c7ffc6c4f86d08464020fe34c8cc5d3164e9944f0.
+- **Path(s) in this repo:**
+  - `docs/vendor/`
+
+## AI Catalog specification (Agent-Card/ai-catalog)
+
+- **Version:** spec @ b062278f (2026-08-27)
+- **License:** Apache-2.0
+- **Upstream:** https://github.com/Agent-Card/ai-catalog
+- **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** AI-CATALOG-1 (2026-09-05): chaingraph/standard/vendor/ai-catalog.schema.json is authored from the pinned specification markdown (specification/ai-catalog.md @ b062278fd7f5a83202d33208f1d07c5b5eb7ccb3), not copied bytes; chaingraph/standard/vendor/VENDORED.md records the pin and provenance. Workspace snapshot: research/clause-snapshots/ai-catalog-spec-b062278f.md.
+- **Path(s) in this repo:**
+  - `chaingraph/standard/vendor/ai-catalog.schema.json`
+  - `chaingraph/standard/vendor/VENDORED.md`
+
+## Claude Code plugin manifest JSON Schema (unofficial, hesreallyhim/claude-code-json-schema)
+
+- **Version:** pin 4e0730d92067d524201efd12b1efbdad26ee10b0
+- **License:** MIT
+- **Upstream:** https://github.com/hesreallyhim/claude-code-json-schema
+- **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** Unofficial Claude Code plugin.json schema, vendored by AIN-AGENT-KIT-1 (AGENT-REACH-BUILD-SPEC §3.4) for scripts/check-agent-kit.mjs to validate the emitted agent-kit/claude-plugin/.claude-plugin/plugin.json. Pinned upstream commit 4e0730d92067d524201efd12b1efbdad26ee10b0 (2026-04-27); file sha256 a54dfaba70f1596744eb7e038f83a73005a62858a0298185f788d077c9cda57d. VENDORED.md in the same directory is first-party pin documentation, covered by this entry because the coverage gate keys on the vendor/ path segment.
+- **Path(s) in this repo:**
+  - `chaingraph/standard/vendor/claude-plugin.schema.json`
+  - `chaingraph/standard/vendor/VENDORED.md`

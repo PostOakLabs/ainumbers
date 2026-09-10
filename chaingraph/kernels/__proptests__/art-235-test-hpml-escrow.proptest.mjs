@@ -223,6 +223,22 @@ function checkP4_forced() {
   return rows;
 }
 
+// ---------- P8 (FAIL-CLOSED-PARITY-LINT-1): out-of-range-year fail-closed case ----------
+// Year 2019 predates the single-year CY2026 indexed-limit tables. resolveLimit() refuses
+// (hasOwnProperty on the year key; an absent year resolves to { value: null, source:
+// unresolved }) and the kernel routes to manual review instead of silently resolving the
+// limit from another year row. Measured live 2026-08-27. The GREEN tier of the
+// FAIL-CLOSED-PARITY-LINT-1 floor rider: this must stay true forever -- if an out-of-range
+// year ever resolves to a data row without manual review, the kernel has started guessing
+// across years. STOP and reconcile.
+function checkP8_yearOutOfRangeFailClosed() {
+  const pp = { apr_pct: 7.5, apor_pct: 5.5, lien_type: 'first', is_jumbo: false, year: 2019, rural_or_underserved_preceding_year: true, first_lien_covered_txns_sold_or_transferred_count: 10, creditor_and_affiliate_total_assets: 900000000, maintains_escrow_for_serviced_loans: false };
+  const r = compute(pp);
+  const flags = r.compliance_flags || [];
+  const manualReviewRequired = flags.includes('HPML_MANUAL_REVIEW_REQUIRED');
+  return { name: "P8_year_2019_unresolved_limit_routes_to_manual_review", manualReviewRequired, violations: manualReviewRequired ? 0 : 1 };
+}
+
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED — spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
@@ -235,6 +251,7 @@ results.properties.push(checkP3_thresholdTierExact());
 results.properties.push(checkP5_fourLegConjunction());
 results.properties.push(checkP6_limitedExemptionNeverDropsTaxes());
 results.properties.push(checkP7_transferCountMonotonic());
+results.properties.push(checkP8_yearOutOfRangeFailClosed());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);

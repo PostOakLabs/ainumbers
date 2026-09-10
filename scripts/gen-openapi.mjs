@@ -289,6 +289,23 @@ if (docsHtml !== null) {
     if (parseInt(valStr, 10) !== expected) return `${openFull}${expected}${close}`
     return match
   })
+
+  // ── CONTRACT §A10 enforcement: docs/index.html MUST carry the CSP_DOCS_PORTAL
+  // meta and MUST load Redoc from the vendored local bundle, never a CDN host.
+  // Idempotent on a conforming page; repairs a drifted one on every regen so a
+  // regeneration can never reintroduce a CDN reference or drop the CSP tag.
+  const CSP_DOCS_PORTAL = `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`
+  const REDOC_LOCAL_SRC = './vendor/redoc.standalone.js'
+  // Any absolute-URL redoc bundle reference → the vendored path.
+  docsHtml = docsHtml.replace(/(['"])https?:\/\/[^'"]*redoc[^'"]*\.js\1/gi, `$1${REDOC_LOCAL_SRC}$1`)
+  const cspMetaRe = /<meta\s+http-equiv="Content-Security-Policy"\s+content="[^"]*">/i
+  const cspMetaTag = `<meta http-equiv="Content-Security-Policy" content="${CSP_DOCS_PORTAL}">`
+  if (cspMetaRe.test(docsHtml)) {
+    docsHtml = docsHtml.replace(cspMetaRe, cspMetaTag)
+  } else {
+    // Insert directly after the viewport meta so the policy precedes all script.
+    docsHtml = docsHtml.replace(/(<meta\s+name="viewport"[^>]*>)/i, `$1\n${cspMetaTag}`)
+  }
 }
 
 // ── 6. Write, or diff against disk for --check ──────────────────────────────

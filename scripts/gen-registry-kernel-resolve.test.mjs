@@ -22,8 +22,8 @@
  *
  * Run: node scripts/gen-registry-kernel-resolve.test.mjs
  */
-import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync, existsSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -184,9 +184,56 @@ t('C6 UNCHANGED: owned-set membership still drives missing/stale exactly as the 
   eq(c.unrecognized.length, 0, 'nothing unrecognized in a clean directory');
 });
 
-t('C6b UNCHANGED (integration): --check on the live tree is read-only and still exits 0', () => {
-  const out = execFileSync(process.execPath, [SCRIPT, '--check'], { encoding: 'utf8' });
-  assert(/REGISTRY-RESOLVE-STATIC-1 clean/.test(out), `expected the clean line, got: ${out.trim()}`);
+// ── C6b · GENERATOR BEHAVIOUR (integration, live tree) ────────────────────
+// PRUNEORPHANS-C6B-LIVETREE-1 re-scopes this control from a live-tree sync
+// assertion to GENERATOR BEHAVIOUR only: --check against the real tree is
+// READ-ONLY and its verdict is WELL-FORMED — exit 0 iff the clean line,
+// exit 1 only under the FAILED banner with a per-class remedy. It
+// deliberately does NOT assert that the live tree is currently clean.
+//
+// WHY (single ownership): live-tree freshness of registry/kernel/ is a
+// shared derived-artifact question (SO #35) owned ONCE by the sibling gate
+// — the REGISTRY-RESOLVE-STATIC-1 entry at scripts/preflight.mjs:900,
+// categorized advisory-on-PR / blocking-on-main via derived-artifacts.mjs
+// COVERED id 'registry-kernel-resolve' (advisoryGates(), line 318) and
+// ADVISORY_ON_PR at preflight.mjs:775. This file is a unit self-test wired
+// HARD everywhere it runs (preflight.mjs:908), including PRs — where
+// SO #35 forbids the very repair a sync failure demands — so a
+// cleanliness assertion here would re-create the measured 2026-08-23 failure
+// mode (one stranded orphan reding every session's pre-push at a layer
+// that must not fix it) and would give the sibling gate a second,
+// wrongly-scoped owner. Drift fails exactly once, in the context that owns it.
+t('C6b GENERATOR BEHAVIOUR: live-tree --check is read-only and its verdict is well-formed; live-tree sync itself stays owned once by the sibling gate (preflight.mjs:900 + derived-artifacts.mjs advisoryGates + preflight.mjs:775)', () => {
+  const outDir = resolve(HERE, '..', 'registry', 'kernel');
+  const snapshot = () => {
+    if (!existsSync(outDir)) return null;
+    return readdirSync(outDir, { withFileTypes: true })
+      .map((e) => {
+        if (!e.isFile()) return e.name + '/|dir';
+        const st = statSync(resolve(outDir, e.name));
+        return e.name + '|' + st.size + ':' + String(st.mtimeMs);
+      })
+      .sort()
+      .join('\n');
+  };
+  const before = snapshot();
+
+  const r = spawnSync(process.execPath, [SCRIPT, '--check'], { encoding: 'utf8' });
+  const out = (r.stdout || '') + (r.stderr || '');
+  assert(!r.error, '--check could not be spawned: ' + r.error);
+  assert(r.status === 0 || r.status === 1, '--check exits 0 or 1, never a crash — got status ' + r.status + ': ' + out.trim());
+  assert(!r.signal, '--check was never killed by a signal — got ' + r.signal);
+
+  if (r.status === 0) {
+    assert(/REGISTRY-RESOLVE-STATIC-1 clean/.test(r.stdout), 'exit 0 must print the clean line — got: ' + out.trim());
+    assert(!/FAILED/.test(out), 'exit 0 must print no failure banner — got: ' + out.trim());
+  } else {
+    assert(/REGISTRY-RESOLVE-STATIC-1/.test(out) && /FAILED/.test(out), 'exit 1 must print the REGISTRY-RESOLVE-STATIC-1 FAILED banner — got: ' + out.trim());
+    assert(/gen-registry-kernel-resolve\.mjs --write|A human decides/.test(out), 'a failed verdict always carries its remedy — got: ' + out.trim());
+  }
+
+  const after = snapshot();
+  assert(before === after, 'the live-tree --check call wrote, removed or modified nothing — read-only holds whatever the verdict');
 });
 
 for (const dir of scratches) { try { rmSync(dir, { recursive: true, force: true }); } catch { /* scratch */ } }

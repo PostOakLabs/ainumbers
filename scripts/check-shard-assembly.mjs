@@ -136,6 +136,41 @@
  * violation has no legitimate mid-flight reading to wait out).
  * ──────────────────────────────────────────────────────────────────────────
  *
+ * ──────────────────────────────────────────────────────────────────────────
+ * REGEN-VALIDATE-RED-1 (2026-08-30) — WRITER-BLOCKED classification.
+ *
+ * ASSEMBLE-MAINSIDE-ENROLL-1 gave the main-side single writer auto-enrolment
+ * (any shard on disk is appended to order.nodes and assembled on the
+ * writer's next green run), which removed the human step the original
+ * NODE-REGISTRATION-GAP-1 red existed to police: "a row landed a shard and
+ * nobody registered it" is no longer a state a healthy writer can be left
+ * in. What CAN persist is the writer itself being red: its regen is blocked
+ * by its own validation (measured 2026-08-29 — art-663's landed description
+ * violated CONTRACT.md §1.4, so derived-artifacts-regen.yml red before its
+ * commit step and chaingraph.json lagged its shards indefinitely). In that
+ * state EVERY PR branch off main — including the copy-repair PR that is the
+ * only sanctioned unblock (SO #35: never hand-commit the derived artifact)
+ * — inherits "shard present on the base ref, absent from the committed
+ * chaingraph.json" and went RED here, so the repair could never merge and
+ * the deadlock was total (measured on PR #1568, run 33270716528).
+ *
+ * THE FIX, derived from git per run (SO #34), never from a shard's own
+ * claim: on a NON-assembling branch (guard 2 still outranks this), a
+ * candidate id that is present on the BASE REF's shard tree and absent from
+ * the BASE REF's OWN committed chaingraph.json is a WRITER-BLOCKED backlog
+ * entry, not a branch-side registration leak. The state exists at the base
+ * tip; the branch neither caused it nor can repair it; the blocking surface
+ * is main's own regen run. It is reported loudly and exits 0.
+ *
+ * Everything else holds the line:
+ *   - base committed chaingraph.json unreadable ⇒ FAIL CLOSED (the state
+ *     cannot be proven, so nothing is exempted — SO #34c).
+ *   - base CG HAS the id while the stale branch's merge-base does not ⇒
+ *     still RED (the writer already healed it; rebase).
+ *   - an assembling branch ⇒ RED (guard 2, unchanged).
+ *   - schema violations and orphans ⇒ RED unconditionally (unchanged).
+ * ──────────────────────────────────────────────────────────────────────────
+ *
  * Zero-dep, node: builtins only (site repo is ZERO-DEP). git is shelled to
  * the same way the rest of this tree shells to it — same trust tier as node.
  *
@@ -146,13 +181,19 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { gitEnv } from './_git-env-lib.mjs'
 import { findUnlistedShards } from './lib-shard-order.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
 
 const NODES_BLOCKING = true // NODE-REGISTRATION-GAP-1: promoted from advisory.
-const CHAINS_BLOCKING = false // ← Flip to true once a chain-leak incident is measured.
+// ← Flip to true once a chain-leak incident is measured. WHERE THIS STANDS, and how to re-check it
+// instead of trusting this sentence: `node scripts/check-shard-assembly.mjs` prints every unlisted
+// chain it finds as an ADVISORY line, and `git log --grep="chain-leak"` is the incident record.
+// Last evaluated 2026-08-23 (STALE-PHASING-NOTE-SWEEP-1): zero chain-leak incidents on record, so
+// the condition is still pending. ⛔ Re-date this line when you re-check it; do not read it as fact.
+const CHAINS_BLOCKING = false
 
 // SHARD-SCHEMA-PARITY-1: schema conformance below is BLOCKING, unconditionally,
 // with no waiver mechanism — see the header comment.
@@ -201,6 +242,7 @@ function git(args) {
   try {
     return execFileSync('git', args, {
       cwd: root,
+      env: gitEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     })
@@ -211,7 +253,7 @@ function git(args) {
 
 function gitOk(args) {
   try {
-    execFileSync('git', args, { cwd: root, stdio: 'ignore' })
+    execFileSync('git', args, { cwd: root, env: gitEnv(), stdio: 'ignore' })
     return true
   } catch {
     return false
@@ -258,6 +300,29 @@ function shardIdsAtRef(ref, dirRel) {
   // unresolvable rather than as "no shard has ever been published" — the
   // latter reading would exempt every shard in the tree at once.
   return ids.length === 0 ? null : new Set(ids)
+}
+
+// REGEN-VALIDATE-RED-1: the committed chaingraph.json AT THE BASE REF — the
+// writer's last good output. Returned as a Set of tool_id, or null when it
+// cannot be read/parsed (fail closed upstream: the writer-blocked split is
+// skipped and every on-base candidate stays leaked). chaingraph.json can be
+// large (640+ nodes), so this carries its own maxBuffer rather than sharing
+// the 1 MiB default the small ls-tree/rev-parse calls live under.
+function assembledNodeIdsAtRef(ref) {
+  try {
+    const out = execFileSync('git', ['show', `${ref}:${CG_REL}`], {
+      cwd: root,
+      env: gitEnv(),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    const parsed = JSON.parse(out)
+    if (!parsed || !Array.isArray(parsed.nodes)) return null
+    return new Set(parsed.nodes.map((n) => n && n.tool_id).filter(Boolean))
+  } catch {
+    return null
+  }
 }
 
 function resolveBase() {
@@ -367,6 +432,7 @@ const orphanedNodeIds = assembledNodeIds.filter((id) => !nodeShardIdSet.has(id))
 
 let pendingNodeIds = []
 let leakedNodeIds = candidateNodeIds
+let writerBlockedNodeIds = []
 let baseNote = null
 
 if (candidateNodeIds.length > 0) {
@@ -384,14 +450,29 @@ if (candidateNodeIds.length > 0) {
       `exemption: registering every shard it carries is exactly its job (SHARD-GATE-PRE-ASSEMBLE-1 guard 2).`
   } else {
     pendingNodeIds = candidateNodeIds.filter((id) => !base.ids.has(id))
-    leakedNodeIds = candidateNodeIds.filter((id) => base.ids.has(id))
-    baseNote =
+    const onBaseIds = candidateNodeIds.filter((id) => base.ids.has(id))
+    const splitNote =
       `check-shard-assembly: branch-aware split against ${base.ref} @ ${base.sha}` +
       `${base.when ? ` (${base.when})` : ''}, resolved via ${base.why}; ${base.ids.size} node shard(s) published there.`
+    // REGEN-VALIDATE-RED-1: classify the on-base candidates against the base
+    // ref's OWN committed chaingraph.json. Absent there ⇒ the writer itself
+    // is behind (backlog), not a branch-side leak. Unreadable ⇒ fail closed.
+    const baseCgIds = assembledNodeIdsAtRef(base.ref)
+    if (baseCgIds === null) {
+      leakedNodeIds = onBaseIds
+      baseNote =
+        splitNote +
+        `\n  (base committed ${CG_REL} unreadable — WRITER-BLOCKED split skipped, FAILING CLOSED, SO #34c)`
+    } else {
+      writerBlockedNodeIds = onBaseIds.filter((id) => !baseCgIds.has(id))
+      leakedNodeIds = onBaseIds.filter((id) => baseCgIds.has(id))
+      baseNote = splitNote
+    }
   }
 }
 
 const pendingNodes = describeUnassembled(NODES_DIR, pendingNodeIds)
+const writerBlockedNodes = describeUnassembled(NODES_DIR, writerBlockedNodeIds)
 const unassembledNodes = describeUnassembled(NODES_DIR, leakedNodeIds)
 
 // ── report ────────────────────────────────────────────────────────────────
@@ -413,14 +494,23 @@ if (pendingNodes.length > 0) {
   console.log('check-shard-assembly: PENDING-ASSEMBLE is INFORMATIONAL, and it is not a pass for the shard itself — ASSEMBLE-LAND must still append the id(s) to chaingraph.meta.json order.nodes and re-run scripts/assemble-chaingraph.mjs. The moment such a shard reaches the base ref unregistered, this gate turns RED on it.')
 }
 
+if (writerBlockedNodes.length > 0) {
+  console.log(`check-shard-assembly: WRITER-BLOCKED — ${writerBlockedNodes.length} node shard(s) present on the base ref but ABSENT from the base ref's own committed chaingraph.json:`)
+  for (const { id, label } of writerBlockedNodes) {
+    console.log(`  - ${id}  (mcp_name: ${label})`)
+  }
+  console.log(`check-shard-assembly: this state exists at the base ref itself — the main-side single writer (derived-artifacts-regen.yml) is behind on assembling these, and a non-assembling PR branch neither caused it nor can repair it (SO #35 forbids hand-committing the derived artifact). The blocking surface is main's own regen run, not this branch (REGEN-VALIDATE-RED-1, 2026-08-30). A PR whose copy repair unblocks the writer is the sanctioned path. If main's writer is GREEN and this state persists, treat it as a registration leak and investigate.`)
+}
+
 if (
   unassembledNodes.length === 0 &&
   unassembledChains.length === 0 &&
   orphanedNodeIds.length === 0 &&
   schemaFailures.length === 0
 ) {
-  const accountedFor = nodeShardIds.length - waivedNodes.length - pendingNodes.length
-  console.log(`check-shard-assembly: OK — all ${accountedFor}/${nodeShardIds.length} node shard(s) (excluding ${waivedNodes.length} waived, ${pendingNodes.length} pending-assemble) and ${chainShardIds.length} chain shard(s) are present in the assembled chaingraph.json, every assembled node has a backing shard, and all ${nodeShardIds.length} node shard(s) on disk validate against $defs.node in ${SCHEMA_PATH_REL}.`)
+  const accountedFor =
+    nodeShardIds.length - waivedNodes.length - pendingNodes.length - writerBlockedNodes.length
+  console.log(`check-shard-assembly: OK — all ${accountedFor}/${nodeShardIds.length} node shard(s) (excluding ${waivedNodes.length} waived, ${pendingNodes.length} pending-assemble, ${writerBlockedNodes.length} writer-blocked) and ${chainShardIds.length} chain shard(s) are present in the assembled chaingraph.json, every assembled node has a backing shard, and all ${nodeShardIds.length} node shard(s) on disk validate against $defs.node in ${SCHEMA_PATH_REL}.`)
   process.exit(0)
 }
 

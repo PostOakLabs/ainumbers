@@ -26,6 +26,12 @@ on:
       # any workflow edit runs the full preflight so check-workflow-gate-parity
       # sees a newly-added CI gate and fails if preflight doesn't also run it
       - '.github/workflows/**'
+      # 2026-08-28: the bot heal commit e0c21019 for
+      # fv-explainer.html touched only that file - outside this filter, so the
+      # staleness red ran unwatched ~13 min until the next watched-path push.
+      # Watch the file. MUST stay byte-identical to the scripts-verify list in
+      # scripts/ci-paths.json (the relevant job consumes the same list).
+      - 'fv-explainer.html'
   pull_request:
     # ready_for_review added (DRAFTCI-2, 2026-07-20): draft PRs are skipped
     # below, so a readied draft must trigger a fresh run or it could merge
@@ -38,7 +44,15 @@ on:
     # now always dispatches; the `relevant` job decides (against the SAME path
     # list, scripts/ci-paths.json) whether the substantive job actually runs,
     # and the reporter job always reports. See that job's comment.
-    types: [opened, synchronize, reopened, ready_for_review]
+    #
+    # converted_to_draft added (2026-08-30): a PR opened
+    # non-draft that goes RED by design, then converted to draft AFTER the
+    # run already failed, kept the stale red forever — nothing re-dispatched
+    # this workflow on that transition. Measured on PR #1584: opened
+    # 13:44:08Z, run failed by 13:44:33Z, converted_to_draft 13:54:49Z, red
+    # check untouched afterward. This re-fires the workflow on that exact
+    # transition so the draft==false skip below supersedes the stale red.
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   # merge_group: the reporter job below is a required status check, so it must
   # also fire on merge_group or GitHub never reports status for a queued PR and
   # the queue deadlocks — "omitting it causes status checks to fail reporting,
@@ -48,6 +62,37 @@ on:
   # does for pull_request.
   merge_group:
     types: [checks_requested]
+  # Manual-dispatch shape (2026-08-28):
+  # lets the gate be exercised on demand on main (e.g. right after a bot heal
+  # commit) without waiting for the next watched-path push. dry_run gates
+  # nothing BY DECLARATION: this workflow only reports (preflight + status),
+  # it has no irreversible steps, so the dry-run is the full
+  # suite and every mode runs it.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry-run marker. This workflow has no irreversible steps; the full preflight suite runs in every mode.'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A newer push/synchronize on the same PR ref supersedes its prior
+  # in-progress run (2026-08-30) — letting the stale one
+  # finish is redundant CI time, not lost coverage. Also cancels a stale
+  # push:main run: derived-artifacts-regen.yml commits a regen fix-up on
+  # the same `github.ref` shortly after most human pushes to main, and this
+  # workflow has no push-only downstream job depending on it (unlike
+  # land-verify.yml's attest-fv-artifacts) — so the newer commit's run
+  # fully supersedes the older one. Measured 2026-08-30 run 33315676452: a
+  # push-triggered run genuinely red on stale derived artifacts
+  # (debt-ledger) ran for 9 minutes before reporting red, while the regen
+  # bot's own push, 36s later, produced a clean green run for the same
+  # ref — cancelling the stale one stops that redundant red from ever
+  # completing. NEVER cancel a merge_group run — a cancelled merge_group
+  # run reports nothing back to the queue, which deadlocks it rather than
+  # just leaving a stale red.
+  cancel-in-progress: ${{ github.event_name != 'merge_group' }}
 
 permissions:
   contents: read
@@ -106,6 +151,11 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Report dispatch mode
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: 'echo workflow_dispatch dry_run=$DRY_RUN - report-only workflow, no irreversible steps, full preflight suite runs in every mode'
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
@@ -122,8 +172,84 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Assert base ref resolvable
+        # The tripwire for the fetch-depth above. preflight.mjs below runs
+        # several base-ref-consuming gates (check-clause-digest,
+        # check-nav-reachability -> check-shard-assembly, run-proptests --base,
+        # verify_repo --changed). With origin/<base> unresolvable some fail
+        # closed and some silently degrade to "0 touched, always green", and
+        # neither says so in a way the reader can act on. Three-second red here
+        # naming the cause, instead of a twenty-minute misdiagnosis. Plain git,
+        # no gate script: an environment precondition, not a gate, so it adds
+        # nothing for check-workflow-gate-parity.mjs to pair against.
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="origin/${GITHUB_BASE_REF:-main}"
+          if ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+            echo "::error::base ref $BASE does not resolve in this checkout. Base-ref-consuming gates in this job would fail CLOSED or silently degrade. Set fetch-depth: 0 on this job's actions/checkout step."
+            exit 1
+          fi
+          echo "base-ref: RESOLVED $BASE @ $(git rev-parse --short=12 "$BASE")"
+
+      # On merge_group, assemble the derived tree
+      # EPHEMERALLY and export DERIVED_ROOT for the preflight run. The queue's
+      # ref is byte-for-byte the tree that will be main, so the shared-derived-
+      # artifact gates (§18 coverage, count-drift, derived-freshness, index-sync,
+      # sitemap, nav-reachability) are HARD there — they read the scratch tree,
+      # never the checkout, and nothing derived is ever committed (asserted
+      # below). preflight.mjs scopes DERIVED_ROOT per gate: only the
+      # DERIVED_ROOT_GATES commands see it; every other advisory gate keeps its
+      # PR-advisory downgrade because its inputs are still the in-tree artifacts.
+      # pull_request and push:main runs skip this step entirely and are UNCHANGED.
+      - name: Ephemeral derived tree (merge_group)
+        id: derived
+        if: github.event_name == 'merge_group'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRATCH="${RUNNER_TEMP}/derived-tree"
+          node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
+          node scripts/derived-artifacts.mjs --out "${SCRATCH}"
+          echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+
       - name: Preflight (full gate suite)
+        env:
+          # check-id-collision.mjs leg (c) scans other OPEN PRs for a claimed art-id
+          # (the collision class no in-tree gate can see: two open PRs never share a
+          # tree, so file-level uniqueness gates cannot catch them). gh reads the job's
+          # own token from the environment — token-free, no extra secret.
+          GITHUB_TOKEN: ${{ github.token }}
+          # DERIVED_ROOT is empty on pull_request/push:main (the step above
+          # is merge_group-only), so those runs are unchanged. preflight.mjs scopes
+          # this to the DERIVED_ROOT_GATES commands only.
+          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
         run: node scripts/preflight.mjs
+
+      # The single-writer law, proven, not assumed. The
+      # ephemeral assembly above must have left the checkout byte-identical —
+      # nothing derived is EVER committed from a merge_group run.
+      - name: Assert clean tree (merge_group — nothing derived was committed)
+        if: github.event_name == 'merge_group'
+        shell: bash
+        run: |
+          set -euo pipefail
+          s="$(git status --porcelain)"
+          if [ -n "$s" ]; then
+            echo "::error::merge_group job dirtied the checkout — the ephemeral derived tree must never touch it:"
+            printf '%s\n' "$s"
+            exit 1
+          fi
+          echo "checkout clean — the ephemeral derived tree touched nothing."
+
+      - name: Citation drift (degraded, metadata-only -- CI checks out no workspace-root research/clause-snapshots/)
+        # Already exercised as part of the preflight run above; a separate named
+        # step exists so a citation-drift failure reads as its own line in the
+        # Actions UI instead of being buried in the full-suite log. CI has no
+        # workspace-root snapshot excerpts, so this always runs in the degraded
+        # shape (digest-resolution only; the value-match check reports
+        # SKIPPED-NO-SNAPSHOT, never a pass).
+        run: node scripts/check-citation-drift.mjs
 
   scripts-verify-required:
     name: scripts-verify / required

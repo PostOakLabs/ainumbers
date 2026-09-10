@@ -13,3 +13,16 @@
 // files, not a destructured/inferred shape, so an ambient declare resolves
 // it with zero kernel edits.
 declare function scalbn(x: number, n: number): number;
+
+// Buffer -- deliberate Node-only fallback (NO-CLOCK parity kernels run node/bun/quickjs;
+// quickjs has no Buffer, so kernels feature-detect globalThis.atob and fall back to
+// Buffer.from(...).toString(...) under Node). Ambient-typed here ONCE so the shared
+// signature surfaces do not produce TS2580 across the 21 kernels that use it
+// (JSDOC-BUFFER-ALLOWLIST-1 census 2026-08-28). Shapes measured: Buffer.isView(x),
+// Buffer.from(str, encoding).toString(enc).
+declare const Buffer: {
+  isView(obj: unknown): boolean;
+  from(input: string, encoding?: string): {
+    toString(encoding?: string): string;
+  };
+};

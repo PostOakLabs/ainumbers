@@ -1,6 +1,6 @@
 {
   "tool_id": "art-216-trid-tolerance-cure",
-  "note": "golden_hash pinned (see vectors). Vector 1: no violations (all fees within tolerance). Vector 2: zero-tolerance violation requiring cure. Vector 3: changed-circumstance exemption.",
+  "note": "golden_hash pinned (see vectors). Vector 1: no violations, every 10% bucket fee rises. Vector 2: zero-tolerance violation requiring cure. Vectors 3-5 are the ART216-AGGREGATE-TOLERANCE-1 discriminators: each moves fees in BOTH directions inside the 10% bucket, where summing only the positive increases gives a different answer from the aggregate-to-aggregate test the rule requires. Vector 3: aggregate fell, no violation. Vector 4: aggregate rose past 10%, violation, but the cure is the aggregate excess. Vector 5: aggregate rose to exactly 10%, no violation.",
   "vectors": [
     {
       "name": "no_violation_all_buckets",
@@ -133,6 +133,182 @@
         "note": "Changed-circumstance fees are excluded from comparison. Bucket assignment is the caller's responsibility per regulatory classification rules."
       },
       "golden_hash": "f11fce26faf320af5eeb0789bc11cc74acaa9e765f374b15c0563db51ee94a4d"
+    },
+    {
+      "name": "ten_pct_bucket_aggregate_fell_no_violation",
+      "description": "Both fees are in the 10% bucket and they move in opposite directions: A falls $100, B rises $50. Aggregate charged ($200) is BELOW aggregate estimated ($250), so the consumer paid less than disclosed and there is no violation. Summing only the positive increase ($50) against the $25 threshold would wrongly report a $25 excess and a cure obligation.",
+      "policy_parameters": {
+        "fees": [
+          {
+            "name": "title_search",
+            "bucket": "ten_pct_cumulative",
+            "le_amount": 200,
+            "cd_amount": 100
+          },
+          {
+            "name": "recording_fee",
+            "bucket": "ten_pct_cumulative",
+            "le_amount": 50,
+            "cd_amount": 100
+          }
+        ]
+      },
+      "output_payload": {
+        "cure_required": false,
+        "cure_amount": 0,
+        "zero_tolerance_violations": 0,
+        "ten_pct_bucket_le_sum": 250,
+        "ten_pct_bucket_increase": 50,
+        "ten_pct_threshold": 25,
+        "ten_pct_excess": 0,
+        "ten_pct_violation": false,
+        "total_violations": 0,
+        "violations": [],
+        "fee_analysis": [
+          {
+            "name": "title_search",
+            "bucket": "ten_pct_cumulative",
+            "le_amount": 200,
+            "cd_amount": 100,
+            "increase": -100,
+            "status": "in_ten_pct_bucket",
+            "violation": false
+          },
+          {
+            "name": "recording_fee",
+            "bucket": "ten_pct_cumulative",
+            "le_amount": 50,
+            "cd_amount": 100,
+            "increase": 50,
+            "status": "in_ten_pct_bucket",
+            "violation": false
+          }
+        ],
+        "regulatory_basis": "Reg Z §1026.19(e)(3), TRID fee tolerance rules (Loan Estimate to Closing Disclosure)",
+        "note": "Changed-circumstance fees are excluded from comparison. Bucket assignment is the caller's responsibility per regulatory classification rules."
+      },
+      "golden_hash": "9ee45b232a443923704a71a190b73ead2ef9773247c87ff5764b8f6f8a603907"
+    },
+    {
+      "name": "ten_pct_bucket_aggregate_violation_net_of_decrease",
+      "description": "A falls $200 while B rises $500. Aggregate charged ($2,300) exceeds aggregate estimated ($2,000) by $300 against a $200 threshold, so the violation is real and the cure is the $100 aggregate excess. Summing only the positive increase ($500) would report a $300 excess: a real violation, but a cure three times too large.",
+      "policy_parameters": {
+        "fees": [
+          {
+            "name": "survey",
+            "bucket": "ten_pct_cumulative",
+            "le_amount": 1000,
+            "cd_amount": 800
+          },
+          {
+            "name": "pest_inspection",
+            "bucket": "ten_pct_cumulative",
+            "le_amount": 1000,
+            "cd_amount": 1500
+          }
+        ]
+      },
+      "output_payload": {
+        "cure_required": true,
+        "cure_amount": 100,
+        "zero_tolerance_violations": 0,
+        "ten_pct_bucket_le_sum": 2000,
+        "ten_pct_bucket_increase": 500,
+        "ten_pct_threshold": 200,
+        "ten_pct_excess": 100,
+        "ten_pct_violation": true,
+        "total_violations": 1,
+        "violations": [
+          {
+            "bucket": "ten_pct_cumulative",
+            "le_sum": 2000,
+            "cd_sum": 2300,
+            "aggregate_change": 300,
+            "total_increase": 500,
+            "threshold_10pct": 200,
+            "excess": 100,
+            "reason": "ten_pct_cumulative_threshold_exceeded"
+          }
+        ],
+        "fee_analysis": [
+          {
+            "name": "survey",
+            "bucket": "ten_pct_cumulative",
+            "le_amount": 1000,
+            "cd_amount": 800,
+            "increase": -200,
+            "status": "contributing_to_ten_pct_violation",
+            "violation": true
+          },
+          {
+            "name": "pest_inspection",
+            "bucket": "ten_pct_cumulative",
+            "le_amount": 1000,
+            "cd_amount": 1500,
+            "increase": 500,
+            "status": "contributing_to_ten_pct_violation",
+            "violation": true
+          }
+        ],
+        "regulatory_basis": "Reg Z §1026.19(e)(3), TRID fee tolerance rules (Loan Estimate to Closing Disclosure)",
+        "note": "Changed-circumstance fees are excluded from comparison. Bucket assignment is the caller's responsibility per regulatory classification rules."
+      },
+      "golden_hash": "8d0cb27fc839a52ad1b47bb0a00e70c1be215611446d5d57e8a5bc292db721d4"
+    },
+    {
+      "name": "ten_pct_bucket_aggregate_exactly_at_threshold",
+      "description": "Boundary case with movement in both directions: A falls $100, B rises $300, so the aggregate rises exactly $200 against a $200 threshold and there is no violation. Summing only the positive increase ($300) would report a $100 excess.",
+      "policy_parameters": {
+        "fees": [
+          {
+            "name": "flood_certification",
+            "bucket": "ten_pct_cumulative",
+            "le_amount": 1000,
+            "cd_amount": 900
+          },
+          {
+            "name": "settlement_agent",
+            "bucket": "ten_pct_cumulative",
+            "le_amount": 1000,
+            "cd_amount": 1300
+          }
+        ]
+      },
+      "output_payload": {
+        "cure_required": false,
+        "cure_amount": 0,
+        "zero_tolerance_violations": 0,
+        "ten_pct_bucket_le_sum": 2000,
+        "ten_pct_bucket_increase": 300,
+        "ten_pct_threshold": 200,
+        "ten_pct_excess": 0,
+        "ten_pct_violation": false,
+        "total_violations": 0,
+        "violations": [],
+        "fee_analysis": [
+          {
+            "name": "flood_certification",
+            "bucket": "ten_pct_cumulative",
+            "le_amount": 1000,
+            "cd_amount": 900,
+            "increase": -100,
+            "status": "in_ten_pct_bucket",
+            "violation": false
+          },
+          {
+            "name": "settlement_agent",
+            "bucket": "ten_pct_cumulative",
+            "le_amount": 1000,
+            "cd_amount": 1300,
+            "increase": 300,
+            "status": "in_ten_pct_bucket",
+            "violation": false
+          }
+        ],
+        "regulatory_basis": "Reg Z §1026.19(e)(3), TRID fee tolerance rules (Loan Estimate to Closing Disclosure)",
+        "note": "Changed-circumstance fees are excluded from comparison. Bucket assignment is the caller's responsibility per regulatory classification rules."
+      },
+      "golden_hash": "b41b7963ba57c1c0fe98f1ebbee5fa06f698f4b7339424be183025deafcbeaa4"
     }
   ]
 }

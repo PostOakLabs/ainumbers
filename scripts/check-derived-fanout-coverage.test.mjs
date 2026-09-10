@@ -29,6 +29,13 @@
  *   8. GREEN  — the same two entries in the correct order.
  *
  * Usage: node scripts/check-derived-fanout-coverage.test.mjs
+ *
+ * SANDBOX-FILELIST-SWEEP-2 DISPOSITION — DECLARED OUT, not converted to scripts/lib-sandbox-deps.mjs.
+ * generatorSrc()/ssotSrc()/preflightSrc() SYNTHESIZE every fixture module's source from a template
+ * string (see buildRepo() below); no fixture file here is a copy of a real repository file, so there
+ * is no import graph to derive and no hand-maintained file LIST to go stale. The near-miss class this
+ * row exists to close — a fixture silently missing a file the real module now imports — cannot occur
+ * in a harness that never copies real files at all.
  */
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, copyFileSync } from 'node:fs';

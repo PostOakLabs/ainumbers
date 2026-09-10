@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:83b81f55de1dfe9bda0dc897482ce07935b420bc7f4b93f30ffd3e01d7ae7a35
+// kernel_digest_at_authoring: sha256:99f40a737e6d7b92ec4f32aa3efb6ba4d5055ad3ede1e3cc9c4e41aa81326e4c
 //
 // FV-PROPFLOOR-SHARD-B10-1 — property-test floor for art-282-social-security-claiming-optimizer.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (fraYears interpolates by month fractions,
@@ -110,6 +110,7 @@ function checkP3_fraTable() {
 }
 
 // ---------- P4 (mandatory): ULP-boundary forcing ----------
+/** @type {Array<[Record<string, any>, string]>} */
 const ULP_BOUNDARY_CASES = [
   [{ claimAge: 62 }, 'claimAge at its own Math.max(62) floor — reduction factor must apply the maximum early-claim penalty without throwing'],
   [{ claimAge: 70 }, 'claimAge at its own Math.min(70) ceiling — delayed credit must cap correctly, no further credit beyond 70'],
@@ -117,13 +118,21 @@ const ULP_BOUNDARY_CASES = [
   [{ birthYear: 1954 + 1 }, 'birthYear 1 year past the 1954 boundary — must use the interpolation formula, 66 + 2/12'],
   [{ birthYear: 1960 }, 'birthYear exactly at the 1960 boundary — must be exactly 67 (not the interpolated formula)'],
   [{ pia: 0 }, 'pia exactly zero — all monthlyBenefit values must be exactly 0, lifetimePV exactly 0'],
-  [{ earningsIfWorking: 23400 }, 'earningsIfWorking exactly at the SS_EARNINGS_TEST_ANNUAL_LIMIT_2026 boundary — withheld must be exactly 0 (Math.max(0, earnings-limit)/2)'],
+  [{ earningsIfWorking: 24480 }, 'earningsIfWorking exactly at the 2026 earnings-test exempt amount ($24,480) — withheld must be exactly 0 (Math.max(0, earnings-limit)/2)'],
+  [{ earningsIfWorking: 24479.99, claimAge: 63 }, 'earningsIfWorking one cent BELOW the 2026 exempt amount, below FRA — still exactly 0 withheld, the exempt amount is inclusive'],
+  [{ earningsIfWorking: 24480.02, claimAge: 63 }, 'earningsIfWorking two cents ABOVE the 2026 exempt amount, below FRA — withheld must be exactly 0.01 ($1 per $2 of excess), not the full benefit'],
+  [{ earningsIfWorking: 23400, claimAge: 63 }, 'earningsIfWorking at the SUPERSEDED 2025 amount ($23,400) while below FRA — under the corrected 2026 amount this is BELOW the exempt threshold so withheld must be exactly 0. A kernel fossilized on the 2025 figure withholds here; this is the case that catches it'],
+  [{ earningsTestAnnualLimit: 0, earningsIfWorking: 1000, claimAge: 63 }, 'user-supplied exempt amount of exactly 0 — a legitimate override at the boundary of the >= 0 guard, so the whole excess is withheld rather than falling back to the default'],
+  [{ earningsTestAnnualLimit: -1, earningsIfWorking: 30000, claimAge: 63 }, 'negative user-supplied exempt amount — rejected by the >= 0 guard and the pinned default applies, never a negative withholding threshold'],
   [{ discountRatePct: 0.1 * 3 }, 'discountRatePct = 0.1*3 (classic non-exact double artifact) — pvOfAnnuity loop must reflect the exact double, not throw'],
   [{ longevityAge: 62 + Number.EPSILON }, 'longevityAge 1-ULP above claimAge+1 floor at claimAge=62 — years must stay positive and finite'],
   [{ claimAge: 66 + 2 / 12, birthYear: 1954 }, 'claimAge exactly equal to FRA in fractional-year form — monthlyFactor diff must resolve to exactly 0 (factor 1), no rounding drift from the Math.round(*12) conversion'],
 ];
 
 function checkP4_forced() {
+  // 2026 earnings-test exempt amount, asserted independently of the kernel (SO #34):
+  // SSA, Exempt Amounts Under the Earnings Test, retrieved 2026-08-23.
+  const EXEMPT_2026 = 24480;
   const base = { birthYear: 1960, pia: 2000, claimAge: 67, earningsIfWorking: 0, discountRatePct: 3, longevityAge: 85 };
   const rows = [];
   for (const [overrides, label] of ULP_BOUNDARY_CASES) {
@@ -131,7 +140,14 @@ function checkP4_forced() {
     const r = compute(pp);
     const op = r.output_payload;
     const finite = Number.isFinite(op.lifetimePV) && Number.isFinite(op.monthlyBenefitAtClaimAge) && Number.isFinite(op.fullRetirementAge);
-    rows.push({ label, overrides, fullRetirementAge: op.fullRetirementAge, monthlyBenefitAtClaimAge: op.monthlyBenefitAtClaimAge, lifetimePV: op.lifetimePV, finite, plausible: finite });
+    // The exempt amount actually applied must be the user override when one was
+    // supplied and >= 0, and otherwise EXACTLY the pinned 2026 figure asserted
+    // above -- never a fossilized prior-year amount.
+    const supplied = overrides.earningsTestAnnualLimit;
+    const expectedLimit = (typeof supplied === 'number' && supplied >= 0) ? supplied : EXEMPT_2026;
+    const limitCorrect = op.earningsTestAnnualLimit === expectedLimit;
+    const sourceCorrect = op.earningsTestLimitSource === ((typeof supplied === 'number' && supplied >= 0) ? 'user_supplied' : 'pinned_default_2026');
+    rows.push({ label, overrides, fullRetirementAge: op.fullRetirementAge, monthlyBenefitAtClaimAge: op.monthlyBenefitAtClaimAge, lifetimePV: op.lifetimePV, earningsTestAnnualLimit: op.earningsTestAnnualLimit, earningsTestLimitSource: op.earningsTestLimitSource, finite, limitCorrect, sourceCorrect, plausible: finite && limitCorrect && sourceCorrect });
   }
   return rows;
 }

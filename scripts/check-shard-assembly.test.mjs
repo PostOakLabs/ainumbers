@@ -9,16 +9,33 @@
 // `origin`, pushes a real main, and runs the REAL scripts/check-shard-assembly.mjs
 // against it, asserting the exit code and the printed diagnosis.
 //
-// THE THREE STATES THE ROW REQUIRES (SO #34c — a gate never seen red is not a
+// THE FOUR STATES THE ROW REQUIRES (SO #34c — a gate never seen red is not a
 // gate, and a gate that stops being red where it should is worse):
 //   (a) a NEW shard on a branch, absent from origin/main → PENDING-ASSEMBLE, exit 0
-//   (b) a shard PRESENT on origin/main and still unregistered → RED, exit 1
+//   (b) a shard PRESENT on origin/main and absent from the BASE's committed
+//       chaingraph.json on a non-assembling branch → WRITER-BLOCKED, exit 0
+//       (REGEN-VALIDATE-RED-1: the state exists at the base tip — the main-side
+//       single writer is behind; a non-assembling PR neither caused it nor can
+//       repair it, and main's own regen run is the blocking surface. Before
+//       ASSEMBLE-MAINSIDE-ENROLL-1 gave the writer auto-enrolment this same
+//       git state was the six-node NODE-REGISTRATION-GAP-1 leak, which is why
+//       the OLD (b) expected RED here; on a healthy writer the state now
+//       self-heals within one bot run, and on a broken writer it reds MAIN.)
 //   (c) an assembled, registered shard → OK, exit 0
 //
-// Plus the mutation control that makes (a) and (b) one fact rather than two:
-// the SAME shard id, GREEN as pending while it lives only on the branch,
-// turns RED the moment it reaches origin/main. If that flip ever stops
-// happening, the exemption has eaten the check it was carved out of.
+// Plus the mutation control that makes the classification one fact rather
+// than three: the SAME shard id is PENDING(green) while it lives only on the
+// branch, WRITER-BLOCKED(green, different label) once it reaches
+// origin/main, and RED the moment the branch itself touches
+// chaingraph.meta.json (an assembling branch could actually register it, so
+// the exemption must be unreachable for exactly that actor). If the turn to
+// RED ever stops happening, the exemption has eaten the check it was carved
+// out of.
+//
+// Plus the stale-branch control: an on-base id the BASE's committed
+// chaingraph.json ALREADY has (main healed it after the branch point) is
+// still RED — the writer-blocked exemption is exactly "the state exists at
+// the base tip", nothing wider.
 //
 // Plus both guards, each proven to FAIL CLOSED:
 //   guard 1 — base ref unresolvable (bad ref / empty base tree / no git at all)
@@ -31,26 +48,41 @@
 // Zero-dep, node: builtins only.
 
 import { execFileSync } from 'node:child_process'
+import { isolatedChildEnv } from './_git-env-lib.mjs'
+import { assertSandboxCompleteOrExit, deriveSandboxFiles, namedModuleNotFound, REPO_ROOT } from './lib-sandbox-deps.mjs'
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const GATE_SRC = resolve(__dirname, 'check-shard-assembly.mjs')
-const LIB_SRC = resolve(__dirname, 'lib-shard-order.mjs')
-// SHARD-SCHEMA-PARITY-1: the gate now shells to schema-validate.mjs --shard,
-// so every fixture repo needs a real copy of both it and the schema it reads
-// from — the same real files, never a reproduction of their content.
-const SCHEMA_VALIDATE_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'schema-validate.mjs')
-const SCHEMA_JSON_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'openchain-graph-v0.4.schema.json')
-// DENOMINATOR-SENTINEL-1: schema-validate.mjs now imports the shared denominator sentinel (it hard-fails
-// instead of printing "! chaingraph.json not found" and exiting 0 with nothing validated). --shard mode
-// returns before that assert, so the fixture repos never trip it — but ESM resolves every import at load,
-// so the module has to BE there. Same allowlist rule as the two lines above: copy the real file, never a
-// reproduction of its content. ⚠ If schema-validate.mjs ever grows another sibling import, it belongs here
-// too — the failure mode is a blunt ERR_MODULE_NOT_FOUND across every case in this file, which is loud.
-const SENTINEL_SRC = resolve(__dirname, 'denominator-sentinel.mjs')
+
+// ── THE SANDBOX FILE SET IS DERIVED, NOT TYPED (SANDBOX-FILELIST-GATE-1) ──
+// This used to be seven hand-written `const *_SRC = resolve(...)` lines, and
+// twice in two days a single added import to one of the COPIED modules took the
+// whole suite out: DENOMINATOR-SENTINEL-1 (PR #1492) reddened 13 of 18 cases,
+// GIT-ENV-LEAK-SWEEP-1 (PR #1498) reddened all 18 with ERR_MODULE_NOT_FOUND.
+// Each was fixed by adding the missing filename here, which is precisely why it
+// recurred — and each was caught by a before/after diff rather than by the
+// change itself, so a session that did not happen to diff would have shipped a
+// dead suite reading as a pass.
+//
+// Now only what CANNOT be derived is declared:
+//   ROOTS  — the ONE script the fixture executes, the gate under test. The
+//            closure is shut under BOTH edges, `import` and `node <script>`, so
+//            schema-validate.mjs arrives on its own (SHARD-SCHEMA-PARITY-1: the
+//            gate spawns `node schema-validate.mjs --shard <path>`) and so does
+//            everything either of them imports.
+//   EXTRAS — non-module data the gate readFileSync()s at runtime, which no
+//            import or spawn edge points at.
+// _git-env-lib.mjs, lib-shard-order.mjs, denominator-sentinel.mjs and
+// schema-validate.mjs are no longer named anywhere, and the next added import
+// needs no edit here at all. See scripts/lib-sandbox-deps.mjs for the
+// derive-vs-gate reasoning and for what derivation still cannot see. Real files
+// are copied verbatim, never a reproduction of their content — unchanged.
+const SANDBOX_ROOTS = ['scripts/check-shard-assembly.mjs']
+const SANDBOX_EXTRAS = ['chaingraph/standard/openchain-graph-v0.4.schema.json']
+const SANDBOX_FILES = deriveSandboxFiles({ roots: SANDBOX_ROOTS, extras: SANDBOX_EXTRAS })
 
 // ── CHILD-ENVIRONMENT ISOLATION (SHARD-HARNESS-ENV-LEAK-1) ────────────────
 // Git EXPORTS GIT_DIR (and GIT_INDEX_FILE, GIT_WORK_TREE, GIT_PREFIX, ...) to
@@ -76,32 +108,16 @@ const SENTINEL_SRC = resolve(__dirname, 'denominator-sentinel.mjs')
 // leak; building the child env from an explicit list excludes every GIT_* — and
 // anything else not named here — by construction. Names are matched
 // case-insensitively so Windows' own casing is preserved on the way out.
-const CHILD_ENV_ALLOWLIST = [
-  // POSIX + Node runtime essentials
-  'PATH', 'HOME', 'SHELL', 'TERM', 'TZ', 'USER', 'LOGNAME',
-  'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR', 'XDG_CONFIG_HOME',
-  // Windows runtime essentials (git.exe and node.exe both need these)
-  'ALLUSERSPROFILE', 'APPDATA', 'COMPUTERNAME', 'ComSpec',
-  'CommonProgramFiles', 'CommonProgramFiles(x86)', 'CommonProgramW6432',
-  'HOMEDRIVE', 'HOMEPATH', 'LOCALAPPDATA', 'LOGONSERVER',
-  'NUMBER_OF_PROCESSORS', 'OS', 'PATHEXT',
-  'PROCESSOR_ARCHITECTURE', 'PROCESSOR_ARCHITEW6432',
-  'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432',
-  'PUBLIC', 'SESSIONNAME', 'SystemDrive', 'SystemRoot',
-  'TEMP', 'TMP', 'USERDOMAIN', 'USERNAME', 'USERPROFILE', 'windir',
-]
-const ALLOWED = new Set(CHILD_ENV_ALLOWLIST.map((k) => k.toLowerCase()))
-
 // Builds the env for every child process this harness spawns. `extra` is
 // applied last so a case can still set what it deliberately means to set
 // (commit dates, GIT_CEILING_DIRECTORIES, the gate's own base-ref vars).
-function childEnv(extra = {}) {
-  const env = {}
-  for (const [key, value] of Object.entries(process.env)) {
-    if (ALLOWED.has(key.toLowerCase()) && value !== undefined) env[key] = value
-  }
-  return { ...env, ...extra }
-}
+//
+// GIT-ENV-LEAK-SWEEP-1 (2026-08-23): the 40-key allowlist argued for above used to be written out
+// right here, and check-clause-digest.test.mjs and check-nav-reachability.test.mjs each carried a
+// byte-identical copy of it. It is now isolatedChildEnv() in scripts/_git-env-lib.mjs — same keys,
+// same case-insensitive filter, same `extra`-last override. A de-duplication, not a behaviour
+// change; the local name is kept so every call site below is untouched.
+const childEnv = isolatedChildEnv
 
 let passed = 0
 let failed = 0
@@ -219,13 +235,20 @@ function makeFixture() {
   // commit 0 — scripts only, no chaingraph/graph/ yet. schema-validate.mjs +
   // the schema JSON go in here too (chaingraph/standard/, not chaingraph/graph/)
   // since the gate shells out to the REAL file — SHARD-SCHEMA-PARITY-1.
-  mkdirSync(join(work, 'scripts'), { recursive: true })
-  cpSync(GATE_SRC, join(work, 'scripts/check-shard-assembly.mjs'))
-  cpSync(LIB_SRC, join(work, 'scripts/lib-shard-order.mjs'))
-  cpSync(SENTINEL_SRC, join(work, 'scripts/denominator-sentinel.mjs'))
-  mkdirSync(join(work, 'chaingraph/standard'), { recursive: true })
-  cpSync(SCHEMA_VALIDATE_SRC, join(work, 'chaingraph/standard/schema-validate.mjs'))
-  cpSync(SCHEMA_JSON_SRC, join(work, 'chaingraph/standard/openchain-graph-v0.4.schema.json'))
+  // Every path is repo-relative and copied to the SAME relative path, which is
+  // what makes '../../scripts/denominator-sentinel.mjs' resolve in the fixture
+  // exactly as it does in the repo.
+  for (const rel of SANDBOX_FILES) {
+    const dest = join(work, ...rel.split('/'))
+    mkdirSync(dirname(dest), { recursive: true })
+    cpSync(resolve(REPO_ROOT, rel), dest)
+  }
+  // Reads the tree that was ACTUALLY built and names any module an imported file
+  // cannot reach — once, before a single case runs, instead of leaving it to
+  // resurface as 18 unrelated-looking failures with the real cause nowhere in
+  // the output. Independent of the derivation above by construction: it consults
+  // the sandbox on disk, never the derived list (STANDING-ORDERS #34).
+  assertSandboxCompleteOrExit(work, SANDBOX_FILES, 'check-shard-assembly.test.mjs')
   commit(work, 'scripts only')
   const preChaingraphSha = git(work, ['rev-parse', 'HEAD']).trim()
 
@@ -254,7 +277,19 @@ function runGate(work, args = [], env = {}) {
     return { status: 0, out }
   } catch (e) {
     if (e.status === undefined) throw e
-    return { status: e.status, out: (e.stdout || '') + (e.stderr || '') }
+    const out = (e.stdout || '') + (e.stderr || '')
+    // SANDBOX-FILELIST-GATE-1: a module-not-found escaping the child is a
+    // SANDBOX defect, never a gate verdict. Node's own text already names both
+    // halves the diagnosis needs, so it is rewritten rather than passed through
+    // as a bare ERR_MODULE_NOT_FOUND buried in a stack trace. Catches what the
+    // pre-run check cannot see — a missing shell-out target is not an import.
+    const named = namedModuleNotFound(out, work)
+    if (named) {
+      console.error(`\ncheck-shard-assembly.test.mjs: FIXTURE SANDBOX IS INCOMPLETE — this is not a gate failure.`)
+      console.error(`  ${named}`)
+      process.exit(1)
+    }
+    return { status: e.status, out }
   }
 }
 
@@ -292,22 +327,60 @@ test('STATE (a) — an UNCOMMITTED new shard is pending too (a row that has not 
   assert(/PENDING-ASSEMBLE/.test(out) && /art-B/.test(out), `expected art-B pending, got:\n${out}`)
 })
 
-// ── STATE (b): shard on origin/main, unregistered ⇒ RED ───────────────────
-test('STATE (b) — a shard PRESENT on origin/main and unregistered is RED', () => {
+// ── STATE (b): shard on origin/main, absent from the base's committed CG ⇒ WRITER-BLOCKED ──
+test('STATE (b) — a shard PRESENT on origin/main but absent from the BASE committed chaingraph.json is WRITER-BLOCKED (exit 0) on a non-assembling branch', () => {
   const { work } = makeFixture()
   nodeShard(work, 'art-LEAK', 'tool_leak') // registered nowhere
-  commit(work, 'art-LEAK shard, never appended to order.nodes')
+  commit(work, 'art-LEAK shard, writer is behind on assembling it')
   git(work, ['push', '-q', 'origin', 'main'])
   const { status, out } = runGate(work)
-  assert(status === 1, `expected exit 1 for a published unregistered shard, got ${status}\n${out}`)
-  assert(/1 node shard\(s\) not yet in the assembled chaingraph.json/.test(out), `expected the leak line, got:\n${out}`)
+  assert(status === 0, `expected exit 0 for a writer-blocked backlog shard, got ${status}\n${out}`)
+  assert(/WRITER-BLOCKED — 1 node shard/.test(out), `expected the writer-blocked line, got:\n${out}`)
   assert(/art-LEAK/.test(out), `expected art-LEAK named, got:\n${out}`)
   assert(!/PENDING-ASSEMBLE/.test(out), `a published shard must NEVER be reported pending:\n${out}`)
-  assert(/FAILING — node case is BLOCKING/.test(out), `expected the blocking verdict, got:\n${out}`)
+  assert(!/FAILING/.test(out), `writer-blocked is informational, not a failure:\n${out}`)
+  assert(/blocking surface is main's own regen run/.test(out), `expected the writer-blocked diagnosis naming the real blocking surface, got:\n${out}`)
 })
 
-// ── THE MUTATION CONTROL — same shard, green then red ─────────────────────
-test('MUTATION — the same shard flips PENDING(green) → RED the moment it reaches origin/main', () => {
+test('STATE (b)-RED — the SAME base state on a branch that edits chaingraph.meta.json is RED (guard 2 outranks the writer-blocked exemption)', () => {
+  const { work } = makeFixture()
+  nodeShard(work, 'art-LEAK', 'tool_leak')
+  commit(work, 'art-LEAK shard on main, unassembled')
+  git(work, ['push', '-q', 'origin', 'main'])
+  git(work, ['checkout', '-q', '-b', 'sneaky'])
+  // Touch meta.json WITHOUT registering art-LEAK — a branch that edits the
+  // order file is an assembler and could actually register the shard, so the
+  // exemption must not be reachable for it.
+  writeJson(join(work, 'chaingraph/chaingraph.meta.json'), { order: { nodes: ['art-A'], chains: ['chain-A'], touched: true } })
+  commit(work, 'touches meta.json without registering art-LEAK')
+  const { status, out } = runGate(work)
+  assert(status === 1, `expected exit 1 on a meta.json-editing branch, got ${status}\n${out}`)
+  assert(/ASSEMBLING branch/.test(out), `expected the assembler diagnosis, got:\n${out}`)
+  assert(/art-LEAK/.test(out), `expected art-LEAK named, got:\n${out}`)
+})
+
+test('STATE (b)-RED — an on-base id the BASE committed CG already has is still RED on a stale branch (the exemption is exactly the base-tip state)', () => {
+  const { work } = makeFixture()
+  git(work, ['checkout', '-q', '-b', 'stale-row'])
+  nodeShard(work, 'art-M', 'tool_m')
+  commit(work, 'art-M shard on the branch')
+  // main assembles art-M after the branch point (the writer healed it there).
+  git(work, ['checkout', '-q', 'main'])
+  nodeShard(work, 'art-M', 'tool_m')
+  writeAssembled(work, ['art-A', 'art-M'], ['chain-A'])
+  commit(work, 'main assembles art-M')
+  git(work, ['push', '-q', 'origin', 'main'])
+  git(work, ['checkout', '-q', 'stale-row'])
+
+  const { status, out } = runGate(work)
+  assert(status === 1, `expected exit 1 — the base committed CG already has art-M, got ${status}\n${out}`)
+  assert(/1 node shard\(s\) not yet in the assembled chaingraph\.json/.test(out), `expected the leak line, got:\n${out}`)
+  assert(/art-M/.test(out), `expected art-M named, got:\n${out}`)
+  assert(!/WRITER-BLOCKED/.test(out), `a shard main already assembled must not be exempted as writer-blocked:\n${out}`)
+})
+
+// ── THE MUTATION CONTROL — same shard, green → green(different label) → red ──
+test('MUTATION — the same shard flips PENDING(green) → WRITER-BLOCKED(green) on publish → RED the moment the branch edits meta.json', () => {
   const { work } = makeFixture()
   git(work, ['checkout', '-q', '-b', 'shard-row'])
   nodeShard(work, 'art-M', 'tool_m')
@@ -316,23 +389,36 @@ test('MUTATION — the same shard flips PENDING(green) → RED the moment it rea
   const before = runGate(work)
   assert(before.status === 0 && /PENDING-ASSEMBLE/.test(before.out), `pre-publish expected pending+0, got ${before.status}\n${before.out}`)
 
-  // Publish it, unregistered — exactly the NODE-REGISTRATION-GAP-1 leak.
+  // Publish it unregistered — post-ASSEMBLE-MAINSIDE-ENROLL-1 this is the
+  // writer's backlog, loudly labelled, not a PR-side failure.
   git(work, ['checkout', '-q', 'main'])
   git(work, ['merge', '-q', '--ff-only', 'shard-row'])
   git(work, ['push', '-q', 'origin', 'main'])
 
   const after = runGate(work)
-  assert(after.status === 1, `post-publish expected exit 1, got ${after.status}\n${after.out}`)
+  assert(after.status === 0, `post-publish expected exit 0 (writer-blocked), got ${after.status}\n${after.out}`)
   assert(!/PENDING-ASSEMBLE/.test(after.out), `post-publish must not be pending:\n${after.out}`)
-  assert(/art-M/.test(after.out), `expected art-M named in the failure, got:\n${after.out}`)
+  assert(/WRITER-BLOCKED/.test(after.out) && /art-M/.test(after.out), `expected art-M writer-blocked, got:\n${after.out}`)
+
+  // The flip that must never stop happening: a branch that touches the order
+  // file IS the actor that could register the shard — the exemption is
+  // unreachable for it, and the gate goes RED again.
+  git(work, ['checkout', '-q', '-b', 'assembler'])
+  writeJson(join(work, 'chaingraph/chaingraph.meta.json'), { order: { nodes: ['art-A'], chains: ['chain-A'], touched: true } })
+  commit(work, 'touches meta.json without registering art-M')
+  const assembling = runGate(work)
+  assert(assembling.status === 1, `assembling-branch expected exit 1, got ${assembling.status}\n${assembling.out}`)
+  assert(/art-M/.test(assembling.out), `expected art-M named in the failure, got:\n${assembling.out}`)
 })
 
-test('MUTATION — registering the published shard turns it GREEN again (red → green closes the loop)', () => {
+test('MUTATION — registering the published shard turns it GREEN again (writer-blocked → assembled closes the loop)', () => {
   const { work } = makeFixture()
   nodeShard(work, 'art-M', 'tool_m')
-  commit(work, 'art-M shard, unregistered')
+  commit(work, 'art-M shard, unassembled on main')
   git(work, ['push', '-q', 'origin', 'main'])
-  assert(runGate(work).status === 1, 'expected the unregistered published shard to be red first')
+  const pre = runGate(work)
+  assert(pre.status === 0 && /WRITER-BLOCKED/.test(pre.out), 'expected the unassembled published shard to be writer-blocked first')
+  assert(pre.out.includes('art-M'), 'expected art-M named while writer-blocked')
 
   writeAssembled(work, ['art-A', 'art-M'], ['chain-A'])
   const { status, out } = runGate(work)
@@ -429,19 +515,19 @@ test('NO-REGRESSION — the chain half stays ADVISORY (unassembled chain shard, 
   assert(/1 chain shard\(s\) not yet in the assembled chaingraph.json/.test(out), `expected the chain line, got:\n${out}`)
 })
 
-test('NO-REGRESSION — a published unregistered shard is RED even alongside a pending one', () => {
+test('NO-REGRESSION — a published unassembled shard is WRITER-BLOCKED alongside a pending one, and the run stays GREEN', () => {
   const { work } = makeFixture()
   nodeShard(work, 'art-LEAK', 'tool_leak')
-  commit(work, 'published leak')
+  commit(work, 'published, writer behind on assembly')
   git(work, ['push', '-q', 'origin', 'main'])
   git(work, ['checkout', '-q', '-b', 'shard-row'])
   nodeShard(work, 'art-NEW', 'tool_new')
   commit(work, 'new shard on the branch')
   const { status, out } = runGate(work)
-  assert(status === 1, `expected exit 1 — the leak must still bite, got ${status}\n${out}`)
+  assert(status === 0, `expected exit 0 — both classifications are informational, got ${status}\n${out}`)
   assert(/PENDING-ASSEMBLE/.test(out) && /art-NEW/.test(out), `expected art-NEW pending, got:\n${out}`)
-  assert(/art-LEAK/.test(out), `expected art-LEAK still reported, got:\n${out}`)
-  assert(/FAILING — node case is BLOCKING/.test(out), `expected the blocking verdict, got:\n${out}`)
+  assert(/WRITER-BLOCKED/.test(out) && /art-LEAK/.test(out), `expected art-LEAK writer-blocked, got:\n${out}`)
+  assert(!/FAILING/.test(out), `neither state may fail the run:\n${out}`)
 })
 
 // ── SCHEMA CONFORMANCE (SHARD-SCHEMA-PARITY-1) ─────────────────────────────

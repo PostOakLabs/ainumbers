@@ -35,13 +35,13 @@
  * a snapshot and asserts the generator REJECTS that entry. If that control ever PASSES, the gate
  * IS the vulnerability, and the test says so in those words.
  *
- * Snapshots live at WORKSPACE-ROOT research/clause-snapshots/ — never inside this repo (SO #3b:
- * the excerpts are primary text, and an internal artifact in a public repo is only fully
- * remediable by a history-rewriting force push). This script locates that directory by walking up
- * from the repo root, so it works from the main checkout and from any worktree. When the directory
- * is genuinely unreachable — a CI checkout of this repo alone — leg 1 cannot run; that is reported
- * as the DISTINCT state `SNAPSHOT-UNREACHABLE`, printed loudly per source, and NEVER as a pass
- * (SO #34c: absence is not a green). Leg 2 still binds in that environment.
+ * Snapshots are read ONLY from `repo/research/clause-snapshots/` — a path inside this repo,
+ * never the parent workspace (SO #3b: the excerpts are primary text, and an internal artifact in
+ * a public repo is only fully remediable by a history-rewriting force push). The lookup is
+ * anchored to the repo root with no walk-up, so Omen and CI resolve the SAME environment or none:
+ * when the directory is genuinely absent — a checkout of this repo alone — leg 1 cannot run; that
+ * is reported as the DISTINCT state `SNAPSHOT-UNREACHABLE`, printed loudly per source, and NEVER
+ * as a pass (SO #34c: absence is not a green). Leg 2 still binds in that environment.
  *
  * Usage:
  *   node scripts/gen-rule-registry.mjs            # regenerate the table (ASSEMBLE-LAND only)
@@ -54,6 +54,7 @@ import { createHash } from 'node:crypto';
 import { resolve, dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ENTRY_DIR = resolve(REPO, 'chaingraph', 'kernels', 'data', 'rule-registry');
@@ -87,17 +88,32 @@ export function sha256HexOf(buf) {
   return 'sha256:' + createHash('sha256').update(buf).digest('hex');
 }
 
-/** Walk up from `start` looking for research/clause-snapshots. Returns a path or null. */
+/**
+ * The snapshot root is anchored to THIS REPO and nothing else: `repo/research/clause-snapshots/`
+ * if it exists, null otherwise. This function NEVER walks above the repo root.
+ *
+ * History (RULE-REGISTRY-ENV-INDEPENDENCE-1): this used to walk up to 8 parent directories, so on
+ * a machine whose workspace had an UNTRACKED `research/clause-snapshots/` beside the repo clone,
+ * the same generator emitted `RECOMPUTED-FROM-BYTES` while a CI checkout emitted
+ * `SNAPSHOT-UNREACHABLE` for the same input — a derived artifact whose bytes depended on the
+ * machine (7460ee63 flipped all four entries back on main). If the estate ever wants
+ * RECOMPUTED-FROM-BYTES on main, that is a separate decision to track the excerpts in-repo
+ * (SPEC.md Sec.30.2 size cap applies); it is not this script's job to hunt for them on disk.
+ */
 export function findSnapshotRoot(start = REPO) {
-  let dir = start;
-  for (let i = 0; i < 8; i++) {
-    const candidate = resolve(dir, 'research', 'clause-snapshots');
-    if (existsSync(candidate) && statSync(candidate).isDirectory()) return candidate;
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
+  const candidate = resolve(start, 'research', 'clause-snapshots');
+  if (existsSync(candidate) && statSync(candidate).isDirectory()) return candidate;
   return null;
+}
+
+/** The exact readSnapshot closure main() uses, exported so the self-test can prove env-independence. */
+export function makeReadSnapshot(snapshotRoot) {
+  return (loc) => {
+    if (!snapshotRoot) return null;
+    const p = resolve(snapshotRoot, basename(loc));
+    if (!existsSync(p) || !statSync(p).isFile()) return null;
+    return readFileSync(p);
+  };
 }
 
 export function loadClauseRegistryDigests(path = CLAUSE_REGISTRY_PATH) {
@@ -302,7 +318,7 @@ function listEntryFiles(dir = ENTRY_DIR) {
 /** Branch-awareness, same technique as check-shard-assembly.mjs: is `path` present on the base ref? */
 function presentOnBaseRef(pathRel, baseRef) {
   try {
-    execSync(`git cat-file -e ${baseRef}:${pathRel}`, { cwd: REPO, stdio: 'ignore' });
+    execSync(`git cat-file -e ${baseRef}:${pathRel}`, { cwd: REPO, env: gitEnv(), stdio: 'ignore' });
     return true;
   } catch { return false; }
 }
@@ -310,7 +326,7 @@ function presentOnBaseRef(pathRel, baseRef) {
 function resolveBaseRef(explicit) {
   if (explicit) return explicit;
   for (const ref of ['origin/main', 'main']) {
-    try { execSync(`git rev-parse --verify ${ref}`, { cwd: REPO, stdio: 'ignore' }); return ref; } catch { /* next */ }
+    try { execSync(`git rev-parse --verify ${ref}`, { cwd: REPO, env: gitEnv(), stdio: 'ignore' }); return ref; } catch { /* next */ }
   }
   return null;
 }
@@ -342,12 +358,7 @@ function main() {
   }
 
   const registryDigests = loadClauseRegistryDigests();
-  const readSnapshot = (loc) => {
-    if (!snapshotRoot) return null;
-    const p = resolve(snapshotRoot, basename(loc));
-    if (!existsSync(p) || !statSync(p).isFile()) return null;
-    return readFileSync(p);
-  };
+  const readSnapshot = makeReadSnapshot(snapshotRoot);
   const claims = docs.flatMap((d) => collectSourceClaims(d));
   const { errors: digestErrors, verifications } = verifySourceClaims(claims, { readSnapshot, registryDigests });
   errors.push(...digestErrors);
@@ -359,7 +370,7 @@ function main() {
   if (unreachable.length) {
     console.log(
       `gen-rule-registry: SNAPSHOT-UNREACHABLE for ${unreachable.length} source(s) — `
-      + `workspace-root research/clause-snapshots/ was ${snapshotRoot ? 'found but is missing these files' : 'not found from ' + REPO}. `
+      + `research/clause-snapshots/ inside the repo was ${snapshotRoot ? 'found but is missing these files' : 'not found (the lookup is anchored to ' + REPO + ' — the parent workspace is never consulted)'}. `
       + 'Byte recomputation could NOT run for them; only clause-snapshot-registry resolution did. '
       + 'This is a DISTINCT state, never a pass (STANDING-ORDERS.md #34c).'
     );
@@ -415,14 +426,13 @@ function main() {
   // Staleness is judged on table_digest (a canonical hash of entries+standards+schema_version),
   // never on raw byte equality of the full file. source_verification's `mode` field
   // (RECOMPUTED-FROM-BYTES vs SNAPSHOT-UNREACHABLE) reflects whether THIS process could reach
-  // workspace-root research/clause-snapshots/ -- which exists in a claimant's local workspace but
-  // never in the CI checkout (SO #3b: research/ is deliberately outside repo/, never vendored in).
-  // A byte-equality check would make the committed table permanently unreproducible: it can never
-  // match both a local regen (snapshots reachable) and CI's regen (snapshots absent) at once.
-  // table_digest excludes source_verification by construction (assembleTable() hashes only
-  // {entries, standards, schema_version}), so it is the host-independent freshness signal; the
-  // underlying digest verification against snapshot bytes already ran above (errors.length check)
-  // whenever this process could reach them, so weakening the byte-compare here does not weaken that.
+  // repo-anchored research/clause-snapshots/ — since RULE-REGISTRY-ENV-INDEPENDENCE-1 the lookup
+  // is anchored to the repo root with no walk-up, so every environment resolves it identically
+  // and source_verification itself is reproducible. table_digest excludes source_verification by
+  // construction (assembleTable() hashes only {entries, standards, schema_version}), so it remains
+  // the host-independent freshness signal; the underlying digest verification against snapshot
+  // bytes already ran above (errors.length check) whenever this process could reach them, so
+  // weakening the byte-compare here does not weaken that.
   const onDisk = readFileSync(TABLE_PATH, 'utf8');
   const diskParsed = (() => { try { return JSON.parse(onDisk); } catch { return null; } })();
   if (!diskParsed || diskParsed.table_digest !== table.table_digest) {

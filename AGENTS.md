@@ -6,6 +6,7 @@ Pointers for coding and browsing agents working on ainumbers.co.
 - **Tool/workflow catalog for agents:** https://ainumbers.co/llms.txt (extended: https://ainumbers.co/llms-full.txt)
 - **Hash resolver (verify a receipt):** https://ledger.ainumbers.co/
 - **MCP endpoint:** https://mcp.ainumbers.co/mcp
+- **What an agent can do here:** the agent-tasks block in https://ainumbers.co/llms.txt; reusable kit: [`agent-kit/`](agent-kit/), emitted by `scripts/gen-agent-kit.mjs` from `agent-kit/kit.json`
 
 Full tool catalog, counts, and usage detail live at the links above. This file only points, it does not restate them.
 
@@ -40,3 +41,7 @@ demonstration, the issue route for a bare idea:
 
 A merged proposal is not a shipped tool — it enters the normal spec → work-unit
 pipeline like any other build. Nothing here auto-merges or auto-builds.
+
+## Build directives
+
+Read CLAUDE.md and CONTRACT.md before any work; they are the build directives.

@@ -45,6 +45,32 @@
 // (`node scripts/check-page-determinism.mjs`) for the blocking form, which is what a
 // remediation wave should use.
 //
+// RATCHET-BASELINE-SWEEP-2 ADJUDICATION (2026-08-27): DECLARED WARN-ONLY BY DESIGN,
+// ⛔ NOT converted to scripts/ratchet-baseline.mjs's hard-failing loader. This file's
+// baseline is structurally NOT the F-11 "deletable ceiling" shape RATCHET-BASELINE-
+// LOADER-1 (PR #1483) fixed in the three sibling gates (check-compute-proof-coverage,
+// check-fv-floor-coverage, check-s18-digest-freshness):
+//   - It is a per-defect SUPPRESSION SET (`BASELINE_SET.has("file:line:pattern")`),
+//     never a COUNT compared against a ceiling. There is no `ceiling ?? Infinity` (or
+//     any numeric default) anywhere in this file for a missing/corrupt baseline to
+//     smuggle back in.
+//   - A missing or empty baseline (`existsSync(BASELINE_PATH) ? JSON.parse(...) :
+//     { entries: [] }`, line ~1211) makes `BASELINE_SET` EMPTY, which reclassifies
+//     every previously-baselined defect as NEW — i.e. it makes this gate STRICTER,
+//     the opposite direction from F-11's silent-disable. A corrupt (non-array
+//     `entries`) baseline degrades to the same empty-set behavior (line ~1214),
+//     never to an unconditional pass.
+//   - The ONLY way this gate exits 0 despite live defects is the documented
+//     `--warn-only` flag above, which is an explicit, always-on CLI switch at the
+//     call site (preflight.mjs), not a property of the baseline FILE's presence or
+//     content — deleting or corrupting page-determinism-baseline.json cannot
+//     silence a defect the way a deleted ratchet ceiling used to.
+// Converting this file to loadRatchetBaseline() would require inventing a ceiling
+// concept this gate does not have — exactly the "second validation path" the row
+// this comment cites forbids. See board/done/RATCHET-BASELINE-SWEEP-2.md for the
+// full adjudication (check-node-complete.mjs's (c)/(d) legacy ratchet WAS converted
+// in the same row — that one IS the ceiling shape).
+//
 // Usage:
 //   node scripts/check-page-determinism.mjs                 # gate (exit 1 on new defect)
 //   node scripts/check-page-determinism.mjs --warn-only     # preflight form (always exit 0)

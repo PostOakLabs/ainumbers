@@ -28,6 +28,12 @@
 //        --baseline-check   the DERIVED-ARTIFACT freshness gate: exit 1 iff a
 //                           baseline entry is now reachable (baseline stale);
 //                           new islands are reported but do NOT fail here.
+// Exit codes: 0 = verdict computed, nothing to fail on. 1 = a VERDICT: new
+//             island(s), or a stale baseline under --baseline-check. 2 =
+//             NOT_EVALUABLE — the sub-gate could not run, so NO verdict was
+//             computed and none is printed (NAV-SUBGATE-CRASH-1; see the note
+//             above pendingAssembleClassification()). 2 is a distinct red on
+//             purpose: "sub-gate could not run" must never read as "island".
 //
 // ⚠ TWO GATES, TWO OWNERS — do not fold them back together. Measured 2026-08-16:
 // PR #1309 shipped chaingraph/integrator-profile.html with no inbound link, and
@@ -59,19 +65,65 @@
 // is leaked, orphaned, schema-invalid, or already registered is NOT in that
 // section and stays a real island. Excused pages are never added to the
 // baseline: they are not islands yet, not islands the reader should accept.
+//
+// --changed <REF> (PREREQ-CHANGED-SCOPING-1, B6 of GATE-MANIFEST-DRAFT.md §1),
+// PLAIN check mode only. Reachability is a GRAPH property, not a per-file
+// property, so the graph itself is still built from every page on disk —
+// that read is unavoidable for a correct global answer and is not what makes
+// this gate expensive for a builder session; the noise is the FAILURE
+// REPORT. So --changed narrows what can FAIL the gate to NEW islands that
+// are themselves a touched page, the same "does this property hold for a
+// touched file" shape every other --changed gate uses. Known scope gap,
+// stated plainly rather than hidden: a touched file that removes the ONLY
+// inbound link to an UNTOUCHED page turns that page into a new island too;
+// such a case is surfaced as an advisory (not a failure) under --changed so
+// it is never silently dropped — run without --changed for the hard check.
+// Undeterminable diff falls back to a FULL scan (fail-open, safe-by-cost) —
+// never combined with --init/--update/--prune/--baseline-check, which are
+// already whole-estate operations by design.
+//
+// ⚠⚠ NAV-SUBGATE-CRASH-1 (2026-08-27) — THE SUB-GATE EXIT-CODE CONTRACT.
+// The accommodation above shipped with a swallow. This gate spawned
+// check-shard-assembly.mjs, IGNORED its exit code, and string-matched its
+// stdout for a `PENDING-ASSEMBLE —` prefix — so when the sub-gate could not
+// evaluate its own input, the prefix was simply absent, nothing was excused,
+// and this gate emitted a specific, confident, WRONG finding. Measured on the
+// SAME commit (53359d3f, PR #1520 — board/NAV-ISLAND-DIAGNOSTIC-2026-08-27.md):
+//   full clone -> `nav-reachability: OK — 0 new islands`            exit 0
+//   --depth 1  -> `nav-reachability: 1 NEW island(s)`               exit 1
+// with no module error, no crash, and nothing anywhere in the output saying the
+// sub-gate had failed closed. It stranded 4 rows and 3 PRs for a day.
+// ⇒ A sub-gate that could not run — or that ran and declared its own input
+// unevaluable — now yields NOT_EVALUABLE (board/row-state-enum.json, SO #58)
+// and this gate FAILS CLOSED on exit 2 WITHOUT emitting any island verdict.
+// The contract itself, and ADVISORY-CRASH-DISTINCT-1's reused crash rules
+// (PR #1489), live in scripts/lib-subgate-contract.mjs — see its header for why
+// the shape is "positive evidence required" rather than "exit code >= 2".
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve, relative, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
+import { resolveChangedScope, isTouched } from './_changed-files-lib.js';
+import { runSubGate, SUBGATE_VERDICT } from './lib-subgate-contract.mjs';
 
 const ROOT = process.env.NAV_ROOT ? resolve(process.env.NAV_ROOT)
   : resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// MERGEGROUP-HARD-GATES-1: on merge_group DERIVED_ROOT points at the ephemeral
+// assembled tree; the monolith read below (the gate's only DYNAMIC root) prefers
+// the scratch copy, so this gate sees the true speculative graph and stays HARD
+// there. Everywhere else DERIVED_ROOT is unset — unchanged behaviour.
+const DERIVED_ROOT = process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim()
+  ? resolve(process.env.DERIVED_ROOT.trim()) : null;
 const BASELINE = process.env.NAV_BASELINE ? resolve(process.env.NAV_BASELINE)
   : join(ROOT, 'scripts', 'nav-island-baseline.json');
 const MODE = (process.argv.includes('--init') || process.argv.includes('--update')) ? 'update'
   : process.argv.includes('--prune') ? 'prune'
   : process.argv.includes('--baseline-check') ? 'baseline-check'
   : 'check';
+const changedArgIdx = process.argv.indexOf('--changed');
+const changedRef = changedArgIdx !== -1 ? process.argv[changedArgIdx + 1] : null;
+const CHANGED = MODE === 'check'
+  ? resolveChangedScope(changedRef, { gate: 'check-nav-reachability.mjs (B6)', failClosed: false })
+  : null;
 
 // Sibling git worktrees + tooling dirs are foreign checkouts, not site content.
 // '.wt' is the canonical worktree dir per workspace-root CLAUDE.md ("Worktrees live
@@ -92,7 +144,13 @@ function collect(dir, out = []) {
   return out;
 }
 function rel(abs) { return relative(ROOT, abs).split(/[\\/]/).join('/'); }
-function read(relPath) { try { return readFileSync(join(ROOT, relPath), 'utf-8'); } catch { return ''; } }
+function read(relPath) {
+  if (DERIVED_ROOT) {
+    const scratch = join(DERIVED_ROOT, relPath);
+    if (existsSync(scratch)) { try { return readFileSync(scratch, 'utf-8'); } catch { /* fall through */ } }
+  }
+  try { return readFileSync(join(ROOT, relPath), 'utf-8'); } catch { return ''; }
+}
 function stripCode(html) {
   return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
              .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
@@ -162,24 +220,60 @@ function nodeShardIdForPage(p) {
 
 const SHARD_ASSEMBLY_SCRIPT = join(ROOT, 'scripts', 'check-shard-assembly.mjs');
 
+// ── THE SUB-GATE CONTRACT (NAV-SUBGATE-CRASH-1) ──────────────────────────────
 // Reuse, not reimplementation (SO #34): shell to check-shard-assembly.mjs --
 // the script that already draws the branch-aware PENDING-ASSEMBLE distinction
-// from git -- and parse ITS OWN printed PENDING-ASSEMBLE section. Output is
-// captured whether the child exits 0 or 1 (a leaked shard elsewhere, or a
-// schema failure, still exits 1 while printing a perfectly good PENDING-
-// ASSEMBLE section for an unrelated id). If the child cannot even run, no
-// section is found and nothing is excused -- fails closed, same as the gate
-// it reuses (SO #34c: a missing result is a distinct state, never a green one).
-function pendingAssembleNodeIds() {
-  let out = '';
-  try {
-    out = execFileSync('node', [SHARD_ASSEMBLY_SCRIPT], { cwd: ROOT, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
-  } catch (e) {
-    out = `${e.stdout || ''}${e.stderr || ''}`;
-  }
+// from git -- and parse ITS OWN printed PENDING-ASSEMBLE section.
+//
+// ⚠ WHAT CHANGED, AND WHY THE EXIT CODE ALONE IS NOT ENOUGH. Exit 1 is a
+// PERFECTLY GOOD result from this sub-gate: a leaked shard elsewhere, or a
+// schema failure, exits 1 while printing an entirely correct PENDING-ASSEMBLE
+// section for an unrelated id, and that section must still be honoured. But
+// exit 1 is ALSO what the sub-gate returns when it resolved no base ref and
+// failed closed on its own mid-flight axis (`BASE REF UNRESOLVED`) — the
+// measured 2026-08-27 case. Same code, opposite meanings. So the contract is
+// POSITIVE EVIDENCE, not an exit-code threshold:
+//   · a documented exit code (0 or 1 — anything else is a state we cannot read)
+//   · the sub-gate did NOT print its own fail-closed declaration
+//   · the sub-gate DID print one of its completion lines
+// Anything short of all three is NOT_EVALUABLE, and the caller must then emit
+// NO island verdict at all (SO #34c: a missing result is a distinct state,
+// never a green one -- and, as this row measured, never a RED one either).
+const SHARD_ASSEMBLY_CONTRACT = {
+  name: 'check-shard-assembly.mjs',
+  // Every process.exit() in check-shard-assembly.mjs is 0 or 1. A third code
+  // means it died somewhere this parser has never been told how to read.
+  acceptedExitCodes: [0, 1],
+  // Lines it prints only at a terminal point, after the branch-aware split has
+  // been computed. The 'if none of these are mid-flight' line covers every
+  // non-OK exit path, including the chain-blocking one that prints no FAILING
+  // line of its own.
+  completionMarkers: [
+    /^check-shard-assembly: OK — /m,
+    /^check-shard-assembly: FAILING — /m,
+    /^check-shard-assembly: exiting 0\b/m,
+    /^check-shard-assembly: if none of these are mid-flight CGSHARD rows/m,
+  ],
+  // Its OWN fail-closed declaration. This is the measured case: it behaved
+  // exactly as designed, said so in plain text, and exited 1.
+  notEvaluableMarkers: [
+    {
+      re: /^check-shard-assembly: BASE REF UNRESOLVED\b/m,
+      reason: 'it resolved no base ref and FAILED CLOSED on its own mid-flight axis, so it computed no PENDING-ASSEMBLE classification at all (the measured shallow-checkout case — see board/NAV-ISLAND-DIAGNOSTIC-2026-08-27.md). Almost always a CHECKOUT defect, not a content defect: give the job fetch-depth: 0, or pass --base-ref / SHARD_ASSEMBLY_BASE_REF',
+    },
+  ],
+};
+
+/**
+ * @returns {{ verdict: string, subcode: string|null, reason: string, out: string, ids: Set<string> }}
+ *          `ids` is meaningful ONLY when verdict === EVALUABLE.
+ */
+function pendingAssembleClassification() {
+  const res = runSubGate(['node', SHARD_ASSEMBLY_SCRIPT], { cwd: ROOT }, SHARD_ASSEMBLY_CONTRACT);
   const ids = new Set();
+  if (res.verdict !== SUBGATE_VERDICT.EVALUABLE) return { ...res, ids };
   let inPending = false;
-  for (const line of out.split('\n')) {
+  for (const line of res.out.split('\n')) {
     if (/^check-shard-assembly: PENDING-ASSEMBLE —/.test(line)) { inPending = true; continue; }
     if (inPending) {
       const m = /^\s*-\s+(\S+)\s/.exec(line);
@@ -187,7 +281,7 @@ function pendingAssembleNodeIds() {
       inPending = false;
     }
   }
-  return ids;
+  return { ...res, ids };
 }
 
 const candidateNodePages = preIslands
@@ -196,7 +290,48 @@ const candidateNodePages = preIslands
 
 const excused = new Set();
 if (candidateNodePages.length > 0) {
-  const pending = pendingAssembleNodeIds();
+  const sub = pendingAssembleClassification();
+
+  // ── FAIL CLOSED, AND SAY WHICH FAILURE THIS IS (NAV-SUBGATE-CRASH-1) ───────
+  // ⛔ NOT_EVALUABLE is not "island" and not "OK". It is the third state, and it
+  // exits BEFORE every mode branch below, so no mode can emit, write, prune or
+  // baseline a verdict computed from an input that was never computed.
+  //
+  // ⚖ BLOCKING, NOT REPORTING — the decision, with its blast radius.
+  //   · Reporting (print and exit 0) is not available: the plain gate is HARD in
+  //     every context by design (see the TWO GATES note above), so a soft exit
+  //     here would convert an unrun sub-gate into a silent PASS and open a
+  //     false-NEGATIVE channel — a genuine island would ship every time the
+  //     sub-gate broke. That is the SO #34c inversion, not a fix for it.
+  //   · Blocking is bounded BY CONSTRUCTION, not by a heuristic: this branch is
+  //     only reachable when candidateNodePages.length > 0, i.e. when at least
+  //     one page's verdict genuinely depends on the sub-gate's answer. A tree
+  //     with no candidate node page never spawns the sub-gate and can never be
+  //     blocked by it. (Same shape as L2-HARDLEG-BLOCKING-1: non-empty subject
+  //     set + no verdict ⇒ block; empty subject set ⇒ nothing was lost.)
+  //   · Measured blast radius vs today: in the measured case the gate ALREADY
+  //     exited 1 — this changes what the red SAYS, not whether it is red. The
+  //     only runs that flip green->red are those where every resulting island
+  //     was already accepted in the baseline; there are 0 such pages today
+  //     (no baseline entry is a chaingraph/<id>.html with an on-disk shard),
+  //     so the measured added-red set on this tree is EMPTY.
+  if (sub.verdict !== SUBGATE_VERDICT.EVALUABLE) {
+    console.error(`nav-reachability: ${sub.subcode} — SUB-GATE COULD NOT RUN, so NO island verdict was computed.`);
+    console.error(`  sub-gate: ${sub.reason}`);
+    console.error(`  ⛔ This is NOT an island finding and NOT a pass. ${candidateNodePages.length} candidate node page(s) depended on that sub-gate's PENDING-ASSEMBLE classification and were left unclassified:`);
+    for (const { p } of candidateNodePages) console.error(`    ${p}`);
+    console.error(`\n  Fix the SUB-GATE's environment, not this page: give the job fetch-depth: 0 (a shallow`);
+    console.error(`  checkout leaves origin/main unresolvable), or pass --base-ref / SHARD_ASSEMBLY_BASE_REF`);
+    console.error(`  if this checkout names its main line differently. ⛔ Do NOT run --update: baselining a`);
+    console.error(`  page on an unevaluated verdict is exactly the wrong repair.`);
+    if (sub.out.trim()) {
+      console.error(`\n  --- sub-gate output, verbatim ---`);
+      for (const line of sub.out.trimEnd().split('\n')) console.error(`  | ${line}`);
+    }
+    process.exit(2);
+  }
+
+  const pending = sub.ids;
   for (const { p, id } of candidateNodePages) if (pending.has(id)) excused.add(p);
   if (excused.size > 0) {
     console.log(`nav-reachability: ${excused.size} page(s) excused as PENDING-ASSEMBLE (NAV-ISLAND-PENDING-ASSEMBLE-1, per check-shard-assembly.mjs) -- not an island yet, and not added to the baseline:`);
@@ -204,7 +339,26 @@ if (candidateNodePages.length > 0) {
   }
 }
 
-const islands = preIslands.filter(p => !excused.has(p)).sort();
+// MERGEGROUP-HARD-GATES-1 (the a62d8601 incident) — REACHABLE-PENDING-REGEN on
+// pull_request. When main-side regen fails, every later PR inherits the new
+// island through the stale committed monolith and the fix PR is blocked by the
+// very gate it is fixing (#1772 needed a baseline accept to land). So on a
+// pull_request, a candidate island page chaingraph/<id>.html whose shard EXISTS
+// on disk (i.e. in this diff or on main) is treated as reachable-pending-regen:
+// surfaced, advisory, never a failure, never added to the baseline. The
+// #1309 guard survives: a page with NO shard is still a real island. On
+// merge_group with DERIVED_ROOT the assembled monolith is fresh, so a
+// genuinely unlinked page still fails — HARD — there.
+const pendingRegen = new Set();
+if (MODE === 'check' && process.env.GITHUB_EVENT_NAME === 'pull_request') {
+  for (const { p } of candidateNodePages) if (!excused.has(p)) pendingRegen.add(p);
+  if (pendingRegen.size) {
+    console.log(`nav-reachability: ${pendingRegen.size} page(s) treated as REACHABLE-PENDING-REGEN on pull_request (shard on disk; main-side regen owns the monolith) -- advisory, not an island, not added to the baseline (MERGEGROUP-HARD-GATES-1):`);
+    for (const p of [...pendingRegen].sort()) console.log(`  ${p}`);
+  }
+}
+
+const islands = preIslands.filter(p => !excused.has(p) && !pendingRegen.has(p)).sort();
 
 if (MODE === 'update') {
   writeFileSync(BASELINE, JSON.stringify(islands, null, 2) + '\n');
@@ -261,12 +415,21 @@ if (pruned.length) {
   console.warn(`nav-reachability: ${pruned.length} baseline entr(y/ies) now reachable — prune with --update:`);
   for (const p of pruned) console.warn(`  ${p}`);
 }
-if (created.length) {
-  console.error(`\nnav-reachability: ${created.length} NEW island(s) — page(s) no nav path reaches:`);
-  for (const p of created) console.error(`  ${p}`);
+// --changed scoping: only a NEW island that is ITSELF a touched page fails
+// here (see header note on the scope gap). Untouched new islands are still
+// surfaced, as an advisory, so --changed never silently drops a real finding.
+const createdFailing = CHANGED ? created.filter(p => isTouched(p, CHANGED)) : created;
+const createdOutsideScope = CHANGED ? created.filter(p => !isTouched(p, CHANGED)) : [];
+if (createdOutsideScope.length) {
+  console.warn(`nav-reachability(--changed): ${createdOutsideScope.length} NEW island(s) found OUTSIDE the touched scope — not failed here, run without --changed to enforce:`);
+  for (const p of createdOutsideScope) console.warn(`  ${p}`);
+}
+if (createdFailing.length) {
+  console.error(`\nnav-reachability: ${createdFailing.length} NEW island(s) — page(s) no nav path reaches:`);
+  for (const p of createdFailing) console.error(`  ${p}`);
   console.error(`\nFix: link the page from a hub / nav / directory (e.g. guides/index.html), or`);
   console.error(`if it is an intentional redirect shim add <meta http-equiv="refresh"> + robots noindex,`);
   console.error(`or (rarely) accept it as by-design with: node scripts/check-nav-reachability.mjs --update`);
   process.exit(1);
 }
-console.log(`nav-reachability: OK — 0 new islands (${islands.length} accepted in baseline, ${reach.size} pages reachable).`);
+console.log(`nav-reachability: OK — 0 new islands${CHANGED ? ' in touched scope' : ''} (${islands.length} accepted in baseline, ${reach.size} pages reachable).`);

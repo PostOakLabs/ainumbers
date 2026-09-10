@@ -103,7 +103,7 @@ const TOOL_VERSION = '1.0.0';
 export const meta = {
   tool_id: TOOL_ID,
   tool_version: TOOL_VERSION,
-  mcp_name: 'recompute_odnsf_fees',
+  mcp_name: 'compute_odnsf_fee_recompute',
   mandate_type: 'compliance_control',
   gpu: false,
 };

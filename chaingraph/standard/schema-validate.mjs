@@ -180,8 +180,75 @@ if (FIXTURES_DIR && existsSync(FIXTURES_DIR)) {
     let doc; try { doc = JSON.parse(readFileSync(join(FIXTURES_DIR, f), 'utf8')); } catch { continue; }
     // fixtures may hold {artifact} or an array of expected artifacts; validate any object with execution_hash
     const candidates = doc.artifact ? [doc.artifact] : Array.isArray(doc) ? doc : doc.execution_hash ? [doc] : [];
-    candidates.forEach((a, i) => check(`fixture ${f}#${i}`, a));
+    candidates.forEach((a) => check(`fixture ${f}`, a));
   }
+}
+
+// ── well-known catalogs (AI-CATALOG-1, AGENT-REACH-BUILD-SPEC §3.2) ─────────
+// (a) .well-known/ai-catalog.json against the vendored ai-catalog JSON Schema
+//     (authored from the pinned upstream spec — see vendor/VENDORED.md).
+//     Skipped (with a named note, never a silent pass) when the file is absent:
+//     on a PR the main-side regen (SO #35, derived-artifacts COVERED id
+//     'ai-catalog') has not written it yet; the freshness gate
+//     `node scripts/gen-wellknown-catalogs.mjs --check` is the gate that REDs
+//     on absence.
+// (b) .well-known/api-catalog (RFC 9727 application/linkset+json) by a direct
+//     linkset shape check — no JSON Schema exists for linksets upstream and the
+//     shape is small enough to assert directly.
+const AICATALOG_SCHEMA = join(HERE, 'vendor', 'ai-catalog.schema.json');
+const AICATALOG_DOC = resolve(HERE, '..', '..', '.well-known', 'ai-catalog.json');
+const APICATALOG_DOC = resolve(HERE, '..', '..', '.well-known', 'api-catalog');
+
+if (existsSync(AICATALOG_DOC)) {
+  let vendored;
+  try { vendored = JSON.parse(readFileSync(AICATALOG_SCHEMA, 'utf8')); }
+  catch (e) { console.error(`✗ ai-catalog.schema.json is not valid JSON: ${e.message}`); failed++; checked++; }
+  if (vendored) {
+    const aiLabel = `ai-catalog vs vendored schema (${rel(AICATALOG_DOC)} vs ${rel(AICATALOG_SCHEMA)})`;
+    const errs = [];
+    try {
+      validate(vendored, JSON.parse(readFileSync(AICATALOG_DOC, 'utf8')), vendored, aiLabel, errs);
+    } catch (e) { errs.push(`unreadable: ${e.message}`); }
+    checked++;
+    if (errs.length) { failed++; console.error(`✗ ${aiLabel}`); errs.slice(0, 40).forEach((e) => console.error(`    ${e}`)); }
+    else console.log(`✓ ${aiLabel}`);
+  }
+} else {
+  console.log(`! ${rel(AICATALOG_DOC)} not found — skipped (SO #35: main-side regen writes it; freshness gate reds on absence)`);
+}
+
+// RFC 9727 linkset shape check (~20 lines, per the row): object with a
+// `linkset` array; each element an object with an optional `anchor` string and
+// an `item` array; each item an object with `href` and `rel` strings.
+if (existsSync(APICATALOG_DOC)) {
+  const errs = [];
+  const apiLabel = `api-catalog linkset shape (${rel(APICATALOG_DOC)})`;
+  checked++;
+  let doc = null;
+  try { doc = JSON.parse(readFileSync(APICATALOG_DOC, 'utf8')); }
+  catch (e) { errs.push(`not valid JSON: ${e.message}`); }
+  if (doc) {
+    if (!isObj(doc)) errs.push('top level must be an object');
+    else if (!Array.isArray(doc.linkset)) errs.push('missing "linkset" array');
+    else if (doc.linkset.length === 0) errs.push('"linkset" array is empty');
+    else
+      doc.linkset.forEach((ls, i) => {
+        const at = `linkset[${i}]`;
+        if (!isObj(ls)) { errs.push(`${at}: not an object`); return; }
+        if (ls.anchor !== undefined && typeof ls.anchor !== 'string') errs.push(`${at}.anchor: not a string`);
+        if (!Array.isArray(ls.item)) { errs.push(`${at}.item: missing array`); return; }
+        ls.item.forEach((it, j) => {
+          const at2 = `${at}.item[${j}]`;
+          if (!isObj(it)) { errs.push(`${at2}: not an object`); return; }
+          if (typeof it.href !== 'string' || it.href.length === 0) errs.push(`${at2}.href: missing non-empty string`);
+          if (typeof it.rel !== 'string' || it.rel.length === 0) errs.push(`${at2}.rel: missing non-empty string`);
+        });
+      });
+  }
+  if (errs.length) { failed++; console.error(`✗ ${apiLabel}`); errs.slice(0, 20).forEach((e) => console.error(`    ${e}`)); }
+  else console.log(`✓ ${apiLabel}`);
+} else {
+  console.log(`! ${rel(APICATALOG_DOC)} not found — skipped (SO #35: main-side regen writes it; freshness gate reds on absence)`);
 }
 
 console.log(`\n${checked} checked, ${failed} failed.`);

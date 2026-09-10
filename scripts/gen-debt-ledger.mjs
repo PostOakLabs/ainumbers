@@ -60,6 +60,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname, join, relative, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -187,7 +188,7 @@ function fallbackExtract(j) {
 function assertFullHistory() {
   let shallow = 'false';
   try {
-    shallow = execSync('git rev-parse --is-shallow-repository', { cwd: REPO, encoding: 'utf8' }).trim();
+    shallow = execSync('git rev-parse --is-shallow-repository', { cwd: REPO, env: gitEnv(), encoding: 'utf8' }).trim();
   } catch {
     // Not a git repo, or git unavailable: lastChanged() degrades to 'unknown', which is
     // honest. Only a SHALLOW repo produces confidently-wrong dates.
@@ -207,7 +208,7 @@ function assertFullHistory() {
 function lastChanged(absPath) {
   const rel = relative(REPO, absPath).split('\\').join('/');
   try {
-    const out = execSync(`git log -1 --format=%ad --date=short -- "${rel}"`, { cwd: REPO, encoding: 'utf8' }).trim();
+    const out = execSync(`git log -1 --format=%ad --date=short -- "${rel}"`, { cwd: REPO, env: gitEnv(), encoding: 'utf8' }).trim();
     return out || null;
   } catch {
     return null;

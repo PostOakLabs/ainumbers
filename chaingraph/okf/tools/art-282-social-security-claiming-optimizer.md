@@ -1,7 +1,7 @@
 ---
 type: DecisionTool
 title: "Social Security Claiming-Age Optimizer"
-description: "Models Social Security claiming-age tradeoffs from a claimant's own PIA/FRA statement figures: early-claim reduction and delayed-retirement-credit factors, earnings-test withholding below FRA, lifetime present value at 62/FRA/70/chosen age, and the 62-vs-70 undiscounted break-even age. Root node of the retirement-decumulation-decisions chain. No SSA API, no PII stored. NaN-safe. Zero network."
+description: "Models Social Security claiming-age tradeoffs from a claimant's own PIA/FRA statement figures: early-claim reduction and delayed-retirement-credit factors, earnings-test withholding below FRA, lifetime present value at 62/FRA/70/chosen age, and the 62-vs-70 undiscounted break-even age. The annual earnings-test exempt amount defaults to the 2026 figure of $24,480 (SSA, Exempt Amounts Under the Earnings Test) and is overridable via claimant.earningsTestAnnualLimit, so a claimant can supply the amount from their own statement. Only the $1-for-$2 withholding below full retirement age is modeled; the year-of-attainment $1-for-$3 rule is out of scope. Root node of the retirement-decumulation-decisions chain. No SSA API, no PII stored. NaN-safe. Zero network."
 resource: https://ainumbers.co/chaingraph/art-282-social-security-claiming-optimizer.html
 tags: ["compliance_mandate", "wave-50", "mcp:optimize_social_security_claim_age"]
 timestamp: 2026-07-14
