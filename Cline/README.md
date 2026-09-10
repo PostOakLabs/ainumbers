@@ -40,10 +40,10 @@ whitepaper falsifiable counts, art-283 roundtrip) are deliberately NOT re-tasked
 
 | ID | Brief | Target | Status |
 |----|-------|--------|--------|
-| T1 | `CLINE-T1-WRAPPER-PARSE-COUNTERVERIFY-TASKING-2026-09-09.md` | wrapper-parse 3/462 split (self-verified) | DISPATCHED 2026-09-09 |
-| T2 | `CLINE-T2-DOORWAY-CENSUS-REPRO-TASKING-2026-09-09.md` | 89/96 demo-exclusion census (single-agent) | PROPOSED |
+| T1 | `CLINE-T1-WRAPPER-PARSE-COUNTERVERIFY-TASKING-2026-09-09.md` | wrapper-parse 3/462 split (self-verified) | REPORTED 2026-09-09 (PARTIAL: probe sample cut short by handoff) → `research/WEBMCP-WRAPPER-PARSE-COUNTERVERIFY-2026-09-09.md` + `WEBMCP-WRAPPER-PARSE-COUNTERVERIFY-RAW-2026-09-09.json` |
+| T2 | `CLINE-T2-DOORWAY-CENSUS-REPRO-TASKING-2026-09-09.md` | 89/96 demo-exclusion census (single-agent) | STAYS GUI-SIDE (browser-dependent; not dispatched) |
 | T3 | `CLINE-T3-ESTATE-COUNTS-RECONCILE-TASKING-2026-09-09.md` | conflicting estate counts (697/535/96/…) | REPORTED 2026-09-09 → `research/ESTATE-COUNTS-RECONCILE-2026-09-09.md` + `estate-counts-raw-2026-09-09.json` |
-| T4 | `CLINE-T4-PARITY-INSTRUMENTS-COUNTERVERIFY-TASKING-2026-09-09.md` | value-parity 26 Tier-1 + surface-parity 171 divergent | PROPOSED |
+| T4 | `CLINE-T4-PARITY-INSTRUMENTS-COUNTERVERIFY-TASKING-2026-09-09.md` | value-parity 26 Tier-1 + surface-parity 171 divergent | HANDED-OFF to CLI runbook — tracked in `Cline/CLI-RUNBOOK-DISPATCH-QUEUE-1.md`; do NOT dispatch via GUI |
 | T5 | `CLINE-T5-EXTERNAL-CLAIMS-VERIFY-TASKING-2026-09-09.md` | never-fetched external/site claims | REPORTED 2026-09-09 → `research/EXTERNAL-CLAIMS-VERIFY-2026-09-09.md` + `EXTERNAL-CLAIMS-FETCH-LOG-2026-09-09.md` |
 
 Suggested order: T3 (light, produces the count baseline other tasks cite) → T5 → T1

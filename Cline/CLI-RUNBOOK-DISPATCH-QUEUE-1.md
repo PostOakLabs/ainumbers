@@ -32,9 +32,12 @@ Deep-link contract on `art-330`/`art-331` (`o is not defined`) — **proven pre-
 base `0f95fe56`** (identical failure before the Cline commit). Per repo doctrine the push
 used `git push --no-verify` with CI as backstop. This red is itself a fix-row candidate (see C9).
 
-## T4 re-issue (READY — dispatch via runbook after GUI session reports T1)
+## T4 re-issue (READY — UNBLOCKED: T1 REPORTED 2026-09-09 via GUI, runbook may dispatch)
 
 Original brief: `Cline/CLINE-T4-PARITY-INSTRUMENTS-COUNTERVERIFY-TASKING-2026-09-09.md`.
+GUI T1 completion: `research/WEBMCP-WRAPPER-PARSE-COUNTERVERIFY-2026-09-09.md` (PARTIAL
+header — live-probe sample cut short at handoff; classifier results complete, see
+`research/WEBMCP-WRAPPER-PARSE-COUNTERVERIFY-RAW-2026-09-09.json`).
 Runbook adaptation: worktree cwd; Cline writes deliverables INSIDE the worktree under
 `report/` (headless gate fences edits to cwd — `editFilesExternally:false`); ZCode
 reviews, copies to `research/PARITY-INSTRUMENTS-COUNTERVERIFY-2026-09-09.md`, and
