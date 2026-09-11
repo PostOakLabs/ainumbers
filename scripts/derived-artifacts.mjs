@@ -231,6 +231,28 @@ export const COVERED = [
     share: '27%',
   },
   {
+    // PROMPT-LIBRARY-PAGE-2 (AGENT-REACH-BUILD-SPEC §3.3): prompts.html, the
+    // copy-paste prompt library rendered from mcp/showcase-prompts.json (the
+    // same SSOT the worker's prompts/list reads) + the mcp.html #workflows
+    // table (the recipes source MCP-SUITE-RECIPES-1 reads) + chaingraph.json
+    // (mcp_name → tool_id resolution for the tool chips). Positioned BEFORE
+    // its same-pass readers — infra-registry's scope walk, sitemap-html,
+    // sitemap-xml, start-index and nav-island all consume either the page or
+    // the published-dirs rootPages entry this page satisfies — and after the
+    // writers of what it reads (chaingraph-assemble for the graph; the
+    // #workflows table rows are hand-authored prose that the 'stats' count
+    // rewrite does not touch). Deterministic: no wall-clock anywhere, so a
+    // second pass is byte-identical (idempotency proven by content hash,
+    // PROMPT-LIBRARY-PAGE-2, 2026-09-11).
+    id: 'prompts-page',
+    regen: 'node scripts/gen-prompts-page.mjs',
+    gate: 'node scripts/gen-prompts-page.mjs --check',
+    writes: ['prompts.html'],
+    artifacts: ['prompts.html'],
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-09-11, PROMPT-LIBRARY-PAGE-2)',
+  },
+  {
     id: 'counts',
     // Count sentinels (<!--COUNT:key-->N<!--/COUNT-->, data-count="key") across
     // every page that publishes one. File list mirrors verify-counts.mjs's own
