@@ -192,19 +192,53 @@ jobs:
           fi
           echo "base-ref: RESOLVED $BASE @ $(git rev-parse --short=12 "$BASE")"
 
-      # On merge_group, assemble the derived tree
-      # EPHEMERALLY and export DERIVED_ROOT for the preflight run. The queue's
-      # ref is byte-for-byte the tree that will be main, so the shared-derived-
-      # artifact gates (§18 coverage, count-drift, derived-freshness, index-sync,
-      # sitemap, nav-reachability) are HARD there — they read the scratch tree,
-      # never the checkout, and nothing derived is ever committed (asserted
-      # below). preflight.mjs scopes DERIVED_ROOT per gate: only the
-      # DERIVED_ROOT_GATES commands see it; every other advisory gate keeps its
-      # PR-advisory downgrade because its inputs are still the in-tree artifacts.
-      # pull_request and push:main runs skip this step entirely and are UNCHANGED.
-      - name: Ephemeral derived tree (merge_group)
+      # On merge_group, on push to main (EXCEPT the regen bot's own commit),
+      # and on workflow_dispatch, assemble the derived tree EPHEMERALLY and
+      # export DERIVED_ROOT for the preflight run.
+      #
+      # WHY push:main joined (measured 2026-09-11):
+      # 19 of 19 red `Scripts Verify` runs on main 2026-09-08→11 were one
+      # shape — a human merge commit landed, and the derived-freshness gates
+      # ran HARD on it (push:main is MAIN context: everything blocks) but
+      # judged the COMMITTED tree, whose shared derived artifacts are by
+      # construction stale until derived-artifacts-regen.yml's
+      # `chore(derived): regenerate …` commit lands ~1 minute later and goes
+      # green. One red notification per merge, zero information. Judging the
+      # merge commit against the same ephemeral regenerated tree the
+      # merge_group queue already uses stops that pattern WITHOUT weakening
+      # anything: the gates stay HARD (isMainContext() is true on push:main
+      # and workflow_dispatch), and the DERIVED_ROOT_GATES commands
+      # (scripts/derived-artifacts.mjs) overlay-read the scratch tree only —
+      # no gate script changed, no gate became advisory, and the
+      # DERIVED_ROOT_GATES list did not widen.
+      #
+      # THE REGEN EXCEPTION is the invariant "main is green after regen": the
+      # bot's commit is the one push whose committed derived artifacts ARE
+      # fresh, so its run must keep judging the committed tree (DERIVED_ROOT
+      # stays empty — sibling step below) or a bot regression that committed
+      # stale artifacts would be judged against a self-healed scratch tree
+      # and never seen.
+      #
+      # The queue's ref is byte-for-byte the tree that will be main, so the
+      # shared-derived-artifact gates (§18 coverage, count-drift,
+      # derived-freshness, index-sync, sitemap, nav-reachability) are HARD
+      # there — they read the scratch tree, never the checkout, and nothing
+      # derived is ever committed (asserted below). On merge_group
+      # preflight.mjs additionally strips DERIVED_ROOT from every non-aware
+      # subprocess; the only readers of the variable anywhere in scripts/ are
+      # the DERIVED_ROOT_GATES commands themselves (audited 2026-09-11: the
+      # seven listed commands plus their helpers counts.mjs/derivedResolve),
+      # so on the push/dispatch events — where no strip exists — every other
+      # gate's verdict is untouched. pull_request runs skip this step
+      # entirely and are UNCHANGED (PR-advisory, stale-by-construction
+      # inputs). workflow_dispatch is report-only by declaration, so mounting
+      # the scratch tree there only makes the on-demand proof possible.
+      - name: Ephemeral derived tree (merge_group, push:main non-regen, dispatch)
         id: derived
-        if: github.event_name == 'merge_group'
+        if: >-
+          github.event_name == 'merge_group' ||
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'chore(derived): regenerate'))
         shell: bash
         run: |
           set -euo pipefail
@@ -212,6 +246,18 @@ jobs:
           node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
           node scripts/derived-artifacts.mjs --out "${SCRATCH}"
           echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+          echo "DERIVED_ROOT=${SCRATCH} — freshness gates judge the ephemeral regenerated tree (event: ${GITHUB_EVENT_NAME})."
+
+      # The exact complement, so the committed-tree path is VISIBLE in the log
+      # instead of a silently-skipped step: on the bot's own commit nothing is
+      # assembled, DERIVED_ROOT stays empty, and the freshness gates judge the
+      # COMMITTED tree — which the bot just made fresh (invariant: main is
+      # green after regen). This line is the GREEN control's log evidence.
+      - name: Regen commit — committed-tree path (DERIVED_ROOT left empty)
+        if: >-
+          github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(derived): regenerate')
+        run: |
+          echo "head commit is the regen bot's (chore(derived): regenerate…) — no ephemeral assembly, DERIVED_ROOT left empty, freshness gates judge the COMMITTED tree."
 
       - name: Preflight (full gate suite)
         env:
@@ -220,23 +266,61 @@ jobs:
           # tree, so file-level uniqueness gates cannot catch them). gh reads the job's
           # own token from the environment — token-free, no extra secret.
           GITHUB_TOKEN: ${{ github.token }}
-          # DERIVED_ROOT is empty on pull_request/push:main (the step above
-          # is merge_group-only), so those runs are unchanged. preflight.mjs scopes
-          # this to the DERIVED_ROOT_GATES commands only.
+          # Empty on pull_request and on push:main runs of the regen bot's own
+          # chore(derived) commit — those judge the committed tree, unchanged.
+          # Set to the ephemeral scratch tree on merge_group, on push:main of a
+          # human commit, and on workflow_dispatch (step above). preflight.mjs
+          # scopes this to the DERIVED_ROOT_GATES commands only; that list did
+          # not widen and no gate's blocking status moves.
           DERIVED_ROOT: ${{ steps.derived.outputs.root }}
-        run: node scripts/preflight.mjs
+          # When the scratch tree IS mounted, preflight must apply the SAME
+          # root-scoping rules it applies on merge_group: strip the root from
+          # every non-aware subprocess, run the DERIVED_ROOT_GATES commands
+          # HARD against it, and downgrade the non-aware COVERED freshness
+          # gates (e.g. EUC register, OKF bundle — they read in-tree paths
+          # and cannot overlay-read a scratch tree) while the aware
+          # `derived-artifacts.mjs --verify` enforces their freshness HARD
+          # against the scratch tree. That rule set keys on
+          # GITHUB_EVENT_NAME === 'merge_group' inside preflight.mjs (the
+          # 2026-09-06 merge_group hard-gates rule), and this row is fenced
+          # from editing gate scripts — so when DERIVED_ROOT is set the step
+          # presents the event name that selects those existing rules, via a
+          # shell-level override (GITHUB_* names are runner-reserved and a
+          # step-level env entry would be silently ignored — measured
+          # 2026-09-11, run 34654251817). Net enforcement is unchanged from
+          # the queue's proven shape: nothing becomes advisory that is not
+          # already advisory on merge_group, and every freshness verdict now
+          # comes from the fresh scratch tree. When the root is NOT mounted
+          # (pull_request, the regen bot's own push) preflight runs with the
+          # runner's real environment and the run is byte-for-byte today's
+          # behavior.
+          #
+          # NOTE: while the scratch tree is mounted this run intentionally
+          # takes merge_group's shape in full — including its fail-fast
+          # (no run-to-completion) on a red, and advisory statuses for the
+          # non-aware COVERED gates. Their freshness stays HARD via the
+          # aware --verify gate on the scratch tree.
+        run: |
+          if [ -n "$DERIVED_ROOT" ]; then
+            GITHUB_EVENT_NAME=merge_group node scripts/preflight.mjs
+          else
+            node scripts/preflight.mjs
+          fi
 
       # The single-writer law, proven, not assumed. The
       # ephemeral assembly above must have left the checkout byte-identical —
-      # nothing derived is EVER committed from a merge_group run.
-      - name: Assert clean tree (merge_group — nothing derived was committed)
-        if: github.event_name == 'merge_group'
+      # nothing derived is EVER committed from a run that assembled one.
+      - name: Assert clean tree (nothing derived was committed)
+        if: >-
+          github.event_name == 'merge_group' ||
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'chore(derived): regenerate'))
         shell: bash
         run: |
           set -euo pipefail
           s="$(git status --porcelain)"
           if [ -n "$s" ]; then
-            echo "::error::merge_group job dirtied the checkout — the ephemeral derived tree must never touch it:"
+            echo "::error::job dirtied the checkout — the ephemeral derived tree must never touch it:"
             printf '%s\n' "$s"
             exit 1
           fi
