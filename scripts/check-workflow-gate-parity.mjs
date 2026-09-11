@@ -912,8 +912,10 @@ const DECLARED_SOFTENERS = new Map([
   // that line must refresh the key (a stale key fails this checker by design
   // and points here).
   // KERNEL-OUTPUT-READER-1 moved this from :762 to :763 — the shape-reader gate added one line
-  // to the kernel-gates `run:` block above it. The declaration is line-pinned by design.
-  ["deploy-to-dreamhost.yml:continue-on-error:763",
+  // to the kernel-gates `run:` block above it. DEPLOY-AFTER-REGEN-1 moved it from :763 to :888 —
+  // the workflow_run trigger block, the supersede entry `if:`, the DEPLOY_SHA checkout refs and
+  // the SSH/rsync retry steps all sit above the attest step. The declaration is line-pinned by design.
+  ["deploy-to-dreamhost.yml:continue-on-error:888",
    "attest step is advisory-first by design; promotion criterion on the step"],
   ["unwired-gates.yml:continue-on-error:108",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
