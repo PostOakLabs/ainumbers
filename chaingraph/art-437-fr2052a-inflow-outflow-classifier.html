@@ -96,6 +96,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 .related-topics{max-width:900px;margin:0 auto}
 
 </style>
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-437-fr2052a-inflow-outflow-classifier.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<!--KERNEL-DIGEST-->sha256:257900eac445c93d28915230529b2be9f0a097be855547ee8c50c98f11a7d122<!--/KERNEL-DIGEST-->
 </head>
 <body>
 <nav>
@@ -378,13 +380,26 @@ function runCombined() {
     };
   });
 
-  var bucketOrder = [], byBucket = {}, eliminationTotal = 0;
+  var byBucket = {}, eliminationTotal = 0;
   classified.forEach(function(row) {
     if (row.is_intercompany) { eliminationTotal += row.amount_musd; return; }
-    if (!byBucket[row.bucket]) { byBucket[row.bucket] = { bucket: row.bucket, inflow_musd: 0, outflow_musd: 0 }; bucketOrder.push(row.bucket); }
+    if (!byBucket[row.bucket]) { byBucket[row.bucket] = { bucket: row.bucket, inflow_musd: 0, outflow_musd: 0 }; }
     if (row.flow_type === 'outflow') byBucket[row.bucket].outflow_musd += row.amount_musd;
     else byBucket[row.bucket].inflow_musd += row.amount_musd;
   });
+
+  // Canonical bucket order: the caller's boundary table sorted ascending by max_days (the same
+  // `sorted` classifyBucket uses), so reordered input rows cannot reorder the filed form.
+  // Buckets absent from the table (override labels, the unclassified fallback) go last, in label order.
+  var tableLabels = [], seenL = {};
+  var sortedB = boundaries.map(function(b) {
+    return { bucket_label: b.bucket_label || 'unclassified', max_days: Math.max(0, safe(b.max_days, 0)) };
+  }).sort(function(a, b) { return a.max_days - b.max_days; });
+  for (var si = 0; si < sortedB.length; si++) {
+    if (!seenL[sortedB[si].bucket_label]) { seenL[sortedB[si].bucket_label] = true; tableLabels.push(sortedB[si].bucket_label); }
+  }
+  var bucketOrder = tableLabels.filter(function(l) { return byBucket[l]; })
+    .concat(Object.keys(byBucket).filter(function(l) { return tableLabels.indexOf(l) < 0; }).sort());
 
   var form_2052a = bucketOrder.map(function(b) {
     var rec = byBucket[b];
