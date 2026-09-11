@@ -1,5 +1,5 @@
 // art-02-agent-spend-policy-simulator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C1-1).
-// kernel_digest_at_authoring: sha256:236e163038383b05b4d5d18a1d3cf7d32a974a1035496ab1c00fbad3e84f412a
+// kernel_digest_at_authoring: sha256:21bb183dab5514851b032b8c5f42354cb6845ba26aa51648175a2a62de0e4af3
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
