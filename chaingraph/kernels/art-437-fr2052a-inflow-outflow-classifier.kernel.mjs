@@ -84,8 +84,7 @@ function classifyRows(rows, boundaryTable) {
   return { classified, overrideCount, overrideMissingReason };
 }
 
-function aggregate(classified) {
-  const bucketOrder = [];
+function aggregate(classified, boundaryTable) {
   const byBucket = {};
   let eliminationTotal = 0;
 
@@ -96,11 +95,27 @@ function aggregate(classified) {
     }
     if (!byBucket[row.bucket]) {
       byBucket[row.bucket] = { bucket: row.bucket, inflow_musd: 0, outflow_musd: 0 };
-      bucketOrder.push(row.bucket);
     }
     if (row.flow_type === 'outflow') byBucket[row.bucket].outflow_musd += row.amount_musd;
     else byBucket[row.bucket].inflow_musd += row.amount_musd;
   }
+
+  // Canonical bucket order: the caller's boundary table sorted ascending by
+  // max_days (the same `sorted` the classifier uses), so economically identical
+  // filings with reordered input rows hash identically. Buckets absent from the
+  // table (override labels, the unclassified fallback) go last, in label order.
+  const tableLabels = [];
+  {
+    const sorted = arr(boundaryTable)
+      .map((b) => ({ bucket_label: str(b && b.bucket_label, 'unclassified'), max_days: Math.max(0, safeNum(b && b.max_days, 0)) }))
+      .sort((a, b) => a.max_days - b.max_days);
+    const seen = new Set();
+    for (const b of sorted) {
+      if (!seen.has(b.bucket_label)) { seen.add(b.bucket_label); tableLabels.push(b.bucket_label); }
+    }
+  }
+  const bucketOrder = tableLabels.filter((label) => byBucket[label])
+    .concat(Object.keys(byBucket).filter((label) => !tableLabels.includes(label)).sort());
 
   const form_2052a = bucketOrder.map((b) => {
     const rec = byBucket[b];
@@ -129,7 +144,7 @@ export function compute(pp) {
 
   const boundaryTableVersion = str(pp.boundary_table_version, null);
   const { classified, overrideCount, overrideMissingReason } = classifyRows(pp.rows, pp.bucket_boundaries);
-  const { form_2052a, total_inflow_musd, total_outflow_musd, total_net_musd, elimination_total_musd } = aggregate(classified);
+  const { form_2052a, total_inflow_musd, total_outflow_musd, total_net_musd, elimination_total_musd } = aggregate(classified, pp.bucket_boundaries);
 
   const compliance_flags = [];
   if (overrideMissingReason > 0) compliance_flags.push('FR2052A_OVERRIDE_MISSING_REASON_CODE');
