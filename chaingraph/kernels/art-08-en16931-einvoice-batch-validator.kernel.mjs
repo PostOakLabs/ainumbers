@@ -80,11 +80,28 @@ function validateInvoice(inv, strictness) {
   return { passed: failures.length === 0, failures };
 }
 
+// ── numeric input guard (NAN-GUARD-HARDENING-1) ──────────────────────────────
+// `x ?? d` catches only null/undefined: `NaN ?? d` keeps NaN and a JSON-legal
+// string like `("abc" ?? d)` keeps the string, after which arithmetic and
+// comparison propagate it silently (NaN >= 95 is false), so malformed input
+// scored as a benign verdict. null/undefined still default silently
+// (legitimately missing); any other non-finite value takes the DEFAULT path
+// and is NAMED in output_payload.input_guards, never passed through.
+function guardNum(notes, field, raw, fallback) {
+  if (raw === undefined || raw === null) return fallback;
+  if (Number.isFinite(raw)) return raw;
+  notes.push(`${field}=${String(raw)} (${typeof raw}) is not a finite number; defaulted to ${fallback}`);
+  return fallback;
+}
+
 // ── compute ───────────────────────────────────────────────────────────────────
 export function compute(pp) {
-  const seed         = pp.seed         ?? 42;
-  const n_invoices   = Math.min(Math.max(pp.n_invoices   ?? 200, 10), 2000);
-  const error_rate   = pp.error_rate   ?? 0.15;   // fraction of invoices with deliberate errors
+  const guardNotes = [];
+  const num = (field, raw, fallback) => guardNum(guardNotes, field, raw, fallback);
+
+  const seed         = num('seed',        pp.seed,        42);
+  const n_invoices   = Math.min(Math.max(num('n_invoices', pp.n_invoices, 200), 10), 2000);
+  const error_rate   = num('error_rate',  pp.error_rate,  0.15);   // fraction of invoices with deliberate errors
   const strictness   = pp.strictness   ?? 'standard';  // 'lenient' | 'standard' | 'strict'
   const profile      = pp.profile      ?? 'B2B';       // 'B2B' | 'B2G' | 'B2C'
 
@@ -134,6 +151,7 @@ export function compute(pp) {
     top_failure_rules,
     rule_failure_counts:     ruleFailureCounts,
     compliance_flags,
+    ...(guardNotes.length > 0 ? { input_guards: guardNotes } : {}),
   };
 }
 
