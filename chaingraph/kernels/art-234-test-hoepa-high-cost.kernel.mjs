@@ -50,10 +50,10 @@ const HOEPA_PF = {
     // Exact: floor applies when loan_amount * 0.05 < floor_amount
   },
   2025: {
-    fr_citation: 'FR 2024-28929, effective 2025-01-01; 12 CFR §1026.32(a)(1)(ii)',
+    fr_citation: 'FR 2024-27553, effective 2025-01-01; 12 CFR §1026.32(a)(1)(ii)',
     effective: '2025-01-01',
     trigger_pct: 5,
-    trigger_floor: 1345,
+    trigger_floor: 1348,
   },
 };
 
