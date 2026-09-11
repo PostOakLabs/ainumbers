@@ -136,13 +136,31 @@ function runOnePath(nodes, seeds, detectionRate, psrThreshold, rng) {
   return { reached: [...reached], loss, detectionHop };
 }
 
+// ── numeric input guard (NAN-GUARD-HARDENING-1) ──────────────────────────────
+// `x ?? d` catches only null/undefined: `NaN ?? d` keeps NaN and a JSON-legal
+// string like `("abc" ?? d)` keeps the string, after which Math.min/max and
+// the division by n_paths propagate it into reach probabilities, loss figures
+// and the verdict threshold, so malformed input scored as a benign verdict.
+// null/undefined still default silently (legitimately missing); any other
+// non-finite value takes the DEFAULT path and is NAMED in
+// output_payload.input_guards, never passed through.
+function guardNum(notes, field, raw, fallback) {
+  if (raw === undefined || raw === null) return fallback;
+  if (Number.isFinite(raw)) return raw;
+  notes.push(`${field}=${String(raw)} (${typeof raw}) is not a finite number; defaulted to ${fallback}`);
+  return fallback;
+}
+
 // ── compute ───────────────────────────────────────────────────────────────────
 export function compute(pp) {
+  const guardNotes = [];
+  const num = (field, raw, fallback) => guardNum(guardNotes, field, raw, fallback);
+
   const topology_id    = pp.topology    ?? 'retail_network';
-  const n_paths        = Math.min(Math.max(pp.n_paths ?? 300, 10), 2000);
-  const detection_rate = pp.detection_rate ?? 0.20;
-  const psr_threshold  = pp.psr_threshold  ?? 85000;   // UK PSR £85k reimbursement cap
-  const seed_base      = pp.seed           ?? 42;
+  const n_paths        = Math.min(Math.max(num('n_paths', pp.n_paths, 300), 10), 2000);
+  const detection_rate = num('detection_rate', pp.detection_rate, 0.20);
+  const psr_threshold  = num('psr_threshold', pp.psr_threshold, 85000);   // UK PSR £85k reimbursement cap
+  const seed_base      = num('seed',           pp.seed,          42);
 
   const topo = TOPOLOGIES[topology_id];
   if (!topo) {
@@ -150,6 +168,7 @@ export function compute(pp) {
       fraud_verdict: 'ERROR',
       error: `Unknown topology: ${topology_id}`,
       compliance_flags: ['INVALID_TOPOLOGY'],
+      ...(guardNotes.length > 0 ? { input_guards: guardNotes } : {}),
     };
   }
 
@@ -203,6 +222,7 @@ export function compute(pp) {
     ),
     n_paths,
     compliance_flags,
+    ...(guardNotes.length > 0 ? { input_guards: guardNotes } : {}),
   };
 }
 
