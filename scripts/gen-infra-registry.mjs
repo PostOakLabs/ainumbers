@@ -47,6 +47,7 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { descriptionRuleFiles } from './lib/count-rules.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -92,6 +93,26 @@ const EXEMPT = new Map([
   // (MAIN-REGEN-INFRA-REGISTRY-FIXPOINT-2)
   ['mcp.html', 'whole-file derived artifact (sync-stats.mjs counts + verify-counts.mjs meta sentinels)'],
 ]);
+
+// REGEN-INFRA-REGISTRY-READBACK-CYCLE-1 — the description-rewrite exemption is
+// DERIVED from verify-counts.mjs's own rule table, not hand-listed: every file
+// carrying any *description* rule in scripts/lib/count-rules.mjs (the table
+// this module and verify-counts.mjs now share) has that description rewritten
+// by `verify-counts --fix` — the 'counts' COVERED entry, which runs AFTER this
+// generator in the regen pass (infra-registry → infrastructure-page → counts,
+// an order check-derived-fanout-coverage.mjs enforces). Scanning those
+// descriptions back here can therefore never agree with the end-of-pass tree:
+// a true read-back cycle no COVERED ordering can close (measured on main:
+// #1879 moved index.html's chain count 369→368 under the registry's captured
+// "369 MCP-callable" description and every Derived Artifacts Regen since
+// 20:13Z refused the non-fixpoint). The only cut is the READ. Derived, so a
+// future description-sentinel rule extends the exemption in the same diff
+// instead of silently re-opening the cycle. Hand entries above are kept.
+for (const file of descriptionRuleFiles()) {
+  if (!EXEMPT.has(file)) {
+    EXEMPT.set(file, 'verify-counts rewrites this page\'s description later in the regen pass (read-back cycle, REGEN-INFRA-REGISTRY-READBACK-CYCLE-1)');
+  }
+}
 
 function collect(dir, rel, out) {
   let entries;
