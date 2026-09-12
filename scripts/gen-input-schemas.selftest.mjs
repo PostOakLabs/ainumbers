@@ -11,12 +11,17 @@
  *
  * Row-mandated controls:
  *   - enum inference (>=2 evidenced literals -> enum with the literal set)
- *   - unknown-type honesty (no evidenced type -> "type": "unknown", never a guess)
+ *   - unknown-type honesty (no evidenced type -> NO `type` key + the description
+ *     sentence; MCP-SCHEMA-CONFORMANCE-1, RULINGS 2026-09-10T20:30:44Z — the
+ *     pre-ruling `"type": "unknown"` is not valid JSON Schema)
  * Plus: default capture (?? lit / destructure = lit / safeNum(pp.f, lit)),
  *       required rule (bare-only reads + no default -> required; ?. or default -> optional),
- *       array inference (for..of), conflicting evidence -> unknown,
+ *       array inference (for..of), conflicting evidence -> type omitted,
  *       property set == sweep extractor's read set (exactness),
- *       --check green-then-red-by-mutation,
+ *       provenance mark at the manifest level (never inside the schema object),
+ *       --check green on BOTH shapes (new + legacy transition), red-by-mutation,
+ *       RED control: a fixture rendered with `"type": "unknown"` FAILS the
+ *       check-manifest-schema.mjs illegal-type validator,
  *       WebMCP flip guard (TODO function_name never flips; a real mapped name does).
  *
  * Run: node scripts/gen-input-schemas.selftest.mjs   (exit 1 on any failed control)
@@ -25,7 +30,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { deriveInputSchema, checkDerivedSchemas, wouldFlipToEmittable, PROVENANCE } from './gen-input-schemas.mjs';
+import { deriveInputSchema, checkDerivedSchemas, wouldFlipToEmittable, legacyShape, PROVENANCE, TYPE_NOT_EVIDENCED } from './gen-input-schemas.mjs';
+import { illegalTypeViolations } from './check-manifest-schema.mjs';
 import { gitEnv } from './_git-env-lib.mjs';
 
 const failures = [];
@@ -83,26 +89,30 @@ const expected = {
       risk_level: { type: 'string', enum: ['high', 'low', 'medium'] },
       floor_usd: { type: 'number', default: 250, description: 'Amount in US dollars' },
     },
+    typeless: [],
     required: ['risk_level'],
   },
   'fx-902-unknown-honesty': {
-    properties: { mystery_payload: { type: 'unknown' } },
+    properties: { mystery_payload: { description: TYPE_NOT_EVIDENCED } },
+    typeless: ['mystery_payload'], // no evidenced type -> NO `type` key + the sentence (never "unknown")
     required: [], // one bare + one ?. read: the kernel contemplates absence -> optional by rule
   },
   'fx-903-defaults-required': {
     properties: {
-      horizon_yrs: { type: 'unknown', default: 10, description: 'Duration in years' },
+      horizon_yrs: { type: undefined, default: 10, description: `Duration in years${'; ' + TYPE_NOT_EVIDENCED}` }, // type OMITTED (checked via typeless below)
       cap_mn: { type: 'number', default: 5, description: 'Amount in millions' },
-      absolute_min: { type: 'unknown' }, // `+ 1` is concat-ambiguous in JS — NOT number evidence
+      absolute_min: { description: TYPE_NOT_EVIDENCED }, // `+ 1` is concat-ambiguous in JS — NOT number evidence
       sub_min: { type: 'number' }, // `- 1` has no string overload — number evidence
-      tolerated_min: { type: 'unknown', default: 0 },
+      tolerated_min: { default: 0, description: TYPE_NOT_EVIDENCED },
       line_items: { type: 'array' },
-      discount: { default: 0 },
+      discount: { default: 0, description: TYPE_NOT_EVIDENCED },
     },
+    typeless: ['horizon_yrs', 'absolute_min', 'tolerated_min', 'discount'],
     required: ['absolute_min', 'sub_min', 'line_items'],
   },
   'fx-904-conflict-unknown': {
-    properties: { dual_nature: { type: 'unknown' } },
+    properties: { dual_nature: { description: TYPE_NOT_EVIDENCED } },
+    typeless: ['dual_nature'], // conflicting evidence -> OMITTED (never pick a winner)
     required: ['dual_nature'],
   },
 };
@@ -120,7 +130,7 @@ async function main() {
     execFileSync('git', ['add', '-A'], { cwd: tmp, env: gitEnv() });
 
     // ── GREEN inference controls ──
-    console.log('enum inference + defaults + unknown honesty + required rule:');
+    console.log('enum inference + defaults + no-evidence honesty (typeless) + required rule:');
     for (const [id, want] of Object.entries(expected)) {
       const { inputSchema, rec } = deriveInputSchema(tmp, `chaingraph/kernels/${id}.kernel.mjs`);
       check(`${id}: property set == sweep read set (exactness)`,
@@ -129,30 +139,63 @@ async function main() {
       for (const [field, wantProp] of Object.entries(want.properties)) {
         const got = inputSchema.properties[field];
         for (const [k, v] of Object.entries(wantProp)) {
+          if (k === 'type' && v === undefined) continue; // absence asserted via want.typeless
           const gotV = got?.[k];
           const same = JSON.stringify(gotV) === JSON.stringify(v);
           check(`${id}.${field}.${k} === ${JSON.stringify(v)}`, same, `got ${JSON.stringify(gotV)}`);
+        }
+        if (want.typeless.includes(field)) {
+          check(`${id}.${field}: carries NO 'type' key (omitted, never invented)`, !!got && !('type' in got), `got ${JSON.stringify(got)}`);
         }
       }
       check(`${id}: required === ${JSON.stringify(want.required.sort())}`,
         JSON.stringify(inputSchema.required) === JSON.stringify(want.required.sort()),
         `got ${JSON.stringify(inputSchema.required)}`);
-      check(`${id}: provenance stamped`, inputSchema.x_schema_provenance === PROVENANCE);
+      check(`${id}: provenance mark NOT inside the schema object (moved to the manifest-level sibling)`, !('x_schema_provenance' in inputSchema));
     }
 
-    // ── --check: GREEN on fresh derivation, RED on mutation (SO #34c) ──
-    console.log('--check freshness gate (green, then red by mutation):');
+    // ── MCP-SCHEMA-CONFORMANCE-1 RED control: "type": "unknown" fails the validator ──
+    console.log('illegal-type validator (check-manifest-schema.mjs, recursive):');
+    const unknownFixture = { type: 'object', required: [], properties: { mystery_payload: { type: 'unknown' } } };
+    const redViolations = illegalTypeViolations(unknownFixture, 'input_schema');
+    check('fixture rendered with "type": "unknown" FAILS the validator (illegal-type-name)',
+      redViolations.length === 1 && redViolations[0] === 'illegal-type-name input_schema.properties.mystery_payload=unknown',
+      `got ${JSON.stringify(redViolations)}`);
+    const honestFixture = { type: 'object', required: [], properties: { mystery_payload: { description: TYPE_NOT_EVIDENCED } } };
+    check('the honest typeless rendering PASSES the validator', illegalTypeViolations(honestFixture, 'input_schema').length === 0,
+      `got ${JSON.stringify(illegalTypeViolations(honestFixture, 'input_schema'))}`);
+    const nestedFixture = { type: 'object', properties: { rows: { type: 'array', items: { type: 'unknown' } } } };
+    check('illegal type inside nested items FAILS (recursive reach)',
+      illegalTypeViolations(nestedFixture, 'input_schema').some((v) => v === 'illegal-type-name input_schema.properties.rows.items=unknown'),
+      `got ${JSON.stringify(illegalTypeViolations(nestedFixture, 'input_schema'))}`);
+
+    // ── --check: GREEN on BOTH shapes (new + legacy transition), RED on mutation (SO #34c) ──
+    console.log('--check freshness gate (green on the new shape and the legacy transition shape, red by mutation):');
     const derived = deriveInputSchema(tmp, 'chaingraph/kernels/fx-901-enum-inference.kernel.mjs').inputSchema;
     const manifest = {
       tool_id: 'fx-901-enum-inference',
       input_schema: JSON.parse(JSON.stringify(derived)),
+      input_schema_provenance: PROVENANCE, // NEW shape: the mark lives at the manifest level
       mcp_tool_definition: { name: 'fx_901_probe', description: 'probe manifest for the freshness mutation control', inputSchema: JSON.parse(JSON.stringify(derived)) },
     };
     fs.writeFileSync(path.join(tmp, 'manifests', 'fx-901-enum-inference.manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+    // LEGACY-shape transition fixture: fx-902 rendered under the pre-ruling rule
+    // (`unknown` + inner mark, no top-level key) — either mark = owned.
+    const legacy902 = legacyShape(deriveInputSchema(tmp, 'chaingraph/kernels/fx-902-unknown-honesty.kernel.mjs').inputSchema);
+    const manifest902 = {
+      tool_id: 'fx-902-unknown-honesty',
+      input_schema: JSON.parse(JSON.stringify(legacy902)), // carries the inner x_schema_provenance mark
+      mcp_tool_definition: { name: 'fx_902_probe', description: 'legacy-shape probe manifest for the transition control', inputSchema: JSON.parse(JSON.stringify(legacy902)) },
+    };
+    fs.writeFileSync(path.join(tmp, 'manifests', 'fx-902-unknown-honesty.manifest.json'), JSON.stringify(manifest902, null, 2) + '\n', 'utf8');
     execFileSync('git', ['add', '-A'], { cwd: tmp, env: gitEnv() });
     const green = checkDerivedSchemas(tmp);
-    check('--check GREEN on fresh derived manifest', green.owned === 1 && green.problems.length === 0,
-      `owned=${green.owned} problems=${JSON.stringify(green.problems)}`);
+    check('--check GREEN on fresh derived manifest (new shape, top-level mark)',
+      green.owned === 2 && green.problems.length === 0 && green.shapes.new === 1,
+      `owned=${green.owned} shapes=${JSON.stringify(green.shapes)} problems=${JSON.stringify(green.problems)}`);
+    check('--check GREEN on legacy-shape manifest via the transition (either mark = owned; unknown + inner mark accepted)',
+      green.shapes.legacy === 1,
+      `shapes=${JSON.stringify(green.shapes)} problems=${JSON.stringify(green.problems)}`);
     // mutation: hand-edit the derived enum (the exact drift class the gate exists for)
     const tampered = JSON.parse(fs.readFileSync(path.join(tmp, 'manifests', 'fx-901-enum-inference.manifest.json'), 'utf8'));
     tampered.input_schema.properties.risk_level.enum = ['high', 'low']; // dropped 'medium' — a hand-widened/narrowed lie

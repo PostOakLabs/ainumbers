@@ -1061,6 +1061,13 @@ function readRepoFile(rel, repoRoot) {
   return readFileSync(resolve(repoRoot || REPO, rel), 'utf8');
 }
 
+// RULINGS 2026-09-10T20:30:44Z (MCP-SCHEMA-CONFORMANCE-1): the seven legal JSON
+// Schema type names. A property with NO `type` keyword is legal (valid 2020-12,
+// accepts any JSON) and maps via the 'string' via (`.value = String(params.p)`) —
+// exactly as the legacy `unknown` did; a `type` that names anything else is refused.
+export const LEGAL_TYPE_NAMES = ['string', 'number', 'integer', 'boolean', 'array', 'object', 'null'];
+const LEGAL_TYPE_SET = new Set(LEGAL_TYPE_NAMES);
+
 /** G1: manifest shape. Returns an error string or null. */
 export function checkManifestShape(m) {
   const def = m?.mcp_tool_definition;
@@ -1071,7 +1078,14 @@ export function checkManifestShape(m) {
   const props = def.inputSchema && def.inputSchema.properties ? def.inputSchema.properties : null;
   if (!props || typeof props !== 'object') return 'mcp_tool_definition.inputSchema.properties missing';
   for (const [k, v] of Object.entries(props)) {
-    if (!v || typeof v.type !== 'string') return `inputSchema property '${k}' has no type`;
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return `inputSchema property '${k}' is not a schema object`;
+    if (!('type' in v)) continue; // typeless: legal JSON Schema (RULINGS 2026-09-10T20:30:44Z); 'string' via by default
+    const names = Array.isArray(v.type) ? v.type : [v.type];
+    const bad = names.filter((n) => !LEGAL_TYPE_SET.has(n));
+    if (bad.length) {
+      const rendered = bad.map((n) => (typeof n === 'string' ? `'${n}'` : JSON.stringify(n))).join(', ');
+      return `inputSchema property '${k}' has illegal type name ${rendered} — legal names: ${LEGAL_TYPE_NAMES.join(' ')}`;
+    }
   }
   if (!m.execution || typeof m.execution.function_name !== 'string' || !m.execution.function_name) {
     return 'missing execution.function_name';
@@ -1333,6 +1347,34 @@ function listPages(root) {
   return out.split('\n').map((s) => s.trim()).filter(Boolean);
 }
 
+// MCP-SCHEMA-CONFORMANCE-1 TRANSITION (removed in PR-5 with the rest of the
+// transition): until the 498-manifest sweep lands in slices, a generator-owned
+// manifest may still be rendered under the LEGACY rule — `"type": "unknown"` as
+// the no-evidence type inside mcp_tool_definition.inputSchema. `unknown` is the
+// legacy rendering of a typeless property (same 'string' via), so such a manifest
+// stays in the emittable set — the registered set cannot drop mid-transition.
+// The strict law lives in checkManifestShape (the selftest's RED control proves
+// it reds on `unknown`); this tolerance only ever fires for provenance-owned
+// manifests (either mark) whose sole type-law defect is the legacy `unknown`.
+function legacyUnknownShapeOnly(m) {
+  const prov = m?.input_schema_provenance ?? m?.input_schema?.x_schema_provenance;
+  if (!/^derived-from-kernel-reads \d{4}-\d{2}-\d{2}$/.test(prov || '')) return false;
+  const bad = [];
+  const walk = (node) => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+    if ('type' in node) {
+      const names = Array.isArray(node.type) ? node.type : [node.type];
+      for (const n of names) if (n !== 'unknown' && !LEGAL_TYPE_SET.has(n)) bad.push(n);
+    }
+    if (node.items) walk(node.items);
+    if (node.properties && typeof node.properties === 'object' && !Array.isArray(node.properties)) {
+      for (const sub of Object.values(node.properties)) walk(sub);
+    }
+  };
+  walk(m?.mcp_tool_definition?.inputSchema);
+  return bad.length === 0;
+}
+
 /**
  * Full per-tool decision: why a tool is or is not emittable TODAY.
  * Returns { toolId, ok, reason, detail }.
@@ -1353,7 +1395,9 @@ export function adjudicateTool(toolId, repoRoot, manifestIndex, mcpNameByTool) {
   const loaded = loadManifestFor(toolId, manifestIndex, mcpNameByTool, repoRoot);
   if (loaded.error) return { toolId, ok: false, reason: loaded.error };
   const shapeErr = checkManifestShape(loaded.m);
-  if (shapeErr) return { toolId, ok: false, reason: `manifest ${loaded.file}: ${shapeErr}` };
+  if (shapeErr && !(shapeErr.includes('illegal type name') && legacyUnknownShapeOnly(loaded.m))) {
+    return { toolId, ok: false, reason: `manifest ${loaded.file}: ${shapeErr}` };
+  }
   const parityErr = checkManifestSchemaParity(loaded.m);
   if (parityErr) return { toolId, ok: false, reason: `manifest ${loaded.file}: ${parityErr}` };
 
@@ -2935,6 +2979,28 @@ async function selftest(){
     // boolstring via emits a 'true'/'false' select write, not .checked.
     const boolBlock = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', { flag: { element_id: 'flag', via: 'boolstring' } }, 'run');
     check("boolstring via emits .value = String(params.x === true)", boolBlock.includes("document.getElementById('flag').value = String(params.flag === true);") && !boolBlock.includes("getElementById('flag').checked"));
+
+    // 6d. MCP-SCHEMA-CONFORMANCE-1 type law (RULINGS 2026-09-10T20:30:44Z).
+    // GREEN: a property with NO `type` keyword is legal and takes the 'string'
+    // via (`.value = String(params.p)`) — exactly as the legacy `unknown` did.
+    const typeless = JSON.parse(JSON.stringify(manifest));
+    typeless.mcp_tool_definition.inputSchema.properties.label = { description: 'type not evidenced by kernel source' };
+    const typelessShapeErr = checkManifestShape(typeless);
+    const typelessBlock = buildBlockForPage(typeless, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', undefined, 'run');
+    check('typeless property is legal (G1) and registers with the string via',
+      typelessShapeErr === null
+        && typelessBlock.includes("document.getElementById('label').value = String(params.label);"),
+      `shapeErr=${JSON.stringify(typelessShapeErr)}`);
+    // RED: the legacy `"type": "unknown"` (not one of the seven legal names) is
+    // rejected by the G-gate. (During the transition, adjudicateTool tolerates it
+    // ONLY for provenance-owned manifests so the sweep cannot drop the registered
+    // set mid-flight; the pure law here is strict.)
+    const unknownTyped = JSON.parse(JSON.stringify(manifest));
+    unknownTyped.mcp_tool_definition.inputSchema.properties.label = { type: 'unknown' };
+    const unknownShapeErr = checkManifestShape(unknownTyped);
+    check('G1 refusal: "type": "unknown" rejected (illegal type name)',
+      unknownShapeErr !== null && unknownShapeErr.includes('illegal type name') && unknownShapeErr.includes("'label'"),
+      `got ${JSON.stringify(unknownShapeErr)}`);
 
     // 7. G3 refusal: no result global -> refused.
     const noRes = pageBody

@@ -6,6 +6,18 @@
 // survey 2026-07-14). Baseline-shielded: pre-existing violations are grandfathered
 // in scripts/manifest-schema-baseline.json, new violations fail immediately.
 //
+// MCP-SCHEMA-CONFORMANCE-1 (RULINGS 2026-09-10T20:30:44Z): also enforces the
+// seven legal JSON Schema type names inside every input_schema /
+// mcp_tool_definition.inputSchema (recursively into `items` and nested
+// `properties`): a `type` keyword, when present, must be one of
+// string number integer boolean array object null (a string or an array of
+// those strings). Any other value = violation `illegal-type-name <path>=<value>`.
+// The rule lives here, not in manifest.schema.json, because the zero-dependency
+// validator subset has no enum-over-nested-keys reach. Baseline-shielded under
+// the `illegal_type_names` key of manifest-schema-baseline.json (per-file
+// occurrence counts; a file may carry at most its recorded count — the ratchet
+// only goes down; the MCP-SCHEMA-CONFORMANCE-1 sweep empties it in PR-5).
+//
 // Zero-dependency by design (repo convention, CONTRACT.md §0): implements the
 // draft-2020-12 SUBSET manifest.schema.json actually uses (type incl. union
 // types, required, properties, additionalProperties, items, minLength, $ref,
@@ -13,7 +25,7 @@
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -79,16 +91,51 @@ function typeOk(t, d) {
 const isObj = (d) => d !== null && typeof d === 'object' && !Array.isArray(d);
 const jsType = (d) => (Array.isArray(d) ? 'array' : d === null ? 'null' : typeof d);
 
+// ---- legal JSON Schema type names (RULINGS 2026-09-10T20:30:44Z) ----
+export const LEGAL_TYPE_NAMES = ['string', 'number', 'integer', 'boolean', 'array', 'object', 'null'];
+const LEGAL_TYPE_SET = new Set(LEGAL_TYPE_NAMES);
+
+const renderTypeValue = (v) => (typeof v === 'string' ? v : JSON.stringify(v));
+
+function walkInputSchemaTypes(node, p, out) {
+  if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+  if ('type' in node) {
+    const names = Array.isArray(node.type) ? node.type : [node.type];
+    for (const n of names) {
+      if (!LEGAL_TYPE_SET.has(n)) out.push(`illegal-type-name ${p}=${renderTypeValue(n)}`);
+    }
+  }
+  if (node.items) walkInputSchemaTypes(node.items, `${p}.items`, out);
+  if (node.properties && typeof node.properties === 'object' && !Array.isArray(node.properties)) {
+    for (const [k, sub] of Object.entries(node.properties)) walkInputSchemaTypes(sub, `${p}.properties.${k}`, out);
+  }
+}
+
+/**
+ * MCP-SCHEMA-CONFORMANCE-1: walk a declared input schema (input_schema or
+ * mcp_tool_definition.inputSchema) and return one `illegal-type-name <path>=<value>`
+ * message per `type` keyword that is not one of the seven legal JSON Schema type
+ * names. Recurses into `items` and nested `properties`. Pure — the
+ * gen-input-schemas selftest imports this for its RED control.
+ */
+export function illegalTypeViolations(schemaNode, rootPath, out = []) {
+  walkInputSchemaTypes(schemaNode, rootPath, out);
+  return out;
+}
+
 // ---- run ----
+async function main() {
 const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
 
 const update = process.argv.includes('--update');
 const baseline = existsSync(BASELINE_PATH)
   ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
   : { files: {} };
+const illegalBaseline = baseline.illegal_type_names || {};
 
 const files = readdirSync(MANIFESTS_DIR).filter(f => f.endsWith('.manifest.json'));
-const violations = {}; // file -> [messages]
+const violations = {}; // file -> [messages]  (schema-shape, exact-match shield)
+const illegal = {};    // file -> [messages]  (illegal-type-name, count ratchet)
 
 for (const f of files) {
   const path = resolve(MANIFESTS_DIR, f);
@@ -102,18 +149,26 @@ for (const f of files) {
   const errs = [];
   validate(schema, doc, schema, '', errs);
   if (errs.length) violations[f] = errs;
+  const typeErrs = [];
+  if (doc.input_schema) illegalTypeViolations(doc.input_schema, 'input_schema', typeErrs);
+  if (doc.mcp_tool_definition && doc.mcp_tool_definition.inputSchema) {
+    illegalTypeViolations(doc.mcp_tool_definition.inputSchema, 'mcp_tool_definition.inputSchema', typeErrs);
+  }
+  if (typeErrs.length) illegal[f] = typeErrs;
 }
 
 if (update) {
   const next = { files: {} };
   for (const f of Object.keys(violations).sort()) next.files[f] = violations[f];
+  next.illegal_type_names = {};
+  for (const f of Object.keys(illegal).sort()) next.illegal_type_names[f] = illegal[f].length;
   const { writeFileSync } = await import('node:fs');
   writeFileSync(
     BASELINE_PATH,
     JSON.stringify(next, null, 2) + '\n',
     'utf8'
   );
-  console.log(`✓ manifest-schema baseline updated — ${Object.keys(next.files).length} pre-existing violation(s) shielded.`);
+  console.log(`✓ manifest-schema baseline updated — ${Object.keys(next.files).length} pre-existing violation(s) shielded, ${Object.keys(next.illegal_type_names).length} file(s) carry baselined illegal-type-name counts (ratchet: counts only go down).`);
   process.exit(0);
 }
 
@@ -128,13 +183,31 @@ for (const [f, msgs] of Object.entries(violations)) {
   newViolations.push([f, msgs]);
 }
 
+// Illegal-type-name ratchet (MCP-SCHEMA-CONFORMANCE-1): a file may carry at most
+// its recorded count; a file absent from the baseline must be clean. Counts can
+// only go down — stale credit is refreshed by --update, never a failure.
+const ratchetExceeded = [];
+let ratchetShielded = 0;
+for (const [f, msgs] of Object.entries(illegal)) {
+  const known = illegalBaseline[f] ?? 0;
+  if (msgs.length <= known) {
+    if (known > 0) ratchetShielded++;
+    continue;
+  }
+  ratchetExceeded.push([f, msgs, known]);
+}
+
 // Baseline entries for files that now pass are stale credit, not a failure —
 // they just mean the debt burned down; --update refreshes the file to reflect that.
 
-if (newViolations.length) {
-  console.error(`✗ manifest-schema FAILED — ${newViolations.length} new violation(s) (${shielded} pre-existing shielded by baseline):`);
+if (newViolations.length || ratchetExceeded.length) {
+  console.error(`✗ manifest-schema FAILED — ${newViolations.length} new shape violation(s) (${shielded} pre-existing shielded by baseline), ${ratchetExceeded.length} file(s) exceeding the illegal-type-name baseline ratchet (${ratchetShielded} file(s) within it):`);
   for (const [f, msgs] of newViolations) {
     console.error(`  • ${f}`);
+    for (const m of msgs) console.error(`      ${m}`);
+  }
+  for (const [f, msgs, known] of ratchetExceeded) {
+    console.error(`  • ${f}: ${msgs.length} illegal type name(s) exceed baseline ${known} (ratchet)`);
     for (const m of msgs) console.error(`      ${m}`);
   }
   console.error('\nFix the manifest, or if this is legitimate pre-existing debt run:');
@@ -142,4 +215,9 @@ if (newViolations.length) {
   process.exit(1);
 }
 
-console.log(`✓ manifest-schema clean — ${files.length} manifests checked, ${shielded} pre-existing violation(s) shielded by baseline, 0 new.`);
+console.log(`✓ manifest-schema clean — ${files.length} manifests checked, ${shielded} pre-existing shape violation(s) shielded by baseline, ${ratchetShielded} file(s) within the illegal-type-name baseline ratchet, 0 new.`);
+}
+
+if (process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('check-manifest-schema.mjs')) {
+  main().catch((e) => { console.error('✗ check-manifest-schema exception:', e); process.exit(1); });
+}
