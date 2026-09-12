@@ -168,6 +168,25 @@
         { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/dataIntegrityProof" } }
       ]
     },
+    "requestingAgent": {
+      "type": "object",
+      "description": "OCG Standard §AGID-1 Agent-Identity Binding — the requesting agent's ASSERTED identity, recorded by the producer when an artifact is produced at an agent's request. Optional; lives at audit_signature.requesting_agent. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 proof, §17 build_identity, §20 anchor_bindings): adding, removing, or altering it leaves every execution_hash byte-identical (agent-identity-binding.test.mjs). The identity is a recorded claim, never a verified one: OCG performs no resolution, no signature verification, and no registry lookup (§AGID-1.2); per-scheme verification is the consumer's duty. Closed v1 scheme set, agent-runtime identity only: did (any DID method; id is the DID), rfc9421-keyid (id is the RFC 9421 keyId; the TAP and Web Bot Auth families), webbotauth-card (id is the Signature Agent Card URL or its digest), mcp-i (id is a DIF MCP-Identity identifier), plus the x-<vendor> extension point (a verifier SHOULD evaluate an x- scheme it does not implement as present-but-unevaluated; the schema never rejects the x- form). A scheme outside the closed set and the x- form fails this schema: an organizational lei is §9's slot and is deliberately NOT admitted in v1. Absence is fully conformant and means NO CLAIM; chaingraph_version stays 0.4.0.",
+      "additionalProperties": false,
+      "required": ["scheme", "id"],
+      "properties": {
+        "agid_version": { "type": "string", "const": "1", "description": "§AGID-1 binding-version tag. \"1\" is the only value this profile version defines; a new scheme discipline ships as a new agid_version, never an in-place edit." },
+        "scheme": {
+          "description": "Identifier scheme of the asserted agent identity. Closed v1 set plus the x- vendor extension.",
+          "oneOf": [
+            { "enum": ["did", "rfc9421-keyid", "webbotauth-card", "mcp-i"] },
+            { "type": "string", "pattern": "^x-", "minLength": 2, "description": "Vendor extension point: x-<vendor> (e.g. x-acme-bridge). Present-but-unevaluated for a verifier that does not implement it, never a validation failure." }
+          ]
+        },
+        "id": { "type": "string", "minLength": 1, "description": "Scheme-scoped identifier of the requesting agent (the DID, the RFC 9421 keyId, the card URL or digest, or the MCP-Identity identifier)." },
+        "evidence": { "type": "object", "description": "OPTIONAL scheme-scoped material supporting the assertion (for rfc9421-keyid, the captured Signature-Input/Signature pair over the triggering request; for webbotauth-card, the card bytes or their digest). Opaque to this schema; an asserted_by:\"agent\" claim SHOULD carry evidence the agent itself signed (§AGID-1.3)." },
+        "asserted_by": { "enum": ["producer", "agent"], "description": "Who wrote the claim: producer (the producer observed the caller) or agent (the agent supplied its own identity). Absence means no attribution of the assertion was recorded." }
+      }
+    },
     "sha256ref": {
       "type": "string",
       "description": "Either a bare 64-char hex digest or a sha256:-prefixed digest.",
@@ -555,7 +574,8 @@
             "signatures": { "type": "array" },
             "proof": { "$ref": "#/$defs/proofSetOrChain" },
             "build_identity": { "$ref": "#/$defs/buildIdentity" },
-            "compute_proof": { "$ref": "#/$defs/computeProof" }
+            "compute_proof": { "$ref": "#/$defs/computeProof" },
+            "requesting_agent": { "$ref": "#/$defs/requestingAgent" }
           }
         }
       }
