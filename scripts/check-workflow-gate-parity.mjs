@@ -346,6 +346,15 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── WAVE22-SCAFFOLD-MIRROR-FIX-1 (2026-09-12) ──────────────────────────────
+  ["gen-wave22-tools.mjs",
+    "Wave-22 page registration freshness (WAVE22-SCAFFOLD-MIRROR-FIX-1): RED unless " +
+    "every art-112..122 page carries the estate registration region or is refused LIVE " +
+    "by gen-webmcp-registrations.mjs with its reason on record (a page is " +
+    "WebMCP-addressable or preflight says it is not). Hard in preflight; its CI route " +
+    "is scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), " +
+    "so a named workflow step would only duplicate the same suite. Reads only tracked " +
+    "repo files and probes the estate writer per tool — no CI-only input."],
   // ── INFRA-PAGE-1 (2026-09-08) ───────────────────────────────────────────────
   ["gen-infra-registry.mjs",
     "Infrastructure registry generator --check (INFRA-PAGE-1): re-derives " +
