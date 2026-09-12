@@ -46,6 +46,42 @@
  *   - Everything inline/self-contained: no external script, no CDN — CONTRACT
  *     constraints bind generated output exactly like hand-authored pages.
  *
+ * DIRECT emission mode (WEBMCP-DIRECT-MODE-1, Tim ruling 2026-09-05; static
+ * probe per the 2026-09-11 scrutiny amendment): a second, probe-gated emission
+ * shape for sweep-cleared pages whose prefill mapping is INCOMPLETE — the
+ * manifest inputs are arrays/objects collected as row blocks or the page
+ * vocabulary has no element per prop, so there is no control to prefill.
+ * `execute(params)` validates params (required members and legal declared
+ * types only — a property with no `type` keyword gets a presence check,
+ * MCP-SCHEMA-CONFORMANCE-1), calls the manifest-declared `execution.function_name`
+ * with `params` directly, stores the result in the page's result global, lets
+ * the page's own render function paint it, and renders the mandatory
+ * "Inputs used by the agent" JSON echo panel above the result (the echo panel
+ * replaces the visibility form prefill gave; the deep-link and file-import
+ * readers prefill controls and have no direct-mode analogue, so they are not
+ * emitted). Same kernel, same execution_hash, zero egress, readOnlyHint: true
+ * unchanged. The probe is STATIC and zero-dependency (the "existing headless
+ * page harness" the row originally named does not exist in repo/scripts —
+ * scrutiny defect, 2026-09-11): a page is direct-eligible iff
+ *   (a) its <!--KERNEL-DIGEST--> sentinel matches its kernel (reusing
+ *       check-page-kernel-digest.mjs's classifier + _buildid.mjs's sourceDigest;
+ *       never re-derived here),
+ *   (b) execution.function_name is declared on the page taking exactly one
+ *       parameter,
+ *   (c) that function's body contains no DOM read (`document.`, `getElementById`,
+ *       `querySelector`, `.value`, `.checked`, `localStorage`; comments and
+ *       string-literal contents blanked before the scan) — a DOM read means the
+ *       function ignores params,
+ *   (d) the kernel reproduces fixture 0's execution_hash (kernel compute() run
+ *       through the check-engine-parity import pattern, hashed with the shared
+ *       _hash.mjs executionHash) — the hash-parity guarantee,
+ * plus a detected unique zero-arg render function reading the result global
+ * (with an explicit per-tool opt-out list, DIRECT_MODE_OPT_OUT, for pages that
+ * render differently). Every verdict is per-page, never a program halt; the
+ * probe re-runs inside --check on every preflight (parity re-proven), and
+ * `--direct` reports/writes the eligible set (the ORCH mints direct batches
+ * from these verdicts, <=22 pages per PR).
+ *
  * Guard rails (hard failures — the generator never guesses):
  *   G1 manifest shape: snake_case name, description >= 8 words, typed properties;
  *   G2 page mapping: every inputSchema property must match a form element id
@@ -86,6 +122,11 @@
  *       region with source 'parsed-from-wrapper' + wrapper_digest. --report
  *       prints the per-page buckets.)
  *   node scripts/gen-webmcp-registrations.mjs --selftest
+ *   node scripts/gen-webmcp-registrations.mjs --direct [--write] [--tool <id>]
+ *       (WEBMCP-DIRECT-MODE-1: probe the mapping-incomplete sweep-cleared pages
+ *       for direct-mode eligibility, print the per-page verdicts + histogram;
+ *       --write emits the direct-mode block into eligible pages — the batch
+ *       rows' writer, run per batch, never in this generator's own gates)
  *
  * WEBMCP-OT-META-1: every write/check mode above also carries the origin-trial
  * <meta> region in each generator-owned page's <head> (token from
@@ -96,7 +137,7 @@
  */
 import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, basename, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { createHash, webcrypto } from 'node:crypto';
@@ -104,6 +145,14 @@ import * as vm from 'node:vm';
 import { loadManifestIndex, loadMcpNameIndex, sweepKernel } from './check-schema-read-divergence.mjs';
 import { gitEnv } from './_git-env-lib.mjs';
 import { buildDeeplinkScript, buildFileImportScript, DEEPLINK_MARKER, FILE_IMPORT_MARKER } from '../chaingraph/_page-chrome.mjs';
+// WEBMCP-DIRECT-MODE-1 probe inputs: (a) reuses the page↔kernel digest
+// classifier (never re-derived) + the canonical sourceDigest; (d) runs the
+// kernel through the check-engine-parity import pattern and hashes with the
+// one shared canonicalizer (CONTRACT §A4.3 — no ad-hoc preimage anywhere).
+import { classifyPage } from './check-page-kernel-digest.mjs';
+import { sourceDigest } from '../chaingraph/kernels/_buildid.mjs';
+import { executionHash } from '../chaingraph/kernels/_hash.mjs';
+import { readOutcome } from '../chaingraph/kernels/_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -114,8 +163,8 @@ export const BEGIN = '<!-- WEBMCP:GEN-BEGIN ';
 // substitutes in reader-facing text (measured: 16-page preflight red).
 export const END = '<!-- WEBMCP:GEN-END -->';
 
-function beginLine(manifestPath) {
-  return `<!-- WEBMCP:GEN-BEGIN manifest=${manifestPath} generator=scripts/gen-webmcp-registrations.mjs -->`;
+function beginLine(manifestPath, mode) {
+  return `<!-- WEBMCP:GEN-BEGIN manifest=${manifestPath} generator=scripts/gen-webmcp-registrations.mjs${mode ? ` mode=${mode}` : ''} -->`;
 }
 
 // ── Origin-trial meta emitter + token gate (WEBMCP-OT-META-1) ────────────────
@@ -1692,6 +1741,12 @@ function runCheck() {
   }
 
   const problems = [];
+  // 5 (probe collected early — section 2 consults the eligible set). WEBMCP-
+  // DIRECT-MODE-1: the static direct-mode eligibility probe re-runs over the
+  // whole mapping-incomplete excluded set on every --check (parity re-proven
+  // on every preflight; per-page verdicts, never a halt).
+  const directVerdicts = await collectDirectVerdicts(cleared, manifestIndex, mcpNameByTool);
+  const directEligible = new Map(directVerdicts.filter((v) => v.eligible).map((v) => [v.toolId, v]));
   // 1. Every emittable page carries a byte-exact generated region.
   for (const d of emittable) {
     const pageSrc = readRepoFile(d.page, REPO);
@@ -1731,6 +1786,10 @@ function runCheck() {
     if (!pageSrc.includes(BEGIN)) continue;
     if (p.startsWith('chaingraph/chains/')) continue;
     if (!emittablePages.has(p)) {
+      // WEBMCP-DIRECT-MODE-1: a DIRECT-mode region on a page that is direct-
+      // eligible today is legitimate (the fallback mode's own region); it is
+      // byte-checked in section 5. Anything else keeps the coverage-regression red.
+      if (isDirectRegion(pageSrc) && directEligible.has(basename(p).replace(/\.html$/, ''))) continue;
       problems.push(`${p}: carries a generated WebMCP region but is not in today's emittable set (schema or mapping changed) — regenerate or remove the region`);
     }
   }
@@ -1761,6 +1820,42 @@ function runCheck() {
   // re-parsed and re-probed against fixture 0 — wrapper-byte drift, entry
   // drift, or a failed probe is RED, never silent.
   await checkDerivedEntries(manifestIndex, mcpNameByTool, (p) => problems.push(p));
+  // 5. Direct-mode region parity (WEBMCP-DIRECT-MODE-1): a page carrying a
+  // DIRECT-mode region must be direct-eligible TODAY (the probe verdict above
+  // is the re-proof) and byte-exact against the current emitter. A refused
+  // tool with a region is a parity loss; a drifted region is a hand-edit.
+  // Eligible pages without a region yet are the pending batch queue, not a
+  // defect (direct batches land <=22 pages per PR).
+  let directRegions = 0;
+  for (const p of listPages(REPO)) {
+    let pageSrc;
+    try { pageSrc = readRepoFile(p, REPO); } catch { continue; }
+    if (!isDirectRegion(pageSrc)) continue;
+    if (p.startsWith('chaingraph/chains/')) { problems.push(`${p}: chain composer pages never carry direct-mode regions`); continue; }
+    directRegions++;
+    const toolId = basename(p).replace(/\.html$/, '');
+    const v = directEligible.get(toolId);
+    if (!v) {
+      const why = directVerdicts.find((x) => x.toolId === toolId);
+      problems.push(`${p}: carries a DIRECT-mode region but the tool is not direct-eligible today${why ? ` (${why.reason})` : ' (prefill-emittable or sweep-excluded; direct mode is fallback-only)'} — remove the region or restore eligibility`);
+      continue;
+    }
+    const loaded = loadManifestFor(toolId, manifestIndex, mcpNameByTool, REPO);
+    if (loaded.error) { problems.push(`${p}: direct-mode region manifest unreadable: ${loaded.error}`); continue; }
+    const expected = buildDirectBlockForPage(loaded.m, v.detail.manifest, v.detail.resGlobal, v.detail.render);
+    const region = regionOf(pageSrc);
+    const actual = pageSrc.slice(region.start, region.end);
+    if (actual !== expected) {
+      problems.push(`${p}: direct-mode region drifted from ${v.detail.manifest} — hand-edits to generated blocks are red; run node scripts/gen-webmcp-registrations.mjs --direct --write --tool ${toolId}`);
+      continue;
+    }
+    const directScripts = [...actual.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    for (const scriptBody of directScripts) {
+      try { new Function(scriptBody); } catch (e) {
+        problems.push(`${p}: direct-mode region does not parse as JavaScript: ${e.message}`);
+      }
+    }
+  }
   // 4. OT token gate + meta region freshness (WEBMCP-OT-META-1). The expiry
   // check IS the renewal alarm: main goes RED 14 days before expiry and the
   // nightly opener surfaces it — no cron, no workflow.
@@ -1801,6 +1896,7 @@ function runCheck() {
   }
   const chainCount = expectedChainBlocks(REPO).length;
   const derivedTools = Object.entries(propertyIdMap).filter(([, m]) => derivedEntriesOf(m).length).length;
+  console.log(`✓ direct-mode probe clean (WEBMCP-DIRECT-MODE-1) — ${directHistogram(directVerdicts)}; ${directRegions} direct-mode region(s) on disk, all eligible and byte-exact vs their manifests.`);
   console.log(`✓ webmcp-registration freshness clean — ${emittable.length} generated registration(s) byte-exact vs their manifests, ${chainCount} chain composer page(s) byte-exact in chain mode, ${derivedTools} derived-map page(s) re-parsed and probe-verified vs fixture 0; ${excluded.length} sweep-cleared tool(s) excluded with reasons (shrinks as fix rows land).`);
   excluded.forEach((e) => console.log(`  EXCLUDED ${e.id}: ${e.reason}`));
   };
@@ -2803,6 +2899,396 @@ async function checkDerivedEntries(manifestIndex, mcpNameByTool, pushProblem) {
   }
 }
 
+// ── Direct emission mode (WEBMCP-DIRECT-MODE-1) ──────────────────────────────
+// The second emission shape and its static eligibility probe. Everything here
+// is per-page-verdict: a refusal is information for the exclusion list and the
+// ORCH's batch minting, never a program halt. Conditions (a)-(d) are doc'd in
+// the file header; the caller must hold the G6 sweep-CLEARED precondition
+// (every call site iterates deriveTargets()'s cleared list).
+
+/**
+ * Authored per-tool opt-outs (WEBMCP-DIRECT-MODE-1 step 1). A page whose
+ * render path cannot be seen by the static render detector (or that should
+ * never be direct-emitted for a human-known reason) is listed here with the
+ * reason; the entry keeps the page out of direct emission even when the probe
+ * would pass. Same authoring discipline as propertyIdMap: every entry names
+ * its justification, entries are diff-visible, and the list is not a heuristic.
+ */
+export const DIRECT_MODE_OPT_OUT = {
+  // '<tool_id>': 'reason the page must not be direct-emitted',
+};
+
+/** The DOM-read tokens condition (c) bans from an execution function's body. */
+const DIRECT_DOM_TOKENS = ['document.', 'getElementById', 'querySelector', '.value', '.checked', 'localStorage'];
+
+/** JSON Schema types the emitted validation knows how to check. A required
+ * property with no type (or a type outside this set) gets a presence check
+ * only — MCP-SCHEMA-CONFORMANCE-1 removes `"type":"unknown"`, and validating
+ * an undeclared shape would be inventing a constraint the manifest never made. */
+const DIRECT_LEGAL_TYPES = new Set(['string', 'number', 'boolean', 'array', 'object']);
+
+/** Span of a function declaration of ANY arity: `function <name>(params) {…}`.
+ *  Same brace-walk as findWrapperName; returns { params, start, end } or null. */
+function functionSpan(pageSrc, fnName) {
+  const re = new RegExp(`(?:async\\s+)?function\\s+${fnName}\\s*\\(([^)]*)\\)\\s*\\{`, 'g');
+  let m;
+  while ((m = re.exec(pageSrc)) !== null) {
+    let depth = 1;
+    let j = m.index + m[0].length;
+    while (j < pageSrc.length && depth > 0) {
+      const c = pageSrc[j];
+      if (c === '{') depth++; else if (c === '}') depth--;
+      j++;
+    }
+    if (depth !== 0) continue;
+    return { params: m[1], start: m.index, end: j };
+  }
+  return null;
+}
+
+/** Source with string/template-literal CONTENTS blanked and comments stripped —
+ *  the (c) DOM-read scan runs over this so a token quoted in a string or named
+ *  in a comment is not a false refusal. skipStr is the wrapper parser's. */
+function codeBodyText(src) {
+  let out = '';
+  let i = 0;
+  while (i < src.length) {
+    const c = src[i];
+    if (c === '"' || c === "'" || c === '`') { i = skipStr(src, i); out += ' '; continue; }
+    if (c === '/' && src[i + 1] === '/') { while (i < src.length && src[i] !== '\n') i++; continue; }
+    if (c === '/' && src[i + 1] === '*') {
+      i += 2;
+      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++;
+      i += 2; out += ' ';
+      continue;
+    }
+    out += c; i++;
+  }
+  return out;
+}
+
+/** The page's result global (same rule as verifyPageMapping's G3, read early so
+ *  the direct delegate knows what to store/return). Null when neither is set. */
+export function detectResultGlobal(pageSrc) {
+  if (/_lastResult\s*=/.test(pageSrc)) return '_lastResult';
+  if (/_lastArtifact\s*=/.test(pageSrc)) return '_lastArtifact';
+  return null;
+}
+
+/**
+ * The page's render function for direct mode: the UNIQUE zero-arg function
+ * declaration (other than the execution fn itself) that reads the result global
+ * and neither calls the execution fn nor assigns the global — a painter, not a
+ * producer. Zero or multiple candidates -> null (the generator never guesses;
+ * pages that render differently go in DIRECT_MODE_OPT_OUT with a reason).
+ */
+export function findRenderFunctionName(pageSrc, fn, resGlobal) {
+  const refRe = new RegExp(`(?:^|[^\\w$.])${resGlobal}(?![\\w$])`);
+  const assignRe = new RegExp(`(?:^|[^\\w$.])${resGlobal}\\s*=`);
+  const fnCallRe = new RegExp(`(?:^|[^\\w$.])${fn}\\s*\\(`);
+  const declRe = /(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(\s*\)\s*\{/g;
+  const names = new Set();
+  let m;
+  while ((m = declRe.exec(pageSrc)) !== null) {
+    if (m[1] === fn) continue;
+    let depth = 1;
+    let j = m.index + m[0].length;
+    while (j < pageSrc.length && depth > 0) {
+      const c = pageSrc[j];
+      if (c === '{') depth++; else if (c === '}') depth--;
+      j++;
+    }
+    if (depth !== 0) continue;
+    const body = pageSrc.slice(m.index, j);
+    if (!refRe.test(body) || fnCallRe.test(body) || assignRe.test(body)) continue;
+    names.add(m[1]);
+  }
+  return names.size === 1 ? [...names][0] : null;
+}
+
+/**
+ * The static direct-mode probe: per-page eligibility verdict.
+ *   { eligible: true,  code: 'eligible', detail: { manifest, page, resGlobal, render, name } }
+ *   { eligible: false, code, reason }   — code names the failing condition
+ *     (opt-out | digest-sentinel | result-global | fn-shape | dom-read | render |
+ *      fixture | kernel-parity | manifest | page), reason is the exclusion-list
+ *     line (`direct-probe: …` / `direct-opt-out: …`).
+ * `opts.optOuts` overrides DIRECT_MODE_OPT_OUT (selftest seam).
+ */
+export async function directAdjudication(toolId, manifestIndex, mcpNameByTool, repoRoot, opts = {}) {
+  const root = repoRoot || REPO;
+  const pageRel = `chaingraph/${toolId}.html`;
+  const optOuts = opts.optOuts || DIRECT_MODE_OPT_OUT;
+  if (Object.prototype.hasOwnProperty.call(optOuts, toolId)) {
+    return { toolId, eligible: false, code: 'opt-out', reason: `direct-opt-out: ${optOuts[toolId]}` };
+  }
+  const loaded = loadManifestFor(toolId, manifestIndex, mcpNameByTool, root);
+  if (loaded.error) return { toolId, eligible: false, code: 'manifest', reason: `direct-probe: ${loaded.error}` };
+  const manifest = loaded.m;
+  const shapeErr = checkManifestShape(manifest);
+  if (shapeErr) return { toolId, eligible: false, code: 'manifest', reason: `direct-probe: manifest ${loaded.file}: ${shapeErr}` };
+  const parityErr = checkManifestSchemaParity(manifest);
+  if (parityErr) return { toolId, eligible: false, code: 'manifest', reason: `direct-probe: manifest ${loaded.file}: ${parityErr}` };
+  const entry = manifest.execution?.entry || '';
+  if (entry && basename(entry) !== `${toolId}.html`) {
+    return { toolId, eligible: false, code: 'manifest', reason: `direct-probe: manifest ${loaded.file} execution.entry (${entry}) is not this page` };
+  }
+  let pageSrc;
+  try { pageSrc = readRepoFile(pageRel, root); } catch (e) {
+    return { toolId, eligible: false, code: 'page', reason: `direct-probe: ${pageRel} unreadable: ${e.message}` };
+  }
+
+  // (a) the page↔kernel digest sentinel matches its kernel — reused classifier.
+  const kernelRel = `chaingraph/kernels/${toolId}.kernel.mjs`;
+  let kernelSrc = null;
+  try { kernelSrc = readRepoFile(kernelRel, root); } catch { kernelSrc = null; }
+  const digestState = classifyPage({ html: pageSrc, recomputedDigest: kernelSrc === null ? null : await sourceDigest(kernelSrc) });
+  if (digestState.state !== 'OK') {
+    return { toolId, eligible: false, code: 'digest-sentinel', reason: `direct-probe: kernel-digest sentinel state ${digestState.state} (${digestState.detail})` };
+  }
+
+  const resGlobal = detectResultGlobal(pageSrc);
+  if (!resGlobal) {
+    return { toolId, eligible: false, code: 'result-global', reason: 'direct-probe: page sets no _lastResult/_lastArtifact global — the direct delegate has no result to return' };
+  }
+
+  // (b) execution.function_name declared on the page taking exactly one parameter.
+  const fn = manifest.execution.function_name;
+  const span = functionSpan(pageSrc, fn);
+  if (!span) {
+    return { toolId, eligible: false, code: 'fn-shape', reason: `direct-probe: execution.function_name '${fn}' is not declared as a function on the page` };
+  }
+  const nParams = span.params.trim().length === 0 ? 0 : span.params.trim().split(',').filter((s) => s.trim()).length;
+  if (nParams !== 1) {
+    return { toolId, eligible: false, code: 'fn-shape', reason: `direct-probe: execution.function_name '${fn}' takes ${nParams} parameter(s); direct mode calls it with params and requires exactly 1` };
+  }
+
+  // (c) no DOM read in the function body — a DOM read means it ignores params.
+  const fnBody = codeBodyText(pageSrc.slice(span.start, span.end));
+  const domHit = DIRECT_DOM_TOKENS.find((t) => fnBody.includes(t));
+  if (domHit) {
+    return { toolId, eligible: false, code: 'dom-read', reason: `direct-probe: function ${fn} body contains DOM read '${domHit}' — a DOM-reading function ignores params` };
+  }
+
+  // The render function the emitted delegate paints through.
+  const renderFn = findRenderFunctionName(stripMarkedRegions(pageSrc), fn, resGlobal);
+  if (!renderFn) {
+    return { toolId, eligible: false, code: 'render', reason: `direct-probe: no unique zero-arg render function reading ${resGlobal} (direct mode renders through it; list the page in DIRECT_MODE_OPT_OUT with a reason if it renders differently)` };
+  }
+
+  // (d) the kernel reproduces fixture 0's execution_hash — the hash-parity
+  // guarantee the row's original live probe was meant to give, recomputed on
+  // every probe run (parity re-proven on every preflight).
+  const fxPath = resolve(root, 'chaingraph', 'kernels', 'fixtures', `${toolId}.fixtures.json`);
+  if (!existsSync(fxPath)) {
+    return { toolId, eligible: false, code: 'fixture', reason: `direct-probe: no fixture 0 (no fixtures file for ${toolId})` };
+  }
+  let fx;
+  try {
+    const doc = JSON.parse(readFileSync(fxPath, 'utf8'));
+    fx = (doc.vectors || doc.fixtures || [])[0];
+  } catch (e) {
+    return { toolId, eligible: false, code: 'fixture', reason: `direct-probe: fixtures file unparseable: ${e.message}` };
+  }
+  if (!fx || !fx.policy_parameters || !fx.golden_hash) {
+    return { toolId, eligible: false, code: 'fixture', reason: 'direct-probe: fixture 0 lacks policy_parameters/golden_hash' };
+  }
+  let mod;
+  try { mod = await import(pathToFileURL(resolve(root, kernelRel)).href); } catch (e) {
+    return { toolId, eligible: false, code: 'kernel-parity', reason: `direct-probe: kernel import failed: ${e.message}` };
+  }
+  if (typeof mod.compute !== 'function') {
+    return { toolId, eligible: false, code: 'kernel-parity', reason: 'direct-probe: kernel exports no compute() function' };
+  }
+  let out;
+  try {
+    out = mod.compute(fx.policy_parameters);
+    if (out && typeof out.then === 'function') out = await out;
+  } catch (e) {
+    return { toolId, eligible: false, code: 'kernel-parity', reason: `direct-probe: kernel compute() threw on fixture 0: ${e.message}` };
+  }
+  let produced;
+  try {
+    produced = await executionHash(fx.policy_parameters, readOutcome(out));
+  } catch (e) {
+    return { toolId, eligible: false, code: 'kernel-parity', reason: `direct-probe: execution_hash recomputation failed: ${e.message}` };
+  }
+  const producedHex = String(produced).replace(/^sha256:/, '');
+  const goldenHex = String(fx.golden_hash).replace(/^sha256:/, '');
+  if (producedHex !== goldenHex) {
+    return { toolId, eligible: false, code: 'kernel-parity', reason: `direct-probe: hash-mismatch (kernel produced ${producedHex.slice(0, 16)}…, fixture golden ${goldenHex.slice(0, 16)}…)` };
+  }
+  return {
+    toolId, eligible: true, code: 'eligible', reason: null,
+    detail: { manifest: loaded.file, page: pageRel, resGlobal, render: renderFn, name: manifest.mcp_tool_definition.name },
+  };
+}
+
+/** Required-member validation for the direct emitter: legal declared types get
+ *  the typed check; no type (or an undeclared type) gets presence only. */
+function directValidationLine(name, type) {
+  if (!DIRECT_LEGAL_TYPES.has(type)) {
+    return `if (params.${name} === undefined) throw new Error('${jsStr(name)} is required; received ' + JSON.stringify(params.${name}) + '.');`;
+  }
+  return validationLine(name, type);
+}
+
+/**
+ * The DIRECT-mode block: one registration whose execute() validates params,
+ * shows the mandatory inputs echo panel, calls the manifest fn with params,
+ * stores the result in the page's result global, lets the page's render
+ * function paint, and returns the result global. No form prefill, no deep-link
+ * or file-import readers (they prefill controls; direct pages have none per
+ * prop). Pure: same inputs, same bytes.
+ */
+export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn) {
+  const def = manifest.mcp_tool_definition;
+  const props = Object.entries(def.inputSchema.properties);
+  const required = Array.isArray(def.inputSchema.required) ? def.inputSchema.required : [];
+  const fn = manifest.execution.function_name;
+  const lines = [];
+  lines.push(beginLine(manifestPath, 'direct'));
+  lines.push('<script>');
+  lines.push('// WebMCP registration generated by scripts/gen-webmcp-registrations.mjs from');
+  lines.push(`// ${manifestPath} (mcp_tool_definition reused verbatim; the generator computes`);
+  lines.push('// nothing and restates no computed value). DIRECT emission mode');
+  lines.push('// (WEBMCP-DIRECT-MODE-1): this page\'s manifest inputs have no single control');
+  lines.push('// to prefill, so execute() calls the manifest-declared function with the');
+  lines.push('// agent\'s params, stores the result in the page\'s result global, lets the');
+  lines.push('// page\'s render function paint it, and shows the mandatory "Inputs used by');
+  lines.push('// the agent" echo panel so a human still sees exactly what the agent ran.');
+  lines.push('// Feature-detected: absent API registers nothing, so this page is');
+  lines.push('// byte-identical without the API.');
+  lines.push('// Eligibility is static and re-proven on every --check: kernel-digest');
+  lines.push('// sentinel matches the kernel; the declared function takes one parameter');
+  lines.push('// and reads no DOM; the kernel reproduces fixture 0 execution_hash. Same');
+  lines.push('// kernel, same hash, zero network I/O.');
+  lines.push('// Trust annotations, truthful-hint posture: deterministic local compute, no');
+  lines.push('// untrusted content, so untrustedContentHint is not applicable per tool (n/a);');
+  lines.push('// exposedTo intentionally omitted: no cross-origin exposure. A browser agent');
+  lines.push('// is untrusted input like any form submission; the never-trust-client rule is');
+  lines.push('// honored by construction because the tool is zero-server and only returns');
+  lines.push('// computed JSON derived from declared inputs.');
+  lines.push('// Browser support (dated observation): WebMCP origin trial from Chrome 149');
+  lines.push('// (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).');
+  lines.push("const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);");
+  lines.push('if (mc) {');
+  lines.push('  mc.registerTool({');
+  lines.push(`    name: '${jsStr(def.name)}',`);
+  lines.push(`    description: '${jsStr(def.description)}',`);
+  lines.push(`    inputSchema: ${JSON.stringify(def.inputSchema, null, 2).replace(/\n/g, '\n    ')},`);
+  lines.push('    annotations: { readOnlyHint: true },');
+  lines.push('    execute: async function(params) {');
+  lines.push('      try {');
+  for (const [name, spec] of props) {
+    if (required.includes(name)) lines.push(`      ${directValidationLine(name, spec.type)}`);
+  }
+  lines.push("      var echo = document.getElementById('webmcp-inputs-echo');");
+  lines.push('      if (!echo) {');
+  lines.push("        echo = document.createElement('pre');");
+  lines.push("        echo.id = 'webmcp-inputs-echo';");
+  lines.push("        var panel = document.querySelector('.results-panel');");
+  lines.push('        if (panel && panel.parentNode) panel.parentNode.insertBefore(echo, panel);');
+  lines.push('        else document.body.insertBefore(echo, document.body.firstChild);');
+  lines.push('      }');
+  lines.push("      echo.textContent = 'Inputs used by the agent: ' + JSON.stringify(params, null, 2);");
+  lines.push(`      var __directResult = await ${fn}(params);`);
+  lines.push(`      if (typeof __directResult !== 'undefined') ${resGlobal} = __directResult;`);
+  lines.push(`      await ${renderFn}();`);
+  lines.push(`      return ${resGlobal};`);
+  lines.push('      } catch (err) {');
+  lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
+  lines.push('      }');
+  lines.push('    }');
+  lines.push('  });');
+  lines.push('}');
+  lines.push('</script>');
+  lines.push(END);
+  return lines.join('\n');
+}
+
+/** buildDirectBlock with the probe-verified result global and render function
+ *  substituted in (both come from directAdjudication's detail, never guessed). */
+export function buildDirectBlockForPage(manifest, manifestPath, resGlobal, renderFn) {
+  return buildDirectBlock(manifest, manifestPath, resGlobal, renderFn);
+}
+
+/** A page's generated region is a DIRECT-mode region when its BEGIN line says so. */
+export function isDirectRegion(pageSrc) {
+  const region = regionOf(pageSrc);
+  if (!region) return false;
+  return pageSrc.slice(region.start, region.start + 500).includes('mode=direct');
+}
+
+/** The histogram line the PR body and every --check run quote. */
+export function directHistogram(verdicts) {
+  const counts = {};
+  for (const v of verdicts) counts[v.code] = (counts[v.code] || 0) + 1;
+  const refusals = Object.entries(counts).filter(([k]) => k !== 'eligible').sort()
+    .map(([k, n]) => `refused:${k}=${n}`).join(' ');
+  return `direct-mode probe: ${verdicts.length} mapping-incomplete page(s) — eligible=${counts.eligible || 0}` + (refusals ? ` ${refusals}` : ' (no refusals)');
+}
+
+/** Probe every mapping-incomplete sweep-cleared page (the excluded set the
+ *  demand triage measures). Shared by --direct and --check. */
+async function collectDirectVerdicts(cleared, manifestIndex, mcpNameByTool) {
+  const verdicts = [];
+  for (const id of cleared) {
+    const d = adjudicateTool(id, REPO, manifestIndex, mcpNameByTool);
+    if (d.ok) continue; // prefill mode binds it — direct mode is the fallback
+    if (!d.reason.includes('form-element mapping incomplete')) continue; // G6/manifest-class exclusion, not a direct candidate
+    verdicts.push(await directAdjudication(id, manifestIndex, mcpNameByTool, REPO));
+  }
+  return verdicts;
+}
+
+/** --direct: report (default) or write (--write) the direct-mode emission.
+ *  Report prints the per-page verdicts + histogram; write emits the block into
+ *  eligible pages (the batch rows' writer — per batch, never in the gates). */
+async function runDirect({ write, onlyTool }) {
+  const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(REPO);
+  if (onlyTool && !cleared.includes(onlyTool)) {
+    console.log(`--tool ${onlyTool}: not sweep-CLEARED (G6) — direct mode, like prefill mode, never emits from an uncleared schema`);
+    return { verdicts: [], written: 0, exact: 0, skipped: 0 };
+  }
+  const ot = readOtToken(REPO);
+  const otBlock = ot.present ? otMetaBlock(ot.token) : null;
+  const verdicts = [];
+  let written = 0, exact = 0, skipped = 0;
+  for (const id of cleared) {
+    if (onlyTool && id !== onlyTool) continue;
+    const d = adjudicateTool(id, REPO, manifestIndex, mcpNameByTool);
+    if (!onlyTool && (d.ok || !d.reason.includes('form-element mapping incomplete'))) continue;
+    if (d.ok) { console.log(`--tool ${id}: prefill mode binds this page (mapping complete); direct mode is the fallback and does not apply`); skipped++; continue; }
+    const v = await directAdjudication(id, manifestIndex, mcpNameByTool, REPO);
+    verdicts.push(v);
+    if (!v.eligible) continue;
+    const loaded = loadManifestFor(id, manifestIndex, mcpNameByTool, REPO);
+    const block = buildDirectBlockForPage(loaded.m, v.detail.manifest, v.detail.resGlobal, v.detail.render);
+    const pageAbs = resolve(REPO, v.detail.page);
+    if (write) {
+      const src = readFileSync(pageAbs, 'utf8');
+      const existing = regionOf(src);
+      if (existing && !src.slice(existing.start, existing.start + 500).includes('mode=direct')) {
+        console.error(`REFUSED ${v.detail.page}: page already carries a non-direct generated region — prefill mode owns it, direct mode never overwrites`);
+        continue;
+      }
+      const next = applyOtMeta(insertIntoPage(src, block), otBlock);
+      if (next !== src) {
+        writeFileSync(pageAbs, next, 'utf8');
+        written++;
+        console.log(`✓ wrote ${v.detail.page} (direct mode: name: ${v.detail.name}, result: ${v.detail.resGlobal}, render: ${v.detail.render}${ot.present ? '; OT meta in head' : ''})`);
+      } else { exact++; }
+    } else {
+      console.log(`DIRECT-ELIGIBLE ${v.detail.page} (name: ${v.detail.name}, manifest: ${v.detail.manifest}, result: ${v.detail.resGlobal}, render: ${v.detail.render})`);
+    }
+  }
+  verdicts.filter((v) => !v.eligible).forEach((v) => console.log(`  EXCLUDED ${v.toolId}: ${v.reason}`));
+  const tail = write ? ` — ${written} page(s) written, ${exact} already byte-exact${onlyTool ? '' : ' (batch rows: <=22 pages per PR)'}` : ' (report only; add --write to emit)';
+  console.log(`\n${directHistogram(verdicts)}${tail}`);
+  return { verdicts, written, exact, skipped };
+}
+
 // ── Selftest (synthetic fixture repo; the real tree is never written) ─────────
 
 async function selftest(){
@@ -3270,6 +3756,154 @@ async function selftest(){
     check('OT read: the placeholder classifies ABSENT (no meta emitted)', readOtToken(tmp).present === false && readOtToken(tmp).placeholder === true);
     writeFileSync(join(tmp, 'chaingraph', 'webmcp-ot-token.txt'), 'real-token-shape\n');
     check('OT read: a non-placeholder token classifies present', readOtToken(tmp).present === true && readOtToken(tmp).placeholder === false);
+
+    // 16. Direct emission mode (WEBMCP-DIRECT-MODE-1): one direct-mode fixture
+    // page (probe pass) + one DOM-reading fixture page (refused), RED-then-GREEN
+    // on the DOM-read condition, the digest sentinel, the render detection, and
+    // the kernel fixture-0 hash parity.
+    const dSchema = { type: 'object', required: ['spot'], properties: {
+      spot: { type: 'number', description: 'Spot level' },
+      mode: { type: 'string', description: 'Optional mode selector' },
+    } };
+    const dManifest = {
+      tool_id: 'fx-300-direct',
+      input_schema: { properties: dSchema.properties, required: dSchema.required },
+      mcp_tool_definition: {
+        name: 'run_fx_300_direct',
+        description: 'Selftest fixture tool exercising the direct-mode probe and emitter end to end.',
+        inputSchema: dSchema,
+      },
+      execution: { type: 'browser-javascript', entry: 'chaingraph/fx-300-direct.html', function_name: 'runDirect', timeout_ms: 3000 },
+    };
+    const dDomManifest = {
+      tool_id: 'fx-301-dompage',
+      input_schema: { properties: dSchema.properties, required: dSchema.required },
+      mcp_tool_definition: {
+        name: 'run_fx_301_dompage',
+        description: 'Selftest fixture page whose function reads the DOM and must be refused.',
+        inputSchema: dSchema,
+      },
+      execution: { type: 'browser-javascript', entry: 'chaingraph/fx-301-dompage.html', function_name: 'computeDom', timeout_ms: 3000 },
+    };
+    const dKernelSrc = [
+      "export const meta = { mcp_name: 'run_fx_300_direct' };",
+      'export function compute(pp) {',
+      '  return { output_payload: { echo: [pp.spot, pp.mode] }, compliance_flags: {} };',
+      '}',
+    ].join('\n');
+    const dDomKernelSrc = [
+      "export const meta = { mcp_name: 'run_fx_301_dompage' };",
+      'export function compute(pp) {',
+      '  return { output_payload: { echoed: pp }, compliance_flags: {} };',
+      '}',
+    ].join('\n');
+    const dPageOf = (digest, fnDecl, fnName) => [
+      '<html><head><title>t</title></head><body>',
+      '<input id="spot">',
+      '<div class="results-panel"></div>',
+      `<!--KERNEL-DIGEST-->${digest}<!--/KERNEL-DIGEST-->`,
+      '<script>',
+      'var _lastResult = null;',
+      'var statusEl = document.getElementById("status");',
+      'function renderDirect(){ statusEl.textContent = _lastResult ? "ready" : "idle"; }',
+      fnDecl,
+      'renderDirect();',
+      '</script>',
+      '</body></html>',
+    ].join('\n');
+    const dBodyGreen = 'async function runDirect(pp){ return { spot: pp.spot, mode: pp.mode }; }';
+    const dBodyDom = 'async function runDirect(pp){ return { spot: Number(document.getElementById("spot").value) }; }';
+    const dBodyDomPage = 'function computeDom(pp){ document.getElementById("out").value = JSON.stringify(pp); return pp; }';
+    writeFileSync(join(tmp, 'chaingraph', 'kernels', 'fx-300-direct.kernel.mjs'), dKernelSrc);
+    writeFileSync(join(tmp, 'chaingraph', 'kernels', 'fx-301-dompage.kernel.mjs'), dDomKernelSrc);
+    writeFileSync(join(tmp, 'manifests', '953-fx-300-direct.manifest.json'), JSON.stringify(dManifest, null, 2));
+    writeFileSync(join(tmp, 'manifests', '954-fx-301-dompage.manifest.json'), JSON.stringify(dDomManifest, null, 2));
+    // Pin fixture 0 from the kernel itself (the golden-parity pinning pattern):
+    // the probe's condition (d) re-derives this hash on every run.
+    const dMod = await import(pathToFileURL(join(tmp, 'chaingraph', 'kernels', 'fx-300-direct.kernel.mjs')).href);
+    const dPP0 = { spot: 101.5, mode: 'fast' };
+    const dOp0 = readOutcome(dMod.compute(dPP0));
+    const dGolden = await executionHash(dPP0, dOp0);
+    writeFileSync(join(tmp, 'chaingraph', 'kernels', 'fixtures', 'fx-300-direct.fixtures.json'), JSON.stringify({ tool_id: 'fx-300-direct', vectors: [{ name: 'default-inputs', policy_parameters: dPP0, output_payload: dOp0, golden_hash: dGolden }] }, null, 2));
+    const dDigest = await sourceDigest(dKernelSrc);
+    const dDigestDom = await sourceDigest(dDomKernelSrc);
+    const dPageGreen = dPageOf(dDigest, dBodyGreen);
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageGreen);
+    writeFileSync(join(tmp, 'chaingraph', 'fx-301-dompage.html'), dPageOf(dDigestDom, dBodyDomPage));
+    const dIdx = loadManifestIndex(tmp);
+
+    // GREEN: the direct-mode fixture page passes all four probe conditions.
+    const dOk = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe GREEN: direct-mode fixture page is eligible', dOk.eligible === true);
+    check('direct probe: detects the page result global _lastResult', dOk.eligible && dOk.detail.resGlobal === '_lastResult');
+    check('direct probe: detects the render function renderDirect', dOk.eligible && dOk.detail.render === 'renderDirect');
+    // RED-then-GREEN, condition (c): a DOM-reading function body ignores params.
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageOf(dDigest, dBodyDom));
+    const dRedDom = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe RED: DOM-reading fn body refused (dom-read)', !dRedDom.eligible && dRedDom.code === 'dom-read' && dRedDom.reason.includes("'document.'"));
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageGreen);
+    const dGreenDom = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe GREEN: pure fn body restored', dGreenDom.eligible === true);
+    // RED-then-GREEN, condition (a): a tampered kernel-digest sentinel.
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageOf('sha256:' + '0'.repeat(64), dBodyGreen));
+    const dRedDigest = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe RED: tampered kernel-digest sentinel refused (digest-sentinel)', !dRedDigest.eligible && dRedDigest.code === 'digest-sentinel');
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageGreen);
+    const dGreenDigest = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe GREEN: correct sentinel restored', dGreenDigest.eligible === true);
+    // RED-then-GREEN, condition (d): a flipped fixture golden_hash.
+    const dFxPath = join(tmp, 'chaingraph', 'kernels', 'fixtures', 'fx-300-direct.fixtures.json');
+    const dFxDoc = JSON.parse(readFileSync(dFxPath, 'utf8'));
+    const dRealGolden = dFxDoc.vectors[0].golden_hash;
+    dFxDoc.vectors[0].golden_hash = 'sha256:' + (dRealGolden.replace(/^sha256:/, '')[0] === '0' ? '1' : '0') + dRealGolden.replace(/^sha256:/, '').slice(1);
+    writeFileSync(dFxPath, JSON.stringify(dFxDoc, null, 2));
+    const dRedHash = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe RED: flipped fixture golden_hash refused (kernel-parity hash-mismatch)', !dRedHash.eligible && dRedHash.code === 'kernel-parity' && dRedHash.reason.includes('hash-mismatch'));
+    dFxDoc.vectors[0].golden_hash = dRealGolden;
+    writeFileSync(dFxPath, JSON.stringify(dFxDoc, null, 2));
+    const dGreenHash = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe GREEN: pinned golden restored', dGreenHash.eligible === true);
+    // RED-then-GREEN: the render function disappears (the opt-out-list case).
+    const dPageNoRender = dPageGreen.replace('function renderDirect(){ statusEl.textContent = _lastResult ? "ready" : "idle"; }', '');
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageNoRender);
+    const dRedRender = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe RED: no render function refused (render)', !dRedRender.eligible && dRedRender.code === 'render');
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageGreen);
+    // The authored opt-out list refuses even a probe-passing page.
+    const dOpt = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp, { optOuts: { 'fx-300-direct': 'selftest: page renders off the detected path' } });
+    check('direct probe: authored opt-out refuses with direct-opt-out', !dOpt.eligible && dOpt.code === 'opt-out' && dOpt.reason.startsWith('direct-opt-out:'));
+    // The row's second fixture: a DOM-reading page is REFUSED, not emitted.
+    const dDomPage = await directAdjudication('fx-301-dompage', dIdx, mcpNameByTool, tmp);
+    check('direct probe RED: DOM-reading fixture page refused', !dDomPage.eligible && dDomPage.code === 'dom-read');
+
+    // The direct emitter: shape assertions against the probe-verified inputs.
+    const dBlock = buildDirectBlockForPage(dManifest, 'manifests/953-fx-300-direct.manifest.json', '_lastResult', 'renderDirect');
+    check('direct block: mode=direct BEGIN marker', dBlock.startsWith(beginLine('manifests/953-fx-300-direct.manifest.json', 'direct')));
+    check('direct block: name and inputSchema verbatim from the manifest', dBlock.includes("name: 'run_fx_300_direct'") && dBlock.includes(JSON.stringify(dSchema, null, 2).replace(/\n/g, '\n    ')));
+    check('direct block: calls the manifest fn with params', dBlock.includes('await runDirect(params);'));
+    check('direct block: stores the probe-verified result global', dBlock.includes("if (typeof __directResult !== 'undefined') _lastResult = __directResult;"));
+    check('direct block: renders through the detected render function', dBlock.includes('await renderDirect();'));
+    check('direct block: mandatory inputs echo panel present', dBlock.includes("echo.id = 'webmcp-inputs-echo';") && dBlock.includes("'Inputs used by the agent: '"));
+    check('direct block: required typed validation emitted', dBlock.includes("if (typeof params.spot !== 'number'"));
+    check('direct block: optional prop neither validated nor prefilled', !dBlock.includes('params.mode !== undefined') && !dBlock.includes("getElementById('mode')"));
+    check('direct block: no form-prefill mapping lines at all', !dBlock.includes('.value = String(params.'));
+    check('direct block: annotations readOnlyHint only', dBlock.includes('annotations: { readOnlyHint: true },') && !dBlock.includes('untrustedContentHint:') && !dBlock.includes('exposedTo:'));
+    check('direct block: no deep-link/file-import readers (no controls to prefill)', !dBlock.includes(DEEPLINK_MARKER) && !dBlock.includes(FILE_IMPORT_MARKER));
+    check('direct block: parses as JavaScript', (() => { try { new Function(dBlock.match(/<script>([\s\S]*?)<\/script>/)[1]); return true; } catch { return false; } })());
+    // Schema validation accepts a property with NO type keyword: required
+    // members get a presence check, no shape is invented (MCP-SCHEMA-CONFORMANCE-1).
+    const tlSchema = { type: 'object', required: ['preset'], properties: { preset: { description: 'Preset choice with no declared type' } } };
+    const tlManifest = JSON.parse(JSON.stringify(dManifest));
+    tlManifest.mcp_tool_definition.inputSchema = tlSchema;
+    const tlBlock = buildDirectBlock(tlManifest, 'manifests/953-fx-300-direct.manifest.json', '_lastResult', 'renderDirect');
+    check('direct block: type-less required prop gets a presence check only', tlBlock.includes("if (params.preset === undefined) throw") && !tlBlock.includes('typeof params.preset'));
+    // Insertion is idempotent, like the prefill block's.
+    const dOnce = insertIntoPage(dPageGreen, dBlock);
+    const dTwice = insertIntoPage(dOnce, dBlock);
+    check('direct block: insert is idempotent (second write replaces, not appends)', dOnce !== dPageGreen && dOnce === dTwice);
+    // The histogram line format the PR body and --check quote.
+    const dHist = directHistogram([{ code: 'eligible' }, { code: 'dom-read' }, { code: 'dom-read' }]);
+    check('direct histogram: eligible and refused classes counted', dHist.includes('eligible=1') && dHist.includes('refused:dom-read=2'));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -3298,6 +3932,12 @@ if (!invokedAsMain) {
   // Chain composer mode (COMPOSER-PLAN-AND-ROOT-WEBMCP-1): --chains --write inserts;
   // --chains --check (or plain --chains) verifies byte-exact regions.
   runChainMode(args.includes('--write'));
+} else if (args.includes('--direct')) {
+  // WEBMCP-DIRECT-MODE-1: probe (default) or emit (--write) the direct-mode
+  // shape over the mapping-incomplete excluded set, per-page verdicts only.
+  const tIdx2 = args.indexOf('--tool');
+  runDirect({ write: args.includes('--write'), onlyTool: tIdx2 !== -1 ? args[tIdx2 + 1] : null })
+    .catch((e) => { console.error('✗ direct-mode exception:', e); process.exit(1); });
 } else if (args.includes('--check')) {
   runCheck().catch((e) => { console.error('✗ check exception:', e); process.exit(1); });
 } else {
