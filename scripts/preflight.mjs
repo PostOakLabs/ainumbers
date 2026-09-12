@@ -37,6 +37,12 @@
  *       gain from concurrency.
  *
  *   node scripts/preflight.mjs --self-test
+ *       ...proves the machinery above is real. Also HOOK-TOUCHED-SET-REBASE-1's
+ *       control: a fixture repo rebased onto a main that added kernel X proves
+ *       the touched set comes from the PR base (X excluded, the branch's own
+ *       kernel included), the OLD @{u} computation over the same commits
+ *       reproduces the defect as the negative control, and the @{u} fallback
+ *       (origin/main absent) sets the note the gate lines print.
  *       ADVISORY-CRASH-DISTINCT-1's own control. Exits immediately after the
  *       reporting machinery is defined — no gate runs, no git diff, no estate
  *       scan — and proves, with REAL subprocesses and the REAL classifier, that
@@ -85,8 +91,9 @@
  */
 import { execSync, exec } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 // PREFLIGHT-STALE-REFUSE-1: resolve the site-repo path LOUDLY, then validate it
@@ -481,6 +488,14 @@ function decideL2HardLeg(rep, touchedChainNames) {
  * ledger — it does not re-implement any of it. Hermetic: no network, no estate scan,
  * no filesystem writes, ~1s.
  */
+// WHY THIS LIVES HERE AND NOT BESIDE THE HELPER: the --self-test dispatch below
+// invokes runSelfTest(), which both MUTATES this note (by driving the real
+// touchedKernelFilesForJsdoc() over fixture repos) and READS it (to assert the
+// @{u}-fallback note the gate lines print). Declared before that dispatch, so
+// the `let` is initialized whenever the helper or the self-test touches it
+// (HOOK-TOUCHED-SET-REBASE-1). The helper and the gate-line tag live further
+// down, next to the gates that consume them.
+let TOUCHED_SET_BASE_NOTE = '';
 function runSelfTest() {
   const failures = [];
   const check = (name, ok, detail) => {
@@ -488,7 +503,8 @@ function runSelfTest() {
     if (!ok) failures.push(name);
   };
   console.log('▶ preflight --self-test (ADVISORY-CRASH-DISTINCT-1: could-not-run is its own state'
-    + ' · L2-HARDLEG-BLOCKING-1: could-not-run must not skip the hard leg)\n');
+    + ' · L2-HARDLEG-BLOCKING-1: could-not-run must not skip the hard leg'
+    + ' · HOOK-TOUCHED-SET-REBASE-1: the touched kernel set is computed against the PR base)\n');
 
   console.log('RED — a checker that CANNOT RUN must classify as UNAVAILABLE:');
   for (const [name, cmd] of [
@@ -610,6 +626,87 @@ function runSelfTest() {
   check('clause present when an advisory could not run', /UNAVAILABLE/.test(unavailableClause(2)), unavailableClause(2).trim());
   check('clause absent when every advisory reported', unavailableClause(0) === '', '(empty)');
 
+  // HOOK-TOUCHED-SET-REBASE-1 — the touched-set base control. Fixture: a repo
+  // whose branch carries its own kernel, was PUSHED (so @{u} exists), then was
+  // rebased onto a main that ADDED kernel X — @{u} left pointing at the
+  // PRE-rebase tip, exactly the #1862 shape. Drives the REAL
+  // touchedKernelFilesForJsdoc() against the fixture (the self-test runs the
+  // real decision, never a paraphrase of it — SO #34), and reproduces the OLD
+  // @{u}-based computation over the SAME commits as the negative control.
+  // Hermetic: a local bare remote only — no network, no estate files touched,
+  // temp dir removed before returning.
+  console.log('\nHOOK-TOUCHED-SET-REBASE-1 — the touched kernel set is computed against the PR base');
+  console.log('  (merge-base origin/main HEAD), never the stale post-rebase @{u}:');
+  const g = (cmd, cwd) => execSync(cmd, { cwd, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  const mkKernelDir = (dir) => { const d = join(dir, 'chaingraph', 'kernels'); mkdirSync(d, { recursive: true }); return d; };
+  const tmpRoot = mkdtempSync(join(tmpdir(), 'ainum-touched-set-'));
+  try {
+    // Fixture 1 — origin/main present (the normal rebase case).
+    const rem = join(tmpRoot, 'origin.git');
+    const wrk = join(tmpRoot, 'work');
+    g(`git init -q --bare "${rem}"`, tmpRoot);
+    g(`git init -q -b main "${wrk}"`, tmpRoot);
+    g('git config user.email fixture@example.test', wrk);
+    g('git config user.name fixture', wrk);
+    writeFileSync(join(wrk, 'README.md'), 'base\n');
+    g('git add README.md', wrk);
+    g('git commit -q -m base', wrk);
+    g(`git remote add origin "${rem}"`, wrk);
+    g('git push -q -u origin main', wrk);
+    g('git checkout -q -b feature', wrk);                    // the branch's own kernel
+    writeFileSync(join(mkKernelDir(wrk), 'feat.kernel.mjs'), 'export const feat = 1;\n');
+    g('git add -A', wrk);
+    g('git commit -q -m "feature kernel"', wrk);
+    g('git push -q -u origin feature', wrk);                 // @{u} now exists — the PRE-rebase tip
+    g('git checkout -q main', wrk);                          // main lands kernel X and pushes it
+    writeFileSync(join(mkKernelDir(wrk), 'x.kernel.mjs'), 'export const x = 1;\n');
+    g('git add -A', wrk);
+    g('git commit -q -m "main kernel X"', wrk);
+    g('git push -q origin main', wrk);
+    g('git checkout -q feature', wrk);
+    g('git rebase -q main', wrk);                            // rebased; @{u} stays at the pre-rebase tip
+    const fixedSet = touchedKernelFilesForJsdoc(wrk).sort();
+    check("PR base (with the fix): main's kernel X NOT in the touched set, the branch's own kernel IS",
+      JSON.stringify(fixedSet) === JSON.stringify(['chaingraph/kernels/feat.kernel.mjs']),
+      `touched=[${fixedSet.join(', ')}]`);
+    // NEGATIVE control: the OLD base resolution (@{u}) over the SAME commits —
+    // the exact command sequence the pre-row helper ran.
+    const oldUpstream = g('git rev-parse --abbrev-ref --symbolic-full-name @{u}', wrk);
+    const oldBase = g(`git merge-base ${oldUpstream} HEAD`, wrk);
+    const oldSet = g(`git diff --name-only --diff-filter=ACM ${oldBase} HEAD`, wrk)
+      .split('\n').filter((f) => f.startsWith('chaingraph/kernels/') && f.endsWith('.mjs')).sort();
+    check("NEGATIVE (old @{u} base, same commits): main's kernel X IS swept in — the #1862 defect reproduced",
+      JSON.stringify(oldSet) === JSON.stringify(['chaingraph/kernels/feat.kernel.mjs', 'chaingraph/kernels/x.kernel.mjs']),
+      `touched=[${oldSet.join(', ')}]`);
+
+    // Fixture 2 — origin/main ABSENT: the @{u} fallback must fire AND say so
+    // (TOUCHED_SET_BASE_NOTE is what the consuming gate lines append).
+    const wrk2 = join(tmpRoot, 'work2');
+    g(`git init -q -b main "${wrk2}"`, tmpRoot);
+    g('git config user.email fixture@example.test', wrk2);
+    g('git config user.name fixture', wrk2);
+    writeFileSync(join(wrk2, 'README.md'), 'base\n');
+    g('git add README.md', wrk2);
+    g('git commit -q -m base', wrk2);
+    g('git checkout -q -b feature', wrk2);
+    writeFileSync(join(mkKernelDir(wrk2), 'feat.kernel.mjs'), 'export const feat = 1;\n');
+    g('git add -A', wrk2);
+    g('git commit -q -m "feature kernel"', wrk2);
+    g('git branch --set-upstream-to=main feature', wrk2);    // @{u} = local main; no origin exists
+    g('git checkout -q main', wrk2);
+    writeFileSync(join(mkKernelDir(wrk2), 'x.kernel.mjs'), 'export const x = 1;\n');
+    g('git add -A', wrk2);
+    g('git commit -q -m "main kernel X"', wrk2);
+    g('git checkout -q feature', wrk2);
+    const fallbackSet = touchedKernelFilesForJsdoc(wrk2).sort();
+    check('fallback (@{u}, origin/main absent) computes AND the note names it — the gate lines can say so',
+      TOUCHED_SET_BASE_NOTE.includes('@{u}') && TOUCHED_SET_BASE_NOTE.includes('origin/main absent')
+        && JSON.stringify(fallbackSet) === JSON.stringify(['chaingraph/kernels/feat.kernel.mjs']),
+      `note="${TOUCHED_SET_BASE_NOTE}" touched=[${fallbackSet.join(', ')}]`);
+  } finally {
+    rmSync(tmpRoot, { recursive: true, force: true });
+  }
+
   // END-TO-END RENDERER PROOF. Drives the REAL reporting path — the same
   // gateUnavailable() and printUnavailableBlock() the live advisories call — over a
   // REAL failed subprocess, so what a session would actually see is printed here
@@ -631,7 +728,8 @@ function runSelfTest() {
     return 1;
   }
   console.log('✅ preflight --self-test PASSED — could-not-run, ran-and-warned and the result accounting are all');
-  console.log('   distinguishable, and the L2 hard leg blocks rather than silently skipping when its checker cannot run.');
+  console.log('   distinguishable, the L2 hard leg blocks rather than silently skipping when its checker cannot run,');
+  console.log('   and the touched kernel set is computed against the PR base, not a stale post-rebase @{u}.');
   return 0;
 }
 
@@ -705,30 +803,64 @@ const TOUCHED_FLOOR_FILES = touchedFloorFiles();
 // touches, for the JSDoc CheckJS gate below. Same selection rule as
 // .github/workflows/jsdoc-checkjs.yml's "List new/touched kernel files" step
 // (diff-filter ACM against a base), and the same union-of-diffs shape as
-// touchedFloorFiles() above (working tree + staged + committed-vs-upstream,
+// touchedFloorFiles() above (working tree + staged + committed-vs-base,
 // deduped via a Set) — reused, not reinvented. Undeterminable fails CLOSED
 // (empty list, gate no-ops), same reasoning as touchedFloorFiles(): a diff
 // this can't compute is not license to sweep the whole kernel estate.
-function touchedKernelFilesForJsdoc() {
+//
+// THE BASE (HOOK-TOUCHED-SET-REBASE-1, 2026-09-12): the committed-vs-base leg
+// diffs against the PR BASE — `git merge-base origin/main HEAD` — NEVER the
+// upstream tip. `@{u}` (= origin/<branch>) still points at the PRE-rebase tip
+// after a local `git rebase origin/main`, so merge-base(@{u}, HEAD) is the
+// branch's OLD base and the diff sweeps in every kernel that landed on main
+// since the last push. Measured on PR #1862: the touched set came out as
+// art-220 + art-234 (the branch's own) PLUS art-02, art-08, art-437, mms-03
+// (main's), and the Mutation tier floor gate ran 6,295 s over kernels the
+// pusher never modified, then FAILED on one of main's — the exact shape that
+// manufactures `--no-verify` (one was in fact used for #1862). The merge-base
+// with origin/main IS the integration point: only the branch's own commits sit
+// between it and HEAD, wherever main has moved. `@{u}` is the fallback ONLY
+// where origin/main does not resolve (standalone/fork clone with no main
+// remote ref), and when that fallback fires the consuming gate lines say so
+// via TOUCHED_SET_BASE_NOTE / TOUCHED_SET_BASE_TAG below (declared above
+// runSelfTest — see the comment there for why it is not declared here). The
+// optional repoPath argument exists so the --self-test control can drive THIS
+// function against a fixture repository instead of a paraphrase of it (SO #34).
+function touchedKernelFilesForJsdoc(repoPath = REPO) {
   const isKernelMjs = (f) => f.startsWith('chaingraph/kernels/') && f.endsWith('.mjs');
   try {
     const touched = new Set();
-    execSync('git diff --name-only --diff-filter=ACM HEAD', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+    execSync('git diff --name-only --diff-filter=ACM HEAD', { cwd: repoPath, env, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString().split('\n').forEach(f => f && touched.add(f));
-    execSync('git diff --name-only --diff-filter=ACM --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+    execSync('git diff --name-only --diff-filter=ACM --cached', { cwd: repoPath, env, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString().split('\n').forEach(f => f && touched.add(f));
     try {
-      const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-      const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-      execSync(`git diff --name-only --diff-filter=ACM ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+      // PR base first (HOOK-TOUCHED-SET-REBASE-1); @{u} ONLY if origin/main is
+      // absent — and then the note is set so the gate lines can say so.
+      let base = '';
+      try {
+        base = execSync('git merge-base origin/main HEAD', { cwd: repoPath, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+        TOUCHED_SET_BASE_NOTE = '';
+      } catch {
+        const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: repoPath, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+        base = execSync(`git merge-base ${upstream} HEAD`, { cwd: repoPath, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+        TOUCHED_SET_BASE_NOTE = `base @{u} (${upstream}) — origin/main absent`;
+      }
+      execSync(`git diff --name-only --diff-filter=ACM ${base} HEAD`, { cwd: repoPath, env, stdio: ['ignore', 'pipe', 'ignore'] })
         .toString().split('\n').forEach(f => f && touched.add(f));
-    } catch { /* no upstream configured — working tree/staged diff above is what we have */ }
+    } catch { /* no base resolvable — working tree/staged diff above is what we have */ }
     return [...touched].filter(isKernelMjs);
   } catch {
     return []; // undeterminable — fail CLOSED (empty, not a full-estate fallback)
   }
 }
 const TOUCHED_KERNEL_FILES_JSDOC = touchedKernelFilesForJsdoc();
+// HOOK-TOUCHED-SET-REBASE-1: appended to every gate line that consumes the
+// touched set when the @{u} fallback fired — the gate line must state which
+// base its set was computed against, never silently. Empty string in the
+// normal origin/main case, so gate labels stay byte-identical to the pre-row
+// labels everywhere origin/main resolves (CI, every normal clone).
+const TOUCHED_SET_BASE_TAG = TOUCHED_SET_BASE_NOTE ? `; ${TOUCHED_SET_BASE_NOTE}` : '';
 
 // KERNEL-PREFLIGHT-1: kernel ids touched by this push, derived from the SAME
 // TOUCHED_KERNEL_FILES_JSDOC set above (reused, not recomputed — one git-diff pass,
@@ -871,7 +1003,8 @@ const GATES = [
   // subprocesses, reads no estate file and writes nothing. It proves the classifier
   // (ADVISORY-CRASH-DISTINCT-1) still tells could-not-run from ran-and-warned, and that
   // the L2 hard leg blocks instead of silently skipping when its checker cannot run.
-  ['Preflight reporting self-test (ADVISORY-CRASH-DISTINCT-1 + L2-HARDLEG-BLOCKING-1)',
+  ['Preflight reporting self-test (ADVISORY-CRASH-DISTINCT-1 + L2-HARDLEG-BLOCKING-1'
+      + ' + HOOK-TOUCHED-SET-REBASE-1 touched-set base)',
     'node scripts/preflight.mjs --self-test'],
   // EXPECTRED-ENVPREFIX-GAP-1: the pre-push hook's own RED/GREEN/STILL-BLOCKS/
   // NO-PERSISTENCE controls (env route AND the file route this row added),
@@ -899,7 +1032,10 @@ const GATES = [
   // explicit "0 touched, skipped" line, never silence. npx unavailable/offline ⇒
   // jsdoc-checkjs-gate.mjs itself fails loudly (tsc exits non-zero with no
   // parseable diagnostics is treated as a hard failure, not a silent pass).
-  ['JSDoc CheckJS (touched kernels, JSDOC-CHECKJS-PREFLIGHT-1)',
+  // TOUCHED_SET_BASE_TAG (HOOK-TOUCHED-SET-REBASE-1): names the @{u} fallback on
+  // this gate line when origin/main was absent — the label carries the base its
+  // touched set was computed against. Empty in the normal case.
+  ['JSDoc CheckJS (touched kernels, JSDOC-CHECKJS-PREFLIGHT-1)' + TOUCHED_SET_BASE_TAG,
     TOUCHED_KERNEL_FILES_JSDOC.length
       ? `node scripts/jsdoc-checkjs-gate.mjs ${TOUCHED_KERNEL_FILES_JSDOC.map((f) => `"${f}"`).join(' ')}`
       : 'node -e "console.log(\'0 touched, skipped\')"',
@@ -966,7 +1102,7 @@ const GATES = [
   // just the tsc leg the JSDoc CheckJS gate above already covers. No-ops (DID-NOT-RUN
   // under --keep-going) when this push touches no kernel/floor file.
   ...(TOUCHED_KERNEL_IDS.length
-    ? TOUCHED_KERNEL_IDS.map((id) => [`Kernel preflight (${id})`, `node scripts/kernel-preflight.mjs ${id}`])
+    ? TOUCHED_KERNEL_IDS.map((id) => [`Kernel preflight (${id})` + TOUCHED_SET_BASE_TAG, `node scripts/kernel-preflight.mjs ${id}`])
     : [['Kernel preflight (KERNEL-PREFLIGHT-1: no kernel/floor file touched, skipped)', 'node -e "1"',
         { notRun: 'KERNEL-PREFLIGHT-1 scoping — this push touches no chaingraph/kernels/*.kernel.mjs or __proptests__/*.proptest.mjs, so no per-kernel check was run' }]]),
   // NODE-COMPLETENESS-GATE-1: is a node WHOLE, not just individually-fenced-clean —
@@ -1440,7 +1576,7 @@ const GATES = [
   // schedule (.github/workflows/mutation-full-scheduled.yml) per the row's "PR-side incremental
   // gate only; full runs go to a scheduled workflow" instruction (SO #40).
   ...(TOUCHED_KERNEL_IDS.length
-    ? [['Mutation tier floor (MUTATION-TIERED-ROLLOUT-1, touched kernels)',
+    ? [['Mutation tier floor (MUTATION-TIERED-ROLLOUT-1, touched kernels)' + TOUCHED_SET_BASE_TAG,
         `node scripts/run-mutation-tier.mjs --kernel ${TOUCHED_KERNEL_IDS.join(' ')}`]]
     : [['Mutation tier floor (MUTATION-TIERED-ROLLOUT-1: no kernel/floor file touched, skipped)', 'node -e "1"',
         { notRun: 'this push touches no chaingraph/kernels/*.kernel.mjs or __proptests__/*.proptest.mjs, so the incremental mutation gate had nothing to examine' }]]),
