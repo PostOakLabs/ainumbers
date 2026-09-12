@@ -1,5 +1,5 @@
 // art-616-mla-mapr-actuarial-recompute.proptest.mjs — FV property-test FLOOR (MLA-MAPR-K-2).
-// kernel_digest_at_authoring: sha256:fe52d9fd1931382c551fe8a68fe00b6e9f2695dbe089a890c0bd361fca7f102b
+// kernel_digest_at_authoring: sha256:a964af8add6f214ff8c3c7020a994b3b0436422b20c2145f90543968854ec2d0
 // spec: research/MLA-MAPR-ACTUARIAL.spec.md
 // human_sign_off: PENDING
 //
@@ -44,20 +44,25 @@
 // P10 forced ULP and categorical boundaries.
 // P11 determinism, and totality under a hostile-input discovery leg.
 // P12 payload shape: no NaN, Infinity or undefined at any depth.
+// P13 caller-supplied shorthand schedule length is clamped at NUM_PAYMENTS_CAP=12000. The cap
+//     flag must be COMPUTED from the requested count, never static: absent at/below the
+//     boundary, present above it, never raised by the >=1 floor, never raised on the explicit
+//     arrays path (the clamp guards the shorthand scalar only).
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { mulberry32, deepEqual, findShapeViolations, pickNasty, summarize } from './_pbt-common.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const KDIR = join(HERE, '..');
 const KERNEL_ID = 'art-616-mla-mapr-actuarial-recompute';
 
-const { compute } = await import(pathToFileURL(join(KDIR, `${KERNEL_ID}.kernel.mjs`)).href);
-const { compute: computeApr215 } = await import(
-  pathToFileURL(join(KDIR, 'art-215-reg-z-appendix-j-apr.kernel.mjs')).href
-);
+// Static string-literal specifiers (MUTATION-TIERED-ROLLOUT-1: the sandbox list is derived
+// statically, so a computed dynamic import() in a floor file is a hard failure). Same modules,
+// same bindings, as the previous pathToFileURL/join-built specifiers.
+import { compute } from '../art-616-mla-mapr-actuarial-recompute.kernel.mjs';
+import { compute as computeApr215 } from '../art-215-reg-z-appendix-j-apr.kernel.mjs';
 
 const RECOGNISED_TYPES = [
   'credit_insurance_premium',
@@ -535,6 +540,39 @@ function propPayloadShape() {
   record('P12 no NaN, Infinity or undefined anywhere in the payload', checked, violations);
 }
 
+// ── P13 ── the shorthand num_payments clamp, flag computed from the requested count ──────────────
+
+function propNumPaymentsCap() {
+  const violations = [];
+  let checked = 0;
+  // At the boundary the clamp is a no-op and NO cap flag is raised.
+  const atCap = compute({ loan_amount: 1000, payment_amount: 20, num_payments: 12000, periods_per_year: 12 });
+  checked++;
+  if (atCap.output_payload.num_payments !== 12000) violations.push({ reason: 'at-cap schedule length not preserved', got: atCap.output_payload.num_payments });
+  if (atCap.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations.push({ reason: 'NUM_PAYMENTS_CAPPED raised AT the boundary', flags: atCap.compliance_flags });
+  // One past the boundary: schedule clamped to 12000 and the cap flag IS raised.
+  const overCap = compute({ loan_amount: 1000, payment_amount: 20, num_payments: 12001, periods_per_year: 12 });
+  checked++;
+  if (overCap.output_payload.num_payments !== 12000) violations.push({ reason: '12001 requested was not clamped to 12000', got: overCap.output_payload.num_payments });
+  if (!overCap.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations.push({ reason: 'clamped schedule did not raise NUM_PAYMENTS_CAPPED', flags: overCap.compliance_flags });
+  // Small inputs unaffected: length preserved, no flag.
+  const small = compute({ loan_amount: 6000, payment_amount: 300, num_payments: 24, periods_per_year: 12 });
+  checked++;
+  if (small.output_payload.num_payments !== 24) violations.push({ reason: 'small schedule length not preserved', got: small.output_payload.num_payments });
+  if (small.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations.push({ reason: 'NUM_PAYMENTS_CAPPED raised on a small schedule', flags: small.compliance_flags });
+  // The explicit arrays path never raises the flag (the clamp guards the shorthand scalar only).
+  const explicit = compute({ advances: [{ amount: 1000, full_periods: 0, fraction: 0 }], payments: [{ amount: 100, full_periods: 12, fraction: 0 }], periods_per_year: 12 });
+  checked++;
+  if (explicit.output_payload.num_payments !== 1) violations.push({ reason: 'explicit arrays schedule length wrong', got: explicit.output_payload.num_payments });
+  if (explicit.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations.push({ reason: 'NUM_PAYMENTS_CAPPED raised on the explicit arrays path', flags: explicit.compliance_flags });
+  // Requested values that only trip the >=1 floor are not "capped".
+  const floored = compute({ loan_amount: 1000, payment_amount: 100, num_payments: 0, periods_per_year: 12 });
+  checked++;
+  if (floored.output_payload.num_payments !== 1) violations.push({ reason: 'num_payments=0 did not floor to 1', got: floored.output_payload.num_payments });
+  if (floored.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations.push({ reason: 'NUM_PAYMENTS_CAPPED raised by the >=1 floor', flags: floored.compliance_flags });
+  record('P13 shorthand num_payments clamped at 12000, cap flag computed', checked, violations);
+}
+
 // ── run ──────────────────────────────────────────────────────────────────────────────────────────
 
 // _pbt-common summarize() prints a class-A banner because the six class-A shard floors were its
@@ -554,6 +592,7 @@ propAmountFinancedIdentity();
 propForcedBoundaries();
 propDeterminismAndTotality();
 propPayloadShape();
+propNumPaymentsCap();
 
 const ok = summarize(KERNEL_ID, oracle, results);
 if (!ok) process.exitCode = 1;
