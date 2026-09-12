@@ -346,6 +346,17 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── PROMPT-LIBRARY-PAGE-2 (2026-09-11) ──────────────────────────────────────
+  ["gen-prompts-page.mjs",
+    "Prompt library page generator --check (PROMPT-LIBRARY-PAGE-2): re-renders " +
+    "prompts.html from mcp/showcase-prompts.json + the mcp.html #workflows table + " +
+    "chaingraph.json and byte-compares. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), " +
+    "so a named workflow step would only duplicate the same suite. It is also the COVERED " +
+    "gate of derived-artifacts.mjs id 'prompts-page' (advisory-on-PR / blocking-on-main " +
+    "via the generic downgrade; main-side freshness is owned by derived-artifacts-regen.yml). " +
+    "The --write half is a builder command, never a workflow. Reads only tracked repo " +
+    "files — no CI-only input. In-memory mutation self-test: --selftest."],
   // ── WAVE22-SCAFFOLD-MIRROR-FIX-1 (2026-09-12) ──────────────────────────────
   ["gen-wave22-tools.mjs",
     "Wave-22 page registration freshness (WAVE22-SCAFFOLD-MIRROR-FIX-1): RED unless " +
