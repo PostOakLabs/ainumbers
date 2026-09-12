@@ -357,6 +357,15 @@ const PREFLIGHT_ONLY = new Map([
     "via the generic downgrade; main-side freshness is owned by derived-artifacts-regen.yml). " +
     "The --write half is a builder command, never a workflow. Reads only tracked repo " +
     "files — no CI-only input. In-memory mutation self-test: --selftest."],
+  // ── WAVE22-SCAFFOLD-MIRROR-FIX-1 (2026-09-12) ──────────────────────────────
+  ["gen-wave22-tools.mjs",
+    "Wave-22 page registration freshness (WAVE22-SCAFFOLD-MIRROR-FIX-1): RED unless " +
+    "every art-112..122 page carries the estate registration region or is refused LIVE " +
+    "by gen-webmcp-registrations.mjs with its reason on record (a page is " +
+    "WebMCP-addressable or preflight says it is not). Hard in preflight; its CI route " +
+    "is scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), " +
+    "so a named workflow step would only duplicate the same suite. Reads only tracked " +
+    "repo files and probes the estate writer per tool — no CI-only input."],
   // ── INFRA-PAGE-1 (2026-09-08) ───────────────────────────────────────────────
   ["gen-infra-registry.mjs",
     "Infrastructure registry generator --check (INFRA-PAGE-1): re-derives " +
@@ -923,8 +932,10 @@ const DECLARED_SOFTENERS = new Map([
   // that line must refresh the key (a stale key fails this checker by design
   // and points here).
   // KERNEL-OUTPUT-READER-1 moved this from :762 to :763 — the shape-reader gate added one line
-  // to the kernel-gates `run:` block above it. The declaration is line-pinned by design.
-  ["deploy-to-dreamhost.yml:continue-on-error:763",
+  // to the kernel-gates `run:` block above it. DEPLOY-AFTER-REGEN-1 moved it from :763 to :888 —
+  // the workflow_run trigger block, the supersede entry `if:`, the DEPLOY_SHA checkout refs and
+  // the SSH/rsync retry steps all sit above the attest step. The declaration is line-pinned by design.
+  ["deploy-to-dreamhost.yml:continue-on-error:888",
    "attest step is advisory-first by design; promotion criterion on the step"],
   ["unwired-gates.yml:continue-on-error:108",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
