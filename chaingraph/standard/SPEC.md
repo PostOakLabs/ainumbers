@@ -2895,6 +2895,20 @@ the verdict are always-disclosed, while selectively-disclosable input values fol
 (disclosure salts are the sole permitted nondeterminism and never touch any `execution_hash`). A redacted
 bundle is NOT re-executable (§13.12's stated limitation) — it evidences the human trail, not a recomputation.
 
+**§27.6.1 Archive-corroboration slot (NORMATIVE, OPTIONAL, additive — new, `BUNDLE-ENRICH-ARCHIVE-1`).** The
+bundle MAY carry `archive_corroboration`, a zero-or-more array of third-party archive captures
+(`archive_url`, `captured_at`, `archive_source`, and an OPTIONAL `observed_content_hash`) of the same
+rule-text-as-of-date page the bundle's `subject_hash` already covers. This is **CORROBORATION, never
+PROOF**: it strengthens a narrative but is never load-bearing, is never asserted as authoritative, and a
+bundle with zero entries is fully valid and unweakened — the field adds no requirement to §27.0–§27.8 and
+changes no existing property. `observed_content_hash`, if present, records what was seen when we fetched
+the archive URL for convenience; it is never labeled `verified_content_hash`, since courts reject archive
+self-authentication and third-party capture coverage is not something AINumbers controls or guarantees.
+Selectively disclosable under §13.12, same container as `annotations`. A bundle export MAY additionally
+render each entry as a Bluebook-style bracketed archived-permalink citation (Rule 18.2.1(d) pattern) —
+`[<archive_url> (archived <Mon D, YYYY>)]` — alongside the array; this is a display/export convenience, not
+a new schema field.
+
 **§27.7 Separation of concerns (NORMATIVE — four distinct artifact types).** §27 keeps four things that are
 routinely conflated **structurally separate**, each its own artifact type: (a) **calculation/validation** (a
 §4/§18 compute result — what the numbers are); (b) **recommendation** (a machine or model suggestion — what
