@@ -1182,6 +1182,12 @@ const GATES = [
   ['Retired ap2_version tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-ap2-version.test.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
   ['Credits page freshness (generated from registry)', 'node scripts/gen-credits.mjs repo --check'],
+  // WAVE22-SCAFFOLD-MIRROR-FIX-1: the wave-22 page writer is now a gated writer.
+  // RED unless every art-112..122 page either carries the estate registration
+  // region (byte freshness = gen-webmcp-registrations.mjs --check) or is refused
+  // LIVE by that writer with its reason on record; a page the writer would emit
+  // post-alignment but that carries no region is the silent-stale class and REDs.
+  ['Wave-22 page registration freshness (WAVE22-SCAFFOLD-MIRROR-FIX-1)', 'node scripts/gen-wave22-tools.mjs repo --check'],
   // VENDOR-DIGEST-GATE-1 (ESTATE-ATTACK-SURFACE SC-3, top-5 #5): the vendored crypto bytes that
   // decide whether forged proofs/cosignatures/seals VERIFY (the noble bn254/ed25519/secp256k1
   // bundles + the inlined noble ML-DSA/SLH-DSA blocks in _proof.mjs) had provenance comments but
