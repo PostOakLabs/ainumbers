@@ -1150,6 +1150,7 @@ const GATES = [
   ['Agent kit gate controls (GREEN + RED mutations + zip known-answer)', 'node scripts/check-agent-kit.mjs --self-test'],
   ['Showcase prompts SSOT (EXAMPLE-PROMPTS-JSON-1)', 'node scripts/check-showcase-prompts.mjs'],
   ['Showcase prompts gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-prompts.mjs --self-test'],
+  ['Prompt library page freshness (PROMPT-LIBRARY-PAGE-2)', 'node scripts/gen-prompts-page.mjs --check'],
   ['Showcase call shape: policy_parameters wrapper + GPU in-page route (SHOWCASE-CALLSHAPE-1)', 'node scripts/check-showcase-callshape.mjs'],
   ['Helm-OpenClaw page markers + structure (HELM-OPENCLAW-PAGE-1)', 'node scripts/check-helm-openclaw-page.mjs'],
   ['Helm-OpenClaw page gate controls (RED/GREEN mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-helm-openclaw-page.test.mjs'],
