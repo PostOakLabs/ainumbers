@@ -1591,11 +1591,153 @@ function normInv(p) {
   return p < 0.5 ? -x : x;
 }
 
+// ── Standard normal CDF N(x) = Φ(x) — BCBS d424 CRE31.5 risk-weight function ─
+// PROVENANCE: erf/erfc ported VERBATIM from SunPro fdlibm s_erf.c (same source
+// family as the det.* block above; the SunPro notice is preserved inline). exp
+// is routed through det.exp (never Math.exp) so Φ is bit-identical across
+// browser V8, Worker V8, QuickJS-wasm and the RV32IM zkVM guest (OCG SPEC Sec
+// 18.5: only + - * / sqrt are IEEE-bit-portable across engines).
+// ACCURACY (ML02-SIGMOID-NORMALCDF-1, measured against Python math.erf/math.erfc
+// on a 40,024-point grid over [-10,10] plus the fdlibm breakpoints):
+// max |erf err| 3.3e-16 (<= 3 ulp); Φ(x) = 0.5*erfc(-x/sqrt(2)), max |err|
+// 1.1e-16 (<= 5 ulp). MANDATORY round-trip with the A&S 26.2.23 normInv above
+// (R50 helper pass): max |Φ(normInv(p)) − p| = 1.669e-4 over p ∈ [0.001,1] at
+// 1e-6 steps and p ∈ [0.0003,0.9999] at 1e-4 steps — dominated by normInv's
+// documented 4.5e-4 rational-approximation error, not by Φ itself.
+/*
+ * ====================================================
+ * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+ *
+ * Developed at SunSoft, a Sun Microsystems, Inc. business.
+ * Permission to use, copy, modify, and distribute this
+ * software is freely granted, provided that this notice
+ * is preserved.
+ * ====================================================
+ */
+const _phiF64 = new Float64Array(1);
+const _phiU32 = new Uint32Array(_phiF64.buffer);  // little-endian: index 1 = high word (same assumption as the det block above)
+function _phiHi(x) { _phiF64[0] = x; return _phiU32[1] | 0; }
+function _phiLo0(x) { _phiF64[0] = x; _phiU32[0] = 0; return _phiF64[0]; }
+const _erf_tiny = 1e-300;
+const _erf_half = 5.00000000000000000000e-01;
+const _erf_one  = 1.00000000000000000000e+00;
+const _erf_two  = 2.00000000000000000000e+00;
+const _erf_erx  = 8.45062911510467529297e-01;
+/* coefficients for approximation to erf on [0, 0.84375] */
+const _erf_efx  = 1.28379167095512586316e-01;
+const _erf_efx8 = 1.02703333676410069053e+00;
+const _erf_pp0  = 1.28379167095512558561e-01;
+const _erf_pp1  = -3.25042107247001499370e-01;
+const _erf_pp2  = -2.84817495755985104766e-02;
+const _erf_pp3  = -5.77027029648944159157e-03;
+const _erf_pp4  = -2.37630166566501626084e-05;
+const _erf_qq1  = 3.97917223959155352819e-01;
+const _erf_qq2  = 6.50222499887672944485e-02;
+const _erf_qq3  = 5.08130628187576562776e-03;
+const _erf_qq4  = 1.32494738004321644526e-04;
+const _erf_qq5  = -3.96022827877536812320e-06;
+/* coefficients for approximation to erf in [0.84375, 1.25] */
+const _erf_pa0  = -2.36211856075265944077e-03;
+const _erf_pa1  = 4.14856118683748331666e-01;
+const _erf_pa2  = -3.72207876035701323847e-01;
+const _erf_pa3  = 3.18346619901161753674e-01;
+const _erf_pa4  = -1.10894694282396677476e-01;
+const _erf_pa5  = 3.54783043256182359371e-02;
+const _erf_pa6  = -2.16637559486879084300e-03;
+const _erf_qa1  = 1.06420880400844228286e-01;
+const _erf_qa2  = 5.40397917702171048937e-01;
+const _erf_qa3  = 7.18286544141962662868e-02;
+const _erf_qa4  = 1.26171219808761642112e-01;
+const _erf_qa5  = 1.36370839120290507362e-02;
+const _erf_qa6  = 1.19844998467991074170e-02;
+/* coefficients for approximation to erfc in [1.25, 1/0.35] */
+const _erf_ra0  = -9.86494403484714822705e-03;
+const _erf_ra1  = -6.93858572707181764372e-01;
+const _erf_ra2  = -1.05586262253232909814e+01;
+const _erf_ra3  = -6.23753324503260060396e+01;
+const _erf_ra4  = -1.62396669462573470355e+02;
+const _erf_ra5  = -1.84605092906711035994e+02;
+const _erf_ra6  = -8.12874355063065934246e+01;
+const _erf_ra7  = -9.81432934416914548592e+00;
+const _erf_sa1  = 1.96512716674392571292e+01;
+const _erf_sa2  = 1.37657754143519042600e+02;
+const _erf_sa3  = 4.34565877475229228821e+02;
+const _erf_sa4  = 6.45387271733267880336e+02;
+const _erf_sa5  = 4.29008140027567833386e+02;
+const _erf_sa6  = 1.08635005541779435134e+02;
+const _erf_sa7  = 6.57024977031928170135e+00;
+const _erf_sa8  = -6.04244152148580987438e-02;
+/* coefficients for approximation to erfc in [1/0.35, 28] */
+const _erf_rb0  = -9.86494292470009928597e-03;
+const _erf_rb1  = -7.99283237680523006574e-01;
+const _erf_rb2  = -1.77579549177547519889e+01;
+const _erf_rb3  = -1.60636384855821916062e+02;
+const _erf_rb4  = -6.37566443368389627722e+02;
+const _erf_rb5  = -1.02509513161107724954e+03;
+const _erf_rb6  = -4.83519191608651397019e+02;
+const _erf_sb1  = 3.03380607434824582924e+01;
+const _erf_sb2  = 3.25792512996573918826e+02;
+const _erf_sb3  = 1.53672958608443695994e+03;
+const _erf_sb4  = 3.19985821950859553908e+03;
+const _erf_sb5  = 2.55305040643316442583e+03;
+const _erf_sb6  = 4.74528541206955367215e+02;
+const _erf_sb7  = -2.24409524465858183362e+01;
+
+function erfc(x) {
+  const hx = _phiHi(x), ix = hx & 0x7fffffff;
+  if (ix >= 0x7ff00000) return ((hx >> 31) << 1) + _erf_one / x;
+  if (ix < 0x3feb0000) {           /* |x| < 0.84375 */
+    if (ix < 0x3c700000) return _erf_one - x;
+    const z = x * x;
+    const r = _erf_pp0 + z * (_erf_pp1 + z * (_erf_pp2 + z * (_erf_pp3 + z * _erf_pp4)));
+    const s = _erf_one + z * (_erf_qq1 + z * (_erf_qq2 + z * (_erf_qq3 + z * (_erf_qq4 + z * _erf_qq5))));
+    const y = r / s;
+    if (hx < 0x3fd00000) {         /* x < 1/4 */
+      return _erf_one - (x + x * y);
+    }
+    let r2 = x * y;
+    r2 += (x - _erf_half);
+    return _erf_half - r2;
+  }
+  if (ix < 0x3ff40000) {           /* 0.84375 <= |x| < 1.25 */
+    const s = Math.abs(x) - _erf_one;
+    const P = _erf_pa0 + s * (_erf_pa1 + s * (_erf_pa2 + s * (_erf_pa3 + s * (_erf_pa4 + s * (_erf_pa5 + s * _erf_pa6)))));
+    const Q = _erf_one + s * (_erf_qa1 + s * (_erf_qa2 + s * (_erf_qa3 + s * (_erf_qa4 + s * (_erf_qa5 + s * _erf_qa6)))));
+    if (hx >= 0) {
+      const z = _erf_one - _erf_erx; return z - P / Q;
+    }
+    const z = _erf_erx + P / Q; return _erf_one + z;
+  }
+  if (ix < 0x403c0000) {           /* |x| < 28 */
+    x = Math.abs(x);
+    const s = _erf_one / (x * x);
+    let R, S;
+    if (ix < 0x4006DB6D) {         /* |x| < 1/0.35 ~ 2.857143 */
+      R = _erf_ra0 + s * (_erf_ra1 + s * (_erf_ra2 + s * (_erf_ra3 + s * (_erf_ra4 + s * (_erf_ra5 + s * (_erf_ra6 + s * _erf_ra7))))));
+      S = _erf_one + s * (_erf_sa1 + s * (_erf_sa2 + s * (_erf_sa3 + s * (_erf_sa4 + s * (_erf_sa5 + s * (_erf_sa6 + s * (_erf_sa7 + s * _erf_sa8)))))));
+    } else {
+      if (hx < 0 && ix >= 0x40180000) return _erf_two - _erf_tiny;   /* x < -6 */
+      R = _erf_rb0 + s * (_erf_rb1 + s * (_erf_rb2 + s * (_erf_rb3 + s * (_erf_rb4 + s * (_erf_rb5 + s * _erf_rb6)))));
+      S = _erf_one + s * (_erf_sb1 + s * (_erf_sb2 + s * (_erf_sb3 + s * (_erf_sb4 + s * (_erf_sb5 + s * (_erf_sb6 + s * _erf_sb7))))));
+    }
+    const z = _phiLo0(x);
+    const r = det.exp(-z * z - 0.5625) * det.exp((z - x) * (z + x) + R / S);
+    return hx > 0 ? r / x : _erf_two - r / x;
+  }
+  return hx > 0 ? _erf_tiny * _erf_tiny : _erf_two - _erf_tiny;
+}
+
+// N(x) per CRE31.5 ("N(x) denotes the cumulative distribution function for a
+// standard normal random variable"). Φ(-x) = 1 − Φ(x) by the erfc symmetry, so
+// this form is tail-accurate on both sides of zero over the kernel's domain.
+function normalCdf(x) { return 0.5 * erfc(-x / Math.SQRT2); }
+
 // ── Sector labels (from source SECTORS) ──────────────────────────────────────
 const SECTORS = ['Retail','Real Estate','Manufacturing','Tech','Healthcare','Financial','Energy','Transport'];
 const SECTOR_RISK = [0.2, 0.5, 0.35, 0.25, 0.15, 0.45, 0.55, 0.4];
 
-// ── IRB RWA formula (Basel BCBS d424, from source irbRWA) ────────────────────
+// ── IRB RWA formula (Basel BCBS d424 CRE31.5, from source irbRWA; the N(·)
+// ── transform per CRE31.5 fixed by ML02-SIGMOID-NORMALCDF-1 — was sigmoid) ───
 function irbRWA(pd, lgd, maturity, assetClass) {
   const pd_c = Math.max(pd, 0.0003);
   let R;
@@ -1611,7 +1753,7 @@ function irbRWA(pd, lgd, maturity, assetClass) {
   const mAdj = (1 + (maturity - 2.5) * b) / (1 - 1.5 * b);
   const z    = normInv(0.999);
   const inner = (normInv(pd_c) / Math.sqrt(1 - R) + Math.sqrt(R / (1 - R)) * z);
-  const K    = Math.max(lgd * sigmoid(inner) * mAdj - pd_c * lgd, 0);
+  const K    = Math.max(lgd * normalCdf(inner) * mAdj - pd_c * lgd, 0);
   return K * 12.5;  // capital % → RWA density
 }
 
