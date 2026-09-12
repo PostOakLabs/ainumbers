@@ -68,6 +68,17 @@ const EXEMPT = new Map([
   ['chaingraph/kernel-vm-explainer.html', 'whole-file derived artifact (gen-kernel-vm-explainer.mjs)'],
   ['chaingraph/agentic-payments-map.html', 'whole-file derived artifact (gen-agentic-payments-map.mjs: --check byte-compares the whole page against its ROWS source table; a hand meta tag drifts it)'],
   ['chaingraph/kernel-vm.html', 'whole-file derived artifact (chaingraph/vm/scripts/gen-kernel-vm-html.mjs: --check byte-compares the whole page; a hand meta tag drifts it)'],
+  // infrastructure.html: gen-infrastructure-page.mjs renders the registry's own
+  // row count INTO the page's meta description ("...${total} pages across..."),
+  // so scanning the page back here made the main-side regen a two-pass cascade
+  // the moment the row set changed (#1864 added prompts.html, 201→202; Derived
+  // Artifacts Regen run 34679819552 failed "the regen pass is NOT a fixpoint —
+  // infra-registry was stale after pass 1 and fresh after pass 2", and no
+  // COVERED ordering can close a read-back cycle: the registry row is scanned
+  // from the page while the page is rendered from the registry). Same class as
+  // the whole-file exemptions above: the page's meta tags belong to its
+  // generator. (MAIN-REGEN-INFRA-REGISTRY-FIXPOINT-1)
+  ['infrastructure.html', 'whole-file derived artifact (gen-infrastructure-page.mjs)'],
   ['docs/index.html', 'whole-file derived artifact (gen-openapi.mjs)'],
 ]);
 
