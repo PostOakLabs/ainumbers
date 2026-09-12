@@ -320,15 +320,27 @@ if (!shouldStop()) {
 
   if (shard?.standards_basis === 'not_applicable') {
     record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'N-A', ms: Date.now() - t0, out: `${ID} declares standards_basis:"not_applicable".` });
-  } else if (shard?.standards_basis === 'implements_standard') {
+  } else if (shard?.standards_basis === 'implements_standard' || shard?.standards_basis === 'cites_informative') {
+    // SPEC.md §30.3 defines THREE values and §30.3a (NODE-CITATION-CLASS-FIX-1) added
+    // `cites_informative`, which "REQUIRES a non-empty cited_clause_digest[], identically to
+    // `implements_standard` (§30.5) — it is a provenance class, not an opt-out". This branch
+    // previously knew only two of the three, so a node declaring the third was reported as
+    // carrying "no standards_basis field at all" and hard-failed — the §15 SSOT gate
+    // (check-clause-digest.mjs) accepted it and stayed green, so the same rule read opposite
+    // on two surfaces. Digest requirement is unchanged for both classes; only not_applicable
+    // needs none.
+    const basis = shard.standards_basis;
     const digests = Array.isArray(shard.cited_clause_digest) ? shard.cited_clause_digest : [];
     if (digests.length > 0) {
-      record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'PASS', ms: Date.now() - t0, out: `${digests.length} cited_clause_digest entr(ies) present.` });
+      record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'PASS', ms: Date.now() - t0, out: `standards_basis:"${basis}" with ${digests.length} cited_clause_digest entr(ies) present.` });
     } else {
-      record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'FAIL', ms: Date.now() - t0, out: `standards_basis:"implements_standard" but cited_clause_digest[] is empty — SO #38 violation.` });
+      record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'FAIL', ms: Date.now() - t0, out: `standards_basis:"${basis}" but cited_clause_digest[] is empty — SO #38 violation (§30.5: both implements_standard and cites_informative require >=1 entry).` });
     }
   } else if (looksStandardsImplementing) {
-    record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'FAIL', ms: Date.now() - t0, out: `kernel source declares a regulatory_basis (standards-implementing) but the shard carries no standards_basis field at all — SO #38 requires "implements_standard" + cited_clause_digest[], or an explicit "not_applicable".` });
+    const declared = shard?.standards_basis;
+    record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'FAIL', ms: Date.now() - t0, out: declared
+      ? `kernel source declares a regulatory_basis (standards-implementing) and the shard declares standards_basis:"${declared}", which is not one of the three SPEC.md §30.3 values (implements_standard | cites_informative | not_applicable).`
+      : `kernel source declares a regulatory_basis (standards-implementing) but the shard carries no standards_basis field at all — SO #38 requires "implements_standard" or "cites_informative" + cited_clause_digest[], or an explicit "not_applicable".` });
     } else {
     record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'N-A', ms: Date.now() - t0, out: `no standards_basis field and no regulatory_basis in kernel source — not a standards-implementing node by this discriminator (the same one FAST-PROVE-BATCH-1 used). Reported N-A, never silently passed: RIDER-KERNEL/CLAUSE-DIGEST-LAND-0816-1 own backfilling this class, not this row.` });
   }
