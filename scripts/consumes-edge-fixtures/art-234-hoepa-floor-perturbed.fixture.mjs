@@ -16,6 +16,12 @@
 // If it does not, the checker's sensitivity is broken and its green means
 // nothing. This file is a FIXTURE: imported by the selftest only, imported by
 // nothing in the estate, edits no kernel.
+//
+// Re-derived 2026-09-12 (ART234-HOEPA-2025-FIX-1 + ART220-HOEPA-2025-CONSTANT-FIX-1,
+// both in PR #1862): the 2025 floor moved 1345 → 1348 in BOTH kernels per FR 2024-27553
+// (89 FR 95080), so this fixture's 2025 pin moved with them and the single perturbation
+// stays the 2026 one. The values below were read back from probeArt234() against the
+// corrected kernels, never hand-typed.
 
 export const meta = {
   fixture: 'art-234-hoepa-floor-perturbed',
@@ -49,7 +55,7 @@ export const probe = {
     rate_spread_sub_lien_pp: 8.5,
   },
   2025: {
-    points_fees_floor: 1345, // real pin, FR 2024-28929 — matches art-220
+    points_fees_floor: 1348, // real pin, FR 2024-27553 (89 FR 95080) — matches art-220
     points_fees_pct: 5,
     rate_spread_first_lien_pp: 6.5,
     rate_spread_sub_lien_pp: 8.5,
