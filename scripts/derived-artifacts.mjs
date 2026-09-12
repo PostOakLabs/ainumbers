@@ -231,6 +231,75 @@ export const COVERED = [
     share: '27%',
   },
   {
+    // PROMPT-LIBRARY-PAGE-2 (AGENT-REACH-BUILD-SPEC §3.3): prompts.html, the
+    // copy-paste prompt library rendered from mcp/showcase-prompts.json (the
+    // same SSOT the worker's prompts/list reads) + the mcp.html #workflows
+    // table (the recipes source MCP-SUITE-RECIPES-1 reads) + chaingraph.json
+    // (mcp_name → tool_id resolution for the tool chips). Positioned BEFORE
+    // its same-pass readers — infra-registry's scope walk, sitemap-html,
+    // sitemap-xml, start-index and nav-island all consume either the page or
+    // the published-dirs rootPages entry this page satisfies — and after the
+    // writers of what it reads (chaingraph-assemble for the graph; the
+    // #workflows table rows are hand-authored prose that the 'stats' count
+    // rewrite does not touch). Deterministic: no wall-clock anywhere, so a
+    // second pass is byte-identical (idempotency proven by content hash,
+    // PROMPT-LIBRARY-PAGE-2, 2026-09-11).
+    id: 'prompts-page',
+    regen: 'node scripts/gen-prompts-page.mjs',
+    gate: 'node scripts/gen-prompts-page.mjs --check',
+    writes: ['prompts.html'],
+    artifacts: ['prompts.html'],
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-09-11, PROMPT-LIBRARY-PAGE-2)',
+  },
+  {
+    // INFRA-PAGE-1 (2026-09-08): the derived page registry over every non-tool
+    // published page (gen-infra-registry.mjs — scope walk over
+    // published-dirs.json, node/tool/chain pages excluded, redirect shims
+    // auto-exempt like the nav gate). One entry per tagged page:
+    // { path, title, description, category, featured, facts }. Sorted by
+    // category then title; no wall-clock field, so a second pass is
+    // byte-identical (idempotency proof). Reads every page (like nav-island)
+    // and chaingraph.json (node-url exclusion), so it must run AFTER the
+    // page/HTML writers it reads within a pass — `after: prompts-page` pins
+    // the newest page its scope walk must see.
+    // MOVED BEFORE 'counts' (PROMPT-LIBRARY-PAGE-2, merge_group run 34648973207):
+    // when a PR legitimately grows the registry (prompts.html entered the scope
+    // walk, 201→202), the old infra-registry-AFTER-counts order left the pass's
+    // scratch tree non-converged — counts --fix wrote the infra_pages sentinels
+    // from the previous registry bytes while infrastructure-page then rendered
+    // the new count, and the standalone Count-drift gate red on the merge commit
+    // ("DRIFT infrastructure.html data-count=infra_pages expected=201 got=202").
+    // The registry is derived (counts.mjs overlay-reads it), so the sentinel
+    // writer must consume the FRESH registry: infra-registry → infrastructure-page
+    // → counts. Its own inputs (published-dirs.json, page meta tags) are
+    // authored or written by ids still ahead of it, so no other edge moves.
+    id: 'infra-registry',
+    regen: 'node scripts/gen-infra-registry.mjs',
+    gate: 'node scripts/gen-infra-registry.mjs --check',
+    // write target is a module-level constant path in the generator, not a
+    // literal at the call site (counts precedent) — mirrored in `writes`.
+    writes: ['data/infra-registry.json'],
+    artifacts: ['data/infra-registry.json'],
+    after: 'prompts-page',
+    share: 'n/a (new 2026-09-08, INFRA-PAGE-1)',
+  },
+  {
+    // INFRA-PAGE-1: infrastructure.html, generated from the registry above
+    // (one section per category, one card per registry entry, JSON-LD
+    // CollectionPage ItemList, data-count="infra_pages" sentinel). Consumes
+    // ONLY data/infra-registry.json — ordered after it. Stays ahead of
+    // 'counts' so the sentinel writer sees this page's final sentinel values
+    // (see the infra-registry entry's MOVED note).
+    id: 'infrastructure-page',
+    regen: 'node scripts/gen-infrastructure-page.mjs',
+    gate: 'node scripts/gen-infrastructure-page.mjs --check',
+    writes: ['infrastructure.html'],
+    artifacts: ['infrastructure.html'],
+    after: 'infra-registry',
+    share: 'n/a (new 2026-09-08, INFRA-PAGE-1)',
+  },
+  {
     id: 'counts',
     // Count sentinels (<!--COUNT:key-->N<!--/COUNT-->, data-count="key") across
     // every page that publishes one. File list mirrors verify-counts.mjs's own
@@ -268,6 +337,12 @@ export const COVERED = [
       // sentinel now listed in verify-counts.mjs's file list — undeclared here
       // the regen's anti-escape guard would reject the write (SO #47 precedent).
       'infrastructure.html',
+      // PROMPT-LIBRARY-PAGE-2: prompts.html's data-count="showcase_prompts"
+      // sentinel is now in verify-counts.mjs's file list (key registered in
+      // counts.mjs) — same SO #47 rule: declare the write or the anti-escape
+      // guard rejects the run. Cross-entry share with 'prompts-page' is the
+      // declare-parity WARN class by design.
+      'prompts.html',
     ],
     // DERIVED-DECLARE-PARITY-1: verify-counts.mjs writes via a `write(rel, …)`
     // helper called mostly with loop/lookup variables (ATTR_RULES `.file`,
@@ -286,46 +361,18 @@ export const COVERED = [
       'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
       'guides/capital-markets-settlement-hub.html',
       'infrastructure.html',
+      'prompts.html',
     ],
     share: '27%',
     // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): counts reads
     // chaingraph.json (counts.mjs:123) — assembler precedes it now (B7 also
     // fixed: stats reads mcp.html before counts rewrote its sentinels).
-    after: 'chaingraph-assemble',
-  },
-  {
-    // INFRA-PAGE-1 (2026-09-08): the derived page registry over every non-tool
-    // published page (gen-infra-registry.mjs — scope walk over
-    // published-dirs.json, node/tool/chain pages excluded, redirect shims
-    // auto-exempt like the nav gate). One entry per tagged page:
-    // { path, title, description, category, featured, facts }. Sorted by
-    // category then title; no wall-clock field, so a second pass is
-    // byte-identical (idempotency proof). Reads every page (like nav-island)
-    // and chaingraph.json (node-url exclusion), so it must run AFTER the
-    // page/HTML writers it reads within a pass; `after: counts` pins the
-    // sentinel writer that touches index.html/start.html/fv-explainer.html.
-    id: 'infra-registry',
-    regen: 'node scripts/gen-infra-registry.mjs',
-    gate: 'node scripts/gen-infra-registry.mjs --check',
-    // write target is a module-level constant path in the generator, not a
-    // literal at the call site (counts precedent) — mirrored in `writes`.
-    writes: ['data/infra-registry.json'],
-    artifacts: ['data/infra-registry.json'],
-    after: 'counts',
-    share: 'n/a (new 2026-09-08, INFRA-PAGE-1)',
-  },
-  {
-    // INFRA-PAGE-1: infrastructure.html, generated from the registry above
-    // (one section per category, one card per registry entry, JSON-LD
-    // CollectionPage ItemList, data-count="infra_pages" sentinel). Consumes
-    // ONLY data/infra-registry.json — ordered after it.
-    id: 'infrastructure-page',
-    regen: 'node scripts/gen-infrastructure-page.mjs',
-    gate: 'node scripts/gen-infrastructure-page.mjs --check',
-    writes: ['infrastructure.html'],
-    artifacts: ['infrastructure.html'],
-    after: 'infra-registry',
-    share: 'n/a (new 2026-09-08, INFRA-PAGE-1)',
+    // PROMPT-LIBRARY-PAGE-2 re-pin (merge_group run 34648973207): counts now
+    // also consumes data/infra-registry.json (counts.mjs infra_pages overlay
+    // read) and the registry-derived sentinels on infrastructure.html — both
+    // written within the pass by 'infrastructure-page'. 'infrastructure-page'
+    // is the LAST of counts' pass-internal writers, so it pins the edge.
+    after: 'infrastructure-page',
   },
   {
     // estate-map, MOVED here by INFRA-PAGE-1 (was array position 2): the
