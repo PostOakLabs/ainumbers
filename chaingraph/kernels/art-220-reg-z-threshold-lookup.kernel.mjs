@@ -33,7 +33,13 @@ const HOEPA = {
   2022: { fr_citation: 'FR 2021-27322, 86 FR 71487', effective: '2022-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1148 },
   2023: { fr_citation: 'FR 2022-27762, 87 FR 77143', effective: '2023-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1243 },
   2024: { fr_citation: 'FR 2023-27060, 88 FR 86062', effective: '2024-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1309 },
-  2025: { fr_citation: 'FR 2024-28929, 89 FR 99882', effective: '2025-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1345 },
+  // 2025 corrected from FR 2024-28929 / 1345 to the primary text (ART220-HOEPA-2025-CONSTANT-FIX-1,
+  // folded into PR #1862; ruling 2026-09-11T23:28Z -- parity is restored by fixing art-220, never by
+  // changing art-234 back). FR 2024-27553, 89 FR 95080: "Effective January 1, 2025, for purposes of
+  // determining under Sec. 1026.32(a)(1)(ii) the points-and-fees coverage test under HOEPA to which a
+  // transaction is subject, the total loan amount threshold figure is $26,968, and the adjusted
+  // points-and-fees dollar trigger under Sec. 1026.32(a)(1)(ii)(B) is $1,348."
+  2025: { fr_citation: 'FR 2024-27553, 89 FR 95080', effective: '2025-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1348 },
   2026: { fr_citation: 'FR 2025-22773, effective 2026-01-01', effective: '2026-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1380 },
 };
 
