@@ -737,8 +737,17 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
    // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
    // Measured both sides, not assumed: 521/639 fresh + 118 stale on origin/main,
    // 522/640 fresh + 118 stale on this branch; the failing assert printed got 640 before this edit.
-   assert(total === 640, `expected 640 in-scope gpu:false proven nodes, got ${total}`);
-   assert(fresh.length === 522, `expected 522 fresh (calibration set), got ${fresh.length}`);
+   // 640 -> 641 post-ZZ-PROVE-DOWNTIME-ART594-1 (2026-09-11, art-594 eighteenth §18 GPU prove, SLOW class):
+   // art-594-tempo-mpp-voucher-receipt-verifier flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:8f2fed1a... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume 6169s + groth16 wrap 73s,
+   // VERIFY_PASS at argmax vec 1 voucher-idempotent-retry-at-zero 814,360,562 user_cycles,
+   // imageId universal risc0 guest; kernel bytes frozen 2026-08-14, prove-once-then-freeze).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured, not assumed: 523/641 fresh + 118 stale on this branch; the failing assert printed got 641 before this edit.
+   assert(total === 641, `expected 641 in-scope gpu:false proven nodes, got ${total}`);
+   assert(fresh.length === 523, `expected 523 fresh (calibration set), got ${fresh.length}`);
    assert(stale.length === 118, `expected 118 stale (see 2026-09-01 note above), got ${stale.length}`);
  });
 
