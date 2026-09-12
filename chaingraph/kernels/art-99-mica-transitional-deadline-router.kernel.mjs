@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-99-mica-transitional-deadline-router';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
 
 export const meta = {
   tool_id: TOOL_ID,
@@ -11,62 +11,77 @@ export const meta = {
   gpu: false,
 };
 
-// Art 143(3) deadline lookup
-const CLIFF_STATES = new Set(['FR','IT','ES','MT','LU','PT','CY','NL','BE','DE','AT','IE','GR','PL','CZ','HU']);
-const EXTENDED_STATES = new Set(['SE','DK','FI','NO']);
-const CLIFF_DEADLINE = '2026-06-30';
-const EXTENDED_DEADLINE = '2026-12-30';
-const DEFAULT_DEADLINE = '2026-12-30';
-const TODAY = '2026-06-22';
+// PRIMARY SUPPORT for the single retained date constant (ART99-MICA-DEADLINE-FIX-1).
+// Source: Regulation (EU) 2023/1114 (MiCA), CELEX 32023R1114, transitional-measures
+// provision, retrieved from EUR-Lex 2026-09-11. Operative rule, third subparagraph:
+// providers lawfully serving before 30 December 2024 may continue until 1 July 2026,
+// or until authorisation under the authorisation article is granted or refused,
+// whichever is sooner. The second subparagraph lets Member States disapply or shorten
+// the regime; ESMA's published grandfathering list records national expectations and
+// states expressly that some "may not have been incorporated into national law yet".
+// Neither primary supports a cliff/extended distinction, so the former
+// CLIFF_DEADLINE ('2026-06-30'), EXTENDED_DEADLINE ('2026-12-30') and DEFAULT_DEADLINE
+// ('2026-12-30') constants and the 16-state / 4-state Sets are DELETED (constants
+// sweep: 4 MISMATCH rows on 2026-09-11 @ b42ecdaa and 2026-09-12 @ 7ba5b066). The
+// router collapses to the single primary-supported deadline below. Per RIDER-KERNEL,
+// the clause identity and verbatim text live in NODE METADATA (cited_clause_digest +
+// the pinned clause snapshot), never in kernel source.
+const TRANSITIONAL_END = '2026-07-01'; // primary text: grandfathering continues "until 1 July 2026"
+
+// Estate NO-CLOCK convention: the evaluation date is a REQUIRED caller input (ISO 8601
+// calendar date, UTC). The kernel never reads the wall clock (determinism hard ban on
+// no-arg Date()); a caller that wants "execution date" semantics passes it explicitly.
+// Shape regex AND a parse round-trip: '2026-13-01' matches the shape but is not a real
+// calendar date, and an Invalid Date would leak NaN into window_months.
+function isoDateOrNull(v) {
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  return Number.isFinite(Date.parse(v)) ? v : null;
+}
 
 export function compute(pp) {
   const {
-    member_state = '',
     existing_registration = 'no',
-    national_regime = 'none',
+    as_of,
   } = pp.inputs ?? pp;
+  const asOf = isoDateOrNull(as_of);
 
-  const ms = member_state.trim().toUpperCase();
-
-  let deadline;
-  if (CLIFF_STATES.has(ms)) {
-    deadline = CLIFF_DEADLINE;
-  } else if (EXTENDED_STATES.has(ms)) {
-    deadline = EXTENDED_DEADLINE;
-  } else {
-    deadline = DEFAULT_DEADLINE;
-  }
-
-  const todayDate = new Date(TODAY);
-  const deadlineDate = new Date(deadline);
-  const diffMs = deadlineDate - todayDate;
-  const window_months = Math.round(diffMs / (1000 * 60 * 60 * 24 * 30.44));
-
+  let window_months = null;
   let decision;
-  if (existing_registration === 'no' && window_months < 0) {
-    decision = 'wind-down';
-  } else if (existing_registration === 'no' && window_months < 1) {
-    decision = 'wind-down';
+  const compliance_flags = [];
+
+  if (asOf === null) {
+    // No evaluation date supplied: no window and no file/wind-down verdict can be computed.
+    decision = 'unresolved';
+    compliance_flags.push('AS_OF_REQUIRED');
   } else {
-    decision = 'file';
+    const diffMs = new Date(TRANSITIONAL_END).getTime() - new Date(asOf).getTime();
+    window_months = Math.round(diffMs / (1000 * 60 * 60 * 24 * 30.44));
+
+    if (existing_registration === 'no' && window_months < 1) {
+      decision = 'wind-down';
+    } else {
+      decision = 'file';
+    }
+
+    if (window_months < 1 && window_months > -12) compliance_flags.push('DEADLINE_IMMINENT');
+    if (decision === 'wind-down') compliance_flags.push('WIND_DOWN_PATH');
   }
 
-  const file_by_preconditions = [
-    'Submit authorization application to NCA before transitional end',
-    'Ensure Art 62 application pack complete',
-  ];
-
-  const compliance_flags = [];
-  if (window_months < 1 && window_months > -12) compliance_flags.push('DEADLINE_IMMINENT');
-  if (decision === 'wind-down') compliance_flags.push('WIND_DOWN_PATH');
-
+  // FLAG-MIRROR doctrine (AUTHORING-STANDARD, flag-mirror section): the conditional
+  // compliance_flags are mirrored into output_payload.warnings so a chain gate can route
+  // on this step's payload.
   const output_payload = {
-    transitional_end_date: deadline,
+    as_of: asOf,
+    transitional_end_date: TRANSITIONAL_END,
     window_months,
-    file_by_preconditions,
+    file_by_preconditions: [
+      'Submit authorization application to NCA before transitional end',
+      'Ensure Art 62 application pack complete',
+    ],
     decision,
-    state_specific_notes: 'Art 143(3) MiCA Reg. (EU) 2023/1114. ESMA grandfathering list includes 16 cliff states with 30 Jun 2026 deadline.',
-    reference_version: '2026-06',
+    warnings: compliance_flags.slice(),
+    state_specific_notes: 'Art 143(3) MiCA Reg. (EU) 2023/1114: providers lawfully serving before 30 December 2024 may continue until 1 July 2026 or until their Article 63 authorisation is granted or refused, whichever is sooner. Member States may disapply or shorten the regime (Art 143(3) second subparagraph); the ESMA grandfathering list records national expectations, some of which may not yet be in national law.',
+    reference_version: '2026-09',
     note: 'DECISION-SUPPORT DRAFT. Verify current ESMA grandfathering list and national implementation against official sources.',
   };
 
