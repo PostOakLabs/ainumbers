@@ -1,5 +1,5 @@
 // art-99-mica-transitional-deadline-router property-test floor (ART99-MICA-DEADLINE-FIX-1).
-// kernel_digest_at_authoring: sha256:0cfa525c0c7030f7994ec17a606a4f1d946d9af22ec90910611baa9b061ff0a0
+// kernel_digest_at_authoring: sha256:c8cd867cf83b8ee907edf7674753f2d85458abccb18d5d14565414a395367cd1
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED
@@ -52,7 +52,7 @@ function mulberry32(seed) {
 }
 function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
 function expectedWindowMonths(as_of) {
-  const diffMs = new Date(TRANSITIONAL_END) - new Date(as_of);
+  const diffMs = new Date(TRANSITIONAL_END).getTime() - new Date(as_of).getTime();
   return Math.round(diffMs / (1000 * 60 * 60 * 24 * 30.44));
 }
 function expectedDecision(existing_registration, window_months) {
@@ -184,6 +184,7 @@ function checkP5_outputShapeInvariant() {
     if (!(output_payload.window_months === null || Number.isFinite(output_payload.window_months))) violations++;
     if (!Array.isArray(output_payload.file_by_preconditions)) violations++;
     if (typeof output_payload.decision !== 'string') violations++;
+    if (!Array.isArray(output_payload.warnings)) violations++;
     if (!(output_payload.as_of === null || typeof output_payload.as_of === 'string')) violations++;
   }
   return { name: 'P5_output_shape_no_nan_undefined', trials: checked, violations };

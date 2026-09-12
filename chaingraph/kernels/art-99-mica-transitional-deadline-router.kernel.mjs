@@ -12,21 +12,21 @@ export const meta = {
 };
 
 // PRIMARY SUPPORT for the single retained date constant (ART99-MICA-DEADLINE-FIX-1).
-// Source: Article 143(3) of Regulation (EU) 2023/1114 (MiCA), CELEX 32023R1114, retrieved
-// from EUR-Lex 2026-09-11. Operative sentence, verbatim:
-//   "Crypto-asset service providers that provided their services in accordance with applicable
-//    law before 30 December 2024, may continue to do so until 1 July 2026 or until they are
-//    granted or refused an authorisation pursuant to Article 63, whichever is sooner."
-// The Article sets ONE EU-wide transitional end date. Its second subparagraph lets Member
-// States decide not to apply the transitional regime or to reduce its duration; ESMA's
-// published grandfathering list (Art 143 periods decided by Member States) records national
-// expectations and states expressly that some "may not have been incorporated into national
-// law yet". Neither primary supports a cliff/extended distinction, so the former
+// Source: Regulation (EU) 2023/1114 (MiCA), CELEX 32023R1114, transitional-measures
+// provision, retrieved from EUR-Lex 2026-09-11. Operative rule, third subparagraph:
+// providers lawfully serving before 30 December 2024 may continue until 1 July 2026,
+// or until authorisation under the authorisation article is granted or refused,
+// whichever is sooner. The second subparagraph lets Member States disapply or shorten
+// the regime; ESMA's published grandfathering list records national expectations and
+// states expressly that some "may not have been incorporated into national law yet".
+// Neither primary supports a cliff/extended distinction, so the former
 // CLIFF_DEADLINE ('2026-06-30'), EXTENDED_DEADLINE ('2026-12-30') and DEFAULT_DEADLINE
-// ('2026-12-30') constants and the 16-state / 4-state Sets are DELETED (constants sweep:
-// 4 MISMATCH rows on 2026-09-11 @ b42ecdaa and 2026-09-12 @ 7ba5b066). The router collapses
-// to the single primary-supported deadline below.
-const TRANSITIONAL_END = '2026-07-01'; // Art 143(3): grandfathering continues "until 1 July 2026"
+// ('2026-12-30') constants and the 16-state / 4-state Sets are DELETED (constants
+// sweep: 4 MISMATCH rows on 2026-09-11 @ b42ecdaa and 2026-09-12 @ 7ba5b066). The
+// router collapses to the single primary-supported deadline below. Per RIDER-KERNEL,
+// the clause identity and verbatim text live in NODE METADATA (cited_clause_digest +
+// the pinned clause snapshot), never in kernel source.
+const TRANSITIONAL_END = '2026-07-01'; // primary text: grandfathering continues "until 1 July 2026"
 
 // Estate NO-CLOCK convention: the evaluation date is a REQUIRED caller input (ISO 8601
 // calendar date, UTC). The kernel never reads the wall clock (determinism hard ban on
@@ -54,7 +54,7 @@ export function compute(pp) {
     decision = 'unresolved';
     compliance_flags.push('AS_OF_REQUIRED');
   } else {
-    const diffMs = new Date(TRANSITIONAL_END) - new Date(asOf);
+    const diffMs = new Date(TRANSITIONAL_END).getTime() - new Date(asOf).getTime();
     window_months = Math.round(diffMs / (1000 * 60 * 60 * 24 * 30.44));
 
     if (existing_registration === 'no' && window_months < 1) {
@@ -67,6 +67,9 @@ export function compute(pp) {
     if (decision === 'wind-down') compliance_flags.push('WIND_DOWN_PATH');
   }
 
+  // FLAG-MIRROR doctrine (AUTHORING-STANDARD, flag-mirror section): the conditional
+  // compliance_flags are mirrored into output_payload.warnings so a chain gate can route
+  // on this step's payload.
   const output_payload = {
     as_of: asOf,
     transitional_end_date: TRANSITIONAL_END,
@@ -76,6 +79,7 @@ export function compute(pp) {
       'Ensure Art 62 application pack complete',
     ],
     decision,
+    warnings: compliance_flags.slice(),
     state_specific_notes: 'Art 143(3) MiCA Reg. (EU) 2023/1114: providers lawfully serving before 30 December 2024 may continue until 1 July 2026 or until their Article 63 authorisation is granted or refused, whichever is sooner. Member States may disapply or shorten the regime (Art 143(3) second subparagraph); the ESMA grandfathering list records national expectations, some of which may not yet be in national law.',
     reference_version: '2026-09',
     note: 'DECISION-SUPPORT DRAFT. Verify current ESMA grandfathering list and national implementation against official sources.',
