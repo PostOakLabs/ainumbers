@@ -80,6 +80,17 @@ const EXEMPT = new Map([
   // generator. (MAIN-REGEN-INFRA-REGISTRY-FIXPOINT-1)
   ['infrastructure.html', 'whole-file derived artifact (gen-infrastructure-page.mjs)'],
   ['docs/index.html', 'whole-file derived artifact (gen-openapi.mjs)'],
+  // mcp.html: verify-counts.mjs (the 'counts' COVERED entry, which runs AFTER
+  // infra-registry) rewrites the tool/workflow counts inside the page's meta
+  // description ("...N browser-based fintech tools and M MCP-callable,
+  // hash-anchored OpenChainGraph workflows..."). Scanning that description back
+  // here re-opened the read-back cycle the moment the chain count moved
+  // (#1879 retired a chain, 369->368; Derived Artifacts Regen run 34716467766
+  // failed "the regen pass is NOT a fixpoint - infra-registry was stale after
+  // pass 1 and fresh after pass 2"). Same class as infrastructure.html above:
+  // the page's meta tags belong to its generator.
+  // (MAIN-REGEN-INFRA-REGISTRY-FIXPOINT-2)
+  ['mcp.html', 'whole-file derived artifact (sync-stats.mjs counts + verify-counts.mjs meta sentinels)'],
 ]);
 
 function collect(dir, rel, out) {
