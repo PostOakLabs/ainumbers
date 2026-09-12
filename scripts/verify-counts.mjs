@@ -404,6 +404,12 @@ for (const rel of [
   // INFRA-PAGE-1: the generated infrastructure page's data-count="infra_pages"
   // sentinel (key derived in counts.mjs from data/infra-registry.json).
   'infrastructure.html',
+  // PROMPT-LIBRARY-PAGE-2: the generated prompt library's
+  // data-count="showcase_prompts" hero sentinel (key registered in counts.mjs
+  // from the same mcp/showcase-prompts.json read gen-prompts-page.mjs renders
+  // from — gate, generator, and the index.html topic tile share one number;
+  // --fix owns the tile so the merge-commit regen cannot diverge).
+  'prompts.html',
   // CLAIMS-SENTINEL-TIER1-1 (audit Q7) — the five hub hero paragraphs' spelled-out tool counts,
   // now numeral + <!--COUNT:hubTools.*--> sentinels alongside every same-page copy of the figure
   // (hero-eyebrow, sec-heading(s), last-reviewed, sec-sub). tradetech-hub.html's meta/og/JSON-LD
