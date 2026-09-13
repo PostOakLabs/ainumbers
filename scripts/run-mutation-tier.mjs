@@ -80,15 +80,30 @@
  *                          ~67s/kernel average), past GitHub Actions' 6-hour
  *                          hosted-runner ceiling.
  *
+ * Per-kernel wall-clock bound (MUTATION-TIER-HANG-MMS03-PNR01-1):
+ *     Every kernel's Stryker run(s) share one deadline, default 600 s (10 min)
+ *     per kernel, overridable via `MUTATION_TIER_KERNEL_TIMEOUT_S=<positive
+ *     integer seconds>` (invalid values fail the run loudly, never silently
+ *     unbounded). On expiry the Stryker process TREE is killed (Windows:
+ *     `taskkill /PID <npx> /T /F`; POSIX: SIGKILL the detached process group)
+ *     and the kernel is a HARD FAIL printing
+ *       `MUTATION-TIER TIMEOUT <kernel> after <s>s — treat as FAIL, see
+ *        MUTATION-TIER-HANG-MMS03-PNR01-1`
+ *     — a hang must become a red gate with a name, never a silent multi-hour
+ *     wait (measured: mms-03 = 564 mutants × ~26 s/mutant ≈ 2 h; pnr-01 =
+ *     1,668 mutants × ~5 min/mutant ≈ days; both silent, since the json
+ *     reporter prints nothing during the mutant phase).
+ *
  * Exit 0 — every examined kernel's money-math tier meets its break floor (and
  *          peripheral tier too, if mutation-tiers.config.json's
  *          peripheralGateMode is "enforced"), or is a named exception.
  * Exit 1 — any examined kernel is below a floor it is not excepted from, OR
  *          any kernel's Stryker run did not produce a parseable report (SO
- *          #34c: absence of a result is never treated as a pass).
+ *          #34c: absence of a result is never treated as a pass), OR any
+ *          kernel hit its per-kernel wall-clock bound.
  */
 
-import { execFileSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, cpSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -98,13 +113,9 @@ import { checkSandboxComplete, deriveSandboxFiles } from './lib-sandbox-deps.mjs
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..');
-const KERNELS_DIR = path.join(REPO, 'chaingraph', 'kernels');
-const PROPTESTS_DIR = path.join(KERNELS_DIR, '__proptests__');
-const FIXTURES_DIR = path.join(KERNELS_DIR, 'fixtures');
-const CONFIG_PATH = path.join(KERNELS_DIR, 'mutation-tiers.config.json');
 
-function loadConfig() {
-  return JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
+function loadConfig(repoRoot = REPO) {
+  return JSON.parse(readFileSync(path.join(repoRoot, 'chaingraph', 'kernels', 'mutation-tiers.config.json'), 'utf8'));
 }
 
 // ── CLI parsing ───────────────────────────────────────────────────────────
@@ -125,8 +136,9 @@ function parseArgv(argv) {
   return opts;
 }
 
-function allKernelIds() {
-  return readdirSync(KERNELS_DIR)
+function allKernelIds(repoRoot = REPO) {
+  const kernelsDir = path.join(repoRoot, 'chaingraph', 'kernels');
+  return readdirSync(kernelsDir)
     .filter((f) => f.endsWith('.kernel.mjs'))
     .map((f) => f.replace(/\.kernel\.mjs$/, ''))
     .sort();
@@ -142,26 +154,103 @@ function resolveWindowsNpxInvocation() {
   return { cmd: 'npx.cmd', prefixArgs: [] };
 }
 
-function runStryker(configPath, cwd, strykerVersion) {
+// ── per-kernel wall-clock bound (MUTATION-TIER-HANG-MMS03-PNR01-1) ────────
+// Default 600 s (10 min) per kernel, env-overridable. Rationale lives in the
+// file header. Parse failure is a LOUD config error, never a silently
+// unbounded run (SO #34c — "no bound" must be a decision someone typed, not a
+// typo's side effect).
+const DEFAULT_KERNEL_TIMEOUT_S = 600;
+export function kernelTimeoutSecondsFromEnv(env = process.env) {
+  const raw = env.MUTATION_TIER_KERNEL_TIMEOUT_S;
+  if (raw === undefined || raw === '') return DEFAULT_KERNEL_TIMEOUT_S;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new Error(`MUTATION_TIER_KERNEL_TIMEOUT_S must be a positive integer number of seconds, got "${raw}"`);
+  }
+  return n;
+}
+
+export function timeoutMessage(id, elapsedS) {
+  return `MUTATION-TIER TIMEOUT ${id} after ${elapsedS}s — treat as FAIL, see MUTATION-TIER-HANG-MMS03-PNR01-1`;
+}
+
+// Kill the whole process tree rooted at pid. On Windows `taskkill /T /F` walks
+// the parent-child tree (tier -> npx node -> stryker -> test-runner nodes).
+// On POSIX the child was spawned detached (its own process group), so a single
+// negative-pid SIGKILL reaches every descendant.
+function killProcessTree(pid) {
+  if (process.platform === 'win32') {
+    try { spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' }); }
+    catch { /* fall through to the direct-child kill below */ }
+  } else {
+    try { process.kill(-pid, 'SIGKILL'); } catch { /* not a group leader any more */ }
+  }
+}
+
+// KILL_GRACE_MS: if the tree kill somehow does not produce a `close` event
+// (a stuck grandchild holding the direct child's handle), fail LOUD anyway
+// after this grace instead of hanging again — the bound must never be able to
+// become the same silent wait it exists to prevent.
+const KILL_GRACE_MS = 15000;
+
+/**
+ * runProcessBounded — spawn `cmd args` (stdio inherited), enforce a wall-clock
+ * budget, and on expiry kill the whole process tree. Separated from runStryker
+ * so the bound's semantics are unit-drivable without fetching Stryker (the
+ * sleeping-child control in run-mutation-tier.test.mjs).
+ *
+ * `crashed` keeps the exact pre-bound semantics callers rely on: true ONLY for
+ * a spawn-level failure (npx unreachable, bad flags). Stryker's own non-zero
+ * exit is NOT a crash — it reflects Stryker's default threshold, and the tier
+ * computes pass/fail from the report itself.
+ *
+ * @returns {Promise<{ crashed: boolean, error: string | null, timedOut: boolean,
+ *                     killConfirmed: boolean, elapsedS: number }>}
+ */
+export function runProcessBounded({ cmd, args, cwd, budgetS }) {
+  return new Promise((resolve) => {
+    const t0 = Date.now();
+    let settled = false;
+    let timedOut = false;
+    let killConfirmed = true;
+    let spawnError = null;
+    const child = spawn(cmd, args, { cwd, stdio: 'inherit', detached: process.platform !== 'win32' });
+    const killGrace = setTimeout(() => {
+      // The tree kill did not close the child within grace — stop waiting (the
+      // direct child may leak; the verdict is still the loud FAIL).
+      killConfirmed = false;
+      finish();
+    }, budgetS > 0 ? budgetS * 1000 + KILL_GRACE_MS : KILL_GRACE_MS);
+    let budgetTimer = null;
+    if (budgetS > 0 && Number.isFinite(budgetS)) {
+      budgetTimer = setTimeout(() => { timedOut = true; killProcessTree(child.pid); try { child.kill('SIGKILL'); } catch { /* already gone */ } }, budgetS * 1000);
+    }
+    child.on('error', (e) => { spawnError = e; });
+    child.on('close', finish);
+    function finish() {
+      if (settled) return;
+      settled = true;
+      // Both timers MUST die with the child: an armed budget timer would keep
+      // the tier's event loop (and the pre-push hook) alive for up to the full
+      // budget after the last kernel finished — the same silent-wait defect in
+      // a smaller dress.
+      if (budgetTimer) clearTimeout(budgetTimer);
+      clearTimeout(killGrace);
+      resolve({ crashed: spawnError !== null, error: spawnError ? String(spawnError.message || spawnError) : null, timedOut, killConfirmed, elapsedS: Math.round((Date.now() - t0) / 1000) });
+    }
+  });
+}
+
+function runStryker(configPath, cwd, strykerVersion, budgetS) {
   const { cmd, prefixArgs } = process.platform === 'win32'
     ? resolveWindowsNpxInvocation()
     : { cmd: 'npx', prefixArgs: [] };
-  try {
-    execFileSync(
-      cmd,
-      [...prefixArgs, '--yes', `--package=@stryker-mutator/core@${strykerVersion}`, 'stryker', 'run', configPath],
-      { cwd, stdio: 'inherit' },
-    );
-    return { crashed: false };
-  } catch (e) {
-    // Stryker's OWN exit code reflects ITS unset/default threshold, not ours — we compute
-    // pass/fail from the tiered report ourselves below. A non-zero status with a status
-    // code present is Stryker reporting mutants-survived, expected; a thrown error with NO
-    // status (spawn failure — npx unreachable, network down, bad flags) is NOT expected
-    // and must not be treated as "ran, mutants survived".
-    if (e.status === undefined) return { crashed: true, error: String(e && e.message || e) };
-    return { crashed: false };
-  }
+  return runProcessBounded({
+    cmd,
+    args: [...prefixArgs, '--yes', `--package=@stryker-mutator/core@${strykerVersion}`, 'stryker', 'run', configPath],
+    cwd,
+    budgetS,
+  });
 }
 
 // ── decomposed scoring (MUTATION-DECOMPOSED-SCORE-1) ─────────────────────
@@ -359,9 +448,6 @@ export function decomposedGateDecision(dec, config) {
 // shell-out anywhere in their closure (measured: zero execFileSync/execSync/spawnSync hits across
 // chaingraph/kernels/*.{kernel,proptest}.mjs and chaingraph/kernels/_*.mjs, chaingraph/kernels/
 // __proptests__/_*.mjs) — so there is no second edge for this harness to miss.
-// `repoRoot` defaults to the real repository and is overridable only so
-// run-mutation-tier.test.mjs can drive this against a throwaway fixture repo
-// instead of writing synthetic kernels into the real chaingraph/kernels/.
 export function copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath, scratchRoot, repoRoot = REPO) {
   const files = deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath], repoRoot });
   for (const rel of files) {
@@ -375,13 +461,23 @@ export function copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath,
   return files;
 }
 
-function runOneKernel(id, scratchRoot, opts, strykerVersion) {
+// `repoRoot` defaults to the real repository and is overridable only so
+// run-mutation-tier.test.mjs and the row controls can drive this against a
+// throwaway fixture repo instead of writing synthetic kernels into the real
+// chaingraph/kernels/. `opts.kernelTimeoutS` (MUTATION-TIER-HANG-MMS03-PNR01-1)
+// is the kernel's WHOLE wall-clock budget: both the as-shipped run and the
+// decomposed second run draw down one deadline set when the kernel starts, so
+// a decomposed run can never double the wall clock past the bound.
+export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRoot = REPO) {
+  const kernelsDir = path.join(repoRoot, 'chaingraph', 'kernels');
+  const proptestsDir = path.join(kernelsDir, '__proptests__');
+  const fixturesDir = path.join(kernelsDir, 'fixtures');
   const kernelFile = `${id}.kernel.mjs`;
   const proptestFile = `${id}.proptest.mjs`;
   const fixturesFile = `${id}.fixtures.json`;
-  const kernelPath = path.join(KERNELS_DIR, kernelFile);
-  const proptestPath = path.join(PROPTESTS_DIR, proptestFile);
-  const fixturesPath = path.join(FIXTURES_DIR, fixturesFile);
+  const kernelPath = path.join(kernelsDir, kernelFile);
+  const proptestPath = path.join(proptestsDir, proptestFile);
+  const fixturesPath = path.join(fixturesDir, fixturesFile);
 
   if (!existsSync(kernelPath)) return { id, hardFail: `no such kernel file: ${kernelFile}` };
   if (!existsSync(proptestPath)) return { id, hardFail: `no proptest floor: __proptests__/${proptestFile}` };
@@ -397,10 +493,15 @@ function runOneKernel(id, scratchRoot, opts, strykerVersion) {
   const proptestRelPath = `chaingraph/kernels/__proptests__/${proptestFile}`;
   const fixturesRelPath = `chaingraph/kernels/fixtures/${fixturesFile}`;
   try {
-    copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath, scratchRoot);
+    copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath, scratchRoot, repoRoot);
   } catch (e) {
     return { id, hardFail: e.message };
   }
+
+  // MUTATION-TIER-HANG-MMS03-PNR01-1: one wall-clock deadline for the WHOLE
+  // kernel (as-shipped run + decomposed second run draws it down together).
+  const deadlineMs = opts.kernelTimeoutS > 0 ? Date.now() + opts.kernelTimeoutS * 1000 : null;
+  const budgetS = () => deadlineMs ? Math.max(1, Math.ceil((deadlineMs - Date.now()) / 1000)) : 0;
 
   const reportPath = path.join(scratchRoot, 'reports', id, 'mutation-report.json');
   const config = {
@@ -417,9 +518,14 @@ function runOneKernel(id, scratchRoot, opts, strykerVersion) {
   writeFileSync(configPath, JSON.stringify(config, null, 2));
 
   const t0 = Date.now();
-  const { crashed, error } = runStryker(configPath, scratchRoot, strykerVersion);
-  const runtimeMs = Date.now() - t0;
+  const { crashed, error, timedOut, elapsedS } = await runStryker(configPath, scratchRoot, strykerVersion, budgetS());
+  if (timedOut) {
+    const msg = timeoutMessage(id, elapsedS);
+    console.error(`  ${msg}`);
+    return { id, hardFail: msg, timedOut: true, runtimeMs: elapsedS * 1000 };
+  }
   if (crashed) return { id, hardFail: `stryker did not run to completion: ${error}` };
+  const runtimeMs = Date.now() - t0;
 
   if (!existsSync(reportPath)) return { id, hardFail: 'stryker produced no report.json — SO #34c: absence is not a pass' };
   let report;
@@ -483,9 +589,16 @@ function runOneKernel(id, scratchRoot, opts, strykerVersion) {
       writeFileSync(config2Path, JSON.stringify(config2, null, 2));
 
       const t1 = Date.now();
-      const run2 = runStryker(config2Path, scratchRoot, strykerVersion);
+      const run2 = await runStryker(config2Path, scratchRoot, strykerVersion, budgetS());
       const runtime2Ms = Date.now() - t1;
-      if (run2.crashed) {
+      if (run2.timedOut) {
+        // Same loud bound as the as-shipped run, but a decomposed second-run
+        // timeout is a decomposed NULL (the tier's score stands; the split
+        // could not be measured) — never a silent overrun of the deadline.
+        const msg = timeoutMessage(id, run2.elapsedS);
+        console.error(`  ${msg}`);
+        decomposed = { error: `fixture-neutralized run hit the per-kernel wall-clock bound — ${msg}`, runtimeMs: runtime2Ms };
+      } else if (run2.crashed) {
         decomposed = { error: `fixture-neutralized stryker run did not run to completion: ${run2.error}`, runtimeMs: runtime2Ms };
       } else if (!existsSync(report2Path)) {
         decomposed = { error: 'fixture-neutralized stryker run produced no report.json — SO #34c: absence is not a pass', runtimeMs: runtime2Ms };
@@ -509,21 +622,31 @@ function runOneKernel(id, scratchRoot, opts, strykerVersion) {
 }
 
 // ── main ──────────────────────────────────────────────────────────────────
-async function main() {
-  const opts = parseArgv(process.argv.slice(2));
-  const config = loadConfig();
+// `repoRoot` defaults to the real repository; overridable only so the
+// MUTATION-TIER-HANG-MMS03-PNR01-1 controls can drive the whole tier against
+// a throwaway fixture repo (sleeping-floor kernel) without touching the real
+// chaingraph/kernels/.
+export async function runTier(argv, repoRoot = REPO) {
+  const opts = parseArgv(argv);
+  try {
+    opts.kernelTimeoutS = kernelTimeoutSecondsFromEnv();
+  } catch (e) {
+    console.error(`run-mutation-tier: ${e.message}`);
+    process.exit(1);
+  }
+  const config = loadConfig(repoRoot);
   const excluded = config.excludedKernels || {};
 
   let ids;
   if (opts.all) {
-    ids = allKernelIds();
+    ids = allKernelIds(repoRoot);
     if (opts.shardCount != null) {
       if (!(opts.shardCount > 0) || !(opts.shardIndex >= 0 && opts.shardIndex < opts.shardCount)) {
         console.error(`run-mutation-tier: invalid --shard ${opts.shardIndex} ${opts.shardCount} (index must be 0 <= index < count).`);
         process.exit(1);
       }
       ids = ids.filter((_, i) => i % opts.shardCount === opts.shardIndex);
-      console.log(`run-mutation-tier: --all --shard ${opts.shardIndex} ${opts.shardCount} selects ${ids.length} of ${allKernelIds().length} kernel id(s).`);
+      console.log(`run-mutation-tier: --all --shard ${opts.shardIndex} ${opts.shardCount} selects ${ids.length} of ${allKernelIds(repoRoot).length} kernel id(s).`);
     }
   }
   else if (opts.kernels && opts.kernels.length) ids = opts.kernels;
@@ -549,6 +672,7 @@ async function main() {
   mkdirSync(scratchRoot, { recursive: true });
 
   console.log(`run-mutation-tier: running ${toRun.length} kernel(s) (${skipped.length} named exception(s) skipped), scratch=${scratchRoot}`);
+  console.log(`run-mutation-tier: per-kernel wall-clock bound: ${opts.kernelTimeoutS}s (default ${DEFAULT_KERNEL_TIMEOUT_S}s, env MUTATION_TIER_KERNEL_TIMEOUT_S; on expiry the stryker tree is killed and the kernel is a HARD FAIL — MUTATION-TIER-HANG-MMS03-PNR01-1)`);
 
   const results = [];
   let hardFailCount = 0;
@@ -556,7 +680,7 @@ async function main() {
   let decomposedNullCount = 0;
   for (const id of toRun) {
     console.log(`\n=== ${id} ===`);
-    const r = runOneKernel(id, scratchRoot, opts, config.strykerVersion);
+    const r = await runOneKernel(id, scratchRoot, opts, config.strykerVersion, repoRoot);
     results.push(r);
     if (r.hardFail) {
       hardFailCount++;
@@ -635,4 +759,4 @@ async function main() {
 }
 
 const IS_MAIN = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (IS_MAIN) await main();
+if (IS_MAIN) await runTier(process.argv.slice(2));
