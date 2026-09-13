@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:8bc32901d512c613154fd05bc8dba90a59d45911b83c8c2b2174ad8fddce59cb
+// kernel_digest_at_authoring: sha256:efb6c1bcd74577c8ae8d9c1f631130aa78043237bbf9e2f2ea11e8cb31c1672c
 //
 // FV-PROPFLOOR-SHARD-B27-1 — property-test floor for art-238-classify-annex3-decisioning-obligations.
 // Class B (bounded-numeric shape, boolean obligation-status logic). float:no — pure boolean gates
