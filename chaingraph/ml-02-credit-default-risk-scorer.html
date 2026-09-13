@@ -11,6 +11,13 @@
 <meta property="og:type" content="website">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Post Oak Labs">
+<!-- Page-to-kernel build sentinel (PAGE-KERNEL-DIGEST-SENTINEL-1 convention): sha256 of the
+     kernel source this page's inline compute mirrors. scripts/check-page-kernel-digest.mjs
+     recomputes that digest from the kernel source and fails on a mismatch. Re-stamp when the
+     kernel moves; do not hand-edit to an arbitrary value.
+     ML02-SIGMOID-NORMALCDF-1 stamped 2026-09-12: the IRB inner term is N(.) per BCBS d424
+     CRE31.5 (was the logistic sigmoid); the PD-calibration sigmoid link is unchanged. -->
+<!--KERNEL-DIGEST-->sha256:ad5e65c90d06ca772a56e65a332990b9fdec2d8966a2eec552aece2dadf7d3a1<!--/KERNEL-DIGEST-->
 <link rel="canonical" href="https://ainumbers.co/chaingraph/ml-02-credit-default-risk-scorer.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/ml-02-credit-default-risk-scorer.md">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -383,11 +390,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </div>
   <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
   <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `score_credit_default_risk`. Task: Score credit default probability using logistic regression with Basel III risk-weight mapping.
-Call it with arguments: {"policy_parameters":{"n_loans":100,"asset_class":"retail_mortgage","target_default_rate":0.03,"lgd":0.25,"maturity_yrs":2.5,"pd_threshold":0.1,"seed":42}}
+Call it with arguments: {"policy_parameters":{"n_loans":10,"asset_class":"retail_mortgage","target_default_rate":0.05,"lgd":0.45,"maturity_yrs":2.5,"pd_threshold":0.5,"seed":11}}
 Verify before trusting: this node computes in your browser, so the MCP endpoint returns no execution_hash. Run the tool in the page, export the Policy Mandate artifact it produces, and call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with that artifact.
 Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
 PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
-Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/ml-02-credit-default-risk-scorer.html#p=v1.H4sIAAAAAAAA_wGFAHr_eyJuX2xvYW5zIjoxMDAsImFzc2V0X2NsYXNzIjoicmV0YWlsX21vcnRnYWdlIiwidGFyZ2V0X2RlZmF1bHRfcmF0ZSI6MC4wMywibGdkIjowLjI1LCJtYXR1cml0eV95cnMiOjIuNSwicGRfdGhyZXNob2xkIjowLjEsInNlZWQiOjQyferA_NaFAAAA</pre>
+Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/ml-02-credit-default-risk-scorer.html#p=v1.H4sIAAAAAAAA_wGEAHv_eyJuX2xvYW5zIjoxMCwiYXNzZXRfY2xhc3MiOiJyZXRhaWxfbW9ydGdhZ2UiLCJ0YXJnZXRfZGVmYXVsdF9yYXRlIjowLjA1LCJsZ2QiOjAuNDUsIm1hdHVyaXR5X3lycyI6Mi41LCJwZF90aHJlc2hvbGQiOjAuNSwic2VlZCI6MTF9W96Xf4QAAAA</pre>
 </section>
 <!-- ASK-AGENT:END -->
 
@@ -487,7 +494,78 @@ function sigmoid(x){return 1/(1+Math.exp(-x));}
 // ── Sector labels ──────────────────────────────────────────────
 const SECTORS=['Retail','Real Estate','Manufacturing','Tech','Healthcare','Financial','Energy','Transport'];
 
-// ── IRB RWA formula (Basel BCBS d424) ─────────────────────────
+// ── Standard normal CDF N(x) = Φ(x) — BCBS d424 CRE31.5 ──────────────────────
+// erf/erfc ported VERBATIM from SunPro fdlibm s_erf.c (identical coefficients to
+// the kernel's helper; max |Φ err| 1.1e-16 vs Python math.erf on a 40,024-point
+// grid; round-trip Φ(normInv(p))=p max err 1.669e-4, dominated by normInv's
+// documented 4.5e-4 bound). ML02-SIGMOID-NORMALCDF-1: the IRB inner term uses
+// N(.) per CRE31.5; the logistic sigmoid above remains ONLY for the PD
+// calibration link, which is a genuine logistic model.
+/*
+ * ====================================================
+ * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+ *
+ * Developed at SunSoft, a Sun Microsystems, Inc. business.
+ * Permission to use, copy, modify, and distribute this
+ * software is freely granted, provided that this notice
+ * is preserved.
+ * ====================================================
+ */
+function normalCdf(x){
+  const f64=new Float64Array(1), u32=new Uint32Array(f64.buffer);
+  function hi(v){f64[0]=v;return u32[1]|0;}
+  function lo0(v){f64[0]=v;u32[0]=0;return f64[0];}
+  const tiny=1e-300, half=0.5, one=1.0, two=2.0, erx=8.45062911510467529297e-01;
+  const pp0=1.28379167095512558561e-01,pp1=-3.25042107247001499370e-01,pp2=-2.84817495755985104766e-02,pp3=-5.77027029648944159157e-03,pp4=-2.37630166566501626084e-05;
+  const qq1=3.97917223959155352819e-01,qq2=6.50222499887672944485e-02,qq3=5.08130628187576562776e-03,qq4=1.32494738004321644526e-04,qq5=-3.96022827877536812320e-06;
+  const pa0=-2.36211856075265944077e-03,pa1=4.14856118683748331666e-01,pa2=-3.72207876035701323847e-01,pa3=3.18346619901161753674e-01,pa4=-1.10894694282396677476e-01,pa5=3.54783043256182359371e-02,pa6=-2.16637559486879084300e-03;
+  const qa1=1.06420880400844228286e-01,qa2=5.40397917702171048937e-01,qa3=7.18286544141962662868e-02,qa4=1.26171219808761642112e-01,qa5=1.36370839120290507362e-02,qa6=1.19844998467991074170e-02;
+  const ra0=-9.86494403484714822705e-03,ra1=-6.93858572707181764372e-01,ra2=-1.05586262253232909814e+01,ra3=-6.23753324503260060396e+01,ra4=-1.62396669462573470355e+02,ra5=-1.84605092906711035994e+02,ra6=-8.12874355063065934246e+01,ra7=-9.81432934416914548592e+00;
+  const sa1=1.96512716674392571292e+01,sa2=1.37657754143519042600e+02,sa3=4.34565877475229228821e+02,sa4=6.45387271733267880336e+02,sa5=4.29008140027567833386e+02,sa6=1.08635005541779435134e+02,sa7=6.57024977031928170135e+00,sa8=-6.04244152148580987438e-02;
+  const rb0=-9.86494292470009928597e-03,rb1=-7.99283237680523006574e-01,rb2=-1.77579549177547519889e+01,rb3=-1.60636384855821916062e+02,rb4=-6.37566443368389627722e+02,rb5=-1.02509513161107724954e+03,rb6=-4.83519191608651397019e+02;
+  const sb1=3.03380607434824582924e+01,sb2=3.25792512996573918826e+02,sb3=1.53672958608443695994e+03,sb4=3.19985821950859553908e+03,sb5=2.55305040643316442583e+03,sb6=4.74528541206955367215e+02,sb7=-2.24409524465858183362e+01;
+  function erfc(x){
+    const hx=hi(x), ix=hx&0x7fffffff;
+    if(ix>=0x7ff00000) return ((hx>>31)<<1)+one/x;
+    if(ix<0x3feb0000){ /* |x|<0.84375 */
+      if(ix<0x3c700000) return one-x;
+      const z=x*x;
+      const r=pp0+z*(pp1+z*(pp2+z*(pp3+z*pp4)));
+      const s=one+z*(qq1+z*(qq2+z*(qq3+z*(qq4+z*qq5))));
+      const y=r/s;
+      if(hx<0x3fd00000){ return one-(x+x*y); } /* x<1/4 */
+      let r2=x*y; r2+=(x-half);
+      return half-r2;
+    }
+    if(ix<0x3ff40000){ /* 0.84375<=|x|<1.25 */
+      const s=Math.abs(x)-one;
+      const P=pa0+s*(pa1+s*(pa2+s*(pa3+s*(pa4+s*(pa5+s*pa6)))));
+      const Q=one+s*(qa1+s*(qa2+s*(qa3+s*(qa4+s*(qa5+s*qa6)))));
+      if(hx>=0){ const z2=one-erx; return z2-P/Q; }
+      const z2=erx+P/Q; return one+z2;
+    }
+    if(ix<0x403c0000){ /* |x|<28 */
+      x=Math.abs(x);
+      const s=one/(x*x);
+      let R,S;
+      if(ix<0x4006DB6D){ /* |x|<1/0.35 */
+        R=ra0+s*(ra1+s*(ra2+s*(ra3+s*(ra4+s*(ra5+s*(ra6+s*ra7))))));
+        S=one+s*(sa1+s*(sa2+s*(sa3+s*(sa4+s*(sa5+s*(sa6+s*(sa7+s*sa8)))))));
+      } else {
+        if(hx<0&&ix>=0x40180000) return two-tiny; /* x<-6 */
+        R=rb0+s*(rb1+s*(rb2+s*(rb3+s*(rb4+s*(rb5+s*rb6)))));
+        S=one+s*(sb1+s*(sb2+s*(sb3+s*(sb4+s*(sb5+s*(sb6+s*sb7))))));
+      }
+      const z=lo0(x);
+      const r=Math.exp(-z*z-0.5625)*Math.exp((z-x)*(z+x)+R/S);
+      return hx>0 ? r/x : two-r/x;
+    }
+    return hx>0 ? tiny*tiny : two-tiny;
+  }
+  return 0.5*erfc(-x/Math.SQRT2); /* Φ(-x)=1-Φ(x) by erfc symmetry: tail-accurate both sides */
+}
+
+// ── IRB RWA formula (Basel BCBS d424 CRE31.5) ─────────────────
 // Correlation R for corporate/SME/retail
 function irbRWA(pd, lgd, maturity, assetClass){
   const pd_c=Math.max(pd, 0.0003);
@@ -502,16 +580,18 @@ function irbRWA(pd, lgd, maturity, assetClass){
   // Maturity adjustment b(PD)
   const b=(0.11852-0.05478*Math.log(pd_c))**2;
   const M_adj=(1+(maturity-2.5)*b)/(1-1.5*b);
-  // Normal quantile approx (rational Horner)
+  // Normal quantile approx (rational Horner; x = t - ratio per A&S 26.2.23, mirroring
+  // the sealed kernel — ML02-NORMINV-SIGN-1 fixed the kernel but this inline copy had
+  // kept the sign-inverted ratio - t form, displaying zero IRB capital)
   function normInv(p){
     const a=[2.515517,0.802853,0.010328];const b2=[1.432788,0.189269,0.001308];
     const t=Math.sqrt(-2*Math.log(p<0.5?p:1-p));
-    const x=(a[0]+t*(a[1]+t*a[2]))/(1+t*(b2[0]+t*(b2[1]+t*b2[2])))-t;
+    const x=t-(a[0]+t*(a[1]+t*a[2]))/(1+t*(b2[0]+t*(b2[1]+t*b2[2])));
     return p<0.5?-x:x;
   }
   const z=normInv(0.999);
   const inner=(normInv(pd_c)/Math.sqrt(1-R)+Math.sqrt(R/(1-R))*z);
-  const K=Math.max(lgd*sigmoid(inner)*M_adj - pd_c*lgd, 0);
+  const K=Math.max(lgd*normalCdf(inner)*M_adj - pd_c*lgd, 0);
   return K*12.5; // convert capital % to RWA density
 }
 
