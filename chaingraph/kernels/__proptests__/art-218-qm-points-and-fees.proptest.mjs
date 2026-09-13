@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:d7ba34da2e378662fbb05bc23d6aad6b0b4660bbae6f3111e0dd1c471209029b
+// kernel_digest_at_authoring: sha256:eca364c90379d68068bac8dd1f149d13e3e7a3284099794e1ddd5a1fd10abf78
 //
 // FV-PROPFLOOR-SHARD-B6-1 — property-test floor for art-218-qm-points-and-fees.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (pass/fail is a continuous points-and-fees
@@ -99,8 +99,35 @@ function checkP3_headroomIdentity() {
   return { name: 'P3_headroom_matches_r2_identity', trials: checked, violations };
 }
 
-// ---------- P4 (mandatory): ULP-boundary forcing ----------
+// ---------- P4: out-of-range year always refuses, never extrapolates ----------
+// This node used to answer any unpinned year with the 2026 band via `|| QM_TIERS_BY_YEAR[2026]`,
+// so a 2027 query came back as a confident 2026 verdict carrying a 2026 citation. The
+// property that catches that class is "refusal, not a nearest-year guess", and it is the
+// one art-220 has always had and this floor dropped when it was copied.
+function checkP4_outOfRangeYearRefuses() {
+  let violations = 0, checked = 0;
+  const OUT_OF_RANGE = [1999, 2000, 2019, 2020, 2027, 2030, 3000, 0, -2025];
+  for (let i = 0; i < TRIALS; i++) {
+    const year = OUT_OF_RANGE[i % OUT_OF_RANGE.length];
+    const pp = mkPP(rand, { year });
+    const r = compute(pp);
+    const op = r.output_payload;
+    checked++;
+    if (op.error !== 'year_not_in_table') violations++;
+    if (!r.compliance_flags.includes('LOOKUP_YEAR_UNAVAILABLE')) violations++;
+    // A refusal must not leak a computed verdict alongside itself.
+    if (op.limit !== undefined || op.tier_label !== undefined || op.headroom !== undefined) violations++;
+    if (op.pass !== false) violations++;
+  }
+  return { name: 'P4_out_of_range_year_refuses_without_extrapolating', trials: checked, violations };
+}
+
+// ---------- P5 (mandatory): ULP-boundary forcing ----------
 const ULP_BOUNDARY_CASES = [
+  [{ year: 2020 }, 'exactly 1 year below the pinned range — must refuse, not fall back to a band'],
+  [{ year: 2027 }, 'exactly 1 year above the pinned range — must refuse, not serve 2026 law'],
+  [{ year: 2021 }, 'earliest pinned year — must resolve'],
+  [{ year: 2026 }, 'latest pinned year — must resolve'],
   [{ loan_amount: 137958, points_and_fees: 137958 * 0.03 }, 'loan_amount exactly at the 3% tier boundary — tier_label must be the >= tier'],
   [{ loan_amount: 137957.99, points_and_fees: 4139 }, 'loan_amount 1 cent below tier boundary — must use the $4,139 fixed tier'],
   [{ loan_amount: 500000, points_and_fees: 500000 * 0.03 + 0.005 }, 'points_and_fees exactly at limit + 0.005 rounding tolerance — must pass'],
@@ -113,14 +140,23 @@ const ULP_BOUNDARY_CASES = [
   [{ loan_amount: 17244.99, points_and_fees: 17244.99 * 0.08 }, 'loan_amount 1 cent below the lowest tier boundary — must use the 8% tier'],
 ];
 
-function checkP4_forced() {
+function checkP5_forced() {
   const rows = [];
   for (const [overrides, label] of ULP_BOUNDARY_CASES) {
     const pp = mkPP(rand, overrides);
     const r = compute(pp);
     const op = r.output_payload;
-    const finite = typeof op.pass === 'boolean' && Number.isFinite(op.limit) && Number.isFinite(op.headroom);
-    rows.push({ label, overrides, pass: op.pass, tier_label: op.tier_label, finite, plausible: finite });
+    // Two legal shapes: a resolved verdict, or an explicit refusal. A refusal is
+    // plausible only if it withholds the verdict fields rather than emitting zeros.
+    const refused = op.error === 'year_not_in_table';
+    const plausible = refused
+      ? (op.pass === false
+         && Array.isArray(op.available_years)
+         && op.limit === undefined
+         && op.headroom === undefined
+         && r.compliance_flags.includes('LOOKUP_YEAR_UNAVAILABLE'))
+      : (typeof op.pass === 'boolean' && Number.isFinite(op.limit) && Number.isFinite(op.headroom));
+    rows.push({ label, overrides, refused, pass: op.pass, tier_label: op.tier_label ?? null, plausible });
   }
   return rows;
 }
@@ -134,7 +170,8 @@ if (!oracleOk) {
 results.properties.push(checkP1_monotonePass());
 results.properties.push(checkP2_passAgreement());
 results.properties.push(checkP3_headroomIdentity());
-results.boundary_forced = checkP4_forced();
+results.properties.push(checkP4_outOfRangeYearRefuses());
+results.boundary_forced = checkP5_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 const anyBoundaryImplausible = results.boundary_forced.some((b) => !b.plausible);

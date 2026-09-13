@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:224b7fe562fe4671cc165a1228afc28e82d8abbdfc5ec4c9e93ee480e50587a5
+// kernel_digest_at_authoring: sha256:560d985fb9001c36c5704b8a8a8bf31eaccba97131d9ce768e2a1f00f4fa6fa6
 //
 // FV-PROPFLOOR-SHARD-B6-1 — property-test floor for art-220-reg-z-threshold-lookup.
 // Class B (bounded categorical). ⚠ RECLASSIFIED float:no by this row's FIX-2-CARRY duty
@@ -111,6 +111,9 @@ function checkP3_yearOutOfRange() {
 }
 
 // ---------- P4: forced categorical boundary cases (reclassified float:no — no ULP forcing applicable) ----------
+// Annotated as tuples: without this the array widens to (object|string)[][] and the
+// `...overrides` spread below is a checkJs error (TS2698).
+/** @type {Array<[Record<string, unknown>, string]>} */
 const CATEGORICAL_BOUNDARY_CASES = [
   [{ table: 'qm_points_fees', year: 2021 }, 'earliest pinned year (2021) for qm_points_fees — must resolve, not error'],
   [{ table: 'card_penalty', year: 2026 }, 'latest pinned year (2026) for card_penalty — must resolve, not error'],
