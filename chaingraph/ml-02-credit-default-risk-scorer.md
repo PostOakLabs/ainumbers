@@ -40,13 +40,13 @@ Logistic regression PD scorer on synthetic loan portfolio with Basel 3.1 F-IRB /
 
 ```json
 {
-  "n_loans": 100,
+  "n_loans": 10,
   "asset_class": "retail_mortgage",
-  "target_default_rate": 0.03,
-  "lgd": 0.25,
+  "target_default_rate": 0.05,
+  "lgd": 0.45,
   "maturity_yrs": 2.5,
-  "pd_threshold": 0.1,
-  "seed": 42
+  "pd_threshold": 0.5,
+  "seed": 11
 }
 ```
 
