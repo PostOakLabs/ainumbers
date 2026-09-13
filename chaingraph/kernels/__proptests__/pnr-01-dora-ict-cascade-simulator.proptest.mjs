@@ -1,5 +1,5 @@
 // pnr-01-dora-ict-cascade-simulator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C15-1).
-// kernel_digest_at_authoring: sha256:748f40841c60b16c54741966869e7515cc7259dc78c0efc7c68f6de6068071df
+// kernel_digest_at_authoring: sha256:9d917a01d1bdbc594839dfc77028fc2bbd81a07914a295e215976b7fa3141cb6
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
