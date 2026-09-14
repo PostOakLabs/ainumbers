@@ -449,6 +449,17 @@ const PREFLIGHT_ONLY = new Map([
   // not censused here. Its RED control IS a GATES entry and therefore censused:
   ["check-consumes-edges.test.mjs", SELF_TEST],
 
+  // ── FV-KEYLESS-SIGN-LANE-1 (2026-09-10) ────────────────────────────────────
+  // The keyless signing lane's refusal fixtures. Same shape as every SELF_TEST
+  // above: it exercises fv-sigsum-upgrade-flip.mjs's own binding/stamping logic
+  // against synthetic in-memory bundles, so it can only go red from a change to
+  // that script — a scripts/ PR, exactly what scripts-verify.yml's path filter
+  // catches via the full preflight run. ⚠ It is NOT a substitute for the live
+  // keyless leg (real cosign/gh verify against a real Fulcio cert + Rekor
+  // entry), which needs an OIDC token and therefore cannot run pre-push at all;
+  // that leg is quoted from a live run, never inferred from this fixture.
+  ["fv-keyless-sign-lane.test.mjs", SELF_TEST],
+
   // ── PROPTEST-KILL-ATTRIBUTION-1 (2026-09-06) ────────────────────────────────
   ["gen-property-vacuity-backlog.mjs",
     "Property-vacuity backlog ratchet: regenerates scripts/property-vacuity-backlog.json " +
