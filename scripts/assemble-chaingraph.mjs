@@ -13,7 +13,11 @@
  *
  * Modes:
  *   node scripts/assemble-chaingraph.mjs           # writes chaingraph.json
- *   node scripts/assemble-chaingraph.mjs --check   # verify only, exit 1 on drift
+ *   node scripts/assemble-chaingraph.mjs --check   # verify only; exit 1 on drift,
+ *                                                   # advisory (full failure block
+ *                                                   # + ::warning, exit 0) on a
+ *                                                   # pull_request
+ *                                                   # (CGSHARD-ADVISORY-PR-SPLIT-1)
  *   node scripts/assemble-chaingraph.mjs --enroll  # append any node shard on
  *                                                   # disk missing from
  *                                                   # order.nodes, then write
@@ -239,6 +243,11 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+// CGSHARD-ADVISORY-PR-SPLIT-1: --check's exit is decided through the same
+// ruled advisory-on-PR / hard-on-main disposition every other single-writer
+// freshness gate uses; isMainContext comes from the shared module, exactly as
+// scripts/check-compute-proof-coverage.mjs wires it.
+import { isMainContext } from './derived-artifacts.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
@@ -1048,6 +1057,28 @@ export function classifyDrift(committedText, assembledText) {
   return { verdict: changedIds.length === 0 ? 'HASH-NEUTRAL' : 'HASH-MOVING', changedIds, changes }
 }
 
+// ── disposition (CGSHARD-ADVISORY-PR-SPLIT-1) ────────────────────────────────
+// The ONLY place the --check advisory-on-PR / hard-on-main split lives: given
+// whether drift was found and whether this is a main context, decide the exit
+// code. chaingraph.json is a generated monolith with a single main-side
+// writer, so a branch that edits node or chain shards cannot reassemble it and
+// reads as drift through no fault of its own; main's post-merge regeneration
+// is where the monolith becomes current, and that is where the gate stays
+// hard. Failing closed is inherited from isMainContext().
+//   failed=false                        → { exit: 0, mode: 'clean'    }
+//   failed=true,  mainContext === true  → { exit: 1, mode: 'blocking' }  ⛔ main-side job unchanged
+//   failed=true,  mainContext === false → { exit: 0, mode: 'advisory' }  ✅ PR-side relaxation, printed in full
+// ⚠ FAILS CLOSED, a second time and independently of isMainContext(): the
+// downgrade requires mainContext to be the LITERAL boolean false.
+// undefined/null/'' — a caller that forgot the field, or a probe that threw —
+// blocks. The relaxation has to be affirmatively earned at both layers, never
+// inherited from a missing value. Exported so the self-test drives the
+// shipped contract, never a stand-in.
+export function disposition({ failed, mainContext }) {
+  if (!failed) return { exit: 0, mode: 'clean' }
+  return mainContext === false ? { exit: 0, mode: 'advisory' } : { exit: 1, mode: 'blocking' }
+}
+
 function readShard(dir, id) {
   const text = readFileSync(resolve(dir, `${id}.json`), 'utf8')
   return text.endsWith('\n') ? text.slice(0, -1) : text
@@ -1229,7 +1260,21 @@ if (REFUSAL_STATUS) {
       console.error(`  ASSEMBLY VERDICT: ${result.verdict} — ${detail}`)
     }
     console.error('  Run `node scripts/assemble-chaingraph.mjs` (no --check) to regenerate, then commit chaingraph.json.')
-    process.exit(1)
+    // ── disposition: advisory on a PR, hard on main (CGSHARD-ADVISORY-PR-SPLIT-1) ──
+    // ⛔ NOTHING ABOVE IS SKIPPED OR SILENCED — the full drift block (byte diff,
+    // HASH-NEUTRAL/HASH-MOVING label, ASSEMBLY VERDICT) is already on stderr.
+    // Only the exit code is decided here. The shards are the primary source and
+    // the monolith is assembled by the main-side regeneration job alone, so a
+    // branch that edits shards correctly does NOT reassemble it and reads as
+    // drift for the whole life of the branch. Main reassembles post-merge, and
+    // push-to-main, merge_group with a fresh DERIVED_ROOT assembly, and any
+    // local main/detached checkout all stay HARD below.
+    const { exit: checkExit, mode: checkMode } = disposition({ failed: true, mainContext: isMainContext() })
+    if (checkMode === 'advisory') {
+      console.error('\n::warning title=Advisory: shard-freshness (chaingraph.json assembly)::chaingraph.json is a generated monolith that only the main-branch regeneration job may rewrite, so a branch that edits node or chain shards cannot reassemble it — the drift reported above is expected for the life of this branch. Main reassembles and commits chaingraph.json after merge, and this gate is HARD there. Advisory here, never on main.')
+      process.exit(0)
+    }
+    process.exit(checkExit)
   }
 } else {
   // ASSEMBLE-MAINSIDE-1 / ASSEMBLE-CHAIN-CLASSIFY-1: write mode runs unattended
