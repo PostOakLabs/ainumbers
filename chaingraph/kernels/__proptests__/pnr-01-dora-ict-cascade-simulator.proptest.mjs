@@ -19,13 +19,23 @@
 // repro of the 600 s MUTATION-TIER-HANG-MMS03-PNR01-1 TIMEOUT, EXIT=1) and no
 // wall-clock bound is viable: the 600 s default is gone on the initial dry run
 // plus the per-mutant process floor alone. The proptest may therefore cap its
-// MC trial counts IN MUTATION MODE ONLY, detected on the seam Stryker itself
-// owns: CommandTestRunner.mutantRun() sets env __STRYKER_ACTIVE_MUTANT__ for
-// MUTANT runs only, while the initial dry run gets plain process.env, so the
-// floor is still validated at FULL trials before any mutant runs. OUTSIDE
-// mutation mode nothing changes: full trials (2000 / 2000 / 1200 x2 / 8 + the
-// 7 fixture vectors), the shipped floor. INSIDE a mutant run P1 trials, P2
-// trials and P3 iterations are capped (default 25; override with documented
+// MC trial counts IN MUTATION MODE, detected two ways: (a) the seam Stryker
+// itself owns — CommandTestRunner.mutantRun() sets env __STRYKER_ACTIVE_MUTANT__
+// for MUTANT runs; (b) the tier sandbox cwd — run-mutation-tier.mjs copies this
+// proptest into %TEMP%\ain-mutation-tier-<pid>\ and runs the Stryker INITIAL
+// DRY RUN there too, so __dirname under that root marks dry-run context.
+// MEASURED 2026-09-14 (push attempt 1, push-logs/pnr01-push-2026-09-14T151xZ):
+// the first design left the dry run at FULL trials ("floor validated at FULL
+// trials before any mutant runs"), but Stryker's own dryRunTimeout (default
+// 300 s) killed the ~293 s full-trial dry run at exactly 5m01s — "Initial test
+// run timed out" — before any mutant ran, a HARD FAIL (SO #34c: no report).
+// The runner is out of this row's fence, so the dry run runs CAPPED too; the
+// floor is still validated at FULL trials by the standalone repo-checkout run
+// (full-trial proptest exit 0 quoted on the row's PR — run OUTSIDE the tier,
+// where neither detection fires). OUTSIDE mutation mode nothing changes: full
+// trials (2000 / 2000 / 1200 x2 / 8 + the 7 fixture vectors), the shipped
+// floor. INSIDE the tier (dry run or mutant run) P1 trials, P2 trials and P3
+// iterations are capped (default 25; override with documented
 // env PROPFLOOR_TRIAL_CAP, a positive integer, invalid values throw). The
 // fixture oracle and P4 ULP-boundary forcing are NEVER capped (mandatory,
 // float_sensitive: YES). Every property is deterministic (seeded mulberry32;
@@ -84,7 +94,9 @@ function randomPP(rng) {
 }
 
 // ---------- mutation-mode trial cap (PNR01-MUTATION-MC-COST-1; see header) ----------
-const MUTATION_MODE = process.env.__STRYKER_ACTIVE_MUTANT__ !== undefined;
+const MUTATION_MODE =
+  process.env.__STRYKER_ACTIVE_MUTANT__ !== undefined ||
+  __dirname.replace(/\\/g, '/').includes('/ain-mutation-tier-');
 let mutationTrials = 25; // default per-mutant cap; full trials remain the default outside the tier
 if (process.env.PROPFLOOR_TRIAL_CAP !== undefined) {
   const cap = Number(process.env.PROPFLOOR_TRIAL_CAP);
