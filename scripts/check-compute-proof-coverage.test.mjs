@@ -305,7 +305,9 @@ test('MERGE_GROUP GREEN — the same fixture with the baseline bump is clean, ex
 // END-TO-END under DERIVED_ROOT: poison a scratch tree with ONE fabricated
 // deferral of a really-proven node, then run the real gate CLI against it.
 //   merge_group + poisoned DERIVED_ROOT  -> 1 (HARD RED — the whole row's point)
-//   merge_group + DERIVED_ROOT = repo    -> 0 (GREEN — the fresh overlay reads clean)
+//   merge_group + DERIVED_ROOT = repo    -> the shipped gate's own disposition() for the
+//                                           committed tree (0 when that tree is fresh, 1 when
+//                                           it is stale-vs-baseline — derived, never assumed)
 //   merge_group, no DERIVED_ROOT         -> 0 (poisoned scratch is invisible — overlay scoping)
 //   pull_request + poisoned DERIVED_ROOT -> 0 (advisory stays advisory in every case)
 function runGateEnv(eventName, extra = {}) {
@@ -335,7 +337,31 @@ test('MERGE_GROUP END-TO-END — the real gate is HARD on a poisoned ephemeral t
     mkdirSync(join(scratch, 'chaingraph'), { recursive: true });
     writeFileSync(join(scratch, 'chaingraph', 'chaingraph.json'), JSON.stringify(poisoned));
     assert(runGateEnv('merge_group', { DERIVED_ROOT: scratch }) === 1, 'merge_group + poisoned DERIVED_ROOT must exit 1 (HARD RED)');
-    assert(runGateEnv('merge_group', { DERIVED_ROOT: resolve(HERE, '..') }) === 0, 'merge_group + the fresh overlay (the repo itself) must exit 0 (GREEN)');
+    // COVERAGE-SPLIT-CI-WIRE-1: this leg used to hard-assert exit 0 for the repo overlay, which silently
+    // assumed the committed tree is fresh (monolith + baseline agree). On the exact branch shape the
+    // §18 split exists for — a shard-only prove PR whose committed monolith is deliberately STALE
+    // against its correctly lowered baseline (chaingraph.json is a single-writer-on-main generated
+    // monolith the branch must not reassemble) — that overlay IS a failing state, the shipped gate is
+    // HARD there (merge_group + DERIVED_ROOT is a MAIN context), and the hardcoded 0 re-created inside
+    // this self-test the very PR-side red the split removed. Measured live 2026-09-14: Land Verify run
+    // 34878934618 and Scripts Verify run 34878934669 both red here ("21 passed, 1 failed") on the
+    // prove-PR shape. The expectation is now derived the same way the shipped gate decides its own
+    // exit: the gate's full failed predicate (missing proofs, fixture gaps, provenance regressions,
+    // ratchet breach) over the overlay tree + the pinned baseline, through disposition() in the
+    // context isMainContext() actually reports for this invocation. Green on a genuinely fresh tree,
+    // blocking on a genuinely stale one — asserted, never assumed.
+    const overlayRoot = resolve(HERE, '..');
+    const overlayCtx = withEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'merge_group', DERIVED_ROOT: overlayRoot }, () => isMainContext());
+    const overlayCov = evaluateCoverage(committed);
+    const overlayBaseline = JSON.parse(readFileSync(resolve(HERE, 'compute-proof-baseline.json'), 'utf8'));
+    const overlayFailed =
+      overlayCov.missing.length > 0 ||
+      overlayCov.fixtureGaps.length > 0 ||
+      findRegressions(overlayCov.deferred, overlayBaseline).regressions.length > 0 ||
+      ratchetBreach(overlayCov.deferred, overlayBaseline).over;
+    const expectedOverlayExit = disposition({ failed: overlayFailed, mainContext: overlayCtx }).exit;
+    assert(runGateEnv('merge_group', { DERIVED_ROOT: overlayRoot }) === expectedOverlayExit,
+      `merge_group + the repo overlay must exit ${expectedOverlayExit} (the shipped gate's own disposition for this tree)`);
     assert(runGateEnv('merge_group') === 0, 'merge_group WITHOUT DERIVED_ROOT must not see the poisoned scratch at all');
     assert(runGateEnv('pull_request', { DERIVED_ROOT: scratch }) === 0, 'pull_request stays advisory even on the poisoned tree');
   } finally {
