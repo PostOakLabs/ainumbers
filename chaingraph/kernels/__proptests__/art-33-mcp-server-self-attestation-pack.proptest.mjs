@@ -1,5 +1,5 @@
 // art-33-mcp-server-self-attestation-pack.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C12-1).
-// kernel_digest_at_authoring: sha256:0fa24d32f68661ef9900f03ddab76d94fc674c6cf4327d809bd7bd5d2451c316
+// kernel_digest_at_authoring: sha256:f5e88b40ff67283153a60a064c7226387fe7da982ac9d1cb6d8224e6e2c4f07f
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
