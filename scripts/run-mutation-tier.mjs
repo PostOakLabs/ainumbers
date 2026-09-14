@@ -82,9 +82,15 @@
  *
  * Per-kernel wall-clock bound (MUTATION-TIER-HANG-MMS03-PNR01-1):
  *     Every kernel's Stryker run(s) share one deadline, default 600 s (10 min)
- *     per kernel, overridable via `MUTATION_TIER_KERNEL_TIMEOUT_S=<positive
- *     integer seconds>` (invalid values fail the run loudly, never silently
- *     unbounded). On expiry the Stryker process TREE is killed (Windows:
+ *     per kernel. MUTATION-TIER-CONFIG-BOUND-1 made the bound config-declared
+ *     (SO #41 — thresholds live in config): per kernel it resolves as
+ *     env `MUTATION_TIER_KERNEL_TIMEOUT_S=<positive integer seconds>` (global
+ *     override, invalid values fail the run loudly, never silently unbounded)
+ *     > `mutation-tiers.config.json` `kernelTimeoutSeconds[<kernel id>]` (a
+ *     positive integer; anything else fails loudly naming the kernel and the
+ *     bad value; first entry: pnr-01 = 9000 s per the PNR01 row's stated
+ *     bound) > the 600 s default (unchanged for every kernel config does not
+ *     name). On expiry the Stryker process TREE is killed (Windows:
  *     `taskkill /PID <npx> /T /F`; POSIX: SIGKILL the detached process group)
  *     and the kernel is a HARD FAIL printing
  *       `MUTATION-TIER TIMEOUT <kernel> after <s>s — treat as FAIL, see
@@ -168,6 +174,34 @@ export function kernelTimeoutSecondsFromEnv(env = process.env) {
     throw new Error(`MUTATION_TIER_KERNEL_TIMEOUT_S must be a positive integer number of seconds, got "${raw}"`);
   }
   return n;
+}
+
+// MUTATION-TIER-CONFIG-BOUND-1: the bound is now CONFIG-DECLARED per kernel
+// (SO #41 — thresholds live in mutation-tiers.config.json's
+// `kernelTimeoutSeconds` section) and resolved, per kernel, as:
+//   1. env MUTATION_TIER_KERNEL_TIMEOUT_S — global override, semantics
+//      unchanged (kernelTimeoutSecondsFromEnv verbatim: positive integer or
+//      LOUD failure);
+//   2. config kernelTimeoutSeconds[id] — must be a positive integer number of
+//      seconds; anything else fails LOUDLY naming the kernel, the config
+//      section and the bad value, never a silent fallback to the default;
+//   3. DEFAULT_KERNEL_TIMEOUT_S (600 s) — unchanged for every kernel config
+//      does not name (mms-03 and others keep the default until their own rows
+//      state otherwise).
+// The env path delegates to kernelTimeoutSecondsFromEnv so the override's
+// parse/accept/reject semantics cannot drift between the two entry points.
+export function kernelTimeoutSecondsForKernel(id, env = process.env, config = null) {
+  const raw = env.MUTATION_TIER_KERNEL_TIMEOUT_S;
+  if (raw !== undefined && raw !== '') return kernelTimeoutSecondsFromEnv(env);
+  const bounds = (config && config.kernelTimeoutSeconds) || {};
+  if (Object.prototype.hasOwnProperty.call(bounds, id)) {
+    const v = bounds[id];
+    if (!Number.isInteger(v) || v <= 0) {
+      throw new Error(`mutation-tiers.config.json kernelTimeoutSeconds["${id}"] must be a positive integer number of seconds, got ${JSON.stringify(v)}`);
+    }
+    return v;
+  }
+  return DEFAULT_KERNEL_TIMEOUT_S;
 }
 
 export function timeoutMessage(id, elapsedS) {
@@ -665,6 +699,17 @@ export async function runTier(argv, repoRoot = REPO) {
     process.exit(0);
   }
 
+  // MUTATION-TIER-CONFIG-BOUND-1: validate every examined kernel's bound
+  // up-front (env > config > default) — an invalid config value fails the run
+  // LOUDLY here, naming the kernel and the bad value, BEFORE any Stryker work
+  // (same loud-failure shape as the env check above).
+  try {
+    for (const id of toRun) kernelTimeoutSecondsForKernel(id, process.env, config);
+  } catch (e) {
+    console.error(`run-mutation-tier: ${e.message}`);
+    process.exit(1);
+  }
+
   // SO #55: session-private scratch — a fixed shared root rmSync EPERM'd against an
   // orphaned peer-session run (ASSEMBLE-LAND-WITHHELD-0829-1 BLOCKED diagnosis).
   const scratchRoot = path.join(os.tmpdir(), `ain-mutation-tier-${process.pid}`);
@@ -672,7 +717,7 @@ export async function runTier(argv, repoRoot = REPO) {
   mkdirSync(scratchRoot, { recursive: true });
 
   console.log(`run-mutation-tier: running ${toRun.length} kernel(s) (${skipped.length} named exception(s) skipped), scratch=${scratchRoot}`);
-  console.log(`run-mutation-tier: per-kernel wall-clock bound: ${opts.kernelTimeoutS}s (default ${DEFAULT_KERNEL_TIMEOUT_S}s, env MUTATION_TIER_KERNEL_TIMEOUT_S; on expiry the stryker tree is killed and the kernel is a HARD FAIL — MUTATION-TIER-HANG-MMS03-PNR01-1)`);
+  console.log(`run-mutation-tier: per-kernel wall-clock bound resolution: env MUTATION_TIER_KERNEL_TIMEOUT_S > config kernelTimeoutSeconds > default ${DEFAULT_KERNEL_TIMEOUT_S}s (on expiry the stryker tree is killed and the kernel is a HARD FAIL — MUTATION-TIER-HANG-MMS03-PNR01-1)`);
 
   const results = [];
   let hardFailCount = 0;
@@ -680,7 +725,11 @@ export async function runTier(argv, repoRoot = REPO) {
   let decomposedNullCount = 0;
   for (const id of toRun) {
     console.log(`\n=== ${id} ===`);
-    const r = await runOneKernel(id, scratchRoot, opts, config.strykerVersion, repoRoot);
+    // MUTATION-TIER-CONFIG-BOUND-1: resolve THIS kernel's bound (already
+    // validated up-front) and run it under that budget, not a process-wide one.
+    const kernelOpts = { ...opts, kernelTimeoutS: kernelTimeoutSecondsForKernel(id, process.env, config) };
+    console.log(`  per-kernel wall-clock bound: ${kernelOpts.kernelTimeoutS}s`);
+    const r = await runOneKernel(id, scratchRoot, kernelOpts, config.strykerVersion, repoRoot);
     results.push(r);
     if (r.hardFail) {
       hardFailCount++;
