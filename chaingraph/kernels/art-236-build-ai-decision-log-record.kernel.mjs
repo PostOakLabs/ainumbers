@@ -59,7 +59,8 @@ export const meta = {
 // Regulatory basis:
 //   EU AI Act (Reg. 2024/1689) Art 12(2), Art 26(6), Annex III 5(b)/(5)(c)
 //   RFC 8785 (JSON Canonicalisation Scheme) — JCS is the hash-chaining primitive
-//   Retention: Art 12(2) >= 6 months from operation; national supervisors may extend
+//   Retention: >= 6 months from operation (provider + deployer logging-retention
+//   duties in the Regulation); applicable Union or national law may extend
 //   table_version: "EU-AIA-ART12-2024-1689-R1"
 
 function safeStr(v) { return typeof v === 'string' ? v.trim() : ''; }
@@ -150,10 +151,41 @@ export function compute(pp) {
   }
 
   // ── Art 12(2) completeness check ──────────────────────────────────────────
-  // Required fields: model identifier, timestamp (caller provides via generated_at),
-  // input summary (digest), output, override flag, subject ref, retention
-  const art12_required = { model_id, input_digest, output_digest, decision_label };
-  const missing_fields = Object.entries(art12_required)
+  // REQUIRED-FIELD AUTHORITY (CCPP-FIX-ART236-1, 2026-09-10). The pinned
+  // primary-text snapshot for this node's logging duties (workspace
+  // research/clause-snapshots/, retrieved 2026-09-02, sha256 94d47a00) pins
+  // occurrence-time recording and three traceability goals — risk situations,
+  // substantial modification, post-market monitoring of each operation — but NO
+  // named-field minimum for this node's Annex III 5(b)/(5(c) scope: the
+  // four-element field list in the primary text is expressly scoped to remote
+  // biometric identification systems (Annex III point 1(a)), outside this
+  // node's basis. The named-field set is therefore the ESTATE-DECLARED
+  // implementation of those goals, published as data by the sibling
+  // classifier's logging-obligation row (art-238) and asserted cross-kernel by
+  // chaingraph/kernels/__consistency__/euaia-art12-logging.consistency.mjs:
+  //   model identifier, model version, input digest, output digest, decision
+  //   label, override flag (declared boolean), structural subject reference
+  //   (synthetic/opaque case IDs only), event timestamp, retention >= 6 months.
+  // Timestamp is structural, not a caller field: carried by generated_at in
+  // buildArtifact (recorded at the time the event occurs). Retention is
+  // enforced by the clamp below (six-month floor), never missing, so it is
+  // not a caller-required field.
+  // model_version is tested against the CALLER's value: the '0.0.0' fallback above
+  // must not mask an omission the way it did before CCPP-FIX-ART236-1. model_id is
+  // absent from the list only because the EMPTY_INPUT guard above already refuses
+  // any record without one. override_flag is a boolean: "required" means DECLARED
+  // by the caller, not truthy — a record must state its override status even when
+  // that status is false, or the risk-situation trail has a hole the falsy
+  // filter cannot see.
+  const art12_required = [
+    ['model_version', pp.model_version],
+    ['input_digest', input_digest],
+    ['output_digest', output_digest],
+    ['decision_label', decision_label],
+    ['subject_ref', subject_ref],
+    ['override_flag', pp.override_flag === undefined ? '' : 'declared'],
+  ];
+  const missing_fields = art12_required
     .filter(([, v]) => !v)
     .map(([k]) => k);
   const art12_fields_present = missing_fields.length === 0;
