@@ -24,7 +24,7 @@
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, cpSync, rmSync, readFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, runProcessBounded } from './run-mutation-tier.mjs';
+import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, runProcessBounded } from './run-mutation-tier.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -291,6 +291,57 @@ await asyncTest('R10 runProcessBounded kills a sleep-forever child within its bu
   try { process.kill(sleeperPid, 0); } catch { alive = false; }
   assert(!alive, `the sleeping child (pid ${sleeperPid}) must be dead after the bounded run — a residual process was left behind`);
   try { unlinkSync(pidFile); } catch { /* already removed via cleanup */ }
+});
+
+// ── per-kernel bound resolution (MUTATION-TIER-CONFIG-BOUND-1) ───────────
+// The bound is now CONFIG-DECLARED (SO #41) and resolved PER KERNEL as:
+// env MUTATION_TIER_KERNEL_TIMEOUT_S (global override, unchanged semantics) >
+// mutation-tiers.config.json kernelTimeoutSeconds[id] (positive integer or
+// LOUD failure) > default 600 s (unchanged). R9 above still pins the env-only
+// function's own contract; the legs below pin the three-level resolution.
+
+console.log('\nrun-mutation-tier controls — per-kernel bound resolution (MUTATION-TIER-CONFIG-BOUND-1)');
+
+const PNR01 = 'pnr-01-dora-ict-cascade-simulator';
+
+test('R11 config per-kernel bound applies per kernel (config 9000, env unset -> 9000, NOT the 600 default)', () => {
+  const config = { kernelTimeoutSeconds: { [PNR01]: 9000, 'mms-03-standin-for-leg': 4321 } };
+  assert(kernelTimeoutSecondsForKernel(PNR01, {}, config) === 9000,
+    'config kernelTimeoutSeconds["' + PNR01 + '"]=9000 with env unset must resolve 9000 — if this returns 600, the config section is being ignored');
+  assert(kernelTimeoutSecondsForKernel('mms-03-standin-for-leg', {}, config) === 4321,
+    'a second kernel named in the same config must resolve ITS OWN value — the bound travels with the kernel');
+});
+
+test('R12 env still overrides config (env 300 beats config 9000; invalid env still fails loudly even with a config value present)', () => {
+  const config = { kernelTimeoutSeconds: { [PNR01]: 9000 } };
+  assert(kernelTimeoutSecondsForKernel(PNR01, { MUTATION_TIER_KERNEL_TIMEOUT_S: '300' }, config) === 300,
+    'the env override must still beat the config value (env > config > default)');
+  assert(kernelTimeoutSecondsForKernel(PNR01, { MUTATION_TIER_KERNEL_TIMEOUT_S: '300' }, null) === 300,
+    'the env override must work with no config object at all');
+  let threw = null;
+  try { kernelTimeoutSecondsForKernel(PNR01, { MUTATION_TIER_KERNEL_TIMEOUT_S: 'abc' }, config); } catch (e) { threw = e; }
+  assert(threw && /MUTATION_TIER_KERNEL_TIMEOUT_S/.test(threw.message),
+    'an invalid env value must still fail LOUDLY even when a config value exists (env semantics preserved)');
+});
+
+test('R13 invalid config value fails LOUDLY naming the kernel and the bad value (never a silent fallback to the default)', () => {
+  for (const bad of [0, -5, 3.5, '9000', null]) {
+    let threw = null;
+    try { kernelTimeoutSecondsForKernel(PNR01, {}, { kernelTimeoutSeconds: { [PNR01]: bad } }); } catch (e) { threw = e; }
+    assert(threw, `config value ${JSON.stringify(bad)} must be rejected, never silently defaulted`);
+    assert(threw.message.includes(PNR01), `the rejection must name the kernel: ${threw.message}`);
+    assert(threw.message.includes(JSON.stringify(bad)), `the rejection must name the bad value: ${threw.message}`);
+    assert(/kernelTimeoutSeconds/.test(threw.message), `the rejection must name the config section: ${threw.message}`);
+  }
+});
+
+test('R14 default 600 untouched when neither env nor a config entry names the kernel', () => {
+  assert(kernelTimeoutSecondsForKernel('kernel-not-in-config', {}, { kernelTimeoutSeconds: { [PNR01]: 9000 } }) === 600,
+    'a kernel NOT named in config must keep the 600 default (mms-03 and others keep the default until their own rows state otherwise)');
+  assert(kernelTimeoutSecondsForKernel('kernel-not-in-config', {}, {}) === 600,
+    'a config with no kernelTimeoutSeconds section at all must keep the 600 default');
+  assert(kernelTimeoutSecondsForKernel('kernel-not-in-config', {}, null) === 600,
+    'no config object at all must keep the 600 default');
 });
 
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);
