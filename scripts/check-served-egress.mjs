@@ -466,7 +466,17 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
               continue;
             }
             if (!res.ok) {
-              reds.push(`${url}: HTTP ${res.status} (cf-cache-status=${res.cacheStatus}) — listed in deploy-checksums.txt but not served`);
+              // MAIN-REGEN-SERVED-EGRESS-FIXPOINT-1 (2026-09-14): a listed file the server
+              // rightly refuses (deployed-but-never-served class, e.g. .htaccess under the
+              // .ht* 403 policy) consults the checksum allowlist like a mismatch does —
+              // the refusal is expected behaviour, not drift. Fail-closed elsewhere:
+              // pages and the manifest itself still RED on any !ok status.
+              const al = allowlistHit(allowlist, "checksum", entry.path);
+              if (al) {
+                notes.push(`${entry.path}: HTTP ${res.status} not-served ALLOWLISTED (${al.reason}) [cf-cache-status=${res.cacheStatus}]`);
+              } else {
+                reds.push(`${url}: HTTP ${res.status} (cf-cache-status=${res.cacheStatus}) — listed in deploy-checksums.txt but not served`);
+              }
               continue;
             }
             let refetchedBytes = null;
