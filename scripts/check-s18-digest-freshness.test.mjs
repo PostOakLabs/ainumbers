@@ -756,8 +756,16 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
    // imageId universal risc0 guest; kernel bytes frozen 2026-08-14, prove-once-then-freeze).
    // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
    // Measured, not assumed: 524/642 fresh + 118 stale on this branch; the failing assert printed got 642 before this edit.
-   assert(total === 642, `expected 642 in-scope gpu:false proven nodes, got ${total}`);
-   assert(fresh.length === 524, `expected 524 fresh (calibration set), got ${fresh.length}`);
+   // 642 -> 643 post-DEFERRED-FAST-PROVE-BATCH-2 node art-670 (2026-09-14, PR #1897, merge 7755853d 23:23:27Z, FAST class):
+   // art-670-examination-readiness-pack flips compute_proof_ready deferred -> ready with a fresh
+   // groth16 receipt binding current kernel bytes (prove KROOT repo/.wt/DEFERRED-FAST-PROVE-BATCH-2,
+   // preflight max user_cycles 6,298,605, imageId universal risc0 guest; guest entry fea36e93 hash-neutral).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured, not assumed: the production gate on CI run 34908717266 (ed6f0337) printed 118 of 643
+   // gpu:false proven nodes stale at 23:25:13Z (ratchet leg green); this self-test leg's failing assert
+   // printed "expected 642 in-scope gpu:false proven nodes, got 643" before this edit (525/643 fresh + 118 stale after).
+   assert(total === 643, `expected 643 in-scope gpu:false proven nodes, got ${total}`);
+   assert(fresh.length === 525, `expected 525 fresh (calibration set), got ${fresh.length}`);
    assert(stale.length === 118, `expected 118 stale (see 2026-09-01 note above), got ${stale.length}`);
  });
 
