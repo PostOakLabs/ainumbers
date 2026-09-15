@@ -203,9 +203,16 @@ function cardHtml(entry, toolPages) {
     ? `<div class="card-requires">Requires: ${(entry.requires ?? []).map((r) => `<abbr class="req" title="${esc(REQUIRES_LEGEND[r] ?? r)}">${esc(r)}</abbr>`).join(' ')}</div>`
     : '';
 
-  const run = single
-    ? `<a class="run-link" href="${esc(deeplink(entry, single))}">Run it on the node page &#8594;</a>`
+  // PROMPTS-RUNLINKS-1: a non-empty runner_steps array earns a "Watch it run"
+  // doorway into the playground runner panel (mcp-playground.html#run=<id>),
+  // rendered in this slot beside — never replacing — the #p=v1 deep link.
+  // Entries without runner_steps render exactly as before (byte-identical cards).
+  const watch = Array.isArray(entry.runner_steps) && entry.runner_steps.length
+    ? `<a class="run-link" href="mcp-playground.html#run=${esc(entry.id)}">Watch it run</a>`
     : '';
+  const run = single
+    ? `<a class="run-link" href="${esc(deeplink(entry, single))}">Run it on the node page &#8594;</a>${watch ? `\n    ${watch}` : ''}`
+    : watch;
 
   const verify = (Array.isArray(entry.verify_surface) ? entry.verify_surface : [entry.verify_surface].filter(Boolean))
     .map((u) => `<a class="verify-link" href="${esc(u)}">${esc(u)}</a>`)
