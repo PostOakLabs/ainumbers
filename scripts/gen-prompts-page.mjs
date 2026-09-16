@@ -203,9 +203,16 @@ function cardHtml(entry, toolPages) {
     ? `<div class="card-requires">Requires: ${(entry.requires ?? []).map((r) => `<abbr class="req" title="${esc(REQUIRES_LEGEND[r] ?? r)}">${esc(r)}</abbr>`).join(' ')}</div>`
     : '';
 
-  const run = single
-    ? `<a class="run-link" href="${esc(deeplink(entry, single))}">Run it on the node page &#8594;</a>`
+  // PROMPTS-RUNLINKS-1: a non-empty runner_steps array earns a "Watch it run"
+  // doorway into the playground runner panel (mcp-playground.html#run=<id>),
+  // rendered in this slot beside — never replacing — the #p=v1 deep link.
+  // Entries without runner_steps render exactly as before (byte-identical cards).
+  const watch = Array.isArray(entry.runner_steps) && entry.runner_steps.length
+    ? `<a class="run-link" href="mcp-playground.html#run=${esc(entry.id)}">Watch it run</a>`
     : '';
+  const run = single
+    ? `<a class="run-link" href="${esc(deeplink(entry, single))}">Run it on the node page &#8594;</a>${watch ? `\n    ${watch}` : ''}`
+    : watch;
 
   const verify = (Array.isArray(entry.verify_surface) ? entry.verify_surface : [entry.verify_surface].filter(Boolean))
     .map((u) => `<a class="verify-link" href="${esc(u)}">${esc(u)}</a>`)
@@ -235,15 +242,18 @@ function renderPage(prompts, chains, toolPages) {
   const n = prompts.length;
 
   const section = (title, entries) => `<section class="pl-section" aria-label="${esc(title)}">
+  <div class="container">
   <div class="sec-label">Prompt library</div>
   <h2 class="sec-heading">${esc(title)} <span class="sec-count">${entries.length}</span></h2>
   <div class="pl-grid">
 ${entries.map((e) => cardHtml(e, toolPages)).join('\n')}
   </div>
+  </div>
 </section>`;
 
   const domainEntries = SECTION_ORDER.slice(3).filter((g) => byGroup.has(g));
   const domainsSection = domainEntries.length ? `<section class="pl-section" aria-label="By domain">
+  <div class="container">
   <div class="sec-label">Prompt library</div>
   <h2 class="sec-heading">By domain <span class="sec-count">${domainEntries.reduce((a, g) => a + byGroup.get(g).length, 0)}</span></h2>
 ${domainEntries.map((g) => `  <div class="domain-group">
@@ -252,6 +262,7 @@ ${domainEntries.map((g) => `  <div class="domain-group">
 ${byGroup.get(g).map((e) => cardHtml(e, toolPages)).join('\n')}
     </div>
   </div>`).join('\n')}
+  </div>
 </section>` : '';
 
   const extraSection = extra.length
@@ -268,6 +279,7 @@ ${byGroup.get(g).map((e) => cardHtml(e, toolPages)).join('\n')}
     chainGrouped.get(k).push(c);
   }
   const chainsHtml = chains.length ? `<section class="pl-section" aria-label="Every chain">
+  <div class="container">
   <div class="sec-label">Prompt library</div>
   <h2 class="sec-heading">Every chain <span class="sec-count">${chains.length}</span></h2>
   <p class="chains-note">One line per workflow recipe in the suite catalog, generated from the mcp.html workflows table. Ask the hosted worker for any of these by name via <code>build_workflow_links</code>, or open the chain page.</p>
@@ -277,6 +289,7 @@ ${[...chainGrouped.entries()].map(([g, list]) => `  <div class="domain-group">
 ${list.map((c) => `      <li><code class="chain-id">${esc(c.id)}</code> <span class="chain-desc">${esc(c.desc)}</span>${c.href ? ` <a class="chain-open" href="${esc(c.href)}">Open &#8594;</a>` : ''}</li>`).join('\n')}
     </ul>
   </div>`).join('\n')}
+  </div>
 </section>` : '';
 
   return `<!DOCTYPE html>
@@ -358,8 +371,7 @@ nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:
 .sec-count{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--teal-lt);vertical-align:middle;border:1px solid var(--border-2);border-radius:100px;padding:.05rem .5rem;background:var(--teal-dim)}
 .domain-group{margin-bottom:2rem}
 .domain-title{font-size:1.05rem;color:var(--bright);margin-bottom:.9rem}
-.pl-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.9rem}
-@media(max-width:820px){.pl-grid{grid-template-columns:1fr}}
+.pl-grid{display:grid;grid-template-columns:1fr;gap:.9rem}
 .prompt-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.2rem;display:flex;flex-direction:column;gap:.55rem;scroll-margin-top:70px}
 .prompt-card:hover{border-color:rgba(20,184,166,.35)}
 .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem}
