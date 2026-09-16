@@ -10,6 +10,28 @@ name: Scripts Verify
 # scripts/ — a PR that breaks/weakens a gate is the one diff shape with no
 # CI. This workflow runs the full preflight gate suite on any scripts/ change.
 # Additive only: does not replace or weaken any existing gate.
+#
+# TIER-LEG SHARDING (landed 2026-09-16 after the PR #1908 ceiling failure):
+# the Mutation tier floor gate inside preflight's suite is PR-incremental — it
+# scores exactly the kernels this diff
+# touches — so its runtime grows without bound with PR size. Measured on the
+# kernel-estate PR #1908: the tier leg ran 24,030 s (400.5 min) against the
+# 360-min hosted-runner ceiling this job carries no timeout for, and was
+# cancelled at exactly 360 m 21 s — the required context `scripts-verify /
+# required` was unpassable by arithmetic. The durable fix ports the
+# mutation-full-scheduled.yml `mutation-shard` treatment (timeout-minutes: 330
+# + strategy.fail-fast: false + per-shard verdict): the
+# main "Full preflight gate suite" job now runs preflight with
+# PREFLIGHT_TIER_LEG=skip (every OTHER gate, exactly once) and the new
+# scripts-verify-tier-shard matrix job below runs preflight with
+# PREFLIGHT_TIER_LEG=only PREFLIGHT_TIER_SHARD=i/6 (ONLY the tier gate, on that
+# shard's round-robin slice of the same touched-kernel set). UNION COVERAGE
+# INVARIANT: every gate runs exactly once across the jobs, and the shard set
+# covers exactly the kernels the unsharded leg covered — preflight's scoping
+# (the PREFLIGHT_TIER_LEG block in scripts/preflight.mjs) computes the SAME
+# TOUCHED_KERNEL_IDS in both places and slices it deterministically. The
+# reporter job's aggregate fails iff the main suite OR any tier shard
+# fails/cancels.
 
 on:
   push:
@@ -261,6 +283,16 @@ jobs:
 
       - name: Preflight (full gate suite)
         env:
+          # TIER-LEG SHARDING: this job runs EVERY gate EXCEPT the
+          # mutation-tier leg (PREFLIGHT_TIER_LEG=skip swaps that one GATES
+          # entry for its no-op notRun shape inside preflight; nothing else is
+          # scoped, softened or reordered). The leg itself runs in the
+          # scripts-verify-tier-shard matrix job below (PREFLIGHT_TIER_LEG=only,
+          # one round-robin slice of the same touched-kernel set per shard), and
+          # the reporter's aggregate fails iff this job OR any shard does.
+          # Union across the jobs = the single-job suite as it stood at base
+          # cc86ccbd (2026-09-16), byte for byte.
+          PREFLIGHT_TIER_LEG: skip
           # check-id-collision.mjs leg (c) scans other OPEN PRs for a claimed art-id
           # (the collision class no in-tree gate can see: two open PRs never share a
           # tree, so file-level uniqueness gates cannot catch them). gh reads the job's
@@ -335,13 +367,106 @@ jobs:
         # SKIPPED-NO-SNAPSHOT, never a pass).
         run: node scripts/check-citation-drift.mjs
 
+  scripts-verify-tier-shard:
+    # TIER-LEG SHARDING (landed 2026-09-16 after the PR #1908 ceiling failure): the PR-incremental
+    # mutation-tier leg, sharded. Mirrors mutation-full-scheduled.yml's
+    # `mutation-shard` job: same timeout discipline, same fail-fast: false, same
+    # per-shard verdict shape. Each shard runs preflight with
+    # PREFLIGHT_TIER_LEG=only PREFLIGHT_TIER_SHARD=<i>/6 — ONLY the Mutation tier
+    # floor gate, on that shard's deterministic round-robin slice (idx % 6 == i)
+    # of the SAME touched-kernel set the unsharded leg used to score — so across
+    # the six shards the leg covers exactly the kernels it covered before, each
+    # exactly once, and no other gate runs here at all (the main job above runs
+    # every other gate exactly once). No `continue-on-error` anywhere in this
+    # job on purpose: unlike the nightly scan (whose floor breaches are advisory
+    # under its ratchet), the tier gate's exit code IS the blocking verdict, so
+    # a red shard must red this job and, through the reporter below, the
+    # required context. An empty slice (a diff touching fewer kernels than
+    # shards, e.g. every scripts-only PR) is that gate's pre-existing
+    # zero-touched shape: a notRun no-op pass, same as the unsharded gate.
+    name: Mutation tier leg — shard ${{ matrix.shard }}/6
+    needs: relevant
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.relevant.outputs.hit == 'true'
+    timeout-minutes: 330   # below the 360-min hosted-runner ceiling on purpose: an overrunning shard dies as a VISIBLE timeout on its own job, never as an unexplained 6h cancellation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      # 6 shards: #1908's measured 400.5-min unsharded leg / 6 ≈ 67 min at even
+      # kernel weight (round-robin balances same-module neighbours across
+      # shards), inside the 330-min ceiling with ~4.9x headroom. The count is
+      # duplicated in the step env's "/6" below — keep the two in sync.
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          # fetch-depth 0, same requirement as the main job: the tier gate's
+          # touched-kernel set is a merge-base(origin/main, HEAD) consumer —
+          # depth 1 leaves origin/main unresolvable and the set silently
+          # degrades to empty (a false green).
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: Assert base ref resolvable
+        # The main job's tripwire, verbatim in shape: the ONLY gate this job
+        # runs is a base-ref-consuming gate (its touched-kernel set), so an
+        # unresolvable base must be a 3-second red naming the cause, never a
+        # silently-empty touched set reading green.
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="origin/${GITHUB_BASE_REF:-main}"
+          if ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+            echo "::error::base ref $BASE does not resolve in this checkout. The tier gate's touched-kernel set would silently degrade to empty (a false green). Set fetch-depth: 0 on this job's actions/checkout step."
+            exit 1
+          fi
+          echo "base-ref: RESOLVED $BASE @ $(git rev-parse --short=12 "$BASE")"
+
+      - name: Mutation tier floor — shard ${{ matrix.shard }}/6 (the only gate this job runs)
+        id: scan
+        env:
+          PREFLIGHT_TIER_LEG: only
+          # Keep "/6" in sync with the matrix above.
+          PREFLIGHT_TIER_SHARD: ${{ matrix.shard }}/6
+        run: node scripts/preflight.mjs
+
+      - name: Record shard verdict
+        id: verdict
+        if: always()
+        env:
+          SHARD: ${{ matrix.shard }}
+          STATUS_OUT: ${{ steps.scan.outcome }}
+        run: |
+          echo "tier shard $SHARD/6 verdict: ${STATUS_OUT:-<none — job killed before completion>}"
+          if [ "$STATUS_OUT" = "failure" ]; then
+            echo "::error title=tier shard $SHARD/6::Mutation tier floor RED on this shard — see the scan step log above. The scripts-verify / required aggregate will fail with it."
+          fi
+
   scripts-verify-required:
     name: scripts-verify / required
     # Always-report shape: the check named in the branch ruleset. ALWAYS
     # dispatches and ALWAYS reports (if: always()), so it can never leave a PR
     # hanging on a check that never ran. Fails iff the substantive job actually
     # ran and failed/was cancelled; a skip (irrelevant PR, or draft) is a pass.
-    needs: [relevant, scripts-verify]
+    #
+    # TIER-LEG SHARDING aggregate semantics: "fails iff the substantive
+    # job" is now the PAIR {main suite, tier-shard matrix} — the reporter fails
+    # iff scripts-verify OR scripts-verify-tier-shard (either matrix leg) is
+    # failure/cancelled, and reports green otherwise (both skipped = irrelevant
+    # PR/draft, exactly the base cc86ccbd skip-is-a-pass shape, byte for byte).
+    # A matrix job's
+    # needs.*.result is `failure` if ANY leg failed, so one overrunning shard
+    # dying at its own 330-min timeout is enough to red the required context —
+    # and `skipped` never fails it, so the always-report shape is preserved.
+    needs: [relevant, scripts-verify, scripts-verify-tier-shard]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -350,9 +475,11 @@ jobs:
       - name: Report
         env:
           RESULT: ${{ needs.scripts-verify.result }}
+          TIER_RESULT: ${{ needs.scripts-verify-tier-shard.result }}
         run: |
           echo "scripts-verify result: $RESULT"
-          if [ "$RESULT" = "failure" ] || [ "$RESULT" = "cancelled" ]; then
+          echo "scripts-verify-tier-shard result: $TIER_RESULT"
+          if [ "$RESULT" = "failure" ] || [ "$RESULT" = "cancelled" ] || [ "$TIER_RESULT" = "failure" ] || [ "$TIER_RESULT" = "cancelled" ]; then
             exit 1
           fi
           exit 0
