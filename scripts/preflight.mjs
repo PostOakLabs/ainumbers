@@ -995,6 +995,78 @@ if (!KEEP_GOING && MAIN_CONTEXT && process.env.GITHUB_ACTIONS === 'true') {
   console.log('▶ CI main context — running the full suite to completion (a red main is never a count of one).');
 }
 
+// ── SCRIPTS-VERIFY-TIER-SHARD-1: mutation-tier LEG SCOPING (CI shard wiring) ──
+// A scoping mechanism for exactly ONE gate — the `Mutation tier floor
+// (MUTATION-TIERED-ROLLOUT-1)` entry below — so scripts-verify.yml can split
+// that leg across matrix jobs instead of running it as one unshardable
+// multi-hour block that can exceed the 360-min hosted-runner ceiling (measured
+// on PR #1908: the tier leg ran 24,030 s = 400.5 min and was cancelled at
+// exactly 360 m 21 s; RULINGS.md:227). Two env vars, read at startup:
+//
+//   PREFLIGHT_TIER_LEG  (default 'all', i.e. UNSET = the pre-row behaviour)
+//     'all'  — the gate runs exactly as before. Every default path in this
+//              file (pre-push hook, every other workflow, local runs) is
+//              byte-identical: same label, same command over ALL of
+//              TOUCHED_KERNEL_IDS, same exit semantics.
+//     'skip' — the suite runs EVERY gate EXCEPT the tier leg, which is swapped
+//              for its no-op `{ notRun: … }` shape (the exact machinery the
+//              zero-touched-kernels case already uses) naming the shard job
+//              that carries the leg instead. Used by the workflow's main
+//              "Full preflight gate suite" job.
+//     'only' — the RUN LIST below is scoped to the tier gate alone. Used by
+//              the workflow's `scripts-verify-tier-shard` matrix job, so a
+//              shard runs no other gate and the union of
+//              {main job} ∪ {shard jobs} runs every gate exactly once —
+//              byte-equivalent coverage to the single-job suite this row
+//              replaced (see `git log -1 --format=%B` on SCRIPTS-VERIFY-
+//              TIER-SHARD-1 for the union argument, RULINGS.md:227 ruling (a),
+//              2026-09-16).
+//   PREFLIGHT_TIER_SHARD=i/N  (only valid with 'only')
+//     Deterministically slices TOUCHED_KERNEL_IDS round-robin
+//     (idx % N === i) into the disjoint subset this invocation scores. The
+//     set is the SAME touched-kernel computation every path already uses
+//     (touchedKernelIdsFromJsdocSet, merge-base origin/main per
+//     HOOK-TOUCHED-SET-REBASE-1), so across i=0..N-1 the shards cover exactly
+//     the kernels the unsharded leg covered — no kernel twice, none lost.
+//
+// ⛔ TIER-SCOPING ONLY: no gate is added, removed, reordered or re-scoped in
+// the default suite; no gate's blocking status moves; the tier gate's command
+// and verdict semantics (run-mutation-tier.mjs's exit code) are untouched. An
+// unknown scope value, or a shard spec that is malformed/out of range, is a
+// hard error BEFORE any gate runs — scoping fails closed, never into
+// "silently ran nothing".
+const TIER_GATE_LABEL_PREFIX = 'Mutation tier floor (MUTATION-TIERED-ROLLOUT-1';
+const TIER_LEG = process.env.PREFLIGHT_TIER_LEG || 'all'; // 'all' | 'skip' | 'only'
+if (!['all', 'skip', 'only'].includes(TIER_LEG)) {
+  console.error(`❌ PREFLIGHT_TIER_LEG="${process.env.PREFLIGHT_TIER_LEG}" is not one of all|skip|only — refusing to guess (SCRIPTS-VERIFY-TIER-SHARD-1 scoping fails closed).`);
+  process.exit(2);
+}
+let TIER_SHARD = null; // { index, count } — set only for the 'only' scope
+if (process.env.PREFLIGHT_TIER_SHARD) {
+  if (TIER_LEG !== 'only') {
+    console.error('❌ PREFLIGHT_TIER_SHARD is only valid with PREFLIGHT_TIER_LEG=only — refusing to guess.');
+    process.exit(2);
+  }
+  const m = process.env.PREFLIGHT_TIER_SHARD.match(/^(\d+)\/(\d+)$/);
+  if (!m || Number(m[2]) < 1 || Number(m[1]) >= Number(m[2])) {
+    console.error(`❌ PREFLIGHT_TIER_SHARD="${process.env.PREFLIGHT_TIER_SHARD}" is not i/N with 0 <= i < N — refusing to guess.`);
+    process.exit(2);
+  }
+  TIER_SHARD = { index: Number(m[1]), count: Number(m[2]) };
+}
+// The disjoint slice this invocation scores. Round-robin over the sorted id
+// list: adjacent (same-module, similar-weight) ids land on different shards,
+// which balances per-shard wall-clock better than contiguous blocks.
+const TIER_KERNEL_SUBSET = TIER_SHARD
+  ? TOUCHED_KERNEL_IDS.filter((_, i) => i % TIER_SHARD.count === TIER_SHARD.index)
+  : TOUCHED_KERNEL_IDS;
+const TIER_SHARD_TAG = TIER_SHARD ? ` [tier shard ${TIER_SHARD.index}/${TIER_SHARD.count}]` : '';
+if (TIER_LEG !== 'all') {
+  console.log(TIER_LEG === 'skip'
+    ? `▶ tier-leg scoping (SCRIPTS-VERIFY-TIER-SHARD-1): PREFLIGHT_TIER_LEG=skip — the Mutation tier floor gate is carried by the scripts-verify-tier-shard matrix job; every OTHER gate runs here exactly once.`
+    : `▶ tier-leg scoping (SCRIPTS-VERIFY-TIER-SHARD-1): PREFLIGHT_TIER_LEG=only PREFLIGHT_TIER_SHARD=${TIER_SHARD.index}/${TIER_SHARD.count} — running ONLY the Mutation tier floor gate, on ${TIER_KERNEL_SUBSET.length} of ${TOUCHED_KERNEL_IDS.length} touched kernel id(s); every other gate is carried by the main suite job.`);
+}
+
 // [label, command] — exact CI hard gates, in CI order, + the hub-freshness gate.
 const GATES = [
   // L2-HARDLEG-BLOCKING-1: preflight's OWN reporting controls, run as a gate so they
@@ -1575,11 +1647,27 @@ const GATES = [
   // The full-estate scan (`--all`) is deliberately NOT run here — it runs on its own nightly
   // schedule (.github/workflows/mutation-full-scheduled.yml) per the row's "PR-side incremental
   // gate only; full runs go to a scheduled workflow" instruction (SO #40).
-  ...(TOUCHED_KERNEL_IDS.length
-    ? [['Mutation tier floor (MUTATION-TIERED-ROLLOUT-1, touched kernels)' + TOUCHED_SET_BASE_TAG,
-        `node scripts/run-mutation-tier.mjs --kernel ${TOUCHED_KERNEL_IDS.join(' ')}`]]
-    : [['Mutation tier floor (MUTATION-TIERED-ROLLOUT-1: no kernel/floor file touched, skipped)', 'node -e "1"',
-        { notRun: 'this push touches no chaingraph/kernels/*.kernel.mjs or __proptests__/*.proptest.mjs, so the incremental mutation gate had nothing to examine' }]]),
+  // SCRIPTS-VERIFY-TIER-SHARD-1: this entry is the suite's mutation-tier LEG,
+  // scoped by the TIER_LEG/TIER_SHARD block above. UNSET env (default 'all')
+  // resolves to EXACTLY the pre-row two-way spread below — same labels, same
+  // command over all of TOUCHED_KERNEL_IDS, same zero-touched notRun shape.
+  // 'skip' swaps the leg for its no-op notRun shape (the job running this scope
+  // runs every OTHER gate); 'only' keeps the leg (optionally sliced to this
+  // invocation's round-robin shard of TOUCHED_KERNEL_IDS) and the run list is
+  // filtered to this entry alone below. Across the workflow's main job + shard
+  // matrix the union is byte-equivalent to this single entry over the full
+  // touched set: every kernel scored exactly once, same command, same verdict.
+  ...(TIER_LEG === 'skip'
+    ? [['Mutation tier floor (MUTATION-TIERED-ROLLOUT-1: tier leg carried by the scripts-verify-tier-shard matrix job, skipped here)', 'node -e "1"',
+        { notRun: 'PREFLIGHT_TIER_LEG=skip: the mutation-tier leg runs in .github/workflows/scripts-verify.yml\u2019s scripts-verify-tier-shard matrix job (its verdict feeds scripts-verify / required); this job runs every other gate exactly once' }]]
+    : TIER_LEG === 'only' && !TIER_KERNEL_SUBSET.length
+      ? [['Mutation tier floor (MUTATION-TIERED-ROLLOUT-1' + TIER_SHARD_TAG + ': this tier shard selected 0 kernels, skipped)', 'node -e "1"',
+          { notRun: `PREFLIGHT_TIER_LEG=only PREFLIGHT_TIER_SHARD=${TIER_SHARD ? `${TIER_SHARD.index}/${TIER_SHARD.count}` : '?'}: this push touches ${TOUCHED_KERNEL_IDS.length} kernel id(s) and the round-robin slice for this shard is empty — nothing to examine; the other shard(s) (or the touched set being empty altogether) carry the leg` }]]
+      : TOUCHED_KERNEL_IDS.length
+        ? [['Mutation tier floor (MUTATION-TIERED-ROLLOUT-1, touched kernels)' + TIER_SHARD_TAG + TOUCHED_SET_BASE_TAG,
+            `node scripts/run-mutation-tier.mjs --kernel ${TIER_KERNEL_SUBSET.join(' ')}`]]
+        : [['Mutation tier floor (MUTATION-TIERED-ROLLOUT-1: no kernel/floor file touched, skipped)', 'node -e "1"',
+            { notRun: 'this push touches no chaingraph/kernels/*.kernel.mjs or __proptests__/*.proptest.mjs, so the incremental mutation gate had nothing to examine' }]]),
   // ART27-HARNESS-INREPO-1: art-27's FV pilot record cites a full 3^12=531,441-state exhaustive
   // enumeration; this re-runs it in-repo every push (~3.4s measured — cheap enough for the normal
   // cadence, no scheduled-workflow home needed). Independent oracle, not run-proptests.mjs's floor
@@ -1902,15 +1990,28 @@ const GATES = [
 // The one inline gate that lives below the loop rather than in GATES. Named once
 // here so the totals can be derived from the real run list instead of a literal.
 const MFSTSEC_LABEL = 'mfstSec presence (every tool)';
+// SCRIPTS-VERIFY-TIER-SHARD-1: the RUN LIST. Identical to GATES (same array —
+// the loops below cannot tell the difference) unless PREFLIGHT_TIER_LEG=only
+// scoped this invocation to the tier leg alone, in which case exactly that one
+// entry runs (and the inline mfstSec check below sits out with it). Default
+// and 'skip' scopes run the whole list — unchanged.
+const RUN_GATES = TIER_LEG === 'only'
+  ? GATES.filter(([l]) => l.startsWith(TIER_GATE_LABEL_PREFIX))
+  : GATES;
+if (TIER_LEG === 'only' && RUN_GATES.length !== 1) {
+  console.error(`❌ tier-leg scoping: PREFLIGHT_TIER_LEG=only matched ${RUN_GATES.length} GATES entries by label prefix "${TIER_GATE_LABEL_PREFIX}" (expected exactly 1) — refusing to run a scope this file cannot account for.`);
+  process.exit(2);
+}
+const TIER_ONLY_SCOPE = TIER_LEG === 'only'; // read by the inline mfstSec guard below
 // PREFLIGHT-KEEPGOING-1: the run list is GATES plus that inline check. DERIVED at
 // runtime — a gate added to GATES raises this by itself, and nothing anywhere
 // hardcodes how many gates preflight runs.
-const RUN_LIST_SIZE = GATES.length + 1;
+const RUN_LIST_SIZE = RUN_GATES.length + (TIER_ONLY_SCOPE ? 0 : 1);
 
 // PREFLIGHT-KEEPGOING-1: an --expect-red id that matches no gate would waive
 // nothing while reading as diligence, so it is a hard error before any gate runs.
 if (EXPECT_RED.length) {
-  const labels = [...GATES.map(([l]) => l), MFSTSEC_LABEL];
+  const labels = [...RUN_GATES.map(([l]) => l), ...(TIER_ONLY_SCOPE ? [] : [MFSTSEC_LABEL])];
   const unmatched = EXPECT_RED.filter((id) => !labels.some((l) => l.toLowerCase().includes(id.toLowerCase())));
   if (unmatched.length) {
     console.error(`❌ --expect-red: no gate label matches ${unmatched.map((u) => `"${u}"`).join(', ')}.`);
@@ -2075,7 +2176,7 @@ if (!KEEP_GOING) {
   // gain from concurrency on a run that stops here anyway, and every consumer
   // of this path (CI's scripts-verify.yml, the pre-push hook, assemble-land.mjs)
   // depends on exactly this behaviour — left byte-for-byte as it was.
-  for (const [label, cmd, meta] of GATES) {
+  for (const [label, cmd, meta] of RUN_GATES) {
     gateStart(label);
     const t0 = Date.now();
     try {
@@ -2126,9 +2227,9 @@ if (!KEEP_GOING) {
   // so running them CONCURRENTLY changes wall-clock only: same commands, same
   // classification, same full-breadth guarantee, same final ledger — just not
   // one at a time.
-  const slots = new Array(GATES.length);
+  const slots = new Array(RUN_GATES.length);
   const runnableIdx = [];
-  GATES.forEach(([label, , meta], i) => {
+  RUN_GATES.forEach(([label, , meta], i) => {
     if (meta?.notRun) {
       slots[i] = { label, state: 'DID-NOT-RUN', ms: 0, note: meta.notRun };
     } else {
@@ -2149,7 +2250,7 @@ if (!KEEP_GOING) {
 
   const concurrency = Math.max(1, Number(process.env.AINUM_PREFLIGHT_CONCURRENCY) || 8);
   await pMapLimit(runnableIdx, concurrency, async (i) => {
-    const [label, cmd, meta] = GATES[i];
+    const [label, cmd, meta] = RUN_GATES[i];
     const t0 = Date.now();
     const { err, stdout, stderr } = await new Promise((res) => {
       exec(cmd, { cwd: REPO, env: gateEnvFor(cmd) }, (err, stdout, stderr) => res({ err, stdout, stderr }));
@@ -2223,8 +2324,11 @@ if (!KEEP_GOING) {
 
 // mfstSec presence — every tool HTML must carry the manifest panel (CI hard gate).
 // `!failed` keeps the default fail-fast path identical; `|| KEEP_GOING` is what
-// makes the run-all mode actually run all.
-if (!failed || KEEP_GOING) {
+// makes the run-all mode actually run all. `!TIER_ONLY_SCOPE` sits it out when
+// PREFLIGHT_TIER_LEG=only scoped the run list to the tier leg alone
+// (SCRIPTS-VERIFY-TIER-SHARD-1): the shard job carrying that scope runs no
+// other gate, and RUN_LIST_SIZE above already reflects the same thing.
+if (!TIER_ONLY_SCOPE && (!failed || KEEP_GOING)) {
   gateStart('mfstSec presence (every tool)');
   const t0 = Date.now();
   const missing = readdirSync(resolve(REPO, 'tools'))
@@ -2424,6 +2528,18 @@ if (probeFailed) {
 if (failed && !KEEP_GOING) {
   console.error(`\n❌ preflight FAILED at: ${failed}. Fix it before pushing (this would have failed CI).`);
   process.exit(1);
+}
+
+// SCRIPTS-VERIFY-TIER-SHARD-1: an `only`-scoped run's whole verdict is the tier
+// gate's — both exits above (and the --keep-going reconciliation above them)
+// already carry it. Everything below this point is estate-wide ADVISORY REPORT
+// (derived-artifacts staleness, L1/L2 chain contracts, schema-read divergence,
+// llms.txt audit, …): none of it is a gate, none of it is in RUN_LIST_SIZE, and
+// the main suite job runs all of it — so a tier-shard job exits here instead of
+// re-running those reports N shards times.
+if (TIER_ONLY_SCOPE) {
+  console.log(`\n✅ tier-leg shard run complete (PREFLIGHT_TIER_LEG=only${TIER_SHARD ? `, PREFLIGHT_TIER_SHARD=${TIER_SHARD.index}/${TIER_SHARD.count}` : ''}, ${TIER_KERNEL_SUBSET.length} kernel id(s)) — the estate-wide advisory report blocks are carried by the full-suite job and were not re-run here.`);
+  process.exit(0);
 }
 
 // ── Advisory summary: shared derived artifacts stale on a PR ────────────────
