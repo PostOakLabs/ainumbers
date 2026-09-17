@@ -1,5 +1,5 @@
 // mms-03-app-fraud-graph.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C15-1).
-// kernel_digest_at_authoring: sha256:2565275e186544ca763e580cc913d85774c91973bb8db2c3b161bd0d74d13552
+// kernel_digest_at_authoring: sha256:6514f17393677b3e9ae953a3eb856118a0e8ffd5a2736eab9e7aa02a94292a81
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
