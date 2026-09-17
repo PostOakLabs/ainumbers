@@ -1359,6 +1359,7 @@ const GATES = [
   ['Topic cross-link block freshness (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/apply-topic-links.mjs --check'],
   ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
   ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
+  ['Homepage MCP-ACTIVITY sentinel matches data/mcp-activity.json (generator --check)', 'node scripts/mcp-activity-embed.mjs --check'],
   // AIN-AGENT-KIT-1: agent-kit artifacts are generator-emitted (gen-agent-kit.mjs from
   // agent-kit/kit.json); this gate regenerates twice into temp, byte-compares determinism
   // and freshness, and validates SKILL.md frontmatter + plugin.json against the vendored schema.
