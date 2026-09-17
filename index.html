@@ -172,6 +172,14 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   .topic-tiles{grid-template-columns:repeat(2,1fr)}
   .mb-connect{grid-template-columns:1fr}
 }
+.mcp-activity{margin:14px 0 16px;border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:12px 14px 10px;background:var(--bg-2)}
+.mcp-activity-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:6px}
+.mcp-activity-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.mcp-activity-total{font-family:'DM Serif Display',serif;font-size:1.25rem;color:var(--white)}
+.mcp-activity-chart svg{width:100%;height:auto;display:block}
+.mcp-activity-cap{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:6px}
+.proto-status{margin:10px 0 4px;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;color:var(--body)}
+.proto-sub{margin:0 0 2px;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -263,6 +271,66 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         https://mcp.ainumbers.co/mcp
         <div class="endpoint-sub">streamable-http · no authentication · registry: co.ainumbers/tools · <!--COUNT:mcp.live-->718<!--/COUNT--> compute tools</div>
       </div>
+      <div class="proto-status">MCP endpoint: <span style="color:var(--teal)">live</span> · WebMCP directory: <span style="color:var(--teal)">active</span> · <a href=".well-known/webmcp.json" style="color:var(--teal)">webmcp.json</a></div>
+      <div class="proto-sub"><!--COUNT:webmcp.pages-->106<!--/COUNT--> browser-agent tools for in-page agents, freshness verified automatically.</div>
+      <div class="mcp-activity" id="mcp-activity">
+        <div class="mcp-activity-head"><span class="mcp-activity-title">MCP tool calls per week</span><span class="mcp-activity-total" id="mcpActivityTotal"></span></div>
+        <div class="mcp-activity-chart" id="mcpActivityChart" role="img" aria-label="Weekly MCP tool call counts"></div>
+        <!--MCP-ACTIVITY v1 {"generated":"2026-09-17","days":[]} -->
+        <div class="mcp-activity-cap" id="mcpActivityCap"></div>
+      </div>
+      <script>
+      // MCP activity chart: renders baked weekly tool-call counts as inline SVG.
+      // Zero network I/O: data arrives only via the MCP-ACTIVITY sentinel above,
+      // written by scripts/mcp-activity-embed.mjs from data/mcp-activity.json.
+      (function(){
+        function $(id){return document.getElementById(id);}
+        var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        function commas(n){return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+        function compact(n){if(n>=1000000){return (Math.round(n/100000)/10)+'M';}if(n>=1000){return (Math.round(n/100)/10)+'k';}return String(n);}
+        function monYear(iso){var p=iso.split('-');return MONTHS[+p[1]-1]+' '+p[0];}
+        function mondayOf(iso){var p=iso.split('-');var dt=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));var dow=(dt.getUTCDay()+6)%7;dt.setUTCDate(dt.getUTCDate()-dow);return dt.toISOString().slice(0,10);}
+        function el(name,attrs,parent){var n=document.createElementNS('http://www.w3.org/2000/svg',name);for(var k in attrs){n.setAttribute(k,attrs[k]);}parent.appendChild(n);return n;}
+        var box=$('mcp-activity'),chart=$('mcpActivityChart'),totalEl=$('mcpActivityTotal'),capEl=$('mcpActivityCap');
+        if(!box||!chart||!totalEl||!capEl){return;}
+        var raw=null,kids=box.childNodes,i;
+        for(i=0;i<kids.length;i++){if(kids[i].nodeType===8&&kids[i].nodeValue.indexOf('MCP-ACTIVITY v1 ')===0){try{raw=JSON.parse(kids[i].nodeValue.slice('MCP-ACTIVITY v1 '.length));}catch(e){raw=null;}break;}}
+        function emptyState(generated){
+          var label='Activity tracking started '+monYear(generated||'2026-09-17')+'. Weekly totals appear here as data arrives.';
+          capEl.textContent=label;
+          chart.setAttribute('aria-label',label);
+        }
+        if(!raw||!raw.days||!raw.days.length){emptyState(raw&&raw.generated);return;}
+        var weeks={},wk,total=0;
+        for(i=0;i<raw.days.length;i++){var d=raw.days[i];if(!d||d.length<2||!(+d[1]>0)){continue;}wk=mondayOf(d[0]);weeks[wk]=(weeks[wk]||0)+(+d[1]);}
+        var keys=Object.keys(weeks).sort().slice(-52);
+        total=0;for(i=0;i<keys.length;i++){total+=weeks[keys[i]];}
+        if(keys.length<1||total<=0){emptyState(raw.generated);return;}
+        totalEl.textContent=commas(total);
+        var W=560,H=150,PL=44,PR=10,PT=12,PB=24;
+        var maxV=0,peakW=keys[keys.length-1];for(i=0;i<keys.length;i++){if(weeks[keys[i]]>maxV){maxV=weeks[keys[i]];peakW=keys[i];}}
+        var mag=Math.pow(10,Math.floor(Math.log10(maxV)));var norm=maxV/mag;var step=norm>=5?10:(norm>=2?5:2);var top=step*mag;
+        function X(j){return keys.length<2?((PL+W-PR)/2):(PL+j*(W-PL-PR)/(keys.length-1));}
+        function Y(v){return PT+(H-PT-PB)*(1-v/top);}
+        var svg=el('svg',{viewBox:'0 0 '+W+' '+H},chart);
+        var title=el('title',{},svg);
+        title.textContent='MCP tool calls per week: '+keys.length+' weeks, '+commas(total)+' total calls.';
+        var g,ln,tx,j;
+        var grid=[0,top/2,top];
+        for(j=0;j<grid.length;j++){g=el('line',{x1:PL,y1:Y(grid[j]),x2:W-PR,y2:Y(grid[j]),stroke:'#1E2F4A','stroke-width':'1'},svg);tx=el('text',{x:PL-6,y:Y(grid[j])+3,'text-anchor':'end','font-size':'9',fill:'#3A5270','font-family':"'JetBrains Mono',monospace"},svg);tx.textContent=compact(Math.round(grid[j]));}
+        var starts=[],lastM='';
+        for(j=0;j<keys.length;j++){var mm=keys[j].slice(0,7);if(mm!==lastM){starts.push(j);lastM=mm;}}
+        var every=Math.max(1,Math.ceil(starts.length/6));
+        for(j=0;j<starts.length;j+=every){var p=starts[j];tx=el('text',{x:X(p),y:H-6,'text-anchor':'middle','font-size':'9',fill:'#3A5270','font-family':"'JetBrains Mono',monospace"},svg);tx.textContent=monYear(keys[p]).split(' ')[0];}
+        var pts=[];
+        for(j=0;j<keys.length;j++){pts.push(X(j).toFixed(1)+','+Y(weeks[keys[j]]).toFixed(1));}
+        el('polygon',{points:PL+','+Y(0)+' '+pts.join(' ')+' '+(W-PR)+','+Y(0),fill:'rgba(20,184,166,.12)'},svg);
+        el('polyline',{points:pts.join(' '),fill:'none',stroke:'#14B8A6','stroke-width':'2','stroke-linejoin':'round','stroke-linecap':'round'},svg);
+        for(j=0;j<keys.length;j++){el('circle',{cx:X(j),cy:Y(weeks[keys[j]]),r:'2.5',fill:'#14B8A6'},svg);}
+        chart.setAttribute('aria-label',title.textContent+' Peak week starting '+peakW+'.');
+        capEl.textContent='Updated '+monYear(raw.generated||keys[keys.length-1].slice(0,7)+'-01')+' · '+keys.length+' weeks · Aggregate counts only.';
+      })();
+      </script>
       <p class="find-chain-note">
         Agents call <code style="color:var(--teal)">find_chain(query)</code> to get a named, ordered chain recipe with prefill-ready deep-links.
         Also: <code style="color:var(--teal)">find_tool(query)</code> (catalog search), <code style="color:var(--teal)">build_workflow_links</code> (<!--COUNT:workflows.recipes-->148<!--/COUNT--> named workflows), and <!--COUNT:mcp.live-->718<!--/COUNT--> server-side compute tools total.

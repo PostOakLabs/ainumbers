@@ -346,6 +346,15 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── MCP-ACTIVITY-PANEL-1 (2026-09-17) ───────────────────────────────────────
+  ["mcp-activity-embed.mjs",
+    "Homepage MCP-ACTIVITY sentinel --check (MCP-ACTIVITY-PANEL-1): re-renders the " +
+    "sentinel block in index.html from data/mcp-activity.json and byte-compares. Hard in " +
+    "preflight; its CI route is scripts-verify.yml full preflight (the workflow runs " +
+    "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the same " +
+    "suite. Not a derived artifact yet: nothing writes either file main-side until the " +
+    "sync pipeline lands (its own PR, declared in derived-artifacts.mjs per SO #47). " +
+    "Reads only tracked repo files — no CI-only input. In-memory self-test: --self-test."],
   // ── PROMPT-LIBRARY-PAGE-2 (2026-09-11) ──────────────────────────────────────
   ["gen-prompts-page.mjs",
     "Prompt library page generator --check (PROMPT-LIBRARY-PAGE-2): re-renders " +
