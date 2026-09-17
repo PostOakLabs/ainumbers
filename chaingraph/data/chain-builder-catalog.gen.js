@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (662 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (663 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -657,7 +657,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Content Credential Signature Verifier",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-124-content-credential-signature-verifier.html",
-    "description": "Verify-only node: callable in chains, carrying no compute-proof claim. Verify the COSE_Sign1 claim signature against a caller-supplied signe",
+    "description": "Deterministic policy core over a caller-attested signature result. The caller performs the COSE_Sign1 signature check over the manifest byte",
     "consumes": [
       "art-123-c2pa-manifest-validator"
     ],
@@ -6942,6 +6942,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-33-mcp-server-self-attestation-pack",
       "art-62-ap2-payment-receipt-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-670-examination-readiness-pack",
+    "display_name": "Examination Readiness Pack",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-670-examination-readiness-pack.html",
+    "description": "One pack, two selectable regime modules, five stages of regulatory exam management over an institution's own supplied request list (EXAM-REA",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

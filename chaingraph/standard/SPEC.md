@@ -488,6 +488,63 @@ Proof-suite delta (`Ed25519Signature2020` vs OCG's `eddsa-jcs-2022`) is document
 this extension; this profile does not emit an agent-receipts-suite `proof` (dual-proof emission stays an
 on-demand rider, default OFF, per §XMAP-1's format notes).
 
+**§13.11.2 KYA-OS/Checkpoint response-proof rider — NORMATIVE, OPTIONAL, additive (spec-text pass; the
+record stays at whatever `chaingraph.json` carries, same separation as §30/§AGID-1).** An implementation
+MAY attach a [KYA-OS/Checkpoint](https://github.com/decentralized-identity/kya-os-mcp) response-proof
+rider to MCP tool responses carrying an OCG-computed result, at `result._meta["org.kya-os/response-proof"]`
+(their SPEC-MCP-EXTENSION.md §2.2; the legacy keys `org.kya-os/proof` and bare `proof` are read-accepted
+upstream for one major version and are never emitted by this profile). Like every §13 profile it is a
+**view, not a fact**: generated downstream of `execution_hash`, excluded from the hash preimage, mints no
+new hash, MUST NOT bump `chaingraph_version`, and never replaces `audit_signature`/§16 or the `vc`/§13.11
+export. This is the standard's THIRD receipt format, wholly distinct from §13.11.1 (different project,
+schema family, and envelope: no `org.kya-os/*` keys, no shared proof suite) — the two subsections do not
+touch.
+
+**This is a PARTIAL, additive mapping, not a claim of full external-schema conformance — weaker than
+§13.11.1's, and stated as such.** Verified against the published source (upstream SPEC.md v1.0.0, Status
+Stable, ratified as a DIF standard; machine schema `schemas/detached-proof.json`, `$id
+…/proof/detached/v1.1.0`, as of 2026-09-17), their proof object is `{jws, meta}` (both REQUIRED,
+`additionalProperties:false` at both levels) whose `meta` (their `ProofMeta`) REQUIRES `did`, `kid`, `ts`,
+`nonce`, `audience`, `sessionId`, `requestHash`. An OCG/worker serve path can honestly populate four of
+the seven; three are structurally out of reach, and this profile MUST NOT invent them.
+
+- Populated: `ts` (emission time, Unix epoch seconds); `requestHash`/`responseHash` (serve-time digests
+  per upstream §7.3: SHA-256 over the RFC 8785/JCS form of `{method, params}` minus `params._meta`, and
+  over the response `data`/`content` only, `sha256:`-prefixed lowercase hex — the upstream-default "body"
+  profile; the signature-covered `prf:"org.kya-os/response-proof.envelope"` envelope profile is an
+  upstream opt-in this profile does not claim). The two digests bind the call indirectly — the JWS never
+  signs `{method, params, result.data}` directly — and they are serve-time values derived from the MCP
+  envelope, never retro-computable from a stored artifact.
+- Conditionally populated: `did`/`kid`, ONLY where the serving implementation holds a §16-anchored
+  signing identity (`did:key` per §9, or the §16.4 institutional `did:web` + HSM/KMS server-side
+  pattern), matching the `kid` the JWS protected header names. With no §16-anchored identity the rider is
+  NOT emitted; absence is never worked around with a self-minted identity.
+- Omitted, and MUST NOT be invented: `nonce`, `audience`, `sessionId` — REQUIRED upstream and bound to
+  the `_kyaos_handshake` session semantics (replay prevention, anti-relay audience binding, session
+  echo). OCG has no authenticated-caller/session layer; a self-minted value would satisfy their JSON
+  Schema types while violating the protocol semantics — the invented-value class §13.11.1 forbids. With
+  them go the OPTIONAL `scopeId`, `delegationRef`, `clientDid` (OCG has no authorization-scope or
+  delegation concept), and `outcome`/`reason` (a success proof carries none; OCG performs no
+  authorization).
+
+`jws` is a compact JWS (`alg:"EdDSA"` over Ed25519; the protected header carries `kid`) over the
+JCS-canonicalized claims payload, whose members reconcile exactly with the emitted `meta` members — so
+the payload carries the same partial member set and the same gaps as `meta`. Every primitive is already
+shipped (RFC 8785 JCS, SHA-256, Ed25519): a re-hash with existing primitives, not a new algorithm or
+dependency.
+
+**Honesty boundary (NORMATIVE).** An object emitted under this profile CANNOT validate against the
+target schema (3 of 7 REQUIRED `ProofMeta` members structurally absent; `additionalProperties:false`
+admits no substitute) and MUST NOT be presented to a KYA-OS verifier as a valid
+`org.kya-os/response-proof`. Presenting UIs MUST surface the partial status beside the proof (the
+§13.12 limitation-statement rule). The carriage is hash-excluded upstream (their §7.6: `_meta` is never
+hashed or trusted, and foreign `_meta` keys MUST NOT enter their hash or signature computations), so the
+rider cannot corrupt a co-resident full KYA-OS proof path. Gating: default OFF, on-demand rider only. A
+FULL conformant profile re-opens only when an authenticated MCP session layer can genuinely populate
+`audience`/`sessionId`/`nonce` per the handshake semantics. Field names above verified against upstream
+bytes 2026-09-17 (the v1.1.0 schema added the signature-covered `prf` discriminator over the shape
+reviewed 2026-08-08; the REQUIRED set is unchanged).
+
 ### §13.12 Selective-disclosure export (SD-JWT, RFC 9901) — NORMATIVE, new in v0.7
 An implementation MAY export an artifact as an SD-JWT whose claims map deterministically from the
 envelope — EXCEPT disclosure salts, which MUST be freshly CSPRNG-generated per export (the one
@@ -3545,8 +3602,12 @@ so a copyrighted primary-source excerpt (e.g. a FASB ASU) is never committed to 
 
 **§30.3 In-scope declaration — explicit, never silent (NORMATIVE).** Not every node implements a
 published standard; some are pure math or format converters. A node declares itself in scope by setting
-`standards_basis: "implements_standard"`, or explicitly out of scope by setting
-`standards_basis: "not_applicable"`. There is no silent default: `check-clause-digest.mjs` REQUIRES one
+`standards_basis: "implements_standard"` (a conformance verdict about an artifact against a published
+specification, or a computation performed against a regulatory or accounting clause), or explicitly out
+of scope by setting `standards_basis: "not_applicable"`. Naming a specification whose structure a node
+recomputes, converts, decodes, compares, or scores is not a standards citation for this purpose; a
+conformance verdict about an artifact against a published specification, or a computation performed
+against a regulatory or accounting clause, is. There is no silent default: `check-clause-digest.mjs` REQUIRES one
 of the three values (`implements_standard`, `not_applicable`, `cites_informative`) on every NEW or
 CHANGED node (branch-aware, the same detection `check-shard-assembly.mjs` uses), and a node carrying
 none of them fails the gate naming itself.
@@ -3644,8 +3705,126 @@ imposes no MUST-emit on any existing or future node. Measured against §0.4-FREE
 this is additive. A catalog carrying a `pageless` node is schema-valid; the same catalog was invalid
 before this section only because `$defs/node` is `additionalProperties: false`.
 
+## §AGID-1 Agent-Identity Binding — `audit_signature.requesting_agent` (NORMATIVE, OPTIONAL — additive, record stays at whatever `chaingraph.json` carries, same text-pass/record-bump separation as §30)
+
+When an artifact is produced at an agent's request, the producer MAY record the requesting agent's
+asserted identity at `audit_signature.requesting_agent`. The standard already answers what computed
+(§4), that it computed correctly (§16/§18), which kernel source ran (§17), who was authorized in
+advance (§22), and which human took responsibility (§27). None of those records which agent actually
+requested this one artifact. §22 is the standing grant to an agent class; §AGID-1 is the per-artifact
+assertion of the requester on one run, the same grant/act split §22 and §27 already draw for humans.
+Like every attestation member, it is attached AFTER hashing and is EXCLUDED from the §4 preimage:
+adding, removing, or altering it leaves every `execution_hash` byte-identical (both halves asserted by
+`agent-identity-binding.test.mjs`), `$defs/artifact.required` is unchanged, and `chaingraph_version`
+stays `"0.4.0"`. An artifact without the member is fully conformant and asserts nothing.
+
+**§AGID-1.1 Shape (NORMATIVE).**
+
+```json
+"requesting_agent": {
+  "agid_version": "1",
+  "scheme": "did" | "rfc9421-keyid" | "webbotauth-card" | "mcp-i" | "x-<vendor>",
+  "id": "<scheme-scoped identifier>",
+  "evidence": { },
+  "asserted_by": "producer" | "agent"
+}
+```
+
+`scheme` and `id` are REQUIRED when the member is present; every other member is OPTIONAL. The closed
+v1 scheme set is agent-runtime identity only: `did` (any DID method, `did:key`, `did:web`, `did:trail`
+included; `id` is the DID), `rfc9421-keyid` (`id` is the RFC 9421 `keyId`; the TAP and Web Bot Auth
+families), `webbotauth-card` (`id` is the Signature Agent Card URL or its digest), and `mcp-i` (`id` is
+a DIF MCP-Identity identifier). The `x-` prefix is the vendor extension point: the schema accepts any
+`x-<vendor>` value, and a verifier that does not implement a given `x-` scheme SHOULD evaluate the
+claim as present-but-unevaluated; the schema never rejects the `x-` form itself. A scheme outside the
+closed set and the `x-` form fails the schema. Organizational identity keeps its own slot and is
+deliberately NOT admitted in v1: an LEI is §9's organization identity (§9 already covers the operating
+organization and its `did:key` signer), not an agent-runtime one, and a deployment can state both today
+(§9 for the organization, §AGID-1 for the agent). `agid_version` is `"1"` when present. `evidence` is
+OPTIONAL scheme-scoped material (for `rfc9421-keyid`, the captured `Signature-Input`/`Signature` pair
+over the triggering request; for `webbotauth-card`, the card bytes or their digest). `asserted_by`
+records who wrote the claim: `producer` (the producer observed the caller) or `agent` (the agent
+supplied its own identity).
+
+**§AGID-1.2 What this binding is (NORMATIVE honesty clause).** The recorded identity is ASSERTED, never
+verified: this binding performs no resolution, no signature verification, and no registry lookup.
+Verifying the assertion is the consumer's per-scheme duty (RFC 9421 base-string verification for
+`rfc9421-keyid`, DID resolution for `did`, card and directory validation for `webbotauth-card`), and a
+deployment MAY cite its own conformant tooling for that duty without this section absorbing any
+external specification. A verification surface that renders the claim SHOULD classify a bare
+`requesting_agent` under §26.6's `connector_asserted` label (a party reported an identity at a time,
+with no claim about identity truth) and SHOULD NOT present it as `hash_verified`; §26.6's own
+no-collapse rule already governs any surface implementing that profile. The member is not an
+authorization statement (§22), not a human-accountability record (§27), and not stream provenance
+(§APROV-1).
+
+**§AGID-1.3 Tamper posture (NORMATIVE).** Because the member is hash-excluded, it is strippable and
+swappable in isolation by construction. A deployment that needs it tamper-evident covers it the way
+every attestation member is covered: a §16 whole-artifact proof secures `requesting_agent`
+transitively (the member sits inside the secured document), and a claim with `asserted_by: "agent"`
+SHOULD carry `evidence` the agent itself signed.
+
+**§AGID-1.4 Per-artifact scope, no chain propagation (NORMATIVE).** The binding asserts the requester
+of the single run that produced one artifact. Chain execution is untouched: §21 defines no requester
+threading across steps, and no chain-level propagation semantics exist in v1. A later additive
+subsection of this section may define propagation against a real chain consumer; none exists today,
+and speculative mechanism stays out of v1.
+
+**§AGID-1.5 Frozen-envelope invariance (NORMATIVE).** `requesting_agent` is an OPTIONAL, hash-excluded
+member of `audit_signature`, exactly as §17's `build_identity`, §18's `compute_proof`, and §29's
+`twin_execution` were. `$defs/artifact.required` is UNCHANGED, the §4 preimage members
+(`policy_parameters`, `output_payload`) are UNCHANGED, and `chaingraph_version` stays `"0.4.0"`.
+Measured against §0.4-FREEZE's three-condition bar: (a) no existing hash moves (the member sits
+outside the hashed preimage, asserted by `agent-identity-binding.test.mjs`); (b) no `required[]`
+change (every member of this section is optional); (c) no MUST-emit on any existing artifact (absence
+is fully conformant and means NO CLAIM). All three conditions clear, so this is an additive change
+under §0.4-FREEZE. A verifier correct for the previous record computes an identical `execution_hash`
+for an artifact carrying the member and MAY ignore it entirely.
+
+**§AGID-1.6 Interop crosswalk (INFORMATIVE — §XMAP-1 convention).**
+
+| External | Their locus | Maps to |
+|---|---|---|
+| MCP-I (DIF, 2026-03 draft) | agent identifier presented at the MCP boundary | `scheme: "mcp-i"`, `id` |
+| TAP (Visa, RFC 9421) | `Signature-Input`/`Signature` headers, `keyId`, registry key lookup | `scheme: "rfc9421-keyid"`, `id` is the `keyId`, headers in `evidence` |
+| Web Bot Auth / Agent Card | card + `/.well-known` signature directory | `scheme: "webbotauth-card"` |
+| TRAIL `did:trail` / W3C Agent Identity Registry CG | DID-based agent identity | `scheme: "did"` |
+| AP2 v0.2 (FIDO) | Shopping Agent role inside the mandate chain | the mandate names the actor; `requesting_agent` records the same actor on the OCG artifact the mandate's execution produced (a correspondence, not an import) |
+
+**§AGID-1.7 Conformance (§15).** The section joins `schema-validate.mjs` (the member's shape under the
+`audit_signature` object: required `scheme`/`id`, the closed scheme set plus the `x-` extension,
+`agid_version` const `"1"`, the `asserted_by` enum, `evidence` an object when present) and
+`agent-identity-binding.test.mjs` (hash-invariance: add, remove, and mutate the member and assert
+every `execution_hash` byte-identical; scheme discipline against the real gate: the four v1 schemes
+and the `x-` form accepted, while a bare unknown scheme, an `lei` scheme, a missing `id`, a wrong
+`agid_version`, an unknown `asserted_by`, and an unknown member are each rejected; absence accepted).
+This section adds no second gate and changes no existing gate; nothing emits the member yet, and
+adoption is a later decision.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **v0.8.24 (2026-08-13 — SPEC-TEXT PASS adding §5.1 pm:* Prediction/
+See `standard/CHANGELOG.md`. **SPEC-TEXT PASS (2026-09-12: §AGID-1 Agent-Identity Binding, staged by
+`AGENTID-SPEC-APPLY-1` from Tim's 2026-09-02 signed proposal `research/OCG-AGENT-IDENTITY-PROPOSAL-2026-09-02.md`;
+the record `spec_version` stays at whatever `chaingraph.json` carries, same separation as every prior
+text pass):** §AGID-1 adds ONE OPTIONAL, hash-excluded member, `audit_signature.requesting_agent`,
+recording the requesting agent's ASSERTED identity when an artifact is produced at an agent's request.
+Tim signed the three open parameters: the slot is `audit_signature.requesting_agent` (it inherits §16
+signature coverage transitively); NO chain propagation in v1 (§21 untouched, per-artifact assertion
+only); agent-runtime identity schemes only, NO `lei`/§9-bridge scheme in v1. The shape (required
+`scheme`/`id`, closed scheme set `did`/`rfc9421-keyid`/`webbotauth-card`/`mcp-i` plus the `x-` vendor
+extension) lands in `openchain-graph-v0.4.schema.json` in the same change, gate-covered by
+`schema-validate.mjs`; hash-invariance and scheme discipline are proved by
+`agent-identity-binding.test.mjs`. No kernel, page, or manifest change: nothing emits the member yet
+and absence is fully conformant. The rendered spec page does not carry the section yet; §AGID-1 is
+registered in `spec-page-parity-baseline.json` as known-missing debt until the page backfill lands. **SPEC-TEXT PASS (2026-09-06 — §30.3 `standards_basis` gloss, staged by
+`SPEC-30-3-GLOSS-1`; the record `spec_version` stays at whatever `chaingraph.json` carries, same
+separation as every prior text pass):** §30.3's gloss states the declaration vocabulary's existing
+shape explicitly: naming a specification whose structure a node recomputes, converts, decodes, compares,
+or scores is not a standards citation for this purpose, while a conformance verdict about an artifact
+against a published specification, or a computation performed against a regulatory or accounting clause,
+is. Derived from the estate's own declarations (spec-naming `not_applicable` nodes `art-26`, `art-590`,
+`art-591`; the conformance-verdict `implements_standard` node `art-651`). Purely prose: no schema,
+shard, hash, or gate change, every existing artifact and declaration stays byte-identical.
+**v0.8.24 (2026-08-13 — SPEC-TEXT PASS adding §5.1 pm:* Prediction/
 Event-Market Provenance Extension, staged by `PM-OCG-SCHEMA-SPEC-1` carrying the
 `SECO-OCG-Prediction-Market-Scoping.md` §4.1 ratified scoping and Tim's 2026-08-13 provenance-layer-only
 ruling; the record `spec_version` stays at whatever `chaingraph.json` carries until the next coordinated
@@ -3949,6 +4128,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §STPFWD-1 forward decision-outcome mandate: a NEW gpu:false live node emits `haGatePolicy` (§27.4) at `/output_payload/decision/gate_policy` and `haRunState` (§27.10) at `/output_payload/decision/execution_state`, both closed enums unchanged and both inside the §4 preimage; silent about every node published before this section; no schema property, no `required[]` entry, no MUST-emit on an existing artifact — enforced at build time (repo scripts/check-compute-proof-coverage.mjs ratchet, cited §18) rather than by a second §15 gate, since every in-scope node is already required to be proven-or-explicitly-deferred before it can ship | `check-kernel-coverage.mjs --strict`, `compute-proof.test.mjs` | validate |
 | §30 cited clause digest: a `chaingraph.json` `nodes[]` entry NEW or CHANGED on the current branch MUST declare `standards_basis` (`implements_standard`\|`not_applicable`) — undeclared FAILS, no silent default (§30.3); `implements_standard` MUST carry >=1 `cited_clause_digest[]` entry whose `digest` resolves to a registered `chaingraph/standard/clause-snapshot-registry.json` entry — a non-resolving digest FAILS (§30.5c); registry entries are written only by `pin-clause-snapshot.mjs`, which refuses any excerpt exceeding the clause-level size cap (§30.2, whole-document digests structurally impossible); a PRE-EXISTING/untouched node is NEVER retro-gated, reported as a count only (§30.4); hash-excluded, no `execution_hash`/`required[]` change (§30.6); gate output states plainly it proves retrieval, not correct interpretation (§30.0) | `check-clause-digest.mjs`, `check-clause-digest.test.mjs` | validate |
 | §NODEPAGE-1 pageless waiver: a node declaring `pageless` with no page owned PASSES (§NODEPAGE-1.1); a node declaring `pageless` while it OWNS a page (the canonical `chaingraph/<tool_id>.html`, or its own `url` resolving to an `.html` under `chaingraph/` or `tools/`) HARD FAILS naming the page that contradicts the waiver, with page existence RECOMPUTED from the filesystem and never read from the node's own claim (§NODEPAGE-1.3, SO #34); a page-bearing node with no declaration is untouched, reported as not-applicable rather than as a pass or a gap; a `pageless` key carrying a non-string or empty value is its own distinct FAIL, never a silent skip (SO #34c); page-ownership has ONE implementation, shared by the axis that accepts the waiver and the gate that polices it (§NODEPAGE-1.4); hash-excluded, no `execution_hash` or `required[]` change, `chaingraph_version` stays 0.4.0, and a catalog carrying a `pageless` node is schema-valid where the same catalog was invalid before the property was declared (§NODEPAGE-1.6) | `check-pageless-consistency.mjs`, `pageless-consistency.test.mjs`, `schema-validate.mjs` | validate |
+| §AGID-1 agent-identity binding: OPTIONAL hash-excluded `audit_signature.requesting_agent`, absence fully conformant and means NO CLAIM; shape: `scheme` + `id` REQUIRED when present, closed v1 scheme set (`did`, `rfc9421-keyid`, `webbotauth-card`, `mcp-i`) plus the `x-<vendor>` extension accepted, a bare unknown scheme (an organizational `lei` stays §9's slot, NOT admitted in v1) rejected, `agid_version` const `"1"`, `asserted_by` in (`producer`, `agent`), `evidence` an object when present; hash-EXCLUDED, add/remove/mutate leaves `execution_hash` byte-identical (both halves asserted), `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED | `schema-validate.mjs`, `agent-identity-binding.test.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table

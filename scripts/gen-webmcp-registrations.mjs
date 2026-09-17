@@ -46,6 +46,42 @@
  *   - Everything inline/self-contained: no external script, no CDN — CONTRACT
  *     constraints bind generated output exactly like hand-authored pages.
  *
+ * DIRECT emission mode (WEBMCP-DIRECT-MODE-1, Tim ruling 2026-09-05; static
+ * probe per the 2026-09-11 scrutiny amendment): a second, probe-gated emission
+ * shape for sweep-cleared pages whose prefill mapping is INCOMPLETE — the
+ * manifest inputs are arrays/objects collected as row blocks or the page
+ * vocabulary has no element per prop, so there is no control to prefill.
+ * `execute(params)` validates params (required members and legal declared
+ * types only — a property with no `type` keyword gets a presence check,
+ * MCP-SCHEMA-CONFORMANCE-1), calls the manifest-declared `execution.function_name`
+ * with `params` directly, stores the result in the page's result global, lets
+ * the page's own render function paint it, and renders the mandatory
+ * "Inputs used by the agent" JSON echo panel above the result (the echo panel
+ * replaces the visibility form prefill gave; the deep-link and file-import
+ * readers prefill controls and have no direct-mode analogue, so they are not
+ * emitted). Same kernel, same execution_hash, zero egress, readOnlyHint: true
+ * unchanged. The probe is STATIC and zero-dependency (the "existing headless
+ * page harness" the row originally named does not exist in repo/scripts —
+ * scrutiny defect, 2026-09-11): a page is direct-eligible iff
+ *   (a) its <!--KERNEL-DIGEST--> sentinel matches its kernel (reusing
+ *       check-page-kernel-digest.mjs's classifier + _buildid.mjs's sourceDigest;
+ *       never re-derived here),
+ *   (b) execution.function_name is declared on the page taking exactly one
+ *       parameter,
+ *   (c) that function's body contains no DOM read (`document.`, `getElementById`,
+ *       `querySelector`, `.value`, `.checked`, `localStorage`; comments and
+ *       string-literal contents blanked before the scan) — a DOM read means the
+ *       function ignores params,
+ *   (d) the kernel reproduces fixture 0's execution_hash (kernel compute() run
+ *       through the check-engine-parity import pattern, hashed with the shared
+ *       _hash.mjs executionHash) — the hash-parity guarantee,
+ * plus a detected unique zero-arg render function reading the result global
+ * (with an explicit per-tool opt-out list, DIRECT_MODE_OPT_OUT, for pages that
+ * render differently). Every verdict is per-page, never a program halt; the
+ * probe re-runs inside --check on every preflight (parity re-proven), and
+ * `--direct` reports/writes the eligible set (the ORCH mints direct batches
+ * from these verdicts, <=22 pages per PR).
+ *
  * Guard rails (hard failures — the generator never guesses):
  *   G1 manifest shape: snake_case name, description >= 8 words, typed properties;
  *   G2 page mapping: every inputSchema property must match a form element id
@@ -79,19 +115,44 @@
  *   node scripts/gen-webmcp-registrations.mjs --check         (CI/preflight)
  *   node scripts/gen-webmcp-registrations.mjs --manifest [--write|--check]
  *       (WEBMCP-MANIFEST-1: the /.well-known/webmcp.json directory emitter)
+ *   node scripts/gen-webmcp-registrations.mjs --derive-map [--write] [--report]
+ *       (WEBMCP-WRAPPER-PARSE-1: parse each excluded page's own no-arg wrapper,
+ *       bind prop←id explicitly, probe every derived page against fixture 0's
+ *       execution_hash, and write proven entries into propertyIdMap's derived
+ *       region with source 'parsed-from-wrapper' + wrapper_digest. --report
+ *       prints the per-page buckets.)
  *   node scripts/gen-webmcp-registrations.mjs --selftest
+ *   node scripts/gen-webmcp-registrations.mjs --direct [--write] [--tool <id>]
+ *       (WEBMCP-DIRECT-MODE-1: probe the mapping-incomplete sweep-cleared pages
+ *       for direct-mode eligibility, print the per-page verdicts + histogram;
+ *       --write emits the direct-mode block into eligible pages — the batch
+ *       rows' writer, run per batch, never in this generator's own gates)
+ *
+ * WEBMCP-OT-META-1: every write/check mode above also carries the origin-trial
+ * <meta> region in each generator-owned page's <head> (token from
+ * chaingraph/webmcp-ot-token.txt; placeholder = nothing emitted) and --check
+ * runs the OT token gate (origin/feature/expiry, 14-day renewal floor).
  *
  * Exit: 0 clean; 1 on any --check drift or hard-guard failure.
  */
 import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, basename, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, webcrypto } from 'node:crypto';
+import * as vm from 'node:vm';
 import { loadManifestIndex, loadMcpNameIndex, sweepKernel } from './check-schema-read-divergence.mjs';
 import { gitEnv } from './_git-env-lib.mjs';
 import { buildDeeplinkScript, buildFileImportScript, DEEPLINK_MARKER, FILE_IMPORT_MARKER } from '../chaingraph/_page-chrome.mjs';
+// WEBMCP-DIRECT-MODE-1 probe inputs: (a) reuses the page↔kernel digest
+// classifier (never re-derived) + the canonical sourceDigest; (d) runs the
+// kernel through the check-engine-parity import pattern and hashes with the
+// one shared canonicalizer (CONTRACT §A4.3 — no ad-hoc preimage anywhere).
+import { classifyPage } from './check-page-kernel-digest.mjs';
+import { sourceDigest } from '../chaingraph/kernels/_buildid.mjs';
+import { executionHash } from '../chaingraph/kernels/_hash.mjs';
+import { readOutcome } from '../chaingraph/kernels/_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -102,8 +163,98 @@ export const BEGIN = '<!-- WEBMCP:GEN-BEGIN ';
 // substitutes in reader-facing text (measured: 16-page preflight red).
 export const END = '<!-- WEBMCP:GEN-END -->';
 
-function beginLine(manifestPath) {
-  return `<!-- WEBMCP:GEN-BEGIN manifest=${manifestPath} generator=scripts/gen-webmcp-registrations.mjs -->`;
+function beginLine(manifestPath, mode) {
+  return `<!-- WEBMCP:GEN-BEGIN manifest=${manifestPath} generator=scripts/gen-webmcp-registrations.mjs${mode ? ` mode=${mode}` : ''} -->`;
+}
+
+// ── Origin-trial meta emitter + token gate (WEBMCP-OT-META-1) ────────────────
+/**
+ * Chrome's WebMCP origin trial exposes document.modelContext only when the page
+ * serves a first-party OT token. The token file (`chaingraph/webmcp-ot-token.txt`,
+ * real token from PR #1726) is read at generation time:
+ *   - with a real token, every generator-owned registered page's <head> carries
+ *     `<meta http-equiv="origin-trial" content="...">` inside its own marker
+ *     region (OT_META_BEGIN/END), byte-exact under --check;
+ *   - with the placeholder, nothing is emitted and pages stay byte-identical.
+ * The --check gate decodes the token (base64 envelope, JSON payload at the tail)
+ * and goes RED when origin/feature mismatch or expiry is < 14 days out (the
+ * expiry gate IS the renewal alarm — no cron, no workflow); placeholder prints
+ * ADVISORY: OT-TOKEN ABSENT. Registration needs a Google account (no API), so
+ * the token paste is the operator's one-line commit (WEBMCP-OT-TOKEN-PASTE).
+ */
+export const OT_META_BEGIN = '<!-- WEBMCP:OT-META-BEGIN generator=scripts/gen-webmcp-registrations.mjs -->';
+export const OT_META_END = '<!-- WEBMCP:OT-META-END -->';
+export const OT_TOKEN_PLACEHOLDER = 'PLACEHOLDER-SET-BY-OPERATOR';
+export const OT_MIN_DAYS = 14;
+
+/** Read + classify the OT token file. `present` is true only for a real token. */
+export function readOtToken(repoRoot) {
+  const abs = resolve(repoRoot || REPO, OT_TOKEN_REL);
+  if (!existsSync(abs)) return { present: false, placeholder: true, token: '' };
+  const token = readFileSync(abs, 'utf8').trim();
+  if (!token || token === OT_TOKEN_PLACEHOLDER) return { present: false, placeholder: true, token };
+  return { present: true, placeholder: false, token };
+}
+
+/** Decode the token envelope: base64 bytes whose tail carries the JSON payload
+ *  {origin, feature, expiry (seconds), isSubdomain}. Returns {ok, payload} or
+ *  {ok:false, error}. */
+export function decodeOtToken(token) {
+  let bytes;
+  try {
+    bytes = Buffer.from(String(token).replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('latin1');
+  } catch (e) {
+    return { ok: false, error: `token is not base64: ${e.message}` };
+  }
+  const m = bytes.match(/\{[^{}]*\}\s*$/);
+  if (!m) return { ok: false, error: 'decoded token carries no JSON payload at its tail' };
+  try { return { ok: true, payload: JSON.parse(m[0]) }; }
+  catch (e) { return { ok: false, error: `token JSON payload is not valid JSON: ${e.message}` }; }
+}
+
+/** Pure OT gate: [] when the token is acceptable, else one string per RED. */
+export function otTokenGateErrors(token, now = new Date()) {
+  const dec = decodeOtToken(token);
+  if (!dec.ok) return [`OT token does not decode: ${dec.error}`];
+  const p = dec.payload;
+  const reasons = [];
+  // The payload carries the port (https://ainumbers.co:443); :443 is the default
+  // HTTPS port, so it normalizes to the bare origin.
+  const origin = typeof p.origin === 'string' ? p.origin.replace(/:443$/, '') : p.origin;
+  if (origin !== 'https://ainumbers.co') reasons.push(`OT token origin ${JSON.stringify(p.origin)} !== https://ainumbers.co`);
+  if (p.feature !== 'WebMCP') reasons.push(`OT token feature ${JSON.stringify(p.feature)} !== 'WebMCP'`);
+  const days = typeof p.expiry === 'number' ? (p.expiry * 1000 - now.getTime()) / 86400000 : NaN;
+  if (!Number.isFinite(days)) reasons.push('OT token expiry missing or unparseable (seconds-since-epoch expected)');
+  else if (days < OT_MIN_DAYS) reasons.push(`OT token expires in ${days.toFixed(1)} days — below the ${OT_MIN_DAYS}-day renewal floor (renew the token: origin-trials.google.com)`);
+  return reasons;
+}
+
+/** The marker-delimited <head> region carrying the meta tag. */
+export function otMetaBlock(token) {
+  return [OT_META_BEGIN, `<meta http-equiv="origin-trial" content="${token}">`, OT_META_END].join('\n');
+}
+
+function otMetaRegionOf(pageSrc) {
+  const b = pageSrc.indexOf(OT_META_BEGIN);
+  if (b === -1) return null;
+  const e = pageSrc.indexOf(OT_META_END, b);
+  if (e === -1) return null;
+  return { start: b, end: e + OT_META_END.length };
+}
+
+/** Idempotent <head> writer: with `block`, the region sits on the first line
+ *  after <head>; with null, any existing region is stripped (byte-identical
+ *  with a never-tokenized page). */
+export function applyOtMeta(pageSrc, block) {
+  let src = pageSrc;
+  const region = otMetaRegionOf(src);
+  if (region) src = src.slice(0, region.start) + src.slice(region.end).replace(/^\n/, '');
+  if (!block) return src;
+  const m = /<head\b[^>]*>/.exec(src);
+  if (!m) throw new Error('page has no <head> to carry the origin-trial meta region');
+  let at = m.index + m[0].length;
+  if (src[at] === '\n') at += 1;
+  return src.slice(0, at) + block + '\n' + src.slice(at);
 }
 
 // ── Per-tool manifest-property → element-id map (WEBMCP-GEN-IDMAP-1) ──────────
@@ -637,7 +788,302 @@ export const propertyIdMap = {
     strictness: { element_id: 'strictnessSelect', via: 'string' },
     trunc_threshold: { element_id: 'truncThreshold', via: 'string' },
   },
+    // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-01-ap2-mandate-chain-validator.html:316 — cart -> #cartJson (JSON-text textarea (#cartJson); page parses JSON textareas)
+  //   chaingraph/art-01-ap2-mandate-chain-validator.html:348 — hnp_mode -> #hnpMode (#hnpMode read as a plain .value string)
+  //   chaingraph/art-01-ap2-mandate-chain-validator.html:308 — intent -> #intentJson (JSON-text textarea (#intentJson); page parses JSON textareas)
+  //   chaingraph/art-01-ap2-mandate-chain-validator.html:324 — payment -> #paymentJson (JSON-text textarea (#paymentJson); page parses JSON textareas)
+  //   chaingraph/art-01-ap2-mandate-chain-validator.html:336 — validate_at -> #validateAt (#validateAt read as a plain .value string)
+  'art-01-ap2-mandate-chain-validator': {
+    cart: { element_id: 'cartJson', via: 'json' },
+    hnp_mode: { element_id: 'hnpMode', via: 'string' },
+    intent: { element_id: 'intentJson', via: 'json' },
+    payment: { element_id: 'paymentJson', via: 'json' },
+    validate_at: { element_id: 'validateAt', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/cry-01-zk-compliance-proof-generator.html:191 — predicate_type -> #predicateType (#predicateType read as a plain .value string)
+  'cry-01-zk-compliance-proof-generator': {
+    predicate_type: { element_id: 'predicateType', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/ml-01-isolation-forest.html:244 — n_trees -> #nTrees (#nTrees read as a plain .value string)
+  'ml-01-isolation-forest': {
+    n_trees: { element_id: 'nTrees', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/ptg-01-ap2-prompt-template-generator.html:266 — audience -> #audienceSelect (#audienceSelect read as a plain .value string)
+  //   chaingraph/ptg-01-ap2-prompt-template-generator.html:254 — task -> #taskSelect (#taskSelect read as a plain .value string)
+  'ptg-01-ap2-prompt-template-generator': {
+    audience: { element_id: 'audienceSelect', via: 'string' },
+    task: { element_id: 'taskSelect', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/qfa-01-options-greeks.html:289 — rate -> #inRate (#inRate read as a plain .value string)
+  //   chaingraph/qfa-01-options-greeks.html:271 — spot -> #inSpot (#inSpot read as a plain .value string)
+  //   chaingraph/qfa-01-options-greeks.html:275 — strike -> #inStrike (#inStrike read as a plain .value string)
+  //   chaingraph/qfa-01-options-greeks.html:283 — vol -> #inVol (#inVol read as a plain .value string)
+  'qfa-01-options-greeks': {
+    rate: { element_id: 'inRate', via: 'string' },
+    spot: { element_id: 'inSpot', via: 'string' },
+    strike: { element_id: 'inStrike', via: 'string' },
+    vol: { element_id: 'inVol', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/sim-01-lcr-nsfr-liquidity-stress-test.html:300 — n_paths -> #nPaths (#nPaths read as a plain .value string)
+  'sim-01-lcr-nsfr-liquidity-stress-test': {
+    n_paths: { element_id: 'nPaths', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-02-agent-spend-policy-simulator.html:380 — chaos -> #chaosLevel (#chaosLevel read as a plain .value string)
+  //   chaingraph/art-02-agent-spend-policy-simulator.html:385 — drip_freq -> #dripFreq (#dripFreq read as a plain .value string)
+  //   chaingraph/art-02-agent-spend-policy-simulator.html:375 — hnp_ratio -> #hnpRatio (#hnpRatio read as a plain .value string)
+  'art-02-agent-spend-policy-simulator': {
+    chaos: { element_id: 'chaosLevel', via: 'string' },
+    drip_freq: { element_id: 'dripFreq', via: 'string' },
+    hnp_ratio: { element_id: 'hnpRatio', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/ml-02-credit-default-risk-scorer.html:239 — asset_class -> #assetClass (#assetClass read as a plain .value string)
+  //   chaingraph/ml-02-credit-default-risk-scorer.html:235 — n_loans -> #nLoans (#nLoans read as a plain .value string)
+  //   chaingraph/ml-02-credit-default-risk-scorer.html:270 — pd_threshold -> #pdThreshold (#pdThreshold read as a plain .value string)
+  'ml-02-credit-default-risk-scorer': {
+    asset_class: { element_id: 'assetClass', via: 'string' },
+    n_loans: { element_id: 'nLoans', via: 'string' },
+    pd_threshold: { element_id: 'pdThreshold', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/qfa-02-portfolio-var-engine.html:216 — conf_level -> #confLevel (#confLevel read as a plain .value string)
+  //   chaingraph/qfa-02-portfolio-var-engine.html:206 — mc_sims -> #mcSims (#mcSims read as a plain .value string)
+  //   chaingraph/qfa-02-portfolio-var-engine.html:193 — n_assets -> #nAssets (#nAssets read as a plain .value string)
+  'qfa-02-portfolio-var-engine': {
+    conf_level: { element_id: 'confLevel', via: 'string' },
+    mc_sims: { element_id: 'mcSims', via: 'string' },
+    n_assets: { element_id: 'nAssets', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/rca-02-mica-reserve-stress.html:307 — horizon_days -> #horizonDays (#horizonDays read as a plain .value string)
+  //   chaingraph/rca-02-mica-reserve-stress.html:302 — n_paths -> #nPaths (#nPaths read as a plain .value string)
+  'rca-02-mica-reserve-stress': {
+    horizon_days: { element_id: 'horizonDays', via: 'string' },
+    n_paths: { element_id: 'nPaths', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/qfa-03-stress-test-engine.html:276 — equity_beta -> #equityBeta (#equityBeta read as a plain .value string)
+  //   chaingraph/qfa-03-stress-test-engine.html:298 — mc_paths -> #mcPaths (#mcPaths read as a plain .value string)
+  'qfa-03-stress-test-engine': {
+    equity_beta: { element_id: 'equityBeta', via: 'string' },
+    mc_paths: { element_id: 'mcPaths', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/cry-04-merkle-batch-verifier.html:311 — merkle_root -> #merkleRoot (#merkleRoot read as a plain .value string)
+  //   chaingraph/cry-04-merkle-batch-verifier.html:317 — proof_entries -> #proofEntries (JSON-text textarea (#proofEntries); page parses JSON textareas)
+  'cry-04-merkle-batch-verifier': {
+    merkle_root: { element_id: 'merkleRoot', via: 'string' },
+    proof_entries: { element_id: 'proofEntries', via: 'json' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/qfa-04-xva-cva-calculator.html:280 — n_paths -> #inNPaths (#inNPaths read as a plain .value string)
+  //   chaingraph/qfa-04-xva-cva-calculator.html:270 — notional -> #inNotional (#inNotional read as a plain .value string)
+  'qfa-04-xva-cva-calculator': {
+    n_paths: { element_id: 'inNPaths', via: 'string' },
+    notional: { element_id: 'inNotional', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-06-genius-act-reserve-attestation.html:304 — issuer_type -> #issuerType (#issuerType read as a plain .value string)
+  //   chaingraph/art-06-genius-act-reserve-attestation.html:288 — outstanding_tokens -> #outstandingTokens (#outstandingTokens read as a plain .value string)
+  //   chaingraph/art-06-genius-act-reserve-attestation.html:293 — token_price -> #tokenPrice (#tokenPrice read as a plain .value string)
+  'art-06-genius-act-reserve-attestation': {
+    issuer_type: { element_id: 'issuerType', via: 'string' },
+    outstanding_tokens: { element_id: 'outstandingTokens', via: 'string' },
+    token_price: { element_id: 'tokenPrice', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-11-vop-batch-match-rate-analyser.html:341 — match_threshold -> #matchThreshold (#matchThreshold read as a plain .value string)
+  'art-11-vop-batch-match-rate-analyser': {
+    match_threshold: { element_id: 'matchThreshold', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-35-tempo-payments-business-case.html:262 — impl_months -> #implMonths (#implMonths read as a plain .value string)
+  //   chaingraph/art-35-tempo-payments-business-case.html:232 — rail -> #incumbentRail (#incumbentRail read as a plain .value string)
+  'art-35-tempo-payments-business-case': {
+    impl_months: { element_id: 'implMonths', via: 'string' },
+    rail: { element_id: 'incumbentRail', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-38-tempo-onchain-aml.html:221 — sar_threshold -> #sarThreshold (#sarThreshold read as a plain .value string)
+  //   chaingraph/art-38-tempo-onchain-aml.html:225 — tr_threshold -> #trThreshold (#trThreshold read as a plain .value string)
+  'art-38-tempo-onchain-aml': {
+    sar_threshold: { element_id: 'sarThreshold', via: 'string' },
+    tr_threshold: { element_id: 'trThreshold', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-43-arc-cpn-model.html:200 — rail -> #incumbentRail (#incumbentRail read as a plain .value string)
+  'art-43-arc-cpn-model': {
+    rail: { element_id: 'incumbentRail', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-44-arc-stablefx-model.html:201 — trading_days -> #tradingDays (#tradingDays read as a plain .value string)
+  'art-44-arc-stablefx-model': {
+    trading_days: { element_id: 'tradingDays', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-45-arc-xreserve-linter.html:250 — cctp_domains -> #cctpDomains (#cctpDomains read as a plain .value string)
+  //   chaingraph/art-45-arc-xreserve-linter.html:224 — usdc_pct -> #usdcPct (#usdcPct read as a plain .value string)
+  //   chaingraph/art-45-arc-xreserve-linter.html:229 — usyc_pct -> #usycPct (#usycPct read as a plain .value string)
+  'art-45-arc-xreserve-linter': {
+    cctp_domains: { element_id: 'cctpDomains', via: 'string' },
+    usdc_pct: { element_id: 'usdcPct', via: 'string' },
+    usyc_pct: { element_id: 'usycPct', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-46-arc-paymaster-model.html:202 — eth_price_usd -> #ethPriceUsd (#ethPriceUsd read as a plain .value string)
+  //   chaingraph/art-46-arc-paymaster-model.html:192 — gas_per_uop -> #gasPerUop (#gasPerUop read as a plain .value string)
+  //   chaingraph/art-46-arc-paymaster-model.html:187 — monthly_uops -> #monthlyUops (#monthlyUops read as a plain .value string)
+  'art-46-arc-paymaster-model': {
+    eth_price_usd: { element_id: 'ethPriceUsd', via: 'string' },
+    gas_per_uop: { element_id: 'gasPerUop', via: 'string' },
+    monthly_uops: { element_id: 'monthlyUops', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-47-arc-cctp-transfer.html:227 — notional_usd -> #notionalUsd (#notionalUsd read as a plain .value string)
+  //   chaingraph/art-47-arc-cctp-transfer.html:232 — transfer_mode -> #transferMode (#transferMode read as a plain .value string)
+  'art-47-arc-cctp-transfer': {
+    notional_usd: { element_id: 'notionalUsd', via: 'string' },
+    transfer_mode: { element_id: 'transferMode', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-61-x402-batch-settlement-reconciler.html:162 — batch -> #batch_id (#batch_id read as a plain .value string)
+  //   chaingraph/art-61-x402-batch-settlement-reconciler.html:181 — vouchers -> #vouchers_json (page JSON.parses #vouchers_json's value)
+  'art-61-x402-batch-settlement-reconciler': {
+    batch: { element_id: 'batch_id', via: 'string' },
+    vouchers: { element_id: 'vouchers_json', via: 'json' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-63-agent-service-metering-modeler.html:163 — pricing -> #pricing_model (#pricing_model read as a plain .value string)
+  'art-63-agent-service-metering-modeler': {
+    pricing: { element_id: 'pricing_model', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-67-agentic-ai-risk-classifier.html:195 — model -> #model_type (#model_type read as a plain .value string)
+  'art-67-agentic-ai-risk-classifier': {
+    model: { element_id: 'model_type', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-69-cbam-embedded-emissions-calculator.html:208 — precursor_emissions -> #precursor_emissions_tco2e (#precursor_emissions_tco2e read as a plain .value string)
+  'art-69-cbam-embedded-emissions-calculator': {
+    precursor_emissions: { element_id: 'precursor_emissions_tco2e', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-71-cbam-certificate-cost-engine.html:188 — eua_reference_price -> #eua_reference_price_eur (#eua_reference_price_eur read as a plain .value string)
+  'art-71-cbam-certificate-cost-engine': {
+    eua_reference_price: { element_id: 'eua_reference_price_eur', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-76-climate-scenario-applicator.html:176 — scenario -> #scenario_family (#scenario_family read as a plain .value string)
+  'art-76-climate-scenario-applicator': {
+    scenario: { element_id: 'scenario_family', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-78-csdr-penalty-calculator.html:176 — fail -> #fail_days (#fail_days read as a plain .value string)
+  'art-78-csdr-penalty-calculator': {
+    fail: { element_id: 'fail_days', via: 'string' },
+  },
+  // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
+  // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
+  // own control reads:
+  //   chaingraph/art-106-tempo-subscription-reconciler.html:237 — draws -> #draws_json (page JSON.parses #draws_json's value)
+  'art-106-tempo-subscription-reconciler': {
+    draws: { element_id: 'draws_json', via: 'json' },
+  },
+  // art-160 (WEBMCP-PROPERTYIDMAP-BATCH-1 follow-up): the fixlist's rename pair
+  // `transaction -> #transaction_value` was withdrawn — `transaction` is an
+  // object prop (7 sub-fields) and the sole #transaction_value number input
+  // cannot faithfully carry it (deep-link probe execution_hash mismatch,
+  // preflight FULL 2026-09-10). Honest exclusion; PAGE-FIX-NEEDED.
+
+/* WEBMCP:DERIVED-MAP-BEGIN (generated by --derive-map --write, WEBMCP-WRAPPER-PARSE-1; hand-edits are red) */
+  'art-153-emir-trade-report-field-validator': {
+    // wrapper: run (sha256 1ff6c74b2596…, WEBMCP-WRAPPER-PARSE-1 probe-verified)
+    "report": {"source":"parsed-from-wrapper","wrapper_digest":"1ff6c74b259680f6f21814d060f5f890fd4d648b7d3ef88e82d6ef528ae4d2cc","object":{"action_type":{"id":"action_type"},"reporting_counterparty_lei":{"id":"reporting_counterparty_lei"},"other_counterparty_lei":{"id":"other_counterparty_lei"},"uti":{"id":"uti"},"upi":{"id":"upi"},"notional":{"id":"notional","coerce":"number"},"notional_currency":{"id":"notional_currency"},"effective_date":{"id":"effective_date"},"asset_class":{"id":"asset_class"}}},
+  },
+  'art-163-vida-oss-registration-router': {
+    // wrapper: run (sha256 bbd4651c386a…, WEBMCP-WRAPPER-PARSE-1 probe-verified)
+    "supply": {"source":"parsed-from-wrapper","wrapper_digest":"bbd4651c386a7172e3fb4106e7e2324dd2d8a8c28c7c91861afcb7afef8d6f90","object":{"supply_type":{"id":"supply_type"},"seller_establishment":{"id":"seller_establishment"},"destination_member_state":{"id":"destination_member_state"}}},
+  },
+  'art-164-vida-compliance-readiness-diagnostic': {
+    // wrapper: run (sha256 bbd4651c386a…, WEBMCP-WRAPPER-PARSE-1 probe-verified)
+    "entity": {"source":"parsed-from-wrapper","wrapper_digest":"bbd4651c386a7172e3fb4106e7e2324dd2d8a8c28c7c91861afcb7afef8d6f90","object":{"einvoice_ready":{"id":"einvoice_ready","coerce":"boolean"},"drr_ready":{"id":"drr_ready","coerce":"boolean"},"platform_assessed":{"id":"platform_assessed","coerce":"boolean"},"platform_not_applicable":{"id":"platform_not_applicable","coerce":"boolean"},"oss_scheme_configured":{"id":"oss_scheme_configured","coerce":"boolean"},"oss_not_applicable":{"id":"oss_not_applicable","coerce":"boolean"}}},
+  },
+  /* WEBMCP:DERIVED-MAP-END */
 };
+
+// Derived-map entry shape (WEBMCP-WRAPPER-PARSE-1): every property entry carries
+// `source: 'parsed-from-wrapper'` and `wrapper_digest` (sha256 of the wrapper
+// body the binding was parsed from). `verifyPageMapping` ignores derived entries
+// (no element_id/via — the literal-id guard applies to them unchanged, so
+// emission is untouched); `--check` re-parses each derived page and refuses on
+// wrapper-byte drift (digest mismatch) or entry drift — drift is red, never silent.
+export const DERIVED_MAP_BEGIN = '/* WEBMCP:DERIVED-MAP-BEGIN (generated by --derive-map --write, WEBMCP-WRAPPER-PARSE-1; hand-edits are red) */';
+export const DERIVED_MAP_END = '/* WEBMCP:DERIVED-MAP-END */';
 
 // ── Guard helpers ─────────────────────────────────────────────────────────────
 
@@ -646,7 +1092,7 @@ function fail(msg) {
   process.exit(1);
 }
 
-function loadManifestFor(toolId, manifestIndex, mcpNameByTool, repoRoot) {
+export function loadManifestFor(toolId, manifestIndex, mcpNameByTool, repoRoot) {
   const root = repoRoot || REPO;
   const rec = manifestIndex.byTool.get(toolId)
     || (mcpNameByTool.get(toolId) ? manifestIndex.byMcp.get(mcpNameByTool.get(toolId)) : null)
@@ -664,6 +1110,13 @@ function readRepoFile(rel, repoRoot) {
   return readFileSync(resolve(repoRoot || REPO, rel), 'utf8');
 }
 
+// RULINGS 2026-09-10T20:30:44Z (MCP-SCHEMA-CONFORMANCE-1): the seven legal JSON
+// Schema type names. A property with NO `type` keyword is legal (valid 2020-12,
+// accepts any JSON) and maps via the 'string' via (`.value = String(params.p)`) —
+// exactly as the legacy `unknown` did; a `type` that names anything else is refused.
+export const LEGAL_TYPE_NAMES = ['string', 'number', 'integer', 'boolean', 'array', 'object', 'null'];
+const LEGAL_TYPE_SET = new Set(LEGAL_TYPE_NAMES);
+
 /** G1: manifest shape. Returns an error string or null. */
 export function checkManifestShape(m) {
   const def = m?.mcp_tool_definition;
@@ -674,7 +1127,14 @@ export function checkManifestShape(m) {
   const props = def.inputSchema && def.inputSchema.properties ? def.inputSchema.properties : null;
   if (!props || typeof props !== 'object') return 'mcp_tool_definition.inputSchema.properties missing';
   for (const [k, v] of Object.entries(props)) {
-    if (!v || typeof v.type !== 'string') return `inputSchema property '${k}' has no type`;
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return `inputSchema property '${k}' is not a schema object`;
+    if (!('type' in v)) continue; // typeless: legal JSON Schema (RULINGS 2026-09-10T20:30:44Z); 'string' via by default
+    const names = Array.isArray(v.type) ? v.type : [v.type];
+    const bad = names.filter((n) => !LEGAL_TYPE_SET.has(n));
+    if (bad.length) {
+      const rendered = bad.map((n) => (typeof n === 'string' ? `'${n}'` : JSON.stringify(n))).join(', ');
+      return `inputSchema property '${k}' has illegal type name ${rendered} — legal names: ${LEGAL_TYPE_NAMES.join(' ')}`;
+    }
   }
   if (!m.execution || typeof m.execution.function_name !== 'string' || !m.execution.function_name) {
     return 'missing execution.function_name';
@@ -740,7 +1200,10 @@ export function verifyPageMapping(manifest, pageSrc, pageLabel, idMap) {
   const props = Object.keys(def.inputSchema.properties);
   const map = idMap || {};
   const missing = props.filter((p) => {
-    const target = map[p] ? map[p].element_id : p;
+    // WEBMCP-WRAPPER-PARSE-1: derived entries (source: 'parsed-from-wrapper')
+    // carry no element_id/via — they are NOT authored mappings and are never
+    // consulted for emission; the literal-id guard applies to them unchanged.
+    const target = map[p] && map[p].element_id ? map[p].element_id : p;
     return !new RegExp(`id=["']${target}["']`).test(pageSrc);
   });
   if (missing.length > 0) {
@@ -933,6 +1396,34 @@ function listPages(root) {
   return out.split('\n').map((s) => s.trim()).filter(Boolean);
 }
 
+// MCP-SCHEMA-CONFORMANCE-1 TRANSITION (removed in PR-5 with the rest of the
+// transition): until the 498-manifest sweep lands in slices, a generator-owned
+// manifest may still be rendered under the LEGACY rule — `"type": "unknown"` as
+// the no-evidence type inside mcp_tool_definition.inputSchema. `unknown` is the
+// legacy rendering of a typeless property (same 'string' via), so such a manifest
+// stays in the emittable set — the registered set cannot drop mid-transition.
+// The strict law lives in checkManifestShape (the selftest's RED control proves
+// it reds on `unknown`); this tolerance only ever fires for provenance-owned
+// manifests (either mark) whose sole type-law defect is the legacy `unknown`.
+function legacyUnknownShapeOnly(m) {
+  const prov = m?.input_schema_provenance ?? m?.input_schema?.x_schema_provenance;
+  if (!/^derived-from-kernel-reads \d{4}-\d{2}-\d{2}$/.test(prov || '')) return false;
+  const bad = [];
+  const walk = (node) => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+    if ('type' in node) {
+      const names = Array.isArray(node.type) ? node.type : [node.type];
+      for (const n of names) if (n !== 'unknown' && !LEGAL_TYPE_SET.has(n)) bad.push(n);
+    }
+    if (node.items) walk(node.items);
+    if (node.properties && typeof node.properties === 'object' && !Array.isArray(node.properties)) {
+      for (const sub of Object.values(node.properties)) walk(sub);
+    }
+  };
+  walk(m?.mcp_tool_definition?.inputSchema);
+  return bad.length === 0;
+}
+
 /**
  * Full per-tool decision: why a tool is or is not emittable TODAY.
  * Returns { toolId, ok, reason, detail }.
@@ -953,7 +1444,9 @@ export function adjudicateTool(toolId, repoRoot, manifestIndex, mcpNameByTool) {
   const loaded = loadManifestFor(toolId, manifestIndex, mcpNameByTool, repoRoot);
   if (loaded.error) return { toolId, ok: false, reason: loaded.error };
   const shapeErr = checkManifestShape(loaded.m);
-  if (shapeErr) return { toolId, ok: false, reason: `manifest ${loaded.file}: ${shapeErr}` };
+  if (shapeErr && !(shapeErr.includes('illegal type name') && legacyUnknownShapeOnly(loaded.m))) {
+    return { toolId, ok: false, reason: `manifest ${loaded.file}: ${shapeErr}` };
+  }
   const parityErr = checkManifestSchemaParity(loaded.m);
   if (parityErr) return { toolId, ok: false, reason: `manifest ${loaded.file}: ${parityErr}` };
 
@@ -1247,16 +1740,18 @@ export function expectedChainBlocks(repoRoot) {
 
 function runChainMode(write) {
   const entries = expectedChainBlocks(REPO);
+  const ot = readOtToken(REPO);
+  const otBlock = ot.present ? otMetaBlock(ot.token) : null;
   let written = 0, drifted = 0;
   for (const e of entries) {
     const pageAbs = resolve(REPO, e.page);
     const src = readFileSync(pageAbs, 'utf8');
-    const updated = insertIntoPage(src, e.block);
+    const updated = applyOtMeta(insertIntoPage(src, e.block), otBlock);
     if (updated !== src) {
       if (!write) { drifted++; console.error(`DRIFT ${e.page}: chain registration region missing or stale (run with --write)`); continue; }
       writeFileSync(pageAbs, updated);
       written++;
-      console.log(`wrote ${e.page} (chain registrations: plan_chain, assemble_session_receipt, apply_delegation_bundle${e.hasRunner ? '; runner link in cfg' : ''})`);
+      console.log(`wrote ${e.page} (chain registrations: plan_chain, assemble_session_receipt, apply_delegation_bundle${e.hasRunner ? '; runner link in cfg' : ''}${ot.present ? '; OT meta in head' : ''})`);
     }
   }
   if (!write) {
@@ -1283,12 +1778,19 @@ function runCheck() {
   const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(REPO);
   const emittable = [];
   const excluded = [];
+  const runCheckInner = async () => {
   for (const id of cleared) {
     const d = adjudicateTool(id, REPO, manifestIndex, mcpNameByTool);
     if (d.ok) emittable.push({ ...d.detail, toolId: id }); else excluded.push({ id, reason: d.reason });
   }
 
   const problems = [];
+  // 5 (probe collected early — section 2 consults the eligible set). WEBMCP-
+  // DIRECT-MODE-1: the static direct-mode eligibility probe re-runs over the
+  // whole mapping-incomplete excluded set on every --check (parity re-proven
+  // on every preflight; per-page verdicts, never a halt).
+  const directVerdicts = await collectDirectVerdicts(cleared, manifestIndex, mcpNameByTool);
+  const directEligible = new Map(directVerdicts.filter((v) => v.eligible).map((v) => [v.toolId, v]));
   // 1. Every emittable page carries a byte-exact generated region.
   for (const d of emittable) {
     const pageSrc = readRepoFile(d.page, REPO);
@@ -1328,6 +1830,10 @@ function runCheck() {
     if (!pageSrc.includes(BEGIN)) continue;
     if (p.startsWith('chaingraph/chains/')) continue;
     if (!emittablePages.has(p)) {
+      // WEBMCP-DIRECT-MODE-1: a DIRECT-mode region on a page that is direct-
+      // eligible today is legitimate (the fallback mode's own region); it is
+      // byte-checked in section 5. Anything else keeps the coverage-regression red.
+      if (isDirectRegion(pageSrc) && directEligible.has(basename(p).replace(/\.html$/, ''))) continue;
       problems.push(`${p}: carries a generated WebMCP region but is not in today's emittable set (schema or mapping changed) — regenerate or remove the region`);
     }
   }
@@ -1354,18 +1860,97 @@ function runCheck() {
     }
   }
 
+  // 4. Derived pages (WEBMCP-WRAPPER-PARSE-1): committed derived entries are
+  // re-parsed and re-probed against fixture 0 — wrapper-byte drift, entry
+  // drift, or a failed probe is RED, never silent.
+  await checkDerivedEntries(manifestIndex, mcpNameByTool, (p) => problems.push(p));
+  // 5. Direct-mode region parity (WEBMCP-DIRECT-MODE-1): a page carrying a
+  // DIRECT-mode region must be direct-eligible TODAY (the probe verdict above
+  // is the re-proof) and byte-exact against the current emitter. A refused
+  // tool with a region is a parity loss; a drifted region is a hand-edit.
+  // Eligible pages without a region yet are the pending batch queue, not a
+  // defect (direct batches land <=22 pages per PR).
+  let directRegions = 0;
+  for (const p of listPages(REPO)) {
+    let pageSrc;
+    try { pageSrc = readRepoFile(p, REPO); } catch { continue; }
+    if (!isDirectRegion(pageSrc)) continue;
+    if (p.startsWith('chaingraph/chains/')) { problems.push(`${p}: chain composer pages never carry direct-mode regions`); continue; }
+    directRegions++;
+    const toolId = basename(p).replace(/\.html$/, '');
+    const v = directEligible.get(toolId);
+    if (!v) {
+      const why = directVerdicts.find((x) => x.toolId === toolId);
+      problems.push(`${p}: carries a DIRECT-mode region but the tool is not direct-eligible today${why ? ` (${why.reason})` : ' (prefill-emittable or sweep-excluded; direct mode is fallback-only)'} — remove the region or restore eligibility`);
+      continue;
+    }
+    const loaded = loadManifestFor(toolId, manifestIndex, mcpNameByTool, REPO);
+    if (loaded.error) { problems.push(`${p}: direct-mode region manifest unreadable: ${loaded.error}`); continue; }
+    const expected = buildDirectBlockForPage(loaded.m, v.detail.manifest, v.detail.resGlobal, v.detail.render);
+    const region = regionOf(pageSrc);
+    const actual = pageSrc.slice(region.start, region.end);
+    if (actual !== expected) {
+      problems.push(`${p}: direct-mode region drifted from ${v.detail.manifest} — hand-edits to generated blocks are red; run node scripts/gen-webmcp-registrations.mjs --direct --write --tool ${toolId}`);
+      continue;
+    }
+    const directScripts = [...actual.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    for (const scriptBody of directScripts) {
+      try { new Function(scriptBody); } catch (e) {
+        problems.push(`${p}: direct-mode region does not parse as JavaScript: ${e.message}`);
+      }
+    }
+  }
+  // 4. OT token gate + meta region freshness (WEBMCP-OT-META-1). The expiry
+  // check IS the renewal alarm: main goes RED 14 days before expiry and the
+  // nightly opener surfaces it — no cron, no workflow.
+  const ot = readOtToken(REPO);
+  if (ot.present) {
+    const reasons = otTokenGateErrors(ot.token);
+    if (reasons.length > 0) {
+      console.error('✗ OT token gate FAILED (WEBMCP-OT-META-1):');
+      reasons.forEach((r) => console.error('    ' + r));
+      process.exit(1);
+    }
+    const days = ((decodeOtToken(ot.token).payload.expiry * 1000 - Date.now()) / 86400000).toFixed(1);
+    console.log(`✓ OT token gate GREEN — origin https://ainumbers.co (subdomain match), feature WebMCP, expiry ${days} days out (floor ${OT_MIN_DAYS}).`);
+  } else {
+    console.log('ADVISORY: OT-TOKEN ABSENT — no origin-trial meta emitted; pages stay byte-identical (paste a real token to chaingraph/webmcp-ot-token.txt).');
+  }
+  if (ot.present) {
+    const expectedOt = otMetaBlock(ot.token);
+    for (const p of listPages(REPO)) {
+      let pageSrc;
+      try { pageSrc = readRepoFile(p, REPO); } catch { continue; }
+      if (!pageSrc.includes(BEGIN)) continue; // only generator-owned pages; pilot pages are another row's
+      const region = otMetaRegionOf(pageSrc);
+      if (!region) {
+        problems.push(`${p}: no origin-trial meta region in <head> (token present) — run node scripts/gen-webmcp-registrations.mjs --all --write and node scripts/gen-webmcp-registrations.mjs --chains --write`);
+        continue;
+      }
+      if (pageSrc.slice(region.start, region.end) !== expectedOt) {
+        problems.push(`${p}: origin-trial meta region drifted from chaingraph/webmcp-ot-token.txt — regenerate with --write`);
+      }
+    }
+  }
+
   if (problems.length) {
     console.error(`✗ webmcp-registration freshness FAILED (${problems.length}):`);
     problems.forEach((p) => console.error('    ' + p));
     process.exit(1);
   }
   const chainCount = expectedChainBlocks(REPO).length;
-  console.log(`✓ webmcp-registration freshness clean — ${emittable.length} generated registration(s) byte-exact vs their manifests, ${chainCount} chain composer page(s) byte-exact in chain mode; ${excluded.length} sweep-cleared tool(s) excluded with reasons (shrinks as fix rows land).`);
+  const derivedTools = Object.entries(propertyIdMap).filter(([, m]) => derivedEntriesOf(m).length).length;
+  console.log(`✓ direct-mode probe clean (WEBMCP-DIRECT-MODE-1) — ${directHistogram(directVerdicts)}; ${directRegions} direct-mode region(s) on disk, all eligible and byte-exact vs their manifests.`);
+  console.log(`✓ webmcp-registration freshness clean — ${emittable.length} generated registration(s) byte-exact vs their manifests, ${chainCount} chain composer page(s) byte-exact in chain mode, ${derivedTools} derived-map page(s) re-parsed and probe-verified vs fixture 0; ${excluded.length} sweep-cleared tool(s) excluded with reasons (shrinks as fix rows land).`);
   excluded.forEach((e) => console.log(`  EXCLUDED ${e.id}: ${e.reason}`));
+  };
+  return runCheckInner();
 }
 
 function runReportOrWrite(write, onlyTool) {
   const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(REPO);
+  const ot = readOtToken(REPO);
+  const otBlock = ot.present ? otMetaBlock(ot.token) : null;
   let emitted = 0;
   let exact = 0;
   const exclusions = [];
@@ -1380,8 +1965,9 @@ function runReportOrWrite(write, onlyTool) {
     const pageAbs = resolve(REPO, d.detail.page);
     if (write) {
       const pageSrc = readFileSync(pageAbs, 'utf8');
-      const next = insertIntoPage(pageSrc, block);
-      if (next !== pageSrc) { writeFileSync(pageAbs, next, 'utf8'); emitted++; console.log(`✓ emitted WebMCP registration into ${d.detail.page} (name: ${d.detail.name})`); }
+      // WEBMCP-OT-META-1: the <head> OT meta region rides the same write pass.
+      const next = applyOtMeta(insertIntoPage(pageSrc, block), otBlock);
+      if (next !== pageSrc) { writeFileSync(pageAbs, next, 'utf8'); emitted++; console.log(`✓ wrote ${d.detail.page} (name: ${d.detail.name}${ot.present ? '; OT meta in head' : ''})`); }
       else { exact++; }
     } else {
       emitted++;
@@ -1502,9 +2088,1254 @@ function runManifest(write, check) {
   process.stdout.write(expected);
 }
 
+// ── Wrapper-binding parser (WEBMCP-WRAPPER-PARSE-1) ──────────────────────────
+/**
+ * Static parse of a page's own no-arg wrapper: the wrapper reads controls by id
+ * and passes a manifest-shaped object to the parametered execution fn. Parsing
+ * those bytes yields an explicit per-tool propertyIdMap entry set — derived from
+ * the page's own code (never a name heuristic), diff-visible like an authored
+ * entry, and verified page-by-page by the fixture-hash probe below. A page that
+ * fails the parse or the probe is EXCLUDED with a per-page reason, never a
+ * program halt. Zero dependencies: a hand-rolled tokenizer over the wrapper
+ * text (the findWrapperName brace-walk is the in-repo pattern). Only code
+ * structure is matched — no regex over property NAMES anywhere in the binding
+ * path (the WEBMCP-GEN-IDMAP-1 ruling).
+ */
+
+/** Skip a string/template literal starting at `src[i]` (a quote char). */
+function skipStr(src, i) {
+  const q = src[i];
+  i++;
+  while (i < src.length) {
+    if (src[i] === '\\') { i += 2; continue; }
+    if (src[i] === q) return i + 1;
+    i++;
+  }
+  return i;
+}
+
+/** Balanced-span walker (strings/comments-aware). `src[i]` must be the opener. */
+function balancedSpan(src, openIdx) {
+  const pairs = { '{': '}', '(': ')', '[': ']' };
+  const open = src[openIdx];
+  if (!(open in pairs)) return null;
+  const close = pairs[open];
+  let depth = 0;
+  let i = openIdx;
+  while (i < src.length) {
+    const c = src[i];
+    if (c === '"' || c === "'" || c === '`') { i = skipStr(src, i); continue; }
+    if (c === '/' && src[i + 1] === '/') { const n = src.indexOf('\n', i); if (n === -1) return null; i = n + 1; continue; }
+    if (c === '/' && src[i + 1] === '*') { const n = src.indexOf('*/', i + 2); if (n === -1) return null; i = n + 2; continue; }
+    if (c === open) depth++;
+    else if (c === close) { depth--; if (depth === 0) return { start: openIdx, end: i + 1 }; }
+    i++;
+  }
+  return null;
+}
+
+/** The wrapper's body span: zero-arg `function <name>() { ... }` (G3b shape). */
+export function wrapperSpan(pageSrc, wrapperName) {
+  const re = new RegExp(`(?:async\\s+)?function\\s+${wrapperName}\\s*\\(([^)]*)\\)\\s*\\{`, 'g');
+  let m;
+  while ((m = re.exec(pageSrc)) !== null) {
+    if (m[1].trim() !== '') continue;
+    const span = balancedSpan(pageSrc, m.index + m[0].length - 1);
+    if (span) return span;
+  }
+  return null;
+}
+
+/** Split `text` on top-level commas (strings/templates/nesting aware). */
+function splitTopLevel(text, sep) {
+  const parts = [];
+  let depth = 0;
+  let start = 0;
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '"' || c === "'" || c === '`') { i = skipStr(text, i); continue; }
+    if (c === '/' && text[i + 1] === '/') { const n = text.indexOf('\n', i); if (n === -1) break; i = n + 1; continue; }
+    if (c === '/' && text[i + 1] === '*') { const n = text.indexOf('*/', i + 2); if (n === -1) return null; i = n + 2; continue; }
+    if (c === '{' || c === '(' || c === '[') depth++;
+    else if (c === '}' || c === ')' || c === ']') depth--;
+    else if (c === sep && depth === 0) { parts.push(text.slice(start, i)); start = i + 1; }
+    i++;
+  }
+  parts.push(text.slice(start));
+  return parts;
+}
+
+/** Does the page define a `$` helper that resolves ids (defined on the same page)? */
+export function dollarHelperDetected(pageSrc) {
+  const fn = pageSrc.match(/function\s+\$\s*\([^)]*\)\s*\{/);
+  if (fn) {
+    const sp = balancedSpan(pageSrc, fn.index + fn[0].length - 1);
+    if (sp && /getElementById\s*\(|querySelector\s*\(\s*['"]#/.test(pageSrc.slice(sp.start, sp.end))) return true;
+  }
+  const arrow = pageSrc.match(/(?:const|let|var)\s+\$\s*=\s*\(([^)]*)\)\s*=>/);
+  if (arrow) {
+    const tail = pageSrc.slice(arrow.index, arrow.index + 200);
+    if (/getElementById\s*\(|querySelector\s*\(\s*['"]#/.test(tail)) return true;
+  }
+  return false;
+}
+
+/** All DOM reads of the accepted forms inside `expr`. */
+function domReads(expr, dollar) {
+  const re = new RegExp(
+    `document\\.getElementById\\(\\s*(['"])([^'"\\n]+)\\1\\s*\\)` +
+    `|document\\.querySelector\\(\\s*(['"])#([^'"\\n]+)\\3\\s*\\)` +
+    (dollar ? `|\\$\\(\\s*(['"])([^'"\\n]+)\\5\\s*\\)` : ''),
+    'g');
+  const reads = [];
+  let m;
+  while ((m = re.exec(expr)) !== null) {
+    const id = m[2] !== undefined ? m[2] : (m[4] !== undefined ? m[4] : m[6]);
+    reads.push({ id, start: m.index, end: m.index + m[0].length });
+  }
+  return reads;
+}
+
+
+/** Classify ONE property value expression into an entry (or a refusal kind).
+ *  The remainder after the single distinct DOM read must be a benign
+ *  normalization (method chains, `||`/`??` literal defaults, Number/parseFloat/
+ *  JSON.parse wrappers, emptyness-guard ternaries) — anything referencing
+ *  another identifier or an operator outside the allowlist is `computed`.
+ *  The probe, not the classifier, verifies the value survives the chain: a
+ *  reading that corrupts the preimage fails the fixture hash and stays excluded. */
+function classifyValueExpr(expr, dollar, scope) {
+  for (let hop = 0; hop <= 2; hop++) {
+    const r = classifyCore(expr, dollar);
+    if (r.kind !== 'computed' || !scope) return r;
+    // helper-local identifiers (`const tv = ...value;` in the same scope):
+    // substitute the local's RHS (itself a single-read benign expression) and
+    // re-classify — one hop, bounded.
+    let substituted = false;
+    const toks = [...new Set([...expr.matchAll(/[A-Za-z_$][\w$]*/g)].map((mm) => mm[0]))];
+    for (const tok of toks) {
+      if (/^(?:document|window|Number|parseFloat|String|JSON|Math|undefined|null|true|false)$/.test(tok)) continue;
+      const rhs = assignmentRhs(scope, tok);
+      if (!rhs || rhs.includes(tok)) continue;
+      const nr = classifyCore(rhs, dollar);
+      if (nr.kind === 'bind' || nr.kind === 'constant') {
+        expr = expr.replace(new RegExp(`\\b${tok}\\b`, 'g'), rhs);
+        substituted = true;
+      }
+    }
+    if (!substituted) return r;
+  }
+  return { kind: 'computed' };
+}
+
+function classifyCore(expr, dollar) {
+  const t = expr.trim();
+  const reads = domReads(t, dollar);
+  if (reads.length === 0) return { kind: 'constant' };
+  const distinct = new Set(reads.map((r) => r.id));
+  if (distinct.size > 1) return { kind: 'multi' };
+  const id = reads[0].id;
+  // remove every DOM read occurrence (all abuse the same control), then strip
+  // the accepted structural tokens around them; anything left names another
+  // identifier or an operator outside the allowlist (computed value)
+  let rest = t;
+  for (const rr of [...reads].sort((a, b) => b.start - a.start)) {
+    rest = rest.slice(0, rr.start) + ' ' + rest.slice(rr.end);
+  }
+  rest = rest.replace(/-?\d+(?:\.\d+)?/g, ' ');
+  rest = rest.replace(/(?:['"`])(?:\\.|[^'"`\\])*['"`]/g, ' ');
+  rest = rest.replace(/\b(?:Number|parseFloat|String|JSON|undefined|null|true|false)\b/g, ' ');
+  rest = rest.replace(/\.(?:parse|trim|toUpperCase|toLowerCase|value|checked)\b/g, ' ');
+  rest = rest.replace(/\|\||&&|\?\?|===|!==|==|!=/g, ' ');
+  rest = rest.replace(/[\s?():.,[\]]/g, '');
+  if (rest.length > 0) return { kind: 'computed' };
+  if (/JSON\s*\.\s*parse/.test(t)) return { kind: 'bind', entry: { json: id } };
+  const rereads = domReads(t, dollar);
+  const checkedOnly = rereads.every((rr) => {
+    const after = t.slice(rr.end).trim();
+    return after === '' || after.startsWith('.checked') || after.startsWith('?.checked');
+  });
+  if (/checked/.test(t) && checkedOnly) return { kind: 'bind', entry: { id, coerce: 'boolean' } };
+  const numWrap = /\b(?:Number|parseFloat)\s*\(/.test(t);
+  return { kind: 'bind', entry: numWrap ? { id, coerce: 'number' } : { id } };
+}
+
+/** Parse a plain object literal's top-level `key: expr` members. */
+function parseObjectLiteralProps(lit) {
+  const props = new Map();
+  const bad = [];
+  const parts = splitTopLevel(lit, ',');
+  if (!parts) return null;
+  for (const part of parts) {
+    const t = part.trim();
+    if (!t) continue;
+    if (t.startsWith('...')) { bad.push(t.slice(0, 40)); continue; }
+    const m = t.match(/^([A-Za-z_$][\w$]*)\s*:\s*([\s\S]+)$/);
+    if (m) { props.set(m[1], m[2].trim()); continue; }
+    if (/^[A-Za-z_$][\w$]*$/.test(t)) { props.set(t, t); continue; }
+    bad.push(t.slice(0, 40));
+  }
+  return { props, bad };
+}
+
+/** RHS of `const|let|var <name> = ... ;` inside `text` (depth-aware). */
+function assignmentRhs(text, name) {
+  const re = new RegExp(`(?:const|let|var)\\s+${name}\\s*=`, 'g');
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    let depth = 0;
+    let i = m.index + m[0].length;
+    const start = i;
+    while (i < text.length) {
+      const c = text[i];
+      if (c === '"' || c === "'" || c === '`') { i = skipStr(text, i); continue; }
+      if (c === '{' || c === '(' || c === '[') depth++;
+      else if (c === '}' || c === ')' || c === ']') depth--;
+      else if (c === ';' && depth === 0) return text.slice(start, i).trim();
+      i++;
+    }
+  }
+  return null;
+}
+
+/** A zero-arg helper function's body text, by name (one hop for rows locals). */
+function helperBody(pageSrc, name) {
+  const re = new RegExp(`function\\s+${name}\\s*\\(([^)]*)\\)\\s*\\{`);
+  const m = re.exec(pageSrc);
+  if (!m || m[1].trim() !== '') return null;
+  const sp = balancedSpan(pageSrc, m.index + m[0].length - 1);
+  return sp ? pageSrc.slice(sp.start + 1, sp.end - 1) : null;
+}
+
+/** Detect `for (let i = 1; i <= N; ...)` loops whose body reads indexed ids
+ *  `prefix + i + suffix`. Returns { prefix, fields: Map(key->suffix), N } or null. */
+function rowsLoopIn(bodyText, pageSrc, dollar) {
+  const headRe = /for\s*\(\s*(?:let|var|const)\s+(\w+)\s*=\s*1\s*;/g;
+  let m;
+  while ((m = headRe.exec(bodyText)) !== null) {
+    const ivar = m[1];
+    const paren = balancedSpan(bodyText, bodyText.indexOf('(', m.index));
+    if (!paren) continue;
+    // loop body = the statement after the header: a `{...}` block
+    let j = paren.end;
+    while (j < bodyText.length && /\s/.test(bodyText[j])) j++;
+    if (bodyText[j] !== '{') continue;
+    const bspan = balancedSpan(bodyText, j);
+    if (!bspan) continue;
+    const body = bodyText.slice(bspan.start + 1, bspan.end - 1);
+    // every indexed read in the body must share ONE prefix
+    const readRe = new RegExp(
+      `(?:document\\.getElementById|${dollar ? '\\$' : '\\u0000'})\\(\\s*([\\s\\S]*?)\\s*\\)`, 'g');
+    let r;
+    const prefixes = new Set();
+    const reads = [];
+    while ((r = readRe.exec(body)) !== null) {
+      const argParts = splitConcat(r[1], ivar);
+      if (!argParts) continue;
+      prefixes.add(argParts.prefix);
+      reads.push({ ...argParts });
+    }
+    if (prefixes.size !== 1 || reads.length === 0) continue;
+    const prefix = [...prefixes][0];
+    // fields from the pushed object literal: key: <read-with-suffix>
+    const push = body.match(/push\s*\(\s*\{([\s\S]*)\}\s*\)/);
+    if (!push) continue;
+    const lit = parseObjectLiteralProps(push[1]);
+    if (!lit || lit.bad.length > 0) continue;
+    const fields = new Map();
+    const rawRead = (e) => {
+      const mm2 = e.match(/(?:document\.getElementById|\$)\s*\(\s*([\s\S]*?)\s*\)/g);
+      if (!mm2 || mm2.length !== 1) return null;
+      const one = e.match(/(?:document\.getElementById|\$)\s*\(\s*([\s\S]*?)\s*\)/);
+      return one ? one[1] : null;
+    };
+    for (const [key, expr] of lit.props) {
+      const raw = rawRead(expr);
+      if (raw === null) { fields.clear(); break; }
+      const argParts = splitConcat(raw, ivar);
+      if (!argParts || argParts.prefix !== prefix) { fields.clear(); break; }
+      fields.set(key, argParts.suffix);
+    }
+    if (fields.size === 0) continue;
+    // N: numeric bound if literal, else max index seen on the PAGE per suffix
+    let N = null;
+    const bound = paren && /<=\s*(\d+)\s*;/.test(bodyText.slice(paren.start, paren.end));
+    if (bound) N = parseInt(bodyText.slice(paren.start, paren.end).match(/<=\s*(\d+)\s*;/)[1], 10);
+    const idMax = (sfx) => {
+      const re = new RegExp(`id=["']${prefix}(\\d+)${sfx.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']`, 'g');
+      let mx = 0;
+      let im;
+      while ((im = re.exec(pageSrc)) !== null) mx = Math.max(mx, parseInt(im[1], 10));
+      return mx;
+    };
+    if (N === null) {
+      const perField = [...fields.values()].map(idMax);
+      if (perField.some((v) => v === 0)) continue;
+      N = Math.min(...perField);
+    }
+    if (N < 1) continue;
+    return { prefix, fields, N };
+  }
+  return null;
+}
+
+/** Split `'pre' + i + '_suf'` / `` `pre${i}suf` `` into { prefix, suffix }. */
+function splitConcat(expr, ivar) {
+  const t = expr.trim();
+  const tpl = t.match(/^`([^`{}]*?)\$\{\s*${ivar}\s*\}([^`{}]*?)`$/);
+  if (tpl) return { prefix: tpl[1], suffix: tpl[2] };
+  const parts = splitTopLevel(t, '+');
+  if (!parts) return null;
+  let seenVar = false;
+  let prefix = '';
+  let suffix = '';
+  for (const p of parts) {
+    const q = p.trim();
+    if (q === ivar) { if (seenVar) return null; seenVar = true; continue; }
+    const sm = q.match(/^(['"])([^'"]*)\1$/);
+    if (!sm) return null;
+    if (seenVar) suffix += sm[2]; else prefix += sm[2];
+  }
+  return seenVar ? { prefix, suffix } : null;
+}
+
+/** The getElementById/$ argument text of a single-read expression. */
+function argTextOf(expr, dollar) {
+  const reads = domReads(expr, dollar);
+  return reads.length === 1 ? expr.slice(reads[0].start, reads[0].end).replace(/^(?:document\.getElementById|document\.querySelector)\(\s*|\$\(\s*/g, '').replace(/\)\s*$/, '').replace(/^['"]|['"]$/g, '') : '';
+}
+
+/** Rows binding: `prop: V.map((rv) => ({ sf: rv.key, ... }))` (arrow OR
+ *  `V.map(function (rv) { return { ... }; })`) with V one hop to an indexed-id
+ *  loop (in the wrapper, or in a zero-arg page helper V calls). */
+function rowsBinding(expr, bodyText, pageSrc, dollar) {
+  const mapAt = expr.search(/[\s\S]\.map\s*\(/);
+  if (mapAt === -1) return null;
+  const v = expr.slice(0, mapAt + 1).trim();
+  if (!/^[A-Za-z_$][\w$]*$/.test(v)) return null;
+  const openIdx = expr.indexOf('(', mapAt + 1);
+  const span = balancedSpan(expr, openIdx);
+  if (!span) return null;
+  const cb = expr.slice(span.start + 1, span.end - 1).trim();
+  let rv = null;
+  let m = cb.match(/^(?:async\s+)?\(?\s*([A-Za-z_$][\w$]*)\s*\)?\s*=>\s*([\s\S]+)$/);
+  let body;
+  if (m) {
+    rv = m[1];
+    body = m[2].trim();
+  } else {
+    const fm = cb.match(/^(?:async\s+)?function\s*\(?\s*([A-Za-z_$][\w$]*)\s*\)?\s*\{([\s\S]*)\}$/);
+    if (!fm) return null;
+    rv = fm[1];
+    body = fm[2].trim();
+  }
+  // extract the object literal: a parenthesized literal, a bare literal, or a
+  // `return { ... }` statement
+  let lit = body.trim();
+  if (lit.startsWith('(') && lit.endsWith(')')) lit = lit.slice(1, -1).trim();
+  const retm = lit.match(/^return\s*\{([\s\S]*)\}\s*;?$/);
+  if (retm) lit = retm[1];
+  else if (lit.startsWith('{') && lit.endsWith('}')) lit = lit.slice(1, -1);
+  else return null;
+  if (!rv) return null;
+  const litProps = parseObjectLiteralProps(lit);
+  if (!litProps || litProps.bad.length > 0) return null;
+  let init = assignmentRhs(bodyText, v);
+  if (!init) return null;
+  let loop = rowsLoopIn(init, pageSrc, dollar);
+  if (!loop) {
+    const hc = init.match(/^([A-Za-z_$][\w$]*)\(\)$/);
+    if (hc) {
+      const hb = helperBody(pageSrc, hc[1]);
+      if (hb) loop = rowsLoopIn(hb, pageSrc, dollar);
+    }
+  }
+  if (!loop) return null;
+  // schema field ← row key (the .map callback is a pure rename)
+  const fields = {};
+  for (const [sf, rexpr] of litProps.props) {
+    const rm = rexpr.trim().match(new RegExp(`^${rv}\\s*\\.\\s*([A-Za-z_$][\\w$]*)$`));
+    if (!rm) return null;
+    const suffix = loop.fields.get(rm[1]);
+    if (!suffix) return null;
+    fields[sf] = suffix;
+  }
+  const index = [];
+  for (let i = 1; i <= loop.N; i++) index.push(i);
+  return { rows: { prefix: loop.prefix, index, fields } };
+}
+
+/**
+ * parseWrapperBindings — the row's named entry point. Pure. Returns
+ *   { ok: true,  entries, wrapperDigest }
+ *   { ok: false, unbound: [props], reason, wrapperDigest? }
+ * where `entries` maps each inputSchema property to a typed entry:
+ *   { id } | { id, coerce: 'number'|'boolean' } | { json: <textarea id> }
+ *   | { rows: { prefix, index: [1..N], fields: { schemaField: suffix } } }
+ * Any computed value, multi-read prop, or prop with no binding leaves the page
+ * unemitted (unbound names the props — per-page verdict, never a halt).
+ */
+export function parseWrapperBindings(pageSrc, wrapperName, manifest) {
+  const schemaProps = Object.keys(manifest.mcp_tool_definition.inputSchema.properties);
+  const fn = manifest.execution.function_name;
+  const digest = createHash('sha256').update(wrapperName + '\u0000' + (wrapperSpan(pageSrc, wrapperName) ? pageSrc.slice(wrapperSpan(pageSrc, wrapperName).start, wrapperSpan(pageSrc, wrapperName).end) : ''), 'utf8').digest('hex');
+  const span = wrapperSpan(pageSrc, wrapperName);
+  if (!span) return { ok: false, unbound: schemaProps, reason: `wrapper ${wrapperName} not found`, wrapperDigest: digest };
+  const bodyText = pageSrc.slice(span.start + 1, span.end - 1);
+  const dollar = dollarHelperDetected(pageSrc);
+  const call = resolveCallArg(bodyText, fn);
+  if (!call) {
+    // Zero-arg fn is its own wrapper: no `fn(...)` invocation exists. The
+    // params object is the argument handed across SOME call boundary (the
+    // compute/hash seam) — candidate = any single-identifier argument whose
+    // name resolves (assignment to an object literal, or a zero-arg helper
+    // whose body returns one). Structural; the probe remains the oracle.
+    const identCallRe = /(?:^|[^\w$.'"`])([A-Za-z_$][\w$]*)\s*\(\s*([A-Za-z_$][\w$]*)\s*\)/g;
+    let c;
+    let tried = null;
+    const seen = new Set();
+    while ((c = identCallRe.exec(bodyText)) !== null) {
+      const cand = c[2];
+      if (seen.has(cand)) continue;
+      seen.add(cand);
+      tried = resolveIdentParams(cand, bodyText, pageSrc);
+      if (tried) break;
+    }
+    if (!tried) return { ok: false, unbound: schemaProps, reason: `no params-object assembly found inside wrapper ${wrapperName} (no object literal, helper literal, or property assignments)`, wrapperDigest: digest };
+    return finishBinding(tried.props, tried.scope);
+  }
+  let propExprs = null;
+  let scope = bodyText; // the scope params assignments/literals resolve against (hops into a helper at most once)
+  if (call.kind === 'literal') {
+    const lit = parseObjectLiteralProps(call.arg);
+    if (!lit || lit.bad.length > 0) {
+      return { ok: false, unbound: schemaProps, reason: `object literal passed to ${fn} has non-literal members: ${(lit ? lit.bad : []).join('; ')}`, wrapperDigest: digest };
+    }
+    propExprs = lit.props;
+  } else if (call.kind === 'ident') {
+    const tried = resolveIdentParams(call.arg, bodyText, pageSrc);
+    if (!tried) return { ok: false, unbound: schemaProps, reason: `argument ${call.arg} to ${fn} is neither an object literal, a helper literal, nor an assignment-built object`, wrapperDigest: digest };
+    propExprs = tried.props;
+    scope = tried.scope;
+  }
+  return finishBinding(propExprs, scope);
+
+  function finishBinding(propExprs2, scope2) {
+    if (!propExprs2) return { ok: false, unbound: schemaProps, reason: `argument to ${fn} is neither an object literal nor an assignment-built object`, wrapperDigest: digest };
+    const entries = {};
+    const unbound = [];
+    for (const prop of schemaProps) {
+      const expr = propExprs2.get(prop);
+      if (expr === undefined) { unbound.push(prop); continue; }
+      const nested = nestedLiteral(expr);
+      if (nested) {
+        // Nested param group (the dominant real-page shape: `pp = { report: { … } }`).
+        // Structural extension of the single-read rule into the group's own
+        // sub-literals — deviation from the row's four flat entry types, recorded in the row report.
+        const deeper = bindLiteral(nested, scope2, 0);
+        if (deeper && Object.keys(deeper).length > 0) { entries[prop] = { object: deeper }; continue; }
+        unbound.push(prop);
+        continue;
+      }
+      const rows = rowsBinding(expr, scope2, pageSrc, dollar);
+      if (rows) { entries[prop] = { ...rows }; continue; }
+      const cls = classifyValueExpr(expr, dollar, scope2);
+      if (cls.kind === 'bind') { entries[prop] = cls.entry; continue; }
+      unbound.push(prop);
+    }
+    if (unbound.length > 0) {
+      return { ok: false, unbound, reason: 'props with no single-read DOM binding (constant, computed, multi-read, or absent)', wrapperDigest: digest };
+    }
+    return { ok: true, entries, wrapperDigest: digest };
+  }
+
+  /** The inner text of an expression that is exactly one object literal. */
+  function nestedLiteral(expr) {
+    const t = expr.trim();
+    if (!t.startsWith('{')) return null;
+    const sp = balancedSpan(t, 0);
+    if (!sp || sp.end !== t.length) return null;
+    return t.slice(1, -1);
+  }
+  /** Bind a (possibly nested) object literal: scalar/rows/json entries per
+   *  subproperty, recursively; produces { object: { sub: entry } }. */
+  function bindLiteral(inner, scopeRef, depth) {
+    if (depth > 3) return null;
+    const lit = parseObjectLiteralProps(inner);
+    if (!lit || lit.bad.length > 0) return null;
+    const sub = {};
+    for (const [k, sube] of lit.props) {
+      const rows = rowsBinding(sube, scopeRef, pageSrc, dollar);
+      if (rows) { sub[k] = { ...rows }; continue; }
+      const nested = nestedLiteral(sube);
+      if (nested) {
+        const deeper = bindLiteral(nested, scopeRef, depth + 1);
+        if (deeper) { sub[k] = { object: deeper }; continue; }
+        return null;
+      }
+      const cls = classifyValueExpr(sube, dollar, scopeRef);
+      if (cls.kind === 'bind') { sub[k] = cls.entry; continue; }
+      return null;
+    }
+    return sub;
+  }
+}
+
+/** The params object for a call-argument identifier: `const pp = { ... }`, a
+ *  zero-arg helper hop (`pp = getParams()` whose body returns/assigns the
+ *  literal), or successive `pp.prop = expr;` assignments. One helper hop max. */
+function resolveIdentParams(arg, bodyText, pageSrc) {
+  let scope = bodyText;
+  let rhs = assignmentRhs(bodyText, arg);
+  if (rhs) {
+    const hc = rhs.match(/^([A-Za-z_$][\w$]*)\(\)$/);
+    if (hc) {
+      const hb = helperBody(pageSrc, hc[1]);
+      if (hb) {
+        scope = hb;
+        const rh2 = assignmentRhs(hb, arg);
+        if (rh2 && rh2.startsWith('{') && rh2.endsWith('}')) rhs = rh2;
+        else {
+          const ret = hb.match(/return\s*\{([\s\S]*)\}\s*;?\s*$/);
+          if (ret) rhs = '{' + ret[1] + '}';
+        }
+      }
+    }
+  }
+  if (rhs && rhs.startsWith('{') && rhs.endsWith('}')) {
+    const lit = parseObjectLiteralProps(rhs.slice(1, -1));
+    if (!lit || lit.bad.length > 0) return null;
+    return { props: lit.props, scope };
+  }
+  // successive property assignments: `V.prop = expr;` in the wrapper body
+  const re = new RegExp(`(?:^|\\n|;)\\s*${arg}\\s*\\.\\s*([A-Za-z_$][\\w$]*)\\s*=\\s*`, 'g');
+  const propExprs = new Map();
+  let m;
+  while ((m = re.exec(scope)) !== null) {
+    const valStart = m.index + m[0].length;
+    let depth = 0;
+    let i = valStart;
+    while (i < scope.length) {
+      const c = scope[i];
+      if (c === '"' || c === "'" || c === '`') { i = skipStr(scope, i); continue; }
+      if (c === '{' || c === '(' || c === '[') depth++;
+      else if (c === '}' || c === ')' || c === ']') depth--;
+      else if ((c === ';' || c === '\n') && depth === 0) break;
+      i++;
+    }
+    propExprs.set(m[1], scope.slice(valStart, i).trim());
+  }
+  return propExprs.size > 0 ? { props: propExprs, scope } : null;
+}
+
+function resolveCallArg(bodyText, fnName) {
+  const re = new RegExp(`(?:^|[^\\w$.])${fnName}\\s*\\(`, 'g');
+  let m;
+  let first = null;
+  while ((m = re.exec(bodyText)) !== null) {
+    const openIdx = m.index + m[0].length - 1;
+    const span = balancedSpan(bodyText, openIdx);
+    if (!span) continue;
+    const arg = bodyText.slice(span.start + 1, span.end - 1).trim();
+    const shaped = arg.startsWith('{') ? 'literal' : (/^[A-Za-z_$][\w$]*$/.test(arg) ? 'ident' : 'other');
+    if (!first) first = { arg, kind: shaped };
+    if (shaped !== 'other') return { arg, kind: shaped };
+  }
+  return first;
+}
+
+// ── Derived-page probe (the fixture-hash gate) ───────────────────────────────
+/**
+ * The headless harness pattern is check-deeplink-contract.mjs's (vm context with
+ * a minimal DOM, page scripts in document order) — reimplemented here minus the
+ * generated-reader plumbing because derived pages carry NO generated region.
+ * The probe prefills the controls from fixture 0's policy_parameters THROUGH the
+ * derived entries, calls the page's own wrapper, and asserts the result global's
+ * execution_hash equals the fixture's golden_hash — the preimage oracle.
+ */
+function probeElementStub(id) {
+  return {
+    id, value: '', checked: false, disabled: false, textContent: '', innerHTML: '',
+    href: '', download: '', type: '', style: {}, dataset: {},
+    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+    setAttribute() {}, getAttribute() { return null; }, removeAttribute() {},
+    addEventListener() {}, removeEventListener() {},
+    appendChild() {}, remove() {}, click() {}, focus() {}, blur() {}, select() {},
+    scrollIntoView() {},
+    querySelector() { return null; }, querySelectorAll() { return []; },
+    closest() { return null; }, insertAdjacentHTML() {},
+    getContext() { return null; },
+  };
+}
+
+export function probeSandbox(seedElements) {
+  const elements = new Map();
+  for (const [id, text] of seedElements) elements.set(id, probeElementStub(id));
+  const warns = [];
+  const documentStub = {
+    readyState: 'complete', title: '',
+    body: Object.assign(probeElementStub('body'), { appendChild() {} }),
+    documentElement: probeElementStub('html'), head: probeElementStub('head'),
+    getElementById(id) {
+      if (!elements.has(id)) elements.set(id, probeElementStub(id));
+      return elements.get(id);
+    },
+    createElement(tag) { return probeElementStub(tag); },
+    createTextNode() { return {}; },
+    querySelector() { return null; }, querySelectorAll() { return []; },
+    addEventListener() {}, removeEventListener() {},
+  };
+  const sandbox = {
+    document: documentStub,
+    location: { hash: '', search: '', pathname: '/', host: 'ainumbers.co', href: 'https://ainumbers.co/', origin: 'https://ainumbers.co', protocol: 'https:' },
+    navigator: { userAgent: 'gen-webmcp-derived-probe', language: 'en' },
+    console: { log() {}, warn: (...a) => warns.push(a.map(String).join(' ')), error: (...a) => warns.push(a.map(String).join(' ')), info() {}, debug() {} },
+    alert() {}, confirm() { return false; }, prompt() { return null; },
+    setTimeout() { return 0; }, clearTimeout() {}, setInterval() { return 0; }, clearInterval() {},
+    requestAnimationFrame() { return 0; },
+    matchMedia() { return { matches: false, addEventListener() {}, removeEventListener() {} }; },
+    MutationObserver: class { observe() {} disconnect() {} },
+    IntersectionObserver: class { observe() {} disconnect() {} },
+    ResizeObserver: class { observe() {} disconnect() {} },
+    URL: { createObjectURL() { return 'blob:probe'; }, revokeObjectURL() {} },
+    Blob: class {}, FileReader: class { readAsText() {} },
+    crypto: webcrypto, performance: { now: () => 0 },
+    history: { replaceState() {}, pushState() {} },
+    localStorage: (() => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), clear: () => m.clear() }; })(),
+    sessionStorage: (() => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), clear: () => m.clear() }; })(),
+    TextEncoder, TextDecoder, URLSearchParams, Promise, Date, JSON, Math,
+    atob, btoa, CompressionStream, DecompressionStream, structuredClone,
+  };
+  sandbox.window = sandbox;
+  sandbox.globalThis = sandbox;
+  sandbox.self = sandbox;
+  sandbox.addEventListener = () => {};
+  return { sandbox, elements, warns };
+}
+
+export function probeExtractScripts(html) {
+  const scripts = [];
+  const seedElements = new Map();
+  const re = /<script\b([^>]*)>([\s\S]*?)<\/script>/g;
+  let m;
+  while ((m = re.exec(html))) {
+    const attrs = m[1] || '';
+    if (/\stype\s*=\s*["'](application\/ld\+json|importmap|application\/json)["']/.test(attrs)) {
+      const idm = attrs.match(/\sid\s*=\s*["']([^"']+)["']/);
+      if (idm) seedElements.set(idm[1], m[2]);
+      continue;
+    }
+    if (/\ssrc\s*=/.test(attrs)) continue;
+    scripts.push(m[2]);
+  }
+  return { scripts, seedElements };
+}
+
+/** Prefill the sandbox controls from `pp` THROUGH the derived entries.
+ *  `doc` is the harness's document stub — getElementById creates on demand,
+ *  so the prefilled element and the page-read element are the SAME object. */
+export function prefillFromEntries(doc, entries, pp) {
+  for (const [prop, e] of Object.entries(entries)) {
+    if (e.source !== 'parsed-from-wrapper') continue;
+    const val = pp[prop];
+    if (e.json !== undefined) {
+      doc.getElementById(e.json).value = JSON.stringify(val);
+    } else if (e.object) {
+      const sub = (val && typeof val === 'object' && !Array.isArray(val)) ? val : {};
+      for (const [subProp, subEntry] of Object.entries(e.object)) {
+        const subEntries = { [subProp]: { source: 'parsed-from-wrapper', ...subEntry } };
+        prefillFromEntries(doc, subEntries, sub);
+      }
+    } else if (e.rows) {
+      const arr = Array.isArray(val) ? val : [];
+      for (const i of e.rows.index) {
+        const row = arr[i - 1] || {};
+        for (const [field, suffix] of Object.entries(e.rows.fields)) {
+          doc.getElementById(e.rows.prefix + i + suffix).value = String(row[field] ?? '');
+        }
+      }
+    } else if (e.id !== undefined) {
+      const el = doc.getElementById(e.id);
+      if (e.coerce === 'boolean') el.checked = val === true;
+      else el.value = String(val ?? '');
+    } else {
+      throw new Error(`prefillFromEntries: entry for '${prop}' has neither id, json nor rows`);
+    }
+  }
+}
+
+/** Run the probe. `fx` is fixture 0 ({ policy_parameters, golden_hash }). */
+export async function probeDerivedPage(pageSrc, pageLabel, entries, wrapper, fx) {
+  const { scripts, seedElements } = probeExtractScripts(pageSrc);
+  if (scripts.length === 0) return { ok: false, error: 'probe-error: no inline scripts' };
+  const { sandbox, elements, warns } = probeSandbox(seedElements);
+  const context = vm.createContext(sandbox);
+  for (let i = 0; i < scripts.length; i++) {
+    try {
+      new vm.Script(scripts[i], { filename: `${pageLabel}#probe-${i}` }).runInContext(context);
+    } catch (e) {
+      return { ok: false, error: `probe-error: inline script ${i} threw at load: ${e.message}` };
+    }
+  }
+  let pp;
+  try {
+    prefillFromEntries(sandbox.document, entries, fx.policy_parameters);
+  } catch (e) {
+    return { ok: false, error: `probe-error: prefill failed: ${e.message}` };
+  }
+  pp = null;
+  try {
+    const ret = sandbox[wrapper];
+    if (typeof ret !== 'function') return { ok: false, error: `probe-error: wrapper ${wrapper} is not a callable global after page load` };
+    await ret();
+  } catch (e) {
+    return { ok: false, error: `probe-error: wrapper ${wrapper} threw: ${e.message}` };
+  }
+  // Pages declare result globals with let/const in some scripts — vm context
+  // script-level lexical bindings are shared across scripts but not visible as
+  // sandbox properties; read the result with an IN-CONTEXT script (matches the
+  // check-deeplink-contract harness posture).
+  const artifact = new vm.Script(
+    '(typeof _lastArtifact !== "undefined" && _lastArtifact) ? _lastArtifact : ((typeof _lastResult !== "undefined" && _lastResult) ? _lastResult : (globalThis._lastArtifact || globalThis._lastResult || null))',
+    { filename: `${pageLabel}#probe-result` }).runInContext(context);
+  if (!artifact || typeof artifact !== 'object') {
+    const why = warns.join(' | ') || 'no diagnostic';
+    return { ok: false, error: `probe-error: no result global produced (${why})` };
+  }
+  if (!artifact.execution_hash) return { ok: false, error: 'probe-error: result carries no execution_hash' };
+  const produced = String(artifact.execution_hash).replace(/^sha256:/, '');
+  const expected = String(fx.golden_hash).replace(/^sha256:/, '');
+  if (produced !== expected) {
+    return { ok: false, error: `wrapper-parse: hash-mismatch (produced ${produced.slice(0, 16)}…, fixture golden ${expected.slice(0, 16)}…)` };
+  }
+  return { ok: true, executionHash: produced };
+}
+
+// ── --derive-map (derive + probe + write the derived region) ─────────────────
+
+function derivedEntriesOf(mapEntry) {
+  return Object.values(mapEntry || {}).filter((e) => e && e.source === 'parsed-from-wrapper');
+}
+
+function renderDerivedEntries(proven) {
+  const lines = [];
+  for (const { id, wrapper, entries, digest } of [...proven].sort((a, b) => a.id.localeCompare(b.id))) {
+    lines.push(`  '${jsStr(id)}': {`);
+    lines.push(`    // wrapper: ${wrapper} (sha256 ${digest.slice(0, 12)}…, WEBMCP-WRAPPER-PARSE-1 probe-verified)`);
+    for (const prop of Object.keys(entries).sort()) {
+      lines.push(`    ${JSON.stringify(prop)}: ${JSON.stringify(entries[prop])},`);
+    }
+    lines.push('  },');
+  }
+  return lines.join('\n') + '\n';
+}
+
+function writeDerivedRegion(proven) {
+  const selfPath = fileURLToPath(import.meta.url);
+  let src = readFileSync(selfPath, 'utf8');
+  const b = src.indexOf(DERIVED_MAP_BEGIN);
+  const e = src.indexOf(DERIVED_MAP_END);
+  if (b === -1 || e === -1 || e < b) fail('derived-map markers missing from propertyIdMap — cannot write');
+  const body = proven.length === 0 ? '' : renderDerivedEntries(proven);
+  src = src.slice(0, b + DERIVED_MAP_BEGIN.length) + '\n' + body + '  ' + src.slice(e);
+  writeFileSync(selfPath, src, 'utf8');
+}
+
+async function loadFixture0(id) {
+  const p = resolve(REPO, 'chaingraph', 'kernels', 'fixtures', `${id}.fixtures.json`);
+  if (!existsSync(p)) return { error: 'probe-error: no fixture 0 (no fixtures file)' };
+  let fixture;
+  try { fixture = JSON.parse(readFileSync(p, 'utf8')); } catch (e) { return { error: `probe-error: fixture unparseable: ${e.message}` }; }
+  const vectors = fixture.vectors || fixture.fixtures || [];
+  const fx = vectors[0];
+  if (!fx || !fx.policy_parameters || !fx.golden_hash) return { error: 'probe-error: fixture 0 lacks policy_parameters/golden_hash' };
+  return { fx };
+}
+
+async function runDeriveMap({ write, report }) {
+  const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(REPO);
+  const proven = [];
+  const probeFailed = [];
+  const unboundPages = [];
+  let considered = 0;
+  for (const id of cleared) {
+    const d = adjudicateTool(id, REPO, manifestIndex, mcpNameByTool);
+    if (d.ok) continue; // already emittable — this row never touches registered pages
+    if (!/form-element mapping incomplete/.test(d.reason)) continue;
+    considered++;
+    const loaded = loadManifestFor(id, manifestIndex, mcpNameByTool, REPO);
+    if (loaded.error) continue;
+    const manifest = loaded.m;
+    const pageSrc = readRepoFile(`chaingraph/${id}.html`, REPO);
+    const fn = manifest.execution.function_name;
+    const wrapper = findWrapperName(pageSrc, fn);
+    if (!wrapper) {
+      // Per-page verdict, never a halt: the page's own execution fn is not
+      // declared zero-arg (often a manifest TODO_FUNCTION_NAME_REVIEW
+      // placeholder) or has no unique zero-arg caller — nothing to parse.
+      unboundPages.push({ id, unbound: [], reason: `no detectable zero-arg wrapper for fn ${fn} (fn not declared on the page, or no unique zero-arg caller)` });
+      continue;
+    }
+    const parsed = parseWrapperBindings(pageSrc, wrapper, manifest);
+    if (!parsed.ok) {
+      unboundPages.push({ id, unbound: parsed.unbound, reason: parsed.reason });
+      continue;
+    }
+    const fxRes = await loadFixture0(id);
+    if (fxRes.error) { probeFailed.push({ id, error: fxRes.error }); continue; }
+    const probe = await probeDerivedPage(pageSrc, `chaingraph/${id}.html`, wrapEntries(parsed.entries, parsed.wrapperDigest), wrapper, fxRes.fx);
+    if (probe.ok) proven.push({ id, wrapper, entries: wrapEntries(parsed.entries, parsed.wrapperDigest), digest: parsed.wrapperDigest });
+    else probeFailed.push({ id, error: probe.error });
+  }
+  const buckets = { proven: proven.length, probeFailed: probeFailed.length, unbound: unboundPages.length, considered };
+  if (write) writeDerivedRegion(proven);
+  console.log(`--derive-map over ${considered} mapping-incomplete page(s) with a detectable wrapper:`);
+  console.log(`  derived-and-proven:   ${buckets.proven}${write ? ' (written into propertyIdMap)' : ' (dry run — use --write)'}`);
+  console.log(`  derived-but-probe-failed: ${buckets.probeFailed}`);
+  console.log(`  unbound:              ${buckets.unbound}`);
+  if (report) {
+    for (const p of probeFailed) console.log(`  PROBE-FAILED ${p.id}: ${p.error}`);
+    for (const u of unboundPages) console.log(`  UNBOUND ${u.id}: [${u.unbound.join(', ')}] — ${u.reason}`);
+    for (const p of proven) console.log(`  PROVEN ${p.id}: ${Object.keys(p.entries).length} prop(s) via wrapper ${p.wrapper}`);
+  }
+  return buckets;
+}
+
+/** Stamp the source/wrapper_digest provenance onto parsed entries. */
+function wrapEntries(entries, digest) {
+  const out = {};
+  for (const [prop, e] of Object.entries(entries)) {
+    out[prop] = { source: 'parsed-from-wrapper', wrapper_digest: digest, ...e };
+  }
+  return out;
+}
+
+/** --check section 4: committed derived entries are re-parsed and re-probed —
+ *  wrapper-byte drift, entry drift, or a failed probe is RED, never silent. */
+async function checkDerivedEntries(manifestIndex, mcpNameByTool, pushProblem) {
+  for (const [toolId, mapEntry] of Object.entries(propertyIdMap)) {
+    if (!derivedEntriesOf(mapEntry).length) continue;
+    const label = `chaingraph/${toolId}.html`;
+    let pageSrc;
+    try { pageSrc = readRepoFile(label, REPO); } catch (e) { pushProblem(`${label}: derived map unreadable page: ${e.message}`); continue; }
+    const loaded = loadManifestFor(toolId, manifestIndex, mcpNameByTool, REPO);
+    if (loaded.error) { pushProblem(`${label}: derived map has no manifest: ${loaded.error}`); continue; }
+    const fn = loaded.m.execution.function_name;
+    const wrapper = findWrapperName(pageSrc, fn);
+    if (!wrapper) { pushProblem(`${label}: derived entries committed but no detectable wrapper for ${fn} — mapping is stale`); continue; }
+    const parsed = parseWrapperBindings(pageSrc, wrapper, loaded.m);
+    const committed = {};
+    for (const [prop, e] of Object.entries(mapEntry)) if (e && e.source === 'parsed-from-wrapper') committed[prop] = e;
+    if (!parsed.ok) {
+      pushProblem(`${label}: derived entries no longer derivable (unbound: [${parsed.unbound.join(', ')}]; ${parsed.reason}) — wrapper bytes changed; re-run node scripts/gen-webmcp-registrations.mjs --derive-map --write`);
+      continue;
+    }
+    const rederived = wrapEntries(parsed.entries, parsed.wrapperDigest);
+    if (JSON.stringify(rederived) !== JSON.stringify(committed)) {
+      pushProblem(`${label}: derived entries drifted from a re-parse of the current wrapper (digest ${parsed.wrapperDigest.slice(0, 12)}…) — re-run node scripts/gen-webmcp-registrations.mjs --derive-map --write`);
+      continue;
+    }
+    const fxRes = await loadFixture0(toolId);
+    if (fxRes.error) { pushProblem(`${label}: derived probe cannot run: ${fxRes.error}`); continue; }
+    const probe = await probeDerivedPage(pageSrc, label, committed, wrapper, fxRes.fx);
+    if (!probe.ok) pushProblem(`${label}: derived-page probe RED: ${probe.error}`);
+  }
+}
+
+// ── Direct emission mode (WEBMCP-DIRECT-MODE-1) ──────────────────────────────
+// The second emission shape and its static eligibility probe. Everything here
+// is per-page-verdict: a refusal is information for the exclusion list and the
+// ORCH's batch minting, never a program halt. Conditions (a)-(d) are doc'd in
+// the file header; the caller must hold the G6 sweep-CLEARED precondition
+// (every call site iterates deriveTargets()'s cleared list).
+
+/**
+ * Authored per-tool opt-outs (WEBMCP-DIRECT-MODE-1 step 1). A page whose
+ * render path cannot be seen by the static render detector (or that should
+ * never be direct-emitted for a human-known reason) is listed here with the
+ * reason; the entry keeps the page out of direct emission even when the probe
+ * would pass. Same authoring discipline as propertyIdMap: every entry names
+ * its justification, entries are diff-visible, and the list is not a heuristic.
+ */
+export const DIRECT_MODE_OPT_OUT = {
+  // '<tool_id>': 'reason the page must not be direct-emitted',
+};
+
+/** The DOM-read tokens condition (c) bans from an execution function's body. */
+const DIRECT_DOM_TOKENS = ['document.', 'getElementById', 'querySelector', '.value', '.checked', 'localStorage'];
+
+/** JSON Schema types the emitted validation knows how to check. A required
+ * property with no type (or a type outside this set) gets a presence check
+ * only — MCP-SCHEMA-CONFORMANCE-1 removes `"type":"unknown"`, and validating
+ * an undeclared shape would be inventing a constraint the manifest never made. */
+const DIRECT_LEGAL_TYPES = new Set(['string', 'number', 'boolean', 'array', 'object']);
+
+/** Span of a function declaration of ANY arity: `function <name>(params) {…}`.
+ *  Same brace-walk as findWrapperName; returns { params, start, end } or null. */
+function functionSpan(pageSrc, fnName) {
+  const re = new RegExp(`(?:async\\s+)?function\\s+${fnName}\\s*\\(([^)]*)\\)\\s*\\{`, 'g');
+  let m;
+  while ((m = re.exec(pageSrc)) !== null) {
+    let depth = 1;
+    let j = m.index + m[0].length;
+    while (j < pageSrc.length && depth > 0) {
+      const c = pageSrc[j];
+      if (c === '{') depth++; else if (c === '}') depth--;
+      j++;
+    }
+    if (depth !== 0) continue;
+    return { params: m[1], start: m.index, end: j };
+  }
+  return null;
+}
+
+/** Source with string/template-literal CONTENTS blanked and comments stripped —
+ *  the (c) DOM-read scan runs over this so a token quoted in a string or named
+ *  in a comment is not a false refusal. skipStr is the wrapper parser's. */
+function codeBodyText(src) {
+  let out = '';
+  let i = 0;
+  while (i < src.length) {
+    const c = src[i];
+    if (c === '"' || c === "'" || c === '`') { i = skipStr(src, i); out += ' '; continue; }
+    if (c === '/' && src[i + 1] === '/') { while (i < src.length && src[i] !== '\n') i++; continue; }
+    if (c === '/' && src[i + 1] === '*') {
+      i += 2;
+      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++;
+      i += 2; out += ' ';
+      continue;
+    }
+    out += c; i++;
+  }
+  return out;
+}
+
+/** The page's result global (same rule as verifyPageMapping's G3, read early so
+ *  the direct delegate knows what to store/return). Null when neither is set. */
+export function detectResultGlobal(pageSrc) {
+  if (/_lastResult\s*=/.test(pageSrc)) return '_lastResult';
+  if (/_lastArtifact\s*=/.test(pageSrc)) return '_lastArtifact';
+  return null;
+}
+
+/**
+ * The page's render function for direct mode: the UNIQUE zero-arg function
+ * declaration (other than the execution fn itself) that reads the result global
+ * and neither calls the execution fn nor assigns the global — a painter, not a
+ * producer. Zero or multiple candidates -> null (the generator never guesses;
+ * pages that render differently go in DIRECT_MODE_OPT_OUT with a reason).
+ */
+export function findRenderFunctionName(pageSrc, fn, resGlobal) {
+  const refRe = new RegExp(`(?:^|[^\\w$.])${resGlobal}(?![\\w$])`);
+  const assignRe = new RegExp(`(?:^|[^\\w$.])${resGlobal}\\s*=`);
+  const fnCallRe = new RegExp(`(?:^|[^\\w$.])${fn}\\s*\\(`);
+  const declRe = /(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(\s*\)\s*\{/g;
+  const names = new Set();
+  let m;
+  while ((m = declRe.exec(pageSrc)) !== null) {
+    if (m[1] === fn) continue;
+    let depth = 1;
+    let j = m.index + m[0].length;
+    while (j < pageSrc.length && depth > 0) {
+      const c = pageSrc[j];
+      if (c === '{') depth++; else if (c === '}') depth--;
+      j++;
+    }
+    if (depth !== 0) continue;
+    const body = pageSrc.slice(m.index, j);
+    if (!refRe.test(body) || fnCallRe.test(body) || assignRe.test(body)) continue;
+    names.add(m[1]);
+  }
+  return names.size === 1 ? [...names][0] : null;
+}
+
+/**
+ * The static direct-mode probe: per-page eligibility verdict.
+ *   { eligible: true,  code: 'eligible', detail: { manifest, page, resGlobal, render, name } }
+ *   { eligible: false, code, reason }   — code names the failing condition
+ *     (opt-out | digest-sentinel | result-global | fn-shape | dom-read | render |
+ *      fixture | kernel-parity | manifest | page), reason is the exclusion-list
+ *     line (`direct-probe: …` / `direct-opt-out: …`).
+ * `opts.optOuts` overrides DIRECT_MODE_OPT_OUT (selftest seam).
+ */
+export async function directAdjudication(toolId, manifestIndex, mcpNameByTool, repoRoot, opts = {}) {
+  const root = repoRoot || REPO;
+  const pageRel = `chaingraph/${toolId}.html`;
+  const optOuts = opts.optOuts || DIRECT_MODE_OPT_OUT;
+  if (Object.prototype.hasOwnProperty.call(optOuts, toolId)) {
+    return { toolId, eligible: false, code: 'opt-out', reason: `direct-opt-out: ${optOuts[toolId]}` };
+  }
+  const loaded = loadManifestFor(toolId, manifestIndex, mcpNameByTool, root);
+  if (loaded.error) return { toolId, eligible: false, code: 'manifest', reason: `direct-probe: ${loaded.error}` };
+  const manifest = loaded.m;
+  const shapeErr = checkManifestShape(manifest);
+  if (shapeErr) return { toolId, eligible: false, code: 'manifest', reason: `direct-probe: manifest ${loaded.file}: ${shapeErr}` };
+  const parityErr = checkManifestSchemaParity(manifest);
+  if (parityErr) return { toolId, eligible: false, code: 'manifest', reason: `direct-probe: manifest ${loaded.file}: ${parityErr}` };
+  const entry = manifest.execution?.entry || '';
+  if (entry && basename(entry) !== `${toolId}.html`) {
+    return { toolId, eligible: false, code: 'manifest', reason: `direct-probe: manifest ${loaded.file} execution.entry (${entry}) is not this page` };
+  }
+  let pageSrc;
+  try { pageSrc = readRepoFile(pageRel, root); } catch (e) {
+    return { toolId, eligible: false, code: 'page', reason: `direct-probe: ${pageRel} unreadable: ${e.message}` };
+  }
+
+  // (a) the page↔kernel digest sentinel matches its kernel — reused classifier.
+  const kernelRel = `chaingraph/kernels/${toolId}.kernel.mjs`;
+  let kernelSrc = null;
+  try { kernelSrc = readRepoFile(kernelRel, root); } catch { kernelSrc = null; }
+  const digestState = classifyPage({ html: pageSrc, recomputedDigest: kernelSrc === null ? null : await sourceDigest(kernelSrc) });
+  if (digestState.state !== 'OK') {
+    return { toolId, eligible: false, code: 'digest-sentinel', reason: `direct-probe: kernel-digest sentinel state ${digestState.state} (${digestState.detail})` };
+  }
+
+  const resGlobal = detectResultGlobal(pageSrc);
+  if (!resGlobal) {
+    return { toolId, eligible: false, code: 'result-global', reason: 'direct-probe: page sets no _lastResult/_lastArtifact global — the direct delegate has no result to return' };
+  }
+
+  // (b) execution.function_name declared on the page taking exactly one parameter.
+  const fn = manifest.execution.function_name;
+  const span = functionSpan(pageSrc, fn);
+  if (!span) {
+    return { toolId, eligible: false, code: 'fn-shape', reason: `direct-probe: execution.function_name '${fn}' is not declared as a function on the page` };
+  }
+  const nParams = span.params.trim().length === 0 ? 0 : span.params.trim().split(',').filter((s) => s.trim()).length;
+  if (nParams !== 1) {
+    return { toolId, eligible: false, code: 'fn-shape', reason: `direct-probe: execution.function_name '${fn}' takes ${nParams} parameter(s); direct mode calls it with params and requires exactly 1` };
+  }
+
+  // (c) no DOM read in the function body — a DOM read means it ignores params.
+  const fnBody = codeBodyText(pageSrc.slice(span.start, span.end));
+  const domHit = DIRECT_DOM_TOKENS.find((t) => fnBody.includes(t));
+  if (domHit) {
+    return { toolId, eligible: false, code: 'dom-read', reason: `direct-probe: function ${fn} body contains DOM read '${domHit}' — a DOM-reading function ignores params` };
+  }
+
+  // The render function the emitted delegate paints through.
+  const renderFn = findRenderFunctionName(stripMarkedRegions(pageSrc), fn, resGlobal);
+  if (!renderFn) {
+    return { toolId, eligible: false, code: 'render', reason: `direct-probe: no unique zero-arg render function reading ${resGlobal} (direct mode renders through it; list the page in DIRECT_MODE_OPT_OUT with a reason if it renders differently)` };
+  }
+
+  // (d) the kernel reproduces fixture 0's execution_hash — the hash-parity
+  // guarantee the row's original live probe was meant to give, recomputed on
+  // every probe run (parity re-proven on every preflight).
+  const fxPath = resolve(root, 'chaingraph', 'kernels', 'fixtures', `${toolId}.fixtures.json`);
+  if (!existsSync(fxPath)) {
+    return { toolId, eligible: false, code: 'fixture', reason: `direct-probe: no fixture 0 (no fixtures file for ${toolId})` };
+  }
+  let fx;
+  try {
+    const doc = JSON.parse(readFileSync(fxPath, 'utf8'));
+    fx = (doc.vectors || doc.fixtures || [])[0];
+  } catch (e) {
+    return { toolId, eligible: false, code: 'fixture', reason: `direct-probe: fixtures file unparseable: ${e.message}` };
+  }
+  if (!fx || !fx.policy_parameters || !fx.golden_hash) {
+    return { toolId, eligible: false, code: 'fixture', reason: 'direct-probe: fixture 0 lacks policy_parameters/golden_hash' };
+  }
+  let mod;
+  try { mod = await import(pathToFileURL(resolve(root, kernelRel)).href); } catch (e) {
+    return { toolId, eligible: false, code: 'kernel-parity', reason: `direct-probe: kernel import failed: ${e.message}` };
+  }
+  if (typeof mod.compute !== 'function') {
+    return { toolId, eligible: false, code: 'kernel-parity', reason: 'direct-probe: kernel exports no compute() function' };
+  }
+  let out;
+  try {
+    out = mod.compute(fx.policy_parameters);
+    if (out && typeof out.then === 'function') out = await out;
+  } catch (e) {
+    return { toolId, eligible: false, code: 'kernel-parity', reason: `direct-probe: kernel compute() threw on fixture 0: ${e.message}` };
+  }
+  let produced;
+  try {
+    produced = await executionHash(fx.policy_parameters, readOutcome(out));
+  } catch (e) {
+    return { toolId, eligible: false, code: 'kernel-parity', reason: `direct-probe: execution_hash recomputation failed: ${e.message}` };
+  }
+  const producedHex = String(produced).replace(/^sha256:/, '');
+  const goldenHex = String(fx.golden_hash).replace(/^sha256:/, '');
+  if (producedHex !== goldenHex) {
+    return { toolId, eligible: false, code: 'kernel-parity', reason: `direct-probe: hash-mismatch (kernel produced ${producedHex.slice(0, 16)}…, fixture golden ${goldenHex.slice(0, 16)}…)` };
+  }
+  return {
+    toolId, eligible: true, code: 'eligible', reason: null,
+    detail: { manifest: loaded.file, page: pageRel, resGlobal, render: renderFn, name: manifest.mcp_tool_definition.name },
+  };
+}
+
+/** Required-member validation for the direct emitter: legal declared types get
+ *  the typed check; no type (or an undeclared type) gets presence only. */
+function directValidationLine(name, type) {
+  if (!DIRECT_LEGAL_TYPES.has(type)) {
+    return `if (params.${name} === undefined) throw new Error('${jsStr(name)} is required; received ' + JSON.stringify(params.${name}) + '.');`;
+  }
+  return validationLine(name, type);
+}
+
+/**
+ * The DIRECT-mode block: one registration whose execute() validates params,
+ * shows the mandatory inputs echo panel, calls the manifest fn with params,
+ * stores the result in the page's result global, lets the page's render
+ * function paint, and returns the result global. No form prefill, no deep-link
+ * or file-import readers (they prefill controls; direct pages have none per
+ * prop). Pure: same inputs, same bytes.
+ */
+export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn) {
+  const def = manifest.mcp_tool_definition;
+  const props = Object.entries(def.inputSchema.properties);
+  const required = Array.isArray(def.inputSchema.required) ? def.inputSchema.required : [];
+  const fn = manifest.execution.function_name;
+  const lines = [];
+  lines.push(beginLine(manifestPath, 'direct'));
+  lines.push('<script>');
+  lines.push('// WebMCP registration generated by scripts/gen-webmcp-registrations.mjs from');
+  lines.push(`// ${manifestPath} (mcp_tool_definition reused verbatim; the generator computes`);
+  lines.push('// nothing and restates no computed value). DIRECT emission mode');
+  lines.push('// (WEBMCP-DIRECT-MODE-1): this page\'s manifest inputs have no single control');
+  lines.push('// to prefill, so execute() calls the manifest-declared function with the');
+  lines.push('// agent\'s params, stores the result in the page\'s result global, lets the');
+  lines.push('// page\'s render function paint it, and shows the mandatory "Inputs used by');
+  lines.push('// the agent" echo panel so a human still sees exactly what the agent ran.');
+  lines.push('// Feature-detected: absent API registers nothing, so this page is');
+  lines.push('// byte-identical without the API.');
+  lines.push('// Eligibility is static and re-proven on every --check: kernel-digest');
+  lines.push('// sentinel matches the kernel; the declared function takes one parameter');
+  lines.push('// and reads no DOM; the kernel reproduces fixture 0 execution_hash. Same');
+  lines.push('// kernel, same hash, zero network I/O.');
+  lines.push('// Trust annotations, truthful-hint posture: deterministic local compute, no');
+  lines.push('// untrusted content, so untrustedContentHint is not applicable per tool (n/a);');
+  lines.push('// exposedTo intentionally omitted: no cross-origin exposure. A browser agent');
+  lines.push('// is untrusted input like any form submission; the never-trust-client rule is');
+  lines.push('// honored by construction because the tool is zero-server and only returns');
+  lines.push('// computed JSON derived from declared inputs.');
+  lines.push('// Browser support (dated observation): WebMCP origin trial from Chrome 149');
+  lines.push('// (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).');
+  lines.push("const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);");
+  lines.push('if (mc) {');
+  lines.push('  mc.registerTool({');
+  lines.push(`    name: '${jsStr(def.name)}',`);
+  lines.push(`    description: '${jsStr(def.description)}',`);
+  lines.push(`    inputSchema: ${JSON.stringify(def.inputSchema, null, 2).replace(/\n/g, '\n    ')},`);
+  lines.push('    annotations: { readOnlyHint: true },');
+  lines.push('    execute: async function(params) {');
+  lines.push('      try {');
+  for (const [name, spec] of props) {
+    if (required.includes(name)) lines.push(`      ${directValidationLine(name, spec.type)}`);
+  }
+  lines.push("      var echo = document.getElementById('webmcp-inputs-echo');");
+  lines.push('      if (!echo) {');
+  lines.push("        echo = document.createElement('pre');");
+  lines.push("        echo.id = 'webmcp-inputs-echo';");
+  lines.push("        var panel = document.querySelector('.results-panel');");
+  lines.push('        if (panel && panel.parentNode) panel.parentNode.insertBefore(echo, panel);');
+  lines.push('        else document.body.insertBefore(echo, document.body.firstChild);');
+  lines.push('      }');
+  lines.push("      echo.textContent = 'Inputs used by the agent: ' + JSON.stringify(params, null, 2);");
+  lines.push(`      var __directResult = await ${fn}(params);`);
+  lines.push(`      if (typeof __directResult !== 'undefined') ${resGlobal} = __directResult;`);
+  lines.push(`      await ${renderFn}();`);
+  lines.push(`      return ${resGlobal};`);
+  lines.push('      } catch (err) {');
+  lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
+  lines.push('      }');
+  lines.push('    }');
+  lines.push('  });');
+  lines.push('}');
+  lines.push('</script>');
+  lines.push(END);
+  return lines.join('\n');
+}
+
+/** buildDirectBlock with the probe-verified result global and render function
+ *  substituted in (both come from directAdjudication's detail, never guessed). */
+export function buildDirectBlockForPage(manifest, manifestPath, resGlobal, renderFn) {
+  return buildDirectBlock(manifest, manifestPath, resGlobal, renderFn);
+}
+
+/** A page's generated region is a DIRECT-mode region when its BEGIN line says so. */
+export function isDirectRegion(pageSrc) {
+  const region = regionOf(pageSrc);
+  if (!region) return false;
+  return pageSrc.slice(region.start, region.start + 500).includes('mode=direct');
+}
+
+/** The histogram line the PR body and every --check run quote. */
+export function directHistogram(verdicts) {
+  const counts = {};
+  for (const v of verdicts) counts[v.code] = (counts[v.code] || 0) + 1;
+  const refusals = Object.entries(counts).filter(([k]) => k !== 'eligible').sort()
+    .map(([k, n]) => `refused:${k}=${n}`).join(' ');
+  return `direct-mode probe: ${verdicts.length} mapping-incomplete page(s) — eligible=${counts.eligible || 0}` + (refusals ? ` ${refusals}` : ' (no refusals)');
+}
+
+/** Probe every mapping-incomplete sweep-cleared page (the excluded set the
+ *  demand triage measures). Shared by --direct and --check. */
+async function collectDirectVerdicts(cleared, manifestIndex, mcpNameByTool) {
+  const verdicts = [];
+  for (const id of cleared) {
+    const d = adjudicateTool(id, REPO, manifestIndex, mcpNameByTool);
+    if (d.ok) continue; // prefill mode binds it — direct mode is the fallback
+    if (!d.reason.includes('form-element mapping incomplete')) continue; // G6/manifest-class exclusion, not a direct candidate
+    verdicts.push(await directAdjudication(id, manifestIndex, mcpNameByTool, REPO));
+  }
+  return verdicts;
+}
+
+/** --direct: report (default) or write (--write) the direct-mode emission.
+ *  Report prints the per-page verdicts + histogram; write emits the block into
+ *  eligible pages (the batch rows' writer — per batch, never in the gates). */
+async function runDirect({ write, onlyTool }) {
+  const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(REPO);
+  if (onlyTool && !cleared.includes(onlyTool)) {
+    console.log(`--tool ${onlyTool}: not sweep-CLEARED (G6) — direct mode, like prefill mode, never emits from an uncleared schema`);
+    return { verdicts: [], written: 0, exact: 0, skipped: 0 };
+  }
+  const ot = readOtToken(REPO);
+  const otBlock = ot.present ? otMetaBlock(ot.token) : null;
+  const verdicts = [];
+  let written = 0, exact = 0, skipped = 0;
+  for (const id of cleared) {
+    if (onlyTool && id !== onlyTool) continue;
+    const d = adjudicateTool(id, REPO, manifestIndex, mcpNameByTool);
+    if (!onlyTool && (d.ok || !d.reason.includes('form-element mapping incomplete'))) continue;
+    if (d.ok) { console.log(`--tool ${id}: prefill mode binds this page (mapping complete); direct mode is the fallback and does not apply`); skipped++; continue; }
+    const v = await directAdjudication(id, manifestIndex, mcpNameByTool, REPO);
+    verdicts.push(v);
+    if (!v.eligible) continue;
+    const loaded = loadManifestFor(id, manifestIndex, mcpNameByTool, REPO);
+    const block = buildDirectBlockForPage(loaded.m, v.detail.manifest, v.detail.resGlobal, v.detail.render);
+    const pageAbs = resolve(REPO, v.detail.page);
+    if (write) {
+      const src = readFileSync(pageAbs, 'utf8');
+      const existing = regionOf(src);
+      if (existing && !src.slice(existing.start, existing.start + 500).includes('mode=direct')) {
+        console.error(`REFUSED ${v.detail.page}: page already carries a non-direct generated region — prefill mode owns it, direct mode never overwrites`);
+        continue;
+      }
+      const next = applyOtMeta(insertIntoPage(src, block), otBlock);
+      if (next !== src) {
+        writeFileSync(pageAbs, next, 'utf8');
+        written++;
+        console.log(`✓ wrote ${v.detail.page} (direct mode: name: ${v.detail.name}, result: ${v.detail.resGlobal}, render: ${v.detail.render}${ot.present ? '; OT meta in head' : ''})`);
+      } else { exact++; }
+    } else {
+      console.log(`DIRECT-ELIGIBLE ${v.detail.page} (name: ${v.detail.name}, manifest: ${v.detail.manifest}, result: ${v.detail.resGlobal}, render: ${v.detail.render})`);
+    }
+  }
+  verdicts.filter((v) => !v.eligible).forEach((v) => console.log(`  EXCLUDED ${v.toolId}: ${v.reason}`));
+  const tail = write ? ` — ${written} page(s) written, ${exact} already byte-exact${onlyTool ? '' : ' (batch rows: <=22 pages per PR)'}` : ' (report only; add --write to emit)';
+  console.log(`\n${directHistogram(verdicts)}${tail}`);
+  return { verdicts, written, exact, skipped };
+}
+
 // ── Selftest (synthetic fixture repo; the real tree is never written) ─────────
 
-function selftest() {
+async function selftest(){
   let failures = 0;
   const check = (label, ok) => {
     console.log((ok ? '  ✓ ' : '  ✗ ') + label);
@@ -1634,6 +3465,28 @@ function selftest() {
     // boolstring via emits a 'true'/'false' select write, not .checked.
     const boolBlock = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', { flag: { element_id: 'flag', via: 'boolstring' } }, 'run');
     check("boolstring via emits .value = String(params.x === true)", boolBlock.includes("document.getElementById('flag').value = String(params.flag === true);") && !boolBlock.includes("getElementById('flag').checked"));
+
+    // 6d. MCP-SCHEMA-CONFORMANCE-1 type law (RULINGS 2026-09-10T20:30:44Z).
+    // GREEN: a property with NO `type` keyword is legal and takes the 'string'
+    // via (`.value = String(params.p)`) — exactly as the legacy `unknown` did.
+    const typeless = JSON.parse(JSON.stringify(manifest));
+    typeless.mcp_tool_definition.inputSchema.properties.label = { description: 'type not evidenced by kernel source' };
+    const typelessShapeErr = checkManifestShape(typeless);
+    const typelessBlock = buildBlockForPage(typeless, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', undefined, 'run');
+    check('typeless property is legal (G1) and registers with the string via',
+      typelessShapeErr === null
+        && typelessBlock.includes("document.getElementById('label').value = String(params.label);"),
+      `shapeErr=${JSON.stringify(typelessShapeErr)}`);
+    // RED: the legacy `"type": "unknown"` (not one of the seven legal names) is
+    // rejected by the G-gate. (During the transition, adjudicateTool tolerates it
+    // ONLY for provenance-owned manifests so the sweep cannot drop the registered
+    // set mid-flight; the pure law here is strict.)
+    const unknownTyped = JSON.parse(JSON.stringify(manifest));
+    unknownTyped.mcp_tool_definition.inputSchema.properties.label = { type: 'unknown' };
+    const unknownShapeErr = checkManifestShape(unknownTyped);
+    check('G1 refusal: "type": "unknown" rejected (illegal type name)',
+      unknownShapeErr !== null && unknownShapeErr.includes('illegal type name') && unknownShapeErr.includes("'label'"),
+      `got ${JSON.stringify(unknownShapeErr)}`);
 
     // 7. G3 refusal: no result global -> refused.
     const noRes = pageBody
@@ -1794,6 +3647,329 @@ function selftest() {
     check('manifest emitter: drift (extra entry) is detectable by byte compare', driftedManifest.tools.length !== JSON.parse(fxJson).tools.length);
     // Idempotency: two builds over the same fixture bytes are identical.
     check('manifest emitter: deterministic (two builds byte-identical)', directoryJsonFromEntries([fxEntry], tmp) === fxJsonTok);
+
+    // 15. Wrapper-binding parser + fixture-hash probe (WEBMCP-WRAPPER-PARSE-1):
+    // one fixture page per entry type (scalar, coerce number/boolean, json,
+    // rows), a computed-value page refused, and RED-then-GREEN by flipping a
+    // fixture element id.
+    const wSchema = { properties: {
+      spot: { type: 'number' },
+      label: { type: 'string' },
+      flag: { type: 'boolean' },
+      cfg: { type: 'object' },
+      report: { type: 'object' },
+      trades: { type: 'array' },
+    }, required: [] };
+    const wManifest = {
+      tool_id: 'fx-200-wrap',
+      input_schema: wSchema,
+      mcp_tool_definition: {
+        name: 'run_fx_200_wrap',
+        description: 'Selftest fixture tool exercising the wrapper-binding parser and probe end to end.',
+        inputSchema: { type: 'object', required: [], properties: {
+          spot: { type: 'number' },
+          label: { type: 'string' },
+          flag: { type: 'boolean' },
+          cfg: { type: 'object' },
+          report: { type: 'object' },
+          trades: { type: 'array' },
+        } },
+      },
+      execution: { type: 'browser-javascript', entry: 'chaingraph/fx-200-wrap.html', function_name: 'compute', timeout_ms: 3000 },
+    };
+    const wPageSrc = [
+      '<html><body>',
+      '<input id="spot" value="9"><input id="label"><input id="flag"><textarea id="cfg"></textarea>',
+      '<input id="t1_ssi"><input id="t1_liq"><input id="t2_ssi"><input id="t2_liq">',
+      '<input id="action_type"><input id="notional">',
+      '<script>',
+      'var _lastResult = null;',
+      'function getRows(){ var out=[]; for (var i=1;i<=2;i++){ out.push({ ssi: document.getElementById("t"+i+"_ssi")?.value ?? "x", liq: document.getElementById("t"+i+"_liq")?.value ?? "y" }); } return out; }',
+      'function compute(pp){ return { output_payload: { echo: pp }, compliance_flags: {} }; }',
+      'async function computeHash(pp, op){',
+      '  const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify([pp, op])));',
+      '  return "sha256:" + Array.from(new Uint8Array(b)).map(function(x){ return x.toString(16).padStart(2, "0"); }).join("");',
+      '}',
+      'async function run(){',
+      '  var rows = getRows();',
+      '  var pp = {',
+      '    spot: Number(document.getElementById("spot").value),',
+      '    label: document.getElementById("label")?.value,',
+      '    flag: document.getElementById("flag").checked,',
+      '    cfg: JSON.parse(document.getElementById("cfg").value),',
+      '    report: {',
+      '      action_type: document.getElementById("action_type").value.trim() || undefined,',
+      '      notional: document.getElementById("notional").value !== "" ? Number(document.getElementById("notional").value) : undefined,',
+      '    },',
+      '    trades: rows.map(function(t){ return { ssi_match_status: t.ssi, liquidity_tier: t.liq }; }),',
+      '  };',
+      '  const result = compute(pp);',
+      '  const hash = await computeHash(pp, result.output_payload);',
+      '  _lastResult = { execution_hash: hash, policy_parameters: pp, output_payload: result.output_payload };',
+      '}',
+      '</script>',
+      '</body></html>',
+    ].join('\n');
+    mkdirSync(join(tmp, 'chaingraph', 'kernels', 'fixtures'), { recursive: true });
+    writeFileSync(join(tmp, 'chaingraph', 'fx-200-wrap.html'), wPageSrc);
+    writeFileSync(join(tmp, 'manifests', '952-fx-200-wrap.manifest.json'), JSON.stringify(wManifest, null, 2));
+    writeFileSync(join(tmp, 'chaingraph', 'kernels', 'fx-200-wrap.kernel.mjs'), [
+      "export const meta = { mcp_name: 'run_fx_200_wrap' };",
+      'export function compute(pp) {',
+      '  return { output_payload: { echo: [pp.spot, pp.label, pp.flag, pp.cfg, (pp.trades || []).length] }, compliance_flags: {} };',
+      '}',
+    ].join('\n'));
+    const pp0 = {
+      spot: 101.5,
+      label: 'wrap-fixture',
+      flag: true,
+      cfg: { tier: 'A' },
+      report: { action_type: 'MODIFY', notional: 2500 },
+      trades: [
+        { ssi_match_status: 'matched', liquidity_tier: 'liquid' },
+        { ssi_match_status: 'mismatched', liquidity_tier: 'illiquid' },
+      ],
+    };
+    const expectedHash = 'sha256:' + createHash('sha256').update(JSON.stringify([pp0, { echo: pp0 }]), 'utf8').digest('hex');
+    writeFileSync(join(tmp, 'chaingraph', 'kernels', 'fixtures', 'fx-200-wrap.fixtures.json'), JSON.stringify({
+      vectors: [{ policy_parameters: pp0, golden_hash: expectedHash }],
+    }, null, 2));
+
+    const parsed = parseWrapperBindings(wPageSrc, 'run', wManifest);
+    check('parse: all five entry types bound from the page wrapper', parsed.ok === true);
+    check('parse: scalar entry {id}', parsed.ok && parsed.entries.label && parsed.entries.label.id === 'label');
+    check('parse: coerce number entry (Number(...))', parsed.ok && parsed.entries.spot && parsed.entries.spot.id === 'spot' && parsed.entries.spot.coerce === 'number');
+    check('parse: coerce boolean entry (.checked)', parsed.ok && parsed.entries.flag && parsed.entries.flag.coerce === 'boolean');
+    check('parse: json entry (JSON.parse(textarea))', parsed.ok && parsed.entries.cfg && parsed.entries.cfg.json === 'cfg');
+    check('parse: nested object entry (report.{action_type,notional} with benign tails)',
+      parsed.ok && parsed.entries.report && parsed.entries.report.object
+      && parsed.entries.report.object.action_type && parsed.entries.report.object.action_type.id === 'action_type'
+      && parsed.entries.report.object.notional && parsed.entries.report.object.notional.coerce === 'number');
+    check('parse: rows entry (helper loop t<1..2>_ssi/_liq, schema-field keys)',
+      parsed.ok && parsed.entries.trades && parsed.entries.trades.rows
+      && parsed.entries.trades.rows.prefix === 't'
+      && JSON.stringify(parsed.entries.trades.rows.index) === '[1,2]'
+      && parsed.entries.trades.rows.fields.ssi_match_status === '_ssi'
+      && parsed.entries.trades.rows.fields.liquidity_tier === '_liq');
+
+    // Computed value from two reads → refused (unbound), page never emitted.
+    const twoReadPage = wPageSrc.replace(
+      'spot: Number(document.getElementById("spot").value),',
+      'spot: Number(document.getElementById("spot").value) + Number(document.getElementById("t1_ssi").value),');
+    const parsedTwo = parseWrapperBindings(twoReadPage, 'run', wManifest);
+    check('parse RED: a prop computed from two reads is refused (unbound: spot)', !parsedTwo.ok && parsedTwo.unbound.includes('spot'));
+    // A constant (no DOM read) is equally unbound — never guessed.
+    const constPage = wPageSrc.replace('label: document.getElementById("label")?.value,', 'label: "hard-coded",');
+    const parsedConst = parseWrapperBindings(constPage, 'run', wManifest);
+    check('parse RED: a constant prop is unbound', !parsedConst.ok && parsedConst.unbound.includes('label'));
+
+    // Probe: prefill from fixture 0 through the derived entries, call the
+    // wrapper, reproduce the fixture's execution_hash.
+    const fx0 = { policy_parameters: pp0, golden_hash: expectedHash };
+    const stamped = wrapEntries(parsed.entries, parsed.wrapperDigest);
+    const probeGreen = await probeDerivedPage(wPageSrc, 'fx-200-wrap.html', stamped, 'run', fx0);
+    check('probe GREEN: derived entries reproduce fixture 0 execution_hash', probeGreen.ok === true && probeGreen.executionHash === expectedHash.replace(/^sha256:/, ''));
+    // RED-then-GREEN: point ONE committed entry at a wrong id (a drifted/renamed
+    // control) — the probe must go RED, then GREEN when the binding is restored.
+    const wrongId = JSON.parse(JSON.stringify(stamped));
+    wrongId.label.id = 'labelX';
+    const probeRed = await probeDerivedPage(wPageSrc, 'fx-200-wrap.html', wrongId, 'run', fx0);
+    check('probe RED: a wrong bound id fails the fixture-hash probe (hash-mismatch)', !probeRed.ok && /hash-mismatch/.test(probeRed.error));
+    const probeRegreen = await probeDerivedPage(wPageSrc, 'fx-200-wrap.html', stamped, 'run', fx0);
+    check('probe GREEN: restored binding re-passes', probeRegreen.ok === true);
+    // Wrapper-byte drift: flipping the id in the PAGE's own wrapper changes the
+    // digest and re-derivation no longer matches the committed entries — drift
+    // is red, never silent (the staleness guard).
+    const driftedPage = wPageSrc.replace('document.getElementById("label")?.value', 'document.getElementById("labelX")?.value');
+    const parsedDrift = parseWrapperBindings(driftedPage, 'run', wManifest);
+    check('staleness RED: drifted wrapper re-parses to a different binding+digest',
+      parsedDrift.ok === true && parsedDrift.entries.label.id === 'labelX' && parsedDrift.wrapperDigest !== parsed.wrapperDigest);
+    check('staleness RED: digest differs implies --check entry-drift refusal would fire',
+      JSON.stringify(wrapEntries(parsedDrift.entries, parsedDrift.wrapperDigest)) !== JSON.stringify(stamped));
+    // Probe failure is a per-page verdict, not a halt: a page whose wrapper
+    // corrupts a value (e.g. trims the JSON textarea) is probe-failed.
+    const corruptPage = wPageSrc.replace('cfg: JSON.parse(document.getElementById("cfg").value),', 'cfg: JSON.parse(document.getElementById("label").value),');
+    const parsedCorrupt = parseWrapperBindings(corruptPage, 'run', wManifest);
+    const probeCorrupt = parsedCorrupt.ok
+      ? await probeDerivedPage(corruptPage, 'fx-200-wrap.html', wrapEntries(parsedCorrupt.entries, parsedCorrupt.wrapperDigest), 'run', fx0)
+      : { ok: false };
+    check('probe RED: a corrupted binding path fails (parse or probe)', !probeCorrupt.ok);
+
+    // 15. OT token gate + meta emitter (WEBMCP-OT-META-1). RED-then-GREEN on the
+    // pure gate, byte-identity on the head writer.
+    const b64tok = (o) => Buffer.from(JSON.stringify(o), 'utf8').toString('base64');
+    const DAY = 86400; // expiry is seconds since epoch
+    const past = b64tok({ origin: 'https://ainumbers.co:443', feature: 'WebMCP', expiry: Math.floor(Date.now() / 1000) - DAY, isSubdomain: true });
+    const expiredFix = b64tok({ origin: 'https://ainumbers.co:443', feature: 'WebMCP', expiry: Math.floor(Date.now() / 1000) + 1, isSubdomain: true });
+    const wrongOrigin = b64tok({ origin: 'https://evil.example', feature: 'WebMCP', expiry: Math.floor(Date.now() / 1000) + 45 * DAY });
+    const wrongFeature = b64tok({ origin: 'https://ainumbers.co:443', feature: 'NotWebMCP', expiry: Math.floor(Date.now() / 1000) + 45 * DAY });
+    const shortExpiry = b64tok({ origin: 'https://ainumbers.co:443', feature: 'WebMCP', expiry: Math.floor(Date.now() / 1000) + 5 * DAY });
+    const good = b64tok({ origin: 'https://ainumbers.co:443', feature: 'WebMCP', expiry: Math.floor(Date.now() / 1000) + 45 * DAY, isSubdomain: true });
+    check('OT gate: past-expiry fixture token is RED', otTokenGateErrors(past).length > 0);
+    check('OT gate: token expiring in 1 second is RED (expired)', otTokenGateErrors(expiredFix).some((r) => r.includes('expires')));
+    check('OT gate: wrong origin is RED', otTokenGateErrors(wrongOrigin).some((r) => r.includes('origin')));
+    check('OT gate: wrong feature is RED', otTokenGateErrors(wrongFeature).some((r) => r.includes('feature')));
+    check('OT gate: expiry below the 14-day floor is RED (renewal alarm)', otTokenGateErrors(shortExpiry).some((r) => r.includes('14-day')));
+    check('OT gate: :443 origin + future expiry GREEN (the port normalizes)', otTokenGateErrors(good).length === 0);
+    const headPage = '<html><head>\n<title>t</title>\n</head><body>x</body></html>';
+    const metaBlock = otMetaBlock('tok-fixture');
+    const withMeta = applyOtMeta(headPage, metaBlock);
+    check('OT meta: region inserted on the first line after <head>', withMeta.startsWith('<html><head>\n' + metaBlock + '\n'));
+    check('OT meta: insert is idempotent', applyOtMeta(withMeta, metaBlock) === withMeta);
+    check('OT meta: placeholder strips back to byte-identical', applyOtMeta(withMeta, null) === headPage);
+    check('OT meta: no <head> is refused, never guessed', (() => { try { applyOtMeta('<html><body></body></html>', metaBlock); return false; } catch { return true; } })());
+    writeFileSync(join(tmp, 'chaingraph', 'webmcp-ot-token.txt'), OT_TOKEN_PLACEHOLDER + '\n');
+    check('OT read: the placeholder classifies ABSENT (no meta emitted)', readOtToken(tmp).present === false && readOtToken(tmp).placeholder === true);
+    writeFileSync(join(tmp, 'chaingraph', 'webmcp-ot-token.txt'), 'real-token-shape\n');
+    check('OT read: a non-placeholder token classifies present', readOtToken(tmp).present === true && readOtToken(tmp).placeholder === false);
+
+    // 16. Direct emission mode (WEBMCP-DIRECT-MODE-1): one direct-mode fixture
+    // page (probe pass) + one DOM-reading fixture page (refused), RED-then-GREEN
+    // on the DOM-read condition, the digest sentinel, the render detection, and
+    // the kernel fixture-0 hash parity.
+    const dSchema = { type: 'object', required: ['spot'], properties: {
+      spot: { type: 'number', description: 'Spot level' },
+      mode: { type: 'string', description: 'Optional mode selector' },
+    } };
+    const dManifest = {
+      tool_id: 'fx-300-direct',
+      input_schema: { properties: dSchema.properties, required: dSchema.required },
+      mcp_tool_definition: {
+        name: 'run_fx_300_direct',
+        description: 'Selftest fixture tool exercising the direct-mode probe and emitter end to end.',
+        inputSchema: dSchema,
+      },
+      execution: { type: 'browser-javascript', entry: 'chaingraph/fx-300-direct.html', function_name: 'runDirect', timeout_ms: 3000 },
+    };
+    const dDomManifest = {
+      tool_id: 'fx-301-dompage',
+      input_schema: { properties: dSchema.properties, required: dSchema.required },
+      mcp_tool_definition: {
+        name: 'run_fx_301_dompage',
+        description: 'Selftest fixture page whose function reads the DOM and must be refused.',
+        inputSchema: dSchema,
+      },
+      execution: { type: 'browser-javascript', entry: 'chaingraph/fx-301-dompage.html', function_name: 'computeDom', timeout_ms: 3000 },
+    };
+    const dKernelSrc = [
+      "export const meta = { mcp_name: 'run_fx_300_direct' };",
+      'export function compute(pp) {',
+      '  return { output_payload: { echo: [pp.spot, pp.mode] }, compliance_flags: {} };',
+      '}',
+    ].join('\n');
+    const dDomKernelSrc = [
+      "export const meta = { mcp_name: 'run_fx_301_dompage' };",
+      'export function compute(pp) {',
+      '  return { output_payload: { echoed: pp }, compliance_flags: {} };',
+      '}',
+    ].join('\n');
+    const dPageOf = (digest, fnDecl, fnName) => [
+      '<html><head><title>t</title></head><body>',
+      '<input id="spot">',
+      '<div class="results-panel"></div>',
+      `<!--KERNEL-DIGEST-->${digest}<!--/KERNEL-DIGEST-->`,
+      '<script>',
+      'var _lastResult = null;',
+      'var statusEl = document.getElementById("status");',
+      'function renderDirect(){ statusEl.textContent = _lastResult ? "ready" : "idle"; }',
+      fnDecl,
+      'renderDirect();',
+      '</script>',
+      '</body></html>',
+    ].join('\n');
+    const dBodyGreen = 'async function runDirect(pp){ return { spot: pp.spot, mode: pp.mode }; }';
+    const dBodyDom = 'async function runDirect(pp){ return { spot: Number(document.getElementById("spot").value) }; }';
+    const dBodyDomPage = 'function computeDom(pp){ document.getElementById("out").value = JSON.stringify(pp); return pp; }';
+    writeFileSync(join(tmp, 'chaingraph', 'kernels', 'fx-300-direct.kernel.mjs'), dKernelSrc);
+    writeFileSync(join(tmp, 'chaingraph', 'kernels', 'fx-301-dompage.kernel.mjs'), dDomKernelSrc);
+    writeFileSync(join(tmp, 'manifests', '953-fx-300-direct.manifest.json'), JSON.stringify(dManifest, null, 2));
+    writeFileSync(join(tmp, 'manifests', '954-fx-301-dompage.manifest.json'), JSON.stringify(dDomManifest, null, 2));
+    // Pin fixture 0 from the kernel itself (the golden-parity pinning pattern):
+    // the probe's condition (d) re-derives this hash on every run.
+    const dMod = await import(pathToFileURL(join(tmp, 'chaingraph', 'kernels', 'fx-300-direct.kernel.mjs')).href);
+    const dPP0 = { spot: 101.5, mode: 'fast' };
+    const dOp0 = readOutcome(dMod.compute(dPP0));
+    const dGolden = await executionHash(dPP0, dOp0);
+    writeFileSync(join(tmp, 'chaingraph', 'kernels', 'fixtures', 'fx-300-direct.fixtures.json'), JSON.stringify({ tool_id: 'fx-300-direct', vectors: [{ name: 'default-inputs', policy_parameters: dPP0, output_payload: dOp0, golden_hash: dGolden }] }, null, 2));
+    const dDigest = await sourceDigest(dKernelSrc);
+    const dDigestDom = await sourceDigest(dDomKernelSrc);
+    const dPageGreen = dPageOf(dDigest, dBodyGreen);
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageGreen);
+    writeFileSync(join(tmp, 'chaingraph', 'fx-301-dompage.html'), dPageOf(dDigestDom, dBodyDomPage));
+    const dIdx = loadManifestIndex(tmp);
+
+    // GREEN: the direct-mode fixture page passes all four probe conditions.
+    const dOk = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe GREEN: direct-mode fixture page is eligible', dOk.eligible === true);
+    check('direct probe: detects the page result global _lastResult', dOk.eligible && dOk.detail.resGlobal === '_lastResult');
+    check('direct probe: detects the render function renderDirect', dOk.eligible && dOk.detail.render === 'renderDirect');
+    // RED-then-GREEN, condition (c): a DOM-reading function body ignores params.
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageOf(dDigest, dBodyDom));
+    const dRedDom = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe RED: DOM-reading fn body refused (dom-read)', !dRedDom.eligible && dRedDom.code === 'dom-read' && dRedDom.reason.includes("'document.'"));
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageGreen);
+    const dGreenDom = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe GREEN: pure fn body restored', dGreenDom.eligible === true);
+    // RED-then-GREEN, condition (a): a tampered kernel-digest sentinel.
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageOf('sha256:' + '0'.repeat(64), dBodyGreen));
+    const dRedDigest = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe RED: tampered kernel-digest sentinel refused (digest-sentinel)', !dRedDigest.eligible && dRedDigest.code === 'digest-sentinel');
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageGreen);
+    const dGreenDigest = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe GREEN: correct sentinel restored', dGreenDigest.eligible === true);
+    // RED-then-GREEN, condition (d): a flipped fixture golden_hash.
+    const dFxPath = join(tmp, 'chaingraph', 'kernels', 'fixtures', 'fx-300-direct.fixtures.json');
+    const dFxDoc = JSON.parse(readFileSync(dFxPath, 'utf8'));
+    const dRealGolden = dFxDoc.vectors[0].golden_hash;
+    dFxDoc.vectors[0].golden_hash = 'sha256:' + (dRealGolden.replace(/^sha256:/, '')[0] === '0' ? '1' : '0') + dRealGolden.replace(/^sha256:/, '').slice(1);
+    writeFileSync(dFxPath, JSON.stringify(dFxDoc, null, 2));
+    const dRedHash = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe RED: flipped fixture golden_hash refused (kernel-parity hash-mismatch)', !dRedHash.eligible && dRedHash.code === 'kernel-parity' && dRedHash.reason.includes('hash-mismatch'));
+    dFxDoc.vectors[0].golden_hash = dRealGolden;
+    writeFileSync(dFxPath, JSON.stringify(dFxDoc, null, 2));
+    const dGreenHash = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe GREEN: pinned golden restored', dGreenHash.eligible === true);
+    // RED-then-GREEN: the render function disappears (the opt-out-list case).
+    const dPageNoRender = dPageGreen.replace('function renderDirect(){ statusEl.textContent = _lastResult ? "ready" : "idle"; }', '');
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageNoRender);
+    const dRedRender = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('direct probe RED: no render function refused (render)', !dRedRender.eligible && dRedRender.code === 'render');
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageGreen);
+    // The authored opt-out list refuses even a probe-passing page.
+    const dOpt = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp, { optOuts: { 'fx-300-direct': 'selftest: page renders off the detected path' } });
+    check('direct probe: authored opt-out refuses with direct-opt-out', !dOpt.eligible && dOpt.code === 'opt-out' && dOpt.reason.startsWith('direct-opt-out:'));
+    // The row's second fixture: a DOM-reading page is REFUSED, not emitted.
+    const dDomPage = await directAdjudication('fx-301-dompage', dIdx, mcpNameByTool, tmp);
+    check('direct probe RED: DOM-reading fixture page refused', !dDomPage.eligible && dDomPage.code === 'dom-read');
+
+    // The direct emitter: shape assertions against the probe-verified inputs.
+    const dBlock = buildDirectBlockForPage(dManifest, 'manifests/953-fx-300-direct.manifest.json', '_lastResult', 'renderDirect');
+    check('direct block: mode=direct BEGIN marker', dBlock.startsWith(beginLine('manifests/953-fx-300-direct.manifest.json', 'direct')));
+    check('direct block: name and inputSchema verbatim from the manifest', dBlock.includes("name: 'run_fx_300_direct'") && dBlock.includes(JSON.stringify(dSchema, null, 2).replace(/\n/g, '\n    ')));
+    check('direct block: calls the manifest fn with params', dBlock.includes('await runDirect(params);'));
+    check('direct block: stores the probe-verified result global', dBlock.includes("if (typeof __directResult !== 'undefined') _lastResult = __directResult;"));
+    check('direct block: renders through the detected render function', dBlock.includes('await renderDirect();'));
+    check('direct block: mandatory inputs echo panel present', dBlock.includes("echo.id = 'webmcp-inputs-echo';") && dBlock.includes("'Inputs used by the agent: '"));
+    check('direct block: required typed validation emitted', dBlock.includes("if (typeof params.spot !== 'number'"));
+    check('direct block: optional prop neither validated nor prefilled', !dBlock.includes('params.mode !== undefined') && !dBlock.includes("getElementById('mode')"));
+    check('direct block: no form-prefill mapping lines at all', !dBlock.includes('.value = String(params.'));
+    check('direct block: annotations readOnlyHint only', dBlock.includes('annotations: { readOnlyHint: true },') && !dBlock.includes('untrustedContentHint:') && !dBlock.includes('exposedTo:'));
+    check('direct block: no deep-link/file-import readers (no controls to prefill)', !dBlock.includes(DEEPLINK_MARKER) && !dBlock.includes(FILE_IMPORT_MARKER));
+    check('direct block: parses as JavaScript', (() => { try { new Function(dBlock.match(/<script>([\s\S]*?)<\/script>/)[1]); return true; } catch { return false; } })());
+    // Schema validation accepts a property with NO type keyword: required
+    // members get a presence check, no shape is invented (MCP-SCHEMA-CONFORMANCE-1).
+    const tlSchema = { type: 'object', required: ['preset'], properties: { preset: { description: 'Preset choice with no declared type' } } };
+    const tlManifest = JSON.parse(JSON.stringify(dManifest));
+    tlManifest.mcp_tool_definition.inputSchema = tlSchema;
+    const tlBlock = buildDirectBlock(tlManifest, 'manifests/953-fx-300-direct.manifest.json', '_lastResult', 'renderDirect');
+    check('direct block: type-less required prop gets a presence check only', tlBlock.includes("if (params.preset === undefined) throw") && !tlBlock.includes('typeof params.preset'));
+    // Insertion is idempotent, like the prefill block's.
+    const dOnce = insertIntoPage(dPageGreen, dBlock);
+    const dTwice = insertIntoPage(dOnce, dBlock);
+    check('direct block: insert is idempotent (second write replaces, not appends)', dOnce !== dPageGreen && dOnce === dTwice);
+    // The histogram line format the PR body and --check quote.
+    const dHist = directHistogram([{ code: 'eligible' }, { code: 'dom-read' }, { code: 'dom-read' }]);
+    check('direct histogram: eligible and refused classes counted', dHist.includes('eligible=1') && dHist.includes('refused:dom-read=2'));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -1809,8 +3985,10 @@ const invokedAsMain = process.argv[1] && resolve(process.argv[1]) === fileURLToP
 const args = process.argv.slice(2);
 if (!invokedAsMain) {
   // imported for its pure exports; no CLI side effects
-} else if (args.includes('--self-test')) {
-  selftest();
+} else if (args.includes('--self-test') || args.includes('--selftest')) {
+  selftest().catch((e) => { console.error('✗ selftest exception:', e); process.exit(1); });
+} else if (args.includes('--derive-map')) {
+  runDeriveMap({ write: args.includes('--write'), report: args.includes('--report') }).catch((e) => { console.error('✗ derive-map exception:', e); process.exit(1); });
 } else if (args.includes('--triage')) {
   const oIdx = args.indexOf('--out');
   runTriage(oIdx !== -1 ? args[oIdx + 1] : null);
@@ -1820,8 +3998,14 @@ if (!invokedAsMain) {
   // Chain composer mode (COMPOSER-PLAN-AND-ROOT-WEBMCP-1): --chains --write inserts;
   // --chains --check (or plain --chains) verifies byte-exact regions.
   runChainMode(args.includes('--write'));
+} else if (args.includes('--direct')) {
+  // WEBMCP-DIRECT-MODE-1: probe (default) or emit (--write) the direct-mode
+  // shape over the mapping-incomplete excluded set, per-page verdicts only.
+  const tIdx2 = args.indexOf('--tool');
+  runDirect({ write: args.includes('--write'), onlyTool: tIdx2 !== -1 ? args[tIdx2 + 1] : null })
+    .catch((e) => { console.error('✗ direct-mode exception:', e); process.exit(1); });
 } else if (args.includes('--check')) {
-  runCheck();
+  runCheck().catch((e) => { console.error('✗ check exception:', e); process.exit(1); });
 } else {
   const write = args.includes('--write');
   const all = args.includes('--all');

@@ -1,5 +1,5 @@
 // art-08-en16931-einvoice-batch-validator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C1-1).
-// kernel_digest_at_authoring: sha256:2ae638995633cb25dd6ef2c645f6246c8aef863054019213ba1424a7509c4c7e
+// kernel_digest_at_authoring: sha256:0fe6cfcfcb1244f162fd67f674d4ff0d3d444f905b6e4eab29996991284d3ea1
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

@@ -25,6 +25,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { executionHash } from './_hash.mjs';
+import { readCases } from './_shape.mjs';
 import {
   CLAUSE_BINDING_PROFILE,
   validateCitation,
@@ -56,8 +57,8 @@ log('— unmoved-hash witnesses (recomputed against pinned goldens) —');
 for (const [label, id] of WITNESSES) {
   const fp = join(FIXDIR, `${id}.fixtures.json`);
   if (!existsSync(fp)) { err(`✗ witness fixture missing: ${id}`); continue; }
-  const doc = JSON.parse(readFileSync(fp, 'utf8'));
-  for (const v of doc.vectors ?? []) {
+  // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
+  for (const v of readCases(JSON.parse(readFileSync(fp, 'utf8')), fp)) {
     const got = await executionHash(v.policy_parameters, v.output_payload);
     if (got === v.golden_hash) log(`✓ ${label} ${id}/${v.name}  ${got}`);
     else err(`✗ ${label} ${id}/${v.name} HASH MOVED\n    pinned ${v.golden_hash}\n    got    ${got}`);
@@ -189,8 +190,9 @@ ok(asOfReplay({ ...bound, clause_bindings: [{ pointer: '/output_payload/nope' }]
 {
   const art499Path = join(FIXDIR, 'art-499-check-safeguarding-reconciliation.fixtures.json');
   if (existsSync(art499Path)) {
-    const doc = JSON.parse(readFileSync(art499Path, 'utf8'));
-    const vector = (doc.vectors ?? []).find((v) => v.output_payload?.citations);
+    // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
+    const vector = readCases(JSON.parse(readFileSync(art499Path, 'utf8')), art499Path)
+      .find((v) => v.output_payload?.citations);
     if (vector) {
       const artifact = {
         policy_parameters: vector.policy_parameters,

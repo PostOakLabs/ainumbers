@@ -12,6 +12,14 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 /** Canonical OCG spec version, derived from chaingraph.json (the version-of-record) — never hardcode this. */
 export const SPEC_VERSION = JSON.parse(readFileSync(join(__dir, 'chaingraph.json'), 'utf-8')).spec_version;
 
+/** PAGE-MD-TWINS-1: the one canonical markdown-twin <link> tag. Emitted into
+ *  every generated node/chain page <head> by scripts/gen-page-md-twins.mjs
+ *  (its own single writer); detection key is the rel+type pair below. */
+export const MD_TWIN_LINK_REL = 'rel="alternate" type="text/markdown"';
+export function buildMarkdownAlternateLink(pageAbsUrl) {
+  return `<link ${MD_TWIN_LINK_REL} href="${pageAbsUrl.replace(/\.html$/, '.md')}">`;
+}
+
 /** Build the canonical nav for a node page. breadcrumbCurrent = "ART-NN · Title" */
 export function buildNav(breadcrumbCurrent) {
   return `<nav>
@@ -824,6 +832,131 @@ export function askAgentImperative(description) {
   return mapped ? mapped + rest : sentence;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+ * OCG-A11Y-TREE v1 — accessibility-tree support on generated node pages.
+ * Contract: AGENT-REACH-BUILD-SPEC.md §2 wave 2 (row TOOLPAGE-A11Y-1).
+ *   - Static labeling (aria-label = manifest property name, aria-description =
+ *     the property's description) is emitted into the page markup by
+ *     scripts/check-a11y-tree.mjs --write from the manifest inputSchema +
+ *     the WEBMCP-GEN-IDMAP-1 propertyIdMap — the same mapping decisions the
+ *     deep-link reader uses, so `aria-label === property` is derivable and
+ *     WEBMCP-GEN-IDMAP-1's mapping table gains a cross-check surface.
+ *   - This emitter owns the RUNTIME half: the single role="status" live
+ *     region and the post-compute announcement (execution_hash + verdict).
+ * Emitted into WebMCP-registered node pages by scripts/check-a11y-tree.mjs
+ * (generator + freshness gate, SO #35 shape); the bytes below are the single
+ * source of truth. Pure: same inputs, same bytes.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/** End marker of the emitted a11y region — the gate detects the region by
+ *  BEGIN(manifest-pathed) + this END pair. */
+export const A11Y_END = '<!-- A11Y-TREE:END -->';
+
+/** Begin marker line for one node page (manifest-pathed for provenance). */
+export function a11yBeginLine(manifestPath) {
+  return `<!-- A11Y-TREE:BEGIN generator=scripts/check-a11y-tree.mjs manifest=${manifestPath} -->`;
+}
+
+/** Marker injected with the emitted <script> block — the gate detects the
+ *  enhancement by this string. */
+export const A11Y_MARKER = '/* OCG-A11Y-TREE v1 */';
+
+/**
+ * Output-payload members consulted, in order, for the post-compute verdict
+ * announcement. First STRING member wins verbatim; a boolean/number member is
+ * announced as "key: value". The generic scan (first top-level boolean) is the
+ * fallback so every tool announces at least a hash. Fixed list, no LLM.
+ */
+export const A11Y_VERDICT_KEYS = [
+  'verdict', 'final_verdict', 'overall_verdict', 'significance_verdict',
+  'classification', 'entity_classification', 'conclusion', 'outcome',
+  'decision', 'grade', 'overall_status', 'status',
+];
+
+/**
+ * Build the inline <script> body for one node page. PURE: same inputs, same bytes.
+ *   a11yTable: JSON string of { manifest_property: [element_id, description|null], … }
+ *     — the page's manifest-derived labeling table (the SAME mapping decisions
+ *     as the deep-link prefill table; description from the schema property).
+ *   runTarget: the page-verified zero-arg wrapper (same target execute() awaits).
+ * Responsibilities (exactly these, nothing more — labeling itself is static):
+ *   1. create THE single role="status" aria-live="polite" region;
+ *   2. wrap the page's own run target so every completed compute announces
+ *      execution_hash + verdict into that region.
+ */
+export function buildA11yEnhancementScript(a11yTable, runTarget) {
+  return `${A11Y_MARKER}
+/* Accessibility-tree enhancement for this node page. DO NOT hand-edit; emitted
+   by scripts/check-a11y-tree.mjs from chaingraph/_page-chrome.mjs (row
+   TOOLPAGE-A11Y-1). Form-control labels are emitted statically from the
+   manifest (aria-label = property name); this script owns the single
+   aria-live status region and the post-compute announcement. */
+(function () {
+  'use strict';
+  var RUN_TARGET = ${JSON.stringify(runTarget)};
+  var TABLE = ${a11yTable};
+  var VERDICT_KEYS = ${JSON.stringify(A11Y_VERDICT_KEYS)};
+  var st = null;
+  function ensureRegion() {
+    if (st && document.body && typeof document.body.contains === 'function' && document.body.contains(st)) return st;
+    st = document.createElement('div');
+    st.id = 'ocg-a11y-status';
+    st.setAttribute('role', 'status');
+    st.setAttribute('aria-live', 'polite');
+    st.style.cssText = 'position:absolute!important;width:1px!important;height:1px!important;margin:-1px!important;padding:0!important;border:0!important;clip:rect(0 0 0 0)!important;clip-path:inset(50%)!important;overflow:hidden!important;white-space:nowrap!important';
+    (document.body || document.documentElement).appendChild(st);
+    return st;
+  }
+  function artifact() {
+    var cands = ['_lastResult', '_lastArtifact'];
+    for (var i = 0; i < cands.length; i++) {
+      try {
+        var v = window[cands[i]];
+        if (v && typeof v === 'object' && typeof v.execution_hash === 'string' && v.execution_hash) return v;
+      } catch (e) { /* pages without either global simply expose nothing */ }
+    }
+    return null;
+  }
+  function verdictOf(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+    for (var i = 0; i < VERDICT_KEYS.length; i++) {
+      var v = payload[VERDICT_KEYS[i]];
+      if (typeof v === 'string' && v) return v;
+      if (typeof v === 'boolean' || typeof v === 'number') return VERDICT_KEYS[i] + ': ' + v;
+    }
+    for (var k in payload) {
+      var v2 = payload[k];
+      if (typeof v2 === 'boolean') return k + ': ' + v2;
+    }
+    return null;
+  }
+  function announce() {
+    var region = ensureRegion();
+    var a = artifact();
+    if (!a) { region.textContent = 'Run complete. See the result panel for the full verdict.'; return; }
+    var msg = 'Run complete. execution_hash ' + a.execution_hash;
+    var v = verdictOf(a.output_payload);
+    if (v) msg += '. Verdict: ' + v;
+    region.textContent = msg;
+  }
+  function wrap() {
+    try {
+      var orig = window[RUN_TARGET];
+      if (typeof orig !== 'function' || orig.__ocgA11yWrapped) return;
+      var wrapped = function () {
+        var r = orig.apply(this, arguments);
+        Promise.resolve(r).then(announce, function () { /* the page's own error surface reports failures */ });
+        return r;
+      };
+      wrapped.__ocgA11yWrapped = true;
+      window[RUN_TARGET] = wrapped;
+    } catch (e) { /* a chrome-less harness must never break the tool itself */ }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wrap);
+  else wrap();
+})();`;
+}
+
 /* CRC32 (IEEE 802.3, reflected) for the deterministic gzip container below. */
 const ASK_AGENT_CRC_TABLE = (() => {
   const t = new Uint32Array(256);
@@ -906,16 +1039,22 @@ export const ASK_AGENT_PII_SENTENCE = 'All inputs are processed locally in your 
  *   sample        policy_parameters object (manifest example, else fixture 0)
  *   pageUrl       the node's canonical url from chaingraph.json (deep-link base)
  *   webmcpRegistered  true when the page carries a generated WebMCP registration
+ *   isGpu         true when the node is gpu-flagged (OCG SPEC §9.2: the compute
+ *                 stays client-side, so the MCP endpoint returns no artifact and
+ *                 no execution_hash — the verify sentence routes the agent to
+ *                 the page-produced Policy Mandate artifact instead)
  */
-export function buildAskAgentBlock({ manifestPath, toolName, description, sample, pageUrl, webmcpRegistered }) {
+export function buildAskAgentBlock({ manifestPath, toolName, description, sample, pageUrl, webmcpRegistered, isGpu }) {
   const task = askAgentImperative(description);
   const deepLink = pageUrl.split('#')[0] + encodeAskAgentFragment(sample);
-  const verify = webmcpRegistered
-    ? `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the returned execution_hash, or re-run the in-page WebMCP tool \`${toolName}\`.`
-    : `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the returned execution_hash.`;
+  const verify = isGpu
+    ? `Verify before trusting: this node computes in your browser, so the MCP endpoint returns no execution_hash. Run the tool in the page, export the Policy Mandate artifact it produces, and call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with that artifact.` + (webmcpRegistered ? ` You can also re-run the in-page WebMCP tool \`${toolName}\`.` : '')
+    : webmcpRegistered
+      ? `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`, passing the full artifact the run returned (the object containing \`policy_parameters\` + \`output_payload\` + \`execution_hash\`; equivalently \`policy_parameters\` + \`output_payload\` with \`claimed_hash\`), not the bare hash string, or re-run the in-page WebMCP tool \`${toolName}\`.`
+      : `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the parameter \`claimed_hash\` set to the returned \`execution_hash\`, passing the full artifact the run returned (the object containing \`policy_parameters\` + \`output_payload\` + \`execution_hash\`; equivalently \`policy_parameters\` + \`output_payload\` with \`claimed_hash\`), not the bare hash string.`;
   const copyText = [
     `Run the AINumbers MCP tool \`${toolName}\`. Task: ${task}`,
-    `Synthetic sample input (policy_parameters): ${JSON.stringify(sample)}`,
+    `Call it with arguments: ${JSON.stringify({ policy_parameters: sample })}`,
     verify,
     `Return the ledger link ${ASK_AGENT_LEDGER_URL} so a human can re-verify without contacting us.`,
     `PII rule: ${ASK_AGENT_PII_SENTENCE}`,

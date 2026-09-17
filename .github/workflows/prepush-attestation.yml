@@ -139,6 +139,12 @@ jobs:
       # The squash path reads the PR's check runs on its head sha (required-checks
       # attestation) — mechanics fix, 2026-09-03.
       checks: read
+    # Read by the report-red job below (the nightly scheduled-red-issue reporter). Recorded by
+    # a LATER always() step, so a red verdict still reaches the tracker instead
+    # of only the Actions tab. Nothing about what this workflow CHECKS changes.
+    outputs:
+      state: ${{ steps.record.outputs.state }}
+      failure_line: ${{ steps.record.outputs.failure_line }}
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -169,6 +175,7 @@ jobs:
           fi
 
       - name: Verify attestation coverage
+        id: verify
         # Inputs reach the script through env and are never interpolated into this
         # shell, and the scenario is re-validated by the case below as well as by the
         # script's own allowlist.
@@ -195,8 +202,13 @@ jobs:
             # red proves nothing about the greens it reports.
             node scripts/check-prepush-attestation.mjs --self-test || exit 1
             echo "───────────────────────────────────────────────────────────────"
-            node scripts/check-prepush-attestation.mjs --base "$PUSH_BEFORE" --head "$PUSH_SHA"
-            exit $?
+            # tee'd so the record step below can quote the FIRST failure line to
+            # the tracking issue (the nightly scheduled-red-issue reporter). pipefail is set
+            # above and PIPESTATUS[0] is read explicitly, so the checker's own
+            # exit code still decides this step exactly as before.
+            node scripts/check-prepush-attestation.mjs --base "$PUSH_BEFORE" --head "$PUSH_SHA" 2>&1 \
+              | tee "$RUNNER_TEMP/attestation.log"
+            exit "${PIPESTATUS[0]}"
           fi
 
           case "${SCENARIO:-self-test}" in
@@ -214,3 +226,47 @@ jobs:
               exit 1
               ;;
           esac
+
+      - name: Record the verdict for the tracking issue
+        id: record
+        if: always()
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          set -uo pipefail
+          if [ "$OUTCOME" = "success" ]; then
+            {
+              echo "state=green"
+              echo "failure_line=none"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          FIRST=""
+          if [ -f "${RUNNER_TEMP}/attestation.log" ]; then
+            FIRST=$(grep -m 1 -E 'MISSING|INDETERMINATE|FAIL|::error' "${RUNNER_TEMP}/attestation.log" || true)
+            FIRST=$(printf '%s' "$FIRST" | tr -d '\r' | cut -c1-400)
+          fi
+          {
+            echo "state=red"
+            echo "failure_line=${FIRST:-Attestation coverage check exited non-zero and produced no parsable first line; read the job log.}"
+          } >> "$GITHUB_OUTPUT"
+
+  # Nightly red reporter: this surface is report-only (it gates no merge)
+  # and its red used to open nothing. push:main only — a workflow_dispatch is a
+  # fixture demonstration, not a finding about main, so it never files an issue.
+  # ⛔ Nothing here makes the check blocking; it already reds on its own and
+  # that is unchanged.
+  report-red:
+    name: Scheduled-red tracking issue
+    needs: attestation-check
+    if: ${{ always() && github.event_name == 'push' && needs.attestation-check.result != 'skipped' }}
+    uses: ./.github/workflows/scheduled-red-issue.yml
+    permissions:
+      contents: read
+      issues: write
+    with:
+      surface: prepush-attestation
+      # Fails CLOSED: anything that is not an explicit green is reported red.
+      state: ${{ needs.attestation-check.outputs.state == 'green' && 'green' || 'red' }}
+      failure-line: ${{ needs.attestation-check.outputs.failure_line || 'The attestation job did not record a verdict for this push (killed or cancelled) - coverage was NOT determined.' }}

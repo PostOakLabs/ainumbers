@@ -35,6 +35,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { executionHash, cgCanon } from './_hash.mjs';
 import { evaluateHaGate } from './_hagate.mjs';
+import { readCases } from './_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE = resolve(HERE, 'fixtures', 'ha-records.fixtures.json');
@@ -284,12 +285,13 @@ function isConformantEvidence(record) {
     bad('§27.4 attested subject: art-502 kernel or fixtures missing — the non-node subject class has no implementation');
   } else {
     const { compute: computeAttested } = await import(pathToFileURL(KERNEL).href);
-    const a5 = JSON.parse(readFileSync(ART502_FIXTURE, 'utf8'));
+    // KERNEL-OUTPUT-READER-1: fixture cases come from _shape.mjs, not a local `.vectors` guess.
+    const a5Cases = readCases(JSON.parse(readFileSync(ART502_FIXTURE, 'utf8')), ART502_FIXTURE);
     const at = fx.attested_subject;
-    const vec = (a5.vectors || []).find((v) => v.name === at.fixture_vector);
-    const closedVec = (a5.vectors || []).find((v) => v.name === 'extra-caller-keys-cannot-reach-the-preimage');
-    const declaredVec = (a5.vectors || []).find((v) => v.name === 'pinned-declared-inputs');
-    const unpinnedVec = (a5.vectors || []).find((v) => v.name === 'unpinned-no-manifest-digest');
+    const vec = a5Cases.find((v) => v.name === at.fixture_vector);
+    const closedVec = a5Cases.find((v) => v.name === 'extra-caller-keys-cannot-reach-the-preimage');
+    const declaredVec = a5Cases.find((v) => v.name === 'pinned-declared-inputs');
+    const unpinnedVec = a5Cases.find((v) => v.name === 'unpinned-no-manifest-digest');
 
     if (!vec || !closedVec || !declaredVec || !unpinnedVec) {
       bad('§27.4 attested subject: art-502 fixtures are missing one of the required vectors');
@@ -329,9 +331,9 @@ function isConformantEvidence(record) {
         if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${path}[${i}]`));
         else if (v && typeof v === 'object') for (const k of Object.keys(v)) { if (banned.includes(k)) hits.push(`${path}.${k}`); walk(v[k], `${path}.${k}`); }
       };
-      for (const v of a5.vectors) walk(v.output_payload, v.name);
+      for (const v of a5Cases) walk(v.output_payload, v.name);
       const limitStated = typeof op.no_arithmetic_claim === 'string' && /replay_verified/.test(op.no_arithmetic_claim);
-      if (hits.length === 0 && limitStated) ok(`§27.4 stated limit: replay_verified is ABSENT from all ${a5.vectors.length} vectors (omitted, never false — no replay was attempted), no clock-derived last_reviewed/valid_until is emitted, and the no-arithmetic-claim limit travels inside the payload`);
+      if (hits.length === 0 && limitStated) ok(`§27.4 stated limit: replay_verified is ABSENT from all ${a5Cases.length} vectors (omitted, never false — no replay was attempted), no clock-derived last_reviewed/valid_until is emitted, and the no-arithmetic-claim limit travels inside the payload`);
       else bad(`§27.4 stated limit broken — forbidden members present: [${hits.join(', ')}]; limit stated in payload: ${limitStated}`);
 
       // (8e) The §27 record rules hold over an attested subject exactly as over a node subject.

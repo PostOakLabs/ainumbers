@@ -597,6 +597,7 @@ import * as art664    from './art-664-loan-servicing-waterfall-recompute.kernel.
 import * as art665    from './art-665-gl-tieout-recompute.kernel.mjs';
 import * as art669    from './art-669-algo-execution-schedule-simulator.kernel.mjs';
 import * as art67     from './art-67-agentic-ai-risk-classifier.kernel.mjs';
+import * as art670    from './art-670-examination-readiness-pack.kernel.mjs';
 import * as art671    from './art-671-short-sale-locate-ssr-checker.kernel.mjs';
 import * as art672    from './art-672-fx-funding-sequencer.kernel.mjs';
 import * as art673    from './art-673-lending-recall-prioritizer.kernel.mjs';
@@ -1261,6 +1262,7 @@ export const KERNELS = {
   'art-665-gl-tieout-recompute':                                art665,
   'art-669-algo-execution-schedule-simulator':                  art669,
   'art-67-agentic-ai-risk-classifier':                          art67,
+  'art-670-examination-readiness-pack':                         art670,
   'art-671-short-sale-locate-ssr-checker':                      art671,
   'art-672-fx-funding-sequencer':                               art672,
   'art-673-lending-recall-prioritizer':                         art673,

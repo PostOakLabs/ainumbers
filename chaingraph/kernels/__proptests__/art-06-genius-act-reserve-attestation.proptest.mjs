@@ -1,14 +1,16 @@
 // art-06-genius-act-reserve-attestation.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C1-1).
-// kernel_digest_at_authoring: sha256:8e520c99a42e6c53799b4c14a5d31d7face65414f1d0fd590a089488f621dc24
+// kernel_digest_at_authoring: sha256:6468279d5e4cac620841ee276045a53a20995b40ce5c8564ce601e67454b3434
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
 // float_sensitive: YES — ULP-boundary forcing mandatory (coverageRatio strict <1 boundary, maturity
 // strict > maxMaturityDays=93 boundary, aicpaScore strict <0.80 boundary).
 // Checks: fixture-oracle gate, termination (bounded assets/checklist arrays), boundedness
-// (coverage_ratio_pct >= 0, aicpa score in [0,100]), determination differential re-derivation,
-// ULP-forced coverage/maturity/AICPA boundary cases, and a metamorphic scale-invariance check
-// (scaling outstanding_tokens AND every asset usd by the same k>0 leaves coverage_ratio_pct invariant).
+// (coverage_ratio_pct >= 0 when computable, aicpa score in [0,100]), determination differential
+// re-derivation, ULP-forced coverage/maturity/AICPA boundary cases, a metamorphic scale-invariance check
+// (scaling outstanding_tokens AND every asset usd by the same k>0 leaves coverage_ratio_pct invariant),
+// and the explicit-absence property (CCPP-FIX-ART06-1): a missing/absent input yields INDETERMINATE
+// with the absence named — never a manufactured FAIL/RESERVE_DEFICIENCY, never a silent-0 coverage.
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-06-genius-act-reserve-attestation.proptest.mjs
@@ -83,14 +85,14 @@ function checkP1_termination() {
   return { name: 'P1_termination_asset_results_count', trials: checked, violations };
 }
 
-// ---------- P2: boundedness — coverage_ratio_pct >= 0, aicpa score in [0,100] ----------
+// ---------- P2: boundedness — coverage_ratio_pct >= 0 when computable, aicpa score in [0,100] ----------
 function checkP2_boundedness() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = randomPP(rand);
     const { output_payload } = compute(pp);
     checked++;
-    if (output_payload.coverage_ratio_pct < 0) violations++;
+    if (output_payload.coverage_ratio_pct !== null && output_payload.coverage_ratio_pct < 0) violations++;
     if (output_payload.aicpa_2025_score_pct < 0 || output_payload.aicpa_2025_score_pct > 100) violations++;
     if (output_payload.total_reserves_usd < 0 || output_payload.total_liabilities_usd < 0) violations++;
   }
@@ -154,6 +156,36 @@ function checkP5_scale_invariance() {
   return { name: 'P5_metamorphic_scale_invariant_coverage_ratio', trials: checked, violations };
 }
 
+// ---------- P6 (explicit absence, CCPP-FIX-ART06-1): a missing input is INDETERMINATE,
+// never a manufactured FAIL/RESERVE_DEFICIENCY, and never a silent-0 coverage ratio ----------
+function checkP6_explicit_absence() {
+  let violations = 0, checked = 0;
+  const cases = [
+    { label: 'everything absent', pp: {}, absent: 'assets+tokens' },
+    { label: 'assets absent, tokens present', pp: { outstanding_tokens: 1000, token_price: 1 }, absent: 'assets' },
+    { label: 'tokens absent, assets present', pp: { assets: [{ type: 'demand_deposit', usd: 1000 }] }, absent: 'tokens' },
+    { label: 'tokens zero', pp: { outstanding_tokens: 0, token_price: 1, assets: [{ type: 'demand_deposit', usd: 1000 }] }, absent: 'tokens-nonpositive' },
+  ];
+  for (const c of cases) {
+    const { output_payload, compliance_flags } = compute(c.pp);
+    checked++;
+    if (output_payload.attestation_readiness_determination !== 'INDETERMINATE') violations++;
+    if (output_payload.coverage_ratio_pct !== null) violations++;
+    if (output_payload.failing_dimensions.some((f) => f.dim === 'Coverage ratio < 100%')) violations++;
+    if (compliance_flags.includes('RESERVE_DEFICIENCY')) violations++;
+    if (!compliance_flags.includes('GENIUS_ACT_ATTESTATION_INDETERMINATE')) violations++;
+    // flag-mirror doctrine (AUTHORING-STANDARD §2.2): the conditional flag set carries
+    // a truthy output_payload.warnings mirror exactly when flags are raised.
+    if (!(Array.isArray(output_payload.warnings) && output_payload.warnings.length > 0)) violations++;
+    const absenceNamed = output_payload.warnings.some((w) => typeof w === 'string' && w.length > 0)
+      && (compliance_flags.includes('RESERVE_INPUT_ABSENT')
+        || compliance_flags.includes('OUTSTANDING_TOKENS_ABSENT')
+        || compliance_flags.includes('OUTSTANDING_TOKENS_NONPOSITIVE'));
+    if (!absenceNamed) violations++;
+  }
+  return { name: 'P6_explicit_absence_indeterminate_never_deficiency', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -165,6 +197,7 @@ results.properties.push(checkP1_termination());
 results.properties.push(checkP2_boundedness());
 results.properties.push(checkP3_determination_differential());
 results.properties.push(checkP5_scale_invariance());
+results.properties.push(checkP6_explicit_absence());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);

@@ -591,8 +591,229 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
    // Measured both sides, not assumed: 504/622 fresh + 118 stale on origin/main 9fba6c6d (scratch
    // worktree, fixture asserts green), 505/623 fresh + 118 stale on this branch; the failing assert
    // printed got 623 before this edit.
-   assert(total === 623, `expected 623 in-scope gpu:false proven nodes, got ${total}`);
-   assert(fresh.length === 505, `expected 505 fresh (calibration set), got ${fresh.length}`);
+   // 623 -> 624 post-DEFERRED-FAST-PROVE-BATCH-1 (2026-09-07, art-636 first §18 GPU prove):
+   // art-636-globe-transition-deferred-tax-tracker flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:e169d6aa... verified equal to this branch's kernel bytes; runq-gpu
+   // prove-succinct-resume + groth16 wrap, VERIFY_PASS in 241s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 505/623 fresh + 118 stale on origin/main 0ed51f90,
+   // 506/624 fresh + 118 stale on this branch; the failing assert printed got 624 before this edit.
+   // 624 -> 625 post-DEFERRED-FAST-PROVE-BATCH-1 node 2 (2026-09-07, art-649 second §18 GPU prove):
+   // art-649-publish-model-risk-head flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:3f1c6d1e... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 151s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 506/624 fresh + 118 stale on origin/main 455b83ed,
+   // 507/625 fresh + 118 stale on this branch; the failing assert printed got 625 before this edit.
+   // 625 -> 626 post-DEFERRED-FAST-PROVE-BATCH-1 node 3 (2026-09-07, art-663 third §18 GPU prove):
+   // art-663-apy-earned-recompute flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:8f873b59... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 171s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 507/625 fresh + 118 stale on origin/main c159a1f9,
+   // 508/626 fresh + 118 stale on this branch; the failing assert printed got 626 before this edit.
+   // 626 -> 627 post-DEFERRED-FAST-PROVE-BATCH-1 node 4 (2026-09-08, art-671 fourth §18 GPU prove):
+   // art-671-short-sale-locate-ssr-checker flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:a4568b1c... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 126s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 508/626 fresh + 118 stale on origin/main 0b75e84c,
+   // 509/627 fresh + 118 stale on this branch; the failing assert printed got 627 before this edit.
+   // 627 -> 628 post-DEFERRED-FAST-PROVE-BATCH-1 node 5 (2026-09-08, art-672 fifth §18 GPU prove):
+   // art-672-fx-funding-sequencer flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:7a8bdff5... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 146s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 509/627 fresh + 118 stale on origin/main c998f860,
+   // 510/628 fresh + 118 stale on this branch; the failing assert printed got 628 before this edit.
+   // 628 -> 629 post-DEFERRED-FAST-PROVE-BATCH-1 node 6 (2026-09-08, art-673 sixth §18 GPU prove):
+   // art-673-lending-recall-prioritizer flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:31d9a835... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 128s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 510/628 fresh + 118 stale on origin/main ef9a5c5f,
+   // 511/629 fresh + 118 stale on this branch; the failing assert printed got 629 before this edit.
+   // 629 -> 630 post-DEFERRED-FAST-PROVE-BATCH-1 node 7 (2026-09-08, art-677 seventh §18 GPU prove):
+   // art-677-whistleblowing-channel-clock flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:44d66e7f... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 126s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 511/629 fresh + 118 stale on origin/main e0bdf1a7,
+   // 512/630 fresh + 118 stale on this branch; the failing assert printed got 630 before this edit.
+   // 630 -> 631 post-DEFERRED-FAST-PROVE-BATCH-1 node 8 (2026-09-08, art-678 eighth §18 GPU prove):
+   // art-678-consultation-response-tracker flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:03fc5166... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 147s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 512/630 fresh + 118 stale on origin/main,
+   // 513/631 fresh + 118 stale on this branch; the failing assert printed got 631 before this edit.
+   // 631 -> 632 post-DEFERRED-FAST-PROVE-BATCH-1 node 9 (2026-09-08, art-680 ninth §18 GPU prove):
+   // art-680-control-attestation-campaign-roll-up flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:ee9ed419... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 116s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 513/631 fresh + 118 stale on origin/main,
+   // 514/632 fresh + 118 stale on this branch; the failing assert printed got 632 before this edit.
+   // 632 -> 633 post-DEFERRED-FAST-PROVE-BATCH-1 node 10 (2026-09-08, art-681 tenth §18 GPU prove):
+   // art-681-best-execution-evidence-pack flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:fdd1917a... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 126s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 514/632 fresh + 118 stale on origin/main,
+   // 515/633 fresh + 118 stale on this branch; the failing assert printed got 633 before this edit.
+   // 633 -> 634 post-DEFERRED-FAST-PROVE-BATCH-1 node 11 (2026-09-08, art-682 eleventh §18 GPU prove):
+   // art-682-rule-605-publication-composer flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:102dc035... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 123s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 515/633 fresh + 118 stale on origin/main,
+   // 516/634 fresh + 118 stale on this branch; the failing assert printed got 634 before this edit.
+   // 634 -> 635 post-DEFERRED-FAST-PROVE-BATCH-1 node 12 (2026-09-08, art-683 twelfth §18 GPU prove):
+   // art-683-consolidation-cta-minority-interest flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:b7ec0688... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 118s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 516/634 fresh + 118 stale on origin/main,
+   // 517/635 fresh + 118 stale on this branch; the failing assert printed got 635 before this edit.
+   // 635 -> 636 post-DEFERRED-FAST-PROVE-BATCH-1 node 13 (2026-09-08, art-684 thirteenth §18 GPU prove):
+   // art-684-intercompany-elimination-netting flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:095706cb... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 125s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 517/635 fresh + 118 stale on origin/main,
+   // 518/636 fresh + 118 stale on this branch; the failing assert printed got 636 before this edit.
+   // 636 -> 637 post-DEFERRED-FAST-PROVE-BATCH-1 node 14 (2026-09-08, art-686 fourteenth §18 GPU prove):
+   // art-686-ltc-funding-comparator flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:c2eeb9ad... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 133s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // 637 -> 638 post-DEFERRED-FAST-PROVE-BATCH-1 node 15 (2026-09-08, art-687 fifteenth §18 GPU prove):
+   // art-687-wash-sale-window-guard flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:90239f1e... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 122s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // 638 -> 639 post-DEFERRED-FAST-PROVE-BATCH-1 node 16 (2026-09-07, art-688 sixteenth §18 GPU prove):
+   // art-688-education-funding-gap-calculator flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:fc261c3a... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 132s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // 639 -> 640 post-DEFERRED-FAST-PROVE-BATCH-1 node 17 (2026-09-08, art-689 seventeenth §18 GPU prove):
+   // art-689-pack-dependency-map flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:85bcff20... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume + groth16 wrap,
+   // VERIFY_PASS in 117s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 521/639 fresh + 118 stale on origin/main,
+   // 522/640 fresh + 118 stale on this branch; the failing assert printed got 640 before this edit.
+   // 640 -> 641 post-ZZ-PROVE-DOWNTIME-ART594-1 (2026-09-11, art-594 eighteenth §18 GPU prove, SLOW class):
+   // art-594-tempo-mpp-voucher-receipt-verifier flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:8f2fed1a... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume 6169s + groth16 wrap 73s,
+   // VERIFY_PASS at argmax vec 1 voucher-idempotent-retry-at-zero 814,360,562 user_cycles,
+   // imageId universal risc0 guest; kernel bytes frozen 2026-08-14, prove-once-then-freeze).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured, not assumed: 523/641 fresh + 118 stale on this branch; the failing assert printed got 641 before this edit.
+   // 641 -> 642 post-ZZ-PROVE-DOWNTIME-ART598-1 (2026-09-12, art-598 nineteenth §18 GPU prove, SLOW class):
+   // art-598-input-attestation-verifier flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:91ced776... verified equal to this branch's kernel bytes == the shard's
+   // sha256-source compute_image; runq-gpu prove-succinct-resume 11563s (resumed from
+   // checkpoint after an external wrapper kill at 34%, zero rework) + groth16 wrap 77s,
+   // VERIFY_PASS at argmax vec 0 all-four-types-pass 1,136,497,035 user_cycles,
+   // imageId universal risc0 guest; kernel bytes frozen 2026-08-14, prove-once-then-freeze).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured, not assumed: 524/642 fresh + 118 stale on this branch; the failing assert printed got 642 before this edit.
+   // 642 -> 643 post-DEFERRED-FAST-PROVE-BATCH-2 node art-670 (2026-09-14, PR #1897, merge 7755853d 23:23:27Z, FAST class):
+   // art-670-examination-readiness-pack flips compute_proof_ready deferred -> ready with a fresh
+   // groth16 receipt binding current kernel bytes (prove KROOT repo/.wt/DEFERRED-FAST-PROVE-BATCH-2,
+   // preflight max user_cycles 6,298,605, imageId universal risc0 guest; guest entry fea36e93 hash-neutral).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured, not assumed: the production gate on CI run 34908717266 (ed6f0337) printed 118 of 643
+   // gpu:false proven nodes stale at 23:25:13Z (ratchet leg green); this self-test leg's failing assert
+   // printed "expected 642 in-scope gpu:false proven nodes, got 643" before this edit (525/643 fresh + 118 stale after).
+   // 643 -> 644 post-DEFERRED-FAST-PROVE-BATCH-2 node art-685 (2026-09-15, PR #1905, merge ddb6fc4f 01:11:10Z, FAST class):
+   // art-685-direct-indexing-fit-screen flips compute_proof_ready deferred -> ready with a fresh
+   // groth16 receipt binding current kernel bytes (prove KROOT repo/.wt/DEFERRED-FAST-PROVE-BATCH-2-ART685,
+   // VERIFY_PASS 2026-09-14T23:58:30Z at 3,139,932 user_cycles in 155 s, imageId universal risc0 guest;
+   // receipt 8bebade7 spliced+verified, §18 ceiling 2 -> 1 by asserted edit).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured, not assumed: the production gate on CI run 34916302074 (85c22143) printed 118 of 644
+   // gpu:false proven nodes stale at 01:12:54Z (ratchet leg green); this self-test leg's failing assert
+   // printed "expected 643 in-scope gpu:false proven nodes, got 644" before this edit (526/644 fresh + 118 stale after).
+   // 644 -> 645 post-ART619-PROVE-1 + main-side derived-artifacts regen splice (2026-09-17, PR #1884
+   // merge d52231f2 19:12:40Z; regen bot commit c6df18f0 19:29:27Z): art-619-ccd2-aprc-annex3-recompute
+   // (recompute_ccd2_aprc_annex3) flips compute_proof_ready deferred -> ready with a fresh
+   // groth16-bn254 receipt under the universal risc0 guest (FAST 5.69M cycles) binding current kernel
+   // bytes -- journal.kernel_digest sha256:b6916f257c4bafb7ddf7dd00b907aae102f03c92267a3dd99876216548835032
+   // equals BOTH the node's pre-existing sha256-source compute_image (pinned valid_from 2026-08-14) and
+   // sourceDigest() recomputed from the landed kernel file, so it enters the FRESH set by construction.
+   // PR #1884 could not write chaingraph.json (CGSHARD-1 single-writer, EXPECTED-RED by construction);
+   // the receipt reached the monolith via derived-artifacts-regen.yml (c6df18f0), whose diff touches NO
+   // chaingraph/kernels file -- the 118-node stale set is unchanged (byte-level sampling of two stale
+   // nodes, diagnose_canton_readiness and check_tokenized_collateral_eligibility, found their journal
+   // digests match kernel blobs at June 2026 commits c9f0c45e / be74b322 with real semantic edits since
+   // and zero BOM/CRLF normalization -- the regen pass rewrote nothing). Land Verify was GREEN on the
+   // merged #1884 result (644 in-scope, self-test satisfied) and went red only on c6df18f0 when the
+   // splice made this pinned denominator one behind -- the "+1 per prove landing" calibration, heal row
+   // MAIN-HEAL-S18-FRESHNESS-118 (same shape as CALIBRATION-2 / PR #1906).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured, not assumed: Land Verify run 35265192967 (c6df18f0) printed the production ratchet leg
+   // GREEN ("527/645 fresh, 118 stale (<= baseline)") while this self-test leg's failing assert printed
+   // "expected 644 in-scope gpu:false proven nodes, got 645" before this edit (527/645 fresh + 118 stale after).
+   // 645 -> 646 post-ART124-POLICY-CORE-PROVE-1 + main-side derived-artifacts regen splice (2026-09-17, PR #1922
+   // merge c1d846ae 22:07:45Z; regen bot commit afcf565d 22:09:05Z): art-124-content-credential-signature-verifier
+   // flips gpu:true verify-only -> gpu:false compute_proof_ready "ready" with a fresh groth16-bn254 receipt under
+   // the universal risc0 guest (FAST, max 2,586,544 user_cycles) binding current kernel bytes --
+   // journal.kernel_digest sha256:815b73ede91f61e07afc98d9ac7e04f808c7c477c00535e5f0817df1f041bca9 equals BOTH the
+   // node's sha256-source compute_image (valid_from 2026-09-17) and sourceDigest() recomputed from the landed
+   // kernel file, so it enters the FRESH set by construction.
+   // PR #1922 could not write chaingraph.json (CGSHARD-1 single-writer, EXPECTED-RED by construction); the receipt
+   // reached the monolith via derived-artifacts-regen.yml (afcf565d), whose diff touches NO chaingraph/kernels
+   // file -- the 118-node stale set is unchanged (same shape as the c6df18f0 splice above: byte-level sampling of
+   // stale nodes found journal digests matching kernel blobs at June 2026 commits with zero BOM/CRLF
+   // normalization -- the regen pass rewrote nothing). Land Verify was GREEN on the merged #1922 result (646
+   // in-scope in the ratchet leg) and went red only on afcf565d when the splice made this pinned denominator one
+   // behind -- the "+1 per prove landing" calibration, heal row MAIN-HEAL-S18-FRESHNESS-118 (same shape as
+   // CALIBRATION-2 / PR #1906).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured, not assumed: Land Verify run 35280558768 (afcf565d) printed the production ratchet leg
+   // GREEN ("528/646 fresh, 118 stale (<= baseline)") while this self-test leg's failing assert printed
+   // "expected 645 in-scope gpu:false proven nodes, got 646" before this edit (528/646 fresh + 118 stale after).
+   assert(total === 646, `expected 646 in-scope gpu:false proven nodes, got ${total}`);
+   assert(fresh.length === 528, `expected 528 fresh (calibration set), got ${fresh.length}`);
    assert(stale.length === 118, `expected 118 stale (see 2026-09-01 note above), got ${stale.length}`);
  });
 
