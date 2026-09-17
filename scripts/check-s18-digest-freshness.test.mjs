@@ -773,8 +773,28 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
    // Measured, not assumed: the production gate on CI run 34916302074 (85c22143) printed 118 of 644
    // gpu:false proven nodes stale at 01:12:54Z (ratchet leg green); this self-test leg's failing assert
    // printed "expected 643 in-scope gpu:false proven nodes, got 644" before this edit (526/644 fresh + 118 stale after).
-   assert(total === 644, `expected 644 in-scope gpu:false proven nodes, got ${total}`);
-   assert(fresh.length === 526, `expected 526 fresh (calibration set), got ${fresh.length}`);
+   // 644 -> 645 post-ART619-PROVE-1 + main-side derived-artifacts regen splice (2026-09-17, PR #1884
+   // merge d52231f2 19:12:40Z; regen bot commit c6df18f0 19:29:27Z): art-619-ccd2-aprc-annex3-recompute
+   // (recompute_ccd2_aprc_annex3) flips compute_proof_ready deferred -> ready with a fresh
+   // groth16-bn254 receipt under the universal risc0 guest (FAST 5.69M cycles) binding current kernel
+   // bytes -- journal.kernel_digest sha256:b6916f257c4bafb7ddf7dd00b907aae102f03c92267a3dd99876216548835032
+   // equals BOTH the node's pre-existing sha256-source compute_image (pinned valid_from 2026-08-14) and
+   // sourceDigest() recomputed from the landed kernel file, so it enters the FRESH set by construction.
+   // PR #1884 could not write chaingraph.json (CGSHARD-1 single-writer, EXPECTED-RED by construction);
+   // the receipt reached the monolith via derived-artifacts-regen.yml (c6df18f0), whose diff touches NO
+   // chaingraph/kernels file -- the 118-node stale set is unchanged (byte-level sampling of two stale
+   // nodes, diagnose_canton_readiness and check_tokenized_collateral_eligibility, found their journal
+   // digests match kernel blobs at June 2026 commits c9f0c45e / be74b322 with real semantic edits since
+   // and zero BOM/CRLF normalization -- the regen pass rewrote nothing). Land Verify was GREEN on the
+   // merged #1884 result (644 in-scope, self-test satisfied) and went red only on c6df18f0 when the
+   // splice made this pinned denominator one behind -- the "+1 per prove landing" calibration, heal row
+   // MAIN-HEAL-S18-FRESHNESS-118 (same shape as CALIBRATION-2 / PR #1906).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured, not assumed: Land Verify run 35265192967 (c6df18f0) printed the production ratchet leg
+   // GREEN ("527/645 fresh, 118 stale (<= baseline)") while this self-test leg's failing assert printed
+   // "expected 644 in-scope gpu:false proven nodes, got 645" before this edit (527/645 fresh + 118 stale after).
+   assert(total === 645, `expected 645 in-scope gpu:false proven nodes, got ${total}`);
+   assert(fresh.length === 527, `expected 527 fresh (calibration set), got ${fresh.length}`);
    assert(stale.length === 118, `expected 118 stale (see 2026-09-01 note above), got ${stale.length}`);
  });
 
