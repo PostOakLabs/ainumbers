@@ -1,17 +1,16 @@
 // art-124-content-credential-signature-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C3-1).
-// kernel_digest_at_authoring: sha256:e9897ef4cb8f7cf9529ef898e949895809edb037f346eb0a0557216bb3875fd1
+// kernel_digest_at_authoring: sha256:815b73ede91f61e07afc98d9ac7e04f808c7c477c00535e5f0817df1f041bca9
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
-// float_sensitive: NO (WebCrypto verify() returns a boolean; the kernel's own logic around it is
-//   pure boolean/set-membership decision logic — no arithmetic, no thresholds).
-// Checks: fixture-oracle gate, termination (compute always resolves — no unbounded loop; alg
+// float_sensitive: NO (since v1.1.0 the kernel takes `signature_verified` as an attested boolean
+//   input; the kernel's own logic is pure boolean/set-membership decision logic — no arithmetic,
+//   no thresholds, no async primitive).
+// Checks: fixture-oracle gate, termination (sync compute always returns — no unbounded loop; alg
 // allowlist is a fixed 4-entry table), differential re-derivation of chain_trusted/verdict from
-// the trust-posture booleans (independent of the actual cryptographic outcome, which the fixture
-// oracle already covers with real keys), and a boundedness check that verdict is always ACCEPT iff
-// both signature validity AND chain trust hold.
-// Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled). Uses the
-// runtime's real globalThis.crypto.subtle (Node 19+ WebCrypto) exactly as production does.
+// the attested signature boolean and the trust-posture booleans, and a boundedness check that
+// verdict is always ACCEPT iff both the attested signature verification AND chain trust hold.
+// Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-124-content-credential-signature-verifier.proptest.mjs
 
@@ -23,12 +22,12 @@ import path from 'node:path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const results = { fixture_oracle: null, properties: [] };
 
-async function runFixtureOracle() {
+function runFixtureOracle() {
   const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-124-content-credential-signature-verifier.fixtures.json');
   const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
   const failures = [];
   for (const vec of fixtures.vectors) {
-    const { output_payload } = await compute(vec.policy_parameters);
+    const { output_payload } = compute(vec.policy_parameters);
     const a = JSON.stringify(output_payload);
     const b = JSON.stringify(vec.output_payload);
     if (a !== b) failures.push({ name: vec.name, expected: vec.output_payload, got: output_payload });
@@ -51,12 +50,14 @@ function maybe(rng, v, p = 0.7) { return rng() < p ? v : undefined; }
 
 const ALGS = ['Ed25519', 'ES256', 'ES384', 'PS256', 'RS512-BOGUS'];
 
-// Deliberately malformed/random JWK + signature/bytes — signature_cryptographically_valid will be
-// false almost surely (importKey/verify fail on garbage material) or throw (caught -> false). This
-// exercises the decision logic around the boolean, not the crypto math itself (fixture oracle does that).
+// `signature_verified` is the REQUIRED attested input: randomized across true/false/absent so the
+// decision logic around the boolean (including the absent -> false coercion) is exercised directly.
+// The caller-supplied key/signature material fields are kept in the shape for input realism; the
+// policy core reads none of them.
 function randomPP(rng) {
   return {
     alg: pick(rng, ALGS),
+    signature_verified: pick(rng, [true, false, undefined]),
     signer_public_key_jwk: maybe(rng, { kty: 'OKP', crv: 'Ed25519', x: 'garbage-not-base64url!!' }, 0.6),
     signed_bytes_b64: maybe(rng, Buffer.from(`msg-${Math.floor(rng() * 1e6)}`).toString('base64'), 0.8),
     signature_b64: maybe(rng, Buffer.from(`sig-${Math.floor(rng() * 1e6)}`).toString('base64'), 0.8),
@@ -66,60 +67,63 @@ function randomPP(rng) {
   };
 }
 
-const TRIALS = 2000; // WebCrypto import/verify calls are more expensive than pure JS — fewer trials, still ample coverage
+const TRIALS = 2000; // sync pure-boolean policy — ample coverage at negligible cost
 
-// ---------- P1: termination — compute always resolves with a well-shaped payload, alg_allowed is a fixed 4-alg table ----------
-async function checkP1_termination() {
+// ---------- P1: termination — compute always returns a well-shaped payload, alg_allowed is a fixed 4-alg table ----------
+function checkP1_termination() {
   let violations = 0, checked = 0;
   const ALLOWED = new Set(['Ed25519', 'ES256', 'ES384', 'PS256']);
   for (let i = 0; i < TRIALS; i++) {
     const pp = randomPP(rand);
-    const { output_payload } = await compute(pp);
+    const { output_payload } = compute(pp);
     checked++;
     if (output_payload.alg_allowed !== ALLOWED.has(pp.alg)) violations++;
-    if (typeof output_payload.signature_cryptographically_valid !== 'boolean') violations++;
+    if (typeof output_payload.signature_verified !== 'boolean') violations++;
+    if (output_payload.signature_verification !== 'caller_attested') violations++;
   }
   return { name: 'P1_termination_alg_table_bounded', trials: checked, violations };
 }
 
 // ---------- P2 (differential): chain_trusted + verdict re-derivation ----------
-async function checkP2_verdict_differential() {
+function checkP2_verdict_differential() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = randomPP(rand);
-    const { output_payload } = await compute(pp);
+    const { output_payload } = compute(pp);
     checked++;
     const expectedChainTrusted = pp.trust_anchor_match === true && pp.cert_not_expired !== false && pp.revocation_status !== 'revoked';
     if (output_payload.chain_trusted !== expectedChainTrusted) violations++;
-    const expectedVerdict = (output_payload.signature_cryptographically_valid && expectedChainTrusted) ? 'ACCEPT' : 'REFUSE';
+    const expectedVerified = pp.signature_verified === true;
+    if (output_payload.signature_verified !== expectedVerified) violations++;
+    const expectedVerdict = (expectedVerified && expectedChainTrusted) ? 'ACCEPT' : 'REFUSE';
     if (output_payload.verdict !== expectedVerdict) violations++;
   }
   return { name: 'P2_verdict_differential', trials: checked, violations };
 }
 
-// ---------- P3: boundedness — verdict is ACCEPT iff signature_cryptographically_valid AND chain_trusted ----------
-async function checkP3_accept_iff_both() {
+// ---------- P3: boundedness — verdict is ACCEPT iff signature_verified AND chain_trusted ----------
+function checkP3_accept_iff_both() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = randomPP(rand);
-    const { output_payload } = await compute(pp);
+    const { output_payload } = compute(pp);
     checked++;
-    const bothTrue = output_payload.signature_cryptographically_valid && output_payload.chain_trusted;
+    const bothTrue = output_payload.signature_verified && output_payload.chain_trusted;
     if (bothTrue !== (output_payload.verdict === 'ACCEPT')) violations++;
   }
   return { name: 'P3_accept_iff_signature_and_chain', trials: checked, violations };
 }
 
 // ---------- run ----------
-const oracleOk = await runFixtureOracle();
+const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED -- spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
   process.exit(1);
 }
 
-results.properties.push(await checkP1_termination());
-results.properties.push(await checkP2_verdict_differential());
-results.properties.push(await checkP3_accept_iff_both());
+results.properties.push(checkP1_termination());
+results.properties.push(checkP2_verdict_differential());
+results.properties.push(checkP3_accept_iff_both());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
