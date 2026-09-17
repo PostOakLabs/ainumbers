@@ -1632,9 +1632,11 @@ function buildShockScalar(sp, T, randn) {
   return scalars;
 }
 
-// ── Percentile ────────────────────────────────────────────────────────────────
+// ── Percentile (nearest-rank: index ceil(p*n)-1, clamped to [0, n-1]; p=1.0
+//    returns the maximum — never a silent-zero fallback; empty array -> null) ───
 function pctile(sorted, p) {
-  const idx = Math.max(0, Math.min(sorted.length - 1, Math.floor(p * sorted.length)));
+  if (!sorted.length) return null;
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(p * sorted.length) - 1));
   return sorted[idx];
 }
 

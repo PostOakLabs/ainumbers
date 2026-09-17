@@ -47,6 +47,7 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { descriptionRuleFiles } from './lib/count-rules.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -68,8 +69,50 @@ const EXEMPT = new Map([
   ['chaingraph/kernel-vm-explainer.html', 'whole-file derived artifact (gen-kernel-vm-explainer.mjs)'],
   ['chaingraph/agentic-payments-map.html', 'whole-file derived artifact (gen-agentic-payments-map.mjs: --check byte-compares the whole page against its ROWS source table; a hand meta tag drifts it)'],
   ['chaingraph/kernel-vm.html', 'whole-file derived artifact (chaingraph/vm/scripts/gen-kernel-vm-html.mjs: --check byte-compares the whole page; a hand meta tag drifts it)'],
+  // infrastructure.html: gen-infrastructure-page.mjs renders the registry's own
+  // row count INTO the page's meta description ("...${total} pages across..."),
+  // so scanning the page back here made the main-side regen a two-pass cascade
+  // the moment the row set changed (#1864 added prompts.html, 201→202; Derived
+  // Artifacts Regen run 34679819552 failed "the regen pass is NOT a fixpoint —
+  // infra-registry was stale after pass 1 and fresh after pass 2", and no
+  // COVERED ordering can close a read-back cycle: the registry row is scanned
+  // from the page while the page is rendered from the registry). Same class as
+  // the whole-file exemptions above: the page's meta tags belong to its
+  // generator. (MAIN-REGEN-INFRA-REGISTRY-FIXPOINT-1)
+  ['infrastructure.html', 'whole-file derived artifact (gen-infrastructure-page.mjs)'],
   ['docs/index.html', 'whole-file derived artifact (gen-openapi.mjs)'],
+  // mcp.html: verify-counts.mjs (the 'counts' COVERED entry, which runs AFTER
+  // infra-registry) rewrites the tool/workflow counts inside the page's meta
+  // description ("...N browser-based fintech tools and M MCP-callable,
+  // hash-anchored OpenChainGraph workflows..."). Scanning that description back
+  // here re-opened the read-back cycle the moment the chain count moved
+  // (#1879 retired a chain, 369->368; Derived Artifacts Regen run 34716467766
+  // failed "the regen pass is NOT a fixpoint - infra-registry was stale after
+  // pass 1 and fresh after pass 2"). Same class as infrastructure.html above:
+  // the page's meta tags belong to its generator.
+  // (MAIN-REGEN-INFRA-REGISTRY-FIXPOINT-2)
+  ['mcp.html', 'whole-file derived artifact (sync-stats.mjs counts + verify-counts.mjs meta sentinels)'],
 ]);
+
+// REGEN-INFRA-REGISTRY-READBACK-CYCLE-1 — the description-rewrite exemption is
+// DERIVED from verify-counts.mjs's own rule table, not hand-listed: every file
+// carrying any *description* rule in scripts/lib/count-rules.mjs (the table
+// this module and verify-counts.mjs now share) has that description rewritten
+// by `verify-counts --fix` — the 'counts' COVERED entry, which runs AFTER this
+// generator in the regen pass (infra-registry → infrastructure-page → counts,
+// an order check-derived-fanout-coverage.mjs enforces). Scanning those
+// descriptions back here can therefore never agree with the end-of-pass tree:
+// a true read-back cycle no COVERED ordering can close (measured on main:
+// #1879 moved index.html's chain count 369→368 under the registry's captured
+// "369 MCP-callable" description and every Derived Artifacts Regen since
+// 20:13Z refused the non-fixpoint). The only cut is the READ. Derived, so a
+// future description-sentinel rule extends the exemption in the same diff
+// instead of silently re-opening the cycle. Hand entries above are kept.
+for (const file of descriptionRuleFiles()) {
+  if (!EXEMPT.has(file)) {
+    EXEMPT.set(file, 'verify-counts rewrites this page\'s description later in the regen pass (read-back cycle, REGEN-INFRA-REGISTRY-READBACK-CYCLE-1)');
+  }
+}
 
 function collect(dir, rel, out) {
   let entries;

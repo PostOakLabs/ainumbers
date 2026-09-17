@@ -223,10 +223,33 @@ export async function deriveCounts() {
   // written by gen-infra-registry.mjs). infrastructure.html renders one card per
   // entry behind a data-count="infra_pages" sentinel; the count must re-derive
   // from the registry, never a hand-typed number.
+  // MERGEGROUP-HARD-GATES-1: the registry IS a derived input — overlay-read it
+  // like the other derived inputs above, or the merge_group Count-drift gate
+  // compares the REGENERATED infrastructure.html (scratch sentinel, DERIVED_ROOT)
+  // against the COMMITTED registry read here and reds on every tree where the
+  // registry count legitimately moved (measured: PROMPT-LIBRARY-PAGE-2 added
+  // prompts.html to the scope walk → scratch infra_pages=202 vs committed 201;
+  // merge_group run 34648973207, "DRIFT infrastructure.html
+  // data-count=infra_pages expected=201 got=202"). DERIVED_ROOT-unset
+  // behaviour is byte-for-byte unchanged.
   let infraPages = 0
   try {
-    infraPages = JSON.parse(readFileSync(resolve(repoRoot, 'data', 'infra-registry.json'), 'utf8')).length
+    infraPages = JSON.parse(readDerived('data', 'infra-registry.json')).length
   } catch { /* registry absent — sentinel stays unverified rather than guessing */ }
+
+  // showcase_prompts — PROMPT-LIBRARY-PAGE-2: the prompt-library hero count
+  // (prompts.html, written by gen-prompts-page.mjs from this same JSON) and
+  // index.html's topic tile (verify-counts.mjs --fix regenerated now that the
+  // key is registered), = the mcp/showcase-prompts.json entry count. Same SSOT
+  // read (array-or-{prompts} envelope) as gen-prompts-page.mjs's loadPrompts,
+  // so the sentinel sites cannot disagree with the generator or each other.
+  // Authored input — repo-rooted read, never the overlay.
+  let showcasePrompts = 0
+  try {
+    const rawShowcase = JSON.parse(readFileSync(resolve(repoRoot, 'mcp', 'showcase-prompts.json'), 'utf8'))
+    const showcaseArr = Array.isArray(rawShowcase) ? rawShowcase : (Array.isArray(rawShowcase.prompts) ? rawShowcase.prompts : null)
+    showcasePrompts = Array.isArray(showcaseArr) ? showcaseArr.length : 0
+  } catch { /* SSOT absent — sentinel stays unverified rather than guessing */ }
 
   return {
     'tools.browser':     toolsBrowser,
@@ -262,6 +285,7 @@ export async function deriveCounts() {
     'hubTools.tradetech':        hubToolsTradetech,
     'hubTools.capitalMarkets':   hubToolsCapitalMarkets,
     'infra_pages':       infraPages,
+    'showcase_prompts':  showcasePrompts,
   }
 }
 

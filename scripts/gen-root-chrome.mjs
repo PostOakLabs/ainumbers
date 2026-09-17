@@ -37,7 +37,7 @@ const PAGES = [
   // footer-links-only shape, a legacy one-line footer, or no footer at all) — a
   // real design divergence, not staleness, and out of this row's scope to rewrite;
   // see board/done/HUB-CHROME-GATE-1.md for the full 12-file breakdown.
-  'about.html', 'mcp.html',
+  'about.html', 'mcp.html', 'helm-openclaw.html',
 ];
 
 // Regions: [openMarker, closeMarker, payload]. Markers matched loosely so the
