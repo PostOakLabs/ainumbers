@@ -1,7 +1,7 @@
 ---
 type: Attested Computation
 title: "Content Credential Signature Verifier — attested computation"
-runtime: browser
+runtime: server
 computation: "Kernel-backed evaluation for the compliance_mandate decision, producing a hash-anchored OpenChainGraph artifact."
 executor:
   resource: https://ainumbers.co/chaingraph/kernels/art-124-content-credential-signature-verifier.kernel.mjs
@@ -25,7 +25,7 @@ proof, when attached to an artifact this kernel produced, carries these receipt 
 
 ## Attester
 
-Kernel identity: `sha256:e9897ef4cb8f7cf9529ef898e949895809edb037f346eb0a0557216bb3875fd1` (SPEC.md §17.1 `compute_images`) — a
+Kernel identity: `sha256:815b73ede91f61e07afc98d9ac7e04f808c7c477c00535e5f0817df1f041bca9` (SPEC.md §17.1 `compute_images`) — a
 content-addressed digest of this node's deployed kernel source, already published in the
 Graph Index. Static and dereferenceable; nothing in OpenChainGraph verification depends on
 this OKF bundle, and this concept asserts no execution event or `verified:` status.
