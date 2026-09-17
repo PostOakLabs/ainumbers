@@ -488,6 +488,63 @@ Proof-suite delta (`Ed25519Signature2020` vs OCG's `eddsa-jcs-2022`) is document
 this extension; this profile does not emit an agent-receipts-suite `proof` (dual-proof emission stays an
 on-demand rider, default OFF, per §XMAP-1's format notes).
 
+**§13.11.2 KYA-OS/Checkpoint response-proof rider — NORMATIVE, OPTIONAL, additive (spec-text pass; the
+record stays at whatever `chaingraph.json` carries, same separation as §30/§AGID-1).** An implementation
+MAY attach a [KYA-OS/Checkpoint](https://github.com/decentralized-identity/kya-os-mcp) response-proof
+rider to MCP tool responses carrying an OCG-computed result, at `result._meta["org.kya-os/response-proof"]`
+(their SPEC-MCP-EXTENSION.md §2.2; the legacy keys `org.kya-os/proof` and bare `proof` are read-accepted
+upstream for one major version and are never emitted by this profile). Like every §13 profile it is a
+**view, not a fact**: generated downstream of `execution_hash`, excluded from the hash preimage, mints no
+new hash, MUST NOT bump `chaingraph_version`, and never replaces `audit_signature`/§16 or the `vc`/§13.11
+export. This is the standard's THIRD receipt format, wholly distinct from §13.11.1 (different project,
+schema family, and envelope: no `org.kya-os/*` keys, no shared proof suite) — the two subsections do not
+touch.
+
+**This is a PARTIAL, additive mapping, not a claim of full external-schema conformance — weaker than
+§13.11.1's, and stated as such.** Verified against the published source (upstream SPEC.md v1.0.0, Status
+Stable, ratified as a DIF standard; machine schema `schemas/detached-proof.json`, `$id
+…/proof/detached/v1.1.0`, as of 2026-09-17), their proof object is `{jws, meta}` (both REQUIRED,
+`additionalProperties:false` at both levels) whose `meta` (their `ProofMeta`) REQUIRES `did`, `kid`, `ts`,
+`nonce`, `audience`, `sessionId`, `requestHash`. An OCG/worker serve path can honestly populate four of
+the seven; three are structurally out of reach, and this profile MUST NOT invent them.
+
+- Populated: `ts` (emission time, Unix epoch seconds); `requestHash`/`responseHash` (serve-time digests
+  per upstream §7.3: SHA-256 over the RFC 8785/JCS form of `{method, params}` minus `params._meta`, and
+  over the response `data`/`content` only, `sha256:`-prefixed lowercase hex — the upstream-default "body"
+  profile; the signature-covered `prf:"org.kya-os/response-proof.envelope"` envelope profile is an
+  upstream opt-in this profile does not claim). The two digests bind the call indirectly — the JWS never
+  signs `{method, params, result.data}` directly — and they are serve-time values derived from the MCP
+  envelope, never retro-computable from a stored artifact.
+- Conditionally populated: `did`/`kid`, ONLY where the serving implementation holds a §16-anchored
+  signing identity (`did:key` per §9, or the §16.4 institutional `did:web` + HSM/KMS server-side
+  pattern), matching the `kid` the JWS protected header names. With no §16-anchored identity the rider is
+  NOT emitted; absence is never worked around with a self-minted identity.
+- Omitted, and MUST NOT be invented: `nonce`, `audience`, `sessionId` — REQUIRED upstream and bound to
+  the `_kyaos_handshake` session semantics (replay prevention, anti-relay audience binding, session
+  echo). OCG has no authenticated-caller/session layer; a self-minted value would satisfy their JSON
+  Schema types while violating the protocol semantics — the invented-value class §13.11.1 forbids. With
+  them go the OPTIONAL `scopeId`, `delegationRef`, `clientDid` (OCG has no authorization-scope or
+  delegation concept), and `outcome`/`reason` (a success proof carries none; OCG performs no
+  authorization).
+
+`jws` is a compact JWS (`alg:"EdDSA"` over Ed25519; the protected header carries `kid`) over the
+JCS-canonicalized claims payload, whose members reconcile exactly with the emitted `meta` members — so
+the payload carries the same partial member set and the same gaps as `meta`. Every primitive is already
+shipped (RFC 8785 JCS, SHA-256, Ed25519): a re-hash with existing primitives, not a new algorithm or
+dependency.
+
+**Honesty boundary (NORMATIVE).** An object emitted under this profile CANNOT validate against the
+target schema (3 of 7 REQUIRED `ProofMeta` members structurally absent; `additionalProperties:false`
+admits no substitute) and MUST NOT be presented to a KYA-OS verifier as a valid
+`org.kya-os/response-proof`. Presenting UIs MUST surface the partial status beside the proof (the
+§13.12 limitation-statement rule). The carriage is hash-excluded upstream (their §7.6: `_meta` is never
+hashed or trusted, and foreign `_meta` keys MUST NOT enter their hash or signature computations), so the
+rider cannot corrupt a co-resident full KYA-OS proof path. Gating: default OFF, on-demand rider only. A
+FULL conformant profile re-opens only when an authenticated MCP session layer can genuinely populate
+`audience`/`sessionId`/`nonce` per the handshake semantics. Field names above verified against upstream
+bytes 2026-09-17 (the v1.1.0 schema added the signature-covered `prf` discriminator over the shape
+reviewed 2026-08-08; the REQUIRED set is unchanged).
+
 ### §13.12 Selective-disclosure export (SD-JWT, RFC 9901) — NORMATIVE, new in v0.7
 An implementation MAY export an artifact as an SD-JWT whose claims map deterministically from the
 envelope — EXCEPT disclosure salts, which MUST be freshly CSPRNG-generated per export (the one
