@@ -1628,10 +1628,12 @@ const SCENARIO_MULT = {
   severe:   { outflow_mult: 1.3, inflow_mult: 0.7, vol_lcr: 0.10, vol_nsfr: 0.060 },
 };
 
-// ── Percentile ────────────────────────────────────────────────────────────────
+// ── Percentile (nearest-rank: index ceil(p*n)-1, clamped to [0, n-1]; p=1.0
+//    returns the maximum — never a silent-zero fallback; empty array -> null) ───
 function percentileAt(arr, p) {
+  if (!arr.length) return null;
   const sorted = [...arr].sort((a, b) => a - b);
-  const idx = Math.max(0, Math.min(sorted.length - 1, Math.floor(p * sorted.length)));
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(p * sorted.length) - 1));
   return sorted[idx];
 }
 

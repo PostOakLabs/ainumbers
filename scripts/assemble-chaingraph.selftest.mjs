@@ -76,6 +76,7 @@ import {
   sanctionLine,
   sanctionEntry,
   buildSanctionStamp,
+  disposition,
 } from './assemble-chaingraph.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -967,6 +968,39 @@ heading(24, 'refusalLine is byte-unchanged; sanctionLine names the row; the diff
   // no entry behind (its own GREEN proof is reverted; see the PR body).
   check('chaingraph.meta.json parses and round-trips through the stamp builder',
     Object.keys(buildSanctionStamp(JSON.parse(readFileSync(META_PATH, 'utf8')), entry)).slice(0, 2), ['_comment', 'structural_landings'])
+}
+
+// ── 25. The --check disposition (CGSHARD-ADVISORY-PR-SPLIT-1). ─────────────
+// chaingraph.json is a single-writer-on-main generated monolith, so a branch
+// that edits shards cannot reassemble it and --check reads drift through no
+// fault of its own. The exit is decided by disposition(): advisory (exit 0) on
+// an affirmatively-proven PR context, HARD (exit 1) on main and on EVERYTHING
+// undeterminable. Same fail-closed shape as check-compute-proof-coverage.mjs's
+// split — the downgrade requires the LITERAL boolean false, so a caller that
+// forgot the field (or a probe that threw) blocks.
+heading(25, 'disposition: advisory only on a literal PR context; main and fail-closed states block')
+{
+  // Clean is clean whatever the context says — there is nothing to downgrade.
+  check('failed=false is clean with mainContext=true', disposition({ failed: false, mainContext: true }), { exit: 0, mode: 'clean' })
+  check('failed=false is clean with mainContext=false', disposition({ failed: false, mainContext: false }), { exit: 0, mode: 'clean' })
+  check('failed=false is clean with mainContext=undefined', disposition({ failed: false, mainContext: undefined }), { exit: 0, mode: 'clean' })
+
+  // The main-side legs stay HARD: push-to-main, merge_group with a fresh
+  // DERIVED_ROOT assembly, any local main/detached checkout (isMainContext()
+  // answers true for all of these).
+  check('failed=true + main context BLOCKS', disposition({ failed: true, mainContext: true }), { exit: 1, mode: 'blocking' })
+
+  // The one relaxation: a PR context is affirmatively earned (isMainContext()
+  // literal false), and even then only downgrades the EXIT — the full failure
+  // block still prints (wired at the --check drift branch).
+  check('failed=true + literal PR context downgrades to advisory exit 0', disposition({ failed: true, mainContext: false }), { exit: 0, mode: 'advisory' })
+
+  // ⛔ FAILS CLOSED, independently of isMainContext(): anything that is not the
+  // literal boolean false blocks — a missing field, a null, an empty string, a
+  // falsy non-boolean, a string.
+  for (const mainContext of [undefined, null, '', 0, 'no']) {
+    check(`fail-closed: mainContext=${JSON.stringify(mainContext)} never downgrades`, disposition({ failed: true, mainContext }), { exit: 1, mode: 'blocking' })
+  }
 }
 
 if (failures > 0) {
