@@ -789,6 +789,18 @@ const PREFLIGHT_ONLY = new Map([
   // triggers are exactly the events that must catch an id collision, so a named
   // duplicate step would run the same suite twice.
   ["check-id-collision.mjs", VIA_PREFLIGHT],
+
+  // ── GPU-FLAG-PARITY-GATE-1 (2026-09-17, ART124-POLICY-CORE-PROVE-1) ─────────
+  ["check-gpu-flag-parity.mjs",
+    "Kernel meta.gpu vs shard gpu parity (GPU-FLAG-PARITY-GATE-1): every live node " +
+    "with a kernel file must not contradict its shard gpu flag (the measured " +
+    "baseline was exactly one contradiction, art-124, fixed in the landing PR, so " +
+    "the gate is born green at 0). Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), " +
+    "so a named workflow step would only duplicate the same suite. Reads only " +
+    "tracked repo files — no CI-only input. Paired self-test: " +
+    "check-gpu-flag-parity.test.mjs (GATE-SELFTEST-META-1)."],
+  ["check-gpu-flag-parity.test.mjs", SELF_TEST],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
