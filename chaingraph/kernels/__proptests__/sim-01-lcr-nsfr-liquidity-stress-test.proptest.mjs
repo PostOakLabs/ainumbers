@@ -1,5 +1,5 @@
 // sim-01-lcr-nsfr-liquidity-stress-test.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C15-1).
-// kernel_digest_at_authoring: sha256:e22635c466fd20d5fb8ff61aa494e70f70f958e303b5d52a90e0f0f22a6e930e
+// kernel_digest_at_authoring: sha256:fb69a706dc5cd8e24698505d9ae745075b414f231d6515dfc39c9f8b2ca2b907
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

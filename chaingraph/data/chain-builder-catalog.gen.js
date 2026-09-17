@@ -657,7 +657,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Content Credential Signature Verifier",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-124-content-credential-signature-verifier.html",
-    "description": "Verify-only node: callable in chains, carrying no compute-proof claim. Verify the COSE_Sign1 claim signature against a caller-supplied signe",
+    "description": "Deterministic policy core over a caller-attested signature result. The caller performs the COSE_Sign1 signature check over the manifest byte",
     "consumes": [
       "art-123-c2pa-manifest-validator"
     ],

@@ -1128,6 +1128,14 @@ const GATES = [
   ['Quantization parity (§24.6)',  'node chaingraph/kernels/quantization-parity.test.mjs'],
   ['Seed replay (§24.6.2)',        'node chaingraph/kernels/seed-replay.test.mjs'],
   ['Kernel determinism lint',      'node scripts/check-kernel-determinism.mjs'],
+  // GPU-FLAG-PARITY-GATE-1 (ART124-POLICY-CORE-PROVE-1): kernel meta.gpu and the shard
+  // gpu flag had no gate watching the pair; art-124 was the only live contradiction
+  // (kernel false vs shard true, measured 2026-09-17 over all 661 live nodes) and the
+  // same PR fixes it, so the gate is born green at 0. Scope: live nodes with kernel
+  // files; contradictions only (undeclared sides are completeness, not parity).
+  // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the fixture proof entry below.
+  ['GPU flag parity (kernel meta.gpu == shard gpu)', 'node scripts/check-gpu-flag-parity.mjs'],
+  ['GPU flag parity fixture proof (SO #40b pairing)', 'node scripts/check-gpu-flag-parity.test.mjs'],
   // FAIL-CLOSED-PARITY-LINT-1 (J24 L1 lint-family batch): a year-keyed pinned-table lookup
   // that silently falls back onto a default row answers a 2019 question with 2026 numbers
   // and 2026 citations -- worse than an error: a wrong answer that looks retrieved, and
