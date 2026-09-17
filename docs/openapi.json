@@ -35800,23 +35800,24 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [],
+                "required": [
+                  "detection_rate",
+                  "n_paths",
+                  "psr_threshold",
+                  "seed"
+                ],
                 "properties": {
                   "detection_rate": {
-                    "type": "unknown",
-                    "default": 0.2
+                    "type": "unknown"
                   },
                   "n_paths": {
-                    "type": "number",
-                    "default": 300
+                    "type": "unknown"
                   },
                   "psr_threshold": {
-                    "type": "unknown",
-                    "default": 85000
+                    "type": "unknown"
                   },
                   "seed": {
-                    "type": "unknown",
-                    "default": 42
+                    "type": "unknown"
                   },
                   "topology": {
                     "type": "unknown",
@@ -36120,7 +36121,7 @@
       "post": {
         "operationId": "verify_content_credential_signature",
         "summary": "Content Credential Signature Verifier",
-        "description": "Verify a C2PA COSE_Sign1 claim signature using crypto.subtle.verify (Ed25519/ES256/ES384/PS256). Trust posture is caller-supplied — zero network, no OCSP. Emits ACCEPT or REFUSE.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-124-content-credential-signature-verifier.html\n**AP2/Policy Mandate export:** yes",
+        "description": "Assess a C2PA COSE_Sign1 content-credential signature policy. The caller performs the signature check over the manifest bytes with the declared alg (Ed25519/ES256/ES384/PS256) and attests the outcome via the required signature_verified input; the kernel does not re-verify. Trust posture is caller-supplied: zero network, no OCSP. Emits ACCEPT or REFUSE.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-124-content-credential-signature-verifier.html\n**AP2/Policy Mandate export:** yes",
         "tags": [
           "c2pa",
           "signature",
@@ -36146,14 +36147,9 @@
                       "PS256"
                     ]
                   },
-                  "signer_public_key_jwk": {
-                    "type": "object"
-                  },
-                  "signed_bytes_b64": {
-                    "type": "string"
-                  },
-                  "signature_b64": {
-                    "type": "string"
+                  "signature_verified": {
+                    "type": "boolean",
+                    "description": "result of the caller's signature check over the manifest bytes with the declared alg; the kernel does not re-verify"
                   },
                   "trust_anchor_match": {
                     "type": "boolean"
@@ -36167,9 +36163,7 @@
                 },
                 "required": [
                   "alg",
-                  "signer_public_key_jwk",
-                  "signed_bytes_b64",
-                  "signature_b64",
+                  "signature_verified",
                   "trust_anchor_match",
                   "revocation_status"
                 ]
@@ -36185,8 +36179,20 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "signature_cryptographically_valid": {
+                    "signature_verified": {
                       "type": "boolean"
+                    },
+                    "signature_verification": {
+                      "type": "string",
+                      "enum": [
+                        "caller_attested"
+                      ]
+                    },
+                    "caveats": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     },
                     "chain_trusted": {
                       "type": "boolean"
@@ -49375,7 +49381,15 @@
                 "type": "object",
                 "required": [
                   "blocked_categories",
-                  "blocked_merchants"
+                  "blocked_merchants",
+                  "chaos",
+                  "daily_limit",
+                  "drip_freq",
+                  "hnp_ratio",
+                  "monthly_limit",
+                  "n_txns",
+                  "per_tx_limit",
+                  "seed"
                 ],
                 "properties": {
                   "allowed_methods": {
@@ -49389,40 +49403,32 @@
                     "type": "unknown"
                   },
                   "chaos": {
-                    "type": "unknown",
-                    "default": 0.2
+                    "type": "unknown"
                   },
                   "daily_limit": {
-                    "type": "unknown",
-                    "default": 2000
+                    "type": "unknown"
                   },
                   "drip_freq": {
-                    "type": "unknown",
-                    "default": 0.1
+                    "type": "unknown"
                   },
                   "hnp_ratio": {
-                    "type": "unknown",
-                    "default": 0.05
+                    "type": "unknown"
                   },
                   "hour_restriction": {
                     "type": "unknown",
                     "default": null
                   },
                   "monthly_limit": {
-                    "type": "unknown",
-                    "default": 20000
+                    "type": "unknown"
                   },
                   "n_txns": {
-                    "type": "number",
-                    "default": 200
+                    "type": "unknown"
                   },
                   "per_tx_limit": {
-                    "type": "unknown",
-                    "default": 500
+                    "type": "unknown"
                   },
                   "seed": {
-                    "type": "unknown",
-                    "default": 42
+                    "type": "unknown"
                   }
                 },
                 "x_schema_provenance": "derived-from-kernel-reads 2026-09-01"
@@ -62294,13 +62300,13 @@
                       "type": "string"
                     },
                     "points_and_fees": {
-                      "type": "integer"
+                      "type": "number"
                     },
                     "points_fees_floor": {
-                      "type": "integer"
+                      "type": "number"
                     },
                     "points_fees_limit": {
-                      "type": "integer"
+                      "type": "number"
                     },
                     "points_fees_limit_pct": {
                       "type": "integer"
@@ -123706,7 +123712,7 @@
       "post": {
         "operationId": "route_mica_transitional_deadline",
         "summary": "MiCA Transitional-Deadline Router",
-        "description": "Member-state transitional-deadline routing per Art 143(3) incl. the 30 Jun 2026 cliff (16 EU states). Emits exact end-date, window months, file-vs-wind-down decision, and filing preconditions.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-99-mica-transitional-deadline-router.html",
+        "description": "Transitional-deadline routing per MiCA Art 143(3): providers lawfully serving before 30 December 2024 may continue until 1 July 2026 or until their Article 63 authorisation is granted or refused, whichever is sooner. Emits the end date, window months from a caller-supplied as_of date, the file-vs-wind-down decision, and filing preconditions.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-99-mica-transitional-deadline-router.html",
         "tags": [
           "TODO_TAGS_REVIEW",
           "TODO_AP2_EXPORT_REVIEW"
@@ -123721,20 +123727,15 @@
                   "inputs"
                 ],
                 "properties": {
+                  "as_of": {
+                    "type": "unknown"
+                  },
                   "existing_registration": {
                     "type": "unknown",
                     "default": "no"
                   },
                   "inputs": {
                     "type": "unknown"
-                  },
-                  "member_state": {
-                    "type": "unknown",
-                    "default": ""
-                  },
-                  "national_regime": {
-                    "type": "unknown",
-                    "default": "none"
                   }
                 },
                 "x_schema_provenance": "derived-from-kernel-reads 2026-09-01"
@@ -123750,6 +123751,12 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "as_of": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "decision": {
                       "type": "string"
                     },
@@ -123771,8 +123778,17 @@
                     "transitional_end_date": {
                       "type": "string"
                     },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "window_months": {
-                      "type": "integer"
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     }
                   }
                 }

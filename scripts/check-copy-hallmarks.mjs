@@ -744,6 +744,17 @@ for (const rel of Object.keys(baseline)) {
   if (!findings[rel]) improvements.push(`${rel}: clean (baseline entry can be dropped)`);
 }
 
+// COPY-HALLMARKS-OUTPUT-SHAPE-1 (2026-09-13): emission ORDER only — on a red
+// run the FAILURE block is emitted before any ADVISORY/improvement text, so a
+// seat reading the head of the output sees the failure signal first instead of
+// ~250 lines of "ADVISORY (not failing)" over an exit-1. Detection rules,
+// denylists, file sets, output streams, and exit semantics are unchanged:
+// same lines emitted on red and green runs, still process.exit(1) iff there
+// are failures (after all output, once advisory/improvement text is emitted).
+if (failures.length) {
+  console.error(`\ncopy-hallmarks: ${failures.length} FAILURE(s) — AI-writing hallmarks in reader-facing copy:\n  ` + failures.join('\n  '));
+  console.error(`\nFix the copy (see CONTRACT.md §1.4 + memory feedback-anti-ai-tell-copy-ban). Em-dashes/jargon: baseline burns down with --update. ANTI-AI-TELL hits (italics-emphasis, "not just X but", "it's not X, it's Y" pivot, dramatic fragments, validation-phrasing, filler-vocab, emoji-in-headers/prose): zero-tolerance, no baseline — rewrite the copy.`);
+}
 if (advisories.length) {
   console.log(`copy-hallmarks ADVISORY (not failing):\n  ` + advisories.join('\n  '));
 }
@@ -751,8 +762,6 @@ if (improvements.length) {
   console.log(`copy-hallmarks: ${improvements.length} file(s) beat the baseline — tighten with --update:\n  ` + improvements.slice(0, 10).join('\n  '));
 }
 if (failures.length) {
-  console.error(`\ncopy-hallmarks: ${failures.length} FAILURE(s) — AI-writing hallmarks in reader-facing copy:\n  ` + failures.join('\n  '));
-  console.error(`\nFix the copy (see CONTRACT.md §1.4 + memory feedback-anti-ai-tell-copy-ban). Em-dashes/jargon: baseline burns down with --update. ANTI-AI-TELL hits (italics-emphasis, "not just X but", "it's not X, it's Y" pivot, dramatic fragments, validation-phrasing, filler-vocab, emoji-in-headers/prose): zero-tolerance, no baseline — rewrite the copy.`);
   process.exit(1);
 }
 console.log(`copy-hallmarks: OK (${Object.keys(baseline).length} baselined file(s) within budget, 0 ANTI-AI-TELL hits)${CHANGED ? ` — touched-scope: ${scanFiles.length} file(s) scanned` : ''}.`);

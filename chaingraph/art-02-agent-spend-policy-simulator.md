@@ -11,15 +11,15 @@ Simulates thousands of synthetic agent transactions against a user-authored spen
 - allowed_methods (unknown, optional)
 - blocked_categories (unknown, required)
 - blocked_merchants (unknown, required)
-- chaos (unknown, optional)
-- daily_limit (unknown, optional)
-- drip_freq (unknown, optional)
-- hnp_ratio (unknown, optional)
+- chaos (unknown, required)
+- daily_limit (unknown, required)
+- drip_freq (unknown, required)
+- hnp_ratio (unknown, required)
 - hour_restriction (unknown, optional)
-- monthly_limit (unknown, optional)
-- n_txns (number, optional)
-- per_tx_limit (unknown, optional)
-- seed (unknown, optional)
+- monthly_limit (unknown, required)
+- n_txns (unknown, required)
+- per_tx_limit (unknown, required)
+- seed (unknown, required)
 
 ## Outputs
 

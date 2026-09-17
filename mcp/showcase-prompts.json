@@ -46,6 +46,13 @@
       "build_session_receipt",
       "verify_execution_hash",
       "verify_webbotauth_signature"
+    ],
+    "runner_steps": [
+      { "manual": "WebMCP doorway: on the art-129 page, run verify_webbotauth_signature on the page's synthetic sample and note its execution_hash. DevTools Network must show zero requests.", "label": "In-page run (zero egress)" },
+      { "tool": "verify_webbotauth_signature", "label": "Worker doorway: the same verifier, same synthetic Ed25519 request (mcp.ainumbers.co)", "args": { "policy_parameters": { "covered_components": [ { "name": "@method", "value": "POST" }, { "name": "@target-uri", "value": "https://merchant.example/checkout" }, { "name": "@authority", "value": "merchant.example" } ], "signature_params": "(\"@method\" \"@target-uri\" \"@authority\");created=1786000000;nonce=\"c2l4dGVlbg\";keyid=\"synthetic-agent-key\";tag=\"web-bot-auth\"", "signature_b64": "DRDZsMu6vb60GeATzDO2py+LdhOLEM7xdaPGaz4nwuFbt+4T+IK3fCjBnKLTBQDoDMVovC1zhm1j+QVfP1UJAg==", "public_key_jwk": { "kty": "OKP", "crv": "Ed25519", "x": "4NKtUhaCIJsEPUuLcj-Yna5TnI5b7VLA4MIfp4Uwg9k" }, "alg": "ed25519", "expected_tag": "web-bot-auth", "created": 1786000000, "now_unix": 1786000000, "max_age_s": 3600 } } },
+      { "tool": "verify_execution_hash", "label": "Recompute the hash from the artifact alone (RFC 8785 canonical JSON, SHA-256)", "args": { "artifact": "2.artifact" }, "thread": { "artifact": "2.artifact" } },
+      { "tool": "build_session_receipt", "label": "Bind both hashes into one session receipt", "args": { "execution_hashes": [ "2.execution_hash", "3.execution_hash" ], "tool_ids": [ "art-129-webbotauth-signature-verifier", "verify_execution_hash" ], "framing": "Same law, three doorways" }, "thread": { "execution_hashes[0]": "2.execution_hash", "execution_hashes[1]": "3.execution_hash" } },
+      { "manual": "Anchor doorway: anchor the session_receipt_root on anchor.ainumbers.co with anchor_hash (OpenTimestamps), then compare what each doorway produced.", "label": "Anchor the receipt (pause: separate host)" }
     ]
   },
   {
@@ -97,6 +104,13 @@
       "run_chain",
       "vc_issue",
       "verify_execution_hash"
+    ],
+    "runner_steps": [
+      { "manual": "Draft the Work Mandate (OCG §22: principal treasury-ops, agent procurement-bot-01, per-transaction cap 2500 EUR, 24h validity) and sign it with vc_issue; note the mandate_hash.", "label": "Sign the mandate (pause: the agent authors it)" },
+      { "tool": "find_chain", "label": "Find the chain", "args": { "query": "agent commerce conformance", "top_n": 3 } },
+      { "tool": "run_chain", "label": "Run it server-side: the breach cart trips the escalation gate (chain fixtures)", "args": { "chain": "agent-commerce-conformance", "compute": "server" } },
+      { "tool": "build_session_receipt", "label": "Receipt over the run", "args": { "execution_hashes": [ "3.execution_hash" ], "tool_ids": [ "chaingraph/chains/agent-commerce-conformance" ], "framing": "Agent buys under a signed policy" }, "thread": { "execution_hashes[0]": "3.execution_hash" } },
+      { "manual": "Open step 3's ledger_url and read the §21 gate replay; re-run with a compliant cart total and confirm the escalation disappears (the full prompt walks the mandate-bound run).", "label": "Read the ledger (pause: human reads)" }
     ]
   },
   {
@@ -143,6 +157,15 @@
       "validate_emir_lifecycle_event",
       "validate_emir_upi",
       "verify_execution_hash"
+    ],
+    "runner_steps": [
+      { "manual": "WebMCP doorway: take the synthetic EMIR Refit auth.030 sample from the art-158 page. The report content must not leave this machine at any point.", "label": "Pick up the synthetic sample (pause: in-page)" },
+      { "tool": "check_emir_uti_completeness", "label": "art-154: UTI completeness on the synthetic trade", "args": { "policy_parameters": { "uti": "SYNTHETICUTI0001ALPHANUMERIC01", "generating_party": "5493001KJTIIGC8Y1R12", "trade_unix": 1786000000, "uti_shared_unix": 1786000100 } } },
+      { "tool": "validate_emir_upi", "label": "art-155: UPI and asset class", "args": { "policy_parameters": { "upi": "SYNTHUPIXY12", "asset_class": "IR", "instrument_type": "IRS" } } },
+      { "tool": "validate_emir_lifecycle_event", "label": "art-157: lifecycle action vs prior state", "args": { "policy_parameters": { "action_type": "New", "prior_state": "none" } } },
+      { "tool": "run_emir_reporting_fit", "label": "art-158: reporting readiness grade", "args": { "policy_parameters": { "iso20022_cutover_done": true, "upi_sourcing_configured": true, "uti_sharing_sla_met": true, "reconciliation_tolerance_set": true, "lifecycle_action_controls": true } } },
+      { "tool": "build_evidence_pack", "label": "Pack the four hashes, labelled by node", "args": { "artifacts": [ { "execution_hash": "2.execution_hash", "tool_id": "art-154-emir-uti-completeness-checker" }, { "execution_hash": "3.execution_hash", "tool_id": "art-155-emir-upi-validator" }, { "execution_hash": "4.execution_hash", "tool_id": "art-157-emir-lifecycle-event-validator" }, { "execution_hash": "5.execution_hash", "tool_id": "art-158-emir-reporting-readiness-diagnostic" } ], "framing": "Zero-egress EMIR Refit proof" }, "thread": { "artifacts[0].execution_hash": "2.execution_hash", "artifacts[1].execution_hash": "3.execution_hash", "artifacts[2].execution_hash": "4.execution_hash", "artifacts[3].execution_hash": "5.execution_hash" } },
+      { "manual": "Anchor doorway: anchor_batch the four hashes plus the pack digest with two authorities (Sigstore TSA and OpenTimestamps), then build the ledger fragment link for the art-158 artifact.", "label": "Anchor the pack (pause: separate host)" }
     ]
   },
   {
@@ -189,6 +212,14 @@
       "verify_disclosure_inclusion",
       "verify_dual_layer_disclosure",
       "verify_timestamp_attestation"
+    ],
+    "runner_steps": [
+      { "manual": "WebMCP doorway: run validate_c2pa_manifest on the art-123 page with its synthetic manifest; note the verdict and execution_hash.", "label": "C2PA check in-page (pause: zero egress)" },
+      { "tool": "check_ai_act_art50_marking", "label": "art-126: Art. 50 marking on the published action", "args": { "policy_parameters": { "actions": [], "machine_readable_marking_present": true, "is_deepfake": false, "deepfake_disclosure_present": true } } },
+      { "tool": "verify_dual_layer_disclosure", "label": "art-127: dual-layer disclosure (metadata + watermark)", "args": { "policy_parameters": { "c2pa_metadata_present": true, "watermark_present": true, "watermark_method": "invisible-marking" } } },
+      { "tool": "verify_execution_hash", "label": "Recompute the marking check's hash from the artifact", "args": { "artifact": "2.artifact" }, "thread": { "artifact": "2.artifact" } },
+      { "tool": "build_session_receipt", "label": "Bind the three hashes", "args": { "execution_hashes": [ "2.execution_hash", "3.execution_hash", "4.execution_hash" ], "tool_ids": [ "art-126-ai-act-art50-marking-checker", "art-127-dual-layer-disclosure-verifier", "verify_execution_hash" ], "framing": "Is this asset real, AI-marked, and provably timestamped?" }, "thread": { "execution_hashes[0]": "2.execution_hash", "execution_hashes[1]": "3.execution_hash", "execution_hashes[2]": "4.execution_hash" } },
+      { "manual": "Anchor doorway: replay content-credential-verification with run_chain, build the disclosure manifest, anchor the root on OpenTimestamps (a pending OTS proof is expected within the first hours).", "label": "Chain replay + anchor (pause)" }
     ]
   },
   {
@@ -237,6 +268,12 @@
       "helmd:workflow.dry_run",
       "helmd:workflow.manifest_get",
       "helmd:workflow.run"
+    ],
+    "runner_steps": [
+      { "tool": "find_tool", "label": "Cross-check: the same kernel family exists on the public worker", "args": { "query": "CECL allowance", "top_n": 3 } },
+      { "manual": "Helm doorway: on the local helmd (127.0.0.1:4173), catalog.search \"cecl\", workflow.describe + workflow.manifest_get, workflow.dry_run then workflow.run; poll artifact.get for the execution_hash and per-step digests.", "label": "Run the CECL pack on helmd (pause: local daemon)" },
+      { "manual": "Attempt helmd evidence.export with no ticket. Quote the consent-tier error verbatim, then tell the human at the Helm UI what to mint; wait for the pasted ticket.", "label": "Consent gate (pause: human mints the ticket)" },
+      { "manual": "With the ticket: evidence.export the bundle, compare kernel_digest and execution_hash against the public worker's CECL tool (step 1), then anchor the run's execution_hash with Sigstore TSA.", "label": "Export + cross-check (pause)" }
     ]
   },
   {
@@ -266,6 +303,13 @@
       "recompute_erc4626_vault_share_math",
       "verify_execution_hash",
       "verify_merkle_airdrop_proof"
+    ],
+    "runner_steps": [
+      { "manual": "Fetch chaingraph.json, hash the art-610 kernel source yourself, and verify the Groth16 seal with an independent BN254 library (your tooling, not ours). If the digest mismatches, stop and say so.", "label": "Verify the estate's own claims first (pause: your tooling)" },
+      { "tool": "recompute_erc4626_vault_share_math", "label": "One real computation: synthetic vault on the worker", "args": { "policy_parameters": { "total_assets": "1000000", "total_supply": "800000", "operations": [ { "type": "deposit", "assets": "100000" } ], "fee_bps": "0" } } },
+      { "tool": "verify_execution_hash", "label": "Recompute the hash: RFC 8785 canonical JSON, SHA-256", "args": { "artifact": "2.artifact" }, "thread": { "artifact": "2.artifact" } },
+      { "tool": "build_session_receipt", "label": "Receipt over the computation and its verification", "args": { "execution_hashes": [ "2.execution_hash", "3.execution_hash" ], "tool_ids": [ "art-610-erc4626-vault-share-math", "verify_execution_hash" ], "framing": "Trust nothing, verify everything" }, "thread": { "execution_hashes[0]": "2.execution_hash", "execution_hashes[1]": "3.execution_hash" } },
+      { "manual": "Repeat the same inputs in the art-610 page's WebMCP tool and state whether worker, page, and your own recompute agree; run classify_erc1967_proxy_slot and verify_merkle_airdrop_proof once each, then anchor the receipt root with anchor_stamp (OpenTimestamps).", "label": "Three-way comparison + anchors (pause)" }
     ],
     "arguments": [],
     "verify_surface": [
@@ -300,6 +344,12 @@
       "validate_tfr_travel_rule_batch",
       "verify_merkle_batch",
       "verify_execution_hash"
+    ],
+    "runner_steps": [
+      { "tool": "find_tool", "label": "Find the travel-rule validator and its private-input profile", "args": { "query": "travel rule batch validator private inputs", "top_n": 3 } },
+      { "manual": "Call validate_private_inputs for validate_tfr_travel_rule_batch (the §25 ocg-private-input profile) and quote the private field list; build the synthetic 5-transfer batch with the defective entries kept private.", "label": "Learn what stays private (pause: the agent authors the batch)" },
+      { "manual": "generate_zk_compliance_proof computes in YOUR browser (GPU note): run it in the page, export the Policy Mandate artifact it produces, and pass the full artifact to verify_execution_hash as claimed_hash.", "label": "ZK proof in-browser (pause: browser compute)" },
+      { "manual": "validate_tfr_travel_rule_batch on the batch, aggregate_ownership_50pct on the ownership graph, sdjwt_issue + sdjwt_present revealing only sanctions_predicate: PASS, validate_canton_selective_disclosure, verify_merkle_batch, then build_session_receipt and read the ledger link.", "label": "Full batch + minimal disclosure (pause)" }
     ],
     "arguments": [],
     "verify_surface": [
@@ -341,6 +391,12 @@
       "verify_address_migration_batch",
       "verify_execution_hash"
     ],
+    "runner_steps": [
+      { "tool": "find_tool", "label": "Find the payments-day validators", "args": { "query": "pain.001 validation camt.053 reconciliation", "top_n": 3 } },
+      { "tool": "pain001_validate", "label": "Validate the synthetic pain.001 (any defects are shown verbatim)", "args": { "xml": "<Document xmlns=\"urn:iso:std:iso:20022:tech:xsd:pain.001.001.09\"><CstmrCdtTrfInitn><GrpHdr><MsgId>SYNTH-1</MsgId><CreDtTm>2026-09-09T00:00:00Z</CreDtTm><NbOfTxs>1</NbOfTxs><InitgPty><Nm>Synthetic Co</Nm></InitgPty></GrpHdr><PmtInf><PmtInfId>P1</PmtInfId><PmtMtd>TRF</PmtMtd><ReqdExctnDt><Dt>2026-09-10</Dt></ReqdExctnDt><NbOfTxs>1</NbOfTxs><CtrlSum>100.00</CtrlSum><Dbtr><Nm>Synthetic Debtor</Nm></Dbtr><DbtrAcct><Id><IBAN>DE44500105175407324931</IBAN></Id></DbtrAcct><DbtrAgt><FinInstnId><BICFI>COBADEFFXXX</BICFI></FinInstnId></DbtrAgt><CdtTrfTxInf><PmtId><EndToEndId>E2E-1</EndToEndId></PmtId><Amt><InstdAmt Ccy=\"EUR\">100.00</InstdAmt></Amt><CdtrAgt><FinInstnId><BICFI>COBADEFFXXX</BICFI></FinInstnId></CdtrAgt><Cdtr><Nm>Synthetic Creditor</Nm></Cdtr><CdtrAcct><Id><IBAN>DE44500105175407324931</IBAN></Id></CdtrAcct></CdtTrfTxInf></PmtInf></CstmrCdtTrfInitn></Document>" } },
+      { "manual": "camt.053 parse + recon_match against the pain.001 batch, verify_address_migration_batch (GPU note: browser compute, no worker hash), predict_settlement_fail, calculate_csdr_penalty, model_buy_in_exposure, run_t1_readiness_diagnostic.", "label": "The payments day (pause: multi-tool agent flow)" },
+      { "manual": "Helm doorway: 2052a dry-run + artifact.verify on your paired helmd; build_evidence_pack over every hash from the day; anchor the pack digest on OpenTimestamps and read the ledger link.", "label": "Seal the evidence (pause)" }
+    ],
     "arguments": [],
     "verify_surface": [
       "https://ledger.ainumbers.co/",
@@ -369,6 +425,13 @@
       "run_chain",
       "verify_execution_hash"
     ],
+    "runner_steps": [
+      { "manual": "Open the receipt link you were handed; copy its execution_hash, the named chain, and the step it points at.", "label": "Start from the receipt (pause: your ledger link)" },
+      { "tool": "find_chain", "label": "Resolve the chain the receipt names", "args": { "query": "reserve proof verification", "top_n": 3 } },
+      { "tool": "run_chain", "label": "Re-run it on the worker (fixtures, deterministic)", "args": { "chain": "reserve-proof-verification", "compute": "server" } },
+      { "tool": "build_session_receipt", "label": "Receipt over your re-check", "args": { "execution_hashes": [ "3.execution_hash" ], "tool_ids": [ "chaingraph/chains/reserve-proof-verification" ], "framing": "Verify a receipt someone sent me" }, "thread": { "execution_hashes[0]": "3.execution_hash" } },
+      { "manual": "Compare step 3's composite hash with the receipt's execution_hash character by character; write the three-line verdict with step 3's ledger_url.", "label": "The verdict (pause: human reads)" }
+    ],
     "arguments": [],
     "verify_surface": [
       "https://ledger.ainumbers.co/",
@@ -393,6 +456,12 @@
       "find_chain",
       "find_tool",
       "run_chain"
+    ],
+    "runner_steps": [
+      { "tool": "find_tool", "label": "State the check in one sentence, search the catalog", "args": { "query": "CECL allowance", "top_n": 3 } },
+      { "tool": "find_chain", "label": "Does the tool belong to a longer chain?", "args": { "query": "cecl allowance", "top_n": 3 } },
+      { "tool": "build_workflow_links", "label": "The deep link that re-opens the tool with the same inputs", "args": { "steps": [ { "tool_id": "art-426-cecl-ecl-calculator" } ] } },
+      { "manual": "Run the chosen tool once with its declared synthetic sample on the worker; record the verdict and execution_hash, then write the colleague note.", "label": "Run it once (pause: the agent picks the sample)" }
     ],
     "arguments": [],
     "verify_surface": [
@@ -499,6 +568,12 @@
       "run_chain",
       "verify_execution_hash"
     ],
+    "runner_steps": [
+      { "tool": "find_tool", "label": "Pick the tool and confirm its exact mcp_name", "args": { "query": "reserve proof verifier", "top_n": 3 } },
+      { "tool": "run_chain", "label": "Host A: the hosted worker, one fixed synthetic input", "args": { "chain": "reserve-proof-verification", "compute": "server" } },
+      { "tool": "build_session_receipt", "label": "Receipt over host A's hash", "args": { "execution_hashes": [ "2.execution_hash" ], "tool_ids": [ "chaingraph/chains/reserve-proof-verification" ], "framing": "Two hosts, one hash" }, "thread": { "execution_hashes[0]": "2.execution_hash" } },
+      { "manual": "Host B: a different agent (Claude, OpenClaw, Goose) runs the same chain with the same fixed input through the same worker; compare the two hashes character by character and write the runbook note with the ledger link.", "label": "Second host (pause: your second agent)" }
+    ],
     "arguments": [],
     "verify_surface": [
       "https://ledger.ainumbers.co/",
@@ -525,6 +600,14 @@
       "workbook_evaluate",
       "workbook_range_digest",
       "workbook_roundtrip_verify"
+    ],
+    "runner_steps": [
+      { "tool": "workbook_csv_parse", "label": "Parse the exported sheet (WB-1)", "args": { "csv": "item,qty,price\nwidget,10,2.5\ngadget,20,4.0\n", "as_artifact": true, "provenance": { "source_description": "synthetic order sheet", "created_by": "prompt-runner-demo" } } },
+      { "tool": "workbook_evaluate", "label": "Evaluate the formula range", "args": { "cells": { "A1": "qty", "B1": "price", "C1": "total", "A2": 10, "B2": 2.5, "C2": "=A2*B2", "A3": 20, "B3": 4, "C3": "=A3*B3" }, "as_artifact": true } },
+      { "tool": "workbook_range_digest", "label": "Digest the evaluated range (what the auditor re-verifies)", "args": { "cells": { "A2": 10, "B2": 2.5, "A3": 20, "B3": 4 }, "range": "A2:B3", "semantics": "synthetic qty and price range", "as_artifact": true } },
+      { "tool": "build_evidence_pack", "label": "Pack parse, evaluate, digest", "args": { "artifacts": [ { "execution_hash": "1.execution_hash", "tool_id": "workbook_csv_parse" }, { "execution_hash": "2.execution_hash", "tool_id": "workbook_evaluate" }, { "execution_hash": "3.execution_hash", "tool_id": "workbook_range_digest" } ], "framing": "Excel to receipt" }, "thread": { "artifacts[0].execution_hash": "1.execution_hash", "artifacts[1].execution_hash": "2.execution_hash", "artifacts[2].execution_hash": "3.execution_hash" } },
+      { "manual": "workbook_roundtrip_verify: paste the evaluated sheet back through the WB-2 manifest to the same digest (pass/fail shown).", "label": "Round-trip check (pause: paste-back)" },
+      { "manual": "Hand the finance lead the ledger link, the receipted range, and what the receipt does not claim (the business judgment behind the numbers).", "label": "The note (pause: human reads)" }
     ],
     "arguments": [],
     "verify_surface": [

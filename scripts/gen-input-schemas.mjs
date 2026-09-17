@@ -13,8 +13,12 @@
  *   - types only where the code evidences them: safeNum(..)/Number(..)/numeric
  *     comparison -> number · boolean tests -> boolean · array iteration -> array ·
  *     >=2 distinct string literals in ===/case/includes -> enum(literals) ·
- *     string methods -> string · anything else -> honest `"type": "unknown"`;
- *     conflicting evidence -> unknown (never pick a winner);
+ *     string methods -> string · anything else -> NO `type` keyword at all
+ *     (RULINGS 2026-09-10T20:30:44Z: `unknown` is not a JSON Schema type — a
+ *     no-evidence property OMITS `type`, which is valid 2020-12 and accepts any
+ *     JSON) + the description sentence 'type not evidenced by kernel source'
+ *     (appended after a mechanical unit description when one exists);
+ *     conflicting evidence -> omitted, exactly like no evidence (never pick a winner);
  *   - defaults captured ONLY where `?? <literal>`, destructuring `f = <literal>`,
  *     or `safeNum(pp.f, <literal>)` states one;
  *   - `required` is mechanical: a field is required iff it has NO evidenced default
@@ -23,10 +27,15 @@
  *   - descriptions ONLY where mechanical from the field name's unit suffix
  *     (_pct, _bn, _usd, _bps, _yrs, _days, ...); otherwise omitted, never invented.
  *
- * Provenance: every backfilled schema block carries
- *   "x_schema_provenance": "derived-from-kernel-reads 2026-09-01"
- * (machine-derived, honest, upgradeable). This mark is also the OWNERSHIP mark for
- * --check: manifests without it are hand-curated and never touched by this tool.
+ * Provenance: every backfilled schema block is stamped at the MANIFEST level —
+ *   "input_schema_provenance": "derived-from-kernel-reads 2026-09-01"
+ * (machine-derived, honest, upgradeable). MCP reserves `x-` (hyphen) for schema
+ * extensions, so the mark moved OUT of the schema objects (RULINGS
+ * 2026-09-10T20:30:44Z; it used to sit inside them as `x_schema_provenance`).
+ * This mark is also the OWNERSHIP mark for --check and for SKIP-HAND-SCHEMA:
+ * manifests without it (in either position — the transition reads
+ * `m.input_schema_provenance ?? m.input_schema?.x_schema_provenance`) are
+ * hand-curated and never touched by this tool.
  *
  * The backfill writes BOTH declared-schema slots so the two writers agree
  * (gen-webmcp-registrations.mjs checkManifestSchemaParity): `input_schema`
@@ -48,7 +57,13 @@
  *   node scripts/gen-input-schemas.mjs                  (report only — no writes)
  *   node scripts/gen-input-schemas.mjs --write [--only id1,id2,...]
  *   node scripts/gen-input-schemas.mjs --check          (drift gate: hand-edits to
- *                    provenance-marked schema blocks go red; exit 1 on any drift)
+ *                    provenance-marked schema blocks go red; exit 1 on any drift.
+ *                    TRANSITION (MCP-SCHEMA-CONFORMANCE-1, removed in PR-5): a
+ *                    manifest matches if its schema equals the fresh derivation
+ *                    in the NEW shape (typeless, mark at manifest level) OR the
+ *                    fresh derivation re-rendered under the legacy rule
+ *                    (`unknown` + inner mark) via one legacyShape() transform —
+ *                    so the 498-manifest sweep can land in slices without a red main)
  *   node scripts/gen-input-schemas.mjs --self-test      (controls incl. enum
  *                    inference + unknown-type honesty + default capture + a
  *                    tamper-red mutation control; exit 1 on any failed control)
@@ -72,6 +87,12 @@ const REPO = path.resolve(HERE, '..');
 export const PROVENANCE = 'derived-from-kernel-reads 2026-09-01';
 const PROVENANCE_RE = /^derived-from-kernel-reads \d{4}-\d{2}-\d{2}$/;
 const FLIP_STEM = 'TODO_FUNCTION_NAME_REVIEW'; // gen-webmcp G3 cannot pass on a TODO name
+
+// RULINGS 2026-09-10T20:30:44Z — a property with no kernel-evidenced type OMITS
+// the `type` keyword and carries this sentence (appended after a mechanical unit
+// description when one exists). `unknown` is not a JSON Schema type.
+export const TYPE_NOT_EVIDENCED = 'type not evidenced by kernel source';
+const TYPE_NOT_EVIDENCED_SUFFIX = `; ${TYPE_NOT_EVIDENCED}`;
 
 // ── mechanical unit-suffix descriptions (row: unit suffixes ONLY) ────────────
 const UNIT_SUFFIX_DESCRIPTIONS = [
@@ -316,13 +337,14 @@ export function deriveInputSchema(repoRoot, kernelFile, indexes) {
   for (const f of reads) {
     const e = ev[f];
     const prop = {};
-    let type = 'unknown';
+    let type = null; // null = no single evidenced type -> NO `type` keyword is emitted
     const literals = [...e.enums].filter((x) => !x.startsWith('__method_'));
     const wantsNumber = e.numbers.length > 0;
     const wantsString = e.strings.length > 0;
     const wantsBoolean = e.boolean;
     const wantsArray = e.array;
     if (literals.length >= 2 && !wantsNumber && !wantsBoolean && !wantsArray) {
+      type = 'string';
       prop.type = 'string';
       prop.enum = literals.sort();
     } else {
@@ -334,12 +356,13 @@ export function deriveInputSchema(repoRoot, kernelFile, indexes) {
         else if (wantsString) type = 'string';
         prop.type = type;
       } else {
-        prop.type = 'unknown'; // no evidence OR conflicting evidence — honest unknown
+        type = null; // no evidence OR conflicting evidence — omit `type` (never a guess, never a winner-pick)
       }
     }
     if (e.hasDefault) prop.default = e.default;
     const desc = mechanicalDescription(f);
-    if (desc) prop.description = desc;
+    if (type === null) prop.description = desc ? `${desc}${TYPE_NOT_EVIDENCED_SUFFIX}` : TYPE_NOT_EVIDENCED;
+    else if (desc) prop.description = desc;
     if (!e.hasDefault && e.optional === 0 && e.bare > 0) required.push(f);
     properties[f] = prop;
   }
@@ -347,9 +370,45 @@ export function deriveInputSchema(repoRoot, kernelFile, indexes) {
     type: 'object',
     required: required.sort(),
     properties,
-    x_schema_provenance: PROVENANCE,
+    // x_schema_provenance NO LONGER lives inside the schema object (MCP reserves
+    // `x-` for extensions): the manifest-level sibling `input_schema_provenance`
+    // carries the mark — stamped by buildBackfillManifest, read via provenanceMark().
   };
   return { inputSchema, rec };
+}
+
+/** The provenance mark wherever it sits during the transition (either = owned). */
+export function provenanceMark(m) {
+  return m?.input_schema_provenance ?? m?.input_schema?.x_schema_provenance;
+}
+
+/** Ownership test: the mark must be the generator's dated provenance string. */
+export function isOwnedMark(prov) {
+  return typeof prov === 'string' && PROVENANCE_RE.test(prov);
+}
+
+/**
+ * TRANSITION (MCP-SCHEMA-CONFORMANCE-1, removed in PR-5): re-render a fresh
+ * derivation under the LEGACY rule — typeless properties become
+ * `"type": "unknown"`, the description sentence is stripped (the legacy renderer
+ * never wrote it), and the provenance mark goes back INSIDE the schema object —
+ * so --check accepts bytes written by the pre-ruling generator while the sweep
+ * lands in slices without a red main.
+ */
+export function legacyShape(schema) {
+  const s = JSON.parse(JSON.stringify(schema));
+  for (const prop of Object.values(s.properties || {})) {
+    if (!prop || typeof prop !== 'object' || Array.isArray(prop)) continue;
+    if (!('type' in prop)) {
+      prop.type = 'unknown';
+      if (prop.description === TYPE_NOT_EVIDENCED) delete prop.description;
+      else if (typeof prop.description === 'string' && prop.description.endsWith(TYPE_NOT_EVIDENCED_SUFFIX)) {
+        prop.description = prop.description.slice(0, -TYPE_NOT_EVIDENCED_SUFFIX.length);
+      }
+    }
+  }
+  s.x_schema_provenance = PROVENANCE;
+  return s;
 }
 
 // ── WebMCP flip probe (mirrors gen-webmcp-registrations.mjs adjudicateTool
@@ -419,7 +478,7 @@ export function planBackfill(repoRoot) {
     if (mf) {
       try { onDisk = JSON.parse(fs.readFileSync(path.join(repoRoot, mf.file), 'utf8')); } catch { /* rewritten fresh below */ }
     }
-    if (onDisk && onDisk.input_schema?.properties && PROVENANCE_RE.test(onDisk.input_schema?.x_schema_provenance || '')) {
+    if (onDisk && onDisk.input_schema?.properties && isOwnedMark(provenanceMark(onDisk))) {
       plan.push({ toolId, kernelFile, action: 'ALREADY-DERIVED', manifest: mf.file });
       continue;
     }
@@ -467,6 +526,10 @@ export async function buildBackfillManifest(repoRoot, item, indexes) {
   }
   manifest.input_schema = JSON.parse(JSON.stringify(inputSchema));
   manifest.mcp_tool_definition.inputSchema = JSON.parse(JSON.stringify(inputSchema));
+  // The provenance mark lives at the manifest level (RULINGS 2026-09-10T20:30:44Z
+  // — moved out of the schema objects; MCP reserves `x-` for extensions). The
+  // write replaces both schema slots wholesale, so a legacy inner mark cannot survive.
+  manifest.input_schema_provenance = PROVENANCE;
   if (wouldFlipToEmittable(manifest, repoRoot)) {
     return { flip: true, reason: 'completed manifest would flip this tool into the gen-webmcp-registrations emittable set (real execution.function_name + page mapping complete) — handed to WEBMCP-GEN-FROM-MANIFEST-1 tranche-2, which owns page emission; skipping keeps the WebMCP freshness gate green' };
   }
@@ -494,6 +557,7 @@ export function checkDerivedSchemas(repoRoot) {
   const toolByMcpName = new Map([...mcpNameByTool.entries()].map(([tid, name]) => [name, tid]));
   const manifestIndex = loadManifestIndex(repoRoot);
   const problems = [];
+  const shapes = { new: 0, legacy: 0 };
   let owned = 0;
   for (const f of fs.readdirSync(path.join(repoRoot, 'manifests')).filter((x) => x.endsWith('.manifest.json'))) {
     const rel = `manifests/${f}`;
@@ -502,8 +566,10 @@ export function checkDerivedSchemas(repoRoot) {
       problems.push(`${rel}: invalid JSON: ${e.message}`);
       continue;
     }
-    const prov = m?.input_schema?.x_schema_provenance;
-    if (!prov || !PROVENANCE_RE.test(prov)) continue; // not ours — hand-curated surface
+    // TRANSITION ownership: either mark = owned (top-level sibling first, legacy
+    // inner mark second). Removed-with-the-transition in PR-5.
+    const prov = provenanceMark(m);
+    if (!isOwnedMark(prov)) continue; // not ours — hand-curated surface
     owned++;
     // resolve the pairing kernel the same way the sweep checker pairs
     // (manifest by tool_id, else by the node's mcp_name — legacy-numbered
@@ -520,15 +586,24 @@ export function checkDerivedSchemas(repoRoot) {
       problems.push(`${rel}: re-derivation failed: ${e.message}`);
       continue;
     }
-    if (JSON.stringify(canonicalize(m.input_schema)) !== JSON.stringify(canonicalize(fresh))) {
-      problems.push(`${rel}: input_schema drifted from the kernel's measured reads — hand-edits to derived schemas are red; regenerate with node scripts/gen-input-schemas.mjs --write --only ${toolId}`);
+    // TRANSITION: the on-disk schema must equal the fresh derivation in the NEW
+    // shape (typeless) OR its legacyShape() rendering (`unknown` + inner mark).
+    const freshNew = JSON.stringify(canonicalize(fresh));
+    const freshLegacy = JSON.stringify(canonicalize(legacyShape(fresh)));
+    const gotSchema = JSON.stringify(canonicalize(m.input_schema));
+    const shape = gotSchema === freshNew ? 'new' : gotSchema === freshLegacy ? 'legacy' : null;
+    if (!shape) {
+      problems.push(`${rel}: input_schema drifted from the kernel's measured reads (matches neither the fresh derivation nor its legacy-shape rendering) — hand-edits to derived schemas are red; regenerate with node scripts/gen-input-schemas.mjs --write --only ${toolId}`);
+    } else {
+      shapes[shape]++;
     }
     const got = m.mcp_tool_definition?.inputSchema;
-    if (!got || JSON.stringify(canonicalize(got)) !== JSON.stringify(canonicalize(fresh))) {
+    const gotJson = got ? JSON.stringify(canonicalize(got)) : null;
+    if (gotJson !== freshNew && gotJson !== freshLegacy) {
       problems.push(`${rel}: mcp_tool_definition.inputSchema drifted from input_schema (the two schema writers must agree)`);
     }
   }
-  return { owned, problems };
+  return { owned, shapes, problems };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -537,13 +612,13 @@ export function checkDerivedSchemas(repoRoot) {
 function main() {
   const args = process.argv.slice(2);
   if (args.includes('--check')) {
-    const { owned, problems } = checkDerivedSchemas(REPO);
+    const { owned, shapes, problems } = checkDerivedSchemas(REPO);
     if (problems.length) {
       console.error(`✗ input-schema backfill freshness FAILED (${problems.length} problem(s), ${owned} derived schema(s) checked):`);
       problems.forEach((p) => console.error('  • ' + p));
       process.exit(1);
     }
-    console.log(`✓ input-schema backfill freshness clean — ${owned} provenance-marked schema(s) byte-match fresh derivations from kernel reads.`);
+    console.log(`✓ input-schema backfill freshness clean — ${owned} provenance-marked schema(s) byte-match fresh derivations from kernel reads (${shapes.new} new shape, ${shapes.legacy} legacy shape accepted by the MCP-SCHEMA-CONFORMANCE-1 transition; removed in PR-5).`);
     process.exit(0);
   }
 

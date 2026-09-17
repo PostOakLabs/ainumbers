@@ -3,6 +3,33 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## §AGID-1 text pass: Agent-Identity Binding (`audit_signature.requesting_agent`)
+- **SPEC-TEXT PASS, not a record bump.** `spec_version` of record stays whatever `chaingraph.json`
+  carries, same separation as every prior text pass. Applies the Tim-signed 2026-09-02 proposal
+  `research/OCG-AGENT-IDENTITY-PROPOSAL-2026-09-02.md` (row `AGENTID-SPEC-APPLY-1`); Tim signed the
+  three open parameters by popup the same day: (1) the slot is `audit_signature.requesting_agent`, so
+  the member inherits §16 signature coverage transitively; (2) NO chain propagation in v1, §21 is
+  untouched, the binding is a per-artifact assertion only; (3) agent-runtime identity schemes only,
+  NO `lei`/§9-bridge scheme in v1.
+- **§AGID-1** adds ONE OPTIONAL, hash-excluded member so a producer can record which agent requested
+  one artifact: the standard had a grant/act split for humans (§22 standing grant, §27 human act) but
+  no per-artifact record of the requesting agent. `scheme` + `id` are REQUIRED when the member is
+  present; the closed v1 scheme set is `did`, `rfc9421-keyid`, `webbotauth-card`, `mcp-i`, plus the
+  `x-<vendor>` extension point; a scheme outside that set (an organizational `lei` included, which
+  stays §9's slot) fails the schema. The recorded identity is ASSERTED, never verified: no resolution,
+  no signature verification, no registry lookup (§AGID-1.2); per-scheme verification stays the
+  consumer's duty.
+- **Shape lands in the machine schema in the same change (§AGID-1.1).** `requestingAgent` joins
+  `openchain-graph-v0.4.schema.json` `$defs` and `audit_signature` names the member, validated by
+  `schema-validate.mjs`. Hash-invariance (add/remove/mutate leaves `execution_hash` byte-identical,
+  both halves asserted) and scheme discipline against the real gate are proved by the new
+  `chaingraph/standard/agent-identity-binding.test.mjs` (§15 row added; preflight wiring rides with
+  the later page-backfill/adoption row).
+- **Additive and frozen-envelope safe (§AGID-1.5).** No `execution_hash` movement, no `required[]`
+  change, `chaingraph_version` stays `"0.4.0"`, absence is fully conformant and means NO CLAIM, and
+  nothing emits the member yet. The rendered spec page does not carry the section yet: §AGID-1 is
+  registered in `spec-page-parity-baseline.json` as known-missing debt until the page backfill lands.
+
 ## §NODEPAGE-1 text pass — Page-less nodes (the `pageless` declaration)
 - **SPEC-TEXT PASS — not a record bump.** `spec_version` of record stays whatever `chaingraph.json`
   carries, same separation as the §30 pass below. Anchored on `board/done/SCHEMA-PAGELESS-FIELD-1.md`

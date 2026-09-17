@@ -1,8 +1,36 @@
 name: Deploy to DreamHost
 
 on:
-  push:
-    branches: [ main ]
+  # Fire on the single-writer regen's COMPLETION, not on `push: main`
+  # (measured 2026-09-11: a deploy fired alongside the single-writer regen
+  # can publish a tree that main no longer has a minute later).
+  #
+  # Every push to main still reaches a deploy, and the tree that ships is one
+  # main still holds a minute later:
+  #   · a push M to main triggers `Derived Artifacts Regen` (its `push: main`
+  #     trigger is unchanged). If the regen finds drift it commits R and pushes
+  #     it via the spec-sync App, which re-triggers the regen; that follow-up
+  #     run finds the tree fresh and completes successfully — THIS workflow
+  #     fires on that completion with
+  #     github.event.workflow_run.head_sha = R, the commit main ends up with.
+  #   · if the regen finds no drift, its single run completes successfully and
+  #     this fires with head_sha = M.
+  # So head_sha is either the regen commit or the merge commit when the regen
+  # changed nothing. The regen exposes which in its own run output: the
+  # commit-and-push step prints the pushed sha, a no-op run prints "nothing to
+  # commit". The run its FIRST completion fires (head_sha = M, before R exists
+  # or is known) is collapsed by the `supersede` job below, unchanged: at M the
+  # shared derived artifacts are stale-by-construction and provably repairable,
+  # so it stands down and publishes nothing — the same classification the old
+  # push-vs-regen race relied on, now over a strictly later start line.
+  #
+  # A regen that did NOT conclude success repaired nothing; it reds its own
+  # alert channel, and deploy-drift-check.yml (every 4 h) reds the stale live
+  # stamp — no deploy is attempted from a failed run (gated on the supersede
+  # job's `if:` below).
+  workflow_run:
+    workflows: [ "Derived Artifacts Regen" ]
+    types: [ completed ]
   workflow_dispatch:
     inputs:
       dry_run:
@@ -13,10 +41,24 @@ on:
 permissions:
   contents: read
 
+# The commit this run deploys. On workflow_run, github.sha is the head of the
+# default branch at event time and can move past what the regen actually
+# validated; github.event.workflow_run.head_sha is the commit the completed
+# regen ran on. On workflow_dispatch, github.sha is the dispatched ref's head.
+# Every job below checks out and stamps THIS one sha, so supersede classifies,
+# preflight gates, and rsync publishes exactly one tree. Event values cross
+# via env:, never `${{ }}` inside run: bodies (the rule every step follows).
+env:
+  DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
 jobs:
   # ── Is this run already SUPERSEDED by the derived-artifacts regen? ─────────
-  # This workflow and derived-artifacts-regen.yml BOTH trigger on `push: main`,
-  # so they start together and this one races the regen. Measured 2026-08-23:
+  # Since the workflow_run trigger above, this workflow no longer STARTS
+  # alongside the regen — it starts only AFTER a regen run completes. The race
+  # this job still arbitrates is between the regen's FIRST completion (its
+  # head_sha = the merge commit M, before the bot's repair commit R exists) and
+  # the follow-up no-op completion (head_sha = R). At M the shared derived
+  # artifacts are stale-by-construction, exactly the shape measured 2026-08-23:
   #
   #   Deploy to DreamHost: failure  e7e6ef34  (the merge commit, run 32659409887)
   #        gen-llms-full --check: llms-full.txt is stale.
@@ -47,6 +89,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # Entry gate for the whole run: the workflow_run trigger above fires for
+    # EVERY completed regen — failure, cancelled, timed_out — and, in
+    # principle, for a regen dispatched against a non-main branch. Only a
+    # SUCCESSFUL main-branch regen may lead to a deploy; anything else skips
+    # this job, and preflight/deploy (which `need:` it) skip with it.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
     outputs:
       superseded: ${{ steps.classify.outputs.superseded }}
       reason: ${{ steps.classify.outputs.reason }}
@@ -54,6 +107,9 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
+          # The one commit this run may deploy (workflow-level DEPLOY_SHA —
+          # the completed regen's head_sha on the workflow_run trigger).
+          ref: ${{ env.DEPLOY_SHA }}
           # fetch-depth: 0 is REQUIRED, and for the same reason
           # derived-artifacts-regen.yml gives at its own checkout: the probe below
           # runs the declared regen chain, and gen-debt-ledger.mjs reads per-file
@@ -97,6 +153,9 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
+          # The one commit this run may deploy (workflow-level DEPLOY_SHA —
+          # the completed regen's head_sha on the workflow_run trigger).
+          ref: ${{ env.DEPLOY_SHA }}
           # fetch-depth 0 (was 1, 2026-08-27): this job runs base-ref-consuming
           # gates — the Nav reachability gate below reaches check-shard-assembly.mjs,
           # which resolves origin/main. On the push:main trigger depth 1 happens to
@@ -530,6 +589,12 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
+          # The one commit this run may deploy (workflow-level DEPLOY_SHA —
+          # the completed regen's head_sha on the workflow_run trigger). Never
+          # the bare default here: on workflow_run, github.sha is the head of
+          # the default branch at event time and can be a NEWER commit than
+          # the tree the supersede and preflight jobs above gated.
+          ref: ${{ env.DEPLOY_SHA }}
           fetch-depth: 1
           persist-credentials: false
 
@@ -566,28 +631,48 @@ jobs:
       - name: 🔌 Test SSH connection to DreamHost
         # Hard-fail early if the key is wrong — prevents rsync from running
         # with --delete against an unreachable or misidentified target.
+        # 3 attempts x 20 s before failing (added 2026-09-11 — measured
+        # 2026-09-07/08: DreamHost transient SSH ConnectTimeout, exit 255,
+        # twice). Still fails closed: a
+        # wrong key exhausts all 3 attempts and the deploy never reaches the
+        # --delete rsync below; only the transient shape is retried.
         env:
           DH_SSH_USER: ${{ secrets.DH_SSH_USER }}
           DH_SSH_HOST: ${{ secrets.DH_SSH_HOST }}
         run: |
+          set -euo pipefail
           # Quoted as ONE argument. The previous form was unquoted, so a value
           # containing whitespace or a glob character would have word-split
           # into several arguments; for the current values the resulting argv
           # is identical.
-          ssh -i ~/.ssh/deploy_key \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=no \
-            -o BatchMode=yes \
-            -o ConnectTimeout=10 \
-            "$DH_SSH_USER@$DH_SSH_HOST" "echo '✅ SSH connection confirmed'"
+          attempt=1
+          until ssh -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              -o StrictHostKeyChecking=no \
+              -o BatchMode=yes \
+              -o ConnectTimeout=10 \
+              "$DH_SSH_USER@$DH_SSH_HOST" "echo '✅ SSH connection confirmed'"; do
+            # First statement in the loop body: still holds ssh's exit code
+            # (255 on ConnectTimeout), before any other command resets $?.
+            ssh_rc=$?
+            if [ "$attempt" -ge 3 ]; then
+              echo "::error::SSH connection failed after 3 attempts (last exit $ssh_rc; DreamHost transient shape — not retried further)"
+              exit 1
+            fi
+            echo "::warning::SSH attempt $attempt failed (exit $ssh_rc) — retrying in 20 s."
+            attempt=$((attempt + 1))
+            sleep 20
+          done
 
       - name: 🪪 Write deploy stamp (DEPLOYDRIFT-1)
         # Written HERE, at rsync time, from the commit actually being deployed —
         # never at preflight — so it attests what really shipped, not what merely
         # passed checks. scripts/check-deploy-drift.mjs compares this against
         # origin/main's HEAD to detect a deploy that silently failed to fire.
-        env:
-          DEPLOY_SHA: ${{ github.sha }}
+        # DEPLOY_SHA crosses from the workflow-level env (the completed regen's
+        # head_sha on the workflow_run trigger) — never github.sha, which on
+        # workflow_run is the default-branch head at event time and could name
+        # a commit whose tree this run did not check out.
         run: |
           mkdir -p .well-known
           printf '{"sha":"%s","deployed_at":"%s"}\n' \
@@ -623,8 +708,9 @@ jobs:
         # on any checkout. Node is runner-preinstalled; no setup-node needed
         # for two fs reads and a write. Keep this pipeline BYTE-IDENTICAL to
         # the preflight job's "Deploy manifest preview" step above.
-        env:
-          DEPLOY_SHA: ${{ github.sha }}
+        # DEPLOY_SHA crosses from the workflow-level env (the completed regen's
+        # head_sha on the workflow_run trigger) — the manifest must name the
+        # commit whose tree this run checked out, not the event-time branch head.
         run: |
           set -euo pipefail
           mkdir -p .well-known
@@ -704,34 +790,73 @@ jobs:
 
       - name: 🚀 Sync to DreamHost via rsync
         # Keep these --include/--exclude flags identical to the dry-run rsync above.
+        #
+        # --ignore-missing-args (added 2026-09-11 — measured 2026-09-11T18:48Z:
+        # rsync exit 24 while the single-writer regen bot rewrote derived files
+        # mid-transfer): the regen can rewrite or
+        # delete a derived file (an okf pair, an fv-status blob) after rsync's
+        # scan named it, and plain rsync exits 24 "partial transfer due to
+        # vanished source files" — a red deploy whose published set was in fact
+        # complete. With the flag, a vanished source is skipped with a warning
+        # instead. No other flag changes: what is deployed (the include/exclude
+        # mirror, the digests) is identical to before. The dry-run rsync above
+        # stays untouched BY DESIGN — it transfers no bytes, so the exit-24
+        # shape (detected when reading a source for transfer) is a real-rsync
+        # event; this keeps the two steps' division of labour exactly as it was.
+        #
+        # The wrapper is for the residual shape: exit 24 triggers EXACTLY ONE
+        # re-run of the same command after 20 s (one regen cycle's worth of
+        # settle time), and is fatal only if the re-run exits non-zero again
+        # (rsync's documented semantics: 24 = partial transfer, source files
+        # vanished). Every other exit code fails the step immediately, and the
+        # command re-run is byte-identical to the first pass — a second exit 24
+        # means something is genuinely racing or broken, and a deploy that
+        # cannot prove a complete transfer must not report success.
         env:
           DH_SSH_USER: ${{ secrets.DH_SSH_USER }}
           DH_SSH_HOST: ${{ secrets.DH_SSH_HOST }}
           DH_WEB_ROOT: ${{ secrets.DH_WEB_ROOT }}
         run: |
-          rsync -avz --delete --omit-dir-times \
-            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            --exclude='.gitattributes' \
-            --exclude='scripts/' \
-            --include='chaingraph/okf/**' \
-            --include='chaingraph/standard/SPEC.md' \
-            --exclude='*.md' \
-            --exclude='specs/' \
-            --exclude='CONTRACT.md' \
-            --exclude='CLAUDE.md' \
-            --exclude='.gitignore' \
-            --exclude='.env*' \
-            --exclude='node_modules/' \
-            --exclude='.DS_Store' \
-            --exclude='Thumbs.db' \
-            --exclude='reconciled/' \
-            --exclude='CANONICAL_TOOL_EXAMPLE.html' \
-            --exclude='docs/' \
-            ./ "$DH_SSH_USER@$DH_SSH_HOST:$DH_WEB_ROOT/"
+          set -euo pipefail
+          run_rsync() {
+            rsync -avz --delete --omit-dir-times --ignore-missing-args \
+              -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" \
+              --exclude='.git/' \
+              --exclude='.github/' \
+              --exclude='.gitattributes' \
+              --exclude='scripts/' \
+              --include='chaingraph/okf/**' \
+              --include='chaingraph/standard/SPEC.md' \
+              --exclude='*.md' \
+              --exclude='specs/' \
+              --exclude='CONTRACT.md' \
+              --exclude='CLAUDE.md' \
+              --exclude='.gitignore' \
+              --exclude='.env*' \
+              --exclude='node_modules/' \
+              --exclude='.DS_Store' \
+              --exclude='Thumbs.db' \
+              --exclude='reconciled/' \
+              --exclude='CANONICAL_TOOL_EXAMPLE.html' \
+              --exclude='docs/' \
+              ./ "$DH_SSH_USER@$DH_SSH_HOST:$DH_WEB_ROOT/"
+          }
 
-          echo "✅ rsync completed successfully."
+          # First pass in condition position, so a non-zero exit is captured
+          # instead of tripping `set -e` before the classification below.
+          if run_rsync; then
+            echo "✅ rsync completed successfully."
+          else
+            RC=$?
+            if [ "$RC" -ne 24 ]; then
+              echo "❌ rsync failed with exit $RC."
+              exit "$RC"
+            fi
+            echo "::warning::rsync exit 24 — partial transfer, source files vanished mid-run (the single-writer regen rewrote derived files during transfer). Re-running the identical command once after 20 s."
+            sleep 20
+            run_rsync
+            echo "✅ rsync retry completed successfully (first pass exited 24)."
+          fi
 
       - name: 🪪 Attest deploy provenance
         # actions/attest-build-provenance is new to this repo's workflow set;
@@ -855,8 +980,9 @@ jobs:
         run: node scripts/check-served-egress.mjs
 
       - name: 📊 Deploy summary
+        # DEPLOY_SHA crosses from the workflow-level env — the commit whose
+        # tree this run checked out, stamped, and rsynced.
         env:
-          DEPLOY_SHA: ${{ github.sha }}
           DEPLOY_BRANCH: ${{ github.ref_name }}
         run: |
           TOOL_COUNT=$(ls tools/*.html 2>/dev/null | wc -l)

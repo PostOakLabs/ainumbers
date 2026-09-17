@@ -1,5 +1,5 @@
 // rca-02-mica-reserve-stress.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C15-1).
-// kernel_digest_at_authoring: sha256:c66896024cd7ffc75c46cdd7c67e42c929234c4c7ce4b342a372b3627a68377b
+// kernel_digest_at_authoring: sha256:05e290e886586a4be8d741f9d6d1bea7e8a45270d4adb37775997bbea621430f
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
