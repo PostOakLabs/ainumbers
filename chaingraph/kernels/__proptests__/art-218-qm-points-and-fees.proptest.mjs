@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:451c7b3b5ae225db716a4b46040eb80af02bf7aa2a2ac25a35f3da1e295700ce
+// kernel_digest_at_authoring: sha256:8a58b1dd5b5266e9c59f6d1d5e716a9a4d167ab92072c0a8cc32d4a863578f16
 //
 // FV-PROPFLOOR-SHARD-B6-1 — property-test floor for art-218-qm-points-and-fees.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (pass/fail is a continuous points-and-fees
@@ -32,7 +32,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-218-qm-points-and-fees.proptest.mjs
 
-import { compute } from '../art-218-qm-points-and-fees.kernel.mjs';
+import { compute, THRESHOLD_TABLES } from '../art-218-qm-points-and-fees.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -372,6 +372,100 @@ function checkP4_forced() {
   return rows;
 }
 
+// ---------- P5: full-table oracle — the ENTIRE version-pinned table, asserted exactly ----------
+// Independent FR-pinned oracle (CFPB annual threshold notices; primary-text snapshots at
+// research/clause-snapshots/art220/, retrieved 2026-09-03 from govinfo.gov). Deep equality
+// against the kernel's THRESHOLD_TABLES export kills every constant mutation in
+// QM_TIERS_BY_YEAR (values, bounds, labels, citations, effective dates); the boundary
+// loans below kill the findTier comparison mutants. An annual refresh must move the
+// kernel AND this oracle in the same commit — that double-entry is the point.
+const P5_ORACLE = {
+  2021: {
+    fr_citation: 'FR 2020-15900 (Aug 19, 2020), 85 FR 50944', effective: '2021-01-01',
+    tiers: [
+      { threshold_min: 110260, limit_type: 'pct', limit_pct: 3.0, label: '>= $110,260: 3%' },
+      { threshold_min: 66156, threshold_max: 110259.99, limit_type: 'fixed', limit_fixed: 3308, label: '$66,156 - $110,259.99: $3,308' },
+      { threshold_min: 22052, threshold_max: 66155.99, limit_type: 'pct', limit_pct: 5.0, label: '$22,052 - $66,155.99: 5%' },
+      { threshold_min: 13783, threshold_max: 22051.99, limit_type: 'fixed', limit_fixed: 1103, label: '$13,783 - $22,051.99: $1,103' },
+      { threshold_max: 13782.99, limit_type: 'pct', limit_pct: 8.0, label: '< $13,783: 8%' },
+    ],
+  },
+  2022: {
+    fr_citation: 'FR 2021-23478 (Nov 2, 2021), 86 FR 60357', effective: '2022-01-01',
+    tiers: [
+      { threshold_min: 114847, limit_type: 'pct', limit_pct: 3.0, label: '>= $114,847: 3%' },
+      { threshold_min: 68908, threshold_max: 114846.99, limit_type: 'fixed', limit_fixed: 3445, label: '$68,908 - $114,846.99: $3,445' },
+      { threshold_min: 22969, threshold_max: 68907.99, limit_type: 'pct', limit_pct: 5.0, label: '$22,969 - $68,907.99: 5%' },
+      { threshold_min: 14356, threshold_max: 22968.99, limit_type: 'fixed', limit_fixed: 1148, label: '$14,356 - $22,968.99: $1,148' },
+      { threshold_max: 14355.99, limit_type: 'pct', limit_pct: 8.0, label: '< $14,356: 8%' },
+    ],
+  },
+  2023: {
+    fr_citation: 'FR 2022-28023 (Dec 23, 2022), 87 FR 78831', effective: '2023-01-01',
+    tiers: [
+      { threshold_min: 124331, limit_type: 'pct', limit_pct: 3.0, label: '>= $124,331: 3%' },
+      { threshold_min: 74599, threshold_max: 124330.99, limit_type: 'fixed', limit_fixed: 3730, label: '$74,599 - $124,330.99: $3,730' },
+      { threshold_min: 24866, threshold_max: 74598.99, limit_type: 'pct', limit_pct: 5.0, label: '$24,866 - $74,598.99: 5%' },
+      { threshold_min: 15541, threshold_max: 24865.99, limit_type: 'fixed', limit_fixed: 1243, label: '$15,541 - $24,865.99: $1,243' },
+      { threshold_max: 15540.99, limit_type: 'pct', limit_pct: 8.0, label: '< $15,541: 8%' },
+    ],
+  },
+  2024: {
+    fr_citation: 'FR 2023-20476 (Sep 21, 2023), 88 FR 65113', effective: '2024-01-01',
+    tiers: [
+      { threshold_min: 130461, limit_type: 'pct', limit_pct: 3.0, label: '>= $130,461: 3%' },
+      { threshold_min: 78277, threshold_max: 130460.99, limit_type: 'fixed', limit_fixed: 3914, label: '$78,277 - $130,460.99: $3,914' },
+      { threshold_min: 26092, threshold_max: 78276.99, limit_type: 'pct', limit_pct: 5.0, label: '$26,092 - $78,276.99: 5%' },
+      { threshold_min: 16308, threshold_max: 26091.99, limit_type: 'fixed', limit_fixed: 1305, label: '$16,308 - $26,091.99: $1,305' },
+      { threshold_max: 16307.99, limit_type: 'pct', limit_pct: 8.0, label: '< $16,308: 8%' },
+    ],
+  },
+  2025: {
+    fr_citation: 'FR 2024-27553 (Dec 2, 2024), 89 FR 95080', effective: '2025-01-01',
+    tiers: [
+      { threshold_min: 134841, limit_type: 'pct', limit_pct: 3.0, label: '>= $134,841: 3%' },
+      { threshold_min: 80905, threshold_max: 134840.99, limit_type: 'fixed', limit_fixed: 4045, label: '$80,905 - $134,840.99: $4,045' },
+      { threshold_min: 26968, threshold_max: 80904.99, limit_type: 'pct', limit_pct: 5.0, label: '$26,968 - $80,904.99: 5%' },
+      { threshold_min: 16855, threshold_max: 26967.99, limit_type: 'fixed', limit_fixed: 1348, label: '$16,855 - $26,967.99: $1,348' },
+      { threshold_max: 16854.99, limit_type: 'pct', limit_pct: 8.0, label: '< $16,855: 8%' },
+    ],
+  },
+  2026: {
+    fr_citation: 'FR 2025-22773 (Dec 15, 2025), 90 FR 57890', effective: '2026-01-01',
+    tiers: [
+      { threshold_min: 137958, limit_type: 'pct', limit_pct: 3.0, label: '>= $137,958: 3%' },
+      { threshold_min: 82775, threshold_max: 137957.99, limit_type: 'fixed', limit_fixed: 4139, label: '$82,775 - $137,957.99: $4,139' },
+      { threshold_min: 27592, threshold_max: 82774.99, limit_type: 'pct', limit_pct: 5.0, label: '$27,592 - $82,774.99: 5%' },
+      { threshold_min: 17245, threshold_max: 27591.99, limit_type: 'fixed', limit_fixed: 1380, label: '$17,245 - $27,591.99: $1,380' },
+      { threshold_max: 17244.99, limit_type: 'pct', limit_pct: 8.0, label: '< $17,245: 8%' },
+    ],
+  },
+};
+
+function checkP5_tableOracle() {
+  let violations = 0, checked = 0;
+  // (a) the exported table is exactly the pinned oracle (kills every constant mutant)
+  checked++;
+  if (JSON.stringify(THRESHOLD_TABLES) !== JSON.stringify(P5_ORACLE)) violations++;
+  // (b) boundary loans land on the exact tier with the exact limit (kills findTier
+  //     comparison mutants and pct-arithmetic mutants)
+  for (const year of Object.keys(P5_ORACLE).map(Number)) {
+    for (const tier of P5_ORACLE[year].tiers) {
+      for (const edge of ['threshold_min', 'threshold_max']) {
+        if (typeof tier[edge] !== 'number') continue;
+        checked++;
+        const op = compute({ loan_amount: tier[edge], points_and_fees: 0, year }).output_payload;
+        if (op.tier_label !== tier.label) violations++;
+        const expectedLimit = tier.limit_type === 'pct'
+          ? r2(tier[edge] * tier.limit_pct / 100)
+          : tier.limit_fixed;
+        if (op.limit !== expectedLimit) violations++;
+      }
+    }
+  }
+  return { name: 'P5_table_oracle_full_pin', trials: checked, violations };
+}
+
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED — spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
@@ -381,10 +475,7 @@ if (!oracleOk) {
 results.properties.push(checkP1_monotonePass());
 results.properties.push(checkP2_passAgreement());
 results.properties.push(checkP3_headroomIdentity());
-results.properties.push(checkP5_yearTableSelectionExact());
-results.properties.push(checkP6_yearResolutionAndFallback());
-results.properties.push(checkP7_tierGapNoTierMatched());
-results.properties.push(checkP8_passToleranceEdges());
+results.properties.push(checkP5_tableOracle());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);

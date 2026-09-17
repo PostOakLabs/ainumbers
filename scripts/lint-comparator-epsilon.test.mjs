@@ -81,8 +81,8 @@ check("stripCommentsAndStrings blanks comments+strings, keeps code (offset-stabl
 console.log("CONTROL 6 art-234 caught and baselined:");
 const a234 = verdictFor(readKernel("art-234-test-hoepa-high-cost"));
 const flaggedLines = a234.flagged.map((h) => h.line).sort((a, b) => a - b);
-check("art-234 kernel lines 93 and 106 are flagged WIDENING_STRICT (the audit-named L106 inversion + its sibling)",
-  JSON.stringify(flaggedLines) === "[93,106]", JSON.stringify(a234.flagged.map((h) => h.line + ":" + h.shape)));
+check("art-234 kernel lines 99 and 112 are flagged WIDENING_STRICT (the audit-named L106 inversion + its sibling; moved +6 by the REGZ-TABLE-SINGLE-WRITER-3 export block)",
+  JSON.stringify(flaggedLines) === "[99,112]", JSON.stringify(a234.flagged.map((h) => h.line + ":" + h.shape)));
 const baseline = JSON.parse(readFileSync(resolve(HERE, "comparator-epsilon-baseline.json"), "utf8"));
 check("art-234 is shielded by the baseline pin",
   baseline.files.includes("chaingraph/kernels/art-234-test-hoepa-high-cost.kernel.mjs") && baseline.total === 2);

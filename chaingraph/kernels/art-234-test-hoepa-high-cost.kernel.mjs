@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-234-test-hoepa-high-cost';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -56,6 +56,12 @@ const HOEPA_PF = {
     trigger_floor: 1348,
   },
 };
+
+// Single-writer export (REGZ-TABLE-SINGLE-WRITER-3): the node page's HOEPA_PF block is
+// generated from this object by scripts/check-art234-table-parity.mjs; the page never
+// hand-maintains a second copy of these constants. 2025 values per ART234-HOEPA-2025-FIX-1
+// (PR #1862, FR 2024-27553); this row adds the export mechanism without re-deriving them.
+export const THRESHOLD_TABLES = HOEPA_PF;
 
 // HOEPA prepayment penalty trigger (§1026.32(a)(1)(iii)) -- structural, not CPI-adjusted
 const HOEPA_PP = {
