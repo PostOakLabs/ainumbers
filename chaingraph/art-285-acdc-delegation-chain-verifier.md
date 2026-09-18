@@ -9,7 +9,7 @@ Verifies a chain of Authentic Chained Data Containers (ACDC): per-credential SAI
 ## Inputs
 
 - credentials (array, required)
-- expected_root_aid (unknown, optional)
+- expected_root_aid (any, optional): type not evidenced by kernel source
 - max_chain_depth (number, required)
 
 ## Outputs

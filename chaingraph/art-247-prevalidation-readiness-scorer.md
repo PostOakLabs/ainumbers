@@ -8,16 +8,16 @@ Aggregate CBPR+ pre-validation readiness check for a single pacs.008 payment ins
 
 ## Inputs
 
-- address_building_number (unknown, required)
-- address_country (unknown, required)
+- address_building_number (any, required): type not evidenced by kernel source
+- address_country (any, required): type not evidenced by kernel source
 - address_lines (array, required)
-- address_post_code (unknown, required)
-- address_street_name (unknown, required)
-- address_town_name (unknown, required)
-- bic (unknown, required)
-- iban (unknown, required)
-- lei (unknown, required)
-- uetr (unknown, required)
+- address_post_code (any, required): type not evidenced by kernel source
+- address_street_name (any, required): type not evidenced by kernel source
+- address_town_name (any, required): type not evidenced by kernel source
+- bic (any, required): type not evidenced by kernel source
+- iban (any, required): type not evidenced by kernel source
+- lei (any, required): type not evidenced by kernel source
+- uetr (any, required): type not evidenced by kernel source
 
 ## Outputs
 

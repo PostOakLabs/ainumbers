@@ -8,10 +8,10 @@ Given a beneficiary country and payment amount, determines whether ExternalPurpo
 
 ## Inputs
 
-- beneficiary_country (unknown, required)
-- category_purpose_code (unknown, required)
+- beneficiary_country (any, required): type not evidenced by kernel source
+- category_purpose_code (any, required): type not evidenced by kernel source
 - payment_amount_usd (number, required): Amount in US dollars
-- purpose_code (unknown, required)
+- purpose_code (any, required): type not evidenced by kernel source
 
 ## Outputs
 

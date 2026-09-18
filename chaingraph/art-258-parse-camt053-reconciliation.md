@@ -8,9 +8,9 @@ Classifies ISO 20022 camt.053 BkTxCd entries by Domain, Family, and SubFamily pe
 
 ## Inputs
 
-- closing_balance (unknown, required)
-- day_count_convention (unknown, required)
-- opening_balance (unknown, required)
+- closing_balance (any, required): type not evidenced by kernel source
+- day_count_convention (any, required): type not evidenced by kernel source
+- opening_balance (any, required): type not evidenced by kernel source
 - transactions (array, required)
 
 ## Outputs

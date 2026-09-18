@@ -8,14 +8,14 @@ Runs the §125 cafeteria-plan nondiscrimination tests from supplied aggregate pa
 
 ## Inputs
 
-- hce_avg_benefit_pct (unknown, required): Percentage value
-- hce_eligible_count (unknown, required): Count
-- hce_total_count (unknown, required): Count
-- key_employee_elected_total (unknown, required)
-- nhce_avg_benefit_pct (unknown, required): Percentage value
-- nhce_eligible_count (unknown, required): Count
-- nhce_total_count (unknown, required): Count
-- total_elected_all_participants (unknown, required)
+- hce_avg_benefit_pct (any, required): Percentage value; type not evidenced by kernel source
+- hce_eligible_count (any, required): Count; type not evidenced by kernel source
+- hce_total_count (any, required): Count; type not evidenced by kernel source
+- key_employee_elected_total (any, required): type not evidenced by kernel source
+- nhce_avg_benefit_pct (any, required): Percentage value; type not evidenced by kernel source
+- nhce_eligible_count (any, required): Count; type not evidenced by kernel source
+- nhce_total_count (any, required): Count; type not evidenced by kernel source
+- total_elected_all_participants (any, required): type not evidenced by kernel source
 
 ## Outputs
 

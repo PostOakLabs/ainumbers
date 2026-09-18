@@ -8,11 +8,11 @@ The synergy flagship. Validates a single agent purchase end-to-end across up to 
 
 ## Inputs
 
-- acp_payload (unknown, required)
-- ap2_mandate_trio (unknown, required)
-- mpp_session (unknown, required)
-- tap_headers (unknown, required)
-- x402_payload (unknown, required)
+- acp_payload (any, required): type not evidenced by kernel source
+- ap2_mandate_trio (any, required): type not evidenced by kernel source
+- mpp_session (any, required): type not evidenced by kernel source
+- tap_headers (any, required): type not evidenced by kernel source
+- x402_payload (any, required): type not evidenced by kernel source
 
 ## Outputs
 

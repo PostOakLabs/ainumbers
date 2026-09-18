@@ -8,8 +8,8 @@ Assembles a supplied NIST AI RMF function-mapping result (map_nist_ai_rmf_functi
 
 ## Inputs
 
-- exposure_result (unknown, required)
-- rmf_mapping (unknown, required)
+- exposure_result (any, required): type not evidenced by kernel source
+- rmf_mapping (any, required): type not evidenced by kernel source
 
 ## Outputs
 

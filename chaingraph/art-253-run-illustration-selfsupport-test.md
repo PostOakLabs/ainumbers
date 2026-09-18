@@ -8,13 +8,13 @@ Runs the NAIC Model Regulation 582 §8C self-support test (year 15 and year 20 a
 
 ## Inputs
 
-- account_values (unknown, required)
-- cost_of_insurance (unknown, required)
-- credited_interest (unknown, required)
-- expense_charges (unknown, required)
-- face_amount (unknown, required)
-- lapse_rates (unknown, required)
-- premium_payments (unknown, required)
+- account_values (any, required): type not evidenced by kernel source
+- cost_of_insurance (any, required): type not evidenced by kernel source
+- credited_interest (any, required): type not evidenced by kernel source
+- expense_charges (any, required): type not evidenced by kernel source
+- face_amount (any, required): type not evidenced by kernel source
+- lapse_rates (any, required): type not evidenced by kernel source
+- premium_payments (any, required): type not evidenced by kernel source
 
 ## Outputs
 

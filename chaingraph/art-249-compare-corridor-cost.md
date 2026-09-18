@@ -9,11 +9,11 @@ Benchmarks a remittance corridor total cost (fee % + FX margin %) against the Wo
 ## Inputs
 
 - from_country (string, required)
-- fx_rate_mid (unknown, required)
-- fx_rate_used (unknown, required)
-- provider_fee (unknown, required)
-- send_amount (unknown, required)
-- service_name (unknown, required)
+- fx_rate_mid (any, required): type not evidenced by kernel source
+- fx_rate_used (any, required): type not evidenced by kernel source
+- provider_fee (any, required): type not evidenced by kernel source
+- send_amount (any, required): type not evidenced by kernel source
+- service_name (any, required): type not evidenced by kernel source
 - to_country (string, required)
 
 ## Outputs

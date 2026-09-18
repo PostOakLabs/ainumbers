@@ -8,10 +8,10 @@ Extends the lint_mcp_server_conformance (art-33) self-reported conformance lint 
 
 ## Inputs
 
-- decision_policy_ref (unknown, required)
-- kernel_bindings (unknown, required)
-- orchestrator_manifest (unknown, required)
-- transport (unknown, required)
+- decision_policy_ref (any, required): type not evidenced by kernel source
+- kernel_bindings (any, required): type not evidenced by kernel source
+- orchestrator_manifest (any, required): type not evidenced by kernel source
+- transport (any, required): type not evidenced by kernel source
 
 ## Outputs
 

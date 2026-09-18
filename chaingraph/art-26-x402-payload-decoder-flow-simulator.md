@@ -8,8 +8,8 @@ Decodes base64 PAYMENT-REQUIRED / PAYMENT-SIGNATURE / PAYMENT-RESPONSE headers, 
 
 ## Inputs
 
-- header_or_payload (unknown, required)
-- payload (unknown, optional)
+- header_or_payload (any, required): type not evidenced by kernel source
+- payload (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

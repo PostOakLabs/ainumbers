@@ -8,7 +8,7 @@ Assesses supplied Texas AI-deployment attributes and intentional-use assertions 
 
 ## Inputs
 
-- asserted_use_flags (unknown, required)
+- asserted_use_flags (any, required): type not evidenced by kernel source
 - deploys_in_texas (boolean, required)
 
 ## Outputs

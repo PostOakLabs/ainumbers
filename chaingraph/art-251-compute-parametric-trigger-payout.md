@@ -8,13 +8,13 @@ Evaluates parametric insurance triggers and computes payout amounts. Supports th
 
 ## Inputs
 
-- coverage_amount (unknown, required)
-- index_value (unknown, required)
-- max_index (unknown, required)
-- parametric_limit (unknown, required)
-- threshold (unknown, required)
+- coverage_amount (any, required): type not evidenced by kernel source
+- index_value (any, required): type not evidenced by kernel source
+- max_index (any, required): type not evidenced by kernel source
+- parametric_limit (any, required): type not evidenced by kernel source
+- threshold (any, required): type not evidenced by kernel source
 - tier_table (array, required)
-- trigger_type (unknown, required)
+- trigger_type (any, required): type not evidenced by kernel source
 
 ## Outputs
 

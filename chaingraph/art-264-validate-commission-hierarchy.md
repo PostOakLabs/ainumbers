@@ -8,8 +8,8 @@ BFS structural validation of multi-level sales commission hierarchies. Detects o
 
 ## Inputs
 
-- hierarchy (unknown, optional)
-- max_levels (unknown, optional)
+- hierarchy (any, optional): type not evidenced by kernel source
+- max_levels (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

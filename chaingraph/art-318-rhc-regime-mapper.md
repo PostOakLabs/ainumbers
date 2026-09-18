@@ -8,12 +8,12 @@ Maps the regulatory regime implied by a pasted Robinhood Chain stock-token chara
 
 ## Inputs
 
-- holder_of_record (unknown, optional)
-- instrument_type (unknown, optional)
-- issuer_entity (unknown, optional)
-- target_jurisdictions (unknown, optional)
-- voting_rights (unknown, optional)
-- wrapper (unknown, optional)
+- holder_of_record (any, optional): type not evidenced by kernel source
+- instrument_type (any, optional): type not evidenced by kernel source
+- issuer_entity (any, optional): type not evidenced by kernel source
+- target_jurisdictions (any, optional): type not evidenced by kernel source
+- voting_rights (any, optional): type not evidenced by kernel source
+- wrapper (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

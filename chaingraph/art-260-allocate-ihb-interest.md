@@ -8,12 +8,12 @@ Allocates overnight in-house-bank (IHB) interest across notional pool or ZBA swe
 
 ## Inputs
 
-- arm_length_rate (unknown, required)
-- base_currency (unknown, required)
-- day_count_convention (unknown, required)
-- days (unknown, required)
+- arm_length_rate (any, required): type not evidenced by kernel source
+- base_currency (any, required): type not evidenced by kernel source
+- day_count_convention (any, required): type not evidenced by kernel source
+- days (any, required): type not evidenced by kernel source
 - pool_members (array, required)
-- pool_type (unknown, required)
+- pool_type (any, required): type not evidenced by kernel source
 
 ## Outputs
 

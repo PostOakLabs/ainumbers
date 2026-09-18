@@ -9,7 +9,7 @@
 ## Inputs
 
 - cushion_fraction (number, required)
-- disbursements (unknown, required)
+- disbursements (any, required): type not evidenced by kernel source
 - monthly_escrow_payment (number, optional)
 - starting_balance (number, optional)
 

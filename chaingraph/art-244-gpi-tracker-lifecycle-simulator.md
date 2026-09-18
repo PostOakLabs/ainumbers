@@ -9,9 +9,9 @@ Validates SWIFT GPI pacs.002 payment status code transitions against the GPI sta
 ## Inputs
 
 - amount_usd (number, required): Amount in US dollars
-- current_status (unknown, required)
+- current_status (any, required): type not evidenced by kernel source
 - hours_elapsed (number, required)
-- next_status (unknown, required)
+- next_status (any, required): type not evidenced by kernel source
 
 ## Outputs
 

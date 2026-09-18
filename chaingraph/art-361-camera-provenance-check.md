@@ -9,10 +9,10 @@ Structural check on an IDV/KYC capture's C2PA manifest: claim well-formedness, h
 ## Inputs
 
 - assertions (array, required)
-- claim (unknown, required)
-- claim_generator (unknown, required)
-- manifest_digest (unknown, required)
-- signature (unknown, required)
+- claim (any, required): type not evidenced by kernel source
+- claim_generator (any, required): type not evidenced by kernel source
+- manifest_digest (any, required): type not evidenced by kernel source
+- signature (any, required): type not evidenced by kernel source
 
 ## Outputs
 

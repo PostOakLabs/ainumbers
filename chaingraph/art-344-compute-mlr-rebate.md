@@ -11,7 +11,7 @@ Medical Loss Ratio numerator/denominator, credibility-adjustment tier, 3-year pr
 - earned_premium (number, optional)
 - federal_taxes_fees (number, optional)
 - incurred_claims (number, optional)
-- market (unknown, required)
+- market (any, required): type not evidenced by kernel source
 - member_life_years (number, optional)
 - prior_year_1_adjusted_mlr_pct (number, optional): Percentage value
 - prior_year_1_earned_premium (number, optional)

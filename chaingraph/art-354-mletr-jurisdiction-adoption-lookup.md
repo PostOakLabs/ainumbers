@@ -8,8 +8,8 @@ Static citation-table lookup of UNCITRAL MLETR (Model Law on Electronic Transfer
 
 ## Inputs
 
-- destination_jurisdiction (unknown, required)
-- origin_jurisdiction (unknown, required)
+- destination_jurisdiction (any, required): type not evidenced by kernel source
+- origin_jurisdiction (any, required): type not evidenced by kernel source
 
 ## Outputs
 

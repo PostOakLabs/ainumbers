@@ -8,7 +8,7 @@ Compiles a §22 Work Mandate document into a deterministic §21.4 gated-chain co
 
 ## Inputs
 
-- mandate (unknown, required)
+- mandate (any, required): type not evidenced by kernel source
 
 ## Outputs
 

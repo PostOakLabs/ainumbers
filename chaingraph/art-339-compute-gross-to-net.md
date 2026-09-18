@@ -12,7 +12,7 @@ Gross-to-net payroll calculation: FICA (Social Security 6.2% up to the OASDI con
 - gross_wages_per_period (number, optional)
 - post_tax_other_deductions (number, optional)
 - pretax_reduces_fica_and_fit (number, optional)
-- tax_year (unknown, required)
+- tax_year (any, required): type not evidenced by kernel source
 - ytd_fica_wages_before_period (number, optional)
 
 ## Outputs

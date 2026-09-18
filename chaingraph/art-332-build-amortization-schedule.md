@@ -9,7 +9,7 @@ Deterministic amortization schedule builder covering level-payment, ARM (index p
 ## Inputs
 
 - buydown_schedule (array, required)
-- buydown_type (unknown, required)
+- buydown_type (any, required): type not evidenced by kernel source
 - io_periods (number, optional)
 - lifetime_cap_pct (number, optional): Percentage value
 - lifetime_floor_pct (number, optional): Percentage value
@@ -24,7 +24,7 @@ Deterministic amortization schedule builder covering level-payment, ARM (index p
 - periods_per_year (number, optional)
 - rate_changes (array, required)
 - recast (boolean, required)
-- schedule_type (unknown, required)
+- schedule_type (any, required): type not evidenced by kernel source
 - unit_period_days (number, optional): Duration in days
 
 ## Outputs

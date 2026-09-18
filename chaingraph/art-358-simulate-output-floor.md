@@ -10,7 +10,7 @@ Basel III finalization / 2026 reproposal output-floor simulator: applies the pub
 
 - internal_model_rwa (number, optional)
 - phase_in_schedule (array, required)
-- rule_status (unknown, required)
+- rule_status (any, required): type not evidenced by kernel source
 - standardized_rwa (number, optional)
 
 ## Outputs

@@ -8,9 +8,9 @@ Recursive indirect natural-person beneficial ownership computation via ownership
 
 ## Inputs
 
-- natural_persons (unknown, optional)
-- ownership_tiers (unknown, optional)
-- target_entity_id (unknown, optional)
+- natural_persons (any, optional): type not evidenced by kernel source
+- ownership_tiers (any, optional): type not evidenced by kernel source
+- target_entity_id (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,7 +8,7 @@ Batch-sweeps a Fedwire or CHIPS payment file (CSV, one record per row) through t
 
 ## Inputs
 
-- file_content (unknown, required)
+- file_content (any, required): type not evidenced by kernel source
 - records (array, required)
 
 ## Outputs

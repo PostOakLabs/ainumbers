@@ -8,14 +8,14 @@ Validates BIS CPMI d218 harmonised data requirements for a pacs.008 payment inst
 
 ## Inputs
 
-- creditor_agent_bic (unknown, required)
-- creditor_lei (unknown, required)
-- creditor_name (unknown, required)
-- debtor_agent_bic (unknown, required)
-- debtor_lei (unknown, required)
-- debtor_name (unknown, required)
-- purpose_code (unknown, required)
-- uetr (unknown, required)
+- creditor_agent_bic (any, required): type not evidenced by kernel source
+- creditor_lei (any, required): type not evidenced by kernel source
+- creditor_name (any, required): type not evidenced by kernel source
+- debtor_agent_bic (any, required): type not evidenced by kernel source
+- debtor_lei (any, required): type not evidenced by kernel source
+- debtor_name (any, required): type not evidenced by kernel source
+- purpose_code (any, required): type not evidenced by kernel source
+- uetr (any, required): type not evidenced by kernel source
 
 ## Outputs
 

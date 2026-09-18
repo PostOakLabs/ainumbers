@@ -8,10 +8,10 @@ Verifies a Merkle-sum Proof-of-Reserves customer-inclusion proof (OKX, Binance, 
 
 ## Inputs
 
-- exchange (unknown, optional)
-- merkle_proof (unknown, required)
-- por_round (unknown, optional)
-- storage_proof_composition (unknown, optional)
+- exchange (any, optional): type not evidenced by kernel source
+- merkle_proof (any, required): type not evidenced by kernel source
+- por_round (any, optional): type not evidenced by kernel source
+- storage_proof_composition (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

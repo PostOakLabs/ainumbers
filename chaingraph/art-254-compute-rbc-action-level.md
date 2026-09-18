@@ -8,11 +8,11 @@ Computes NAIC Risk-Based Capital (RBC) action level classification for US P&C, l
 
 ## Inputs
 
-- authorized_control_level (unknown, required)
-- insurer_type (unknown, required)
-- prior_year_rbc_ratio (unknown, required)
-- total_adjusted_capital (unknown, required)
-- two_year_rbc_ratio (unknown, required)
+- authorized_control_level (any, required): type not evidenced by kernel source
+- insurer_type (any, required): type not evidenced by kernel source
+- prior_year_rbc_ratio (any, required): type not evidenced by kernel source
+- total_adjusted_capital (any, required): type not evidenced by kernel source
+- two_year_rbc_ratio (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -9,7 +9,7 @@ Macaulay and modified duration for a standard even-period bullet bond, given fac
 ## Inputs
 
 - coupon_rate_pct (number, optional): Percentage value
-- day_count_convention (unknown, required)
+- day_count_convention (any, required): type not evidenced by kernel source
 - face_value (number, optional)
 - periods_per_year (number, optional)
 - years_to_maturity (number, optional)

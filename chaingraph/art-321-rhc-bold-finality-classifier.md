@@ -8,13 +8,13 @@ Classifies a settlement-finality claim on Robinhood Chain, an Arbitrum Orbit ded
 
 ## Inputs
 
-- assertion_created (unknown, optional)
-- assertion_created_timestamp (unknown, optional)
-- batch_posted_to_l1 (unknown, optional)
-- challenge_window_seconds (unknown, optional)
-- current_time (unknown, optional)
-- finality_claim (unknown, optional)
-- l2_inclusion_timestamp (unknown, optional)
+- assertion_created (any, optional): type not evidenced by kernel source
+- assertion_created_timestamp (any, optional): type not evidenced by kernel source
+- batch_posted_to_l1 (any, optional): type not evidenced by kernel source
+- challenge_window_seconds (any, optional): type not evidenced by kernel source
+- current_time (any, optional): type not evidenced by kernel source
+- finality_claim (any, optional): type not evidenced by kernel source
+- l2_inclusion_timestamp (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

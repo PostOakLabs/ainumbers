@@ -8,7 +8,7 @@ Conformance-validate a structured e-invoice extract against version-pinned Factu
 
 ## Inputs
 
-- document (unknown, required)
+- document (any, required): type not evidenced by kernel source
 
 ## Outputs
 

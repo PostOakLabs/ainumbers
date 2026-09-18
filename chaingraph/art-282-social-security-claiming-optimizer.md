@@ -8,7 +8,7 @@ Models Social Security claiming-age tradeoffs from a claimant's own PIA/FRA stat
 
 ## Inputs
 
-- claimant (unknown, optional)
+- claimant (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

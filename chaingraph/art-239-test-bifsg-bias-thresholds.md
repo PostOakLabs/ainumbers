@@ -10,10 +10,10 @@ Tests BIFSG proxy bias thresholds under Colorado SB 21-169 / Reg. 10-1-1 for ins
 
 - attestation_year (number, optional)
 - marginal_effect_pct (number, optional): Percentage value
-- model_type (unknown, required)
+- model_type (any, required): type not evidenced by kernel source
 - p_value (number, optional)
 - premium_per_1000_above_avg_pct (number, optional): Percentage value
-- test_context (unknown, required)
+- test_context (any, required): type not evidenced by kernel source
 
 ## Outputs
 

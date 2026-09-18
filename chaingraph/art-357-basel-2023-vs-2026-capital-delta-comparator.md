@@ -8,7 +8,7 @@ Runs the same portfolio through the 2023 Basel III Endgame NPR risk-weight frame
 
 ## Inputs
 
-- business_indicator (unknown, required)
+- business_indicator (any, required): type not evidenced by kernel source
 - exposures (array, required)
 
 ## Outputs

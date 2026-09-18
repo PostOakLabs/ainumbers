@@ -8,10 +8,10 @@ Deterministic bind of an ISO 20022 pacs.008 (customer credit transfer) or pacs.0
 
 ## Inputs
 
-- contract_abi_fragment (unknown, required)
-- iso_fields (unknown, required)
-- iso_message_type (unknown, required)
-- mapping_profile (unknown, required)
+- contract_abi_fragment (any, required): type not evidenced by kernel source
+- iso_fields (any, required): type not evidenced by kernel source
+- iso_message_type (any, required): type not evidenced by kernel source
+- mapping_profile (any, required): type not evidenced by kernel source
 
 ## Outputs
 

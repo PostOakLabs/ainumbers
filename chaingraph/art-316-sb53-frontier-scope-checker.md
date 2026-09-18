@@ -8,8 +8,8 @@ Routes supplied model compute (FLOPs, as a decimal string above the 2^53 safe-in
 
 ## Inputs
 
-- annual_revenue_usd (unknown, required): Amount in US dollars
-- compute_flops (unknown, required)
+- annual_revenue_usd (any, required): Amount in US dollars; type not evidenced by kernel source
+- compute_flops (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,7 +8,7 @@ Lints a supplied generative-AI training-data disclosure against the 12 datapoint
 
 ## Inputs
 
-- disclosure (unknown, required)
+- disclosure (any, required): type not evidenced by kernel source
 
 ## Outputs
 

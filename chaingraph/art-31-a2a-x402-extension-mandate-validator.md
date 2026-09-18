@@ -8,9 +8,9 @@ Validates the A2A x402 extension (Coinbase/MetaMask/Ethereum Foundation) that ca
 
 ## Inputs
 
-- agent_card (unknown, required)
-- mandate_cap (unknown, required)
-- payment_payload (unknown, required)
+- agent_card (any, required): type not evidenced by kernel source
+- mandate_cap (any, required): type not evidenced by kernel source
+- payment_payload (any, required): type not evidenced by kernel source
 
 ## Outputs
 

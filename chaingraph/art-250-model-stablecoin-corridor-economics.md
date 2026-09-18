@@ -8,14 +8,14 @@ Models the all-in cost of a USDC-based remittance corridor: on-ramp fee, chain g
 
 ## Inputs
 
-- chain_fee_usd (unknown, required): Amount in US dollars
-- correspondent_cost_pct (unknown, required): Percentage value
-- float_days (unknown, required): Duration in days
-- float_savings_rate_pct (unknown, required): Percentage value
-- fx_spread_pct (unknown, required): Percentage value
-- off_ramp_fee_pct (unknown, required): Percentage value
-- on_ramp_fee_pct (unknown, required): Percentage value
-- send_amount_usd (unknown, required): Amount in US dollars
+- chain_fee_usd (any, required): Amount in US dollars; type not evidenced by kernel source
+- correspondent_cost_pct (any, required): Percentage value; type not evidenced by kernel source
+- float_days (any, required): Duration in days; type not evidenced by kernel source
+- float_savings_rate_pct (any, required): Percentage value; type not evidenced by kernel source
+- fx_spread_pct (any, required): Percentage value; type not evidenced by kernel source
+- off_ramp_fee_pct (any, required): Percentage value; type not evidenced by kernel source
+- on_ramp_fee_pct (any, required): Percentage value; type not evidenced by kernel source
+- send_amount_usd (any, required): Amount in US dollars; type not evidenced by kernel source
 
 ## Outputs
 

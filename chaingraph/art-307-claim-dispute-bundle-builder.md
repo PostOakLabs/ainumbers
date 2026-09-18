@@ -8,9 +8,9 @@ Assembles a two-sided replay-challenge dossier for a disputed execution_claim: b
 
 ## Inputs
 
-- challenge (unknown, required)
-- execution_claim (unknown, required)
-- warranty_kpi_breach (unknown, required)
+- challenge (any, required): type not evidenced by kernel source
+- execution_claim (any, required): type not evidenced by kernel source
+- warranty_kpi_breach (any, required): type not evidenced by kernel source
 
 ## Outputs
 
