@@ -1,13 +1,13 @@
 # Fedwire/CHIPS Structured-Address Migration
 
-Fedwire and CHIPS structured-address readiness for the 2026-11-16 cutover. Lint a single message (art-349, network param selects fedwire or chips - rules are byte-identical between the two networks), gate on the lint result: a fully compliant message ends the chain immediately, anything else continues to a batch sweep (art-350) of the full payment file for a rejection-risk report, then a before/after remediation diff receipt (tools/548) binding both file digests and the rule-clearance delta a bank shows its regulator or correspondents.
+Fedwire and CHIPS structured-address readiness. Federal Reserve Financial Services rescheduled the Fedwire cutover on 27 August 2026 from 16 November 2026 to the November 2027 release, exact date to be announced, and CHIPS has no published dated mandate. Lint a single message (art-349, network param selects fedwire or chips - rules are byte-identical between the two networks), gate on the lint result: a fully compliant message ends the chain immediately, anything else continues to a batch sweep (art-350) of the full payment file for a rejection-risk report, then a before/after remediation diff receipt (tools/548) binding both file digests and the rule-clearance delta a bank shows its regulator or correspondents.
 
 - Page: https://ainumbers.co/chaingraph/chains/fedwire-address-migration.html
 - Markdown twin: https://ainumbers.co/chaingraph/chains/fedwire-address-migration.md
 
 ## Workflow chain: Fedwire/CHIPS Structured-Address Migration
 
-Fedwire and CHIPS structured-address readiness for the 2026-11-16 cutover. Lint a single message (art-349, network param selects fedwire or chips - rules are byte-identical between the two networks), gate on the lint result: a fully compliant message ends the chain immediately, anything else continues to a batch sweep (art-350) of the full payment file for a rejection-risk report, then a before/after remediation diff receipt (tools/548) binding both file digests and the rule-clearance delta a bank shows its regulator or correspondents.
+Fedwire and CHIPS structured-address readiness. Federal Reserve Financial Services rescheduled the Fedwire cutover on 27 August 2026 from 16 November 2026 to the November 2027 release, exact date to be announced, and CHIPS has no published dated mandate. Lint a single message (art-349, network param selects fedwire or chips - rules are byte-identical between the two networks), gate on the lint result: a fully compliant message ends the chain immediately, anything else continues to a batch sweep (art-350) of the full payment file for a rejection-risk report, then a before/after remediation diff receipt (tools/548) binding both file digests and the rule-clearance delta a bank shows its regulator or correspondents.
 
 Domain: Wholesale Settlement
 
