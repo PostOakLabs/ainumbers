@@ -509,6 +509,16 @@ const PREFLIGHT_ONLY = new Map([
     "Reads only tracked repo files — no CI-only input."],
   ["check-output-schema-coverage.test.mjs", SELF_TEST],
 
+  // ── MCP-INPUTSCHEMA-DESC-TRIM-1 (2026-09-18) ───────────────────────────────
+  ["check-inputschema-desc-length.mjs",
+    "MCP inputSchema description length: a down-only ratchet on the count of served " +
+    "mcp_tool_definition.inputSchema property descriptions over 160 chars " +
+    "(scripts/inputschema-desc-length-baseline.json). Same shape and same CI route as " +
+    "check-output-schema-coverage above — hard in preflight, reached in CI by " +
+    "scripts-verify.yml's full-preflight step, so a named workflow step would only run the " +
+    "same suite twice. Reads only tracked manifests/*.manifest.json — no CI-only input."],
+  ["check-inputschema-desc-length.test.mjs", SELF_TEST],
+
   // ── LEDGER-GROTH16-VERIFY-1 (2026-09-05) ────────────────────────────────────
   ["check-ledger-proof-parity.mjs",
     "§18.1 Groth16 (BN254) seal parity: extracts the ledger page's SHIPPED in-browser verifier " +
