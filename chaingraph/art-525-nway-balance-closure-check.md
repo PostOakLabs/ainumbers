@@ -8,10 +8,10 @@ Takes three or more caller-declared balances for the same measure, at the same a
 
 ## Inputs
 
-- authoritative_system_id (unknown, required)
-- closure_tolerance_minor (unknown, required)
+- authoritative_system_id (any, required): type not evidenced by kernel source
+- closure_tolerance_minor (any, required): type not evidenced by kernel source
 - declared_differences (array, required)
-- measure_label (unknown, required)
+- measure_label (any, required): type not evidenced by kernel source
 - systems (array, required)
 
 ## Outputs

@@ -8,10 +8,10 @@ Validates an EuGB factsheet (Annex I) + allocation report (Annex II) for complet
 
 ## Inputs
 
-- allocation_report (unknown, optional)
-- external_reviewer (unknown, optional)
-- factsheet (unknown, optional)
-- use_of_proceeds (unknown, optional)
+- allocation_report (any, optional): type not evidenced by kernel source
+- external_reviewer (any, optional): type not evidenced by kernel source
+- factsheet (any, optional): type not evidenced by kernel source
+- use_of_proceeds (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

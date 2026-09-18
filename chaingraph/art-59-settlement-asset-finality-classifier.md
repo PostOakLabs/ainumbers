@@ -8,13 +8,13 @@ Classifies the settlement asset (CBM token / tokenized commercial bank deposit /
 
 ## Inputs
 
-- finality_designation (unknown, optional)
-- governing_law (unknown, optional)
-- issuer (unknown, optional)
-- jurisdiction (unknown, optional)
-- settlement_asset (unknown, optional)
-- singleness_test (unknown, optional)
-- transfer_mechanism (unknown, optional)
+- finality_designation (any, optional): type not evidenced by kernel source
+- governing_law (any, optional): type not evidenced by kernel source
+- issuer (any, optional): type not evidenced by kernel source
+- jurisdiction (any, optional): type not evidenced by kernel source
+- settlement_asset (any, optional): type not evidenced by kernel source
+- singleness_test (any, optional): type not evidenced by kernel source
+- transfer_mechanism (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,10 +8,10 @@ Models CSDR Refit last-resort mandatory buy-in exposure: eligible trigger date p
 
 ## Inputs
 
-- buyin_markup_pct (unknown, optional): Percentage value
-- cash_comp_premium_pct (unknown, optional): Percentage value
-- delegated_acts_in_force (unknown, optional)
-- fails (unknown, optional)
+- buyin_markup_pct (any, optional): Percentage value; type not evidenced by kernel source
+- cash_comp_premium_pct (any, optional): Percentage value; type not evidenced by kernel source
+- delegated_acts_in_force (any, optional): type not evidenced by kernel source
+- fails (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

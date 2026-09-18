@@ -9,16 +9,16 @@ Re-derives whether an allocation produced by an optimizer is explained by the ob
 ## Inputs
 
 - allocation_chosen (array, required)
-- as_of (unknown, optional)
+- as_of (any, optional): type not evidenced by kernel source
 - eligibility_schedule (array, required)
-- eligibility_schedule_ref (unknown, optional)
-- haircut_table_version (unknown, optional)
-- inventory_ref (unknown, optional)
+- eligibility_schedule_ref (any, optional): type not evidenced by kernel source
+- haircut_table_version (any, optional): type not evidenced by kernel source
+- inventory_ref (any, optional): type not evidenced by kernel source
 - inventory_snapshot (array, required)
 - objective (string, optional)
-- obligation_amount (unknown, required)
-- obligation_ref (unknown, optional)
-- rounding (unknown, required)
+- obligation_amount (any, required): type not evidenced by kernel source
+- obligation_ref (any, optional): type not evidenced by kernel source
+- rounding (any, required): type not evidenced by kernel source
 
 ## Outputs
 

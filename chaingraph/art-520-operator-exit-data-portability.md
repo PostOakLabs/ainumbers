@@ -8,12 +8,12 @@ Evaluates a caller-declared operator-exit and data-portability posture: per data
 
 ## Inputs
 
-- as_of (unknown, required)
-- contractual_operator (unknown, required)
+- as_of (any, required): type not evidenced by kernel source
+- contractual_operator (any, required): type not evidenced by kernel source
 - data_categories (array, required)
 - declared_components (array, required)
 - dependencies (array, required)
-- escrow_arrangements (unknown, required)
+- escrow_arrangements (any, required): type not evidenced by kernel source
 - notice_period_days (number, required): Duration in days
 - transition_assistance_terms (string, required)
 

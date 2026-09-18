@@ -8,7 +8,7 @@ Decision-tree from product attributes to ECCN (EAR) + EU Annex I category + cont
 
 ## Inputs
 
-- product (unknown, optional)
+- product (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

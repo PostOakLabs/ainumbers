@@ -8,17 +8,17 @@
 
 ## Inputs
 
-- allocation_confirmation_timing (unknown, optional)
-- corporate_actions_readiness (unknown, optional)
-- csd_participations (unknown, optional)
-- firm_type (unknown, optional)
-- fx_funding_compression (unknown, optional)
-- instrument_classes (unknown, optional)
-- jurisdictions (unknown, optional)
-- matching_method (unknown, optional)
-- partial_settlement_enabled (unknown, optional)
-- penalty_exposure_monitoring (unknown, optional)
-- ssi_automation (unknown, optional)
+- allocation_confirmation_timing (any, optional): type not evidenced by kernel source
+- corporate_actions_readiness (any, optional): type not evidenced by kernel source
+- csd_participations (any, optional): type not evidenced by kernel source
+- firm_type (any, optional): type not evidenced by kernel source
+- fx_funding_compression (any, optional): type not evidenced by kernel source
+- instrument_classes (any, optional): type not evidenced by kernel source
+- jurisdictions (any, optional): type not evidenced by kernel source
+- matching_method (any, optional): type not evidenced by kernel source
+- partial_settlement_enabled (any, optional): type not evidenced by kernel source
+- penalty_exposure_monitoring (any, optional): type not evidenced by kernel source
+- ssi_automation (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

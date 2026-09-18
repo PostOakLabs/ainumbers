@@ -8,7 +8,7 @@ Recomputes the sequential loss-allocation order at a CCP defaulting-member event
 
 ## Inputs
 
-- loss_amount_minor_units (unknown, required)
+- loss_amount_minor_units (any, required): type not evidenced by kernel source
 
 ## Outputs
 

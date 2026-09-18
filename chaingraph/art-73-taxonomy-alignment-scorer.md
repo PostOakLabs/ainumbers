@@ -8,11 +8,11 @@ Scores an economic activity against an environmental objective: substantial-cont
 
 ## Inputs
 
-- activity (unknown, optional)
-- criterion_refs (unknown, optional)
-- dnsh (unknown, optional)
-- minimum_safeguards (unknown, optional)
-- substantial_contribution (unknown, optional)
+- activity (any, optional): type not evidenced by kernel source
+- criterion_refs (any, optional): type not evidenced by kernel source
+- dnsh (any, optional): type not evidenced by kernel source
+- minimum_safeguards (any, optional): type not evidenced by kernel source
+- substantial_contribution (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

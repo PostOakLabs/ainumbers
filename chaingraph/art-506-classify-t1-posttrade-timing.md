@@ -8,14 +8,14 @@ Classifies the post-trade timings a caller supplies to answer the question a set
 
 ## Inputs
 
-- at_risk_margin_seconds (unknown, required)
+- at_risk_margin_seconds (any, required): type not evidenced by kernel source
 - baseline_cycle (string, required)
 - steps (array, required)
 - target_cycle (string, required)
-- time_zone_offset_minutes (unknown, required)
-- trade_ref (unknown, required)
-- trade_timestamp (unknown, required)
-- venue_cutoff (unknown, required)
+- time_zone_offset_minutes (any, required): type not evidenced by kernel source
+- trade_ref (any, required): type not evidenced by kernel source
+- trade_timestamp (any, required): type not evidenced by kernel source
+- venue_cutoff (any, required): type not evidenced by kernel source
 
 ## Outputs
 

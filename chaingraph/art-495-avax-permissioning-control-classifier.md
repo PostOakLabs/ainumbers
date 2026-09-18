@@ -8,9 +8,9 @@ Classifies six Evergreen supervisory controls - transaction permissioning, contr
 
 ## Inputs
 
-- application_controls (unknown, required)
-- precompiles (unknown, required)
-- validator_manager_mode (unknown, required)
+- application_controls (any, required): type not evidenced by kernel source
+- precompiles (any, required): type not evidenced by kernel source
+- validator_manager_mode (any, required): type not evidenced by kernel source
 
 ## Outputs
 

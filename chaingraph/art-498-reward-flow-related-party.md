@@ -8,16 +8,16 @@ Answers the question a consortium controller faces at quarter-end close on a per
 
 ## Inputs
 
-- as_of (unknown, required)
+- as_of (any, required): type not evidenced by kernel source
 - consortium_member_refs (array, required)
-- currency (unknown, required)
-- issuer_ref (unknown, required)
-- issuer_ultimate_parent_ref (unknown, required)
-- materiality_threshold (unknown, required)
+- currency (any, required): type not evidenced by kernel source
+- issuer_ref (any, required): type not evidenced by kernel source
+- issuer_ultimate_parent_ref (any, required): type not evidenced by kernel source
+- materiality_threshold (any, required): type not evidenced by kernel source
 - ownership_map (array, required)
-- period_ref (unknown, required)
+- period_ref (any, required): type not evidenced by kernel source
 - recipients (array, required)
-- ruleset_version (unknown, required)
+- ruleset_version (any, required): type not evidenced by kernel source
 
 ## Outputs
 

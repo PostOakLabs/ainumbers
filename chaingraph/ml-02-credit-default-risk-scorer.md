@@ -8,14 +8,14 @@ Logistic regression PD scorer on synthetic loan portfolio with Basel 3.1 F-IRB /
 
 ## Inputs
 
-- asset_class (unknown, required)
-- lgd (unknown, required)
-- maturity_yrs (unknown, required): Duration in years
+- asset_class (any, required): type not evidenced by kernel source
+- lgd (any, required): type not evidenced by kernel source
+- maturity_yrs (any, required): Duration in years; type not evidenced by kernel source
 - n_loans (number, required)
-- pd_threshold (unknown, required)
-- preset (unknown, required)
-- seed (unknown, required)
-- target_default_rate (unknown, required)
+- pd_threshold (any, required): type not evidenced by kernel source
+- preset (any, required): type not evidenced by kernel source
+- seed (any, required): type not evidenced by kernel source
+- target_default_rate (any, required): type not evidenced by kernel source
 
 ## Outputs
 

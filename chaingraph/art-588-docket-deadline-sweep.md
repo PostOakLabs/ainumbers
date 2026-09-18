@@ -8,10 +8,10 @@ Sweeps a caller-declared docket - a flat list of {date, action, type, source, do
 
 ## Inputs
 
-- as_of_date (unknown, required)
+- as_of_date (any, required): type not evidenced by kernel source
 - due_soon_days_threshold (number, required)
 - records (array, required)
-- roll_rule (unknown, required)
+- roll_rule (any, required): type not evidenced by kernel source
 
 ## Outputs
 

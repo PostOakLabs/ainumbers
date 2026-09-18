@@ -8,9 +8,9 @@ Independently recomputes a model's reported outputs from a declared model specif
 
 ## Inputs
 
-- model_spec (unknown, required)
+- model_spec (any, required): type not evidenced by kernel source
 - records (array, required)
-- tolerance (unknown, required)
+- tolerance (any, required): type not evidenced by kernel source
 
 ## Outputs
 

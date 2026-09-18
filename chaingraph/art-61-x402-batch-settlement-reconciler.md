@@ -8,10 +8,10 @@ Reconciles an x402 V2 batch settlement (off-chain payment vouchers vs onchain ba
 
 ## Inputs
 
-- batch (unknown, optional)
-- finality_threshold (unknown, optional)
-- tolerance_minor_units (unknown, optional)
-- vouchers (unknown, optional)
+- batch (any, optional): type not evidenced by kernel source
+- finality_threshold (any, optional): type not evidenced by kernel source
+- tolerance_minor_units (any, optional): type not evidenced by kernel source
+- vouchers (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,18 +8,18 @@ Checks a token issuer's published reserve disclosure, the amount in circulation 
 
 ## Inputs
 
-- as_of (unknown, optional)
-- declared_rules (unknown, required)
+- as_of (any, optional): type not evidenced by kernel source
+- declared_rules (any, required): type not evidenced by kernel source
 - disclosure_dates (array, required)
-- disclosure_ref (unknown, optional)
-- issuer_id (unknown, optional)
+- disclosure_ref (any, optional): type not evidenced by kernel source
+- issuer_id (any, optional): type not evidenced by kernel source
 - reserve_components (array, required)
-- rounding (unknown, required)
-- rules_version (unknown, optional)
+- rounding (any, required): type not evidenced by kernel source
+- rules_version (any, optional): type not evidenced by kernel source
 - token_type (string, optional)
-- tokens_in_circulation (unknown, required)
-- window_end (unknown, required)
-- window_start (unknown, required)
+- tokens_in_circulation (any, required): type not evidenced by kernel source
+- window_end (any, required): type not evidenced by kernel source
+- window_start (any, required): type not evidenced by kernel source
 
 ## Outputs
 

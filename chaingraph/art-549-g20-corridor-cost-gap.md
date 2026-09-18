@@ -8,11 +8,11 @@ Recomputes a caller-declared cross-border payment corridor's cost gap against th
 
 ## Inputs
 
-- as_of (unknown, required)
+- as_of (any, required): type not evidenced by kernel source
 - corridor_pair (boolean, required)
-- observed_cost_bps (unknown, required): Amount in basis points
+- observed_cost_bps (any, required): Amount in basis points; type not evidenced by kernel source
 - send_amount_basis (string, required)
-- target_year (unknown, required)
+- target_year (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -9,9 +9,9 @@ Publishes one SPEC.md §HEAD-1 head-commit publication event for an index or ben
 ## Inputs
 
 - chain_verification (array, required)
-- head (unknown, required)
-- prior_head (unknown, required)
-- signature_verification (unknown, required)
+- head (any, required): type not evidenced by kernel source
+- prior_head (any, required): type not evidenced by kernel source
+- signature_verification (any, required): type not evidenced by kernel source
 
 ## Outputs
 

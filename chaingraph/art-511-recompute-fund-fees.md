@@ -8,18 +8,18 @@ Recomputes a fund's management fee and performance fee from the terms the invest
 
 ## Inputs
 
-- agreement_ref (unknown, optional)
-- as_of (unknown, optional)
-- charged_amounts (unknown, optional)
-- fund_id (unknown, optional)
-- management_fee (unknown, required)
-- nav (unknown, required)
-- performance_fee (unknown, required)
+- agreement_ref (any, optional): type not evidenced by kernel source
+- as_of (any, optional): type not evidenced by kernel source
+- charged_amounts (any, optional): type not evidenced by kernel source
+- fund_id (any, optional): type not evidenced by kernel source
+- management_fee (any, required): type not evidenced by kernel source
+- nav (any, required): type not evidenced by kernel source
+- performance_fee (any, required): type not evidenced by kernel source
 - period_days (number, required): Duration in days
-- period_end (unknown, optional)
-- period_start (unknown, optional)
-- rounding (unknown, required)
-- terms_version (unknown, optional)
+- period_end (any, optional): type not evidenced by kernel source
+- period_start (any, optional): type not evidenced by kernel source
+- rounding (any, required): type not evidenced by kernel source
+- terms_version (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,10 +8,10 @@ Computes the smallest set of a source Avalanche L1's validators that could joint
 
 ## Inputs
 
-- message_class (unknown, required)
-- min_colluding_floor (unknown, required)
-- quorum_pct (unknown, required): Percentage value
-- source_l1_label (unknown, required)
+- message_class (any, required): type not evidenced by kernel source
+- min_colluding_floor (any, required): type not evidenced by kernel source
+- quorum_pct (any, required): Percentage value; type not evidenced by kernel source
+- source_l1_label (any, required): type not evidenced by kernel source
 - validator_weights (array, required)
 
 ## Outputs

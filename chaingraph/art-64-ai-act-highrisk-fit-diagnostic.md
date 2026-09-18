@@ -8,21 +8,21 @@
 
 ## Inputs
 
-- actor_role (unknown, optional)
-- ai_literacy_programme (unknown, optional)
-- annex_iii_match (unknown, optional)
-- data_governance (unknown, optional)
-- eu_nexus (unknown, optional)
-- foundation_model_dependency (unknown, optional)
-- fria_status (unknown, optional)
-- logging_oversight (unknown, optional)
-- model_risk_framework (unknown, optional)
-- post_market_monitoring (unknown, optional)
-- prohibited_practice_exposure (unknown, optional)
-- risk_mgmt_system (unknown, optional)
-- system_name (unknown, optional)
-- technical_documentation (unknown, optional)
-- use_case (unknown, optional)
+- actor_role (any, optional): type not evidenced by kernel source
+- ai_literacy_programme (any, optional): type not evidenced by kernel source
+- annex_iii_match (any, optional): type not evidenced by kernel source
+- data_governance (any, optional): type not evidenced by kernel source
+- eu_nexus (any, optional): type not evidenced by kernel source
+- foundation_model_dependency (any, optional): type not evidenced by kernel source
+- fria_status (any, optional): type not evidenced by kernel source
+- logging_oversight (any, optional): type not evidenced by kernel source
+- model_risk_framework (any, optional): type not evidenced by kernel source
+- post_market_monitoring (any, optional): type not evidenced by kernel source
+- prohibited_practice_exposure (any, optional): type not evidenced by kernel source
+- risk_mgmt_system (any, optional): type not evidenced by kernel source
+- system_name (any, optional): type not evidenced by kernel source
+- technical_documentation (any, optional): type not evidenced by kernel source
+- use_case (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

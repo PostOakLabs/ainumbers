@@ -8,41 +8,41 @@ Verifies a Tempo Machine Payments Protocol cumulative EIP-712 session voucher of
 
 ## Inputs
 
-- challengeAmount (unknown, required)
-- challengeChainId (unknown, required)
-- challengeChannelId (unknown, required)
-- challengeCurrency (unknown, required)
-- challengeEscrowContract (unknown, required)
-- challengeExpires (unknown, required)
-- challengeId (unknown, required)
-- challengeIntent (unknown, required)
-- challengeMethod (unknown, required)
-- challengeMinVoucherDelta (unknown, required)
-- challengeRealm (unknown, required)
-- challengeRecipient (unknown, required)
-- channelAuthorizedSigner (unknown, required)
-- channelCloseRequestedAt (unknown, required)
-- channelDeposit (unknown, required)
-- channelId (unknown, required)
-- channelPayer (unknown, required)
-- channelSettled (unknown, required)
-- cumulativeAmount (unknown, required)
-- domainChainId (unknown, required)
-- domainName (unknown, required)
-- domainVerifyingContract (unknown, required)
-- domainVersion (unknown, required)
-- memoExpectedEncoding (unknown, required)
-- memoExpectedReferenceHash (unknown, required)
-- memoValue (unknown, required)
-- minVoucherDelta (unknown, required)
-- now (unknown, required)
-- protocolVersion (unknown, required)
-- r (unknown, required)
-- s (unknown, required)
-- signature (unknown, required)
-- subjectExecutionHash (unknown, required)
-- v (unknown, required)
-- yParity (unknown, required)
+- challengeAmount (any, required): type not evidenced by kernel source
+- challengeChainId (any, required): type not evidenced by kernel source
+- challengeChannelId (any, required): type not evidenced by kernel source
+- challengeCurrency (any, required): type not evidenced by kernel source
+- challengeEscrowContract (any, required): type not evidenced by kernel source
+- challengeExpires (any, required): type not evidenced by kernel source
+- challengeId (any, required): type not evidenced by kernel source
+- challengeIntent (any, required): type not evidenced by kernel source
+- challengeMethod (any, required): type not evidenced by kernel source
+- challengeMinVoucherDelta (any, required): type not evidenced by kernel source
+- challengeRealm (any, required): type not evidenced by kernel source
+- challengeRecipient (any, required): type not evidenced by kernel source
+- channelAuthorizedSigner (any, required): type not evidenced by kernel source
+- channelCloseRequestedAt (any, required): type not evidenced by kernel source
+- channelDeposit (any, required): type not evidenced by kernel source
+- channelId (any, required): type not evidenced by kernel source
+- channelPayer (any, required): type not evidenced by kernel source
+- channelSettled (any, required): type not evidenced by kernel source
+- cumulativeAmount (any, required): type not evidenced by kernel source
+- domainChainId (any, required): type not evidenced by kernel source
+- domainName (any, required): type not evidenced by kernel source
+- domainVerifyingContract (any, required): type not evidenced by kernel source
+- domainVersion (any, required): type not evidenced by kernel source
+- memoExpectedEncoding (any, required): type not evidenced by kernel source
+- memoExpectedReferenceHash (any, required): type not evidenced by kernel source
+- memoValue (any, required): type not evidenced by kernel source
+- minVoucherDelta (any, required): type not evidenced by kernel source
+- now (any, required): type not evidenced by kernel source
+- protocolVersion (any, required): type not evidenced by kernel source
+- r (any, required): type not evidenced by kernel source
+- s (any, required): type not evidenced by kernel source
+- signature (any, required): type not evidenced by kernel source
+- subjectExecutionHash (any, required): type not evidenced by kernel source
+- v (any, required): type not evidenced by kernel source
+- yParity (any, required): type not evidenced by kernel source
 
 ## Outputs
 

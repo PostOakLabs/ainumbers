@@ -8,17 +8,17 @@ Validates the structural message-shape of a single DTC corporate-action event me
 
 ## Inputs
 
-- allocated_quantity (unknown, required)
-- allocation_date (unknown, required)
-- cusip (unknown, required)
-- dtc_participant_number (unknown, required)
-- election_deadline (unknown, required)
-- election_option (unknown, required)
-- event_type (unknown, required)
-- message_function (unknown, required)
-- payable_date (unknown, required)
-- record_date (unknown, required)
-- reference_id (unknown, required)
+- allocated_quantity (any, required): type not evidenced by kernel source
+- allocation_date (any, required): type not evidenced by kernel source
+- cusip (any, required): type not evidenced by kernel source
+- dtc_participant_number (any, required): type not evidenced by kernel source
+- election_deadline (any, required): type not evidenced by kernel source
+- election_option (any, required): type not evidenced by kernel source
+- event_type (any, required): type not evidenced by kernel source
+- message_function (any, required): type not evidenced by kernel source
+- payable_date (any, required): type not evidenced by kernel source
+- record_date (any, required): type not evidenced by kernel source
+- reference_id (any, required): type not evidenced by kernel source
 
 ## Outputs
 

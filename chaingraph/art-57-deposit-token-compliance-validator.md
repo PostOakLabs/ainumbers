@@ -8,15 +8,15 @@
 
 ## Inputs
 
-- deposit_insurance (unknown, optional)
-- governing_law (unknown, optional)
-- holder_eligibility (unknown, optional)
-- interoperability (unknown, optional)
-- issuer_type (unknown, optional)
-- jurisdiction (unknown, optional)
-- liability_treatment (unknown, optional)
-- redemption_basis (unknown, optional)
-- token_class (unknown, optional)
+- deposit_insurance (any, optional): type not evidenced by kernel source
+- governing_law (any, optional): type not evidenced by kernel source
+- holder_eligibility (any, optional): type not evidenced by kernel source
+- interoperability (any, optional): type not evidenced by kernel source
+- issuer_type (any, optional): type not evidenced by kernel source
+- jurisdiction (any, optional): type not evidenced by kernel source
+- liability_treatment (any, optional): type not evidenced by kernel source
+- redemption_basis (any, optional): type not evidenced by kernel source
+- token_class (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

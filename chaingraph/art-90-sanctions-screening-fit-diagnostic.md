@@ -8,18 +8,18 @@
 
 ## Inputs
 
-- adverse_media (unknown, optional)
-- alert_review_sla (unknown, optional)
-- business_model (unknown, optional)
-- circumvention_controls (unknown, optional)
-- export_control_exposure (unknown, optional)
-- fuzzy_match_governance (unknown, optional)
-- jurisdictional_nexus (unknown, optional)
-- ownership_screening (unknown, optional)
-- pep_screening (unknown, optional)
-- sanctions_lists_screened (unknown, optional)
-- screening_frequency (unknown, optional)
-- sectoral_screening (unknown, optional)
+- adverse_media (any, optional): type not evidenced by kernel source
+- alert_review_sla (any, optional): type not evidenced by kernel source
+- business_model (any, optional): type not evidenced by kernel source
+- circumvention_controls (any, optional): type not evidenced by kernel source
+- export_control_exposure (any, optional): type not evidenced by kernel source
+- fuzzy_match_governance (any, optional): type not evidenced by kernel source
+- jurisdictional_nexus (any, optional): type not evidenced by kernel source
+- ownership_screening (any, optional): type not evidenced by kernel source
+- pep_screening (any, optional): type not evidenced by kernel source
+- sanctions_lists_screened (any, optional): type not evidenced by kernel source
+- screening_frequency (any, optional): type not evidenced by kernel source
+- sectoral_screening (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

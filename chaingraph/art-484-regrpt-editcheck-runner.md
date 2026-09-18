@@ -8,9 +8,9 @@ Evaluates a caller-supplied report instance against a caller-supplied published 
 
 ## Inputs
 
-- report_instance (unknown, required)
-- rule_set (unknown, required)
-- suppressions (unknown, required)
+- report_instance (any, required): type not evidenced by kernel source
+- rule_set (any, required): type not evidenced by kernel source
+- suppressions (any, required): type not evidenced by kernel source
 
 ## Outputs
 

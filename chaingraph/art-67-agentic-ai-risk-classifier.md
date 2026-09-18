@@ -8,10 +8,10 @@ Co-flagship and strongest in-force anchor: classifies autonomy tier and GPAI/sys
 
 ## Inputs
 
-- agent (unknown, optional)
-- downstream_highrisk (unknown, optional)
-- model (unknown, optional)
-- obligations (unknown, optional)
+- agent (any, optional): type not evidenced by kernel source
+- downstream_highrisk (any, optional): type not evidenced by kernel source
+- model (any, optional): type not evidenced by kernel source
+- obligations (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

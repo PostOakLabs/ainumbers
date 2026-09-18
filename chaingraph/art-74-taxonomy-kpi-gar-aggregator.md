@@ -8,11 +8,11 @@ Rolls activity-level Taxonomy alignment (from ART-73) into entity KPIs: revenue/
 
 ## Inputs
 
-- activities (unknown, optional)
-- covered_assets (unknown, optional)
-- entity_type (unknown, optional)
-- gar_numerator_items (unknown, optional)
-- total_assets (unknown, optional)
+- activities (any, optional): type not evidenced by kernel source
+- covered_assets (any, optional): type not evidenced by kernel source
+- entity_type (any, optional): type not evidenced by kernel source
+- gar_numerator_items (any, optional): type not evidenced by kernel source
+- total_assets (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

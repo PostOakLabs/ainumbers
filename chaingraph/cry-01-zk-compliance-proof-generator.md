@@ -8,9 +8,9 @@ Synthetic ZK compliance proof token for AML/Travel Rule predicates (amount thres
 
 ## Inputs
 
-- data (unknown, required)
-- predicate_type (unknown, optional)
-- seed (unknown, optional)
+- data (any, required): type not evidenced by kernel source
+- predicate_type (any, optional): type not evidenced by kernel source
+- seed (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

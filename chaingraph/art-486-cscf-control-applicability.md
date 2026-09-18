@@ -8,11 +8,11 @@ Scores a Swift member's declared architecture type and component inventory again
 
 ## Inputs
 
-- architecture_type (unknown, required)
+- architecture_type (any, required): type not evidenced by kernel source
 - component_inventory (array, required)
 - control_matrix (array, required)
-- cscf_version (unknown, required)
-- implementation_status (unknown, required)
+- cscf_version (any, required): type not evidenced by kernel source
+- implementation_status (any, required): type not evidenced by kernel source
 
 ## Outputs
 

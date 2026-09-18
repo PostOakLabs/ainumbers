@@ -8,11 +8,11 @@ Computes (or receipts an externally-declared) weight per constituent from a stat
 
 ## Inputs
 
-- as_of_date (unknown, optional)
-- constituents_ref (unknown, required)
-- index_id (unknown, optional)
+- as_of_date (any, optional): type not evidenced by kernel source
+- constituents_ref (any, required): type not evidenced by kernel source
+- index_id (any, optional): type not evidenced by kernel source
 - inputs (array, required)
-- weighting_methodology (unknown, optional)
+- weighting_methodology (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

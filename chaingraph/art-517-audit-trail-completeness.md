@@ -8,18 +8,18 @@ Attests that an audit log covering transactions and user activity is complete an
 
 ## Inputs
 
-- chain_links (unknown, required)
-- continuity_mechanism (unknown, required)
-- declared_retention_period_days (unknown, required): Duration in days
-- gap_candidates (unknown, required)
-- observed_event_counts_by_type (unknown, required)
-- observed_sequence_numbers (unknown, required)
-- periods (unknown, required)
-- required_retention_period_days (unknown, required): Duration in days
-- sequence_end (unknown, required)
-- sequence_start (unknown, required)
-- window_end (unknown, required)
-- window_start (unknown, required)
+- chain_links (any, required): type not evidenced by kernel source
+- continuity_mechanism (any, required): type not evidenced by kernel source
+- declared_retention_period_days (any, required): Duration in days; type not evidenced by kernel source
+- gap_candidates (any, required): type not evidenced by kernel source
+- observed_event_counts_by_type (any, required): type not evidenced by kernel source
+- observed_sequence_numbers (any, required): type not evidenced by kernel source
+- periods (any, required): type not evidenced by kernel source
+- required_retention_period_days (any, required): Duration in days; type not evidenced by kernel source
+- sequence_end (any, required): type not evidenced by kernel source
+- sequence_start (any, required): type not evidenced by kernel source
+- window_end (any, required): type not evidenced by kernel source
+- window_start (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,7 +8,7 @@ Recomputes, per supplied fill, price improvement in basis points against the NBB
 
 ## Inputs
 
-- fills (unknown, required)
+- fills (any, required): type not evidenced by kernel source
 
 ## Outputs
 

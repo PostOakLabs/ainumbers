@@ -8,16 +8,16 @@ Recomputes whether a margin debit related to a broker-dealer's customer transact
 
 ## Inputs
 
-- broker_dealer_ref (unknown, required)
-- clearing_agency_conditions (unknown, required)
-- clearing_agency_name (unknown, required)
-- computation_date_label (unknown, required)
+- broker_dealer_ref (any, required): type not evidenced by kernel source
+- clearing_agency_conditions (any, required): type not evidenced by kernel source
+- clearing_agency_name (any, required): type not evidenced by kernel source
+- computation_date_label (any, required): type not evidenced by kernel source
 - currency (string, required)
-- customer_insufficient_assets_declared (unknown, required)
-- margin_called_and_received_next_business_day (unknown, required)
-- margin_on_deposit_minor_units (unknown, required)
-- margin_required_minor_units (unknown, required)
-- margin_source (unknown, required)
+- customer_insufficient_assets_declared (any, required): type not evidenced by kernel source
+- margin_called_and_received_next_business_day (any, required): type not evidenced by kernel source
+- margin_on_deposit_minor_units (any, required): type not evidenced by kernel source
+- margin_required_minor_units (any, required): type not evidenced by kernel source
+- margin_source (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,12 +8,12 @@ Recomputes the monthly IOLTA/client-trust three-way close every small law firm a
 
 ## Inputs
 
-- bank (unknown, required)
+- bank (any, required): type not evidenced by kernel source
 - client_ledgers (array, required)
 - outstanding_items (array, required)
-- reconciliation_tolerance_minor (unknown, required)
-- statement_period (unknown, required)
-- trust_ledger (unknown, required)
+- reconciliation_tolerance_minor (any, required): type not evidenced by kernel source
+- statement_period (any, required): type not evidenced by kernel source
+- trust_ledger (any, required): type not evidenced by kernel source
 
 ## Outputs
 

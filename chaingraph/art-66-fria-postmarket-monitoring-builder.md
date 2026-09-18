@@ -8,12 +8,12 @@ Builds an Art 27 Fundamental Rights Impact Assessment (FRIA) + Art 72 post-marke
 
 ## Inputs
 
-- deployment (unknown, optional)
-- fria (unknown, optional)
-- human_oversight (unknown, optional)
-- incident_reporting (unknown, optional)
-- logging (unknown, optional)
-- monitoring_plan (unknown, optional)
+- deployment (any, optional): type not evidenced by kernel source
+- fria (any, optional): type not evidenced by kernel source
+- human_oversight (any, optional): type not evidenced by kernel source
+- incident_reporting (any, optional): type not evidenced by kernel source
+- logging (any, optional): type not evidenced by kernel source
+- monitoring_plan (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,10 +8,10 @@ Educational unit-economics modeler for agent-service micropayment marketplaces: 
 
 ## Inputs
 
-- marketplace (unknown, optional)
+- marketplace (any, optional): type not evidenced by kernel source
 - pricing (boolean, required)
-- settlement (unknown, optional)
-- usage (unknown, optional)
+- settlement (any, optional): type not evidenced by kernel source
+- usage (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

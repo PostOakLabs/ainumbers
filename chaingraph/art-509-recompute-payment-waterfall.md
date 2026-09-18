@@ -8,15 +8,15 @@ Recomputes a securitisation payment waterfall for one stated period from the agg
 
 ## Inputs
 
-- asserted_allocations (unknown, required)
-- available_funds (unknown, required)
-- available_funds_minor_units (unknown, required)
+- asserted_allocations (any, required): type not evidenced by kernel source
+- available_funds (any, required): type not evidenced by kernel source
+- available_funds_minor_units (any, required): type not evidenced by kernel source
 - currency (string, required)
-- deal_ref (unknown, required)
-- ladder_ref (unknown, required)
-- period_label (unknown, required)
-- priority_ladder (unknown, required)
-- tests (unknown, required)
+- deal_ref (any, required): type not evidenced by kernel source
+- ladder_ref (any, required): type not evidenced by kernel source
+- period_label (any, required): type not evidenced by kernel source
+- priority_ladder (any, required): type not evidenced by kernel source
+- tests (any, required): type not evidenced by kernel source
 
 ## Outputs
 

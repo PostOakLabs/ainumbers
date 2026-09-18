@@ -9,11 +9,11 @@ Recomputes the letter-of-credit document examination a checker already works fro
 ## Inputs
 
 - bank_holidays (array, required)
-- documents (unknown, required)
-- examination_date (unknown, required)
-- goods_description_conforms (unknown, required)
-- lc (unknown, required)
-- presentation_date (unknown, required)
+- documents (any, required): type not evidenced by kernel source
+- examination_date (any, required): type not evidenced by kernel source
+- goods_description_conforms (any, required): type not evidenced by kernel source
+- lc (any, required): type not evidenced by kernel source
+- presentation_date (any, required): type not evidenced by kernel source
 
 ## Outputs
 

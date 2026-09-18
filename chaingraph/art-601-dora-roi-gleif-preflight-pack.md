@@ -8,9 +8,9 @@ DORA RoI GLEIF pre-submission evidence pack, terminal node of chain dora-roi-gle
 
 ## Inputs
 
-- attestation (unknown, required)
+- attestation (any, required): type not evidenced by kernel source
 - counterparties (array, required)
-- dora_roi_artifact (unknown, required)
+- dora_roi_artifact (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -12,7 +12,7 @@ Rolling-window z-score and STL-style seasonal decomposition anomaly detection on
 - nPeriods (number, required)
 - seasonPeriod (number, required)
 - seed (number, required)
-- trendType (unknown, required)
+- trendType (any, required): type not evidenced by kernel source
 - windowSize (number, required)
 - zThreshold (number, required)
 

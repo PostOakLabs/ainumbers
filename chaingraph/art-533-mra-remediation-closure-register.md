@@ -8,10 +8,10 @@ Registers a firm's consent-order Articles / MRA findings against its own remedia
 
 ## Inputs
 
-- evaluated_at (unknown, required)
+- evaluated_at (any, required): type not evidenced by kernel source
 - issue_id_commitment_scheme (string, required)
 - issues (array, required)
-- overdue_grace_days (unknown, required): Duration in days
+- overdue_grace_days (any, required): Duration in days; type not evidenced by kernel source
 - register_id (string, required)
 - remediation_status (array, required)
 

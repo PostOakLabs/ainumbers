@@ -8,7 +8,7 @@ Batch-verifies Merkle inclusion proofs using SHA-256 over payment batches, settl
 
 ## Inputs
 
-- merkle_root (unknown, required)
+- merkle_root (any, required): type not evidenced by kernel source
 - proof_entries (array, required)
 
 ## Outputs

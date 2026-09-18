@@ -8,13 +8,13 @@ Derives a deterministic, offline-replayable audit sample by HMAC-DRBG (SHA-256) 
 
 ## Inputs
 
-- algorithm_id (unknown, required)
-- beacon_randomness (unknown, required)
-- beacon_round (unknown, required)
-- beacon_source (unknown, required)
-- item_count (unknown, required): Count
-- item_manifest_hash (unknown, required)
-- sample_size (unknown, required)
+- algorithm_id (any, required): type not evidenced by kernel source
+- beacon_randomness (any, required): type not evidenced by kernel source
+- beacon_round (any, required): type not evidenced by kernel source
+- beacon_source (any, required): type not evidenced by kernel source
+- item_count (any, required): Count; type not evidenced by kernel source
+- item_manifest_hash (any, required): type not evidenced by kernel source
+- sample_size (any, required): type not evidenced by kernel source
 
 ## Outputs
 

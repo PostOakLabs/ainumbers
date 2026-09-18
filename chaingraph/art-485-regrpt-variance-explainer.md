@@ -8,9 +8,9 @@ Computes period-over-period variance across a regulatory report instance pair - 
 
 ## Inputs
 
-- explanations (unknown, required)
-- instance_pair (unknown, required)
-- materiality_policy (unknown, required)
+- explanations (any, required): type not evidenced by kernel source
+- instance_pair (any, required): type not evidenced by kernel source
+- materiality_policy (any, required): type not evidenced by kernel source
 
 ## Outputs
 

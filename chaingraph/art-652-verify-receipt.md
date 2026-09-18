@@ -8,8 +8,8 @@ Offline verifier for AINumbers Evidence Envelope v0.1 receipts. Given a receipt 
 
 ## Inputs
 
-- previous_receipt (unknown, optional)
-- receipt (unknown, optional)
+- previous_receipt (any, optional): type not evidenced by kernel source
+- receipt (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

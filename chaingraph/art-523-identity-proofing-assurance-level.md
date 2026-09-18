@@ -8,10 +8,10 @@ Rates whether a DECLARED identity-evidence set reaches a DECLARED target level o
 
 ## Inputs
 
-- as_of (unknown, required)
-- declared_target_level (unknown, required)
-- evidence_items (unknown, required)
-- level_definition (unknown, required)
+- as_of (any, required): type not evidenced by kernel source
+- declared_target_level (any, required): type not evidenced by kernel source
+- evidence_items (any, required): type not evidenced by kernel source
+- level_definition (any, required): type not evidenced by kernel source
 
 ## Outputs
 

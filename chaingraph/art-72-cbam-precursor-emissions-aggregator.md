@@ -8,9 +8,9 @@ Rolls up embedded emissions across precursors in a steel/aluminium value chain (
 
 ## Inputs
 
-- final_good (unknown, optional)
-- precursors (unknown, optional)
-- scrap_input_share (unknown, optional)
+- final_good (any, optional): type not evidenced by kernel source
+- precursors (any, optional): type not evidenced by kernel source
+- scrap_input_share (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

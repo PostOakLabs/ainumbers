@@ -8,10 +8,10 @@ Attests attribute-level data lineage for a model's input data, which source syst
 
 ## Inputs
 
-- as_of_date (unknown, required)
+- as_of_date (any, required): type not evidenced by kernel source
 - attributes (array, required)
-- model_id (unknown, required)
-- run_ref (unknown, required)
+- model_id (any, required): type not evidenced by kernel source
+- run_ref (any, required): type not evidenced by kernel source
 
 ## Outputs
 

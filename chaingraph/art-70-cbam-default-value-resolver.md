@@ -8,11 +8,11 @@ Resolves the Commission default embedded-emissions value for a (CN code x countr
 
 ## Inputs
 
-- actual_data_available (unknown, optional)
-- cn_code (unknown, optional)
-- country_of_origin (unknown, optional)
-- good_category (unknown, optional)
-- reporting_year (unknown, optional)
+- actual_data_available (any, optional): type not evidenced by kernel source
+- cn_code (any, optional): type not evidenced by kernel source
+- country_of_origin (any, optional): type not evidenced by kernel source
+- good_category (any, optional): type not evidenced by kernel source
+- reporting_year (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

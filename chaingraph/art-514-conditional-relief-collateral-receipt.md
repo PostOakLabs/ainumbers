@@ -8,19 +8,19 @@ Shows, per acceptance and per day, that every condition of a conditional regulat
 
 ## Inputs
 
-- as_of (unknown, required)
-- asset_class (unknown, required)
+- as_of (any, required): type not evidenced by kernel source
+- asset_class (any, required): type not evidenced by kernel source
 - capital_charge_table (array, required)
-- condition_set (unknown, required)
-- declared_haircut_pct (unknown, required): Percentage value
-- declared_reporting_cadence (unknown, required)
-- declared_valuation (unknown, required)
+- condition_set (any, required): type not evidenced by kernel source
+- declared_haircut_pct (any, required): Percentage value; type not evidenced by kernel source
+- declared_reporting_cadence (any, required): type not evidenced by kernel source
+- declared_valuation (any, required): type not evidenced by kernel source
 - issuer_permitted_status (boolean, required)
-- last_report_ref (unknown, required)
-- position_size (unknown, required)
-- relied_on_version (unknown, required)
-- relief_regime (unknown, required)
-- revocation_charge_pct (unknown, required): Percentage value
+- last_report_ref (any, required): type not evidenced by kernel source
+- position_size (any, required): type not evidenced by kernel source
+- relied_on_version (any, required): type not evidenced by kernel source
+- relief_regime (any, required): type not evidenced by kernel source
+- revocation_charge_pct (any, required): Percentage value; type not evidenced by kernel source
 - revocation_eligible_without_relief (boolean, required)
 
 ## Outputs

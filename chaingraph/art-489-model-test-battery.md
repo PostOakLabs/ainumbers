@@ -8,12 +8,12 @@ Runs the deterministic-given-data quantitative model validation battery: discrim
 
 ## Inputs
 
-- as_of_date (unknown, required)
-- backtest (unknown, required)
-- discrimination (unknown, required)
-- stability (unknown, required)
-- threshold_version (unknown, required)
-- thresholds (unknown, required)
+- as_of_date (any, required): type not evidenced by kernel source
+- backtest (any, required): type not evidenced by kernel source
+- discrimination (any, required): type not evidenced by kernel source
+- stability (any, required): type not evidenced by kernel source
+- threshold_version (any, required): type not evidenced by kernel source
+- thresholds (any, required): type not evidenced by kernel source
 
 ## Outputs
 
