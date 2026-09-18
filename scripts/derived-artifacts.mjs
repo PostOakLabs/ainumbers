@@ -214,7 +214,14 @@ export const COVERED = [
     // --check-paths, which now fails on any declared artifact absent from disk.
     artifacts: [
       'mcp/catalog.json', 'mcp/server.json',
-      '.well-known/mcp.json', 'llms.txt', 'tools.html', 'index.html',
+      // HUB-COUNT-STALE-SURFACES-1 + SO #47: regen_catalog.py now also writes
+      // the description of the .well-known/mcp/server.json twin, from the SAME
+      // server_desc template line as mcp/server.json (the twin previously had
+      // NO description writer and froze at "501 ... tools" beside its own
+      // tool_count: 590). Cross-entry share with 'counts' (verify-counts --fix
+      // owns that file's tool_count) is the declare-parity WARN class by design.
+      '.well-known/mcp.json', '.well-known/mcp/server.json',
+      'llms.txt', 'tools.html', 'index.html',
     ],
     // DERIVED-DECLARE-PARITY-1: Python, so the parity gate's JS write-target
     // parser cannot statically resolve it — mirrors `artifacts` (the same
@@ -222,7 +229,8 @@ export const COVERED = [
     // of refusing this entry outright.
     writes: [
       'mcp/catalog.json', 'mcp/server.json',
-      '.well-known/mcp.json', 'llms.txt', 'tools.html', 'index.html',
+      '.well-known/mcp.json', '.well-known/mcp/server.json',
+      'llms.txt', 'tools.html', 'index.html',
     ],
     // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): catalog
     // transitively reads chaingraph.json (regen_catalog.py:171 →
@@ -351,6 +359,11 @@ export const COVERED = [
       // to one entry here so that gate can be wired blocking.)
       'fv-explainer.html',
       '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
+      // HUB-COUNT-STALE-SURFACES-1: mcp/catalog.json's description prose is now
+      // ATTR_RULE-gated (key 'manifests' — the catalog entry count regen_catalog
+      // itself writes), so verify-counts --fix can write the file. Cross-entry
+      // share with 'catalog' is the declare-parity WARN class by design.
+      'mcp/catalog.json',
       'llms.txt',
       // CLAIMS-SENTINEL-TIER1-1: verify-counts.mjs's comment-sentinel scan now also covers the
       // five hub hero pages (hubTools.* — audit Q7). SO #47: any write verify-counts.mjs --fix
@@ -359,6 +372,10 @@ export const COVERED = [
       'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
       'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
       'guides/capital-markets-settlement-hub.html',
+      // HUB-COUNT-STALE-SURFACES-1: the three suite-wide CTA pages, now
+      // sentinel-wrapped and in verify-counts.mjs's scan list — same SO #47 rule.
+      'guides/agentic-rail-scenario.html', 'guides/baas-programme-scenario.html',
+      'tools/92-sca-exemption-mapper.html',
       // INFRA-PAGE-1: infrastructure.html carries a data-count="infra_pages"
       // sentinel now listed in verify-counts.mjs's file list — undeclared here
       // the regen's anti-escape guard would reject the write (SO #47 precedent).
@@ -382,10 +399,13 @@ export const COVERED = [
       'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
       'fv-explainer.html',
       '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
+      'mcp/catalog.json',
       'llms.txt',
       'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
       'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
       'guides/capital-markets-settlement-hub.html',
+      'guides/agentic-rail-scenario.html', 'guides/baas-programme-scenario.html',
+      'tools/92-sca-exemption-mapper.html',
       'infrastructure.html',
       'prompts.html',
     ],

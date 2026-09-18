@@ -196,13 +196,33 @@ def main():
     # "--fix server.json/mcp.json" churn). Keep regen and verify-counts in agreement = no drift.
     sj['tool_count'] = n_tools
     sj['last_updated'] = TODAY
-    sj['description'] = (f"{n_tools} browser-based fintech intelligence tools built by Post Oak Labs. "
+    # HUB-COUNT-STALE-SURFACES-1: this sentence is now THE template line for BOTH
+    # server.json descriptions — the variable is written to mcp/server.json below
+    # AND to its .well-known/mcp/server.json twin in the next block, so the two
+    # registry descriptors can never disagree again (the twin's hand-authored
+    # description had frozen at 501 while its own tool_count said 590).
+    sj['description'] = server_desc = (f"{n_tools} browser-based fintech intelligence tools built by Post Oak Labs. "
                          f"Covers ISO 20022, A2A payments, open banking (CFPB §1033 / PSD3), "
                          f"EU AI Act, DORA, AML/KYC, BaaS, DLT/tokenization, cross-border FX, "
                          f"real-time payments, e-invoicing (Peppol/ViDA), agentic payment protocols "
                          f"(AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. "
                          f"All tools are client-side — zero PII, zero server calls.")
     dump_json_stable('mcp/server.json', sj, prior_date=_prior_last_updated)
+
+    # ── .well-known/mcp/server.json (HUB-COUNT-STALE-SURFACES-1) ──
+    # The well-known twin previously had NO description writer anywhere: the file
+    # was hand-authored once and its description went stale while
+    # verify-counts.mjs's ATTR_RULES kept repairing only its tool_count. Its
+    # description is now emitted from the SAME server_desc template line just
+    # above (one writer, one sentence). Its tool_count stays owned by
+    # verify-counts.mjs (ATTR_RULE; the file is declared in the 'counts' COVERED
+    # entry) — this block deliberately touches the description field only.
+    # Declared in derived-artifacts.mjs 'catalog' artifacts[]/writes[] per SO #47.
+    wksj_path = os.path.join('.well-known', 'mcp', 'server.json')
+    if os.path.exists(wksj_path):
+        wksj = read_json(wksj_path)
+        wksj['description'] = server_desc
+        dump_json_stable(wksj_path, wksj)
 
     # ── .well-known/mcp.json ──
     wk = read_json('.well-known/mcp.json')
@@ -251,6 +271,35 @@ def main():
     # value. Derive it from the count at generation like every other tools.html count.
     thtml = _re.sub(r'placeholder="Search \d+\+ tools',
                     f'placeholder="Search {n_tools}+ tools', thtml)
+    # ── tools.html <head> + JSON-LD counts (HUB-COUNT-STALE-SURFACES-1) ──
+    # The whole head was frozen bytes from migrate_catalog.py's one-time split:
+    # nothing rewrote its counts, so the suite's own tool index advertised 484
+    # (title = SERP/tab string; JSON-LD numberOfItems = machine claim) while the
+    # registry said 590, and verify-counts reported "All counts in sync" over it.
+    # Every slot below is now derived from n_tools at generation, exactly like
+    # the registry header and filter count above; scripts/lib/count-rules.mjs
+    # gates each slot with tools.browser ATTR_RULES (attribute/JSON contexts —
+    # a COUNT comment cannot live in <title> (RCDATA) or a meta/JSON value).
+    thtml = _re.sub(r'(<title>All )\d+( Fintech Tools \| AINumbers\.co</title>)',
+                    rf'\g<1>{n_tools}\g<2>', thtml)
+    thtml = _re.sub(r'(content="Browse all )\d+( free, open-source fintech tools by Post Oak Labs)',
+                    rf'\g<1>{n_tools}\g<2>', thtml)
+    thtml = _re.sub(r'(<meta property="og:title" content="All )\d+( Fintech Tools \| AINumbers\.co")',
+                    rf'\g<1>{n_tools}\g<2>', thtml)
+    thtml = _re.sub(r'(content=")\d+( free browser-based fintech tools by Post Oak Labs\. '
+                    r'31 categories with live search and filters\. Zero PII\. No install\.")',
+                    rf'\g<1>{n_tools}\g<2>', thtml)
+    thtml = _re.sub(r'(<meta name="twitter:title" content="All )\d+( Fintech Tools \| AINumbers\.co")',
+                    rf'\g<1>{n_tools}\g<2>', thtml)
+    thtml = _re.sub(r'(content=")\d+( free browser-based fintech tools by Post Oak Labs\. '
+                    r'31 categories with live search\. Zero PII\. No install\.")',
+                    rf'\g<1>{n_tools}\g<2>', thtml)
+    thtml = _re.sub(r'("name": "All )\d+( Fintech Tools \| AINumbers\.co")',
+                    rf'\g<1>{n_tools}\g<2>', thtml)
+    thtml = _re.sub(r'("description": ")\d+( free, open-source fintech tools by Post Oak Labs\. '
+                    r'31 categories including)',
+                    rf'\g<1>{n_tools}\g<2>', thtml)
+    thtml = _re.sub(r'("numberOfItems": )\d+', rf'\g<1>{n_tools}', thtml)
     write_stable('tools.html', thtml)
 
     # ── index.html (hub spoke — preserve sentinel format in "Browse all N tools" CTA) ──
