@@ -153,15 +153,33 @@ function titleOf(html, fallback) {
 function maskCountDigits(html, rel) {
   const rules = DESCRIPTION_RULES.get(rel);
   if (!rules) return html;
-  let out = html;
+  // ⛔ Collect every rule's span against the UNMODIFIED page, then splice.
+  // The rules CHAIN: a later rule's prefix re-matches the digits an earlier
+  // rule owns (index.html's `chains` rule requires
+  // `content="\d+ browser-based fintech tools and `). Masking rule-by-rule
+  // therefore turns every chained rule into a silent NO-MATCH and leaves its
+  // digits in the captured description — which is exactly the read-back cycle
+  // this function exists to cut (measured: the chain count 368 survived into
+  // data/infra-registry.json, the #1879 digit).
+  // group 1 = prefix, group 2 = the count, group 3 (when present) = suffix —
+  // the same shape verify-counts.mjs's own --fix replacement relies on.
+  const spans = [];
   for (const { regex } of rules) {
-    const re = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : regex.flags + 'g');
-    // group 1 = prefix, group 2 = the count, group 3 (when present) = suffix —
-    // the same shape verify-counts.mjs's own --fix replacement relies on.
-    out = out.replace(re, (match, pre, valStr, ...rest) => {
-      const post = typeof rest[0] === 'string' ? rest[0] : '';
-      return `${pre}${post}`;
-    });
+    const flags = new Set([...regex.flags, 'g', 'd']);
+    const re = new RegExp(regex.source, [...flags].join(''));
+    for (const m of html.matchAll(re)) {
+      const at = m.indices && m.indices[2];
+      if (at) spans.push(at);
+    }
+  }
+  if (!spans.length) return html;
+  spans.sort((a, b) => b[0] - a[0]);
+  let out = html;
+  let cutFrom = Infinity;
+  for (const [start, end] of spans) {
+    if (end > cutFrom) continue; // duplicate or overlapping span, already cut
+    out = out.slice(0, start) + out.slice(end);
+    cutFrom = start;
   }
   return out;
 }

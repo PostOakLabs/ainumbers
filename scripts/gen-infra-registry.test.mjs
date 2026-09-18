@@ -16,6 +16,10 @@
  *      in the same regen pass) leaves the registry row byte-identical — the
  *      fixpoint the exemption was introduced to protect
  *   5. a hand-EXEMPT page is still absent
+ *   6. CHAINED rules — index.html's `chains` rule's own prefix contains the
+ *      digits its `tools.browser` sibling owns, so a rule-at-a-time mask makes
+ *      the second rule a silent NO-MATCH and leaves the chain count in the
+ *      description. That is the read-back cycle itself, so it gets a control.
  *
  * Usage: node scripts/gen-infra-registry.test.mjs
  */
@@ -29,6 +33,7 @@ import { buildRegistry } from './gen-infra-registry.mjs';
 // honest — the rules under test are the shipped ones, not a mock.
 const RULED = 'guides/dora-operational-resilience-hub.html';
 const EXEMPT_PAGE = 'tools.html';
+const CHAINED = 'index.html';
 
 const failures = [];
 const check = (name, ok, detail) => {
@@ -45,6 +50,16 @@ function ruledPage(n) {
 </head><body>hi</body></html>`;
 }
 
+// index.html's two description rules CHAIN: `tools.browser` captures the first
+// count, and `chains` locates the second one by re-matching the first as
+// `content="\d+ browser-based fintech tools and `. Masking rule-by-rule kills
+// that second match, so 368 (the #1879 digit) survived into the registry.
+function chainedPage(tools, chains) {
+  return `<html><head><title>AINumbers.co | Fintech Intelligence Suite</title>
+<meta name="description" content="${tools} browser-based fintech tools and ${chains} MCP-callable, hash-anchored OpenChainGraph workflows for payments engineers and compliance teams. Zero PII. No install.">
+<meta name="ain:category" content="run"></head><body>hi</body></html>`;
+}
+
 const plainPage = `<html><head><title>Plain | AINumbers.co</title>
 <meta name="description" content="A page with no count sentinel in its description.">
 <meta name="ain:category" content="guide"></head><body>hi</body></html>`;
@@ -59,6 +74,7 @@ try {
   writeFileSync(join(dir, RULED), ruledPage(12));
   writeFileSync(join(dir, 'guides', 'plain.html'), plainPage);
   writeFileSync(join(dir, EXEMPT_PAGE), exemptPage);
+  writeFileSync(join(dir, CHAINED), chainedPage(201, 369));
 
   const rows = buildRegistry(dir);
   const row = rows.find(r => r.path === RULED);
@@ -70,7 +86,12 @@ try {
   check('description_source names the elision', row?.description_source === 'attr-rule', row?.description_source);
 
   // What verify-counts --fix does later in the same regen pass: the count moves.
+  const chained = rows.find(r => r.path === CHAINED);
+  check('chained rules: BOTH counts are elided, not just the first',
+    !!chained && !/\d/.test(chained.description), chained?.description);
+
   writeFileSync(join(dir, RULED), ruledPage(13));
+  writeFileSync(join(dir, CHAINED), chainedPage(202, 368));
   const after = buildRegistry(dir);
   check('registry is a fixpoint under the later count rewrite',
     JSON.stringify(rows) === JSON.stringify(after),
