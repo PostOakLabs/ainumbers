@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:884e9783d26552ef06435b323571abcc4f1cecc3b10648477fa0291b39dab877
+// kernel_digest_at_authoring: sha256:58c1128e8a66033dfe7cbae4e700f57f370ae362cf62b4b12ac7c70a1710afa5
 //
 // FV-PROPFLOOR-SHARD-B20-1 — property-test floor for art-339-compute-gross-to-net.
 // Class B (bounded-numeric), FLOAT-SENSITIVE — FICA wage-base and Additional

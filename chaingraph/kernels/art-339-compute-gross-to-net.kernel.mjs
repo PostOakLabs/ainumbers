@@ -64,11 +64,11 @@ export const meta = {
 const PARAMS = {
   '2025': {
     ss_wage_base: 176100,
-    regulatory_basis: 'IRC 3101/3121 (FICA); SSA 2025 Contribution and Benefit Base ($176,100 OASDI wage base); IRC 3101(b)(2) Additional Medicare Tax ($200,000 employer-withholding threshold).',
+    regulatory_basis: 'IRC 3101/3121 (FICA, https://www.irs.gov/publications/p15); SSA 2025 Contribution and Benefit Base ($176,100 OASDI wage base, https://www.ssa.gov/oact/cola/cbb.html); IRC 3101(b)(2) Additional Medicare Tax ($200,000 employer-withholding threshold, https://www.irs.gov/publications/p15).',
   },
   '2026': {
     ss_wage_base: 184500,
-    regulatory_basis: 'IRC 3101/3121 (FICA); SSA 2026 Contribution and Benefit Base ($184,500 OASDI wage base); IRC 3101(b)(2) Additional Medicare Tax ($200,000 employer-withholding threshold).',
+    regulatory_basis: 'IRC 3101/3121 (FICA, https://www.irs.gov/publications/p15); SSA 2026 Contribution and Benefit Base ($184,500 OASDI wage base, https://www.ssa.gov/oact/cola/cbb.html); IRC 3101(b)(2) Additional Medicare Tax ($200,000 employer-withholding threshold, https://www.irs.gov/publications/p15).',
   },
 };
 
