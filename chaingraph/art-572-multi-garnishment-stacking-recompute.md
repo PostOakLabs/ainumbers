@@ -9,15 +9,15 @@ Recomputes, for one stated pay period, how much of an employee's disposable earn
 ## Inputs
 
 - currency (string, required)
-- employee_ref (unknown, required)
-- federal_minimum_wage_dated (unknown, required)
-- federal_minimum_wage_minor_units (unknown, required)
-- gross_minor_units (unknown, required)
-- legally_required_deductions (unknown, required)
-- noticed_amounts (unknown, required)
-- orders (unknown, required)
-- period_label (unknown, required)
-- state_overlay (unknown, required)
+- employee_ref (any, required): type not evidenced by kernel source
+- federal_minimum_wage_dated (any, required): type not evidenced by kernel source
+- federal_minimum_wage_minor_units (any, required): type not evidenced by kernel source
+- gross_minor_units (any, required): type not evidenced by kernel source
+- legally_required_deductions (any, required): type not evidenced by kernel source
+- noticed_amounts (any, required): type not evidenced by kernel source
+- orders (any, required): type not evidenced by kernel source
+- period_label (any, required): type not evidenced by kernel source
+- state_overlay (any, required): type not evidenced by kernel source
 
 ## Outputs
 

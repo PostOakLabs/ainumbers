@@ -8,16 +8,16 @@ Flagship importer tool. Computes embedded emissions (direct + indirect, tCO2e) f
 
 ## Inputs
 
-- cn_code (unknown, optional)
-- country_of_origin (unknown, optional)
-- direct_emissions_factor (unknown, optional)
-- electricity_source (unknown, optional)
-- emissions_basis (unknown, optional)
-- good_category (unknown, optional)
-- indirect_emissions_factor (unknown, optional)
-- monitoring_method (unknown, optional)
-- precursor_emissions (unknown, optional)
-- quantity_tonnes (unknown, optional)
+- cn_code (any, optional): type not evidenced by kernel source
+- country_of_origin (any, optional): type not evidenced by kernel source
+- direct_emissions_factor (any, optional): type not evidenced by kernel source
+- electricity_source (any, optional): type not evidenced by kernel source
+- emissions_basis (any, optional): type not evidenced by kernel source
+- good_category (any, optional): type not evidenced by kernel source
+- indirect_emissions_factor (any, optional): type not evidenced by kernel source
+- monitoring_method (any, optional): type not evidenced by kernel source
+- precursor_emissions (any, optional): type not evidenced by kernel source
+- quantity_tonnes (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

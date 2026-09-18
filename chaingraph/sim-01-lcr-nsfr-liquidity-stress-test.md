@@ -8,21 +8,21 @@ Monte Carlo simulation of LCR and NSFR under Basel III stress (CRR Art. 412/428,
 
 ## Inputs
 
-- asf_cap (unknown, required)
-- hqla_l1 (unknown, required)
-- hqla_l2a (unknown, required)
-- hqla_l2b (unknown, required)
-- inflows (unknown, required)
+- asf_cap (any, required): type not evidenced by kernel source
+- hqla_l1 (any, required): type not evidenced by kernel source
+- hqla_l2a (any, required): type not evidenced by kernel source
+- hqla_l2b (any, required): type not evidenced by kernel source
+- inflows (any, required): type not evidenced by kernel source
 - n_paths (number, optional)
-- preset (unknown, required)
-- retail_outflow (unknown, required)
-- rsf_loans (unknown, required)
-- rsf_other (unknown, required)
-- rsf_securities (unknown, required)
-- scenario (unknown, required)
-- secured_outflow (unknown, required)
-- seed (unknown, optional)
-- wholesale_outflow (unknown, required)
+- preset (any, required): type not evidenced by kernel source
+- retail_outflow (any, required): type not evidenced by kernel source
+- rsf_loans (any, required): type not evidenced by kernel source
+- rsf_other (any, required): type not evidenced by kernel source
+- rsf_securities (any, required): type not evidenced by kernel source
+- scenario (any, required): type not evidenced by kernel source
+- secured_outflow (any, required): type not evidenced by kernel source
+- seed (any, optional): type not evidenced by kernel source
+- wholesale_outflow (any, required): type not evidenced by kernel source
 
 ## Outputs
 

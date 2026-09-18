@@ -13,7 +13,7 @@ Black-Scholes options pricer with full Greeks (delta, gamma, theta, vega, rho). 
 - rate (number, required)
 - spot (number, required)
 - strike (number, required)
-- type (unknown, required)
+- type (any, required): type not evidenced by kernel source
 - vol (number, required)
 
 ## Outputs

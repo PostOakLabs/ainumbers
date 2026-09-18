@@ -8,7 +8,7 @@ Field-level structural validator for a covered-securities-loan report record aga
 
 ## Inputs
 
-- reports (unknown, required)
+- reports (any, required): type not evidenced by kernel source
 
 ## Outputs
 

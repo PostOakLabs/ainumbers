@@ -8,8 +8,8 @@ General, jurisdiction-neutral solvency check: total_assets_musd / total_liabilit
 
 ## Inputs
 
-- assets (unknown, required)
-- liabilities (unknown, required)
+- assets (any, required): type not evidenced by kernel source
+- liabilities (any, required): type not evidenced by kernel source
 
 ## Outputs
 

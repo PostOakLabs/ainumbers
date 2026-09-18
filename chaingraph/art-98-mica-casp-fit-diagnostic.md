@@ -8,16 +8,16 @@
 
 ## Inputs
 
-- current_status (unknown, optional)
-- custody_segregation (unknown, optional)
-- governance_maturity (unknown, optional)
-- inputs (unknown, required)
-- mar_arrangements (unknown, optional)
-- member_state (unknown, optional)
-- own_funds_status (unknown, optional)
-- services (unknown, optional)
-- travel_rule_status (unknown, optional)
-- whitepaper_required (unknown, optional)
+- current_status (any, optional): type not evidenced by kernel source
+- custody_segregation (any, optional): type not evidenced by kernel source
+- governance_maturity (any, optional): type not evidenced by kernel source
+- inputs (any, required): type not evidenced by kernel source
+- mar_arrangements (any, optional): type not evidenced by kernel source
+- member_state (any, optional): type not evidenced by kernel source
+- own_funds_status (any, optional): type not evidenced by kernel source
+- services (any, optional): type not evidenced by kernel source
+- travel_rule_status (any, optional): type not evidenced by kernel source
+- whitepaper_required (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

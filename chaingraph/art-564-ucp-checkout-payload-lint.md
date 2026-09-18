@@ -8,7 +8,7 @@ Deterministic, verify-only structural lint of a caller-supplied Universal Commer
 
 ## Inputs
 
-- payload (unknown, required)
+- payload (any, required): type not evidenced by kernel source
 
 ## Outputs
 

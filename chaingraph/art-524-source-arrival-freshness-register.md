@@ -10,7 +10,7 @@ Reconciles a caller-declared EXPECTED-source inventory against caller-declared O
 
 - expected_sources (array, required)
 - observed_arrivals (array, required)
-- reference_as_of (unknown, required)
+- reference_as_of (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,17 +8,17 @@ Turns a returned Crypto-Asset Reporting Framework or DAC8 status message into a 
 
 ## Inputs
 
-- cycle_ref (unknown, required)
+- cycle_ref (any, required): type not evidenced by kernel source
 - dispositions (array, required)
 - prior_dispositions (array, required)
-- reporting_jurisdiction (unknown, required)
-- schema_version (unknown, required)
-- status_message (unknown, required)
-- status_message_channel (unknown, required)
+- reporting_jurisdiction (any, required): type not evidenced by kernel source
+- schema_version (any, required): type not evidenced by kernel source
+- status_message (any, required): type not evidenced by kernel source
+- status_message_channel (any, required): type not evidenced by kernel source
 - status_message_return_declared (boolean, required)
-- submission_ref (unknown, required)
+- submission_ref (any, required): type not evidenced by kernel source
 - submitted_records (array, required)
-- suppressed_error_codes (unknown, required)
+- suppressed_error_codes (any, required): type not evidenced by kernel source
 
 ## Outputs
 

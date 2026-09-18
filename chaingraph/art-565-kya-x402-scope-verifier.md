@@ -8,8 +8,8 @@ Cross-checks a declared KYA (Know Your Agent) credential's scope against a decla
 
 ## Inputs
 
-- kya_credential (unknown, required)
-- x402_payload (unknown, required)
+- kya_credential (any, required): type not evidenced by kernel source
+- x402_payload (any, required): type not evidenced by kernel source
 
 ## Outputs
 

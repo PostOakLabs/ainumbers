@@ -8,11 +8,11 @@ Recomputes a monthly exchange maker-taker invoice from a caller-pasted fee sched
 
 ## Inputs
 
-- claimed_invoice_micros (unknown, required)
-- fee_schedule (unknown, required)
-- invoice_period (unknown, required)
-- prior_period_adv_shares (unknown, required)
-- recompute_tolerance_micros (unknown, required)
+- claimed_invoice_micros (any, required): type not evidenced by kernel source
+- fee_schedule (any, required): type not evidenced by kernel source
+- invoice_period (any, required): type not evidenced by kernel source
+- prior_period_adv_shares (any, required): type not evidenced by kernel source
+- recompute_tolerance_micros (any, required): type not evidenced by kernel source
 - volume_lines (array, required)
 
 ## Outputs

@@ -11,15 +11,15 @@ Monte Carlo XVA/CVA calculator. Simulates expected-exposure profiles for IRS, FX
 - cpyLGD_pct (number, required): Percentage value
 - cpyPD_pct (number, required): Percentage value
 - funding_bps (number, required): Amount in basis points
-- instrument (unknown, required)
-- maturity_years (unknown, required)
+- instrument (any, required): type not evidenced by kernel source
+- maturity_years (any, required): type not evidenced by kernel source
 - n_paths (number, required)
 - n_steps (number, required)
-- notional (unknown, required)
+- notional (any, required): type not evidenced by kernel source
 - ownPD_pct (number, required): Percentage value
-- preset (unknown, required)
+- preset (any, required): type not evidenced by kernel source
 - rfr_pct (number, required): Percentage value
-- seed (unknown, optional)
+- seed (any, optional): type not evidenced by kernel source
 - vol_pct (number, required): Percentage value
 
 ## Outputs

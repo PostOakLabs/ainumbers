@@ -8,9 +8,9 @@ Scores SWIFT/ISO 20022 PQC readiness with BAH signature-bloat sizing per the BIS
 
 ## Inputs
 
-- hndl_priority_ref (unknown, optional)
-- messaging (unknown, optional)
-- pqc_algorithm (unknown, optional)
+- hndl_priority_ref (any, optional): type not evidenced by kernel source
+- messaging (any, optional): type not evidenced by kernel source
+- pqc_algorithm (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

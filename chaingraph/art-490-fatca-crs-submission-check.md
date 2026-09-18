@@ -8,11 +8,11 @@ Evaluates a FATCA/CRS submission record set against a policy-supplied schema ver
 
 ## Inputs
 
-- certification_period (unknown, required)
+- certification_period (any, required): type not evidenced by kernel source
 - mandatory_element_rules (array, required)
 - records (array, required)
-- schema_version (unknown, required)
-- submission_id (unknown, required)
+- schema_version (any, required): type not evidenced by kernel source
+- submission_id (any, required): type not evidenced by kernel source
 - suppressed_rule_codes (array, required)
 
 ## Outputs

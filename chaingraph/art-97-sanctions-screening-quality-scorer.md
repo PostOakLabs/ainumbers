@@ -8,7 +8,7 @@ Wolfsberg-aligned screening-program quality scorecard: list coverage + match cal
 
 ## Inputs
 
-- inputs (unknown, optional)
+- inputs (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

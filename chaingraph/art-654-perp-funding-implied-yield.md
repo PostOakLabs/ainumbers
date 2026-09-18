@@ -9,16 +9,16 @@ Recomputes a perpetual-contract funding rate and its simple-annualized implied y
 ## Inputs
 
 - clamp_pct (number, required): Percentage value
-- funding_mechanism (unknown, required)
+- funding_mechanism (any, required): type not evidenced by kernel source
 - index_price (number, required)
 - interest_rate_pct (number, required): Percentage value
 - interval_hours (number, required)
 - mark_price (number, required)
 - position_notional (number, required)
-- position_side (unknown, required)
+- position_side (any, required): type not evidenced by kernel source
 - premium_index_pct (number, required): Percentage value
-- prev_funding_hash (unknown, required)
-- venue (unknown, required)
+- prev_funding_hash (any, required): type not evidenced by kernel source
+- venue (any, required): type not evidenced by kernel source
 
 ## Outputs
 

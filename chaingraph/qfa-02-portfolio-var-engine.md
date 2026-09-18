@@ -8,17 +8,17 @@ VaR and Expected Shortfall: Historical Simulation, Parametric (variance-covarian
 
 ## Inputs
 
-- avg_correlation (unknown, required)
-- conf_level (unknown, optional)
-- confidence_level (unknown, required)
-- correlation (unknown, optional)
-- holding_period (unknown, optional)
-- holding_period_days (unknown, required): Duration in days
+- avg_correlation (any, required): type not evidenced by kernel source
+- conf_level (any, optional): type not evidenced by kernel source
+- confidence_level (any, required): type not evidenced by kernel source
+- correlation (any, optional): type not evidenced by kernel source
+- holding_period (any, optional): type not evidenced by kernel source
+- holding_period_days (any, required): Duration in days; type not evidenced by kernel source
 - mc_sims (number, required)
 - n_assets (number, optional)
-- n_paths (unknown, optional)
-- portfolio_value_mm (unknown, optional): Amount in millions
-- seed (unknown, required)
+- n_paths (any, optional): type not evidenced by kernel source
+- portfolio_value_mm (any, optional): Amount in millions; type not evidenced by kernel source
+- seed (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -9,13 +9,13 @@ Recomputes a securitization priority-of-payments waterfall for one stated distri
 ## Inputs
 
 - currency (string, required)
-- deal_ref (unknown, required)
-- indenture_ref (unknown, required)
-- period_collections (unknown, required)
-- period_label (unknown, required)
-- tiers (unknown, required)
-- triggers (unknown, required)
-- trustee_reported_distribution (unknown, required)
+- deal_ref (any, required): type not evidenced by kernel source
+- indenture_ref (any, required): type not evidenced by kernel source
+- period_collections (any, required): type not evidenced by kernel source
+- period_label (any, required): type not evidenced by kernel source
+- tiers (any, required): type not evidenced by kernel source
+- triggers (any, required): type not evidenced by kernel source
+- trustee_reported_distribution (any, required): type not evidenced by kernel source
 
 ## Outputs
 

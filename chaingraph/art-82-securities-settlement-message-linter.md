@@ -8,7 +8,7 @@ Validates ISO 20022 securities-settlement messages (sese.023 instruction, sese.0
 
 ## Inputs
 
-- messages (unknown, optional)
+- messages (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

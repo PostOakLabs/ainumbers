@@ -8,7 +8,7 @@ Checks whether a caller-supplied claimed ERC-8004 agent registry entry (Identity
 
 ## Inputs
 
-- chain_id (unknown, required)
+- chain_id (any, required): type not evidenced by kernel source
 - claimed_entry (array, required)
 - onchain_record (array, required)
 - registry_address (string, required)

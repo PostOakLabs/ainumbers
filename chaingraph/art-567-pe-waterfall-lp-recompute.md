@@ -8,12 +8,12 @@ Recomputes a standard 4-tier PE distribution waterfall (return of capital, prefe
 
 ## Inputs
 
-- as_of_date (unknown, optional)
+- as_of_date (any, optional): type not evidenced by kernel source
 - cashflows (array, required)
-- deal_id (unknown, optional)
-- fund_id (unknown, optional)
-- gp_reported_allocation (unknown, required)
-- waterfall (unknown, required)
+- deal_id (any, optional): type not evidenced by kernel source
+- fund_id (any, optional): type not evidenced by kernel source
+- gp_reported_allocation (any, required): type not evidenced by kernel source
+- waterfall (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,11 +8,11 @@ Converts embedded emissions into a CBAM certificate liability: applies the CBAM 
 
 ## Inputs
 
-- cbam_factor_year (unknown, optional)
-- embedded_emissions_tco2e (unknown, optional)
-- eua_reference_price (unknown, optional)
-- import_schedule (unknown, optional)
-- origin_carbon_price_eur_per_t (unknown, optional)
+- cbam_factor_year (any, optional): type not evidenced by kernel source
+- embedded_emissions_tco2e (any, optional): type not evidenced by kernel source
+- eua_reference_price (any, optional): type not evidenced by kernel source
+- import_schedule (any, optional): type not evidenced by kernel source
+- origin_carbon_price_eur_per_t (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

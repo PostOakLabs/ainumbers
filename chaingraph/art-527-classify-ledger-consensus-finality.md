@@ -8,23 +8,23 @@ Classifies a ledger-consensus position under a deadline-bounded-inclusion model 
 
 ## Inputs
 
-- as_of_ts (unknown, required)
-- chain_label (unknown, required)
-- claimed_outcome (unknown, required)
-- claimed_tier (unknown, required)
-- continuous_history_ok (unknown, required)
-- externalized (unknown, required)
-- highest_validated_ledger (unknown, required)
-- included_in_ledger (unknown, required)
-- issuer_clawback_enabled (unknown, required)
-- last_ledger_sequence (unknown, required)
-- ledger_validated (unknown, required)
-- quorum_slice_trust_ok (unknown, required)
-- required_tier (unknown, required)
-- result_class (unknown, required)
-- settlement_model (unknown, required)
-- submitted_at_ledger (unknown, required)
-- time_bounds_max (unknown, required)
+- as_of_ts (any, required): type not evidenced by kernel source
+- chain_label (any, required): type not evidenced by kernel source
+- claimed_outcome (any, required): type not evidenced by kernel source
+- claimed_tier (any, required): type not evidenced by kernel source
+- continuous_history_ok (any, required): type not evidenced by kernel source
+- externalized (any, required): type not evidenced by kernel source
+- highest_validated_ledger (any, required): type not evidenced by kernel source
+- included_in_ledger (any, required): type not evidenced by kernel source
+- issuer_clawback_enabled (any, required): type not evidenced by kernel source
+- last_ledger_sequence (any, required): type not evidenced by kernel source
+- ledger_validated (any, required): type not evidenced by kernel source
+- quorum_slice_trust_ok (any, required): type not evidenced by kernel source
+- required_tier (any, required): type not evidenced by kernel source
+- result_class (any, required): type not evidenced by kernel source
+- settlement_model (any, required): type not evidenced by kernel source
+- submitted_at_ledger (any, required): type not evidenced by kernel source
+- time_bounds_max (any, required): type not evidenced by kernel source
 
 ## Outputs
 

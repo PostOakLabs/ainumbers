@@ -8,12 +8,12 @@ Recomputes what an authorized participant's assembled ETF create/redeem basket s
 
 ## Inputs
 
-- basket (unknown, required)
-- cash_tolerance_minor (unknown, required)
-- creation_unit_size (unknown, required)
-- pcf (unknown, required)
+- basket (any, required): type not evidenced by kernel source
+- cash_tolerance_minor (any, required): type not evidenced by kernel source
+- creation_unit_size (any, required): type not evidenced by kernel source
+- pcf (any, required): type not evidenced by kernel source
 - transaction_type (string, required)
-- units_requested (unknown, required)
+- units_requested (any, required): type not evidenced by kernel source
 
 ## Outputs
 

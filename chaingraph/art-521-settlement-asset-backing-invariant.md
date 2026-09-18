@@ -8,14 +8,14 @@ Checks whether value held across an issuance topology stays fully backed in aggr
 
 ## Inputs
 
-- as_of (unknown, required)
-- backing_model (unknown, required)
-- backing_ratio_bps (unknown, required): Amount in basis points
+- as_of (any, required): type not evidenced by kernel source
+- backing_model (any, required): type not evidenced by kernel source
+- backing_ratio_bps (any, required): Amount in basis points; type not evidenced by kernel source
 - buffers (array, required)
-- cost_per_crossing_minor_units (unknown, required)
-- idle_cost_bps (unknown, required): Amount in basis points
+- cost_per_crossing_minor_units (any, required): type not evidenced by kernel source
+- idle_cost_bps (any, required): Amount in basis points; type not evidenced by kernel source
 - movements (array, required)
-- value_in_circulation_minor_units (unknown, required)
+- value_in_circulation_minor_units (any, required): type not evidenced by kernel source
 
 ## Outputs
 

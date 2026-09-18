@@ -8,15 +8,15 @@ SA-CR / F-IRB / A-IRB RWA in parallel with output-floor comparison (72.5% §CAP3
 
 ## Inputs
 
-- airb_lgd_pct (unknown, optional): Percentage value
-- airb_pd_pct (unknown, optional): Percentage value
-- ead_bn (unknown, optional): Amount in billions
-- firb_lgd_pct (unknown, optional): Percentage value
-- firb_pd_pct (unknown, optional): Percentage value
-- mc_n (unknown, optional)
+- airb_lgd_pct (any, optional): Percentage value; type not evidenced by kernel source
+- airb_pd_pct (any, optional): Percentage value; type not evidenced by kernel source
+- ead_bn (any, optional): Amount in billions; type not evidenced by kernel source
+- firb_lgd_pct (any, optional): Percentage value; type not evidenced by kernel source
+- firb_pd_pct (any, optional): Percentage value; type not evidenced by kernel source
+- mc_n (any, optional): type not evidenced by kernel source
 - mc_scenarios (number, required)
-- mix (unknown, required)
-- mix_preset (unknown, optional)
+- mix (any, required): type not evidenced by kernel source
+- mix_preset (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

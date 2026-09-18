@@ -8,18 +8,18 @@ Turns one caller-transcribed payment of public money into settlement evidence an
 
 ## Inputs
 
-- amount_collected (unknown, required)
-- amount_credited (unknown, required)
-- as_of (unknown, required)
-- currency (unknown, required)
-- declared_revenue_code (unknown, required)
+- amount_collected (any, required): type not evidenced by kernel source
+- amount_credited (any, required): type not evidenced by kernel source
+- as_of (any, required): type not evidenced by kernel source
+- currency (any, required): type not evidenced by kernel source
+- declared_revenue_code (any, required): type not evidenced by kernel source
 - fees (array, required)
-- payer_class (unknown, required)
-- payment_ref (unknown, required)
+- payer_class (any, required): type not evidenced by kernel source
+- payment_ref (any, required): type not evidenced by kernel source
 - rails (array, required)
-- reconciliation_window (unknown, required)
+- reconciliation_window (any, required): type not evidenced by kernel source
 - revenue_code_table (array, required)
-- treasury_account_credited (unknown, required)
+- treasury_account_credited (any, required): type not evidenced by kernel source
 
 ## Outputs
 

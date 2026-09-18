@@ -8,8 +8,8 @@ Checks allocation and confirmation/affirmation events against the ESMA CSDR SDR 
 
 ## Inputs
 
-- cutoff_local (unknown, optional)
-- events (unknown, optional)
+- cutoff_local (any, optional): type not evidenced by kernel source
+- events (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,13 +8,13 @@ Tests whether a tax-exempt bond issue's declared expenditure schedule satisfies 
 
 ## Inputs
 
-- as_of_date (unknown, required)
-- de_minimis_minor (unknown, required)
-- elected_exception (unknown, required)
+- as_of_date (any, required): type not evidenced by kernel source
+- de_minimis_minor (any, required): type not evidenced by kernel source
+- elected_exception (any, required): type not evidenced by kernel source
 - expenditure_schedule (array, required)
-- gross_proceeds_minor (unknown, required)
-- issue_date (unknown, required)
-- reasonable_retainage (unknown, required)
+- gross_proceeds_minor (any, required): type not evidenced by kernel source
+- issue_date (any, required): type not evidenced by kernel source
+- reasonable_retainage (any, required): type not evidenced by kernel source
 
 ## Outputs
 

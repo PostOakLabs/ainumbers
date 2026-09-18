@@ -8,16 +8,16 @@ Checks eligibility of a Swift CSCF Independent Assessment Framework assessment: 
 
 ## Inputs
 
-- architecture_type (unknown, required)
-- assessment_date (unknown, required)
-- assessment_route (unknown, required)
-- assessor_person_ids (unknown, required)
-- attestation_deadline (unknown, required)
-- claimed_assessor_certifications (unknown, required)
+- architecture_type (any, required): type not evidenced by kernel source
+- assessment_date (any, required): type not evidenced by kernel source
+- assessment_route (any, required): type not evidenced by kernel source
+- assessor_person_ids (any, required): type not evidenced by kernel source
+- attestation_deadline (any, required): type not evidenced by kernel source
+- claimed_assessor_certifications (any, required): type not evidenced by kernel source
 - identity_set (array, required)
-- implementer_person_ids (unknown, required)
+- implementer_person_ids (any, required): type not evidenced by kernel source
 - permitted_routes (array, required)
-- required_certifications (unknown, required)
+- required_certifications (any, required): type not evidenced by kernel source
 
 ## Outputs
 

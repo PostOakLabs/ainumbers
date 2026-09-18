@@ -8,7 +8,7 @@ Scores a trade's fail probability from anonymized configuration features (SSI ma
 
 ## Inputs
 
-- trades (unknown, optional)
+- trades (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

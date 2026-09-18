@@ -8,7 +8,7 @@ Conformance check: validates a screening config against the required-coverage ma
 
 ## Inputs
 
-- config (unknown, optional)
+- config (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

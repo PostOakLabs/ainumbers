@@ -8,11 +8,11 @@ Deterministic dividend/rights/split entitlement math per record date for a singl
 
 ## Inputs
 
-- corporate_action_type (unknown, required)
-- position_qty (unknown, required)
-- ratio_or_rate (unknown, required)
-- record_date (unknown, required)
-- reference_id (unknown, required)
+- corporate_action_type (any, required): type not evidenced by kernel source
+- position_qty (any, required): type not evidenced by kernel source
+- ratio_or_rate (any, required): type not evidenced by kernel source
+- record_date (any, required): type not evidenced by kernel source
+- reference_id (any, required): type not evidenced by kernel source
 
 ## Outputs
 

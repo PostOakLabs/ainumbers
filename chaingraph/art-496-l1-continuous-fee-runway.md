@@ -8,14 +8,14 @@ Avalanche Evergreen L1 continuous-fee TCO and depletion-runway model. ACP-77 rep
 
 ## Inputs
 
-- as_of (unknown, required)
-- current_balance (unknown, required)
-- fee_growth_rate_annual_pct (unknown, required): Percentage value
-- fee_rate_avax_per_validator_month (unknown, required)
-- horizon_months (unknown, required)
-- infra_cost_annual (unknown, required)
-- target_runway_months (unknown, required)
-- validator_count (unknown, required): Count
+- as_of (any, required): type not evidenced by kernel source
+- current_balance (any, required): type not evidenced by kernel source
+- fee_growth_rate_annual_pct (any, required): Percentage value; type not evidenced by kernel source
+- fee_rate_avax_per_validator_month (any, required): type not evidenced by kernel source
+- horizon_months (any, required): type not evidenced by kernel source
+- infra_cost_annual (any, required): type not evidenced by kernel source
+- target_runway_months (any, required): type not evidenced by kernel source
+- validator_count (any, required): Count; type not evidenced by kernel source
 
 ## Outputs
 

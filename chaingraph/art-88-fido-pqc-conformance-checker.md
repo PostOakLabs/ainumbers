@@ -8,8 +8,8 @@ Validates FIDO2/WebAuthn authenticator ML-DSA conformance vs IANA COSE algorithm
 
 ## Inputs
 
-- authenticator (unknown, optional)
-- target_pqc (unknown, optional)
+- authenticator (any, optional): type not evidenced by kernel source
+- target_pqc (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

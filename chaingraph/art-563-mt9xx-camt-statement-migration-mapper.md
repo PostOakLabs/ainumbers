@@ -8,9 +8,9 @@ Maps a pasted Swift MT900/910/940/942/950 statement or notification message to a
 
 ## Inputs
 
-- declared_mt_type (unknown, required)
-- message_text (unknown, required)
-- target (unknown, required)
+- declared_mt_type (any, required): type not evidenced by kernel source
+- message_text (any, required): type not evidenced by kernel source
+- target (any, required): type not evidenced by kernel source
 
 ## Outputs
 

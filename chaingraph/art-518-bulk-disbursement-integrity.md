@@ -8,14 +8,14 @@ Attests that a bulk payment run - salaries, pensions, social transfers, vendor p
 
 ## Inputs
 
-- as_of (unknown, required)
-- authorized_control_total (unknown, required)
+- as_of (any, required): type not evidenced by kernel source
+- authorized_control_total (any, required): type not evidenced by kernel source
 - currency (string, required)
 - declared_exclusions (array, required)
 - duplicate_key_commitment_scheme (string, required)
 - payee_records (array, required)
-- per_payee_limit_minor_units (unknown, required)
-- per_run_limit_minor_units (unknown, required)
+- per_payee_limit_minor_units (any, required): type not evidenced by kernel source
+- per_run_limit_minor_units (any, required): type not evidenced by kernel source
 - prior_run_payee_refs (array, required)
 - run_reference (string, required)
 

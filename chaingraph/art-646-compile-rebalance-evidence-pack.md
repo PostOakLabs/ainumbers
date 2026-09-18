@@ -8,10 +8,10 @@ Packages one rebalance event, the current period's constituent set and weight se
 
 ## Inputs
 
-- current (unknown, required)
-- index_id (unknown, optional)
-- prior (unknown, required)
-- rebalance_date (unknown, optional)
+- current (any, required): type not evidenced by kernel source
+- index_id (any, optional): type not evidenced by kernel source
+- prior (any, required): type not evidenced by kernel source
+- rebalance_date (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

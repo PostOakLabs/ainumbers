@@ -8,7 +8,7 @@ Verifies that data moved from a legacy system to a successor is complete, value-
 
 ## Inputs
 
-- as_of (unknown, required)
+- as_of (any, required): type not evidenced by kernel source
 - currency (string, required)
 - declared_transformation_rules (array, required)
 - migration_id (string, required)

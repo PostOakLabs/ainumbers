@@ -8,13 +8,13 @@ Assembles an EU AI Act Annex IV technical documentation pack, validates the conf
 
 ## Inputs
 
-- accuracy_robustness_cyber (unknown, optional)
-- conformity_route (unknown, optional)
-- data_governance (unknown, optional)
-- quality_management (unknown, optional)
-- risk_mgmt_system (unknown, optional)
-- system (unknown, optional)
-- technical_documentation (unknown, optional)
+- accuracy_robustness_cyber (any, optional): type not evidenced by kernel source
+- conformity_route (any, optional): type not evidenced by kernel source
+- data_governance (any, optional): type not evidenced by kernel source
+- quality_management (any, optional): type not evidenced by kernel source
+- risk_mgmt_system (any, optional): type not evidenced by kernel source
+- system (any, optional): type not evidenced by kernel source
+- technical_documentation (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

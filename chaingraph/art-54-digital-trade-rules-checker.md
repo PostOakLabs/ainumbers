@@ -8,11 +8,11 @@ Machine-checks a digital trade presentation (digital LC, collection, or open-acc
 
 ## Inputs
 
-- electronic_address_provided (unknown, optional)
-- format_specified (unknown, optional)
-- lc_terms (unknown, optional)
-- presentation (unknown, optional)
-- rule_set (unknown, optional)
+- electronic_address_provided (any, optional): type not evidenced by kernel source
+- format_specified (any, optional): type not evidenced by kernel source
+- lc_terms (any, optional): type not evidenced by kernel source
+- presentation (any, optional): type not evidenced by kernel source
+- rule_set (any, optional): type not evidenced by kernel source
 
 ## Outputs
 
