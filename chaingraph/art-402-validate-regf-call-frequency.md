@@ -8,7 +8,7 @@ Checks a declared debt-collection call log against the two 12 CFR 1006.14(b) Reg
 
 ## Inputs
 
-- inputs (unknown, optional)
+- inputs (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

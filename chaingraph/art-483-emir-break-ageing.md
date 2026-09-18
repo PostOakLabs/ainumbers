@@ -9,7 +9,7 @@ Diffs a current EMIR reconciliation break set (e.g. from art-482-emir-recon-adju
 ## Inputs
 
 - current_break_set (array, required)
-- policy (unknown, required)
+- policy (any, required): type not evidenced by kernel source
 - prior_sealed_break_set (array, required)
 
 ## Outputs

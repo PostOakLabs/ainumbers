@@ -8,17 +8,17 @@ Lints a Metro 2 credit-reporting base-segment record from a PUBLIC SUBSET of the
 
 ## Inputs
 
-- account_status (unknown, required)
-- account_type (unknown, required)
-- amount_past_due (unknown, required)
-- current_balance (unknown, required)
-- date_of_first_delinquency (unknown, required)
-- date_opened (unknown, required)
-- date_reported (unknown, required)
+- account_status (any, required): type not evidenced by kernel source
+- account_type (any, required): type not evidenced by kernel source
+- amount_past_due (any, required): type not evidenced by kernel source
+- current_balance (any, required): type not evidenced by kernel source
+- date_of_first_delinquency (any, required): type not evidenced by kernel source
+- date_opened (any, required): type not evidenced by kernel source
+- date_reported (any, required): type not evidenced by kernel source
 - has_j1_segment (boolean, required)
 - has_j2_segment (boolean, required)
 - has_k_segment (boolean, required)
-- payment_rating (unknown, required)
+- payment_rating (any, required): type not evidenced by kernel source
 
 ## Outputs
 

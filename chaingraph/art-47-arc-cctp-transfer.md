@@ -8,12 +8,12 @@ Validates a CCTP v2 cross-chain USDC transfer for domain pair eligibility, Fast 
 
 ## Inputs
 
-- dest_domain (unknown, optional)
-- hook_payload (unknown, optional)
-- notional_usd (unknown, optional): Amount in US dollars
-- source_domain (unknown, optional)
-- transfer_mode (unknown, optional)
-- using_v1 (unknown, optional)
+- dest_domain (any, optional): type not evidenced by kernel source
+- hook_payload (any, optional): type not evidenced by kernel source
+- notional_usd (any, optional): Amount in US dollars; type not evidenced by kernel source
+- source_domain (any, optional): type not evidenced by kernel source
+- transfer_mode (any, optional): type not evidenced by kernel source
+- using_v1 (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

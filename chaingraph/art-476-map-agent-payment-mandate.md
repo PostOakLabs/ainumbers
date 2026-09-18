@@ -8,9 +8,9 @@ Translates an agentic-payment mandate declared under one protocol (AP2, x402, or
 
 ## Inputs
 
-- source_mandate (unknown, required)
-- source_protocol (unknown, required)
-- target_protocol (unknown, required)
+- source_mandate (any, required): type not evidenced by kernel source
+- source_protocol (any, required): type not evidenced by kernel source
+- target_protocol (any, required): type not evidenced by kernel source
 
 ## Outputs
 

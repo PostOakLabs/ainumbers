@@ -10,7 +10,7 @@ Per-tx fee (fee_microusd = ceil(base_fee_attodollars_per_gas x gas_used / 1e12))
 
 - block_time_seconds (number, required)
 - payment_mix (array, required)
-- protocol_parameters (unknown, required)
+- protocol_parameters (any, required): type not evidenced by kernel source
 
 ## Outputs
 

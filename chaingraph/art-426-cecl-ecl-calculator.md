@@ -9,9 +9,9 @@ Computes a deterministic CECL (Current Expected Credit Loss, ASC 326) allowance 
 ## Inputs
 
 - charge_offs_usd (number, optional): Amount in US dollars
-- constants_version (unknown, required)
+- constants_version (any, required): type not evidenced by kernel source
 - forecast_weights (array, required)
-- method (unknown, required)
+- method (any, required): type not evidenced by kernel source
 - prior_allowance_balance_usd (number, optional): Amount in US dollars
 - recoveries_usd (number, optional): Amount in US dollars
 - segments (array, required)

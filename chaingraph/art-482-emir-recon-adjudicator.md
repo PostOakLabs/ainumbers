@@ -8,9 +8,9 @@ Under EMIR Refit the trade repository (TR) runs the inter-TR reconciliation and 
 
 ## Inputs
 
-- firm_state (unknown, required)
-- policy (unknown, required)
-- tr_response (unknown, required)
+- firm_state (any, required): type not evidenced by kernel source
+- policy (any, required): type not evidenced by kernel source
+- tr_response (any, required): type not evidenced by kernel source
 
 ## Outputs
 

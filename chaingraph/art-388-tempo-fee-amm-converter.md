@@ -8,11 +8,11 @@ Converts a supplied fee-token amount to the validator's token through Tempo's en
 
 ## Inputs
 
-- fee_token (unknown, required)
-- max_pool_utilization_bps (unknown, required): Amount in basis points
-- pool_reserves (unknown, required)
-- user_token_in (unknown, required)
-- validator_token (unknown, required)
+- fee_token (any, required): type not evidenced by kernel source
+- max_pool_utilization_bps (any, required): Amount in basis points; type not evidenced by kernel source
+- pool_reserves (any, required): type not evidenced by kernel source
+- user_token_in (any, required): type not evidenced by kernel source
+- validator_token (any, required): type not evidenced by kernel source
 
 ## Outputs
 

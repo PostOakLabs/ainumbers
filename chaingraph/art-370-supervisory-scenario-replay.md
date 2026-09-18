@@ -8,13 +8,13 @@ Replays the Fed's published 2026 28-variable supervisory scenario paths (baselin
 
 ## Inputs
 
-- loss_function (unknown, required)
-- ppnr_function (unknown, required)
-- quarterly_distribution_mn (unknown, required): Amount in millions
-- rwa_mn (unknown, required): Amount in millions
-- scenario (unknown, required)
-- starting_capital_mn (unknown, required): Amount in millions
-- tax_rate (unknown, required)
+- loss_function (any, required): type not evidenced by kernel source
+- ppnr_function (any, required): type not evidenced by kernel source
+- quarterly_distribution_mn (any, required): Amount in millions; type not evidenced by kernel source
+- rwa_mn (any, required): Amount in millions; type not evidenced by kernel source
+- scenario (any, required): type not evidenced by kernel source
+- starting_capital_mn (any, required): Amount in millions; type not evidenced by kernel source
+- tax_rate (any, required): type not evidenced by kernel source
 
 ## Outputs
 

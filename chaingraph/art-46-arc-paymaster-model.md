@@ -8,13 +8,13 @@ ERC-4337 Paymaster economics model for Arc. Computes gas cost (gasPerUop × gasP
 
 ## Inputs
 
-- arc_usdc_per_gas_unit (unknown, optional)
-- eth_price_usd (unknown, optional): Amount in US dollars
-- gas_per_uop (unknown, optional)
-- gas_price_gwei (unknown, optional)
-- impl_months (unknown, optional)
-- merchant_sponsorship_pct (unknown, optional): Percentage value
-- monthly_uops (unknown, optional)
+- arc_usdc_per_gas_unit (any, optional): type not evidenced by kernel source
+- eth_price_usd (any, optional): Amount in US dollars; type not evidenced by kernel source
+- gas_per_uop (any, optional): type not evidenced by kernel source
+- gas_price_gwei (any, optional): type not evidenced by kernel source
+- impl_months (any, optional): type not evidenced by kernel source
+- merchant_sponsorship_pct (any, optional): Percentage value; type not evidenced by kernel source
+- monthly_uops (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

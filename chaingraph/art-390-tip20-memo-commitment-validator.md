@@ -8,10 +8,10 @@ Validates a TIP-20 TransferWithMemo's 32-byte memo as a hash-or-locator commitme
 
 ## Inputs
 
-- invoice_id (unknown, required)
-- invoice_locator_template (unknown, required)
-- memo_hex (unknown, required)
-- payload (unknown, required)
+- invoice_id (any, required): type not evidenced by kernel source
+- invoice_locator_template (any, required): type not evidenced by kernel source
+- memo_hex (any, required): type not evidenced by kernel source
+- payload (any, required): type not evidenced by kernel source
 
 ## Outputs
 

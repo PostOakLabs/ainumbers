@@ -10,10 +10,10 @@ FDIC deposit-insurance assessment rate calculator (12 CFR 327): looks up the bas
 
 - assessment_base_musd (number, optional)
 - brokered_deposit_adjustment_bp (number, optional)
-- rate_brackets (unknown, required)
+- rate_brackets (any, required): type not evidenced by kernel source
 - rate_cap_bp (number, required)
 - rate_floor_bp (number, optional)
-- rate_schedule_version (unknown, required)
+- rate_schedule_version (any, required): type not evidenced by kernel source
 - total_score (number, optional)
 - unsecured_debt_adjustment_bp (number, optional)
 

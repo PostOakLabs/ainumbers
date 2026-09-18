@@ -8,12 +8,12 @@ Computes a fund's gross and net expense ratios and Total Expense Ratio (TER) fro
 
 ## Inputs
 
-- average_net_assets (unknown, required)
-- fund_id (unknown, optional)
+- average_net_assets (any, required): type not evidenced by kernel source
+- fund_id (any, optional): type not evidenced by kernel source
 - gross_expense_components (array, required)
-- period_end (unknown, optional)
-- period_start (unknown, optional)
-- rounding (unknown, required)
+- period_end (any, optional): type not evidenced by kernel source
+- period_start (any, optional): type not evidenced by kernel source
+- rounding (any, required): type not evidenced by kernel source
 - waivers (array, required)
 
 ## Outputs

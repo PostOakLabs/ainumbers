@@ -8,10 +8,10 @@ BCBS 248 "Monitoring tools for intraday liquidity management" (Basel Committee, 
 
 ## Inputs
 
-- available_intraday_sources (unknown, required)
+- available_intraday_sources (any, required): type not evidenced by kernel source
 - start_of_day_available_musd (number, optional)
-- time_specific_obligations (unknown, required)
-- transactions (unknown, required)
+- time_specific_obligations (any, required): type not evidenced by kernel source
+- transactions (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -9,8 +9,8 @@ Compares a requested agent action (amount, currency, merchant category, timestam
 ## Inputs
 
 - attenuation_chain (array, required)
-- requested_action (unknown, optional)
-- token (unknown, optional)
+- requested_action (any, optional): type not evidenced by kernel source
+- token (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

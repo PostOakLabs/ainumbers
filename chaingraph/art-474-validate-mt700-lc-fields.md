@@ -8,8 +8,8 @@ Validates SWIFT MT700 Documentary Credit field-format and date-logic conformance
 
 ## Inputs
 
-- as_of_date (unknown, required)
-- fields (unknown, required)
+- as_of_date (any, required): type not evidenced by kernel source
+- fields (any, required): type not evidenced by kernel source
 
 ## Outputs
 

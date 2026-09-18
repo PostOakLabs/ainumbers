@@ -8,24 +8,24 @@ Compares the total cost and risk-adjusted exposure of Documentary Collections (D
 
 ## Inputs
 
-- buyerCountryRisk (unknown, required)
-- buyerRelationship (unknown, required)
-- dcCollectingCommissionPct (unknown, required)
-- dcNonPaymentProbabilityPct (unknown, required)
-- dcProtestFeeUSD (unknown, required)
-- dcRemittingFeeUSD (unknown, required)
-- dcType (unknown, required)
-- goodsStatus (unknown, required)
-- invoiceValueUSD (unknown, required)
-- lcAdvisingFeeUSD (unknown, required)
-- lcAmendmentFeeUSD (unknown, required)
-- lcConfirmationPctPerQuarter (unknown, required)
-- lcExpectedAmendments (unknown, required)
-- lcIssuancePctPerQuarter (unknown, required)
-- lcNegotiationPct (unknown, required)
-- lcType (unknown, required)
-- paymentTermDays (unknown, required)
-- sellerCountryRisk (unknown, required)
+- buyerCountryRisk (any, required): type not evidenced by kernel source
+- buyerRelationship (any, required): type not evidenced by kernel source
+- dcCollectingCommissionPct (any, required): type not evidenced by kernel source
+- dcNonPaymentProbabilityPct (any, required): type not evidenced by kernel source
+- dcProtestFeeUSD (any, required): type not evidenced by kernel source
+- dcRemittingFeeUSD (any, required): type not evidenced by kernel source
+- dcType (any, required): type not evidenced by kernel source
+- goodsStatus (any, required): type not evidenced by kernel source
+- invoiceValueUSD (any, required): type not evidenced by kernel source
+- lcAdvisingFeeUSD (any, required): type not evidenced by kernel source
+- lcAmendmentFeeUSD (any, required): type not evidenced by kernel source
+- lcConfirmationPctPerQuarter (any, required): type not evidenced by kernel source
+- lcExpectedAmendments (any, required): type not evidenced by kernel source
+- lcIssuancePctPerQuarter (any, required): type not evidenced by kernel source
+- lcNegotiationPct (any, required): type not evidenced by kernel source
+- lcType (any, required): type not evidenced by kernel source
+- paymentTermDays (any, required): type not evidenced by kernel source
+- sellerCountryRisk (any, required): type not evidenced by kernel source
 
 ## Outputs
 

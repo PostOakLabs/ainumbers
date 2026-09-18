@@ -8,7 +8,7 @@ Checks a private-education-loan disclosure-element checklist across the three 12
 
 ## Inputs
 
-- inputs (unknown, optional)
+- inputs (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

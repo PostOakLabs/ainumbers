@@ -8,10 +8,10 @@ Federal Reserve Discount Window borrowing-capacity calculator: lendable value = 
 
 ## Inputs
 
-- collateral_positions (unknown, required)
+- collateral_positions (any, required): type not evidenced by kernel source
 - coverage_target_pct (number, optional): Percentage value
-- margin_table_version (unknown, required)
-- runnable_liabilities (unknown, required)
+- margin_table_version (any, required): type not evidenced by kernel source
+- runnable_liabilities (any, required): type not evidenced by kernel source
 
 ## Outputs
 

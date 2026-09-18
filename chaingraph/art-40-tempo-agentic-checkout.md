@@ -8,16 +8,16 @@ Binds an ACP / Visa TAP / ISO 20022 checkout to a TIP-20 settlement. Maps the 32
 
 ## Inputs
 
-- amount (unknown, optional)
-- creditorBic (unknown, optional)
-- protocol (unknown, optional)
-- rawRef (unknown, optional)
-- receiverLei (unknown, optional)
-- receiverName (unknown, optional)
-- senderLei (unknown, optional)
-- senderName (unknown, optional)
-- settlementDate (unknown, optional)
-- stablecoin (unknown, optional)
+- amount (any, optional): type not evidenced by kernel source
+- creditorBic (any, optional): type not evidenced by kernel source
+- protocol (any, optional): type not evidenced by kernel source
+- rawRef (any, optional): type not evidenced by kernel source
+- receiverLei (any, optional): type not evidenced by kernel source
+- receiverName (any, optional): type not evidenced by kernel source
+- senderLei (any, optional): type not evidenced by kernel source
+- senderName (any, optional): type not evidenced by kernel source
+- settlementDate (any, optional): type not evidenced by kernel source
+- stablecoin (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

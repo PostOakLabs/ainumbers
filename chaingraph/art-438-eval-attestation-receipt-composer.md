@@ -8,8 +8,8 @@ Hashes a third-party eval log (e.g. an Inspect AI transcript) and binds it into 
 
 ## Inputs
 
-- eval_log (unknown, required)
-- mandate_reference (unknown, required)
+- eval_log (any, required): type not evidenced by kernel source
+- mandate_reference (any, required): type not evidenced by kernel source
 
 ## Outputs
 

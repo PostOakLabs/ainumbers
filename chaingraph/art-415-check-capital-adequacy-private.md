@@ -8,7 +8,7 @@ Checks a privately held eligible-capital and risk-weighted-assets figure against
 
 ## Inputs
 
-- regulatory_minimum_pct (unknown, required): Percentage value
+- regulatory_minimum_pct (any, required): Percentage value; type not evidenced by kernel source
 
 ## Outputs
 

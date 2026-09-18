@@ -9,9 +9,9 @@ Credit-concentration screen over a flat exposure list (name, sector, amount): re
 ## Inputs
 
 - exposures (array, required)
-- sector_limit_pct (unknown, required): Percentage value
-- single_name_limit_pct (unknown, required): Percentage value
-- top_n (unknown, required)
+- sector_limit_pct (any, required): Percentage value; type not evidenced by kernel source
+- single_name_limit_pct (any, required): Percentage value; type not evidenced by kernel source
+- top_n (any, required): type not evidenced by kernel source
 
 ## Outputs
 

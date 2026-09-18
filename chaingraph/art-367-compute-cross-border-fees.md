@@ -8,12 +8,12 @@ Itemizes a single cross-border B2B invoice's total cost stack: FX spread cost, p
 
 ## Inputs
 
-- dest_country (unknown, required)
+- dest_country (any, required): type not evidenced by kernel source
 - doc_cost (number, optional)
 - fx_spread_bps (number, optional): Amount in basis points
 - invoice_amount (number, optional)
 - method_fee (number, optional)
-- origin_country (unknown, required)
+- origin_country (any, required): type not evidenced by kernel source
 - recon_cost (number, optional)
 - vat_rate (number, optional)
 

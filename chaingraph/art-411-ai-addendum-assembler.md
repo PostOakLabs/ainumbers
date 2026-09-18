@@ -8,16 +8,16 @@ Assembles a Common Paper AI Addendum (Version 1.0, CC BY 4.0) from your Cover Pa
 
 ## Inputs
 
-- effective_date (unknown, required)
-- improvement_restrictions (unknown, required)
-- model_improvement (unknown, required)
-- output_ownership (unknown, required)
-- retention_window (unknown, required)
-- subprocessor_ai (unknown, required)
-- train_on_customer_data (unknown, required)
-- training_data (unknown, required)
-- training_purposes (unknown, required)
-- training_restrictions (unknown, required)
+- effective_date (any, required): type not evidenced by kernel source
+- improvement_restrictions (any, required): type not evidenced by kernel source
+- model_improvement (any, required): type not evidenced by kernel source
+- output_ownership (any, required): type not evidenced by kernel source
+- retention_window (any, required): type not evidenced by kernel source
+- subprocessor_ai (any, required): type not evidenced by kernel source
+- train_on_customer_data (any, required): type not evidenced by kernel source
+- training_data (any, required): type not evidenced by kernel source
+- training_purposes (any, required): type not evidenced by kernel source
+- training_restrictions (any, required): type not evidenced by kernel source
 
 ## Outputs
 

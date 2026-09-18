@@ -8,13 +8,13 @@ Computes the OECD Pillar Two substance-based income exclusion (SBIE) for a juris
 
 ## Inputs
 
-- globe_income (unknown, required)
-- payroll_costs (unknown, required)
+- globe_income (any, required): type not evidenced by kernel source
+- payroll_costs (any, required): type not evidenced by kernel source
 - policy_rate_table (array, required)
-- qdmtt_paid (unknown, required)
-- tangible_asset_carrying_value (unknown, required)
-- target_year (unknown, required)
-- top_up_tax_percentage (unknown, required)
+- qdmtt_paid (any, required): type not evidenced by kernel source
+- tangible_asset_carrying_value (any, required): type not evidenced by kernel source
+- target_year (any, required): type not evidenced by kernel source
+- top_up_tax_percentage (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,11 +8,11 @@ Determines a model's SR 26-2 validation status by combining its proportionality 
 
 ## Inputs
 
-- as_of_date (unknown, required)
-- cadence_days_override (unknown, required)
-- last_validation_date (unknown, required)
-- outcome_status (unknown, required)
-- tier (unknown, required)
+- as_of_date (any, required): type not evidenced by kernel source
+- cadence_days_override (any, required): type not evidenced by kernel source
+- last_validation_date (any, required): type not evidenced by kernel source
+- outcome_status (any, required): type not evidenced by kernel source
+- tier (any, required): type not evidenced by kernel source
 
 ## Outputs
 

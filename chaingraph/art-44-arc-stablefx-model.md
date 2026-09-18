@@ -8,13 +8,13 @@ Quantify Herstatt risk elimination and FX spread savings from Arc StableFX 24/7 
 
 ## Inputs
 
-- cls_annual_fee_usd (unknown, optional): Amount in US dollars
-- daily_fx_volume_usd (unknown, optional): Amount in US dollars
-- herstatt_spread_bps (unknown, optional): Amount in basis points
-- impl_months (unknown, optional)
-- non_cls_bilateral_bps (unknown, optional): Amount in basis points
-- stablefx_fee_bps (unknown, optional): Amount in basis points
-- trading_days (unknown, optional): Duration in days
+- cls_annual_fee_usd (any, optional): Amount in US dollars; type not evidenced by kernel source
+- daily_fx_volume_usd (any, optional): Amount in US dollars; type not evidenced by kernel source
+- herstatt_spread_bps (any, optional): Amount in basis points; type not evidenced by kernel source
+- impl_months (any, optional): type not evidenced by kernel source
+- non_cls_bilateral_bps (any, optional): Amount in basis points; type not evidenced by kernel source
+- stablefx_fee_bps (any, optional): Amount in basis points; type not evidenced by kernel source
+- trading_days (any, optional): Duration in days; type not evidenced by kernel source
 
 ## Outputs
 

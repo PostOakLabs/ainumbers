@@ -8,12 +8,12 @@ Independently recalculates five caller-supplied audit schedule types (straight-l
 
 ## Inputs
 
-- amortization (unknown, required)
-- depreciation (unknown, required)
-- eps (unknown, required)
-- interest_accrual (unknown, required)
-- prepaid_rollforward (unknown, required)
-- tolerance (unknown, required)
+- amortization (any, required): type not evidenced by kernel source
+- depreciation (any, required): type not evidenced by kernel source
+- eps (any, required): type not evidenced by kernel source
+- interest_accrual (any, required): type not evidenced by kernel source
+- prepaid_rollforward (any, required): type not evidenced by kernel source
+- tolerance (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,9 +8,9 @@ Assembles a shareable evidence bundle around an artifact and stamps the SPEC.md 
 
 ## Inputs
 
-- artifact_execution_hash (unknown, required)
-- artifact_tool_id (unknown, required)
-- gate_results (unknown, required)
+- artifact_execution_hash (any, required): type not evidenced by kernel source
+- artifact_tool_id (any, required): type not evidenced by kernel source
+- gate_results (any, required): type not evidenced by kernel source
 - human_accountability_records (array, required)
 - proof_refs (array, required)
 
