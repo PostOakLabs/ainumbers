@@ -8,12 +8,12 @@ Model CPN corridor economics vs SWIFT/ACH/SEPA/card/RTP for cross-border USD flo
 
 ## Inputs
 
-- cpn_fee_usd (unknown, optional): Amount in US dollars
-- fx_spread_bps (unknown, optional): Amount in basis points
-- impl_months (unknown, optional)
-- monthly_volume (unknown, optional)
-- notional_usd (unknown, optional): Amount in US dollars
-- rail (unknown, optional)
+- cpn_fee_usd (any, optional): Amount in US dollars; type not evidenced by kernel source
+- fx_spread_bps (any, optional): Amount in basis points; type not evidenced by kernel source
+- impl_months (any, optional): type not evidenced by kernel source
+- monthly_volume (any, optional): type not evidenced by kernel source
+- notional_usd (any, optional): Amount in US dollars; type not evidenced by kernel source
+- rail (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

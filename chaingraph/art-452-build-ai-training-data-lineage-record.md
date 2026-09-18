@@ -8,18 +8,18 @@ Composes a hash-chained ML training-data lineage record: dataset identity, datas
 
 ## Inputs
 
-- collection_method (unknown, required)
-- dataset_id (unknown, required)
-- dataset_version (unknown, required)
-- governance_notes (unknown, required)
-- operator_id (unknown, required)
-- referenced_receipt_execution_hash (unknown, required)
-- referenced_receipt_kernel_digest (unknown, required)
-- referenced_receipt_tool_id (unknown, required)
-- referenced_receipt_tool_version (unknown, required)
+- collection_method (any, required): type not evidenced by kernel source
+- dataset_id (any, required): type not evidenced by kernel source
+- dataset_version (any, required): type not evidenced by kernel source
+- governance_notes (any, required): type not evidenced by kernel source
+- operator_id (any, required): type not evidenced by kernel source
+- referenced_receipt_execution_hash (any, required): type not evidenced by kernel source
+- referenced_receipt_kernel_digest (any, required): type not evidenced by kernel source
+- referenced_receipt_tool_id (any, required): type not evidenced by kernel source
+- referenced_receipt_tool_version (any, required): type not evidenced by kernel source
 - retention_months (number, required)
-- sha256_prev_lineage_hash (unknown, required)
-- source_dataset_ids (unknown, required)
+- sha256_prev_lineage_hash (any, required): type not evidenced by kernel source
+- source_dataset_ids (any, required): type not evidenced by kernel source
 
 ## Outputs
 

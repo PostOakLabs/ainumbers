@@ -8,8 +8,8 @@ Aggregates the five Solvency II standard-formula risk-module capital charges (ma
 
 ## Inputs
 
-- modules (unknown, optional)
-- operational (unknown, optional)
+- modules (any, optional): type not evidenced by kernel source
+- operational (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

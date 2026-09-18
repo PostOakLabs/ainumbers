@@ -8,10 +8,10 @@ Joins caller-supplied bank and accounts-receivable confirmation responses agains
 
 ## Inputs
 
-- confirmations (unknown, required)
-- ledger_balances (unknown, required)
-- tolerance_abs (unknown, required)
-- tolerance_pct (unknown, required): Percentage value
+- confirmations (any, required): type not evidenced by kernel source
+- ledger_balances (any, required): type not evidenced by kernel source
+- tolerance_abs (any, required): type not evidenced by kernel source
+- tolerance_pct (any, required): Percentage value; type not evidenced by kernel source
 
 ## Outputs
 

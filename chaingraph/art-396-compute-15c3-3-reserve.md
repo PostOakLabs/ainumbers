@@ -8,8 +8,8 @@ SEC Rule 15c3-3 Exhibit A customer reserve formula: credit items (customer free 
 
 ## Inputs
 
-- credit_items (unknown, required)
-- debit_items (unknown, required)
+- credit_items (any, required): type not evidenced by kernel source
+- debit_items (any, required): type not evidenced by kernel source
 - pab_variant (boolean, required)
 - reserve_account_balance_musd (number, optional)
 

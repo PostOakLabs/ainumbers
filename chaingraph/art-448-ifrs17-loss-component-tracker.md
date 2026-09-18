@@ -8,7 +8,7 @@ Tracks the IFRS 17 para 50 loss-component roll-forward across periods: opening b
 
 ## Inputs
 
-- loss_component (unknown, optional)
+- loss_component (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

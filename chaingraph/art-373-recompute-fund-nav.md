@@ -9,13 +9,13 @@ Recomputes a fund's net-asset-value-per-share from SUPPLIED holdings (quantity x
 ## Inputs
 
 - accruals (array, required)
-- base_currency (unknown, optional)
-- fund_id (unknown, optional)
+- base_currency (any, optional): type not evidenced by kernel source
+- fund_id (any, optional): type not evidenced by kernel source
 - holdings (array, required)
 - liabilities (array, required)
-- rounding (unknown, required)
-- shares_outstanding (unknown, required)
-- valuation_date (unknown, optional)
+- rounding (any, required): type not evidenced by kernel source
+- shares_outstanding (any, required): type not evidenced by kernel source
+- valuation_date (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

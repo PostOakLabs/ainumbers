@@ -8,8 +8,8 @@ Maps an EU AI Act risk tier (derived from an upstream classifier such as the AI 
 
 ## Inputs
 
-- deployment_context (unknown, required)
-- risk_tier (unknown, required)
+- deployment_context (any, required): type not evidenced by kernel source
+- risk_tier (any, required): type not evidenced by kernel source
 
 ## Outputs
 

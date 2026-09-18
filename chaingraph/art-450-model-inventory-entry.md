@@ -9,16 +9,16 @@ Builds a single model-inventory record for a bank's SR 26-2 model-risk-managemen
 ## Inputs
 
 - ai_ml_model (boolean, required)
-- business_purpose (unknown, required)
-- complexity_score (unknown, required)
-- deployment_date (unknown, required)
-- development_date (unknown, required)
-- last_validation_date (unknown, required)
-- materiality_score (unknown, required)
-- model_name (unknown, required)
-- model_owner (unknown, required)
+- business_purpose (any, required): type not evidenced by kernel source
+- complexity_score (any, required): type not evidenced by kernel source
+- deployment_date (any, required): type not evidenced by kernel source
+- development_date (any, required): type not evidenced by kernel source
+- last_validation_date (any, required): type not evidenced by kernel source
+- materiality_score (any, required): type not evidenced by kernel source
+- model_name (any, required): type not evidenced by kernel source
+- model_owner (any, required): type not evidenced by kernel source
 - third_party_vendor (boolean, required)
-- usage_scope (unknown, required)
+- usage_scope (any, required): type not evidenced by kernel source
 
 ## Outputs
 

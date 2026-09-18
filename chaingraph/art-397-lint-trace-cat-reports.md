@@ -8,12 +8,12 @@ TRACE (FINRA Rule 6730) trade-report timeliness lint against a caller-declared t
 
 ## Inputs
 
-- calendar (unknown, required)
-- cat_events (unknown, required)
-- execution_timestamp (unknown, required)
-- report_timestamp (unknown, required)
+- calendar (any, required): type not evidenced by kernel source
+- cat_events (any, required): type not evidenced by kernel source
+- execution_timestamp (any, required): type not evidenced by kernel source
+- report_timestamp (any, required): type not evidenced by kernel source
 - report_window_minutes (number, optional)
-- trading_hours (unknown, required)
+- trading_hours (any, required): type not evidenced by kernel source
 
 ## Outputs
 

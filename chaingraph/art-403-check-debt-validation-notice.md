@@ -8,7 +8,7 @@ Checks a debt-validation-notice content-element checklist against Regulation F 1
 
 ## Inputs
 
-- inputs (unknown, optional)
+- inputs (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

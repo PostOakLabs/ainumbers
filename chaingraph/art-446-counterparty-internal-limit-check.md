@@ -8,7 +8,7 @@ Counterparty internal credit-limit check: compares each counterparty's caller-su
 
 ## Inputs
 
-- counterparties (unknown, required)
+- counterparties (any, required): type not evidenced by kernel source
 
 ## Outputs
 

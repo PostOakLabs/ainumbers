@@ -11,7 +11,7 @@ Computes a jurisdiction's OECD Pillar Two (GloBE) effective tax rate from caller
 - aggregate_deferred_tax_adjustment (boolean, required)
 - de_minimis_election (boolean, required)
 - entities (array, required)
-- jurisdiction_name (unknown, required)
+- jurisdiction_name (any, required): type not evidenced by kernel source
 - minimum_rate (number, required)
 - stock_based_comp_election (boolean, required)
 

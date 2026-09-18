@@ -8,14 +8,14 @@ Builds a deterministic sampling frame over an AML consent-order lookback's histo
 
 ## Inputs
 
-- confidence_level (unknown, required)
-- disposition_population_hash (unknown, required)
-- disposition_population_size (unknown, required)
-- expected_deviation_rate (unknown, required)
-- population_hash (unknown, required)
-- population_size (unknown, required)
+- confidence_level (any, required): type not evidenced by kernel source
+- disposition_population_hash (any, required): type not evidenced by kernel source
+- disposition_population_size (any, required): type not evidenced by kernel source
+- expected_deviation_rate (any, required): type not evidenced by kernel source
+- population_hash (any, required): type not evidenced by kernel source
+- population_size (any, required): type not evidenced by kernel source
 - reviewer_roster (array, required)
-- tolerable_deviation_rate (unknown, required)
+- tolerable_deviation_rate (any, required): type not evidenced by kernel source
 
 ## Outputs
 

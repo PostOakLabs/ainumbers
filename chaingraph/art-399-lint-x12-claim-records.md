@@ -8,10 +8,10 @@ Lints X12 837 (health-care claim) and 835 (claim payment/remittance advice) ENVE
 
 ## Inputs
 
-- claims (unknown, required)
-- envelope (unknown, required)
-- message_type (unknown, required)
-- remittance (unknown, required)
+- claims (any, required): type not evidenced by kernel source
+- envelope (any, required): type not evidenced by kernel source
+- message_type (any, required): type not evidenced by kernel source
+- remittance (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,17 +8,17 @@
 
 ## Inputs
 
-- attestation_cadence (unknown, optional)
-- cctp_domains (unknown, optional)
-- is_eu_emt (unknown, optional)
-- is_us_ppsi (unknown, optional)
-- mint_role_segregated (unknown, optional)
-- other_pct (unknown, optional): Percentage value
-- reserve_segregated (unknown, optional)
-- us_issuers_only (unknown, optional)
-- usdc_pct (unknown, optional): Percentage value
-- usyc_pct (unknown, optional): Percentage value
-- yield_enabled (unknown, optional)
+- attestation_cadence (any, optional): type not evidenced by kernel source
+- cctp_domains (any, optional): type not evidenced by kernel source
+- is_eu_emt (any, optional): type not evidenced by kernel source
+- is_us_ppsi (any, optional): type not evidenced by kernel source
+- mint_role_segregated (any, optional): type not evidenced by kernel source
+- other_pct (any, optional): Percentage value; type not evidenced by kernel source
+- reserve_segregated (any, optional): type not evidenced by kernel source
+- us_issuers_only (any, optional): type not evidenced by kernel source
+- usdc_pct (any, optional): Percentage value; type not evidenced by kernel source
+- usyc_pct (any, optional): Percentage value; type not evidenced by kernel source
+- yield_enabled (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

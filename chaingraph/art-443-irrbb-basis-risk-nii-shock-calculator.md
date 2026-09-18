@@ -8,10 +8,10 @@ Comptroller's Handbook IRR basis-risk delta-NII calculator: sweeps a single refe
 
 ## Inputs
 
-- horizon_months (unknown, required)
+- horizon_months (any, required): type not evidenced by kernel source
 - index_exposures (array, required)
-- material_threshold_pct (unknown, required): Percentage value
-- reference_shock_bps (unknown, required): Amount in basis points
+- material_threshold_pct (any, required): Percentage value; type not evidenced by kernel source
+- reference_shock_bps (any, required): Amount in basis points; type not evidenced by kernel source
 
 ## Outputs
 

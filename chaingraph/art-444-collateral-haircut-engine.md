@@ -8,11 +8,11 @@ Basel CRE22 comprehensive-approach collateral haircut engine for counterparty cr
 
 ## Inputs
 
-- collateral_items (unknown, required)
-- exposure (unknown, required)
+- collateral_items (any, required): type not evidenced by kernel source
+- exposure (any, required): type not evidenced by kernel source
 - fx_haircut_pct (number, optional): Percentage value
-- haircut_table (unknown, required)
-- haircut_table_version (unknown, required)
+- haircut_table (any, required): type not evidenced by kernel source
+- haircut_table_version (any, required): type not evidenced by kernel source
 - holding_period_days (number, optional): Duration in days
 - min_haircut_floor_pct (number, optional): Percentage value
 

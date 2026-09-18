@@ -8,9 +8,9 @@ Validates a Cloudflare `deferred` x402 scheme handshake: 402 offer field shape (
 
 ## Inputs
 
-- covered_components (unknown, optional)
-- id_continuity (unknown, optional)
-- offer (unknown, optional)
+- covered_components (any, optional): type not evidenced by kernel source
+- id_continuity (any, optional): type not evidenced by kernel source
+- offer (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

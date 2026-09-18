@@ -9,7 +9,7 @@ Builds a signed, hash-chained Verification-of-Payee / Confirmation-of-Payee sess
 ## Inputs
 
 - attempts (array, required)
-- session_id (unknown, required)
+- session_id (any, required): type not evidenced by kernel source
 
 ## Outputs
 

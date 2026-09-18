@@ -10,12 +10,12 @@ Rolls forward a caller-declared FR Y-14A/Q capital worksheet (CET1, additional T
 
 - additions (number, required)
 - beginning_balances (number, required)
-- constants_version (unknown, required)
-- cross_check (unknown, required)
+- constants_version (any, required): type not evidenced by kernel source
+- cross_check (any, required): type not evidenced by kernel source
 - deductions (number, required)
-- entity_id (unknown, required)
+- entity_id (any, required): type not evidenced by kernel source
 - published_scenario (number, required)
-- reporting_period (unknown, required)
+- reporting_period (any, required): type not evidenced by kernel source
 
 ## Outputs
 

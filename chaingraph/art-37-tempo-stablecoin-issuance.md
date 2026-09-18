@@ -10,16 +10,16 @@ Dual-jurisdiction TIP-20 token compliance validator. Tab 1: TIP-20 Config Lint: 
 
 - allowlistEnabled (boolean, required)
 - blocklistEnabled (boolean, required)
-- currencyCode (unknown, optional)
+- currencyCode (any, optional): type not evidenced by kernel source
 - freezeEnabled (boolean, required)
-- issuerLei (unknown, optional)
-- memoPolicy (unknown, optional)
+- issuerLei (any, optional): type not evidenced by kernel source
+- memoPolicy (any, optional): type not evidenced by kernel source
 - ofacEnabled (boolean, required)
 - roleBurnBlocked (boolean, required)
 - roleIssuer (boolean, required)
 - rolePause (boolean, required)
-- supplyCap (unknown, optional)
-- tokenName (unknown, optional)
+- supplyCap (any, optional): type not evidenced by kernel source
+- tokenName (any, optional): type not evidenced by kernel source
 - yieldEnabled (boolean, required)
 
 ## Outputs

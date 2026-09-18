@@ -8,9 +8,9 @@ FR 2052a complex-institution liquidity monitoring filing-layer kernel, scoped to
 
 ## Inputs
 
-- boundary_table_version (unknown, required)
-- bucket_boundaries (unknown, required)
-- rows (unknown, required)
+- boundary_table_version (any, required): type not evidenced by kernel source
+- bucket_boundaries (any, required): type not evidenced by kernel source
+- rows (any, required): type not evidenced by kernel source
 
 ## Outputs
 

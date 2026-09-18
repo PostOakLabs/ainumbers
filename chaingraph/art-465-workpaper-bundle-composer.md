@@ -8,13 +8,13 @@ Terminal composer for a substantive-procedure evidence bundle: a procedure ident
 
 ## Inputs
 
-- exceptions (unknown, required)
-- kernel_artifacts (unknown, required)
-- partner (unknown, required)
-- population_hash (unknown, required)
-- preparer (unknown, required)
-- procedure_id (unknown, required)
-- reviewer (unknown, required)
+- exceptions (any, required): type not evidenced by kernel source
+- kernel_artifacts (any, required): type not evidenced by kernel source
+- partner (any, required): type not evidenced by kernel source
+- population_hash (any, required): type not evidenced by kernel source
+- preparer (any, required): type not evidenced by kernel source
+- procedure_id (any, required): type not evidenced by kernel source
+- reviewer (any, required): type not evidenced by kernel source
 
 ## Outputs
 

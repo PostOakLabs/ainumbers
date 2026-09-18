@@ -9,11 +9,11 @@ EU Securitisation Regulation (EU) 2017/2402 Art.6 and U.S. Credit Risk Retention
 ## Inputs
 
 - all_exposures_qrm_qualified (boolean, required)
-- jurisdiction (unknown, required)
+- jurisdiction (any, required): type not evidenced by kernel source
 - retained_amount_musd (number, optional)
 - retained_interest_hedged_or_sold (boolean, required)
 - retainer_is_sole_purpose_entity (boolean, required)
-- retention_method (unknown, required)
+- retention_method (any, required): type not evidenced by kernel source
 - total_securitized_exposure_musd (number, optional)
 
 ## Outputs

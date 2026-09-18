@@ -10,8 +10,8 @@ CFPB Section 1071 small business lending rule (Regulation B subpart B, revised f
 
 - originations_year1_count (number, optional): Count
 - originations_year2_count (number, optional): Count
-- required_sblar_fields (unknown, required)
-- sblar_records (unknown, required)
+- required_sblar_fields (any, required): type not evidenced by kernel source
+- sblar_records (any, required): type not evidenced by kernel source
 
 ## Outputs
 

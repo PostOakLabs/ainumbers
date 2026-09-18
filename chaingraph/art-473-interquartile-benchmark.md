@@ -9,7 +9,7 @@ OECD Transfer Pricing Guidelines Ch. III §3.57 interquartile-range arithmetic o
 ## Inputs
 
 - comparable_ratios (array, required)
-- financials (unknown, required)
+- financials (any, required): type not evidenced by kernel source
 - tested_party_ratio (number, required)
 
 ## Outputs

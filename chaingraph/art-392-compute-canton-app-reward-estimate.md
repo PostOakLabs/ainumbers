@@ -10,7 +10,7 @@ Estimates a Canton Network app provider's Canton Coin reward for one round under
 
 - app_reward_pool_share (number, optional)
 - confirmed_envelope_bytes (number, optional)
-- protocol_version (unknown, required)
+- protocol_version (any, required): type not evidenced by kernel source
 - round_total_envelope_bytes (number, optional)
 - round_total_mint_cc (number, optional)
 

@@ -8,13 +8,13 @@ Deterministic data-quality metrics over a SUPPLIED risk-data extract, keyed to t
 
 ## Inputs
 
-- cutoff_date (unknown, optional)
+- cutoff_date (any, optional): type not evidenced by kernel source
 - extract (array, required)
-- guide_version (unknown, optional)
+- guide_version (any, optional): type not evidenced by kernel source
 - hierarchy_node_ids (array, required)
 - mandatory_attributes (array, required)
-- prerequisite_areas (unknown, required)
-- thresholds (unknown, required)
+- prerequisite_areas (any, required): type not evidenced by kernel source
+- thresholds (any, required): type not evidenced by kernel source
 
 ## Outputs
 

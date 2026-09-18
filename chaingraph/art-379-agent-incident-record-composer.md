@@ -8,12 +8,12 @@ Composes a structured agent incident/failure record from caller-declared inputs:
 
 ## Inputs
 
-- agent_identity (unknown, required)
-- escalation_cross_link (unknown, required)
-- incident (unknown, required)
-- mandate_hash (unknown, required)
-- remediation (unknown, required)
-- session_evidence (unknown, required)
+- agent_identity (any, required): type not evidenced by kernel source
+- escalation_cross_link (any, required): type not evidenced by kernel source
+- incident (any, required): type not evidenced by kernel source
+- mandate_hash (any, required): type not evidenced by kernel source
+- remediation (any, required): type not evidenced by kernel source
+- session_evidence (any, required): type not evidenced by kernel source
 
 ## Outputs
 

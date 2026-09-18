@@ -8,9 +8,9 @@ Basel III Liquidity Coverage Ratio (BCBS 238), Net Stable Funding Ratio (BCBS 29
 
 ## Inputs
 
-- lcr (unknown, required)
-- leverage (unknown, required)
-- nsfr (unknown, required)
+- lcr (any, required): type not evidenced by kernel source
+- leverage (any, required): type not evidenced by kernel source
+- nsfr (any, required): type not evidenced by kernel source
 
 ## Outputs
 

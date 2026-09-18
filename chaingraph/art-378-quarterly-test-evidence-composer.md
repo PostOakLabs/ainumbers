@@ -8,13 +8,13 @@ Composes a quarterly agent testing-evidence pack: test-suite identity and digest
 
 ## Inputs
 
-- aiuc_version (unknown, required)
-- declared_prior_pack_digest (unknown, required)
-- prior_quarter (unknown, required)
-- quarter (unknown, required)
-- subject_hash (unknown, required)
-- suite (unknown, required)
-- tests (unknown, required)
+- aiuc_version (any, required): type not evidenced by kernel source
+- declared_prior_pack_digest (any, required): type not evidenced by kernel source
+- prior_quarter (any, required): type not evidenced by kernel source
+- quarter (any, required): type not evidenced by kernel source
+- subject_hash (any, required): type not evidenced by kernel source
+- suite (any, required): type not evidenced by kernel source
+- tests (any, required): type not evidenced by kernel source
 
 ## Outputs
 

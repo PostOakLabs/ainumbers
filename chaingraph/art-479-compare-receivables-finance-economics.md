@@ -8,22 +8,22 @@ Compares net proceeds and effective annual cost across forfaiting (medium/long-t
 
 ## Inputs
 
-- currency (unknown, required)
-- factoring_advance_rate_pct (unknown, required): Percentage value
-- factoring_finance_charge_pct (unknown, required): Percentage value
-- factoring_service_fee_pct (unknown, required): Percentage value
-- forfaiting_arrangement_fee_pct (unknown, required): Percentage value
-- forfaiting_discount_rate_pct (unknown, required): Percentage value
-- id_advance_rate_pct (unknown, required): Percentage value
-- id_discount_charge_pct (unknown, required): Percentage value
-- id_service_fee_pct (unknown, required): Percentage value
-- invoice_value (unknown, required)
-- nr_factoring_advance_rate_pct (unknown, required): Percentage value
-- nr_factoring_finance_charge_pct (unknown, required): Percentage value
-- nr_factoring_service_fee_pct (unknown, required): Percentage value
-- num_debtors (unknown, required)
-- obligor_quality (unknown, required)
-- tenor_days (unknown, required): Duration in days
+- currency (any, required): type not evidenced by kernel source
+- factoring_advance_rate_pct (any, required): Percentage value; type not evidenced by kernel source
+- factoring_finance_charge_pct (any, required): Percentage value; type not evidenced by kernel source
+- factoring_service_fee_pct (any, required): Percentage value; type not evidenced by kernel source
+- forfaiting_arrangement_fee_pct (any, required): Percentage value; type not evidenced by kernel source
+- forfaiting_discount_rate_pct (any, required): Percentage value; type not evidenced by kernel source
+- id_advance_rate_pct (any, required): Percentage value; type not evidenced by kernel source
+- id_discount_charge_pct (any, required): Percentage value; type not evidenced by kernel source
+- id_service_fee_pct (any, required): Percentage value; type not evidenced by kernel source
+- invoice_value (any, required): type not evidenced by kernel source
+- nr_factoring_advance_rate_pct (any, required): Percentage value; type not evidenced by kernel source
+- nr_factoring_finance_charge_pct (any, required): Percentage value; type not evidenced by kernel source
+- nr_factoring_service_fee_pct (any, required): Percentage value; type not evidenced by kernel source
+- num_debtors (any, required): type not evidenced by kernel source
+- obligor_quality (any, required): type not evidenced by kernel source
+- tenor_days (any, required): Duration in days; type not evidenced by kernel source
 
 ## Outputs
 
