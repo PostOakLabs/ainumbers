@@ -167,6 +167,32 @@ export const COVERED = [
     share: '8%',
   },
   {
+    // S18-FRESHNESS-DURABLE-FIX-1 (mechanism b, 2026-09-17): the §18 digest-freshness
+    // self-test's denominator calibration {total, fresh, stale} as a REGEN-OWNED derived
+    // artifact. Every prove landing splices a newly proven node into chaingraph.json in a
+    // bot commit on main (measured: the regen rewrites ZERO kernel files, so the stale set
+    // never moves — only the denominator does); this generator recomputes the descriptive
+    // counts with the gate's own computeStaleness() (one canonicalization — _buildid.mjs
+    // sourceDigest, never a second) from that same fresh monolith, so the committed
+    // calibration and the committed monolith are self-consistent at EVERY commit and
+    // check-s18-digest-freshness.test.mjs stops needing a hand-pinned literal bump per
+    // landing. Measured cost of the old pins: two hand heals on 2026-09-17 alone (#1923,
+    // MAIN-HEAL-S18-FRESHNESS-118-2). ⚖ DESCRIPTIVE ONLY: the ratchet CEILING
+    // (scripts/s18-digest-freshness-baseline.json, stale: 133) is NOT this entry's output
+    // and the regen never writes it — --update-baseline stays the sole sanctioned tightener
+    // (S18-DIGEST-GATE-1), so the regen can never launder a staleness regression. A
+    // kernel-edit staleness event (stale +1, no re-prove) still reds the self-test until
+    // the canonical writer is re-run with the moved node NAMED. Idempotent by construction:
+    // pure function of the committed tree, no wall clock. Ordered after 'chaingraph-assemble':
+    // it reads the monolith that the assembler writes in this same pass.
+    id: 's18-freshness-calibration',
+    regen: 'node scripts/gen-s18-freshness-calibration.mjs --write',
+    gate: 'node scripts/gen-s18-freshness-calibration.mjs --check',
+    artifacts: ['scripts/s18-freshness-calibration.json'],
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-09-17, S18-FRESHNESS-DURABLE-FIX-1)',
+  },
+  {
     id: 'catalog',
     // SO #28's "catalog counts". Python, but ubuntu-latest ships python3 and
     // preflight already shells to python for check_index_sync.py.

@@ -7,8 +7,19 @@
 // asserts an untouched node is flagged fresh. Uses the REAL canonical `sourceDigest()` from
 // `_buildid.mjs` throughout — never a stand-in — so a pass here means the actual production digest
 // path both matches good input and rejects tampered input.
+//
+// S18-FRESHNESS-DURABLE-FIX-1 (mechanism b): the committed-estate calibration leg no longer asserts
+// hand-typed count literals — those sat one behind every regen splice and cost a hand heal per prove
+// landing (#1923, MAIN-HEAL-S18-FRESHNESS-118-2, both 2026-09-17). It now reads
+// scripts/s18-freshness-calibration.json — a REGEN-OWNED derived artifact that
+// derived-artifacts-regen.yml recomputes (via gen-s18-freshness-calibration.mjs, the gate's own
+// computeStaleness()) and commits in the SAME bot commit that splices chaingraph.json — and asserts
+// the recomputed counts EQUAL it. The leg stays a real control both ways: an estate splice/tamper
+// without the canonical writer reds it, and so does any hand edit of the artifact off the truth. The
+// RATCHET CEILING is a different control in a different file (s18-digest-freshness-baseline.json,
+// guarded by the production gate) and is untouched by the regen.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { computeStaleness } from './check-s18-digest-freshness.mjs';
@@ -86,7 +97,7 @@ await test('CRLF/CR line-ending normalization does not produce a false stale (ca
   assert(fresh.length === 1 && stale.length === 0, 'CRLF-vs-LF of identical logical source must NOT read as stale');
 });
 
-await test('reproduces the confirmed 133/508 stale count against the real committed chaingraph.json', async () => {
+await test('reproduces the regen-owned §18 freshness calibration against the real committed chaingraph.json', async () => {
   const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
   const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
   const liveGpuFalse = (cg.nodes ?? []).filter((n) => n.status === 'live' && n.gpu === false);
@@ -812,9 +823,37 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
    // Measured, not assumed: Land Verify run 35280558768 (afcf565d) printed the production ratchet leg
    // GREEN ("528/646 fresh, 118 stale (<= baseline)") while this self-test leg's failing assert printed
    // "expected 645 in-scope gpu:false proven nodes, got 646" before this edit (528/646 fresh + 118 stale after).
-   assert(total === 646, `expected 646 in-scope gpu:false proven nodes, got ${total}`);
-   assert(fresh.length === 528, `expected 528 fresh (calibration set), got ${fresh.length}`);
-   assert(stale.length === 118, `expected 118 stale (see 2026-09-01 note above), got ${stale.length}`);
+   // ── 646 / 528 / 118 is the LAST hand-typed calibration (heal #1924, 2026-09-17). From
+   // S18-FRESHNESS-DURABLE-FIX-1 (mechanism b) these three numbers are a REGEN-OWNED DERIVED ARTIFACT:
+   // scripts/s18-freshness-calibration.json, computed by scripts/gen-s18-freshness-calibration.mjs with
+   // THIS gate's own computeStaleness() over the canonical _buildid.mjs sourceDigest(), and committed by
+   // derived-artifacts-regen.yml in the SAME bot commit that splices chaingraph.json. A newly proven node
+   // therefore moves the denominator and this fixture together, and no hand calibration is owed on a
+   // prove landing — every future receipt lands green on the first CI run. The two reds on 2026-09-17
+   // (Land Verify runs 35265192967 on c6df18f0 and 35280558768 on afcf565d) were exactly the old pins
+   // sitting one behind the regen splice; the ratchet leg stayed green through both.
+   // The artifact is DESCRIPTIVE only. The ratchet CEILING (scripts/s18-digest-freshness-baseline.json,
+   // stale: 133, counts only go DOWN, --update-baseline the sole sanctioned tightener) is NOT
+   // regen-owned: the regen never writes it, so it can never launder a staleness regression.
+   // This leg remains a REAL control, in both directions: it recomputes the counts from the committed
+   // chaingraph.json + kernels with the canonical sourceDigest() and asserts EQUALITY against the
+   // committed artifact — so an estate splice/tamper that bypasses the canonical writer reds here, and
+   // so does a hand-edited artifact. A genuine staleness EVENT (kernel edited without a re-prove, stale
+   // +1) reds here until the canonical writer is re-run and the moved node is NAMED in the commit —
+   // the same disclosure duty the hand-typed literals carried, minus the per-landing hand heal.
+   const CAL_PATH = resolve(HERE, 's18-freshness-calibration.json');
+   if (!existsSync(CAL_PATH)) {
+     throw new Error('scripts/s18-freshness-calibration.json is missing — the §18 calibration artifact is a required committed input and absence is never a pass (SO #34c). Restore: git checkout origin/main -- scripts/s18-freshness-calibration.json');
+   }
+   const cal = JSON.parse(readFileSync(CAL_PATH, 'utf8'));
+   for (const k of ['total', 'fresh', 'stale']) {
+     if (typeof cal[k] !== 'number' || !Number.isFinite(cal[k])) {
+       throw new Error(`calibration artifact key "${k}" must be a finite number, got ${JSON.stringify(cal[k])} — a corrupt calibration is a hard failure, never a default (RATCHET-BASELINE-LOADER-1 doctrine)`);
+     }
+   }
+   assert(total === cal.total, `recomputed in-scope gpu:false proven nodes (${total}) != calibration artifact total (${cal.total}) — chaingraph.json moved without its regen-owned calibration; the canonical writer is: node scripts/gen-s18-freshness-calibration.mjs --write`);
+   assert(fresh.length === cal.fresh, `recomputed fresh (${fresh.length}) != calibration artifact fresh (${cal.fresh}) — same canonical writer: node scripts/gen-s18-freshness-calibration.mjs --write`);
+   assert(stale.length === cal.stale, `recomputed stale (${stale.length}) != calibration artifact stale (${cal.stale}) — if this is a kernel-edit staleness event, name the moved node in the commit and re-run the canonical writer; the ratchet ceiling in s18-digest-freshness-baseline.json is a different control and is NOT touched`);
  });
 
 console.log(`\n${passed} passed, ${failed} failed`);

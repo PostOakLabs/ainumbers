@@ -346,6 +346,24 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── S18-FRESHNESS-DURABLE-FIX-1 (2026-09-17) ────────────────────────────────
+  ["gen-s18-freshness-calibration.mjs",
+    "§18 freshness calibration artifact --check (S18-FRESHNESS-DURABLE-FIX-1): recomputes " +
+    "the descriptive {total, fresh, stale} counts check-s18-digest-freshness.test.mjs asserts " +
+    "against (via the production gate's own computeStaleness()) and byte-compares " +
+    "scripts/s18-freshness-calibration.json. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), so a " +
+    "named workflow step would only duplicate the same suite. It is the COVERED gate of " +
+    "derived-artifacts.mjs id 's18-freshness-calibration' (advisory-on-PR / blocking-on-main " +
+    "via the generic downgrade), and the single writer is derived-artifacts-regen.yml, which " +
+    "recommits it in the SAME bot commit as chaingraph.json and proves it fresh via " +
+    "`derived-artifacts.mjs --verify` BEFORE committing — a raw invocation in a PR-reachable " +
+    "workflow (land-verify) would hard-red every open PR across a receipt splice, the exact " +
+    "per-landing red cycle this row ends. ⚠ Deliberately NOT raw in land-verify for that " +
+    "reason; the hard equality control in every context is the self-test leg, which reads the " +
+    "committed pair (monolith + artifact) that is self-consistent at every commit. The --write " +
+    "half is a builder command, never a workflow. Reads only tracked repo files — no CI-only " +
+    "input."],
   // ── MCP-ACTIVITY-PANEL-1 (2026-09-17) ───────────────────────────────────────
   ["mcp-activity-embed.mjs",
     "Homepage MCP-ACTIVITY sentinel --check (MCP-ACTIVITY-PANEL-1): re-renders the " +

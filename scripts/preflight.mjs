@@ -1741,6 +1741,11 @@ const GATES = [
   ['§18 coverage split controls (RED/GREEN-on-PR/HARD-on-main)', 'node scripts/check-compute-proof-coverage.test.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
+  // S18-FRESHNESS-DURABLE-FIX-1: the regen-owned calibration artifact's own freshness — a COVERED
+  // shared-derived-artifact gate of scripts/derived-artifacts.mjs (id 's18-freshness-calibration'),
+  // so like every covered entry it is advisory on a PR (the regen bot on main is the single writer)
+  // and blocking on main. The self-test leg above carries the hard equality control in both contexts.
+  ['§18 freshness calibration artifact (S18-FRESHNESS-DURABLE-FIX-1)', 'node scripts/gen-s18-freshness-calibration.mjs --check'],
   // PAGE-KERNEL-DIGEST-SENTINEL-1: the OTHER end of the same digest. S18-DIGEST-GATE-1 compares a
   // zkVM RECEIPT against the deployed kernel; this compares the PUBLIC PAGE's inline compute() copy
   // against it. Both call the same canonical sourceDigest() from _buildid.mjs. The page axis had no
