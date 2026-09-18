@@ -1,13 +1,13 @@
 # CBPR+ Address Lint Chain
 
-Linear three-step chain for CBPR+ November 2026 structured address migration. Step 1 lints a PostalAddress24 block for structure type (FULLY_STRUCTURED, HYBRID, UNSTRUCTURED) and silent-fail duplication. Step 2 validates BIS CPMI d218 party completeness (UETR UUIDv4, party names, BIC, LEI format, purpose code format). Step 3 validates originator and beneficiary LEIs via ISO 17442 mod-97 and scores Wolfsberg payment transparency. All three steps always run. ZERO PII BY CONSTRUCTION: addresses are structural fields only, LEIs are public GLEIF registry data.
+Linear three-step chain for CBPR+ structured address migration. Swift deferred the CBPR+ structured-address requirement on 27 August 2026 from its former 14 November 2026 date and has published no replacement date. Step 1 lints a PostalAddress24 block for structure type (FULLY_STRUCTURED, HYBRID, UNSTRUCTURED) and silent-fail duplication. Step 2 validates BIS CPMI d218 party completeness (UETR UUIDv4, party names, BIC, LEI format, purpose code format). Step 3 validates originator and beneficiary LEIs via ISO 17442 mod-97 and scores Wolfsberg payment transparency. All three steps always run. ZERO PII BY CONSTRUCTION: addresses are structural fields only, LEIs are public GLEIF registry data.
 
 - Page: https://ainumbers.co/chaingraph/chains/cbpr-address-lint-chain.html
 - Markdown twin: https://ainumbers.co/chaingraph/chains/cbpr-address-lint-chain.md
 
 ## Workflow chain: CBPR+ Address Lint Chain
 
-Linear three-step chain for CBPR+ November 2026 structured address migration. Step 1 lints a PostalAddress24 block for structure type (FULLY_STRUCTURED, HYBRID, UNSTRUCTURED) and silent-fail duplication. Step 2 validates BIS CPMI d218 party completeness (UETR UUIDv4, party names, BIC, LEI format, purpose code format). Step 3 validates originator and beneficiary LEIs via ISO 17442 mod-97 and scores Wolfsberg payment transparency. All three steps always run. ZERO PII BY CONSTRUCTION: addresses are structural fields only, LEIs are public GLEIF registry data.
+Linear three-step chain for CBPR+ structured address migration. Swift deferred the CBPR+ structured-address requirement on 27 August 2026 from its former 14 November 2026 date and has published no replacement date. Step 1 lints a PostalAddress24 block for structure type (FULLY_STRUCTURED, HYBRID, UNSTRUCTURED) and silent-fail duplication. Step 2 validates BIS CPMI d218 party completeness (UETR UUIDv4, party names, BIC, LEI format, purpose code format). Step 3 validates originator and beneficiary LEIs via ISO 17442 mod-97 and scores Wolfsberg payment transparency. All three steps always run. ZERO PII BY CONSTRUCTION: addresses are structural fields only, LEIs are public GLEIF registry data.
 
 Domain: Cross-Border & Instant Payments
 
