@@ -8,13 +8,13 @@ EXTENDS run_ai_act_highrisk_fit (art-64). Resolves financial-services-specific A
 
 ## Inputs
 
-- annex3_category (unknown, required)
-- db_registered (unknown, required)
-- deployer_role (unknown, required)
-- fria_completed (unknown, required)
-- has_human_oversight (unknown, required)
-- is_high_risk (unknown, required)
-- logging_implemented (unknown, required)
+- annex3_category (any, required): type not evidenced by kernel source
+- db_registered (any, required): type not evidenced by kernel source
+- deployer_role (any, required): type not evidenced by kernel source
+- fria_completed (any, required): type not evidenced by kernel source
+- has_human_oversight (any, required): type not evidenced by kernel source
+- is_high_risk (any, required): type not evidenced by kernel source
+- logging_implemented (any, required): type not evidenced by kernel source
 
 ## Outputs
 

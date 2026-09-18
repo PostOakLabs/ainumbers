@@ -8,12 +8,12 @@ Computes ASC 340-40-25-4 practical expedient (contract_term_months <= 12 -> expe
 
 ## Inputs
 
-- amortization_period_override_months (unknown, optional)
-- contract_term_months (unknown, optional)
-- impairment_indicators (unknown, optional)
-- incremental_cost (unknown, optional)
-- renewal_commensurate (unknown, optional)
-- renewal_cost (unknown, optional)
+- amortization_period_override_months (any, optional): type not evidenced by kernel source
+- contract_term_months (any, optional): type not evidenced by kernel source
+- impairment_indicators (any, optional): type not evidenced by kernel source
+- incremental_cost (any, optional): type not evidenced by kernel source
+- renewal_commensurate (any, optional): type not evidenced by kernel source
+- renewal_cost (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

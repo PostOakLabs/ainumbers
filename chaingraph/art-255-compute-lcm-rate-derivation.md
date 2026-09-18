@@ -8,14 +8,14 @@ Computes the Loss Cost Multiplier (LCM) and indicated insurance rate from user-s
 
 ## Inputs
 
-- complement_loss_cost (unknown, required)
-- credibility_z (unknown, required)
-- current_rate (unknown, required)
-- fixed_expense_pct (unknown, required): Percentage value
-- lae_pct (unknown, required): Percentage value
-- profit_pct (unknown, required): Percentage value
-- pure_loss_cost (unknown, required)
-- variable_exp_pct (unknown, required): Percentage value
+- complement_loss_cost (any, required): type not evidenced by kernel source
+- credibility_z (any, required): type not evidenced by kernel source
+- current_rate (any, required): type not evidenced by kernel source
+- fixed_expense_pct (any, required): Percentage value; type not evidenced by kernel source
+- lae_pct (any, required): Percentage value; type not evidenced by kernel source
+- profit_pct (any, required): Percentage value; type not evidenced by kernel source
+- pure_loss_cost (any, required): type not evidenced by kernel source
+- variable_exp_pct (any, required): Percentage value; type not evidenced by kernel source
 
 ## Outputs
 

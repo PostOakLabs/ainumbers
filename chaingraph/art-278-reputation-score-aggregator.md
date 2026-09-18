@@ -8,10 +8,10 @@ Aggregates a set of OCG execution receipts (attestations) into a deterministic, 
 
 ## Inputs
 
-- as_of (unknown, optional)
-- attestations (unknown, required)
+- as_of (any, optional): type not evidenced by kernel source
+- attestations (any, required): type not evidenced by kernel source
 - decay_half_life_days (number, optional): Duration in days
-- subject_id (unknown, optional)
+- subject_id (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

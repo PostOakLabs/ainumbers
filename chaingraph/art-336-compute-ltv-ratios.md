@@ -13,7 +13,7 @@ Loan-to-value, combined LTV, and home-equity combined LTV per Fannie Mae Selling
 - heloc_credit_limit (number, optional)
 - sales_price (number, optional)
 - subordinate_lien_amount (number, optional)
-- transaction_type (unknown, required)
+- transaction_type (any, required): type not evidenced by kernel source
 
 ## Outputs
 

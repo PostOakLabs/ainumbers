@@ -8,15 +8,15 @@ Computes perpetual futures funding rates, compound annual APR, and cross-venue f
 
 ## Inputs
 
-- asset (unknown, required)
+- asset (any, required): type not evidenced by kernel source
 - basis_perp_price (number, required)
 - basis_spot_price (number, optional)
 - cadence_hours (number, required)
 - defi_yield_pct_annual (number, required)
 - funding_rate_pct_per_period (number, optional)
 - taker_fee_pct (number, required): Percentage value
-- venue (unknown, required)
-- venue2 (unknown, required)
+- venue (any, required): type not evidenced by kernel source
+- venue2 (any, required): type not evidenced by kernel source
 - venue2_cadence_hours (number, required)
 - venue2_funding_rate_pct_per_period (number, optional)
 - venue2_taker_fee_pct (number, required): Percentage value

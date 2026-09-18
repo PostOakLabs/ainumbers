@@ -11,7 +11,7 @@ Front-end (housing) and back-end (total) debt-to-income ratios per Fannie Mae Se
 - gross_monthly_income (number, optional)
 - housing_payment_pitia (number, optional)
 - other_monthly_debts (number, optional)
-- underwriting_type (unknown, required)
+- underwriting_type (any, required): type not evidenced by kernel source
 
 ## Outputs
 

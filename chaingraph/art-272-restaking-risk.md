@@ -15,7 +15,7 @@ Models restaking delegation rewards, operator fees, AVS yield, and slashing-wate
 - insurance_enabled (boolean, required)
 - insurance_premium_pct_of_rewards (number, optional)
 - operator_fee_pct (number, required): Percentage value
-- protocol (unknown, required)
+- protocol (any, required): type not evidenced by kernel source
 - slash_magnitude_pct (number, required): Percentage value
 - slashing_risk_pct (number, required): Percentage value
 - staked_eth (number, optional)

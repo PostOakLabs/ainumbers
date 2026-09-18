@@ -8,12 +8,12 @@ Validates catastrophe bond trigger term structure and computes layer arithmetic:
 
 ## Inputs
 
-- attachment_point (unknown, required)
-- coverage_amount (unknown, required)
-- exhaustion_point (unknown, required)
+- attachment_point (any, required): type not evidenced by kernel source
+- coverage_amount (any, required): type not evidenced by kernel source
+- exhaustion_point (any, required): type not evidenced by kernel source
 - pro_rata_enabled (boolean, required)
-- reported_loss (unknown, required)
-- second_loss_amount (unknown, required)
+- reported_loss (any, required): type not evidenced by kernel source
+- second_loss_amount (any, required): type not evidenced by kernel source
 
 ## Outputs
 

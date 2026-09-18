@@ -8,7 +8,7 @@ Compares a defined-benefit pension lump-sum offer against the single-life and jo
 
 ## Inputs
 
-- election (unknown, optional)
+- election (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

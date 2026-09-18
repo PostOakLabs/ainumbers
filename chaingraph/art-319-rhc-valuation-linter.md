@@ -8,11 +8,11 @@ Lints Robinhood Chain stock-token USD valuation expressions for the double-count
 
 ## Inputs
 
-- applied_multiplier_in_expression (unknown, optional)
-- chainlink_price_usd (unknown, optional): Amount in US dollars
-- computed_usd_value_under_test (unknown, optional)
-- raw_balance (unknown, optional)
-- ui_multiplier (unknown, optional)
+- applied_multiplier_in_expression (any, optional): type not evidenced by kernel source
+- chainlink_price_usd (any, optional): Amount in US dollars; type not evidenced by kernel source
+- computed_usd_value_under_test (any, optional): type not evidenced by kernel source
+- raw_balance (any, optional): type not evidenced by kernel source
+- ui_multiplier (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

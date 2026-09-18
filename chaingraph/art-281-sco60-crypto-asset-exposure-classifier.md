@@ -8,7 +8,7 @@ Classifies a crypto-asset position into Basel SCO60 Group 1a, 1b, 2a, or 2b (BCB
 
 ## Inputs
 
-- position (unknown, optional)
+- position (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

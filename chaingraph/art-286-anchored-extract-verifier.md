@@ -8,10 +8,10 @@ Verifies an extract's Merkle inclusion against a root only when that root is anc
 
 ## Inputs
 
-- anchor_evidence (unknown, required)
-- claimed_root (unknown, optional)
-- extract (unknown, required)
-- source_class (unknown, optional)
+- anchor_evidence (any, required): type not evidenced by kernel source
+- claimed_root (any, optional): type not evidenced by kernel source
+- extract (any, required): type not evidenced by kernel source
+- source_class (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,8 +8,8 @@ Checks a receipt's optional W3C BitstringStatusList credentialStatus reference a
 
 ## Inputs
 
-- credential_status (unknown, optional)
-- status_list_credential (unknown, optional)
+- credential_status (any, optional): type not evidenced by kernel source
+- status_list_credential (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,7 +8,7 @@ Lints a supplied control-evidence bundle against the 23 automatable AIUC-1 v2026
 
 ## Inputs
 
-- aiuc1_version (unknown, required)
+- aiuc1_version (any, required): type not evidenced by kernel source
 - control_evidence (array, required)
 
 ## Outputs

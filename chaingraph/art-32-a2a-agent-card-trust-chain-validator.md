@@ -8,9 +8,9 @@ The horizontal agent-to-agent trust complement. Validates an A2A v1.0 agent card
 
 ## Inputs
 
-- agent_card (unknown, required)
+- agent_card (any, required): type not evidenced by kernel source
 - delegation_chain (array, required)
-- spend_policy (unknown, required)
+- spend_policy (any, required): type not evidenced by kernel source
 
 ## Outputs
 

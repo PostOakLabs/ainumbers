@@ -8,9 +8,9 @@ Computes N-entity corporate cash netting: gross inter-company positions to net p
 
 ## Inputs
 
-- base_currency (unknown, required)
+- base_currency (any, required): type not evidenced by kernel source
 - entities (array, required)
-- fx_rates (unknown, required)
+- fx_rates (any, required): type not evidenced by kernel source
 - gross_positions (array, required)
 
 ## Outputs

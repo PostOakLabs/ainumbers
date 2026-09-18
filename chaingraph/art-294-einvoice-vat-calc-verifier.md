@@ -8,8 +8,8 @@ Recompute an e-invoice's line VAT, per-category tax subtotals, tax total, and gr
 
 ## Inputs
 
-- document (unknown, required)
-- rounding (unknown, required)
+- document (any, required): type not evidenced by kernel source
+- rounding (any, required): type not evidenced by kernel source
 
 ## Outputs
 

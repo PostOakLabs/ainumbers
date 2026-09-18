@@ -8,11 +8,11 @@ CFO-level cost-and-savings model for migrating a payment flow (payroll / remitta
 
 ## Inputs
 
-- impl_months (unknown, optional)
-- monthly_volume (unknown, optional)
-- rail (unknown, optional)
-- stablecoin (unknown, optional)
-- tx_amount_usd (unknown, optional): Amount in US dollars
+- impl_months (any, optional): type not evidenced by kernel source
+- monthly_volume (any, optional): type not evidenced by kernel source
+- rail (any, optional): type not evidenced by kernel source
+- stablecoin (any, optional): type not evidenced by kernel source
+- tx_amount_usd (any, optional): Amount in US dollars; type not evidenced by kernel source
 
 ## Outputs
 

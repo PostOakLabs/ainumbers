@@ -8,9 +8,9 @@ Verifies a did:webvh self-certifying DID log: per-entry self-hash integrity, seq
 
 ## Inputs
 
-- did (unknown, optional)
+- did (any, optional): type not evidenced by kernel source
 - did_log (array, required)
-- expected_document (unknown, optional)
+- expected_document (any, optional): type not evidenced by kernel source
 - max_entries (number, required)
 
 ## Outputs

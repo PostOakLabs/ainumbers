@@ -8,14 +8,14 @@ Computes the required Reg E subpart B (12 CFR 1005.31/1005.32) remittance disclo
 
 ## Inputs
 
-- destination_country (unknown, required)
-- destination_currency (unknown, required)
+- destination_country (any, required): type not evidenced by kernel source
+- destination_currency (any, required): type not evidenced by kernel source
 - estimate_permissible (boolean, required)
-- exchange_rate (unknown, required)
-- provider_fee (unknown, required)
-- send_amount (unknown, required)
-- taxes (unknown, required)
-- third_party_fees (unknown, required)
+- exchange_rate (any, required): type not evidenced by kernel source
+- provider_fee (any, required): type not evidenced by kernel source
+- send_amount (any, required): type not evidenced by kernel source
+- taxes (any, required): type not evidenced by kernel source
+- third_party_fees (any, required): type not evidenced by kernel source
 
 ## Outputs
 

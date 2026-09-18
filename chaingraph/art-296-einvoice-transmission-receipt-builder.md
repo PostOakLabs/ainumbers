@@ -8,10 +8,10 @@ Build a hash-anchored receipt proving a specific e-invoice's transmitted bytes w
 
 ## Inputs
 
-- document (unknown, required)
-- format_validation (unknown, required)
-- routed_mandate (unknown, required)
-- vat_verification (unknown, required)
+- document (any, required): type not evidenced by kernel source
+- format_validation (any, required): type not evidenced by kernel source
+- routed_mandate (any, required): type not evidenced by kernel source
+- vat_verification (any, required): type not evidenced by kernel source
 
 ## Outputs
 

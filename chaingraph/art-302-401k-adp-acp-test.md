@@ -8,11 +8,11 @@ Runs the IRC §401(k)(3) Actual Deferral Percentage test and the §401(m)(2) Act
 
 ## Inputs
 
-- acp_hce_pct (unknown, required): Percentage value
-- acp_nhce_pct (unknown, required): Percentage value
-- adp_hce_pct (unknown, required): Percentage value
-- adp_nhce_pct (unknown, required): Percentage value
-- method (unknown, required)
+- acp_hce_pct (any, required): Percentage value; type not evidenced by kernel source
+- acp_nhce_pct (any, required): Percentage value; type not evidenced by kernel source
+- adp_hce_pct (any, required): Percentage value; type not evidenced by kernel source
+- adp_nhce_pct (any, required): Percentage value; type not evidenced by kernel source
+- method (any, required): type not evidenced by kernel source
 
 ## Outputs
 
