@@ -1438,6 +1438,15 @@ const GATES = [
   // measured reads and reds here (regenerate with gen-input-schemas.mjs --write).
   ['Input-schema backfill freshness (MANIFEST-SCHEMA-BACKFILL-1)', 'node scripts/gen-input-schemas.mjs --check'],
   ['Input-schema backfill controls (enum/unknown/defaults + mutation red, MANIFEST-SCHEMA-BACKFILL-1)', 'node scripts/gen-input-schemas.selftest.mjs'],
+  // MANIFEST-EXAMPLES-ANNOTATIONS-1: the five self-description keys every neighbouring standard
+  // requires (input_example / output_example / example_execution_hash / author / license) plus the
+  // MCP 2026-07-28 tool annotations. Examples are VERBATIM fixture vector[0] copies pinned to that
+  // vector's golden_hash — a manifest with no fixture carries no example at all, and a manifest
+  // carrying one with no fixture behind it is HARD red here (⛔ never an invented example). The
+  // corpus lands at ≤125 manifests per PR, so the coverage half is a down-only ratchet against
+  // scripts/manifest-examples-baseline.json; drift is hard in every context, baseline or not.
+  ['Manifest examples/annotations freshness (MANIFEST-EXAMPLES-ANNOTATIONS-1)', 'node scripts/gen-manifest-examples.mjs --check'],
+  ['Manifest examples/annotations controls (fixture-copy/mutation RED + GREEN, SO #40b)', 'node scripts/gen-manifest-examples.mjs --self-test'],
   ['Evidence-profile manifest (EF-2)', 'node scripts/validate-evidence-profiles.mjs'],
   ['Chain domain taxonomy',        'node scripts/check-chain-domain.mjs'],
   // TOUCHTAX-DIFFSCOPE-1 (J19 §3.3): the shared line-level diff-scoping helper — one module,

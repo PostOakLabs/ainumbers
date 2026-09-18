@@ -346,6 +346,19 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── MANIFEST-EXAMPLES-ANNOTATIONS-1 (2026-09-18) ────────────────────────────
+  ["gen-manifest-examples.mjs",
+    "Manifest example/annotation freshness --check + its paired --self-test " +
+    "(MANIFEST-EXAMPLES-ANNOTATIONS-1): re-derives input_example / output_example / " +
+    "example_execution_hash from each tool's committed fixture vector[0], the MCP " +
+    "2026-07-28 annotations from the node's published status/gpu/kernel signals, and " +
+    "author/license, then compares. Hard in preflight; its CI route is scripts-verify.yml " +
+    "full preflight (the workflow runs `node scripts/preflight.mjs`), so a named workflow " +
+    "step would only duplicate the same suite. NOT a derived artifact: manifests are " +
+    "hand-and-generator-authored source under manifests/, never written main-side by " +
+    "derived-artifacts-regen.yml, so there is no writer to race. Reads only tracked repo " +
+    "files (manifests/, chaingraph/kernels/fixtures/, chaingraph.json) — no CI-only input. " +
+    "The --write and --update-baseline halves are builder commands, never workflow steps."],
   // ── S18-FRESHNESS-DURABLE-FIX-1 (2026-09-17) ────────────────────────────────
   ["gen-s18-freshness-calibration.mjs",
     "§18 freshness calibration artifact --check (S18-FRESHNESS-DURABLE-FIX-1): recomputes " +
