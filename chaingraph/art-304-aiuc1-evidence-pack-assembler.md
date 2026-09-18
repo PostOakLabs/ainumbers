@@ -8,11 +8,11 @@ Assembles a signed, AIUC-1 control-keyed evidence pack from execution receipts, 
 
 ## Inputs
 
-- aiuc1_version (unknown, required)
-- anchor_document_integrity (unknown, required)
-- artifacts (unknown, required)
-- cadence_attestation_input (unknown, required)
-- cadence_period_days (unknown, required): Duration in days
+- aiuc1_version (any, required): type not evidenced by kernel source
+- anchor_document_integrity (any, required): type not evidenced by kernel source
+- artifacts (any, required): type not evidenced by kernel source
+- cadence_attestation_input (any, required): type not evidenced by kernel source
+- cadence_period_days (any, required): Duration in days; type not evidenced by kernel source
 - control_mapping (array, required)
 
 ## Outputs

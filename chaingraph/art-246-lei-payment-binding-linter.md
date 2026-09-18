@@ -8,12 +8,12 @@ Full ISO 17442 LEI check-digit validation via ISO 7064 Mod 97-10 for originator 
 
 ## Inputs
 
-- beneficiary_account (unknown, required)
-- beneficiary_lei (unknown, required)
-- beneficiary_name (unknown, required)
-- originator_account (unknown, required)
-- originator_lei (unknown, required)
-- originator_name (unknown, required)
+- beneficiary_account (any, required): type not evidenced by kernel source
+- beneficiary_lei (any, required): type not evidenced by kernel source
+- beneficiary_name (any, required): type not evidenced by kernel source
+- originator_account (any, required): type not evidenced by kernel source
+- originator_lei (any, required): type not evidenced by kernel source
+- originator_name (any, required): type not evidenced by kernel source
 
 ## Outputs
 

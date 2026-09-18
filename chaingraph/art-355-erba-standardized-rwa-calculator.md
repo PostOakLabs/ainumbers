@@ -9,7 +9,7 @@ Credit-risk expanded risk-based approach (ERBA) / standardized-approach RWA calc
 ## Inputs
 
 - exposures (array, required)
-- rule_set (unknown, required)
+- rule_set (any, required): type not evidenced by kernel source
 
 ## Outputs
 

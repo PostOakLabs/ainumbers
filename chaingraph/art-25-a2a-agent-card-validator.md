@@ -8,7 +8,7 @@ Validates an A2A agent-card.json against the v1.0 shape: identity fields, capabi
 
 ## Inputs
 
-- agent_card (unknown, required)
+- agent_card (any, required): type not evidenced by kernel source
 
 ## Outputs
 

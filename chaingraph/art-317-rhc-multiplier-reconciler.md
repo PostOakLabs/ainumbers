@@ -8,12 +8,12 @@ Reconciles Robinhood Chain stock-token corporate actions against the ERC-8056 sc
 
 ## Inputs
 
-- current_multiplier (unknown, optional)
-- declared_action (unknown, optional)
-- event_log (unknown, optional)
-- prior_multiplier (unknown, optional)
-- raw_balance_after (unknown, optional)
-- raw_balance_before (unknown, optional)
+- current_multiplier (any, optional): type not evidenced by kernel source
+- declared_action (any, optional): type not evidenced by kernel source
+- event_log (any, optional): type not evidenced by kernel source
+- prior_multiplier (any, optional): type not evidenced by kernel source
+- raw_balance_after (any, optional): type not evidenced by kernel source
+- raw_balance_before (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

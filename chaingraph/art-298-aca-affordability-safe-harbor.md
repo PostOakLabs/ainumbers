@@ -8,11 +8,11 @@ Compute the ACA employer-mandate affordability percentage under each of the thre
 
 ## Inputs
 
-- fpl_mainland_annual (unknown, required)
-- hourly_rate (unknown, required)
-- lowest_cost_self_only_monthly_premium (unknown, required)
-- tax_year (unknown, required)
-- w2_box1_wages_annual (unknown, required)
+- fpl_mainland_annual (any, required): type not evidenced by kernel source
+- hourly_rate (any, required): type not evidenced by kernel source
+- lowest_cost_self_only_monthly_premium (any, required): type not evidenced by kernel source
+- tax_year (any, required): type not evidenced by kernel source
+- w2_box1_wages_annual (any, required): type not evidenced by kernel source
 
 ## Outputs
 

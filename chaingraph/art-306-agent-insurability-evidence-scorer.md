@@ -8,11 +8,11 @@ Scores an agent execution evidence bundle for underwriter-facing evidence comple
 
 ## Inputs
 
-- execution_claims (unknown, required)
-- incident_history (unknown, required)
-- receipts (unknown, required)
-- reputation (unknown, required)
-- underwriter_profile (unknown, required)
+- execution_claims (any, required): type not evidenced by kernel source
+- incident_history (any, required): type not evidenced by kernel source
+- receipts (any, required): type not evidenced by kernel source
+- reputation (any, required): type not evidenced by kernel source
+- underwriter_profile (any, required): type not evidenced by kernel source
 
 ## Outputs
 

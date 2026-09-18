@@ -8,12 +8,12 @@ Terminal node of the aca-226j-response-composer chain: assembles a replayable ev
 
 ## Inputs
 
-- affordability_result (unknown, required)
-- attestation (unknown, required)
+- affordability_result (any, required): type not evidenced by kernel source
+- attestation (any, required): type not evidenced by kernel source
 - disputed_employee_ids (array, required)
-- esrp_result (unknown, required)
-- irs_asserted_esrp_annual (unknown, required)
-- letter_date (unknown, required)
+- esrp_result (any, required): type not evidenced by kernel source
+- irs_asserted_esrp_annual (any, required): type not evidenced by kernel source
+- letter_date (any, required): type not evidenced by kernel source
 
 ## Outputs
 

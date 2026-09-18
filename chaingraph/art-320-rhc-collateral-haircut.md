@@ -8,12 +8,12 @@ Layers a feed-staleness, sequencer-downtime, and underlying-halt haircut on top 
 
 ## Inputs
 
-- base_haircut (unknown, optional)
-- current_time (unknown, optional)
-- feed_round (unknown, optional)
-- position_value (unknown, optional)
-- sequencer_uptime (unknown, optional)
-- underlying_market_state (unknown, optional)
+- base_haircut (any, optional): type not evidenced by kernel source
+- current_time (any, optional): type not evidenced by kernel source
+- feed_round (any, optional): type not evidenced by kernel source
+- position_value (any, optional): type not evidenced by kernel source
+- sequencer_uptime (any, optional): type not evidenced by kernel source
+- underlying_market_state (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

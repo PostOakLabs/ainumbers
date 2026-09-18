@@ -8,22 +8,22 @@ Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity for CBPR+ Nove
 
 ## Inputs
 
-- mt_f20 (unknown, required)
-- mt_f23b (unknown, required)
-- mt_f32a (unknown, required)
-- mt_f50 (unknown, required)
-- mt_f52a (unknown, required)
-- mt_f57a (unknown, required)
-- mt_f59 (unknown, required)
-- mt_f70 (unknown, required)
-- mt_f71a (unknown, required)
-- mx_cdtr_agt (unknown, required)
-- mx_cdtr_nm (unknown, required)
-- mx_chrg_br (unknown, required)
-- mx_dbtr_agt (unknown, required)
-- mx_dbtr_nm (unknown, required)
-- mx_rmt_ustrd (unknown, required)
-- mx_uetr (unknown, required)
+- mt_f20 (any, required): type not evidenced by kernel source
+- mt_f23b (any, required): type not evidenced by kernel source
+- mt_f32a (any, required): type not evidenced by kernel source
+- mt_f50 (any, required): type not evidenced by kernel source
+- mt_f52a (any, required): type not evidenced by kernel source
+- mt_f57a (any, required): type not evidenced by kernel source
+- mt_f59 (any, required): type not evidenced by kernel source
+- mt_f70 (any, required): type not evidenced by kernel source
+- mt_f71a (any, required): type not evidenced by kernel source
+- mx_cdtr_agt (any, required): type not evidenced by kernel source
+- mx_cdtr_nm (any, required): type not evidenced by kernel source
+- mx_chrg_br (any, required): type not evidenced by kernel source
+- mx_dbtr_agt (any, required): type not evidenced by kernel source
+- mx_dbtr_nm (any, required): type not evidenced by kernel source
+- mx_rmt_ustrd (any, required): type not evidenced by kernel source
+- mx_uetr (any, required): type not evidenced by kernel source
 
 ## Outputs
 

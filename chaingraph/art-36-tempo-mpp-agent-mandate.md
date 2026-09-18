@@ -8,13 +8,13 @@ Parses an MPP (Machine Payments Protocol) session, validates spend cap and sessi
 
 ## Inputs
 
-- agentDid (unknown, optional)
-- cadence (unknown, optional)
-- duration (unknown, optional)
-- merchant (unknown, optional)
-- rail (unknown, optional)
-- spendCap (unknown, optional)
-- stablecoin (unknown, optional)
+- agentDid (any, optional): type not evidenced by kernel source
+- cadence (any, optional): type not evidenced by kernel source
+- duration (any, optional): type not evidenced by kernel source
+- merchant (any, optional): type not evidenced by kernel source
+- rail (any, optional): type not evidenced by kernel source
+- spendCap (any, optional): type not evidenced by kernel source
+- stablecoin (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

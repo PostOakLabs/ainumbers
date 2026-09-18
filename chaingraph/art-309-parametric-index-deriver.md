@@ -8,8 +8,8 @@ Deterministically aggregates a named metric (mean, sum, count, max, or min) acro
 
 ## Inputs
 
-- index_def (unknown, required)
-- receipts (unknown, required)
+- index_def (any, required): type not evidenced by kernel source
+- receipts (any, required): type not evidenced by kernel source
 
 ## Outputs
 

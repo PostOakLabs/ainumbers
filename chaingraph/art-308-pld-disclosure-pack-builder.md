@@ -8,11 +8,11 @@ Assembles a disclosure/rebuttal pack for a disputed window under EU Product Liab
 
 ## Inputs
 
-- alleged_defect (unknown, optional)
-- anchor_document_integrity (unknown, required)
-- disputed_window (unknown, required)
-- product_ref (unknown, optional)
-- receipts (unknown, required)
+- alleged_defect (any, optional): type not evidenced by kernel source
+- anchor_document_integrity (any, required): type not evidenced by kernel source
+- disputed_window (any, required): type not evidenced by kernel source
+- product_ref (any, optional): type not evidenced by kernel source
+- receipts (any, required): type not evidenced by kernel source
 
 ## Outputs
 

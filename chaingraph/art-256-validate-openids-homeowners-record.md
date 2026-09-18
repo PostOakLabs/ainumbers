@@ -8,7 +8,7 @@ Validates homeowners insurance data records against the openIDS Homeowners Data 
 
 ## Inputs
 
-- record (unknown, required)
+- record (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,8 +8,8 @@ Batch-level pre-commit sanctions and purpose-code screen for a shared-ledger tra
 
 ## Inputs
 
-- profile (unknown, required)
-- screening_lists_meta (unknown, required)
+- profile (any, required): type not evidenced by kernel source
+- screening_lists_meta (any, required): type not evidenced by kernel source
 - transfers (array, required)
 
 ## Outputs

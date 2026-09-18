@@ -8,11 +8,11 @@ Checks a supplied electronic transferable record (ETR/eBL) document digest and c
 
 ## Inputs
 
-- control_events (unknown, optional)
-- document_digest (unknown, optional)
-- original_holder (unknown, optional)
-- platform_identity (unknown, optional)
-- singularity_assertion (unknown, optional)
+- control_events (any, optional): type not evidenced by kernel source
+- document_digest (any, optional): type not evidenced by kernel source
+- original_holder (any, optional): type not evidenced by kernel source
+- platform_identity (any, optional): type not evidenced by kernel source
+- singularity_assertion (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

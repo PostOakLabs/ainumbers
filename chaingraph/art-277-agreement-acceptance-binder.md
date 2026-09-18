@@ -8,12 +8,12 @@ Binds a party's acceptance to a specific assembled agreement artifact, reference
 
 ## Inputs
 
-- acceptance_statement (unknown, required)
-- accepting_party_role (unknown, required)
-- body_sha256 (unknown, required)
-- previous_proof_hash (unknown, required)
-- referenced_execution_hash (unknown, required)
-- template_id (unknown, required)
+- acceptance_statement (any, required): type not evidenced by kernel source
+- accepting_party_role (any, required): type not evidenced by kernel source
+- body_sha256 (any, required): type not evidenced by kernel source
+- previous_proof_hash (any, required): type not evidenced by kernel source
+- referenced_execution_hash (any, required): type not evidenced by kernel source
+- template_id (any, required): type not evidenced by kernel source
 
 ## Outputs
 

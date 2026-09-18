@@ -8,15 +8,15 @@ Lints an extracted monthly reserve disclosure against GENIUS Act S.394 §4: comp
 
 ## Inputs
 
-- assets (unknown, required)
-- certifying_officers (unknown, required)
-- examiner_name (unknown, optional)
-- issuer_type (unknown, optional)
-- onchain_supply_check (unknown, optional)
+- assets (any, required): type not evidenced by kernel source
+- certifying_officers (any, required): type not evidenced by kernel source
+- examiner_name (any, optional): type not evidenced by kernel source
+- issuer_type (any, optional): type not evidenced by kernel source
+- onchain_supply_check (any, optional): type not evidenced by kernel source
 - outstanding_tokens_reported (number, optional)
-- prior_month (unknown, optional)
+- prior_month (any, optional): type not evidenced by kernel source
 - registered_examiner_named (boolean, required)
-- report_month (unknown, optional)
+- report_month (any, optional): type not evidenced by kernel source
 - token_price (number, optional)
 
 ## Outputs

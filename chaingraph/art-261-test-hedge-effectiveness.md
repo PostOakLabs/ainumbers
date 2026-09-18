@@ -8,11 +8,11 @@ ASC 815-20-35 retrospective hedge effectiveness test. Computes dollar-offset rat
 
 ## Inputs
 
-- effectiveness_standard (unknown, required)
-- hedge_ratio (unknown, required)
+- effectiveness_standard (any, required): type not evidenced by kernel source
+- hedge_ratio (any, required): type not evidenced by kernel source
 - hedged_item_changes (array, required)
 - hedging_instrument_changes (array, required)
-- method (unknown, required)
+- method (any, required): type not evidenced by kernel source
 
 ## Outputs
 

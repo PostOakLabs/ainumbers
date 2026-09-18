@@ -8,15 +8,15 @@ Assembles a Common Paper Mutual NDA (Version 1.0, CC BY 4.0) from your Cover Pag
 
 ## Inputs
 
-- confidentiality_term_mode (unknown, required)
-- confidentiality_term_years (unknown, required)
-- effective_date (unknown, required)
-- governing_law (unknown, required)
-- jurisdiction (unknown, required)
-- mnda_term_mode (unknown, required)
-- mnda_term_years (unknown, required)
-- modifications (unknown, required)
-- purpose (unknown, required)
+- confidentiality_term_mode (any, required): type not evidenced by kernel source
+- confidentiality_term_years (any, required): type not evidenced by kernel source
+- effective_date (any, required): type not evidenced by kernel source
+- governing_law (any, required): type not evidenced by kernel source
+- jurisdiction (any, required): type not evidenced by kernel source
+- mnda_term_mode (any, required): type not evidenced by kernel source
+- mnda_term_years (any, required): type not evidenced by kernel source
+- modifications (any, required): type not evidenced by kernel source
+- purpose (any, required): type not evidenced by kernel source
 
 ## Outputs
 

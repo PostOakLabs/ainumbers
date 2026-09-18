@@ -8,14 +8,14 @@ Validates W-8 series form structural consistency for withholding tax compliance.
 
 ## Inputs
 
-- chapter3_status (unknown, optional)
-- chapter4_fatca_status (unknown, optional)
-- form_date (unknown, optional)
-- form_type (unknown, optional)
-- income_type (unknown, optional)
-- reference_date (unknown, optional)
-- treaty_country (unknown, optional)
-- treaty_rate_pct (unknown, optional): Percentage value
+- chapter3_status (any, optional): type not evidenced by kernel source
+- chapter4_fatca_status (any, optional): type not evidenced by kernel source
+- form_date (any, optional): type not evidenced by kernel source
+- form_type (any, optional): type not evidenced by kernel source
+- income_type (any, optional): type not evidenced by kernel source
+- reference_date (any, optional): type not evidenced by kernel source
+- treaty_country (any, optional): type not evidenced by kernel source
+- treaty_rate_pct (any, optional): Percentage value; type not evidenced by kernel source
 
 ## Outputs
 

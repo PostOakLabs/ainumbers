@@ -8,14 +8,14 @@ Federal income tax withholding via the IRS Publication 15-T percentage method, W
 
 ## Inputs
 
-- filing_status (unknown, required)
+- filing_status (any, required): type not evidenced by kernel source
 - gross_wages_per_period (number, optional)
-- pay_frequency (unknown, required)
+- pay_frequency (any, required): type not evidenced by kernel source
 - step3_dependents_credit_annual (number, optional)
 - step4a_other_income_annual (number, optional)
 - step4b_deductions_annual (number, optional)
 - step4c_extra_withholding_per_period (number, optional)
-- tax_year (unknown, required)
+- tax_year (any, required): type not evidenced by kernel source
 
 ## Outputs
 

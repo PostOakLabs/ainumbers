@@ -8,9 +8,9 @@ Freshness lint keyed to the AIUC-1 quarterly re-test cadence: flags any control 
 
 ## Inputs
 
-- as_of (unknown, required)
-- cert_anniversary (unknown, required)
-- controls (unknown, required)
+- as_of (any, required): type not evidenced by kernel source
+- cert_anniversary (any, required): type not evidenced by kernel source
+- controls (any, required): type not evidenced by kernel source
 
 ## Outputs
 

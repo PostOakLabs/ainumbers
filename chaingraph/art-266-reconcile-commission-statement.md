@@ -8,8 +8,8 @@ Line-item reconciliation of expected vs. received commission payments per contra
 
 ## Inputs
 
-- statement_lines (unknown, optional)
-- tolerance_pct (unknown, optional): Percentage value
+- statement_lines (any, optional): type not evidenced by kernel source
+- tolerance_pct (any, optional): Percentage value; type not evidenced by kernel source
 
 ## Outputs
 

@@ -9,10 +9,10 @@ Net present value of a cash flow series, discounted at a declared periodic rate.
 ## Inputs
 
 - cash_flows (array, required)
-- day_count_convention (unknown, required)
+- day_count_convention (any, required): type not evidenced by kernel source
 - discount_rate_pct (number, optional): Percentage value
-- mode (unknown, required)
-- valuation_date (unknown, required)
+- mode (any, required): type not evidenced by kernel source
+- valuation_date (any, required): type not evidenced by kernel source
 
 ## Outputs
 

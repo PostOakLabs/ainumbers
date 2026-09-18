@@ -8,10 +8,10 @@ Compute proposed IRC 4980H(a) ("no offer to 95%") and 4980H(b) ("unaffordable / 
 
 ## Inputs
 
-- fulltime_count (unknown, required): Count
-- offered_mec_count (unknown, required): Count
-- ptc_employee_count (unknown, required): Count
-- tax_year (unknown, required)
+- fulltime_count (any, required): Count; type not evidenced by kernel source
+- offered_mec_count (any, required): Count; type not evidenced by kernel source
+- ptc_employee_count (any, required): Count; type not evidenced by kernel source
+- tax_year (any, required): type not evidenced by kernel source
 
 ## Outputs
 

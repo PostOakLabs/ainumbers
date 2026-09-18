@@ -8,7 +8,7 @@
 
 ## Inputs
 
-- answers (unknown, required)
+- answers (any, required): type not evidenced by kernel source
 
 ## Outputs
 

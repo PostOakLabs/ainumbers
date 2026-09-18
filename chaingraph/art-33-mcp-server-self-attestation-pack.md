@@ -8,10 +8,10 @@ Combines the five MCP-dev checks: tool-definition lint (JSON Schema 2020-12), se
 
 ## Inputs
 
-- oauth_flags (unknown, required)
-- security_flags (unknown, required)
-- server_json (unknown, required)
-- tool_definition (unknown, required)
+- oauth_flags (any, required): type not evidenced by kernel source
+- security_flags (any, required): type not evidenced by kernel source
+- server_json (any, required): type not evidenced by kernel source
+- tool_definition (any, required): type not evidenced by kernel source
 
 ## Outputs
 

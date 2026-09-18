@@ -8,18 +8,18 @@ Computes the financial business case for insurance claims Straight-Through Proce
 
 ## Inputs
 
-- annual_claims_volume (unknown, required)
-- annual_license_cost (unknown, required)
-- automated_handling_cost (unknown, required)
-- average_claim_payment (unknown, required)
-- current_stp_rate_pct (unknown, required): Percentage value
-- discount_rate_pct (unknown, required): Percentage value
-- implementation_cost (unknown, required)
-- leakage_rate_manual_pct (unknown, required): Percentage value
-- leakage_rate_stp_pct (unknown, required): Percentage value
-- manual_handling_cost (unknown, required)
-- projection_years (unknown, required)
-- target_stp_rate_pct (unknown, required): Percentage value
+- annual_claims_volume (any, required): type not evidenced by kernel source
+- annual_license_cost (any, required): type not evidenced by kernel source
+- automated_handling_cost (any, required): type not evidenced by kernel source
+- average_claim_payment (any, required): type not evidenced by kernel source
+- current_stp_rate_pct (any, required): Percentage value; type not evidenced by kernel source
+- discount_rate_pct (any, required): Percentage value; type not evidenced by kernel source
+- implementation_cost (any, required): type not evidenced by kernel source
+- leakage_rate_manual_pct (any, required): Percentage value; type not evidenced by kernel source
+- leakage_rate_stp_pct (any, required): Percentage value; type not evidenced by kernel source
+- manual_handling_cost (any, required): type not evidenced by kernel source
+- projection_years (any, required): type not evidenced by kernel source
+- target_stp_rate_pct (any, required): Percentage value; type not evidenced by kernel source
 
 ## Outputs
 

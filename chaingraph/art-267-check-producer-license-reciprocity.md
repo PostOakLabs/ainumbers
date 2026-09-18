@@ -8,9 +8,9 @@ Checks NAIC producer license reciprocity for non-resident filing across target s
 
 ## Inputs
 
-- loa_codes (unknown, optional)
-- resident_state (unknown, optional)
-- target_states (unknown, optional)
+- loa_codes (any, optional): type not evidenced by kernel source
+- resident_state (any, optional): type not evidenced by kernel source
+- target_states (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -14,7 +14,7 @@ Computes DeFi lending health factor, liquidation price, borrow capacity, and dis
 - debt_value_usd (number, optional): Amount in US dollars
 - liquidation_bonus_pct (number, required): Percentage value
 - liquidation_threshold_pct (number, required): Percentage value
-- protocol (unknown, required)
+- protocol (any, required): type not evidenced by kernel source
 
 ## Outputs
 

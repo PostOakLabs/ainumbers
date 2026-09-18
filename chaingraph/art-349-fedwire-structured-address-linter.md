@@ -8,14 +8,14 @@ Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the November 20
 
 ## Inputs
 
-- address_lines (unknown, required)
-- building_number (unknown, required)
-- country (unknown, required)
-- country_subdivision (unknown, required)
-- network (unknown, required)
-- post_code (unknown, required)
-- street_name (unknown, required)
-- town_name (unknown, required)
+- address_lines (any, required): type not evidenced by kernel source
+- building_number (any, required): type not evidenced by kernel source
+- country (any, required): type not evidenced by kernel source
+- country_subdivision (any, required): type not evidenced by kernel source
+- network (any, required): type not evidenced by kernel source
+- post_code (any, required): type not evidenced by kernel source
+- street_name (any, required): type not evidenced by kernel source
+- town_name (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,9 +8,9 @@ Stress-tests the one-token-equals-one-share economic-exposure claim for Robinhoo
 
 ## Inputs
 
-- authorised_participants (unknown, optional)
-- issuer_credit (unknown, optional)
-- secondary_market_depth (unknown, optional)
+- authorised_participants (any, optional): type not evidenced by kernel source
+- issuer_credit (any, optional): type not evidenced by kernel source
+- secondary_market_depth (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

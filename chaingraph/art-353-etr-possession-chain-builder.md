@@ -9,8 +9,8 @@ Builds a hash-chained possession-receipt evidence pack for an electronic transfe
 ## Inputs
 
 - control_transfer_events (array, required)
-- document_digest (unknown, required)
-- initial_holder (unknown, required)
+- document_digest (any, required): type not evidenced by kernel source
+- initial_holder (any, required): type not evidenced by kernel source
 
 ## Outputs
 

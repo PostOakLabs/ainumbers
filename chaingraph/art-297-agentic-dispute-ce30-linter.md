@@ -8,8 +8,8 @@ Deterministic lint of a supplied agentic-dispute evidence bundle against Visa CE
 
 ## Inputs
 
-- dispute (unknown, required)
-- evidence (unknown, required)
+- dispute (any, required): type not evidenced by kernel source
+- evidence (any, required): type not evidenced by kernel source
 
 ## Outputs
 
