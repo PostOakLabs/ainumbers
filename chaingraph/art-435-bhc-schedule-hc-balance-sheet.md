@@ -8,8 +8,8 @@ Maps caller-declared FR Y-9C (Financial Statements for Holding Companies) Schedu
 
 ## Inputs
 
-- entity_id (unknown, required)
-- reporting_period (unknown, required)
+- entity_id (any, required): type not evidenced by kernel source
+- reporting_period (any, required): type not evidenced by kernel source
 - rounding_tolerance_usd (number, optional): Amount in US dollars
 
 ## Outputs

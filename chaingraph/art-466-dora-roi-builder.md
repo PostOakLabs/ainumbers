@@ -8,10 +8,10 @@ Constructs and cross-validates the core Register of Information (RoI) template r
 
 ## Inputs
 
-- contracts (unknown, required)
-- entity (unknown, required)
-- functions (unknown, required)
-- providers (unknown, required)
+- contracts (any, required): type not evidenced by kernel source
+- entity (any, required): type not evidenced by kernel source
+- functions (any, required): type not evidenced by kernel source
+- providers (any, required): type not evidenced by kernel source
 
 ## Outputs
 

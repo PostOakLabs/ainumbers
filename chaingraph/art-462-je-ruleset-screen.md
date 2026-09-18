@@ -8,12 +8,12 @@ Runs a caller-declared, versioned journal-entry testing ruleset over a caller-de
 
 ## Inputs
 
-- active_rules (unknown, required)
-- entries (unknown, required)
-- extract_population_hash (unknown, required)
-- rule_params (unknown, required)
-- rule_severity (unknown, required)
-- ruleset_version (unknown, required)
+- active_rules (any, required): type not evidenced by kernel source
+- entries (any, required): type not evidenced by kernel source
+- extract_population_hash (any, required): type not evidenced by kernel source
+- rule_params (any, required): type not evidenced by kernel source
+- rule_severity (any, required): type not evidenced by kernel source
+- ruleset_version (any, required): type not evidenced by kernel source
 
 ## Outputs
 

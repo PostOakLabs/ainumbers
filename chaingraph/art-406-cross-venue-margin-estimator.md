@@ -8,14 +8,14 @@ Estimates the crypto off-exchange settlement / cross-venue margin picture for a 
 
 ## Inputs
 
-- constants_version (unknown, required)
+- constants_version (any, required): type not evidenced by kernel source
 - cross_margin_offset_pct (number, optional): Percentage value
-- custody_model (unknown, required)
+- custody_model (any, required): type not evidenced by kernel source
 - financing_apr_pct (number, optional): Percentage value
 - financing_horizon_days (number, optional): Duration in days
 - leverage_multiple (number, optional)
 - leverage_program_cap_multiple (number, optional)
-- leverage_program_name (unknown, required)
+- leverage_program_name (any, required): type not evidenced by kernel source
 - venue_positions (array, required)
 
 ## Outputs

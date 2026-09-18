@@ -8,13 +8,13 @@ Composes a SOX 404 / ICFR control-test evidence artifact: reconciles a caller-de
 
 ## Inputs
 
-- control_id (unknown, required)
-- population_hash (unknown, required)
-- reporting_period (unknown, required)
+- control_id (any, required): type not evidenced by kernel source
+- population_hash (any, required): type not evidenced by kernel source
+- reporting_period (any, required): type not evidenced by kernel source
 - sample (array, required)
 - test_results (array, required)
-- tester_id (unknown, required)
-- tolerable_exception_count (unknown, required): Count
+- tester_id (any, required): type not evidenced by kernel source
+- tolerable_exception_count (any, required): Count; type not evidenced by kernel source
 
 ## Outputs
 

@@ -10,7 +10,7 @@ Evaluates a caller-declared role-assignment set against a caller-declared SoD co
 
 - assignments (array, required)
 - conflict_ruleset (array, required)
-- ruleset_version (unknown, required)
+- ruleset_version (any, required): type not evidenced by kernel source
 
 ## Outputs
 

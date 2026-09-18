@@ -8,21 +8,21 @@ Composes a documentation-element workpaper record from an existing OCG receipt (
 
 ## Inputs
 
-- declared_conventions (unknown, required)
-- determinism_class (unknown, required)
-- documentation_standard_ref (unknown, required)
-- engagement_id (unknown, required)
-- previous_workpaper_hash (unknown, required)
-- receipt_execution_hash (unknown, required)
-- receipt_generated_at (unknown, required)
-- receipt_kernel_digest (unknown, required)
-- receipt_tool_id (unknown, required)
-- receipt_tool_version (unknown, required)
-- reporting_period (unknown, required)
-- reviewer_ha_role (unknown, required)
-- reviewer_identity_id (unknown, required)
-- reviewer_role (unknown, required)
-- reviewer_statement (unknown, required)
+- declared_conventions (any, required): type not evidenced by kernel source
+- determinism_class (any, required): type not evidenced by kernel source
+- documentation_standard_ref (any, required): type not evidenced by kernel source
+- engagement_id (any, required): type not evidenced by kernel source
+- previous_workpaper_hash (any, required): type not evidenced by kernel source
+- receipt_execution_hash (any, required): type not evidenced by kernel source
+- receipt_generated_at (any, required): type not evidenced by kernel source
+- receipt_kernel_digest (any, required): type not evidenced by kernel source
+- receipt_tool_id (any, required): type not evidenced by kernel source
+- receipt_tool_version (any, required): type not evidenced by kernel source
+- reporting_period (any, required): type not evidenced by kernel source
+- reviewer_ha_role (any, required): type not evidenced by kernel source
+- reviewer_identity_id (any, required): type not evidenced by kernel source
+- reviewer_role (any, required): type not evidenced by kernel source
+- reviewer_statement (any, required): type not evidenced by kernel source
 
 ## Outputs
 

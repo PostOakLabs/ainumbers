@@ -11,11 +11,11 @@ Given caller-supplied CET1/Tier1/Tier2 capital components and risk-weighted asse
 - additional_tier1_capital_usd (number, optional): Amount in US dollars
 - cet1_capital_usd (number, optional): Amount in US dollars
 - cet1_min_pct (number, optional): Percentage value
-- constants_version (unknown, required)
-- entity_id (unknown, required)
+- constants_version (any, required): type not evidenced by kernel source
+- entity_id (any, required): type not evidenced by kernel source
 - eslr_buffer_pct (number, optional): Percentage value
 - is_gsib (boolean, required)
-- reporting_period (unknown, required)
+- reporting_period (any, required): type not evidenced by kernel source
 - slr_min_pct (number, optional): Percentage value
 - tier1_capital_usd (number, required): Amount in US dollars
 - tier1_min_pct (number, optional): Percentage value

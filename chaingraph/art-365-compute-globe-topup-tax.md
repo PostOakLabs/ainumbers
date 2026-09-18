@@ -11,7 +11,7 @@ OECD Pillar Two GloBE top-up tax calculator: per-jurisdiction substance-based in
 - central_record_sbs (array, required)
 - fy (number, required)
 - jurisdictions (array, required)
-- parent_hq (unknown, required)
+- parent_hq (any, required): type not evidenced by kernel source
 - sbs_election (boolean, required)
 
 ## Outputs

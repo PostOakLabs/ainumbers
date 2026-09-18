@@ -8,7 +8,7 @@ Ties declared retail-installment-contract Amount Financed, Finance Charge, and T
 
 ## Inputs
 
-- inputs (unknown, optional)
+- inputs (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

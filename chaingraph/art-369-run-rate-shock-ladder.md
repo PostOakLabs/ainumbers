@@ -8,8 +8,8 @@ US OCC/FDIC interest-rate-risk parallel shock ladder: sweeps four prescribed par
 
 ## Inputs
 
-- nii_12m_gap (unknown, required)
-- repricing_gaps (unknown, optional)
+- nii_12m_gap (any, required): type not evidenced by kernel source
+- repricing_gaps (any, optional): type not evidenced by kernel source
 - shock_presets (array, required)
 
 ## Outputs

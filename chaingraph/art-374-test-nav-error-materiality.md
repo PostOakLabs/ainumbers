@@ -8,13 +8,13 @@ Compares an erroneous NAV-per-share against a corrected NAV-per-share against a 
 
 ## Inputs
 
-- affected_period (unknown, required)
-- corrected_nav_per_share (unknown, required)
-- erroneous_nav_per_share (unknown, required)
-- fund_id (unknown, optional)
-- materiality_policy (unknown, required)
-- shares_outstanding (unknown, required)
-- valuation_date (unknown, optional)
+- affected_period (any, required): type not evidenced by kernel source
+- corrected_nav_per_share (any, required): type not evidenced by kernel source
+- erroneous_nav_per_share (any, required): type not evidenced by kernel source
+- fund_id (any, optional): type not evidenced by kernel source
+- materiality_policy (any, required): type not evidenced by kernel source
+- shares_outstanding (any, required): type not evidenced by kernel source
+- valuation_date (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

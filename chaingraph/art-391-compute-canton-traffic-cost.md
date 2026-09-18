@@ -12,7 +12,7 @@ Computes Canton Network synchronizer traffic cost (CIP-0042/CIP-0084 regime): fe
 - envelope_mb (number, optional)
 - is_transfer_preapproval (boolean, required)
 - preapproval_age_days (number, optional): Duration in days
-- protocol_version (unknown, required)
+- protocol_version (any, required): type not evidenced by kernel source
 - rate_usd_per_mb (number, optional)
 
 ## Outputs

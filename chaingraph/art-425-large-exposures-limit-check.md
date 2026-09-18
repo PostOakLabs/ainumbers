@@ -9,7 +9,7 @@ Basel III large exposures framework (BCBS 283) and U.S. single-counterparty cred
 ## Inputs
 
 - caller_is_gsib (boolean, required)
-- counterparties (unknown, required)
+- counterparties (any, required): type not evidenced by kernel source
 - tier1_capital_musd (number, optional)
 
 ## Outputs

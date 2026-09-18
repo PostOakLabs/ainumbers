@@ -8,15 +8,15 @@ Verifies a C2SP tlog-checkpoint + witness-cosignature note (SPEC.md §20.2) offl
 
 ## Inputs
 
-- anchored_hash (unknown, required)
-- checkpoint_note (unknown, required)
-- consistency_proof (unknown, required)
-- log_origin (unknown, required)
-- mode (unknown, required)
-- new_checkpoint_note (unknown, required)
-- old_checkpoint_note (unknown, required)
-- threshold (unknown, required)
-- witness_keys (unknown, required)
+- anchored_hash (any, required): type not evidenced by kernel source
+- checkpoint_note (any, required): type not evidenced by kernel source
+- consistency_proof (any, required): type not evidenced by kernel source
+- log_origin (any, required): type not evidenced by kernel source
+- mode (any, required): type not evidenced by kernel source
+- new_checkpoint_note (any, required): type not evidenced by kernel source
+- old_checkpoint_note (any, required): type not evidenced by kernel source
+- threshold (any, required): type not evidenced by kernel source
+- witness_keys (any, required): type not evidenced by kernel source
 
 ## Outputs
 

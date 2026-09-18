@@ -10,7 +10,7 @@ Risk-Adjusted Return on Capital (RAROC) loan pricing per Basel II BCBS 128 (2006
 
 - arrangement_fee_bps (number, optional): Amount in basis points
 - benchmark_rate_pct (number, optional): Percentage value
-- capital_approach (unknown, required)
+- capital_approach (any, required): type not evidenced by kernel source
 - capital_buffer_bps (number, optional): Amount in basis points
 - commitment_fee_bps (number, optional): Amount in basis points
 - cost_of_funds_pct (number, optional): Percentage value

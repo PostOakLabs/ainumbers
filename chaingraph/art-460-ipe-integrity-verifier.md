@@ -8,13 +8,13 @@ Verifies Information-Produced-by-Entity (IPE) completeness and accuracy for SOX 
 
 ## Inputs
 
-- report_control_total (unknown, required)
-- report_hash (unknown, required)
-- report_row_count (unknown, required): Count
-- source_control_total (unknown, required)
-- source_extract_hash (unknown, required)
-- source_row_count (unknown, required): Count
-- tolerance (unknown, required)
+- report_control_total (any, required): type not evidenced by kernel source
+- report_hash (any, required): type not evidenced by kernel source
+- report_row_count (any, required): Count; type not evidenced by kernel source
+- source_control_total (any, required): type not evidenced by kernel source
+- source_extract_hash (any, required): type not evidenced by kernel source
+- source_row_count (any, required): Count; type not evidenced by kernel source
+- tolerance (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,10 +8,10 @@ Assembles the OECD GloBE Information Return (GIR) data model for one MNE group /
 
 ## Inputs
 
-- fiscal_year (unknown, required)
-- gir_schema_version (unknown, required)
+- fiscal_year (any, required): type not evidenced by kernel source
+- gir_schema_version (any, required): type not evidenced by kernel source
 - jurisdictions (array, required)
-- mne_group_name (unknown, required)
+- mne_group_name (any, required): type not evidenced by kernel source
 
 ## Outputs
 

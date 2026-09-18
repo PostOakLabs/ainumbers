@@ -13,8 +13,8 @@ Validates a Form 5500 schedule-applicability matrix (plan type and size determin
 - has_party_in_interest_transactions (boolean, required)
 - is_multiemployer (boolean, required)
 - participant_count (number, required): Count
-- plan_type (unknown, required)
-- plan_year_end (unknown, required)
+- plan_type (any, required): type not evidenced by kernel source
+- plan_year_end (any, required): type not evidenced by kernel source
 - schedule_h_beginning_assets (number, required)
 - schedule_h_distributions (number, required)
 - schedule_h_ending_assets (number, required)

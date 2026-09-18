@@ -8,7 +8,7 @@ Computes the NAIC Risk-Based Capital action-level tier from a privately held Tot
 
 ## Inputs
 
-- table_version (unknown, required)
+- table_version (any, required): type not evidenced by kernel source
 
 ## Outputs
 

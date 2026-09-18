@@ -8,19 +8,19 @@
 
 ## Inputs
 
-- activity_cash (unknown, optional)
-- activity_repo (unknown, optional)
-- agreements_status (unknown, optional)
-- capital_constrained (unknown, optional)
-- connectivity (unknown, optional)
-- cross_product_hedges (unknown, optional)
-- current_access (unknown, optional)
-- execution_breadth (unknown, optional)
-- exemption_claimed (unknown, optional)
-- hqla_inventory_pct (unknown, optional): Percentage value
-- im_funding_ready (unknown, optional)
-- intraday_liquidity (unknown, optional)
-- primary_product (unknown, optional)
+- activity_cash (any, optional): type not evidenced by kernel source
+- activity_repo (any, optional): type not evidenced by kernel source
+- agreements_status (any, optional): type not evidenced by kernel source
+- capital_constrained (any, optional): type not evidenced by kernel source
+- connectivity (any, optional): type not evidenced by kernel source
+- cross_product_hedges (any, optional): type not evidenced by kernel source
+- current_access (any, optional): type not evidenced by kernel source
+- execution_breadth (any, optional): type not evidenced by kernel source
+- exemption_claimed (any, optional): type not evidenced by kernel source
+- hqla_inventory_pct (any, optional): Percentage value; type not evidenced by kernel source
+- im_funding_ready (any, optional): type not evidenced by kernel source
+- intraday_liquidity (any, optional): type not evidenced by kernel source
+- primary_product (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

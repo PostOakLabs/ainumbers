@@ -8,11 +8,11 @@ Composes a structured verification-failure/fraud-attempt incident record from an
 
 ## Inputs
 
-- escalation_cross_link (unknown, required)
-- failure_classification (unknown, required)
-- remediation (unknown, required)
-- session_evidence (unknown, required)
-- session_receipt (unknown, required)
+- escalation_cross_link (any, required): type not evidenced by kernel source
+- failure_classification (any, required): type not evidenced by kernel source
+- remediation (any, required): type not evidenced by kernel source
+- session_evidence (any, required): type not evidenced by kernel source
+- session_receipt (any, required): type not evidenced by kernel source
 
 ## Outputs
 

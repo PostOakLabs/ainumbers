@@ -8,7 +8,7 @@ Checks a municipal-bond Official Statement disclosure-element checklist (element
 
 ## Inputs
 
-- inputs (unknown, optional)
+- inputs (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

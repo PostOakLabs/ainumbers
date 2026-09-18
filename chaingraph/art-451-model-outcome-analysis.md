@@ -8,8 +8,8 @@ SR 26-2 ongoing-monitoring backtest: compares a list of period predicted-vs-actu
 
 ## Inputs
 
-- error_threshold_pct (unknown, required): Percentage value
-- max_breach_rate_pct (unknown, required): Percentage value
+- error_threshold_pct (any, required): Percentage value; type not evidenced by kernel source
+- max_breach_rate_pct (any, required): Percentage value; type not evidenced by kernel source
 - observations (array, required)
 
 ## Outputs

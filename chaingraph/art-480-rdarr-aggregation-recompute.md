@@ -8,11 +8,11 @@ Re-derives a stated risk-report figure from a SUPPLIED source extract under a de
 
 ## Inputs
 
-- aggregation_policy (unknown, required)
-- base_currency (unknown, optional)
+- aggregation_policy (any, required): type not evidenced by kernel source
+- base_currency (any, optional): type not evidenced by kernel source
 - extract (array, required)
 - hierarchy (array, required)
-- reported_figure (unknown, required)
+- reported_figure (any, required): type not evidenced by kernel source
 
 ## Outputs
 

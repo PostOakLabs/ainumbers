@@ -8,14 +8,14 @@ Evaluates a jurisdiction against the OECD Pillar Two Transitional CbCR Safe Harb
 
 ## Inputs
 
-- de_minimis_profit_threshold_eur (unknown, required)
-- de_minimis_revenue_threshold_eur (unknown, required)
-- fiscal_year (unknown, required)
-- profit_before_tax_eur (unknown, required)
-- revenue_eur (unknown, required)
-- sbie_amount (unknown, required)
-- simplified_covered_taxes (unknown, required)
-- simplified_etr_rate_table (unknown, required)
+- de_minimis_profit_threshold_eur (any, required): type not evidenced by kernel source
+- de_minimis_revenue_threshold_eur (any, required): type not evidenced by kernel source
+- fiscal_year (any, required): type not evidenced by kernel source
+- profit_before_tax_eur (any, required): type not evidenced by kernel source
+- revenue_eur (any, required): type not evidenced by kernel source
+- sbie_amount (any, required): type not evidenced by kernel source
+- simplified_covered_taxes (any, required): type not evidenced by kernel source
+- simplified_etr_rate_table (any, required): type not evidenced by kernel source
 
 ## Outputs
 

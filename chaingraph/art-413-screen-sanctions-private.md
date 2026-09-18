@@ -8,7 +8,7 @@ Screens a privately held party/transfer list against a pinned OFAC-SDN-style lis
 
 ## Inputs
 
-- list_version (unknown, required)
+- list_version (any, required): type not evidenced by kernel source
 
 ## Outputs
 

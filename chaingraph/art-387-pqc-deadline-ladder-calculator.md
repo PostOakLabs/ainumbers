@@ -9,8 +9,8 @@ Per-row CNSA 2.0 post-quantum migration deadline for a supplied system inventory
 ## Inputs
 
 - inventory (array, required)
-- policy_deadlines (unknown, required)
-- reference_date (unknown, required)
+- policy_deadlines (any, required): type not evidenced by kernel source
+- reference_date (any, required): type not evidenced by kernel source
 
 ## Outputs
 
