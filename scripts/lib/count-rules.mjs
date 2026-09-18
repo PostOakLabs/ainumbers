@@ -241,9 +241,26 @@ export const ATTR_RULES = [
  * the exemption) in the same diff, by construction.
  */
 export function descriptionRuleFiles(rules = ATTR_RULES) {
-  const files = new Set()
+  return new Set(descriptionRulesByFile(rules).keys())
+}
+
+/**
+ * Companion of descriptionRuleFiles(): the same derivation, but yielding the
+ * RULES per file rather than only the file names. gen-infra-registry.mjs needs
+ * the rules themselves — it no longer drops a description-ruled page from the
+ * registry (that deleted the page from infrastructure.html as a side effect,
+ * INFRA-REGISTRY-EXEMPT-SCOPE-FIX-1); it keeps the page in scope and neutralises
+ * the count digits inside the description it reads, which is the actual cut of
+ * the read-back cycle. Same derivation, so a future description sentinel still
+ * extends the behaviour in the same diff, by construction.
+ * @returns {Map<string, Array<{file: string, key: string, label: string, regex: RegExp}>>}
+ */
+export function descriptionRulesByFile(rules = ATTR_RULES) {
+  const byFile = new Map()
   for (const rule of rules) {
-    if (/description/i.test(rule.label)) files.add(rule.file)
+    if (!/description/i.test(rule.label)) continue
+    if (!byFile.has(rule.file)) byFile.set(rule.file, [])
+    byFile.get(rule.file).push(rule)
   }
-  return files
+  return byFile
 }
