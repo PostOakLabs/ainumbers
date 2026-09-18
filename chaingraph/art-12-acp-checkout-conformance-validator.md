@@ -8,8 +8,8 @@ OpenAI/Stripe Agentic Commerce Protocol (ACP): CheckoutRequest/Response field co
 
 ## Inputs
 
-- message_type_override (unknown, optional)
-- payload (unknown, required)
+- message_type_override (any, optional): type not evidenced by kernel source
+- payload (any, required): type not evidenced by kernel source
 
 ## Outputs
 

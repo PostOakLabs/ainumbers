@@ -8,10 +8,10 @@ Verify that presented lineage hashes chain back to the claimed root and that own
 
 ## Inputs
 
-- claimed_root_hash (unknown, optional)
-- ownership_transfers (unknown, optional)
-- presented_lineage_hashes (unknown, optional)
-- product_id (unknown, optional)
+- claimed_root_hash (any, optional): type not evidenced by kernel source
+- ownership_transfers (any, optional): type not evidenced by kernel source
+- presented_lineage_hashes (any, optional): type not evidenced by kernel source
+- product_id (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

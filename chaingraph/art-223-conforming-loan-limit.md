@@ -11,8 +11,8 @@ FHFA annual conforming loan limit classifier. 2026 baseline: $832,750 (1-unit), 
 - county_limit_override (number, optional)
 - high_cost_county (boolean, required)
 - loan_amount (number, optional)
-- loan_program (unknown, required)
-- state (unknown, required)
+- loan_program (any, required): type not evidenced by kernel source
+- state (any, required): type not evidenced by kernel source
 - units (number, optional)
 - year (number, required)
 

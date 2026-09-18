@@ -8,7 +8,7 @@ Validate GeoJSON plot geolocation for EUDR compliance: geometry type (Point or P
 
 ## Inputs
 
-- geo (unknown, optional)
+- geo (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

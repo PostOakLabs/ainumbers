@@ -11,7 +11,7 @@ Evaluates a credit card application against CARD Act §1026.51 ability-to-pay re
 - annual_income (number, optional)
 - applicant_age (number, optional)
 - has_cosigner (boolean, required)
-- method (unknown, required)
+- method (any, required): type not evidenced by kernel source
 - minimum_payment_pct (number, optional): Percentage value
 - monthly_debt_obligations (number, optional)
 - monthly_housing_payment (number, optional)

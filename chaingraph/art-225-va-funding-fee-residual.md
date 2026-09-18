@@ -14,10 +14,10 @@ VA home loan funding fee (38 USC §3729) and residual income qualification. Fund
 - family_size (number, optional)
 - funding_fee_exempt (boolean, required)
 - gross_monthly_income (number, optional)
-- loan_purpose (unknown, required)
+- loan_purpose (any, required): type not evidenced by kernel source
 - monthly_shelter_expenses (number, optional)
-- state (unknown, required)
-- va_use_type (unknown, required)
+- state (any, required): type not evidenced by kernel source
+- va_use_type (any, required): type not evidenced by kernel source
 
 ## Outputs
 

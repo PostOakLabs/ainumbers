@@ -8,8 +8,8 @@ Identify Credit Spread Risk in the Banking Book (CSRBB) scope per EBA Guidelines
 
 ## Inputs
 
-- governance (unknown, optional)
-- instruments (unknown, optional)
+- governance (any, optional): type not evidenced by kernel source
+- instruments (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

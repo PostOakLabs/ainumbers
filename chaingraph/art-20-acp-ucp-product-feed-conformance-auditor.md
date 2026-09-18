@@ -8,10 +8,10 @@ Validates product/checkout/mandate JSON payloads against ACP or UCP field schema
 
 ## Inputs
 
-- audit_target (unknown, optional)
-- payload (unknown, required)
-- payload_type (unknown, optional)
-- strict (unknown, optional)
+- audit_target (any, optional): type not evidenced by kernel source
+- payload (any, required): type not evidenced by kernel source
+- payload_type (any, optional): type not evidenced by kernel source
+- strict (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

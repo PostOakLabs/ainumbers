@@ -8,7 +8,7 @@ Validates Art 6/8 whitepaper: Annex I section completeness + iXBRL/XHTML well-fo
 
 ## Inputs
 
-- inputs (unknown, optional)
+- inputs (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,10 +8,10 @@ Bind a document SHA-256 and claimed timestamp into an OCG execution_hash that se
 
 ## Inputs
 
-- claimed_timestamp (unknown, optional)
-- document_hash (unknown, optional)
-- document_type (unknown, optional)
-- hash_algorithm (unknown, optional)
+- claimed_timestamp (any, optional): type not evidenced by kernel source
+- document_hash (any, optional): type not evidenced by kernel source
+- document_type (any, optional): type not evidenced by kernel source
+- hash_algorithm (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

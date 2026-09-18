@@ -13,17 +13,17 @@ Computes prediction market PnL, implied probability, break-even, no-vig fair val
 - contract_min (number, optional)
 - entry_price (number, optional)
 - forecast_prob (number, required)
-- mode (unknown, required)
+- mode (any, required): type not evidenced by kernel source
 - n_contracts (number, optional)
 - no_ask (number, required)
 - outcome (boolean, required)
 - payout (number, optional)
 - settlement_value (number, optional)
-- side (unknown, required)
+- side (any, required): type not evidenced by kernel source
 - strike (number, optional)
 - unit_value (number, optional)
 - user_probability (number, required)
-- venue (unknown, required)
+- venue (any, required): type not evidenced by kernel source
 - won (boolean, required)
 
 ## Outputs

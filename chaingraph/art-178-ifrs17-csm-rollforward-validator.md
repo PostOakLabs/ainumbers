@@ -8,7 +8,7 @@ Validate IFRS 17 Contractual Service Margin (CSM) roll-forward mechanics: openin
 
 ## Inputs
 
-- csm (unknown, optional)
+- csm (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

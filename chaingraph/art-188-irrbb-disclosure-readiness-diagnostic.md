@@ -8,7 +8,7 @@ A-F IRRBB disclosure readiness diagnostic across five dimensions: EVE shock calc
 
 ## Inputs
 
-- entity (unknown, optional)
+- entity (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,18 +8,18 @@ Assembles an adverse action notice skeleton from SHAP-ranked principal-factor co
 
 ## Inputs
 
-- action_taken (unknown, required)
-- applicant_name_placeholder (unknown, required)
-- credit_bureau_address (unknown, required)
-- credit_bureau_name (unknown, required)
-- credit_bureau_phone (unknown, required)
+- action_taken (any, required): type not evidenced by kernel source
+- applicant_name_placeholder (any, required): type not evidenced by kernel source
+- credit_bureau_address (any, required): type not evidenced by kernel source
+- credit_bureau_name (any, required): type not evidenced by kernel source
+- credit_bureau_phone (any, required): type not evidenced by kernel source
 - credit_score (number, optional)
-- credit_score_source (unknown, required)
-- credit_score_used (unknown, required)
-- creditor_name (unknown, required)
-- date_of_action (unknown, required)
-- factor_codes (unknown, required)
-- reason_code_source (unknown, required)
+- credit_score_source (any, required): type not evidenced by kernel source
+- credit_score_used (any, required): type not evidenced by kernel source
+- creditor_name (any, required): type not evidenced by kernel source
+- date_of_action (any, required): type not evidenced by kernel source
+- factor_codes (any, required): type not evidenced by kernel source
+- reason_code_source (any, required): type not evidenced by kernel source
 - score_range_high (number, optional)
 - score_range_low (number, optional)
 

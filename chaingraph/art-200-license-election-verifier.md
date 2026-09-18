@@ -8,7 +8,7 @@ Verifies a certificate produced by the License Election Certifier by recomputing
 
 ## Inputs
 
-- certificate (unknown, optional)
+- certificate (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

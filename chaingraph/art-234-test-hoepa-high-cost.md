@@ -12,7 +12,7 @@ Tests all three HOEPA high-cost mortgage triggers per Reg Z §1026.32(a)(1): (i)
 - apr_pct (number, optional): Percentage value
 - has_prepayment_penalty (boolean, required)
 - is_small_dwelling (boolean, required)
-- lien_type (unknown, required)
+- lien_type (any, required): type not evidenced by kernel source
 - loan_amount (number, optional)
 - points_and_fees (number, optional)
 - prepayment_penalty_pct (number, optional): Percentage value

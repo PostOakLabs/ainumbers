@@ -8,7 +8,7 @@ Map non-maturing deposit (NMD) positions to the EBA standardised / simplified-st
 
 ## Inputs
 
-- positions (unknown, optional)
+- positions (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

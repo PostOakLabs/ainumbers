@@ -8,8 +8,8 @@ Validate an agent on-behalf-of (OBO) mandate: subject (the user being represente
 
 ## Inputs
 
-- mandate (unknown, optional)
-- now_unix (unknown, optional)
+- mandate (any, optional): type not evidenced by kernel source
+- now_unix (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

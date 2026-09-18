@@ -8,7 +8,7 @@ Map supplied AI controls and evidence to NIST AI RMF Govern (5 controls), Map (4
 
 ## Inputs
 
-- evidence (unknown, optional)
+- evidence (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,8 +8,8 @@ Deterministic Markdown to HTML and plain text over a hand-rolled CommonMark subs
 
 ## Inputs
 
-- markdown (unknown, optional)
-- options (unknown, required)
+- markdown (any, optional): type not evidenced by kernel source
+- options (any, required): type not evidenced by kernel source
 
 ## Outputs
 

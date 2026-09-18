@@ -9,20 +9,20 @@ Builds an EU AI Act Art 12(2)-conformant decision log record for high-risk AI sy
 ## Inputs
 
 - confidence (number, optional)
-- decision_label (unknown, required)
+- decision_label (any, required): type not evidenced by kernel source
 - human_accountability_records (array, required)
-- input_digest (unknown, required)
-- model_id (unknown, required)
-- model_version (unknown, required)
-- operator_id (unknown, required)
-- output_digest (unknown, required)
-- override_by (unknown, required)
-- override_flag (unknown, required)
+- input_digest (any, required): type not evidenced by kernel source
+- model_id (any, required): type not evidenced by kernel source
+- model_version (any, required): type not evidenced by kernel source
+- operator_id (any, required): type not evidenced by kernel source
+- output_digest (any, required): type not evidenced by kernel source
+- override_by (any, required): type not evidenced by kernel source
+- override_flag (any, required): type not evidenced by kernel source
 - retention_months (number, optional)
-- sha256_prev_record (unknown, required)
-- subject_hash (unknown, required)
-- subject_ref (unknown, required)
-- system_context (unknown, required)
+- sha256_prev_record (any, required): type not evidenced by kernel source
+- subject_hash (any, required): type not evidenced by kernel source
+- subject_ref (any, required): type not evidenced by kernel source
+- system_context (any, required): type not evidenced by kernel source
 
 ## Outputs
 

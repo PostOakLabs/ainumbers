@@ -13,11 +13,11 @@ Fannie Mae DU and Freddie Mac LPA agency eligibility matrix. Checks DTI caps (DU
 - fico_score (number, optional)
 - hcltv_pct (number, required): Percentage value
 - housing_dti_pct (number, required): Percentage value
-- loan_purpose (unknown, required)
+- loan_purpose (any, required): type not evidenced by kernel source
 - ltv_pct (number, optional): Percentage value
-- occupancy_type (unknown, required)
-- property_type (unknown, required)
-- underwriting_type (unknown, required)
+- occupancy_type (any, required): type not evidenced by kernel source
+- property_type (any, required): type not evidenced by kernel source
+- underwriting_type (any, required): type not evidenced by kernel source
 - units (number, optional)
 
 ## Outputs

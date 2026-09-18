@@ -9,7 +9,7 @@ Compares AP2, ACP, x402, Visa TAP, Mastercard Agentic Token, and Tempo MPP (Mach
 ## Inputs
 
 - protocols (array, required)
-- scenario (unknown, optional)
+- scenario (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,7 +8,7 @@ Check IFRS 17 risk-adjustment (RA) disclosure completeness: validates technique 
 
 ## Inputs
 
-- risk_adjustment (unknown, optional)
+- risk_adjustment (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

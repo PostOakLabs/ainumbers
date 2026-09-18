@@ -8,18 +8,18 @@ Validate collateral swaps under GMSLA/GMRA with SFTR Article 15 reuse constraint
 
 ## Inputs
 
-- asset_a (unknown, optional)
-- asset_b (unknown, optional)
-- counterparty_jurisdiction (unknown, optional)
-- declared_direction (unknown, optional)
-- governing_agreement (unknown, optional)
-- haircut_a (unknown, optional)
-- haircut_b (unknown, optional)
-- notional_a (unknown, optional)
-- notional_b (unknown, optional)
-- provider_informed (unknown, optional)
-- reuse_flag (unknown, optional)
-- sftr_consent (unknown, optional)
+- asset_a (any, optional): type not evidenced by kernel source
+- asset_b (any, optional): type not evidenced by kernel source
+- counterparty_jurisdiction (any, optional): type not evidenced by kernel source
+- declared_direction (any, optional): type not evidenced by kernel source
+- governing_agreement (any, optional): type not evidenced by kernel source
+- haircut_a (any, optional): type not evidenced by kernel source
+- haircut_b (any, optional): type not evidenced by kernel source
+- notional_a (any, optional): type not evidenced by kernel source
+- notional_b (any, optional): type not evidenced by kernel source
+- provider_informed (any, optional): type not evidenced by kernel source
+- reuse_flag (any, optional): type not evidenced by kernel source
+- sftr_consent (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

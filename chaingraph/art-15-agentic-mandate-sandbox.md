@@ -9,26 +9,26 @@ Builds a deterministic Agent Guardrail Mandate skeleton from declared spend caps
 ## Inputs
 
 - activeMCCs (array, required)
-- allowWeekend (unknown, required)
-- approvalTimeout (unknown, required)
-- blockHoliday (unknown, required)
-- boardSig (unknown, required)
-- capDaily (unknown, required)
-- capFlag (unknown, required)
-- capMonthly (unknown, required)
-- capSingle (unknown, required)
-- destJurisdiction (unknown, required)
-- dualSig (unknown, required)
-- kycCheck (unknown, required)
-- ofacCheck (unknown, required)
-- origJurisdiction (unknown, required)
-- rail (unknown, required)
-- singleSig (unknown, required)
-- timeEnd (unknown, required)
-- timeStart (unknown, required)
-- velCooldown (unknown, required)
-- velDay (unknown, required)
-- velHour (unknown, required)
+- allowWeekend (any, required): type not evidenced by kernel source
+- approvalTimeout (any, required): type not evidenced by kernel source
+- blockHoliday (any, required): type not evidenced by kernel source
+- boardSig (any, required): type not evidenced by kernel source
+- capDaily (any, required): type not evidenced by kernel source
+- capFlag (any, required): type not evidenced by kernel source
+- capMonthly (any, required): type not evidenced by kernel source
+- capSingle (any, required): type not evidenced by kernel source
+- destJurisdiction (any, required): type not evidenced by kernel source
+- dualSig (any, required): type not evidenced by kernel source
+- kycCheck (any, required): type not evidenced by kernel source
+- ofacCheck (any, required): type not evidenced by kernel source
+- origJurisdiction (any, required): type not evidenced by kernel source
+- rail (any, required): type not evidenced by kernel source
+- singleSig (any, required): type not evidenced by kernel source
+- timeEnd (any, required): type not evidenced by kernel source
+- timeStart (any, required): type not evidenced by kernel source
+- velCooldown (any, required): type not evidenced by kernel source
+- velDay (any, required): type not evidenced by kernel source
+- velHour (any, required): type not evidenced by kernel source
 
 ## Outputs
 

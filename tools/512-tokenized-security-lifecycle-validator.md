@@ -8,14 +8,14 @@ Validate Daml lifecycle coverage for tokenized securities: issuance, coupon/divi
 
 ## Inputs
 
-- covered_events (unknown, optional)
-- custodian_type (unknown, optional)
-- daml_lifecycle_defined (unknown, optional)
-- isin_assigned (unknown, optional)
-- issuance_amount (unknown, optional)
-- jurisdiction (unknown, optional)
-- prospectus_filed (unknown, optional)
-- security_type (unknown, optional)
+- covered_events (any, optional): type not evidenced by kernel source
+- custodian_type (any, optional): type not evidenced by kernel source
+- daml_lifecycle_defined (any, optional): type not evidenced by kernel source
+- isin_assigned (any, optional): type not evidenced by kernel source
+- issuance_amount (any, optional): type not evidenced by kernel source
+- jurisdiction (any, optional): type not evidenced by kernel source
+- prospectus_filed (any, optional): type not evidenced by kernel source
+- security_type (any, optional): type not evidenced by kernel source
 
 ## Outputs
 
