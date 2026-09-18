@@ -14,13 +14,13 @@
   "tool_id": "548-fedwire-remediation-diff-receipt",
   "version": "1.0.0",
   "title": "Fedwire/CHIPS Remediation Diff Receipt",
-  "description": "Paste an original and a remediated Fedwire/CHIPS payment file (CSV, PostalAddress24 fields per record). Runs the November 2026 structured-address lint on both files, aligns records by row position, and produces a per-record clearance disposition (cleared, still-failing, regressed, unchanged-compliant, row-added, row-removed) plus a remediation-evidence receipt binding the original and remediated file digests and the rule-clearance delta (N failures to 0). Client-side, deterministic, zero PII.",
+  "description": "Paste an original and a remediated Fedwire/CHIPS payment file (CSV, PostalAddress24 fields per record). Runs the Fedwire structured-address lint on both files, aligns records by row position, and produces a per-record clearance disposition (cleared, still-failing, regressed, unchanged-compliant, row-added, row-removed) plus a remediation-evidence receipt binding the original and remediated file digests and the rule-clearance delta (N failures to 0). Client-side, deterministic, zero PII.",
   "category": "cat-19",
   "tags": ["fedwire", "chips", "remediation", "diff", "structured address", "iso 20022", "compliance", "evidence"],
   "audience": ["compliance", "engineer", "product"],
   "input_schema": {"type":"object","properties":{"originalCsv":{"type":"string"},"remediatedCsv":{"type":"string"}},"required":["originalCsv","remediatedCsv"]},
   "output_schema": {"type":"object","properties":{"original_file_digest":{"type":"string"},"remediated_file_digest":{"type":"string"},"clearance_delta":{"type":"number"},"per_record_diff":{"type":"array"}}},
-  "mcp_tool_definition": {"name":"fedwire_remediation_diff_receipt","description":"Diffs an original and a remediated Fedwire/CHIPS structured-address payment file (CSV) record-by-record against the November 2026 lint, and returns a remediation-evidence receipt binding both file digests and the rule-clearance delta (non-compliant count before minus after).","inputSchema":{"type":"object","properties":{"originalCsv":{"type":"string","description":"Raw CSV content of the pre-remediation payment file"},"remediatedCsv":{"type":"string","description":"Raw CSV content of the post-remediation payment file"}},"required":["originalCsv","remediatedCsv"]}},
+  "mcp_tool_definition": {"name":"fedwire_remediation_diff_receipt","description":"Diffs an original and a remediated Fedwire/CHIPS structured-address payment file (CSV) record-by-record against the Fedwire structured-address lint (release rescheduled on 27 August 2026 from 16 November 2026 to November 2027, exact date to be announced), and returns a remediation-evidence receipt binding both file digests and the rule-clearance delta (non-compliant count before minus after).","inputSchema":{"type":"object","properties":{"originalCsv":{"type":"string","description":"Raw CSV content of the pre-remediation payment file"},"remediatedCsv":{"type":"string","description":"Raw CSV content of the post-remediation payment file"}},"required":["originalCsv","remediatedCsv"]}},
   "execution": {"type":"browser-reference","entry":"tools/548-fedwire-remediation-diff-receipt.html","function_name":"runDiff"},
   "ap2_export": true,
   "pii_transmitted": false,
@@ -122,8 +122,8 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 <div class="hero"><div class="container">
   <div class="hero-eyebrow">Cat-19 · T548 · Payment Scheme &amp; Network</div>
   <h1>Fedwire/CHIPS Remediation Diff Receipt</h1>
-  <p class="hero-desc">Paste the payment file you swept before remediation and the file you produced after remediation. Both run through the same November 2026 structured-address lint (the rules behind the Fedwire structured-address linter and payment-file sweep), aligned record by record, so you get a per-record disposition &mdash; cleared, still failing, regressed, unchanged &mdash; and one receipt binding both file digests plus the rule-clearance delta: how many records failed before, how many fail now. This is the artifact a bank shows its regulator or its correspondents to prove the migration actually worked.</p>
-  <div class="disclaimer">⚠ Deterministic, client-side comparison against the published Nov 2026 structured-address rule set. It is evidence of what the two files contain, not a submission to Fedwire, CHIPS, or a regulator, and not legal or compliance advice.</div>
+  <p class="hero-desc">Paste the payment file you swept before remediation and the file you produced after remediation. Both run through the same Fedwire structured-address lint (the rules behind the Fedwire structured-address linter and payment-file sweep), aligned record by record, so you get a per-record disposition &mdash; cleared, still failing, regressed, unchanged &mdash; and one receipt binding both file digests plus the rule-clearance delta: how many records failed before, how many fail now. This is the artifact a bank shows its regulator or its correspondents to prove the migration actually worked.</p>
+  <div class="disclaimer">⚠ Deterministic, client-side comparison against the published Fedwire structured-address rule set. That release was rescheduled on 27 August 2026 from 16 November 2026 to the November 2027 Fedwire release, exact date to be announced; CHIPS has no published dated mandate. It is evidence of what the two files contain, not a submission to Fedwire, CHIPS, or a regulator, and not legal or compliance advice.</div>
   <div class="hero-badges">
     <span class="badge badge-teal">Remediation Evidence</span>
     <span class="badge badge-gold">Fedwire · CHIPS</span>
@@ -365,7 +365,11 @@ async function runDiff(){
 
   var pp = { original_file_content: originalCsv, remediated_file_content: remediatedCsv };
   var op = {
-    fedwire_chips_deadline: '2026-11-16',
+    // Formerly '2026-11-16'. Federal Reserve Financial Services rescheduled the Fedwire
+    // ISO 20022 structured-address release to the November 2027 release on 27 Aug 2026 and
+    // has not announced an exact date, so no date can be asserted here.
+    fedwire_chips_deadline: null,
+    fedwire_chips_deadline_status: 'Rescheduled to the November 2027 Fedwire release (Federal Reserve Financial Services, 27 August 2026); exact date to be announced. Formerly 2026-11-16.',
     total_records: d.per_record_diff.length,
     before_non_compliant_count: d.before_non_compliant,
     after_non_compliant_count: d.after_non_compliant,
@@ -376,8 +380,8 @@ async function runDiff(){
     disambiguation: 'fedwire_remediation_diff_receipt aligns an original and remediated payment file by row position and re-runs lint_fedwire_structured_address (art-349) on each record to produce a per-record clearance disposition. It does not itself sweep a single file for risk -- use sweep_fedwire_addresses (art-350) for that.',
     pii_note: 'All fields operate on STRUCTURAL address components only. No real party PII enters this tool -- use synthetic or anonymised payment-file data.',
     table_version: 'FEDWIRE-CHIPS-STRUCTURED-ADDRESS-NOV2026-V1',
-    table_source: 'Federal Reserve Financial Services, Fedwire Funds Service ISO 20022 November 2026 Release FAQ (frbservices.org); The Clearing House CHIPS ISO 20022 address rules (aligned to Fedwire)',
-    regulatory_basis: 'Federal Reserve Financial Services Fedwire Funds Service ISO 20022 November 2026 Release (deadline 16 Nov 2026); The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire address rules); ISO 20022 PostalAddress24'
+    table_source: 'Federal Reserve Financial Services, Fedwire Funds Service ISO 20022 November 2027 Release FAQ (frbservices.org); CHIPS has no published dated structured-address mandate',
+    regulatory_basis: 'Federal Reserve Financial Services Fedwire Funds Service ISO 20022 release, rescheduled on 27 August 2026 from 16 November 2026 to the November 2027 release, exact date to be announced; CHIPS has no published dated structured-address mandate; ISO 20022 PostalAddress24'
   };
 
   var original_file_digest = await sha256Hex(originalCsv);
@@ -456,7 +460,7 @@ function copyM(){if(window._memo){navigator.clipboard.writeText(window._memo).th
 </script>
 
 <script>
-  var MANIFEST = JSON.parse('{"tool_id":"548-fedwire-remediation-diff-receipt","version":"1.0.0","title":"Fedwire/CHIPS Remediation Diff Receipt","description":"Diffs an original and a remediated Fedwire/CHIPS payment file (CSV) record-by-record against the November 2026 structured-address lint and returns a remediation-evidence receipt binding both file digests and the rule-clearance delta. Client-side, deterministic, zero PII.","category":"cat-19","tags":["fedwire","chips","remediation","diff","structured address","iso 20022","compliance","evidence"],"audience":["compliance","engineer","product"],"input_schema":{"type":"object","properties":{"originalCsv":{"type":"string"},"remediatedCsv":{"type":"string"}},"required":["originalCsv","remediatedCsv"]},"output_schema":{"type":"object","properties":{"original_file_digest":{"type":"string"},"remediated_file_digest":{"type":"string"},"clearance_delta":{"type":"number"},"per_record_diff":{"type":"array"}}},"mcp_tool_definition":{"name":"fedwire_remediation_diff_receipt","description":"Diffs an original and a remediated Fedwire/CHIPS structured-address payment file (CSV) record-by-record against the November 2026 lint, and returns a remediation-evidence receipt binding both file digests and the rule-clearance delta (non-compliant count before minus after).","inputSchema":{"type":"object","properties":{"originalCsv":{"type":"string","description":"Raw CSV content of the pre-remediation payment file"},"remediatedCsv":{"type":"string","description":"Raw CSV content of the post-remediation payment file"}},"required":["originalCsv","remediatedCsv"]}},"execution":{"type":"browser-reference","entry":"tools/548-fedwire-remediation-diff-receipt.html","function_name":"runDiff"},"ap2_export":true,"pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0"}');
+  var MANIFEST = JSON.parse('{"tool_id":"548-fedwire-remediation-diff-receipt","version":"1.0.0","title":"Fedwire/CHIPS Remediation Diff Receipt","description":"Diffs an original and a remediated Fedwire/CHIPS payment file (CSV) record-by-record against the November 2026 structured-address lint and returns a remediation-evidence receipt binding both file digests and the rule-clearance delta. Client-side, deterministic, zero PII.","category":"cat-19","tags":["fedwire","chips","remediation","diff","structured address","iso 20022","compliance","evidence"],"audience":["compliance","engineer","product"],"input_schema":{"type":"object","properties":{"originalCsv":{"type":"string"},"remediatedCsv":{"type":"string"}},"required":["originalCsv","remediatedCsv"]},"output_schema":{"type":"object","properties":{"original_file_digest":{"type":"string"},"remediated_file_digest":{"type":"string"},"clearance_delta":{"type":"number"},"per_record_diff":{"type":"array"}}},"mcp_tool_definition":{"name":"fedwire_remediation_diff_receipt","description":"Diffs an original and a remediated Fedwire/CHIPS structured-address payment file (CSV) record-by-record against the Fedwire structured-address lint (release rescheduled on 27 August 2026 from 16 November 2026 to November 2027, exact date to be announced), and returns a remediation-evidence receipt binding both file digests and the rule-clearance delta (non-compliant count before minus after).","inputSchema":{"type":"object","properties":{"originalCsv":{"type":"string","description":"Raw CSV content of the pre-remediation payment file"},"remediatedCsv":{"type":"string","description":"Raw CSV content of the post-remediation payment file"}},"required":["originalCsv","remediatedCsv"]}},"execution":{"type":"browser-reference","entry":"tools/548-fedwire-remediation-diff-receipt.html","function_name":"runDiff"},"ap2_export":true,"pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0"}');
   function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
 </script>
 
@@ -493,15 +497,15 @@ window.exportAP2=function(){
     tool_id:tid,
     tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
     mandate_type:'compliance_mandate',
-    jurisdiction:['US'],regulatory_frameworks:['Fedwire Funds Service ISO 20022 November 2026 Release','CHIPS ISO 20022'],
+    jurisdiction:['US'],regulatory_frameworks:['Fedwire Funds Service ISO 20022 November 2027 Release','CHIPS ISO 20022'],
     payload:window._ap2Result,
     remediation_diff:_lastResult?_lastResult.output_payload:null,
     summary:(typeof MANIFEST!=='undefined'&&MANIFEST.title?MANIFEST.title:document.title)+' — remediation diff '+ts.slice(0,10),
-    disclaimer:'Deterministic client-side comparison against the published Nov 2026 structured-address rule set. Evidence of file contents, not a submission to Fedwire, CHIPS, or a regulator, and not legal or compliance advice.',
+    disclaimer:'Deterministic client-side comparison against the published Fedwire structured-address rule set, rescheduled on 27 August 2026 to the November 2027 release, exact date to be announced. Evidence of file contents, not a submission to Fedwire, CHIPS, or a regulator, and not legal or compliance advice.',
     agent_instructions:['Verify original_file_digest and remediated_file_digest against the source files before relying on the clearance delta.'],
     valid_from:ts.slice(0,10),
     
-    source_tool_inputs:{},regulatory_citations:['Federal Reserve Financial Services Fedwire Funds Service ISO 20022 November 2026 Release','The Clearing House CHIPS ISO 20022 implementation'],
+    source_tool_inputs:{},regulatory_citations:['Federal Reserve Financial Services Fedwire Funds Service ISO 20022 November 2027 Release (rescheduled 27 August 2026, exact date to be announced)','The Clearing House CHIPS ISO 20022 implementation (no published dated address mandate)'],
     audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
   };
   AP2Schema.validate(mandate);
