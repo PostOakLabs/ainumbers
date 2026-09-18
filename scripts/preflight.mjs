@@ -1425,6 +1425,12 @@ const GATES = [
   // is re-validated against its node's fixture output_payloads on every run.
   ['MCP output-schema coverage (OUTPUTSCHEMA-GAP-1)', 'node scripts/check-output-schema-coverage.mjs'],
   ['MCP output-schema coverage controls (RED/GREEN fixtures, GATE-SELFTEST-META-1 pair)', 'node scripts/check-output-schema-coverage.test.mjs'],
+  // MCP-INPUTSCHEMA-DESC-TRIM-1: served inputSchema property descriptions stay one sentence
+  // (≤160 chars) and value lists live in `enum`, not prose — the MCP tool-bloat thread (#2036)
+  // finds most tools/list token bloat originates in inputSchema. Down-only ratchet against
+  // scripts/inputschema-desc-length-baseline.json; wired here so the gate actually runs.
+  ['MCP inputSchema description length (MCP-INPUTSCHEMA-DESC-TRIM-1)', 'node scripts/check-inputschema-desc-length.mjs'],
+  ['MCP inputSchema description length controls (synthetic RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-inputschema-desc-length.test.mjs'],
   ['Node-manifest generator dry-run (MFSTGEN-1)', 'node scripts/generate-node-manifest.mjs --all --check'],
   // MANIFEST-SCHEMA-BACKFILL-1: derived input schemas carry
   // x_schema_provenance derived-from-kernel-reads <date>; any hand-edit to a
