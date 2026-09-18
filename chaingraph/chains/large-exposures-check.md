@@ -1,20 +1,20 @@
 # Large Exposures Limit Check (Basel III / Regulation YY)
 
-Single-node check aggregating each counterparty group's exposure against the Basel III / Regulation YY 25% (general) or 15% (GSIB-to-GSIB) single-counterparty limit, emitting a breach-list artifact.
+Single-node check aggregating each counterparty group's exposure against the Basel III / Regulation YY 25% (general) or 15% (GSIB-to-GSIB) single-counterparty limit, emitting a breach-list artifact. Carries a terminal §27 escalate accountability gate: a non-empty /breach_list routes to the reserved escalate target; a clean run ends normally.
 
 - Page: https://ainumbers.co/chaingraph/chains/large-exposures-check.html
 - Markdown twin: https://ainumbers.co/chaingraph/chains/large-exposures-check.md
 
 ## Workflow chain: Large Exposures Limit Check (Basel III / Regulation YY)
 
-Single-node check aggregating each counterparty group's exposure against the Basel III / Regulation YY 25% (general) or 15% (GSIB-to-GSIB) single-counterparty limit, emitting a breach-list artifact.
+Single-node check aggregating each counterparty group's exposure against the Basel III / Regulation YY 25% (general) or 15% (GSIB-to-GSIB) single-counterparty limit, emitting a breach-list artifact. Carries a terminal §27 escalate accountability gate: a non-empty /breach_list routes to the reserved escalate target; a clean run ends normally.
 
 Domain: Bank Capital & Credit Risk
 
 ### Steps
 
 1. art-425-large-exposures-limit-check
-   breach-list artifact feeds Basel III / Regulation YY large-exposures reporting and routes any breaching group to the §27 review gate; standalone recurring check per reporting date
+   breach-list artifact feeds Basel III / Regulation YY large-exposures reporting and routes any breaching group to the terminal §27 escalate gate; standalone recurring check per reporting date
 
 ### Chain verify
 
