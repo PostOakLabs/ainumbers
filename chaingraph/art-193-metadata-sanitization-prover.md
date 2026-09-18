@@ -8,12 +8,12 @@ Produces a proof-of-sanitization record binding the original digest to the findi
 
 ## Inputs
 
-- bytes_after (unknown, optional)
-- bytes_before (unknown, optional)
-- file_type (unknown, optional)
+- bytes_after (any, optional): type not evidenced by kernel source
+- bytes_before (any, optional): type not evidenced by kernel source
+- file_type (any, optional): type not evidenced by kernel source
 - findings (array, optional)
-- original_sha256 (unknown, optional)
-- sanitized_sha256 (unknown, optional)
+- original_sha256 (any, optional): type not evidenced by kernel source
+- sanitized_sha256 (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

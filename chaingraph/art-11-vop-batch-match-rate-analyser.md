@@ -8,8 +8,8 @@ Batch IBAN-name matching: match/close-match/no-match classification, configurabl
 
 ## Inputs
 
-- close_match_threshold (unknown, required)
-- match_threshold (unknown, required)
+- close_match_threshold (any, required): type not evidenced by kernel source
+- match_threshold (any, required): type not evidenced by kernel source
 - payees (array, required)
 
 ## Outputs

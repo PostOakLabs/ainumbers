@@ -8,11 +8,11 @@ Scores a synthetic transaction graph against AML typologies and FATF Travel Rule
 
 ## Inputs
 
-- round_trip_window_hours (unknown, optional)
-- scenario (unknown, optional)
-- structuring_threshold (unknown, optional)
-- transactions (unknown, required)
-- velocity_window_hours (unknown, optional)
+- round_trip_window_hours (any, optional): type not evidenced by kernel source
+- scenario (any, optional): type not evidenced by kernel source
+- structuring_threshold (any, optional): type not evidenced by kernel source
+- transactions (any, required): type not evidenced by kernel source
+- velocity_window_hours (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

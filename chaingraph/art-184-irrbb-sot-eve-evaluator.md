@@ -8,8 +8,8 @@ Evaluate the EBA Supervisory Outlier Test (SOT) on Economic Value of Equity: the
 
 ## Inputs
 
-- capital (unknown, optional)
-- eve_shock (unknown, optional)
+- capital (any, optional): type not evidenced by kernel source
+- eve_shock (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

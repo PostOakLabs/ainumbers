@@ -9,10 +9,10 @@ Computes three fair lending disparate impact metrics from aggregate lending coun
 ## Inputs
 
 - group_a_approvals (number, optional)
-- group_a_label (unknown, required)
+- group_a_label (any, required): type not evidenced by kernel source
 - group_a_total (number, optional)
 - group_b_approvals (number, optional)
-- group_b_label (unknown, required)
+- group_b_label (any, required): type not evidenced by kernel source
 - group_b_total (number, optional)
 
 ## Outputs

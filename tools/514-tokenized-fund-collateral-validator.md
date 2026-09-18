@@ -8,16 +8,16 @@ Validate MMF/CNAV/LVNAV/VNAV fund shares as collateral against SEC Rule 2a-7 (po
 
 ## Inputs
 
-- collateral_use (unknown, optional)
-- cp_jurisdiction (unknown, optional)
-- daily_liquid_assets_pct (unknown, optional): Percentage value
-- fund_type (unknown, optional)
-- nav (unknown, optional)
-- platform (unknown, optional)
-- reuse_flag (unknown, optional)
-- sftr_consent (unknown, optional)
-- total_fund_value (unknown, optional)
-- weekly_liquid_assets_pct (unknown, optional): Percentage value
+- collateral_use (any, optional): type not evidenced by kernel source
+- cp_jurisdiction (any, optional): type not evidenced by kernel source
+- daily_liquid_assets_pct (any, optional): Percentage value; type not evidenced by kernel source
+- fund_type (any, optional): type not evidenced by kernel source
+- nav (any, optional): type not evidenced by kernel source
+- platform (any, optional): type not evidenced by kernel source
+- reuse_flag (any, optional): type not evidenced by kernel source
+- sftr_consent (any, optional): type not evidenced by kernel source
+- total_fund_value (any, optional): type not evidenced by kernel source
+- weekly_liquid_assets_pct (any, optional): Percentage value; type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,18 +8,18 @@ Simulates thousands of synthetic agent transactions against a user-authored spen
 
 ## Inputs
 
-- allowed_methods (unknown, optional)
-- blocked_categories (unknown, required)
-- blocked_merchants (unknown, required)
-- chaos (unknown, required)
-- daily_limit (unknown, required)
-- drip_freq (unknown, required)
-- hnp_ratio (unknown, required)
-- hour_restriction (unknown, optional)
-- monthly_limit (unknown, required)
-- n_txns (unknown, required)
-- per_tx_limit (unknown, required)
-- seed (unknown, required)
+- allowed_methods (any, optional): type not evidenced by kernel source
+- blocked_categories (any, required): type not evidenced by kernel source
+- blocked_merchants (any, required): type not evidenced by kernel source
+- chaos (any, required): type not evidenced by kernel source
+- daily_limit (any, required): type not evidenced by kernel source
+- drip_freq (any, required): type not evidenced by kernel source
+- hnp_ratio (any, required): type not evidenced by kernel source
+- hour_restriction (any, optional): type not evidenced by kernel source
+- monthly_limit (any, required): type not evidenced by kernel source
+- n_txns (any, required): type not evidenced by kernel source
+- per_tx_limit (any, required): type not evidenced by kernel source
+- seed (any, required): type not evidenced by kernel source
 
 ## Outputs
 

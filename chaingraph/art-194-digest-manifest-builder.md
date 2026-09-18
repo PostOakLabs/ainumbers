@@ -9,8 +9,8 @@ Binds N file digests into one canonical, hash-anchored manifest. manifest_sha256
 ## Inputs
 
 - entries (array, optional)
-- purpose (unknown, optional)
-- sort (unknown, optional)
+- purpose (any, optional): type not evidenced by kernel source
+- sort (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

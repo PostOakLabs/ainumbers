@@ -8,9 +8,9 @@ Verifies an in-toto SLSA provenance statement: validates _type (in-toto.io/State
 
 ## Inputs
 
-- artifact_digest_sha256 (unknown, optional)
-- claimed_build_level (unknown, optional)
-- statement (unknown, optional)
+- artifact_digest_sha256 (any, optional): type not evidenced by kernel source
+- claimed_build_level (any, optional): type not evidenced by kernel source
+- statement (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

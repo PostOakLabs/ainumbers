@@ -8,7 +8,7 @@ A-F EUDR readiness diagnostic across six dimensions: scope mapping, geolocation 
 
 ## Inputs
 
-- entity (unknown, optional)
+- entity (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

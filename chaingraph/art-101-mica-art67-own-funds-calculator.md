@@ -8,11 +8,11 @@ Computes MiCA Art 67 required own funds = higher of Annex IV permanent minimum (
 
 ## Inputs
 
-- fixed_overheads_annual (unknown, optional)
-- inputs (unknown, required)
-- own_funds_form (unknown, optional)
-- own_funds_held (unknown, optional)
-- service_class (unknown, optional)
+- fixed_overheads_annual (any, optional): type not evidenced by kernel source
+- inputs (any, required): type not evidenced by kernel source
+- own_funds_form (any, optional): type not evidenced by kernel source
+- own_funds_held (any, optional): type not evidenced by kernel source
+- service_class (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

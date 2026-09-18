@@ -8,7 +8,7 @@ Validate OAuth 2.0 Protected Resource Metadata per RFC 9728: resource URI (https
 
 ## Inputs
 
-- metadata (unknown, optional)
+- metadata (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

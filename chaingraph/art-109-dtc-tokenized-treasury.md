@@ -8,7 +8,7 @@ Validate a DTCC/ComposerX tokenized U.S. Treasury for issuance and atomic settle
 
 ## Inputs
 
-- tokenized_ust_config (unknown, required)
+- tokenized_ust_config (any, required): type not evidenced by kernel source
 
 ## Outputs
 

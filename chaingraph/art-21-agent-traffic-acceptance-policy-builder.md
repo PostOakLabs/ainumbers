@@ -8,16 +8,16 @@ Builds a policy mandate governing accepted AI agent types, identity verification
 
 ## Inputs
 
-- agent_types (unknown, required)
-- block_rules (unknown, required)
-- max_daily_val_usd (unknown, optional): Amount in US dollars
-- max_single_val_usd (unknown, optional): Amount in US dollars
-- max_tx_per_day (unknown, optional)
-- max_tx_per_min (unknown, optional)
-- rails (unknown, required)
-- refund_posture (unknown, optional)
-- retry_policy (unknown, optional)
-- verification_level (unknown, optional)
+- agent_types (any, required): type not evidenced by kernel source
+- block_rules (any, required): type not evidenced by kernel source
+- max_daily_val_usd (any, optional): Amount in US dollars; type not evidenced by kernel source
+- max_single_val_usd (any, optional): Amount in US dollars; type not evidenced by kernel source
+- max_tx_per_day (any, optional): type not evidenced by kernel source
+- max_tx_per_min (any, optional): type not evidenced by kernel source
+- rails (any, required): type not evidenced by kernel source
+- refund_posture (any, optional): type not evidenced by kernel source
+- retry_policy (any, optional): type not evidenced by kernel source
+- verification_level (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,10 +8,10 @@ Validate DPP required data elements against the CIRPASS-2 Core Ontology (durabil
 
 ## Inputs
 
-- data_carrier_type (unknown, optional)
-- elements (unknown, optional)
-- ontology_version (unknown, optional)
-- product_id (unknown, optional)
+- data_carrier_type (any, optional): type not evidenced by kernel source
+- elements (any, optional): type not evidenced by kernel source
+- ontology_version (any, optional): type not evidenced by kernel source
+- product_id (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,7 +8,7 @@ Check GPAI provider obligations under EU AI Act Art. 53 (technical documentation
 
 ## Inputs
 
-- provider (unknown, optional)
+- provider (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

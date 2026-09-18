@@ -8,14 +8,14 @@ Builds a normalized IP3-style rights-portfolio row from licensor, licensee, terr
 
 ## Inputs
 
-- asset_ref (unknown, required)
-- license_id (unknown, required)
-- licensee (unknown, required)
-- licensor (unknown, required)
+- asset_ref (any, required): type not evidenced by kernel source
+- license_id (any, required): type not evidenced by kernel source
+- licensee (any, required): type not evidenced by kernel source
+- licensor (any, required): type not evidenced by kernel source
 - renewal (string, required)
 - rights_vector (array, required)
-- term_years (unknown, required)
-- territory (unknown, required)
+- term_years (any, required): type not evidenced by kernel source
+- territory (any, required): type not evidenced by kernel source
 
 ## Outputs
 

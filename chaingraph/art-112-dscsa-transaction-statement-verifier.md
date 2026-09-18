@@ -8,16 +8,16 @@ Verify the DSCSA T3 set (Transaction Information + History + Statement) complete
 
 ## Inputs
 
-- epcis_event_type (unknown, optional)
-- expiry (unknown, optional)
-- gln_buyer (unknown, optional)
-- gln_seller (unknown, optional)
-- lot (unknown, optional)
-- product_identifier (unknown, optional)
-- th_present (unknown, optional)
-- ti_present (unknown, optional)
-- transaction_date (unknown, optional)
-- ts_present (unknown, optional)
+- epcis_event_type (any, optional): type not evidenced by kernel source
+- expiry (any, optional): type not evidenced by kernel source
+- gln_buyer (any, optional): type not evidenced by kernel source
+- gln_seller (any, optional): type not evidenced by kernel source
+- lot (any, optional): type not evidenced by kernel source
+- product_identifier (any, optional): type not evidenced by kernel source
+- th_present (any, optional): type not evidenced by kernel source
+- ti_present (any, optional): type not evidenced by kernel source
+- transaction_date (any, optional): type not evidenced by kernel source
+- ts_present (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

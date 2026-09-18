@@ -8,7 +8,7 @@ ULDD Phase 5 / ULAD structural lint of required data points, enumerations, and c
 
 ## Inputs
 
-- loan_data (unknown, required)
+- loan_data (any, required): type not evidenced by kernel source
 
 ## Outputs
 

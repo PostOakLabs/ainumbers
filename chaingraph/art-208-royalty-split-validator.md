@@ -8,8 +8,8 @@ Validates a royalty-split configuration against ERC-2981 and 0xSplits rules: sha
 
 ## Inputs
 
-- cap_bps (unknown, required): Amount in basis points
-- config (unknown, required)
+- cap_bps (any, required): Amount in basis points; type not evidenced by kernel source
+- config (any, required): type not evidenced by kernel source
 - entries (array, required)
 
 ## Outputs

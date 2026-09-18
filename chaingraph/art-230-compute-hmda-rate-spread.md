@@ -10,9 +10,9 @@ Computes the HMDA rate spread (APR minus APOR) per FFIEC methodology and classif
 
 - apor_pct (number, optional): Percentage value
 - apr_pct (number, optional): Percentage value
-- lien_type (unknown, required)
-- lock_date (unknown, required)
-- product_type (unknown, required)
+- lien_type (any, required): type not evidenced by kernel source
+- lock_date (any, required): type not evidenced by kernel source
+- product_type (any, required): type not evidenced by kernel source
 
 ## Outputs
 

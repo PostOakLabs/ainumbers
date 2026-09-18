@@ -8,9 +8,9 @@ Validate a new-spec MCP server identity document: required claims (subject, issu
 
 ## Inputs
 
-- identity (unknown, optional)
-- signature_valid (unknown, optional)
-- well_known_path (unknown, optional)
+- identity (any, optional): type not evidenced by kernel source
+- signature_valid (any, optional): type not evidenced by kernel source
+- well_known_path (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

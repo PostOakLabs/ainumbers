@@ -13,11 +13,11 @@ Computes perp liquidation price, margin health, buffer, and distance to liquidat
 - leverage (number, optional)
 - mark_price (number, required)
 - mmr_pct (number, required): Percentage value
-- mode (unknown, required)
+- mode (any, required): type not evidenced by kernel source
 - position_size (number, optional)
-- side (unknown, required)
+- side (any, required): type not evidenced by kernel source
 - spot_offset_usd (number, optional): Amount in US dollars
-- venue (unknown, required)
+- venue (any, required): type not evidenced by kernel source
 
 ## Outputs
 

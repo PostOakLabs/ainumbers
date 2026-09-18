@@ -8,8 +8,8 @@ KYA-OS (DIF Trusted AI Agents WG) credential-chain attestation: delegated-author
 
 ## Inputs
 
-- credential (unknown, required)
-- validate_at_unix (unknown, required)
+- credential (any, required): type not evidenced by kernel source
+- validate_at_unix (any, required): type not evidenced by kernel source
 
 ## Outputs
 

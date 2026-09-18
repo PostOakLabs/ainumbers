@@ -8,15 +8,15 @@ Scores readiness for MiCA CASP authorization (Arts 59-63): service-permission sc
 
 ## Inputs
 
-- complaints_handling (unknown, optional)
-- conflicts_policy (unknown, optional)
-- custody_segregation (unknown, optional)
-- fit_and_proper (unknown, optional)
-- governance_board (unknown, optional)
-- ict_resilience (unknown, optional)
-- inputs (unknown, required)
-- internal_controls (unknown, optional)
-- services (unknown, optional)
+- complaints_handling (any, optional): type not evidenced by kernel source
+- conflicts_policy (any, optional): type not evidenced by kernel source
+- custody_segregation (any, optional): type not evidenced by kernel source
+- fit_and_proper (any, optional): type not evidenced by kernel source
+- governance_board (any, optional): type not evidenced by kernel source
+- ict_resilience (any, optional): type not evidenced by kernel source
+- inputs (any, required): type not evidenced by kernel source
+- internal_controls (any, optional): type not evidenced by kernel source
+- services (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

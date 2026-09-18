@@ -11,8 +11,8 @@ Calculates cross-venue prediction market arbitrage: gross spread, fee-adjusted n
 - no_price_b (number, optional)
 - payout (number, optional)
 - stake_total (number, optional)
-- venue_a (unknown, required)
-- venue_b (unknown, required)
+- venue_a (any, required): type not evidenced by kernel source
+- venue_b (any, required): type not evidenced by kernel source
 - yes_price_a (number, optional)
 
 ## Outputs

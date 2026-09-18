@@ -8,7 +8,7 @@ Validate ISO 42005-style AI impact-assessment completeness across seven required
 
 ## Inputs
 
-- assessment (unknown, optional)
+- assessment (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

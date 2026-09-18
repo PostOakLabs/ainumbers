@@ -11,7 +11,7 @@ QM APR-APOR spread test per Reg Z §1026.43(e)(2)(vi) and §1026.43(b)(4). Class
 - apor_pct (number, optional): Percentage value
 - apr_pct (number, optional): Percentage value
 - is_manufactured_housing (boolean, required)
-- lien_type (unknown, required)
+- lien_type (any, required): type not evidenced by kernel source
 - loan_amount (number, optional)
 - year (number, optional)
 

@@ -8,7 +8,7 @@ Score a non-USD stablecoin issuer readiness to join Circle Partner Stablecoins o
 
 ## Inputs
 
-- issuer_profile (unknown, required)
+- issuer_profile (any, required): type not evidenced by kernel source
 
 ## Outputs
 

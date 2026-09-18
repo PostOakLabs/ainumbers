@@ -8,7 +8,7 @@ Bridge Solvency II technical provisions (best estimate + risk margin) to IFRS 17
 
 ## Inputs
 
-- provisions (unknown, optional)
+- provisions (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,14 +8,14 @@ Binds one file-conversion event into a canonical receipt tying the input digest 
 
 ## Inputs
 
-- converter (unknown, required)
-- input_filename (unknown, optional)
-- input_sha256 (unknown, optional)
-- output_filename (unknown, optional)
-- output_sha256 (unknown, optional)
+- converter (any, required): type not evidenced by kernel source
+- input_filename (any, optional): type not evidenced by kernel source
+- input_sha256 (any, optional): type not evidenced by kernel source
+- output_filename (any, optional): type not evidenced by kernel source
+- output_sha256 (any, optional): type not evidenced by kernel source
 - parameters (array, required)
-- source_format (unknown, optional)
-- target_format (unknown, optional)
+- source_format (any, optional): type not evidenced by kernel source
+- target_format (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

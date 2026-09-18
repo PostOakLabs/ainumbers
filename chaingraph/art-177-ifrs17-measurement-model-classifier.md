@@ -8,7 +8,7 @@ Classify insurance contracts to their IFRS 17 measurement model: Premium Allocat
 
 ## Inputs
 
-- contract (unknown, optional)
+- contract (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

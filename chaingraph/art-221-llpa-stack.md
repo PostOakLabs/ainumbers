@@ -11,10 +11,10 @@ Fannie Mae public LLPA (Loan-Level Price Adjustment) matrix calculator. FICO-by-
 - ami_pct (number, optional): Percentage value
 - fico_score (number, optional)
 - first_time_buyer (boolean, required)
-- loan_purpose (unknown, required)
+- loan_purpose (any, required): type not evidenced by kernel source
 - ltv_pct (number, optional): Percentage value
-- occupancy_type (unknown, required)
-- property_type (unknown, required)
+- occupancy_type (any, required): type not evidenced by kernel source
+- property_type (any, required): type not evidenced by kernel source
 - subordinate_financing (boolean, required)
 
 ## Outputs

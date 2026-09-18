@@ -8,14 +8,14 @@ Validates agent audit trail records against IETF draft-sharif-agent-audit-trail-
 
 ## Inputs
 
-- action_class (unknown, required)
-- action_detail (unknown, required)
-- agent_identity (unknown, required)
+- action_class (any, required): type not evidenced by kernel source
+- action_detail (any, required): type not evidenced by kernel source
+- agent_identity (any, required): type not evidenced by kernel source
 - ecdsa_present (boolean, required)
-- outcome (unknown, required)
-- record_id (unknown, required)
-- sha256_prev_record (unknown, required)
-- trust_level (unknown, required)
+- outcome (any, required): type not evidenced by kernel source
+- record_id (any, required): type not evidenced by kernel source
+- sha256_prev_record (any, required): type not evidenced by kernel source
+- trust_level (any, required): type not evidenced by kernel source
 
 ## Outputs
 
