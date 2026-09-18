@@ -995,3 +995,31 @@ jobs:
           echo "| Guides deployed | $GUIDE_COUNT |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`$DEPLOY_SHA\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Branch | \`$DEPLOY_BRANCH\` |" >> $GITHUB_STEP_SUMMARY
+
+# ── ONE deploy at a time, newest wins (workflow-level concurrency) ──────────
+# The workflow_run trigger above fires for EVERY completed regen, and a
+# drift-repairing push produces two completions — measured 2026-09-18 on push
+# a98c547d (main tip): two Deploy runs raced the same single DreamHost web
+# root with `rsync --delete`:
+#   · 35312474671  05:51:44Z  completed/success  a98c547d
+#   · 35312530714  05:52:33Z  completed/failure  a98c547d  (rsync exit 23 at
+#     06:02:07Z — its rsync started ~10 min after its createdAt, queue delay
+#     put it mid-flight against its twin; exit 23 = partial transfer, and
+#     only exit 24 is retried)
+# A red main on a tree the surviving run proves shipped complete. The group is
+# deliberately GLOBAL, not scoped by ref: the guarded resource is the one web
+# root, whatever ref dispatched. cancel-in-progress is safe because the
+# surviving run re-syncs the FULL tree with `--delete`, so a cancelled
+# same-sha twin converges to the same bytes; and the different-sha case (the
+# first-completion run at M vs the bot's R) is exactly the supersede job's
+# documented intent — the newer run wins — now enforced by the runner instead
+# of by classification.
+#
+# This top-level key sits at the BOTTOM of the file, after `jobs:`, on
+# purpose: check-workflow-gate-parity.mjs line-pins this workflow's attest-step
+# softener declaration at :888, and ANY line inserted above that step fails
+# the checker by design. A mapping key's position carries no semantics for
+# Actions — the block is workflow-scoped wherever it appears.
+concurrency:
+  group: deploy-to-dreamhost
+  cancel-in-progress: true
