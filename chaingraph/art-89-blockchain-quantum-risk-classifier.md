@@ -8,8 +8,8 @@ Classifies quantum-exposure risk for blockchain/stablecoin assets: exposed publi
 
 ## Inputs
 
-- asset_type (unknown, optional)
-- chain (unknown, optional)
+- asset_type (any, optional): type not evidenced by kernel source
+- chain (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

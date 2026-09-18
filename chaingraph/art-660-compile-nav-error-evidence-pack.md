@@ -8,14 +8,14 @@ Packages one already-produced recompute_fund_nav receipt and one already-produce
 
 ## Inputs
 
-- affected_period (unknown, required)
-- correction (unknown, required)
-- detection_date (unknown, required)
-- fund_id (unknown, required)
-- materiality_ref (unknown, required)
-- nav_ref (unknown, required)
-- notification (unknown, required)
-- supplementary_receipts (unknown, required)
+- affected_period (any, required): type not evidenced by kernel source
+- correction (any, required): type not evidenced by kernel source
+- detection_date (any, required): type not evidenced by kernel source
+- fund_id (any, required): type not evidenced by kernel source
+- materiality_ref (any, required): type not evidenced by kernel source
+- nav_ref (any, required): type not evidenced by kernel source
+- notification (any, required): type not evidenced by kernel source
+- supplementary_receipts (any, required): type not evidenced by kernel source
 
 ## Outputs
 

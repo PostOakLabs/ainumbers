@@ -8,8 +8,8 @@ Aggregates batch settlement data into CSDR/T+1-relevant KPIs: settlement rate, f
 
 ## Inputs
 
-- instructions (unknown, optional)
-- period_label (unknown, optional)
+- instructions (any, optional): type not evidenced by kernel source
+- period_label (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

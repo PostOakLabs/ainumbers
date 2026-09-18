@@ -8,15 +8,15 @@ Computes the insured amount and the uninsured remainder for deposit accounts gro
 
 ## Inputs
 
-- account_records (unknown, required)
-- as_of_date (unknown, required)
-- certification_assertion (unknown, required)
-- covered_institution_declared (unknown, required)
-- currency (unknown, required)
-- declared_deposit_account_count (unknown, required): Count
-- institution_ref (unknown, required)
-- minor_unit_scale (unknown, required)
-- smdia (unknown, required)
+- account_records (any, required): type not evidenced by kernel source
+- as_of_date (any, required): type not evidenced by kernel source
+- certification_assertion (any, required): type not evidenced by kernel source
+- covered_institution_declared (any, required): type not evidenced by kernel source
+- currency (any, required): type not evidenced by kernel source
+- declared_deposit_account_count (any, required): Count; type not evidenced by kernel source
+- institution_ref (any, required): type not evidenced by kernel source
+- minor_unit_scale (any, required): type not evidenced by kernel source
+- smdia (any, required): type not evidenced by kernel source
 
 ## Outputs
 

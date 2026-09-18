@@ -8,9 +8,9 @@ Verifies an AP2 v0.2 PaymentReceipt against its signed Intent/Cart/Payment manda
 
 ## Inputs
 
-- hnp_policy (unknown, optional)
-- mandate_chain (unknown, optional)
-- payment_receipt (unknown, optional)
+- hnp_policy (any, optional): type not evidenced by kernel source
+- mandate_chain (any, optional): type not evidenced by kernel source
+- payment_receipt (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

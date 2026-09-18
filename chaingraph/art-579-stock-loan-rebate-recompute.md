@@ -8,10 +8,10 @@ Recomputes the periodic rebate or fee bill on an open securities loan that a bor
 
 ## Inputs
 
-- diff_tolerance_minor (unknown, required)
+- diff_tolerance_minor (any, required): type not evidenced by kernel source
 - loans (array, required)
 - required_margin_pct (number, required): Percentage value
-- statement_period (unknown, required)
+- statement_period (any, required): type not evidenced by kernel source
 
 ## Outputs
 

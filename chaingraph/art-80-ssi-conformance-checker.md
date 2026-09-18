@@ -8,8 +8,8 @@ Lints standing settlement instructions for completeness, staleness, and format (
 
 ## Inputs
 
-- ssi_records (unknown, optional)
-- staleness_threshold_days (unknown, optional): Duration in days
+- ssi_records (any, optional): type not evidenced by kernel source
+- staleness_threshold_days (any, optional): Duration in days; type not evidenced by kernel source
 
 ## Outputs
 

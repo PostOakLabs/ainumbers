@@ -10,7 +10,7 @@ Classifies per-segment changes between two negotiation rounds of the same docume
 
 - document_id (string, required)
 - prior_round_digest (string, required)
-- round (unknown, required)
+- round (any, required): type not evidenced by kernel source
 - segments (array, required)
 
 ## Outputs

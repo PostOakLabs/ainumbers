@@ -9,11 +9,11 @@ Recomputes an Exchange Act Section 16(b) short-swing profit figure from a caller
 ## Inputs
 
 - currency (string, required)
-- demand_letter_claimed_profit_minor_units (unknown, required)
-- insider_ref (unknown, required)
-- insider_status (unknown, required)
-- issuer_ref (unknown, required)
-- transactions (unknown, required)
+- demand_letter_claimed_profit_minor_units (any, required): type not evidenced by kernel source
+- insider_ref (any, required): type not evidenced by kernel source
+- insider_status (any, required): type not evidenced by kernel source
+- issuer_ref (any, required): type not evidenced by kernel source
+- transactions (any, required): type not evidenced by kernel source
 
 ## Outputs
 

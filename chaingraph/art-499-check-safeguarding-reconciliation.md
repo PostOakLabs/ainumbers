@@ -8,15 +8,15 @@ Compares a UK payment or e-money firm's safeguarding requirement (CASS 15.8.29G)
 
 ## Inputs
 
-- as_of_date (unknown, required)
+- as_of_date (any, required): type not evidenced by kernel source
 - component_breakdown (array, required)
 - currency (string, required)
-- reconciliation_type (unknown, required)
-- relevant_funds_total (unknown, required)
-- relevant_funds_total_minor_units (unknown, required)
-- safeguarding_requirement_minor_units (unknown, required)
+- reconciliation_type (any, required): type not evidenced by kernel source
+- relevant_funds_total (any, required): type not evidenced by kernel source
+- relevant_funds_total_minor_units (any, required): type not evidenced by kernel source
+- safeguarding_requirement_minor_units (any, required): type not evidenced by kernel source
 - safeguarding_resource_components (array, required)
-- tolerance_minor_units (unknown, required)
+- tolerance_minor_units (any, required): type not evidenced by kernel source
 
 ## Outputs
 

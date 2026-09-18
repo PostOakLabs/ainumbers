@@ -8,9 +8,9 @@ Binds a caller-declared sanctions-screening decision (query, match count, decisi
 
 ## Inputs
 
-- caller_computed_digest (unknown, required)
-- dataset_ref (unknown, required)
-- screening (unknown, required)
+- caller_computed_digest (any, required): type not evidenced by kernel source
+- dataset_ref (any, required): type not evidenced by kernel source
+- screening (any, required): type not evidenced by kernel source
 
 ## Outputs
 

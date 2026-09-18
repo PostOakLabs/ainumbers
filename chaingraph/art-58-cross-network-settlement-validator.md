@@ -8,12 +8,12 @@ Validates atomic settlement across two or more networks: cash leg final on the m
 
 ## Inputs
 
-- coordination_mechanism (unknown, optional)
-- legs (unknown, optional)
-- networks (unknown, optional)
-- pvp_required (unknown, optional)
-- rollback_supported (unknown, optional)
-- timeout_window_sec (unknown, optional)
+- coordination_mechanism (any, optional): type not evidenced by kernel source
+- legs (any, optional): type not evidenced by kernel source
+- networks (any, optional): type not evidenced by kernel source
+- pvp_required (any, optional): type not evidenced by kernel source
+- rollback_supported (any, optional): type not evidenced by kernel source
+- timeout_window_sec (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

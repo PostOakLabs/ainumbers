@@ -8,13 +8,13 @@ Checks whether a client's cleared positions and collateral are portable to a bac
 
 ## Inputs
 
-- backup_member_consent_status (unknown, required)
+- backup_member_consent_status (any, required): type not evidenced by kernel source
 - backup_member_id (string, required)
 - client_ref (string, required)
 - collateral (array, required)
-- default_event_at (unknown, optional)
-- evaluated_at (unknown, optional)
-- porting_window_hours (unknown, optional)
+- default_event_at (any, optional): type not evidenced by kernel source
+- evaluated_at (any, optional): type not evidenced by kernel source
+- porting_window_hours (any, optional): type not evidenced by kernel source
 - positions (array, required)
 
 ## Outputs

@@ -8,9 +8,9 @@ Verifies a FinP2P Ledger Proof in Hashlist mode against a caller-supplied secp25
 
 ## Inputs
 
-- proof (unknown, required)
-- receipt (unknown, required)
-- verification_public_key (unknown, optional)
+- proof (any, required): type not evidenced by kernel source
+- receipt (any, required): type not evidenced by kernel source
+- verification_public_key (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

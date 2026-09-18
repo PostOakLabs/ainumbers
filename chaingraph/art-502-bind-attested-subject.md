@@ -8,10 +8,10 @@ Computes the SPEC.md section 27.4 attested-artifact subject identifier for the s
 
 ## Inputs
 
-- artifact (unknown, required)
-- inputs_digest (unknown, required)
-- producer_inputs (unknown, required)
-- tool_ref (unknown, required)
+- artifact (any, required): type not evidenced by kernel source
+- inputs_digest (any, required): type not evidenced by kernel source
+- producer_inputs (any, required): type not evidenced by kernel source
+- tool_ref (any, required): type not evidenced by kernel source
 
 ## Outputs
 

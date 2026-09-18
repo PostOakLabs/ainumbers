@@ -8,10 +8,10 @@ Cross-validates a full trade-document set (eBL, commercial invoice, packing list
 
 ## Inputs
 
-- documents (unknown, optional)
-- expected_route (unknown, optional)
-- hash_alg (unknown, optional)
-- reference_market_price (unknown, optional)
+- documents (any, optional): type not evidenced by kernel source
+- expected_route (any, optional): type not evidenced by kernel source
+- hash_alg (any, optional): type not evidenced by kernel source
+- reference_market_price (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

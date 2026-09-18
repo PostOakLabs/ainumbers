@@ -8,15 +8,15 @@ Decides whether a required number of distinct named identities have each filed a
 
 ## Inputs
 
-- as_of_date (unknown, required)
-- certification_ref (unknown, required)
-- prepared_by (unknown, required)
-- regime_label (unknown, required)
-- required_role (unknown, required)
-- signatory_records (unknown, required)
-- subject_class (unknown, required)
-- subject_hash (unknown, required)
-- threshold_n (unknown, required)
+- as_of_date (any, required): type not evidenced by kernel source
+- certification_ref (any, required): type not evidenced by kernel source
+- prepared_by (any, required): type not evidenced by kernel source
+- regime_label (any, required): type not evidenced by kernel source
+- required_role (any, required): type not evidenced by kernel source
+- signatory_records (any, required): type not evidenced by kernel source
+- subject_class (any, required): type not evidenced by kernel source
+- subject_hash (any, required): type not evidenced by kernel source
+- threshold_n (any, required): type not evidenced by kernel source
 
 ## Outputs
 

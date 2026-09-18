@@ -8,18 +8,18 @@
 
 ## Inputs
 
-- agility_maturity (unknown, optional)
-- cnsa_applicability (unknown, optional)
-- crypto_inventory_status (unknown, optional)
-- hndl_data_shelf_life (unknown, optional)
-- hndl_long_shelf_flag (unknown, optional)
-- inventory_complete (unknown, optional)
-- notes (unknown, optional)
-- protocol_estate (unknown, optional)
-- regulatory_drivers (unknown, optional)
-- sector (unknown, optional)
-- sector_preset (unknown, optional)
-- vendor_pqc_roadmap (unknown, optional)
+- agility_maturity (any, optional): type not evidenced by kernel source
+- cnsa_applicability (any, optional): type not evidenced by kernel source
+- crypto_inventory_status (any, optional): type not evidenced by kernel source
+- hndl_data_shelf_life (any, optional): type not evidenced by kernel source
+- hndl_long_shelf_flag (any, optional): type not evidenced by kernel source
+- inventory_complete (any, optional): type not evidenced by kernel source
+- notes (any, optional): type not evidenced by kernel source
+- protocol_estate (any, optional): type not evidenced by kernel source
+- regulatory_drivers (any, optional): type not evidenced by kernel source
+- sector (any, optional): type not evidenced by kernel source
+- sector_preset (any, optional): type not evidenced by kernel source
+- vendor_pqc_roadmap (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

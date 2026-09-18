@@ -8,11 +8,11 @@ Deterministic recompute of the Reg E Subpart B (12 CFR 1005.31, implementing Dod
 
 ## Inputs
 
-- amount_recipient_disclosed_cents (unknown, required)
-- as_of (unknown, required)
-- exchange_rate_disclosed_e6 (unknown, required)
-- send_amount_cents (unknown, required)
-- total_fees_disclosed_cents (unknown, required)
+- amount_recipient_disclosed_cents (any, required): type not evidenced by kernel source
+- as_of (any, required): type not evidenced by kernel source
+- exchange_rate_disclosed_e6 (any, required): type not evidenced by kernel source
+- send_amount_cents (any, required): type not evidenced by kernel source
+- total_fees_disclosed_cents (any, required): type not evidenced by kernel source
 
 ## Outputs
 

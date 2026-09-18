@@ -8,10 +8,10 @@ Classifies each caller-declared funds stream of a UK payment or e-money firm on 
 
 ## Inputs
 
-- as_of_date (unknown, required)
-- relevant_funds_high_water_minor_units (unknown, required)
+- as_of_date (any, required): type not evidenced by kernel source
+- relevant_funds_high_water_minor_units (any, required): type not evidenced by kernel source
 - streams (array, required)
-- weeks_observed (unknown, required)
+- weeks_observed (any, required): type not evidenced by kernel source
 
 ## Outputs
 

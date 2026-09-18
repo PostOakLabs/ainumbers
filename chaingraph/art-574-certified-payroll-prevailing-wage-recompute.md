@@ -8,17 +8,17 @@ Recomputes, for one stated certified-payroll week, whether each worker on a call
 
 ## Inputs
 
-- apprentice_program (unknown, required)
+- apprentice_program (any, required): type not evidenced by kernel source
 - currency (string, required)
 - intentional_disregard (boolean, required)
-- irc_6621_underpayment_rate_percent (unknown, required)
-- payroll_rows (unknown, required)
-- project_ref (unknown, required)
+- irc_6621_underpayment_rate_percent (any, required): type not evidenced by kernel source
+- payroll_rows (any, required): type not evidenced by kernel source
+- project_ref (any, required): type not evidenced by kernel source
 - pwa_mode (boolean, required)
-- submitted_payroll (unknown, required)
+- submitted_payroll (any, required): type not evidenced by kernel source
 - underpayment_days (number, required): Duration in days
-- wage_determination (unknown, required)
-- week_ending_label (unknown, required)
+- wage_determination (any, required): type not evidenced by kernel source
+- week_ending_label (any, required): type not evidenced by kernel source
 
 ## Outputs
 

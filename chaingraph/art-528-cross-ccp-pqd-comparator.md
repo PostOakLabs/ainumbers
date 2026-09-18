@@ -8,10 +8,10 @@ Compares a caller-selected set of CPMI-IOSCO public quantitative disclosure (PQD
 
 ## Inputs
 
-- entity_a (unknown, required)
-- entity_b (unknown, required)
+- entity_a (any, required): type not evidenced by kernel source
+- entity_b (any, required): type not evidenced by kernel source
 - fields (array, optional)
-- threshold (unknown, required)
+- threshold (any, required): type not evidenced by kernel source
 
 ## Outputs
 

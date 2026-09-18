@@ -8,7 +8,7 @@ EU Instant Payments Regulation Verification-of-Payee (VoP) readiness/consistency
 
 ## Inputs
 
-- psp_vop_response_code (unknown, optional)
+- psp_vop_response_code (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

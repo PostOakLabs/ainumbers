@@ -8,8 +8,8 @@ Walks a synthetic ownership graph; computes direct + indirect + aggregate listed
 
 ## Inputs
 
-- ownership_graph (unknown, optional)
-- thresholds (unknown, optional)
+- ownership_graph (any, optional): type not evidenced by kernel source
+- thresholds (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

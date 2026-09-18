@@ -8,10 +8,10 @@ Sequences TLS and X.509 PKI migration from RSA/ECDSA to post-quantum algorithms 
 
 ## Inputs
 
-- interop_constraints (unknown, optional)
-- inventory_ref (unknown, optional)
-- migration_strategy (unknown, optional)
-- pki (unknown, optional)
+- interop_constraints (any, optional): type not evidenced by kernel source
+- inventory_ref (any, optional): type not evidenced by kernel source
+- migration_strategy (any, optional): type not evidenced by kernel source
+- pki (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

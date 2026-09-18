@@ -8,16 +8,16 @@ Recomputes the present value of a declared lease payment schedule and the full e
 
 ## Inputs
 
-- classification_inputs (unknown, required)
+- classification_inputs (any, required): type not evidenced by kernel source
 - compare_regime (string, required)
-- diff_tolerance_minor (unknown, required)
+- diff_tolerance_minor (any, required): type not evidenced by kernel source
 - discount_rate_annual (number, required)
-- initial_direct_costs_minor (unknown, required)
-- lease_incentives_minor (unknown, required)
-- lease_term (unknown, required)
+- initial_direct_costs_minor (any, required): type not evidenced by kernel source
+- lease_incentives_minor (any, required): type not evidenced by kernel source
+- lease_term (any, required): type not evidenced by kernel source
 - payment_schedule (array, required)
 - preparer_schedule (array, required)
-- timing (unknown, required)
+- timing (any, required): type not evidenced by kernel source
 
 ## Outputs
 

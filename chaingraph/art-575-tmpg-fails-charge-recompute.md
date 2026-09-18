@@ -8,7 +8,7 @@ Recomputes the NY Fed Treasury Market Practices Group fails-charge claim a buyer
 
 ## Inputs
 
-- diff_tolerance_minor (unknown, required)
+- diff_tolerance_minor (any, required): type not evidenced by kernel source
 - fails (array, required)
 
 ## Outputs

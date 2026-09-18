@@ -8,8 +8,8 @@ Sizes a CCP default fund under the PFMI Principle 4 "Cover 2" standard: fund siz
 
 ## Inputs
 
-- as_of (unknown, required)
-- fund_size_minor_units (unknown, required)
+- as_of (any, required): type not evidenced by kernel source
+- fund_size_minor_units (any, required): type not evidenced by kernel source
 - members (array, required)
 - stress_scenarios (array, required)
 

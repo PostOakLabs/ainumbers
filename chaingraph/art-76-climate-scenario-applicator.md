@@ -8,9 +8,9 @@ Applies a climate scenario path (NGFS Phase V orderly/disorderly/hot-house, Fit-
 
 ## Inputs
 
-- exposures (unknown, optional)
-- metric (unknown, optional)
-- scenario (unknown, optional)
+- exposures (any, optional): type not evidenced by kernel source
+- metric (any, optional): type not evidenced by kernel source
+- scenario (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

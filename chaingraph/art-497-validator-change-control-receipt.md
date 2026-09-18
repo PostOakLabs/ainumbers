@@ -8,16 +8,16 @@ Turns one permissioned-validator event on an Avalanche Evergreen L1 - a validato
 
 ## Inputs
 
-- as_of (unknown, required)
+- as_of (any, required): type not evidenced by kernel source
 - authorizing_identities (array, required)
-- change_type (unknown, required)
-- effective_epoch (unknown, required)
-- posterior_weight (unknown, required)
-- prior_weight (unknown, required)
-- quorum_achieved (unknown, required)
-- quorum_required (unknown, required)
-- total_stake_weight (unknown, required)
-- validator_ref (unknown, required)
+- change_type (any, required): type not evidenced by kernel source
+- effective_epoch (any, required): type not evidenced by kernel source
+- posterior_weight (any, required): type not evidenced by kernel source
+- prior_weight (any, required): type not evidenced by kernel source
+- quorum_achieved (any, required): type not evidenced by kernel source
+- quorum_required (any, required): type not evidenced by kernel source
+- total_stake_weight (any, required): type not evidenced by kernel source
+- validator_ref (any, required): type not evidenced by kernel source
 
 ## Outputs
 

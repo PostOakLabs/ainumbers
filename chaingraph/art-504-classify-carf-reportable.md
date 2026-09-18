@@ -9,14 +9,14 @@ Classifies crypto-asset user records and their transactions for Crypto-Asset Rep
 ## Inputs
 
 - due_diligence_rules (array, required)
-- judgment_owner_role (unknown, required)
+- judgment_owner_role (any, required): type not evidenced by kernel source
 - records (array, required)
-- reportable_residence_jurisdictions (unknown, required)
-- reportable_transaction_classes (unknown, required)
-- reporting_jurisdiction (unknown, required)
-- reporting_period (unknown, required)
-- schema_version (unknown, required)
-- suppressed_rule_codes (unknown, required)
+- reportable_residence_jurisdictions (any, required): type not evidenced by kernel source
+- reportable_transaction_classes (any, required): type not evidenced by kernel source
+- reporting_jurisdiction (any, required): type not evidenced by kernel source
+- reporting_period (any, required): type not evidenced by kernel source
+- schema_version (any, required): type not evidenced by kernel source
+- suppressed_rule_codes (any, required): type not evidenced by kernel source
 
 ## Outputs
 

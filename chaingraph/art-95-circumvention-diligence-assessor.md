@@ -8,7 +8,7 @@ Scores a transaction/contract config vs the EU 20th-package (23 Apr 2026) no-Rus
 
 ## Inputs
 
-- transaction (unknown, optional)
+- transaction (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

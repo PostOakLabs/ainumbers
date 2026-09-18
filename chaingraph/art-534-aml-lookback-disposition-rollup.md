@@ -8,12 +8,12 @@ Closes the loop art-470 (lookback-completeness-reconciler) and art-471 (disposit
 
 ## Inputs
 
-- as_of (unknown, required)
-- lookback_close_date (unknown, required)
+- as_of (any, required): type not evidenced by kernel source
+- lookback_close_date (any, required): type not evidenced by kernel source
 - lookback_id (string, required)
-- population_size (unknown, required)
-- sample_frame_population_size (unknown, required)
-- sample_frame_size (unknown, required)
+- population_size (any, required): type not evidenced by kernel source
+- sample_frame_population_size (any, required): type not evidenced by kernel source
+- sample_frame_size (any, required): type not evidenced by kernel source
 - sampled_items (array, required)
 - sampling_frame_discrepancy_flag (boolean, required)
 

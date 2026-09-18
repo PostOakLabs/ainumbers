@@ -8,20 +8,20 @@ Recomputes the EIP-712 typed-data digest for an ERC-2612 Permit struct (the gasl
 
 ## Inputs
 
-- chainId (unknown, required)
-- deadline (unknown, required)
-- name (unknown, required)
-- nonce (unknown, required)
-- owner (unknown, required)
-- r (unknown, required)
-- s (unknown, required)
+- chainId (any, required): type not evidenced by kernel source
+- deadline (any, required): type not evidenced by kernel source
+- name (any, required): type not evidenced by kernel source
+- nonce (any, required): type not evidenced by kernel source
+- owner (any, required): type not evidenced by kernel source
+- r (any, required): type not evidenced by kernel source
+- s (any, required): type not evidenced by kernel source
 - signature (string, required)
-- spender (unknown, required)
-- v (unknown, required)
-- value (unknown, required)
-- verifyingContract (unknown, required)
-- version (unknown, required)
-- yParity (unknown, required)
+- spender (any, required): type not evidenced by kernel source
+- v (any, required): type not evidenced by kernel source
+- value (any, required): type not evidenced by kernel source
+- verifyingContract (any, required): type not evidenced by kernel source
+- version (any, required): type not evidenced by kernel source
+- yParity (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,14 +8,14 @@ Multi-scenario stress testing across 6 historical crisis scenarios (GFC 2008, CO
 
 ## Inputs
 
-- confidence_level (unknown, required)
-- credit_sensitivity (unknown, required)
-- equity_beta (unknown, required)
+- confidence_level (any, required): type not evidenced by kernel source
+- credit_sensitivity (any, required): type not evidenced by kernel source
+- equity_beta (any, required): type not evidenced by kernel source
 - mc_paths (number, required)
-- portfolio_vol (unknown, required)
-- preset (unknown, required)
-- rate_duration_yrs (unknown, required): Duration in years
-- seed (unknown, required)
+- portfolio_vol (any, required): type not evidenced by kernel source
+- preset (any, required): type not evidenced by kernel source
+- rate_duration_yrs (any, required): Duration in years; type not evidenced by kernel source
+- seed (any, required): type not evidenced by kernel source
 
 ## Outputs
 

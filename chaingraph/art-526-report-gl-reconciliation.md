@@ -11,12 +11,12 @@ Ties a caller-declared reported figure to a caller-declared general-ledger figur
 - accounts (array, required)
 - appendix_schedule_source (string, required)
 - appendix_schedule_version (string, required)
-- as_of (unknown, required)
+- as_of (any, required): type not evidenced by kernel source
 - currency (string, required)
-- gl_as_of (unknown, required)
+- gl_as_of (any, required): type not evidenced by kernel source
 - gl_closed (boolean, required)
-- reporting_cadence (unknown, optional)
-- schedule_cadence (unknown, optional)
+- reporting_cadence (any, optional): type not evidenced by kernel source
+- schedule_cadence (any, optional): type not evidenced by kernel source
 - tolerance_minor_units (number, required)
 
 ## Outputs

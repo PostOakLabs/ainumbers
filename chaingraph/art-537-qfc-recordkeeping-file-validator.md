@@ -8,10 +8,10 @@ Validates the shape of the institution's own 12 CFR part 371 qualified-financial
 
 ## Inputs
 
-- as_of_date (unknown, required)
-- control_totals (unknown, required)
-- file_records (unknown, required)
-- institution_ref (unknown, required)
+- as_of_date (any, required): type not evidenced by kernel source
+- control_totals (any, required): type not evidenced by kernel source
+- file_records (any, required): type not evidenced by kernel source
+- institution_ref (any, required): type not evidenced by kernel source
 
 ## Outputs
 

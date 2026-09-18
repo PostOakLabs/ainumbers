@@ -14,7 +14,7 @@ Monte Carlo stress simulation of PSD2/FAPI 2.0/CDR consent lifecycle FSM (INITâ†
 - pRedirectFail (number, required)
 - pRevoke (number, required)
 - pTokenFail (number, required)
-- regime (unknown, required)
+- regime (any, required): type not evidenced by kernel source
 - seed (number, required)
 
 ## Outputs

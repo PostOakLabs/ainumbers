@@ -8,13 +8,13 @@ Assembles the evidence set a qualified auditor asks a UK payment or e-money firm
 
 ## Inputs
 
-- accountability_records (unknown, required)
-- attested_subject (unknown, required)
-- audit_period (unknown, required)
-- firm_ref (unknown, required)
-- management_responses (unknown, required)
-- method_classification (unknown, required)
-- reconciliation_results (unknown, required)
+- accountability_records (any, required): type not evidenced by kernel source
+- attested_subject (any, required): type not evidenced by kernel source
+- audit_period (any, required): type not evidenced by kernel source
+- firm_ref (any, required): type not evidenced by kernel source
+- management_responses (any, required): type not evidenced by kernel source
+- method_classification (any, required): type not evidenced by kernel source
+- reconciliation_results (any, required): type not evidenced by kernel source
 
 ## Outputs
 

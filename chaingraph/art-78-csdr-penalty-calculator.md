@@ -8,9 +8,9 @@ Flagship. Computes the CSDR cash penalty for a settlement fail: selects the asse
 
 ## Inputs
 
-- fail (unknown, optional)
-- open_fails (unknown, optional)
-- rate_table_version (unknown, optional)
+- fail (any, optional): type not evidenced by kernel source
+- open_fails (any, optional): type not evidenced by kernel source
+- rate_table_version (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

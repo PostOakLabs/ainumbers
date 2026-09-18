@@ -8,12 +8,12 @@ Monte Carlo simulation of stablecoin reserve portfolios under MiCA Article 36 re
 
 ## Inputs
 
-- art36_buffer (unknown, optional)
-- horizon_days (unknown, optional): Duration in days
+- art36_buffer (any, optional): type not evidenced by kernel source
+- horizon_days (any, optional): Duration in days; type not evidenced by kernel source
 - n_paths (number, optional)
-- reserve_ratio_init (unknown, optional)
-- scenario (unknown, optional)
-- seed (unknown, optional)
+- reserve_ratio_init (any, optional): type not evidenced by kernel source
+- scenario (any, optional): type not evidenced by kernel source
+- seed (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

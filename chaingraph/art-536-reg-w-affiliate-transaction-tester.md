@@ -8,11 +8,11 @@ Tests each caller-declared covered transaction with an affiliate against the Reg
 
 ## Inputs
 
-- aggregate_affiliate_limit_pct (unknown, required): Percentage value
-- capital_base (unknown, required)
-- collateral_coverage_required_pct (unknown, required): Percentage value
-- policy_vintage (unknown, required)
-- single_affiliate_limit_pct (unknown, required): Percentage value
+- aggregate_affiliate_limit_pct (any, required): Percentage value; type not evidenced by kernel source
+- capital_base (any, required): type not evidenced by kernel source
+- collateral_coverage_required_pct (any, required): Percentage value; type not evidenced by kernel source
+- policy_vintage (any, required): type not evidenced by kernel source
+- single_affiliate_limit_pct (any, required): Percentage value; type not evidenced by kernel source
 - transactions (array, required)
 
 ## Outputs

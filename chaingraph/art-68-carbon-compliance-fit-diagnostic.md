@@ -8,18 +8,18 @@
 
 ## Inputs
 
-- cbam_good_categories (unknown, optional)
-- climate_stress_applicable (unknown, optional)
-- declarant_status (unknown, optional)
-- emissions_data_basis (unknown, optional)
-- entity_name (unknown, optional)
-- eu_nexus (unknown, optional)
-- eugb_intent (unknown, optional)
-- imports_cbam_goods (unknown, optional)
-- origin_carbon_price (unknown, optional)
-- reporting_year (unknown, optional)
-- taxonomy_objectives_assessed (unknown, optional)
-- taxonomy_scope (unknown, optional)
+- cbam_good_categories (any, optional): type not evidenced by kernel source
+- climate_stress_applicable (any, optional): type not evidenced by kernel source
+- declarant_status (any, optional): type not evidenced by kernel source
+- emissions_data_basis (any, optional): type not evidenced by kernel source
+- entity_name (any, optional): type not evidenced by kernel source
+- eu_nexus (any, optional): type not evidenced by kernel source
+- eugb_intent (any, optional): type not evidenced by kernel source
+- imports_cbam_goods (any, optional): type not evidenced by kernel source
+- origin_carbon_price (any, optional): type not evidenced by kernel source
+- reporting_year (any, optional): type not evidenced by kernel source
+- taxonomy_objectives_assessed (any, optional): type not evidenced by kernel source
+- taxonomy_scope (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

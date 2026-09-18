@@ -8,14 +8,14 @@ Records, for one securitisation position over one stated period, which Article 5
 
 ## Inputs
 
-- accountability_records (unknown, required)
-- additional_duties (unknown, required)
-- deal_ref (unknown, required)
-- duty_declarations (unknown, required)
-- investor_ref (unknown, required)
-- period (unknown, required)
-- period_label (unknown, required)
-- position_ref (unknown, required)
+- accountability_records (any, required): type not evidenced by kernel source
+- additional_duties (any, required): type not evidenced by kernel source
+- deal_ref (any, required): type not evidenced by kernel source
+- duty_declarations (any, required): type not evidenced by kernel source
+- investor_ref (any, required): type not evidenced by kernel source
+- period (any, required): type not evidenced by kernel source
+- period_label (any, required): type not evidenced by kernel source
+- position_ref (any, required): type not evidenced by kernel source
 
 ## Outputs
 

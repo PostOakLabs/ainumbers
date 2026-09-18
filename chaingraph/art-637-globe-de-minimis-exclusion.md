@@ -8,10 +8,10 @@ Recomputes the PERMANENT GloBE de minimis exclusion of Article 5.5 of the OECD G
 
 ## Inputs
 
-- de_minimis_parameters (unknown, required)
-- election_made (unknown, required)
+- de_minimis_parameters (any, required): type not evidenced by kernel source
+- election_made (any, required): type not evidenced by kernel source
 - fiscal_year (number, required)
-- jurisdiction (unknown, required)
+- jurisdiction (any, required): type not evidenced by kernel source
 - max_years (number, required)
 - stateless_and_investment_entities_excluded (boolean, required)
 - years (array, required)

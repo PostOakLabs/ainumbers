@@ -8,15 +8,15 @@ Classifies an EU counterparty's posture under EMIR Article 7a (the Active Accoun
 
 ## Inputs
 
-- active_account (unknown, required)
-- as_of_date (unknown, required)
-- clearing_threshold_exceeded (unknown, required)
-- counterparty_ref (unknown, required)
-- notional_clearing_volume_minor_units (unknown, required)
+- active_account (any, required): type not evidenced by kernel source
+- as_of_date (any, required): type not evidenced by kernel source
+- clearing_threshold_exceeded (any, required): type not evidenced by kernel source
+- counterparty_ref (any, required): type not evidenced by kernel source
+- notional_clearing_volume_minor_units (any, required): type not evidenced by kernel source
 - reference_period_months (number, required)
-- reporting_submission_date (unknown, required)
-- subcategory_designations (unknown, required)
-- trades (unknown, required)
+- reporting_submission_date (any, required): type not evidenced by kernel source
+- subcategory_designations (any, required): type not evidenced by kernel source
+- trades (any, required): type not evidenced by kernel source
 
 ## Outputs
 

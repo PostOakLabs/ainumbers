@@ -8,9 +8,9 @@ Tracks the returned notification set for a FATCA/CRS certification period (ICMM-
 
 ## Inputs
 
-- certification_period (unknown, required)
-- cutoff_at (unknown, required)
-- evaluated_at (unknown, required)
+- certification_period (any, required): type not evidenced by kernel source
+- cutoff_at (any, required): type not evidenced by kernel source
+- evaluated_at (any, required): type not evidenced by kernel source
 - notifications (array, required)
 - remediation_records (array, required)
 

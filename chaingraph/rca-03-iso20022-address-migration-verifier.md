@@ -8,9 +8,9 @@ GPU-parallel validation of PostalAddress24 fields across pacs.008 messages (up t
 
 ## Inputs
 
-- records (unknown, required)
-- strictness (unknown, optional)
-- trunc_threshold (unknown, optional)
+- records (any, required): type not evidenced by kernel source
+- strictness (any, optional): type not evidenced by kernel source
+- trunc_threshold (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

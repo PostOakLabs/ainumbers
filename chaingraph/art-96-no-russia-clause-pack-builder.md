@@ -8,7 +8,7 @@ Generates the contractual no-Russia clause + DD-evidence checklist conformance a
 
 ## Inputs
 
-- contract (unknown, optional)
+- contract (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,23 +8,23 @@ Vendor-neutral settlement-finality classifier covering three settlement models, 
 
 ## Inputs
 
-- as_of_ts (unknown, required)
-- assertion_created_at (unknown, required)
-- batch_committed_at (unknown, required)
-- batch_posted (unknown, required)
-- chain_label (unknown, required)
-- challenge_window_seconds (unknown, required)
-- claimed_tier (unknown, required)
-- expected_proof_cadence_seconds (unknown, required)
-- included_in_block (unknown, required)
-- l1_finality_seconds (unknown, required)
-- l1_finalized (unknown, required)
-- proof_accepted (unknown, required)
-- proof_submitted_at (unknown, required)
-- quorum_committed (unknown, required)
-- quorum_pct_of_stake (unknown, required)
-- required_tier (unknown, required)
-- settlement_model (unknown, required)
+- as_of_ts (any, required): type not evidenced by kernel source
+- assertion_created_at (any, required): type not evidenced by kernel source
+- batch_committed_at (any, required): type not evidenced by kernel source
+- batch_posted (any, required): type not evidenced by kernel source
+- chain_label (any, required): type not evidenced by kernel source
+- challenge_window_seconds (any, required): type not evidenced by kernel source
+- claimed_tier (any, required): type not evidenced by kernel source
+- expected_proof_cadence_seconds (any, required): type not evidenced by kernel source
+- included_in_block (any, required): type not evidenced by kernel source
+- l1_finality_seconds (any, required): type not evidenced by kernel source
+- l1_finalized (any, required): type not evidenced by kernel source
+- proof_accepted (any, required): type not evidenced by kernel source
+- proof_submitted_at (any, required): type not evidenced by kernel source
+- quorum_committed (any, required): type not evidenced by kernel source
+- quorum_pct_of_stake (any, required): type not evidenced by kernel source
+- required_tier (any, required): type not evidenced by kernel source
+- settlement_model (any, required): type not evidenced by kernel source
 
 ## Outputs
 
