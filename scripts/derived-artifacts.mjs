@@ -239,6 +239,41 @@ export const COVERED = [
     share: '15-27%',
   },
   {
+    // MCP-ACTIVITY-EMBED-GEN-1 (2026-09-18): the homepage MCP activity panel's
+    // baked data. scripts/mcp-activity-embed.mjs rewrites ONE HTML comment in
+    // index.html (`<!--MCP-ACTIVITY v1 {...} -->`) from data/mcp-activity.json,
+    // so the chart never fetches (CONTRACT §0, zero network after page load).
+    // The history file itself is NOT derived — an operator refreshes it by hand
+    // with scripts/mcp-activity-sync.mjs (manual, network + token, deliberately
+    // outside preflight GATES and outside this set); this entry owns only the
+    // embed of whatever bytes are committed.
+    // ORDERED AFTER 'catalog' (DERIVED-DEP-MAP-1): regen_catalog.py rewrites the
+    // index CTA line (regen_catalog.py:256-261) and preserves the sentinel, so
+    // the embed must run AFTER it — a fresh sentinel is then never clobbered by
+    // a later whole-line index rewrite in the same pass.
+    // 'counts' also writes index.html further down the pass, but only inside
+    // COUNT sentinels (verify-counts.mjs's distinct namespace), never this
+    // comment — the cross-entry index.html share is the declare-parity WARN
+    // class by design, same as catalog↔counts today.
+    // Idempotent: pure function of data/mcp-activity.json, no wall clock
+    // (--self-test asserts exactly that, two passes byte-identical).
+    // ⚠ Gate string is byte-identical to preflight.mjs's own
+    // 'Homepage MCP-ACTIVITY sentinel …' GATES entry (no './' prefix): that
+    // exact string match is what advisoryGates() uses to downgrade it on a PR
+    // and keep it blocking on main. A './scripts/…' spelling would silently
+    // leave the gate HARD on every PR — blocked on a file a PR may not write.
+    id: 'mcp-activity-embed',
+    regen: 'node scripts/mcp-activity-embed.mjs',
+    gate: 'node scripts/mcp-activity-embed.mjs --check',
+    // DERIVED-DECLARE-PARITY-1: the writeFileSync call site names `htmlPath`, a
+    // runtime variable (argv override, default join(ROOT, 'index.html')) — not a
+    // static literal — so the declared list is the ground truth, as with 'stats'.
+    writes: ['index.html'],
+    artifacts: ['index.html'],
+    after: 'catalog',
+    share: 'n/a (new 2026-09-18, MCP-ACTIVITY-EMBED-GEN-1)',
+  },
+  {
     id: 'rule-registry',
     regen: 'node scripts/gen-rule-registry.mjs',
     gate: 'node scripts/gen-rule-registry.mjs --check',
