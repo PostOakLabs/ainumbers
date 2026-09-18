@@ -33,9 +33,15 @@
  *                                      generators outside this row's fence; their
  *                                      meta tags belong to those generators.
  *
- * Per page: { path, title, description, category, featured,
+ * Per page: { path, title, description, description_source, category, featured,
  *             facts: { webmcp, deeplink, policy_mandate_export, jsonld } },
  * sorted by category (enum order) then title.
+ *
+ * description_source is "page" for an ordinary page and "attr-rule" for a page
+ * whose description carries a verify-counts count sentinel: those pages stay in
+ * scope, but the count digits are elided from the description the registry
+ * captures, because `verify-counts --fix` rewrites them later in the same regen
+ * pass (INFRA-REGISTRY-EXEMPT-SCOPE-FIX-1; see the DESCRIPTION_RULES note).
  *
  * Idempotency proof: --check regenerates in memory and byte-compares; the
  * generator is a pure function of committed sources (no wall-clock field).
@@ -47,7 +53,7 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { descriptionRuleFiles } from './lib/count-rules.mjs';
+import { descriptionRulesByFile } from './lib/count-rules.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -94,25 +100,29 @@ const EXEMPT = new Map([
   ['mcp.html', 'whole-file derived artifact (sync-stats.mjs counts + verify-counts.mjs meta sentinels)'],
 ]);
 
-// REGEN-INFRA-REGISTRY-READBACK-CYCLE-1 — the description-rewrite exemption is
-// DERIVED from verify-counts.mjs's own rule table, not hand-listed: every file
-// carrying any *description* rule in scripts/lib/count-rules.mjs (the table
-// this module and verify-counts.mjs now share) has that description rewritten
-// by `verify-counts --fix` — the 'counts' COVERED entry, which runs AFTER this
-// generator in the regen pass (infra-registry → infrastructure-page → counts,
-// an order check-derived-fanout-coverage.mjs enforces). Scanning those
-// descriptions back here can therefore never agree with the end-of-pass tree:
-// a true read-back cycle no COVERED ordering can close (measured on main:
-// #1879 moved index.html's chain count 369→368 under the registry's captured
-// "369 MCP-callable" description and every Derived Artifacts Regen since
-// 20:13Z refused the non-fixpoint). The only cut is the READ. Derived, so a
-// future description-sentinel rule extends the exemption in the same diff
-// instead of silently re-opening the cycle. Hand entries above are kept.
-for (const file of descriptionRuleFiles()) {
-  if (!EXEMPT.has(file)) {
-    EXEMPT.set(file, 'verify-counts rewrites this page\'s description later in the regen pass (read-back cycle, REGEN-INFRA-REGISTRY-READBACK-CYCLE-1)');
-  }
-}
+// REGEN-INFRA-REGISTRY-READBACK-CYCLE-1 (semantics corrected by
+// INFRA-REGISTRY-EXEMPT-SCOPE-FIX-1) — every file carrying a *description* rule
+// in scripts/lib/count-rules.mjs (the table this module and verify-counts.mjs
+// share) has that description rewritten by `verify-counts --fix`: the 'counts'
+// COVERED entry, which runs AFTER this generator in the regen pass
+// (infra-registry → infrastructure-page → counts, an order
+// check-derived-fanout-coverage.mjs enforces). Reading those count DIGITS back
+// here can never agree with the end-of-pass tree — a true read-back cycle no
+// COVERED ordering can close (measured on main: #1879 moved index.html's chain
+// count 369→368 under the registry's captured "369 MCP-callable" description
+// and every Derived Artifacts Regen since 20:13Z refused the non-fixpoint).
+//
+// ⛔ The cut is the DIGITS, NOT the page. The first version of this exemption
+// added these files to EXEMPT, which is the SCOPE list (:inScope below) — so a
+// page merely carrying a hub-count sentinel silently dropped out of the
+// registry and therefore off infrastructure.html altogether (measured: the
+// dora / fraud-risk / sme / tradetech hubs, 4-for-4). A page stays IN scope;
+// only the count digits inside the description it publishes are neutralised,
+// which makes the read a fixpoint under the later --fix rewrite, and the entry
+// records description_source: "attr-rule" so the elision is legible.
+// Derived, not hand-listed, so a future description sentinel extends the
+// behaviour in the same diff instead of silently re-opening the cycle.
+const DESCRIPTION_RULES = descriptionRulesByFile();
 
 function collect(dir, rel, out) {
   let entries;
@@ -133,11 +143,36 @@ function titleOf(html, fallback) {
   if (!m) return fallback;
   return m[1].replace(/&amp;/g, '&').replace(/&middot;/g, '·').replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(+d)).split('|')[0].trim() || fallback;
 }
-function descOf(html) {
-  const m = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']*)["']/i)
-    || html.match(/<meta\s+content=["']([^"']*)["']\s+name=["']description["']/i);
+/**
+ * Remove the count digits `verify-counts --fix` owns from a page's markup, so
+ * whatever is read out of it afterwards is invariant under that later rewrite.
+ * Only the description-labelled rules for THIS page are applied, and only to
+ * the in-memory copy the description is read from — titles, facts and every
+ * other page are untouched. (INFRA-REGISTRY-EXEMPT-SCOPE-FIX-1.)
+ */
+function maskCountDigits(html, rel) {
+  const rules = DESCRIPTION_RULES.get(rel);
+  if (!rules) return html;
+  let out = html;
+  for (const { regex } of rules) {
+    const re = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : regex.flags + 'g');
+    // group 1 = prefix, group 2 = the count, group 3 (when present) = suffix —
+    // the same shape verify-counts.mjs's own --fix replacement relies on.
+    out = out.replace(re, (match, pre, valStr, ...rest) => {
+      const post = typeof rest[0] === 'string' ? rest[0] : '';
+      return `${pre}${post}`;
+    });
+  }
+  return out;
+}
+
+function descOf(html, rel) {
+  const source = rel === undefined ? html : maskCountDigits(html, rel);
+  const m = source.match(/<meta\s+name=["']description["']\s+content=["']([^"']*)["']/i)
+    || source.match(/<meta\s+content=["']([^"']*)["']\s+name=["']description["']/i);
   if (!m) return '';
-  return m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+  return m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/\s{2,}/g, ' ').trim();
 }
 function isShim(html) {
   const t = html.replace(/\s+/g, '');
@@ -178,7 +213,8 @@ export function buildRegistry(repo = REPO) {
     rows.push({
       path: rel,
       title: titleOf(html, rel),
-      description: descOf(html),
+      description: descOf(html, rel),
+      description_source: DESCRIPTION_RULES.has(rel) ? 'attr-rule' : 'page',
       category: m[1],
       featured: featM ? featM[1] : null,
       facts: {
