@@ -8,13 +8,13 @@ Margin computation branched by instrument type: UMR/BCBS d499 for uncleared deri
 
 ## Inputs
 
-- aana (unknown, optional)
-- ccp_cleared (unknown, optional)
-- collateral_rows (unknown, optional)
-- instrument_type (unknown, optional)
-- mta (unknown, optional)
-- on_chain (unknown, optional)
-- portfolio_mtm (unknown, optional)
+- aana (any, optional): type not evidenced by kernel source
+- ccp_cleared (any, optional): type not evidenced by kernel source
+- collateral_rows (any, optional): type not evidenced by kernel source
+- instrument_type (any, optional): type not evidenced by kernel source
+- mta (any, optional): type not evidenced by kernel source
+- on_chain (any, optional): type not evidenced by kernel source
+- portfolio_mtm (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

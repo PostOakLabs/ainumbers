@@ -8,10 +8,10 @@ Recompute the document integrity anchor, confirm the document hash and timestamp
 
 ## Inputs
 
-- document_hash (unknown, optional)
-- expected_algorithm (unknown, optional)
-- presented_anchor (unknown, optional)
-- presented_timestamp (unknown, optional)
+- document_hash (any, optional): type not evidenced by kernel source
+- expected_algorithm (any, optional): type not evidenced by kernel source
+- presented_anchor (any, optional): type not evidenced by kernel source
+- presented_timestamp (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

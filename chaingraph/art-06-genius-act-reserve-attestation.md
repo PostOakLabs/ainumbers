@@ -8,9 +8,9 @@
 
 ## Inputs
 
-- aicpa_answers (unknown, required)
+- aicpa_answers (any, required): type not evidenced by kernel source
 - assets (array, required)
-- issuer_type (unknown, optional)
+- issuer_type (any, optional): type not evidenced by kernel source
 - outstanding_tokens (number, required)
 - token_price (number, optional)
 

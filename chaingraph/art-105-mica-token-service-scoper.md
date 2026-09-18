@@ -8,7 +8,7 @@ Disambiguation router classifying a case as ART/EMT-issuer (delegated to existin
 
 ## Inputs
 
-- inputs (unknown, optional)
+- inputs (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

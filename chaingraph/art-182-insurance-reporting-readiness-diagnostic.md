@@ -8,7 +8,7 @@ A-F insurance reporting readiness diagnostic across six dimensions: IFRS 17 meas
 
 ## Inputs
 
-- entity (unknown, optional)
+- entity (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,10 +8,10 @@ Validates AP2 v0.2 Intent→Cart→Payment mandate trio: signature-chain integri
 
 ## Inputs
 
-- cart (unknown, optional)
-- hnp_mode (unknown, optional)
-- intent (unknown, optional)
-- payment (unknown, optional)
+- cart (any, optional): type not evidenced by kernel source
+- hnp_mode (any, optional): type not evidenced by kernel source
+- intent (any, optional): type not evidenced by kernel source
+- payment (any, optional): type not evidenced by kernel source
 - validate_at (boolean, required)
 
 ## Outputs

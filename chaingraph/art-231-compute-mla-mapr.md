@@ -8,23 +8,23 @@ Computes the Military Annual Percentage Rate for CLOSED-END consumer credit and 
 
 ## Inputs
 
-- ancillary_product_fee_total (unknown, required)
-- application_fee (unknown, required)
+- ancillary_product_fee_total (any, required): type not evidenced by kernel source
+- application_fee (any, required): type not evidenced by kernel source
 - application_fee_once_in_rolling_12_months (boolean, required)
-- bona_fide_fee_claimed_total (unknown, required)
-- credit_class (unknown, required)
-- credit_insurance_premium_total (unknown, required)
+- bona_fide_fee_claimed_total (any, required): type not evidenced by kernel source
+- credit_class (any, required): type not evidenced by kernel source
+- credit_insurance_premium_total (any, required): type not evidenced by kernel source
 - creditor_is_fcu_or_idi (boolean, required)
-- debt_cancellation_fee_total (unknown, required)
-- debt_suspension_fee_total (unknown, required)
-- finance_charge_total (unknown, required)
+- debt_cancellation_fee_total (any, required): type not evidenced by kernel source
+- debt_suspension_fee_total (any, required): type not evidenced by kernel source
+- finance_charge_total (any, required): type not evidenced by kernel source
 - is_credit_card (boolean, required)
 - is_short_term_small_amount_loan (boolean, required)
-- loan_amount (unknown, required)
-- participation_fee_annual (unknown, required)
-- payment_amount (unknown, required)
+- loan_amount (any, required): type not evidenced by kernel source
+- participation_fee_annual (any, required): type not evidenced by kernel source
+- payment_amount (any, required): type not evidenced by kernel source
 - payment_count (number, optional): Count
-- payment_structure (unknown, required)
+- payment_structure (any, required): type not evidenced by kernel source
 - payments_per_year (number, optional)
 - term_days (number, optional): Duration in days
 

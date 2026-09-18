@@ -8,7 +8,7 @@ Reg Z version-pinned threshold lookup service. Tables: qm_points_fees, hoepa, hp
 
 ## Inputs
 
-- table (unknown, required)
+- table (any, required): type not evidenced by kernel source
 - year (number, optional)
 
 ## Outputs

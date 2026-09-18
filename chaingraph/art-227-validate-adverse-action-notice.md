@@ -8,17 +8,17 @@ Validates an adverse action notice against Reg B §1002.9 completeness requireme
 
 ## Inputs
 
-- action_taken (unknown, required)
-- credit_score_used (unknown, required)
-- notice_includes_action_taken (unknown, required)
-- notice_includes_credit_bureau_info (unknown, required)
-- notice_includes_creditor_name (unknown, required)
-- notice_includes_date (unknown, required)
-- notice_includes_dispute_right (unknown, required)
-- notice_includes_fcra_rights (unknown, required)
-- notice_includes_right_to_copy (unknown, required)
-- reason_code_source (unknown, required)
-- reasons (unknown, required)
+- action_taken (any, required): type not evidenced by kernel source
+- credit_score_used (any, required): type not evidenced by kernel source
+- notice_includes_action_taken (any, required): type not evidenced by kernel source
+- notice_includes_credit_bureau_info (any, required): type not evidenced by kernel source
+- notice_includes_creditor_name (any, required): type not evidenced by kernel source
+- notice_includes_date (any, required): type not evidenced by kernel source
+- notice_includes_dispute_right (any, required): type not evidenced by kernel source
+- notice_includes_fcra_rights (any, required): type not evidenced by kernel source
+- notice_includes_right_to_copy (any, required): type not evidenced by kernel source
+- reason_code_source (any, required): type not evidenced by kernel source
+- reasons (any, required): type not evidenced by kernel source
 
 ## Outputs
 

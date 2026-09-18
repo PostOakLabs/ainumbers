@@ -8,7 +8,7 @@ Validate the required-field subset of an EUDR Due Diligence Statement (DDS) befo
 
 ## Inputs
 
-- dds (unknown, optional)
+- dds (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

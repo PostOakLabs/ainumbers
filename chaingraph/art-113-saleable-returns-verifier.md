@@ -8,13 +8,13 @@ Match a returned unit SGTIN+lot to its original transaction hash (DSCSA §582(c)
 
 ## Inputs
 
-- original_lot (unknown, optional)
-- original_sgtin (unknown, optional)
-- original_txn_hash (unknown, optional)
-- returned_lot (unknown, optional)
-- returned_sgtin (unknown, optional)
-- seller_authorized (unknown, optional)
-- within_resale_window (unknown, optional)
+- original_lot (any, optional): type not evidenced by kernel source
+- original_sgtin (any, optional): type not evidenced by kernel source
+- original_txn_hash (any, optional): type not evidenced by kernel source
+- returned_lot (any, optional): type not evidenced by kernel source
+- returned_sgtin (any, optional): type not evidenced by kernel source
+- seller_authorized (any, optional): type not evidenced by kernel source
+- within_resale_window (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

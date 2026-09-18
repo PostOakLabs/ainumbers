@@ -8,7 +8,7 @@ Scores market-abuse arrangements (Arts 86-92 + Dec-2024 RTS): PPAET (prevention/
 
 ## Inputs
 
-- inputs (unknown, optional)
+- inputs (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

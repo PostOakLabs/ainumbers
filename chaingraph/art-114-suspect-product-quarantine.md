@@ -8,11 +8,11 @@ Determine suspect vs illegitimate product status and required actions (quarantin
 
 ## Inputs
 
-- counterfeit_indicators (unknown, optional)
-- fda_notified (unknown, optional)
-- identifier_unmatched (unknown, optional)
-- quarantined (unknown, optional)
-- verification_failed (unknown, optional)
+- counterfeit_indicators (any, optional): type not evidenced by kernel source
+- fda_notified (any, optional): type not evidenced by kernel source
+- identifier_unmatched (any, optional): type not evidenced by kernel source
+- quarantined (any, optional): type not evidenced by kernel source
+- verification_failed (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,10 +8,10 @@ Deterministic conversion across CSV, JSON (array of objects), and GFM pipe table
 
 ## Inputs
 
-- data (unknown, optional)
-- options (unknown, required)
-- source_format (unknown, optional)
-- target_format (unknown, optional)
+- data (any, optional): type not evidenced by kernel source
+- options (any, required): type not evidenced by kernel source
+- source_format (any, optional): type not evidenced by kernel source
+- target_format (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

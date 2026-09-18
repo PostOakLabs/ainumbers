@@ -8,10 +8,10 @@ Calculate maximum NIS2 Art. 34 penalty exposure given entity classification, glo
 
 ## Inputs
 
-- entity_classification (unknown, optional)
-- global_annual_turnover_eur (unknown, optional)
-- infringement_types (unknown, optional)
-- mitigating_factors (unknown, optional)
+- entity_classification (any, optional): type not evidenced by kernel source
+- global_annual_turnover_eur (any, optional): type not evidenced by kernel source
+- infringement_types (any, optional): type not evidenced by kernel source
+- mitigating_factors (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

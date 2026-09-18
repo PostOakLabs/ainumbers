@@ -8,7 +8,7 @@ Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and ca
 
 ## Inputs
 
-- capital (unknown, optional)
+- capital (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

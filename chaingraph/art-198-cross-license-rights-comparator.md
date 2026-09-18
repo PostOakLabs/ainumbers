@@ -8,8 +8,8 @@ Compares any two licenses from the CC, CBE, and PIL families on a 9-dimension ri
 
 ## Inputs
 
-- license_ref_a (unknown, required)
-- license_ref_b (unknown, required)
+- license_ref_a (any, required): type not evidenced by kernel source
+- license_ref_b (any, required): type not evidenced by kernel source
 
 ## Outputs
 

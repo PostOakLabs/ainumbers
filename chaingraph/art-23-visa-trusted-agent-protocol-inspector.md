@@ -8,8 +8,8 @@ Parses and scores Visa TAP Signature-Input / Signature header pairs (RFC 9421 HT
 
 ## Inputs
 
-- signature (unknown, optional)
-- signature_input (unknown, optional)
+- signature (any, optional): type not evidenced by kernel source
+- signature_input (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

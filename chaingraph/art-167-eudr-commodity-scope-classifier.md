@@ -8,8 +8,8 @@ Classify an HS code against EUDR Annex I to determine commodity scope (cattle, c
 
 ## Inputs
 
-- entity (unknown, optional)
-- hs_code (unknown, optional)
+- entity (any, optional): type not evidenced by kernel source
+- hs_code (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

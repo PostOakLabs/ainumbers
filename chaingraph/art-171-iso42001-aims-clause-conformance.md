@@ -8,7 +8,7 @@ Assess ISO/IEC 42001 AIMS conformance across clauses 4-10 (context, leadership, 
 
 ## Inputs
 
-- aims (unknown, required)
+- aims (any, required): type not evidenced by kernel source
 
 ## Outputs
 

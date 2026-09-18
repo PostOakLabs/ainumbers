@@ -8,8 +8,8 @@ Models a full perp position from open to close: liquidation price, realized PnL,
 
 ## Inputs
 
-- close_fee_type (unknown, required)
-- close_ts (unknown, required)
+- close_fee_type (any, required): type not evidenced by kernel source
+- close_ts (any, required): type not evidenced by kernel source
 - entry_price (number, optional)
 - exit_price (number, optional)
 - funding_rate_per_interval (number, optional)
@@ -17,12 +17,12 @@ Models a full perp position from open to close: liquidation price, realized PnL,
 - maker_fee_pct (number, optional): Percentage value
 - mmr_pct (number, required): Percentage value
 - n_intervals (number, optional)
-- open_fee_type (unknown, required)
-- open_ts (unknown, required)
+- open_fee_type (any, required): type not evidenced by kernel source
+- open_ts (any, required): type not evidenced by kernel source
 - position_size (number, optional)
-- side (unknown, required)
+- side (any, required): type not evidenced by kernel source
 - taker_fee_pct (number, optional): Percentage value
-- venue (unknown, required)
+- venue (any, required): type not evidenced by kernel source
 
 ## Outputs
 

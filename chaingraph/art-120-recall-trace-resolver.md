@@ -8,9 +8,9 @@ One-up/one-back trace from a contaminated Traceability Lot Code to affected reci
 
 ## Inputs
 
-- contaminated_tlc (unknown, optional)
-- direction (unknown, optional)
-- edges (unknown, optional)
+- contaminated_tlc (any, optional): type not evidenced by kernel source
+- direction (any, optional): type not evidenced by kernel source
+- edges (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

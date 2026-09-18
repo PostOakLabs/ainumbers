@@ -8,14 +8,14 @@ Scores ACP, UCP, x402, and Visa TAP against platform profile (buyer type, AOV, g
 
 ## Inputs
 
-- agent_appetite (unknown, optional)
-- aov (unknown, optional)
-- buyer_type (unknown, optional)
-- geo (unknown, optional)
-- platform (unknown, optional)
-- stack_card (unknown, optional)
-- stack_crypto (unknown, optional)
-- tech_cap (unknown, optional)
+- agent_appetite (any, optional): type not evidenced by kernel source
+- aov (any, optional): type not evidenced by kernel source
+- buyer_type (any, optional): type not evidenced by kernel source
+- geo (any, optional): type not evidenced by kernel source
+- platform (any, optional): type not evidenced by kernel source
+- stack_card (any, optional): type not evidenced by kernel source
+- stack_crypto (any, optional): type not evidenced by kernel source
+- tech_cap (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

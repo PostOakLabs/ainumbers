@@ -8,7 +8,7 @@ Attest that a Canton DvP privacy partition is sound: each counterparty sees only
 
 ## Inputs
 
-- dvp_structure (unknown, required)
+- dvp_structure (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -12,7 +12,7 @@ FHA mortgage insurance premium (MIP) eligibility and cost calculator per HUD Han
 - base_loan_amount (number, optional)
 - fico_score (number, optional)
 - front_end_dti_pct (number, optional): Percentage value
-- loan_purpose (unknown, required)
+- loan_purpose (any, required): type not evidenced by kernel source
 - ltv_pct (number, optional): Percentage value
 - term_years (number, optional)
 

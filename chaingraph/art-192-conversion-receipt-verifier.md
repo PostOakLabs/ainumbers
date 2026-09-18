@@ -8,9 +8,9 @@ Re-verifies a conversion receipt from art-191: recomputes binding_sha256 over th
 
 ## Inputs
 
-- receipt (unknown, optional)
-- recomputed_input_sha256 (unknown, optional)
-- recomputed_output_sha256 (unknown, optional)
+- receipt (any, optional): type not evidenced by kernel source
+- recomputed_input_sha256 (any, optional): type not evidenced by kernel source
+- recomputed_output_sha256 (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

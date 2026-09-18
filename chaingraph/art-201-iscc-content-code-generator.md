@@ -8,9 +8,9 @@ Generates ISO 24138 ISCC content fingerprints for digital content. Computes Inst
 
 ## Inputs
 
-- content (unknown, required)
-- creator (unknown, required)
-- title (unknown, required)
+- content (any, required): type not evidenced by kernel source
+- creator (any, required): type not evidenced by kernel source
+- title (any, required): type not evidenced by kernel source
 
 ## Outputs
 

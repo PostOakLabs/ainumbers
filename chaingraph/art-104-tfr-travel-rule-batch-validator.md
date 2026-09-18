@@ -8,7 +8,7 @@ Validates originator/beneficiary field completeness on synthetic/hashed transfer
 
 ## Inputs
 
-- inputs (unknown, optional)
+- inputs (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

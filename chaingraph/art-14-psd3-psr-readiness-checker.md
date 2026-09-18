@@ -8,14 +8,14 @@ Six-domain PSD3/PSR readiness rubric: Open Finance access rights (Art.35/36), TP
 
 ## Inputs
 
-- baasScope (unknown, required)
-- consentMaturity (unknown, required)
-- fraudLiability (unknown, required)
-- instType (unknown, required)
-- jurisdiction (unknown, required)
-- openBankingLevel (unknown, required)
+- baasScope (any, required): type not evidenced by kernel source
+- consentMaturity (any, required): type not evidenced by kernel source
+- fraudLiability (any, required): type not evidenced by kernel source
+- instType (any, required): type not evidenced by kernel source
+- jurisdiction (any, required): type not evidenced by kernel source
+- openBankingLevel (any, required): type not evidenced by kernel source
 - openFinance (array, required)
-- psd2Status (unknown, required)
+- psd2Status (any, required): type not evidenced by kernel source
 - scaExemptions (array, required)
 - tppTypes (array, required)
 

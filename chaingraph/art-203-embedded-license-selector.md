@@ -8,9 +8,9 @@ Maps creator answers to the SolSea and ALL.ART 4-tier embedded-license menu: Pri
 
 ## Inputs
 
-- allow_sharing (unknown, required)
-- commercial_use (unknown, required)
-- public_display (unknown, required)
+- allow_sharing (any, required): type not evidenced by kernel source
+- commercial_use (any, required): type not evidenced by kernel source
+- public_display (any, required): type not evidenced by kernel source
 
 ## Outputs
 

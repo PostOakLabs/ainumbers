@@ -8,7 +8,7 @@ Classify an AI system to its governance tier across EU AI Act (prohibited/high-r
 
 ## Inputs
 
-- system (unknown, optional)
+- system (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

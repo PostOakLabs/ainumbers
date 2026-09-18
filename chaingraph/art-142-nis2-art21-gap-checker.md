@@ -8,7 +8,7 @@ Check presence and maturity of all ten NIS2 Article 21(2)(a)–(j) cybersecurity
 
 ## Inputs
 
-- measures (unknown, optional)
+- measures (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

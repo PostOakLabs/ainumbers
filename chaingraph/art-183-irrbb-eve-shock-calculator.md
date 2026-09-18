@@ -8,7 +8,7 @@ Calculate Delta Economic Value of Equity (EVE) under the 6 BCBS d368 / EBA stand
 
 ## Inputs
 
-- repricing_gaps (unknown, optional)
+- repricing_gaps (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

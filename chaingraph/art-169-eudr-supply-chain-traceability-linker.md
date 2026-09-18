@@ -8,7 +8,7 @@ Validate EUDR single-DDS rule compliance and supply-chain traceability: first op
 
 ## Inputs
 
-- supply_chain (unknown, optional)
+- supply_chain (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,13 +8,13 @@ Model Tempo enshrined-AMM gas cost paid in any major stablecoin, server-paid fee
 
 ## Inputs
 
-- amm_slippage (unknown, optional)
-- baseline_rail (unknown, optional)
-- fee_mix (unknown, optional)
-- impl_months (unknown, optional)
-- monthly_volume (unknown, optional)
-- server_paid_pct (unknown, optional): Percentage value
-- tx_amount_usd (unknown, optional): Amount in US dollars
+- amm_slippage (any, optional): type not evidenced by kernel source
+- baseline_rail (any, optional): type not evidenced by kernel source
+- fee_mix (any, optional): type not evidenced by kernel source
+- impl_months (any, optional): type not evidenced by kernel source
+- monthly_volume (any, optional): type not evidenced by kernel source
+- server_paid_pct (any, optional): Percentage value; type not evidenced by kernel source
+- tx_amount_usd (any, optional): Amount in US dollars; type not evidenced by kernel source
 
 ## Outputs
 

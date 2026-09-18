@@ -9,7 +9,7 @@ Reconcile executed MPP recurring/streamed draws against the authorized mandate e
 ## Inputs
 
 - draws (array, required)
-- envelope (unknown, required)
+- envelope (any, required): type not evidenced by kernel source
 
 ## Outputs
 

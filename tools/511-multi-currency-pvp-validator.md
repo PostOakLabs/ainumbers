@@ -8,9 +8,9 @@ Validate atomic cross-currency PvP settlement on Canton to eliminate Herstatt ri
 
 ## Inputs
 
-- atomicity_type (unknown, required)
+- atomicity_type (any, required): type not evidenced by kernel source
 - canton_leg (boolean, required)
-- finality_type (unknown, required)
+- finality_type (any, required): type not evidenced by kernel source
 - has_unwind_procedure (boolean, required)
 - legs (array, required)
 

@@ -8,7 +8,7 @@ Validate an MCP Registry server.json entry: $schema present, reverse-DNS name fo
 
 ## Inputs
 
-- entry (unknown, optional)
+- entry (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

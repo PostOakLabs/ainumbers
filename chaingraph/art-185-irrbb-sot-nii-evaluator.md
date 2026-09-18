@@ -8,8 +8,8 @@ Evaluate the Net Interest Income (NII) leg of the EBA Supervisory Outlier Test: 
 
 ## Inputs
 
-- baseline (unknown, optional)
-- nii_shock (unknown, optional)
+- baseline (any, optional): type not evidenced by kernel source
+- nii_shock (any, optional): type not evidenced by kernel source
 
 ## Outputs
 
