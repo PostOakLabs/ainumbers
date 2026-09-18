@@ -173,6 +173,43 @@ export const ATTR_RULES = [
     regex: /(<td>Search the full AINumbers catalog \()(\d+)(\+ client-side fintech tools\)\. Returns deep-links)/,
   },
 
+  // ── tools.html (head meta/title/og/twitter/JSON-LD — HUB-COUNT-STALE-SURFACES-1).
+  //    The whole <head> was frozen bytes from migrate_catalog.py's one-time split:
+  //    NOTHING rewrote its counts, so the suite's own tool index advertised 484
+  //    (its <title> is the SERP/tab string; JSON-LD numberOfItems is a machine
+  //    claim) while its own registry header said otherwise, and verify-counts
+  //    reported "All counts in sync" over it. Every slot below is an attribute or
+  //    JSON context (<title> is RCDATA — a COUNT comment would render literally),
+  //    so all nine are ATTR_RULES keyed tools.browser, none comment sentinels.
+  //    The live writer is regen_catalog.py's tools.html section (same diff).
+  { file: 'tools.html', key: 'tools.browser', label: 'title',
+    regex: /(<title>All )(\d+)( Fintech Tools \| AINumbers\.co<\/title>)/,
+  },
+  { file: 'tools.html', key: 'tools.browser', label: 'meta description',
+    regex: /(content="Browse all )(\d+)( free, open-source fintech tools by Post Oak Labs)/,
+  },
+  { file: 'tools.html', key: 'tools.browser', label: 'og:title',
+    regex: /(<meta property="og:title" content="All )(\d+)( Fintech Tools \| AINumbers\.co")/,
+  },
+  { file: 'tools.html', key: 'tools.browser', label: 'og:description',
+    regex: /(content=")(\d+)( free browser-based fintech tools by Post Oak Labs\. 31 categories with live search and filters\. Zero PII\. No install\.")/,
+  },
+  { file: 'tools.html', key: 'tools.browser', label: 'twitter:title',
+    regex: /(<meta name="twitter:title" content="All )(\d+)( Fintech Tools \| AINumbers\.co")/,
+  },
+  { file: 'tools.html', key: 'tools.browser', label: 'twitter:description',
+    regex: /(content=")(\d+)( free browser-based fintech tools by Post Oak Labs\. 31 categories with live search\. Zero PII\. No install\.")/,
+  },
+  { file: 'tools.html', key: 'tools.browser', label: 'JSON-LD name',
+    regex: /("name": "All )(\d+)( Fintech Tools \| AINumbers\.co")/,
+  },
+  { file: 'tools.html', key: 'tools.browser', label: 'JSON-LD description',
+    regex: /("description": ")(\d+)( free, open-source fintech tools by Post Oak Labs\. 31 categories including)/,
+  },
+  { file: 'tools.html', key: 'tools.browser', label: 'JSON-LD numberOfItems',
+    regex: /("numberOfItems": )(\d+)(,)/,
+  },
+
   // ── guides/*-hub.html (meta/og/JSON-LD — attribute/JSON contexts, comment sentinels can't
   //    live there; the hero-desc + sec-heading + last-reviewed + sec-sub copies on these same
   //    pages use the HTML comment-sentinel form instead, see the checkHtmlSentinels() file list
@@ -221,6 +258,25 @@ export const ATTR_RULES = [
   },
   { file: '.well-known/mcp/server.json', key: 'tools.browser', label: 'tool_count',
     regex: /(\"tool_count\": )(\d+)/,
+  },
+  // HUB-COUNT-STALE-SURFACES-1: the well-known twin's description was
+  // hand-authored once and froze at "501 browser-based fintech intelligence
+  // tools" while "tool_count": 590 sat in the SAME file and sibling
+  // mcp/server.json said 590 in the identical sentence. One value, one field:
+  // the description is pinned to the same tools.browser source tool_count
+  // reads, and regen_catalog.py writes it from the SAME template line as the
+  // sibling's description (single writer for both files).
+  { file: '.well-known/mcp/server.json', key: 'tools.browser', label: 'description',
+    regex: /(\"description\": \")(\d+)( browser-based fintech intelligence tools built by Post Oak Labs)/,
+  },
+  // HUB-COUNT-STALE-SURFACES-1: catalog.json's description prose "N
+  // client-side fintech tools" is the CATALOG ENTRY count — regen_catalog.py
+  // builds n = len(entries) from manifests/*.manifest.json (its `tool_count`
+  // field is the same n), NOT the browser-tool count. Decision recorded on the
+  // row: pin to the `manifests` key (== catalog tool_count; measured equal,
+  // 1185 == 1185 on origin/main @ 69f8622d).
+  { file: 'mcp/catalog.json', key: 'manifests', label: 'description',
+    regex: /(\"description\": \")(\d+)( client-side fintech tools covering)/,
   },
   { file: '.well-known/mcp.json', key: 'tools.browser', label: 'ainumbers-fintech-suite tool_count',
     regex: /(\"id\": \"ainumbers-fintech-suite\"[^}]*?\"tool_count\": )(\d+)/s,

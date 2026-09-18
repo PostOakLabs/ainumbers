@@ -111,21 +111,28 @@ css_start = at(head_orig, '<link rel="preconnect"')
 fonts_and_styles = head_orig[css_start:]  # <link rel="preconnect">...<style>...</style>\n</head>\n
 
 # ── tools.html: NEW head (title / meta / schema) + shared CSS ────────────────
+# HUB-COUNT-STALE-SURFACES-1: this frozen block HARDCODED 484 — it was the
+# origin of tools.html's stale head, which nothing rewrote until
+# regen_catalog.py's tools.html section became the live head writer. The block
+# now derives the count like regen_catalog.py does and carries the live
+# (copy-hallmarks-clean) wording, so re-running this one-time migration can no
+# longer re-mint a stale head.
+tools_count = len([f for f in os.listdir(os.path.join(ROOT, 'tools')) if f.endswith('.html')])
 tools_new_head = """\
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>All 484 Fintech Tools — AINumbers.co</title>
-<meta name="description" content="Browse all 484 free, open-source fintech tools by Post Oak Labs — filter by 31 categories including A2A payments, ISO 20022, AML/KYC, DORA, card economics, DLT, ESG, and more. All client-side. Zero PII. No install.">
-<meta property="og:title" content="All 484 Fintech Tools — AINumbers.co">
-<meta property="og:description" content="484 free browser-based fintech tools by Post Oak Labs. 31 categories with live search and filters. Zero PII. No install.">
+<title>All __TOOLS_COUNT__ Fintech Tools | AINumbers.co</title>
+<meta name="description" content="Browse all __TOOLS_COUNT__ free, open-source fintech tools by Post Oak Labs. Filter by 31 categories including A2A payments, ISO 20022, AML/KYC, DORA, card economics, DLT, ESG, and more. All client-side. Zero PII. No install.">
+<meta property="og:title" content="All __TOOLS_COUNT__ Fintech Tools | AINumbers.co">
+<meta property="og:description" content="__TOOLS_COUNT__ free browser-based fintech tools by Post Oak Labs. 31 categories with live search and filters. Zero PII. No install.">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@PostOakLabs">
-<meta name="twitter:title" content="All 484 Fintech Tools — AINumbers.co">
-<meta name="twitter:description" content="484 free browser-based fintech tools by Post Oak Labs. 31 categories with live search. Zero PII. No install.">
+<meta name="twitter:title" content="All __TOOLS_COUNT__ Fintech Tools | AINumbers.co">
+<meta name="twitter:description" content="__TOOLS_COUNT__ free browser-based fintech tools by Post Oak Labs. 31 categories with live search. Zero PII. No install.">
 <meta property="og:url" content="https://ainumbers.co/tools.html">
 <meta property="og:image" content="https://ainumbers.co/og-image.png">
 <link rel="canonical" href="https://ainumbers.co/tools.html">
@@ -137,9 +144,9 @@ tools_new_head = """\
 {
   "@context": "https://schema.org",
   "@type": "CollectionPage",
-  "name": "All 484 Fintech Tools — AINumbers.co",
+  "name": "All __TOOLS_COUNT__ Fintech Tools | AINumbers.co",
   "url": "https://ainumbers.co/tools.html",
-  "description": "484 free, open-source fintech tools by Post Oak Labs. 31 categories including A2A payments, ISO 20022, AML/KYC, fraud scoring, CBDC, DLT, card economics, ESG, and compliance. All client-side. Zero PII.",
+  "description": "__TOOLS_COUNT__ free, open-source fintech tools by Post Oak Labs. 31 categories including A2A payments, ISO 20022, AML/KYC, fraud scoring, CBDC, DLT, card economics, ESG, and compliance. All client-side. Zero PII.",
   "author": {
     "@type": "Organization",
     "name": "Post Oak Labs",
@@ -148,13 +155,13 @@ tools_new_head = """\
   "mainEntity": {
     "@type": "ItemList",
     "name": "AINumbers.co Tool Catalog",
-    "numberOfItems": 484,
+    "numberOfItems": __TOOLS_COUNT__,
     "itemListElement": []
   }
 }
 </script>
 
-""" + fonts_and_styles
+""".replace('__TOOLS_COUNT__', str(tools_count)) + fonts_and_styles
 
 # ── index.html: modify the original head ────────────────────────────────────
 head_index = head_orig

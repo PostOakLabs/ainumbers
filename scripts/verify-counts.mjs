@@ -225,6 +225,14 @@ for (const rel of [
   'guides/sme-financial-health-hub.html',
   'guides/tradetech-hub.html',
   'guides/capital-markets-settlement-hub.html',
+  // HUB-COUNT-STALE-SURFACES-1 — the three suite-wide CTA links that carried
+  // stale ungated counts ("All 300+ Tools", "All 92+ Fintech Tools"), now
+  // sentinel-wrapped (the "+" dropped: the sentinel carries the exact count;
+  // "N+" is the stale-by-design shape). Writes gained by --fix are declared in
+  // derived-artifacts.mjs's 'counts' entry per SO #47.
+  'guides/agentic-rail-scenario.html',
+  'guides/baas-programme-scenario.html',
+  'tools/92-sca-exemption-mapper.html',
 ]) {
   total += checkHtmlSentinels(rel)
 }
