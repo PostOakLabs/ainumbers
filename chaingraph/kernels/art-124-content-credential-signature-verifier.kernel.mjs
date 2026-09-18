@@ -1,7 +1,8 @@
 import { executionHash } from './_hash.mjs';
+import { b64ToBytes, verifySignature } from './_sigverify.mjs';
 
 const TOOL_ID = 'art-124-content-credential-signature-verifier';
-const TOOL_VERSION = '1.1.0';
+const TOOL_VERSION = '1.2.0';
 
 export const meta = {
   tool_id: TOOL_ID,
@@ -18,18 +19,28 @@ const ALG_ALLOW = {
   PS256: { name: 'RSA-PSS', hash: 'SHA-256', saltLength: 32 },
 };
 
-// Deterministic policy core over a caller-attested signature result. The caller
-// performs the signature check over the manifest bytes with the declared alg
-// (browser twin: real WebCrypto importKey/verify in the page runner; server
-// callers: their own host crypto) and attests the outcome as the REQUIRED
-// `signature_verified` boolean input. The kernel does not re-verify, touches
-// no async primitive, and is therefore sync end to end — which is what makes
-// the policy zkVM-provable in the FAST cycle class. Trust-list + OCSP/CRL stay
-// policy inputs, never fetched: NO network.
-export function compute(pp) {
-  const { alg, signature_verified, trust_anchor_match, cert_not_expired, revocation_status } = pp;
+// The caller supplies the signer public key (JWK), the signed bytes, the signature, and the trust
+// posture of the certificate chain (anchor match / validity window / revocation). The kernel performs
+// the signature check ITSELF, through `_sigverify.mjs`: WebCrypto in the browser twin, and native
+// accelerated verification inside the zkVM under the art-124 guest image. The check is therefore part
+// of the proof, not an input to it — which is the whole difference between v1.1.0 and this version.
+// Trust-list + OCSP/CRL stay policy inputs, never fetched: NO network.
+export async function compute(pp) {
+  const { alg, signer_public_key_jwk, signed_bytes_b64, signature_b64,
+          trust_anchor_match, cert_not_expired, revocation_status } = pp;
 
   const alg_allowed = typeof alg === 'string' && Object.prototype.hasOwnProperty.call(ALG_ALLOW, alg);
+
+  let signature_verified = false;
+  if (alg_allowed && signer_public_key_jwk && signed_bytes_b64 && signature_b64) {
+    const sig = b64ToBytes(signature_b64);
+    const msg = b64ToBytes(signed_bytes_b64);
+    if (sig && msg) {
+      signature_verified = await verifySignature(
+        alg, ALG_ALLOW[alg], signer_public_key_jwk, sig, msg) === true;
+    }
+  }
+
   const chain_trusted = trust_anchor_match === true
     && cert_not_expired !== false
     && revocation_status !== 'revoked';
@@ -41,19 +52,20 @@ export function compute(pp) {
   if (!alg_allowed) compliance_flags.push('ALGORITHM_NOT_ALLOWED');
   if (!chain_trusted) compliance_flags.push('CHAIN_NOT_TRUSTED');
 
-  // Flag-mirror doctrine (AUTHORING-STANDARD): the caveat channel rides inside
-  // the hashed payload. The caller-attested caveat is present on every run;
-  // refusal reasons append exactly when their conditional flags fire.
-  const caveats = ['signature verification is caller-attested'];
+  // Flag-mirror doctrine (AUTHORING-STANDARD): the caveat channel rides inside the hashed payload.
+  // The v1.1.0 caller-attested caveat is GONE — it said the kernel had not checked the signature, and
+  // now it has. Refusal reasons still append exactly when their conditional flags fire.
+  const caveats = [];
   if (!alg_allowed) caveats.push('requested alg is outside the declared allowlist');
   if (!chain_trusted) caveats.push('trust chain untrusted');
 
   return {
     output_payload: {
-      // Echo of the caller's attested boolean, plus the caller_attested marker
-      // so the caveat lives inside the hashed output_payload, not only on the page.
-      signature_verified: signature_verified === true,
-      signature_verification: 'caller_attested',
+      // Same key set as v1.1.0 so every downstream surface keeps reading the same fields; what
+      // changed is that the value is now computed here rather than attested by the caller, and
+      // `signature_verification` records which of those two it was.
+      signature_verified,
+      signature_verification: 'kernel_verified',
       caveats,
       chain_trusted,
       alg: alg ?? null,
@@ -65,7 +77,7 @@ export function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = compute(pp);
+  const { output_payload, compliance_flags } = await compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
