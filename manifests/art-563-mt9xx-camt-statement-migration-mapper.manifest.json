@@ -48,6 +48,12 @@
           "description": "type not evidenced by kernel source"
         }
       }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   "execution": {
@@ -260,5 +266,127 @@
     }
   },
   "source": "generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1/NODECAT-WIRE-1, derivation tier 2); tags, execution.function_name, ap2_export are TODO markers, no source found; category sourced from hub-categories.json cluster; output_schema is best-effort single-sample typing — review before treating as authoritative",
-  "input_schema_provenance": "derived-from-kernel-reads 2026-09-01"
+  "input_schema_provenance": "derived-from-kernel-reads 2026-09-01",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "message_text": ":20:STMT2026080601\n:25:DE89370400440532013000\n:28C:5/1\n:60F:C260801USD100000,00\n:61:2608020802D1500,00NTRFREF12345//BANKREF01\n:86:Payment to vendor ABC invoice 1234\n:61:2608030803C5000,00NTRFREF67890//BANKREF02\n:86:Incoming wire from customer XYZ\n:62F:C260803USD103500,00\n",
+    "declared_mt_type": "940"
+  },
+  "output_example": {
+    "mt_type": "940",
+    "mt_type_conflict": false,
+    "target": "camt.053",
+    "default_target": "camt.053",
+    "target_overridden": false,
+    "camt_message_root": "BkToCstmrStmt/Stmt",
+    "account_id": "DE89370400440532013000",
+    "message_id": "STMT2026080601",
+    "mapping": [
+      {
+        "mt_tag": "20",
+        "camt_path": "BkToCstmrStmt/GrpHdr/MsgId",
+        "value": "STMT2026080601",
+        "transform": "direct"
+      },
+      {
+        "mt_tag": "25",
+        "camt_path": "BkToCstmrStmt/Stmt/Acct/Id/IBAN or Othr",
+        "value": "DE89370400440532013000",
+        "transform": "IBAN direct; non-IBAN to Othr/Id"
+      },
+      {
+        "mt_tag": "28C",
+        "camt_path": "BkToCstmrStmt/Stmt/StmtPgntn or LglSeqNb",
+        "value": "5/1",
+        "transform": "split statement/sequence number"
+      },
+      {
+        "mt_tag": "60F",
+        "camt_path": "BkToCstmrStmt/Stmt/Bal[Tp/CdOrPrtry/Cd=OPBD]",
+        "value": "C260801USD100000,00",
+        "transform": "balance field parse"
+      },
+      {
+        "mt_tag": "62F",
+        "camt_path": "BkToCstmrStmt/Stmt/Bal[Tp/CdOrPrtry/Cd=CLBD]",
+        "value": "C260803USD103500,00",
+        "transform": "balance field parse"
+      },
+      {
+        "mt_tag": "61",
+        "camt_path": "BkToCstmrStmt/Stmt/Ntry",
+        "value": "2 statement line(s)",
+        "transform": "composite MT61 parse to structured Ntry[]"
+      }
+    ],
+    "statement": {
+      "stmt_number": "5",
+      "seq_number": "1",
+      "opening": {
+        "dc": "C",
+        "date_iso": "2026-08-01",
+        "currency": "USD",
+        "amount_cents": 10000000,
+        "signed_cents": 10000000
+      },
+      "closing": {
+        "dc": "C",
+        "date_iso": "2026-08-03",
+        "currency": "USD",
+        "amount_cents": 10350000,
+        "signed_cents": 10350000
+      },
+      "entries": [
+        {
+          "value_date_iso": "2026-08-02",
+          "entry_date_mmdd": "0802",
+          "dc": "D",
+          "funds_code": null,
+          "amount_cents": 150000,
+          "signed_cents": -150000,
+          "transaction_type_code": "NTRF",
+          "customer_reference": "REF12345",
+          "bank_reference": "BANKREF01",
+          "narrative": "Payment to vendor ABC invoice 1234",
+          "camt_path": "BkToCstmrStmt/Stmt/Ntry"
+        },
+        {
+          "value_date_iso": "2026-08-03",
+          "entry_date_mmdd": "0803",
+          "dc": "C",
+          "funds_code": null,
+          "amount_cents": 500000,
+          "signed_cents": 500000,
+          "transaction_type_code": "NTRF",
+          "customer_reference": "REF67890",
+          "bank_reference": "BANKREF02",
+          "narrative": "Incoming wire from customer XYZ",
+          "camt_path": "BkToCstmrStmt/Stmt/Ntry"
+        }
+      ]
+    },
+    "notification": null,
+    "fidelity_report": {
+      "truncation_findings": [],
+      "unmappable_tags": [],
+      "data_loss_warnings": [],
+      "balance_check": {
+        "opening_signed_cents": 10000000,
+        "sum_entries_signed_cents": 350000,
+        "expected_closing_signed_cents": 10350000,
+        "actual_closing_signed_cents": 10350000,
+        "currency_consistent": true,
+        "pass": true,
+        "discrepancy_cents": 0
+      }
+    },
+    "verdict": "CLEAN",
+    "rejected_inputs": [],
+    "disambiguation": "map_mt9xx_to_camt maps a pasted MT900/910/940/942/950 statement/notification message to a camt.052/053/054-shaped JSON mapping object plus a fidelity report (truncation, unmappable tags, 60F+61=62F balance check). It reuses tools/402's MT-to-camt field vocabulary but does not duplicate art-565-camt053-reconciliation-workbench's bank-vs-ledger reconciliation semantics -- this node maps message format, art-565 (tools/565) reconciles already-mapped camt.053 data against a ledger.",
+    "pii_note": "Statement/notification data may include real account numbers and counterparty references if a caller pastes a genuine message. This tool is zero-egress and computes entirely client-side or server-side per compute_mode; goldens ship synthetic statements only.",
+    "no_swift_endorsement": "This mapping is produced by AINumbers.co and carries no Swift endorsement. Swift does not provide MT-to-ISO 20022 conversion tooling.",
+    "coexistence_note": "Swift MT900/910/940/942/950 retirement runs the 2027-28 coexistence window; camt receive-capability is mandated from 2027-11 (dated observation, not a compliance-deadline claim by this tool)."
+  },
+  "example_execution_hash": "7444549c2605afff0f58e462f1e546ba2ec745addd458758da1864bb2d0e3eff"
 }
