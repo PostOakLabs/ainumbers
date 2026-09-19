@@ -907,6 +907,9 @@ export const COVERED = [
     id: 'manifest-examples',
     regen: 'node scripts/gen-manifest-examples.mjs',
     gate: 'node scripts/gen-manifest-examples.mjs --check',
+    // tree writer (1185 manifests, batch-gated): explicit writes: ground truth for
+    // the static parser (declare-parity), mirroring artifacts
+    writes: ['manifests/'],
     artifacts: ['manifests/'],
     share: 'n/a (new 2026-09-19, MANIFEST-EXAMPLES-ANNOTATIONS-1)',
   },
