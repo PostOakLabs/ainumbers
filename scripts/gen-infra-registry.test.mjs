@@ -21,6 +21,12 @@
  *      the second rule a silent NO-MATCH and leaves the chain count in the
  *      description. That is the read-back cycle itself, so it gets a control.
  *
+ * HUB-COUNT-DERIVE-AT-REGEN-1 adds three more controls over the same
+ * buildRegistry(): a hub whose typed numeral is wrong renders the COMPUTED
+ * count (derived from the fixture's own card anchors, never a second read of
+ * the real repo's guides/ tree); a hub with 0 cards renders no count phrase;
+ * a non-hub guide page (filename not ending -hub.html) is untouched.
+ *
  * Usage: node scripts/gen-infra-registry.test.mjs
  */
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -104,6 +110,45 @@ try {
     JSON.stringify(plain));
   check('a hand-EXEMPT page stays out of the registry',
     !after.some(r => r.path === EXEMPT_PAGE), '');
+
+  // ── HUB-COUNT-DERIVE-AT-REGEN-1: description WITHOUT a typed numeral, the
+  // computed phrase appended, derived from THIS fixture's own cards (never a
+  // second read of the real repo's guides/ tree). ──
+  const cardedHubPage = `<html><head><title>Carded Hub</title>
+<meta name="description" content="8 free browser-based tools covering payment scheme compliance.">
+<meta name="ain:category" content="guide"></head><body>
+  <a class="tool-card-link" href="../tools/a.html">A</a>
+  <a class="tool-card-link" href="../tools/b.html">B</a>
+  <a class="tool-card-link" href="../tools/c.html">C</a>
+</body></html>`;
+  writeFileSync(join(dir, 'guides', 'carded-hub.html'), cardedHubPage);
+  const cardedRows = buildRegistry(dir);
+  const carded = cardedRows.find(r => r.path === 'guides/carded-hub.html');
+  check('a hub whose description claims a wrong numeral renders the COMPUTED count, not the typed one',
+    !!carded && carded.description.includes('(3 tools)') && !carded.description.includes('8'),
+    carded?.description);
+
+  const zeroCardHubPage = `<html><head><title>Zero-Card Hub</title>
+<meta name="description" content="Reference-grade decode and lookup tools for payment professionals.">
+<meta name="ain:category" content="guide"></head><body>no cards here</body></html>`;
+  writeFileSync(join(dir, 'guides', 'zero-card-hub.html'), zeroCardHubPage);
+  const zeroRows = buildRegistry(dir);
+  const zeroCard = zeroRows.find(r => r.path === 'guides/zero-card-hub.html');
+  check('a hub with 0 cards renders no count phrase',
+    zeroCard?.description === 'Reference-grade decode and lookup tools for payment professionals.',
+    zeroCard?.description);
+
+  const nonHubGuidePage = `<html><head><title>Not A Hub</title>
+<meta name="description" content="8 free browser-based tools, a non-hub guide page.">
+<meta name="ain:category" content="guide"></head><body>
+  <a class="tool-card-link" href="../tools/a.html">A</a>
+</body></html>`;
+  writeFileSync(join(dir, 'guides', 'plain-guide-page.html'), nonHubGuidePage);
+  const nonHubRows = buildRegistry(dir);
+  const nonHub = nonHubRows.find(r => r.path === 'guides/plain-guide-page.html');
+  check('a non-hub page is untouched (no filename ending -hub.html: numeral and cards ignored)',
+    nonHub?.description === '8 free browser-based tools, a non-hub guide page.',
+    nonHub?.description);
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }

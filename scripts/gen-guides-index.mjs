@@ -18,6 +18,7 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { deriveHubCounts, hubCountPhrase, stripHubCountNumeral } from './counts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -52,6 +53,8 @@ function isShim(html) {
   return /<meta\s+http-equiv=["']refresh["']/i.test(html);
 }
 
+const HUB_COUNTS = deriveHubCounts();
+
 function extractCard(name, kind) {
   const html = readFile(name);
   if (isShim(html)) return null;
@@ -61,12 +64,23 @@ function extractCard(name, kind) {
     html.match(/<meta\s+name=["']description["']\s+content='([^']*)'/i);
   const title = titleMatch ? cleanTitle(titleMatch[1]) : name;
   let desc = descMatch ? decodeEntities(descMatch[1]).trim() : '';
+  // HUB-COUNT-DERIVE-AT-REGEN-1: a Hub card's desc carries the typed numeral stripped and the
+  // computed phrase appended after truncation, so the phrase itself is never cut mid-word.
+  let hubPhrase = '';
+  if (kind === 'Hub') {
+    const rec = HUB_COUNTS[name.replace(/\.html$/, '')];
+    if (rec) {
+      desc = stripHubCountNumeral(desc);
+      hubPhrase = hubCountPhrase(rec);
+    }
+  }
   // First full sentence only, keeps cards scannable (mirrors gen-chaingraph-hub's card-desc
   // truncation). Split on ". " (sentence boundary) only -- NOT ":" or other punctuation, which
   // would cut a description mid-clause (e.g. "OTLP/JSON tooling for agent traces: a composer...").
   const firstSentence = desc.split(/(?<=\.)\s+(?=[A-Z0-9])/)[0];
   if (firstSentence && firstSentence.length >= 40 && firstSentence.length <= 220) desc = firstSentence;
   else if (desc.length > 200) desc = desc.slice(0, 200) + '…';
+  if (hubPhrase) desc = `${desc} (${hubPhrase})`.trim();
   return { name, kind, title, desc };
 }
 

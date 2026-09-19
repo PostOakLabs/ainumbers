@@ -75,6 +75,7 @@ import { fileURLToPath } from 'url'
 import { zkCoverage } from './check-compute-proof-coverage.mjs'
 import { deriveLiveKernels, evaluateCoverage } from './check-fv-floor-coverage.mjs'
 import { sourceDigest } from '../chaingraph/kernels/_buildid.mjs'
+import { makeNumericCountProseRegex } from './check-count-prose.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -271,6 +272,37 @@ export function deriveHubCounts() {
     }
   }
   return hubCounts
+}
+
+// hubCountsFromHtml — the same per-family counters deriveHubCounts uses, applied to an
+// already-read html string instead of a disk read (HUB-COUNT-DERIVE-AT-REGEN-1). Every
+// generator that emits a hub's description already holds that hub's html in memory; reusing
+// it here keeps the phrase a PURE function of the string the generator is rendering from,
+// so a generator under test (a temp-dir fixture, e.g. gen-infra-registry.test.mjs) never
+// silently reads the real repo's guides/ tree behind the test's back.
+export function hubCountsFromHtml(html, dir = 'guides') {
+  return dir === 'chaingraph'
+    ? { tools: hubToolsIn(html), nodes: chainGuideNodesIn(html) }
+    : { tools: hubToolsIn(html), nodes: hubNodesIn(html) }
+}
+
+// hubCountPhrase — "16 tools", "3 ChainGraph nodes", "1 tool and 2 ChainGraph nodes", or ""
+// when both are 0 (HUB-COUNT-DERIVE-AT-REGEN-1 build step 1). Nodes are never called tools
+// (RULINGS 2026-09-18T19:2xZ item 4).
+export function hubCountPhrase({ tools = 0, nodes = 0 } = {}) {
+  const parts = []
+  if (tools > 0) parts.push(`${tools} tool${tools === 1 ? '' : 's'}`)
+  if (nodes > 0) parts.push(`${nodes} ChainGraph node${nodes === 1 ? '' : 's'}`)
+  return parts.join(' and ')
+}
+
+// stripHubCountNumeral — removes a leading or embedded "<N> ...tools" numeral claim from a
+// description, using check-count-prose.mjs's own detector regex (imported, not copied) so
+// the strip and the advisory scan can never desync. Idempotent: a description already free
+// of the pattern is returned unchanged (modulo whitespace collapse).
+export function stripHubCountNumeral(desc) {
+  if (!desc) return desc
+  return desc.replace(makeNumericCountProseRegex(), '').replace(/\s{2,}/g, ' ').trim()
 }
 
 export async function deriveCounts() {
