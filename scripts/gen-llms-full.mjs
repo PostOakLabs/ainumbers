@@ -16,7 +16,7 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { deriveCounts } from './counts.mjs';
+import { deriveCounts, deriveHubCounts, hubCountPhrase, stripHubCountNumeral } from './counts.mjs';
 import { collectTwinTargets } from './gen-page-md-twins.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -51,14 +51,23 @@ function extractDesc(html) {
   return m ? m[1].trim() : '';
 }
 
-function collectGuides(repo) {
+function collectGuides(repo, hubCounts) {
   return readdirSync(resolve(repo, 'guides'))
     .filter((f) => f.endsWith('.html'))
     .sort()
     .map((f) => {
       const html = readFileSync(resolve(repo, 'guides', f), 'utf8');
       const name = f.replace(/\.html$/, '');
-      return { name, title: extractTitle(html, name), desc: humanize(truncate(extractDesc(html), 160)) };
+      const rec = hubCounts[name];
+      let desc = extractDesc(html);
+      let hubPhrase = '';
+      if (rec) {
+        desc = stripHubCountNumeral(desc);
+        hubPhrase = hubCountPhrase(rec);
+      }
+      desc = humanize(truncate(desc, 160));
+      if (hubPhrase) desc = `${desc} (${hubPhrase})`.trim();
+      return { name, title: extractTitle(html, name), desc };
     });
 }
 
@@ -86,7 +95,7 @@ async function renderBody() {
     .map((n) => ({ name: n.mcp_name, title: n.display_name || n.mcp_name, desc: humanize(truncate(n.description || '', 160)) }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const guides = collectGuides(REPO);
+  const guides = collectGuides(REPO, deriveHubCounts());
 
   // PAGE-MD-TWINS-1: the markdown twin set, listed from the SAME walk the twin
   // generator uses (collectTwinTargets), never a second enumeration.
