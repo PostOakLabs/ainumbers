@@ -4,7 +4,17 @@
   "title": "Effective-Date / Rule-Version Registry",
   "description": "Resolves which version of an accounting standard binds a given filer, entirely offline and client-side. The query is a triple: fiscal_year_end as an ISO date (never a month/day pair, because 52/53-week filers exist and their year-ends move), filer_status from the closed enum (large_accelerated, accelerated, non_accelerated, smaller_reporting, emerging_growth, private, non_public_business_entity), and a standard identifier. It returns effective_for_annual_periods_beginning, effective_for_interim_periods_beginning, early_adoption_permitted, first_binding_period_end, transition_method, the resolved parameter_set, an entry_digest, the entry's citation, and a step-by-step resolution_path. A rule parameter is always a value carrying its own effective_from, effective_to, source and source_digest, never a bare number. The registry is inert data delivered in policy_parameters and never baked into kernel bytes, so adding a rule entry cannot move the kernel digest or stale a receipt. The kernel recomputes sha256 over the slice's own canonicalized bytes and refuses to resolve when the declared registry_digest disagrees; the hashed object is bounded at max_slice_entries=32 so the in-guest hash stays measurable, and the full-table to slice binding is a host-side gate outside the guest. Resolution is total: every triple in the declared domain returns exactly one entry or an explicit NO_BINDING_ENTRY, never a silent undefined. No two versions of a parameter may hold overlapping half-open effective windows; that is asserted at load, not assumed. Date arithmetic is integer arithmetic over parsed ISO components, with no Date object, no locale and no timezone. Where the fiscal year's beginning is not supplied it is inferred as the year-end less one year plus one day and the inference is declared in fiscal_year_begin_basis, never presented as a fact. Ships with two demonstrator standards whose dates and thresholds are pinned to retrieved primary text: FASB ASU 2023-07 (Segment Reporting, Topic 280) and ASU 2023-09 (Income Taxes, Topic 740). Those two are demonstrators, not a complete registry of US GAAP: a caller must supply its own slice to resolve any other standard.",
   "category": "regulatory-compliance",
-  "tags": ["compliance_mandate", "effective-date", "rule-version", "registry", "fasb", "asu-2023-07", "asu-2023-09", "filer-status", "mcp:resolve_rule_version"],
+  "tags": [
+    "compliance_mandate",
+    "effective-date",
+    "rule-version",
+    "registry",
+    "fasb",
+    "asu-2023-07",
+    "asu-2023-09",
+    "filer-status",
+    "mcp:resolve_rule_version"
+  ],
   "input_schema": {
     "type": "object",
     "properties": {
@@ -12,18 +22,45 @@
         "type": "object",
         "description": "The triple to resolve.",
         "properties": {
-          "fiscal_year_end": { "type": "string", "description": "ISO calendar date YYYY-MM-DD. A real calendar date is required; 2023-02-30 is refused. Never a month/day pair." },
-          "filer_status": { "type": "string", "enum": ["large_accelerated", "accelerated", "non_accelerated", "smaller_reporting", "emerging_growth", "private", "non_public_business_entity"], "description": "Closed enum. Anything outside it is refused, never coerced." },
-          "standard_id": { "type": "string", "description": "Standard or ASU identifier, e.g. ASU-2023-07." },
-          "fiscal_year_begin": { "type": "string", "description": "Optional ISO date. Supply it for a 52/53-week filer whose fiscal year start is not one year less one day before the year-end. When absent it is inferred and the inference is declared in fiscal_year_begin_basis." }
+          "fiscal_year_end": {
+            "type": "string",
+            "description": "ISO calendar date YYYY-MM-DD. A real calendar date is required; 2023-02-30 is refused. Never a month/day pair."
+          },
+          "filer_status": {
+            "type": "string",
+            "enum": [
+              "large_accelerated",
+              "accelerated",
+              "non_accelerated",
+              "smaller_reporting",
+              "emerging_growth",
+              "private",
+              "non_public_business_entity"
+            ],
+            "description": "Closed enum. Anything outside it is refused, never coerced."
+          },
+          "standard_id": {
+            "type": "string",
+            "description": "Standard or ASU identifier, e.g. ASU-2023-07."
+          },
+          "fiscal_year_begin": {
+            "type": "string",
+            "description": "Optional ISO date. Supply it for a 52/53-week filer whose fiscal year start is not one year less one day before the year-end. When absent it is inferred and the inference is declared in fiscal_year_begin_basis."
+          }
         }
       },
       "registry_slice": {
         "type": "object",
         "description": "The bounded registry slice to resolve against, delivered as data and never baked into the kernel. Shape: {registry_digest, entries}. registry_digest must equal sha256(canonical-JSON(slice minus registry_digest)) or resolution is refused. At most max_slice_entries=32 entries. Each entry is {standard_id, applies_to_filer_statuses, effective_for_annual_periods_beginning, effective_for_interim_periods_beginning, early_adoption_permitted, transition_method, parameter_set, citation}. Each entry must carry a citation {clause, source, source_digest, snapshot_location}; an entry with no digest is rejected, not warned about.",
         "properties": {
-          "registry_digest": { "type": "string", "description": "sha256 hex digest of the canonicalized slice (this field excluded from what is hashed)." },
-          "entries": { "type": "array", "description": "Bounded at 32 entries. Each parameter in an entry's parameter_set is an array of versions, each (value, effective_from, effective_to, source, source_digest), with non-overlapping half-open windows." }
+          "registry_digest": {
+            "type": "string",
+            "description": "sha256 hex digest of the canonicalized slice (this field excluded from what is hashed)."
+          },
+          "entries": {
+            "type": "array",
+            "description": "Bounded at 32 entries. Each parameter in an entry's parameter_set is an array of versions, each (value, effective_from, effective_to, source, source_digest), with non-overlapping half-open windows."
+          }
         }
       }
     }
@@ -34,9 +71,19 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "query": { "type": "object" },
-        "registry_slice": { "type": "object" }
+        "query": {
+          "type": "object"
+        },
+        "registry_slice": {
+          "type": "object"
+        }
       }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   "execution": {
@@ -49,32 +96,288 @@
   "output_schema": {
     "type": "object",
     "properties": {
-      "resolution_status": { "type": ["string", "null"], "description": "RESOLVED or NO_BINDING_ENTRY, or null when the input was refused with an error_code." },
-      "error_code": { "type": ["string", "null"] },
-      "message": { "type": ["string", "null"] },
-      "standard_id": { "type": ["string", "null"] },
-      "filer_status": { "type": ["string", "null"] },
-      "fiscal_year_end": { "type": ["string", "null"] },
-      "fiscal_year_begin": { "type": ["string", "null"] },
-      "fiscal_year_begin_basis": { "type": ["string", "null"], "description": "declared or inferred_prior_year_plus_one_day. An inference is never presented as a fact." },
-      "effective_for_annual_periods_beginning": { "type": ["string", "null"] },
-      "effective_for_interim_periods_beginning": { "type": ["string", "null"] },
-      "early_adoption_permitted": { "type": ["boolean", "null"] },
-      "binding_for_queried_annual_period": { "type": ["boolean", "null"] },
-      "binding_for_queried_interim_periods": { "type": ["boolean", "null"] },
-      "first_binding_period_end": { "type": ["string", "null"] },
-      "transition_method": { "type": ["string", "null"] },
-      "parameter_set": { "type": ["object", "null"], "description": "Parameter name to {value, effective_from, effective_to, source, source_digest, status}. status is IN_FORCE, NO_VERSION_IN_FORCE, or AMBIGUOUS_MULTIPLE_VERSIONS_IN_FORCE." },
-      "parameter_set_as_of": { "type": ["string", "null"], "description": "The measurement date used, which is the fiscal year's beginning, matching how effective-date language is written." },
-      "entry_digest": { "type": ["string", "null"] },
-      "citation": { "type": ["object", "null"] },
-      "registry_digest_recomputed": { "type": ["string", "null"] },
-      "resolution_path": { "type": "array", "items": { "type": "string" } },
-      "bounds": { "type": "object" },
-      "closed_filer_status_enum": { "type": "array", "items": { "type": "string" } },
-      "float_sensitive": { "type": "boolean" },
-      "scope_note": { "type": "string" }
+      "resolution_status": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "RESOLVED or NO_BINDING_ENTRY, or null when the input was refused with an error_code."
+      },
+      "error_code": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "message": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "standard_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "filer_status": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "fiscal_year_end": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "fiscal_year_begin": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "fiscal_year_begin_basis": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "declared or inferred_prior_year_plus_one_day. An inference is never presented as a fact."
+      },
+      "effective_for_annual_periods_beginning": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "effective_for_interim_periods_beginning": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "early_adoption_permitted": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "binding_for_queried_annual_period": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "binding_for_queried_interim_periods": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "first_binding_period_end": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "transition_method": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "parameter_set": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "Parameter name to {value, effective_from, effective_to, source, source_digest, status}. status is IN_FORCE, NO_VERSION_IN_FORCE, or AMBIGUOUS_MULTIPLE_VERSIONS_IN_FORCE."
+      },
+      "parameter_set_as_of": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "The measurement date used, which is the fiscal year's beginning, matching how effective-date language is written."
+      },
+      "entry_digest": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "citation": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "registry_digest_recomputed": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "resolution_path": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "bounds": {
+        "type": "object"
+      },
+      "closed_filer_status_enum": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "float_sensitive": {
+        "type": "boolean"
+      },
+      "scope_note": {
+        "type": "string"
+      }
     }
   },
-  "source": "authored by ACCT-RULEREG-K-1 per ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec.2 (kernel spec) and Sec.4 (composition contract); the demonstrator registry entries cite FASB Accounting Standards Update No. 2023-07, Segment Reporting (Topic 280): Improvements to Reportable Segment Disclosures (November 2023) and No. 2023-09, Income Taxes (Topic 740): Improvements to Income Tax Disclosures (December 2023), retrieved from https://storage.fasb.org/ on 2026-08-15 and pinned at workspace-root research/clause-snapshots/ with clause-level excerpts registered in chaingraph/standard/clause-snapshot-registry.json; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-627-effective-date-rule-version-registry.fixtures.json; category reuses the existing 'regulatory-compliance' taxonomy value, the same one sibling classification/compliance kernels use."
+  "source": "authored by ACCT-RULEREG-K-1 per ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec.2 (kernel spec) and Sec.4 (composition contract); the demonstrator registry entries cite FASB Accounting Standards Update No. 2023-07, Segment Reporting (Topic 280): Improvements to Reportable Segment Disclosures (November 2023) and No. 2023-09, Income Taxes (Topic 740): Improvements to Income Tax Disclosures (December 2023), retrieved from https://storage.fasb.org/ on 2026-08-15 and pinned at workspace-root research/clause-snapshots/ with clause-level excerpts registered in chaingraph/standard/clause-snapshot-registry.json; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-627-effective-date-rule-version-registry.fixtures.json; category reuses the existing 'regulatory-compliance' taxonomy value, the same one sibling classification/compliance kernels use.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "query": {
+      "fiscal_year_end": "2024-12-31",
+      "filer_status": "large_accelerated",
+      "standard_id": "ASU-2023-07"
+    },
+    "registry_slice": {
+      "entries": [
+        {
+          "standard_id": "ASU-2023-07",
+          "applies_to_filer_statuses": [
+            "large_accelerated",
+            "accelerated",
+            "non_accelerated",
+            "smaller_reporting",
+            "emerging_growth"
+          ],
+          "scope_note": "The amendments apply to all public entities required to report segment information under Topic 280. The five filer statuses above are the public-entity members of the closed enum; private and non_public_business_entity are deliberately ABSENT, so a query for either resolves to an explicit NO_BINDING_ENTRY rather than a fabricated date.",
+          "effective_for_annual_periods_beginning": "2023-12-16",
+          "effective_for_interim_periods_beginning": "2024-12-16",
+          "early_adoption_permitted": true,
+          "transition_method": "retrospective",
+          "date_derivation_note": "The source says \"fiscal years beginning after December 15, 2023\" and \"interim periods within fiscal years beginning after December 15, 2024\". \"After December 15\" is rendered as the first day on or after which a period beginning qualifies, i.e. 2023-12-16 and 2024-12-16, so the kernel's inclusive >= comparison reproduces the source's exclusive \"after\" exactly.",
+          "parameter_set": {
+            "segment_disclosure_scope": [
+              {
+                "value": "annual_only",
+                "effective_from": "2023-12-16",
+                "effective_to": "2024-12-16",
+                "source": "ASU 2023-07, Summary, When Will the Amendments Be Effective and What Are the Transition Requirements? -- effective for fiscal years beginning after December 15, 2023, with interim periods only for fiscal years beginning after December 15, 2024.",
+                "source_digest": "sha256:a999642aced1ae446b09ed5a481dce13d74f6670995be8e9339e754939c74dd8",
+                "snapshot_location": "research/clause-snapshots/ASU-2023-07-effective-date.excerpt.txt"
+              },
+              {
+                "value": "annual_and_interim",
+                "effective_from": "2024-12-16",
+                "effective_to": null,
+                "source": "ASU 2023-07, Summary, When Will the Amendments Be Effective and What Are the Transition Requirements? -- interim periods within fiscal years beginning after December 15, 2024.",
+                "source_digest": "sha256:a999642aced1ae446b09ed5a481dce13d74f6670995be8e9339e754939c74dd8",
+                "snapshot_location": "research/clause-snapshots/ASU-2023-07-effective-date.excerpt.txt"
+              }
+            ],
+            "entity_scope": [
+              {
+                "value": "public_entities_reporting_under_topic_280",
+                "effective_from": "2023-12-16",
+                "effective_to": null,
+                "source": "ASU 2023-07, Summary, Who Is Affected by the Amendments in This Update? -- the amendments apply to all public entities that are required to report segment information in accordance with Topic 280, Segment Reporting.",
+                "source_digest": "sha256:f401f66dffdd21e008a8e388ea6461475430311df60a70f88b7fa2de5826fcc6",
+                "snapshot_location": "research/clause-snapshots/ASU-2023-07-scope.excerpt.txt"
+              }
+            ]
+          },
+          "citation": {
+            "clause": "ASU 2023-07, Summary, When Will the Amendments Be Effective and What Are the Transition Requirements?",
+            "source": "FASB Accounting Standards Update No. 2023-07, Segment Reporting (Topic 280): Improvements to Reportable Segment Disclosures (November 2023)",
+            "source_digest": "sha256:a999642aced1ae446b09ed5a481dce13d74f6670995be8e9339e754939c74dd8",
+            "snapshot_location": "research/clause-snapshots/ASU-2023-07-effective-date.excerpt.txt"
+          }
+        }
+      ],
+      "registry_digest": "528bd806c4fd75171915654577a20fff27d43d039ca6357e7d0380ad9b7459dd"
+    }
+  },
+  "output_example": {
+    "resolution_status": "RESOLVED",
+    "error_code": null,
+    "message": null,
+    "standard_id": "ASU-2023-07",
+    "filer_status": "large_accelerated",
+    "fiscal_year_end": "2024-12-31",
+    "fiscal_year_begin": "2024-01-01",
+    "fiscal_year_begin_basis": "inferred_prior_year_plus_one_day",
+    "effective_for_annual_periods_beginning": "2023-12-16",
+    "effective_for_interim_periods_beginning": "2024-12-16",
+    "early_adoption_permitted": true,
+    "binding_for_queried_annual_period": true,
+    "binding_for_queried_interim_periods": false,
+    "first_binding_period_end": "2024-12-31",
+    "transition_method": "retrospective",
+    "parameter_set": {
+      "entity_scope": {
+        "value": "public_entities_reporting_under_topic_280",
+        "effective_from": "2023-12-16",
+        "effective_to": null,
+        "source": "ASU 2023-07, Summary, Who Is Affected by the Amendments in This Update? -- the amendments apply to all public entities that are required to report segment information in accordance with Topic 280, Segment Reporting.",
+        "source_digest": "sha256:f401f66dffdd21e008a8e388ea6461475430311df60a70f88b7fa2de5826fcc6",
+        "status": "IN_FORCE"
+      },
+      "segment_disclosure_scope": {
+        "value": "annual_only",
+        "effective_from": "2023-12-16",
+        "effective_to": "2024-12-16",
+        "source": "ASU 2023-07, Summary, When Will the Amendments Be Effective and What Are the Transition Requirements? -- effective for fiscal years beginning after December 15, 2023, with interim periods only for fiscal years beginning after December 15, 2024.",
+        "source_digest": "sha256:a999642aced1ae446b09ed5a481dce13d74f6670995be8e9339e754939c74dd8",
+        "status": "IN_FORCE"
+      }
+    },
+    "parameter_set_as_of": "2024-01-01",
+    "entry_digest": "9865df83de0592488c4bd5a7b7d66ef8385dd15447fb8653a3b6e791ff215cdb",
+    "citation": {
+      "clause": "ASU 2023-07, Summary, When Will the Amendments Be Effective and What Are the Transition Requirements?",
+      "source": "FASB Accounting Standards Update No. 2023-07, Segment Reporting (Topic 280): Improvements to Reportable Segment Disclosures (November 2023)",
+      "source_digest": "sha256:a999642aced1ae446b09ed5a481dce13d74f6670995be8e9339e754939c74dd8",
+      "snapshot_location": "research/clause-snapshots/ASU-2023-07-effective-date.excerpt.txt"
+    },
+    "registry_digest_recomputed": "528bd806c4fd75171915654577a20fff27d43d039ca6357e7d0380ad9b7459dd",
+    "resolution_path": [
+      "query_validated",
+      "slice_validated:1_entries",
+      "slice_digest_verified",
+      "entry_matched:ASU-2023-07:large_accelerated",
+      "annual_binding_compared:2024-01-01>=2023-12-16",
+      "interim_binding_compared:2024-01-01<2024-12-16",
+      "first_binding_period_end:2024-12-31",
+      "parameter_set_resolved_as_of:2024-01-01"
+    ],
+    "bounds": {
+      "max_slice_entries": 32,
+      "max_parameters_per_entry": 64
+    },
+    "closed_filer_status_enum": [
+      "large_accelerated",
+      "accelerated",
+      "non_accelerated",
+      "smaller_reporting",
+      "emerging_growth",
+      "private",
+      "non_public_business_entity"
+    ],
+    "float_sensitive": false,
+    "scope_note": "This kernel is a generic effective-date and rule-version resolver. It carries no effective date, threshold, or standard of its own -- every call must supply its own {query, registry_slice} in policy_parameters. Every date, parameter value, citation and digest reported below comes entirely from the caller-supplied slice, never from anything hardcoded in this kernel. A resolved parameter value is transported verbatim and is never rounded: a value a downstream consumer treats as a float is that consumer declaration, not this one."
+  },
+  "example_execution_hash": "21b44420dd52b01b6025090255eb81e9a62573490c73a6bb9b22cc5aa56b9867"
 }

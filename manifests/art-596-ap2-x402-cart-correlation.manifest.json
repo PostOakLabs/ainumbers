@@ -4,26 +4,50 @@
   "title": "AP2 x402 Cart Correlation",
   "description": "Correlates a built AP2 CartMandate (cart_root, cart_items, merchant) against an x402_spend_evidence pack: does the cart total (sum of quantity*unit_price per currency) match the x402 authorization's value, does the CartMandate's merchant map to the authorization's recipient address, and does the CartMandate's own hash-chain independently re-verify against the supplied cart_items (never trusted as a self-reported flag). Output vocabulary is CORRELATION_STATUS (CORRELATED / NOT_CORRELATED / INDETERMINATE) -- this is a plausibility check over two independently-produced artifacts, never a cryptographic binding. Google has not shipped an AP2-compatible x402 extension; no field or code path here implies one exists. Zero network calls; never a facilitator, proxy, gateway, or settlement relay.",
   "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
-  "tags": ["compliance_control", "ap2", "x402", "cartmandate", "correlation", "keccak256", "mcp:correlate_ap2_cartmandate_x402"],
+  "tags": [
+    "compliance_control",
+    "ap2",
+    "x402",
+    "cartmandate",
+    "correlation",
+    "keccak256",
+    "mcp:correlate_ap2_cartmandate_x402"
+  ],
   "input_schema": {
     "type": "object",
     "properties": {
-      "cart_root": { "type": "string", "description": "Required. The built CartMandate's own cart_root (e.g. art-595's output_payload.cart_root)." },
+      "cart_root": {
+        "type": "string",
+        "description": "Required. The built CartMandate's own cart_root (e.g. art-595's output_payload.cart_root)."
+      },
       "cart_items": {
         "type": "array",
         "description": "Required, non-empty, ordered array of cart line items -- the SAME cart_items the CartMandate was built from. Each item needs sku, description, quantity (positive number), unit_price (non-negative number), currency.",
         "items": {
           "type": "object",
           "properties": {
-            "sku": { "type": "string" },
-            "description": { "type": "string" },
-            "quantity": { "type": "number" },
-            "unit_price": { "type": "number" },
-            "currency": { "type": "string" }
+            "sku": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "quantity": {
+              "type": "number"
+            },
+            "unit_price": {
+              "type": "number"
+            },
+            "currency": {
+              "type": "string"
+            }
           }
         }
       },
-      "merchant": { "type": "string", "description": "Required. The built CartMandate's own merchant field. Only a 20-byte hex address can be correlated against the x402 authorization's recipient -- a free-text merchant name reports INDETERMINATE for that check." },
+      "merchant": {
+        "type": "string",
+        "description": "Required. The built CartMandate's own merchant field. Only a 20-byte hex address can be correlated against the x402 authorization's recipient -- a free-text merchant name reports INDETERMINATE for that check."
+      },
       "x402_spend_evidence": {
         "type": "object",
         "description": "Required. The caller-assembled x402_spend_evidence object (field names fixed by SPEC-X402-CRYPTO-CORE-1-2026-08-09.md section 8) from the x402-spend-evidence chain.",
@@ -31,12 +55,27 @@
           "authorization": {
             "type": "object",
             "properties": {
-              "from": { "type": "string" },
-              "to": { "type": "string" },
-              "value": { "type": ["string", "number"] },
-              "validAfter": { "type": "string" },
-              "validBefore": { "type": "string" },
-              "nonce": { "type": "string" }
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "number"
+                ]
+              },
+              "validAfter": {
+                "type": "string"
+              },
+              "validBefore": {
+                "type": "string"
+              },
+              "nonce": {
+                "type": "string"
+              }
             }
           }
         }
@@ -49,11 +88,25 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "cart_root": { "type": "string" },
-        "cart_items": { "type": "array" },
-        "merchant": { "type": "string" },
-        "x402_spend_evidence": { "type": "object" }
+        "cart_root": {
+          "type": "string"
+        },
+        "cart_items": {
+          "type": "array"
+        },
+        "merchant": {
+          "type": "string"
+        },
+        "x402_spend_evidence": {
+          "type": "object"
+        }
       }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   "execution": {
@@ -66,13 +119,83 @@
   "output_schema": {
     "type": "object",
     "properties": {
-      "correlation_status": { "type": "string", "enum": ["CORRELATED", "NOT_CORRELATED", "INDETERMINATE"] },
-      "cart_total_matches_authorization_value": { "type": ["boolean", "null"] },
-      "merchant_matches_authorization_to": { "type": ["boolean", "null"] },
-      "cart_chain_intact": { "type": "boolean" },
-      "disclosure": { "type": "string" },
-      "reasons": { "type": "array", "items": { "type": "string" } }
+      "correlation_status": {
+        "type": "string",
+        "enum": [
+          "CORRELATED",
+          "NOT_CORRELATED",
+          "INDETERMINATE"
+        ]
+      },
+      "cart_total_matches_authorization_value": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "merchant_matches_authorization_to": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "cart_chain_intact": {
+        "type": "boolean"
+      },
+      "disclosure": {
+        "type": "string"
+      },
+      "reasons": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
     }
   },
-  "source": "authored by BUILD-AP2-X402-CORRELATE-1 per research/SPEC-AGENT-COMMERCE-CHAIN-1-2026-08-09.md sections 7/8; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-596-ap2-x402-cart-correlation.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest sibling: art-595-ap2-cartmandate-hashchain-builder)."
+  "source": "authored by BUILD-AP2-X402-CORRELATE-1 per research/SPEC-AGENT-COMMERCE-CHAIN-1-2026-08-09.md sections 7/8; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-596-ap2-x402-cart-correlation.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest sibling: art-595-ap2-cartmandate-hashchain-builder).",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "cart_root": "0x2eeb01a35e5facd325ab3b60ba97fe4d26222584419fdf93106d3ca3575729fb",
+    "cart_items": [
+      {
+        "sku": "SKU-100",
+        "description": "Widget",
+        "quantity": 2,
+        "unit_price": 9.99,
+        "currency": "USD"
+      },
+      {
+        "sku": "SKU-200",
+        "description": "Gadget",
+        "quantity": 1,
+        "unit_price": 24.5,
+        "currency": "USD"
+      }
+    ],
+    "merchant": "0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667",
+    "x402_spend_evidence": {
+      "authorization": {
+        "from": "0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667",
+        "to": "0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667",
+        "value": "44.480000000000004",
+        "validAfter": "0",
+        "validBefore": "2000000000",
+        "nonce": "0x0000000000000000000000000000000000000000000000000000000000000001"
+      },
+      "digest": "0xb68e5d60d6169bad9739d30399af8f8c7378d464d25f4d971911ab65ef0b014b",
+      "verdict": "AUTHORIZATION_VALID",
+      "disclosure": "ev"
+    }
+  },
+  "output_example": {
+    "correlation_status": "CORRELATED",
+    "cart_total_matches_authorization_value": true,
+    "merchant_matches_authorization_to": true,
+    "cart_chain_intact": true,
+    "disclosure": "This tool observes that the cart total and merchant identity are consistent with the x402 authorization's amount and recipient. It does not cryptographically bind the two -- no signature, hash, or on-chain reference ties this specific CartMandate to this specific x402 authorization. A party could present a valid CartMandate alongside an unrelated valid x402 authorization and this check would still report CORRELATED.",
+    "reasons": []
+  },
+  "example_execution_hash": "c557ee846ad04c523eab7c59842beb566d4de05a085bedc618d25df8b8187c7a"
 }

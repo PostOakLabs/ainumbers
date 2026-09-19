@@ -4,25 +4,65 @@
   "title": "ERC-4626 Vault Share Math",
   "description": "Recomputes ERC-4626 tokenized-vault share and asset conversions from caller-declared vault state, applying the rounding direction the standard mandates for each function and reporting which direction produced each result alongside what the opposite direction would have produced. ERC-4626 fixes those directions per function: convertToShares and convertToAssets round down towards 0, previewDeposit and previewRedeem round down, previewMint and previewWithdraw round up. Also computes a deposit-then-redeem round-trip loss bound against the post-deposit state, a signed exchange-rate drift between two declared snapshots, and a declared fee application. All arithmetic is exact uint256 integer math with no floating point. Never reads any chain: it cannot know whether the declared totals match a deployed vault, whether that vault applies these directions, or whether a rate change came from yield, loss, a donation, or an attack.",
   "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
-  "tags": ["payment_policy", "erc-4626", "tokenized-vault", "rounding", "share-price", "inflation-attack", "mcp:recompute_erc4626_vault_share_math"],
+  "tags": [
+    "payment_policy",
+    "erc-4626",
+    "tokenized-vault",
+    "rounding",
+    "share-price",
+    "inflation-attack",
+    "mcp:recompute_erc4626_vault_share_math"
+  ],
   "input_schema": {
     "type": "object",
     "properties": {
-      "total_assets": { "type": "string", "description": "Vault totalAssets as a non-negative uint256, decimal or 0x-hex string (never a JS number, to avoid precision loss above 2^53)." },
-      "total_supply": { "type": "string", "description": "Vault totalSupply of shares as a non-negative uint256, decimal or 0x-hex string." },
-      "virtual_amounts": { "type": "boolean", "description": "true (default) uses the OpenZeppelin virtual shares/assets mitigation: shares = assets * (totalSupply + 10**decimals_offset) / (totalAssets + 1). false uses the naive formula, which is the shape a first-depositor inflation attack drains." },
-      "decimals_offset": { "type": "string", "description": "Virtual-shares decimals offset, integer 0..36 (default 0). Only meaningful when virtual_amounts is true; a larger offset bounds the inflation-attack loss more tightly." },
+      "total_assets": {
+        "type": "string",
+        "description": "Vault totalAssets as a non-negative uint256, decimal or 0x-hex string (never a JS number, to avoid precision loss above 2^53)."
+      },
+      "total_supply": {
+        "type": "string",
+        "description": "Vault totalSupply of shares as a non-negative uint256, decimal or 0x-hex string."
+      },
+      "virtual_amounts": {
+        "type": "boolean",
+        "description": "true (default) uses the OpenZeppelin virtual shares/assets mitigation: shares = assets * (totalSupply + 10**decimals_offset) / (totalAssets + 1). false uses the naive formula, which is the shape a first-depositor inflation attack drains."
+      },
+      "decimals_offset": {
+        "type": "string",
+        "description": "Virtual-shares decimals offset, integer 0..36 (default 0). Only meaningful when virtual_amounts is true; a larger offset bounds the inflation-attack loss more tightly."
+      },
       "operations": {
         "type": "array",
         "description": "Conversions to recompute. Each entry is {op, amount}, where op is one of convertToShares, convertToAssets, previewDeposit, previewMint, previewWithdraw, previewRedeem. The rounding direction is not selectable: it is fixed per op by ERC-4626 and reported in the result.",
-        "items": { "type": "object" }
+        "items": {
+          "type": "object"
+        }
       },
-      "round_trip_assets": { "type": "string", "description": "Optional. Deposit this many assets then immediately redeem the shares minted, evaluated against the post-deposit state, to produce a round-trip loss bound in assets and basis points." },
-      "snapshot_b": { "type": "object", "description": "Optional. A second {total_assets, total_supply} snapshot; the result carries the scaled share price of each and the signed drift in basis points between them." },
-      "fee_bps": { "type": "string", "description": "Optional. Declared fee in basis points, integer 0..10000. ERC-4626 mandates no fee formula; this applies the OpenZeppelin ERC4626Fees shapes, rounding up." },
-      "fee_basis": { "type": "string", "description": "'raw' (fee charged on top of the amount) or 'total' (fee carved out of the amount). Default 'raw'." },
-      "chain_id": { "type": "string", "description": "Optional free-text label carried through to the receipt for the reader's own record-keeping. Never a selector: no branch in this tool reads it and no result depends on it." },
-      "network_label": { "type": "string", "description": "Optional free-text network label, carried through verbatim. Never a selector." }
+      "round_trip_assets": {
+        "type": "string",
+        "description": "Optional. Deposit this many assets then immediately redeem the shares minted, evaluated against the post-deposit state, to produce a round-trip loss bound in assets and basis points."
+      },
+      "snapshot_b": {
+        "type": "object",
+        "description": "Optional. A second {total_assets, total_supply} snapshot; the result carries the scaled share price of each and the signed drift in basis points between them."
+      },
+      "fee_bps": {
+        "type": "string",
+        "description": "Optional. Declared fee in basis points, integer 0..10000. ERC-4626 mandates no fee formula; this applies the OpenZeppelin ERC4626Fees shapes, rounding up."
+      },
+      "fee_basis": {
+        "type": "string",
+        "description": "'raw' (fee charged on top of the amount) or 'total' (fee carved out of the amount). Default 'raw'."
+      },
+      "chain_id": {
+        "type": "string",
+        "description": "Optional free-text label carried through to the receipt for the reader's own record-keeping. Never a selector: no branch in this tool reads it and no result depends on it."
+      },
+      "network_label": {
+        "type": "string",
+        "description": "Optional free-text network label, carried through verbatim. Never a selector."
+      }
     }
   },
   "mcp_tool_definition": {
@@ -31,18 +71,46 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "total_assets": { "type": "string" },
-        "total_supply": { "type": "string" },
-        "virtual_amounts": { "type": "boolean" },
-        "decimals_offset": { "type": "string" },
-        "operations": { "type": "array" },
-        "round_trip_assets": { "type": "string" },
-        "snapshot_b": { "type": "object" },
-        "fee_bps": { "type": "string" },
-        "fee_basis": { "type": "string" },
-        "chain_id": { "type": "string" },
-        "network_label": { "type": "string" }
+        "total_assets": {
+          "type": "string"
+        },
+        "total_supply": {
+          "type": "string"
+        },
+        "virtual_amounts": {
+          "type": "boolean"
+        },
+        "decimals_offset": {
+          "type": "string"
+        },
+        "operations": {
+          "type": "array"
+        },
+        "round_trip_assets": {
+          "type": "string"
+        },
+        "snapshot_b": {
+          "type": "object"
+        },
+        "fee_bps": {
+          "type": "string"
+        },
+        "fee_basis": {
+          "type": "string"
+        },
+        "chain_id": {
+          "type": "string"
+        },
+        "network_label": {
+          "type": "string"
+        }
       }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   "execution": {
@@ -55,16 +123,197 @@
   "output_schema": {
     "type": "object",
     "properties": {
-      "declared_context": { "type": "object" },
-      "vault_state": { "type": ["object", "null"] },
-      "conversions": { "type": "array" },
-      "fee": { "type": ["object", "null"] },
-      "round_trip": { "type": ["object", "null"] },
-      "rate_drift": { "type": ["object", "null"] },
-      "rounding_table": { "type": "array" },
-      "note": { "type": "string" },
-      "reasons": { "type": "array", "items": { "type": "string" } }
+      "declared_context": {
+        "type": "object"
+      },
+      "vault_state": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "conversions": {
+        "type": "array"
+      },
+      "fee": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "round_trip": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "rate_drift": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "rounding_table": {
+        "type": "array"
+      },
+      "note": {
+        "type": "string"
+      },
+      "reasons": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
     }
   },
-  "source": "authored by ETHMATH-VAULT-1 per ETHMATH-WAVE-BUILD-SPEC.md section 1; the six rounding directions are ERC-4626's own normative text (Final, Created 2021-12-22, CC0-1.0), retrieved and quoted at build time on 2026-08-11; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-610-erc4626-vault-share-math.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value, the same one its sibling declared-input EVM-standard kernels use."
+  "source": "authored by ETHMATH-VAULT-1 per ETHMATH-WAVE-BUILD-SPEC.md section 1; the six rounding directions are ERC-4626's own normative text (Final, Created 2021-12-22, CC0-1.0), retrieved and quoted at build time on 2026-08-11; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-610-erc4626-vault-share-math.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value, the same one its sibling declared-input EVM-standard kernels use.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "total_assets": "1000000000000000000000",
+    "total_supply": "333000000000000000000",
+    "chain_id": "1",
+    "network_label": "declared label, not a selector",
+    "operations": [
+      {
+        "op": "convertToShares",
+        "amount": "1000"
+      },
+      {
+        "op": "convertToAssets",
+        "amount": "1000"
+      },
+      {
+        "op": "previewDeposit",
+        "amount": "1000"
+      },
+      {
+        "op": "previewMint",
+        "amount": "1000"
+      },
+      {
+        "op": "previewWithdraw",
+        "amount": "1000"
+      },
+      {
+        "op": "previewRedeem",
+        "amount": "1000"
+      }
+    ]
+  },
+  "output_example": {
+    "declared_context": {
+      "chain_id": "1",
+      "network_label": "declared label, not a selector"
+    },
+    "vault_state": {
+      "total_assets": "1000000000000000000000",
+      "total_supply": "333000000000000000000",
+      "virtual_amounts_used": true,
+      "decimals_offset_used": "0",
+      "virtual_shares": "1",
+      "virtual_assets": "1"
+    },
+    "conversions": [
+      {
+        "op": "convertToShares",
+        "side": "assets_to_shares",
+        "input": "1000",
+        "output": "333",
+        "rounding_direction": "down",
+        "eip_rule": "MUST round down towards 0",
+        "output_if_rounded_other_way": "334",
+        "rounding_changes_result": true
+      },
+      {
+        "op": "convertToAssets",
+        "side": "shares_to_assets",
+        "input": "1000",
+        "output": "3003",
+        "rounding_direction": "down",
+        "eip_rule": "MUST round down towards 0",
+        "output_if_rounded_other_way": "3004",
+        "rounding_changes_result": true
+      },
+      {
+        "op": "previewDeposit",
+        "side": "assets_to_shares",
+        "input": "1000",
+        "output": "333",
+        "rounding_direction": "down",
+        "eip_rule": "MUST return as close to and no more than the exact amount of Vault shares that would be minted in a deposit call",
+        "output_if_rounded_other_way": "334",
+        "rounding_changes_result": true
+      },
+      {
+        "op": "previewMint",
+        "side": "shares_to_assets",
+        "input": "1000",
+        "output": "3004",
+        "rounding_direction": "up",
+        "eip_rule": "MUST return as close to and no fewer than the exact amount of assets that would be deposited in a mint call",
+        "output_if_rounded_other_way": "3003",
+        "rounding_changes_result": true
+      },
+      {
+        "op": "previewWithdraw",
+        "side": "assets_to_shares",
+        "input": "1000",
+        "output": "334",
+        "rounding_direction": "up",
+        "eip_rule": "MUST return as close to and no fewer than the exact amount of Vault shares that would be burned in a withdraw call",
+        "output_if_rounded_other_way": "333",
+        "rounding_changes_result": true
+      },
+      {
+        "op": "previewRedeem",
+        "side": "shares_to_assets",
+        "input": "1000",
+        "output": "3003",
+        "rounding_direction": "down",
+        "eip_rule": "MUST return as close to and no more than the exact amount of assets that would be withdrawn in a redeem call",
+        "output_if_rounded_other_way": "3004",
+        "rounding_changes_result": true
+      }
+    ],
+    "fee": null,
+    "round_trip": null,
+    "rate_drift": null,
+    "rounding_table": [
+      {
+        "op": "convertToAssets",
+        "direction": "down",
+        "eip_rule": "MUST round down towards 0"
+      },
+      {
+        "op": "convertToShares",
+        "direction": "down",
+        "eip_rule": "MUST round down towards 0"
+      },
+      {
+        "op": "previewDeposit",
+        "direction": "down",
+        "eip_rule": "MUST return as close to and no more than the exact amount of Vault shares that would be minted in a deposit call"
+      },
+      {
+        "op": "previewMint",
+        "direction": "up",
+        "eip_rule": "MUST return as close to and no fewer than the exact amount of assets that would be deposited in a mint call"
+      },
+      {
+        "op": "previewRedeem",
+        "direction": "down",
+        "eip_rule": "MUST return as close to and no more than the exact amount of assets that would be withdrawn in a redeem call"
+      },
+      {
+        "op": "previewWithdraw",
+        "direction": "up",
+        "eip_rule": "MUST return as close to and no fewer than the exact amount of Vault shares that would be burned in a withdraw call"
+      }
+    ],
+    "note": "Recomputes ERC-4626 share/asset conversions from caller-declared vault state, applying the per-function rounding directions ERC-4626 mandates (convertToShares/convertToAssets/previewDeposit/previewRedeem round down; previewMint/previewWithdraw round up) and reporting the direction used for each. This kernel does NOT read any chain: it cannot know whether the declared total_assets/total_supply match any deployed vault, whether that vault's own implementation actually applies these directions, whether a rate change between two declared snapshots came from yield, loss, donation or an attack, or whether the declared fee basis points are the fee a vault really charges. Round-trip loss and zero-share-mint findings are properties of the declared numbers under the standard's arithmetic, not an audit of any deployment.",
+    "reasons": []
+  },
+  "example_execution_hash": "e7e8bd3e7d667c4a67f37606f42ad3b9b091dbe4e74bef9b8ffbfb8a84e38c98"
 }
