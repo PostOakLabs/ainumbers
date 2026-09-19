@@ -10,11 +10,18 @@
  * the public calculator was wrong, with no gate anywhere in the estate able to see it. Tim's
  * 2026-08-22 ruling: that is a standing hole, not an art-231 quirk.
  *
- * WHAT IT CHECKS. A page declares the kernel digest it was built against with ONE sentinel:
+ * WHAT IT CHECKS. A page declares the kernel digest it was built against with ONE sentinel, read
+ * in TWO forms (dual-read, PAGE-DIGEST-META-FIX-1):
  *
- *     <!--KERNEL-DIGEST-->sha256:<64 lowercase hex><!--/KERNEL-DIGEST-->
+ *     <meta name="kernel-digest" content="sha256:<64 lowercase hex>">        (PREFERRED — meta form)
+ *     <!--KERNEL-DIGEST-->sha256:<64 lowercase hex><!--/KERNEL-DIGEST-->     (LEGACY — deprecated)
  *
- * The gate recomputes that kernel's digest FROM THE KERNEL SOURCE and compares. Mismatch fails.
+ * The legacy comment form wraps only the delimiters in comments, so the parser reads the hash
+ * between them as a raw text node inside <head> and ejects it into RENDERED body content above
+ * navigation (live-verified). The meta form renders nothing. The gate prefers the meta form,
+ * still reads the legacy form (with a deprecation note, never a failure), and reads UNSTAMPED
+ * only when NEITHER form is present. The gate recomputes the kernel's digest FROM THE KERNEL
+ * SOURCE and compares. Mismatch fails.
  *
  * SO #34 (INDEPENDENT DERIVATION). Two separate disciplines are load-bearing here:
  *   1. The compared value is RECOMPUTED from the primary source (the kernel file), never read back
@@ -33,9 +40,11 @@
  *
  * MARKER STYLE — NOT A THIRD ONE. `<!--KERNEL-DIGEST-->value<!--/KERNEL-DIGEST-->` mirrors the
  * estate's existing machine-checked in-page value convention `<!--COUNT:key-->N<!--/COUNT-->`
- * (scripts/verify-counts.mjs SENTINEL_RE). Same delimiters, same open/close shape, same "a script
- * owns this value" contract. It lives in an HTML comment, so it is invisible to readers, excluded
- * from the copy-hallmarks visible-text scan, and changes no rendered output.
+ * (scripts/verify-counts.mjs SENTINEL_RE): same delimiters, same open/close shape, same "a script
+ * owns this value" contract. It was believed invisible because the delimiters are comments — but
+ * the comments cover ONLY the markers, so the hash between them is a raw text node and, inside
+ * <head>, the parser ejects it into rendered body content (PAGE-DIGEST-META-FIX-1, live-verified).
+ * The meta form is now the canonical stamp; the comment form is still READ, deprecated.
  *
  * RATCHET, NOT A SWITCH. Re-measured on origin/main f176057c: 595 node pages, ZERO carrying a
  * page-to-kernel build sentinel. A hard gate would red all 595 on day one, so unstamped pages are
@@ -75,16 +84,33 @@ const KERNEL_DIR = resolve(REPO, 'chaingraph', 'kernels');
 const BASELINE_PATH = resolve(HERE, 'page-kernel-digest-baseline.json');
 
 // ── the sentinel ─────────────────────────────────────────────────────────────────────────────────
-// Mirrors verify-counts.mjs's <!--COUNT:key-->N<!--/COUNT-->. Non-greedy, dotall so a stray newline
-// inside the sentinel is still SEEN (and then rejected as malformed) rather than silently skipped.
+// Meta form (PREFERRED, PAGE-DIGEST-META-FIX-1): a non-rendering <head> metadata line. The tag
+// regex spans attributes in any order; the content attribute is then parsed out of the tag text.
+// Legacy form (deprecated): mirrors verify-counts.mjs's <!--COUNT:key-->N<!--/COUNT-->. Both
+// regexes are non-greedy and dotall so a stray newline inside the value is still SEEN (and then
+// rejected as malformed) rather than silently skipped.
+const META_TAG_RE = /<meta\b[^>]*\bname\s*=\s*["']kernel-digest["'][^>]*>/gi;
+const META_CONTENT_RE = /\bcontent\s*=\s*["']([^"']*)["']/i;
 export const SENTINEL_OPEN = '<!--KERNEL-DIGEST-->';
 export const SENTINEL_CLOSE = '<!--/KERNEL-DIGEST-->';
 const SENTINEL_RE = /<!--KERNEL-DIGEST-->([\s\S]*?)<!--\/KERNEL-DIGEST-->/g;
 const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
 
-/** Every sentinel value in a page, in document order. Length > 1 is a hard failure (ambiguity). */
+/** Every meta-form declaration's content value in a page, in document order ('' when content is missing). */
+export function findMetaDigests(html) {
+  return Array.from(String(html).matchAll(META_TAG_RE)).map(
+    (m) => META_CONTENT_RE.exec(m[0])?.[1] ?? ''
+  );
+}
+
+/** Every legacy comment-form sentinel value in a page, in document order. */
 export function findSentinels(html) {
   return Array.from(String(html).matchAll(SENTINEL_RE)).map((m) => m[1]);
+}
+
+/** The canonical non-rendering stamp line for a digest — what --digest prints and pages carry. */
+export function metaLineFor(digest) {
+  return `<meta name="kernel-digest" content="${digest}">`;
 }
 
 /** The kernel file a page must be checked against, derived from the PAGE filename alone. */
@@ -101,39 +127,48 @@ export const FAILING_STATES = new Set(['MISMATCH', 'MALFORMED', 'DUPLICATE', 'NO
  *   html             page source text
  *   recomputedDigest sourceDigest() over the kernel source, or null when the kernel file is absent
  *   baselined        is this page's path enumerated in the baseline?
- * Sentinel presence is evaluated BEFORE the baseline is consulted: the baseline shields ABSENCE only.
+ * Dual-read (PAGE-DIGEST-META-FIX-1): the meta form is preferred, the legacy comment form is
+ * tolerated (verdict.format === 'legacy'; the CLI prints a deprecation note), and only a page
+ * carrying NEITHER form counts as unstamped. Sentinel presence is evaluated BEFORE the baseline
+ * is consulted: the baseline shields ABSENCE only.
  */
 export function classifyPage({ html, recomputedDigest = null, baselined = false }) {
-  const found = findSentinels(html);
+  const metaValues = findMetaDigests(html);
+  const legacyValues = findSentinels(html);
+  const total = metaValues.length + legacyValues.length;
+  const format = metaValues.length > 0 ? 'meta' : legacyValues.length > 0 ? 'legacy' : 'none';
 
-  if (found.length > 1) {
-    return { state: 'DUPLICATE', declared: null, recomputed: recomputedDigest,
-      detail: `${found.length} kernel-digest sentinels in one page; exactly one is allowed` };
+  if (total > 1) {
+    return { state: 'DUPLICATE', format, declared: null, recomputed: recomputedDigest,
+      detail: `${total} kernel-digest declarations in one page (${metaValues.length} meta, ${legacyValues.length} legacy); exactly one is allowed` };
   }
 
-  if (found.length === 1) {
-    const declared = found[0].trim();
+  if (total === 1) {
+    const declared = String(metaValues[0] ?? legacyValues[0]).trim();
     if (!DIGEST_RE.test(declared)) {
-      return { state: 'MALFORMED', declared, recomputed: recomputedDigest,
-        detail: 'sentinel value must be "sha256:" followed by 64 lowercase hex characters' };
+      return { state: 'MALFORMED', format, declared, recomputed: recomputedDigest,
+        detail: 'declared value must be "sha256:" followed by 64 lowercase hex characters' };
     }
     if (recomputedDigest === null) {
-      return { state: 'NO_KERNEL', declared, recomputed: null,
+      return { state: 'NO_KERNEL', format, declared, recomputed: null,
         detail: 'page declares a kernel digest but no kernel file exists for it' };
     }
     if (declared !== recomputedDigest) {
-      return { state: 'MISMATCH', declared, recomputed: recomputedDigest,
+      return { state: 'MISMATCH', format, declared, recomputed: recomputedDigest,
         detail: 'the page was built against an earlier kernel revision; rebuild the page from the current kernel, then restamp' };
     }
-    return { state: 'OK', declared, recomputed: recomputedDigest, detail: 'page matches the current kernel source' };
+    return { state: 'OK', format, declared, recomputed: recomputedDigest,
+      detail: format === 'legacy'
+        ? 'page matches the current kernel source (LEGACY comment format; migrate to <meta name="kernel-digest" content="..."> — the comment form renders the hash as visible text)'
+        : 'page matches the current kernel source (non-rendering meta form)' };
   }
 
-  // No sentinel. Only here does the baseline matter.
+  // No declaration in either form. Only here does the baseline matter.
   if (baselined) {
-    return { state: 'SHIELDED', declared: null, recomputed: recomputedDigest,
+    return { state: 'SHIELDED', format: 'none', declared: null, recomputed: recomputedDigest,
       detail: 'no sentinel yet; enumerated in page-kernel-digest-baseline.json (legacy debt, burns down as pages are touched)' };
   }
-  return { state: 'UNSTAMPED_NEW', declared: null, recomputed: recomputedDigest,
+  return { state: 'UNSTAMPED_NEW', format: 'none', declared: null, recomputed: recomputedDigest,
     detail: 'page is not in the baseline and carries no kernel-digest sentinel; a NEW page must be stamped' };
 }
 
@@ -191,7 +226,7 @@ if (DIGEST_OF) {
     process.exit(1);
   }
   const d = await sourceDigest(readFileSync(kPath, 'utf8'));
-  console.log(`${SENTINEL_OPEN}${d}${SENTINEL_CLOSE}`);
+  console.log(metaLineFor(d));
   process.exit(0);
 }
 
@@ -211,11 +246,15 @@ for (const file of pages) {
 
 const by = (s) => findings.filter((f) => f.state === s);
 const stamped = findings.filter((f) => f.declared !== null);
+const legacyPages = findings.filter((f) => f.format === 'legacy');
 const failures = findings.filter((f) => FAILING_STATES.has(f.state));
 const unstampedNow = findings.filter((f) => f.declared === null && f.state !== 'DUPLICATE').map((f) => f.rel);
 
 const trunc = (d) => (d ? d.slice(0, 14) + '…' + d.slice(-6) : '(none)');
-const headline = `page↔kernel digest: ${pages.length} node page(s) | stamped ${stamped.length} (ok ${by('OK').length}) | unstamped: ${by('SHIELDED').length} shielded, ${by('UNSTAMPED_NEW').length} unbaselined`;
+const headline = `page↔kernel digest: ${pages.length} node page(s) | stamped ${stamped.length} (ok ${by('OK').length}, legacy-format ${legacyPages.length}) | unstamped: ${by('SHIELDED').length} shielded, ${by('UNSTAMPED_NEW').length} unbaselined`;
+const deprecationNotes = legacyPages.map(
+  (f) => `  ⚠ ${f.rel}: LEGACY comment-format stamp (renders the hash as visible text) — migrate to ${metaLineFor(f.declared)}`
+);
 
 if (INIT) {
   if (existsSync(BASELINE_PATH)) {
@@ -253,6 +292,7 @@ if (UPDATE) {
 
 if (SUMMARY || LIST) {
   console.log(headline);
+  for (const n of deprecationNotes) console.log(n);
   if (LIST) for (const f of findings) console.log(`  ${f.state.padEnd(14)} ${f.rel}  declared=${trunc(f.declared)} recomputed=${trunc(f.recomputed)}`);
   process.exit(0);
 }
@@ -283,11 +323,16 @@ if (failures.length) {
     }
     if (f.state === 'UNSTAMPED_NEW') {
       console.error(`      stamp it: node scripts/check-page-kernel-digest.mjs --digest ${f.rel}`);
-      console.error('      then paste that sentinel into the page. The baseline shields legacy pages only and refuses to grow.');
+      console.error('      then paste that <head> meta line into the page. The baseline shields legacy pages only and refuses to grow.');
     }
   }
   console.error(`\n${headline}`);
   process.exit(1);
+}
+
+if (deprecationNotes.length) {
+  console.log('⚠ legacy-format stamp(s) tolerated, deprecated (PAGE-DIGEST-META-FIX-1): migrate to the meta form —');
+  for (const n of deprecationNotes) console.log(n);
 }
 
 console.log(`✓ ${headline}`);
