@@ -1,5 +1,5 @@
 // art-124-content-credential-signature-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C3-1).
-// kernel_digest_at_authoring: sha256:29e1b6d1148e7dd77959131d55605344f8030540249b62a82d22aa895071a940
+// kernel_digest_at_authoring: sha256:77e22bf535acef4199273ffb7f0dec6835538f4fc3b880d9b0685c8c01fe3c4a
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
