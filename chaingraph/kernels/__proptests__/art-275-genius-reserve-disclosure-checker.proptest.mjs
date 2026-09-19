@@ -1,5 +1,5 @@
 // art-275-genius-reserve-disclosure-checker.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C13-1).
-// kernel_digest_at_authoring: sha256:0f28358a1106be5fd951174ff9984a32af17133642481706a056f43ce6fe0d22
+// kernel_digest_at_authoring: sha256:c1ee715ad62a5e063ca3fe43e2da0b537ee17a436894a26b554ce7bd542049ce
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
