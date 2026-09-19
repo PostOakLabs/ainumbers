@@ -1540,6 +1540,14 @@ const GATES = [
   ['Infrastructure registry freshness (INFRA-PAGE-1)', 'node scripts/gen-infra-registry.mjs --check'],
   ['Infrastructure registry gate (INFRA-PAGE-1)', 'node scripts/check-infra-registry.mjs'],
   ['Infrastructure registry gate controls (RED-then-GREEN, INFRA-PAGE-1)', 'node scripts/check-infra-registry.selftest.mjs'],
+  // REGEN-WT-SCOPE-POISON-1 (2026-09-19): a regen inside the shared clone (which
+  // hosts repo/.wt/ with 195 worktrees) walked the scaffolding as published pages
+  // — infra-registry 203 → 17258 rows, +240K lines. Cold scratch-tree fixtures
+  // pin the .wt//.git exclusion on every repo-root tree-walking generator; the
+  // --self-test entry is the GATE-SELFTEST-META-1 paired red-proof (replays the
+  // pre-fix discovery and asserts the probes trip there).
+  ['Generator walker scope fixtures (REGEN-WT-SCOPE-POISON-1)', 'node scripts/check-gen-walker-scope.mjs'],
+  ['Generator walker scope checker controls (RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-gen-walker-scope.mjs --self-test'],
   ['Infrastructure page freshness (INFRA-PAGE-1)', 'node scripts/gen-infrastructure-page.mjs --check'],
   ['llms-full.txt freshness (§M2.3)', 'node scripts/gen-llms-full.mjs --check'],
   // PAGE-MD-TWINS-1 (AGENT-REACH-BUILD-SPEC §2): markdown twin freshness. The

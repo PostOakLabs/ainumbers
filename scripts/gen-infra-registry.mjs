@@ -55,6 +55,7 @@ import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { descriptionRulesByFile } from './lib/count-rules.mjs';
 import { hubCountsFromHtml, hubCountPhrase, stripHubCountNumeral } from './counts.mjs';
+import { isSkipDir } from './_walk-skip-dirs.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -131,7 +132,13 @@ function collect(dir, rel, out) {
   for (const e of entries) {
     const r = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory()) {
-      if (e.name === '.git' || e.name === 'node_modules') continue;
+      // REGEN-WT-SCOPE-POISON-1: was `.git`/`node_modules` name checks only, so
+      // a regen inside the shared clone (which hosts repo/.wt/ with 195
+      // worktrees) walked worktree scaffolding as published pages — infra-
+      // registry 203 → 17258 rows, +240K lines. The shared skip-list (the ONE
+      // place, WT-IGNORE-GATES-1) excludes every .wt//.git/dot-dir scaffold
+      // while keeping .well-known visible.
+      if (isSkipDir(e.name)) continue;
       collect(join(dir, e.name), r, out);
     } else if (/\.html?$/i.test(e.name)) {
       out.push(r);
