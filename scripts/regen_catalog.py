@@ -133,25 +133,35 @@ def main():
         description = mtd.get('description') or man.get('description', '')
         input_schema = mtd.get('inputSchema') or man.get('input_schema') or {"type": "object"}
 
+        # CATALOG-DEADURL-GATE-1 (audit XSRF-4): a manifest whose resolved page
+        # is absent from disk is honestly page-less (a kernel-shard interim
+        # state, or an orphaned manifest) — omit the url field rather than
+        # ship a dead one.
         if not os.path.exists(page_path):
+            page_path = None
             missing_html.append(slug)
+
+        metadata = {
+            "tool_id": man.get('tool_id', slug),
+            "category": man.get('category', ''),
+            "tags": man.get('tags', []),
+        }
+        if page_path is not None:
+            metadata["url"] = f"{BASE_URL}/{page_path.replace(os.sep, '/')}"
+        metadata.update({
+            "ap2_export": bool(man.get('ap2_export', False)),
+            "execution_type": "browser-reference",
+            "version": man.get('version', '1.0.0'),
+            # AIN Bridge v1.0 (2026-06-06): prefill deep-link capability signal.
+            # Prefill tools accept {url}#in=<base64url(JSON of {element_id: value})>[&run=1]
+            "prefill": bool(man.get('prefill', False)),
+        })
 
         entries.append({
             "name": name,
             "description": description,
             "inputSchema": input_schema,
-            "metadata": {
-                "tool_id": man.get('tool_id', slug),
-                "category": man.get('category', ''),
-                "tags": man.get('tags', []),
-                "url": f"{BASE_URL}/{page_path}",
-                "ap2_export": bool(man.get('ap2_export', False)),
-                "execution_type": "browser-reference",
-                "version": man.get('version', '1.0.0'),
-                # AIN Bridge v1.0 (2026-06-06): prefill deep-link capability signal.
-                # Prefill tools accept {url}#in=<base64url(JSON of {element_id: value})>[&run=1]
-                "prefill": bool(man.get('prefill', False)),
-            }
+            "metadata": metadata,
         })
 
     n = len(entries)
@@ -321,7 +331,7 @@ def main():
         print(f"\n!! SHORT-FORM MANIFESTS — derived a fallback name (add a proper mcp_tool_definition) ({len(derived)}):")
         for s in derived: print(f"   {s}")
     if missing_html:
-        print(f"\n!! MANIFESTS WITHOUT A TOOL HTML ({len(missing_html)}):")
+        print(f"\n!! MANIFESTS WITH NO RESOLVABLE PAGE — url OMITTED, honest absence ({len(missing_html)}):")
         for s in missing_html: print(f"   {s}")
     if n_tools != n:
         print(f"\n!! NOTE: {n_tools} tool HTMLs exist but only {n} have manifests "
