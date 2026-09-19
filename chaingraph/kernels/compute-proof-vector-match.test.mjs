@@ -1,3 +1,9 @@
+// @ts-nocheck — plain CLI gate script, never meant to be type-checked; only swept into tsc
+// --checkJs's program because it lives under chaingraph/kernels/ (JSDOC-CHECKJS-PREFLIGHT-1's
+// path filter watches the whole directory). Without this it fails on bare node:url/node:path/
+// process usage — no @types/node is wired in (SO #10) and compute-proof.test.mjs's own
+// identical usage is shielded only because those lines predate this row (TOUCHTAX-DIFFSCOPE-1);
+// a brand-new file has no such shield. Matches determinism-replay.test.mjs's precedent.
 // compute-proof-vector-match.test.mjs — COMPUTE-PROOF-ANY-PUBLISHED-VECTOR-1
 //
 // FIXTURE-FREE unit test of the §18 vector-matcher used by compute-proof.test.mjs's widened-coverage loop.
