@@ -4,7 +4,7 @@
 // before it, the inlinable body below is PASTED verbatim into the consuming kernel between the
 // sentinel comments, because the RISC0 guest provides only `_hash` and a module import is
 // unavailable in-guest — and because `chaingraph/vm/kernel-vm.mjs` strips every ESM import before
-// running a kernel, so an imported binding is simply undefined under the §24 VM↔worker parity gate.
+// running a kernel, so an imported binding is simply undefined under the VM-to-worker parity gate.
 // This file is the source of truth and the drift gate's anchor; the kernel carries the copy.
 // Pair `sigverify` in `scripts/inline-ssot-sync-manifest.json` (INLINESYNC-1, wholeFileBlock mode,
 // scanExt `.kernel.mjs`) makes a byte-different copy a RED, which is the whole point of keeping the
@@ -18,7 +18,7 @@
 // RISC Zero's precompiles, and this module is the single seam between them.
 //
 // THE CONTRACT: `verifySignature` returns the SAME boolean in all three environments — page,
-// §24 VM, and guest — for the same inputs, including for malformed inputs, where every backend
+// kernel VM, and guest — for the same inputs, including for malformed inputs, where every backend
 // returns `false` rather than throwing. Anything else would mean the proof and the page disagree,
 // which is the one failure this tool cannot have.
 //
@@ -52,7 +52,7 @@ function ocgDecodeB64(input, urlSafe) {
 /** Standard base64 -> Uint8Array, or null if the input is not decodable. */
 function b64ToBytes(b64) { return ocgDecodeB64(b64, false); }
 
-/** base64url (JWK field encoding, RFC 7515 §2) -> Uint8Array, or null. */
+/** base64url (the JWK field encoding used by JOSE) -> Uint8Array, or null. */
 function b64uToBytes(b64u) { return ocgDecodeB64(b64u, true); }
 
 /**
@@ -73,7 +73,7 @@ async function verifySignature(alg, params, jwk, signature, message) {
   const host = globalThis.__ocg_sigverify_host;
   if (host) return ocgVerifyInGuest(host, alg, jwk, signature, message);
 
-  // Page, Node and the §24 VM: real WebCrypto, bridged to the host in the VM's case.
+  // Page, Node and the kernel VM: real WebCrypto, bridged to the host in the VM's case.
   try {
     // Strip the non-standard 'alg' field before importKey — CF Workers follows RFC 8037 strictly
     // (an OKP 'alg' must read 'EdDSA', not 'Ed25519'), and callers supply either, both or neither.
