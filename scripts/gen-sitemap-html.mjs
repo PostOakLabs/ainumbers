@@ -20,7 +20,7 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { deriveCounts } from './counts.mjs';
+import { deriveCounts, deriveHubCounts, hubCountPhrase, stripHubCountNumeral } from './counts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -128,11 +128,34 @@ function scanHtmlDir(dirPath, relPrefix, filterFn) {
         href: relPrefix + '/' + f,
         name: extractTitle(html, name),
         desc: extractDesc(html),
+        file: f,
       };
     });
 }
 
-const guides = scanHtmlDir(resolve(REPO, 'guides'), 'guides');
+// applyHubCountPhrase — strips any typed "<N> tools" numeral out of a hub page's desc and
+// appends the computed hubCountPhrase (HUB-COUNT-DERIVE-AT-REGEN-1 step 2). hubCounts is
+// keyed by slug across BOTH families (guides/*-hub.html, chaingraph/guide-*.html); an item
+// whose slug carries no hubCounts entry (not a hub page) is returned unchanged.
+function applyHubCountPhrase(items, hubCounts) {
+  return items.map((item) => {
+    const rec = hubCounts[slug(item.file)];
+    if (!rec) return item;
+    const phrase = hubCountPhrase(rec);
+    const stripped = stripHubCountNumeral(item.desc);
+    if (!phrase) return { ...item, desc: stripped };
+    // Truncate the stripped desc to leave room for the appended phrase BEFORE
+    // renderToolRow's own truncate(desc, 160) runs, so the phrase itself is
+    // never cut mid-word (measured: "(14 to…" on payment-scheme-network-hub
+    // before this budget was reserved).
+    const suffix = ` (${phrase})`;
+    const budget = Math.max(0, 160 - suffix.length);
+    return { ...item, desc: `${truncate(stripped, budget)}${suffix}` };
+  });
+}
+
+const hubCounts = deriveHubCounts();
+const guides = applyHubCountPhrase(scanHtmlDir(resolve(REPO, 'guides'), 'guides'), hubCounts);
 
 // ---------------------------------------------------------------------------
 // 3. ChainGraph nodes — chaingraph.json, live nodes only (avoids orphaned art-*
@@ -164,7 +187,10 @@ const nodeFilenames = new Set(
 // ---------------------------------------------------------------------------
 // 4. ChainGraph topic guides — chaingraph/guide-*.html.
 // ---------------------------------------------------------------------------
-const chaingraphGuides = scanHtmlDir(resolve(REPO, 'chaingraph'), 'chaingraph', f => f.startsWith('guide-'));
+const chaingraphGuides = applyHubCountPhrase(
+  scanHtmlDir(resolve(REPO, 'chaingraph'), 'chaingraph', f => f.startsWith('guide-')),
+  hubCounts
+);
 
 // ---------------------------------------------------------------------------
 // 5. ChainGraph infrastructure — every other chaingraph/*.html not covered

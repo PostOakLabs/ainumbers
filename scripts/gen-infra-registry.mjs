@@ -54,6 +54,7 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { descriptionRulesByFile } from './lib/count-rules.mjs';
+import { hubCountsFromHtml, hubCountPhrase, stripHubCountNumeral } from './counts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -192,6 +193,29 @@ function descOf(html, rel) {
   return m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
     .replace(/\s{2,}/g, ' ').trim();
 }
+// hubDirFor — 'guides' for guides/*-hub.html, 'chaingraph' for chaingraph/guide-*.html,
+// null otherwise (HUB-COUNT-DERIVE-AT-REGEN-1). Same two families deriveHubCounts()
+// walks, matched off the registry's own `rel` path instead of a second directory scan.
+function hubDirFor(rel) {
+  if (rel.startsWith('guides/') && rel.endsWith('-hub.html')) return 'guides';
+  if (rel.startsWith('chaingraph/guide-') && rel.endsWith('.html')) return 'chaingraph';
+  return null;
+}
+
+// hubDescription — strips any typed "<N> tools" numeral out of a hub page's description and
+// appends the computed hubCountPhrase, derived from the SAME html string already read for
+// this row (never a second disk read of the real repo — buildRegistry stays a pure function
+// of `repo`, so a temp-dir test fixture with no cards computes an empty phrase and is
+// unaffected). A hub with 0 cards therefore renders no count phrase; a non-hub page (hubDir
+// null) is returned unchanged.
+function hubDescription(html, rel, description) {
+  const hubDir = hubDirFor(rel);
+  if (!hubDir) return description;
+  const phrase = hubCountPhrase(hubCountsFromHtml(html, hubDir));
+  const stripped = stripHubCountNumeral(description);
+  return phrase ? `${stripped} (${phrase})`.trim() : stripped;
+}
+
 function isShim(html) {
   const t = html.replace(/\s+/g, '');
   return /http-equiv=["']?refresh/i.test(t) || /name=["']?robots["']?content=["'][^"']*noindex/i.test(t);
@@ -231,7 +255,7 @@ export function buildRegistry(repo = REPO) {
     rows.push({
       path: rel,
       title: titleOf(html, rel),
-      description: descOf(html, rel),
+      description: hubDescription(html, rel, descOf(html, rel)),
       description_source: DESCRIPTION_RULES.has(rel) ? 'attr-rule' : 'page',
       category: m[1],
       featured: featM ? featM[1] : null,
