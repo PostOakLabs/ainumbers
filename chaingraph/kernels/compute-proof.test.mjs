@@ -13,9 +13,10 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { buildArtifact } from './art-04-agent-identity-attestation-checker.kernel.mjs';
 import { attachComputeProof, verifyBinding, verifySeal, SEAL_VERIFICATION, RECOMMENDED_RECEIPT_FORMAT } from './_computeproof.mjs';
-import { executionHash, cgCanon } from './_hash.mjs';
+import { executionHash } from './_hash.mjs';
 import { sourceDigest } from './_buildid.mjs';
 import { classifyNode } from '../../scripts/check-compute-proof-coverage.mjs';
+import { matchVectors, honestyStatement } from './compute-proof-vector-match.test.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 let fail = 0;
@@ -187,12 +188,29 @@ for (const { id, note, privateInput } of SAMPLE) {
     `(widened:${id}) journal.output is a non-vacuous result object (no error key, >=1 field)`);
 
   if (!privateInput) {
-    // journal.output cross-checked against an INDEPENDENT source — the kernel's own golden fixture vector
-    // — never against itself.
-    const vec0 = fixtureVectors(id)[0].output_payload;
-    ok(JSON.stringify(cgCanon(out)) === JSON.stringify(cgCanon(vec0)), `(widened:${id}) journal.output equals the fixture's output_payload (independent source)`);
-    ok(verifyBinding({ audit_signature: { compute_proof: cp }, output_payload: vec0 }, { publishedImageIds }),
-      `(widened:${id}) verifyBinding passes against the independent fixture output_payload`);
+    // journal.output is matched against the kernel's own golden fixture vectors — an INDEPENDENT source,
+    // never the receipt itself — via matchVectors() (COMPUTE-PROOF-ANY-PUBLISHED-VECTOR-1): EXACTLY ONE
+    // published vector must canonically equal journal.output. Zero matches or two-or-more matches both
+    // fail (an ambiguous proof binds nothing); recompute-lib.mjs:113-119 already accepts any published
+    // vector for the estate-wide recompute-equality gate, so this brings the unit gate into agreement
+    // with it instead of pinning index 0.
+    const vectors = fixtureVectors(id);
+    const matches = matchVectors(out, vectors);
+    ok(matches.length === 1,
+      `(widened:${id}) journal.output matches exactly one published fixture vector (found ${matches.length}${matches.length > 1 ? `: indices ${matches.join(',')}` : ''})`);
+    if (matches.length === 1) {
+      const matchedIndex = matches[0];
+      const matchedVector = vectors[matchedIndex];
+      // honesty: a NON-ZERO match must be statable in words a reader can check (vector 0 is the implicit
+      // default and needs no new field). The fixture vector's own `name` already carries which vector +
+      // its scale — no schema/field addition required for kernels currently proving vector 0.
+      const { ok: honest, statement } = honestyStatement(matchedIndex, vectors);
+      ok(honest,
+        `(widened:${id}) honesty: vector #${matchedIndex}${matchedIndex === 0 ? ' is the default — no statement required' : ` proven, stated as "${statement}"`}`);
+      console.log(`  · (widened:${id}) matched fixture vector index ${matchedIndex}`);
+      ok(verifyBinding({ audit_signature: { compute_proof: cp }, output_payload: matchedVector.output_payload }, { publishedImageIds }),
+        `(widened:${id}) verifyBinding passes against the matched fixture output_payload`);
+    }
   } else {
     console.log(`  · (widened:${id}) §25 ocg-private-input@1 — journal↔fixture cross-check skipped by construction (private witness), matches check-recompute-equality.mjs's exclusion`);
   }
