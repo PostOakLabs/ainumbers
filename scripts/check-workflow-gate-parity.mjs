@@ -969,6 +969,14 @@ const DISTINCT_LEGS = new Map([
       "generator-controls self-test (fixture repo, RED+GREEN mutation proofs) is hard at every call " +
       "site per GATE-SELFTEST-META-1/SO #40b. Not an argument drift of the manifest freshness gate.",
   }],
+  ["node scripts/gen-manifest-examples.mjs --self-test", {
+    sibling: "node scripts/gen-manifest-examples.mjs --check",
+    decided: "2026-09-19 (MANIFEST-EXAMPLES-ANNOTATIONS-1)",
+    why:
+      "Same script as the advisory 'manifest-examples' COVERED gate, different leg entirely: the " +
+      "generator-controls self-test (fixture-copy/mutation RED+GREEN proofs) is hard at every call " +
+      "site per GATE-SELFTEST-META-1/SO #40b. Not an argument drift of the freshness gate.",
+  }],
 ]);
 
 // advisoryGates() entries invoked at ZERO call sites. An uncalled gate is not
