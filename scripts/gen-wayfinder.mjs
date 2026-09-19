@@ -29,6 +29,7 @@
  *   import { renderRail } from './gen-wayfinder.mjs';
  */
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { isSkipDir } from './_walk-skip-dirs.mjs';
 import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -128,9 +129,15 @@ const GENERATED = new Set([
 
 const SKIP_DIRS = ['node_modules', '.git', 'tools', 'manifests', 'runners'];
 
-function findSentinelFiles(dir, results = []) {
+// Exported for scripts/check-gen-walker-scope.mjs (REGEN-WT-SCOPE-POISON-1):
+// the walker-scope fixture replays this discovery against a cold scratch tree.
+export function findSentinelFiles(dir, results = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (SKIP_DIRS.includes(entry.name)) continue;
+    // REGEN-WT-SCOPE-POISON-1: SKIP_DIRS named `.git` but not `.wt`, so this
+    // repo-root walk read every worktree checkout's HTML when run inside the
+    // shared clone (repo/.wt/). The shared skip-list (WT-IGNORE-GATES-1) adds
+    // the dot-dir scaffold exclusion on top of this generator's own skips.
+    if (SKIP_DIRS.includes(entry.name) || isSkipDir(entry.name)) continue;
     const full = resolve(dir, entry.name);
     if (entry.isDirectory()) {
       findSentinelFiles(full, results);

@@ -452,6 +452,15 @@ const PREFLIGHT_ONLY = new Map([
     "have no workflow-side observable to drift against. Paired self-test: " +
     "check-showcase-callshape.mjs --self-test (GATE-SELFTEST-META-1)."],
   ["check-infra-registry.selftest.mjs", SELF_TEST],
+  // ── REGEN-WT-SCOPE-POISON-1 (2026-09-19) ───────────────────────────────────
+  ["check-gen-walker-scope.mjs",
+    "Generator walker scope fixtures (REGEN-WT-SCOPE-POISON-1): replays the .wt//.git " +
+    "scaffolding poison (infra-registry 203 → 17258 rows inside the shared clone) against " +
+    "cold scratch trees in the OS temp dir — reads NO estate bytes, so there is no " +
+    "workflow-side observable to drift against. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), " +
+    "so a named workflow step would only duplicate the same suite. Paired self-test: " +
+    "check-gen-walker-scope.mjs --self-test (GATE-SELFTEST-META-1)."],
   // ── PREFLIGHT-QUICK-1 (2026-09-06) ─────────────────────────────────────────
   ["setup-hooks.mjs",
     "Pre-push hook wiring verifier (the `--check` leg): asserts core.hooksPath = .githooks so " +
