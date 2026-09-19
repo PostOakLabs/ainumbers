@@ -26,15 +26,23 @@ import { compute as art238 } from '../art-238-classify-annex3-decisioning-obliga
 import { defineFamily, EXPECT, checker } from './_consistency-harness.mjs';
 
 // art-238's Art 12(2) obligation sentence, element by element, mapped to the art-236
-// payload field that carries it. `omittable` records a value a caller can leave out
-// while art-236 still emits the record.
+// payload field that carries it (labels are the exact elements of the sentence art-238
+// publishes, aligned 2026-09-10 by CCPP-FIX-ART236-1). `omitted_value` records a value
+// a caller can leave out while art-236 still emits the record.
 const ART12_ELEMENTS = [
-  { element: 'inputs', art236_field: 'input_digest', omitted_value: '' },
-  { element: 'outputs', art236_field: 'output_digest', omitted_value: '' },
+  { element: 'model identifier', art236_field: 'model_id', omitted_value: '' },
   { element: 'model version', art236_field: 'model_version', omitted_value: '' },
-  { element: 'override flags', art236_field: 'override_flag', omitted_value: undefined },
-  { element: 'natural-person-ID field', art236_field: 'subject_ref', omitted_value: '' },
+  { element: 'input digest', art236_field: 'input_digest', omitted_value: '' },
+  { element: 'output digest', art236_field: 'output_digest', omitted_value: '' },
+  { element: 'decision label', art236_field: 'decision_label', omitted_value: '' },
+  { element: 'override flag', art236_field: 'override_flag', omitted_value: undefined },
+  { element: 'structural subject reference', art236_field: 'subject_ref', omitted_value: '' },
 ];
+// The remaining published element, 'event timestamp', is not a caller field: art-236
+// carries it structurally via generated_at in buildArtifact (Art 12(2) chapeau —
+// recorded at the time the event occurs), so there is nothing to omit from
+// compute()'s policy_parameters and it cannot join the omission sweep below.
+// 'retention >= 6 months' is a floor art-236 enforces by clamp, swept by P-C2.
 
 // The obligation text art-238 actually publishes, quoted so a change to it makes this
 // mapping visibly stale rather than silently wrong.
@@ -176,10 +184,15 @@ export default defineFamily({
     {
       id: 'P-C1-required-field-set-agreement',
       statement: 'A decision-log record omitting any element art-238 publishes as required by Art 12(2) is not certified complete by art-236.',
-      // DECLARED BEFORE RUNNING: art-236's completeness set is {model_id, input_digest,
-      // output_digest, decision_label}, which omits model version, override flag and
-      // the natural-person-ID field that art-238 enumerates. Expect a violation.
-      expect: EXPECT.VIOLATION,
+      // DECLARED BEFORE RUNNING. History: the pilot declared VIOLATION here —
+      // art-236's completeness set was {model_id, input_digest, output_digest,
+      // decision_label}, omitting model version, override flag and the structural
+      // subject reference art-238 published. CCPP-FIX-ART236-1 (2026-09-10) aligned
+      // art-236's check to the full published set and reworded art-238's obligation
+      // to name it element-for-element, so the expectation flips to HOLDS per the
+      // declared-expectation invariant (a flip declared in-row first, never to
+      // silence an unexplained red).
+      expect: EXPECT.HOLDS,
       run: pC1,
     },
     {
