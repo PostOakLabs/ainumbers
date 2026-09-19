@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:5c913674e3f5067bbf69b39298780707fee957a39796b1898288f094bddf90c0
+// kernel_digest_at_authoring: sha256:8cc8558034c57d673280e3faf8591f123de641f1ac4e6dc4291883a12a6cf541
 //
 // FV-PROPFLOOR-SHARD-B16-1 — property-test floor for art-71-cbam-certificate-cost-engine.
 // Class B (bounded-numeric), FLOAT-SENSITIVE — net_liability_eur / eua_reference_price feeds
