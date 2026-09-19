@@ -9,7 +9,7 @@ import { executionHash } from './_hash.mjs';
 const TOOL_ID = 'art-06-genius-act-reserve-attestation';
 const TOOL_VERSION = '1.0.0';
 
-// Asset type definitions — GENIUS Act, Pub. L. 119-27 (S.1582) §4(a)
+// Asset type definitions — GENIUS Act, Pub. L. 119-27 (S.1582), Section 4(a)
 // eligibility: 'permitted' | 'conditional' | 'prohibited'
 // maturityRequired: true = maturityDays field must be ≤ maxMaturityDays
 const ASSET_TYPES = [

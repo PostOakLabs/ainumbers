@@ -28,7 +28,7 @@ export const meta = {
   gpu: false,
 };
 
-// Statutory monthly cadence — GENIUS Act, Pub. L. 119-27 (S.1582) §4(a)(3) requires a monthly reserve-composition
+// Statutory monthly cadence — GENIUS Act, Pub. L. 119-27 (S.1582), Section 4(a)(3) requires a monthly reserve-composition
 // report with independent examination. No final implementing rule specifies an exact
 // days-after-period-end filing deadline as of 2026-08-07; this kernel uses a 30-day monthly-cadence
 // window as the statute-derived interpretation (dated observation, re-verify against final rule text

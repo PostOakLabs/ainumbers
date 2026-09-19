@@ -2,7 +2,7 @@
 // Faithful port of compute() in
 //   repo/chaingraph/art-275-genius-reserve-disclosure-checker.html
 // Pure: no DOM, no window, no network.
-// GENIUS Act, Pub. L. 119-27 (S.1582) §4 — post-issuance MONTHLY reserve disclosure (successor to the
+// GENIUS Act, Pub. L. 119-27 (S.1582), Section 4 — post-issuance MONTHLY reserve disclosure (successor to the
 // pre-issuance art-06 attestation pre-check; do not conflate the two tools).
 // Linter of EXTRACTED disclosure fields only — NEVER claims cryptographic
 // verification of the source PDF filing.
@@ -20,7 +20,7 @@ export const meta = {
   gpu: false,
 };
 
-// Asset composition categories — GENIUS Act, Pub. L. 119-27 (S.1582) §4(a) permitted-reserve-asset classes.
+// Asset composition categories — GENIUS Act, Pub. L. 119-27 (S.1582), Section 4(a) permitted-reserve-asset classes.
 // Mirrors art-06's table (clean-room reimplementation; kernels may only import _hash.mjs).
 const ASSET_TYPES = [
   { value:'us_coins_currency',   label:'US coins and currency',                    eligibility:'permitted',   maturityRequired:false, maxMaturityDays:null },
