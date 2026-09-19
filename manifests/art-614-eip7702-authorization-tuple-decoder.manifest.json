@@ -4,18 +4,51 @@
   "title": "EIP-7702 Authorization-Tuple Decoder",
   "description": "Recomputes the EIP-7702 authorization-tuple hash (keccak256(0x05 || rlp([chain_id, address, nonce])), the 'Set EOA account code' standard live on Ethereum mainnet since the Pectra upgrade, 2025-05-07), recovers the ECDSA signer from a caller-supplied signature, and reports the address the recovered signer is authorizing as its delegate. The tuple's own `address` field IS the delegate: the code the EOA is pointing itself at. This node stops at that address -- it never inspects, fetches, or judges the delegate contract's bytecode, and makes no safe/unsafe verdict about it. chain_id = 0 is EIP-7702-defined as a valid, deliberate cross-chain authorization (replayable on any chain) and is reported as such, never treated as malformed input. RLP encoding is hand-authored public-spec arithmetic (Ethereum Yellow Paper Appendix B); keccak256 and secp256k1 recovery come from the already-vendored, pinned noble-curves bundle, no new vendoring. Malformed or incomplete input produces a clean INDETERMINATE/RECOVERY_FAILED finding, never a thrown exception. Zero network calls: does not confirm the authorization was ever submitted on-chain, does not confirm the EOA's account nonce matches the declared nonce at any block, and makes no settlement claim.",
   "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
-  "tags": ["compliance_control", "eip-7702", "account-abstraction", "authorization-tuple", "ecdsa-recovery", "rlp", "crypto-primitive", "mcp:decode_eip7702_authorization_tuple"],
+  "tags": [
+    "compliance_control",
+    "eip-7702",
+    "account-abstraction",
+    "authorization-tuple",
+    "ecdsa-recovery",
+    "rlp",
+    "crypto-primitive",
+    "mcp:decode_eip7702_authorization_tuple"
+  ],
   "input_schema": {
     "type": "object",
     "properties": {
-      "chainId": { "type": "number", "description": "Authorization-tuple chain_id. Mandatory. 0 is spec-valid and means a cross-chain authorization, replayable on any chain -- never treated as an error." },
-      "address": { "type": "string", "description": "20-byte hex address. Mandatory. The delegate the EOA is authorizing itself to point at -- reported as a plain fact, never analyzed." },
-      "nonce": { "type": "number", "description": "Authorization-tuple nonce -- non-negative integer. Mandatory." },
-      "signature": { "type": "string", "description": "Full signature hex: 64 bytes (r||s, recovery id supplied separately via v/yParity) or 65 bytes (r||s||v, recovery marker embedded). Alternative to r/s." },
-      "r": { "type": "string", "description": "32-byte hex signature r value. Used with s when signature is not supplied." },
-      "s": { "type": "string", "description": "32-byte hex signature s value. Used with r when signature is not supplied." },
-      "v": { "type": "number", "description": "Recovery marker: raw bit (0/1) or legacy Ethereum (27/28). EIP-7702 authorization tuples natively carry yParity; v is accepted for callers who paste a v-style value by habit." },
-      "yParity": { "type": "number", "description": "Recovery marker as a raw bit (0/1), the authorization tuple's native field name. Takes precedence over v/embedded signature byte if supplied." }
+      "chainId": {
+        "type": "number",
+        "description": "Authorization-tuple chain_id. Mandatory. 0 is spec-valid and means a cross-chain authorization, replayable on any chain -- never treated as an error."
+      },
+      "address": {
+        "type": "string",
+        "description": "20-byte hex address. Mandatory. The delegate the EOA is authorizing itself to point at -- reported as a plain fact, never analyzed."
+      },
+      "nonce": {
+        "type": "number",
+        "description": "Authorization-tuple nonce -- non-negative integer. Mandatory."
+      },
+      "signature": {
+        "type": "string",
+        "description": "Full signature hex: 64 bytes (r||s, recovery id supplied separately via v/yParity) or 65 bytes (r||s||v, recovery marker embedded). Alternative to r/s."
+      },
+      "r": {
+        "type": "string",
+        "description": "32-byte hex signature r value. Used with s when signature is not supplied."
+      },
+      "s": {
+        "type": "string",
+        "description": "32-byte hex signature s value. Used with r when signature is not supplied."
+      },
+      "v": {
+        "type": "number",
+        "description": "Recovery marker: raw bit (0/1) or legacy Ethereum (27/28). EIP-7702 authorization tuples natively carry yParity; v is accepted for callers who paste a v-style value by habit."
+      },
+      "yParity": {
+        "type": "number",
+        "description": "Recovery marker as a raw bit (0/1), the authorization tuple's native field name. Takes precedence over v/embedded signature byte if supplied."
+      }
     }
   },
   "mcp_tool_definition": {
@@ -24,15 +57,37 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "chainId": { "type": "number" },
-        "address": { "type": "string" },
-        "nonce": { "type": "number" },
-        "signature": { "type": "string" },
-        "r": { "type": "string" },
-        "s": { "type": "string" },
-        "v": { "type": "number" },
-        "yParity": { "type": "number" }
+        "chainId": {
+          "type": "number"
+        },
+        "address": {
+          "type": "string"
+        },
+        "nonce": {
+          "type": "number"
+        },
+        "signature": {
+          "type": "string"
+        },
+        "r": {
+          "type": "string"
+        },
+        "s": {
+          "type": "string"
+        },
+        "v": {
+          "type": "number"
+        },
+        "yParity": {
+          "type": "number"
+        }
       }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   "execution": {
@@ -45,18 +100,91 @@
   "output_schema": {
     "type": "object",
     "properties": {
-      "verdict": { "type": "string" },
-      "reasons": { "type": "array", "items": { "type": "string" } },
-      "chain_id": { "type": ["number", "null"] },
-      "cross_chain_authorization": { "type": ["boolean", "null"] },
-      "delegate_address": { "type": ["string", "null"] },
-      "nonce": { "type": ["number", "null"] },
-      "authorization_tuple_hash": { "type": ["string", "null"] },
-      "recovered_signer": { "type": ["string", "null"] },
-      "recovery_id": { "type": ["number", "null"] },
-      "recovery_id_source": { "type": ["string", "null"] },
-      "scope_note": { "type": "string" }
+      "verdict": {
+        "type": "string"
+      },
+      "reasons": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "chain_id": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "cross_chain_authorization": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "delegate_address": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "nonce": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "authorization_tuple_hash": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "recovered_signer": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "recovery_id": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "recovery_id_source": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "scope_note": {
+        "type": "string"
+      }
     }
   },
-  "source": "authored by ETHMATH-7702-1 per ETHMATH-WAVE-BUILD-SPEC.md section 5; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-614-eip7702-authorization-tuple-decoder.fixtures.json, each recovered-signer vector cross-checked against a from-scratch independent RLP + vendored-bundle oracle script (not this kernel's own compute()); category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest siblings: art-591-x402-signer-recovery-verifier, art-613-erc4337-userop-math)."
+  "source": "authored by ETHMATH-7702-1 per ETHMATH-WAVE-BUILD-SPEC.md section 5; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-614-eip7702-authorization-tuple-decoder.fixtures.json, each recovered-signer vector cross-checked against a from-scratch independent RLP + vendored-bundle oracle script (not this kernel's own compute()); category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest siblings: art-591-x402-signer-recovery-verifier, art-613-erc4337-userop-math).",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "chainId": 1,
+    "address": "0x1234567890123456789012345678901234567890",
+    "nonce": 0,
+    "r": "0xbcc0abd2b842f32cc9c8844ec50c0d5c9b41563f825ef1a143ad93428fb23ad8",
+    "s": "0x12678a935e15a1d1fae421fa00abd642222fb4db4aaf4f95a894ba0e38eebbae",
+    "yParity": 0
+  },
+  "output_example": {
+    "verdict": "AUTHORIZATION_RECOVERED",
+    "reasons": [],
+    "chain_id": 1,
+    "cross_chain_authorization": false,
+    "delegate_address": "0x1234567890123456789012345678901234567890",
+    "nonce": 0,
+    "authorization_tuple_hash": "0x27ccda78a68e39a3fdf515a1b312fe1e3a5d766597579ca1a4973f586950b6e2",
+    "recovered_signer": "0x2c7536e3605d9c16a7a3d7b1898e529396a65c23",
+    "recovery_id": 0,
+    "recovery_id_source": "yParity",
+    "scope_note": "Recomputes the EIP-7702 authorization-tuple hash from declared (chain_id, address, nonce) fields, recovers the ECDSA signer from the caller-supplied signature, and reports the address the recovered signer is authorizing as its delegate. Proves that a private key produced a valid signature over the exact tuple supplied -- it does NOT judge the delegate contract's code, does not confirm the authorization was ever submitted or applied on-chain, and does not confirm the recovered signer's account nonce matches the declared nonce at any block. An authorization is not a settlement, and a recovered delegate address is not a safety verdict. Zero network calls; never a facilitator, proxy, or settlement relay."
+  },
+  "example_execution_hash": "0372215a522f12ef2160b0cf40a3447ed3df954b52b73f6d5e812a40375a250a"
 }

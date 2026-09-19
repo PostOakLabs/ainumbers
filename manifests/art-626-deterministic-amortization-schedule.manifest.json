@@ -4,35 +4,93 @@
   "title": "Deterministic Amortization Schedule",
   "description": "Demonstrator node for the shared _amort.bundle.mjs kernel: a deterministic amortization-schedule engine over seven closed day-count conventions (six ISDA 2006 Definitions Section 4.16 calendar conventions plus UNIT_PERIOD for lease/revenue schedules). Computes period_fraction, periodic_rate, interest, principal_component and closing_balance per period via the effective-interest method, with a mandatory final-period plug bounded by a declared max_plug. Supports a bracketed-bisection rate solve scoped to UNIT_PERIOD, and mid-stream remeasurement as schedule segmentation with an asserted continuity_invariant. Not a wave-specific ASC 842 / ASC 606 / CECL tool -- a reusable shared kernel's demonstrator.",
   "category": "chaingraph",
-  "tags": ["compliance_mandate", "amortization", "day-count-convention", "isda-2006-definitions", "effective-interest-method", "bisection-solver", "remeasurement", "mcp:compute_deterministic_amortization_schedule"],
+  "tags": [
+    "compliance_mandate",
+    "amortization",
+    "day-count-convention",
+    "isda-2006-definitions",
+    "effective-interest-method",
+    "bisection-solver",
+    "remeasurement",
+    "mcp:compute_deterministic_amortization_schedule"
+  ],
   "input_schema": {
     "type": "object",
     "properties": {
-      "principal": { "type": "number", "description": "Original principal balance." },
-      "annual_rate": { "type": "number", "description": "Nominal annual rate, expressed as a decimal (0.12 = 12%). Required for calendar day-count conventions; optional when solve_rate is true and convention is UNIT_PERIOD." },
-      "convention": { "type": "string", "enum": ["UNIT_PERIOD", "30_360_US", "30E_360", "30E_360_ISDA", "ACT_360", "ACT_365F", "ACT_ACT_ISDA"], "description": "Closed set of seven day-count conventions (build spec Sec 1.1). An eighth mode is never accepted." },
-      "periods_per_year": { "type": "number", "description": "Nominal periods per year (default 12). Used to derive UNIT_PERIOD's periodic rate from the annual rate; calendar conventions already express period_fraction as a fraction of a year and do not need it for that derivation." },
+      "principal": {
+        "type": "number",
+        "description": "Original principal balance."
+      },
+      "annual_rate": {
+        "type": "number",
+        "description": "Nominal annual rate, expressed as a decimal (0.12 = 12%). Required for calendar day-count conventions; optional when solve_rate is true and convention is UNIT_PERIOD."
+      },
+      "convention": {
+        "type": "string",
+        "enum": [
+          "UNIT_PERIOD",
+          "30_360_US",
+          "30E_360",
+          "30E_360_ISDA",
+          "ACT_360",
+          "ACT_365F",
+          "ACT_ACT_ISDA"
+        ],
+        "description": "Closed set of seven day-count conventions (build spec Sec 1.1). An eighth mode is never accepted."
+      },
+      "periods_per_year": {
+        "type": "number",
+        "description": "Nominal periods per year (default 12). Used to derive UNIT_PERIOD's periodic rate from the annual rate; calendar conventions already express period_fraction as a fraction of a year and do not need it for that derivation."
+      },
       "periods": {
         "type": "array",
         "description": "Ordered period descriptors, max 600 (MAX_PERIODS). Calendar conventions: {start, end, payment, is_termination?} with ISO dates. UNIT_PERIOD: {unit_fraction?, payment, is_termination?}, unit_fraction defaulting to 1 (a whole period); a stub is a declared fraction in (0,1].",
-        "items": { "type": "object" }
+        "items": {
+          "type": "object"
+        }
       },
-      "solve_rate": { "type": "boolean", "description": "If true and convention is UNIT_PERIOD, solves annual_rate by bracketed bisection against the periods[].payment stream instead of requiring a caller-supplied annual_rate. Not supported for calendar conventions (RATE_SOLVE_SCOPED_TO_UNIT_PERIOD)." },
-      "apply_final_plug": { "type": "boolean", "description": "Defaults to true. When true, rounding residue in the final period's closing_balance is absorbed into that period's principal_component, bounded by max_plug." },
-      "max_plug": { "type": "number", "description": "Declared bound on the final-period plug (default 1, one currency unit). A residue exceeding this is reported as FINAL_PLUG_EXCEEDS_BOUND rather than silently applied." },
+      "solve_rate": {
+        "type": "boolean",
+        "description": "If true and convention is UNIT_PERIOD, solves annual_rate by bracketed bisection against the periods[].payment stream instead of requiring a caller-supplied annual_rate. Not supported for calendar conventions (RATE_SOLVE_SCOPED_TO_UNIT_PERIOD)."
+      },
+      "apply_final_plug": {
+        "type": "boolean",
+        "description": "Defaults to true. When true, rounding residue in the final period's closing_balance is absorbed into that period's principal_component, bounded by max_plug."
+      },
+      "max_plug": {
+        "type": "number",
+        "description": "Declared bound on the final-period plug (default 1, one currency unit). A residue exceeding this is reported as FINAL_PLUG_EXCEEDS_BOUND rather than silently applied."
+      },
       "remeasurement": {
         "type": "object",
         "description": "Optional mid-stream remeasurement. {at_period_index, annual_rate?, convention?, periods_per_year?, periods}: the new segment opens at the prior segment's exact closing_balance at at_period_index.",
         "properties": {
-          "at_period_index": { "type": "integer" },
-          "annual_rate": { "type": "number" },
-          "convention": { "type": "string" },
-          "periods_per_year": { "type": "number" },
-          "periods": { "type": "array", "items": { "type": "object" } }
+          "at_period_index": {
+            "type": "integer"
+          },
+          "annual_rate": {
+            "type": "number"
+          },
+          "convention": {
+            "type": "string"
+          },
+          "periods_per_year": {
+            "type": "number"
+          },
+          "periods": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
         }
       }
     },
-    "required": ["principal", "convention", "periods"]
+    "required": [
+      "principal",
+      "convention",
+      "periods"
+    ]
   },
   "mcp_tool_definition": {
     "name": "compute_deterministic_amortization_schedule",
@@ -40,17 +98,45 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "principal": { "type": "number" },
-        "annual_rate": { "type": "number" },
-        "convention": { "type": "string" },
-        "periods_per_year": { "type": "number" },
-        "periods": { "type": "array" },
-        "solve_rate": { "type": "boolean" },
-        "apply_final_plug": { "type": "boolean" },
-        "max_plug": { "type": "number" },
-        "remeasurement": { "type": "object" }
+        "principal": {
+          "type": "number"
+        },
+        "annual_rate": {
+          "type": "number"
+        },
+        "convention": {
+          "type": "string"
+        },
+        "periods_per_year": {
+          "type": "number"
+        },
+        "periods": {
+          "type": "array"
+        },
+        "solve_rate": {
+          "type": "boolean"
+        },
+        "apply_final_plug": {
+          "type": "boolean"
+        },
+        "max_plug": {
+          "type": "number"
+        },
+        "remeasurement": {
+          "type": "object"
+        }
       },
-      "required": ["principal", "convention", "periods"]
+      "required": [
+        "principal",
+        "convention",
+        "periods"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   "execution": {
@@ -63,17 +149,306 @@
   "output_schema": {
     "type": "object",
     "properties": {
-      "convention": { "type": ["string", "null"] },
-      "periods_per_year": { "type": "number" },
-      "schedule": { "type": ["array", "null"] },
-      "rate_solve": { "type": ["object", "null"] },
-      "final_plug": { "type": ["object", "null"] },
-      "remeasurement": { "type": ["object", "null"] },
-      "rounding_steps": { "type": "array" },
-      "bounds": { "type": "object" },
-      "day_count_source": { "type": ["string", "null"] },
-      "note": { "type": "string" }
+      "convention": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "periods_per_year": {
+        "type": "number"
+      },
+      "schedule": {
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "rate_solve": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "final_plug": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "remeasurement": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "rounding_steps": {
+        "type": "array"
+      },
+      "bounds": {
+        "type": "object"
+      },
+      "day_count_source": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "note": {
+        "type": "string"
+      }
     }
   },
-  "source": "authored by ACCT-AMORT-K-1 per ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec 0.1/1 and FORMALVERIF-BUILD-SPEC.md Sec 3/5/6.B/7. Six calendar day-count formulas retrieved at build time from the 2006 ISDA Definitions Section 4.16 (International Swaps and Derivatives Association, Inc.), Standard Chartered Bank's hosted copy at https://www.sc.com/en/uploads/sites/66/content/docs/2006-ISDA-Definitions.pdf, pages 11-13, snapshot at research/clause-snapshots/isda-2006-definitions-section-4.16.txt (sha256:d58d3558747aaba8e5207417482dd2a35ef11b2fadc9e07d8546c71a2bee8b59). UNIT_PERIOD's stub-fraction pricing reuses 12 CFR 1026 Appendix J (b)(6) as precedent (Consumer Financial Protection Bureau eregulations, https://www.consumerfinance.gov/rules-policy/regulations/1026/j/), snapshot at research/clause-snapshots/reg-z-appendix-j-b6-b7.txt (sha256:b523793b29e30669d51a91b8e093010d2b9ffeb35763f10cd20ea5fc8811a960). Per-kernel spec at research/ACCT-AMORT-K-1.spec.md, human_sign_off PENDING. Rate-solve bisection discipline reused from the existing art-215 kernel per the build spec's own instruction. Golden fixtures derive from hand-computed amortization arithmetic solved forward from the same formulas, verified by direct substitution against the kernel's own compute() output."
+  "source": "authored by ACCT-AMORT-K-1 per ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec 0.1/1 and FORMALVERIF-BUILD-SPEC.md Sec 3/5/6.B/7. Six calendar day-count formulas retrieved at build time from the 2006 ISDA Definitions Section 4.16 (International Swaps and Derivatives Association, Inc.), Standard Chartered Bank's hosted copy at https://www.sc.com/en/uploads/sites/66/content/docs/2006-ISDA-Definitions.pdf, pages 11-13, snapshot at research/clause-snapshots/isda-2006-definitions-section-4.16.txt (sha256:d58d3558747aaba8e5207417482dd2a35ef11b2fadc9e07d8546c71a2bee8b59). UNIT_PERIOD's stub-fraction pricing reuses 12 CFR 1026 Appendix J (b)(6) as precedent (Consumer Financial Protection Bureau eregulations, https://www.consumerfinance.gov/rules-policy/regulations/1026/j/), snapshot at research/clause-snapshots/reg-z-appendix-j-b6-b7.txt (sha256:b523793b29e30669d51a91b8e093010d2b9ffeb35763f10cd20ea5fc8811a960). Per-kernel spec at research/ACCT-AMORT-K-1.spec.md, human_sign_off PENDING. Rate-solve bisection discipline reused from the existing art-215 kernel per the build spec's own instruction. Golden fixtures derive from hand-computed amortization arithmetic solved forward from the same formulas, verified by direct substitution against the kernel's own compute() output.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "principal": 1200,
+    "annual_rate": 0.12,
+    "convention": "UNIT_PERIOD",
+    "periods_per_year": 12,
+    "periods": [
+      {
+        "unit_fraction": 1,
+        "payment": 106.6,
+        "is_termination": false
+      },
+      {
+        "unit_fraction": 1,
+        "payment": 106.6,
+        "is_termination": false
+      },
+      {
+        "unit_fraction": 1,
+        "payment": 106.6,
+        "is_termination": false
+      },
+      {
+        "unit_fraction": 1,
+        "payment": 106.6,
+        "is_termination": false
+      },
+      {
+        "unit_fraction": 1,
+        "payment": 106.6,
+        "is_termination": false
+      },
+      {
+        "unit_fraction": 1,
+        "payment": 106.6,
+        "is_termination": false
+      },
+      {
+        "unit_fraction": 1,
+        "payment": 106.6,
+        "is_termination": false
+      },
+      {
+        "unit_fraction": 1,
+        "payment": 106.6,
+        "is_termination": false
+      },
+      {
+        "unit_fraction": 1,
+        "payment": 106.6,
+        "is_termination": false
+      },
+      {
+        "unit_fraction": 1,
+        "payment": 106.6,
+        "is_termination": false
+      },
+      {
+        "unit_fraction": 1,
+        "payment": 106.6,
+        "is_termination": false
+      },
+      {
+        "unit_fraction": 1,
+        "payment": 106.6,
+        "is_termination": true
+      }
+    ]
+  },
+  "output_example": {
+    "convention": "UNIT_PERIOD",
+    "periods_per_year": 12,
+    "schedule": [
+      {
+        "index": 0,
+        "opening_balance": 1200,
+        "period_fraction": 1,
+        "periodic_rate": 0.01,
+        "interest": 12,
+        "payment": 106.6,
+        "principal_component": 94.6,
+        "closing_balance": 1105.4
+      },
+      {
+        "index": 1,
+        "opening_balance": 1105.4,
+        "period_fraction": 1,
+        "periodic_rate": 0.01,
+        "interest": 11.05,
+        "payment": 106.6,
+        "principal_component": 95.55,
+        "closing_balance": 1009.85
+      },
+      {
+        "index": 2,
+        "opening_balance": 1009.85,
+        "period_fraction": 1,
+        "periodic_rate": 0.01,
+        "interest": 10.1,
+        "payment": 106.6,
+        "principal_component": 96.5,
+        "closing_balance": 913.35
+      },
+      {
+        "index": 3,
+        "opening_balance": 913.35,
+        "period_fraction": 1,
+        "periodic_rate": 0.01,
+        "interest": 9.13,
+        "payment": 106.6,
+        "principal_component": 97.47,
+        "closing_balance": 815.88
+      },
+      {
+        "index": 4,
+        "opening_balance": 815.88,
+        "period_fraction": 1,
+        "periodic_rate": 0.01,
+        "interest": 8.16,
+        "payment": 106.6,
+        "principal_component": 98.44,
+        "closing_balance": 717.44
+      },
+      {
+        "index": 5,
+        "opening_balance": 717.44,
+        "period_fraction": 1,
+        "periodic_rate": 0.01,
+        "interest": 7.17,
+        "payment": 106.6,
+        "principal_component": 99.43,
+        "closing_balance": 618.01
+      },
+      {
+        "index": 6,
+        "opening_balance": 618.01,
+        "period_fraction": 1,
+        "periodic_rate": 0.01,
+        "interest": 6.18,
+        "payment": 106.6,
+        "principal_component": 100.42,
+        "closing_balance": 517.59
+      },
+      {
+        "index": 7,
+        "opening_balance": 517.59,
+        "period_fraction": 1,
+        "periodic_rate": 0.01,
+        "interest": 5.18,
+        "payment": 106.6,
+        "principal_component": 101.42,
+        "closing_balance": 416.17
+      },
+      {
+        "index": 8,
+        "opening_balance": 416.17,
+        "period_fraction": 1,
+        "periodic_rate": 0.01,
+        "interest": 4.16,
+        "payment": 106.6,
+        "principal_component": 102.44,
+        "closing_balance": 313.73
+      },
+      {
+        "index": 9,
+        "opening_balance": 313.73,
+        "period_fraction": 1,
+        "periodic_rate": 0.01,
+        "interest": 3.14,
+        "payment": 106.6,
+        "principal_component": 103.46,
+        "closing_balance": 210.27
+      },
+      {
+        "index": 10,
+        "opening_balance": 210.27,
+        "period_fraction": 1,
+        "periodic_rate": 0.01,
+        "interest": 2.1,
+        "payment": 106.6,
+        "principal_component": 104.5,
+        "closing_balance": 105.77
+      },
+      {
+        "index": 11,
+        "opening_balance": 105.77,
+        "period_fraction": 1,
+        "periodic_rate": 0.01,
+        "interest": 1.06,
+        "payment": 106.6,
+        "principal_component": 105.77,
+        "closing_balance": 0
+      }
+    ],
+    "rate_solve": null,
+    "final_plug": {
+      "applied": true,
+      "amount": 0.23,
+      "max_plug": 1,
+      "error": false
+    },
+    "remeasurement": null,
+    "rounding_steps": [
+      {
+        "step": "period_fraction (day-count fraction, or declared UNIT_PERIOD fraction)",
+        "mode": "half_up",
+        "precision": 10,
+        "oracle": "declared — clause silent"
+      },
+      {
+        "step": "periodic_rate = annual_rate * period_fraction (calendar) or (annual_rate/periods_per_year) * period_fraction (UNIT_PERIOD)",
+        "mode": "half_up",
+        "precision": 10,
+        "oracle": "declared — clause silent"
+      },
+      {
+        "step": "interest = opening_balance * periodic_rate",
+        "mode": "half_up",
+        "precision": 2,
+        "oracle": "declared — clause silent"
+      },
+      {
+        "step": "principal_component = payment - interest",
+        "mode": "half_up",
+        "precision": 2,
+        "oracle": "declared — clause silent"
+      },
+      {
+        "step": "closing_balance = opening_balance - principal_component",
+        "mode": "half_up",
+        "precision": 2,
+        "oracle": "declared — clause silent"
+      },
+      {
+        "step": "final-period plug: residual closing_balance absorbed into the last principal_component so the schedule amortizes to exactly zero",
+        "mode": "half_up",
+        "precision": 2,
+        "oracle": "declared — clause silent"
+      }
+    ],
+    "bounds": {
+      "max_periods": 600,
+      "max_segments": 8,
+      "periods_used": 12,
+      "segments_used": 1
+    },
+    "day_count_source": "12 CFR 1026 Appendix J (b)(6) — declared unit-period stub fraction, precedent only, not a Reg Z APR claim",
+    "note": "Deterministic amortization schedule via the effective-interest method: period_fraction from a declared day-count convention (UNIT_PERIOD, or one of six ISDA 2006 Definitions Sec 4.16 calendar conventions), periodic_rate derived from annual_rate, interest/principal/closing per period, and a mandatory final-period plug when the schedule amortizes to zero. Remeasurement is schedule SEGMENTATION, never mutation: a new segment always opens at the prior segment's exact closing balance. Bracketed-bisection rate solve is scoped to UNIT_PERIOD only. Demonstrator for the shared _amort.bundle.mjs kernel (ACCT-AMORT-K-1); not itself a wave-specific ASC 842 / ASC 606 / CECL tool."
+  },
+  "example_execution_hash": "ff47527103867628c6a5945e3081f9fb3018ae27c59a2e3786aa1d4eaf314e52"
 }
