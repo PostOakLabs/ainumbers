@@ -64,9 +64,18 @@
  * Modes:
  *   node scripts/gen-manifest-examples.mjs                    report (no writes) + census
  *   node scripts/gen-manifest-examples.mjs --write [--limit N] [--only id1,id2]
+ *   node scripts/gen-manifest-examples.mjs --write --landed-only
  *   node scripts/gen-manifest-examples.mjs --check            drift gate + pending ratchet
  *   node scripts/gen-manifest-examples.mjs --update-baseline  re-pin the pending ceiling (writer)
  *   node scripts/gen-manifest-examples.mjs --self-test        in-memory RED/GREEN controls
+ *
+ * --landed-only (MAIN-REGEN-OPENAPI-FIXPOINT-1, 2026-09-19): the batched-rollout mode for
+ * automated regens (derived-artifacts COVERED entry). It loads the ratchet baseline and skips
+ * every id in pending_ids, so a bot regen NEVER advances the batch frontier — bare --write
+ * materialized the 1060 pending manifests on main and the openapi entry (which reads
+ * manifests/) failed the Derived Artifacts Regen fixpoint. A changed manifest NOT in
+ * pending_ids (the newly-missing class) is still written: --check counts that as real drift.
+ * The batch flow stays bare --write (batch PRs own the frontier via --limit + --update-baseline).
  *
  * ⛔ Fence: manifests' additive keys + this file + its preflight wiring. Zero kernel bytes,
  *   chaingraph.json is READ and never written, no page edits, no derived artifacts (SO #35).
@@ -332,6 +341,24 @@ export function checkCorpus(rows, baseline) {
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
+/** Write selection for --write: honors --only, the batch --limit, and (landed-only) the
+ * baseline pins. A pinned id is NEVER selected (the frontier is the batch PRs' to move); a
+ * changed id outside the pins is always selected (newly-missing = real drift per --check). */
+export function selectWrites(rows, { only = null, limit = Infinity, pinnedIds = null } = {}) {
+  const selected = [];
+  let skippedPinned = 0;
+  let written = 0;
+  for (const r of rows) {
+    if (r.error || !r.plan.changed) continue;
+    if (only && !only.includes(r.fileId)) continue;
+    if (pinnedIds && pinnedIds.has(r.fileId)) { skippedPinned++; continue; }
+    if (written >= limit) break;
+    selected.push(r);
+    written++;
+  }
+  return { selected, skippedPinned };
+}
+
 function main() {
   const args = process.argv.slice(2);
 
@@ -388,17 +415,22 @@ function main() {
     const limIdx = args.indexOf('--limit');
     const limit = limIdx !== -1 ? Number(args[limIdx + 1]) : Infinity;
     if (limIdx !== -1 && (!Number.isFinite(limit) || limit <= 0)) { console.error('--limit needs a positive number'); process.exit(2); }
-    let written = 0;
-    for (const r of rows) {
-      if (r.error || !r.plan.changed) continue;
-      if (only && !only.includes(r.fileId)) continue;
-      if (written >= limit) break;
+    const landedOnly = args.includes('--landed-only');
+    let pinnedIds = null;
+    if (landedOnly) {
+      const baseline = loadRatchetBaselineOrExit(BASELINE_PATH, BASELINE_REQUIRED_KEYS, {
+        label: 'manifest-examples-baseline', repinCommand: REPIN_COMMAND,
+      });
+      pinnedIds = new Set(baseline.pending_ids);
+    }
+    const { selected, skippedPinned } = selectWrites(rows, { only, limit, pinnedIds });
+    for (const r of selected) {
       const out = applyPlan(r.manifest, r.plan);
       writeFileSync(resolve(MAN_DIR, r.file), JSON.stringify(out, null, 2) + '\n', 'utf8');
-      written++;
     }
     const remaining = walk(REPO).filter((r) => r.plan?.changed).length;
-    console.log(`✓ wrote ${written} manifest(s); ${remaining} still pending. Re-pin the ratchet with: ${REPIN_COMMAND}`);
+    const skipNote = landedOnly ? ` (${skippedPinned} skipped as baseline-pinned — landed-only never advances the batch frontier)` : '';
+    console.log(`✓ wrote ${selected.length} manifest(s); ${remaining} still pending${skipNote}. Re-pin the ratchet with: ${REPIN_COMMAND}`);
     return;
   }
 
@@ -432,7 +464,8 @@ function main() {
 // ── self-test (SO #40b: the checker must be shown RED, not merely read green) ──
 function selfTest() {
   const failures = [];
-  const ok = (name, cond, detail) => { if (!cond) failures.push(`${name}${detail ? `: ${detail}` : ''}`); };
+  let controls = 0;
+  const ok = (name, cond, detail) => { controls++; if (!cond) failures.push(`${name}${detail ? `: ${detail}` : ''}`); };
 
   const FIXTURE = {
     tool_id: 'art-test',
@@ -503,12 +536,28 @@ function selfTest() {
   const pHand = planManifest('art-test', hand, io);
   ok('hand-authored output_schema untouched', pHand.outputSchema === null, JSON.stringify(pHand.outputSchema));
 
+  // Landed-only write selection (MAIN-REGEN-OPENAPI-FIXPOINT-1): the automated regen must
+  // never advance the batch frontier — baseline-pinned ids are skipped, unpinned drift
+  // (the newly-missing class) still writes, and the bare batch flow is unchanged.
+  const rowsSel = [
+    { file: 'a.manifest.json', fileId: 'art-pinned', manifest: applied, plan: { changed: true } },
+    { file: 'b.manifest.json', fileId: 'art-unpinned', manifest: applied, plan: { changed: true } },
+    { file: 'c.manifest.json', fileId: 'art-clean', manifest: applied, plan: { changed: false } },
+  ];
+  const selLanded = selectWrites(rowsSel, { pinnedIds: new Set(['art-pinned']) });
+  ok('landed-only: pinned id never selected, unpinned drift still writes', selLanded.selected.length === 1 && selLanded.selected[0].fileId === 'art-unpinned', JSON.stringify(selLanded.selected.map((r) => r.fileId)));
+  ok('landed-only: pinned skip is counted', selLanded.skippedPinned === 1, String(selLanded.skippedPinned));
+  const selBare = selectWrites(rowsSel);
+  ok('bare --write: both changed ids selected (batch flow unchanged)', selBare.selected.length === 2, JSON.stringify(selBare.selected.map((r) => r.fileId)));
+  const selLimit = selectWrites(rowsSel, { limit: 1 });
+  ok('limit still caps the selection', selLimit.selected.length === 1);
+
   if (failures.length) {
     console.error(`✗ gen-manifest-examples self-test FAILED — ${failures.length} control(s):`);
     failures.forEach((f) => console.error('  • ' + f));
     process.exit(1);
   }
-  console.log('✓ gen-manifest-examples self-test clean — 18 controls (fixture-copy, hash pin, idempotence, annotation branches, hand-schema immunity) incl. 5 RED mutation controls.');
+  console.log(`✓ gen-manifest-examples self-test clean — ${controls} controls (fixture-copy, hash pin, idempotence, annotation branches, hand-schema immunity, landed-only write selection) incl. 5 RED mutation controls.`);
 }
 
 if (process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('gen-manifest-examples.mjs')) main();
