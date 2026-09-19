@@ -1739,6 +1739,7 @@ const GATES = [
       ? null
       : { notRun: 'this push touches no __proptests__ floor file, so the authoring check had nothing to examine' }],
   ['§18 compute-integrity (unit)', 'node chaingraph/kernels/compute-proof.test.mjs'],
+  ['§18 vector-match (fixture-free unit)', 'node chaingraph/kernels/compute-proof-vector-match.test.mjs'],
   // ADVISORY-ON-PR / HARD-ON-MAIN since PROVE-COVERAGE-GATE-SPLIT-1 (2026-08-22) — the split lives INSIDE
   // the gate (isMainContext() + disposition(), mirroring check-kernel-coverage.mjs), not in the
   // ADVISORY_ON_PR categorisation below: chaingraph.json's single-writer status is a property of the
