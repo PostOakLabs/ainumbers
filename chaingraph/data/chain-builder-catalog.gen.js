@@ -7197,7 +7197,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "CBAM Certificate Cost & Free-Allocation Engine",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-71-cbam-certificate-cost-engine.html",
-    "description": "Converts embedded emissions into a CBAM certificate liability: applies the CBAM factor (free-allocation phase-out 2.5% 2026 to 100% 2034), d",
+    "description": "Converts embedded emissions into a CBAM certificate liability: screens the 50 tonne mass-based de minimis exemption, applies the CBAM factor",
     "consumes": [
       "art-69-cbam-embedded-emissions-calculator"
     ],
