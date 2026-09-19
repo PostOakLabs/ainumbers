@@ -4,28 +4,91 @@
   "title": "ERC-4337 UserOperation Math",
   "description": "Recomputes the ERC-4337 account-abstraction userOpHash from a caller-supplied UserOperation, computes the EntryPoint's required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. The EntryPoint version is a mandatory declared parameter, never inferred: v0.6 hashes a 10-word UserOperation pack, v0.7 hashes an 8-word PackedUserOperation in which verificationGasLimit and callGasLimit pack into accountGasLimits and maxPriorityFeePerGas and maxFeePerGas pack into gasFees. The prefund formulas differ too: v0.6 multiplies verificationGasLimit by three when a paymaster is present because that limit also caps postOp, while v0.7 adds the paymaster's own verification and postOp gas limits parsed from fixed offsets inside paymasterAndData. Both versions are supported; an unrecognised version is refused, never approximated. L1 data and blob fees are never derived, since after EIP-4844 they depend on the inclusion-time L1 basefee and blob basefee: an L1 data fee enters reconciliation only when declared, and its absence is reported as a named gap. block.basefee is never fetched either, so with differing fee caps the effective gas price is null with the reason unless a basefee is declared. keccak256 comes from the already-vendored, pinned noble-hashes bundle; the ABI encoding scheme is public-spec arithmetic on top of it, not hand-rolled crypto. Zero network calls and zero chain reads. Makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity, which the ERC-4337 spec excludes from the hashed struct.",
   "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
-  "tags": ["payment_policy", "erc-4337", "account-abstraction", "userop", "paymaster", "entrypoint", "crypto-primitive", "mcp:recompute_erc4337_userop_math"],
+  "tags": [
+    "payment_policy",
+    "erc-4337",
+    "account-abstraction",
+    "userop",
+    "paymaster",
+    "entrypoint",
+    "crypto-primitive",
+    "mcp:recompute_erc4337_userop_math"
+  ],
   "input_schema": {
     "type": "object",
     "properties": {
-      "entryPointVersion": { "type": "string", "description": "EntryPoint version the UserOperation targets: \"0.6\" or \"0.7\". Mandatory, never inferred -- the two versions hash different structs." },
-      "entryPoint": { "type": "string", "description": "20-byte hex address of the EntryPoint. Hashed into the userOpHash, so never defaulted." },
-      "chainId": { "type": "number", "description": "Declared chain id hashed into the userOpHash. A declared input, never a chain selector and never resolved." },
-      "sender": { "type": "string", "description": "UserOperation.sender -- 20-byte hex address of the account." },
-      "nonce": { "type": "number", "description": "UserOperation.nonce -- uint256, decimal or 0x-hex." },
-      "initCode": { "type": "string", "description": "UserOperation.initCode -- hex byte string, \"0x\" when the account already exists." },
-      "callData": { "type": "string", "description": "UserOperation.callData -- hex byte string." },
-      "paymasterAndData": { "type": "string", "description": "UserOperation.paymasterAndData -- hex byte string, \"0x\" for none. Under v0.7 the first 52 bytes carry the paymaster address and its verification and postOp gas limits." },
-      "callGasLimit": { "type": "number", "description": "Caller-supplied callGasLimit -- uint256. Packed into accountGasLimits under v0.7." },
-      "verificationGasLimit": { "type": "number", "description": "Caller-supplied verificationGasLimit -- uint256. Packed into accountGasLimits under v0.7." },
-      "preVerificationGas": { "type": "number", "description": "Caller-supplied preVerificationGas -- uint256." },
-      "maxFeePerGas": { "type": "number", "description": "Caller-supplied maxFeePerGas -- uint256. Packed into gasFees under v0.7." },
-      "maxPriorityFeePerGas": { "type": "number", "description": "Caller-supplied maxPriorityFeePerGas -- uint256. Packed into gasFees under v0.7." },
-      "declaredBaseFeePerGas": { "type": "number", "description": "Optional. Caller-DECLARED block basefee used to derive the effective gas price when the fee caps differ. Never fetched; absent it the price is reported as null with the reason." },
-      "declaredActualGasUsed": { "type": "number", "description": "Optional. Caller-declared actualGasUsed to reconcile against. Never read from a chain or receipt." },
-      "declaredActualGasCostWei": { "type": "string", "description": "Optional. Caller-declared actualGasCost charged, in wei, to reconcile against a charge recomputed from declared inputs." },
-      "declaredL1DataFeeWei": { "type": "string", "description": "Optional. Caller-DECLARED L1 data or blob fee component. Never derived -- post-EIP-4844 it depends on the inclusion-time L1 basefee. Absent, its omission is reported as a named gap." },
-      "reconciliationToleranceWei": { "type": "string", "description": "Optional. Absolute wei tolerance within which a residual counts as reconciled. Defaults to 0." }
+      "entryPointVersion": {
+        "type": "string",
+        "description": "EntryPoint version the UserOperation targets: \"0.6\" or \"0.7\". Mandatory, never inferred -- the two versions hash different structs."
+      },
+      "entryPoint": {
+        "type": "string",
+        "description": "20-byte hex address of the EntryPoint. Hashed into the userOpHash, so never defaulted."
+      },
+      "chainId": {
+        "type": "number",
+        "description": "Declared chain id hashed into the userOpHash. A declared input, never a chain selector and never resolved."
+      },
+      "sender": {
+        "type": "string",
+        "description": "UserOperation.sender -- 20-byte hex address of the account."
+      },
+      "nonce": {
+        "type": "number",
+        "description": "UserOperation.nonce -- uint256, decimal or 0x-hex."
+      },
+      "initCode": {
+        "type": "string",
+        "description": "UserOperation.initCode -- hex byte string, \"0x\" when the account already exists."
+      },
+      "callData": {
+        "type": "string",
+        "description": "UserOperation.callData -- hex byte string."
+      },
+      "paymasterAndData": {
+        "type": "string",
+        "description": "UserOperation.paymasterAndData -- hex byte string, \"0x\" for none. Under v0.7 the first 52 bytes carry the paymaster address and its verification and postOp gas limits."
+      },
+      "callGasLimit": {
+        "type": "number",
+        "description": "Caller-supplied callGasLimit -- uint256. Packed into accountGasLimits under v0.7."
+      },
+      "verificationGasLimit": {
+        "type": "number",
+        "description": "Caller-supplied verificationGasLimit -- uint256. Packed into accountGasLimits under v0.7."
+      },
+      "preVerificationGas": {
+        "type": "number",
+        "description": "Caller-supplied preVerificationGas -- uint256."
+      },
+      "maxFeePerGas": {
+        "type": "number",
+        "description": "Caller-supplied maxFeePerGas -- uint256. Packed into gasFees under v0.7."
+      },
+      "maxPriorityFeePerGas": {
+        "type": "number",
+        "description": "Caller-supplied maxPriorityFeePerGas -- uint256. Packed into gasFees under v0.7."
+      },
+      "declaredBaseFeePerGas": {
+        "type": "number",
+        "description": "Optional. Caller-DECLARED block basefee used to derive the effective gas price when the fee caps differ. Never fetched; absent it the price is reported as null with the reason."
+      },
+      "declaredActualGasUsed": {
+        "type": "number",
+        "description": "Optional. Caller-declared actualGasUsed to reconcile against. Never read from a chain or receipt."
+      },
+      "declaredActualGasCostWei": {
+        "type": "string",
+        "description": "Optional. Caller-declared actualGasCost charged, in wei, to reconcile against a charge recomputed from declared inputs."
+      },
+      "declaredL1DataFeeWei": {
+        "type": "string",
+        "description": "Optional. Caller-DECLARED L1 data or blob fee component. Never derived -- post-EIP-4844 it depends on the inclusion-time L1 basefee. Absent, its omission is reported as a named gap."
+      },
+      "reconciliationToleranceWei": {
+        "type": "string",
+        "description": "Optional. Absolute wei tolerance within which a residual counts as reconciled. Defaults to 0."
+      }
     }
   },
   "mcp_tool_definition": {
@@ -34,25 +97,67 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "entryPointVersion": { "type": "string" },
-        "entryPoint": { "type": "string" },
-        "chainId": { "type": "number" },
-        "sender": { "type": "string" },
-        "nonce": { "type": "number" },
-        "initCode": { "type": "string" },
-        "callData": { "type": "string" },
-        "paymasterAndData": { "type": "string" },
-        "callGasLimit": { "type": "number" },
-        "verificationGasLimit": { "type": "number" },
-        "preVerificationGas": { "type": "number" },
-        "maxFeePerGas": { "type": "number" },
-        "maxPriorityFeePerGas": { "type": "number" },
-        "declaredBaseFeePerGas": { "type": "number" },
-        "declaredActualGasUsed": { "type": "number" },
-        "declaredActualGasCostWei": { "type": "string" },
-        "declaredL1DataFeeWei": { "type": "string" },
-        "reconciliationToleranceWei": { "type": "string" }
+        "entryPointVersion": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "chainId": {
+          "type": "number"
+        },
+        "sender": {
+          "type": "string"
+        },
+        "nonce": {
+          "type": "number"
+        },
+        "initCode": {
+          "type": "string"
+        },
+        "callData": {
+          "type": "string"
+        },
+        "paymasterAndData": {
+          "type": "string"
+        },
+        "callGasLimit": {
+          "type": "number"
+        },
+        "verificationGasLimit": {
+          "type": "number"
+        },
+        "preVerificationGas": {
+          "type": "number"
+        },
+        "maxFeePerGas": {
+          "type": "number"
+        },
+        "maxPriorityFeePerGas": {
+          "type": "number"
+        },
+        "declaredBaseFeePerGas": {
+          "type": "number"
+        },
+        "declaredActualGasUsed": {
+          "type": "number"
+        },
+        "declaredActualGasCostWei": {
+          "type": "string"
+        },
+        "declaredL1DataFeeWei": {
+          "type": "string"
+        },
+        "reconciliationToleranceWei": {
+          "type": "string"
+        }
       }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   "execution": {
@@ -65,88 +170,404 @@
   "output_schema": {
     "type": "object",
     "properties": {
-      "verdict": { "type": "string" },
-      "reasons": { "type": "array", "items": { "type": "string" } },
+      "verdict": {
+        "type": "string"
+      },
+      "reasons": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
       "entry_point": {
         "type": "object",
         "properties": {
-          "declared_version": { "type": ["string", "null"] },
-          "address": { "type": ["string", "null"] },
-          "canonical_address_for_declared_version": { "type": ["string", "null"] },
-          "address_matches_canonical": { "type": ["boolean", "null"] }
+          "declared_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "canonical_address_for_declared_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "address_matches_canonical": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
         }
       },
-      "chain_id": { "type": ["string", "null"] },
+      "chain_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
       "user_op": {
         "type": "object",
         "properties": {
-          "sender": { "type": ["string", "null"] },
-          "nonce": { "type": ["string", "null"] },
-          "init_code": { "type": ["string", "null"] },
-          "call_data": { "type": ["string", "null"] },
-          "paymaster_and_data": { "type": ["string", "null"] },
-          "call_gas_limit": { "type": ["string", "null"] },
-          "verification_gas_limit": { "type": ["string", "null"] },
-          "pre_verification_gas": { "type": ["string", "null"] },
-          "max_fee_per_gas": { "type": ["string", "null"] },
-          "max_priority_fee_per_gas": { "type": ["string", "null"] }
+          "sender": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nonce": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "init_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "call_data": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paymaster_and_data": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "call_gas_limit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verification_gas_limit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pre_verification_gas": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "max_fee_per_gas": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "max_priority_fee_per_gas": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       },
       "packed_words": {
-        "type": ["object", "null"],
+        "type": [
+          "object",
+          "null"
+        ],
         "properties": {
-          "layout": { "type": "string" },
-          "word_count": { "type": "number" },
-          "account_gas_limits": { "type": ["string", "null"] },
-          "gas_fees": { "type": ["string", "null"] }
+          "layout": {
+            "type": "string"
+          },
+          "word_count": {
+            "type": "number"
+          },
+          "account_gas_limits": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gas_fees": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       },
       "field_hashes": {
-        "type": ["object", "null"],
+        "type": [
+          "object",
+          "null"
+        ],
         "properties": {
-          "init_code_hash": { "type": "string" },
-          "call_data_hash": { "type": "string" },
-          "paymaster_and_data_hash": { "type": "string" }
+          "init_code_hash": {
+            "type": "string"
+          },
+          "call_data_hash": {
+            "type": "string"
+          },
+          "paymaster_and_data_hash": {
+            "type": "string"
+          }
         }
       },
-      "packed_user_op_hash": { "type": ["string", "null"] },
-      "user_op_hash": { "type": ["string", "null"] },
+      "packed_user_op_hash": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "user_op_hash": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
       "gas_accounting": {
-        "type": ["object", "null"],
+        "type": [
+          "object",
+          "null"
+        ],
         "properties": {
-          "entry_point_version": { "type": "string" },
-          "required_gas": { "type": "string" },
-          "required_prefund_wei": { "type": "string" },
-          "prefund_formula": { "type": "string" },
-          "paymaster_present": { "type": "boolean" },
-          "paymaster_address": { "type": ["string", "null"] },
-          "paymaster_multiplier_applied": { "type": ["string", "null"] },
-          "paymaster_verification_gas_limit": { "type": ["string", "null"] },
-          "paymaster_post_op_gas_limit": { "type": ["string", "null"] },
-          "paymaster_fields_note": { "type": ["string", "null"] },
-          "declared_base_fee_per_gas": { "type": ["string", "null"] },
-          "effective_gas_price_wei": { "type": ["string", "null"] },
-          "effective_gas_price_basis": { "type": "string" }
+          "entry_point_version": {
+            "type": "string"
+          },
+          "required_gas": {
+            "type": "string"
+          },
+          "required_prefund_wei": {
+            "type": "string"
+          },
+          "prefund_formula": {
+            "type": "string"
+          },
+          "paymaster_present": {
+            "type": "boolean"
+          },
+          "paymaster_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paymaster_multiplier_applied": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paymaster_verification_gas_limit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paymaster_post_op_gas_limit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paymaster_fields_note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "declared_base_fee_per_gas": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "effective_gas_price_wei": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "effective_gas_price_basis": {
+            "type": "string"
+          }
         }
       },
       "paymaster_reconciliation": {
-        "type": ["object", "null"],
+        "type": [
+          "object",
+          "null"
+        ],
         "properties": {
-          "status": { "type": "string" },
-          "missing_declared_inputs": { "type": "array", "items": { "type": "string" } },
-          "declared_actual_gas_used": { "type": ["string", "null"] },
-          "declared_actual_gas_cost_wei": { "type": ["string", "null"] },
-          "declared_l1_data_fee_wei": { "type": ["string", "null"] },
-          "recomputed_execution_cost_wei": { "type": ["string", "null"] },
-          "recomputed_total_charge_wei": { "type": ["string", "null"] },
-          "residual_wei": { "type": ["string", "null"] },
-          "tolerance_wei": { "type": "string" },
-          "notes": { "type": "array", "items": { "type": "string" } }
+          "status": {
+            "type": "string"
+          },
+          "missing_declared_inputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "declared_actual_gas_used": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "declared_actual_gas_cost_wei": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "declared_l1_data_fee_wei": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recomputed_execution_cost_wei": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recomputed_total_charge_wei": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "residual_wei": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tolerance_wei": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       },
-      "never_fetched": { "type": "array", "items": { "type": "string" } },
-      "scope_note": { "type": "string" }
+      "never_fetched": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "scope_note": {
+        "type": "string"
+      }
     }
   },
-  "source": "authored by ETHMATH-USEROP-1 per ETHMATH-WAVE-BUILD-SPEC.md section 3; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-613-erc4337-userop-math.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest siblings: art-590-x402-eip712-digest-recomputer, art-611-erc7540-async-vault-request-accounting)."
+  "source": "authored by ETHMATH-USEROP-1 per ETHMATH-WAVE-BUILD-SPEC.md section 3; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-613-erc4337-userop-math.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest siblings: art-590-x402-eip712-digest-recomputer, art-611-erc7540-async-vault-request-accounting).",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "entryPointVersion": "0.6",
+    "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+    "chainId": 1,
+    "sender": "0x2A1530C4C41db0B0b2bB646CB5Eb1A67b7158667",
+    "nonce": 0,
+    "initCode": "0x",
+    "callData": "0xb61d27f60000000000000000000000005ff137d4b0fdcd49dca30c7cf57e578a026d2789",
+    "paymasterAndData": "0x",
+    "callGasLimit": 100000,
+    "verificationGasLimit": 150000,
+    "preVerificationGas": 21000,
+    "maxFeePerGas": 2000000000,
+    "maxPriorityFeePerGas": 1000000000
+  },
+  "output_example": {
+    "verdict": "USEROP_RECOMPUTED",
+    "reasons": [],
+    "entry_point": {
+      "declared_version": "0.6",
+      "address": "0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789",
+      "canonical_address_for_declared_version": "0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789",
+      "address_matches_canonical": true
+    },
+    "chain_id": "1",
+    "user_op": {
+      "sender": "0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667",
+      "nonce": "0",
+      "init_code": "0x",
+      "call_data": "0xb61d27f60000000000000000000000005ff137d4b0fdcd49dca30c7cf57e578a026d2789",
+      "paymaster_and_data": "0x",
+      "call_gas_limit": "100000",
+      "verification_gas_limit": "150000",
+      "pre_verification_gas": "21000",
+      "max_fee_per_gas": "2000000000",
+      "max_priority_fee_per_gas": "1000000000"
+    },
+    "packed_words": {
+      "layout": "v0.6 UserOperation -- abi.encode(address sender, uint256 nonce, bytes32 keccak(initCode), bytes32 keccak(callData), uint256 callGasLimit, uint256 verificationGasLimit, uint256 preVerificationGas, uint256 maxFeePerGas, uint256 maxPriorityFeePerGas, bytes32 keccak(paymasterAndData))",
+      "word_count": 10,
+      "account_gas_limits": null,
+      "gas_fees": null
+    },
+    "field_hashes": {
+      "init_code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "call_data_hash": "0x8f54361c53196a7fbccb94b6951e30560cd56ed2372519e43070080b38f6f453",
+      "paymaster_and_data_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+    },
+    "packed_user_op_hash": "0x5e08d083a1feb79bd51258315a754492fe4c2940aef0915261e4e03cf225830c",
+    "user_op_hash": "0x539c1b3b19f9bf3007fcede2a7b52ce1fc02d03b18673046e80a0c902d2ca1b2",
+    "gas_accounting": {
+      "entry_point_version": "0.6",
+      "required_gas": "271000",
+      "required_prefund_wei": "542000000000000",
+      "prefund_formula": "v0.6: (callGasLimit + verificationGasLimit * paymasterMultiplier + preVerificationGas) * maxFeePerGas",
+      "paymaster_present": false,
+      "paymaster_address": null,
+      "paymaster_multiplier_applied": "1",
+      "paymaster_verification_gas_limit": null,
+      "paymaster_post_op_gas_limit": null,
+      "paymaster_fields_note": null,
+      "declared_base_fee_per_gas": null,
+      "effective_gas_price_wei": null,
+      "effective_gas_price_basis": "requires_declared_base_fee -- the fee caps differ, so the price depends on block.basefee, which this kernel never fetches. Supply declaredBaseFeePerGas."
+    },
+    "paymaster_reconciliation": {
+      "status": "NOT_ATTEMPTED",
+      "missing_declared_inputs": [
+        "declaredActualGasUsed",
+        "declaredActualGasCostWei",
+        "an effective gas price (supply declaredBaseFeePerGas)"
+      ],
+      "declared_actual_gas_used": null,
+      "declared_actual_gas_cost_wei": null,
+      "declared_l1_data_fee_wei": null,
+      "recomputed_execution_cost_wei": null,
+      "recomputed_total_charge_wei": null,
+      "residual_wei": null,
+      "tolerance_wei": "0",
+      "notes": [
+        "Reconciliation was not attempted because the inputs above were not declared. This kernel never substitutes a fetched or assumed value for a missing declared one."
+      ]
+    },
+    "never_fetched": [
+      "L1 data fee / blob fee: never derived. Post-EIP-4844 it depends on the inclusion-time L1 basefee and blob basefee, neither of which is offline-derivable. Supply declaredL1DataFeeWei to include it in reconciliation.",
+      "block.basefee: never fetched. Supply declaredBaseFeePerGas to derive an effective gas price when maxFeePerGas and maxPriorityFeePerGas differ.",
+      "EntryPoint contract state: never read. Deposits, stakes, nonce-sequence validity, and prior spend are not consulted.",
+      "Chain state of any kind: no RPC, no indexer, no receipt lookup. actualGasUsed and actualGasCost are reconciled only as caller-declared values."
+    ],
+    "scope_note": "Recomputes the ERC-4337 userOpHash from a caller-supplied UserOperation under a DECLARED EntryPoint version (v0.6 or v0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. Zero network calls and zero chain reads: every field is caller-declared and echoed back, never independently resolved. L1 data and blob fees are NEVER derived -- post-EIP-4844 they depend on the inclusion-time L1 basefee, which is not offline-derivable, so they participate only when the caller declares them and their absence is reported as a named gap. block.basefee is likewise never fetched: absent a declared value the effective gas price is reported as null with the reason. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity (the signature field is excluded from the hashed struct by the ERC-4337 spec itself)."
+  },
+  "example_execution_hash": "5a74a2c1583b86b0330bfd1f873445db1ef0bab9c4196d740f0ca757d249b2a3"
 }
