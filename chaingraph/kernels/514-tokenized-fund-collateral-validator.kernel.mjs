@@ -43,7 +43,6 @@ export function compute(pp) {
     if (dla < 25) setFlag('SEC_2A7_DLA_BREACH', 'err');
     if (wla < 50) setFlag('SEC_2A7_WLA_BREACH', 'err');
     if (fund_type === 'sec_inst_prime_mmf' && Math.abs(nav - 1.0) < 0.0001) setFlag('SEC_2A7_FNAV_REQUIRED', 'err');
-    if (fund_type === 'sec_inst_prime_mmf' && wla < 30) setFlag('SEC_2A7_LIQUIDITY_FEE_TRIGGERED', 'warn');
   }
 
   // EU MMFR checks
