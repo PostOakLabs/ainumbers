@@ -905,7 +905,11 @@ export const COVERED = [
     // generator). Byte-exact by construction: --check 0 drift at 1185 manifests.
     // No ordering constraint: consumes only committed bytes, no COVERED output.
     id: 'manifest-examples',
-    regen: 'node scripts/gen-manifest-examples.mjs',
+    // --write is REQUIRED here: this generator's default mode is report-only
+    // (its own usage doc: "report (no writes) + census"), so a bare regen
+    // declared a no-op writer — the exact missing-flag shape DERIVED-SET-SELFTEST-1
+    // exists to catch, and it did (2026-09-19, ORCH-146).
+    regen: 'node scripts/gen-manifest-examples.mjs --write',
     gate: 'node scripts/gen-manifest-examples.mjs --check',
     // tree writer (1185 manifests, batch-gated): explicit writes: ground truth for
     // the static parser (declare-parity), mirroring artifacts

@@ -119,6 +119,47 @@ function firstFileIn(absDir) {
   return null;
 }
 
+// ── per-entry probe anchors ──────────────────────────────────────────────────
+// Some declared writers own only a REGION of a structured target they
+// re-serialize wholesale. An EOF probe byte on such a target measures the
+// wrong thing twice over: it sits outside every region the writer reads, and
+// — for a JSON target — makes the file UNPARSEABLE, which no honest writer
+// can repair by design. The probe then reads as a false CLASS A against a
+// writer that is actually fine (measured 2026-09-19: manifest-examples). For
+// entries listed here the probe byte is inserted inside the anchor's quoted
+// string VALUE (first occurrence) instead — corruption inside the region the
+// writer owns, re-derives and rewrites on every pass, exactly the drift this
+// gate exists to see repaired. A real no-write defect still fails: the writer
+// never moves mtime, its own --check still reports the corrupted tree STALE,
+// CLASS A fires as before. Anchor absent from the target file -> fall back to
+// the EOF append, i.e. fail toward the STRICTER probe, never a softer one.
+const PROBE_ANCHORS = new Map([
+  // gen-manifest-examples.mjs derives author/license for EVERY manifest
+  // (planManifest: `set = { author: AUTHOR, license: LICENSE }`, constants)
+  // and re-serializes the whole file, so a byte inside the author value is
+  // owned-region corruption satisfies() sees and any real writer repairs
+  // (MANIFEST-EXAMPLES-ANNOTATIONS-1). The fixture-backed example keys exist
+  // only on fixture-carrying manifests and would not match batch-1 files.
+  ['manifest-examples', '"author": "'],
+]);
+
+/** Probe bytes for one target: anchored inside the entry's owned region when possible, else EOF append. Returns {buf, anchored}. */
+function probeBytesFor(entry, original) {
+  const anchor = PROBE_ANCHORS.get(entry.id);
+  if (anchor) {
+    const anchorBuf = Buffer.from(anchor);
+    const at = original.indexOf(anchorBuf);
+    if (at !== -1) {
+      const atEnd = at + anchorBuf.length;
+      return {
+        buf: Buffer.concat([original.subarray(0, atEnd), Buffer.from('~'), original.subarray(atEnd)]),
+        anchored: true,
+      };
+    }
+  }
+  return { buf: Buffer.concat([original, Buffer.from('~')]), anchored: false };
+}
+
 // ── git status parsing (porcelain v1 -z: NUL-separated, no quoting ambiguity) ─
 
 function gitStatusPaths(cwd) {
@@ -216,6 +257,7 @@ function runLiveScan({ dir, covered }) {
   const probeBlind = [];
   const unverifiable = [];
   const skippedEmptyDirs = [];
+  const anchoredProbes = [];
 
   let prevStatus = gitStatusPaths(dir);
   const initialDirty = [...prevStatus];
@@ -253,7 +295,9 @@ function runLiveScan({ dir, covered }) {
       //     measured: gen-euc-register then reports "wrote 1 changed entry
       //     file(s)" for exactly the probed file.
       const bytesBefore = readFileSync(target.targetAbs);
-      writeFileSync(target.targetAbs, Buffer.concat([bytesBefore, Buffer.from('~')]));
+      const probe = probeBytesFor(entry, bytesBefore);
+      if (probe.anchored) anchoredProbes.push({ id: entry.id, path: target.declaredPath });
+      writeFileSync(target.targetAbs, probe.buf);
       // Baseline MUST be read AFTER the probe write, not before it — the probe
       // write itself advances mtime, so a "before the probe" baseline would
       // make every entry look written even when regen touched nothing at all.
@@ -353,7 +397,7 @@ function runLiveScan({ dir, covered }) {
     }
   }
 
-  return { classA, classB, executionFailures, probeUnsafe, probeBlind, unverifiable, skippedEmptyDirs, initialDirty };
+  return { classA, classB, executionFailures, probeUnsafe, probeBlind, unverifiable, skippedEmptyDirs, initialDirty, anchoredProbes };
 }
 
 // ── CLI: scratch worktree wrapper ──────────────────────────────────────────────
@@ -373,7 +417,7 @@ function withScratchWorktree(fn) {
   }
 }
 
-function printReport({ classA, classB, executionFailures, probeUnsafe, probeBlind, unverifiable, skippedEmptyDirs, initialDirty, dupFindings, shareFindings }) {
+function printReport({ classA, classB, executionFailures, probeUnsafe, probeBlind, unverifiable, skippedEmptyDirs, initialDirty, dupFindings, shareFindings, anchoredProbes }) {
   console.log(`derived-regen-live: ${COVERED.filter((c) => c.regen).length} regen commands executed in a scratch worktree\n`);
 
   if (initialDirty.length) {
@@ -416,6 +460,11 @@ function printReport({ classA, classB, executionFailures, probeUnsafe, probeBlin
   if (skippedEmptyDirs.length) {
     console.log(`\nℹ ${skippedEmptyDirs.length} declared directory artifact(s) had no file to probe on this tree (CLASS A skipped for them):`);
     for (const f of skippedEmptyDirs) console.log(`  - "${f.id}": ${f.dir}`);
+  }
+
+  if (anchoredProbes.length) {
+    console.log(`\nℹ ${anchoredProbes.length} target(s) probed with an ENTRY-ANCHORED byte (corruption inside the region the writer owns and re-serializes; an EOF append would sit outside every owned region and, for a JSON target, be unrepairable by design):`);
+    for (const f of anchoredProbes) console.log(`  - "${f.id}" (${f.path})`);
   }
 
   if (probeUnsafe.length) {
