@@ -895,6 +895,21 @@ export const COVERED = [
     after: 'nav-island',
     share: 'n/a (new 2026-08-21, DEBT-LEDGER-1)',
   },
+
+  {
+    // MANIFEST-EXAMPLES-ANNOTATIONS-1 (2026-09-19): single writer (SO #47) for the
+    // five additive fixture-backed manifest keys (input_example / output_example /
+    // example_execution_hash / author / license) + mcp_tool_definition.annotations.
+    // Reads COMMITTED fixture vectors only (nothing invented, SO #34c); writes
+    // manifests/*.json in row-gated batches (pending ceiling carried inside the
+    // generator). Byte-exact by construction: --check 0 drift at 1185 manifests.
+    // No ordering constraint: consumes only committed bytes, no COVERED output.
+    id: 'manifest-examples',
+    regen: 'node scripts/gen-manifest-examples.mjs',
+    gate: 'node scripts/gen-manifest-examples.mjs --check',
+    artifacts: ['manifests/'],
+    share: 'n/a (new 2026-09-19, MANIFEST-EXAMPLES-ANNOTATIONS-1)',
+  },
 ];
 
 /**
