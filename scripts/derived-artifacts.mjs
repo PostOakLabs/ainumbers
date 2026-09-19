@@ -909,7 +909,13 @@ export const COVERED = [
     // (its own usage doc: "report (no writes) + census"), so a bare regen
     // declared a no-op writer — the exact missing-flag shape DERIVED-SET-SELFTEST-1
     // exists to catch, and it did (2026-09-19, ORCH-146).
-    regen: 'node scripts/gen-manifest-examples.mjs --write',
+    // --landed-only is REQUIRED here too (MAIN-REGEN-OPENAPI-FIXPOINT-1, 2026-09-19):
+    // bare --write ignored the ratchet baseline and materialized all 1060 pending
+    // manifests (batches 2-10 scope) into the tree, and the openapi entry — which
+    // reads manifests/ — failed the fixpoint (run 35429389634). The automated regen
+    // must never advance the batch frontier; batch PRs own it via --limit +
+    // --update-baseline on bare --write.
+    regen: 'node scripts/gen-manifest-examples.mjs --write --landed-only',
     gate: 'node scripts/gen-manifest-examples.mjs --check',
     // tree writer (1185 manifests, batch-gated): explicit writes: ground truth for
     // the static parser (declare-parity), mirroring artifacts
