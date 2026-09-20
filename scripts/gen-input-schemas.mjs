@@ -607,10 +607,102 @@ export function checkDerivedSchemas(repoRoot) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// --migrate-legacy: the PR-5 closing sweep (WEBMCP-SCHEMA-PR5-CLOSE-1). Every
+// manifest still carrying the LEGACY rendering (`"type": "unknown"` + the inner
+// `input_schema.x_schema_provenance` mark) is re-derived through
+// deriveInputSchema and rewritten in the NEW shape with the mark as a top-level
+// `input_schema_provenance` sibling. Ownership is unchanged by construction (the
+// same PROVENANCE string moves slots), so --check's owned figure must not move:
+// a drop means a manifest lost its mark, which is the FALSE GREEN this row's
+// amendment warns about. Removed together with legacyShape() once the sweep lands.
+// ─────────────────────────────────────────────────────────────────────────────
+export function planLegacyMigration(repoRoot) {
+  const kernels = listKernelFiles(repoRoot);
+  const kernelByTool = new Map(kernels.map((k) => [path.basename(k, '.kernel.mjs'), k]));
+  const mcpNameByTool = loadMcpNameIndex(repoRoot);
+  const toolByMcpName = new Map([...mcpNameByTool.entries()].map(([tid, name]) => [name, tid]));
+  const manifestIndex = loadManifestIndex(repoRoot);
+  const targets = [];
+  const problems = [];
+  for (const f of fs.readdirSync(path.join(repoRoot, 'manifests')).filter((x) => x.endsWith('.manifest.json'))) {
+    const rel = `manifests/${f}`;
+    let m;
+    try { m = JSON.parse(fs.readFileSync(path.join(repoRoot, 'manifests', f), 'utf8')); } catch (e) {
+      problems.push(`${rel}: invalid JSON: ${e.message}`);
+      continue;
+    }
+    // Only the INNER mark is a migration target. A manifest that already carries
+    // the top-level sibling is done, mark or no inner leftover; an inner mark
+    // that is not the generator's provenance string is a hand-authored surface
+    // (art-06's output_schema note, ptg-01's authored-from-page mark) — never ours.
+    const inner = m?.input_schema?.x_schema_provenance;
+    if (m?.input_schema_provenance !== undefined) continue;
+    if (!isOwnedMark(inner)) continue;
+    const byName = m.mcp_tool_definition?.name ? toolByMcpName.get(m.mcp_tool_definition.name) : null;
+    const toolId = (kernelByTool.has(m.tool_id) ? m.tool_id : null) ?? byName ?? m.tool_id;
+    const kernelFile = kernelByTool.get(toolId);
+    if (!kernelFile) {
+      problems.push(`${rel}: legacy-marked schema pairs with no kernel (kernel removed?) — cannot re-derive`);
+      continue;
+    }
+    let fresh;
+    try { fresh = deriveInputSchema(repoRoot, kernelFile, { manifestIndex, mcpNameByTool }).inputSchema; } catch (e) {
+      problems.push(`${rel}: re-derivation failed: ${e.message}`);
+      continue;
+    }
+    // Refuse to migrate bytes we do not already accept: the on-disk schema must
+    // be the legacy rendering of THIS fresh derivation, or the file drifted and
+    // belongs to --check, not to a blind rewrite.
+    const gotSchema = JSON.stringify(canonicalize(m.input_schema));
+    if (gotSchema !== JSON.stringify(canonicalize(legacyShape(fresh)))) {
+      problems.push(`${rel}: on-disk schema is not the legacy rendering of its fresh derivation — resolve the drift with --write --only ${toolId} before migrating`);
+      continue;
+    }
+    targets.push({ rel, toolId, manifest: m, fresh });
+  }
+  targets.sort((a, b) => a.rel.localeCompare(b.rel));
+  return { targets, problems };
+}
+
+export function migrateLegacyManifest(target) {
+  const m = target.manifest;
+  m.input_schema = JSON.parse(JSON.stringify(target.fresh));
+  if (!m.mcp_tool_definition) return { error: 'manifest lacks mcp_tool_definition — the two schema writers cannot be kept in parity' };
+  m.mcp_tool_definition.inputSchema = JSON.parse(JSON.stringify(target.fresh));
+  m.input_schema_provenance = PROVENANCE;
+  return { manifest: m };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CLI
 // ─────────────────────────────────────────────────────────────────────────────
 function main() {
   const args = process.argv.slice(2);
+  if (args.includes('--migrate-legacy')) {
+    const { targets, problems } = planLegacyMigration(REPO);
+    if (problems.length) {
+      console.error(`✗ legacy-mark migration REFUSED (${problems.length} problem(s)):`);
+      problems.forEach((p) => console.error('  • ' + p));
+      process.exit(1);
+    }
+    const write = args.includes('--write');
+    console.log(`${targets.length} legacy inner mark(s) to migrate to top-level input_schema_provenance:`);
+    for (const t of targets) console.log(`  ${write ? 'migrated' : 'would migrate'}\t${t.toolId}\t${t.rel}`);
+    if (!write) { console.log('\n(dry run — pass --write to rewrite)'); process.exit(0); }
+    const failures = [];
+    for (const t of targets) {
+      const res = migrateLegacyManifest(t);
+      if (res.error) { failures.push(`${t.rel}: ${res.error}`); continue; }
+      fs.writeFileSync(path.join(REPO, t.rel), JSON.stringify(res.manifest, null, 2) + '\n', 'utf8');
+    }
+    if (failures.length) {
+      console.error(`\n✗ ${failures.length} failure(s):`);
+      failures.forEach((f) => console.error('  • ' + f));
+      process.exit(1);
+    }
+    console.log(`\nmigrated ${targets.length} manifest(s). Re-run --check: the owned figure must be unchanged.`);
+    process.exit(0);
+  }
   if (args.includes('--check')) {
     const { owned, shapes, problems } = checkDerivedSchemas(REPO);
     if (problems.length) {
