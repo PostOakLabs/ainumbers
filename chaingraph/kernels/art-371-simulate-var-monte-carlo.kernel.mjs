@@ -78,15 +78,33 @@ function normalFixed(rng) {
   return sum - 6n * FP; // fixed-point N(0,1) draw
 }
 
+// ── numeric input guard (NAN-GUARD-HARDENING-1) ──────────────────────────────
+// `x ?? d` catches only null/undefined: `NaN ?? d` keeps NaN and a JSON-legal
+// string like `("abc" ?? d)` keeps the string, after which Math.trunc/BigInt
+// conversion threw opaque RangeErrors and the one non-throwing site
+// (portfolio_value_mm) silently produced NaN dollar figures. null/undefined
+// still default silently (legitimately missing); any other non-finite value
+// takes the DEFAULT path (clean per-field refusal instead of a RangeError)
+// and is NAMED in output_payload.input_guards, never passed through.
+function guardNum(notes, field, raw, fallback) {
+  if (raw === undefined || raw === null) return fallback;
+  if (Number.isFinite(raw)) return raw;
+  notes.push(`${field}=${String(raw)} (${typeof raw}) is not a finite number; defaulted to ${fallback}`);
+  return fallback;
+}
+
 // ── compute ───────────────────────────────────────────────────────────────────
 export function compute(pp) {
-  const n_assets       = Math.min(Math.max(Math.trunc(pp.n_assets ?? 10), 2), SECTOR_VOLS_BP.length);
-  const n_paths         = Math.min(Math.max(Math.trunc(pp.n_paths ?? 10000), 100), 20000);
-  const holding_period   = Math.max(1, Math.trunc(pp.holding_period ?? 10));
+  const guardNotes = [];
+  const num = (field, raw, fallback) => guardNum(guardNotes, field, raw, fallback);
+
+  const n_assets       = Math.min(Math.max(Math.trunc(num('n_assets', pp.n_assets, 10)), 2), SECTOR_VOLS_BP.length);
+  const n_paths         = Math.min(Math.max(Math.trunc(num('n_paths', pp.n_paths, 10000)), 100), 20000);
+  const holding_period   = Math.max(1, Math.trunc(num('holding_period', pp.holding_period, 10)));
   const conf_level       = [0.95, 0.99, 0.999].includes(pp.conf_level) ? pp.conf_level : 0.99;
-  const correlation      = Math.min(0.95, Math.max(0, pp.correlation ?? 0.30));
-  const portfolio_value_mm = pp.portfolio_value_mm ?? 100;
-  const seed             = Math.trunc(pp.seed ?? (42 + n_assets));
+  const correlation      = Math.min(0.95, Math.max(0, num('correlation', pp.correlation, 0.30)));
+  const portfolio_value_mm = num('portfolio_value_mm', pp.portfolio_value_mm, 100);
+  const seed             = Math.trunc(num('seed', pp.seed, 42 + n_assets));
   const prng_algorithm    = 'xoshiro256**';
   const draw_count        = n_paths * (n_assets + 1) * 12; // uniform draws consumed (commonZ + n_assets idioZ draws per path, 12 uniforms each)
 
@@ -146,6 +164,7 @@ export function compute(pp) {
     seed,
     draw_count,
     compliance_flags,
+    ...(guardNotes.length > 0 ? { input_guards: guardNotes } : {}),
   };
 }
 
