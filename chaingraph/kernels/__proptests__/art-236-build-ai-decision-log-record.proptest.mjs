@@ -7,7 +7,8 @@
 // via Math.max/min and rounded to 3dp for display; it is never combined into a derived value or
 // compared against a threshold that a rounding difference could flip [LOW_CONFIDENCE uses the
 // caller-supplied value directly, verbatim clamp comparison]).
-// Checks: fixture-oracle gate, termination (bounded by human_accountability_records.length in
+// Checks: fixture-oracle gate (exact output_payload AND compliance_flags pins),
+// termination (bounded by human_accountability_records.length in
 // assembleEvidenceBundle's filter/map chain), boundedness (confidence in [0,1], completeness
 // score in [0,100], retention_months >= 6), a metamorphic subject_hash-filter check (unrelated
 // accountability records never leak into the evidence bundle), and forced categorical boundary
@@ -31,10 +32,15 @@ function runFixtureOracle() {
   const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
   const failures = [];
   for (const vec of fixtures.vectors) {
-    const { output_payload } = compute(vec.policy_parameters);
+    const { output_payload, compliance_flags } = compute(vec.policy_parameters);
     const a = JSON.stringify(output_payload);
     const b = JSON.stringify(vec.output_payload);
-    if (a !== b) failures.push({ name: vec.name, expected: vec.output_payload, got: output_payload });
+    // CCPP-FIX-ART236-1 re-prove: pin compliance_flags too (exact array, order
+    // included) — the push-arm mutants (ART12/LOW_CONFIDENCE/OVERRIDE/MISSING_*/
+    // HA_EVIDENCE) only ever touch this field, never output_payload.
+    const fa = JSON.stringify(compliance_flags || []);
+    const fb = JSON.stringify(vec.compliance_flags || []);
+    if (a !== b || fa !== fb) failures.push({ name: vec.name, expected: vec.output_payload, got: output_payload, expected_flags: vec.compliance_flags, got_flags: compliance_flags });
   }
   results.fixture_oracle = { total: fixtures.vectors.length, failures };
   return failures.length === 0;
