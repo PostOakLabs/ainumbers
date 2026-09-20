@@ -8,9 +8,9 @@ Static conformance lint of a permissioned-EVM settlement contract (Solidity sour
 
 ## Inputs
 
-- artifact_kind (unknown, required)
-- ruleset_profile (unknown, required)
-- source (unknown, required)
+- artifact_kind (any, required): type not evidenced by kernel source
+- ruleset_profile (any, required): type not evidenced by kernel source
+- source (any, required): type not evidenced by kernel source
 
 ## Outputs
 

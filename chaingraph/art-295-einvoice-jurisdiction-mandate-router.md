@@ -10,8 +10,8 @@ Deterministic lookup over a version-pinned mandate table: given supplier/buyer c
 
 - buyer_country (string, required)
 - supplier_country (string, required)
-- transaction_date (unknown, required)
-- transaction_type (unknown, required)
+- transaction_date (any, required): type not evidenced by kernel source
+- transaction_type (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,11 +8,11 @@ Generates a human-readable TASL (Title/Author/Source/License) attribution line p
 
 ## Inputs
 
-- creator (unknown, required)
-- license (unknown, required)
-- source_url (unknown, required)
-- title (unknown, required)
-- work_url (unknown, required)
+- creator (any, required): type not evidenced by kernel source
+- license (any, required): type not evidenced by kernel source
+- source_url (any, required): type not evidenced by kernel source
+- title (any, required): type not evidenced by kernel source
+- work_url (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,10 +8,10 @@ Recomputes an ERC-2981 royalty amount as floor(sale_price * royalty_fraction_bps
 
 ## Inputs
 
-- claimed_royalty_amount (unknown, required)
+- claimed_royalty_amount (any, required): type not evidenced by kernel source
 - receiver (string, required)
-- royalty_fraction_bps (unknown, required): Amount in basis points
-- sale_price (unknown, required)
+- royalty_fraction_bps (any, required): Amount in basis points; type not evidenced by kernel source
+- sale_price (any, required): type not evidenced by kernel source
 
 ## Outputs
 

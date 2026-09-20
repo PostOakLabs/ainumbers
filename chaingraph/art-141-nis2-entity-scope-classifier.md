@@ -8,12 +8,12 @@ Classify an entity as Essential, Important, or Out-of-Scope under NIS2 Directive
 
 ## Inputs
 
-- annual_turnover_eur (unknown, optional)
-- employee_count (unknown, optional): Count
-- is_dns_provider (unknown, optional)
-- is_public_electronic_comms_network (unknown, optional)
-- is_qualified_trust_service_provider (unknown, optional)
-- sector_code (unknown, optional)
+- annual_turnover_eur (any, optional): type not evidenced by kernel source
+- employee_count (any, optional): Count; type not evidenced by kernel source
+- is_dns_provider (any, optional): type not evidenced by kernel source
+- is_public_electronic_comms_network (any, optional): type not evidenced by kernel source
+- is_qualified_trust_service_provider (any, optional): type not evidenced by kernel source
+- sector_code (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

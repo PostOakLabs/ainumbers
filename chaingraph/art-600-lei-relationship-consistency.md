@@ -9,7 +9,7 @@ Checks four structural invariants over a pasted set of GLEIF Level-2 relationshi
 ## Inputs
 
 - relationships (array, required)
-- subject_lei (unknown, required)
+- subject_lei (any, required): type not evidenced by kernel source
 
 ## Outputs
 

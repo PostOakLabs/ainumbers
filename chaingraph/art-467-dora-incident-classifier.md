@@ -8,14 +8,14 @@ Classifies an ICT-related incident as major or non-major under DORA (EU 2022/255
 
 ## Inputs
 
-- classification_at (unknown, required)
-- clients_affected_pct (unknown, required): Percentage value
+- classification_at (any, required): type not evidenced by kernel source
+- clients_affected_pct (any, required): Percentage value; type not evidenced by kernel source
 - critical_services_affected (boolean, required)
 - data_losses (boolean, required)
-- duration_minutes (unknown, required)
-- economic_impact_amount (unknown, required)
-- geographical_spread_countries_count (unknown, required): Count
-- incident_id (unknown, required)
+- duration_minutes (any, required): type not evidenced by kernel source
+- economic_impact_amount (any, required): type not evidenced by kernel source
+- geographical_spread_countries_count (any, required): Count; type not evidenced by kernel source
+- incident_id (any, required): type not evidenced by kernel source
 - reputational_impact (boolean, required)
 
 ## Outputs

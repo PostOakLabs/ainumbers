@@ -8,7 +8,7 @@ Validates ERC-721/ERC-1155 and OpenSea NFT metadata JSON against required fields
 
 ## Inputs
 
-- metadata (unknown, required)
+- metadata (any, required): type not evidenced by kernel source
 
 ## Outputs
 

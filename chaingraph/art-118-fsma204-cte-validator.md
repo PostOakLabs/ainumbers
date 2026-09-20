@@ -8,9 +8,9 @@ Validate required Key Data Elements present for each FDA FSMA 204 Critical Track
 
 ## Inputs
 
-- cte_type (unknown, optional)
-- ftl_food (unknown, optional)
-- kdes (unknown, optional)
+- cte_type (any, optional): type not evidenced by kernel source
+- ftl_food (any, optional): type not evidenced by kernel source
+- kdes (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

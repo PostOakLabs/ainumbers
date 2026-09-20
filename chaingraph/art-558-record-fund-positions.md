@@ -8,10 +8,10 @@ Gives a fund's declared positions snapshot, as of a stated valuation date, its o
 
 ## Inputs
 
-- fund_id (unknown, optional)
+- fund_id (any, optional): type not evidenced by kernel source
 - holdings (array, required)
 - shares_outstanding (number, required)
-- valuation_date (unknown, optional)
+- valuation_date (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

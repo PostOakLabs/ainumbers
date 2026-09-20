@@ -8,15 +8,15 @@ Validates an electronic transferable record (eBL or other ETR) against MLETR fun
 
 ## Inputs
 
-- control_method (unknown, optional)
-- dest_jurisdiction (unknown, optional)
-- governing_law (unknown, optional)
-- integrity_method (unknown, optional)
-- origin_jurisdiction (unknown, optional)
-- platform (unknown, optional)
-- record_type (unknown, optional)
-- reliability_standard (unknown, optional)
-- singularity_mechanism (unknown, optional)
+- control_method (any, optional): type not evidenced by kernel source
+- dest_jurisdiction (any, optional): type not evidenced by kernel source
+- governing_law (any, optional): type not evidenced by kernel source
+- integrity_method (any, optional): type not evidenced by kernel source
+- origin_jurisdiction (any, optional): type not evidenced by kernel source
+- platform (any, optional): type not evidenced by kernel source
+- record_type (any, optional): type not evidenced by kernel source
+- reliability_standard (any, optional): type not evidenced by kernel source
+- singularity_mechanism (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

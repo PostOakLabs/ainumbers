@@ -9,8 +9,8 @@ Verifies an EIP-1186 (eth_getProof) account and storage Merkle-Patricia-Trie pro
 ## Inputs
 
 - account_proof (array, required)
-- address (unknown, optional)
-- block_state_root (unknown, optional)
+- address (any, optional): type not evidenced by kernel source
+- block_state_root (any, optional): type not evidenced by kernel source
 - storage_slots (array, required)
 
 ## Outputs

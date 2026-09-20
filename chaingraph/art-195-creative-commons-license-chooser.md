@@ -8,9 +8,9 @@ Deterministic two-question decision tree mapping creator answers (waive all righ
 
 ## Inputs
 
-- allow_adaptations (unknown, optional)
-- allow_commercial (unknown, optional)
-- waive_all_rights (unknown, optional)
+- allow_adaptations (any, optional): type not evidenced by kernel source
+- allow_commercial (any, optional): type not evidenced by kernel source
+- waive_all_rights (any, optional): type not evidenced by kernel source
 
 ## Outputs
 
