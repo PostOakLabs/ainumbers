@@ -30,7 +30,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { deriveInputSchema, checkDerivedSchemas, wouldFlipToEmittable, legacyShape, PROVENANCE, TYPE_NOT_EVIDENCED } from './gen-input-schemas.mjs';
+import { deriveInputSchema, checkDerivedSchemas, wouldFlipToEmittable, PROVENANCE, TYPE_NOT_EVIDENCED } from './gen-input-schemas.mjs';
 import { illegalTypeViolations } from './check-manifest-schema.mjs';
 import { gitEnv } from './_git-env-lib.mjs';
 
@@ -169,8 +169,9 @@ async function main() {
       illegalTypeViolations(nestedFixture, 'input_schema').some((v) => v === 'illegal-type-name input_schema.properties.rows.items=unknown'),
       `got ${JSON.stringify(illegalTypeViolations(nestedFixture, 'input_schema'))}`);
 
-    // ── --check: GREEN on BOTH shapes (new + legacy transition), RED on mutation (SO #34c) ──
-    console.log('--check freshness gate (green on the new shape and the legacy transition shape, red by mutation):');
+    // ── --check: GREEN on the one accepted shape, RED on mutation (SO #34c), and
+    //    the removed transition stays removed: an inner-mark-only manifest is NOT ours ──
+    console.log('--check freshness gate (green on the accepted shape, red by mutation, legacy inner mark no longer owned):');
     const derived = deriveInputSchema(tmp, 'chaingraph/kernels/fx-901-enum-inference.kernel.mjs').inputSchema;
     const manifest = {
       tool_id: 'fx-901-enum-inference',
@@ -179,23 +180,35 @@ async function main() {
       mcp_tool_definition: { name: 'fx_901_probe', description: 'probe manifest for the freshness mutation control', inputSchema: JSON.parse(JSON.stringify(derived)) },
     };
     fs.writeFileSync(path.join(tmp, 'manifests', 'fx-901-enum-inference.manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
-    // LEGACY-shape transition fixture: fx-902 rendered under the pre-ruling rule
-    // (`unknown` + inner mark, no top-level key) — either mark = owned.
-    const legacy902 = legacyShape(deriveInputSchema(tmp, 'chaingraph/kernels/fx-902-unknown-honesty.kernel.mjs').inputSchema);
+    // REMOVED-TRANSITION control: fx-902 rendered the pre-ruling way (`unknown`
+    // types + the mark INSIDE the schema object, no top-level key). The
+    // MCP-SCHEMA-CONFORMANCE-1 transition used to call this owned; PR-5 removed
+    // that fallback, so this fixture must now be invisible to --check — not a
+    // silently accepted second shape. The fixture is built here (the generator no
+    // longer knows how to render the legacy shape at all).
+    const fresh902 = deriveInputSchema(tmp, 'chaingraph/kernels/fx-902-unknown-honesty.kernel.mjs').inputSchema;
+    const legacy902 = JSON.parse(JSON.stringify(fresh902));
+    for (const prop of Object.values(legacy902.properties || {})) {
+      if (prop && typeof prop === 'object' && !Array.isArray(prop) && !('type' in prop)) {
+        prop.type = 'unknown';
+        delete prop.description;
+      }
+    }
+    legacy902.x_schema_provenance = PROVENANCE;
     const manifest902 = {
       tool_id: 'fx-902-unknown-honesty',
-      input_schema: JSON.parse(JSON.stringify(legacy902)), // carries the inner x_schema_provenance mark
-      mcp_tool_definition: { name: 'fx_902_probe', description: 'legacy-shape probe manifest for the transition control', inputSchema: JSON.parse(JSON.stringify(legacy902)) },
+      input_schema: JSON.parse(JSON.stringify(legacy902)), // inner mark only — no longer an ownership mark
+      mcp_tool_definition: { name: 'fx_902_probe', description: 'legacy-shape probe manifest for the removed-transition control', inputSchema: JSON.parse(JSON.stringify(legacy902)) },
     };
     fs.writeFileSync(path.join(tmp, 'manifests', 'fx-902-unknown-honesty.manifest.json'), JSON.stringify(manifest902, null, 2) + '\n', 'utf8');
     execFileSync('git', ['add', '-A'], { cwd: tmp, env: gitEnv() });
     const green = checkDerivedSchemas(tmp);
-    check('--check GREEN on fresh derived manifest (new shape, top-level mark)',
-      green.owned === 2 && green.problems.length === 0 && green.shapes.new === 1,
-      `owned=${green.owned} shapes=${JSON.stringify(green.shapes)} problems=${JSON.stringify(green.problems)}`);
-    check('--check GREEN on legacy-shape manifest via the transition (either mark = owned; unknown + inner mark accepted)',
-      green.shapes.legacy === 1,
-      `shapes=${JSON.stringify(green.shapes)} problems=${JSON.stringify(green.problems)}`);
+    check('--check GREEN on fresh derived manifest (accepted shape, top-level mark)',
+      green.owned === 1 && green.problems.length === 0,
+      `owned=${green.owned} problems=${JSON.stringify(green.problems)}`);
+    check('legacy inner mark confers NO ownership (the PR-5-removed transition stays removed)',
+      green.owned === 1,
+      `owned=${green.owned} — an inner x_schema_provenance was counted as ours`);
     // mutation: hand-edit the derived enum (the exact drift class the gate exists for)
     const tampered = JSON.parse(fs.readFileSync(path.join(tmp, 'manifests', 'fx-901-enum-inference.manifest.json'), 'utf8'));
     tampered.input_schema.properties.risk_level.enum = ['high', 'low']; // dropped 'medium' — a hand-widened/narrowed lie
