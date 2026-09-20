@@ -36,8 +36,8 @@ FRTB IMA Expected Shortfall pre-validation: MC simulation across liquidity horiz
 
 ```json
 {
-  "nPositions": 20,
-  "nScenarios": 500,
+  "nPositions": 4,
+  "nScenarios": 12,
   "confidenceLevel": 0.975,
   "nRiskClasses": 3,
   "nmrfRate": 0.05,
