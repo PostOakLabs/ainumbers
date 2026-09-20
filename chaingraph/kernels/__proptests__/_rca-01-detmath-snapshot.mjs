@@ -1,4 +1,32 @@
-import { executionHash } from './_hash.mjs';
+// @ts-nocheck
+// _rca-01-detmath-snapshot.mjs -- PINNED, non-instrumented copy of the
+// rca-01-frtb-ima-pre-validator.kernel.mjs BEGIN..END deterministic-transcendental-math block.
+//
+// WHY THIS FILE EXISTS (RCA01-PLA-SCOPE-1 PROPTEST-BYTES-EVAL fix): the P6 proptest used to
+// slice this block out of the LIVE kernel.mjs bytes at test-run time and eval() the slice.
+// Under Stryker mutation instrumentation, kernel.mjs on disk is rewritten with calls into a
+// stryMutAct_* coverage/mutant-select helper declared elsewhere in that (much larger)
+// instrumented file, outside the sliced BEGIN..END range -- so the isolated eval threw
+// "ReferenceError: stryMutAct_* is not defined" and Stryker never produced report.json
+// (SO #34c hard fail: absence of a report is not a pass).
+//
+// This file is a copy of that same block, extracted from the plain (un-instrumented) kernel
+// source via `git show`, with a trailing `export { det };` added. It deliberately does NOT
+// touch rca-01-frtb-ima-pre-validator.kernel.mjs itself -- that file already carries a sealed
+// groth16 compute_proof over its exact bytes (MERGED-PROVE-0831), and any edit to it, however
+// small, would stale that receipt (HASH-NEUTRAL doctrine). It is also NOT the Stryker mutate
+// target (run-mutation-tier.mjs mutates only rca-01-frtb-ima-pre-validator.kernel.mjs -- see
+// `mutate: [kernelRelPath]`), so it is never instrumented and the eval/ReferenceError problem
+// cannot recur here. compute()'s own use of det.* inside the live kernel is still exercised --
+// and still killable by mutation -- through the fixture-oracle and P1-P5 differential/
+// metamorphic checks against compute()'s output_payload, which run against the real (possibly
+// instrumented) kernel module via a normal ESM import.
+//
+// kernel_digest_at_authoring: sha256:270c13fb871367dfb26354afef861b44f31e9ab426a797814c7cd667b1f4a584
+// PROVENANCE (of the block below): unchanged from rca-01-frtb-ima-pre-validator.kernel.mjs --
+// see that file's own header for the fdlibm/rtoy/SunPro attribution this slice carries.
+// Re-extract and update the digest comment above if the kernel's detmath block ever changes
+// (HASH-NEUTRAL doctrine: any kernel byte change stales this pinned copy too).
 
 /* ===== BEGIN deterministic transcendental math (inlined; OCG SPEC Sec 18.5) ===== */
 // _detmath inline snippet - deterministic transcendental math (pure-JS fdlibm).
@@ -1555,170 +1583,5 @@ return { exp: exp, log: log, log2: log2, sin: sin, cos: cos, tan: tan, pow: pow,
 })();
 /* ===== END deterministic transcendental math ===== */
 
-const TOOL_ID = 'rca-01-frtb-ima-pre-validator';
-const TOOL_VERSION = '1.0.0';
+export { det };
 
-export const meta = {
-  tool_id: TOOL_ID,
-  tool_version: TOOL_VERSION,
-  mcp_name: 'simulate_frtb_es',
-  mandate_type: 'risk_parameter',
-  gpu: false,
-};
-
-const LH_DAYS = [10, 20, 40, 60, 120];
-
-function makeLCG(seed) {
-  let s = seed >>> 0;
-  return () => {
-    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-    return s / 4294967296;
-  };
-}
-
-function randn(rng) {
-  const u1 = rng() + 1e-15;
-  const u2 = rng();
-  return Math.sqrt(-2 * det.log(u1)) * det.cos(2 * Math.PI * u2);
-}
-
-export function compute(pp) {
-  const nPositions = Math.max(1, Number(pp.nPositions) || 50);
-  const nScenarios = Math.max(1, Number(pp.nScenarios) || 2000);
-  const confidenceLevel = Number(pp.confidenceLevel) || 0.975;
-  const nRiskClasses = Math.max(1, Number(pp.nRiskClasses) || 3);
-  const nmrfRate = Number(pp.nmrfRate) || 0.05;
-  const seed = Number(pp.seed) || 42;
-
-  // Position generation
-  const rng = makeLCG(seed);
-  const positions = [];
-  for (let i = 0; i < nPositions; i++) {
-    const weight = (rng() * 0.06 + 0.01) * (rng() > 0.5 ? 1 : -1);
-    const vol = rng() * 0.15 + 0.05;
-    const cls = Math.floor(rng() * nRiskClasses) % nRiskClasses;
-    const lhDays = LH_DAYS[cls] != null ? LH_DAYS[cls] : LH_DAYS[0];
-    const isNMRF = rng() < nmrfRate;
-    positions.push({ weight, vol, cls, lhDays, isNMRF });
-  }
-
-  // Monte Carlo P&L
-  const rng2 = makeLCG(seed + 100);
-  const pnls = new Array(nScenarios);
-  for (let s = 0; s < nScenarios; s++) {
-    pnls[s] = positions.reduce(
-      (sum, pos) => sum + pos.weight * pos.vol * randn(rng2) * Math.sqrt(pos.lhDays / 250),
-      0
-    );
-  }
-
-  // ES computation
-  const esCount = Math.max(1, Math.floor(nScenarios * (1 - confidenceLevel)));
-  const sorted = [...pnls].sort((a, b) => a - b);
-  const es = -sorted.slice(0, esCount).reduce((a, b) => a + b, 0) / esCount;
-
-  // ES by LH class
-  const esByClass = LH_DAYS.map((lhd, cls) => {
-    const rngCls = makeLCG(seed + 200 + cls);
-    const clsPositions = positions.filter(p => p.cls === cls);
-    if (clsPositions.length === 0) return 0;
-    const clsPnls = Array.from({ length: nScenarios }, () =>
-      clsPositions.reduce((s, p) => s + p.weight * p.vol * randn(rngCls) * Math.sqrt(lhd / 250), 0)
-    );
-    const sorted2 = [...clsPnls].sort((a, b) => a - b);
-    return -sorted2.slice(0, esCount).reduce((a, b) => a + b, 0) / esCount;
-  });
-
-  // NMRF surcharge
-  const nmrfPositions = positions.filter(p => p.isNMRF);
-  let nmrfSurcharge = 0;
-  if (nmrfPositions.length > 0) {
-    const rngNmrf = makeLCG(seed + 777);
-    const nmrfPnls = Array.from({ length: nScenarios }, () =>
-      nmrfPositions.reduce((s, p) => s + p.weight * p.vol * randn(rngNmrf) * Math.sqrt(p.lhDays / 250), 0)
-    );
-    const sortedNmrf = [...nmrfPnls].sort((a, b) => a - b);
-    const nmrfEs = -sortedNmrf.slice(0, esCount).reduce((a, b) => a + b, 0) / esCount;
-    nmrfSurcharge = Math.max(0, 1.5 * nmrfEs);
-  }
-
-  // Undiversified ES (analytical)
-  const undiversified = positions.reduce(
-    (s, p) => s + Math.abs(p.weight) * p.vol * Math.sqrt(p.lhDays / 250) * 2.326,
-    0
-  );
-
-  // Monte-Carlo convergence diagnostic: ratio of the simulated P&L variance to the
-  // analytic variance of the SAME position set. This is a self-check on simulation
-  // scale only — NOT a P&L-attribution test against an independent profit-and-loss
-  // series (none is an input here, so a desk-level eligibility test cannot be
-  // performed by this kernel). See the node shard's scope_statement.
-  const mean = pnls.reduce((a, b) => a + b, 0) / nScenarios;
-  const simVar = pnls.reduce((s, p) => s + (p - mean) ** 2, 0) / nScenarios;
-  const theorVar = positions.reduce((s, p) => s + p.weight ** 2 * p.vol ** 2 * (p.lhDays / 250), 0);
-  const mcConvergenceRatio = Math.sqrt(simVar / (theorVar + 1e-15));
-  const mcConvergenceStatus = mcConvergenceRatio >= 0.8 && mcConvergenceRatio <= 1.2
-    ? 'GREEN'
-    : mcConvergenceRatio >= 0.6 && mcConvergenceRatio <= 1.5
-      ? 'AMBER'
-      : 'RED';
-
-  // Capital
-  const capitalIMA = 1.5 * es + nmrfSurcharge;
-  const saFloor = 1.25 * es;
-  const capitalReq = Math.max(capitalIMA, saFloor);
-  const floorBinding = capitalIMA < saFloor;
-
-  const verdict = mcConvergenceStatus === 'RED'
-    ? 'MC Convergence Poor — Review Simulation Scale'
-    : mcConvergenceStatus === 'AMBER' || floorBinding
-      ? 'SA Floor Comparison Binding / MC Convergence Amber'
-      : 'MC Convergence Nominal';
-
-  const complianceFlags = [
-    'FRTB_IMA_ES_COMPUTED',
-    'MAR33_LIQUIDITY_HORIZONS_APPLIED',
-    nmrfPositions.length > 0 ? 'NMRF_SURCHARGE_ESTIMATED' : 'NMRF_NOT_APPLICABLE',
-    'MC_CONVERGENCE_' + mcConvergenceStatus,
-    'UK_IMA_PREVALIDATION_2028',
-  ];
-
-  const output_payload = {
-    verdict,
-    es_97_5_pct: +es.toFixed(2),
-    undiversified_es: +undiversified.toFixed(2),
-    nmrf_surcharge: +nmrfSurcharge.toFixed(2),
-    mc_convergence_status: mcConvergenceStatus,
-    mc_convergence_ratio: +mcConvergenceRatio.toFixed(4),
-    capital_ima: +capitalIMA.toFixed(2),
-    sa_floor: +saFloor.toFixed(2),
-    capital_required: +capitalReq.toFixed(2),
-    floor_binding: floorBinding,
-    es_by_lh_class: esByClass.map(v => +v.toFixed(2)),
-    n_positions: nPositions,
-    n_scenarios: nScenarios,
-    confidence_level: confidenceLevel,
-  };
-
-  return { output_payload, compliance_flags: complianceFlags };
-}
-
-export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
-    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
-    chaingraph_version: '0.4.0',
-    mandate_type: meta.mandate_type,
-    tool_id: TOOL_ID,
-    tool_version: TOOL_VERSION,
-    generated_at: now ?? null,
-    execution_hash: hash,
-    chain: { parent_hashes, parent_tool_ids, chain_depth },
-    policy_parameters: pp,
-    output_payload,
-    compliance_flags,
-    compute_mode: 'server',
-    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
-  };
-}
