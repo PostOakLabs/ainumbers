@@ -1,5 +1,5 @@
 // art-236-build-ai-decision-log-record.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C7-1).
-// kernel_digest_at_authoring: sha256:38e616aa1627146cb9496fe598eea7869de615e58bcc59363e22fc24da851e1c
+// kernel_digest_at_authoring: sha256:d45fd5d7dc550addeff5e297d0fe8a9dc4a233743d78c6021443a6e891ea654e
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -7,11 +7,14 @@
 // via Math.max/min and rounded to 3dp for display; it is never combined into a derived value or
 // compared against a threshold that a rounding difference could flip [LOW_CONFIDENCE uses the
 // caller-supplied value directly, verbatim clamp comparison]).
-// Checks: fixture-oracle gate, termination (bounded by human_accountability_records.length in
+// Checks: fixture-oracle gate (exact output_payload AND compliance_flags pins),
+// termination (bounded by human_accountability_records.length in
 // assembleEvidenceBundle's filter/map chain), boundedness (confidence in [0,1], completeness
 // score in [0,100], retention_months >= 6), a metamorphic subject_hash-filter check (unrelated
 // accountability records never leak into the evidence bundle), and forced categorical boundary
-// cases (empty input, retention clamp at 5/6, confidence clamp at -1/2, override without by).
+// cases (empty input, retention clamp at 5/6, confidence clamp at -1/2, override without by,
+// declared-presence omissions: model_version/subject_ref/override_flag refuse certification,
+// declared-false override_flag stays complete — CCPP-FIX-ART236-1).
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-236-build-ai-decision-log-record.proptest.mjs
@@ -29,10 +32,15 @@ function runFixtureOracle() {
   const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
   const failures = [];
   for (const vec of fixtures.vectors) {
-    const { output_payload } = compute(vec.policy_parameters);
+    const { output_payload, compliance_flags } = compute(vec.policy_parameters);
     const a = JSON.stringify(output_payload);
     const b = JSON.stringify(vec.output_payload);
-    if (a !== b) failures.push({ name: vec.name, expected: vec.output_payload, got: output_payload });
+    // CCPP-FIX-ART236-1 re-prove: pin compliance_flags too (exact array, order
+    // included) — the push-arm mutants (ART12/LOW_CONFIDENCE/OVERRIDE/MISSING_*/
+    // HA_EVIDENCE) only ever touch this field, never output_payload.
+    const fa = JSON.stringify(compliance_flags || []);
+    const fb = JSON.stringify(vec.compliance_flags || []);
+    if (a !== b || fa !== fb) failures.push({ name: vec.name, expected: vec.output_payload, got: output_payload, expected_flags: vec.compliance_flags, got_flags: compliance_flags });
   }
   results.fixture_oracle = { total: fixtures.vectors.length, failures };
   return failures.length === 0;
@@ -124,15 +132,22 @@ function checkP3_subjectHashFilterMetamorphic() {
 }
 
 // ---------- P4: forced categorical boundary cases (float:no) ----------
+// CCPP-FIX-ART236-1 (2026-09-10): the Art 12 required-field set grew to the
+// estate-declared seven (model_version/override_flag/subject_ref added). The clamp
+// cases now declare the full set so they exercise the COMPLETE path; new forced
+// cases pin the declared-presence semantics: omitting model_version (which the
+// kernel defaults to '0.0.0'), subject_ref, or override_flag (a boolean — DECLARED
+// false is present, undefined is missing) must refuse certification.
 function checkP4_categoricalBoundaries() {
   let violations = 0, checked = 0;
+  const FULL = { model_id: 'm', model_version: '1.0.0', input_digest: 'x', output_digest: 'y', decision_label: 'd', override_flag: false, subject_ref: 'CASE-1' };
   const cases = [
     {}, // empty input -> EMPTY_INPUT sentinel
-    { model_id: 'm', input_digest: 'x', output_digest: 'y', decision_label: 'd', retention_months: 5 }, // clamp to 6
-    { model_id: 'm', input_digest: 'x', output_digest: 'y', decision_label: 'd', retention_months: 6 }, // exact boundary
-    { model_id: 'm', input_digest: 'x', output_digest: 'y', decision_label: 'd', confidence: -1 }, // clamp to 0
-    { model_id: 'm', input_digest: 'x', output_digest: 'y', decision_label: 'd', confidence: 2 }, // clamp to 1
-    { model_id: 'm', input_digest: 'x', output_digest: 'y', decision_label: 'd', override_flag: true }, // override without override_by
+    { ...FULL, retention_months: 5 }, // clamp to 6
+    { ...FULL, retention_months: 6 }, // exact boundary
+    { ...FULL, confidence: -1 }, // clamp to 0
+    { ...FULL, confidence: 2 }, // clamp to 1
+    { ...FULL, override_flag: true }, // override without override_by
   ];
   for (const c of cases) {
     checked++;
@@ -150,6 +165,24 @@ function checkP4_categoricalBoundaries() {
   if (clampConfHi.confidence !== 1) violations++;
   const overrideDefault = compute(cases[5]).output_payload;
   if (overrideDefault.override_by !== 'human-reviewer') violations++;
+
+  // Declared-presence pins (CCPP-FIX-ART236-1): each single omission refuses
+  // COMPLETE certification; a DECLARED false override_flag stays complete.
+  const omissions = [
+    { model_version: undefined }, { model_version: '' },
+    { subject_ref: '' }, { override_flag: undefined },
+  ];
+  for (const omit of omissions) {
+    checked++;
+    const pp = { ...FULL, ...omit };
+    delete pp[Object.keys(omit)[0]];
+    const o = compute(pp).output_payload;
+    if (o.record_status === 'COMPLETE' || o.art12_fields_present) violations++;
+    if (!o.missing_art12_fields?.includes(Object.keys(omit)[0])) violations++;
+  }
+  const declaredFalse = compute({ ...FULL, override_flag: false }).output_payload;
+  if (declaredFalse.record_status !== 'COMPLETE' || declaredFalse.art12_completeness_score !== 100) violations++;
+  checked++;
   return { name: 'P4_forced_categorical_boundaries', trials: checked, violations };
 }
 
