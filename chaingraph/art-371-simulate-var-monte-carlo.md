@@ -8,13 +8,13 @@ Monte Carlo portfolio Value-at-Risk and Expected Shortfall over a one-factor cor
 
 ## Inputs
 
-- conf_level (any, required): type not evidenced by kernel source
-- correlation (any, optional): type not evidenced by kernel source
-- holding_period (any, optional): type not evidenced by kernel source
-- n_assets (any, optional): type not evidenced by kernel source
-- n_paths (any, optional): type not evidenced by kernel source
-- portfolio_value_mm (any, optional): Amount in millions; type not evidenced by kernel source
-- seed (any, required): type not evidenced by kernel source
+- seed (integer, optional)
+- n_paths (integer, optional)
+- n_assets (integer, optional)
+- holding_period (integer, optional)
+- conf_level (number, optional)
+- correlation (number, optional)
+- portfolio_value_mm (number, optional)
 
 ## Outputs
 
