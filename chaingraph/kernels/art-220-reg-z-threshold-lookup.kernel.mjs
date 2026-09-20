@@ -48,7 +48,7 @@ const HOEPA = {
 // ---- HPML HIGHER-PRICED MORTGAGE (§1026.35) ----
 // HPML trigger: APR exceeds APOR by threshold pp
 // (1.5 pp for first lien; 2.5 pp for jumbo first lien >= FHFA conforming limit; 3.5 pp for sub lien)
-// These rate triggers are set by Dodd-Frank and do NOT change annually - stable since 2014-01-10.
+// These rate triggers are set by Dodd-Frank and do NOT change annually - stable since 2014-01-10 (that effective date rides each row's own `effective` field; re-verified as of 2026-09-20).
 //
 // FIELD RENAME (ART220-CARD-PENALTY-RECORD section 6c, adjudicated 2026-09-08): the annual dollar
 // figure on these rows was mislabelled `escrow_exemption_threshold`. It is not the escrow
@@ -77,7 +77,8 @@ const HPML = {
 // voided, and printed is not in force. This is the exact hallucination class the node exists to
 // block, and an earlier revision of this very kernel fell into it.
 //
-// THE VACATUR, pinned to the primary record: the CFPB Credit Card Penalty Fees Final Rule
+// THE VACATUR (FR 2024-05011; re-verified as of 2026-09-20), pinned to the primary record:
+// the CFPB Credit Card Penalty Fees Final Rule
 // (89 FR 19128, FR doc 2024-05011) introduced an $8 late-payment cap for larger issuers. It was
 // preliminarily enjoined 2024-05-10, FOUR DAYS before its 2024-05-14 effective date, so it was
 // never operative for a single day, and was then VACATED 2025-04-15 under 5 U.S.C. 706(2) on the
@@ -87,7 +88,8 @@ const HPML = {
 // No agency removal document has been published, so the void $8 text is still printed in the
 // eCFR at its 2026-09-03 currency. eCFR currency is not force-of-law currency.
 //
-// CONSEQUENCE FOR THE VALUES: vacatur voids the 2024 carve-out, not the general branch. So the
+// CONSEQUENCE FOR THE VALUES (re-verified as of 2026-09-20): the vacatur voids the 2024
+// carve-out, not the general branch. So the
 // general penalty-fee safe harbor each row's fr_citation names stands as ONE rule covering late
 // fees and other violations alike, at its current CPI-adjusted amounts: $32 for a first violation,
 // $43 for each subsequent violation of the same type within the same or next six billing cycles.
