@@ -19,6 +19,50 @@
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-332-build-amortization-schedule.proptest.mjs
+//
+// MUTATION-MODE TRIAL CAP (ART332-MUTATION-TIER-COST-1, test-side cost cut;
+// the ART215-MUTATION-TIER-COST-1 / site PR 1969 shape ported verbatim — same
+// detection, same env override, no second flag):
+// Under the mutation tier (scripts/run-mutation-tier.mjs, Stryker 8.7.1 command
+// runner) each of this kernel's 384 mutants (on origin/main 4419268e, measured
+// 2026-09-20) re-runs this whole floor against Stryker's INSTRUMENTED kernel,
+// and the instrumenter is the cost: the full-trial floor runs in ~0.38 s
+// standalone (measured on this file: wall 379 ms incl. node boot) but the
+// tier's initial dry run measured net 6518 ms on origin/main — a ~21x
+// instrumenter factor on the same ~12,000 compute() calls. Projection at full
+// trials: 384 x ~6.5 s / 2 runners ~ 1,248 s, past the 600 s per-kernel bound
+// (MUTATION-TIER-HANG-MMS03-PNR01-1) — reproduced on the row: the tier HARD
+// FAILS at 600 s, killed before any money-math line prints.
+//
+// Cost driver, measured (not guessed): compute() is a fixed-iteration-count
+// schedule builder whose cost is ~linear in num_payments — median 2 us at
+// num_payments=1, 4 us at 6, 10 us at 60, 18 us at 240, 34 us at 480
+// (generator range 1..480, mean ~240). That CLOSES the generator-range lever
+// the way PR 1969 closed it for art-215: fitting 384 mutants / 2 runners
+// inside 600 s needs a per-pass ~3 s, i.e. a mean num_payments ~110 — which
+// would amputate the entire upper half of the range (every schedule over ~220
+// payments, the very rows P1's 600-payment bound case guards) in mutation
+// mode. The chosen lever is TRIAL COUNT, capped IN MUTATION MODE ONLY,
+// detected two ways exactly as art-215/pnr-01 before it: (a) the seam Stryker
+// itself owns — CommandTestRunner.mutantRun() sets env __STRYKER_ACTIVE_MUTANT__
+// for MUTANT runs; (b) the tier sandbox cwd — run-mutation-tier.mjs copies
+// this proptest into %TEMP%\ain-mutation-tier-<pid>\ and runs the Stryker
+// INITIAL DRY RUN there too, so __dirname under that root marks dry-run
+// context (a full-trial dry run would also blow the bound: 6.5 s is inside
+// Stryker's 300 s dryRunTimeout here, but the dry run must be capped for the
+// same bound arithmetic as the mutant runs; the floor is still validated at
+// FULL trials by this file's standalone repo-checkout run, outside the tier,
+// where neither detection fires). Default cap 50 (a capped pass takes the
+// first 50 draws per property of the SAME seeded mulberry32 stream — still
+// spanning num_payments 1..480 including the 480-row extremes — at ~0.09 s
+// instrumented; projected tier wall ~384 x (0.09 s + process spawn) / 2 + boot,
+// far inside the 600 s bound); override with documented env PROPFLOOR_TRIAL_CAP,
+// a positive integer, invalid values throw. The fixture oracle and P4
+// ULP-boundary forcing are NEVER capped (mandatory, float_sensitive: YES).
+// Every property is deterministic (seeded mulberry32), so a violation found
+// under the cap is found under full trials too: kill-power can only be
+// affected by violations that first surface on a late draw, quantified by the
+// fixed named-mutant subset before/after comparison quoted on the row's PR.
 
 import { compute } from '../art-332-build-amortization-schedule.kernel.mjs';
 import { readFileSync } from 'node:fs';
@@ -66,7 +110,19 @@ function randomPP(rng) {
   };
 }
 
-const TRIALS = 4000;
+// ---------- mutation-mode trial cap (ART332-MUTATION-TIER-COST-1; see header) ----------
+const MUTATION_MODE =
+  process.env.__STRYKER_ACTIVE_MUTANT__ !== undefined ||
+  __dirname.replace(/\\/g, '/').includes('/ain-mutation-tier-');
+let mutationTrials = 50; // default per-mutant cap; full trials remain the default outside the tier
+if (process.env.PROPFLOOR_TRIAL_CAP !== undefined) {
+  const cap = Number(process.env.PROPFLOOR_TRIAL_CAP);
+  if (!Number.isInteger(cap) || cap <= 0) {
+    throw new Error(`PROPFLOOR_TRIAL_CAP must be a positive integer, got "${process.env.PROPFLOOR_TRIAL_CAP}"`);
+  }
+  mutationTrials = cap;
+}
+const TRIALS = MUTATION_MODE ? mutationTrials : 4000;
 
 // ---------- P1: termination — schedule length always equals declared num_payments ----------
 function checkP1_termination_length_bounded() {

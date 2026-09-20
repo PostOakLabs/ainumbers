@@ -8,13 +8,13 @@ Score ICT vendor due-diligence posture against NIS2 Art. 21(2)(d) and ENISA ICT 
 
 ## Inputs
 
-- audit_clause_in_contract (unknown, optional)
-- breach_notification_sla_hours (unknown, optional)
-- data_residency_eu_only (unknown, optional)
-- service_availability_pct (unknown, optional): Percentage value
-- sub_contractor_count (unknown, optional): Count
-- vendor_incident_history_12mo (unknown, optional)
-- vendor_iso27001_certified (unknown, optional)
+- audit_clause_in_contract (any, optional): type not evidenced by kernel source
+- breach_notification_sla_hours (any, optional): type not evidenced by kernel source
+- data_residency_eu_only (any, optional): type not evidenced by kernel source
+- service_availability_pct (any, optional): Percentage value; type not evidenced by kernel source
+- sub_contractor_count (any, optional): Count; type not evidenced by kernel source
+- vendor_incident_history_12mo (any, optional): type not evidenced by kernel source
+- vendor_iso27001_certified (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

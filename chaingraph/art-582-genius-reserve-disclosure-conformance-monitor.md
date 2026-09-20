@@ -8,14 +8,14 @@ Checks a monthly PPSI reserve disclosure against two statute-derived GENIUS Act 
 
 ## Inputs
 
-- attestation_date (unknown, optional)
+- attestation_date (any, optional): type not evidenced by kernel source
 - attestation_present (boolean, required)
-- examiner_name (unknown, optional)
+- examiner_name (any, optional): type not evidenced by kernel source
 - examiner_registered (boolean, required)
-- onchain_supply_check (unknown, optional)
+- onchain_supply_check (any, optional): type not evidenced by kernel source
 - outstanding_tokens_reported (number, optional)
-- period_end_date (unknown, optional)
-- report_period (unknown, optional)
+- period_end_date (any, optional): type not evidenced by kernel source
+- report_period (any, optional): type not evidenced by kernel source
 - token_price (number, optional)
 - total_reserves_usd (number, optional): Amount in US dollars
 

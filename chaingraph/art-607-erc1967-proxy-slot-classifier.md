@@ -8,8 +8,8 @@ Recomputes the four canonical EIP-1967 storage slots (bytes32(uint256(keccak256(
 
 ## Inputs
 
-- declared_slot (unknown, required)
-- storage_value (unknown, required)
+- declared_slot (any, required): type not evidenced by kernel source
+- storage_value (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,7 +8,7 @@ Link Traceability Lot Codes across CTEs and detect chain breaks. Transformation 
 
 ## Inputs
 
-- events (unknown, optional)
+- events (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

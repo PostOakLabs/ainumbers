@@ -8,10 +8,10 @@ Deterministic, versioned single-pair payee name-matching score for Verification-
 
 ## Inputs
 
-- account_name (unknown, optional)
-- close_match_threshold (unknown, required)
-- match_threshold (unknown, required)
-- reference_name (unknown, optional)
+- account_name (any, optional): type not evidenced by kernel source
+- close_match_threshold (any, required): type not evidenced by kernel source
+- match_threshold (any, required): type not evidenced by kernel source
+- reference_name (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

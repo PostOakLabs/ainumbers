@@ -8,7 +8,7 @@ Validate that a long-running MCP task state transitions are legal per the new MC
 
 ## Inputs
 
-- transitions (unknown, optional)
+- transitions (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

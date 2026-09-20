@@ -8,7 +8,7 @@ Validates an SPDX SBOM against the EU CRA Annex I machine-readable SBOM requirem
 
 ## Inputs
 
-- sbom (unknown, optional)
+- sbom (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

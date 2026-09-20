@@ -8,7 +8,7 @@ Validates an OpenVEX document: @context includes openvex.dev, every statement ca
 
 ## Inputs
 
-- vex (unknown, optional)
+- vex (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

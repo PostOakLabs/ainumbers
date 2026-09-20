@@ -8,11 +8,11 @@ DV01-bucket VaR proxy of the FICC VaR-based margin (VBM), the netting benefit of
 
 ## Inputs
 
-- clearing_model (unknown, optional)
-- confidence_level (unknown, optional)
-- include_cross_product (unknown, optional)
-- mpor_days (unknown, optional): Duration in days
-- positions (unknown, optional)
+- clearing_model (any, optional): type not evidenced by kernel source
+- confidence_level (any, optional): type not evidenced by kernel source
+- include_cross_product (any, optional): type not evidenced by kernel source
+- mpor_days (any, optional): Duration in days; type not evidenced by kernel source
+- positions (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

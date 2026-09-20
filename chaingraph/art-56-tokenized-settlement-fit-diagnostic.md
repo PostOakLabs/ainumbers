@@ -8,18 +8,18 @@
 
 ## Inputs
 
-- annual_settlement_value_usd (unknown, optional): Amount in US dollars
-- asset_leg_type (unknown, optional)
-- atomicity_mechanism (unknown, optional)
-- cash_leg_asset (unknown, optional)
-- deposit_token_issuer (unknown, optional)
-- finality_regime (unknown, optional)
-- intraday_liquidity (unknown, optional)
-- network_model (unknown, optional)
-- operating_hours (unknown, optional)
-- participant_eligibility (unknown, optional)
-- participant_type (unknown, optional)
-- reconciliation_model (unknown, optional)
+- annual_settlement_value_usd (any, optional): Amount in US dollars; type not evidenced by kernel source
+- asset_leg_type (any, optional): type not evidenced by kernel source
+- atomicity_mechanism (any, optional): type not evidenced by kernel source
+- cash_leg_asset (any, optional): type not evidenced by kernel source
+- deposit_token_issuer (any, optional): type not evidenced by kernel source
+- finality_regime (any, optional): type not evidenced by kernel source
+- intraday_liquidity (any, optional): type not evidenced by kernel source
+- network_model (any, optional): type not evidenced by kernel source
+- operating_hours (any, optional): type not evidenced by kernel source
+- participant_eligibility (any, optional): type not evidenced by kernel source
+- participant_type (any, optional): type not evidenced by kernel source
+- reconciliation_model (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

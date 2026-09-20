@@ -8,11 +8,11 @@ Classifies a tokenized-deposit transfer’s finality risk given L2-batch to L1-s
 
 ## Inputs
 
-- asset_type (unknown, required)
-- batch_submission_status (unknown, required)
-- corridor_cutoff (unknown, required)
-- l1_finalization_status (unknown, required)
-- l2_block (unknown, required)
+- asset_type (any, required): type not evidenced by kernel source
+- batch_submission_status (any, required): type not evidenced by kernel source
+- corridor_cutoff (any, required): type not evidenced by kernel source
+- l1_finalization_status (any, required): type not evidenced by kernel source
+- l2_block (any, required): type not evidenced by kernel source
 
 ## Outputs
 

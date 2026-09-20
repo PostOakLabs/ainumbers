@@ -127,6 +127,15 @@ hash anchors them.
 recompute the identical `execution_hash`. This is asserted on the live deployed surface by
 `hash-sweep.mjs` (§15) — not merely in the bundle.
 
+**Normalized preimage (NORMATIVE):** the `policy_parameters` member of the hashed preimage is the
+**normalized** form, in which object members whose value is `null` have been removed at every depth,
+while `null` array elements are preserved unchanged because they are positional (dropping one shifts
+every later index); the transport form an agent sent MAY differ from it, and normalization is
+idempotent, so the recorded parameters are already their own fixed point and the re-verifiability
+MUST above is unaffected. A kernel that genuinely needs `null` as a third state distinct from absent
+opts out by declaring `x_null_distinct` on the manifest input property, which excludes that property
+from normalization; nothing declares it today.
+
 ## §5 mandate_type taxonomy
 §4 internal taxonomy (recommended): `prompt_template, payment_mandate, payment_policy,
 compliance_mandate, liquidity_mandate, capital_assessment, risk_control, settlement_mandate,

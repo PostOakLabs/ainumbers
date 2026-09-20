@@ -8,13 +8,13 @@ Score whether an operational event meets the NIS2 Art. 23 significant-incident t
 
 ## Inputs
 
-- cross_border_impact (unknown, optional)
-- entity_classification (unknown, optional)
-- estimated_affected_users (unknown, optional)
-- estimated_financial_loss_eur (unknown, optional)
-- involves_malicious_act (unknown, optional)
-- service_disruption_hours (unknown, optional)
-- third_party_cascade_impact (unknown, optional)
+- cross_border_impact (any, optional): type not evidenced by kernel source
+- entity_classification (any, optional): type not evidenced by kernel source
+- estimated_affected_users (any, optional): type not evidenced by kernel source
+- estimated_financial_loss_eur (any, optional): type not evidenced by kernel source
+- involves_malicious_act (any, optional): type not evidenced by kernel source
+- service_disruption_hours (any, optional): type not evidenced by kernel source
+- third_party_cascade_impact (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

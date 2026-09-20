@@ -8,10 +8,10 @@ Maps creator answers (commercial use, derivatives allowed, optional minting fee,
 
 ## Inputs
 
-- commercial_use (unknown, optional)
-- derivatives_allowed (unknown, optional)
-- minting_fee (unknown, optional)
-- rev_share_pct (unknown, optional): Percentage value
+- commercial_use (any, optional): type not evidenced by kernel source
+- derivatives_allowed (any, optional): type not evidenced by kernel source
+- minting_fee (any, optional): type not evidenced by kernel source
+- rev_share_pct (any, optional): Percentage value; type not evidenced by kernel source
 
 ## Outputs
 

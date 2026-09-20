@@ -8,11 +8,11 @@ Assesses EU CRA Article 14 vulnerability reporting readiness: actively_exploited
 
 ## Inputs
 
-- actively_exploited_detection (unknown, optional)
-- coordinated_disclosure_policy (unknown, optional)
-- csirt_enisa_endpoint_configured (unknown, optional)
-- early_warning_24h_process (unknown, optional)
-- notification_72h_process (unknown, optional)
+- actively_exploited_detection (any, optional): type not evidenced by kernel source
+- coordinated_disclosure_policy (any, optional): type not evidenced by kernel source
+- csirt_enisa_endpoint_configured (any, optional): type not evidenced by kernel source
+- early_warning_24h_process (any, optional): type not evidenced by kernel source
+- notification_72h_process (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

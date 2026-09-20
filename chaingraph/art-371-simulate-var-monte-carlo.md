@@ -8,13 +8,13 @@ Monte Carlo portfolio Value-at-Risk and Expected Shortfall over a one-factor cor
 
 ## Inputs
 
-- conf_level (unknown, required)
-- correlation (unknown, optional)
-- holding_period (unknown, optional)
-- n_assets (unknown, optional)
-- n_paths (unknown, optional)
-- portfolio_value_mm (unknown, optional): Amount in millions
-- seed (unknown, required)
+- seed (integer, optional)
+- n_paths (integer, optional)
+- n_assets (integer, optional)
+- holding_period (integer, optional)
+- conf_level (number, optional)
+- correlation (number, optional)
+- portfolio_value_mm (number, optional)
 
 ## Outputs
 

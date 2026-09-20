@@ -8,19 +8,19 @@ Starts three parallel regulatory notification-deadline clocks from one hash-anch
 
 ## Inputs
 
-- banking_notification_completed_at (unknown, optional)
-- determination_at (unknown, optional)
-- determination_evidence_hash (unknown, optional)
-- evaluated_at (unknown, optional)
-- incident_id (unknown, optional)
-- is_bank_holding_company (unknown, optional)
-- is_national_bank (unknown, optional)
-- is_state_member_bank (unknown, optional)
-- nydfs_covered_entity (unknown, optional)
-- nydfs_notification_completed_at (unknown, optional)
-- sec_8k_filed_at (unknown, optional)
-- sec_reporting_company (unknown, optional)
-- sec_rescission_petition_pending (unknown, optional)
+- banking_notification_completed_at (any, optional): type not evidenced by kernel source
+- determination_at (any, optional): type not evidenced by kernel source
+- determination_evidence_hash (any, optional): type not evidenced by kernel source
+- evaluated_at (any, optional): type not evidenced by kernel source
+- incident_id (any, optional): type not evidenced by kernel source
+- is_bank_holding_company (any, optional): type not evidenced by kernel source
+- is_national_bank (any, optional): type not evidenced by kernel source
+- is_state_member_bank (any, optional): type not evidenced by kernel source
+- nydfs_covered_entity (any, optional): type not evidenced by kernel source
+- nydfs_notification_completed_at (any, optional): type not evidenced by kernel source
+- sec_8k_filed_at (any, optional): type not evidenced by kernel source
+- sec_reporting_company (any, optional): type not evidenced by kernel source
+- sec_rescission_petition_pending (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

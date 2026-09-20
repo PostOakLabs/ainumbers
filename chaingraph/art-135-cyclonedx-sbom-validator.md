@@ -8,7 +8,7 @@ Validates a CycloneDX SBOM against the EU CRA Annex I machine-readable SBOM requ
 
 ## Inputs
 
-- sbom (unknown, optional)
+- sbom (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

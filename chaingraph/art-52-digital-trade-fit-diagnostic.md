@@ -8,18 +8,18 @@
 
 ## Inputs
 
-- annual_trade_docs (unknown, optional)
-- api_readiness (unknown, optional)
-- counterparty_type (unknown, optional)
-- dest_jurisdiction (unknown, optional)
-- doc_set_scope (unknown, optional)
-- ebl_platform (unknown, optional)
-- ebl_usage (unknown, optional)
-- finance_mode (unknown, optional)
-- origin_jurisdiction (unknown, optional)
-- party_screening (unknown, optional)
-- rule_basis (unknown, optional)
-- tbml_controls (unknown, optional)
+- annual_trade_docs (any, optional): type not evidenced by kernel source
+- api_readiness (any, optional): type not evidenced by kernel source
+- counterparty_type (any, optional): type not evidenced by kernel source
+- dest_jurisdiction (any, optional): type not evidenced by kernel source
+- doc_set_scope (any, optional): type not evidenced by kernel source
+- ebl_platform (any, optional): type not evidenced by kernel source
+- ebl_usage (any, optional): type not evidenced by kernel source
+- finance_mode (any, optional): type not evidenced by kernel source
+- origin_jurisdiction (any, optional): type not evidenced by kernel source
+- party_screening (any, optional): type not evidenced by kernel source
+- rule_basis (any, optional): type not evidenced by kernel source
+- tbml_controls (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

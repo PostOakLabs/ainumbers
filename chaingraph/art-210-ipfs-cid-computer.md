@@ -8,8 +8,8 @@ Computes a CIDv1 content address for text or metadata using SHA-256 multihash, r
 
 ## Inputs
 
-- codec (unknown, required)
-- text (unknown, required)
+- codec (any, required): type not evidenced by kernel source
+- text (any, required): type not evidenced by kernel source
 
 ## Outputs
 
