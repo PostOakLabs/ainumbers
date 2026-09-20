@@ -14,6 +14,38 @@
 // pp -> byte-identical output, twice), and ULP-boundary forcing on confidenceLevel/nmrfRate.
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
+// Mutation-mode trial cap (RCA01-MUTATION-TIER-COST-1; same shape as
+// pnr-01-dora-ict-cascade-simulator.proptest.mjs): the mutation tier runs this floor
+// once per mutant over the kernel's 1,401-mutant population, so the tier's wall clock
+// is (one full-trial pass) x (mutants run). Measured on origin/main 9e7dc3b6 (Stryker
+// 8.7.1, concurrency 2): the instrumented full-trial dry run alone costs ~11.6 s
+// ("Ran 1 tests in 11 seconds (net 11587 ms)"), so 1,401 mutants x ~11.6 s / 2
+// runners ≈ 2.25 h — far past the 600 s per-kernel bound, measured as
+// MUTATION-TIER TIMEOUT rca-01-frtb-ima-pre-validator after 600s on BOTH
+// origin/main and the RCA01-PLA-SCOPE-1 branch (the branch's P5/P6 additions can
+// only raise the per-pass cost further). OUTSIDE mutation mode nothing changes:
+// full trials (P1 100 / P2 100 / P3 80 x2 compute / P4 14 forced + the fixture
+// vector), the shipped floor — the standalone repo-checkout run still prints full
+// trials and validates the floor at FULL strength (quoted on the row's PR, run
+// OUTSIDE the tier where neither detection seam fires). INSIDE the tier (dry run
+// or mutant run) P1/P2 trials and P3 iterations are capped (default 2; override
+// with documented env PROPFLOOR_TRIAL_CAP, a positive integer, invalid values
+// throw). The fixture oracle and P4 ULP-boundary forcing are NEVER capped
+// (mandatory, float_sensitive: YES). Every property is deterministic (seeded
+// mulberry32), so the kill-power delta of the cap is a measured number, not a
+// hope: the row's fixed-mutant-subset before/after comparison (splice harness,
+// full trials vs cap) and the completed tier run's killed counts against the
+// mutation-tier-baseline.json pin (mm 275/1382, pe 0/19) are quoted on the row's
+// PR. Kill-power reasoning at the cap: a killed mutant is caught by the byte-exact
+// fixture oracle, the P1 echo checks, the P3 determinism metamorphic or the P2
+// differential on the FIRST draw that reaches the mutated branch — trial-count
+// sensitivity only appears for mutants whose violation surfaces on a LATE random
+// draw, and that residual is exactly what the subset comparison quantifies. The
+// other named lever, perTest coverage via per-property files, does not exist for
+// this tier: the command runner "does not know how many tests are executed or any
+// code coverage results" (command-test-runner.ts, Stryker 8.7.1), one full command
+// per mutant, so per-property split files would all still run.
+//
 // Run: node chaingraph/kernels/__proptests__/rca-01-frtb-ima-pre-validator.proptest.mjs
 
 import { compute } from '../rca-01-frtb-ima-pre-validator.kernel.mjs';
@@ -63,7 +95,20 @@ function randomPP(rng) {
 }
 function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
 
-const TRIALS = 100;
+// ---------- mutation-mode trial cap (RCA01-MUTATION-TIER-COST-1; see header) ----------
+const MUTATION_MODE =
+  process.env.__STRYKER_ACTIVE_MUTANT__ !== undefined ||
+  __dirname.replace(/\\/g, '/').includes('/ain-mutation-tier-');
+let mutationTrials = 2; // default per-mutant cap; full trials remain the default outside the tier
+if (process.env.PROPFLOOR_TRIAL_CAP !== undefined) {
+  const cap = Number(process.env.PROPFLOOR_TRIAL_CAP);
+  if (!Number.isInteger(cap) || cap <= 0) {
+    throw new Error(`PROPFLOOR_TRIAL_CAP must be a positive integer, got "${process.env.PROPFLOOR_TRIAL_CAP}"`);
+  }
+  mutationTrials = cap;
+}
+const TRIALS = MUTATION_MODE ? mutationTrials : 100;
+const P3_ITERATIONS = MUTATION_MODE ? mutationTrials : 80;
 
 // ---------- P1: termination — declared nScenarios/nPositions is the exact bound, not a clamp ----------
 function checkP1_termination_input_bound() {
@@ -97,7 +142,7 @@ function checkP2_capital_differential() {
 // ---------- P3: metamorphic — seed-determinism (same pp twice -> byte-identical output) ----------
 function checkP3_seed_determinism() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < P3_ITERATIONS; i++) {
     const pp = randomPP(rand);
     const r1 = compute(pp);
     const r2 = compute(pp);
