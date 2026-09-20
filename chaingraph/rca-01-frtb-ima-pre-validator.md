@@ -1,6 +1,6 @@
 # FRTB IMA Expected Shortfall Pre-Validator
 
-FRTB IMA Expected Shortfall pre-validation: MC simulation across liquidity horizons LH1–LH5 (10/20/40/60/120 days), NMRF surcharge estimation, PLA Test (green/amber/red), IMA vs SA floor capital comparison. Educational pre-validator ahead of UK IMA go-live January 2028.
+FRTB IMA Expected Shortfall pre-validation: MC simulation across liquidity horizons LH1–LH5 (10/20/40/60/120 days), NMRF surcharge estimation, Monte-Carlo convergence diagnostic (green/amber/red; a simulation-scale self-check, NOT the regulatory P&L-attribution test), IMA vs SA-floor capital comparison. Educational pre-validator ahead of UK IMA go-live January 2028.
 
 - Page: https://ainumbers.co/chaingraph/rca-01-frtb-ima-pre-validator.html
 - Markdown twin: https://ainumbers.co/chaingraph/rca-01-frtb-ima-pre-validator.md
