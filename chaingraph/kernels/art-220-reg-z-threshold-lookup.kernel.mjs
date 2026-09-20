@@ -48,31 +48,62 @@ const HOEPA = {
 // ---- HPML HIGHER-PRICED MORTGAGE (§1026.35) ----
 // HPML trigger: APR exceeds APOR by threshold pp
 // (1.5 pp for first lien; 2.5 pp for jumbo first lien >= FHFA conforming limit; 3.5 pp for sub lien)
-// These thresholds are set by Dodd-Frank and do NOT change annually — stable.
+// These rate triggers are set by Dodd-Frank and do NOT change annually - stable since 2014-01-10.
+//
+// FIELD RENAME (ART220-CARD-PENALTY-RECORD §6c, adjudicated 2026-09-08): the annual dollar figure
+// on these rows was mislabelled `escrow_exemption_threshold`. It is not the escrow exemption. The
+// §1026.35(b)(2)(iii) escrow exemption is an ASSET-SIZE test on the creditor, denominated in
+// billions and adjusted by its own separate annual rule (FR 2026-00085, 2026-01-07, $2.785 billion
+// for 2026). The 27,200 / 28,500 / 31,000 / 32,400 / 33,500 / 34,200 series is the
+// §1026.35(c)(2)(ii) SPECIAL-APPRAISAL exemption for smaller loans, adjusted by the joint
+// OCC / Board / Bureau rule titled "Appraisals for Higher-Priced Mortgage Loans Exemption
+// Threshold". Each year below is pinned to that year's joint rule, verbatim amounts.
+// ⚠ The pre-rebase branch pinned the 2026 figure to FR 2025-22773; that attribution is wrong
+// (2025-22773 does not amend, cite or mention §1026.35 anywhere - record §7f) and main's 34,500
+// matched no published year. Both are corrected here.
 const HPML = {
-  2021: { fr_citation: 'Dodd-Frank Act §1412; Reg Z §1026.35(a)(1); unchanged since 2014', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, escrow_exemption_threshold: 27200 },
-  2022: { fr_citation: 'Reg Z §1026.35(a)(1); unchanged since 2014', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, escrow_exemption_threshold: 28500 },
-  2023: { fr_citation: 'Reg Z §1026.35(a)(1); FR 2022-27762 (escrow threshold)', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, escrow_exemption_threshold: 31000 },
-  2024: { fr_citation: 'Reg Z §1026.35(a)(1); FR 2023-27060 (escrow threshold)', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, escrow_exemption_threshold: 32000 },
-  2025: { fr_citation: 'Reg Z §1026.35(a)(1); FR 2024-28929 (escrow threshold)', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, escrow_exemption_threshold: 33500 },
-  2026: { fr_citation: 'Reg Z §1026.35(a)(1); FR 2025-22773 (escrow threshold)', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, escrow_exemption_threshold: 34500 },
+  2021: { fr_citation: 'Reg Z §1026.35(a)(1) rate triggers unchanged since 2014; §1026.35(c)(2)(ii) special-appraisal exemption FR 2020-25872, 85 FR 79385 (eff. 2021-01-01)', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, hpml_special_appraisal_exemption_threshold: 27200 },
+  2022: { fr_citation: 'Reg Z §1026.35(a)(1) rate triggers unchanged since 2014; §1026.35(c)(2)(ii) special-appraisal exemption FR 2021-25908, 86 FR 67843 (eff. 2022-01-01)', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, hpml_special_appraisal_exemption_threshold: 28500 },
+  2023: { fr_citation: 'Reg Z §1026.35(a)(1) rate triggers unchanged since 2014; §1026.35(c)(2)(ii) special-appraisal exemption FR 2022-22820, 87 FR 63663 (eff. 2023-01-01)', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, hpml_special_appraisal_exemption_threshold: 31000 },
+  2024: { fr_citation: 'Reg Z §1026.35(a)(1) rate triggers unchanged since 2014; §1026.35(c)(2)(ii) special-appraisal exemption FR 2023-25047, 88 FR 83311 (eff. 2024-01-01)', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, hpml_special_appraisal_exemption_threshold: 32400 },
+  2025: { fr_citation: 'Reg Z §1026.35(a)(1) rate triggers unchanged since 2014; §1026.35(c)(2)(ii) special-appraisal exemption FR 2024-23277, 89 FR 82931 (eff. 2025-01-01)', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, hpml_special_appraisal_exemption_threshold: 33500 },
+  2026: { fr_citation: 'Reg Z §1026.35(a)(1) rate triggers unchanged since 2014; §1026.35(c)(2)(ii) special-appraisal exemption FR 2025-22875, 90 FR 58141 (eff. 2026-01-01)', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, hpml_special_appraisal_exemption_threshold: 34200 },
 };
 
-// ---- CARD ACT PENALTY FEES (Reg Z card penalty-fee safe harbors) ----
-// Safe-harbor amounts pinned from the eCFR versioner API as retrieved 2026-09-03
-// (primary-text snapshot: research/clause-snapshots/ART220-CARD-PENALTY-1026.52b1ii-HISTORICAL-ecfr-2026-09-03.md).
-// Year rows carry the state in force at year end. From 2024-05-14 (89 FR 19202) the structure is:
-// $8 late-payment cap for non-smaller issuers; $32/$43 for other violations (returned payment,
-// over-limit); smaller issuers' late fees capped at the (A)/(B) amounts instead of $8.
-const CARD_PENALTY_NOTE_PRE2024 = 'As retrieved 2026-09-03 from the eCFR versioner API, 12 CFR 1026.52(b)(1)(ii) read $29 first / $40 subsequent for 2021 (last adjusted 84 FR 37567) and $30 / $41 from 2022-01-01 (86 FR 60360).';
-const CARD_PENALTY_NOTE_2024ON = 'From 2024-05-14 (89 FR 19202, per the eCFR text as retrieved 2026-09-03): late-payment fee cap $8 (non-smaller issuers; smaller issuers per 1026.52(b)(1)(ii)(E)); other violations $32 first / $43 subsequent.';
+// ---- CARD ACT PENALTY FEES (§1026.52(b), Subpart G) ----
+// ⚠ THIS TABLE IS ADJUDICATED. Read board/done/ART220-CARD-PENALTY-RECORD-1.md and
+// research/ART220-CARD-PENALTY-RECORD-2026-09-08.md §§6-7 before changing a figure here, and do
+// NOT re-derive it from the eCFR face text: the eCFR still PRINTS a provision a federal court
+// voided, and printed is not in force. This is the exact hallucination class the node exists to
+// block, and an earlier revision of this very kernel fell into it.
+//
+// THE VACATUR, pinned to the primary record: the CFPB Credit Card Penalty Fees Final Rule
+// (89 FR 19128, FR doc 2024-05011) introduced an $8 late-payment cap for larger issuers. It was
+// preliminarily enjoined 2024-05-10, FOUR DAYS before its 2024-05-14 effective date, so it was
+// never operative for a single day, and was then VACATED 2025-04-15 under 5 U.S.C. 706(2) on the
+// parties' joint consent motion in Chamber of Commerce of the United States of America v. CFPB,
+// No. 4:24-cv-00213-P (N.D. Tex., Fort Worth Div., Pittman, J.). No appeal.
+// Docket: https://www.courtlistener.com/docket/68319595/
+// No agency removal document has been published, so the void $8 text is still printed in the
+// eCFR at its 2026-09-03 currency. eCFR currency is not force-of-law currency.
+//
+// CONSEQUENCE FOR THE VALUES: vacatur voids the 2024 carve-out, not the general branch. So
+// §1026.52(b)(1)(ii)(A)/(B) stands as ONE GENERAL penalty-fee safe harbor covering late fees and
+// other violations alike, at its current CPI-adjusted amounts: $32 for a first violation, $43 for
+// each subsequent violation of the same type within the same or next six billing cycles. There is
+// no separate late-fee number in force. The 2026 annual threshold adjustment (FR 2025-22773,
+// 90 FR 57890, eff. 2026-01-01) did NOT move them: a verbatim full-text read returned ZERO
+// occurrences of "1026.52", and its only amendatory instructions revise Supplement I comments to
+// §1026.32 and §1026.43 (record §7c / §7d).
+const CARD_PENALTY_NOTE_PRE2024 = 'General penalty-fee safe harbor under 12 CFR 1026.52(b)(1)(ii)(A)/(B), covering late fees and other violations alike. As retrieved 2026-09-03 from the eCFR versioner API, the paragraph read $29 first / $40 subsequent for 2021 (last adjusted 84 FR 37567) and $30 / $41 from 2022-01-01 (86 FR 60360).';
+const CARD_PENALTY_NOTE_2024ON = 'General penalty-fee safe harbor under 12 CFR 1026.52(b)(1)(ii)(A)/(B): $32 for a first violation, $43 for each subsequent violation of the same type within the same or next six billing cycles. It covers late fees and other violations alike. The CFPB $8 late-fee cap (89 FR 19128) is VOID and never took operative effect: preliminarily enjoined 2024-05-10, four days before its 2024-05-14 effective date, and vacated 2025-04-15 under 5 U.S.C. 706(2) in Chamber of Commerce v. CFPB, No. 4:24-cv-00213-P (N.D. Tex.), docket https://www.courtlistener.com/docket/68319595/ . No agency removal document has been published, so the void $8 text is still printed in the eCFR (currency 2026-09-03); printed is not in force. FR 2025-22773, 90 FR 57890 did not readjust these amounts for the 2026 cycle.';
 const CARD_PENALTY = {
-  2021: { fr_citation: 'Reg Z §1026.52(b)(1)(ii); 84 FR 37567', effective: '2019-08-01', late_fee_first: 29, late_fee_subsequent: 40, returned_payment: 29, over_limit: 29, note: CARD_PENALTY_NOTE_PRE2024 },
-  2022: { fr_citation: 'Reg Z §1026.52(b)(1)(ii); 86 FR 60360', effective: '2022-01-01', late_fee_first: 30, late_fee_subsequent: 41, returned_payment: 30, over_limit: 30, note: CARD_PENALTY_NOTE_PRE2024 },
-  2023: { fr_citation: 'Reg Z §1026.52(b)(1)(ii); 86 FR 60360', effective: '2022-01-01', late_fee_first: 30, late_fee_subsequent: 41, returned_payment: 30, over_limit: 30, note: CARD_PENALTY_NOTE_PRE2024 },
-  2024: { fr_citation: 'Reg Z §1026.52(b)(1)(ii); 89 FR 19202', effective: '2024-05-14', late_fee_first: 8, late_fee_subsequent: 8, returned_payment: 32, over_limit: 32, note: 'Through 2024-05-13 the 2023 amounts ($30/$41) applied; the row carries the year-end state. ' + CARD_PENALTY_NOTE_2024ON },
-  2025: { fr_citation: 'Reg Z §1026.52(b)(1)(ii); 89 FR 19202', effective: '2024-05-14', late_fee_first: 8, late_fee_subsequent: 8, returned_payment: 32, over_limit: 32, note: CARD_PENALTY_NOTE_2024ON },
-  2026: { fr_citation: 'Reg Z §1026.52(b)(1)(ii); 89 FR 19202', effective: '2024-05-14', late_fee_first: 8, late_fee_subsequent: 8, returned_payment: 32, over_limit: 32, note: CARD_PENALTY_NOTE_2024ON },
+  2021: { fr_citation: 'Reg Z §1026.52(b)(1)(ii)(A)/(B); 84 FR 37567', effective: '2019-08-01', late_fee_first: 29, late_fee_subsequent: 40, returned_payment: 29, over_limit: 29, note: CARD_PENALTY_NOTE_PRE2024 },
+  2022: { fr_citation: 'Reg Z §1026.52(b)(1)(ii)(A)/(B); 86 FR 60360', effective: '2022-01-01', late_fee_first: 30, late_fee_subsequent: 41, returned_payment: 30, over_limit: 30, note: CARD_PENALTY_NOTE_PRE2024 },
+  2023: { fr_citation: 'Reg Z §1026.52(b)(1)(ii)(A)/(B); 86 FR 60360', effective: '2022-01-01', late_fee_first: 30, late_fee_subsequent: 41, returned_payment: 30, over_limit: 30, note: CARD_PENALTY_NOTE_PRE2024 },
+  2024: { fr_citation: 'Reg Z §1026.52(b)(1)(ii)(A)/(B) as printed at eCFR currency 2026-09-03; the $8 branch of 89 FR 19128 is void ab initio (N.D. Tex. 4:24-cv-00213-P, 2025-04-15)', effective: '2024-01-01', late_fee_first: 32, late_fee_subsequent: 43, returned_payment: 32, over_limit: 32, note: CARD_PENALTY_NOTE_2024ON },
+  2025: { fr_citation: 'Reg Z §1026.52(b)(1)(ii)(A)/(B) as printed at eCFR currency 2026-09-03; the $8 branch of 89 FR 19128 is void ab initio (N.D. Tex. 4:24-cv-00213-P, 2025-04-15)', effective: '2025-01-01', late_fee_first: 32, late_fee_subsequent: 43, returned_payment: 32, over_limit: 32, note: CARD_PENALTY_NOTE_2024ON },
+  2026: { fr_citation: 'Reg Z §1026.52(b)(1)(ii)(A)/(B) as printed at eCFR currency 2026-09-03, not readjusted by FR 2025-22773, 90 FR 57890; the $8 branch of 89 FR 19128 is void ab initio (N.D. Tex. 4:24-cv-00213-P, 2025-04-15)', effective: '2026-01-01', late_fee_first: 32, late_fee_subsequent: 43, returned_payment: 32, over_limit: 32, note: CARD_PENALTY_NOTE_2024ON },
 };
 
 const TABLES = {
