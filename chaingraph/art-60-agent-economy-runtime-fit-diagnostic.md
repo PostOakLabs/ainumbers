@@ -8,18 +8,18 @@
 
 ## Inputs
 
-- agent_volume_txns_per_day (unknown, optional)
-- batch_settlement (unknown, optional)
-- dispute_path (unknown, optional)
-- hnp_autonomy (unknown, optional)
-- mandate_binding (unknown, optional)
-- metering_basis (unknown, optional)
-- operator_type (unknown, optional)
-- receipt_standard (unknown, optional)
-- recon_model (unknown, optional)
-- runtime_fraud_controls (unknown, optional)
-- settlement_protocol (unknown, optional)
-- spend_controls (unknown, optional)
+- agent_volume_txns_per_day (any, optional): type not evidenced by kernel source
+- batch_settlement (any, optional): type not evidenced by kernel source
+- dispute_path (any, optional): type not evidenced by kernel source
+- hnp_autonomy (any, optional): type not evidenced by kernel source
+- mandate_binding (any, optional): type not evidenced by kernel source
+- metering_basis (any, optional): type not evidenced by kernel source
+- operator_type (any, optional): type not evidenced by kernel source
+- receipt_standard (any, optional): type not evidenced by kernel source
+- recon_model (any, optional): type not evidenced by kernel source
+- runtime_fraud_controls (any, optional): type not evidenced by kernel source
+- settlement_protocol (any, optional): type not evidenced by kernel source
+- spend_controls (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

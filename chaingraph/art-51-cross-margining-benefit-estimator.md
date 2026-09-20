@@ -8,11 +8,11 @@ Estimates the initial-margin reduction from the FICC-CME cross-margining arrange
 
 ## Inputs
 
-- account_type (unknown, optional)
-- cme_positions (unknown, optional)
-- confidence_level (unknown, optional)
-- mpor_days (unknown, optional): Duration in days
-- ust_positions (unknown, optional)
+- account_type (any, optional): type not evidenced by kernel source
+- cme_positions (any, optional): type not evidenced by kernel source
+- confidence_level (any, optional): type not evidenced by kernel source
+- mpor_days (any, optional): Duration in days; type not evidenced by kernel source
+- ust_positions (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

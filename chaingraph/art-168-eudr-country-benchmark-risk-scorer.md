@@ -8,7 +8,7 @@ Score country-of-production against the EUDR benchmark risk classification (low/
 
 ## Inputs
 
-- country_code (unknown, optional)
+- country_code (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

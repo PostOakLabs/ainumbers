@@ -8,12 +8,12 @@ Checks EU CRA Annex I Part I essential cybersecurity requirements: sbom_present,
 
 ## Inputs
 
-- conformity_route (unknown, optional)
-- sbom_machine_readable (unknown, optional)
-- sbom_present (unknown, optional)
-- secure_by_default (unknown, optional)
-- top_level_deps_covered (unknown, optional)
-- vuln_handling_policy_present (unknown, optional)
+- conformity_route (any, optional): type not evidenced by kernel source
+- sbom_machine_readable (any, optional): type not evidenced by kernel source
+- sbom_present (any, optional): type not evidenced by kernel source
+- secure_by_default (any, optional): type not evidenced by kernel source
+- top_level_deps_covered (any, optional): type not evidenced by kernel source
+- vuln_handling_policy_present (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

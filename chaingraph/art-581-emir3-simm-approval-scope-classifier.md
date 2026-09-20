@@ -8,12 +8,12 @@ Classifies which EMIR 3 initial-margin model-approval obligations apply to a cal
 
 ## Inputs
 
-- as_of_date (unknown, optional)
-- competent_authority_declared (unknown, optional)
-- counterparty_type (unknown, optional)
-- model_status (unknown, optional)
-- model_type (unknown, optional)
-- subject_to_bilateral_im (unknown, optional)
+- as_of_date (any, optional): type not evidenced by kernel source
+- competent_authority_declared (any, optional): type not evidenced by kernel source
+- counterparty_type (any, optional): type not evidenced by kernel source
+- model_status (any, optional): type not evidenced by kernel source
+- model_type (any, optional): type not evidenced by kernel source
+- subject_to_bilateral_im (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

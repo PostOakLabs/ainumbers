@@ -8,7 +8,7 @@ Validates a pasted CycloneDX 1.6 Cryptography Bill of Materials against a hand-d
 
 ## Inputs
 
-- cbom (unknown, required)
+- cbom (any, required): type not evidenced by kernel source
 
 ## Outputs
 

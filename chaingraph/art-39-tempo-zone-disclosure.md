@@ -13,13 +13,13 @@ Maps a Tempo Zone's party-visibility model (operator-sees-all / users-see-own / 
 - amlSAR (boolean, required)
 - amlTravel (boolean, required)
 - opSeesAll (boolean, required)
-- operatorName (unknown, optional)
+- operatorName (any, optional): type not evidenced by kernel source
 - outsidersZK (boolean, required)
 - tip403Allow (boolean, required)
 - tip403Block (boolean, required)
 - tip403Freeze (boolean, required)
 - tip403Mainnet (boolean, required)
-- useCase (unknown, optional)
+- useCase (any, optional): type not evidenced by kernel source
 - userSeesOwn (boolean, required)
 
 ## Outputs

@@ -8,11 +8,11 @@ Gives an index's constituent set, as of a stated date, its own citable execution
 
 ## Inputs
 
-- as_of_date (unknown, optional)
+- as_of_date (any, optional): type not evidenced by kernel source
 - constituents (array, required)
-- eligibility_criteria_ref (unknown, optional)
-- index_id (unknown, optional)
-- selection_universe_size (unknown, required)
+- eligibility_criteria_ref (any, optional): type not evidenced by kernel source
+- index_id (any, optional): type not evidenced by kernel source
+- selection_universe_size (any, required): type not evidenced by kernel source
 
 ## Outputs
 

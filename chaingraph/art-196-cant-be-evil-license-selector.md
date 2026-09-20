@@ -8,10 +8,10 @@ Rights-matrix lookup for a16z's six Can't Be Evil NFT licenses. Maps creator ans
 
 ## Inputs
 
-- commercial (unknown, optional)
-- exclusive (unknown, optional)
-- hate_speech_termination (unknown, optional)
-- waive_all (unknown, optional)
+- commercial (any, optional): type not evidenced by kernel source
+- exclusive (any, optional): type not evidenced by kernel source
+- hate_speech_termination (any, optional): type not evidenced by kernel source
+- waive_all (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

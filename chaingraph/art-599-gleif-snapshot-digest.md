@@ -8,12 +8,12 @@ Hash-pins a pasted GLEIF Golden Copy record or file segment as of a caller-state
 
 ## Inputs
 
-- captured_at (unknown, required)
-- golden_copy_as_of (unknown, required)
-- last_update_date (unknown, required)
-- lei (unknown, required)
-- source_format (unknown, required)
-- source_text (unknown, required)
+- captured_at (any, required): type not evidenced by kernel source
+- golden_copy_as_of (any, required): type not evidenced by kernel source
+- last_update_date (any, required): type not evidenced by kernel source
+- lei (any, required): type not evidenced by kernel source
+- source_format (any, required): type not evidenced by kernel source
+- source_text (any, required): type not evidenced by kernel source
 
 ## Outputs
 

@@ -8,8 +8,8 @@ Build a cradle-to-gate supplier lineage with hash-only claims per stage (no trad
 
 ## Inputs
 
-- product_id (unknown, optional)
-- stages (unknown, optional)
+- product_id (any, optional): type not evidenced by kernel source
+- stages (any, optional): type not evidenced by kernel source
 
 ## Outputs
 

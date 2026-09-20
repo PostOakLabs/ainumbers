@@ -8,12 +8,12 @@ Audit scoped and revocable MCP tool access per the new MCP specification: each g
 
 ## Inputs
 
-- max_token_age_s (unknown, optional)
-- next_token_present (unknown, optional)
-- now_unix (unknown, optional)
-- revocation_endpoint (unknown, optional)
-- token_created_unix (unknown, optional)
-- tool_grants (unknown, optional)
+- max_token_age_s (any, optional): type not evidenced by kernel source
+- next_token_present (any, optional): type not evidenced by kernel source
+- now_unix (any, optional): type not evidenced by kernel source
+- revocation_endpoint (any, optional): type not evidenced by kernel source
+- token_created_unix (any, optional): type not evidenced by kernel source
+- tool_grants (any, optional): type not evidenced by kernel source
 
 ## Outputs
 
