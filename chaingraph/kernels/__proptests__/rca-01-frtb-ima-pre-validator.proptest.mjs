@@ -16,14 +16,21 @@
 //
 // Mutation-mode trial cap (RCA01-MUTATION-TIER-COST-1; same shape as
 // pnr-01-dora-ict-cascade-simulator.proptest.mjs): the mutation tier runs this floor
-// once per mutant over the kernel's 1,401-mutant population, so the tier's wall clock
-// is (one full-trial pass) x (mutants run). Measured on origin/main 9e7dc3b6 (Stryker
-// 8.7.1, concurrency 2): the instrumented full-trial dry run alone costs ~11.6 s
-// ("Ran 1 tests in 11 seconds (net 11587 ms)"), so 1,401 mutants x ~11.6 s / 2
-// runners ≈ 2.25 h — far past the 600 s per-kernel bound, measured as
-// MUTATION-TIER TIMEOUT rca-01-frtb-ima-pre-validator after 600s on BOTH
-// origin/main and the RCA01-PLA-SCOPE-1 branch (the branch's P5/P6 additions can
-// only raise the per-pass cost further). OUTSIDE mutation mode nothing changes:
+// once per active mutant, so the tier's wall clock is (one pass) x (mutants run).
+// Measured on origin/main 9e7dc3b6 (Stryker 8.7.1, concurrency 2): the
+// instrumented full-trial dry run alone costs ~11.6 s ("Ran 1 tests in 11 seconds
+// (net 11587 ms)"), so the unsplit 1,401-mutant population x ~11.6 s / 2 runners
+// ≈ 2.25 h — far past the 600 s per-kernel bound, measured as MUTATION-TIER
+// TIMEOUT rca-01-frtb-ima-pre-validator after 600s on BOTH origin/main and the
+// RCA01-PLA-SCOPE-1 branch. The same PR lands the tier's NAMED detmath-aware
+// mutate-surface split (mutation-tiers.config.json mutateSurfaceSplits, resolved
+// from the kernel's BEGIN/END deterministic-transcendental-math markers lines
+// 3-1555, sandbox copy only): the block's 1,158 algorithm-internal fdlibm mutants
+// are Ignored (excluded from the measured denominator), leaving 243 active
+// mutants (224 money-math + 19 peripheral). The cap is still what keeps even that
+// surface inside the bound — 243 x ~11.6 s full-trial / 2 ≈ 23 min > 600 s, while
+// the capped pass measured ~0.6-0.9 s (dry run 573-898 ms) and the split tier run
+// completed at 61.9 s. OUTSIDE mutation mode nothing changes:
 // full trials (P1 100 / P2 100 / P3 80 x2 compute / P4 14 forced + the fixture
 // vector), the shipped floor — the standalone repo-checkout run still prints full
 // trials and validates the floor at FULL strength (quoted on the row's PR, run
@@ -35,8 +42,8 @@
 // mulberry32), so the kill-power delta of the cap is a measured number, not a
 // hope: the row's fixed-mutant-subset before/after comparison (splice harness,
 // full trials vs cap) and the completed tier run's killed counts against the
-// mutation-tier-baseline.json pin (mm 275/1382, pe 0/19) are quoted on the row's
-// PR. Kill-power reasoning at the cap: a killed mutant is caught by the byte-exact
+// re-pinned mutation-tier-baseline.json pin (mm 147/224 on the split surface,
+// was 275/1382 blended; pe 0/19 unchanged) are quoted on the row's PR. Kill-power reasoning at the cap: a killed mutant is caught by the byte-exact
 // fixture oracle, the P1 echo checks, the P3 determinism metamorphic or the P2
 // differential on the FIRST draw that reaches the mutated branch — trial-count
 // sensitivity only appears for mutants whose violation surfaces on a LATE random
