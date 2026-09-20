@@ -31,6 +31,19 @@
  *      floor to fit it — SO #36's "kernel whose floor is unreachable in this
  *      row = named lead", never a silent threshold change).
  *
+ *   4. RCA01-MUTATION-TIER-COST-1: a third config-declared category,
+ *      `mutateSurfaceSplits` — a NAMED detmath-aware mutate-surface split.
+ *      For a kernel that carries the GENERATED fdlibm detmath block behind
+ *      explicit BEGIN/END deterministic-transcendental-math markers, the
+ *      config may name the block's line range; the tier then disables
+ *      mutation across that range on the SANDBOX COPY ONLY (Stryker's own
+ *      `Stryker disable all` / `Stryker restore` directive comments, appended
+ *      to the marker lines — zero tracked kernel bytes change, zero line
+ *      shift), scoring the kernel's own authored logic instead of a
+ *      detmath-dominated population that cannot finish inside the default
+ *      bound. The config entry is re-verified against the kernel's markers on
+ *      every run and fails loudly on drift; see resolveSurfaceSplit().
+ *
  * Usage:
  *   node scripts/run-mutation-tier.mjs --kernel <id> [<id> ...]
  *       Scoped run over the given kernel id(s) — this is the PR-incremental
@@ -461,6 +474,119 @@ export function decomposedGateDecision(dec, config) {
   return dec.propertyRatio >= config.propertyKillsBreakFloor ? 'PASS' : 'FAIL';
 }
 
+// ── named mutate-surface split (RCA01-MUTATION-TIER-COST-1) ──────────────
+// The DETMATH-SWAP batch-B kernels (see mutation-tiers.config.json namedLeads:
+// ml-02, qfa-02, rca-02, qfa-01, pnr-01, sim-01) inline the GENERATED fdlibm
+// detmath block behind explicit BEGIN/END marker comments, and that block's
+// algorithm-internal coefficient/guard-branch mutants are structurally
+// unreachable from compute()-level behavioral floors while dominating the
+// instrumented population — for rca-01 the 1,401-mutant population made the
+// tier unable to finish inside the default 600 s bound at all (measured
+// MUTATION-TIER TIMEOUT on origin/main AND the PR branch). A config-declared
+// split (`mutateSurfaceSplits`) lets the tier score a NAMED kernel's own
+// authored logic by disabling mutation across the marker-delimited block in
+// the SANDBOX COPY ONLY:
+//   * zero tracked kernel bytes change — the directives are appended to the
+//     sandbox copy after copySandboxDeps; the real kernel file is never
+//     written (a kernel edit would force a re-prove);
+//   * the exclusion is NAMED in mutation-tiers.config.json — kernel id, the
+//     exact BEGIN/END line range and the reason — never a silent ignore;
+//   * the config's recorded range is re-resolved from the kernel's own
+//     markers on EVERY run and must match, or the run fails LOUDLY naming
+//     both numbers (stale config rots loudly; it never silently widens or
+//     shrinks the excluded surface — SO #34c);
+//   * behavior is unchanged — the directives are comments. The unmutated
+//     sandbox kernel the floor executes is byte-identical except for them,
+//     and Stryker's instrumented dry run proves that on every run.
+
+const DETMATH_BEGIN_RE = /^\s*\/\*\s*===== BEGIN deterministic transcendental math\b/;
+const DETMATH_END_RE = /^\s*\/\*\s*===== END deterministic transcendental math\b/;
+
+/**
+ * findDetmathMarkerRange — resolve the kernel's BEGIN/END
+ * deterministic-transcendental-math marker pair as a 1-indexed inclusive
+ * [startLine, endLine], or null when either marker is absent (the caller must
+ * fail loudly, never guess a range).
+ * @param {string} source
+ * @returns {[number, number] | null}
+ */
+export function findDetmathMarkerRange(source) {
+  const lines = source.split(/\r?\n/);
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (start === -1) {
+      if (DETMATH_BEGIN_RE.test(lines[i])) start = i + 1;
+    } else if (DETMATH_END_RE.test(lines[i])) {
+      return [start, i + 1];
+    }
+  }
+  return null;
+}
+
+/**
+ * surfaceSplitPatch — append StrykerJS's own documented disable/restore
+ * directive pair (`// Stryker disable all[: reason]` … `// Stryker restore`,
+ * stryker-mutator.io "Ignore mutations") to the given 1-indexed inclusive
+ * ranges' boundary lines. The boundaries are the kernel's pure block-comment
+ * marker lines — no code, no mutants of their own — so appending keeps every
+ * line number stable and classifyKernelSource ranges computed on the ORIGINAL
+ * source stay valid for the patched sandbox copy. The original file's EOL
+ * convention is preserved.
+ * @param {string} source
+ * @param {Array<[number, number]>} excludedRanges
+ * @returns {string}
+ */
+export function surfaceSplitPatch(source, excludedRanges) {
+  const lines = source.split(/\r?\n/);
+  for (const [start, end] of excludedRanges) {
+    if (!(start >= 1 && end >= start && end <= lines.length)) {
+      throw new Error(`surfaceSplitPatch: excluded range [${start}, ${end}] is outside the ${lines.length}-line source`);
+    }
+    lines[start - 1] += ' // Stryker disable all: named detmath surface split (mutation-tiers.config.json mutateSurfaceSplits; RCA01-MUTATION-TIER-COST-1) — sandbox copy only, tracked kernel bytes unchanged';
+    // Stryker 8.7.1's directive grammar REQUIRES the mutator list on restore too
+    // (instrumenter's strykerCommentDirectiveRegex: `Stryker (disable|restore)( (next-line))? ([a-zA-Z, ]+)[:reason]`)
+    // — a bare `// Stryker restore` never matches and leaves every later mutant
+    // ignored (measured: the first split run came back 1401/1401 Ignored).
+    lines[end - 1] += ' // Stryker restore all';
+  }
+  return lines.join(source.includes('\r\n') ? '\r\n' : '\n');
+}
+
+/**
+ * resolveSurfaceSplit — read mutation-tiers.config.json's `mutateSurfaceSplits`
+ * entry for one kernel and verify it against the kernel's own markers.
+ * Returns null when the config names no split for the kernel (the default for
+ * every kernel — the tier behaves exactly as before this section). Throws
+ * LOUDLY when an entry is malformed, names a kernel that carries no markers
+ * at all (a named exclusion that names nothing is a config error, not a
+ * no-op), or whose recorded ranges do not EXACTLY match the marker-resolved
+ * range (stale config; update the config to the marker-resolved numbers).
+ * @param {string} kernelId
+ * @param {object | null} tierConfig — parsed mutation-tiers.config.json
+ * @param {string} source — the kernel's source text
+ * @returns {{ excludedRanges: Array<[number, number]>, reason: string } | null}
+ */
+export function resolveSurfaceSplit(kernelId, tierConfig, source) {
+  const splits = (tierConfig && tierConfig.mutateSurfaceSplits) || {};
+  if (!Object.prototype.hasOwnProperty.call(splits, kernelId)) return null;
+  const entry = splits[kernelId];
+  const configured = entry && entry.excludedRanges;
+  const rangeOk = (r) => Array.isArray(r) && r.length === 2 && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] >= 1 && r[1] >= r[0];
+  if (!Array.isArray(configured) || configured.length === 0 || !configured.every(rangeOk)) {
+    throw new Error(`mutation-tiers.config.json mutateSurfaceSplits["${kernelId}"] must carry a non-empty excludedRanges array of [startLine, endLine] integer pairs, got ${JSON.stringify(configured)}`);
+  }
+  const markers = findDetmathMarkerRange(source);
+  if (!markers) {
+    throw new Error(`mutation-tiers.config.json mutateSurfaceSplits names kernel "${kernelId}" but its source carries no BEGIN/END deterministic-transcendental-math markers — the named exclusion names nothing (stale config; fix the config or the kernel, never guess)`);
+  }
+  for (const [s, e] of configured) {
+    if (s !== markers[0] || e !== markers[1]) {
+      throw new Error(`mutation-tiers.config.json mutateSurfaceSplits["${kernelId}"] excludedRanges ${JSON.stringify(configured)} do not match the kernel's own BEGIN/END deterministic-transcendental-math markers at lines ${markers[0]}-${markers[1]} — stale config; update the config to the marker-resolved range`);
+    }
+  }
+  return { excludedRanges: configured.map((r) => [r[0], r[1]]), reason: typeof entry.reason === 'string' ? entry.reason : '' };
+}
+
 // ── per-kernel scratch build + run ───────────────────────────────────────
 // MUTATION-TIER-PBTCOMMON-FIX-1 fixed a scratch wiring gap (chaingraph/kernels/__proptests__/
 // _pbt-common.mjs, imported by 50+ proptest floors, never got copied — only the top-level
@@ -502,7 +628,7 @@ export function copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath,
 // is the kernel's WHOLE wall-clock budget: both the as-shipped run and the
 // decomposed second run draw down one deadline set when the kernel starts, so
 // a decomposed run can never double the wall clock past the bound.
-export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRoot = REPO) {
+export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRoot = REPO, tierConfig = null) {
   const kernelsDir = path.join(repoRoot, 'chaingraph', 'kernels');
   const proptestsDir = path.join(kernelsDir, '__proptests__');
   const fixturesDir = path.join(kernelsDir, 'fixtures');
@@ -523,6 +649,17 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
     return { id, hardFail: 'non-canonical kernel shape (no `export function buildArtifact` found) — add it to excludedKernels in mutation-tiers.config.json instead of running it unsplit' };
   }
 
+  // RCA01-MUTATION-TIER-COST-1: a config-named mutate-surface split (verified
+  // against the kernel's own BEGIN/END markers) shrinks the instrumented
+  // population to the kernel's own authored logic. A malformed or stale entry
+  // is a hard fail HERE, before any sandbox work.
+  let surfaceSplit = null;
+  try {
+    surfaceSplit = resolveSurfaceSplit(id, tierConfig, source);
+  } catch (e) {
+    return { id, hardFail: e.message };
+  }
+
   const kernelRelPath = `chaingraph/kernels/${kernelFile}`;
   const proptestRelPath = `chaingraph/kernels/__proptests__/${proptestFile}`;
   const fixturesRelPath = `chaingraph/kernels/fixtures/${fixturesFile}`;
@@ -530,6 +667,17 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
     copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath, scratchRoot, repoRoot);
   } catch (e) {
     return { id, hardFail: e.message };
+  }
+
+  // The split's directives land ONLY on the sandbox copy (see the section
+  // comment above): the real kernel file is never written, and the patch
+  // persists for the kernel's whole budget so a decomposed second run sees
+  // the same instrumented surface as the as-shipped first run.
+  if (surfaceSplit) {
+    const sandboxKernelPath = path.join(scratchRoot, kernelRelPath);
+    writeFileSync(sandboxKernelPath, surfaceSplitPatch(readFileSync(sandboxKernelPath, 'utf8'), surfaceSplit.excludedRanges));
+    const rangeText = surfaceSplit.excludedRanges.map(([s, e]) => `${s}-${e}`).join(', ');
+    console.log(`  mutate-surface split (named in mutation-tiers.config.json mutateSurfaceSplits): sandbox copy only — mutation disabled across the deterministic-transcendental-math block, lines ${rangeText}; tracked kernel bytes untouched`);
   }
 
   // MUTATION-TIER-HANG-MMS03-PNR01-1: one wall-clock deadline for the WHOLE
@@ -565,6 +713,38 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
   let report;
   try { report = JSON.parse(readFileSync(reportPath, 'utf8')); }
   catch (e) { return { id, hardFail: `report.json unparseable: ${e.message}` }; }
+
+  // RCA01-MUTATION-TIER-COST-1: status `Ignored` is Stryker's marker for a
+  // mutant disabled by a directive comment. Those mutants were NOT executed —
+  // they are not part of the measured surface and must not sit in the score's
+  // denominator — but an exclusion is only ever legal when THIS kernel's
+  // config entry names it. So: Ignored mutants inside the named excluded
+  // ranges are counted, printed, and dropped from the measured surface;
+  // Ignored mutants anywhere else — or any Ignored mutant at all on a kernel
+  // no mutateSurfaceSplits entry names — are a HARD FAIL (a silent exclusion
+  // is never a pass, SO #34c). Kernels without any directive comment are
+  // unaffected: no Ignored mutants, no change to any denominator.
+  const ignored = [];
+  for (const [filePath, data] of Object.entries(report.files || {})) {
+    for (const m of data.mutants || []) {
+      if (m.status === 'Ignored' && typeof m.location?.start?.line === 'number') ignored.push([filePath, m]);
+    }
+  }
+  if (ignored.length > 0) {
+    const outside = ignored.filter(([filePath, m]) => {
+      if (!surfaceSplit) return true;
+      if (filePath.replace(/\\/g, '/') !== kernelRelPath) return true;
+      const line = m.location.start.line;
+      return !surfaceSplit.excludedRanges.some(([s, e]) => line >= s && line <= e);
+    });
+    if (outside.length > 0) {
+      return { id, hardFail: `${outside.length} report mutant(s) carry status Ignored outside the named excluded surface${surfaceSplit ? ` (mutateSurfaceSplits lines ${surfaceSplit.excludedRanges.map(([s, e]) => `${s}-${e}`).join(', ')})` : ' — no mutateSurfaceSplits entry names this kernel'} — a silent exclusion is never a pass (SO #34c); name the surface in mutation-tiers.config.json or remove the Stryker directive comment` };
+    }
+    for (const data of Object.values(report.files || {})) {
+      data.mutants = (data.mutants || []).filter((m) => m.status !== 'Ignored');
+    }
+    console.log(`  mutation-surface: ${ignored.length} mutant(s) inside the named excluded range(s) are Ignored — excluded from the measured denominator (named in mutation-tiers.config.json mutateSurfaceSplits, never silent)`);
+  }
 
   const tiers = tierReport(report, kernelRelPath, peripheralRanges);
 
@@ -729,7 +909,7 @@ export async function runTier(argv, repoRoot = REPO) {
     // validated up-front) and run it under that budget, not a process-wide one.
     const kernelOpts = { ...opts, kernelTimeoutS: kernelTimeoutSecondsForKernel(id, process.env, config) };
     console.log(`  per-kernel wall-clock bound: ${kernelOpts.kernelTimeoutS}s`);
-    const r = await runOneKernel(id, scratchRoot, kernelOpts, config.strykerVersion, repoRoot);
+    const r = await runOneKernel(id, scratchRoot, kernelOpts, config.strykerVersion, repoRoot, config);
     results.push(r);
     if (r.hardFail) {
       hardFailCount++;

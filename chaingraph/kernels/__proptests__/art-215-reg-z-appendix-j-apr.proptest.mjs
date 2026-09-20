@@ -12,6 +12,45 @@
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-215-reg-z-appendix-j-apr.proptest.mjs
+//
+// MUTATION-MODE TRIAL CAP (ART215-MUTATION-TIER-COST-1, test-side cost cut):
+// Under the mutation tier (scripts/run-mutation-tier.mjs, Stryker 8.7.1 command
+// runner) each of this kernel's 294 mutants (at authoring) re-runs this whole
+// floor against Stryker's INSTRUMENTED kernel, and the instrumenter is the
+// cost: the full-trial floor runs in ~4.6 s standalone (measured on this file,
+// 2026-09-20) but the tier's initial dry run measured net 153878 ms on
+// origin/main (reproduced on the row: "Ran 1 tests in 2 minutes 33 seconds
+// (net 153878 ms)") — a ~33x instrumenter factor on the same ~12,000 compute()
+// calls. Projection at full trials: 294 x ~157 s / 2 runners ~ 23,200 s, far
+// past the 600 s per-kernel bound (MUTATION-TIER-HANG-MMS03-PNR01-1).
+//
+// Cost driver, measured (not guessed): compute() is a bracketed bisection
+// whose residual loops run once per payment, so per-call cost is ~linear in
+// num_payments — median 5 us at num_payments=6 vs 813 us at 360, generator
+// range 6..360 (mean ~183). That closes the generator-range lever: fitting
+// 294 mutants / 2 runners inside 600 s needs a per-pass ~3 s, i.e. a mean
+// num_payments around 4 — BELOW the generator's own minimum of 6. The range
+// would have to be amputated to a single point to move the bound, so the
+// chosen lever is TRIAL COUNT, capped IN MUTATION MODE ONLY, detected two
+// ways exactly as pnr-01 (PNR01-MUTATION-MC-COST-1): (a) the seam Stryker
+// itself owns — CommandTestRunner.mutantRun() sets env __STRYKER_ACTIVE_MUTANT__
+// for MUTANT runs; (b) the tier sandbox cwd — run-mutation-tier.mjs copies
+// this proptest into %TEMP%\ain-mutation-tier-<pid>\ and runs the Stryker
+// INITIAL DRY RUN there too, so __dirname under that root marks dry-run
+// context (MEASURED on pnr-01 2026-09-14: leaving the dry run at FULL trials
+// trips Stryker's own 300 s dryRunTimeout before any mutant runs, so the dry
+// run must be capped too — the floor is still validated at FULL trials by
+// this file's standalone repo-checkout run, outside the tier, where neither
+// detection fires). Default cap 50 (~2 s instrumented per pass; projected
+// tier wall ~294 x (1.9 s + process spawn) / 2 + boot ~ 430 s, inside the
+// 600 s bound with margin); override with documented env PROPFLOOR_TRIAL_CAP,
+// a positive integer, invalid values throw. The fixture oracle and P4
+// ULP-boundary forcing are NEVER capped (mandatory, float_sensitive: YES).
+// Every property is deterministic (seeded mulberry32; a capped run takes the
+// first N draws of the same stream), so a violation found under the cap is
+// found under full trials too: kill-power can only be affected by violations
+// that first surface on a late draw, quantified by the fixed named-mutant
+// subset before/after comparison quoted on the row's PR.
 
 import { compute } from '../art-215-reg-z-appendix-j-apr.kernel.mjs';
 import { readFileSync } from 'node:fs';
@@ -67,7 +106,19 @@ function referenceResidual(loan_amount, payment_amount, num_payments, i) {
   return pvPayments - loan_amount;
 }
 
-const TRIALS = 4000;
+// ---------- mutation-mode trial cap (ART215-MUTATION-TIER-COST-1; see header) ----------
+const MUTATION_MODE =
+  process.env.__STRYKER_ACTIVE_MUTANT__ !== undefined ||
+  __dirname.replace(/\\/g, '/').includes('/ain-mutation-tier-');
+let mutationTrials = 50; // default per-mutant cap; full trials remain the default outside the tier
+if (process.env.PROPFLOOR_TRIAL_CAP !== undefined) {
+  const cap = Number(process.env.PROPFLOOR_TRIAL_CAP);
+  if (!Number.isInteger(cap) || cap <= 0) {
+    throw new Error(`PROPFLOOR_TRIAL_CAP must be a positive integer, got "${process.env.PROPFLOOR_TRIAL_CAP}"`);
+  }
+  mutationTrials = cap;
+}
+const TRIALS = MUTATION_MODE ? mutationTrials : 4000;
 
 // ---------- P1: convergence-or-report — never a silently-wrong rate ----------
 function checkP1_convergenceOrReport() {
@@ -143,32 +194,127 @@ function checkP3_differentialRate() {
 }
 
 // ---------- P4 (ULP-forcing, float:yes): bracket-search edges ----------
+// ART215-MUTATION-TIER-COST-1: the boundary set now also HOLDS THE FLOOR TO the
+// kernel's own documented edge behaviours, each assertion citing the kernel
+// comment/spec line it asserts: PRE-7 (a schedule with no payment carried at a
+// positive time has no rate dependence -> NO_RATE), PRE-8 (payments that cannot
+// repay the advances -> no bracket -> never a rate), Appendix J (b)(7) time-form
+// equivalence (odd_days 45/30 wraps to the SAME schedule as 15/30, negative
+// odd_days normalises to 0, and the legacy {periods_from_consummation} flow form
+// splits at the integer boundary — equivalent forms must be byte-identical), the
+// documented num_payments clamp (Math.max(1, ...)), compute's documented
+// explicit advances[]/payments[] input shape, and missing/NaN/Infinity inputs
+// staying finite-or-null. Each case also pins the documented compliance_flags
+// contract: APR_DID_NOT_CONVERGE on !converged, APR_NOT_BRACKETED on
+// !bracketed, APR_NON_POSITIVE on a bracketed converged apr <= 0,
+// APR_EXCEEDS_40_PCT_VERIFY on apr > 40 — and no flag where its trigger is
+// absent. These are FIXED cases: ~15 extra computes per pass, deterministic,
+// and NEVER subject to the mutation-mode trial cap (mandatory,
+// float_sensitive: YES). Without them the tier measured money-math 146/266
+// (54.9% < 60% floor): the surviving mutants are coverage gaps on exactly these
+// documented edges, not late-draw draws, so trial count cannot buy the kills back.
 function checkP4_ulpForcing() {
   let violations = 0, checked = 0;
+  // exactFlags(arr) — the case's compliance_flags must equal EXACTLY arr.
+  const exactFlags = (arr) => (o, f) => { if (JSON.stringify(f) !== JSON.stringify(arr)) violations++; };
+  const NO_RATE_FLAGS = ['APR_DID_NOT_CONVERGE', 'APR_NOT_BRACKETED'];
   const cases = [
-    // zero finance charge: single payment equal to advance -> g0 === 0 -> apr 0, converged
-    { loan_amount: 1000, payment_amount: 1000, num_payments: 1, periods_per_year: 12 },
-    // unrepayable: total payments < advance -> g0 < 0 -> NO_RATE, must report non-convergence
-    { loan_amount: 10000, payment_amount: 1, num_payments: 1, periods_per_year: 12 },
-    // degenerate non-rate-dependent schedule: zero-amount payments
-    { loan_amount: 5000, payment_amount: 0, num_payments: 12, periods_per_year: 12 },
-    // odd-days fraction at exact 0 and near-1 boundary
-    { loan_amount: 200000, payment_amount: 1264.14, num_payments: 360, periods_per_year: 12, odd_days: 0, unit_period_days: 30 },
-    { loan_amount: 200000, payment_amount: 1264.14, num_payments: 360, periods_per_year: 12, odd_days: 29.999999999, unit_period_days: 30 },
-    // denormal-scale loan amount
-    { loan_amount: 1e-300, payment_amount: 1e-300, num_payments: 1, periods_per_year: 12 },
-    // negative zero loan amount
-    { loan_amount: -0, payment_amount: 100, num_payments: 12, periods_per_year: 12 },
+    { name: 'zero_finance_charge_single_payment', pp:
+      // zero finance charge: single payment equal to advance -> g0 === 0 -> apr 0, converged
+      { loan_amount: 1000, payment_amount: 1000, num_payments: 1, periods_per_year: 12 },
+      spec: (o, f) => {
+        if (o.apr_pct !== 0 || o.converged !== true || o.bracketed !== true) violations++;
+        exactFlags(['APR_NON_POSITIVE'])(o, f); // bracketed, converged, apr <= 0
+      } },
+    { name: 'unrepayable_no_rate', pp:
+      // unrepayable: total payments < advance -> g0 < 0 -> NO_RATE, must report non-convergence
+      { loan_amount: 10000, payment_amount: 1, num_payments: 1, periods_per_year: 12 },
+      spec: (o, f) => {
+        if (o.apr_pct !== null || o.periodic_rate !== null || o.bracketed !== false || o.converged !== false) violations++;
+        exactFlags(NO_RATE_FLAGS)(o, f);
+      } },
+    { name: 'degenerate_zero_amount_payments', pp:
+      // degenerate non-rate-dependent schedule: zero-amount payments -> PRE-7 -> NO_RATE
+      { loan_amount: 5000, payment_amount: 0, num_payments: 12, periods_per_year: 12 },
+      spec: (o, f) => {
+        if (o.apr_pct !== null || o.bracketed !== false) violations++;
+        exactFlags(NO_RATE_FLAGS)(o, f);
+      } },
+    { name: 'odd_days_zero', pp:
+      // odd-days fraction at exact 0 and near-1 boundary
+      { loan_amount: 200000, payment_amount: 1264.14, num_payments: 360, periods_per_year: 12, odd_days: 0, unit_period_days: 30 },
+      spec: exactFlags([]) },
+    { name: 'odd_days_near_one', pp:
+      { loan_amount: 200000, payment_amount: 1264.14, num_payments: 360, periods_per_year: 12, odd_days: 29.999999999, unit_period_days: 30 },
+      spec: exactFlags([]) },
+    { name: 'odd_days_wrap_one_and_a_half', pp:
+      // (b)(7) wrap: 45/30 = 1.5 unit-periods -> 1 full period + 0.5 fraction
+      { loan_amount: 200000, payment_amount: 1264.14, num_payments: 360, periods_per_year: 12, odd_days: 45, unit_period_days: 30 },
+      spec: exactFlags([]) },
+    { name: 'odd_days_half_equivalent', pp:
+      // the SAME schedule priced as 15/30 — must be byte-identical to the wrapped form
+      { loan_amount: 200000, payment_amount: 1264.14, num_payments: 360, periods_per_year: 12, odd_days: 15, unit_period_days: 30 },
+      spec: exactFlags([]) },
+    { name: 'odd_days_negative', pp:
+      // negative odd_days must normalise to 0 (Math.max(0, ...)) — byte-identical to odd_days 0
+      { loan_amount: 200000, payment_amount: 1264.14, num_payments: 360, periods_per_year: 12, odd_days: -15, unit_period_days: 30 },
+      spec: exactFlags([]) },
+    { name: 'denormal_scale_loan', pp:
+      // denormal-scale loan amount
+      { loan_amount: 1e-300, payment_amount: 1e-300, num_payments: 1, periods_per_year: 12 },
+      spec: null },
+    { name: 'negative_zero_loan', pp:
+      // negative zero loan amount
+      { loan_amount: -0, payment_amount: 100, num_payments: 12, periods_per_year: 12 },
+      spec: null },
+    { name: 'apr_exceeds_40', pp:
+      // a steep schedule solving above 40% APR must raise the verify flag — and ONLY it
+      { loan_amount: 1000, payment_amount: 300, num_payments: 6, periods_per_year: 12 },
+      spec: (o, f) => {
+        if (!(o.apr_pct > 40)) violations++;
+        exactFlags(['APR_EXCEEDS_40_PCT_VERIFY'])(o, f);
+      } },
+    { name: 'explicit_schedule_legacy_flow_form', pp:
+      // compute's documented explicit advances[]/payments[] input shape, with the
+      // legacy {periods_from_consummation} flow form (normFlow splits it at the
+      // integer boundary per (b)(7))
+      { advances: [{ amount: 10000, full_periods: 0, fraction: 0 }], payments: [{ amount: 300, periods_from_consummation: 1.5 }, { amount: 300, periods_from_consummation: 2.5 }], periods_per_year: 12 },
+      spec: (o) => { if (o.num_payments !== 2) violations++; } },
+    { name: 'explicit_schedule_full_period_form', pp:
+      // the SAME schedule as legacy_flow_form in the {full_periods, fraction} form — byte-identical
+      { advances: [{ amount: 10000, full_periods: 0, fraction: 0 }], payments: [{ amount: 300, full_periods: 1, fraction: 0.5 }, { amount: 300, full_periods: 2, fraction: 0.5 }], periods_per_year: 12 },
+      spec: (o) => { if (o.num_payments !== 2) violations++; } },
+    { name: 'missing_fields_defaults', pp:
+      // missing fields -> safeNum defaults; output stays well-formed
+      {},
+      spec: (o, f) => { if (o.num_payments !== 1) violations++; exactFlags(NO_RATE_FLAGS)(o, f); } },
+    { name: 'null_fields_defaults', pp:
+      { loan_amount: null, payment_amount: null, num_payments: null, periods_per_year: null },
+      spec: (o, f) => { if (o.num_payments !== 1) violations++; exactFlags(NO_RATE_FLAGS)(o, f); } },
+    { name: 'nan_negative_fields', pp:
+      // NaN/Infinity/-5 inputs must clamp/defaults, never leak NaN into the payload
+      { loan_amount: NaN, payment_amount: Infinity, num_payments: -5, periods_per_year: 12 },
+      spec: (o, f) => { if (o.num_payments !== 1) violations++; exactFlags(NO_RATE_FLAGS)(o, f); } },
   ];
+  const outs = {};
   for (const c of cases) {
     checked++;
-    const { output_payload: o } = compute(c);
+    const { output_payload: o, compliance_flags: f } = compute(c.pp);
+    outs[c.name] = o;
     // must always report a well-formed, finite-or-null result — never NaN/Infinity leak
     if (o.apr_pct !== null && !Number.isFinite(o.apr_pct)) violations++;
     if (o.periodic_rate !== null && !Number.isFinite(o.periodic_rate)) violations++;
     if (o.iterations > BISECT_STEPS || o.iterations < 0) violations++;
     if (typeof o.converged !== 'boolean' || typeof o.bracketed !== 'boolean') violations++;
+    if (c.spec) c.spec(o, f);
   }
+  // (b)(7) time-form equivalences: schedules that are the same flows at the same
+  // times must produce byte-identical payloads (mutating the odd_frac wrap, the
+  // negative-odd_days normalisation, the legacy-form split or the simple-interest
+  // fraction factor breaks at least one identity).
+  if (JSON.stringify(outs.odd_days_wrap_one_and_a_half) !== JSON.stringify(outs.odd_days_half_equivalent)) violations++;
+  if (JSON.stringify(outs.odd_days_negative) !== JSON.stringify(outs.odd_days_zero)) violations++;
+  if (JSON.stringify(outs.explicit_schedule_legacy_flow_form) !== JSON.stringify(outs.explicit_schedule_full_period_form)) violations++;
   return { name: 'P4_ulp_boundary_forcing_bracket_edges', trials: checked, violations };
 }
 
