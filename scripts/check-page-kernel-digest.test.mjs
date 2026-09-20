@@ -12,6 +12,9 @@
 //   NOT-SHIELDED the SAME baselined page with a WRONG sentinel => MISMATCH (absence is shielded,
 //                a wrong value never is)
 //   NEW-FILE     page absent from the baseline with no sentinel => UNSTAMPED_NEW (fails)
+//   DUAL-READ    meta-form page => OK (format=meta); legacy comment-form => OK (format=legacy,
+//                deprecated); a wrong/malformed/kernel-less value FAILS in EITHER form; both
+//                forms in one page => DUPLICATE; neither => UNSTAMPED_NEW (PAGE-DIGEST-META-FIX-1)
 //   COUNTS-ONLY-DOWN  planBaselineUpdate refuses an addition; baselineCeilingBreach catches a
 //                hand-edited regrowth.
 //
@@ -26,8 +29,10 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   classifyPage,
+  findMetaDigests,
   findSentinels,
   kernelFileForPage,
+  metaLineFor,
   planBaselineUpdate,
   baselineCeilingBreach,
   FAILING_STATES,
@@ -58,6 +63,9 @@ assert(/^sha256:[0-9a-f]{64}$/.test(DIGEST_V1), 'sourceDigest returns a sha256:-
 
 const page = (digest) =>
   `<!DOCTYPE html>\n<html><head>\n${digest ? SENTINEL_OPEN + digest + SENTINEL_CLOSE + '\n' : ''}</head><body>ok</body></html>\n`;
+// Meta-form page (PAGE-DIGEST-META-FIX-1): the canonical non-rendering <head> line.
+const metaPage = (digest) =>
+  `<!DOCTYPE html>\n<html><head>\n${digest ? metaLineFor(digest) + '\n' : ''}</head><body>ok</body></html>\n`;
 
 // ── the sentinel parser ───────────────────────────────────────────────────────────────────────
 assert(findSentinels(page(DIGEST_V1)).length === 1, 'findSentinels finds the single sentinel');
@@ -66,6 +74,13 @@ assert(
   findSentinels(`<!--COUNT:tools-->595<!--/COUNT-->`).length === 0,
   'the COUNT sentinel is not mistaken for a kernel-digest sentinel (distinct key, same family)'
 );
+assert(findMetaDigests(metaPage(DIGEST_V1)).length === 1, 'findMetaDigests finds the meta-form declaration');
+assert(findMetaDigests(metaPage(DIGEST_V1))[0] === DIGEST_V1, 'findMetaDigests reads the content attribute value');
+assert(findMetaDigests(`<html><head><meta content="${DIGEST_V1}" name='kernel-digest'></head></html>`).length === 1,
+  'findMetaDigests matches the meta tag with attributes in either order');
+assert(findMetaDigests(`<meta name="description" content="${DIGEST_V1}">`).length === 0,
+  'findMetaDigests ignores a meta tag whose name is not kernel-digest');
+assert(findMetaDigests(metaPage(null)).length === 0, 'findMetaDigests finds nothing in an unstamped page');
 
 // ── kernel path derived from the PAGE filename, never from page content (SO #34) ──────────────
 assert(
@@ -112,6 +127,41 @@ assert(
   const v = classifyPage({ html: page(null), recomputedDigest: DIGEST_V1, baselined: false });
   assert(v.state === 'UNSTAMPED_NEW', 'NEW-FILE: a page not in the baseline and not stamped FAILS');
   assert(FAILING_STATES.has(v.state), 'NEW-FILE: this is the ratchet — without it the debt grows');
+}
+
+// ── CONTROL 5b — DUAL-READ (PAGE-DIGEST-META-FIX-1): meta preferred, legacy tolerated ─────────
+{
+  const v = classifyPage({ html: metaPage(DIGEST_V1), recomputedDigest: DIGEST_V1, baselined: false });
+  assert(v.state === 'OK' && v.format === 'meta', 'DUAL-READ: a meta-form page passes with format=meta');
+}
+{
+  const v = classifyPage({ html: page(DIGEST_V1), recomputedDigest: DIGEST_V1, baselined: false });
+  assert(v.state === 'OK' && v.format === 'legacy', 'DUAL-READ: a legacy comment-format page still passes with format=legacy (tolerated, deprecated)');
+}
+{
+  const v = classifyPage({ html: metaPage(DIGEST_V1), recomputedDigest: DIGEST_V2, baselined: false });
+  assert(v.state === 'MISMATCH' && v.format === 'meta', 'DUAL-READ: a WRONG meta-form digest still FAILS — the meta form is checked in full, not waved through');
+}
+{
+  const v = classifyPage({ html: metaPage('sha256:nothex'), recomputedDigest: DIGEST_V1, baselined: true });
+  assert(v.state === 'MALFORMED' && v.format === 'meta', 'DUAL-READ: a malformed meta-form content value FAILS rather than being skipped');
+}
+{
+  const v = classifyPage({ html: metaPage(DIGEST_V1), recomputedDigest: null, baselined: true });
+  assert(v.state === 'NO_KERNEL' && v.format === 'meta', 'DUAL-READ: a meta-form sentinel with no kernel file on disk FAILS (SO #34c holds in both forms)');
+}
+{
+  const v = classifyPage({ html: metaPage(null).replace('<head>\n', '<head>\n<meta name="kernel-digest">\n'), recomputedDigest: DIGEST_V1, baselined: false });
+  assert(v.state === 'MALFORMED', 'DUAL-READ: a kernel-digest meta tag with NO content attribute is MALFORMED, not unstamped');
+}
+{
+  const both = `<!DOCTYPE html>\n<html><head>\n${metaLineFor(DIGEST_V1)}\n${SENTINEL_OPEN}${DIGEST_V1}${SENTINEL_CLOSE}\n</head><body>ok</body></html>\n`;
+  const v = classifyPage({ html: both, recomputedDigest: DIGEST_V1 });
+  assert(v.state === 'DUPLICATE', 'DUAL-READ: a page carrying BOTH forms FAILS as DUPLICATE (exactly one declaration, whichever form)');
+}
+{
+  const v = classifyPage({ html: metaPage(null), recomputedDigest: DIGEST_V1, baselined: false });
+  assert(v.state === 'UNSTAMPED_NEW', 'DUAL-READ: a page carrying NEITHER form is UNSTAMPED_NEW — the ratchet is unchanged');
 }
 
 // ── structural failure modes ──────────────────────────────────────────────────────────────────
