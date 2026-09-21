@@ -1570,6 +1570,9 @@ const GATES = [
   ['Generator walker scope fixtures (REGEN-WT-SCOPE-POISON-1)', 'node scripts/check-gen-walker-scope.mjs'],
   ['Generator walker scope checker controls (RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-gen-walker-scope.mjs --self-test'],
   ['Infrastructure page freshness (INFRA-PAGE-1)', 'node scripts/gen-infrastructure-page.mjs --check'],
+  // HUB-FOR-HUBS-1: the guide-cluster catalog split out of infrastructure.html.
+  // Freshness rides the COVERED 'hub-for-hubs-page' entry like its sibling above.
+  ['Hubs-for-hubs page freshness (HUB-FOR-HUBS-1)', 'node scripts/gen-hub-for-hubs-page.mjs --check'],
   ['llms-full.txt freshness (§M2.3)', 'node scripts/gen-llms-full.mjs --check'],
   // PAGE-MD-TWINS-1 (AGENT-REACH-BUILD-SPEC §2): markdown twin freshness. The
   // gate string is derived-artifacts.mjs COVERED id 'page-md-twins' own `gate`,

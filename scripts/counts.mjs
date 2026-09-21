@@ -437,8 +437,15 @@ export async function deriveCounts() {
   // data-count=infra_pages expected=201 got=202"). DERIVED_ROOT-unset
   // behaviour is byte-for-byte unchanged.
   let infraPages = 0
+  let guidePages = 0
   try {
-    infraPages = JSON.parse(readDerived('data', 'infra-registry.json')).length
+    const infraRegistry = JSON.parse(readDerived('data', 'infra-registry.json'))
+    infraPages = infraRegistry.length
+    // guide_pages — HUB-FOR-HUBS-1: the guide-category rows (domain hubs and
+    // integration guides) that render on hub-for-hubs.html and are referenced
+    // by that page's hero sentinel (and infrastructure.html's pointer
+    // section). Same derived input, same overlay read as infra_pages.
+    guidePages = infraRegistry.filter(r => r.category === 'guide').length
   } catch { /* registry absent — sentinel stays unverified rather than guessing */ }
 
   // showcase_prompts — PROMPT-LIBRARY-PAGE-2: the prompt-library hero count
@@ -490,6 +497,7 @@ export async function deriveCounts() {
     'hubTools.capitalMarkets':   hubAlias('capital-markets-settlement-hub'),
     hubCounts,
     'infra_pages':       infraPages,
+    'guide_pages':       guidePages,
     'showcase_prompts':  showcasePrompts,
   }
 }

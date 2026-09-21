@@ -83,6 +83,9 @@ export async function scan(repo, doCheckRegistry) {
     'chaingraph/conformance-roster.html', 'chaingraph/clause-edge-report.html',
     'chaingraph/kernel-vm-explainer.html', 'chaingraph/agentic-payments-map.html',
     'chaingraph/kernel-vm.html', 'docs/index.html',
+    // HUB-FOR-HUBS-1: whole-file derived page (gen-hub-for-hubs-page.mjs);
+    // mirrors the gen-infra-registry.mjs EXEMPT rationale for it.
+    'hub-for-hubs.html',
   ];
   const isShim = (html) => {
     const t = html.replace(/\s+/g, '');

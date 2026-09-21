@@ -88,6 +88,12 @@ const EXEMPT = new Map([
   // the whole-file exemptions above: the page's meta tags belong to its
   // generator. (MAIN-REGEN-INFRA-REGISTRY-FIXPOINT-1)
   ['infrastructure.html', 'whole-file derived artifact (gen-infrastructure-page.mjs)'],
+  // hub-for-hubs.html: same class as infrastructure.html directly above — the
+  // guide-cluster catalog page HUB-FOR-HUBS-1 renders FROM this registry, so
+  // scanning it back would list the map on itself and re-open the read-back
+  // cycle the infrastructure.html exemption exists to prevent. Its meta tags
+  // belong to its generator (gen-hub-for-hubs-page.mjs).
+  ['hub-for-hubs.html', 'whole-file derived artifact (gen-hub-for-hubs-page.mjs)'],
   ['docs/index.html', 'whole-file derived artifact (gen-openapi.mjs)'],
   // mcp.html: verify-counts.mjs (the 'counts' COVERED entry, which runs AFTER
   // infra-registry) rewrites the tool/workflow counts inside the page's meta
@@ -194,8 +200,20 @@ function maskCountDigits(html, rel) {
 
 function descOf(html, rel) {
   const source = rel === undefined ? html : maskCountDigits(html, rel);
-  const m = source.match(/<meta\s+name=["']description["']\s+content=["']([^"']*)["']/i)
-    || source.match(/<meta\s+content=["']([^"']*)["']\s+name=["']description["']/i);
+  // ⚠ Quote styles must be matched PER ALTERNATIVE, never as one class.
+  // The old pattern, content=["']([^"']*)["'], stops the capture at the
+  // FIRST apostrophe in the value: every description containing one
+  // ("How Autonity's Auton Currency Unit…", "…lives inside the operator's
+  // system", "…the reproposal doesn't…") was captured as a mid-sentence
+  // fragment — measured 2026-09-21 at 27 registry rows, all rendering as
+  // truncated cards on infrastructure.html (INFRA-MAP-COPY-1 root cause).
+  // The source pages were healthy; the scrape was not. Double-quoted
+  // content is the published convention (every page in the estate);
+  // single-quoted alternatives kept for parity, matched the same way.
+  const m = source.match(/<meta\s+name=["']description["']\s+content="([^"]*)"/i)
+    || source.match(/<meta\s+content="([^"]*)"\s+name=["']description["']/i)
+    || source.match(/<meta\s+name=["']description["']\s+content='([^']*)'/i)
+    || source.match(/<meta\s+content='([^']*)'\s+name=["']description["']/i);
   if (!m) return '';
   return m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
     .replace(/\s{2,}/g, ' ').trim();

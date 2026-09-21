@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * scripts/gen-infrastructure-page.mjs — INFRA-PAGE-1.
+ * scripts/gen-infrastructure-page.mjs — INFRA-PAGE-1 (INFRA-MAP-COPY-1 rework,
+ * 2026-09-21 humanize pass).
  *
  * Generates repo/infrastructure.html from data/infra-registry.json (the
  * derived registry written by gen-infra-registry.mjs — never hand-listed):
@@ -8,122 +9,153 @@
  * footer), one section per `ain:category` enum value in enum order, a card per
  * registry entry (title, description, Open link, fact chips), a
  * data-count="infra_pages" sentinel, and JSON-LD CollectionPage whose
- * mainEntity is an ItemList of every card (position, name, url).
+ * mainEntity is an ItemList of the cards this page renders.
  *
- * Deterministic: pure function of the registry + chrome sources (no
- * wall-clock), so --check byte-compares and the idempotency proof is a
+ * What the humanize pass changed (why this file no longer renders the
+ * registry verbatim):
+ *   · GUIDE ROWS SPLIT OUT. 130 of the registry rows are domain hubs and
+ *     integration guides; rendering them inline buried the seven working
+ *     sections under a two-hundred-card wall. They render on
+ *     hub-for-hubs.html (gen-hub-for-hubs-page.mjs, same registry), and this
+ *     page carries a pointer section (id="hubs") with three start-here cards
+ *     so the split costs one click, not a dead end.
+ *   · DISPLAY COPY. Titles/descriptions render through scripts/lib/infra-map.mjs:
+ *     authored overrides (data/infra-copy-overrides.json) for the rows whose
+ *     source meta is truncated or empty, deterministic suffix cleanup for the
+ *     SEO-stuffed titles, and a hard error if any card would render without a
+ *     description. The registry file itself is never mutated.
+ *   · HUMAN NAVIGATION. A persona-bar jump strip under the hero (anchor to
+ *     each section), section counts computed at render (this page is derived,
+ *     so render-time numbers regenerate with the registry — they are not
+ *     hand-typed), and section headings that say what the section is for.
+ *
+ * Deterministic: pure function of the registry + overrides + chrome sources
+ * (no wall-clock), so --check byte-compares and the idempotency proof is a
  * two-run byte comparison.
  *
  * Usage:
  *   node scripts/gen-infrastructure-page.mjs           # write
  *   node scripts/gen-infrastructure-page.mjs --check   # byte-compare, exit 1 on drift
  */
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CATEGORIES } from './gen-infra-registry.mjs';
+import {
+  REPO, readRegistry, loadOverrides, validateOverrides,
+  renderCard, renderTitle, esc, jumpBar, readStartChrome,
+} from './lib/infra-map.mjs';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(HERE, '..');
 const CHECK = process.argv.includes('--check');
 const OUT_REL = 'infrastructure.html';
-const START = resolve(REPO, 'start.html');
 
 const CATEGORY_LABELS = {
   run: 'Run', verify: 'Verify', anchor: 'Anchor', convert: 'Convert',
   agents: 'Agents', learn: 'Learn', helm: 'Helm', guide: 'Guide',
 };
+// Section headings say what the section is for, in plain sentences. The old
+// rule-of-three headings ("Execute tools, workflows, and agent automations")
+// were exactly the catalog copy this page exists to replace.
 const CATEGORY_BLURBS = {
-  run: 'Execute tools, workflows, and agent automations',
-  verify: 'Check artifacts, receipts, and conformance claims',
-  anchor: 'Timestamp, sign, and keep the record',
-  convert: 'Convert documents and exports into verifiable artifacts',
-  agents: 'Connect agents: MCP, WebMCP, prompts, and kits',
-  learn: 'Understand the suite, the standard, and the evidence model',
-  helm: 'The Helm air-gapped control plane',
+  run: 'Tools and workflows you can run',
+  verify: 'Places to verify an artifact, a receipt, or a conformance claim',
+  anchor: 'Timestamping, signing, and keeping the record',
+  convert: 'Turning documents into verifiable artifacts',
+  agents: 'Connecting agents: MCP, WebMCP, prompts, and kits',
+  learn: 'Explainers, specs, and the evidence model',
+  helm: 'Helm, the air-gapped control plane',
   guide: 'Domain integration guides and hubs',
 };
 const FACT_LABELS = {
   webmcp: 'WebMCP', deeplink: 'Deep-link', policy_mandate_export: 'Mandate export', jsonld: 'JSON-LD',
 };
 
-function esc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+// The start-here cards in the hubs pointer section. Registry paths of GUIDE
+// rows, so every card below links a real hub; the first card points at the
+// full split-out catalog. Keep this list short — the point of the split is
+// that this page stops being the hub catalog.
+const HUB_STARTERS = [
+  'guides/agentic-commerce-mcp-hub.html',
+  'guides/aml-kyc-compliance-hub.html',
+  'guides/core-infrastructure-hub.html',
+];
 
-// Copy hallmarks (CONTRACT §1.4): titles/descriptions are sourced from other
-// pages' data and can carry em-dashes that gate-scan as visible text here.
-// Sanitize at render, exactly like gen-start-index.mjs's sanitizeCopy for the
-// same class of sourced copy (source data in the registry is left untouched).
-function sanitizeCopy(s) {
-  // "adjudication" is on the insider-register copy-ban list (check-copy-hallmarks);
-  // sourced descriptions that carry it render as "review" here only.
-  return String(s || '').replace(/—/g, ', ').replace(/\s+--\s+/g, ', ').replace(/adjudicat\w*/gi, 'review').replace(/\s{2,}/g, ' ').trim();
-}
-
-function extractChrome(startHtml) {
-  // head CSS: everything inside the single <style> block
-  const styleOpen = startHtml.indexOf('<style>');
-  const styleClose = startHtml.indexOf('</style>');
-  if (styleOpen === -1 || styleClose === -1) throw new Error('chrome: <style> not found in start.html');
-  const css = startHtml.slice(styleOpen + '<style>'.length, styleClose);
-  // nav: from <nav to </nav>
-  const navOpen = startHtml.indexOf('<nav aria-label="Site navigation">');
-  const navClose = startHtml.indexOf('</nav>');
-  if (navOpen === -1 || navClose === -1) throw new Error('chrome: nav not found in start.html');
-  const nav = startHtml.slice(navOpen, navClose + '</nav>'.length);
-  // canonical footer: the ROOT-FOOTER sentinel region
-  const fOpen = startHtml.indexOf('ROOT-FOOTER:START');
-  const fClose = startHtml.indexOf('ROOT-FOOTER:END');
-  if (fOpen === -1 || fClose === -1) throw new Error('chrome: ROOT-FOOTER sentinels not found in start.html');
-  const footer = startHtml.slice(startHtml.indexOf('\n', fOpen) + 1, startHtml.lastIndexOf('\n', fClose));
-  const footerCssOpen = startHtml.indexOf('ROOT-FOOTER-CSS:START');
-  const footerCssClose = startHtml.indexOf('ROOT-FOOTER-CSS:END');
-  const footerCss = startHtml.slice(startHtml.indexOf('\n', footerCssOpen) + 1, startHtml.lastIndexOf('\n', footerCssClose));
-  return { css, nav, footer, footerCss };
-}
-
-function renderPage(registry, chrome) {
+function renderPage(registry, overrides, chrome) {
   const total = registry.length;
-  const cardsJsonLd = registry.map((r, i) => ({
-    '@type': 'ListItem',
-    position: i + 1,
-    name: sanitizeCopy(r.title),
-    url: `https://ainumbers.co/${r.path}`,
-  }));
+  const guideRows = registry.filter(r => r.category === 'guide');
+
+  // Every card this page renders, section by section. Featured rows surface
+  // first (the registry scrapes ain:featured; almost nothing sets it today),
+  // then display-title order so the cleanup actually drives the sort.
+  const sections = CATEGORIES.filter(c => c !== 'guide').map(cat => {
+    const rows = registry
+      .filter(r => r.category === cat)
+      .sort((a, b) =>
+        ((a.featured ? 0 : 1) - (b.featured ? 0 : 1))
+        || renderTitle(a, overrides).localeCompare(renderTitle(b, overrides))
+        || a.path.localeCompare(b.path));
+    return { cat, rows };
+  }).filter(s => s.rows.length);
+
+  const cardsJsonLd = [];
+  let body = '';
+  for (const { cat, rows } of sections) {
+    body += `<section class="section" id="${cat}" aria-label="${CATEGORY_LABELS[cat]} surfaces">\n  <div class="container">\n`;
+    body += `    <div class="sec-label">${CATEGORY_LABELS[cat]} · ${rows.length}</div>\n`;
+    body += `    <h2 class="sec-heading">${esc(CATEGORY_BLURBS[cat])}</h2>\n`;
+    body += `    <div class="recipe-grid">\n`;
+    for (const r of rows) {
+      body += renderCard(r, overrides, FACT_LABELS);
+      cardsJsonLd.push({
+        '@type': 'ListItem',
+        position: cardsJsonLd.length + 1,
+        name: renderTitle(r, overrides),
+        url: `https://ainumbers.co/${r.path}`,
+      });
+    }
+    body += `    </div>\n  </div>\n</section>\n`;
+  }
+
+  // Hubs & guides pointer: the guide rows live on hub-for-hubs.html; this
+  // section is the bridge, not a second catalog.
+  const starters = HUB_STARTERS.map(p => {
+    const row = registry.find(r => r.path === p);
+    if (!row || row.category !== 'guide') {
+      throw new Error(`HUB_STARTERS names ${p}, which is not a guide-category registry row`);
+    }
+    return renderCard(row, overrides, FACT_LABELS);
+  }).join('');
+  body += `<section class="section" id="hubs" aria-label="Hubs and guides">
+  <div class="container">
+    <div class="sec-label">Guide · ${guideRows.length}</div>
+    <h2 class="sec-heading">Hubs and guides have their own map</h2>
+    <p class="hero-sub">Domain hubs collect the tools and chains for one desk or one rulebook; single-purpose guides answer one question apiece. All <span data-count="guide_pages">${guideRows.length}</span> of them are grouped by desk on <a href="hub-for-hubs.html">the hubs and guides map</a>. Three to start with:</p>
+    <div class="recipe-grid">
+      <a class="recipe-card" href="hub-for-hubs.html">
+        <div class="recipe-title">All hubs and guides, on one map</div>
+        <div class="recipe-outcome">The full catalog of domain hubs and integration guides, clustered by the work they support: payments, regulation, markets and treasury, risk, tokenization, trade, agents, the OpenChainGraph platform, and evidence.</div>
+        <div class="recipe-go">Browse</div>
+      </a>
+${starters}    </div>
+  </div>
+</section>
+`;
+
+  const jumpLinks = sections.map(s => ({ id: s.cat, label: CATEGORY_LABELS[s.cat] }));
+  jumpLinks.push({ id: 'hubs', label: 'Hubs & guides' });
+
   const jsonld = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: 'AINumbers.co Infrastructure Map',
-    description: `The generated map of every non-tool page on AINumbers.co: ${total} pages across ${CATEGORIES.length} categories. A page exists, so it is on this map.`,
+    description: `The generated map of AINumbers.co: ${total} pages across ${CATEGORIES.length} categories, grouped by the job each page does. Domain hubs and integration guides have their own map.`,
     url: 'https://ainumbers.co/infrastructure.html',
     mainEntity: {
       '@type': 'ItemList',
-      numberOfItems: total,
+      numberOfItems: cardsJsonLd.length,
       itemListElement: cardsJsonLd,
     },
   };
-
-  let body = '';
-  for (const cat of CATEGORIES) {
-    const rows = registry.filter(r => r.category === cat);
-    if (!rows.length) continue;
-    body += `<section class="section" aria-label="${CATEGORY_LABELS[cat]} surfaces">\n  <div class="container">\n`;
-    body += `    <div class="sec-label">${CATEGORY_LABELS[cat]}</div>\n`;
-    body += `    <h2 class="sec-heading">${esc(CATEGORY_BLURBS[cat])}</h2>\n`;
-    body += `    <div class="recipe-grid">\n`;
-    for (const r of rows) {
-      const chips = Object.entries(r.facts).filter(([, v]) => v)
-        .map(([k]) => `<span class="fact-chip">${FACT_LABELS[k]}</span>`).join('');
-      body += `      <a class="recipe-card" href="${esc(r.path)}">\n`;
-      body += `        <div class="recipe-title">${esc(sanitizeCopy(r.title))}</div>\n`;
-      if (r.description) body += `        <div class="recipe-outcome">${esc(sanitizeCopy(r.description))}</div>\n`;
-      if (chips) body += `        <div class="fact-row">${chips}</div>\n`;
-      body += `        <div class="recipe-go">Open</div>\n`;
-      body += `      </a>\n`;
-    }
-    body += `    </div>\n  </div>\n</section>\n`;
-  }
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -131,7 +163,7 @@ function renderPage(registry, chrome) {
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="The generated infrastructure map of AINumbers.co: ${total} pages across ${CATEGORIES.length} categories, derived from the page registry so no built surface can drift off the map.">
+<meta name="description" content="The generated map of AINumbers.co: ${total} pages across ${CATEGORIES.length} categories, grouped by the job each page does. Domain hubs and integration guides live on their own map at hub-for-hubs.html.">
 <meta name="ain:category" content="learn">
 <title>Infrastructure Map | AINumbers.co</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -157,11 +189,13 @@ ${chrome.nav}
 <!-- Hero -->
 <section class="hero">
   <div class="container">
-    <div class="hero-eyebrow">&#9312; Run</div>
-    <h1>Every page on this site, on one map</h1>
-    <p class="hero-sub">This page is generated from the site page registry, so a built surface cannot drift off the map: a page exists, therefore it appears here. <span data-count="infra_pages">${total}</span> pages across ${CATEGORIES.length} categories, each declared by a category tag in its own head. The page catalogs remain separate: <a href="tools.html">tools</a>, the <a href="chaingraph/chaingraph-hub.html">workflow hub</a>, and <a href="sitemap.html">sitemap</a>.</p>
+    <div class="hero-eyebrow">Site map</div>
+    <h1>Every page on this site, grouped by the job it does</h1>
+    <p class="hero-sub">This map is generated from the page registry, so a shipped page cannot quietly go missing: a page exists, therefore it is listed here. <span data-count="infra_pages">${total}</span> pages across ${CATEGORIES.length} categories, each declared by a category tag in the page's own head. The <span data-count="guide_pages">${guideRows.length}</span> domain hubs and guides are a map of their own, so the sections below stay browsable. Surfaces with dedicated catalogs keep them: <a href="tools.html">tools</a>, the <a href="chaingraph/chaingraph-hub.html">workflow hub</a>, and <a href="sitemap.html">sitemap</a>.</p>
   </div>
 </section>
+
+${jumpBar('Jump to', jumpLinks)}
 
 ${body}
 
@@ -182,8 +216,10 @@ if (!existsSync(registryPath)) {
   process.exit(1);
 }
 const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
-const chrome = extractChrome(readFileSync(START, 'utf8'));
-const out = renderPage(registry, chrome);
+const overrides = loadOverrides();
+validateOverrides(overrides, registry);
+const chrome = readStartChrome();
+const out = renderPage(registry, overrides, chrome);
 const target = resolve(REPO, OUT_REL);
 const exists = existsSync(target);
 const current = exists ? readFileSync(target, 'utf8') : '';
@@ -197,8 +233,8 @@ if (CHECK) {
     console.error(`gen-infrastructure-page --check: ${OUT_REL} is stale. Run \`node scripts/gen-infrastructure-page.mjs\`.`);
     process.exit(1);
   }
-  console.log(`gen-infrastructure-page --check: OK (${registry.length} cards, byte-exact).`);
+  console.log(`gen-infrastructure-page --check: OK (${registry.length} registry rows, byte-exact).`);
   process.exit(0);
 }
 writeFileSync(target, out, 'utf8');
-console.log(`gen-infrastructure-page: wrote ${OUT_REL} (${registry.length} cards across ${CATEGORIES.filter(c => registry.some(r => r.category === c)).length} categories).`);
+console.log(`gen-infrastructure-page: wrote ${OUT_REL} (${registry.length} registry rows; guide rows render on hub-for-hubs.html).`);

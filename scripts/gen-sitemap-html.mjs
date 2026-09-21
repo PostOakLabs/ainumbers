@@ -228,6 +228,8 @@ const rootPages = [
   { icon: '⚙️', name: 'ISO 20022 Cutover Composer (orchestrated)', href: 'chaingraph/chains/iso20022-cutover.html' },
   { icon: '⚙️', name: 'Treasury Corridor Composer (orchestrated)', href: 'chaingraph/chains/treasury-corridor.html' },
   { icon: '🗺', name: 'Sitemap', href: 'sitemap.html', current: true },
+  { icon: '🗺', name: 'Infrastructure Map (every page, by job)', href: 'infrastructure.html' },
+  { icon: '🧭', name: 'Hubs and Guides Map', href: 'hub-for-hubs.html' },
   { icon: '💡', name: 'Suggest a Tool or Workflow', href: 'suggest.html' },
   { icon: '✉️', name: 'Contact', href: 'contact.html' },
 ];
