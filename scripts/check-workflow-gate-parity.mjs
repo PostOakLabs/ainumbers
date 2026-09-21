@@ -875,6 +875,21 @@ const PREFLIGHT_ONLY = new Map([
     "tracked repo files — no CI-only input. Paired self-test: " +
     "check-gpu-flag-parity.test.mjs (GATE-SELFTEST-META-1)."],
   ["check-gpu-flag-parity.test.mjs", SELF_TEST],
+
+  // ── MR-R4-NULL-REGRESSION-GATE-1 (2026-09-21) ───────────────────────────────
+  ["check-mr-r4-null-ratchet.mjs",
+    "R4 null-class down-only ratchet (MR-R4-NULL-REGRESSION-GATE-1): re-measures the " +
+    "estate's R4 (absent equals explicit null) violated-record count in-tree — a " +
+    "replication of the workspace instrument's R4 cell, whose own report-only polarity " +
+    "is unchanged — and fails if any kernel worsens, a new kernel violates, or the total " +
+    "rises above scripts/mr-r4-null-baseline.json (172 pinned @ 0c8fcaee; the ceiling " +
+    "only falls, --update-baseline is the sole writer and refuses any raise). Hard in " +
+    "preflight; its CI route is scripts-verify.yml full preflight (the workflow runs " +
+    "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the " +
+    "same suite. Reads only tracked repo files (chaingraph/kernels/, its fixtures, " +
+    "manifests/) — no CI-only input, no network. Paired self-test: " +
+    "check-mr-r4-null-ratchet.test.mjs (GATE-SELFTEST-META-1)."],
+  ["check-mr-r4-null-ratchet.test.mjs", SELF_TEST],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
