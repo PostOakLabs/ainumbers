@@ -20,7 +20,7 @@ Reg Z Appendix J actuarial APR solver. Bracketed bisection on the general actuar
 ## Outputs
 
 - advance_total (integer, optional)
-- apr_pct (number, optional)
+- apr_pct (number,null, optional)
 - bracketed (boolean, optional)
 - converged (boolean, optional)
 - finance_charge (number, optional)
@@ -28,7 +28,7 @@ Reg Z Appendix J actuarial APR solver. Bracketed bisection on the general actuar
 - note (string, optional)
 - num_payments (integer, optional)
 - payment_total (number, optional)
-- periodic_rate (number, optional)
+- periodic_rate (number,null, optional)
 - periods_per_year (integer, optional)
 - regulatory_basis (string, optional)
 
