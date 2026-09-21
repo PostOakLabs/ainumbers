@@ -84,7 +84,7 @@ const a218 = realKernel("art-218-qm-points-and-fees");
 const a218Shape = a218.includes("QM_TIERS_BY_YEAR[year] || QM_TIERS_BY_YEAR[2026]");
 const a218Hits = scanText(a218);
 check("art-218 verdict matches its own source (RED now, GREEN after REGZ lands)", (a218Hits.length === 1) === a218Shape, "hits=" + a218Hits.length + " shape-present=" + a218Shape);
-if (a218Hits.length === 1) check("art-218 finding points at the fallback line (115)", a218Hits[0].line === 115, "line=" + a218Hits[0].line);
+if (a218Hits.length === 1) check("art-218 finding points at the fallback line (125)", a218Hits[0].line === 125, "line=" + a218Hits[0].line);
 const a234 = realKernel("art-234-test-hoepa-high-cost");
 const a234Shape = a234.includes("HOEPA_PF[year] || HOEPA_PF[2026]");
 const a234Hits = scanText(a234);
