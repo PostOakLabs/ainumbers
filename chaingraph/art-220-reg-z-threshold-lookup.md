@@ -1,6 +1,6 @@
 # Reg Z Threshold Lookup
 
-Reg Z version-pinned threshold lookup service. Tables: qm_points_fees, hoepa, hpml, card_penalty. 2021-2026 rows with Federal Register citations and effective dates. This node exists because agents reliably hallucinate current-year dollar thresholds. Annual refresh cadence with FR citation pinning. Covers CARD Act penalty fee note: the CFPB dollar-eight late-fee cap rule was vacated May 2025; prior safe-harbor amounts apply.
+Reg Z version-pinned threshold lookup service. Tables: qm_points_fees, hoepa, hpml, card_penalty. 2021-2026 rows with Federal Register citations and effective dates. This node exists because agents reliably hallucinate current-year dollar thresholds. Annual refresh cadence with FR citation pinning. Covers CARD Act penalty fees under 12 CFR 1026.52(b)(1)(ii)(A)/(B) as one general safe harbor of $32 for a first violation and $43 for each subsequent violation of the same type, applying to late fees and other violations alike: the CFPB $8 late-fee cap (89 FR 19128) was enjoined 2024-05-10 before its 2024-05-14 effective date and vacated 2025-04-15 in Chamber of Commerce v. CFPB, No. 4:24-cv-00213-P (N.D. Tex.), so it is void and was never operative even though the eCFR still prints it. The hpml rows carry the 12 CFR 1026.35(c)(2)(ii) special-appraisal exemption, $34,200 for 2026 per FR 2025-22875, 90 FR 58141.
 
 - Page: https://ainumbers.co/chaingraph/art-220-reg-z-threshold-lookup.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-220-reg-z-threshold-lookup.md
