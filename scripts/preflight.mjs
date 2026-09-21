@@ -1136,6 +1136,21 @@ const GATES = [
   // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the fixture proof entry below.
   ['GPU flag parity (kernel meta.gpu == shard gpu)', 'node scripts/check-gpu-flag-parity.mjs'],
   ['GPU flag parity fixture proof (SO #40b pairing)', 'node scripts/check-gpu-flag-parity.test.mjs'],
+  // MR-R4-NULL-REGRESSION-GATE-1: down-only ratchet for the R4 null class (absent equals
+  // explicit null). The caller-side normalizers (worker PR #383, site PR #1978) closed the
+  // LIVE exposure but deliberately did not touch a kernel byte, so the raw-kernel debt —
+  // 172 violated records re-derived fresh at 0c8fcaee (98 ABSENT_NULL_DIVERGE +
+  // 74 ONE_SIDE_THREW; per-record "ok":false match, never a bare-token grep) — can grow
+  // back one new `= {}` kernel at a time. This gate re-measures the estate in-repo with a
+  // replication of the instrument's R4 cell (mr-runner.mjs itself stays report-only, its
+  // polarity unchanged by design) and fails if any kernel worsens, a new kernel violates,
+  // or the total rises above scripts/mr-r4-null-baseline.json. The ceiling only falls:
+  // --update-baseline is the sole writer and refuses any raise. Baseline loaded through
+  // ratchet-baseline.mjs (RATCHET-BASELINE-LOADER-1) so a deleted baseline is a hard RED,
+  // never a silent pass.
+  // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the fixture proof entry below.
+  ['R4 null-class ratchet (MR-R4-NULL-REGRESSION-GATE-1)', 'node scripts/check-mr-r4-null-ratchet.mjs'],
+  ['R4 null-class ratchet controls (planted RED/GREEN + execution_hash twins, GATE-SELFTEST-META-1 pair)', 'node scripts/check-mr-r4-null-ratchet.test.mjs'],
   // FAIL-CLOSED-PARITY-LINT-1 (J24 L1 lint-family batch): a year-keyed pinned-table lookup
   // that silently falls back onto a default row answers a 2019 question with 2026 numbers
   // and 2026 citations -- worse than an error: a wrong answer that looks retrieved, and
