@@ -12,6 +12,11 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// INFRA-REGISTRY-CHECK-WALK-SCOPE-1 (step-3 sweep): this is a repo-root walk
+// whose own list skipped `.wt`/`.worktrees`/dot-scaffolding only by accident
+// of naming — from the shared clone it stat'ed every worktree's HTML. Same
+// shared skip-list as the generator walkers (WT-IGNORE-GATES-1), no second copy.
+import { isSkipDir } from './_walk-skip-dirs.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO  = resolve(__dir, '..');
@@ -27,7 +32,7 @@ const EXTRA = [
 
 function walk(dir, out) {
   for (const name of readdirSync(dir)) {
-    if (SKIP_DIRS.has(name)) continue;
+    if (SKIP_DIRS.has(name) || isSkipDir(name)) continue;
     const p = join(dir, name);
     const st = statSync(p);
     if (st.isDirectory()) walk(p, out);

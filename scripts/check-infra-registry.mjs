@@ -26,6 +26,7 @@ import { tmpdir } from 'node:os';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CATEGORIES, buildRegistry } from './gen-infra-registry.mjs';
+import { isSkipDir } from './_walk-skip-dirs.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -88,13 +89,19 @@ export async function scan(repo, doCheckRegistry) {
     return /http-equiv=["']?refresh/i.test(t) || /name=["']?robots["']?content=["'][^"']*noindex/i.test(t);
   };
   const pages = [];
+  // INFRA-REGISTRY-CHECK-WALK-SCOPE-1: this walk skipped only `.git`/
+  // `node_modules`, so a run inside the shared clone (which hosts `.wt/` with
+  // ~199 worktrees and `.claude/worktrees/`) named hundreds of thousands of
+  // worktree pages as MISSING — every push from that clone died at the
+  // pre-push hook (INFRA-PAGE-1). Same skip-list skip: the shared one
+  // (WT-IGNORE-GATES-1), not a second copy.
   (function walk(dir, rel) {
     let entries;
     try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
       const r = rel ? `${rel}/${e.name}` : e.name;
       if (e.isDirectory()) {
-        if (e.name === '.git' || e.name === 'node_modules') continue;
+        if (isSkipDir(e.name)) continue;
         walk(join(dir, e.name), r);
       } else if (/\.html?$/i.test(e.name)) pages.push(r);
     }
