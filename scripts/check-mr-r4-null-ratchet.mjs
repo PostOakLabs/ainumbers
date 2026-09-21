@@ -62,6 +62,7 @@ import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadRatchetBaselineOrExit, readBaselineForUpdate, assertFiniteCeiling } from './ratchet-baseline.mjs';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -256,7 +257,10 @@ export function nextBaseline(prev, measurement, measured_at_sha, measured_at_utc
 }
 
 function gitHeadSha() {
-  try { return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim(); }
+  // env: gitEnv() (GIT-ENV-LEAK-SWEEP-1) — without it the child inherits the ambient
+  // GIT_* environment and, under .githooks/pre-push, answers about the OUTER git command's
+  // tree regardless of cwd; with it, cwd is the only thing that decides the tree.
+  try { return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8', env: gitEnv() }).trim(); }
   catch { return '(unknown — git unavailable)'; }
 }
 
