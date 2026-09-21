@@ -121,6 +121,38 @@ function main(argv) {
   const account = process.env.CLOUDFLARE_ACCOUNT_ID;
   const token = process.env.CLOUDFLARE_ANALYTICS_TOKEN;
   const hist = loadHistory();
+
+  // --from-archive <file.jsonl> (2026-09-21, Tim's ruling: worker invocations, from the archive).
+  // The operator's own nightly archiver already records this exact series, one JSON line per
+  // worker per day: {"date","requests","errors","subrequests","zone"}. It reaches back past the
+  // ~30-day GraphQL retention, so it is the ONLY source for the full history, and it needs no
+  // token on the operator's machine. Only three aggregate fields of ONE worker's rows ever leave
+  // that file: date, requests, errors. Same merge rules as the live path (keyed by date, re-runs
+  // converge, nothing deleted). A malformed line is skipped and counted, never guessed at.
+  const archIdx = argv.indexOf('--from-archive');
+  if (archIdx !== -1) {
+    const file = argv[archIdx + 1];
+    if (!file) { console.log('mcp-activity-sync: --from-archive needs a file path — leaving history untouched.'); return 0; }
+    const byDay = new Map(hist.days.map((d) => [d[0], d]));
+    let merged = 0, bad = 0;
+    for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      let r; try { r = JSON.parse(line); } catch { bad++; continue; }
+      if (r.zone !== 'ainumbers-mcp') continue;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(r.date) || !Number.isFinite(+r.requests)) { bad++; continue; }
+      byDay.set(r.date, [r.date, Math.max(0, Math.round(+r.requests)), Math.max(0, Math.round(+r.errors) || 0)]);
+      merged++;
+    }
+    if (!merged) { console.log(`mcp-activity-sync: archive held no ainumbers-mcp rows (${bad} malformed) — leaving history untouched.`); return 0; }
+    hist.days = [...byDay.values()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(-MAX_DAYS);
+    hist.generated = todayUTC();
+    hist.backfilled_through = hist.days[hist.days.length - 1][0];
+    hist._note = 'Worker invocations (requests served) for the ainumbers-mcp worker, per day, from the operator\'s nightly Cloudflare analytics archive (same series as the dashboard\'s Worker Invocations). Append-only; same-date rows converge. Includes connection handshakes and crawler traffic: endpoint workload, not per-tool work.';
+    writeFileSync(DATA, JSON.stringify(hist, null, 2) + '\n');
+    console.log(`mcp-activity-sync: merged ${merged} archive day(s) (${bad} malformed skipped), history now ${hist.days.length} day(s), through ${hist.backfilled_through}.`);
+    return 0;
+  }
+
   if (!account || !token) {
     console.log('mcp-activity-sync: CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_ANALYTICS_TOKEN unset — leaving history untouched.');
     return 0;
