@@ -88,6 +88,12 @@ const EXEMPT = new Map([
   // the whole-file exemptions above: the page's meta tags belong to its
   // generator. (MAIN-REGEN-INFRA-REGISTRY-FIXPOINT-1)
   ['infrastructure.html', 'whole-file derived artifact (gen-infrastructure-page.mjs)'],
+  // hub-for-hubs.html: same class as infrastructure.html directly above — the
+  // guide-cluster catalog page HUB-FOR-HUBS-1 renders FROM this registry, so
+  // scanning it back would list the map on itself and re-open the read-back
+  // cycle the infrastructure.html exemption exists to prevent. Its meta tags
+  // belong to its generator (gen-hub-for-hubs-page.mjs).
+  ['hub-for-hubs.html', 'whole-file derived artifact (gen-hub-for-hubs-page.mjs)'],
   ['docs/index.html', 'whole-file derived artifact (gen-openapi.mjs)'],
   // mcp.html: verify-counts.mjs (the 'counts' COVERED entry, which runs AFTER
   // infra-registry) rewrites the tool/workflow counts inside the page's meta

@@ -369,6 +369,22 @@ export const COVERED = [
     share: 'n/a (new 2026-09-08, INFRA-PAGE-1)',
   },
   {
+    // HUB-FOR-HUBS-1 (2026-09-21): hub-for-hubs.html, the guide-cluster
+    // catalog split out of infrastructure.html (130 guide rows had buried the
+    // working sections). Consumes ONLY data/infra-registry.json (+ the
+    // authored data/infra-copy-overrides.json display-copy table), so it
+    // orders after infra-registry like infrastructure-page. Stays ahead of
+    // 'counts': the page carries a data-count="guide_pages" sentinel that
+    // verify-counts --fix owns (declared in the counts entry below — SO #47).
+    id: 'hub-for-hubs-page',
+    regen: 'node scripts/gen-hub-for-hubs-page.mjs',
+    gate: 'node scripts/gen-hub-for-hubs-page.mjs --check',
+    writes: ['hub-for-hubs.html'],
+    artifacts: ['hub-for-hubs.html'],
+    after: 'infra-registry',
+    share: 'n/a (new 2026-09-21, HUB-FOR-HUBS-1)',
+  },
+  {
     id: 'counts',
     // Count sentinels (<!--COUNT:key-->N<!--/COUNT-->, data-count="key") across
     // every page that publishes one. File list mirrors verify-counts.mjs's own
@@ -415,6 +431,10 @@ export const COVERED = [
       // sentinel now listed in verify-counts.mjs's file list — undeclared here
       // the regen's anti-escape guard would reject the write (SO #47 precedent).
       'infrastructure.html',
+      // HUB-FOR-HUBS-1: hub-for-hubs.html carries a data-count="guide_pages"
+      // sentinel (key registered in counts.mjs from the same registry) — same
+      // SO #47 rule as infrastructure.html above.
+      'hub-for-hubs.html',
       // PROMPT-LIBRARY-PAGE-2: prompts.html's data-count="showcase_prompts"
       // sentinel is now in verify-counts.mjs's file list (key registered in
       // counts.mjs) — same SO #47 rule: declare the write or the anti-escape
@@ -442,6 +462,7 @@ export const COVERED = [
       'guides/agentic-rail-scenario.html', 'guides/baas-programme-scenario.html',
       'tools/92-sca-exemption-mapper.html',
       'infrastructure.html',
+      'hub-for-hubs.html',
       'prompts.html',
     ],
     share: '27%',

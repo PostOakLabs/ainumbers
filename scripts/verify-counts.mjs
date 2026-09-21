@@ -210,6 +210,9 @@ for (const rel of [
   // INFRA-PAGE-1: the generated infrastructure page's data-count="infra_pages"
   // sentinel (key derived in counts.mjs from data/infra-registry.json).
   'infrastructure.html',
+  // HUB-FOR-HUBS-1: the guide-cluster catalog page's data-count="guide_pages"
+  // hero sentinel (key derived in counts.mjs from the same registry).
+  'hub-for-hubs.html',
   // PROMPT-LIBRARY-PAGE-2: the generated prompt library's
   // data-count="showcase_prompts" hero sentinel (key registered in counts.mjs
   // from the same mcp/showcase-prompts.json read gen-prompts-page.mjs renders
