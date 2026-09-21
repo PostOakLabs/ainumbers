@@ -951,6 +951,33 @@ const PREFLIGHT_ONLY = new Map([
   // duplicate step would run the same suite twice.
   ["check-id-collision.mjs", VIA_PREFLIGHT],
 
+  // ── GPU-FLAG-PARITY-GATE-1 (2026-09-17, ART124-POLICY-CORE-PROVE-1) ─────────
+  ["check-gpu-flag-parity.mjs",
+    "Kernel meta.gpu vs shard gpu parity (GPU-FLAG-PARITY-GATE-1): every live node " +
+    "with a kernel file must not contradict its shard gpu flag (the measured " +
+    "baseline was exactly one contradiction, art-124, fixed in the landing PR, so " +
+    "the gate is born green at 0). Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), " +
+    "so a named workflow step would only duplicate the same suite. Reads only " +
+    "tracked repo files — no CI-only input. Paired self-test: " +
+    "check-gpu-flag-parity.test.mjs (GATE-SELFTEST-META-1)."],
+  ["check-gpu-flag-parity.test.mjs", SELF_TEST],
+
+  // ── MR-R4-NULL-REGRESSION-GATE-1 (2026-09-21) ───────────────────────────────
+  ["check-mr-r4-null-ratchet.mjs",
+    "R4 null-class down-only ratchet (MR-R4-NULL-REGRESSION-GATE-1): re-measures the " +
+    "estate's R4 (absent equals explicit null) violated-record count in-tree — a " +
+    "replication of the workspace instrument's R4 cell, whose own report-only polarity " +
+    "is unchanged — and fails if any kernel worsens, a new kernel violates, or the total " +
+    "rises above scripts/mr-r4-null-baseline.json (172 pinned @ 0c8fcaee; the ceiling " +
+    "only falls, --update-baseline is the sole writer and refuses any raise). Hard in " +
+    "preflight; its CI route is scripts-verify.yml full preflight (the workflow runs " +
+    "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the " +
+    "same suite. Reads only tracked repo files (chaingraph/kernels/, its fixtures, " +
+    "manifests/) — no CI-only input, no network. Paired self-test: " +
+    "check-mr-r4-null-ratchet.test.mjs (GATE-SELFTEST-META-1)."],
+  ["check-mr-r4-null-ratchet.test.mjs", SELF_TEST],
+
   // REGZ-TABLE-SINGLE-WRITER-3 (2026-09-17): the art-218/art-234 page/kernel
   // table-parity gates and their SO #40b mutation controls run in preflight, whose
   // CI route is scripts-verify.yml's preflight invocation — the parity checkers
