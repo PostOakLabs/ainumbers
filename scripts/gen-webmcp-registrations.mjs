@@ -1258,7 +1258,7 @@ function validationLine(prop, type) {
   }
 }
 
-function mappingLine(prop, type, optional, entry) {
+function mappingLine(prop, type, optional, entry, spec) {
   const via = entry ? entry.via : null;
   const id = entry ? entry.element_id : prop;
   let expr;
@@ -1266,7 +1266,20 @@ function mappingLine(prop, type, optional, entry) {
   else if (via === 'boolstring') expr = `document.getElementById('${jsStr(id)}').value = String(params.${prop} === true);`;
   else if (via === 'json' || type === 'array' || type === 'object') expr = `document.getElementById('${jsStr(id)}').value = JSON.stringify(params.${prop});`;
   else expr = `document.getElementById('${jsStr(id)}').value = String(params.${prop});`;
-  return optional ? `if (params.${prop} !== undefined) ${expr}` : expr;
+  // MR-R4-NULL-NORMALIZE-WEBMCP-1: an optional null used to reach this line and be
+  // stringified INTO the input as the literal 4-character text "null" (an
+  // <input>.value is always a string). Skip it instead — a null member means "not
+  // supplied" exactly like absent, the same caller-side contract the worker row
+  // settled (MR-R4-NULL-NORMALIZE-WORKER-1, worker PR #383). A property declaring
+  // x_null_distinct keeps the old behaviour: null is a meaningful third state
+  // there and IS written (measured 2026-09-20: 0 properties declare it —
+  // forward-compatibility, wired not deferred). The human form path is NOT
+  // affected: it never produces null in the first place (<input>.value is a
+  // string; blank is ""), and "" vs absent is a different divergence class,
+  // deliberately out of fence here.
+  if (!optional) return expr;
+  if (spec && spec.x_null_distinct) return `if (params.${prop} !== undefined) ${expr}`;
+  return `if (params.${prop} !== undefined && params.${prop} !== null) ${expr}`;
 }
 
 /**
@@ -1330,7 +1343,7 @@ export function buildBlock(manifest, manifestPath, idMap, wrapper) {
     if (required.includes(name)) lines.push(`      ${validationLine(name, spec.type)}`);
   }
   for (const [name, spec] of props) {
-    lines.push(`      ${mappingLine(name, spec.type, !required.includes(name), map[name])}`);
+    lines.push(`      ${mappingLine(name, spec.type, !required.includes(name), map[name], spec)}`);
   }
   lines.push(`      await ${target}();`);
   lines.push('      return RESULT_GLOBAL;');
@@ -3168,6 +3181,117 @@ export async function directAdjudication(toolId, manifestIndex, mcpNameByTool, r
   };
 }
 
+// ── MR-R4-NULL-NORMALIZE-WEBMCP-1: the shared null-member normalizer ─────────
+//
+// The browser-agent half of the R4 class (MR-R4-NULL-CLASS-DESIGN-2026-09-20,
+// caller trace (iii)): DIRECT mode handed the agent's params to the page's
+// compute unchanged, so an explicit `null` member reached a compute the same way
+// it reaches the MCP worker — destructuring defaults fire on `undefined` only,
+// and `Number(null) === 0` passes finiteness checks (measured worst case: a
+// disclosed 11.9961 % APR silently became 0.9997 % with "converged":true still
+// asserted).
+//
+// The contract is the one settled by MR-R4-NULL-NORMALIZE-WORKER-1 (worker PR
+// #383, PostOakLabs/ainumbers-mcp-apps, `_null_normalize.mjs`), byte-for-byte in
+// BEHAVIOUR, not in bytes: the two surfaces cannot share a file (separate
+// repos), so they share a TEST VECTOR SET — the nine unit vectors of the
+// worker's `tests/null-normalize.test.mjs` are reproduced as data in
+// `scripts/gen-webmcp-registrations.null-normalize.test.mjs` and run against
+// BOTH the Node-side export below AND the emitted browser form
+// (`EMITTED_NULL_NORMALIZER_SRC`) embedded in a built registration, so neither
+// textual form can fork behaviourally without going red (the worker suite runs
+// the same vectors against `_null_normalize.mjs`).
+//
+//   - recursively REMOVE object members whose value is `null`, at every depth;
+//   - PRESERVE `null` array elements unchanged (positional — dropping one
+//     shifts every later index);
+//   - never mutate the input; idempotent (its own output is a fixed point;
+//     unchanged subtrees return the same reference);
+//   - a manifest input property declaring `x_null_distinct: true` is EXCLUDED
+//     from normalization at that depth (null is a meaningful third state
+//     there); nested `properties` and array `items` are honoured recursively.
+//     Measured 2026-09-20: 0 properties declare it — forward-compatibility.
+//
+// ⛔ Never fold normalization into `chaingraph/kernels/_hash.mjs` (the worker
+// row's trap, restated): it must run BEFORE compute, on the caller side, or the
+// null-carrying call and the null-free call get identical receipts while still
+// computing different answers.
+export function normalizeNullMembers(value, schema) {
+  if (Array.isArray(value)) {
+    let changed = false;
+    const out = new Array(value.length);
+    for (let i = 0; i < value.length; i++) {
+      const el = value[i];
+      if (el === null) { out[i] = null; continue; } // positional — never dropped
+      const n = normalizeNullMembers(el, schema?.items);
+      if (n !== el) changed = true;
+      out[i] = n;
+    }
+    return changed ? out : value;
+  }
+  if (value !== null && typeof value === 'object') {
+    const props = schema?.properties;
+    const out = {};
+    let changed = false;
+    for (const k of Object.keys(value)) {
+      const v = value[k];
+      if (v === null) {
+        if (props?.[k]?.x_null_distinct) { out[k] = null; continue; } // declared opt-out honoured
+        changed = true; // drop the member; its absence IS the kernel's "not supplied"
+        continue;
+      }
+      const n = normalizeNullMembers(v, props?.[k]);
+      if (n !== v) changed = true;
+      out[k] = n;
+    }
+    return changed ? out : value;
+  }
+  return value;
+}
+
+// The emitted browser form of the same algorithm: plain ES5-style JS, no arrow
+// functions, no optional chaining — emitted verbatim into every DIRECT-mode
+// registration (see buildDirectBlock) so the browser executes the identical
+// contract. Pinned to the Node export above by the shared vector set in
+// scripts/gen-webmcp-registrations.null-normalize.test.mjs (that suite
+// evaluates THIS source with `new Function` and runs the same nine vectors
+// through it — edit one form without the other and the suite goes red).
+export const EMITTED_NULL_NORMALIZER_SRC = [
+  'function __normalizeNullMembers(value, schema) {',
+  '  if (Array.isArray(value)) {',
+  '    var changed = false;',
+  '    var out = new Array(value.length);',
+  '    for (var i = 0; i < value.length; i++) {',
+  '      var el = value[i];',
+  '      if (el === null) { out[i] = null; continue; }',
+  '      var n = __normalizeNullMembers(el, schema && schema.items);',
+  '      if (n !== el) changed = true;',
+  '      out[i] = n;',
+  '    }',
+  '    return changed ? out : value;',
+  '  }',
+  "  if (value !== null && typeof value === 'object') {",
+  '    var props = schema && schema.properties;',
+  '    var out2 = {};',
+  '    var changed2 = false;',
+  '    for (var ks = Object.keys(value), j = 0; j < ks.length; j++) {',
+  '      var k = ks[j];',
+  '      var v = value[k];',
+  '      if (v === null) {',
+  '        if (props && props[k] && props[k].x_null_distinct) { out2[k] = null; continue; }',
+  '        changed2 = true;',
+  '        continue;',
+  '      }',
+  '      var n2 = __normalizeNullMembers(v, props && props[k]);',
+  '      if (n2 !== v) changed2 = true;',
+  '      out2[k] = n2;',
+  '    }',
+  '    return changed2 ? out2 : value;',
+  '  }',
+  '  return value;',
+  '}',
+].join('\n');
+
 /** Required-member validation for the direct emitter: legal declared types get
  *  the typed check; no type (or an undeclared type) gets presence only. */
 function directValidationLine(name, type) {
@@ -3236,7 +3360,16 @@ export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn) {
   lines.push('        else document.body.insertBefore(echo, document.body.firstChild);');
   lines.push('      }');
   lines.push("      echo.textContent = 'Inputs used by the agent: ' + JSON.stringify(params, null, 2);");
-  lines.push(`      var __directResult = await ${fn}(params);`);
+  // MR-R4-NULL-NORMALIZE-WEBMCP-1: normalize BEFORE the compute call (never in
+  // the hash — see the normalizer header above). The echo still shows the
+  // agent's raw params; the compute sees the normalized form, exactly like the
+  // worker boundary (MR-R4-NULL-NORMALIZE-WORKER-1). The schema handed to the
+  // normalizer is this registration's own inputSchema — the manifest's,
+  // verbatim — so a future x_null_distinct declaration in any manifest flows
+  // through with no new wiring here.
+  lines.push('      var __normalizeNullMembers = ' + EMITTED_NULL_NORMALIZER_SRC.replace(/\n/g, '\n      ') + ';');
+  lines.push(`      var __computeInput = __normalizeNullMembers(params, ${JSON.stringify(JSON.stringify(def.inputSchema))});`);
+  lines.push(`      var __directResult = await ${fn}(__computeInput);`);
   lines.push(`      if (typeof __directResult !== 'undefined') ${resGlobal} = __directResult;`);
   lines.push(`      await ${renderFn}();`);
   lines.push(`      return ${resGlobal};`);
@@ -3413,7 +3546,7 @@ async function selftest(){
     check('untrustedContentHint stated n/a in the comment', block.includes('untrustedContentHint is not applicable'));
     check('exposedTo omitted entirely', !block.includes('exposedTo:'));
     check('required-input validation emitted (principal)', block.includes("if (typeof params.principal !== 'number'"));
-    check('optional mapping guarded, required unguarded', block.includes("if (params.flag !== undefined) document.getElementById('flag').checked") && block.includes("document.getElementById('principal').value = String(params.principal);"));
+    check('optional mapping guards undefined AND null (MR-R4-NULL-NORMALIZE-WEBMCP-1: a null optional is skipped, not stringified into the input), required unguarded', block.includes("if (params.flag !== undefined && params.flag !== null) document.getElementById('flag').checked") && block.includes("document.getElementById('principal').value = String(params.principal);"));
     check('feature-detect gates the registration', block.indexOf('document.modelContext') !== -1 && block.indexOf('registerTool') > block.indexOf('modelContext'));
     check('markers delimit the block', block.startsWith(beginLine('manifests/950-fx-100-selftest.manifest.json')) && block.endsWith(END));
 
@@ -3946,7 +4079,9 @@ async function selftest(){
     const dBlock = buildDirectBlockForPage(dManifest, 'manifests/953-fx-300-direct.manifest.json', '_lastResult', 'renderDirect');
     check('direct block: mode=direct BEGIN marker', dBlock.startsWith(beginLine('manifests/953-fx-300-direct.manifest.json', 'direct')));
     check('direct block: name and inputSchema verbatim from the manifest', dBlock.includes("name: 'run_fx_300_direct'") && dBlock.includes(JSON.stringify(dSchema, null, 2).replace(/\n/g, '\n    ')));
-    check('direct block: calls the manifest fn with params', dBlock.includes('await runDirect(params);'));
+    check('direct block: calls the manifest fn with the NORMALIZED input (MR-R4-NULL-NORMALIZE-WEBMCP-1)', dBlock.includes('await runDirect(__computeInput);') && !dBlock.includes('await runDirect(params);'));
+    check('direct block: normalize call emitted BEFORE the compute call, carrying the registration inputSchema verbatim', dBlock.includes('var __computeInput = __normalizeNullMembers(params, ' + JSON.stringify(JSON.stringify(dSchema)) + ');') && dBlock.indexOf('__normalizeNullMembers(params') < dBlock.indexOf('await runDirect(__computeInput);'));
+    check('direct block: browser normalizer source embedded verbatim', dBlock.includes(EMITTED_NULL_NORMALIZER_SRC.replace(/\n/g, '\n      ')));
     check('direct block: stores the probe-verified result global', dBlock.includes("if (typeof __directResult !== 'undefined') _lastResult = __directResult;"));
     check('direct block: renders through the detected render function', dBlock.includes('await renderDirect();'));
     check('direct block: mandatory inputs echo panel present', dBlock.includes("echo.id = 'webmcp-inputs-echo';") && dBlock.includes("'Inputs used by the agent: '"));
