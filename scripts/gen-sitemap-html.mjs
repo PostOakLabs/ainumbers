@@ -213,6 +213,19 @@ const rootPages = [
   { icon: '🧭', name: 'Start (guided entry point)', href: 'start.html' },
   { icon: 'ℹ️', name: 'About', href: 'about.html' },
   { icon: '🏅', name: 'Credits', href: 'credits.html' },
+  { icon: '📋', name: 'Methods (how outputs are checked)', href: 'methods.html' },
+  { icon: '🧾', name: 'Groth16 Receipts (compute proofs)', href: 'groth16.html' },
+  { icon: '⚙️', name: 'Mechanical Verification (evidence and re-runs)', href: 'mechanical.html' },
+  { icon: '🔎', name: 'Verification Desk (verify any artifact)', href: 'verification-desk.html' },
+  { icon: '🧮', name: 'FV Process Explainer', href: 'fv-explainer.html' },
+  { icon: '🛠', name: 'Errata (public corrections)', href: 'errata.html' },
+  { icon: '🔐', name: 'Security', href: 'security.html' },
+  { icon: '🧠', name: 'Prompt Library', href: 'prompts.html' },
+  { icon: '🧰', name: 'All Tools (directory)', href: 'tools.html' },
+  { icon: '🗂', name: 'Workpaper Index (hash-anchored bundles)', href: 'workpaper-index.html' },
+  { icon: '🔍', name: 'OIM Viewer', href: 'oim-viewer.html' },
+  { icon: '🗓', name: 'Deadline Wall', href: 'deadline-wall.html' },
+  { icon: '🔀', name: 'Bundle Diff', href: 'bundle-diff.html' },
   { icon: '⚙️', name: 'Policy Composer (orchestrated)', href: 'chaingraph/chains/agentic-policy.html' },
   { icon: '⚙️', name: 'AML Programme Composer (orchestrated)', href: 'chaingraph/chains/aml-consolidation.html' },
   { icon: '🎯', name: 'Agentic Readiness Diagnostic (A–F)', href: 'chaingraph/art-27-agentic-readiness-diagnostic.html' },
@@ -220,7 +233,12 @@ const rootPages = [
   { icon: '🧪', name: 'Bazantic Walkthrough (ETHOnline 2026 evidence)', href: 'bazantic-walkthrough.html' },
   { icon: '🔁', name: 'Conversion Suite', href: 'convert.html' },
   { icon: '🧩', name: 'Helm (control plane, beta)', href: 'helm.html' },
+  { icon: '🚶', name: 'Helm Walkthrough', href: 'helm-walkthrough.html' },
+  { icon: '📐', name: 'Helm Technical Design', href: 'helm-technical-design.html' },
+  { icon: '🦞', name: 'Helm for OpenClaw and AutoClaw (HelmClaw)', href: 'helm-openclaw.html' },
+  { icon: '🎬', name: 'Helm Demo', href: 'helm-demo.html' },
   { icon: '🔌', name: 'Live MCP Apps Server ↗', href: 'https://mcp.ainumbers.co/mcp', ext: true },
+  { icon: '🛝', name: 'MCP Playground', href: 'mcp-playground.html' },
   { icon: '📖', name: 'Developer Docs ↗', href: 'https://docs.ainumbers.co', ext: true },
   { icon: '🎯', name: 'MCP Server Deployability Diagnostic (A–F)', href: 'chaingraph/art-28-mcp-server-deployability-diagnostic.html' },
   { icon: '🎯', name: 'DORA Readiness Diagnostic (A–F)', href: 'chaingraph/art-29-dora-readiness-diagnostic.html' },
@@ -230,6 +248,8 @@ const rootPages = [
   { icon: '🗺', name: 'Sitemap', href: 'sitemap.html', current: true },
   { icon: '🗺', name: 'Infrastructure Map (every page, by job)', href: 'infrastructure.html' },
   { icon: '🧭', name: 'Hubs and Guides Map', href: 'hub-for-hubs.html' },
+  { icon: '📇', name: 'EUC Register', href: 'euc-register.html' },
+  { icon: '🔑', name: 'Key Ceremony', href: 'key-ceremony.html' },
   { icon: '💡', name: 'Suggest a Tool or Workflow', href: 'suggest.html' },
   { icon: '✉️', name: 'Contact', href: 'contact.html' },
 ];
@@ -380,7 +400,20 @@ src = spliceSentinel(
   // FIRST searchCount span, fossilizing any duplicate at a stale count. The template
   // now carries ONE span; the /g keeps this fix honest if a duplicate ever reappears.
   src = src.replace(/<span id="searchCount" aria-live="polite">\d+ tools<\/span>/g, `<span id="searchCount" aria-live="polite">${totalToolRows} tools</span>`);
-  src = src.replace(/\/\* GEN:SITEMAP-TOTAL:START \(generator-owned\) \*\/ const TOTAL = \d+; \/\* GEN:SITEMAP-TOTAL:END \*\//, `/* GEN:SITEMAP-TOTAL:START (generator-owned) */ const TOTAL = ${totalToolRows}; /* GEN:SITEMAP-TOTAL:END */`);
+  // TOTAL collapse: a duplicate TOTAL marker block once shipped (an orphaned
+  // `const TOTAL = 1419;` beside the live block), and the old single-block regex
+  // could not remove the orphan — worse, the doubled `const TOTAL` was a
+  // SyntaxError that killed the page's whole inline script (search included)
+  // while --check stayed green, because --check only diffs the category region.
+  // Collapse EVERY block (and any orphaned block missing its END) to one token,
+  // then keep exactly one live block carrying the current count.
+  src = src.replace(/\/\* GEN:SITEMAP-TOTAL:START \(generator-owned\) \*\/ const TOTAL = \d+;( \/\* GEN:SITEMAP-TOTAL:END \*\/)?/g, '\u0000SITEMAP_TOTAL_TOKEN\u0000');
+  src = src.replace('\u0000SITEMAP_TOTAL_TOKEN\u0000', `/* GEN:SITEMAP-TOTAL:START (generator-owned) */ const TOTAL = ${totalToolRows}; /* GEN:SITEMAP-TOTAL:END */`);
+  src = src.replace(/(?:\u0000SITEMAP_TOTAL_TOKEN\u0000)+/g, '');
+  if (src.includes('SITEMAP_TOTAL_TOKEN')) {
+    console.error('gen-sitemap-html: INTERNAL ERROR — TOTAL token survived collapse; aborting without write.');
+    process.exit(1);
+  }
   if (src !== before) changed = true;
 }
 
