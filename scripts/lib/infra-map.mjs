@@ -197,7 +197,13 @@ export function renderDescription(row, overrides) {
 /** Render a card title: authored override, else deterministic cleanup. */
 export function renderTitle(row, overrides) {
   const ov = overrides[row.path];
-  return sanitizeCopy(ov && ov.title ? ov.title : displayTitle(row.title));
+  const t = sanitizeCopy(ov && ov.title ? ov.title : displayTitle(row.title));
+  if (!t) {
+    throw new Error(
+      `display title for ${row.path} renders empty — the source <title> "${row.title}" is ` +
+      `entirely strippable suffix. Fix the source title or add an override; empty cards do not ship.`);
+  }
+  return t;
 }
 
 /**
