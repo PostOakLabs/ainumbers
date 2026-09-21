@@ -425,6 +425,14 @@ const PREFLIGHT_ONLY = new Map([
     "from the registry and byte-compares (card set 1:1, JSON-LD ItemList). Hard in " +
     "preflight; its CI route is scripts-verify.yml full preflight, so a named workflow step " +
     "would only duplicate the same suite. Reads only tracked repo files — no CI-only input."],
+  // ── HUB-FOR-HUBS-1 (2026-09-21) ─────────────────────────────────────────────
+  ["gen-hub-for-hubs-page.mjs",
+    "Guide-cluster catalog generator --check (HUB-FOR-HUBS-1): re-renders " +
+    "hub-for-hubs.html from the registry (the guide-category split of " +
+    "infrastructure.html) and byte-compares (cluster coverage 1:1, JSON-LD ItemList). " +
+    "Hard in preflight; its CI route is scripts-verify.yml full preflight, so a named " +
+    "workflow step would only duplicate the same suite. Reads only tracked repo files " +
+    "(registry + overrides + start.html chrome) — no CI-only input."],
   // ── HELM-OPENCLAW-PAGE-1 (2026-09-08) ───────────────────────────────────────
   ["check-helm-openclaw-page.mjs",
     "Helm-OpenClaw page gate (HELM-OPENCLAW-PAGE-1): asserts helm-openclaw.html's six " +
