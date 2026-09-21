@@ -200,8 +200,20 @@ function maskCountDigits(html, rel) {
 
 function descOf(html, rel) {
   const source = rel === undefined ? html : maskCountDigits(html, rel);
-  const m = source.match(/<meta\s+name=["']description["']\s+content=["']([^"']*)["']/i)
-    || source.match(/<meta\s+content=["']([^"']*)["']\s+name=["']description["']/i);
+  // ⚠ Quote styles must be matched PER ALTERNATIVE, never as one class.
+  // The old pattern, content=["']([^"']*)["'], stops the capture at the
+  // FIRST apostrophe in the value: every description containing one
+  // ("How Autonity's Auton Currency Unit…", "…lives inside the operator's
+  // system", "…the reproposal doesn't…") was captured as a mid-sentence
+  // fragment — measured 2026-09-21 at 27 registry rows, all rendering as
+  // truncated cards on infrastructure.html (INFRA-MAP-COPY-1 root cause).
+  // The source pages were healthy; the scrape was not. Double-quoted
+  // content is the published convention (every page in the estate);
+  // single-quoted alternatives kept for parity, matched the same way.
+  const m = source.match(/<meta\s+name=["']description["']\s+content="([^"]*)"/i)
+    || source.match(/<meta\s+content="([^"]*)"\s+name=["']description["']/i)
+    || source.match(/<meta\s+name=["']description["']\s+content='([^']*)'/i)
+    || source.match(/<meta\s+content='([^']*)'\s+name=["']description["']/i);
   if (!m) return '';
   return m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
     .replace(/\s{2,}/g, ' ').trim();
