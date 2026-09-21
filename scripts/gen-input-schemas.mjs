@@ -33,9 +33,10 @@
  * extensions, so the mark moved OUT of the schema objects (RULINGS
  * 2026-09-10T20:30:44Z; it used to sit inside them as `x_schema_provenance`).
  * This mark is also the OWNERSHIP mark for --check and for SKIP-HAND-SCHEMA:
- * manifests without it (in either position — the transition reads
- * `m.input_schema_provenance ?? m.input_schema?.x_schema_provenance`) are
- * hand-curated and never touched by this tool.
+ * manifests without it are hand-curated and never touched by this tool. The
+ * transition that also honoured the old inner position is gone
+ * (WEBMCP-SCHEMA-PR5-CLOSE-1 migrated the last 40 manifests carrying it), so an
+ * inner `x_schema_provenance` no longer confers ownership on anything.
  *
  * The backfill writes BOTH declared-schema slots so the two writers agree
  * (gen-webmcp-registrations.mjs checkManifestSchemaParity): `input_schema`
@@ -58,12 +59,12 @@
  *   node scripts/gen-input-schemas.mjs --write [--only id1,id2,...]
  *   node scripts/gen-input-schemas.mjs --check          (drift gate: hand-edits to
  *                    provenance-marked schema blocks go red; exit 1 on any drift.
- *                    TRANSITION (MCP-SCHEMA-CONFORMANCE-1, removed in PR-5): a
- *                    manifest matches if its schema equals the fresh derivation
- *                    in the NEW shape (typeless, mark at manifest level) OR the
- *                    fresh derivation re-rendered under the legacy rule
- *                    (`unknown` + inner mark) via one legacyShape() transform —
- *                    so the 498-manifest sweep can land in slices without a red main)
+ *                    ONE accepted shape — the on-disk schema must byte-match the
+ *                    fresh derivation, typeless properties and all, with the mark
+ *                    at the manifest level. The MCP-SCHEMA-CONFORMANCE-1 legacy
+ *                    transition that also accepted `unknown` + an inner mark was
+ *                    removed by WEBMCP-SCHEMA-PR5-CLOSE-1 once the last 40
+ *                    legacy manifests were migrated)
  *   node scripts/gen-input-schemas.mjs --self-test      (controls incl. enum
  *                    inference + unknown-type honesty + default capture + a
  *                    tamper-red mutation control; exit 1 on any failed control)
@@ -377,38 +378,14 @@ export function deriveInputSchema(repoRoot, kernelFile, indexes) {
   return { inputSchema, rec };
 }
 
-/** The provenance mark wherever it sits during the transition (either = owned). */
+/** The provenance mark: the manifest-level sibling, and nothing else. */
 export function provenanceMark(m) {
-  return m?.input_schema_provenance ?? m?.input_schema?.x_schema_provenance;
+  return m?.input_schema_provenance;
 }
 
 /** Ownership test: the mark must be the generator's dated provenance string. */
 export function isOwnedMark(prov) {
   return typeof prov === 'string' && PROVENANCE_RE.test(prov);
-}
-
-/**
- * TRANSITION (MCP-SCHEMA-CONFORMANCE-1, removed in PR-5): re-render a fresh
- * derivation under the LEGACY rule — typeless properties become
- * `"type": "unknown"`, the description sentence is stripped (the legacy renderer
- * never wrote it), and the provenance mark goes back INSIDE the schema object —
- * so --check accepts bytes written by the pre-ruling generator while the sweep
- * lands in slices without a red main.
- */
-export function legacyShape(schema) {
-  const s = JSON.parse(JSON.stringify(schema));
-  for (const prop of Object.values(s.properties || {})) {
-    if (!prop || typeof prop !== 'object' || Array.isArray(prop)) continue;
-    if (!('type' in prop)) {
-      prop.type = 'unknown';
-      if (prop.description === TYPE_NOT_EVIDENCED) delete prop.description;
-      else if (typeof prop.description === 'string' && prop.description.endsWith(TYPE_NOT_EVIDENCED_SUFFIX)) {
-        prop.description = prop.description.slice(0, -TYPE_NOT_EVIDENCED_SUFFIX.length);
-      }
-    }
-  }
-  s.x_schema_provenance = PROVENANCE;
-  return s;
 }
 
 // ── WebMCP flip probe (mirrors gen-webmcp-registrations.mjs adjudicateTool
@@ -557,7 +534,6 @@ export function checkDerivedSchemas(repoRoot) {
   const toolByMcpName = new Map([...mcpNameByTool.entries()].map(([tid, name]) => [name, tid]));
   const manifestIndex = loadManifestIndex(repoRoot);
   const problems = [];
-  const shapes = { new: 0, legacy: 0 };
   let owned = 0;
   for (const f of fs.readdirSync(path.join(repoRoot, 'manifests')).filter((x) => x.endsWith('.manifest.json'))) {
     const rel = `manifests/${f}`;
@@ -566,8 +542,6 @@ export function checkDerivedSchemas(repoRoot) {
       problems.push(`${rel}: invalid JSON: ${e.message}`);
       continue;
     }
-    // TRANSITION ownership: either mark = owned (top-level sibling first, legacy
-    // inner mark second). Removed-with-the-transition in PR-5.
     const prov = provenanceMark(m);
     if (!isOwnedMark(prov)) continue; // not ours — hand-curated surface
     owned++;
@@ -586,39 +560,45 @@ export function checkDerivedSchemas(repoRoot) {
       problems.push(`${rel}: re-derivation failed: ${e.message}`);
       continue;
     }
-    // TRANSITION: the on-disk schema must equal the fresh derivation in the NEW
-    // shape (typeless) OR its legacyShape() rendering (`unknown` + inner mark).
+    // The on-disk schema must equal the fresh derivation byte for byte. (The
+    // MCP-SCHEMA-CONFORMANCE-1 transition that also accepted a legacy `unknown`
+    // + inner-mark rendering is gone — WEBMCP-SCHEMA-PR5-CLOSE-1 migrated the
+    // last 40 manifests carrying it, so there is one accepted shape again.)
     const freshNew = JSON.stringify(canonicalize(fresh));
-    const freshLegacy = JSON.stringify(canonicalize(legacyShape(fresh)));
     const gotSchema = JSON.stringify(canonicalize(m.input_schema));
-    const shape = gotSchema === freshNew ? 'new' : gotSchema === freshLegacy ? 'legacy' : null;
-    if (!shape) {
-      problems.push(`${rel}: input_schema drifted from the kernel's measured reads (matches neither the fresh derivation nor its legacy-shape rendering) — hand-edits to derived schemas are red; regenerate with node scripts/gen-input-schemas.mjs --write --only ${toolId}`);
-    } else {
-      shapes[shape]++;
+    if (gotSchema !== freshNew) {
+      problems.push(`${rel}: input_schema drifted from the kernel's measured reads — hand-edits to derived schemas are red; regenerate with node scripts/gen-input-schemas.mjs --write --only ${toolId}`);
     }
     const got = m.mcp_tool_definition?.inputSchema;
     const gotJson = got ? JSON.stringify(canonicalize(got)) : null;
-    if (gotJson !== freshNew && gotJson !== freshLegacy) {
+    if (gotJson !== freshNew) {
       problems.push(`${rel}: mcp_tool_definition.inputSchema drifted from input_schema (the two schema writers must agree)`);
     }
   }
-  return { owned, shapes, problems };
+  return { owned, problems };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// --migrate-legacy (REMOVED in the same PR that used it): the one-shot sweep
+// that moved the last 40 inner `input_schema.x_schema_provenance` marks to
+// top-level `input_schema_provenance` siblings. Nothing on disk carries the
+// legacy shape any more, so the mode, legacyShape() and the `?? inner` ownership
+// fallback are gone; a manifest either carries the manifest-level mark or is not
+// ours. Recover the mode from git history if a legacy file ever reappears.
+// ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 // CLI
 // ─────────────────────────────────────────────────────────────────────────────
 function main() {
   const args = process.argv.slice(2);
   if (args.includes('--check')) {
-    const { owned, shapes, problems } = checkDerivedSchemas(REPO);
+    const { owned, problems } = checkDerivedSchemas(REPO);
     if (problems.length) {
       console.error(`✗ input-schema backfill freshness FAILED (${problems.length} problem(s), ${owned} derived schema(s) checked):`);
       problems.forEach((p) => console.error('  • ' + p));
       process.exit(1);
     }
-    console.log(`✓ input-schema backfill freshness clean — ${owned} provenance-marked schema(s) byte-match fresh derivations from kernel reads (${shapes.new} new shape, ${shapes.legacy} legacy shape accepted by the MCP-SCHEMA-CONFORMANCE-1 transition; removed in PR-5).`);
+    console.log(`✓ input-schema backfill freshness clean — ${owned} provenance-marked schema(s) byte-match fresh derivations from kernel reads (one accepted shape: typeless properties, mark at the manifest level — the MCP-SCHEMA-CONFORMANCE-1 legacy-shape transition is removed).`);
     process.exit(0);
   }
 
