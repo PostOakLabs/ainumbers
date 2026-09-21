@@ -346,6 +346,21 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── ART220-TABLE-SINGLE-WRITER-1 (2026-09-20) ───────────────────────────────
+  ["check-art220-table-parity.mjs",
+    "art-220 page/kernel TABLES single-writer parity + its paired mutation controls " +
+    "(ART220-TABLE-SINGLE-WRITER-1): re-derives the node page's generated TABLES block from the " +
+    "kernel's THRESHOLD_TABLES export and byte-compares, so the page can never hand-maintain a " +
+    "second copy of the Reg Z constants. Hard in preflight; its CI route is scripts-verify.yml " +
+    "full preflight (the workflow runs `node scripts/preflight.mjs`), so a named workflow step " +
+    "would only duplicate the same suite. NOT a derived artifact: both sides are hand-authored " +
+    "source (chaingraph/kernels/*.kernel.mjs and chaingraph/art-220-*.html), never written " +
+    "main-side by derived-artifacts-regen.yml, so there is no writer to race and no landing " +
+    "window in which a PR-reachable raw invocation would red every open PR. Reads only tracked " +
+    "repo files — no CI-only input. The paired .test.mjs leg is the SELF_TEST shape: it drives " +
+    "the checker's own logic against in-memory fixtures and can only be reddened by a change to " +
+    "that checker, which is exactly the PR shape scripts-verify.yml's path filter catches."],
+  ["check-art220-table-parity.test.mjs", SELF_TEST],
   // ── MANIFEST-EXAMPLES-ANNOTATIONS-1 (2026-09-18) ────────────────────────────
   ["gen-manifest-examples.mjs",
     "Manifest example/annotation freshness --check + its paired --self-test " +

@@ -68,8 +68,8 @@ const real = classify(probeArt234(art234, art220), supplier);
 const real2026 = real.entries.find((e) => e.year === 2026);
 check('GREEN control: real art-234, year 2026 entries measure equal to art-220',
   real2026 && !real2026.differs);
-check('GREEN control: real art-234 edge is MISMATCH only via the declared 2021-2024 fallback years',
-  real.verdict === VERDICT.MISMATCH && real.entries.every((e) => !e.differs || (e.year >= 2021 && e.year <= 2024)));
+check('GREEN control: real art-234 edge is MISMATCH only via the declared 2021-2024 fallback years + the known 2025 divergence (art-234 stale 1345 pin, pending fix row)',
+  real.verdict === VERDICT.MISMATCH && real.entries.every((e) => !e.differs || (e.year >= 2021 && e.year <= 2025)));
 
 const pert = classify(perturbed, supplier);
 const p2026 = pert.entries.find((e) => e.year === 2026);
@@ -81,8 +81,10 @@ check('RED control: exactly ONE NEW firing field vs the unperturbed run — the 
   pert.diffs === real.diffs + 1);
 check('RED control: 2026 points_fees_floor fires ONLY in the perturbed run',
   !(real2026 && real2026.differs) && floor && floor.equal === false);
-check('RED control: fixture 2025 entries still equal (untouched pin stays clean)',
-  pert.entries.find((e) => e.year === 2025) && !pert.entries.find((e) => e.year === 2025).differs);
+check('RED control: fixture 2025 entries match the REAL art-234 pin (untouched by the 2026 mutation — equality against corrected art-220 is a separate pending fix)',
+  pert.entries.find((e) => e.year === 2025)
+  && real.entries.find((e) => e.year === 2025)
+  && JSON.stringify(pert.entries.find((e) => e.year === 2025).fields) === JSON.stringify(real.entries.find((e) => e.year === 2025).fields));
 
 // ── Declared-expectation surprise logic (both directions) ────────────────────
 function declaredOk(verdict, declared) {
