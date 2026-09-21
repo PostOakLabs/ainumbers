@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Groth16 Receipts | AINumbers.co: The Compute Proofs Behind Each Result</title>
-<meta name="description" content="Every proof-bearing kernel on AINumbers.co ships a Groth16-BN254 receipt for its own result in a public repository. What each receipt field is, what the seal proves and what it does not, and three ways to verify one: in the browser, on-chain, or from the repo.">
+<meta name="description" content="What each field of a compute receipt means, a step-by-step reading of one real receipt from the repository, and four ways to verify one: in the browser, on-chain, or from a clone.">
 <meta name="ain:category" content="learn">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Post Oak Labs">
@@ -14,7 +14,7 @@
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="Groth16 Receipts | AINumbers.co">
-<meta property="og:description" content="The compute proofs behind each result: what a receipt contains, what the seal establishes, what it does not, and how to verify one yourself.">
+<meta property="og:description" content="What a compute receipt contains, a step-by-step reading of one real receipt, and four ways to verify one.">
 <meta property="og:url" content="https://ainumbers.co/groth16.html">
 <meta property="og:site_name" content="AINumbers.co">
 
@@ -22,7 +22,7 @@
 <meta name="twitter:card" content="summary">
 <meta name="twitter:site" content="@ainumbers">
 <meta name="twitter:title" content="Groth16 Receipts | AINumbers.co">
-<meta name="twitter:description" content="What a compute receipt contains, what the seal proves, and three ways to verify one without taking our word for anything.">
+<meta name="twitter:description" content="What a compute receipt contains and four ways to verify one.">
 
 <!-- Favicon -->
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
@@ -44,7 +44,7 @@
       "@id": "https://ainumbers.co/groth16.html",
       "name": "Groth16 Receipts",
       "url": "https://ainumbers.co/groth16.html",
-      "description": "What a compute receipt contains, what the seal establishes and what it does not, and three ways to verify one.",
+      "description": "What each field of a compute receipt means, a step-by-step reading of one real receipt, and four ways to verify one.",
       "isPartOf": { "@id": "https://ainumbers.co/#org" },
       "breadcrumb": {
         "@type": "BreadcrumbList",
@@ -121,6 +121,11 @@ nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:
 .prose a{color:var(--teal-lt);border-bottom:1px solid rgba(45,212,191,.3);transition:opacity .2s}
 .prose a:hover{opacity:.75}
 .prose code{font-family:'JetBrains Mono',monospace;font-size:.9em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+.prose pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.2rem 1.4rem;overflow-x:auto;margin-bottom:1.1rem;scrollbar-color:var(--border-2) var(--bg-3);scrollbar-width:thin}
+.prose pre::-webkit-scrollbar{height:8px}
+.prose pre::-webkit-scrollbar-track{background:var(--bg-3)}
+.prose pre::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:4px}
+.prose pre code{background:none;padding:0;color:var(--text);font-size:.74rem;line-height:1.75}
 
 /* Field cards */
 .mech-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.1rem;margin-top:.5rem}
@@ -133,12 +138,15 @@ nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:
 .mech-tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;color:var(--teal-lt)}
 .mech-desc code{font-family:'JetBrains Mono',monospace;font-size:.9em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
 
-/* Boundary callout */
-.boundary-callout{background:var(--bg-2);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:var(--radius-lg);padding:1.4rem 1.6rem;margin-top:1.75rem}
-.boundary-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem}
-.boundary-callout p{font-size:.87rem;color:var(--body);line-height:1.85;margin-bottom:.8rem}
-.boundary-callout p:last-child{margin-bottom:0}
-.boundary-callout strong{color:var(--text);font-weight:500}
+/* Walkthrough steps */
+.steps{max-width:720px;counter-reset:step;list-style:none;padding:0;margin-top:1.4rem}
+.steps li{position:relative;padding:0 0 1.4rem 3.2rem;counter-increment:step}
+.steps li::before{content:counter(step,decimal-leading-zero);position:absolute;left:0;top:.05rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);border-radius:6px;padding:.25rem .5rem}
+.steps li::after{content:'';position:absolute;left:1.15rem;top:2rem;bottom:.15rem;width:1px;background:var(--border)}
+.steps li:last-child::after{display:none}
+.steps h3{font-family:'Sora',sans-serif;font-size:.9rem;font-weight:500;color:var(--bright);margin-bottom:.35rem}
+.steps p{font-size:.84rem;color:var(--body);line-height:1.8}
+.steps code{font-family:'JetBrains Mono',monospace;font-size:.88em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
 
 /* CTA */
 .cta-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.75rem}
@@ -199,8 +207,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="hero">
   <div class="container">
     <div class="hero-eyebrow">Compute proofs</div>
-    <h1>Groth16 receipts: what they are, and where ours live</h1>
-    <p class="hero-desc">Every proof-bearing kernel on this site ships the cryptographic receipt for its own published result next to its own code, in a public repository, under a CC BY 4.0 license. This page walks through what a receipt contains, what the proof inside it establishes, what it does not, and three ways to verify one without taking our word for anything.</p>
+    <h1>How to read and verify a Groth16 receipt</h1>
+    <p class="hero-desc">Every proof-bearing kernel publishes the cryptographic receipt for its own result in the same file as its own code, in a public repository under a CC BY 4.0 license. This page explains what each field of a receipt means, reads one real receipt from the top, and shows four ways to verify one.</p>
   </div>
 </div>
 
@@ -208,15 +216,15 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="section">
   <div class="container">
     <div class="sec-label">Where the receipts live</div>
-    <h2 class="sec-heading">In the open, next to the thing they attest</h2>
+    <h2 class="sec-heading">Every receipt sits in the public repository</h2>
     <div class="prose">
-      <p>A receipt here is not a badge or a summary page. It is a JSON object embedded in the same published shard file that carries the node's metadata, input and output schema references, and conformance fixtures. The whole set lives in <a href="https://github.com/PostOakLabs/ainumbers/tree/main/chaingraph/graph/nodes" target="_blank" rel="noopener">the public repository, one file per node</a>, so the receipt for any result and the logic that produced it can be read side by side. For example, the receipt for the Basel 3.1 reporting delta node sits inside <a href="https://github.com/PostOakLabs/ainumbers/blob/main/chaingraph/graph/nodes/art-07-basel31-reporting-delta-calculator.json" target="_blank" rel="noopener">its node file</a>, under the <code>audit_signature.compute_proof</code> key.</p>
+      <p>Each receipt is a JSON object embedded in the published shard file that also carries the node's metadata, schema references, and conformance fixtures. The whole set lives in <a href="https://github.com/PostOakLabs/ainumbers/tree/main/chaingraph/graph/nodes" target="_blank" rel="noopener">the public repository, one file per node</a>, so a receipt and the logic it attests can be read side by side. For example, the receipt for the Basel 3.1 reporting delta node sits inside <a href="https://github.com/PostOakLabs/ainumbers/blob/main/chaingraph/graph/nodes/art-07-basel31-reporting-delta-calculator.json" target="_blank" rel="noopener">its node file</a>, under the <code>compute_proof</code> key.</p>
     </div>
     <div class="mech-grid">
       <div class="mech">
         <div class="mech-title"><code>receiptFormat</code></div>
-        <div class="mech-desc"><code>groth16-bn254</code>: the Groth16 proving scheme (Groth, EUROCRYPT 2016) instantiated over the BN254 elliptic curve. The same receipt format carries a <code>system: risc0</code> field naming the zkVM that produced it.</div>
-        <div class="mech-scope"><span class="mech-tag">Why this one</span> Groth16 proofs stay small and cheap to verify no matter how much computation they attest, and BN254 verification is cheap enough for a smart contract to run.</div>
+        <div class="mech-desc"><code>groth16-bn254</code>: the Groth16 proving scheme (Groth, EUROCRYPT 2016) instantiated over the BN254 elliptic curve. The same receipt carries a <code>system: risc0</code> field naming the zkVM that produced it.</div>
+        <div class="mech-scope"><span class="mech-tag">Why this format</span> Groth16 proof size and verification cost stay small even for large computations, and BN254 verification is cheap enough for a smart contract to run.</div>
       </div>
       <div class="mech">
         <div class="mech-title"><code>imageId</code></div>
@@ -225,13 +233,13 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       </div>
       <div class="mech">
         <div class="mech-title"><code>seal</code></div>
-        <div class="mech-desc">The Groth16 proof itself, base64-encoded: a few hundred bytes of cryptographic material that verifies against the zkVM vendor's published verifying key. It is a compressed proof of valid execution, not a dump of the computation.</div>
-        <div class="mech-scope"><span class="mech-tag">Verified against</span> the RISC Zero verifying key, which our in-browser verifier and the on-chain recipe both pin. A seal verifies or it does not; there is no partial credit.</div>
+        <div class="mech-desc">The Groth16 proof itself, base64-encoded: a few hundred bytes of cryptographic material that verifies against the zkVM vendor's published verifying key. It is the compressed proof that a valid execution produced this journal.</div>
+        <div class="mech-scope"><span class="mech-tag">Verified against</span> the RISC Zero verifying key, which our in-browser verifier and the on-chain recipe both pin. Verification has two outcomes: the pairing check passes, or the receipt fails.</div>
       </div>
       <div class="mech">
         <div class="mech-title"><code>journal</code></div>
         <div class="mech-desc">The public output committed by that execution. It carries the digest of the kernel source that ran (<code>kernel_digest</code>) and the <code>output</code> payload itself, which the coverage gate requires to equal the node's published output byte for byte.</div>
-        <div class="mech-scope"><span class="mech-tag">Checked</span> a journal that commits an error instead of a result fails the gate, because a valid seal over a failed run would prove only that the failure happened. This failure mode is real and was observed once, in August 2026, and the check that rejects it is structural since then.</div>
+        <div class="mech-scope"><span class="mech-tag">Checked</span> a journal that commits an error fails the gate, since a valid seal over a failed run would prove only that the failure happened. The coverage gate has rejected that case structurally since August 2026, when it was observed once in practice.</div>
       </div>
     </div>
   </div>
@@ -240,25 +248,83 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <!-- What the seal establishes -->
 <div class="section">
   <div class="container">
-    <div class="sec-label">What the seal establishes</div>
-    <h2 class="sec-heading">This output was computed by this program, and you can check that</h2>
+    <div class="sec-label">The claim</div>
+    <h2 class="sec-heading">What the seal establishes</h2>
     <div class="prose">
-      <p>Verifying a receipt is a local cryptographic check: given the seal, the journal, and the <code>imageId</code>, anyone can confirm that the seal is a valid Groth16 proof, under the published verifying key, for an execution of that exact guest binary that halted normally and committed exactly this journal. Running the check requires no trust in us, in the server that served the page, or in the deployment pipeline. That is the property the receipt is for: the published result came out of running the published logic, rather than being typed in by hand.</p>
-      <p>Because the proofs are succinct, the check is cheap in every direction: a browser does it in milliseconds, and a smart contract can do it on-chain, since Ethereum has shipped cheap BN254 pairing checks natively since EIP-196 and EIP-197 went live in the Byzantium hard fork (October 2017). Our <a href="https://docs.ainumbers.co/receipt-verification.html" target="_blank" rel="noopener">on-chain verification recipe</a> uses exactly that path, one read-only call against the zkVM vendor's deployed verifier contract.</p>
+      <p>Verifying a receipt is a local cryptographic check: given the seal, the journal, and the <code>imageId</code>, anyone can confirm that the seal is a valid Groth16 proof, under the published verifying key, for an execution of that exact guest binary that halted normally and committed exactly this journal. Running the check requires no trust in us, in the server that served the page, or in the deployment pipeline. The published result provably came from running the published logic.</p>
+      <p>The check is also cheap: a browser verifies in milliseconds, and Ethereum has shipped native BN254 pairing checks since EIP-196 and EIP-197 went live in the Byzantium hard fork (October 2017), so a smart contract can verify too. Our <a href="https://docs.ainumbers.co/receipt-verification.html" target="_blank" rel="noopener">on-chain verification recipe</a> uses exactly that path, one read-only call against the zkVM vendor's deployed verifier contract.</p>
       <p>Publishing every receipt in a versioned public repository puts them where tampering is visible, the same transparency pattern Certificate Transparency standardized for certificates (RFC 9162) and SLSA standardized for build provenance. The deploy side of that pattern, which binds the served bytes of this site to a named commit and workflow run, is described on the <a href="methods.html#deploy-provenance">Methods page</a>.</p>
     </div>
   </div>
 </div>
 
-<!-- Honest boundary -->
+<!-- Worked example -->
 <div class="section">
   <div class="container">
-    <div class="sec-label">The honest boundary</div>
-    <h2 class="sec-heading">What a receipt does not establish</h2>
-    <div class="boundary-callout">
-      <div class="boundary-label">Read this next to any receipt claim</div>
-      <p>A receipt proves that the committed output came from executing the committed program. Whether that program's logic is a correct model of the regulatory rule it cites is a different question, answered by the specification, fixtures, and property evidence described on <a href="methods.html">Methods</a> and <a href="mechanical.html">the mechanical verification page</a>. A proof over wrong logic still proves that the wrong logic ran correctly.</p>
-      <p>A receipt is also about the past: it attests one execution of one binary. Whether the bytes the site serves today still match the bytes the receipts attest is checked separately, by the deploy manifest and a recurring live smoke against the served MCP endpoint, not by the receipt.</p>
+    <div class="sec-label">Worked example</div>
+    <h2 class="sec-heading">One receipt, read from the top</h2>
+    <div class="prose">
+      <p>This is the receipt from <a href="https://github.com/PostOakLabs/ainumbers/blob/main/chaingraph/graph/nodes/art-07-basel31-reporting-delta-calculator.json" target="_blank" rel="noopener">the Basel 3.1 reporting delta node file</a>, the same object a verifier consumes. The seal is shortened to a head and tail of the real value and the asset-class table is trimmed to one row; every other value is verbatim from the file.</p>
+<pre><code>{
+  "type": "ZkVmReceipt",
+  "system": "risc0",
+  "receiptFormat": "groth16-bn254",
+  "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+  "seal": "IHfBGtT0qGiU2bFEFgG3pWVb1Q94FzrdJfBcYBtr ... M7u/slkH989njTyjh/Q==",
+  "journal": {
+    "chaingraph_version": "0.4.0",
+    "kernel_digest": "sha256:bb655f6f08ccd299198d1eff963940525ec31c073ef296bfce08503620cb28c7",
+    "output": {
+      "asset_class_summary": [
+        {
+          "id": "residential_mortgage",
+          "label": "Residential Mortgage",
+          "ead_bn": 100,
+          "current_rwa_bn": 35,
+          "basel31_rwa_bn": 20,
+          "rwa_delta_bn": -15,
+          "rwa_delta_pct": -42.86
+        }
+      ],
+      "current_rwa_bn": 35,
+      "basel31_rwa_bn": 20,
+      "rwa_delta_bn": -15,
+      "rwa_delta_pct": -42.86,
+      "floor_rwa_bn": 25.375,
+      "output_floor_binding": false,
+      "cet1_ratio_current_pct": 15.5,
+      "cet1_ratio_basel31_pct": 27.13,
+      "capital_shortfall_bn": 0,
+      "compliance_flags": ["OUTPUT_FLOOR_NOT_BINDING", "CET1_ADEQUATE"],
+      "verdict": "MINIMAL_IMPACT"
+    }
+  }
+}</code></pre>
+    </div>
+    <ol class="steps">
+      <li>
+        <h3>Name the scheme</h3>
+        <p><code>receiptFormat</code> says which proving scheme and curve to expect: a Groth16 proof over BN254. <code>system: risc0</code> says which zkVM produced it, which tells a verifier whose published verifying key applies.</p>
+      </li>
+      <li>
+        <h3>Identify the program that ran</h3>
+        <p><code>imageId</code> is the SHA-256 of the exact guest binary inside the zkVM. The same node file publishes that digest in its <code>compute_images</code> list under <code>system: risc0</code> (valid from 2026-07-10), and the coverage gate fails any receipt whose <code>imageId</code> is absent from that list.</p>
+      </li>
+      <li>
+        <h3>The seal itself</h3>
+        <p>The <code>seal</code> is the proof, base64-encoded. Nothing in it is meant to be read by eye; it is material for the pairing check. Verification runs against RISC Zero's verifying key in a browser (<a href="verification-desk.html">Verification Desk</a>) or through an Ethereum precompile (<a href="https://docs.ainumbers.co/receipt-verification.html" target="_blank" rel="noopener">on-chain recipe</a>).</p>
+      </li>
+      <li>
+        <h3>Bind the receipt to the source</h3>
+        <p><code>journal.kernel_digest</code> is the hash of the kernel source that produced this output, <code>sha256:bb655f6f...</code>. The node publishes the same digest as its <code>sha256-source</code> image, so the guest binary, the seal, and the published kernel source all point at each other.</p>
+      </li>
+      <li>
+        <h3>Check what was committed</h3>
+        <p><code>journal.output</code> is the output of that one execution: here, the Basel 3.1 output-floor recomputation over the node's recorded input, with the risk-weighted-assets delta (-15bn, -42.86%), the floor test (25.375bn floor, not binding), and the verdict <code>MINIMAL_IMPACT</code>. The coverage gate requires this object to equal the node's published output byte for byte, which is what makes this a receipt for the result on the page rather than for some other run of the same code.</p>
+      </li>
+    </ol>
+    <div class="prose">
+      <p>Two questions sit outside any receipt. Whether the kernel's logic is a correct model of the Basel 3.1 output floor is answered by the specification and property evidence described on the <a href="mechanical.html">mechanical verification page</a>, and whether the bytes served today still match what this receipt attests is answered by the <a href="methods.html#deploy-provenance">deploy manifest</a>, because a receipt attests one execution in the past.</p>
     </div>
   </div>
 </div>
@@ -267,7 +333,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="section">
   <div class="container">
     <div class="sec-label">Verify one yourself</div>
-    <h2 class="sec-heading">Four ways to check a receipt yourself</h2>
+    <h2 class="sec-heading">Four ways to check a receipt</h2>
     <div class="mech-grid">
       <div class="mech">
         <div class="mech-title">In the browser <code>no network</code></div>
@@ -287,7 +353,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="mech">
         <div class="mech-title">The normative text <code>SPEC.md</code></div>
         <div class="mech-desc">Section 18 of <a href="chaingraph/standard/SPEC.md" target="_blank" rel="noopener">the OpenChainGraph specification</a> defines what a compute-integrity receipt must contain, where it lives, and which checks make one malformed. The spec, its version history, and every gate that enforces it are in the same public repository.</div>
-        <div class="mech-scope"><span class="mech-tag">Good for</span> knowing exactly which rule a check enforces, rather than taking this page's word for it.</div>
+        <div class="mech-scope"><span class="mech-tag">Good for</span> checking the rule each gate enforces against its normative source.</div>
       </div>
     </div>
     <div class="cta-row">
