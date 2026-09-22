@@ -150,6 +150,11 @@ const sectionsHtml = clusterEntries
     const stateChip = ids.some((id) => chainFedGated.has(id))
       ? 'gated'
       : ids.some((id) => chainFedAny.has(id)) ? 'linear-only' : 'unwired';
+    const stateTitle = stateChip === 'gated'
+      ? 'at least one node in this cluster feeds a §21.4 decision-gated chain'
+      : stateChip === 'linear-only'
+        ? 'consumed by linear evidence chains only; no gated chain branches on these nodes'
+        : 'no chain consumes these nodes yet';
     const stateStyle = stateChip === 'gated'
       ? 'color:#2DD4BF;background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25)'
       : 'color:#6888A8;background:rgba(104,136,168,.08);border:1px solid rgba(104,136,168,.25)';
@@ -171,7 +176,7 @@ const sectionsHtml = clusterEntries
       : '';
     return `  <div class="cat-heading" style="margin-top:36px">
     <h2 class="cat-name">${escHtml(title)}</h2>
-    <span class="cat-n">${ids.length} tool${ids.length === 1 ? '' : 's'}</span><span style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;${stateStyle};border-radius:999px;padding:.15rem .55rem;margin-left:.4rem">${stateChip}</span>
+    <span class="cat-n">${ids.length} tool${ids.length === 1 ? '' : 's'}</span><span title="${stateTitle}" style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;${stateStyle};border-radius:999px;padding:.15rem .55rem;margin-left:.4rem">${stateChip}</span>
   </div>
   <p class="cat-sub">${blurb}${guideLink}</p>
   <div class="tool-grid">
