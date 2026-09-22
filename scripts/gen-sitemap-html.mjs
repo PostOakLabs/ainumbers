@@ -254,6 +254,26 @@ const rootPages = [
   { icon: '✉️', name: 'Contact', href: 'contact.html' },
 ];
 
+// ROOT-PAGE-COVERAGE (sitemap-drift guard): the curated list above is
+// hand-maintained, and it drifted silently for two months (20 root pages,
+// methods/groth16/mechanical included, were missing from sitemap.html). This
+// assert makes that drift loud: every committed root-level *.html page must
+// appear in the list. The allowlist covers committed-but-unpublished HTML,
+// if any ever lands.
+const ROOT_PAGE_SCAN_ALLOWLIST = new Set([
+  'CANONICAL_TOOL_EXAMPLE.html',
+]);
+const scannedRootPages = readdirSync(REPO, { withFileTypes: true })
+  .filter(e => e.isFile() && e.name.endsWith('.html') && !ROOT_PAGE_SCAN_ALLOWLIST.has(e.name))
+  .map(e => e.name);
+const curatedHrefs = new Set(rootPages.map(p => p.href));
+const missingRootPages = scannedRootPages.filter(f => !curatedHrefs.has(f));
+if (missingRootPages.length) {
+  console.error('gen-sitemap-html: root page(s) missing from the curated rootPages list. Add each one (icon/name/href) so sitemap.html stays complete:');
+  for (const f of missingRootPages) console.error('  ' + f);
+  process.exit(1);
+}
+
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
@@ -406,7 +426,13 @@ src = spliceSentinel(
   // SyntaxError that killed the page's whole inline script (search included)
   // while --check stayed green, because --check only diffs the category region.
   // Collapse EVERY block (and any orphaned block missing its END) to one token,
-  // then keep exactly one live block carrying the current count.
+  // then keep exactly one live block carrying the current count. Zero blocks is
+  // equally broken (TOTAL would be undefined at runtime), so it aborts too.
+  const totalBlockCount = (src.match(/\/\* GEN:SITEMAP-TOTAL:START \(generator-owned\) \*\/ const TOTAL = \d+;/g) || []).length;
+  if (totalBlockCount === 0) {
+    console.error('gen-sitemap-html: sitemap.html carries NO GEN:SITEMAP-TOTAL marker block — refusing to write. Restore the block: /* GEN:SITEMAP-TOTAL:START (generator-owned) */ const TOTAL = <count>; /* GEN:SITEMAP-TOTAL:END */');
+    process.exit(1);
+  }
   src = src.replace(/\/\* GEN:SITEMAP-TOTAL:START \(generator-owned\) \*\/ const TOTAL = \d+;( \/\* GEN:SITEMAP-TOTAL:END \*\/)?/g, '\u0000SITEMAP_TOTAL_TOKEN\u0000');
   src = src.replace('\u0000SITEMAP_TOTAL_TOKEN\u0000', `/* GEN:SITEMAP-TOTAL:START (generator-owned) */ const TOTAL = ${totalToolRows}; /* GEN:SITEMAP-TOTAL:END */`);
   src = src.replace(/(?:\u0000SITEMAP_TOTAL_TOKEN\u0000)+/g, '');
