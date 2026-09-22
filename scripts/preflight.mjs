@@ -1548,6 +1548,13 @@ const GATES = [
   ['Session-root fixture freshness (COMPOSER-PLAN-AND-ROOT-WEBMCP-1)', 'node scripts/gen-session-root-fixtures.mjs --check'],
   ['Session-root parity controls, site side (COMPOSER-PLAN-AND-ROOT-WEBMCP-1)', 'node scripts/session-root-parity.test.mjs'],
   ['OCG conformance roster self-claim (OCG-CONFROSTER-BUILD-1)', 'node scripts/gen-ocg-conformance-roster.mjs --check'],
+  // CONFCORPUS-GATE-1: the public receipt-conformance corpus went red on main for three
+  // weeks (#1598 updated the art-09 vector input without regenerating the manifest) because
+  // nothing read vectors/manifest.json. This gate makes that state unshippable: all four
+  // declared checks per vector, via the one canonicalizer. Provenance (kernel still
+  // produces the committed output) is ocg-conformance/derive-vector.mjs <id> --check.
+  ['OCG receipt-conformance corpus hashes (CONFCORPUS-GATE-1)', 'node scripts/check-conformance-vectors.mjs --quiet'],
+  ['OCG receipt-conformance corpus gate self-test (CONFCORPUS-GATE-1 RED+GREEN)', 'node scripts/check-conformance-vectors.test.mjs'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
   ['Hub node-card coverage (HUB-GEN-1)', 'node scripts/gen-chaingraph-hub.mjs --check'],

@@ -37,7 +37,13 @@ No AINumbers code, kernel, or server call is required to check this.
 - `vectors/outputs/<id>.output.json` — the `output_payload` object for vector `<id>`.
 
 Every vector is a real receipt pair produced by a real, shipped AINumbers decision kernel (named in each
-manifest entry's `source` field) — none are hand-invented.
+manifest entry's `source` field) — none are hand-invented. Vectors are re-derivable from those kernels:
+`node ocg-conformance/derive-vector.mjs <id> --check` proves a vector against a live run of the current
+kernel; without `--check` the same script rewrites the vector's output file and manifest hash fields from
+that run (the 2026-09-21 repair of the art-09 and art-34 vectors used exactly this path, after #1598
+updated the art-09 input without regenerating the manifest, leaving the corpus red for three weeks).
+`scripts/check-conformance-vectors.mjs` enforces all four declared checks per vector in preflight
+(CONFCORPUS-GATE-1), so a corpus that fails `verify.py` cannot merge.
 
 ## How to verify (any language)
 
