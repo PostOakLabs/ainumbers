@@ -13,9 +13,13 @@ Notable changes to [AINumbers](https://ainumbers.co) — the OpenChainGraph comp
 > entries. Recent landings have been largely direct pushes. Tags are under-
 > reported in one environment too: a **tag-less CI checkout** (GitHub's ephemeral
 > merge-group queue fetches no tag refs) renders with **no tag version scopes**,
-> while merge-commit entries still classify. Classified entries
-> are fail-closed forward: a merge commit missing from the seed fails the
-> generator (and the freshness gate) until it is classified there.
+> while merge-commit entries still classify. A merge commit missing from the
+> seed is **auto-classified** from its commit subject's conventional prefix
+> (the entry is marked `(auto)`; a subject with no recognized prefix lands
+> under **Other**) — the generator never fails on an unknown merge. A
+> hand-written seed entry replaces any auto entry: edit the seed, then
+> regenerate. The leak gate stays fail-closed: internal-language vocabulary
+> in the rendered bytes fails the generator.
 
 ## Unreleased
 
