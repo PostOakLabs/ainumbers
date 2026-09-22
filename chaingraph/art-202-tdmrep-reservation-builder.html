@@ -424,6 +424,7 @@ function computeBuilder(pp) {
 }
 
 var _lastPP = null, _lastOP = null, _lastFlags = null;
+let _lastResult = null;
 
 async function runBuilder() {
   var reserved = document.getElementById('reservedSel').value !== '0';
@@ -438,6 +439,22 @@ async function runBuilder() {
   var res = computeBuilder(pp);
   var op = res.output_payload, flags = res.compliance_flags;
   _lastPP = pp; _lastOP = op; _lastFlags = flags;
+  _lastResult = { policy_parameters: pp, output_payload: op, compliance_flags: flags };
+  paintResult();
+
+  var hash = await cgHash(pp, op);
+  document.getElementById('hashBox').textContent = hash;
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('artifactPre').style.display = 'none';
+}
+
+// WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
+// paints the stored result global, so the agent path and the form path paint
+// through the same code. Reads _lastResult only; never assigns it.
+function paintResult(){
+  if (!_lastResult) return;
+  var op = _lastResult.output_payload, flags = _lastResult.compliance_flags || [];
 
   var kvDiv = document.getElementById('kvDiv');
   kvDiv.innerHTML = [
@@ -459,16 +476,10 @@ async function runBuilder() {
     return '<div class="check-row"><span class="'+(c.pass?'check-pass':'check-fail')+'">'+(c.pass?'PASS':'FAIL')+'</span><span class="check-name">'+c.check+'</span><span class="check-detail">'+c.detail+'</span></div>';
   }).join('');
 
-  var hash = await cgHash(pp, op);
-  document.getElementById('hashBox').textContent = hash;
-
   var flagRow = document.getElementById('flagRow');
   flagRow.innerHTML = flags.map(function(k){
     return '<span class="badge ok">'+k+'</span>';
   }).join('');
-
-  document.getElementById('resultsPanel').classList.add('show');
-  document.getElementById('artifactPre').style.display = 'none';
 }
 
 async function exportArtifact() {

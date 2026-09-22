@@ -194,8 +194,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
       <div class="exec-hash" id="execHashBox"></div>
       <div class="results-export-row">
-        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
-        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <button id="ap2ExportBtn" onclick="exportArtifact(_lastResult)">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash(_lastResult)">&#10003; Verify Hash</button>
         <span class="verify-result" id="verifyResult"></span>
       </div>
       <pre id="artifactPre" style="display:none"></pre>
@@ -568,7 +568,15 @@ function runSweep(){
 
   var res = compute(pp);
   _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
-  var op = res.output_payload;
+  paintResult();
+}
+
+// WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
+// paints the stored result global, so the agent path and the form path paint
+// through the same code. Reads _lastResult only; never assigns it.
+function paintResult(){
+  if (!_lastResult) return;
+  var op = _lastResult.output_payload;
 
   var vBox = document.getElementById('verdictBox');
   var reviewNeeded = op.decision.gate_policy === 'review_required';
@@ -606,23 +614,23 @@ function runSweep(){
   document.getElementById('resultsPanel').classList.add('show');
   document.getElementById('execHashBox').textContent = 'computing...';
   document.getElementById('verifyResult').textContent = '';
-  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+  if (_lastResult.pp) computeExecHash(_lastResult.pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
 }
 
-function verifyHash(){
-  if (!_lastResult) return;
-  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+function verifyHash(r){
+  if (!r || !r.pp) return;
+  computeExecHash(r.pp, r.output_payload).then(function(h){
     var cur = document.getElementById('execHashBox').textContent;
     document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
   });
 }
 
-function exportArtifact(){
-  if (!_lastResult) return;
+function exportArtifact(r){
+  if (!r) return;
   var hash = document.getElementById('execHashBox').textContent || 'pending';
   const generatedAt = new Date().toISOString();
   document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
-  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-588-docket-deadline-sweep',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-588-docket-deadline-sweep',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:r.pp,output_payload:r.output_payload,compliance_flags:r.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
   var json = JSON.stringify(artifact, null, 2);
   document.getElementById('artifactPre').textContent = json;
   document.getElementById('artifactPre').style.display = 'block';

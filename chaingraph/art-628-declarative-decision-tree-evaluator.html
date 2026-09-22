@@ -163,8 +163,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="hash" id="execHash"></div>
       <pre id="artifactPre"></pre>
       <div class="results-export-row">
-        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
-        <button class="btn-2" onclick="exportArtifact()">Export §4 Artifact</button>
+        <button id="ap2ExportBtn" onclick="exportAP2(_lastArtifact)" disabled>Export Policy Mandate JSON</button>
+        <button class="btn-2" onclick="exportArtifact(_lastArtifact)">Export §4 Artifact</button>
       </div>
     </div>
   </div>
@@ -458,7 +458,14 @@ async function run(){
   document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
   const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',chaingraph_version:'0.4.0',spec_version:'0.5.0',compute_mode:'browser',mandate_type:'compliance_mandate',tool_id:MANIFEST.tool_id,tool_version:MANIFEST.version,generated_at:generatedAt,execution_hash:execHash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload,compliance_flags,audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
   _lastArtifact=artifact;_lastPP=pp;_lastOP=output_payload;_lastHash=execHash;_lastFlags=compliance_flags;
-  renderResults(output_payload,execHash,artifact);
+  paintResult();
+}
+// WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
+// paints the stored result global, so the agent path and the form path paint
+// through the same code. Reads _lastArtifact only; never assigns it.
+function paintResult(){
+  const a=_lastArtifact;if(!a)return;
+  renderResults(a.output_payload,a.execution_hash||'',a);
   document.getElementById('ap2ExportBtn').disabled=false;
 }
 function renderResults(op,execHash,artifact){
@@ -480,8 +487,8 @@ function renderResults(op,execHash,artifact){
   document.getElementById('artifactPre').textContent=JSON.stringify(artifact,null,2);
   document.getElementById('resultsPanel').classList.add('show');
 }
-function exportAP2(){if(!_lastArtifact)return;const ap2={schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:'compliance_mandate',generated_at:_lastArtifact.generated_at,execution_hash:_lastHash,policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags};dl(JSON.stringify(ap2,null,2),'art-628-policy-mandate.json','application/json');}
-function exportArtifact(){if(!_lastArtifact)return;dl(JSON.stringify(_lastArtifact,null,2),'art-628-artifact.json','application/json');}
+function exportAP2(r){if(!r)return;const ap2={schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:'compliance_mandate',generated_at:r.generated_at,execution_hash:r.execution_hash,policy_parameters:r.policy_parameters,output_payload:r.output_payload,compliance_flags:r.compliance_flags};dl(JSON.stringify(ap2,null,2),'art-628-policy-mandate.json','application/json');}
+function exportArtifact(r){if(!r)return;dl(JSON.stringify(r,null,2),'art-628-artifact.json','application/json');}
 function dl(c,f,m){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:m}));a.download=f;a.click();}
 function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else b.style.display='none';}
 </script>
