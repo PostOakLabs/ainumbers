@@ -33,6 +33,18 @@ const categories = JSON.parse(readFileSync(categoriesPath, 'utf8'));
 const artNodesAll = cg.nodes.filter((n) => n.url && n.url.includes('/chaingraph/art-'));
 const artNodes = artNodesAll.filter((n) => !isNonLive(n));
 const byId = new Map(artNodes.map((n) => [n.tool_id, n]));
+// Derived cluster state (2026-09-22): which node ids are consumed by gated
+// chains vs any chain at all, for the per-cluster state badge. True by
+// construction from chaingraph.json, so it cannot drift from the estate.
+const chainFedGated = new Set();
+const chainFedAny = new Set();
+for (const chain of cg.chains || []) {
+  const chainIsGated = (chain.steps || []).some((s) => s.gate);
+  for (const step of chain.steps || []) {
+    chainFedAny.add(step.tool_id);
+    if (chainIsGated) chainFedGated.add(step.tool_id);
+  }
+}
 // Kept separately so a departed node reports as NON-LIVE (an expected, benign
 // mapping that a successor may reclaim) rather than as STALE (a mapping that
 // resolves to nothing at all). Collapsing the two would tell a future reader to
@@ -135,6 +147,12 @@ const sectionsHtml = clusterEntries
     const ids = cluster.art_ids.filter((id) => byId.has(id)).slice().sort((a, b) => artNum(a) - artNum(b));
     if (!ids.length) return '';
     const cards = ids.map((id) => cardHtml(byId.get(id))).join('\n\n');
+    const stateChip = ids.some((id) => chainFedGated.has(id))
+      ? 'gated'
+      : ids.some((id) => chainFedAny.has(id)) ? 'linear-only' : 'unwired';
+    const stateStyle = stateChip === 'gated'
+      ? 'color:#2DD4BF;background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25)'
+      : 'color:#6888A8;background:rgba(104,136,168,.08);border:1px solid rgba(104,136,168,.25)';
     // Derived count (2026-09-22): the hand-typed "N OpenChainGraph nodes" prefix
     // is replaced by the rendered card count so it cannot drift (the stale-count
     // class behind this pass); a blurb without the prefix gets one prepended.
@@ -153,7 +171,7 @@ const sectionsHtml = clusterEntries
       : '';
     return `  <div class="cat-heading" style="margin-top:36px">
     <h2 class="cat-name">${escHtml(title)}</h2>
-    <span class="cat-n">${ids.length} tool${ids.length === 1 ? '' : 's'}</span>
+    <span class="cat-n">${ids.length} tool${ids.length === 1 ? '' : 's'}</span><span style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;${stateStyle};border-radius:999px;padding:.15rem .55rem;margin-left:.4rem">${stateChip}</span>
   </div>
   <p class="cat-sub">${blurb}${guideLink}</p>
   <div class="tool-grid">
