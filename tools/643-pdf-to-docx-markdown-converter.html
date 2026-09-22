@@ -14,7 +14,7 @@
   "tool_id": "643-pdf-to-docx-markdown-converter",
   "version": "1.0.0",
   "title": "PDF to DOCX & Markdown Converter",
-  "description": "Converts the text layer of a PDF into a Markdown file and a DOCX file: font-size heading tiers, paragraphs, bulleted and numbered lists, and best-effort tables. Detects and reports pages with no text layer instead of producing silent empty output. Entirely client-side, zero network calls.",
+  "description": "Converts the text layer of a PDF into a Markdown file and a DOCX file: column-aware reading order recovered by a band-first recursive XY-cut, font-size heading tiers plus all-caps section headings, paragraphs with end-of-line hyphens rejoined, bulleted and numbered lists, and best-effort tables. Detects and reports pages with no text layer, and flags pages whose text runs reach the right page boundary, instead of shipping silent clipping or empty output. Entirely client-side, zero network calls.",
   "category": "mcp",
   "tags": ["PDF","DOCX","Markdown","conversion","document","OOXML","pdf.js","text extraction"],
   "audience": ["legal ops","compliance","engineer","general"],
@@ -120,7 +120,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 <div class="hero"><div class="container">
   <div class="hero-eyebrow">Conversion Suite &middot; T643 &middot; PDF text-layer extraction</div>
   <h1 class="tool-title">PDF to DOCX &amp; Markdown Converter</h1>
-  <p class="hero-desc">Drop a PDF and convert its text layer into a Markdown file and a DOCX file, entirely in your browser: font-size heading tiers, paragraphs, bulleted and numbered lists, and best-effort tables read in top-to-bottom, left-to-right geometric order rather than raw content-stream order. A page with no extractable text layer, a scanned or photographed page, is detected and reported inline instead of producing silent empty output; optical character recognition is out of scope. The pdf.js extraction engine is pinned and inlined workerless, making this the heaviest page on the site (about 2&nbsp;MB) &ndash; acknowledged here rather than engineered away.</p>
+  <p class="hero-desc">Drop a PDF and convert its text layer into a Markdown file and a DOCX file, entirely in your browser. Reading order is recovered geometrically with a band-first recursive XY-cut: each page is split into full-width horizontal bands first, table rows are detected before any column split so aligned tables stay intact, and what remains is cut at column gutters only where real columns are flanked on both sides, so two-column text reads sequentially instead of splicing left and right fragments into each line. Headings come from font-size tiers plus all-caps section headings, paragraphs rejoin end-of-line hyphens, and bulleted and numbered lists are detected as before. A page with no extractable text layer, a scanned or photographed page, is detected and reported inline instead of producing silent empty output; optical character recognition is out of scope. When a text run reaches the page's right boundary it can be cut off mid-word by the text layer itself (a pdf.js extraction behavior, still present upstream); such pages are flagged inline in both outputs rather than shipping the clip silently. The pdf.js extraction engine is pinned and inlined workerless, making this the heaviest page on the site (about 2&nbsp;MB) &ndash; acknowledged here rather than engineered away.</p>
   <div class="hero-meta hero-badges">
     <span class="badge badge-teal">PDF &#8594; DOCX + Markdown</span>
     <span class="badge badge-gold">pdf.js (pinned)</span>
@@ -261,13 +261,15 @@ this.workerSrc)).WorkerMessageHandler})())}}class WorkerTransport{downloadInfoCa
  * of a separate script — CONTRACT's zero-network rule and this CSP's
  * worker-src 'none' both hold.
  *
- * Everything below pdf.js is original code: geometric (y,x) text-line
- * grouping, a font-size histogram for heading tiers, bullet/ordinal list
- * detection, a best-effort column-gap table detector, a Markdown renderer,
- * and a hand-written minimal OOXML WordprocessingML + deterministic
- * STORED-only ZIP writer for the .docx output (own CRC32, own zip writer;
- * no fflate/JSZip/`docx` dependency — see the credit note near the manifest
- * disclosure for why).
+ * Everything below pdf.js is original code: a band-first recursive XY-cut
+ * that recovers reading order geometrically (full-width horizontal bands,
+ * table detection before any column split, gutter cuts flanked by real
+ * text columns on both sides), a font-size histogram for heading tiers plus
+ * an all-caps section-heading fallback, bullet/ordinal list detection, a
+ * Markdown renderer, and a hand-written minimal OOXML WordprocessingML +
+ * deterministic STORED-only ZIP writer for the .docx output (own CRC32, own
+ * zip writer; no fflate/JSZip/`docx` dependency — see the credit note near
+ * the manifest disclosure for why).
  * ======================================================================= */
 
 // Uint8Array.prototype.toHex/fromHex polyfill — pdf.js's internal document
@@ -335,7 +337,8 @@ function itemsToLines(items) {
     const sizes = line.items.map(it => it.size);
     const size = median(sizes);
     const xStart = Math.min(...line.items.map(it => it.x));
-    return { text, y: line.y, size: round1(size), xStart: round1(xStart), colXs };
+    const xEnd = Math.max(...line.items.map(it => it.x + (it.width || 0)));
+    return { text, y: line.y, size: round1(size), xStart: round1(xStart), xEnd: round1(xEnd), colXs, items: line.items };
   }).filter(l => l.text.trim().length > 0);
 }
 
@@ -360,7 +363,180 @@ function median(arr) { const s = [...arr].sort((a, b) => a - b); const m = Math.
 function round1(n) { return Math.round(n * 10) / 10; }
 
 /* ---------------------------------------------------------------------------
- * 2-3. lines -> blocks -> whole-document model
+ * 2. band-first recursive XY-cut (layout -> ordered flow segments)
+ *
+ * Reading order is recovered geometrically, not assumed. Per page:
+ *   (a) split into horizontal BANDS at full-width whitespace gaps;
+ *   (b) inside a band, run table detection FIRST: >=3 consecutive lines
+ *       sharing aligned multi-column x-positions (>=3 columns, sparse cells)
+ *       emit a table block and the band is NEVER column-split (a bare gutter
+ *       test would shred full-width tables whose inter-column gaps span the
+ *       whole band and are wider than any real gutter);
+ *   (c) otherwise split at vertical gutters: a whitespace x-band that spans
+ *       the band's whole text height, is at least a glyph wide, and is
+ *       flanked by substantial content on BOTH sides (the false-split guard
+ *       for indented blocks, bullet glyphs and hanging indents);
+ *   (d) recurse per sub-band; (e) emit column streams in reading order.
+ * A single-column page reaches the leaf unchanged: one flow segment holding
+ * its lines in the same (y, x) order as before.
+ * ------------------------------------------------------------------------- */
+function splitBands(lines) {
+  if (lines.length === 0) return [];
+  const bands = [[lines[0]]];
+  for (let i = 1; i < lines.length; i++) {
+    const band = bands[bands.length - 1];
+    const prev = band[band.length - 1];
+    if (prev.y - lines[i].y > Math.max(prev.size, lines[i].size) * 1.9) bands.push([lines[i]]);
+    else band.push(lines[i]);
+  }
+  return bands;
+}
+const bandItems = (band) => band.flatMap(l => l.items);
+const spanOf = (span, x0, x1) => (!span ? [x0, x1] : [Math.min(span[0], x0), Math.max(span[1], x1)]);
+const widthOf = (span) => (span ? span[1] - span[0] : 0);
+
+function findGutter(lines) {
+  const ivs = [];
+  for (const l of lines) for (const it of l.items) {
+    if (it.str && it.str.trim()) ivs.push([it.x, it.x + (it.width || 0)]);
+  }
+  if (ivs.length < 4) return null;
+  ivs.sort((a, b) => a[0] - b[0]);
+  const merged = [ivs[0].slice()];
+  for (let i = 1; i < ivs.length; i++) {
+    const last = merged[merged.length - 1];
+    if (ivs[i][0] <= last[1]) last[1] = Math.max(last[1], ivs[i][1]);
+    else merged.push(ivs[i].slice());
+  }
+  if (merged.length < 2) return null;
+  const size = median(lines.map(l => l.size));
+  const minW = Math.max(8, size * 0.75);
+  // Candidates are the zero-coverage gaps of the merged projection, plus any
+  // gap that only a couple of items SPAN (a displayed formula or a rules line
+  // crossing an otherwise clean column gutter must not force the whole band
+  // into a single braided flow). Spanning items are reassigned to the nearer
+  // column by the caller.
+  const cands = new Map();
+  const addCand = (g0, g1) => {
+    const w = g1 - g0;
+    if (w < minW) return;
+    const key = Math.round(g0) + ':' + Math.round(g1);
+    if (!cands.has(key)) cands.set(key, { g0, g1, w, cross: 0 });
+  };
+  for (let k = 0; k + 1 < merged.length; k++) addCand(merged[k][1], merged[k + 1][0]);
+  for (const v of ivs) {
+    for (let k = 0; k + 1 < merged.length; k++) {
+      if (v[0] < merged[k][1] && v[1] > merged[k + 1][0]) {
+        addCand(merged[k][1], merged[k + 1][0]);
+        const c = cands.get(Math.round(merged[k][1]) + ':' + Math.round(merged[k + 1][0]));
+        if (c) c.cross++;
+      }
+    }
+  }
+  let best = null;
+  for (const c of cands.values()) {
+    if (c.cross > 2) continue;
+    let leftLines = 0, rightLines = 0, leftInk = 0, rightInk = 0;
+    let leftSpan = null, rightSpan = null;
+    for (const l of lines) {
+      let li = 0, ri = 0;
+      for (const it of l.items) {
+        if (!it.str || !it.str.trim()) continue;
+        const x0 = it.x, x1 = it.x + (it.width || 0);
+        if (x1 <= c.g0 + 0.5) { li++; leftInk += x1 - x0; leftSpan = spanOf(leftSpan, x0, x1); }
+        else if (x0 >= c.g1 - 0.5) { ri++; rightInk += x1 - x0; rightSpan = spanOf(rightSpan, x0, x1); }
+      }
+      if (li) leftLines++;
+      if (ri) rightLines++;
+    }
+    // Flanked by substantial content on both sides, and the narrower side's
+    // ink span must be comparable to the wider side's: this rejects hanging
+    // indents, bullet-glyph columns and footnote markers, whose "gutter" is
+    // real whitespace but whose left side is furniture, not a text column.
+    if (leftLines >= 2 && rightLines >= 2 && leftInk >= size * 3 && rightInk >= size * 3) {
+      const lw = widthOf(leftSpan), rw = widthOf(rightSpan);
+      if (Math.min(lw, rw) >= 0.35 * Math.max(lw, rw) && (!best || c.w > best.w)) best = c;
+    }
+  }
+  return best ? { g0: best.g0, g1: best.g1 } : null;
+}
+
+function findTableRun(lines) {
+  for (let i = 0; i + 2 < lines.length; i++) {
+    const first = lines[i];
+    if (!first.colXs || first.colXs.length < 3 || first.colXs.length > 6) continue;
+    const cols = first.colXs.length;
+    const rows = [first];
+    let j = i + 1;
+    while (j < lines.length && lines[j].colXs && lines[j].colXs.length === cols
+      && lines[j].colXs.every((x, k) => Math.abs(x - first.colXs[k]) < Math.max(8, first.size * 1.5))) {
+      rows.push(lines[j]); j++;
+    }
+    if (rows.length >= 3 && rowsSparse(rows, cols)) {
+      return { before: lines.slice(0, i), after: lines.slice(j), rows: rows.map(splitByColumns) };
+    }
+    i = j - 1;
+  }
+  return null;
+}
+function rowsSparse(rows, cols) {
+  // Candidate table cells must be sparse relative to their column spans:
+  // headerless side-by-side prose shares aligned breaks too, but it FILLS
+  // its span, so it is refused here and falls through to the gutter cut.
+  for (const r of rows) {
+    const parts = splitByColumns(r);
+    if (parts.length < cols) return false;
+    for (let k = 0; k + 1 < cols; k++) {
+      const avail = (r.colXs[k + 1] - r.colXs[k]) / (r.size * 0.5);
+      if (parts[k].length > avail * 0.6) return false;
+    }
+  }
+  return true;
+}
+function splitByColumns(line) {
+  const parts = line.text.split(/ {2,}/).map(s => s.trim()).filter(Boolean);
+  return parts.length >= 2 ? parts : [line.text.trim()];
+}
+
+function xyCut(items, depth) {
+  if (!items.length) return [];
+  const lines = itemsToLines(items);
+  if (!lines.length) return [];
+  const bands = splitBands(lines);
+  if (bands.length > 1) {
+    const segs = [];
+    for (const band of bands) segs.push(...xyCut(bandItems(band), depth + 1));
+    return segs;
+  }
+  if (depth <= 8) {
+    const run = findTableRun(lines);
+    if (run) {
+      return [
+        ...xyCut(run.before.flatMap(l => l.items), depth + 1),
+        { kind: 'table', rows: run.rows },
+        ...xyCut(run.after.flatMap(l => l.items), depth + 1),
+      ];
+    }
+    const gutter = findGutter(lines);
+    if (gutter) {
+      const left = [], right = [];
+      const mid = (gutter.g0 + gutter.g1) / 2;
+      for (const l of lines) for (const it of l.items) {
+        const x1 = it.x + (it.width || 0);
+        if (x1 <= gutter.g0 + 0.5) left.push(it);
+        else if (it.x >= gutter.g1 - 0.5) right.push(it);
+        else if ((it.x + x1) / 2 < mid) left.push(it);   // rare spanner: nearer column
+        else right.push(it);
+      }
+      if (left.length && right.length) return [...xyCut(left, depth + 1), ...xyCut(right, depth + 1)];
+    }
+  }
+  return [{ kind: 'flow', lines }];
+}
+
+/* ---------------------------------------------------------------------------
+ * 3. flow segments -> blocks (heading tiers, all-caps headings, lists,
+ *    paragraphs with soft-hyphen rejoining, tables)
  * ------------------------------------------------------------------------- */
 const BULLET_RE = /^[•‣◦⁃∙\-*▪]\s+/;
 const ORDERED_RE = /^(\d+|[a-zA-Z]|[ivxlcdmIVXLCDM]+)[.)]\s+/;
@@ -372,83 +548,133 @@ function classifyLine(line, bodySize) {
   return { kind: 'text', text: t };
 }
 
+// All-caps section headings that carry no size signal (IEEEtran renders
+// "I. INTRODUCTION" at body size). Conservative: the text after a numbered
+// prefix must be entirely caps, and bare caps lines must be short and
+// letter-dominated, so ordinary sentences and list items never match.
+const SECTION_NUM_RE = /^([IVXLCDM]{1,6}|[A-Z])\.\s+(\S.*)$/;
+function capsHeading(text) {
+  const t = text.trim();
+  if (t.length < 4 || t.length > 80) return false;
+  const letters = (t.match(/[A-Za-z]/g) || []).length;
+  if (letters < 3) return false;
+  const m = t.match(SECTION_NUM_RE);
+  if (m) return /^[A-Z0-9 ,.:;()&'"/-]+$/.test(m[2]) && (m[2].match(/[A-Z]/g) || []).length >= 3;
+  if (!/^[A-Z0-9][A-Z0-9 ,.:;()&'"/-]*$/.test(t)) return false;
+  const caps = (t.match(/[A-Z]/g) || []).length;
+  return caps >= 3 && caps >= letters * 0.9;
+}
+// A promoted heading must look like words, not math-glyph fragments.
+function headingEligible(text) {
+  if (/[{}<>|]/.test(text)) return false;
+  const t = text.trim().replace(/\s/g, '');
+  if (t.length < 3) return false;
+  const letters = (text.match(/[A-Za-z]/g) || []).length;
+  if (letters < 3) return false;
+  const alnum = (text.match(/[A-Za-z0-9]/g) || []).length;
+  return alnum >= t.length * 0.5;
+}
+// A numbered-reference entry ("[12] A. Author, ...") always starts its own
+// paragraph, so sequential entries stay separate lines instead of fusing.
+const REF_ENTRY_RE = /^\[\d+\]\s+/;
+
 function buildDocModel(pages) {
-  const meta = { scannedPages: [], pageCount: pages.length };
-  const allLines = [];
+  const meta = { scannedPages: [], truncatedPages: [], pageCount: pages.length };
+  const segments = [];
   pages.forEach((page, idx) => {
-    const lines = page.scanned ? [] : itemsToLines(page.items || []);
-    if (!page.scanned && lines.length === 0) meta.scannedPages.push(idx + 1);
-    allLines.push(...lines.map(l => ({ ...l, page: idx + 1 })));
+    const items = (page.items || []).filter(it => it.str && it.str.length > 0);
+    if (page.scanned || items.length === 0) { meta.scannedPages.push(idx + 1); return; }
+    for (const seg of xyCut(items, 0)) { seg.page = idx + 1; segments.push(seg); }
+    if (page.truncated) meta.truncatedPages.push(idx + 1);
   });
 
   const hist = new Map();
-  for (const l of allLines) hist.set(l.size, (hist.get(l.size) || 0) + l.text.length);
+  for (const s of segments) if (s.kind === 'flow') {
+    for (const l of s.lines) hist.set(l.size, (hist.get(l.size) || 0) + l.text.length);
+  }
   let bodySize = 12, bodyWeight = -1;
   for (const [size, weight] of hist) if (weight > bodyWeight) { bodyWeight = weight; bodySize = size; }
   const largerTiers = [...hist.keys()].filter(s => s > bodySize + 0.4).sort((a, b) => b - a).slice(0, 6);
   const tierOf = (size) => { const i = largerTiers.indexOf(size); return i === -1 ? null : i + 1; };
 
   const blocks = [];
+  for (const s of segments) {
+    if (s.kind === 'table') { blocks.push({ type: 'table', rows: s.rows, page: s.page }); continue; }
+    blocks.push(...flowBlocks(s.lines.map(l => ({ ...l, page: s.page })), tierOf, bodySize));
+  }
+  return { blocks, meta, bodySize, headingSizes: largerTiers };
+}
+
+function flowBlocks(lines, tierOf, bodySize) {
+  const blocks = [];
   let i = 0;
-  while (i < allLines.length) {
-    const line = allLines[i];
+  while (i < lines.length) {
+    const line = lines[i];
     const level = tierOf(line.size);
-    if (level) { blocks.push({ type: 'heading', level, text: line.text.trim(), page: line.page }); i++; continue; }
+    if (level && headingEligible(line.text)) {
+      // consecutive same-tier heading lines at tight leading are ONE heading
+      // (a two-line document title), not a run of separate H1s
+      let text = line.text.trim();
+      let j = i + 1, prevY = line.y;
+      while (j < lines.length) {
+        const l2 = lines[j];
+        if (tierOf(l2.size) !== level || !headingEligible(l2.text)) break;
+        if (prevY - l2.y > Math.max(line.size, l2.size) * 1.45) break;
+        text += ' ' + l2.text.trim(); prevY = l2.y; j++;
+      }
+      blocks.push({ type: 'heading', level, text, page: line.page });
+      i = j; continue;
+    }
     const cls = classifyLine(line, bodySize);
-    if (cls.kind === 'bullet' || cls.kind === 'ordered') {
+    if (!level && (cls.kind === 'bullet' || cls.kind === 'ordered') && !capsHeading(line.text)) {
       const listType = cls.kind === 'bullet' ? 'bullet' : 'ordered';
       const items = [cls.text];
       let j = i + 1;
-      while (j < allLines.length) {
-        const l2 = allLines[j];
+      while (j < lines.length) {
+        const l2 = lines[j];
         if (tierOf(l2.size)) break;
+        if (capsHeading(l2.text) || REF_ENTRY_RE.test(l2.text)) break;
         const c2 = classifyLine(l2, bodySize);
         if (c2.kind !== 'bullet' && c2.kind !== 'ordered') break;
         const t2 = c2.kind === 'bullet' ? 'bullet' : 'ordered';
         if (t2 !== listType) break;
         items.push(c2.text); j++;
       }
-      blocks.push({ type: 'list', ordered: listType === 'ordered', items, page: line.page });
-      i = j; continue;
+      // a lone ORDERED-looking line is usually furniture (a footnote marker,
+      // a wrap fragment); a real ordered list has at least two items. Bullet
+      // glyphs are a strong enough signal to keep single-item lists, and a
+      // rejected run falls through to the paragraph path below.
+      if (listType === 'bullet' || items.length >= 2) {
+        blocks.push({ type: 'list', ordered: listType === 'ordered', items, page: line.page });
+        i = j; continue;
+      }
     }
-    const tbl = tryTable(allLines, i);
-    if (tbl) { blocks.push(tbl.block); i = tbl.next; continue; }
+    if (!level && capsHeading(line.text)) {
+      // no size signal: emit all-caps section headings at H2, below the
+      // title tier that owns H1
+      blocks.push({ type: 'heading', level: 2, text: line.text.trim(), page: line.page });
+      i++; continue;
+    }
     let text = line.text.trim();
     let j = i + 1, prevY = line.y;
-    while (j < allLines.length) {
-      const l2 = allLines[j];
+    while (j < lines.length) {
+      const l2 = lines[j];
       if (tierOf(l2.size)) break;
+      if (REF_ENTRY_RE.test(l2.text)) break;
       const c2 = classifyLine(l2, bodySize);
       if (c2.kind !== 'text') break;
       if (Math.abs(l2.size - line.size) > 0.6) break;
       const gap = prevY - l2.y;
       if (gap > line.size * 2.2) break;
-      text += ' ' + l2.text.trim(); prevY = l2.y; j++;
+      const nt = l2.text.trim();
+      if (/[A-Za-z]-$/.test(text) && /^[a-z]/.test(nt)) text = text.slice(0, -1) + nt; // rejoin soft-hyphen break
+      else text += ' ' + nt;
+      prevY = l2.y; j++;
     }
     blocks.push({ type: 'paragraph', text, page: line.page });
     i = j;
   }
-  return { blocks, meta, bodySize, headingSizes: largerTiers };
-}
-
-function tryTable(lines, start) {
-  const first = lines[start];
-  if (!first.colXs || first.colXs.length < 2 || first.colXs.length > 6) return null;
-  const cols = first.colXs.length;
-  const rows = [first];
-  let j = start + 1;
-  while (j < lines.length && lines[j].colXs && lines[j].colXs.length === cols) {
-    const aligned = lines[j].colXs.every((x, k) => Math.abs(x - first.colXs[k]) < Math.max(8, first.size * 1.5));
-    if (!aligned) break;
-    rows.push(lines[j]); j++;
-  }
-  if (rows.length < 3) return null;
-  const cells = rows.map(splitByColumns);
-  return { block: { type: 'table', rows: cells, page: first.page }, next: j };
-}
-function splitByColumns(line) {
-  const parts = line.text.split(/ {2,}/).map(s => s.trim()).filter(Boolean);
-  return parts.length >= 2 ? parts : [line.text.trim()];
+  return blocks;
 }
 
 /* ---------------------------------------------------------------------------
@@ -482,6 +708,9 @@ function renderMarkdown(model, metaLine) {
   }
   for (let p = lastPage + 1; p <= model.meta.pageCount; p++) {
     if (scannedSet.has(p) && !notedScanned.has(p)) out.push(`> ⚠ Page ${p}: no text layer detected (scanned/image page). OCR is out of scope; page skipped.`, '');
+  }
+  for (const p of (model.meta.truncatedPages || [])) {
+    out.push(`> ⚠ Page ${p}: text runs reach the page's right boundary and can be cut off mid-word by the PDF text layer (a pdf.js extraction behavior). Affected lines may be missing characters; verify against the source PDF.`, '');
   }
   if (model.blocks.length === 0 && model.meta.pageCount > 0 && scannedSet.size === model.meta.pageCount) {
     out.push('> ⚠ No text layer was found on any page of this document. It appears to be a scanned/image-only PDF. OCR is out of scope for this tool.', '');
@@ -590,6 +819,7 @@ function buildDocumentXml(model, title) {
     else if (b.type === 'table') body.push(tableXml(b.rows));
   }
   for (const p of model.meta.scannedPages) body.push(paragraphXml(null, runXml(`[Page ${p}: no text layer detected (scanned/image page). OCR is out of scope; page skipped.]`)));
+  for (const p of (model.meta.truncatedPages || [])) body.push(paragraphXml(null, runXml(`[Page ${p}: text runs reach the page's right boundary and can be cut off mid-word by the PDF text layer (a pdf.js extraction behavior). Verify affected lines against the source PDF.]`)));
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body.join('')}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>`;
 }
@@ -625,7 +855,19 @@ async function extractPages(arrayBuffer, onProgress) {
     if (onProgress) onProgress(i, doc.numPages);
     const page = await doc.getPage(i);
     const tc = await page.getTextContent();
-    pages.push({ items: tc.items.map(it => ({ str: it.str, transform: it.transform, width: it.width, height: it.height })) });
+    // pdf.js text extraction cuts a run that crosses the page's right
+    // boundary (measured on 6.1.200 AND the newest upstream release, so it
+    // is stock behavior, not this site's workerless inlining). page.view is
+    // the crop-intersected view: the closest boundary pdf.js exposes on this
+    // proxy. Flag pages where a run's right edge lands within ~2 units of
+    // it, so both outputs warn instead of shipping the clip silently.
+    const boundary = (page.view && typeof page.view[2] === 'number') ? page.view[2] - 2 : null;
+    let truncated = false;
+    const items = tc.items.map(it => {
+      if (boundary !== null && it.str && it.str.trim() && it.transform[4] + (it.width || 0) >= boundary) truncated = true;
+      return { str: it.str, transform: it.transform, width: it.width, height: it.height };
+    });
+    pages.push({ items, truncated });
   }
   return pages;
 }
@@ -703,7 +945,7 @@ async function convertPdf() {
     const model = buildDocModel(pages);
 
     const titleBase = selectedFile.name.replace(/\.pdf$/i, '') || 'document';
-    const metaLine = `<!-- Converted by AINumbers.co PDF to DOCX/Markdown Converter (T643) · pdf.js ${PDFJS_VERSION} (pinned, workerless) · text-layer extraction only, tables/multi-column are best-effort -->`;
+    const metaLine = `<!-- Converted by AINumbers.co PDF to DOCX/Markdown Converter (T643) · pdf.js ${PDFJS_VERSION} (pinned, workerless) · text-layer extraction only; column-aware reading order, tables are best-effort; scanned pages and right-boundary truncation are reported inline -->`;
 
     setProgress('Rendering Markdown…');
     const md = renderMarkdown(model, metaLine);
@@ -856,7 +1098,7 @@ window.convertPdf = convertPdf;
 </footer>
 
 <script>
-var MANIFEST = JSON.parse('{"tool_id": "643-pdf-to-docx-markdown-converter", "version": "1.0.0", "title": "PDF to DOCX & Markdown Converter", "description": "Converts the text layer of a PDF into a Markdown file and a DOCX file: font-size heading tiers, paragraphs, bulleted and numbered lists, and best-effort tables read in geometric (y,x) order. Detects and reports pages with no text layer instead of producing silent empty output. Entirely client-side, zero network calls, pdf.js inlined workerless.", "category": "mcp", "tags": ["PDF", "DOCX", "Markdown", "conversion", "document", "OOXML", "pdf.js", "text extraction"], "audience": ["legal ops", "compliance", "engineer", "general"], "input_schema": {"type": "object", "required": ["pdf_file"], "properties": {"pdf_file": {"type": "string", "format": "binary", "description": "A text-layer PDF file, chosen or dropped in the browser"}}}, "output_schema": {"type": "object", "properties": {"markdown": {"type": "string"}, "docx_base64": {"type": "string"}, "scanned_pages": {"type": "array", "items": {"type": "integer"}}, "input_sha256": {"type": "string"}, "output_sha256_md": {"type": "string"}, "output_sha256_docx": {"type": "string"}, "pdfjs_version": {"type": "string"}}}, "mcp_tool_definition": {"name": "convert_pdf_to_docx_markdown", "description": "Extracts the text layer of a PDF and converts it to Markdown and DOCX, with font-size-based heading detection, bullet/ordinal list detection, and best-effort geometric tables. Reports pages with no text layer rather than returning silent empty output. Browser-based, client-side only, zero network calls, zero PII.", "inputSchema": {"type": "object", "required": ["pdf_file"], "properties": {"pdf_file": {"type": "string", "format": "binary"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/643-pdf-to-docx-markdown-converter.html", "function_name": "convertPdf", "timeout_ms": 30000}, "ap2_export": false, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": false}');
+var MANIFEST = JSON.parse('{"tool_id":"643-pdf-to-docx-markdown-converter","version":"1.0.0","title":"PDF to DOCX & Markdown Converter","description":"Converts the text layer of a PDF into a Markdown file and a DOCX file: column-aware reading order recovered by a band-first recursive XY-cut, font-size heading tiers plus all-caps section headings, paragraphs with end-of-line hyphens rejoined, bulleted and numbered lists, and best-effort tables. Detects and reports pages with no text layer, and flags pages whose text runs reach the right page boundary, instead of shipping silent clipping or empty output. Entirely client-side, zero network calls.","category":"mcp","tags":["PDF","DOCX","Markdown","conversion","document","OOXML","pdf.js","text extraction"],"audience":["legal ops","compliance","engineer","general"],"input_schema":{"type":"object","required":["pdf_file"],"properties":{"pdf_file":{"type":"string","format":"binary","description":"A text-layer PDF file, chosen or dropped in the browser"}}},"output_schema":{"type":"object","properties":{"markdown":{"type":"string"},"docx_base64":{"type":"string"},"scanned_pages":{"type":"array","items":{"type":"integer"}},"input_sha256":{"type":"string"},"output_sha256_md":{"type":"string"},"output_sha256_docx":{"type":"string"},"pdfjs_version":{"type":"string"}}},"mcp_tool_definition":{"name":"convert_pdf_to_docx_markdown","description":"Extracts the text layer of a PDF and converts it to Markdown and DOCX, with font-size-based heading detection, bullet/ordinal list detection, and best-effort geometric tables. Reports pages with no text layer rather than returning silent empty output. Browser-based, client-side only, zero network calls, zero PII.","inputSchema":{"type":"object","required":["pdf_file"],"properties":{"pdf_file":{"type":"string","format":"binary"}}}},"execution":{"type":"browser-javascript","entry":"tools/643-pdf-to-docx-markdown-converter.html","function_name":"convertPdf","timeout_ms":30000},"ap2_export":false,"pii_transmitted":false,"execution_context":"client_side_browser","prefill":false}');
 function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
 </script>
 </body>
