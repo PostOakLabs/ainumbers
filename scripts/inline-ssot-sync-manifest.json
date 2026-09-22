@@ -64,6 +64,16 @@
         }
       ],
       "note": "TOOLS625-SSOT-REPORT-1 resolved the divergence INLINE-SSOT-PORTS-GATE-1 measured and left unregistered (see git history for the removed `_unregistered_pending_adjudication` record): the page's byte helpers, RFC 6962 walk, parseSignedNote, formatCheckpoint and toCosignedData were a re-transcription, not a verbatim port (globalThis.crypto.subtle -> crypto.subtle, two added short-path `if (!p.length) return false;` guards in verifyInclusion, five template literals rewritten as string concatenation, a dropped trailing comma). Per Tim's 2026-08-15 ruling, the module's own error contract stays untouched (throw on a too-short sibling path, via an unguarded `p[0]` on an empty array) and the page re-ports it byte-verbatim instead: no consumer of c2sp-tlog-verify.mjs behaviour changed, because the module was not edited. runVerifier()'s existing outer try/catch is what absorbs that throw into a reported error for a person who pastes too few sibling hashes, so the short-path case is still handled — just by the page's own error boundary rather than a page-local return-false inside the ported block itself. Consumers of the module enumerated at registration time: scripts/register-sigsum.mjs, scripts/register-rekor.mjs (both CLI, not kernels), and chaingraph/kernels/c2sp-tlog-verify.test.mjs; no `.kernel.mjs` kernel imports this module, so no execution_hash is in scope."
+    },
+    {
+      "id": "sigverify",
+      "label": "_sigverify signature-verification seam (whole inlinable body, pasted into the art-124 RISC0-guest kernel)",
+      "ssotFile": "chaingraph/kernels/_sigverify.mjs",
+      "mode": "wholeFileBlock",
+      "trigger": "/* ===== inlined _sigverify (RISC0 guest provides only _hash; module import is unavailable in-guest) ===== */",
+      "ssotUntilMarker": "\nexport { b64ToBytes, b64uToBytes, verifySignature };",
+      "scanExt": ".kernel.mjs",
+      "note": "ART124-ACCEL-GUEST-PROVE-1. Same shape and same reason as the detmath pair: a kernel cannot import a shared module, because the RISC0 guest provides only _hash AND chaingraph/vm/kernel-vm.mjs strips every ESM import before running a kernel (measured: the first cut of this row imported the module and turned the SS24 VM-worker parity gate RED on all six art-124 vectors with b64ToBytes is not defined). The kernel therefore pastes the body inside the sentinel comments and this pair makes a byte-different copy a RED, because a stale inline copy silently changes every execution_hash (PROOFSYNC-SECURED-1 class). ssotUntilMarker carves off the ES export tail, which is linkage rather than payload and which a kernel cannot carry. Consumer count RE-DERIVED against current bytes at registration, not asserted: ONE full-paste consumer, art-124-content-credential-signature-verifier, verified byte-identical to the carved unit."
     }
   ]
 }
