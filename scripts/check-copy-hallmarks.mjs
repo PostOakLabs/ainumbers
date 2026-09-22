@@ -106,7 +106,7 @@
  *
  * Usage:
  *   node scripts/check-copy-hallmarks.mjs            # gate (preflight + CI)
- *   node scripts/check-copy-hallmarks.mjs --update   # regenerate the em-dash/jargon/bold/insider/aiVocab/absolutes/notX baseline
+ *   node scripts/check-copy-hallmarks.mjs --update   # regenerate the em-dash/jargon/bold/insider/aiVocab/absolutes/notX/fragHead baseline
  *   node scripts/check-copy-hallmarks.mjs --report   # write the Tier-1 H1+H5 remediation ranking to workspace-root research/
  *
  * Style rule of record: CONTRACT.md §1.4 (reader-facing copy).
@@ -334,6 +334,50 @@ const DEFAULT_NOTX_CAP = 3;
 export function notXCount(text) {
   return (text.match(NOTX) || []).length + (text.match(SEMI_NOT) || []).length;
 }
+// FRAGHEAD (HALLMARKS-FRAGMENT-HEADING-GATE-1, 2026-09-22; spec
+// HALLMARKS-FRAGMENT-HEADING-GATE-SPEC-2026-09-22.md, Tim "go" 2026-09-22):
+// the comma-splice fragment heading — "One formula, four checks" — the cadence
+// PR #2016 hand-removed from conformance-explainer.html the day it shipped.
+// Baseline+ratchet, same shape as panel/notX: a file absent from the baseline
+// gets zero tolerance; legacy debt (calibrated at 220 hits / 96 files on main
+// c7f0f9a5) shields under a per-file `fragHead` count that only goes down via
+// --update. Rule, FROZEN for calibration — re-calibrate (spec §4) before
+// changing: strip parentheticals and a trailing ART/T node-id suffix (CONTRACT
+// §1.4 permits node ids in technical headings), decode &amp; then strip other
+// entities, collapse numeric commas, defer ", not X" headings to the notX
+// category (no double-flag), then flag any h1-h6 whose >=2 comma segments carry
+// no conjunction and no acronym-ish tag-list segment.
+const FRAGHEAD_CONJ = /\b(?:and|or|nor|but|yet|then|so|than|because|while|when|if|vs|versus)\b|&/i;
+const FRAGHEAD_NODE_ID = /,?\s*\b(?:ART|T)-\d{1,3}\b\s*$/i;
+const FRAGHEAD_ACRONYM_SEG = /^[A-Z0-9][A-Z0-9/.-]{0,5}$/;
+const FRAGHEAD_NOTX_DEFER = /,\s+not\s/i;
+export function fragHeadHits(prose) {
+  const hits = [];
+  const re = /<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/gi;
+  let m;
+  while ((m = re.exec(prose))) {
+    const t = m[1]
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&[a-z#0-9]+;/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!t) continue;
+    const x = t
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(FRAGHEAD_NODE_ID, '')
+      .replace(/(\d),(\d)/g, '$1$2')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (FRAGHEAD_NOTX_DEFER.test(x)) continue;
+    const segs = x.split(',').map((s) => s.trim()).filter(Boolean);
+    if (segs.length < 2) continue;
+    if (FRAGHEAD_CONJ.test(x)) continue;
+    if (segs.some((s) => FRAGHEAD_ACRONYM_SEG.test(s))) continue;
+    hits.push(`fragment heading "${t.slice(0, 60)}"`);
+  }
+  return hits;
+}
 // Blocking, zero-tolerance, no baseline (COPYTELL-SWEEP-1) — HIGH-PRECISION twotone family.
 const TWOTONE_HIGHPRECISION = /\b(?:is|are|was|were) not (?:a|an|the )?[\w-]+\.\s+(?:It|They|This|That) (?:is|are)\b/g;
 // Advisory only, PERMANENTLY — heuristic, catches legitimate 3-item lists too often for a hard gate.
@@ -550,6 +594,7 @@ for (const file of scanFiles) {
   const absolutes = absolutesHits(text);
   const notX = notXCount(text);
   const panel = panelHits(prose);
+  const fragHead = fragHeadHits(prose);
 
   const hallmarks = [];
   // Italic/bold emphasis in HEADINGS (h1-h6) is now a blocking tell too (Tim
@@ -607,8 +652,8 @@ for (const file of scanFiles) {
     if (n) overuse[label] = n;
   }
 
-  if (emdash || jargon.length || twotoneHP || triad || loadbearing || cosignVocab.length || hallmarks.length || emojiProse || bold || doubleEscaped || Object.keys(overuse).length || insider.length || aiVocab.length || absolutes.length || notX || panel.length) {
-    findings[rel] = { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, absolutes, notX, panel };
+  if (emdash || jargon.length || twotoneHP || triad || loadbearing || cosignVocab.length || hallmarks.length || emojiProse || bold || doubleEscaped || Object.keys(overuse).length || insider.length || aiVocab.length || absolutes.length || notX || panel.length || fragHead.length) {
+    findings[rel] = { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, absolutes, notX, panel, fragHead };
   }
 }
 
@@ -621,7 +666,7 @@ if (!CHANGED || isTouched('chaingraph/chaingraph.json', CHANGED)) {
   let cgEmdash = 0;
   for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
   for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
-  if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], absolutes: [], notX: 0, panel: [] };
+  if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], absolutes: [], notX: 0, panel: [], fragHead: [] };
 }
 
 // mcp/showcase-prompts.json titles + one_lines (MCP-SHOWCASE-PROMPTS-1) — reader-facing
@@ -645,7 +690,7 @@ if (!CHANGED || isTouched('mcp/showcase-prompts.json', CHANGED)) {
       }
     }
     if (spEmdash || spTwotone || spAi.length || spAbs.length) {
-      findings['mcp/showcase-prompts.json#title-one-line'] = { emdash: spEmdash, jargon: [], twotoneHP: spTwotone, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, doubleEscaped: 0, overuse: {}, insider: [], aiVocab: spAi, absolutes: spAbs, notX: 0, panel: [] };
+      findings['mcp/showcase-prompts.json#title-one-line'] = { emdash: spEmdash, jargon: [], twotoneHP: spTwotone, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, doubleEscaped: 0, overuse: {}, insider: [], aiVocab: spAi, absolutes: spAbs, notX: 0, panel: [], fragHead: [] };
     }
   }
 }
@@ -670,12 +715,13 @@ if (UPDATE) {
     const overDebt = {};
     for (const [k, v] of Object.entries(f.overuse || {})) if (v > OVERUSE_CAP) overDebt[k] = v;
     const notXDebt = f.notX > DEFAULT_NOTX_CAP ? f.notX : 0;
-    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length + f.insider.length + f.aiVocab.length + f.absolutes.length + (notXDebt ? 1 : 0) + f.panel.length;
+    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length + f.insider.length + f.aiVocab.length + f.absolutes.length + (notXDebt ? 1 : 0) + f.panel.length + f.fragHead.length;
     if (debt) {
       baseline[rel] = { emdash: f.emdash, jargon: f.jargon.length, bold: f.bold, insider: f.insider.length, aiVocab: f.aiVocab.length, absolutes: f.absolutes.length };
       if (Object.keys(overDebt).length) baseline[rel].overuse = overDebt;
       if (notXDebt) baseline[rel].notX = notXDebt;
       if (f.panel.length) baseline[rel].panel = f.panel.length;
+      if (f.fragHead.length) baseline[rel].fragHead = f.fragHead.length;
     }
   }
   writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n');
@@ -712,6 +758,13 @@ for (const [rel, f] of Object.entries(findings)) {
   // burned down by rewrite PRs via --update (never grown to hide a new hit).
   if (f.panel.length > bPanel) failures.push(`${rel}: SCOPE-panel negation-wall hit(s): ${f.panel.join('; ')} (baseline ${bPanel}) — CONTRACT §1.4 reasonable-reader rule: fold into at most two inline limitation sentences, no heading-plus-bullet-wall`);
   else if (f.panel.length < bPanel) improvements.push(`${rel}: panel ${bPanel} -> ${f.panel.length}`);
+  // FRAGHEAD (comma-splice fragment heading): BLOCKING for new/changed pages —
+  // a file absent from the baseline gets zero tolerance, same shape as panel
+  // above. Baselined legacy headings ratchet down via --update; never grow the
+  // baseline to admit a new heading.
+  const bFragHead = b.fragHead || 0;
+  if (f.fragHead.length > bFragHead) failures.push(`${rel}: comma-splice fragment heading(s): ${f.fragHead.join('; ')} (baseline ${bFragHead}) — CONTRACT §1.4: rewrite as a natural heading ("The formula and its four checks", not "One formula, four checks")`);
+  else if (f.fragHead.length < bFragHead) improvements.push(`${rel}: fragment headings ${bFragHead} -> ${f.fragHead.length}`);
   {
     const allowedNotX = b.notX != null ? b.notX : DEFAULT_NOTX_CAP;
     if (f.notX > allowedNotX) failures.push(`${rel}: ${f.notX} ",-not X" defensive-negation hit(s) — over cap (max ${allowedNotX})`);
