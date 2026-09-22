@@ -977,6 +977,21 @@ const PREFLIGHT_ONLY = new Map([
     "manifests/) — no CI-only input, no network. Paired self-test: " +
     "check-mr-r4-null-ratchet.test.mjs (GATE-SELFTEST-META-1)."],
   ["check-mr-r4-null-ratchet.test.mjs", SELF_TEST],
+  // ── CONFCORPUS-GATE-1 (2026-09-21) ──────────────────────────────────────────
+  ["check-conformance-vectors.mjs",
+    "House OCG receipt-conformance corpus hash gate (CONFCORPUS-GATE-1): re-derives all " +
+    "four declared checks per vector in ocg-conformance/vectors/manifest.json (input/output " +
+    "byte sha256, canonicalized JSON sha256 per side, executionHash preimage) via the one " +
+    "canonicalizer chaingraph/kernels/_hash.mjs. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), so " +
+    "a named workflow step would only duplicate the same suite. Exists because the corpus " +
+    "went red on main 2026-09-01..2026-09-21 unnoticed (#1598 updated the art-09 vector " +
+    "input without regenerating the manifest; nothing read vectors/manifest.json). Reads " +
+    "only tracked repo files — no CI-only input, no network. The language-agnostic witness " +
+    "for outside verifiers remains ocg-conformance/verify.py (pure Python stdlib), which " +
+    "runs the same four checks; kernel-side provenance is the complementary " +
+    "ocg-conformance/derive-vector.mjs <id> --check."],
+  ["check-conformance-vectors.test.mjs", SELF_TEST],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
