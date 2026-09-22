@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Receipt Conformance Works | OpenChainGraph</title>
+<meta name="description" content="The OpenChainGraph receipt-conformance corpus: one formula, four checks, a standalone verifier with zero AINumbers code, and how a third party submits its own kernel's vector.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/conformance-explainer.html">
+<meta name="ain:category" content="learn">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "@id": "https://ainumbers.co/chaingraph/conformance-explainer.html",
+  "name": "How Receipt Conformance Works",
+  "url": "https://ainumbers.co/chaingraph/conformance-explainer.html",
+  "description": "The OpenChainGraph receipt-conformance corpus: one formula, four checks, a standalone verifier, and the third-party submission kit.",
+  "breadcrumb": {
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://ainumbers.co" },
+      { "@type": "ListItem", "position": 2, "name": "OpenChainGraph Suite", "item": "https://ainumbers.co/chaingraph/chaingraph-hub.html" },
+      { "@type": "ListItem", "position": 3, "name": "Receipt Conformance", "item": "https://ainumbers.co/chaingraph/conformance-explainer.html" }
+    ]
+  }
+}
+</script>
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.10); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.10);
+  --green:#22C55E; --red:#EF4444; --purple:#9B72F5;
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.25;color:var(--white)}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+pre{font-family:'JetBrains Mono',monospace;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.3rem;overflow-x:auto;margin:1rem 0;font-size:.78rem;line-height:1.75;color:var(--text)}
+pre code{background:none;padding:0;color:var(--text)}
+.container{max-width:860px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.hero{padding:3.2rem 0 2.6rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.hero h1{font-size:clamp(1.8rem,3.4vw,2.7rem);margin-bottom:.9rem}
+.hero-desc{font-size:.95rem;color:var(--body);max-width:700px;line-height:1.9}
+.section{padding:2.8rem 0;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.section:last-of-type{border-bottom:none}
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem}
+.sec-heading{font-size:clamp(1.2rem,2.2vw,1.6rem);margin-bottom:1rem}
+.stage-meta{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin:0 0 1rem}
+.lvl-badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;padding:.22rem .6rem;border-radius:99px;border:1px solid rgba(45,212,191,.35);color:var(--teal-lt);background:var(--teal-dim)}
+.lvl-badge.lvl-adv{border-color:rgba(155,114,245,.4);color:var(--purple);background:rgba(155,114,245,.12)}
+.spec-chip{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;padding:.24rem .6rem;border-radius:99px;border:1px solid var(--border-2);color:var(--gold);background:var(--gold-dim)}
+.spec-chip:hover{border-color:rgba(212,168,71,.5);text-decoration:none}
+.prose p{font-size:.92rem;color:var(--body);line-height:1.95;margin-bottom:1.1rem}
+.prose p:last-child{margin-bottom:0}
+.prose strong{color:var(--text);font-weight:500}
+.toc{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.2rem 1.4rem;margin:0 0 1rem}
+.toc-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.7rem}
+.toc-list{list-style:decimal;padding-left:1.4rem;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:.35rem 2rem}
+@media(max-width:720px){.toc-list{grid-template-columns:1fr}}
+.toc-list li{font-size:.82rem;color:var(--body);line-height:1.5}
+.toc-list a{color:var(--bright)}
+.toc-list a:hover{color:var(--teal-lt);text-decoration:none}
+.scene{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:1.4rem 1.2rem .9rem;margin:1.3rem 0 .9rem;overflow-x:auto}
+.scene svg{display:block;margin:0 auto;max-width:100%;height:auto}
+.scene-caption{display:flex;gap:.55rem;align-items:baseline;font-size:.74rem;color:var(--muted);line-height:1.7;padding:.55rem .4rem .35rem;border-top:1px solid var(--border);margin-top:.9rem}
+.scene-caption .dot{flex-shrink:0;width:7px;height:7px;border-radius:99px;background:var(--teal);position:relative;top:-1px}
+.concepts-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin:1.2rem 0 .4rem}
+@media(max-width:720px){.concepts-grid{grid-template-columns:1fr}}
+.concept-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.15rem 1.25rem}
+.concept-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.45rem}
+.concept-title{font-family:'Sora',sans-serif;font-size:.9rem;font-weight:500;color:var(--bright);margin-bottom:.4rem}
+.concept-desc{font-size:.78rem;color:var(--body);line-height:1.75}
+.concept-desc code{font-size:.9em}
+.depth-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.9rem 1.1rem;margin:1rem 0}
+.depth-row{display:flex;gap:.9rem;align-items:flex-start;padding:.55rem 0}
+.depth-row + .depth-row{border-top:1px solid var(--border)}
+.depth-badge{flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);background:var(--gold-dim);border:1px solid rgba(212,168,71,.3);border-radius:4px;padding:.22rem .5rem;min-width:5.4rem;text-align:center}
+.depth-text{font-size:.78rem;color:var(--body);line-height:1.75}
+.stage-links{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin:1.2rem 0 0}
+.stage-links-label{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.stage-link{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:99px;padding:.32rem .8rem}
+.stage-link:hover{background:var(--teal-dim);text-decoration:none}
+.stage-link.try-live{color:var(--gold);border-color:rgba(212,168,71,.35)}
+blockquote{border-left:3px solid var(--gold);background:var(--gold-dim);border-radius:var(--radius);padding:.9rem 1.2rem;margin:1rem 0;font-size:.86rem;color:var(--text);line-height:1.8}
+.vec-table{width:100%;border-collapse:collapse;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:.72rem}
+.vec-table th{text-align:left;color:var(--muted);font-weight:400;padding:.45rem .6rem;border-bottom:1px solid var(--border-2);vertical-align:top;white-space:nowrap}
+.vec-table td{color:var(--text);padding:.45rem .6rem;border-bottom:1px solid var(--border);word-break:break-all}
+.vec-table td.h{color:var(--teal-lt)}
+.footnote{font-size:.74rem;color:var(--muted);line-height:1.8;margin-top:1.4rem}
+.footnote a{color:var(--teal-lt)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">Receipt Conformance</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+<div class="hero">
+  <div class="container">
+    <div class="eyebrow">OpenChainGraph &middot; Receipt conformance</div>
+    <h1>How receipt conformance works</h1>
+    <p class="hero-desc">A receipt built to the OpenChainGraph envelope carries an <code>execution_hash</code>. This page explains the public corpus that pins that hash to a formula, the standalone verifier that checks it with zero AINumbers code, and the kit a third party uses to submit its own kernel's vector. Written for implementers of the standard outside AINumbers and for auditors who need to check the format without trusting the vendor.</p>
+  </div>
+</div>
+
+<div class="section" style="padding:2.2rem 0 2.4rem">
+  <div class="container">
+    <div class="toc" role="navigation" aria-label="Contents">
+      <div class="toc-title">On this page</div>
+      <ol class="toc-list">
+        <li><a href="#cf-what">What conformance means here</a></li>
+        <li><a href="#cf-formula">One formula, four checks</a></li>
+        <li><a href="#cf-any-language">Any language, zero AINumbers code</a></li>
+        <li><a href="#cf-worked">A worked vector</a></li>
+        <li><a href="#cf-run">Run the verifier yourself</a></li>
+        <li><a href="#cf-submit">Submitting your own kernel's vector</a></li>
+        <li><a href="#cf-roster">Who is conformant today</a></li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Foundation</div>
+    <h2 class="sec-heading" id="cf-what">What conformance means here</h2>
+    <div class="stage-meta"><span class="lvl-badge">Beginner</span><a class="spec-chip" href="openchain-graph-spec.html" title="The normative source for the receipt envelope">Normative source: SPEC &sect;1, &sect;4</a></div>
+    <div class="prose">
+      <p>Conformance is a statement about a format, and it is deliberately narrow: a stated input and output pair hashes to the stated <code>execution_hash</code> under the formula below. That is the whole claim. It does not say a kernel's business logic is correct. It says nothing about a proof attached at <code>compute_proof</code> or <code>audit_signature.proof</code>, and it makes no claim about AINumbers' live service. Those are separate, larger questions with their own evidence surfaces.</p>
+      <p>The corpus and the verifier behind this page were extracted from the normative specification so that a party with no interest in AINumbers code can check the receipt format independently. Every vector in the corpus is a real pair produced by a real, shipped decision kernel, named in the manifest's <code>source</code> field. None are hand-invented.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="container">
+    <div class="sec-label">The formula</div>
+    <h2 class="sec-heading" id="cf-formula">One formula, four checks</h2>
+    <div class="stage-meta"><span class="lvl-badge">Practitioner</span><a class="spec-chip" href="openchain-graph-spec.html" title="The normative hash definition">Normative source: SPEC &sect;4</a></div>
+    <div class="prose">
+      <p>Every OpenChainGraph receipt carries an <code>execution_hash</code>, and the hash has exactly one definition:</p>
+    </div>
+<pre><code>execution_hash = SHA-256( JCS-canonicalize( { policy_parameters, output_payload } ) )</code></pre>
+    <div class="prose">
+      <p>Only the receipt's own <code>policy_parameters</code> and <code>output_payload</code> enter the hash. Canonicalization recursively sorts every object's keys by Unicode code point, keeps array order unchanged, and serializes with minimal whitespace; for the practical JSON subset the vectors use (finite numbers, no integers past 2<sup>53</sup>) this reproduces RFC 8785 output exactly. The SHA-256 runs over the UTF-8 bytes of that canonical string, rendered as lowercase hex.</p>
+    </div>
+    <div class="scene">
+      <svg viewBox="0 0 680 386" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The four conformance checks: byte hashes, canonicalized hashes on both sides, and the execution hash over the preimage">
+        <defs>
+          <style>
+            #cf1 .lab { font-family:Sora,sans-serif; font-size:11px; font-weight:600; fill:#d4e8f8; }
+            #cf1 .sub { font-family:'JetBrains Mono',monospace; font-size:8px; fill:#6888a8; }
+            #cf1 .tl { fill:#14b8a6; } #cf1 .gn { fill:#22c55e; } #cf1 .gl { fill:#d4a847; }
+            #cf1 .box { fill:#0c1a2e; stroke-width:1.5; }
+            #cf1 .stp { opacity:0; animation:cf1f .6s ease-out forwards; }
+            #cf1 #cf1a { animation-delay:.2s } #cf1 #cf1b { animation-delay:.4s }
+            #cf1 #cf1c1 { animation-delay:.8s } #cf1 #cf1c2 { animation-delay:1.2s } #cf1 #cf1c3 { animation-delay:1.6s }
+            #cf1 #cf1v { animation-delay:2.1s }
+            #cf1 .arr { fill:none; stroke:#14b8a6; stroke-width:1.5; opacity:0; animation:cf1f .5s ease-out forwards; }
+            #cf1 #cf1p1 { animation-delay:.65s } #cf1 #cf1p2 { animation-delay:1.05s } #cf1 #cf1p3 { animation-delay:1.45s } #cf1 #cf1p4 { animation-delay:1.85s }
+            @keyframes cf1f { to { opacity:1; } }
+          </style>
+          <marker id="cf1m" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#14b8a6"/></marker>
+        </defs>
+        <g id="cf1">
+          <g id="cf1a" class="stp"><rect class="box" x="60" y="20" width="260" height="46" rx="7" stroke="#14b8a6"/><text class="sub tl" x="190" y="40" text-anchor="middle">vectors/inputs/&lt;id&gt;.input.json</text><text class="sub" x="190" y="56" text-anchor="middle">policy_parameters</text></g>
+          <g id="cf1b" class="stp"><rect class="box" x="360" y="20" width="260" height="46" rx="7" stroke="#14b8a6"/><text class="sub tl" x="490" y="40" text-anchor="middle">vectors/outputs/&lt;id&gt;.output.json</text><text class="sub" x="490" y="56" text-anchor="middle">output_payload</text></g>
+          <path id="cf1p1" class="arr" d="M190,66 L320,96" marker-end="url(#cf1m)"/>
+          <path id="cf1p1" class="arr" d="M490,66 L360,96" marker-end="url(#cf1m)"/>
+          <g id="cf1c1" class="stp"><rect class="box" x="140" y="100" width="400" height="40" rx="7" stroke="#22c55e"/><text class="sub gn" x="340" y="125" text-anchor="middle">check 1 + 2 &middot; byte hashes match the manifest</text></g>
+          <path id="cf1p2" class="arr" d="M340,140 L340,168" marker-end="url(#cf1m)"/>
+          <g id="cf1c2" class="stp"><rect class="box" x="140" y="172" width="400" height="40" rx="7" stroke="#22c55e"/><text class="sub gn" x="340" y="197" text-anchor="middle">check 3 &middot; canonicalized JSON matches per side</text></g>
+          <path id="cf1p3" class="arr" d="M340,212 L340,240" marker-end="url(#cf1m)"/>
+          <g id="cf1c3" class="stp"><rect class="box" x="140" y="244" width="400" height="52" rx="7" stroke="#d4a847"/><text class="sub gl" x="340" y="266" text-anchor="middle">check 4 &middot; SHA-256 over canonicalized preimage</text><text class="sub" x="340" y="284" text-anchor="middle">{ policy_parameters, output_payload }</text></g>
+          <path id="cf1p4" class="arr" d="M340,296 L340,322" marker-end="url(#cf1m)"/>
+          <g id="cf1v" class="stp"><rect class="box" x="170" y="326" width="340" height="42" rx="7" stroke="#22c55e"/><text class="sub gn" x="340" y="346" text-anchor="middle">execution_hash equals the manifest, lowercase hex</text><text class="sub" x="340" y="361" text-anchor="middle">any mismatch names the vector and exits nonzero</text></g>
+        </g>
+      </svg>
+      <div class="scene-caption"><span class="dot"></span>the middle check is the useful one: it isolates canonicalizer disagreements from hashing bugs before either side touches the preimage</div>
+    </div>
+    <div class="depth-block">
+      <div class="depth-rows">
+        <div class="depth-row"><span class="depth-badge">witness</span><span class="depth-text"><code>ocg-conformance/verify.py</code> runs all four checks per vector in pure Python standard library: no dependencies, no network, no AINumbers code. Exit 0 means every vector passed; exit 1 names the vector and the check that failed.</span></div>
+        <div class="depth-row"><span class="depth-badge">enforcement</span><span class="depth-text">The same four checks run as a Node gate in the site's preflight suite (<code>scripts/check-conformance-vectors.mjs</code>), over the one canonicalizer every AINumbers kernel uses, so a corpus that fails <code>verify.py</code> cannot merge.</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Portability</div>
+    <h2 class="sec-heading" id="cf-any-language">Any language, zero AINumbers code</h2>
+    <div class="stage-meta"><span class="lvl-badge">Practitioner</span><a class="spec-chip" href="https://www.rfc-editor.org/rfc/rfc8785" title="JSON Canonicalization Scheme 1.0 (RFC 8785)">RFC 8785 (JCS)</a></div>
+    <div class="prose">
+      <p>Any implementation in any language that sorts keys, serializes to minimal-whitespace JSON, and runs SHA-256 over the UTF-8 bytes will reproduce the same <code>execution_hash</code> for the same input pair. On 2026-09-21 the corpus was cross-checked between two independent implementations: the site's JavaScript canonicalizer and <code>verify.py</code>'s Python canonicalizer reproduce identical canonical hashes on every vector, including a float-heavy one where a naive Python float rendering would disagree with ECMAScript.</p>
+    </div>
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-label">Number rendering</div>
+        <div class="concept-title">The one place implementations diverge</div>
+        <div class="concept-desc">Python's default float rendering and ECMAScript's differ on values like <code>0.000001</code>. JCS mandates the ECMAScript production, so a conforming Python canonicalizer must special-case it; <code>verify.py</code> ships that logic and the corpus exercises it.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-label">Prior art</div>
+        <div class="concept-title">A corpus for adjacent formats exists</div>
+        <div class="concept-desc">A JCS conformance vector corpus for adjacent agentic-payment receipt formats is public (cross-validated across eight language implementations). This corpus claims the smaller thing: the OpenChainGraph receipt envelope, which that corpus does not cover.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Worked example</div>
+    <h2 class="sec-heading" id="cf-worked">A worked vector, verbatim</h2>
+    <div class="stage-meta"><span class="lvl-badge">Practitioner</span><a class="spec-chip" href="https://github.com/PostOakLabs/ainumbers/blob/main/ocg-conformance/vectors/manifest.json" title="The manifest in the repository">The manifest</a></div>
+    <div class="prose">
+      <p>One entry from <code>vectors/manifest.json</code>, verbatim as of September 2026. A conforming implementation reproduces the final hash from the two files and nothing else.</p>
+    </div>
+    <table class="vec-table">
+      <tr><th>id</th><td>art-47-arc-cctp-transfer</td></tr>
+      <tr><th>input</th><td class="h">vectors/inputs/art-47-arc-cctp-transfer.input.json</td></tr>
+      <tr><th>input bytes sha256</th><td class="h">05ae0eea37329e5b7ff4d857394534b6d568bc850675821fcd1fd66cadc19dd2</td></tr>
+      <tr><th>input canonical sha256</th><td class="h">06a6f2c7d0c0ecf6ce474c3124978b43198a8c20c63939f7492766421bf63e7a</td></tr>
+      <tr><th>expected output</th><td class="h">vectors/outputs/art-47-arc-cctp-transfer.output.json</td></tr>
+      <tr><th>output bytes sha256</th><td class="h">ce59989a4a25c536f33e34faeb2d0c4d0fe7e684ac848b89a4f2c7af0539f857</td></tr>
+      <tr><th>output canonical sha256</th><td class="h">8e711258c838449efbeb1e1c462c6ff32e5d745f0d03fd346998c2b27b22b881</td></tr>
+      <tr><th>expected execution_hash</th><td class="h">sha256:41166a1b759d2c53a44b4540bf4d8240f1fced2b54b5bc0b37e2c1d14796dc7e</td></tr>
+      <tr><th>source</th><td>derived from chaingraph/kernels/art-47-arc-cctp-transfer.kernel.mjs, a real shipped kernel</td></tr>
+    </table>
+    <div class="prose">
+      <p>The two canonical hashes exist so a new implementation can agree on canonicalization before touching hashing: if your canonicalizer disagrees at check 3, your hasher is not yet implicated.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Re-run</div>
+    <h2 class="sec-heading" id="cf-run">Run the verifier yourself</h2>
+    <div class="stage-meta"><span class="lvl-badge">Beginner</span><span class="spec-chip">zero dependencies</span></div>
+    <div class="scene">
+      <svg viewBox="0 0 680 216" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Clone the repository, run verify.py, get 9 of 9 vectors passing with exit zero, or a named mismatch with exit one">
+        <defs>
+          <style>
+            #cf2 .lab { font-family:Sora,sans-serif; font-size:11px; font-weight:600; fill:#d4e8f8; }
+            #cf2 .sub { font-family:'JetBrains Mono',monospace; font-size:8px; fill:#6888a8; }
+            #cf2 .box { fill:#0c1a2e; stroke-width:1.5; }
+            #cf2 .stp { opacity:0; animation:cf2f .6s ease-out forwards; }
+            #cf2 #cf2a { animation-delay:.2s } #cf2 #cf2b { animation-delay:.6s }
+            #cf2 #cf2ok { animation-delay:1.4s } #cf2 #cf2no { animation-delay:1.9s }
+            #cf2 .arr { fill:none; stroke:#14b8a6; stroke-width:1.5; opacity:0; animation:cf2f .5s ease-out forwards; }
+            #cf2 #cf2p1 { animation-delay:1.0s } #cf2 #cf2p2 { animation-delay:1.6s } #cf2 #cf2p3 { animation-delay:2.0s }
+            @keyframes cf2f { to { opacity:1; } }
+          </style>
+          <marker id="cf2m" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#14b8a6"/></marker>
+          <marker id="cf2mr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#ef4444"/></marker>
+        </defs>
+        <g id="cf2">
+          <g id="cf2a" class="stp"><rect class="box" x="30" y="70" width="180" height="70" rx="7" stroke="#14b8a6"/><text class="lab" x="120" y="98" text-anchor="middle" fill="#14b8a6">fresh clone</text><text class="sub" x="120" y="120" text-anchor="middle">github.com/PostOakLabs/ainumbers</text></g>
+          <g id="cf2b" class="stp"><rect class="box" x="255" y="70" width="180" height="70" rx="7" stroke="#14b8a6"/><text class="lab" x="345" y="94" text-anchor="middle" fill="#14b8a6">python3 verify.py</text><text class="sub" x="345" y="112" text-anchor="middle">pure standard library</text><text class="sub" x="345" y="126" text-anchor="middle">no network, no install</text></g>
+          <path id="cf2p1" class="arr" d="M210,105 L255,105" marker-end="url(#cf2m)"/>
+          <g id="cf2ok" class="stp"><rect class="box" x="490" y="34" width="160" height="56" rx="7" stroke="#22c55e"/><text class="lab" x="570" y="56" text-anchor="middle" fill="#22c55e">9/9 &middot; exit 0</text><text class="sub" x="570" y="76" text-anchor="middle">the format conforms</text></g>
+          <g id="cf2no" class="stp"><rect class="box" x="490" y="120" width="160" height="56" rx="7" stroke="#ef4444"/><text class="lab" x="570" y="142" text-anchor="middle" fill="#ef4444">mismatch &middot; exit 1</text><text class="sub" x="570" y="162" text-anchor="middle">vector and check named</text></g>
+          <path id="cf2p2" class="arr" d="M435,92 L490,66" marker-end="url(#cf2m)"/>
+          <path id="cf2p3" class="arr" d="M435,118 L490,146" stroke="#ef4444" marker-end="url(#cf2mr)"/>
+        </g>
+      </svg>
+      <div class="scene-caption"><span class="dot"></span>same corpus, same four checks as the site's own preflight gate &middot; your exit code should match CI's for the same commit</div>
+    </div>
+    <div class="prose">
+<pre><code>git clone https://github.com/PostOakLabs/ainumbers
+cd ainumbers
+python3 ocg-conformance/verify.py            # 9/9 vectors, exit 0
+python3 ocg-conformance/verify.py --quiet    # summary line only</code></pre>
+      <p>Provenance is a separate, complementary check: <code>node ocg-conformance/derive-vector.mjs &lt;id&gt; --check</code> re-runs the named kernel on its recorded input and proves the committed pair against the result. The manifest was last regenerated on 2026-09-22, when the art-09 and art-34 vectors were re-derived after a kernel field-name fix had left them stale.</p>
+    </div>
+    <div class="stage-links">
+      <span class="stage-links-label">Try it live:</span>
+      <a href="verify.html" class="stage-link try-live">Verify a hash in the browser &#8594;</a>
+      <a href="../verification-desk.html" class="stage-link try-live">Verification Desk &#8594;</a>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Third-party submissions</div>
+    <h2 class="sec-heading" id="cf-submit">Submitting your own kernel's vector</h2>
+    <div class="stage-meta"><span class="lvl-badge lvl-adv">Advanced</span><a class="spec-chip" href="https://github.com/PostOakLabs/ainumbers/tree/main/ocg-conformance/third-party" title="The submission kit in the repository">The submission kit</a></div>
+    <div class="prose">
+      <p>A party that is not AINumbers submits its own kernel's conformance vector as one pull request that touches a single new directory, <code>ocg-conformance/third-party/&lt;your-slug&gt;/</code>: a <code>submitter.json</code> (display name, contact URL, verified GitHub identity, a reverse-DNS namespace derived from it), a <code>manifest.json</code> carrying the same four hash fields the house corpus uses, and the input/output pair itself. Reverse-DNS naming means two submitters can name a kernel identically without colliding. Both schemas ship in the kit, together with <code>example-submitter/</code>, a hand-authored worked example under GitHub's <code>octocat</code> demo account that round-trips end to end.</p>
+      <p>Every submission carries a machine-readable conformance witness and a trust disclaimer pinned by JSON Schema as a <code>const</code>, so it cannot be paraphrased or dropped:</p>
+    </div>
+    <blockquote>Conformance-suite-pass is not a correctness guarantee, not an endorsement, and not an audit. AINumbers verifies formats; it does not verify facts.</blockquote>
+    <div class="prose">
+      <p>Validate before you open the pull request: <code>node ocg-conformance/third-party/validate-submission.mjs your-slug</code> checks both schemas, the namespace binding, and every vector's hashes, recomputed through the same canonicalizer the estate's kernels use. Submissions are reviewed as ordinary pull requests today; the auto-check workflow and the generated roster row for submissions are specified in the kit's README as follow-up rows and have not been built yet, which is also why each shipped witness carries <code>status: pending</code>.</p>
+    </div>
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-label">One directory each</div>
+        <div class="concept-title">Submissions can never conflict</div>
+        <div class="concept-desc">Two submissions from different parties touch disjoint directory trees, so neither PR can collide with the other and neither submitter's files can be edited by another's PR.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-label">No runtime role</div>
+        <div class="concept-title">A passing check registers nothing</div>
+        <div class="concept-desc">A passing vector never adds a kernel to <code>chaingraph.json</code>, never makes it callable through MCP, and never grants it any runtime role. It adds one public line: this hash claim checked out.</div>
+      </div>
+    </div>
+    <div class="stage-links">
+      <span class="stage-links-label">Go deeper:</span>
+      <a href="https://github.com/PostOakLabs/ainumbers/blob/main/ocg-conformance/third-party/README.md" class="stage-link">The submission convention, in full &#8594;</a>
+      <a href="https://github.com/PostOakLabs/ainumbers/tree/main/ocg-conformance/third-party/example-submitter" class="stage-link">The worked example &#8594;</a>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Status</div>
+    <h2 class="sec-heading" id="cf-roster">Who is conformant today</h2>
+    <div class="stage-meta"><span class="lvl-badge">Beginner</span><a class="spec-chip" href="conformance-roster.html" title="The dated conformance roster">Conformance roster</a></div>
+    <div class="prose">
+      <p>The <a href="conformance-roster.html">conformance roster</a> keeps the dated list of implementations and their gate-suite results, run and quoted rather than asserted. The house corpus currently stands at nine vectors, all passing; the roster records AINumbers' own &sect;15 gate-suite results against the same specification.</p>
+    </div>
+    <div class="stage-links">
+      <span class="stage-links-label">Go deeper:</span>
+      <a href="openchain-graph-spec.html" class="stage-link">The specification &#8594;</a>
+      <a href="conformance-roster.html" class="stage-link">The roster &#8594;</a>
+      <a href="zkvm-compute-integrity.html" class="stage-link">How the receipts reached full coverage &#8594;</a>
+    </div>
+    <div class="footnote">
+      Sources: RFC 8785, JSON Canonicalization Scheme 1.0, IETF, July 2020. <a href="https://github.com/PostOakLabs/ainumbers/blob/main/ocg-conformance/README.md" target="_blank" rel="noopener">ocg-conformance/README.md</a> and <a href="https://github.com/PostOakLabs/ainumbers/blob/main/ocg-conformance/third-party/README.md" target="_blank" rel="noopener">ocg-conformance/third-party/README.md</a> in the public repository, accessed September 2026. Hash values quoted verbatim from <code>vectors/manifest.json</code> version 1.1.0. All statements on this page are as of September 2026.
+    </div>
+  </div>
+</div>
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Project</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
