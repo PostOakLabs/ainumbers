@@ -374,6 +374,19 @@ const PREFLIGHT_ONLY = new Map([
     "derived-artifacts-regen.yml, so there is no writer to race. Reads only tracked repo " +
     "files (manifests/, chaingraph/kernels/fixtures/, chaingraph.json) — no CI-only input. " +
     "The --write and --update-baseline halves are builder commands, never workflow steps."],
+  // ── MANIFEST-APPLY-1 (2026-09-22) ───────────────────────────────────────────
+  ["apply-manifests.mjs",
+    "Manifest desired-state drift --check + its paired --self-test (MANIFEST-APPLY-GATE-1): " +
+    "RED on hand-drift over manifests/*.manifest.json beyond the down-only baseline " +
+    "scripts/manifest-apply-baseline.json — drift classes are non-canonical bytes (the whole-file-rewrite " +
+    "class apply refuses) and overlay-rule drift against scripts/manifests.desired.json (SPEC-MANIFEST-APPLY.md). " +
+    "Hard in preflight; its CI route is scripts-verify.yml full preflight (the workflow runs " +
+    "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the same suite. " +
+    "NOT a derived artifact: it reads the node graph in NO way (manifests/ + overlay only), so it is " +
+    "outside the derived-fanout classification, and manifests are hand-and-generator-authored source, " +
+    "never written main-side by derived-artifacts-regen.yml — no writer to race. Reads only tracked " +
+    "repo files — no CI-only input. The --apply and --update-baseline halves are builder commands, " +
+    "never workflow steps (the baseline ratchet only goes down; additions are refused)."],
   // ── S18-FRESHNESS-DURABLE-FIX-1 (2026-09-17) ────────────────────────────────
   ["gen-s18-freshness-calibration.mjs",
     "§18 freshness calibration artifact --check (S18-FRESHNESS-DURABLE-FIX-1): recomputes " +
