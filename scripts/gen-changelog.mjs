@@ -28,6 +28,16 @@
  * derived-artifacts bot) do not create merge commits, so they produce NO
  * entry. The generated file says this in its header — the changelog is a
  * merge-PR view of history, and most recent landings are direct pushes.
+ * TAGS are under-reported too, in one specific environment: GitHub's
+ * ephemeral merge-group queue checkout fetches NO tag refs, so `git tag
+ * --merged` errors there. Tag listing is therefore TOLERANT of failure
+ * (listTags): an environment that cannot list tags renders with an EMPTY tag
+ * set — no tag version scopes, merge-commit entries unaffected, limitation
+ * named in run output and in the header scope note. Same by-construction
+ * disclosure discipline as direct pushes; never a crash, never a guessed tag.
+ * The fail-closed tag CLASSIFICATION (every listed tag must be in the seed)
+ * is unchanged — tolerance is about the listing succeeding, not about
+ * classifying less.
  *
  * ── FAIL-CLOSED FORWARD ─────────────────────────────────────────────────────
  * Every entry the history yields MUST be classified in the seed (section +
@@ -160,13 +170,40 @@ export function collectMerges() {
   });
 }
 
-/** Tags reachable from HEAD: [{ name, date }]. */
-export function collectTags() {
-  const out = git('tag --merged HEAD --sort=-creatordate --format=%(refname:short)%09%(creatordate:short)');
+const TAG_GIT_ARGS = 'tag --merged HEAD --sort=-creatordate --format=%(refname:short)%09%(creatordate:short)';
+
+function parseTagList(out) {
   return out.split('\n').filter(Boolean).map((l) => {
     const i = l.indexOf('\t');
     return { name: l.slice(0, i), date: l.slice(i + 1) };
   });
+}
+
+/**
+ * Tags reachable from HEAD, TOLERANT of tag-less checkouts (MERGEGROUP
+ * TAG-FIX, measured in run 35692678563): GitHub's ephemeral merge-group queue
+ * branch fetches NO tag refs, so this git call ERRORS there and the whole
+ * changelog gate — and derived-artifacts --regen with it — went red on a
+ * healthy tree. Tags are version-SCOPE decoration only: merge-commit entries
+ * classify independently via their subjects, so on listing failure this
+ * returns an EMPTY tag set and the caller CONTINUES, naming the environment
+ * limitation in run output (never silent, never a crash, never a guessed
+ * tag). The fail-closed tag CLASSIFICATION contract is untouched — a tag
+ * that IS listed must still be in the seed. `runner` is injectable so the
+ * self-test can simulate the tag-less failure without spawning git.
+ * Returns { tags, source: 'git' | 'tag-less-environment', error? }.
+ */
+export function listTags(runner) {
+  const run = runner || ((args) => git(args));
+  try {
+    return { tags: parseTagList(run(TAG_GIT_ARGS)), source: 'git' };
+  } catch (e) {
+    return {
+      tags: [],
+      source: 'tag-less-environment',
+      error: String((e && e.message) || e).split('\n')[0],
+    };
+  }
 }
 
 function escMd(s) {
@@ -251,7 +288,10 @@ export function renderChangelog(merges, tags, seed) {
   out.push('> **It under-reports by construction:** only merge commits and tags are visible');
   out.push('> to it, so changes landed by **direct pushes to `main`** — including the');
   out.push('> post-merge regeneration commits of the derived-artifacts bot — do not create');
-  out.push('> entries. Recent landings have been largely direct pushes. Classified entries');
+  out.push('> entries. Recent landings have been largely direct pushes. Tags are under-');
+  out.push('> reported in one environment too: a **tag-less CI checkout** (GitHub\'s ephemeral');
+  out.push('> merge-group queue fetches no tag refs) renders with **no tag version scopes**,');
+  out.push('> while merge-commit entries still classify. Classified entries');
   out.push('> are fail-closed forward: a merge commit missing from the seed fails the');
   out.push('> generator (and the freshness gate) until it is classified there.');
   out.push('');
@@ -288,8 +328,14 @@ function main() {
     fail('gen-changelog: this checkout is a SHALLOW clone — first-parent history is truncated, so the fail-closed seed comparison would red spuriously. Fetch full history (fetch-depth: 0).');
   }
   const merges = collectMerges();
-  const tags = collectTags();
+  const { tags, source: tagSource, error: tagError } = listTags();
+  if (tagSource === 'tag-less-environment') {
+    // MERGEGROUP TAG-FIX: named, never silent — the same disclosure discipline
+    // as the header scope note. Merge-commit entries are unaffected.
+    console.error(`gen-changelog: TAG-LESS ENVIRONMENT — tag listing failed (${tagError}); proceeding with 0 tag scopes. Merge-commit entries are unaffected; tag version headings are under-reported in this checkout (see the header scope note).`);
+  }
   const seed = JSON.parse(readFileSync(SEED_PATH, 'utf8'));
+  const tagNotes = seed.tags || {};
   let text;
   try {
     text = renderChangelog(merges, tags, seed);
@@ -313,14 +359,17 @@ function main() {
   if (CHECK) {
     const current = existsSync(OUT_PATH) ? readFileSync(OUT_PATH, 'utf8') : '';
     if (current !== text) {
-      fail('gen-changelog --check FAIL: CHANGELOG.md is stale relative to history+seed. Run: node scripts/gen-changelog.mjs');
+      fail('gen-changelog --check FAIL: CHANGELOG.md is stale relative to history+seed. Run: node scripts/gen-changelog.mjs' +
+        (tagSource === 'tag-less-environment'
+          ? ' (note: this checkout is TAG-LESS; if the committed file carries tag version scopes, this diff is environmental — regenerate from a full checkout with tags fetched)'
+          : ''));
     }
-    console.log(`gen-changelog --check: OK (${merges.length} classified merge entries, leak gate green).`);
+    console.log(`gen-changelog --check: OK (${merges.length} classified merge entries, ${tags.length} reachable tags${tagSource === 'tag-less-environment' ? ', TAG-LESS environment tolerated' : ''}, leak gate green).`);
     process.exit(0);
   }
   writeFileSync(OUT_PATH, text, 'utf8');
   const voided = tags.filter((t) => tagNotes[t.name] && tagNotes[t.name].ignore);
-  console.log(`gen-changelog: written (${merges.length} merge entries across ${seed.sections.length} sections; ${tags.length} reachable tags${voided.length ? `, ${voided.length} ignored per seed` : ''}; leak gate green).`);
+  console.log(`gen-changelog: written (${merges.length} merge entries across ${seed.sections.length} sections; ${tags.length} reachable tags${tagSource === 'tag-less-environment' ? ' [TAG-LESS environment: listing failed, scopes skipped]' : ''}${voided.length ? `, ${voided.length} ignored per seed` : ''}; leak gate green).`);
 }
 
 // Run only on direct execution. The self-test imports this module's pure

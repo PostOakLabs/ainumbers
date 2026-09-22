@@ -40,7 +40,7 @@
  * Exit 0 = all assertions passed. Exit 1 = a fixture assertion failed.
  */
 import { readFileSync } from 'node:fs';
-import { renderChangelog, collectLeaks, PUBLIC_TOKEN_ALLOWLIST } from './gen-changelog.mjs';
+import { renderChangelog, collectLeaks, listTags, PUBLIC_TOKEN_ALLOWLIST } from './gen-changelog.mjs';
 
 let failed = 0;
 let ran = 0;
@@ -145,6 +145,34 @@ const SEED = {
   check(a === b && a.length > 0, 'same (merges, tags, seed) renders byte-identical output');
   check(!/\b20\d\d-\d\d-\d\dT/.test(a), 'no wall-clock timestamp enters the bytes');
   check(a.endsWith('\n') && a.includes('DO NOT HAND-EDIT'), 'output carries the no-hand-edit marker and ends with a newline');
+}
+// ── 8. TAG-LESS ENVIRONMENT (MERGEGROUP TAG-FIX) ────────────────────────────
+// GitHub's ephemeral merge-group queue checkout fetches NO tag refs, so the
+// `git tag --merged` call ERRORS there — measured red in run 35692678563,
+// where it failed derived-artifacts --regen on a healthy tree and evicted the
+// queue entry. The contract under test: the listing failure degrades to an
+// EMPTY tag set and rendering SUCCEEDS (merge-commit entries classify via
+// their subjects; no tag scopes; no crash). The runner is injected, so this
+// control simulates the exact failure without spawning git.
+{
+  const r = listTags(() => {
+    throw new Error('fatal: your current branch \'main\' does not have any commits yet — no tag refs fetched (simulated merge-group checkout)');
+  });
+  check(r.source === 'tag-less-environment' && r.tags.length === 0 && typeof r.error === 'string',
+    'git tag failure degrades to the EMPTY tag set with a named tag-less-environment source');
+  let out = null;
+  try { out = renderChangelog(MERGES, r.tags, SEED); } catch (e) { out = null; console.error('  render threw: ' + e.message); }
+  check(out !== null && out.includes('## Unreleased') && out.includes('2026-09-01'),
+    'tag-less render SUCCEEDS: merge-commit entries classify, no tag scopes, no crash');
+  check(out !== null && !/## v/.test(out), 'tag-less render emits no version scope headings');
+  // Parser control: a healthy listing still parses (the tolerant path must not
+  // have swallowed real tags).
+  const good = listTags(() => 'v1.0\t2026-08-20\nv0.9\t2026-07-01\n');
+  check(good.source === 'git' && good.tags.length === 2 && good.tags[0].name === 'v1.0' && good.tags[1].date === '2026-07-01',
+    'parser control: healthy git tag listing parses to ordered {name, date} pairs');
+  // And the tolerant empty set renders IDENTICALLY to an honest zero-tag listing.
+  const viaEmpty = renderChangelog(MERGES, [], SEED);
+  check(out === viaEmpty, 'tag-less bytes identical to an honest zero-tag render (no hidden divergence)');
 }
 // ── 7. REAL SEED SANITY ─────────────────────────────────────────────────────
 {

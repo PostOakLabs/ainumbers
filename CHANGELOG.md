@@ -10,7 +10,10 @@ Notable changes to [AINumbers](https://ainumbers.co) — the OpenChainGraph comp
 > **It under-reports by construction:** only merge commits and tags are visible
 > to it, so changes landed by **direct pushes to `main`** — including the
 > post-merge regeneration commits of the derived-artifacts bot — do not create
-> entries. Recent landings have been largely direct pushes. Classified entries
+> entries. Recent landings have been largely direct pushes. Tags are under-
+> reported in one environment too: a **tag-less CI checkout** (GitHub's ephemeral
+> merge-group queue fetches no tag refs) renders with **no tag version scopes**,
+> while merge-commit entries still classify. Classified entries
 > are fail-closed forward: a merge commit missing from the seed fails the
 > generator (and the freshness gate) until it is classified there.
 
