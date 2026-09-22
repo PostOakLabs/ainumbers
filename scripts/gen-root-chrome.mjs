@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOT_FOOTER, ROOT_FOOTER_CSS } from '../chaingraph/_page-chrome.mjs';
+import { assertMarkerRegion } from './_marker-region-lib.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO  = resolve(__dir, '..');
@@ -52,7 +53,11 @@ function regions() {
 
 // Replace the text between the line carrying openTag and the line carrying
 // closeTag (exclusive of the marker lines) with payload.
-function inject(html, openTag, closeTag, payload) {
+function inject(html, page, openTag, closeTag, payload) {
+  // MARKER-COUNT GUARD: a duplicated sentinel once shipped as a silent
+  // second copy (see scripts/_marker-region-lib.mjs header — the sitemap
+  // TOTAL outage). Exactly one START and one END, START first, or we refuse.
+  assertMarkerRegion(html, openTag, closeTag, `gen-root-chrome (${page} ${openTag})`);
   const oIdx = html.indexOf(openTag);
   const cIdx = html.indexOf(closeTag);
   if (oIdx === -1 || cIdx === -1) {
@@ -74,7 +79,7 @@ for (const page of PAGES) {
   const original = readFileSync(path, 'utf-8');
   let html = original;
   for (const [o, c, payload] of regions()) {
-    html = inject(html, o, c, payload);
+    html = inject(html, page, o, c, payload);
   }
   if (html === original) {
     console.log(`  ok   ${page}`);

@@ -18,6 +18,8 @@
  *   node scripts/gen-sitemap-html.mjs --check  # freshness gate (exit 1 if stale)
  */
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { gitSync } from './_git-env-lib.mjs';
+import { assertMarkerRegion } from './_marker-region-lib.mjs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deriveCounts, deriveHubCounts, hubCountPhrase, stripHubCountNumeral } from './counts.mjs';
@@ -260,17 +262,50 @@ const rootPages = [
 // assert makes that drift loud: every committed root-level *.html page must
 // appear in the list. The allowlist covers committed-but-unpublished HTML,
 // if any ever lands.
+//
+// The scan is COMMITTED-view first (git ls-files): a working tree often holds
+// untracked scratch HTML, and failing preflight on somebody's scratch file
+// would teach people to ignore the gate. Falls back to a plain directory scan
+// when git is unavailable (same net effect minus the untracked-file exclusion).
 const ROOT_PAGE_SCAN_ALLOWLIST = new Set([
   'CANONICAL_TOOL_EXAMPLE.html',
 ]);
-const scannedRootPages = readdirSync(REPO, { withFileTypes: true })
-  .filter(e => e.isFile() && e.name.endsWith('.html') && !ROOT_PAGE_SCAN_ALLOWLIST.has(e.name))
-  .map(e => e.name);
+function committedRootHtmlPages() {
+  try {
+    // gitSync (GIT-ENV-LEAK-SWEEP-1): scrubbed env, so repo discovery cannot be
+    // redirected by inherited GIT_DIR/GIT_WORK_TREE from a hook's environment.
+    return gitSync(['ls-files'], { cwd: REPO })
+      .split('\n')
+      .filter((f) => f !== '' && !f.includes('/') && f.endsWith('.html') && !ROOT_PAGE_SCAN_ALLOWLIST.has(f));
+  } catch {
+    return null; // git unavailable — fall back to the working-tree scan
+  }
+}
+const committedRootPages = committedRootHtmlPages();
+const scannedRootPages = (committedRootPages === null
+  ? readdirSync(REPO, { withFileTypes: true })
+      .filter(e => e.isFile() && e.name.endsWith('.html') && !ROOT_PAGE_SCAN_ALLOWLIST.has(e.name))
+      .map(e => e.name)
+  : committedRootPages);
 const curatedHrefs = new Set(rootPages.map(p => p.href));
 const missingRootPages = scannedRootPages.filter(f => !curatedHrefs.has(f));
 if (missingRootPages.length) {
   console.error('gen-sitemap-html: root page(s) missing from the curated rootPages list. Add each one (icon/name/href) so sitemap.html stays complete:');
   for (const f of missingRootPages) console.error('  ' + f);
+  process.exit(1);
+}
+// Two-list consistency: scripts/published-dirs.json rootPages drives sitemap.xml
+// and check_tools' root-page JS scan, while the curated list above drives this
+// listing. Adversarial pass 2026-09-21: dropping a page from published-dirs was
+// caught by NOTHING (verify_repo's sitemap check only tests manifest→sitemap,
+// not sitemap→manifest). Every committed root page must therefore be in BOTH
+// lists, or the page silently leaves one of the surfaces.
+const publishedDirs = JSON.parse(readFileSync(resolve(REPO, 'scripts', 'published-dirs.json'), 'utf8'));
+const publishedRootPaths = new Set(publishedDirs.rootPages.map(r => r.path));
+const missingFromPublishedDirs = scannedRootPages.filter(f => !publishedRootPaths.has(f));
+if (missingFromPublishedDirs.length) {
+  console.error('gen-sitemap-html: root page(s) missing from scripts/published-dirs.json rootPages (they would silently drop from sitemap.xml and the root-page JS-syntax scan):');
+  for (const f of missingFromPublishedDirs) console.error('  ' + f);
   process.exit(1);
 }
 
@@ -387,11 +422,15 @@ function reEscape(s) {
 }
 
 function spliceSentinel(text, startTag, endTag, body) {
-  const re = new RegExp(`${reEscape(startTag)}[\\s\\S]*?${reEscape(endTag)}`);
-  if (!re.test(text)) {
-    console.error(`gen-sitemap-html: sentinel ${startTag} ... ${endTag} not found in sitemap.html`);
+  // MARKER-COUNT GUARD (see scripts/_marker-region-lib.mjs): a duplicated
+  // sentinel region silently ships a stale second copy beside the fresh one.
+  try {
+    assertMarkerRegion(text, startTag, endTag, 'gen-sitemap-html (sitemap.html)');
+  } catch (e) {
+    console.error('gen-sitemap-html: ' + e.message);
     process.exit(2);
   }
+  const re = new RegExp(`${reEscape(startTag)}[\\s\\S]*?${reEscape(endTag)}`);
   const replacement = `${startTag}\n${body}\n          ${endTag}`;
   const next = text.replace(re, replacement);
   if (next !== text) changed = true;

@@ -31,6 +31,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadStatusLens, isNonLive } from './_node-status.mjs';
+import { assertMarkerRegion } from './_marker-region-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO  = resolve(HERE, '..');
@@ -126,13 +127,19 @@ const scriptBlock = '<script>const SEARCH_INDEX=[' + serialized + '];</script>';
 const replacement = SENTINEL_START + '\n' + scriptBlock + '\n' + SENTINEL_END;
 
 const original = readFileSync(TARGET, 'utf8');
-const startIdx = original.indexOf(SENTINEL_START);
-const endIdx   = original.indexOf(SENTINEL_END);
 
-if (startIdx === -1 || endIdx === -1) {
-  console.error('gen-start-index: sentinels not found in start.html');
+// MARKER-COUNT GUARD (see scripts/_marker-region-lib.mjs): first-match indexOf
+// let a duplicated sentinel silently ship a stale second region. Exactly one
+// START and one END, START first, or we exit without writing.
+let region;
+try {
+  region = assertMarkerRegion(original, SENTINEL_START, SENTINEL_END, 'gen-start-index (start.html)');
+} catch (e) {
+  console.error('gen-start-index: ' + e.message);
   process.exit(1);
 }
+const startIdx = region.startIdx;
+const endIdx   = region.endIdx - SENTINEL_END.length;
 
 const current = original.slice(startIdx, endIdx + SENTINEL_END.length);
 const isStale = current !== replacement;
