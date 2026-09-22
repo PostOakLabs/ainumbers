@@ -52,6 +52,14 @@ export const ATTR_RULES = [
   { file: 'docs/index.html', key: 'mcp.live', label: 'schema.org description (mcp.live)',
     regex: /(\"description\": \"MCP-native, OpenAPI-documented[^"]*?suite\. \d+ tools, )(\d+)( live)/,
   },
+  // MCPCARD-SCHEMA-1: the hand-maintained MCP server card's tool_count is the
+  // counts-engine mcp.live value (worker-served tools: live nodes + pilot
+  // widgets + utility tools) — NOT the 1185-tool site catalog, which the card's
+  // server (mcp.ainumbers.co) does not serve. The card file is declared in
+  // derived-artifacts.mjs's 'counts' entry artifacts/writes (SO #47).
+  { file: '.well-known/mcp/server-card.json', key: 'mcp.live', label: 'server card tool_count (mcp.live)',
+    regex: /("tool_count"\s*:\s*)(\d+)/,
+  },
 
   // ── index.html (head meta/title — body text uses comment sentinels) ──────
   { file: 'index.html', key: 'tools.browser', label: 'meta description',

@@ -86,7 +86,7 @@ const entries = [
   {
     identifier: 'urn:air:ainumbers.co:api:openapi',
     type: 'application/openapi+json',
-    url: `${SITE}/docs/openapi.json`,
+    url: `${SITE}/openapi.json`,
     description: 'OpenAPI description of the suite surfaces.',
   },
   {
@@ -134,7 +134,7 @@ const apiCatalog = {
       anchor: `${SITE}/.well-known/api-catalog`,
       item: [
         {
-          href: `${SITE}/docs/openapi.json`,
+          href: `${SITE}/openapi.json`,
           rel: 'api-catalog',
           type: 'application/openapi+json',
         },

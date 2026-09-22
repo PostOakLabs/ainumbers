@@ -1625,6 +1625,16 @@ const GATES = [
   // one real card byte and asserts the WebCrypto verify FAILS, then re-verifies the
   // untampered card — the gate is proven to read the bytes, not rubber-stamp.
   ['Agent card signature fixture proof (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-agent-card-sig.mjs --self-test'],
+  // MCPCARD-SCHEMA-1: the hand-maintained MCP server card conforms to the
+  // authored schema (chaingraph/standard/mcp-server-card.schema.json), its
+  // tool_count equals the counts-engine mcp.live value, and the served schema
+  // twin is byte-identical. Blocking — the card is hand-maintained, so this
+  // gate is its only drift guard (same shape as the agent-card gate above).
+  ['Server card schema conformance (MCPCARD-SCHEMA-1)', 'node scripts/check-server-card-schema.mjs'],
+  // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): mutates card copies in
+  // a temp dir and asserts every tamper class REDS, then re-verifies the real
+  // card GREEN — the gate is proven to read the bytes, not rubber-stamp.
+  ['Server card conformance fixture proof (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-server-card-schema.mjs --self-test'],
   ['llms.txt estate map freshness', 'node scripts/gen-estate-map.mjs --check'],
   ['start.html search index freshness', 'node scripts/gen-start-index.mjs --check'],
   ['sitemap.xml freshness (DISCOVER-1)', 'node scripts/regen-sitemap.mjs --check'],
