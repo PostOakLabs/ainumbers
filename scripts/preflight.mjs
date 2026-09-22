@@ -1468,6 +1468,21 @@ const GATES = [
   // scripts/manifest-examples-baseline.json; drift is hard in every context, baseline or not.
   ['Manifest examples/annotations freshness (MANIFEST-EXAMPLES-ANNOTATIONS-1)', 'node scripts/gen-manifest-examples.mjs --check'],
   ['Manifest examples/annotations controls (fixture-copy/mutation RED + GREEN, SO #40b)', 'node scripts/gen-manifest-examples.mjs --self-test'],
+  // FEED-TWINS-1 (2026-09-22): the RSS 2.0 change feed, rendered from PUBLIC
+  // LOCAL SIGNALS ONLY (the merged tool manifest's last_updated + release-shaped
+  // `v<digit>*` git tags; never scraped from HTML, never from the node graph,
+  // never from board/). rss.xml escapes copy-hallmarks and the egress scans
+  // (both HTML-only) — THIS gate is the only net over that surface, and the
+  // self-test below is what proves the net can close (staleness RED/GREEN,
+  // XML escaping, tag-glob filter). Shared derived artifact: COVERED id `rss`
+  // in derived-artifacts.mjs, so freshness is advisory-on-PR / blocking-on-main
+  // via the generic downgrade (the gate string above is that entry's `gate`
+  // field verbatim) and the write half runs main-side in
+  // derived-artifacts-regen.yml. No wall clock in the output — lastBuildDate is
+  // the newest item date, so the generator is a byte-fixpoint of the committed
+  // tree (the property the main-side auto-commit chain needs to converge).
+  ['RSS change feed freshness (FEED-TWINS-1)', 'node scripts/gen-rss.mjs --check'],
+  ['RSS change feed controls (staleness RED/GREEN + tag-filter, SO #40b)', 'node scripts/gen-rss.mjs --self-test'],
   ['Evidence-profile manifest (EF-2)', 'node scripts/validate-evidence-profiles.mjs'],
   ['Chain domain taxonomy',        'node scripts/check-chain-domain.mjs'],
   // TOUCHTAX-DIFFSCOPE-1 (J19 §3.3): the shared line-level diff-scoping helper — one module,

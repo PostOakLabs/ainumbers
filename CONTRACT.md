@@ -682,6 +682,21 @@ The vendored Redoc tree (`docs/vendor/`) carries a `data/credits-registry.json` 
 
 ---
 
+## Amendment A11 — RSS change feed surface (September 2026)
+
+*Applied September 2026. The feed idea is credited to GREP AI (Parcha Labs, https://grep.ai) — inspiration only; the implementation below is original. Numbered §A11 because §A10 is occupied (twice over: the Policy Mandate `caveats` member and the docs/ API-portal carve-out) — nothing renumbers, nothing displaces.*
+
+### A11.1 · Scope: one generated feed, public local signals only
+The repo root carries exactly one machine-readable change feed, `rss.xml` (RSS 2.0). It is **generated, never hand-written**: `node scripts/gen-rss.mjs` is its single writer, declared as COVERED id `rss` in `scripts/derived-artifacts.mjs` (the shared derived-artifact manifest's single-writer discipline — the write half runs main-side in `derived-artifacts-regen.yml`; a PR is forbidden from satisfying the freshness gate by re-running the writer). Feed items MUST derive from **public local signals only**: (a) the merged tool manifest `mcp/server.json`'s `last_updated` date as maintained by `scripts/regen_catalog.py`, and (b) release-shaped git tags (`v<digit>*`, enforced both by the `--list` glob and in-process). ⛔ Items are **never scraped from HTML**, never derived from `chaingraph.json` or the node graph, and never sourced from `board/` or any internal surface. The output carries **no wall-clock field** (`lastBuildDate` = the newest item date), so the generator is a byte-fixpoint of the committed tree.
+
+### A11.2 · The gate is the only net over this surface
+`rss.xml` escapes the copy-hallmarks and egress scans (both HTML-only), so the feed's own gate is the only net: `node scripts/gen-rss.mjs --check` is wired into `scripts/preflight.mjs` (advisory-on-PR / blocking-on-main via the generic downgrade built from its COVERED `gate` string) and is paired with `node scripts/gen-rss.mjs --self-test` (staleness RED/GREEN, XML-escaping, RFC 822 table, recency sort, tag-glob filter — SO #40b pairing discipline). A hand edit to `rss.xml` that the generator would not produce is drift and REDs the gate.
+
+### A11.3 · Discovery registration
+`rss.xml` is registered for discovery in `scripts/published-dirs.json`'s `rootPages` (the shared manifest consumed by `scripts/regen-sitemap.mjs`, the sitemap's single writer, and readable by `scripts/verify_repo.py check_sitemap`). Per the established split, sitemap.xml itself is regenerated main-side after merge; a PR shipping this amendment is not required to (and must not) run `regen-sitemap.mjs`.
+
+---
+
 ## 🧾 §15 Claim-coverage matrix — every normative claim carries an enforcement disposition
 
 **The mirror of `board/RULINGS.md` 2026-08-22 ("no gate without a normative source"): there is no normative source without an enforcement disposition.** Before this section, CONTRACT.md made 44 claims about how this estate is built and said of none of them what enforces it, so a reader auditing enforcement by CTRL-F could not tell a gated rule from an ungated one. The 2026-08-23 doctrine-execution audit measured the consequence: 19 of 44 claims (43%) rested on authorship alone, and two were VIOLATED on `main` with nothing anywhere able to notice.
@@ -736,6 +751,7 @@ The vendored Redoc tree (`docs/vendor/`) carries a `data/credits-registry.json` 
 | 42 | A7/A8 ledger and playground hermetic carve-outs | `check-ledger-hermetic.mjs`, `check-playground-hermetic.mjs` | HOLDS |
 | 43 | A9 the reliance hedge travels with the artifact | DISCIPLINE | HOLDS BY STAGING: no coverage gate, by A9.3's explicit ruling |
 | 44 | `repo/CLAUDE.md`: author via Write/Edit not heredoc, preflight before every push, hook opt-in | DISCIPLINE | process rules; the hook exists, and its CI backstop is row 32's fragile path |
+| 45 | A11 rss.xml is generator-written from public local signals only, registered in `rootPages` | `gen-rss.mjs` | HOLDS (new 2026-09-22): `--check` wired in preflight (COVERED id `rss`, advisory-on-PR/blocking-on-main), paired `--self-test`, single writer main-side |
 
 ---
 
