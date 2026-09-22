@@ -1468,6 +1468,8 @@ const GATES = [
   // scripts/manifest-examples-baseline.json; drift is hard in every context, baseline or not.
   ['Manifest examples/annotations freshness (MANIFEST-EXAMPLES-ANNOTATIONS-1)', 'node scripts/gen-manifest-examples.mjs --check'],
   ['Manifest examples/annotations controls (fixture-copy/mutation RED + GREEN, SO #40b)', 'node scripts/gen-manifest-examples.mjs --self-test'],
+  // MANIFEST-APPLY-1: desired-state --check over manifests/ (SPEC-MANIFEST-APPLY.md).
+  ['Manifest desired-state drift (MANIFEST-APPLY-GATE-1)', 'node scripts/apply-manifests.mjs --check'],
   ['Evidence-profile manifest (EF-2)', 'node scripts/validate-evidence-profiles.mjs'],
   ['Chain domain taxonomy',        'node scripts/check-chain-domain.mjs'],
   // TOUCHTAX-DIFFSCOPE-1 (J19 §3.3): the shared line-level diff-scoping helper — one module,
