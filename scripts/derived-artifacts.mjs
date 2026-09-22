@@ -868,6 +868,34 @@ export const COVERED = [
     share: '94% (124/132; the highest measured skew of any artifact in this file)',
   },
   {
+    id: 'changelog',
+    // CHANGELOG-1 (2026-09-21, CONTRACT Amendment A12): the public changelog is
+    // a DERIVED artifact — a pure function of the repository's own git history
+    // (first-parent merges + reachable tags) and the committed classification
+    // in scripts/changelog-seed.json. Local-git-ONLY: no network, no wall
+    // clock, so a regen is byte-reproducible at the same HEAD (the two-pass
+    // byte-equality proof this file demands ran at authoring). The generator
+    // FAILS CLOSED forward: a merge commit absent from the seed exits 1 —
+    // which is precisely why it fits the COVERED contract here. A PR that
+    // lands a MERGE commit makes main-side --check red until that PR's seed
+    // line lands; that red is the designed loud prompt of Amendment A12, not
+    // a regression (direct pushes — the common landing shape — never trigger
+    // it, and --verify's persistent-red class already treats content reds the
+    // bot cannot heal as warn+0). The generated file carries its own header
+    // scope note: changelogs derived from merge commits UNDER-REPORT, because
+    // direct pushes and post-merge regen-bot commits are invisible to them.
+    // The in-generator LEAK GATE (internal row-ID/owner/session/vendor
+    // vocabulary) is the only leak net this file has: check-copy-hallmarks
+    // scans .html only, so CHANGELOG.md would otherwise be unscanned (the
+    // self-test leg scripts/gen-changelog.selftest.mjs plants a leak and
+    // proves the catch).
+    regen: 'node scripts/gen-changelog.mjs',
+    gate: 'node scripts/gen-changelog.mjs --check',
+    writes: ['CHANGELOG.md'],
+    artifacts: ['CHANGELOG.md'],
+    share: 'n/a (new 2026-09-21, CHANGELOG-1)',
+  },
+  {
     id: 'nav-island',
     // REGEN-COVERED-ORDER-FIX-4 (2026-09-06, main 60bb7dff red: "debt-ledger was
     // stale after pass 1 and fresh after pass 2"): nav-island now runs BEFORE
