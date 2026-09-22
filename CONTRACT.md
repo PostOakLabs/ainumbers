@@ -1,5 +1,5 @@
-# 📜 AINumbers.co — Unified Build Contract v1.10
-**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026 · **v1.6 (Amendment A6 — reader-facing copy style):** July 2026 · **v1.7 (Amendment A7 — ledger subdomain storage carve-out):** July 2026 · **v1.8 (Amendment A10 — Policy Mandate v1.1 `caveats` member):** August 2026 · **v1.9 (Amendment A12 — public changelog, generated + leak-gated):** September 2026 · **v1.10 (Amendment A13 — MCP server card: gated registry surface + schema twin):** September 2026  
+# 📜 AINumbers.co — Unified Build Contract v1.11
+**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026 · **v1.6 (Amendment A6 — reader-facing copy style):** July 2026 · **v1.7 (Amendment A7 — ledger subdomain storage carve-out):** July 2026 · **v1.8 (Amendment A10 — Policy Mandate v1.1 `caveats` member):** August 2026 · **v1.9 (Amendment A12 — public changelog, generated + leak-gated):** September 2026 · **v1.10 (Amendment A13 — MCP server card: gated registry surface + schema twin):** September 2026 · **v1.11 (Amendment A14 — claim-level evidence register):** September 2026  
 
 > **SSOT for the OpenChainGraph standard = `repo/chaingraph/standard/SPEC.md`** (+ `openchain-graph-v0.4.schema.json`). This contract references it, does not restate it (Amendment A5). Conformance = the SPEC.md §15 gate suite.
 **License:** CC BY 4.0 · **Scope:** All browser-based financial tools, hubs, and MCP integrations  
@@ -712,7 +712,18 @@ Before writing, the generator scans the exact bytes about to be published for in
 
 ### A12.4 · Enforcement
 Hard in preflight: `gen-changelog.mjs --check` (freshness + leak gate; COVERED id `changelog`, advisory on PRs and blocking on `main`) plus `gen-changelog.selftest.mjs` (fail-closed and leak-gate mutation controls, wired as the gate's paired self-test so it runs and must stay green every push). Declared `PREFLIGHT_ONLY` in `check-workflow-gate-parity.mjs` with its reason: the CI route is the full preflight in `scripts-verify.yml`, and the single main-side writer is `derived-artifacts-regen.yml`.
+## Amendment A14 — claim-level evidence register (September 2026)
 
+*Applied September 2026 (row EVREG-1). Numbered §A14 because §A11–§A13 are occupied (RSS change feed; public changelog; MCP server card) — nothing renumbers, nothing displaces. Register concept credited to register-style claim surfaces such as grep.ai (https://grep.ai) — ideas, not code. Closing the gap that staleness checkers watched individual citation classes while no surface bound a public claim to its source, scope, measurement date, review commitment, and a snapshot of the exact words shipped.*
+
+### A14.1 · Scope: registered claims and their snapshots
+The evidence register is the pair `repo/evidence/claims.json` (generated) + `repo/evidence/claims.src.json` (hand-authored source of truth), with per-claim point-in-time snapshots under `repo/source/`. A **registered claim** is a public count/prose claim on a shipped surface that carries an entry in the register binding it to: its `source_path` and `anchor` (the exact source line), its `scope`, its `as_of` measurement date, its `review_by` commitment, and the sha256 of its snapshot. The register is a **new public surface** (`repo/evidence/index.html` is its discovery page; `repo/source/*.txt` are intentionally not sitemap-listed). Pilot scope only: existing claims that already carry COUNT sentinels; registration adds anchors and metadata, never a copy rewrite.
+
+### A14.2 · Single writer; snapshots are evidence, never repaired in place
+`repo/scripts/gen-evidence-register.mjs` is the **single writer** for `repo/evidence/claims.json` and `repo/source/<claim-id>.txt` (COVERED id `evidence-register`, `repo/scripts/derived-artifacts.mjs`). Its default write is **additive**: an existing snapshot is never rewritten by a regen, because a snapshot is evidence of what the surface said at review time. Healing drift is a deliberate builder act (`--revalidate=<id>`) that MUST follow, never precede, a re-review. The gate is `repo/scripts/check-evidence-register.mjs`: field completeness; `as_of` ≤ today; `review_by` after `as_of`; snapshot hash == registered hash; live source line == snapshot line; and the **reviews-only-forward ratchet** (`repo/scripts/evidence-register-baseline.json`): a claim past `review_by` reds the gate unless pinned, pins only shrink without a committed re-pin, and a deleted baseline is a hard red. A MUST of this amendment is gateless only where marked; everything else reds main by design (PR contexts see the advisory downgrade of the shared derived set).
+
+### A14.3 · Drift reds until re-review
+When a source surface drifts from its snapshot, the register MUST go red and stay red until the claim is re-reviewed and re-validated. No workflow, bot, or writer may silence that red by regenerating the snapshot or the register: laundering the drift would defeat the register's reason to exist. A claim whose review date passes is a review-debt event of the same class. The paired mutation self-test (`repo/scripts/check-evidence-register.test.mjs`) proves every verdict class can go red.
 ---
 
 ## 🧾 §15 Claim-coverage matrix — every normative claim carries an enforcement disposition
@@ -772,7 +783,7 @@ Hard in preflight: `gen-changelog.mjs --check` (freshness + leak gate; COVERED i
 | 45 | A11 rss.xml is generator-written from public local signals only, registered in `rootPages` | `gen-rss.mjs` | HOLDS (new 2026-09-22): `--check` wired in preflight (COVERED id `rss`, advisory-on-PR/blocking-on-main), paired `--self-test`, single writer main-side |
 | 46 | A12 public changelog generated-only, seed fail-closed, leak-gated, under-reporting stated | `gen-changelog.mjs` + `gen-changelog.selftest.mjs` | HOLDS (134 classified merge entries at authoring; leak-gate RED-then-GREEN demonstrated; advisory-on-PR/blocking-on-main via COVERED id `changelog`) |
 | 47 | A13 the MCP server card conforms to `chaingraph/standard/mcp-server-card.schema.json`; `tool_count` == `mcp.live`; served schema twin byte-identical; `openapi_url` == apex root alias | `check-server-card-schema.mjs` | HOLDS (new with Amendment A13) |
-
+| 48 | A14 registered claims carry source+scope+as_of+review_by+snapshot; snapshots are evidence (never regen-repaired); reviews only move forward | `check-evidence-register.mjs` | HOLDS (born 2026-09-22, EVREG-1: gate + pairing in preflight, COVERED id `evidence-register`) |
 ---
 
 **END OF CONTRACT**  

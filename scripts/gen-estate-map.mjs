@@ -50,6 +50,16 @@ const INFRA_REGISTRY_PATH = resolve(REPO, 'data', 'infra-registry.json');
 const INFRA_HEADING = '## Infrastructure map';
 const INFRA_START = '<!--INFRA-MAP:start-->';
 const INFRA_END = '<!--INFRA-MAP:end-->';
+
+// EVREG-1 (2026-09-22): fourth marker region owned by this single writer — the
+// claim-level evidence register block. Deliberately a FIXED text block that
+// reads no file: the register's claim set changes independently of this map,
+// and coupling them would make llms.txt stale on every claim edit. The block
+// points agents at the two stable surfaces (landing page + claims.json); the
+// per-claim snapshot links live on the landing page.
+const EVIDENCE_HEADING = '## Claim-level evidence register';
+const EVIDENCE_START = '<!--EVIDENCE-REGISTER:start-->';
+const EVIDENCE_END = '<!--EVIDENCE-REGISTER:end-->';
 const CATEGORY_ORDER = ['run', 'verify', 'anchor', 'convert', 'agents', 'learn', 'helm', 'guide'];
 const CATEGORY_LABELS = {
   run: 'Run', verify: 'Verify', anchor: 'Anchor', convert: 'Convert',
@@ -195,6 +205,20 @@ export function renderInfraMap() {
   return lines.join('\n');
 }
 
+// EVREG-1: fixed block — the register's claim set is intentionally NOT read
+// here (no file reads, no drift coupling). See the region constants above.
+export function renderEvidenceRegister() {
+  const lines = [];
+  lines.push('Registered public numbers on this site carry a claim-level evidence entry binding them to their source surface, an as_of date, a review_by commitment, and a point-in-time snapshot of the exact source line.');
+  lines.push('');
+  lines.push('- Landing page (with per-claim snapshot links): `https://ainumbers.co/evidence/index.html`');
+  lines.push('- Machine-readable register: `https://ainumbers.co/evidence/claims.json`');
+  lines.push('- Per-claim snapshots: `https://ainumbers.co/source/<claim-id>.txt`');
+  lines.push('');
+  lines.push('If a page drifts from its snapshot, the register gate stays red until the claim is re-reviewed -- the register is reviewed forward, never silently rewritten.');
+  return lines.join('\n');
+}
+
 function main() {
   const check = process.argv.includes('--check');
   const map = JSON.parse(readFileSync(MAP_PATH, 'utf8'));
@@ -202,6 +226,7 @@ function main() {
   const block = `${START}\n${body}\n${END}`;
   const agentBlock = `${AGENT_HEADING}\n${AGENT_START}\n${renderAgentTasks()}\n${AGENT_END}`;
   const infraBlock = `${INFRA_HEADING}\n${INFRA_START}\n${renderInfraMap()}\n${INFRA_END}`;
+  const evidenceBlock = `${EVIDENCE_HEADING}\n${EVIDENCE_START}\n${renderEvidenceRegister()}\n${EVIDENCE_END}`;
 
   let src = readFileSync(LLMS_PATH, 'utf8');
 
@@ -214,6 +239,7 @@ function main() {
     assertMarkerRegion(src, START, END, 'gen-estate-map (llms.txt ESTATE-MAP)');
     assertMarkerRegion(src, AGENT_START, AGENT_END, 'gen-estate-map (llms.txt AGENT-TASKS)', { allowZero: true });
     assertMarkerRegion(src, INFRA_START, INFRA_END, 'gen-estate-map (llms.txt INFRA-MAP)', { allowZero: true });
+    assertMarkerRegion(src, EVIDENCE_START, EVIDENCE_END, 'gen-estate-map (llms.txt EVIDENCE-REGISTER)', { allowZero: true });
   } catch (e) {
     console.error('gen-estate-map: ' + e.message);
     process.exit(1);
@@ -252,17 +278,27 @@ function main() {
     next = next.slice(0, at) + '\n\n' + infraBlock + next.slice(at);
   }
 
+  // EVIDENCE-REGISTER region (EVREG-1): same insert-if-absent pattern, after
+  // the INFRA-MAP region, so one run heals main.
+  const evidenceRe = new RegExp(`${EVIDENCE_HEADING}\\n${EVIDENCE_START}[\\s\\S]*?${EVIDENCE_END}`);
+  if (evidenceRe.test(next)) {
+    next = next.replace(evidenceRe, evidenceBlock);
+  } else {
+    const at = next.indexOf(INFRA_END) + INFRA_END.length;
+    next = next.slice(0, at) + '\n\n' + evidenceBlock + next.slice(at);
+  }
+
   if (check) {
     if (next !== src) {
-      console.error('gen-estate-map --check: llms.txt is stale (estate map or agent tasks). Run `node scripts/gen-estate-map.mjs`.');
+      console.error('gen-estate-map --check: llms.txt is stale (estate map, agent tasks, infra map or evidence register). Run `node scripts/gen-estate-map.mjs`.');
       process.exit(1);
     }
-    console.log('gen-estate-map --check: llms.txt estate map and agent tasks are fresh.');
+    console.log('gen-estate-map --check: llms.txt estate map, agent tasks, infra map and evidence register are fresh.');
     return;
   }
 
   writeFileSync(LLMS_PATH, next);
-  console.log('gen-estate-map: llms.txt estate map and agent tasks regenerated.');
+  console.log('gen-estate-map: llms.txt estate map, agent tasks, infra map and evidence register regenerated.');
 }
 
 main();

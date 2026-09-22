@@ -1684,6 +1684,17 @@ const GATES = [
   // need a runner or they are a control that never fires.
   ['EUC register prune controls (GENERATOR-STATUS-FILTER-1)', 'node scripts/gen-euc-register.test.mjs'],
   ['EUC register page freshness (EUC-SITE-1)', 'node scripts/gen-euc-register-page.mjs --check'],
+  // EVREG-1: the claim-level evidence register. This command string is the COVERED
+  // id 'evidence-register' gate in derived-artifacts.mjs — the generic
+  // ADVISORY_ON_PR categorisation downgrades it to advisory on a PR and it stays
+  // blocking on main, like every shared derived artifact. Policy legs (field
+  // completeness, as_of/review_by sanity, snapshot hash, reviews-only-forward
+  // ratchet) ride the same entry — a stale review is main-blocking by design.
+  ['Evidence register (EVREG-1)', 'node scripts/check-evidence-register.mjs'],
+  // GATE-SELFTEST-META-1 pairing: the register gate's own mutation controls
+  // (every verdict class driven RED in memory, plus the ratchet-baseline
+  // hard-fail states). Wired live so the pairing actually runs every push.
+  ['Evidence register controls (EVREG-1 pairing)', 'node scripts/check-evidence-register.test.mjs'],
   ['Clause edge report freshness (CLAUSE-EDGE-TYPES-1)', 'node scripts/gen-clause-edge-report.mjs --check'],
   ['Clause edge report page freshness (CLAUSE-EDGE-TYPES-1)', 'node scripts/gen-clause-edge-report-page.mjs --check'],
   ['Agentic payments map freshness (AGENTIC-PAY-COOKBOOK-EXPLAINER-1)', 'node scripts/gen-agentic-payments-map.mjs --check'],

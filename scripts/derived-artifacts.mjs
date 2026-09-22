@@ -609,6 +609,30 @@ export const COVERED = [
     after: 'chaingraph-assemble',
     share: '39%',
   },  {
+    // EVREG-1 (2026-09-22): the claim-level evidence register. Reads ONLY the
+    // hand-authored evidence/claims.src.json plus the committed source surfaces
+    // each claim anchors into — it never reads the node graph, so the fan-out
+    // coverage gate has no stake in it beyond this decision entry. Writes:
+    // evidence/claims.json (the register) and source/<claim-id>.txt
+    // (point-in-time snapshots; the directory shape is declared because file
+    // names are claim ids, determined at runtime — the euc-register precedent).
+    // ⚠ IDEMPOTENT and bot-safe BY DESIGN: the default write path is ADDITIVE —
+    // it never rewrites an existing snapshot, because a snapshot is EVIDENCE of
+    // what the page said at review time. Page drift therefore stays RED on main
+    // (check-evidence-register.mjs CLAIM_DRIFT, blocking) until a human
+    // re-reviews and runs the builder-only
+    // `gen-evidence-register.mjs --revalidate=<id>`; the regen bot can add
+    // snapshots for new claims but can never launder a drift (the S18 ruling's
+    // "the regen can never launder a staleness regression", same shape). No
+    // wall clock anywhere in the output — dates come from the hand-authored
+    // src (fv-status lesson).
+    id: 'evidence-register',
+    regen: 'node scripts/gen-evidence-register.mjs',
+    gate: 'node scripts/check-evidence-register.mjs',
+    writes: ['evidence/claims.json', 'source'],
+    artifacts: ['evidence/claims.json', 'source'],
+    share: 'n/a (new 2026-09-22, EVREG-1 — drifts only when a registered claim page changes, which is exactly when it MUST red)',
+  },  {
     id: 'sitemap-html',
     regen: 'node scripts/gen-sitemap-html.mjs',
     gate: 'node scripts/gen-sitemap-html.mjs --check',

@@ -380,6 +380,23 @@ const PREFLIGHT_ONLY = new Map([
     "never a workflow. In-memory mutation self-test: gen-changelog.selftest.mjs (its own GATES " +
     "entry)."],
   ["gen-changelog.selftest.mjs", SELF_TEST],
+  // ── EVREG-1 (2026-09-22) ────────────────────────────────────────────────────
+  ["check-evidence-register.mjs",
+    "Claim-level evidence register gate (EVREG-1): verifies the generated register " +
+    "(evidence/claims.json) against its hand-authored source (evidence/claims.src.json) and the " +
+    "committed source surfaces — field completeness, as_of <= today, review_by sanity, snapshot " +
+    "sha256, page-vs-snapshot drift, and the reviews-only-forward overdue ratchet " +
+    "(scripts/evidence-register-baseline.json via ratchet-baseline.mjs). It is the COVERED gate of " +
+    "derived-artifacts.mjs id 'evidence-register' (advisory-on-PR / blocking-on-main via the " +
+    "generic downgrade). Hard in preflight; its CI route is scripts-verify.yml full preflight (the " +
+    "workflow runs `node scripts/preflight.mjs`), so a named workflow step would only duplicate the " +
+    "same suite, and a RAW invocation in land-verify is exactly what the s18-freshness-calibration " +
+    "precedent warns against. Deliberately NOT healable by derived-artifacts-regen.yml: the " +
+    "generator's default write is additive (snapshots are point-in-time evidence, never rewritten " +
+    "without the builder-only --revalidate), so a claim page that drifts stays red on main until a " +
+    "human re-reviews — that red is the register working. Reads only tracked repo files — no " +
+    "CI-only input."],
+  ["check-evidence-register.test.mjs", SELF_TEST],
   // ── ART220-TABLE-SINGLE-WRITER-1 (2026-09-20) ───────────────────────────────
   ["check-art220-table-parity.mjs",
     "art-220 page/kernel TABLES single-writer parity + its paired mutation controls " +
