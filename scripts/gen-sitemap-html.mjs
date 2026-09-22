@@ -218,6 +218,8 @@ const rootPages = [
   { icon: '📋', name: 'Methods (how outputs are checked)', href: 'methods.html' },
   { icon: '🧾', name: 'Groth16 Receipts (compute proofs)', href: 'groth16.html' },
   { icon: '⚙️', name: 'Mechanical Verification (evidence and re-runs)', href: 'mechanical.html' },
+  { icon: '📐', name: 'Groth16 Explainer (how a receipt is made)', href: 'groth16-explainer.html' },
+  { icon: '📊', name: 'Mechanical Explainer (the claim ladder, drawn)', href: 'mechanical-explainer.html' },
   { icon: '🔎', name: 'Verification Desk (verify any artifact)', href: 'verification-desk.html' },
   { icon: '🧮', name: 'FV Process Explainer', href: 'fv-explainer.html' },
   { icon: '🛠', name: 'Errata (public corrections)', href: 'errata.html' },
