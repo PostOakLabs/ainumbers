@@ -22,6 +22,10 @@
  *   ⛔ board/ and ainumbers-internal/ are NEVER consulted (never a source);
  *     the only inputs are `git log` / `git tag` against THIS repository and
  *     the committed seed.
+ *   · EXCLUDED from the walk: GitHub's merge-queue SYNTHETIC test-merges
+ *     (subject exactly "Merge <sha> into <sha>"). They are re-created with a
+ *     new sha on every grouped evaluation, never land, and are superseded by
+ *     the real landing merge — which classifies per the standing contract.
  *
  * ── UNDER-REPORTING, STATED NOT HIDDEN (the header scope note) ──────────────
  * Direct pushes to `main` and post-merge regeneration commits (the
@@ -153,21 +157,49 @@ function git(args) {
   return execSync(`git ${args}`, { cwd: REPO, env: gitEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 }
 
-/** First-parent merge commits: [{ key, hash, short, date, pr }]. Pure w.r.t. git. */
-export function collectMerges() {
-  const out = git('log --first-parent --merges --date=short --pretty=format:%H%x09%h%x09%ad%x09%s');
-  return out.split('\n').filter(Boolean).map((l) => {
+/**
+ * GitHub merge-queue SYNTHETIC test-merge subject (anchored, exact): the
+ * queue's evaluation of a grouped PR produces "Merge <sha> into <sha>" — a
+ * commit that is re-created with a NEW sha on every evaluation and NEVER
+ * lands. Requiring its classification fail-closes on an unknowable hash each
+ * round and cannot converge (measured across three queue runs on PR #2010),
+ * so the walk EXCLUDES this exact shape as known-synthetic. Every other
+ * unclassified merge still fails closed; the REAL landing merge (PR-shaped or
+ * otherwise) classifies per the A12 standing contract in the next landing's
+ * hop.
+ */
+export const QUEUE_TEST_MERGE_RE = /^Merge [0-9a-f]{7,40} into [0-9a-f]{7,40}$/;
+
+/**
+ * Parse first-parent merge-commit log lines → { merges, skippedSynthetic }.
+ * Pure — takes the log text, spawns nothing — which is what lets the
+ * self-test drive the skip rule against fixture lines without git.
+ */
+export function parseMerges(logText) {
+  const merges = [];
+  let skippedSynthetic = 0;
+  for (const l of logText.split('\n').filter(Boolean)) {
     const [hash, short, date, ...rest] = l.split('\t');
     const subject = rest.join('\t');
+    if (QUEUE_TEST_MERGE_RE.test(subject)) {
+      skippedSynthetic++;
+      continue;
+    }
     const m = subject.match(/^Merge pull request #(\d+) from /);
-    return {
+    merges.push({
       hash,
       short,
       date,
       pr: m ? Number(m[1]) : null,
       key: m ? `pr-${Number(m[1])}` : `c-${hash.slice(0, 10)}`,
-    };
-  });
+    });
+  }
+  return { merges, skippedSynthetic };
+}
+
+/** First-parent merges at HEAD, synthetic queue test-merges excluded. */
+export function collectMerges() {
+  return parseMerges(git('log --first-parent --merges --date=short --pretty=format:%H%x09%h%x09%ad%x09%s'));
 }
 
 const TAG_GIT_ARGS = 'tag --merged HEAD --sort=-creatordate --format=%(refname:short)%09%(creatordate:short)';
@@ -327,7 +359,10 @@ function main() {
   if (git('rev-parse --is-shallow-repository').trim() === 'true') {
     fail('gen-changelog: this checkout is a SHALLOW clone — first-parent history is truncated, so the fail-closed seed comparison would red spuriously. Fetch full history (fetch-depth: 0).');
   }
-  const merges = collectMerges();
+  const { merges, skippedSynthetic } = collectMerges();
+  if (skippedSynthetic) {
+    console.log(`gen-changelog: skipped ${skippedSynthetic} synthetic merge-queue test-merge commit(s) (known-synthetic, never lands; the real landing merge classifies per the A12 standing contract).`);
+  }
   const { tags, source: tagSource, error: tagError } = listTags();
   if (tagSource === 'tag-less-environment') {
     // MERGEGROUP TAG-FIX: named, never silent — the same disclosure discipline

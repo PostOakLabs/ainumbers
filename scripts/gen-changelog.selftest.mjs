@@ -40,7 +40,7 @@
  * Exit 0 = all assertions passed. Exit 1 = a fixture assertion failed.
  */
 import { readFileSync } from 'node:fs';
-import { renderChangelog, collectLeaks, listTags, PUBLIC_TOKEN_ALLOWLIST } from './gen-changelog.mjs';
+import { renderChangelog, collectLeaks, listTags, parseMerges, PUBLIC_TOKEN_ALLOWLIST } from './gen-changelog.mjs';
 
 let failed = 0;
 let ran = 0;
@@ -173,6 +173,37 @@ const SEED = {
   // And the tolerant empty set renders IDENTICALLY to an honest zero-tag listing.
   const viaEmpty = renderChangelog(MERGES, [], SEED);
   check(out === viaEmpty, 'tag-less bytes identical to an honest zero-tag render (no hidden divergence)');
+}
+// ── 8b. SYNTHETIC MERGE-QUEUE TEST-MERGE SKIP (convergence fix, round 3) ────
+// Every grouped evaluation re-creates the queue's test-merge with a NEW sha
+// ("Merge <sha> into <sha>"), so requiring its classification can never
+// converge — the next round fail-closes on the new hash. The walk EXCLUDES
+// that exact subject shape as known-synthetic; everything else stays
+// fail-closed. Fixture lines drive the pure parser, no git spawned.
+{
+  const log = [
+    '850e5f7b6ebc847b9c27e72d3e819f423d171b8d\t850e5f7b\t2026-09-22\tMerge 9b7df839856a9e369a19353cab6a437ca4ae0560 into 28b131595954d6d125443dde3875151733f49464',
+    '2000000000000000000000000000000000000000\tabcdef12\t2026-09-01\tMerge pull request #200 from PostOakLabs/some-branch',
+    'deadbeef12ffffffffffffffffffffffffffffffff\tdeadbee\t2026-08-15\tMerge remote-tracking branch \'origin/x\' into y',
+  ].join('\n');
+  const { merges, skippedSynthetic } = parseMerges(log);
+  check(skippedSynthetic === 1 && merges.length === 2,
+    'queue-shaped test-merge skipped as known-synthetic; other merges kept fail-closed');
+  check(!merges.some((m) => m.key === 'c-850e5f7b6e'),
+    'the synthetic commit requires no seed classification (no key minted for it)');
+  check(merges[0].key === 'pr-200' && merges[1].key === 'c-deadbeef12',
+    'surviving merges keep their pr-N / c-hash keys in order');
+  const s = JSON.parse(JSON.stringify(SEED));
+  let out = null;
+  try { out = renderChangelog(merges, [], s); } catch (e) { console.error('  render threw: ' + e.message); }
+  check(out !== null && out.includes('2026-09-01') && !out.includes('850e5f7b'),
+    'render with the skip applied is green and contains no synthetic entry');
+  const landing = parseMerges('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\tbbbbbbb\t2026-09-22\tMerge pull request #2010 from PostOakLabs/CHANGELOG-1');
+  check(landing.skippedSynthetic === 0 && landing.merges.length === 1 && landing.merges[0].pr === 2010,
+    'a REAL PR landing merge (pr-shaped subject) is never treated as synthetic');
+  const manual = parseMerges('cccccccccccccccccccccccccccccccccccccccc\tddddddd\t2026-08-15\tMerge feature-x (some integration note)');
+  check(manual.skippedSynthetic === 0 && manual.merges[0].key === 'c-cccccccccc',
+    'a manual non-queue merge keeps failing closed when unclassified');
 }
 // ── 7. REAL SEED SANITY ─────────────────────────────────────────────────────
 {
