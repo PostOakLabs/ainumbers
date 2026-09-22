@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// art-666 — Regulatory Obligations Register: a regime-agnostic rule-to-obligation-to-evidence
+// art-691 — Regulatory Obligations Register: a regime-agnostic rule-to-obligation-to-evidence
 // register verdict, staged 2026-09-03 per OBLIGATIONS-REGISTER-BUILD-SPEC.md (Tim-approved
 // gap-scan slate; source research/REGTECH-GAP-SCAN-2026-09-03.md Tier 1.1 + research/
 // REDTEAM-GAP-VERDICTS-2026-09-03.md Sec. 7.1 KEEP). Five stages, one pure compute():
@@ -40,7 +40,7 @@ import { executionHash } from './_hash.mjs';
 // rounding is one Math.round over a non-negative ratio scaled by 10, IEEE-754 exact in every
 // required execution environment; integer counts never round.
 
-const TOOL_ID = 'art-666-regulatory-obligations-register';
+const TOOL_ID = 'art-691-regulatory-obligations-register';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {

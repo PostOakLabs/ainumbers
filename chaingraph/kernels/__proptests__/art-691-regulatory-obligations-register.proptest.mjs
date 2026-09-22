@@ -1,5 +1,5 @@
-// art-666-regulatory-obligations-register — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:d914ee5f45ba15d39e603ffe41a056532427669bfb4bd0526449d4a1febcd802
+// art-691-regulatory-obligations-register — class-K property-test FLOOR.
+// kernel_digest_at_authoring: sha256:3e77f4dced6cd0c03e0205a1fa7400e07a21bb1dd0525b9f7c85eb7509193ea6
 // spec: OBLIGATIONS-REGISTER-BUILD-SPEC.md (workspace root, staged 2026-09-03, SLATE-SPEC-REPIN-1 pin).
 // human_sign_off: PENDING
 //
@@ -10,12 +10,12 @@
 // and pinned at the spec's worked-example values (66.7 / 33.3) by the fixture oracle. Integer
 // counts never round. Everything else is counting and closed-set enum emission.
 //
-// Run: node chaingraph/kernels/__proptests__/art-666-regulatory-obligations-register.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-691-regulatory-obligations-register.proptest.mjs
 
-import { compute } from '../art-666-regulatory-obligations-register.kernel.mjs';
+import { compute } from '../art-691-regulatory-obligations-register.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, pick, findShapeViolations } from './_pbt-common.mjs';
 
-const KERNEL_ID = 'art-666-regulatory-obligations-register';
+const KERNEL_ID = 'art-691-regulatory-obligations-register';
 const rand = mulberry32(0x6660B1);
 const TRIALS = 8000;
 
