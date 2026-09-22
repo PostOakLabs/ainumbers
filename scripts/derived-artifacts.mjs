@@ -904,26 +904,34 @@ export const COVERED = [
   },
   {
     id: 'changelog',
-    // CHANGELOG-1 (2026-09-21, CONTRACT Amendment A12): the public changelog is
-    // a DERIVED artifact — a pure function of the repository's own git history
-    // (first-parent merges + reachable tags) and the committed classification
-    // in scripts/changelog-seed.json. Local-git-ONLY: no network, no wall
+    // CHANGELOG-1 (2026-09-21, CONTRACT Amendment A12); SEED-AUTOFILL contract
+    // (2026-09-22): the public changelog is a DERIVED artifact — a pure
+    // function of the repository's own git history (first-parent merges +
+    // reachable tags) and the committed classification in
+    // scripts/changelog-seed.json. Local-git-ONLY: no network, no wall
     // clock, so a regen is byte-reproducible at the same HEAD (the two-pass
-    // byte-equality proof this file demands ran at authoring). The generator
-    // FAILS CLOSED forward: a merge commit absent from the seed exits 1 —
-    // which is precisely why it fits the COVERED contract here. A PR that
-    // lands a MERGE commit makes main-side --check red until that PR's seed
-    // line lands; that red is the designed loud prompt of Amendment A12, not
-    // a regression (direct pushes — the common landing shape — never trigger
-    // it, and --verify's persistent-red class already treats content reds the
-    // bot cannot heal as warn+0). The generated file carries its own header
-    // scope note: changelogs derived from merge commits UNDER-REPORT, because
-    // direct pushes and post-merge regen-bot commits are invisible to them.
-    // The in-generator LEAK GATE (internal row-ID/owner/session/vendor
-    // vocabulary) is the only leak net this file has: check-copy-hallmarks
-    // scans .html only, so CHANGELOG.md would otherwise be unscanned (the
-    // self-test leg scripts/gen-changelog.selftest.mjs plants a leak and
-    // proves the catch).
+    // byte-equality proof this file demands ran at authoring). A merge commit
+    // absent from the seed is AUTO-CLASSIFIED from its commit subject's
+    // conventional prefix (entry marked "(auto)"; a subject with no
+    // recognized prefix — today every pr-shaped merge-queue subject — lands
+    // in the seed's "Other" section), and the generator NEVER exits on an
+    // unknown merge. The old fail-closed-on-unknown rule reds by design
+    // every merge-queue evaluation (measured 2026-09-22: 5 of 7 red Scripts
+    // Verify runs in the window, plus MERGEQUEUE-GATE-PARITY reding every
+    // OTHER open PR) — a standing red per landing, not a prompt. A curated
+    // seed line replaces any auto entry at the next regen (edit the seed,
+    // regenerate). STILL FAIL-CLOSED, and these reds are real: an
+    // unclassified reachable TAG, a seed entry naming a section outside
+    // seed.sections, a SHALLOW checkout, and above all a LEAK-GATE hit (the
+    // in-generator internal row-ID/owner/session/vendor vocabulary scan —
+    // check-copy-hallmarks scans .html only, so this gate is the only leak
+    // net CHANGELOG.md has; the self-test leg
+    // scripts/gen-changelog.selftest.mjs plants a leak and proves the
+    // exit-1 predicate still fires, plus that auto titles sanitize
+    // row-ID-soaked subjects). The generated file carries its own header
+    // scope note: changelogs derived from merge commits UNDER-REPORT,
+    // because direct pushes and post-merge regen-bot commits are invisible
+    // to them.
     regen: 'node scripts/gen-changelog.mjs',
     gate: 'node scripts/gen-changelog.mjs --check',
     writes: ['CHANGELOG.md'],

@@ -9,10 +9,14 @@
  * seed, or the real CHANGELOG.md, and it writes nothing.
  *
  * What it proves:
- *   1. FAIL-CLOSED FORWARD — a merge entry absent from the seed throws, naming
- *      the exact seed key to add; nothing renders. (This is the standing
- *      Amendment A11 contract: the PR that lands a merge commit appends its
- *      own seed line.)
+ *   1. SEED-AUTOFILL CONTRACT — a merge entry absent from the seed is
+ *      AUTO-CLASSIFIED from its commit subject's conventional prefix, marked
+ *      "(auto)", and rendered; an entry whose subject carries no recognized
+ *      prefix lands in the "Other" section. The generator NEVER exits 1 on an
+ *      unknown merge (the 2026-09-22 measured red: every merge-queue landing's
+ *      speculative merge commit failed the queue's own evaluation). A
+ *      hand-written seed entry takes precedence over the auto classification
+ *      (edit the seed, regenerate — the curated title replaces the auto one).
  *   2. FAIL-CLOSED TAGS — a reachable tag absent from seed.tags throws; a tag
  *      classified {heading} becomes a version scope; {ignore} with a reason
  *      does not.
@@ -23,7 +27,9 @@
  *   5. LEAK GATE POSITIVE — planted internal vocabulary is caught and the hit
  *      is QUOTED with its class: board row IDs, standing-order refs, owner
  *      names, orchestration roles, model vendors, internal paths. RED-then-
- *      GREEN in one control.
+ *      GREEN in one control. `collectLeaks(...).length > 0` is the EXACT
+ *      condition the generator's main() exits 1 on — this leg is the proof
+ *      the leak gate still exits 1 under the SEED-AUTOFILL contract.
  *   6. LEAK GATE NEGATIVE, the false-positive half — public token shapes read
  *      clean: lowercase node ids (art-544), §-section references, PR numbers,
  *      and the allowlisted public tokens (ISO-20022, SHA-256, tool range
@@ -35,12 +41,16 @@
  *      well-formed, and every entry's section is a member of seed.sections
  *      (cheap drift tripwire; full membership vs history is the generator's
  *      own fail-closed run, exercised live by preflight).
+ *   9. AUTO-TITLE SANITIZATION — merge subjects (and branch names inside
+ *      them) carry internal row IDs, so an auto entry's title may contain
+ *      ONLY fixed vocabulary (kind + the bare prefix word): a subject soaked
+ *      in row-ID shapes renders ZERO leak-gate hits.
  *
  * Usage: node scripts/gen-changelog.selftest.mjs
  * Exit 0 = all assertions passed. Exit 1 = a fixture assertion failed.
  */
 import { readFileSync } from 'node:fs';
-import { renderChangelog, collectLeaks, listTags, parseMerges, PUBLIC_TOKEN_ALLOWLIST } from './gen-changelog.mjs';
+import { renderChangelog, collectLeaks, listTags, parseMerges, autoClassify, AUTO_FALLBACK_SECTION, PUBLIC_TOKEN_ALLOWLIST } from './gen-changelog.mjs';
 
 let failed = 0;
 let ran = 0;
@@ -69,16 +79,28 @@ const SEED = {
   },
 };
 
-// ── 1. FAIL-CLOSED FORWARD ──────────────────────────────────────────────────
+// ── 1. UNKNOWN MERGES AUTO-CLASSIFY — never exit 1 (SEED-AUTOFILL) ──────────
+// The 2026-09-22 measured red: every merge-queue landing's speculative merge
+// commit was absent from the seed, so the fail-closed rule reds the queue's
+// own evaluation (and MERGEQUEUE-GATE-PARITY reded every OTHER open PR with
+// it). The new contract: an unclassified merge renders via auto-classification
+// — the seed stays the curated source of truth and a hand-written seed line
+// replaces the auto entry at the next regen.
 {
   const s = JSON.parse(JSON.stringify(SEED));
   delete s.entries['pr-300'];
-  throws(() => renderChangelog(MERGES, [], s),
-    'FAIL-CLOSED: 1 unclassified merge entry',
-    'unclassified merge entry named and refused');
-  throws(() => renderChangelog(MERGES, [], s),
-    'pr-300',
-    'the missing key (pr-300) is named in the failure');
+  let out = null;
+  try { out = renderChangelog(MERGES, [], s); } catch (e) { console.error('  render threw: ' + e.message); }
+  check(out !== null && out.includes('2026-07-01'), 'unclassified merge entry renders via auto-classification — never exit 1');
+  check(out !== null && out.includes('(auto)'), 'the auto-classified entry is marked (auto)');
+  check(out !== null && out.includes('### Other'), 'an entry whose subject carries no recognized prefix lands in "Other"');
+  check(out !== null && !/FAIL-CLOSED: \d+ unclassified merge/.test(out), 'no fail-closed refusal for a merge absent from the seed');
+  // Curated precedence: a seed entry wins over the auto classification.
+  const out2 = renderChangelog(MERGES, [], SEED);
+  const seededLine = out2.split('\n').find((l) => l.includes('Clean public title three'));
+  check(seededLine !== undefined && !seededLine.includes('(auto)'),
+    'a hand-written seed entry replaces the auto classification (no (auto) marker on its line)');
+  check(!out2.includes('### Other'), '"Other" renders only when an auto entry actually needs it');
 }
 // ── 2. FAIL-CLOSED TAGS + SCOPE CLASSIFICATION ──────────────────────────────
 {
@@ -120,6 +142,8 @@ const SEED = {
   check(quoted && quoted.line.includes('CHANGELOG-1') && quoted.no > 0,
     'leak gate QUOTES the offending line with a line number');
   check(text.includes('CHANGELOG-1'), 'control: the planted leak is really in the rendered bytes (gate had something to catch)');
+  check(leaks.length > 0,
+    'leak-gate exit-1 predicate FIRES on the planted leak (collectLeaks > 0 is the exact condition main() exits 1 on)');
   // GREEN half: the clean seed over the same merges.
   check(collectLeaks(renderChangelog(MERGES, [], SEED)).length === 0, 'clean fixtures render leak-free (GREEN)');
 }
@@ -203,7 +227,63 @@ const SEED = {
     'a REAL PR landing merge (pr-shaped subject) is never treated as synthetic');
   const manual = parseMerges('cccccccccccccccccccccccccccccccccccccccc\tddddddd\t2026-08-15\tMerge feature-x (some integration note)');
   check(manual.skippedSynthetic === 0 && manual.merges[0].key === 'c-cccccccccc',
-    'a manual non-queue merge keeps failing closed when unclassified');
+    'a manual non-queue merge still mints its c-hash key (classified by its seed line or auto)');
+}
+// ── 9. SEED-AUTOFILL: prefix → section map + AUTO-TITLE SANITIZATION ────────
+// The estate's own prefix vocabulary, measured over the full commit-subject
+// history (2026-09-22): feat 458, chore 391, fix 312, docs 60, ci 30, build 7,
+// test 5, security 2, refactor 2. Mapping targets the four seed sections;
+// anything unrecognized (including every pr-shaped "Merge pull request #N
+// from …" subject, which carries no prefix) falls to "Other". Fixture subjects
+// with prefixed titles are the merge-commit landing shapes that embed a PR
+// title; the sanitized-title control uses REAL queue-branch shapes, whose
+// branch names are board row IDs — if an auto title ever echoed the subject,
+// the leak gate would exit 1 on every queue landing.
+{
+  const AF_LOG = [
+    'a10f0000000000000000000000000000000000000\ta10f000\t2026-09-22\tMerge pull request #2010 from PostOakLabs/CHANGELOG-1',
+    'a20f0000000000000000000000000000000000000\ta20f000\t2026-09-21\tfeat(evidence): pilot claim set',
+    'a30f0000000000000000000000000000000000000\ta30f000\t2026-09-20\tfix(receipt): round-trip digest mismatch',
+    'a40f0000000000000000000000000000000000000\ta40f000\t2026-09-19\tchore(derived): regenerate shared derived artifacts on main',
+    'a50f0000000000000000000000000000000000000\ta50f000\t2026-09-18\tdocs(whitepaper): refresh section 6',
+    'a60f0000000000000000000000000000000000000\ta60f000\t2026-09-17\tci: pin the checkout action',
+    'a70f0000000000000000000000000000000000000\ta70f000\t2026-09-16\tsecurity(audit): close the cross-origin read',
+    'a80f0000000000000000000000000000000000000\ta80f000\t2026-09-15\tMerge pull request #2014 from PostOakLabs/CHANGELOG-MERGE-SEED-AUTOFILL-1',
+  ].join('\n');
+  const af = parseMerges(AF_LOG).merges;
+  check(af.length === 8 && af.every((m) => typeof m.subject === 'string'),
+    'parser carries each merge subject forward (auto-classification input)');
+  const emptySeed = { sections: SEED.sections, tags: {}, entries: {} };
+  let out = null;
+  try { out = renderChangelog(af, [], emptySeed); } catch (e) { console.error('  render threw: ' + e.message); }
+  check(out !== null, 'all-unknown history renders without throwing (the old contract threw here)');
+  const secHas = (sec, needle) => out !== null && new RegExp(`### ${sec}[\\s\\S]*?${needle}`).test(out);
+  check(secHas('Added', '2026-09-21') && secHas('Fixed', '2026-09-20') && secHas('Changed', '2026-09-19')
+    && secHas('Changed', '2026-09-18') && secHas('Changed', '2026-09-17') && secHas('Security', '2026-09-16'),
+    'prefixes feat/fix/chore/docs/ci/security map to Added/Fixed/Changed/Changed/Changed/Security');
+  check(secHas('Other', '2026-09-22') && secHas('Other', '2026-09-15'),
+    'pr-shaped subjects (no conventional prefix) land in "Other"');
+  check(out !== null && (out.match(/^- .*\(auto\)/gm) || []).length === 8, 'every auto entry carries the (auto) marker');
+  check(out !== null && out.lastIndexOf('### Other') > out.lastIndexOf('### Security'),
+    '"Other" renders last, after the seed\'s own section order');
+  check(out !== null && !out.includes('pilot claim set') && !out.includes('regenerate shared derived artifacts'),
+    'auto titles never echo the commit subject text');
+  // Direct map probes (incl. the short security alias and an unknown prefix).
+  check(AUTO_FALLBACK_SECTION === 'Other', 'fallback section is named "Other"');
+  check(autoClassify({ pr: null, subject: 'feat: x' }).section === 'Added'
+    && autoClassify({ pr: null, subject: 'fix: x' }).section === 'Fixed'
+    && autoClassify({ pr: null, subject: 'security: x' }).section === 'Security'
+    && autoClassify({ pr: null, subject: 'sec: x' }).section === 'Security'
+    && autoClassify({ pr: 7, subject: 'Merge pull request #7 from o/b' }).section === 'Other'
+    && autoClassify({ pr: null, subject: 'squash: x' }).section === 'Other',
+    'autoClassify maps the measured vocabulary and falls back to "Other"');
+  // SANITIZATION (leak-gate interlock): the two pr-shaped subjects above carry
+  // row-ID shapes (CHANGELOG-1, …-AUTOFILL-1). The rendered bytes must be
+  // leak-FREE — collectLeaks === 0 is also the exact condition main() exits 0
+  // (not 1) on, so this control and leg 4 pin BOTH sides of the leak gate
+  // under the auto-classification contract.
+  check(out !== null && collectLeaks(out).length === 0,
+    'auto-classified rendering of row-ID-soaked subjects is leak-free (sanitized titles)');
 }
 // ── 7. REAL SEED SANITY ─────────────────────────────────────────────────────
 {
