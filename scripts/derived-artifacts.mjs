@@ -1061,6 +1061,19 @@ export const EXCLUDED = [
        + 'owes the regen of its own manifest in the same PR; gen-input-schemas.mjs --check enforces that.',
   },
   {
+    what: 'manifests/*.manifest.json desired-state deltas (via scripts/apply-manifests.mjs)',
+    script: 'scripts/apply-manifests.mjs',
+    share: 'n/a — a declarative APPLIER (MANIFEST-APPLY-1), not a node-derived generator',
+    why: 'MEASURED not a node-graph reader (2026-09-22): its only inputs are manifests/*.manifest.json, '
+       + 'scripts/manifests.desired.json and its own baseline scripts/manifest-apply-baseline.json — zero '
+       + 'reads of chaingraph.json or the node graph. The single chaingraph.json mention in its header is '
+       + 'the FENCE statement ("never writes chaingraph.json, single-writer"), prose, not an I/O path; it '
+       + 'matched this classifier only because classification here is by source text. Writes only '
+       + 'assignments declared in the overlay, in explicit --apply mode, minimal-delta (whole-file rewrites '
+       + 'refused); its gate is MANIFEST-APPLY-GATE-1 (canonical-form + overlay drift, down-only baseline). '
+       + 'Nothing it does can drift when a node registers — listed so the coverage gate reads a decision, not a gap.',
+  },
+  {
     what: 'chaingraph/kernel-vm.html (via chaingraph/vm/scripts/gen-kernel-vm-html.mjs)',
     script: 'chaingraph/vm/scripts/gen-kernel-vm-html.mjs',
     share: '0% — no drift on a real node registration (measured on tree 278e0318, art-665)',

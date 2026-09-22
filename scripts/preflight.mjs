@@ -1468,6 +1468,8 @@ const GATES = [
   // scripts/manifest-examples-baseline.json; drift is hard in every context, baseline or not.
   ['Manifest examples/annotations freshness (MANIFEST-EXAMPLES-ANNOTATIONS-1)', 'node scripts/gen-manifest-examples.mjs --check'],
   ['Manifest examples/annotations controls (fixture-copy/mutation RED + GREEN, SO #40b)', 'node scripts/gen-manifest-examples.mjs --self-test'],
+  // MANIFEST-APPLY-1: desired-state --check over manifests/ (SPEC-MANIFEST-APPLY.md).
+  ['Manifest desired-state drift (MANIFEST-APPLY-GATE-1)', 'node scripts/apply-manifests.mjs --check'],
   // FEED-TWINS-1 (2026-09-22): the RSS 2.0 change feed, rendered from PUBLIC
   // LOCAL SIGNALS ONLY (the merged tool manifest's last_updated + release-shaped
   // `v<digit>*` git tags; never scraped from HTML, never from the node graph,
