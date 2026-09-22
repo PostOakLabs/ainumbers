@@ -944,6 +944,29 @@ export const COVERED = [
     artifacts: ['manifests/'],
     share: 'n/a (new 2026-09-19, MANIFEST-EXAMPLES-ANNOTATIONS-1)',
   },
+  {
+    // FEED-TWINS-1 (2026-09-22): the RSS 2.0 change feed. Single writer (SO #47):
+    // gen-rss.mjs renders rss.xml from PUBLIC LOCAL SIGNALS ONLY — the merged tool
+    // manifest's (mcp/server.json) regen_catalog-maintained `last_updated` date plus
+    // release-shaped `v<digit>*` git tags. ⛔ Never scraped from HTML, never derived
+    // from chaingraph.json, never sourced from board/ — the generator deliberately
+    // contains no node-graph reference, so it is NOT node-sensitive
+    // (NODE-FANOUT-REGEN-CLOSE-1's heuristic classifies it out) and needs no
+    // `after:` edge: it consumes only committed bytes and local git. Idempotent by
+    // construction and wall-clock-free: lastBuildDate = the newest item date, so a
+    // second pass on the same committed tree is a zero diff (measured by content
+    // hash per this file's own law). rss.xml escapes copy-hallmarks and the egress
+    // scans (both HTML-only) — the COVERED gate's GATES entry (preflight.mjs,
+    // FEED-TWINS-1) plus its --self-test leg are the only net over this surface.
+    id: 'rss',
+    regen: 'node scripts/gen-rss.mjs',
+    gate: 'node scripts/gen-rss.mjs --check',
+    // Explicit `writes:` (declare-parity): names the real, default-path write
+    // target, exactly what the field is for.
+    writes: ['rss.xml'],
+    artifacts: ['rss.xml'],
+    share: 'n/a (new 2026-09-22, FEED-TWINS-1)',
+  },
 ];
 
 /**

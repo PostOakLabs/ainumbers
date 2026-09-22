@@ -346,6 +346,22 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── FEED-TWINS-1 (2026-09-22) ───────────────────────────────────────────────
+  ["gen-rss.mjs",
+    "RSS change feed --check + its paired --self-test (FEED-TWINS-1): renders rss.xml from " +
+    "PUBLIC LOCAL SIGNALS ONLY (the merged tool manifest's last_updated date + release-shaped " +
+    "`v<digit>*` git tags; never scraped from HTML, never from the node graph) and byte-compares. " +
+    "Hard in preflight; its CI route is scripts-verify.yml full preflight (the workflow runs " +
+    "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the same suite. " +
+    "It is the COVERED gate of derived-artifacts.mjs id 'rss' (advisory-on-PR / blocking-on-main " +
+    "via the generic downgrade), and the single writer is derived-artifacts-regen.yml, which " +
+    "recommits rss.xml in the SAME bot commit as the rest of the shared derived set and proves it " +
+    "fresh via `derived-artifacts.mjs --verify` BEFORE committing. The --check --write halves: " +
+    "write is a builder/main-side-regen command, never a workflow step by name. Reads only " +
+    "tracked repo files plus local git tags (spawned through gitEnv()) — no network, no CI-only " +
+    "input. The --self-test leg is the SELF_TEST shape: in-memory fixtures, reddened only by a " +
+    "change to the generator itself. rss.xml escapes copy-hallmarks and the egress scans " +
+    "(HTML-only) — this gate is the only net over that surface."],
   // ── ART220-TABLE-SINGLE-WRITER-1 (2026-09-20) ───────────────────────────────
   ["check-art220-table-parity.mjs",
     "art-220 page/kernel TABLES single-writer parity + its paired mutation controls " +
@@ -1040,6 +1056,15 @@ const DISTINCT_LEGS = new Map([
       "Same script as the advisory 'manifest-examples' COVERED gate, different leg entirely: the " +
       "generator-controls self-test (fixture-copy/mutation RED+GREEN proofs) is hard at every call " +
       "site per GATE-SELFTEST-META-1/SO #40b. Not an argument drift of the freshness gate.",
+  }],
+  ["node scripts/gen-rss.mjs --self-test", {
+    sibling: "node scripts/gen-rss.mjs --check",
+    decided: "2026-09-22 (FEED-TWINS-1)",
+    why:
+      "Same script as the advisory 'rss' COVERED gate, different leg entirely: the feed " +
+      "generator-controls self-test (staleness RED/GREEN, XML-escaping, RFC 822 table, tag-glob " +
+      "filter) is hard at every call site per GATE-SELFTEST-META-1/SO #40b. Not an argument drift " +
+      "of the rss.xml freshness gate.",
   }],
 ]);
 
