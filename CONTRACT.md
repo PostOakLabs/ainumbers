@@ -1,5 +1,5 @@
-# 📜 AINumbers.co — Unified Build Contract v1.9
-**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026 · **v1.6 (Amendment A6 — reader-facing copy style):** July 2026 · **v1.7 (Amendment A7 — ledger subdomain storage carve-out):** July 2026 · **v1.8 (Amendment A10 — Policy Mandate v1.1 `caveats` member):** August 2026 · **v1.9 (Amendment A12 — public changelog, generated + leak-gated):** September 2026  
+# 📜 AINumbers.co — Unified Build Contract v1.10
+**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026 · **v1.6 (Amendment A6 — reader-facing copy style):** July 2026 · **v1.7 (Amendment A7 — ledger subdomain storage carve-out):** July 2026 · **v1.8 (Amendment A10 — Policy Mandate v1.1 `caveats` member):** August 2026 · **v1.9 (Amendment A12 — public changelog, generated + leak-gated):** September 2026 · **v1.10 (Amendment A13 — MCP server card: gated registry surface + schema twin):** September 2026  
 
 > **SSOT for the OpenChainGraph standard = `repo/chaingraph/standard/SPEC.md`** (+ `openchain-graph-v0.4.schema.json`). This contract references it, does not restate it (Amendment A5). Conformance = the SPEC.md §15 gate suite.
 **License:** CC BY 4.0 · **Scope:** All browser-based financial tools, hubs, and MCP integrations  
@@ -118,6 +118,8 @@ The registry surfaces are **generated, never hand-written** — `python scripts/
 | File | Purpose | Location |
 |---|---|---|
 | `.well-known/mcp.json` | Root discovery shim (`schema_version: well-known-mcp-v1`) — points external agents at the servers, `llms.txt` and the sitemap | `.well-known/` |
+| `.well-known/mcp/server-card.json` | **Worker-server MCP card (Amendment A13)** — the ONE hand-maintained registry surface (exception to "generated, never hand-written": no generator owns it; `check-server-card-schema.mjs` is its drift guard). MUST conform to `chaingraph/standard/mcp-server-card.schema.json`; `tool_count` is the `mcp.live` counts value (worker-served tools), ATTR_RULE-gated; `openapi_url` is the apex root alias (the `/docs/` path is rsync-excluded from the apex). `protocolVersion` mirrors the worker's advertised MCP version | `.well-known/mcp/` |
+| `.well-known/mcp/server-card.schema.json` | Served byte-twin of the canonical schema — consumers resolving the card's `$schema` get a real file; drift from the canonical copy REDS the gate | `.well-known/mcp/` |
 | `mcp/catalog.json` | **Suite-level MCP registry consumed by external agents** (`schema_version: mcp-catalog-v1`) — the full tool array; see §2.3 | `mcp/` |
 | `mcp/server.json` | Server descriptor (`schema_version: mcp-server-v1`) — publisher, endpoints, categories, standards covered | `mcp/` |
 | `<tool_id>.manifest.json` | Per-tool / **per-node** manifest, machine-read by the worker build | `manifests/` (flat) — see §2.7 |
@@ -769,6 +771,7 @@ Hard in preflight: `gen-changelog.mjs --check` (freshness + leak gate; COVERED i
 | 44 | `repo/CLAUDE.md`: author via Write/Edit not heredoc, preflight before every push, hook opt-in | DISCIPLINE | process rules; the hook exists, and its CI backstop is row 32's fragile path |
 | 45 | A11 rss.xml is generator-written from public local signals only, registered in `rootPages` | `gen-rss.mjs` | HOLDS (new 2026-09-22): `--check` wired in preflight (COVERED id `rss`, advisory-on-PR/blocking-on-main), paired `--self-test`, single writer main-side |
 | 46 | A12 public changelog generated-only, seed fail-closed, leak-gated, under-reporting stated | `gen-changelog.mjs` + `gen-changelog.selftest.mjs` | HOLDS (134 classified merge entries at authoring; leak-gate RED-then-GREEN demonstrated; advisory-on-PR/blocking-on-main via COVERED id `changelog`) |
+| 47 | A13 the MCP server card conforms to `chaingraph/standard/mcp-server-card.schema.json`; `tool_count` == `mcp.live`; served schema twin byte-identical; `openapi_url` == apex root alias | `check-server-card-schema.mjs` | HOLDS (new with Amendment A13) |
 
 ---
 

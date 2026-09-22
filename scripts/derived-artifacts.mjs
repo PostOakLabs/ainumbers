@@ -410,6 +410,10 @@ export const COVERED = [
       // to one entry here so that gate can be wired blocking.)
       'fv-explainer.html',
       '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
+      // MCPCARD-SCHEMA-1: the server card's tool_count is an ATTR_RULE-gated
+      // mcp.live count (count-rules.mjs), so verify-counts --fix can write the
+      // file — declared here per SO #47 or the anti-escape guard rejects the run.
+      '.well-known/mcp/server-card.json',
       // HUB-COUNT-STALE-SURFACES-1: mcp/catalog.json's description prose is now
       // ATTR_RULE-gated (key 'manifests' — the catalog entry count regen_catalog
       // itself writes), so verify-counts --fix can write the file. Cross-entry
@@ -454,6 +458,7 @@ export const COVERED = [
       'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
       'fv-explainer.html',
       '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
+      '.well-known/mcp/server-card.json',
       'mcp/catalog.json',
       'llms.txt',
       'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
@@ -534,7 +539,13 @@ export const COVERED = [
     id: 'ai-catalog',
     regen: 'node scripts/gen-wellknown-catalogs.mjs',
     gate: 'node scripts/gen-wellknown-catalogs.mjs --check',
-    artifacts: ['.well-known/ai-catalog.json'],
+    // MCPCARD-SCHEMA-1: the generator writes ALL THREE well-known files on every
+    // run (ai-catalog.json, api-catalog, jwks.json). While its output was
+    // byte-stable the live-regen selftest saw no "touch" and the single-file
+    // declarations passed; the openapi-url fix makes real writes visible, so the
+    // full write-set is declared here and in the api-catalog/jwks entries —
+    // the three paths are legitimately shared across the three entries.
+    artifacts: ['.well-known/ai-catalog.json', '.well-known/api-catalog', '.well-known/jwks.json'],
     // prAbsentOk: the artifact BY DESIGN does not exist on a PR checkout (SO #35
     // single-writer; derived-artifacts-regen.yml writes it on main after merge and
     // a PR is forbidden to commit it). --check-paths skips it in a PR context only;
@@ -551,9 +562,9 @@ export const COVERED = [
     id: 'api-catalog',
     regen: 'node scripts/gen-wellknown-catalogs.mjs',
     gate: 'node scripts/gen-wellknown-catalogs.mjs --check',
-    artifacts: ['.well-known/api-catalog'],
+    artifacts: ['.well-known/api-catalog', '.well-known/ai-catalog.json', '.well-known/jwks.json'],
     prAbsentOk: true, // see the ai-catalog entry above
-    writes: ['.well-known/api-catalog'],
+    writes: ['.well-known/api-catalog', '.well-known/ai-catalog.json', '.well-known/jwks.json'],
     share: 'n/a (new 2026-09-05, AI-CATALOG-1)',
   },
   {
@@ -567,9 +578,9 @@ export const COVERED = [
     id: 'jwks',
     regen: 'node scripts/gen-wellknown-catalogs.mjs',
     gate: 'node scripts/gen-wellknown-catalogs.mjs --check',
-    artifacts: ['.well-known/jwks.json'],
+    artifacts: ['.well-known/jwks.json', '.well-known/ai-catalog.json', '.well-known/api-catalog'],
     prAbsentOk: true, // see the ai-catalog entry above
-    writes: ['.well-known/jwks.json'],
+    writes: ['.well-known/jwks.json', '.well-known/ai-catalog.json', '.well-known/api-catalog'],
     share: 'n/a (new 2026-09-05, A2A-CARD-SIGN-1)',
   },
   {

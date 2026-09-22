@@ -1125,7 +1125,9 @@ const DECLARED_SOFTENERS = new Map([
   // the SSH/rsync retry steps all sit above the attest step. COMPUTE-PROOF-ANY-PUBLISHED-VECTOR-1
   // moved it from :888 to :889 — one new `node compute-proof-vector-match.test.mjs` line landed in
   // the kernel-gates `run:` block above it. The declaration is line-pinned by design.
-  ["deploy-to-dreamhost.yml:continue-on-error:889",
+  // MCPCARD-SCHEMA-1 (2026-09-21) moved it :889 → :890 — one new
+  // `node scripts/check-server-card-schema.mjs` line in the gate `run:` block above it; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:890",
    "attest step is advisory-first by design; promotion criterion on the step"],
   ["unwired-gates.yml:continue-on-error:108",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
