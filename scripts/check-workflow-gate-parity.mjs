@@ -977,6 +977,17 @@ const PREFLIGHT_ONLY = new Map([
     "manifests/) — no CI-only input, no network. Paired self-test: " +
     "check-mr-r4-null-ratchet.test.mjs (GATE-SELFTEST-META-1)."],
   ["check-mr-r4-null-ratchet.test.mjs", SELF_TEST],
+
+  // REGZ-TABLE-SINGLE-WRITER-3 (2026-09-17): the art-218/art-234 page/kernel
+  // table-parity gates and their SO #40b mutation controls run in preflight, whose
+  // CI route is scripts-verify.yml's preflight invocation — the parity checkers
+  // read only tracked repo files (kernel export + page region), so no CI-only
+  // input exists and a named workflow step would duplicate the same suite. The
+  // .test.mjs pair are mutation controls in the SELF_TEST class.
+  ["check-art218-table-parity.mjs", VIA_PREFLIGHT],
+  ["check-art218-table-parity.test.mjs", SELF_TEST],
+  ["check-art234-table-parity.mjs", VIA_PREFLIGHT],
+  ["check-art234-table-parity.test.mjs", SELF_TEST],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────

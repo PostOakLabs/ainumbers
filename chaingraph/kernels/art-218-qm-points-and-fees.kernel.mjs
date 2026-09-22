@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-218-qm-points-and-fees';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -22,7 +22,9 @@ export const meta = {
 
 // VERSION-PINNED QM POINTS-AND-FEES TIER TABLE
 // Source: CFPB annual threshold updates under §1026.43(e)(3)(ii), published in
-// the Federal Register each January. Thresholds indexed to CPI-W.
+// the Federal Register each year. Values and citations pinned from the CFPB
+// annual threshold-adjustment notices (primary-text snapshots:
+// research/clause-snapshots/art220/, retrieved 2026-09-03 from govinfo.gov).
 // History includes 2021-2026; update in a new yearly session.
 //
 // CONVERGED (REGZ-ART218-TABLE-CONVERGE-1, rides PR #1679): this table is the
@@ -102,6 +104,11 @@ const QM_TIERS_BY_YEAR = {
     ],
   },
 };
+
+// Single-writer export (REGZ-TABLE-SINGLE-WRITER-3): the node page's QM_TABLES block is
+// generated from this object by scripts/check-art218-table-parity.mjs; the page never
+// hand-maintains a second copy of these constants.
+export const THRESHOLD_TABLES = QM_TIERS_BY_YEAR;
 
 function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
 function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0; }

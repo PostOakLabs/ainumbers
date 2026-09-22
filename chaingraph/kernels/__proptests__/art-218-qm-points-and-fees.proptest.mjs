@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:451c7b3b5ae225db716a4b46040eb80af02bf7aa2a2ac25a35f3da1e295700ce
+// kernel_digest_at_authoring: sha256:b558dd405097dd3bbd56a7b43809233eebd7958a3503c229521934c653181d0e
 //
 // FV-PROPFLOOR-SHARD-B6-1 — property-test floor for art-218-qm-points-and-fees.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (pass/fail is a continuous points-and-fees
