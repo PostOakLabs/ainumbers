@@ -3760,34 +3760,59 @@ async function runConsistencyVerifier() {
   var res = await computeConsistencyVerifier(pp);
   var op = res.output_payload, flags = res.compliance_flags;
   _lastPP = pp; _lastOP = op; _lastFlags = flags;
+  _lastResult = { policy_parameters: pp, output_payload: op, compliance_flags: flags, checks: res.checks };
+  paintResult();
+
+  var hash = await cgHash(pp, op);
+  document.getElementById('hashBox').textContent = hash;
+
+  document.getElementById('artifactPre').style.display='none';
+  _lastGeneratedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent = 'generated_at ' + _lastGeneratedAt;
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+// WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
+// paints the stored result global, so the agent path and the form path paint
+// through the same code. Reads _lastResult only; never assigns it.
+function paintResult(){
+  if (!_lastResult) return;
+  var op = _lastResult.output_payload, flags = _lastResult.compliance_flags || [], checks = _lastResult.checks || [];
 
   var banner = document.getElementById('resultBanner');
-  var isPass = op.consistency_proof_result === 'PASS';
-  banner.innerHTML = '<div class="result-banner ' + (isPass ? 'pass' : 'fail') + '">' +
-    (isPass ? '✓ PASS' : '✗ FAIL') + ' — log consistency between size ' + (op.old_size ?? '?') + ' and size ' + (op.new_size ?? '?') + '</div>';
+  var isPass;
+  if (op.consistency_proof_result !== undefined) {
+    isPass = op.consistency_proof_result === 'PASS';
+    banner.innerHTML = '<div class="result-banner ' + (isPass ? 'pass' : 'fail') + '">' +
+      (isPass ? '✓ PASS' : '✗ FAIL') + ' — log consistency between size ' + (op.old_size ?? '?') + ' and size ' + (op.new_size ?? '?') + '</div>';
+  } else {
+    isPass = op.witness_verification_result === 'PASS';
+    banner.innerHTML = '<div class="result-banner ' + (isPass ? 'pass' : 'fail') + '">' +
+      (isPass ? '✓ PASS' : '✗ FAIL') + ' — ' + op.valid_witness_count + ' of ' + op.threshold + ' required valid witness cosignature(s)</div>';
+  }
 
   var cd = document.getElementById('checksDiv'); cd.innerHTML='';
-  for (var i = 0; i < res.checks.length; i++) {
-    var c = res.checks[i];
+  for (var i = 0; i < checks.length; i++) {
+    var c = checks[i];
     var row = document.createElement('div'); row.className='check-row';
     row.innerHTML='<span class="'+(c.pass?'check-pass':'check-warn')+'">'+(c.pass?'&#10003;':'&#9651;')+'</span><span class="check-name">'+c.check+'</span><span class="check-detail">'+c.detail+'</span>';
     cd.appendChild(row);
   }
 
   var cosigDiv = document.getElementById('cosigDiv'); cosigDiv.innerHTML='';
-
-  var hash = await cgHash(pp, op);
-  document.getElementById('hashBox').textContent = hash;
+  for (var j = 0; j < (op.cosignatures || []).length; j++) {
+    var cs = op.cosignatures[j];
+    var crow = document.createElement('div'); crow.className='check-row';
+    var label = cs.name + ' (' + cs.algorithm + ')';
+    var detail = cs.error ? cs.error : (cs.valid ? 'valid, timestamp ' + cs.timestamp : 'signature invalid');
+    crow.innerHTML='<span class="'+(cs.valid?'check-pass':'check-warn')+'">'+(cs.valid?'&#10003;':'&#9651;')+'</span><span class="check-name">'+label+'</span><span class="check-detail">'+detail+'</span>';
+    cosigDiv.appendChild(crow);
+  }
 
   var fr = document.getElementById('flagRow'); fr.innerHTML='';
   for (var fi = 0; fi < flags.length; fi++) {
     var b=document.createElement('span'); b.className='badge '+(isPass?'ok':'fail'); b.textContent=flags[fi]; fr.appendChild(b);
   }
-
-  document.getElementById('artifactPre').style.display='none';
-  _lastGeneratedAt = new Date().toISOString();
-  document.getElementById('generatedAt').textContent = 'generated_at ' + _lastGeneratedAt;
-  document.getElementById('resultsPanel').classList.add('show');
 }
 
 function collectFields() {
@@ -3803,43 +3828,18 @@ function collectFields() {
 }
 
 var _lastPP=null, _lastOP=null, _lastFlags=null, _lastGeneratedAt=null;
+let _lastResult = null;
 
 async function runCosignatureVerifier() {
   var pp = collectFields();
   var res = await computeVerifier(pp);
   var op = res.output_payload, flags = res.compliance_flags;
   _lastPP = pp; _lastOP = op; _lastFlags = flags;
-
-  var banner = document.getElementById('resultBanner');
-  var isPass = op.witness_verification_result === 'PASS';
-  banner.innerHTML = '<div class="result-banner ' + (isPass ? 'pass' : 'fail') + '">' +
-    (isPass ? '✓ PASS' : '✗ FAIL') + ' — ' + op.valid_witness_count + ' of ' + op.threshold + ' required valid witness cosignature(s)</div>';
-
-  var cd = document.getElementById('checksDiv'); cd.innerHTML='';
-  for (var i = 0; i < res.checks.length; i++) {
-    var c = res.checks[i];
-    var row = document.createElement('div'); row.className='check-row';
-    row.innerHTML='<span class="'+(c.pass?'check-pass':'check-warn')+'">'+(c.pass?'&#10003;':'&#9651;')+'</span><span class="check-name">'+c.check+'</span><span class="check-detail">'+c.detail+'</span>';
-    cd.appendChild(row);
-  }
-
-  var cosigDiv = document.getElementById('cosigDiv'); cosigDiv.innerHTML='';
-  for (var j = 0; j < op.cosignatures.length; j++) {
-    var cs = op.cosignatures[j];
-    var crow = document.createElement('div'); crow.className='check-row';
-    var label = cs.name + ' (' + cs.algorithm + ')';
-    var detail = cs.error ? cs.error : (cs.valid ? 'valid, timestamp ' + cs.timestamp : 'signature invalid');
-    crow.innerHTML='<span class="'+(cs.valid?'check-pass':'check-warn')+'">'+(cs.valid?'&#10003;':'&#9651;')+'</span><span class="check-name">'+label+'</span><span class="check-detail">'+detail+'</span>';
-    cosigDiv.appendChild(crow);
-  }
+  _lastResult = { policy_parameters: pp, output_payload: op, compliance_flags: flags, checks: res.checks };
+  paintResult();
 
   var hash = await cgHash(pp, op);
   document.getElementById('hashBox').textContent = hash;
-
-  var fr = document.getElementById('flagRow'); fr.innerHTML='';
-  for (var fi = 0; fi < flags.length; fi++) {
-    var b=document.createElement('span'); b.className='badge '+(isPass?'ok':'fail'); b.textContent=flags[fi]; fr.appendChild(b);
-  }
 
   document.getElementById('artifactPre').style.display='none';
   _lastGeneratedAt = new Date().toISOString();

@@ -196,8 +196,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
       <div class="exec-hash" id="execHashBox"></div>
       <div class="results-export-row">
-        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
-        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <button id="ap2ExportBtn" onclick="exportArtifact(_lastResult)">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash(_lastResult)">&#10003; Verify Hash</button>
         <span class="verify-result" id="verifyResult"></span>
       </div>
       <pre id="artifactPre" style="display:none"></pre>
@@ -501,14 +501,23 @@ async function runCheck(){
 
   var res = compute(pp);
   _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
-  var op = res.output_payload;
+  paintResult();
+}
+
+// WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
+// paints the stored result global, so the agent path and the form path paint
+// through the same code. Reads _lastResult only; never assigns it.
+function paintResult(){
+  if (!_lastResult) return;
+  var op = _lastResult.output_payload;
+  var compliance_flags = _lastResult.compliance_flags || [];
 
   var vBox = document.getElementById('verdictBox');
   var ok = op.independence_asserted && op.rejected_inputs.length === 0;
   var color = op.rejected_inputs.length > 0 ? 'var(--warn)' : (ok ? 'var(--green)' : 'var(--red)');
   var bg = op.rejected_inputs.length > 0 ? 'rgba(245,158,11,.08)' : (ok ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)');
   vBox.style.color = color; vBox.style.background = bg; vBox.style.border = '1px solid ' + color;
-  vBox.textContent = (op.independence_asserted ? 'INDEPENDENCE ASSERTED' : 'INDEPENDENCE NOT ASSERTED') + ' &middot; ' + res.compliance_flags.join(', ').replace('&middot;', '·');
+  vBox.textContent = (op.independence_asserted ? 'INDEPENDENCE ASSERTED' : 'INDEPENDENCE NOT ASSERTED') + ' &middot; ' + compliance_flags.join(', ').replace('&middot;', '·');
 
   document.getElementById('statRow').innerHTML =
     '<div class="stat"><span class="stat-val">' + op.interested_parties.length + '</span><span class="stat-key">Interested parties</span></div>' +
@@ -535,27 +544,27 @@ async function runCheck(){
   document.getElementById('resultsPanel').classList.add('show');
   document.getElementById('execHashBox').textContent = 'computing...';
   document.getElementById('verifyResult').textContent = '';
-  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+  if (_lastResult.pp) computeExecHash(_lastResult.pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
 }
 
-function verifyHash(){
-  if (!_lastResult) return;
-  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+function verifyHash(r){
+  if (!r || !r.pp) return;
+  computeExecHash(r.pp, r.output_payload).then(function(h){
     var cur = document.getElementById('execHashBox').textContent;
     document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
   });
 }
 
-function exportArtifact(){
-  if (!_lastResult) return;
+function exportArtifact(r){
+  if (!r) return;
   var hash = document.getElementById('execHashBox').textContent || 'pending';
   const generatedAt = new Date().toISOString();
   document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
-  var trigger_execution_hash = _lastResult.output_payload.trigger_ref.execution_hash;
-  var trigger_tool_id = _lastResult.output_payload.trigger_ref.tool_id;
+  var trigger_execution_hash = r.output_payload.trigger_ref.execution_hash;
+  var trigger_tool_id = r.output_payload.trigger_ref.tool_id;
   var parent_hashes = trigger_execution_hash ? [trigger_execution_hash] : [];
   var parent_tool_ids = trigger_tool_id ? [trigger_tool_id] : [];
-  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-559-attest-calc-agent-independence',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:parent_hashes,parent_tool_ids:parent_tool_ids,chain_depth:parent_hashes.length?1:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-559-attest-calc-agent-independence',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:parent_hashes,parent_tool_ids:parent_tool_ids,chain_depth:parent_hashes.length?1:0},policy_parameters:r.pp,output_payload:r.output_payload,compliance_flags:r.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
   var json = JSON.stringify(artifact, null, 2);
   document.getElementById('artifactPre').textContent = json;
   document.getElementById('artifactPre').style.display = 'block';

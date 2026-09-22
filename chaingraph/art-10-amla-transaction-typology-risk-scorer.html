@@ -714,6 +714,7 @@ let _scored  = null;
 let _allScored = [];
 let _filteredScored = [];
 let _artifact = null;
+let _lastResult = null;
 
 /* ─────────────────────────────────────────────────────────────────
    UTILS
@@ -1007,6 +1008,7 @@ async function runScoring(){
       signatures: []
     }
   };
+  _lastResult = _artifact;
   document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
 
   document.getElementById('progressWrap').classList.remove('visible');
@@ -1018,6 +1020,39 @@ async function runScoring(){
 
   renderResults(_scored);
   renderTxTable(_filteredScored);
+}
+
+// WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
+// paints the stored result global, so the agent path and the form path paint
+// from the same store. Reads _lastResult only; never assigns it.
+function paintResult(){
+  if(!_lastResult||!_lastResult.output_payload) return;
+  const op=_lastResult.output_payload;
+  const risk=op.overall_risk||'LOW';
+  const vMeta={
+    LOW: {cls:'low',icon:'✅',label:'Low AML Risk',title:'Transaction graph presents low typology risk',sub:'No high-risk transactions or pattern sequences detected under current sensitivity settings.'},
+    MED: {cls:'med',icon:'⚠️',label:'Medium AML Risk',title:'Notable typology signals detected',sub:`${op.medium_risk_count||0} medium-risk transaction(s) and/or multi-hop patterns detected. Recommend enhanced monitoring.`},
+    HIGH:{cls:'high',icon:'🚨',label:'High AML Risk',title:'High-risk typology patterns detected — SAR consideration recommended',sub:`${op.high_risk_count||0} high-risk transaction(s) flagged. Patterns consistent with layering, structuring, or round-tripping. Review SAR narrative below.`}
+  }[risk]||{cls:'med',icon:'⚠️',label:'Risk Assessed',title:'Typology assessment complete',sub:''};
+  document.getElementById('verdictCard').innerHTML=`<div class="verdict-card ${vMeta.cls}">
+    <div class="verdict-icon">${vMeta.icon}</div>
+    <div>
+      <div class="verdict-label ${vMeta.cls}">${vMeta.label}</div>
+      <div class="verdict-title">${vMeta.title}</div>
+      <div class="verdict-sub">${vMeta.sub}</div>
+    </div>
+  </div>`;
+  document.getElementById('scorecard').innerHTML=[
+    {val:op.max_score,label:'Max risk score',sub:riskLabel(op.max_score),color:riskColor(op.max_score)},
+    {val:op.average_score,label:'Avg risk score',sub:'all transactions',color:riskColor(op.average_score)},
+    {val:op.high_risk_count,label:'High-risk txns',sub:'score ≥70',color:'var(--red)'},
+    {val:op.travel_rule_violations,label:'Travel Rule gaps',sub:'FATF Rec. 16',color:'var(--warn)'}
+  ].map(c=>`<div class="score-card">
+    <div class="score-val" style="color:${c.color}">${c.val}</div>
+    <div class="score-label">${c.label}</div>
+    <div class="score-sub">${c.sub}</div>
+  </div>`).join('');
+  document.getElementById('resultsPanel').classList.add('visible');
 }
 
 /* ─────────────────────────────────────────────────────────────────

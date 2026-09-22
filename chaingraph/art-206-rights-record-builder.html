@@ -561,12 +561,32 @@ async function cgHash(pp, op) {
 }
 
 var _lastPP=null, _lastOP=null, _lastFlags=null, _lastGeneratedAt=null;
+let _lastResult = null;
 
 async function runBuilder() {
   var pp = collectPP();
   var res = computeBuilder(pp);
   var op = res.output_payload, flags = res.compliance_flags;
   _lastPP = pp; _lastOP = op; _lastFlags = flags;
+  _lastResult = { policy_parameters: pp, output_payload: op, compliance_flags: flags };
+  paintResult();
+
+  var hash = await cgHash(pp, op);
+  document.getElementById('execHashBox').textContent = hash;
+
+  document.getElementById('disclaimerBox').textContent = op.disclaimer;
+  document.getElementById('artifactPre').style.display = 'none';
+  _lastGeneratedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent = 'generated_at ' + _lastGeneratedAt;
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+// WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
+// paints the stored result global, so the agent path and the form path paint
+// through the same code. Reads _lastResult only; never assigns it.
+function paintResult(){
+  if (!_lastResult) return;
+  var op = _lastResult.output_payload, flags = _lastResult.compliance_flags || [];
 
   document.getElementById('recordHashBox').textContent = op.record_hash || '(hash will appear once required fields are filled)';
 
@@ -595,19 +615,12 @@ async function runBuilder() {
     cd.appendChild(row);
   });
 
-  var hash = await cgHash(pp, op);
-  document.getElementById('execHashBox').textContent = hash;
-
   var fr = document.getElementById('flagRow'); fr.innerHTML = '';
   for (var fi = 0; fi < flags.length; fi++) {
     var b=document.createElement('span'); b.className='badge ok'; b.textContent=flags[fi]; fr.appendChild(b);
   }
 
   document.getElementById('disclaimerBox').textContent = op.disclaimer;
-  document.getElementById('artifactPre').style.display = 'none';
-  _lastGeneratedAt = new Date().toISOString();
-  document.getElementById('generatedAt').textContent = 'generated_at ' + _lastGeneratedAt;
-  document.getElementById('resultsPanel').classList.add('show');
 }
 
 async function exportArtifact() {

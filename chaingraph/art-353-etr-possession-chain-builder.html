@@ -276,6 +276,8 @@ function loadPreset(p){
   preset.events.forEach(e=>addEventRow(e));
 }
 
+let _lastResult = null;
+
 async function run(){
   const events=getEvents();
   const pp={document_digest:document.getElementById('document_digest').value,initial_holder:document.getElementById('initial_holder').value||null,control_transfer_events:events};
@@ -298,6 +300,21 @@ async function run(){
   const generatedAt = new Date().toISOString();
   document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
   const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'cryptographic_mandate',tool_id:'art-353-etr-possession-chain-builder',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+
+  _lastResult = artifact;
+  paintResult();
+}
+
+// WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
+// paints the stored result global, so the agent path and the form path paint
+// through the same code. Reads _lastResult only; never assigns it.
+function paintResult(){
+  if(!_lastResult) return;
+  const artifact=_lastResult;
+  const op=artifact.output_payload;
+  const receipts=op.possession_receipts||[];
+  const merkle_root=op.merkle_root;
+  const hash=String(artifact.execution_hash||'').replace(/^sha256:/,'');
 
   document.getElementById('results').classList.add('show');
   const cc=op.chain_continuous;
