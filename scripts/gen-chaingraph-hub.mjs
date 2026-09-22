@@ -135,7 +135,19 @@ const sectionsHtml = clusterEntries
     const ids = cluster.art_ids.filter((id) => byId.has(id)).slice().sort((a, b) => artNum(a) - artNum(b));
     if (!ids.length) return '';
     const cards = ids.map((id) => cardHtml(byId.get(id))).join('\n\n');
-    const blurb = escHtml(sanitizeCopy(cluster.blurb || ''));
+    // Derived count (2026-09-22): the hand-typed "N OpenChainGraph nodes" prefix
+    // is replaced by the rendered card count so it cannot drift (the stale-count
+    // class behind this pass); a blurb without the prefix gets one prepended.
+    // Source strings keep their legacy prefixes until a later batch rewrites
+    // them; the rendered page is the only load-bearing copy.
+    const derivedCount = String(ids.length);
+    let blurbText = String(cluster.blurb || '');
+    if (/^\s*\d+\s+OpenChainGraph\s+nodes\b/i.test(blurbText)) {
+      blurbText = blurbText.replace(/^\s*\d+(\s+OpenChainGraph\s+nodes\b)/i, derivedCount + '$1');
+    } else {
+      blurbText = derivedCount + ' OpenChainGraph nodes covering ' + title + '. ' + blurbText;
+    }
+    const blurb = escHtml(sanitizeCopy(blurbText));
     const guideLink = cluster.guide_url
       ? ` <a href="${escHtml(cluster.guide_url)}" style="color:var(--teal);border-bottom:1px solid rgba(20,184,166,.25)">&rarr; Guide hub &rarr;</a>`
       : '';
