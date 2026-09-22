@@ -28,6 +28,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertMarkerRegion } from './_marker-region-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -203,6 +204,21 @@ function main() {
   const infraBlock = `${INFRA_HEADING}\n${INFRA_START}\n${renderInfraMap()}\n${INFRA_END}`;
 
   let src = readFileSync(LLMS_PATH, 'utf8');
+
+  // MARKER-COUNT GUARDS (see scripts/_marker-region-lib.mjs): first-match
+  // replaces let a duplicated sentinel silently ship a stale second copy of a
+  // generated region. ESTATE-MAP: exactly one pair. AGENT-TASKS and INFRA-MAP:
+  // at most one pair each (zero is valid — the insert path below heals a
+  // first run).
+  try {
+    assertMarkerRegion(src, START, END, 'gen-estate-map (llms.txt ESTATE-MAP)');
+    assertMarkerRegion(src, AGENT_START, AGENT_END, 'gen-estate-map (llms.txt AGENT-TASKS)', { allowZero: true });
+    assertMarkerRegion(src, INFRA_START, INFRA_END, 'gen-estate-map (llms.txt INFRA-MAP)', { allowZero: true });
+  } catch (e) {
+    console.error('gen-estate-map: ' + e.message);
+    process.exit(1);
+  }
+
   const re = new RegExp(`${START}[\\s\\S]*?${END}`);
   if (!re.test(src)) {
     console.error(`gen-estate-map: sentinels ${START} / ${END} not found in llms.txt`);

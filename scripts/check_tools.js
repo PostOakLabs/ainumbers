@@ -22,7 +22,7 @@
  * Undeterminable diff (no git / unresolvable ref) BLOCKS (fail-closed) rather
  * than silently widening to a full scan — see scripts/_changed-files-lib.js.
  */
-const fs = require('fs'), path = require('path'), vm = require('vm');
+const fs = require('fs'), path = require('path'), vm = require('vm'), os = require('os'), child_process = require('child_process');
 const { resolveChangedScope, isTouched } = require('./_changed-files-lib.js');
 const REPO = path.resolve(__dirname, '..');
 const toolsDir = path.join(REPO, 'tools');
@@ -66,8 +66,28 @@ function scanInlineScripts(name, p) {
     idx++;
     if (/\bsrc\s*=/i.test(attrs)) continue;
     const tm = attrs.match(/\btype\s*=\s*["']?([^"'\s>]+)/i);
-    if (!JS_TYPES.includes(tm ? tm[1].toLowerCase() : '')) continue;
+    const type = tm ? tm[1].toLowerCase() : '';
+    if (!JS_TYPES.includes(type)) continue;
     if (!body.trim()) continue;
+    if (type === 'module') {
+      // MODULE GRAMMAR: vm.Script parses CLASSIC scripts only, so every
+      // `type="module"` block (verification-desk, kernel-vm, chaingraph/verify)
+      // was an unparseable blind spot — valid ESM failed on `export`/`import`
+      // and could never be validated. Delegate to node's own parser in ESM
+      // mode via a temp .mjs file; `node --check` exits non-zero on any
+      // syntax error and prints nothing on success.
+      const tmp = path.join(os.tmpdir(), `check_tools-${process.pid}-${idx}-${Math.random().toString(36).slice(2)}.mjs`);
+      try {
+        fs.writeFileSync(tmp, body);
+        const r = child_process.spawnSync(process.execPath, ['--check', tmp], { encoding: 'utf8' });
+        if (r.status !== 0 && !failed) {
+          failed = `script#${idx} (module): ${String(r.stderr).split('\n')[0]}`;
+        }
+      } finally {
+        try { fs.unlinkSync(tmp); } catch { /* best-effort cleanup */ }
+      }
+      continue;
+    }
     try { new vm.Script(body, { filename: `${name}#${idx}` }); }
     catch (e) { if (!failed) failed = `script#${idx}: ${String(e.message).split('\n')[0]}`; }
   }
