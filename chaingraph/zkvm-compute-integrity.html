@@ -297,7 +297,7 @@ function guest(kernel_source, policy_parameters) {
 reproducible build  =&gt;  same ImageID  =&gt;  one image covers every kernel</div>
     <p>Why it matters: the guest source is not yet public, so reproducibility is asserted by the operator; until a third party can rebuild the guest and get the same ImageID, the ImageID tells you which program the operator says runs their data.</p>
 
-    <h3>Step 5: Prove it, off-line</h3>
+    <h3>Step 5: Prove it off-line</h3>
     <p>A prover runs the guest in the zkVM and produces a STARK receipt, then wraps it into a Groth16 proof over the BN254 curve, about 200 bytes. This is heavy and happens out of band, never in a browser and never on a request path. Always with development mode off, so the receipt is real.</p>
     <div class="cap">prove (RISC0_DEV_MODE=0)</div>
     <pre class="math">STARK receipt  --wrap--&gt;  Groth16 over BN254          (~200 bytes)
@@ -339,7 +339,7 @@ verify  e(A, B)  =  e(alpha, beta) · e( vk_x, gamma ) · e(C, delta)
       </svg>
     </div>
 
-    <h3>Step 6: Attach the proof, leave the hash alone</h3>
+    <h3>Step 6: Attach the proof and leave the hash alone</h3>
     <p>The receipt rides inside the result's artifact and is excluded from the <code>execution_hash</code> preimage.</p>
     <div class="cap">artifact (excerpt)</div>
     <div class="code">"audit_signature": {
@@ -389,7 +389,7 @@ verify  e(A, B)  =  e(alpha, beta) · e( vk_x, gamma ) · e(C, delta)
       </svg>
     </div>
 
-    <h3>Step 7: Verify it, anywhere</h3>
+    <h3>Step 7: Verify it anywhere</h3>
     <p>A self-contained pairing check confirms the proof against the published ImageID and the journal. No network, no toolchain, milliseconds. This is the part a regulator or counterparty runs.</p>
     <div class="cap">verify (offline, no toolchain)</div>
     <div class="code">import { verifySeal } from "./kernels/_computeproof.mjs";   // @noble/curves bn254, zero deps
@@ -415,7 +415,7 @@ const ok = await verifySeal(
     </div>
 
     <div class="lesson">
-      <h3>Shared code inlines, it does not import</h3>
+      <h3>Shared code is inlined instead of imported</h3>
       <p>Because the guest takes the kernel source as its input, a kernel cannot pull in a shared helper by import. The guest loader resolves only the hashing helper; any other import resolves back to the kernel source and fails to instantiate. That was the cause of the lazy-import class described further below. The rule is firm: shared code a kernel needs, a number formatter, a math library, an encoder, must be inlined into the kernel file itself, so the source that hashes to the kernel digest is the source that runs. You cannot patch the guest to add a capability without changing the ImageID and invalidating every existing proof.</p>
     </div>
 
@@ -449,7 +449,7 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
     </div>
 
     <div class="lesson">
-      <h3>No fake proofs, ever</h3>
+      <h3>No fake proofs</h3>
       <p>The prover has a development mode (<code>RISC0_DEV_MODE=1</code>) that emits a fake receipt which still passes verification. A fake proof sitting in a standards repository is the worst outcome we could ship, worse than shipping no proof at all, because it looks real. We ran every single proof with <code>RISC0_DEV_MODE=0</code>, and the rule we held to was simple: if we could not produce a real proof, we shipped nothing for that kernel and said so. Hold the same line.</p>
     </div>
 
@@ -474,7 +474,7 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
       <p>Measure before you prove. The host runs the kernel in the guest in execute-only mode, which reports cycle counts and produces no proof; it needs no GPU and no lock on the proving card, so it can run while someone else is proving. Measure the maximum cycle count across every fixture vector, never just the first: one production kernel's first vector understated its worst vector by 2.9 times, and a single-vector reading would have mis-sized the job. Classify each kernel against the 30-million-cycle line at spec time, at or under it is a routine prove, above it is a SLOW job whose cost gets justified before the card is booked. Reading the cycle count first is what kept a faithful URL parser from ever reaching the prover: execute mode reported over five billion cycles, and the decision to find a cheaper predicate was made in seconds instead of after a failed overnight run.</p>
     </div>
 
-    <h3>Proving the heavy tail, animated</h3>
+    <h3>Proving the heavy tail: animated</h3>
     <p>The lessons above compress into one repeatable pipeline for a kernel too expensive to prove at default settings: measure its cycle count first with the execute-only preflight, book the proving card when it is idle instead of hoarding the job for nighttime, step the segment size down the ladder if a card runs out of memory partway through, and if it is still too costly, reach for a second, native-compiled guest image instead of the universal JS one. The diagram walks that pipeline left to right.</p>
     <div class="cap">the heavy-tail pipeline</div>
     <div class="scene" style="max-width:820px;margin:0 auto 1rem">
@@ -566,7 +566,7 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
     </div>
 
     <div class="lesson">
-      <h3>The mass rollout: one guest, a hybrid pipeline</h3>
+      <h3>The mass rollout: one guest and a hybrid pipeline</h3>
       <p>The bulk of deterministic nodes were proven in a single pipeline run: GPU-accelerated succinct proving on an RTX 3080, then a Docker-based Groth16 wrap, about five and a half hours for the full batch. Every receipt was BN254-verified and every journal byte-identical to the V8 output. Six separate gated PRs, zero dev mode. One QuickJS-ng guest (ImageID <code>a1a0bc89</code>) covered every kernel; the kernel source travels as an input, so one compiled program handles all of them.</p>
     </div>
 
@@ -595,7 +595,7 @@ deterministic isHttpsUrl, used everywhere   ~ 6.9 x 10^6 cycles   (~800x cheaper
     </div>
 
     <div class="lesson">
-      <h3>Transcendental math: four kernels, one pinned library</h3>
+      <h3>Transcendental math: four kernels and one pinned library</h3>
       <p>Four kernels used <code>Math.exp</code>, <code>Math.log</code>, or <code>Math.pow</code>, whose last bit is not guaranteed to be identical across engines by specification. A difference in the last unit in the last place means the journal does not match the canonical output, and the proof fails. Each transcendental call was replaced with a pinned pure-JS fdlibm port (<code>_detmath.bundle.mjs</code>) called identically on every surface, so V8, QuickJS, and the guest all return the same bits. This was a deliberate one-time re-baseline: the new last-bit values differ from V8's native <code>Math.*</code>, so the affected nodes' <code>execution_hash</code> values were re-pinned to the corrected results.</p>
     </div>
 
@@ -610,7 +610,7 @@ deterministic isHttpsUrl, used everywhere   ~ 6.9 x 10^6 cycles   (~800x cheaper
     </div>
 
     <div class="lesson">
-      <h3>Proving determinism holds, every push</h3>
+      <h3>Proving determinism holds on every push</h3>
       <p>A proof says "this exact program ran on these inputs and produced this output." That claim is only meaningful if the program gives the same output regardless of which JavaScript engine evaluates it. A cross-engine gate runs each kernel's fixture inputs through three engines: V8 (Node), JavaScriptCore (Bun), and the guest's QuickJS-ng; then fails if their canonical outputs differ by a single byte. It already caught a kernel that stored data with raw NUL sentinels, which V8 and QuickJS parse one way and JavaScriptCore another. The proof attests to execution; this gate attests that execution is the same everywhere, the property a decade-old proof depends on.</p>
     </div>
 
