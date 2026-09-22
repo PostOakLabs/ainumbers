@@ -7,7 +7,7 @@ import { gitEnv } from './_git-env-lib.mjs';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cosignVocabHits, insiderHits, aiVocabHits, absolutesHits, notXCount, visibleText, panelHits } from './check-copy-hallmarks.mjs';
+import { cosignVocabHits, insiderHits, aiVocabHits, absolutesHits, notXCount, visibleText, panelHits, fragHeadHits } from './check-copy-hallmarks.mjs';
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.error('  ✗ ' + m); } else console.log('  ✓ ' + m); };
@@ -119,11 +119,17 @@ ok(cosignVocabHits(removed).length === 0, '(removed) banned words swapped out ->
 // via git show, so the test proves the detector fires on the actual page
 // Tim flagged, not just a synthetic fixture.
 {
-  const oldHtml = gitShow('origin/main', 'chaingraph/agentcore-x402-hub.html');
+  // Pre-fix pin: 97067834 is the page as originally shipped (AGENTCORE-X402-
+  // HUB-1), pre-#1387-cleanup. This control originally read 'origin/main',
+  // which was correct only while the #1387 fix sat on a branch; once main
+  // carried the fixed page it went stale-red (noticed 2026-09-22 during
+  // HALLMARKS-FRAGMENT-HEADING-GATE-1; this file is not wired into preflight,
+  // so nothing had flagged it). Pinned like the daf5774b/d1649cc6 controls.
+  const oldHtml = gitShow('97067834', 'chaingraph/agentcore-x402-hub.html');
   const newHtml = readFileSync(resolve(REPO, 'chaingraph/agentcore-x402-hub.html'), 'utf8');
   const oldHits = panelHits(oldHtml);
   const newHits = panelHits(newHtml);
-  ok(oldHits.length > 0, `(pre-fix) origin/main:chaingraph/agentcore-x402-hub.html trips the PANEL detector — got ${JSON.stringify(oldHits)}`);
+  ok(oldHits.length > 0, `(pre-fix) 97067834:chaingraph/agentcore-x402-hub.html trips the PANEL detector — got ${JSON.stringify(oldHits)}`);
   ok(newHits.length === 0, `(post-fix) chaingraph/agentcore-x402-hub.html is clean of PANEL hits — got ${JSON.stringify(newHits)}`);
 }
 
@@ -142,6 +148,35 @@ ok(panelHits(inlineOnly).length === 0, `PANEL detector does not fire on a single
 // negations, not just any bullet under a "Scope" label).
 const positiveScope = '<h2>Scope</h2><ul><li>Validates the mandate-chain signature.</li><li>Checks expiry ordering.</li></ul>';
 ok(panelHits(positiveScope).length === 0, `PANEL detector does not fire on a "Scope" heading with positive (non-negation) bullets — got ${JSON.stringify(panelHits(positiveScope))}`);
+
+// --- FRAGHEAD (HALLMARKS-FRAGMENT-HEADING-GATE-1) ---
+// Positive control on the real pre-cleanup page: 5b4b762f is main immediately
+// before PR #2016 (dac1519e) hand-removed the three fragment headings; the
+// on-disk post-fix page must be clean. Same old-vs-new shape as the panel
+// control above.
+{
+  const oldHtml = gitShow('5b4b762f', 'chaingraph/conformance-explainer.html');
+  const newHtml = readFileSync(resolve(REPO, 'chaingraph/conformance-explainer.html'), 'utf8');
+  const oldHits = fragHeadHits(oldHtml);
+  const newHits = fragHeadHits(newHtml);
+  ok(oldHits.length === 3, `(pre-fix) 5b4b762f:conformance-explainer.html trips FRAGHEAD on exactly the three #2016 headings — got ${JSON.stringify(oldHits)}`);
+  ok(newHits.length === 0, `(post-fix) chaingraph/conformance-explainer.html is clean of FRAGHEAD hits — got ${JSON.stringify(newHits)}`);
+}
+
+// Synthetic tell: the exact cadence the category exists to block.
+const fragTell = '<h2>One formula, four checks</h2>';
+ok(fragHeadHits(fragTell).length === 1, `FRAGHEAD fires on the comma-splice fragment heading — got ${JSON.stringify(fragHeadHits(fragTell))}`);
+
+// Negative controls: every exemption family from the calibration, plus the
+// swept forms this WU itself wrote.
+ok(fragHeadHits('<h2>The formula and its four checks</h2>').length === 0, 'FRAGHEAD does not fire on a natural post-#2016 heading');
+ok(fragHeadHits('<h2>Tools, Guides, and Data</h2>').length === 0, 'FRAGHEAD does not fire on a coordinate list with a conjunction');
+ok(fragHeadHits('<h2>GENIUS Act Monthly Reserve Disclosure Checker, ART-275</h2>').length === 0, 'FRAGHEAD does not fire on a trailing ART node-id suffix (CONTRACT-permitted)');
+ok(fragHeadHits('<h2>in-toto Predicate: OCG Execution Receipt (v0.1, DRAFT)</h2>').length === 0, 'FRAGHEAD does not fire on a parenthetical version note');
+ok(fragHeadHits('<h2>PD, LGD, EAD to Covenant Compliance</h2>').length === 0, 'FRAGHEAD does not fire on an acronym tag-list heading');
+ok(fragHeadHits('<h2>Chains cross vendor boundaries; the graph is the product</h2>').length === 0, 'FRAGHEAD does not fire on a semicolon-joined heading');
+ok(fragHeadHits('<h2>Anchors prove time, not truth</h2>').length === 0, 'FRAGHEAD defers ", not X" headings to the notX category');
+ok(fragHeadHits('<h2>Ed25519 key lifecycle: generate, publish, sign, verify, and rotate</h2>').length === 0, 'FRAGHEAD accepts the swept serial-verb heading form');
 
 if (fail) {
   console.error(`\ncheck-copy-hallmarks.test.mjs: ${fail} FAILURE(s)`);

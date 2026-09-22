@@ -421,6 +421,7 @@ async function sha256hex(str){var buf=new TextEncoder().encode(str);var dig=awai
 async function cgHash(pp,op){return sha256hex(JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op})));}
 
 var _lastPP = null, _lastOP = null, _lastFlags = null, _lastGeneratedAt = null;
+let _lastResult = null;
 
 async function runSelector() {
   var commercial_use = document.getElementById('commercialSel').value === 'yes';
@@ -430,6 +431,24 @@ async function runSelector() {
   var res = computeSelector(pp);
   var op = res.output_payload, flags = res.compliance_flags;
   _lastPP = pp; _lastOP = op; _lastFlags = flags;
+  _lastResult = { policy_parameters: pp, output_payload: op, compliance_flags: flags };
+  paintResult();
+
+  var hash = await cgHash(pp, op);
+  document.getElementById('hashBox').textContent = hash;
+
+  document.getElementById('artifactPre').style.display = 'none';
+  _lastGeneratedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent = 'generated_at ' + _lastGeneratedAt;
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+// WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
+// paints the stored result global, so the agent path and the form path paint
+// through the same code. Reads _lastResult only; never assigns it.
+function paintResult(){
+  if (!_lastResult) return;
+  var op = _lastResult.output_payload, flags = _lastResult.compliance_flags || [];
 
   document.getElementById('tierBadge').textContent = op.tier_id + ': ' + op.label;
   document.getElementById('tierDesc').textContent = op.description;
@@ -449,9 +468,6 @@ async function runSelector() {
   document.getElementById('sourceDiv').innerHTML = '<a href="' + op.source_url + '" style="color:var(--teal-lt)">' + op.source_family + '</a> &mdash; ' + op.source_url;
   document.getElementById('disclaimerBox').textContent = op.disclaimer;
 
-  var hash = await cgHash(pp, op);
-  document.getElementById('hashBox').textContent = hash;
-
   var flagRow = document.getElementById('flagRow');
   flagRow.innerHTML = '';
   for (var i2 = 0; i2 < flags.length; i2++) {
@@ -459,11 +475,6 @@ async function runSelector() {
     b.className = 'badge ok'; b.textContent = flags[i2];
     flagRow.appendChild(b);
   }
-
-  document.getElementById('artifactPre').style.display = 'none';
-  _lastGeneratedAt = new Date().toISOString();
-  document.getElementById('generatedAt').textContent = 'generated_at ' + _lastGeneratedAt;
-  document.getElementById('resultsPanel').classList.add('show');
 }
 
 async function exportArtifact() {

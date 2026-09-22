@@ -385,12 +385,25 @@ function compute(pp) {
 
 let _result = null;
 let _artifact = null;
+let _lastResult = null;
+let _lastArtifact = null;
 let _pp = null;
 
 function runCompute() {
   _pp = readInputs();
   const r = compute(_pp);
   _result = r;
+  _lastResult = _result;
+  paintResult();
+  buildArtifact();
+}
+
+// WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
+// paints the stored result global, so the agent path and the form path paint
+// through the same code. Reads _lastResult only; never assigns it.
+function paintResult() {
+  if (!_lastResult) return;
+  const r = _lastResult;
   const o = r.output_payload;
   document.getElementById('outBody').innerHTML =
     '<div class="out-row"><span class="k">Decision</span><span class="v">' + (o.decision === 1 ? 'ABOVE THRESHOLD (1)' : 'BELOW THRESHOLD (0)') + '</span></div>' +
@@ -398,10 +411,9 @@ function runCompute() {
     '<div class="out-row"><span class="k">Threshold (fixed-point)</span><span class="v">' + o.threshold_fixp + '</span></div>' +
     '<div class="out-row"><span class="k">Quantization</span><span class="v">' + o.quant_method + ' &middot; int' + o.bits + '</span></div>' +
     '<div class="out-row"><span class="k">Float-vs-quantized agreement</span><span class="v">' + QUANTIZATION_PARITY.agreement.value + ' (' + QUANTIZATION_PARITY.n_vectors + ' vectors)</span></div>' +
-    (r.compliance_flags.length ? '<div class="flag-row">' + r.compliance_flags.map(function (f) { return '<span class="flag">' + f + '</span>'; }).join('') + '</div>' : '');
+    ((r.compliance_flags || []).length ? '<div class="flag-row">' + (r.compliance_flags || []).map(function (f) { return '<span class="flag">' + f + '</span>'; }).join('') + '</div>' : '');
   document.getElementById('resultsPanel').classList.add('visible');
   document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  buildArtifact();
 }
 
 function readInputs() {
@@ -436,6 +448,7 @@ async function buildArtifact() {
     compute_mode: 'client',
     audit_signature: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
   };
+  _lastArtifact = _artifact;
   document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
 
   ['ap2ExportBtn', 'mdBtn'].forEach(function (id) {

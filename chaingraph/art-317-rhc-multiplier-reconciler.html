@@ -394,6 +394,7 @@ const MANIFEST = {
 };
 
 let _result = null, _artifact = null;
+let _lastResult = null, _lastArtifact = null;
 const EPS = 1e-9;
 
 function compute(pp) {
@@ -469,14 +470,23 @@ function runReconciler() {
 
   const output_payload = compute(policy_parameters);
   _result = { policy_parameters, output_payload };
+  _lastResult = _result;
+  paintResult();
 
+  buildArtifact(policy_parameters, output_payload);
+}
+
+// WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
+// paints the stored result global, so the agent path and the form path paint
+// through the same code. Reads _lastResult only; never assigns it.
+function paintResult() {
+  if (!_lastResult) return;
+  const output_payload = _lastResult.output_payload;
   document.getElementById('resultsPanel').classList.add('visible');
   const vb = document.getElementById('verdictBadge');
   vb.textContent = output_payload.verdict;
   vb.className = 'verdict-badge ' + (output_payload.verdict === 'RECONCILED' ? 'pass' : 'fail');
   document.getElementById('outputJson').textContent = JSON.stringify(output_payload, null, 2);
-
-  buildArtifact(policy_parameters, output_payload);
 }
 
 async function buildArtifact(policy_parameters, output_payload) {
@@ -499,6 +509,7 @@ async function buildArtifact(policy_parameters, output_payload) {
     compute_mode: 'client',
     audit_signature: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
   };
+  _lastArtifact = _artifact;
   document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
 
   ['ap2ExportBtn', 'mdBtn'].forEach(function (id) {

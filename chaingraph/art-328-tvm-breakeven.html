@@ -395,12 +395,26 @@ function compute(pp) {
 
 let _result = null;
 let _artifact = null;
+let _lastResult = null;
+let _lastArtifact = null;
 let _pp = null;
 
 function runCompute() {
   _pp = readInputs();
   const { output_payload, compliance_flags } = compute(_pp);
   _result = { output_payload, compliance_flags };
+  _lastResult = _result;
+  paintResult();
+  buildArtifact();
+}
+
+// WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
+// paints the stored result global, so the agent path and the form path paint
+// through the same code. Reads _lastResult only; never assigns it.
+function paintResult() {
+  if (!_lastResult) return;
+  const o = _lastResult.output_payload;
+  const compliance_flags = _lastResult.compliance_flags || [];
   document.getElementById('outBody').innerHTML =
     '<div class="out-row"><span class="k">Breakeven units</span><span class="v">'+(o.breakeven_units.toFixed(2))+'</span></div>'+
     '<div class="out-row"><span class="k">Breakeven revenue</span><span class="v">'+(o.breakeven_revenue.toFixed(2))+'</span></div>'+
@@ -411,7 +425,6 @@ function runCompute() {
     (compliance_flags.length ? '<div class="flag-row">' + compliance_flags.map(function(f){return '<span class="flag">'+f+'</span>';}).join('') + '</div>' : '');
   document.getElementById('resultsPanel').classList.add('visible');
   document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  buildArtifact();
 }
 
 
@@ -448,6 +461,7 @@ async function buildArtifact() {
     compute_mode: 'client',
     audit_signature: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
   };
+  _lastArtifact = _artifact;
   document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
 
   ['ap2ExportBtn', 'mdBtn'].forEach(function(id) {
