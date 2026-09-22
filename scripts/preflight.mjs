@@ -1389,6 +1389,15 @@ const GATES = [
   ['Showcase prompts SSOT (EXAMPLE-PROMPTS-JSON-1)', 'node scripts/check-showcase-prompts.mjs'],
   ['Showcase prompts gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-prompts.mjs --self-test'],
   ['Prompt library page freshness (PROMPT-LIBRARY-PAGE-2)', 'node scripts/gen-prompts-page.mjs --check'],
+  // CHANGELOG-1 (CONTRACT Amendment A12): the public changelog is generated
+  // from LOCAL git history + the committed seed, fail-closed forward, with an
+  // in-generator internal-language leak gate (check-copy-hallmarks scans .html
+  // only — this gate is the only leak net CHANGELOG.md has). Gate string is
+  // byte-identical to derived-artifacts.mjs COVERED id 'changelog', so the
+  // generic ADVISORY_ON_PR categorisation downgrades it on a PR while it stays
+  // blocking on main. Declared PREFLIGHT_ONLY in check-workflow-gate-parity.mjs.
+  ['Public changelog freshness + leak gate (CHANGELOG-1)', 'node scripts/gen-changelog.mjs --check'],
+  ['Public changelog generator controls (fail-closed + leak-gate RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/gen-changelog.selftest.mjs'],
   ['Showcase call shape: policy_parameters wrapper + GPU in-page route (SHOWCASE-CALLSHAPE-1)', 'node scripts/check-showcase-callshape.mjs'],
   ['Helm-OpenClaw page markers + structure (HELM-OPENCLAW-PAGE-1)', 'node scripts/check-helm-openclaw-page.mjs'],
   ['Helm-OpenClaw page gate controls (RED/GREEN mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-helm-openclaw-page.test.mjs'],

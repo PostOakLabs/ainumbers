@@ -1,5 +1,5 @@
-# 📜 AINumbers.co — Unified Build Contract v1.8
-**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026 · **v1.6 (Amendment A6 — reader-facing copy style):** July 2026 · **v1.7 (Amendment A7 — ledger subdomain storage carve-out):** July 2026 · **v1.8 (Amendment A10 — Policy Mandate v1.1 `caveats` member):** August 2026  
+# 📜 AINumbers.co — Unified Build Contract v1.9
+**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026 · **v1.6 (Amendment A6 — reader-facing copy style):** July 2026 · **v1.7 (Amendment A7 — ledger subdomain storage carve-out):** July 2026 · **v1.8 (Amendment A10 — Policy Mandate v1.1 `caveats` member):** August 2026 · **v1.9 (Amendment A12 — public changelog, generated + leak-gated):** September 2026  
 
 > **SSOT for the OpenChainGraph standard = `repo/chaingraph/standard/SPEC.md`** (+ `openchain-graph-v0.4.schema.json`). This contract references it, does not restate it (Amendment A5). Conformance = the SPEC.md §15 gate suite.
 **License:** CC BY 4.0 · **Scope:** All browser-based financial tools, hubs, and MCP integrations  
@@ -695,6 +695,22 @@ The repo root carries exactly one machine-readable change feed, `rss.xml` (RSS 2
 ### A11.3 · Discovery registration
 `rss.xml` is registered for discovery in `scripts/published-dirs.json`'s `rootPages` (the shared manifest consumed by `scripts/regen-sitemap.mjs`, the sitemap's single writer, and readable by `scripts/verify_repo.py check_sitemap`). Per the established split, sitemap.xml itself is regenerated main-side after merge; a PR shipping this amendment is not required to (and must not) run `regen-sitemap.mjs`.
 
+## Amendment A12 — Public changelog: generated, leak-gated, under-reports by construction (September 2026)
+
+*Applied September 2026, closing the public-release gap that the estate shipped no product changelog at all — the only changelog in the tree (`chaingraph/standard/CHANGELOG.md`) documents the SPEC artifact, not the product. The changelog is also the first published surface for which no existing leak gate scans: `check-copy-hallmarks.mjs` reads `.html` only, and the internal-language gate's scan scope covers `.github/`, `docs/` and two named root documents, never the repo-root changelog. Numbered §A12 because §A11 is occupied by the RSS change feed amendment — nothing renumbers, nothing displaces.*
+
+### A12.1 · One public changelog, generated only — never hand-edited
+`CHANGELOG.md` at the repository root is THE product changelog. It is a **derived artifact**: `scripts/gen-changelog.mjs` renders it as a pure function of exactly two tracked inputs — this repository's **local git history** (first-parent merge commits into `main`, plus reachable tags) and the committed classification `scripts/changelog-seed.json`. The generator performs **no network I/O and consults no wall clock**, so regeneration is byte-reproducible at a given HEAD. Hand-editing the generated file is forbidden; the file itself carries that marker, and the only sanctioned change is editing the seed and regenerating. Publication is via `scripts/published-dirs.json` `rootPages`; freshness ownership is the shared single-writer set (`scripts/derived-artifacts.mjs` COVERED id `changelog`), so the post-merge regen workflow is its only writer after this amendment lands. ⛔ Board/workspace sources are never inputs — no source outside the git history and the seed may feed the changelog.
+
+### A12.2 · Fail-closed forward; under-reporting stated, not hidden
+Every merge commit and every reachable tag the history yields **MUST be classified in the seed before the changelog renders**: an unclassified key exits non-zero and names itself, and nothing is written. Historical entries were classified exactly once, into the seed; the standing duty going forward is **the pull request that lands a merge commit appends its own seed line**. A changelog derived from merge commits cannot see direct pushes to `main` or post-merge regeneration commits, so it **under-reports by construction — and the generated file's header MUST say so** in a scope note. The scope note is part of the artifact, not a comment about it.
+
+### A12.3 · The leak gate is the generator's, and it blocks the write
+Before writing, the generator scans the exact bytes about to be published for internal-language vocabulary — board row IDs, standing-order references, owner names, orchestration/session role nouns, model/vendor names, and internal workspace paths — and **refuses to write on any hit, quoting the offending line and the class**. A hit is repaired in the SEED (a curated public title), never in the generated file. Because no other gate scans this file, this in-generator gate is the changelog's only leak net, and it must be demonstrably able to go red (the paired self-test plants a leak and proves the catch).
+
+### A12.4 · Enforcement
+Hard in preflight: `gen-changelog.mjs --check` (freshness + leak gate; COVERED id `changelog`, advisory on PRs and blocking on `main`) plus `gen-changelog.selftest.mjs` (fail-closed and leak-gate mutation controls, wired as the gate's paired self-test so it runs and must stay green every push). Declared `PREFLIGHT_ONLY` in `check-workflow-gate-parity.mjs` with its reason: the CI route is the full preflight in `scripts-verify.yml`, and the single main-side writer is `derived-artifacts-regen.yml`.
+
 ---
 
 ## 🧾 §15 Claim-coverage matrix — every normative claim carries an enforcement disposition
@@ -752,6 +768,7 @@ The repo root carries exactly one machine-readable change feed, `rss.xml` (RSS 2
 | 43 | A9 the reliance hedge travels with the artifact | DISCIPLINE | HOLDS BY STAGING: no coverage gate, by A9.3's explicit ruling |
 | 44 | `repo/CLAUDE.md`: author via Write/Edit not heredoc, preflight before every push, hook opt-in | DISCIPLINE | process rules; the hook exists, and its CI backstop is row 32's fragile path |
 | 45 | A11 rss.xml is generator-written from public local signals only, registered in `rootPages` | `gen-rss.mjs` | HOLDS (new 2026-09-22): `--check` wired in preflight (COVERED id `rss`, advisory-on-PR/blocking-on-main), paired `--self-test`, single writer main-side |
+| 46 | A12 public changelog generated-only, seed fail-closed, leak-gated, under-reporting stated | `gen-changelog.mjs` + `gen-changelog.selftest.mjs` | HOLDS (134 classified merge entries at authoring; leak-gate RED-then-GREEN demonstrated; advisory-on-PR/blocking-on-main via COVERED id `changelog`) |
 
 ---
 

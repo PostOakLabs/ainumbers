@@ -362,6 +362,24 @@ const PREFLIGHT_ONLY = new Map([
     "input. The --self-test leg is the SELF_TEST shape: in-memory fixtures, reddened only by a " +
     "change to the generator itself. rss.xml escapes copy-hallmarks and the egress scans " +
     "(HTML-only) — this gate is the only net over that surface."],
+  // ── CHANGELOG-1 (2026-09-21, CONTRACT Amendment A12) ────────────────────────
+  ["gen-changelog.mjs",
+    "Public changelog freshness --check + its paired --self-test (CHANGELOG-1): re-renders " +
+    "CHANGELOG.md from LOCAL git history (first-parent merges + reachable tags) plus the " +
+    "committed classification scripts/changelog-seed.json, byte-compares, and runs the " +
+    "internal-language leak gate. Hard in preflight; its CI route is scripts-verify.yml full " +
+    "preflight (the workflow runs `node scripts/preflight.mjs`), so a named workflow step would " +
+    "only duplicate the same suite. It is ALSO the COVERED gate of derived-artifacts.mjs id " +
+    "'changelog' (advisory-on-PR / blocking-on-main via the generic downgrade), and the single " +
+    "writer is derived-artifacts-regen.yml, which regenerates it post-merge exactly like the " +
+    "sitemap and catalogs — a raw invocation anywhere PR-reachable would duplicate that writer. " +
+    "Deliberately fail-closed forward: a merge commit missing from the seed reds main-side until " +
+    "that PR's one-line seed classification lands (the designed Amendment A12 prompt; direct " +
+    "pushes, the common landing shape, never trigger it). Reads only tracked repo inputs (local " +
+    "git, committed seed) — no CI-only input, no network. The --write half is a builder command, " +
+    "never a workflow. In-memory mutation self-test: gen-changelog.selftest.mjs (its own GATES " +
+    "entry)."],
+  ["gen-changelog.selftest.mjs", SELF_TEST],
   // ── ART220-TABLE-SINGLE-WRITER-1 (2026-09-20) ───────────────────────────────
   ["check-art220-table-parity.mjs",
     "art-220 page/kernel TABLES single-writer parity + its paired mutation controls " +
