@@ -139,6 +139,7 @@ const REFERENCE_CARDS = [
   ['basel-take2-impact-assessment-guide.html', 'Guide', 'Basel Endgame 2026 Reproposal', 'Reproducing the headline capital-relief number and why it understates the picture.'],
   ['lei-kyb-worksheet-guide.html', 'Guide', 'LEI Data-Quality Grading', 'How LEI grading fits into a KYB onboarding workflow.'],
   ['division-swarm-demo.html', 'Demo', 'Division Swarm Receipt-Chain Demo', 'A drafted Division Swarm flow whose event log points at verifiable execution receipts, with a real MCP response to swap in.'],
+  ['hypermap-catalog-projection.html', 'Guide', 'HyperMap Catalog Projection', 'The AINumbers catalog as HyperMap hypermedia: one reserved key, navigable controls, and a three-hop traversal over real resources.'],
   ['fedwire-chips-address-migration-guide.html', 'Guide', 'Fedwire / CHIPS Address Migration', 'Structured-address lint, batch sweep, and remediation diff for the 2026 migration.'],
   ['fr2052a-liquidity-report-reference.html', 'Reference', 'FR 2052a Report Reference', 'The FR 2052a appendix inventory, table structure, field list, and confidentiality position, linking to the Fed’s own index.'],
 ];

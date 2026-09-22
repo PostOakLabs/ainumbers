@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>HyperMap: The AINumbers Catalog as Hypermedia · AINumbers.co</title>
+<meta name="description" content="How the HyperMap JSON hypermedia format works and how the AINumbers fintech catalog maps into it: one reserved key, navigable controls, and a three-hop traversal over real catalog resources.">
+<meta name="ain:category" content="guide">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/guides/hypermap-catalog-projection">
+<meta property="og:type" content="website">
+<meta property="og:title" content="HyperMap: The AINumbers Catalog as Hypermedia · AINumbers.co">
+<meta property="og:description" content="How the HyperMap JSON hypermedia format works and how the AINumbers fintech catalog maps into it: one reserved key, navigable controls, and a three-hop traversal over real catalog resources.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Article","headline":"HyperMap: The AINumbers Catalog as Hypermedia","url":"https://ainumbers.co/guides/hypermap-catalog-projection","description":"How the HyperMap JSON hypermedia format works and how the AINumbers fintech catalog maps into it: one reserved key, navigable controls, and a three-hop traversal over real catalog resources.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"publisher":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"license":"https://creativecommons.org/licenses/by/4.0/"}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+
+/* ── DESIGN TOKENS (SSOT guides template) ── */
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+  --accent:var(--teal);--accent-dim:var(--teal-dim);--accent-rgb:20,184,166;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* ── NAV ── */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.logo-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);line-height:1}
+.nav-links{display:flex;align-items:center;gap:1rem}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);transition:color .2s}
+.nav-link:hover{color:var(--teal)}
+.nav-end{flex:1;display:flex;justify-content:flex-end}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:6px;transition:all .2s}
+.nav-cta:hover{opacity:.85}
+
+/* ── HERO ── */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(20,184,166,.05) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.9rem);color:var(--white);max-width:760px;margin-bottom:.75rem}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:660px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+/* ── SECTIONS ── */
+.section{padding:3rem 0;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.sec-heading{font-size:clamp(1.2rem,2.2vw,1.7rem);color:var(--white);margin-bottom:.75rem}
+.sec-sub{font-size:.82rem;color:var(--body);line-height:1.75;max-width:680px;margin-bottom:2rem}
+.section p{font-size:.86rem;margin:.7rem 0;max-width:760px}
+.section a{color:var(--teal);transition:color .2s}
+.section a:hover{color:var(--white)}
+
+/* ── ARTICLE PIECES ── */
+.term{background:#060B14;border:1px solid var(--border);border-radius:var(--radius-lg);padding:.9rem 1.1rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:.78rem;overflow-x:auto;white-space:pre;line-height:1.6;max-width:760px}
+.term .in{color:var(--bright)}
+.term .out{color:var(--body)}
+.term .ok{color:var(--green)}
+.term .err{color:var(--red)}
+.term .warn{color:var(--gold)}
+.snippet{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius-lg);padding:.9rem 1.1rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:.78rem;overflow-x:auto;white-space:pre;line-height:1.6;color:var(--bright);max-width:760px}
+.lesson{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.9rem 1.2rem;margin:1.2rem 0;font-size:.82rem;max-width:760px}
+.lesson .lbl{color:var(--teal);font-weight:500}
+.mono{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--teal-lt)}
+.lbl{font-weight:600;color:var(--bright)}
+.toc{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.4rem;margin:1.4rem 0;max-width:560px;font-size:.84rem}
+.toc .lbl{color:var(--bright);font-weight:500}
+.toc ol{margin:.4rem 0 0 1.2rem}
+.toc li{margin:.25rem 0}
+/* ── STEP CARDS (quick-start pattern from the hub template) ── */
+.qs-list{list-style:none;display:flex;flex-direction:column;gap:1rem}
+.qs-item{display:flex;gap:1rem;align-items:flex-start;padding:1.1rem 1.2rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.qs-num{font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:500;color:var(--teal);width:28px;height:28px;border-radius:50%;border:1px solid rgba(20,184,166,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:.2rem}
+.qs-body{flex:1;min-width:0}
+.qs-body h4{font-family:'Sora',sans-serif;font-size:.9rem;font-weight:500;color:var(--bright);margin-bottom:.35rem}
+.qs-body p{font-size:.8rem;color:var(--body);line-height:1.7;margin:.3rem 0;max-width:720px}
+kbd{background:var(--bg-4);border:1px solid var(--border-2);border-bottom-width:3px;border-radius:5px;padding:.06rem .42rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright)}
+.copyrow{display:flex;gap:.5rem;align-items:stretch;margin:.55rem 0}
+.copyrow code{background:#060B14;border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .75rem;font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--teal-lt);flex:1;overflow-x:auto;white-space:pre}
+button.cp{background:var(--bg-3);color:var(--teal);border:1px solid var(--border-2);border-radius:var(--radius);padding:.35rem .85rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;transition:all .18s;flex-shrink:0}
+button.cp:hover{border-color:var(--teal);background:var(--teal-dim)}
+.see{border-left:3px solid var(--green);background:var(--green-dim);border-radius:0 var(--radius) var(--radius) 0;padding:.55rem .85rem;margin:.55rem 0;font-size:.78rem;color:var(--text);max-width:720px}
+.see .lbl{color:var(--green);font-weight:600}
+.see code{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright)}
+.ifnot{border-left:3px solid var(--warn);background:var(--warn-dim);border-radius:0 var(--radius) var(--radius) 0;padding:.55rem .85rem;margin:.55rem 0;font-size:.76rem;color:var(--body);max-width:720px}
+.ifnot .lbl{color:var(--warn);font-weight:600}
+.ifnot code{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text)}
+.inline{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--teal-lt);background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.04rem .32rem}
+table.tiers{border-collapse:collapse;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:.78rem;max-width:560px;width:100%}
+table.tiers td{border:1px solid var(--border);padding:.4rem .8rem}
+table.tiers td:first-child{color:var(--body)}
+table.tiers td:last-child{text-align:right;color:var(--bright)}
+table.map{border-collapse:collapse;margin:1rem 0;font-size:.8rem;max-width:760px;width:100%}
+table.map th{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);text-align:left;border-bottom:1px solid var(--border-2);padding:.5rem .8rem}
+table.map td{border-bottom:1px solid var(--border);padding:.55rem .8rem;vertical-align:top}
+table.map td:first-child{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.74rem;white-space:nowrap}
+table.map td:last-child{color:var(--body)}
+.hash{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.76rem;word-break:break-all}
+.note{color:var(--body);font-size:.8rem}
+ul.takeaways{list-style:none;margin:1rem 0;max-width:760px}
+ul.takeaways li{margin:.55rem 0;padding-left:1.4rem;position:relative;font-size:.84rem}
+ul.takeaways li::before{content:'';position:absolute;left:0;top:.55em;width:.55rem;height:.55rem;border-radius:2px;background:var(--teal-dim);border:1px solid rgba(20,184,166,.4)}
+.last-reviewed{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:1.5rem}
+
+/* ── FOOTER ── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem;position:relative;z-index:1}
+.footer-inner-ai{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+.footer-cat-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);line-height:1.4;margin-top:.15rem}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:640px){.nav-links{gap:.5rem}.hero{padding:2.5rem 0 2rem}.qs-item{flex-direction:column;gap:.6rem}}
+
+</style>
+</head>
+<body>
+
+<nav aria-label="Site navigation">
+  <div class="nav-inner">
+    <a href="../index.html" class="logo" aria-label="AINumbers.co home">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div class="logo-text">
+        <span class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></span>
+        <span class="logo-tag">HyperMap Catalog Projection</span>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html" class="nav-link">All Tools</a>
+      <a href="agentic-commerce-mcp-hub.html" class="nav-link">MCP Hub</a>
+    </div>
+    <div class="nav-end">
+      <a href="../mcp.html" class="nav-cta">MCP &#8594;</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">Guides · Reference</div>
+    <h1>One reserved key turns the AINumbers catalog into a navigable map</h1>
+    <p class="hero-desc">HyperMap is a draft JSON hypermedia format for REST APIs: every resource carries its own links and actions in a reserved <span class="mono">#</span> key, so a client discovers what it can do next by reading the payload. This guide walks through the format with quotes from its spec, then shows how the AINumbers fintech catalog projects into it, and follows a real three-hop traversal that ends on a live tool page. It is written for developers and agent builders evaluating machine-navigable interfaces to the suite.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">Reference · walkthrough with real JSON</span>
+      <span class="hero-badge badge-green">Public resources · no credentials</span>
+      <span class="hero-badge badge-gold">Upstream standard · prototype stage</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<section class="section">
+  <div class="container">
+    <div class="sec-label">Start here</div>
+    <h2 class="sec-heading">What HyperMap is, and what this page walks through</h2>
+    <p class="sec-sub">Two independently useful things meet on this page: a draft hypermedia format from All Purpose Machines, and a large fintech tool catalog that can be expressed in it.</p>
+    <p><span class="lbl">HyperMap</span> is an open-source project from <a href="https://github.com/allpurposemachines/hypermap" target="_blank" rel="noopener noreferrer">allpurposemachines/hypermap</a>. Its README defines it as "a JSON format for REST APIs built around a single reserved key, <span class="mono">#</span>, that carries hypermedia controls and executable scripts". The project also ships <span class="lbl">Mech</span>, the reference client that speaks the format, available for the browser or as a POSIX daemon.</p>
+    <p>The idea behind the format is that a resource describes itself: instead of reading separate API documentation to learn which URLs exist, a client reads the payload, finds the controls, and follows them. Every relative link resolves against the URL the resource was fetched from, so a whole API becomes a tree a client can walk without out-of-band knowledge.</p>
+    <p><span class="lbl">The AINumbers catalog</span> lists 1,185 tools across 172 categories, plus 663 ChainGraph nodes joined into 368 named workflows (live counts from the suite's generated catalog, September 2026). That catalog can be projected into a static tree of HyperMap resources: the root points at category indexes, category resources point at individual tool pages on this site, and the workflow graph rides along as chain and node resources. The walkthrough below uses fragments from a generated sample of exactly that projection, and its final hop lands on a tool page you can open right now.</p>
+    <div class="toc"><span class="lbl">On this page</span>
+      <ol>
+        <li><a href="#format">The format: quotes from the spec</a></li>
+        <li><a href="#mapping">How the catalog maps into HyperMap</a></li>
+        <li><a href="#traversal">A three-hop traversal, with real JSON</a></li>
+        <li><a href="#client">How a client consumes it</a></li>
+        <li><a href="#status">Status and notes</a></li>
+      </ol>
+    </div>
+    <div class="lesson"><span class="lbl">Scope of this page.</span> This is a reference guide authored from public sources: the upstream repository's spec and README, and AINumbers' own public catalog. The sample projection fragments were captured from a September 2026 generation of the catalog, so their embedded counts trail the live numbers quoted beside them. Post Oak Labs is not affiliated with or endorsed by All Purpose Machines.</div>
+  </div>
+</section>
+
+<section class="section" id="format">
+  <div class="container">
+    <div class="sec-label">The format</div>
+    <h2 class="sec-heading">One reserved key, three attributes, plain HTTP</h2>
+    <p class="sec-sub">Everything normative below is quoted from the HyperMap specification (<span class="mono">spec/index.bs</span> in the upstream repository), with the section it comes from named alongside.</p>
+
+    <p><span class="lbl">Media type.</span> A HyperMap resource is JSON served under its own media type (spec, "Media Type"):</p>
+    <pre class="snippet">A HyperMap resource is served with the media type
+`application/vnd.hypermap+json`.
+
+Servers MUST use this media type for all HyperMap responses. Clients SHOULD
+use this media type in `Accept` headers when requesting HyperMap resources.</pre>
+
+    <p><span class="lbl">The top level is an object.</span> The spec's "Top-Level Structure" section sets one hard structural rule:</p>
+    <pre class="snippet">The top level of a HyperMap resource MUST be a JSON object (not an array,
+string, number, boolean, or null).</pre>
+
+    <p><span class="lbl">The reserved key.</span> The spec's "The <span class="mono">#</span> Key" section reserves a single member of each object for hypermedia; the three optional attributes are condensed below:</p>
+    <pre class="snippet">The key `#` is reserved in HyperMap's JSON serialization. When present on a
+JSON object, its value MUST be a JSON object containing zero or more attributes.
+
+An attributes object MAY contain the following members:
+
+  href      a URL, absolute or relative to the resource's base URL; when
+            present, the containing object becomes a control
+  method    an HTTP method; defaults to "GET" if omitted; MUST be uppercase
+  scripts   an array of script URLs for the client to load, scoped to the
+            object that declares them</pre>
+
+    <p><span class="lbl">Controls.</span> Any object whose <span class="mono">#</span> carries an <span class="mono">href</span> is a control, the format's unit of navigation (spec, "Controls"):</p>
+    <pre class="snippet">A control is a JSON object whose attributes include an `href` value. Controls
+represent navigable references to other resources or actions that can be
+triggered.
+
+A control's `method` defaults to `"GET"` if not specified. The child nodes of
+the control (excluding the `#` key) serve as form fields. For `GET` requests,
+form data is serialized as URL query parameters.</pre>
+
+    <p><span class="lbl">Base URL resolution.</span> Relative references need no configuration; the spec's "URL Resolution" section anchors them to where the resource came from:</p>
+    <pre class="snippet">The base URL of a HyperMap resource is the URL from which the resource was
+fetched, after any redirects. All relative URLs in a resource — including
+`href` values in attributes and script URLs — are resolved against this base
+URL using the URL resolution algorithm defined in [URL].</pre>
+
+    <p><span class="lbl">A tiny example</span> from the spec's own "Controls" section shows both shapes at once: a per-item link and a collection-level action. The sibling keys of a control act as its form fields:</p>
+    <pre class="snippet">{
+  "todos": [
+    {
+      "#": { "href": "5J0rwwsyh/" },
+      "title": "Learn HyperMap",
+      "completed": false
+    }
+  ],
+  "newTodo": {
+    "#": { "href": "/todos/", "method": "POST" },
+    "title": ""
+  }
+}</pre>
+    <p class="note">Each todo carries a GET control pointing at its own resource; the <span class="inline">newTodo</span> control is a POST whose <span class="inline">title</span> child is submitted as a JSON body. In read-only trees, every control is simply a GET link.</p>
+  </div>
+</section>
+
+<section class="section" id="mapping">
+  <div class="container">
+    <div class="sec-label">The mapping</div>
+    <h2 class="sec-heading">How the AINumbers catalog becomes a resource tree</h2>
+    <p class="sec-sub">The projection is a static set of JSON files, one resource per file, each conforming to the rules above: object at the top level, one <span class="mono">#</span> control, no scripts.</p>
+    <p>The root resource announces the suite and hands out three navigable controls, one per sub-tree, plus one control per category:</p>
+    <pre class="snippet">{
+  "#": { "href": "./index.json" },
+  "title": "AINumbers Fintech Intelligence Suite — HyperMap projection",
+  "catalog": { "#": { "href": "./catalog/index.json" }, "tool_count": 1167, "category_count": 167 },
+  "chains":  { "#": { "href": "./chains/index.json" },  "chain_count": 369 },
+  "nodes":   { "#": { "href": "./nodes/index.json" },   "node_count": 643 },
+  "categories": {
+    "aml-kyc": { "#": { "href": "./catalog/aml-kyc.json" }, "tool_count": 23 },
+    "agent-economy-runtime-aer": { "#": { "href": "./catalog/agent-economy-runtime-aer.json" }, "tool_count": 4 }
+  }
+}</pre>
+    <p class="note">Abridged: two of the sample's 167 category entries are shown, with their real values. All hrefs are relative, so they resolve against wherever the tree is served from (spec, "URL Resolution"). The counts are the sample generation's; the live catalog has since grown to 1,185 tools.</p>
+
+    <p>Each part of the catalog lands in a specific place in the tree:</p>
+    <table class="map">
+      <tr><th>Catalog concept</th><th>HyperMap surface</th></tr>
+      <tr><td>Category</td><td>A resource under <span class="inline">catalog/&lt;slug&gt;.json</span>; every category is also reachable as a control on the root.</td></tr>
+      <tr><td>Tool</td><td>An entry in its category's <span class="inline">tools</span> array whose <span class="mono">#</span> control holds the tool's absolute page URL on <span class="inline">ainumbers.co</span>.</td></tr>
+      <tr><td>Named workflow</td><td>A resource under <span class="inline">chains/&lt;name&gt;.json</span>, listed by a control in the chain index; its ordered steps and handoffs ride along as data.</td></tr>
+      <tr><td>ChainGraph node and its edges</td><td>A resource under <span class="inline">nodes/&lt;tool_id&gt;.json</span> carrying the node's <span class="inline">consumes</span> and <span class="inline">feeds</span> arrays, so the graph's edges are readable without leaving the tree.</td></tr>
+      <tr><td>Every page on this site</td><td>An absolute <span class="mono">href</span>, copied from the catalog's own URL metadata, so the last hop of any walk resolves to a real, live page.</td></tr>
+    </table>
+
+    <p><span class="lbl">Why controls all the way down.</span> A bare URL string would be valid JSON data, but it would not be a control, so a client could not activate it. The projection makes every navigable reference a control, and every control a plain GET: the tree is read-only, so no <span class="mono">method</span> member is needed anywhere (the spec default applies), and no <span class="mono">scripts</span> member appears in any resource. That is a deliberate shape for a catalog: links and data only, with execution left to the pages the links point at.</p>
+  </div>
+</section>
+
+<section class="section" id="traversal">
+  <div class="container">
+    <div class="sec-label">Walkthrough</div>
+    <h2 class="sec-heading">Three hops from the root to a live tool page</h2>
+    <p class="sec-sub">Each hop activates one control. The JSON is copied from the sample projection; hop 3's destination is a page on this site, linked relatively at the end of the step.</p>
+    <ul class="qs-list">
+      <li class="qs-item"><span class="qs-num">1</span><div class="qs-body">
+        <h4>Follow the catalog control to the category index</h4>
+        <p>Activating the root's <span class="mono">catalog</span> control is a GET of <span class="mono">./catalog/index.json</span>, resolved against the root's base URL. The response is itself a HyperMap resource:</p>
+        <pre class="snippet">{
+  "#": { "href": "./catalog/index.json" },
+  "title": "Catalog categories",
+  "category_count": 167,
+  "categories": {
+    "ai-agentic": { "#": { "href": "./catalog/ai-agentic.json" }, "tool_count": 13 }
+  }
+}</pre>
+        <p class="note">Abridged: one of the 167 category controls is shown.</p>
+        <div class="see"><span class="lbl">Points at:</span> one control per category, each carrying the category's tool count as plain data a client can rank or filter on before choosing a hop.</div>
+      </div></li>
+      <li class="qs-item"><span class="qs-num">2</span><div class="qs-body">
+        <h4>Follow a category control into its tools</h4>
+        <p>Activating <span class="mono">categories.ai-agentic</span> retrieves the category resource. Its <span class="mono">tools</span> array lists the category's 13 tools; each entry is a control whose href is the tool's absolute page URL:</p>
+        <pre class="snippet">{
+  "#": { "href": "./catalog/ai-agentic.json" },
+  "name": "ai-agentic",
+  "slug": "ai-agentic",
+  "tool_count": 13,
+  "tools": [
+    {
+      "#": { "href": "https://ainumbers.co/tools/rbe-02-a2a-exception-triage.html" },
+      "name": "a2a_exception_triage",
+      "tool_id": "rbe-02-a2a-exception-triage",
+      "version": "1.1.0",
+      "tags": [],
+      "href_status": "ok"
+    }
+  ]
+}</pre>
+        <p class="note">Abridged: the first of the 13 tool entries is shown, verbatim.</p>
+        <div class="see"><span class="lbl">Points at:</span> the transition from the sample's relative links to an absolute one. Machine-readable facts (name, id, version) sit beside the link, so an agent can decide whether to hop without following it first.</div>
+      </div></li>
+      <li class="qs-item"><span class="qs-num">3</span><div class="qs-body">
+        <h4>Follow the tool control to the live page</h4>
+        <p>The first tool's control points at <span class="mono">https://ainumbers.co/tools/rbe-02-a2a-exception-triage.html</span>. That page is live on this site: <a href="../tools/rbe-02-a2a-exception-triage.html">A2A Exception Triage Console</a>. The projection carried the URL verbatim from the catalog's own metadata, so a HyperMap client's third GET lands on a real page with the tool's full interface, and so does yours.</p>
+        <div class="see"><span class="lbl">Points at:</span> the working boundary of the tree. The projection is static JSON; the destination is the site's normal tool page, reached by an ordinary GET either way.</div>
+      </div></li>
+      <li class="qs-item"><span class="qs-num">4</span><div class="qs-body">
+        <h4>Detour: read the workflow graph from the same tree</h4>
+        <p>The <span class="mono">chains</span> and <span class="mono">nodes</span> controls expose the suite's multi-tool flows. A chain index entry is a control per named flow, and a node resource carries its edges as data:</p>
+        <pre class="snippet">{
+  "#": { "href": "./chains/index.json" },
+  "title": "Chaingraph chains",
+  "chain_count": 369,
+  "chains": [
+    {
+      "#": { "href": "./chains/a2a-payment-rail-compliance.json" },
+      "name": "a2a-payment-rail-compliance",
+      "title": "A2A Payment Rail Compliance",
+      "domain": "Cross-Border &amp; Instant Payments"
+    }
+  ]
+}</pre>
+        <pre class="snippet">{
+  "#": { "href": "https://ainumbers.co/tools/503-canton-tokenization-readiness-diagnostic.html" },
+  "tool_id": "503-canton-tokenization-readiness-diagnostic",
+  "display_name": "Canton Tokenization Readiness Diagnostic",
+  "status": "live",
+  "consumes": [],
+  "feeds": [ "504-settlement-risk-capital-optimizer" ]
+}</pre>
+        <div class="see"><span class="lbl">Points at:</span> both entries abridged with real values. The node's <span class="mono">feeds</span> edge names the next node in the graph, and each chain resource lists its ordered steps with the handoff between them, so a client can reason about a whole flow before opening any page.</div>
+      </div></li>
+    </ul>
+  </div>
+</section>
+
+<section class="section" id="client">
+  <div class="container">
+    <div class="sec-label">Client side</div>
+    <h2 class="sec-heading">How a client consumes the tree</h2>
+    <p class="sec-sub">Because the format is JSON over plain HTTP, three very different clients read the same resources without adaptation.</p>
+    <ul class="qs-list">
+      <li class="qs-item"><span class="qs-num">1</span><div class="qs-body">
+        <h4>Any HTTP and JSON tooling</h4>
+        <p>A resource is a static JSON object. Request it with the media type in the Accept header, parse it, and read the <span class="mono">#</span> member to find what to do next. Where the tree is hosted is a deployment choice; the command below shows the request shape against a placeholder host:</p>
+        <div class="copyrow"><code>curl -s https://host/hypermap/index.json -H 'Accept: application/vnd.hypermap+json'</code><button class="cp" onclick="cp(this,'curl -s https://host/hypermap/index.json -H \'Accept: application/vnd.hypermap+json\'')">Copy</button></div>
+        <p>Standard JSON tools such as <span class="mono">jq</span> work unchanged, because the hypermedia lives in an ordinary key.</p>
+      </div></li>
+      <li class="qs-item"><span class="qs-num">2</span><div class="qs-body">
+        <h4>Mech, the reference client</h4>
+        <p>Mech parses a resource into a node tree and activates controls on request: open the root, then activate a control by its path in the tree. The three hops above correspond to activating <span class="mono">catalog</span>, then <span class="mono">categories.ai-agentic</span>, then the tool entry. The upstream repository's documentation is the authority on the CLI surface:</p>
+        <div class="copyrow"><code>mech open https://host/hypermap/index.json</code><button class="cp" onclick="cp(this,'mech open https://host/hypermap/index.json')">Copy</button></div>
+        <p>From there, <span class="mono">mech use</span> follows a control and renders the response as a new tree. The repo also ships a browser shim and an example server, so the client side can be exercised entirely against public code.</p>
+      </div></li>
+      <li class="qs-item"><span class="qs-num">3</span><div class="qs-body">
+        <h4>An agent or script following hrefs</h4>
+        <p>The traversal rules a program needs are short: GET the root; collect every object with a <span class="mono">#</span> containing an <span class="mono">href</span>; resolve relative values against the URL of the resource they came from; GET defaults when <span class="mono">method</span> is absent; stop at absolute URLs, which lead out of the tree and onto the site's own pages. The catalog projection adds plain data fields (counts, ids, tags, graph edges) next to the controls, which is what lets an agent choose a hop instead of crawling blind.</p>
+        <div class="see"><span class="lbl">Where this fits in the suite:</span> the same catalog is reachable as <a href="../mcp/catalog.json">mcp/catalog.json</a> and through the MCP server at <a href="../mcp.html">mcp.html</a>; the HyperMap tree is a third, link-first projection of the same tools. For the receipt side of agent integrations, see the <a href="division-swarm-demo.html">Division Swarm receipt-chain demo</a>.</div>
+      </div></li>
+    </ul>
+  </div>
+</section>
+
+<section class="section" id="status">
+  <div class="container">
+    <div class="sec-label">Status and notes</div>
+    <h2 class="sec-heading">What to weigh before building on this</h2>
+    <div class="lesson"><span class="lbl">The upstream standard is a prototype.</span> The project's own README states: "Both the HyperMap standard and Mech are in prototype stage. Expect significant changes!" Treat the spec quotes above as the format's current shape, pinned to the repository as of September 2026, and re-check them after upstream changes.</div>
+    <div class="lesson"><span class="lbl">Sample versus live counts.</span> The fragments were captured from a September 2026 generation of the projection, whose root reports 1,167 tools across 167 categories; the live catalog stands at 1,185 tools across 172 categories with 663 ChainGraph nodes and 368 named workflows. Regenerating the tree from the catalog updates both the counts and the links in one pass.</div>
+    <div class="lesson"><span class="lbl">The media type rides on the transport.</span> <span class="mono">application/vnd.hypermap+json</span> is a response header a server sets, not a member inside the JSON, so a static file tree needs a server (or a client default) to be served under the right type. The resources themselves carry no <span class="mono">scripts</span> member: the sample is data and links only, which the spec permits since the attributes are a MAY.</div>
+    <div class="last-reviewed">Guide authored September 2026 · spec and catalog quotes verified against public sources at authoring time</div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <div>
+        <div class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers.co</div>
+        <div class="footer-cat-tag">Guides · HyperMap Catalog Projection</div>
+      </div>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="index.html">Guides</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener noreferrer">Post Oak Labs</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>Zero PII · Client-Side</span>
+      <span style="color:var(--teal)">HyperMap · Reference Guide</span>
+    </div>
+  </div>
+</footer>
+<script>
+function cp(btn, text){ navigator.clipboard.writeText(text).then(()=>{ const o=btn.textContent; btn.textContent='Copied'; setTimeout(()=>btn.textContent=o, 1200); }); }
+</script>
+</body>
+</html>
