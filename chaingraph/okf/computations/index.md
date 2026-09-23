@@ -623,6 +623,7 @@ status: stable
 - [Education Funding Gap Calculator](./art-688-education-funding-gap-calculator.md)
 - [Pack Dependency Map](./art-689-pack-dependency-map.md)
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md)
+- [Regulatory Obligations Register](./art-691-regulatory-obligations-register.md)
 - [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md)
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md)
 - [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md)

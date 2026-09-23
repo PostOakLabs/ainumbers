@@ -621,6 +621,7 @@ status: stable
 - [Education Funding Gap Calculator](./art-688-education-funding-gap-calculator.md) — `compute_education_funding_gap_calculator`
 - [Pack Dependency Map](./art-689-pack-dependency-map.md) — `compute_pack_dependency_map`
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md) — `calculate_cbam_embedded_emissions`
+- [Regulatory Obligations Register](./art-691-regulatory-obligations-register.md) — `compute_regulatory_obligations_register`
 - [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md) — `resolve_cbam_default_value`
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md) — `model_cbam_certificate_cost`
 - [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md) — `aggregate_cbam_precursor_emissions`
