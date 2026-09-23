@@ -179,6 +179,7 @@ const CLUSTERS = [
       'chaingraph/agentcore-x402-hub.html',
       'chaingraph/guide-agent-economy-runtime.html',
       'guides/agentic-rail-scenario.html',
+      'guides/hypermap-catalog-projection.html',
       'guides/mcp-clone-guide.html',
       'guides/mcp-agent-demo.html',
       'guides/webmcp-demo-1.html',
