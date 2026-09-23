@@ -346,6 +346,16 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── SITEMAP-DEPLOY-SPLIT-1 (2026-09-23) ─────────────────────────────────────
+  ["verify_repo_sitemap_context.test.mjs",
+    "Three-state wiring control for the verify_repo sitemap leg's PR-advisory / merge_group-" +
+    "DERIVED_ROOT / main-hard split (modeled on check-compute-proof-coverage.test.mjs, which is " +
+    "wired into land-verify.yml directly because ITS gate is merge_group-blocking there). This " +
+    "control's subject runs in CI inside scripts-verify.yml's full preflight and inside " +
+    "land-verify's own verify contexts; the control itself drives the REAL script against a " +
+    "scratch skeleton repo in three env configurations — a workflow step would only re-run the " +
+    "same assertions preflight already runs in CI. The paired gate is COVERED id " +
+    "'sitemap-deploy-coverage' in derived-artifacts.mjs."],
   // ── FEED-TWINS-1 (2026-09-22) ───────────────────────────────────────────────
   ["gen-rss.mjs",
     "RSS change feed --check + its paired --self-test (FEED-TWINS-1): renders rss.xml from " +
@@ -1071,6 +1081,16 @@ const DECLARED_DIVERGENCES = new Map([
 // would treat them as unrelated commands and an argument-drift typo on an
 // advisory gate would read as "consistent" because it matched nothing (hole (d)).
 const DISTINCT_LEGS = new Map([
+  ["python scripts/verify_repo.py --changed ${changedRef}", {
+    sibling: "python scripts/verify_repo.py",
+    decided: "2026-09-23 (SITEMAP-DEPLOY-SPLIT-1)",
+    why:
+      "The --changed form is preflight's LOCAL incremental scope of the SAME deploy gate (CI never " +
+      "passes --changed; preflight.mjs:201). Locally GITHUB_EVENT_NAME is absent, so the sitemap leg " +
+      "is HARD there by the whitelist-of-PR-proofs — the expected-red attestation path covers a " +
+      "deliberate local push of a page-adding branch. Same script, same leg, scope argument only — " +
+      "not argument drift.",
+  }],
   ["node scripts/assemble-chaingraph.mjs --out \"${SCRATCH}/chaingraph/chaingraph.json\"", {
     sibling: "node scripts/assemble-chaingraph.mjs --check",
     decided: "2026-09-06 (merge-group hard-gates row)",
