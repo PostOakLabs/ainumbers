@@ -124,7 +124,7 @@ async function selfTest() {
     writeFileSync(schemaPath, schemaBytes);
     const twinPath = join(tmp, 'twin.json');
     writeFileSync(twinPath, schemaBytes);
-    const base = { cardPath: join(tmp, 'card.json'), schemaPath, twinPath, expectedCount: 720 };
+    const base = { cardPath: join(tmp, 'card.json'), schemaPath, twinPath, expectedCount: await mcpLiveCount() };
 
     const tampered = (mutate) => {
       const c = JSON.parse(JSON.stringify(realCard));
