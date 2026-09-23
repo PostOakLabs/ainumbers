@@ -666,6 +666,18 @@ const PREFLIGHT_ONLY = new Map([
     "repo files — no CI-only input; pre-existing divergences are baselined WARN with a downward ratchet."],
   ["check-deeplink-contract.test.mjs", SELF_TEST],
 
+  // ── WEBMCP-WRAPPER-OBJECT-PARAMS-1 (2026-09-23) ──────────────────────────
+  ["check-webmcp-wrapper-execute.mjs",
+    "Wrapper-execute vm gate on every registered WebMCP page (WEBMCP-WRAPPER-OBJECT-PARAMS-1): " +
+    "drives fixture-0 policy_parameters through the registered tool's execute() body in the same " +
+    "node:vm execution model as the deep-link gate and asserts the call settles with the fixture " +
+    "execution_hash — the door the art-118 String(object) wedge shipped through (the deep-link " +
+    "readers never call execute()). Hard in preflight; its CI route is scripts-verify.yml's full " +
+    "preflight, so a named workflow step would only duplicate the same suite. Reads only tracked " +
+    "repo files — no CI-only input; pre-existing wrapper-path divergences are baselined WARN with " +
+    "a downward ratchet (scripts/webmcp-wrapper-execute-baseline.json)."],
+  ["check-webmcp-wrapper-execute.test.mjs", SELF_TEST],
+
   // ── EXAMPLE-PROMPTS-JSON-1 (2026-09-05) ──────────────────────────────────
   ["check-showcase-prompts.mjs",
     "Showcase-prompts SSOT gate (tools[] liveness, body/tool consistency, enums, " +

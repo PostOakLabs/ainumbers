@@ -1228,6 +1228,15 @@ const GATES = [
   // fixture/manifest/page divergences are baselined WARN (downward ratchet).
   ['Deep-link contract (fragment-only prefill+run)', 'node scripts/check-deeplink-contract.mjs'],
   ['Deep-link contract gate controls', 'node scripts/check-deeplink-contract.test.mjs'],
+  // WEBMCP-WRAPPER-OBJECT-PARAMS-1: the wrapper-execute vm gate. The deep-link
+  // gate above never calls the REGISTERED tool's execute() body — the door the
+  // art-118 String(object) wedge shipped through (a real host's execute()
+  // promise never settles). This gate drives fixture-0 policy_parameters
+  // through every registered execute() in the same vm execution model and
+  // asserts it settles with the fixture execution_hash. Pre-existing
+  // wrapper-path divergences are baselined WARN (downward ratchet).
+  ['WebMCP wrapper-execute (fixture-0 params through every registered execute body)', 'node scripts/check-webmcp-wrapper-execute.mjs'],
+  ['WebMCP wrapper-execute gate controls (art-118 wedge-class RED + live golden GREEN)', 'node scripts/check-webmcp-wrapper-execute.test.mjs'],
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
   // REGISTRY-RESOLVE-STATIC-1: positive-half kernel_digest -> spec_digest resolution
   // records (registry/kernel/<hex>.json). NODE-FANOUT-REGEN-CLOSE-1 (2026-08-21)
