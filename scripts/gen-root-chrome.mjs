@@ -28,6 +28,7 @@ const PAGES = [
   'index.html', 'start.html',
   'contact.html', 'convert.html', 'credits.html', 'methods.html',
   'groth16.html', 'mechanical.html',
+  'groth16-explainer.html', 'mechanical-explainer.html',
   'security.html', 'suggest.html', 'fv-explainer.html',
   'helm.html', 'sitemap.html', 'tools.html',
   // HUB-CHROME-GATE-1 (2026-08-22): 2 of the 14 hand-synced root pages named by

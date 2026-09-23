@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>How a Groth16 Receipt Is Made | AINumbers.co: An Interactive Explainer</title>
+<meta name="description" content="Six drawn scenes follow one real compute receipt from the kernel that produced it to the checks that bind it: the two lanes that meet in a node file, the fields of the receipt, the three bindings that make it count, and the four ways to verify one.">
+<meta name="ain:category" content="learn">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/groth16-explainer.html">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="How a Groth16 Receipt Is Made | AINumbers.co">
+<meta property="og:description" content="The two lanes that produce a receipt, the fields that carry it, the bindings that make it count, and the four ways to check it.">
+<meta property="og:url" content="https://ainumbers.co/groth16-explainer.html">
+<meta property="og:site_name" content="AINumbers.co">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:site" content="@ainumbers">
+<meta name="twitter:title" content="How a Groth16 Receipt Is Made | AINumbers.co">
+<meta name="twitter:description" content="Six drawn scenes from kernel source to verified receipt.">
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+
+<!-- Schema.org: WebPage -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://ainumbers.co/#org",
+      "name": "AINumbers.co",
+      "url": "https://ainumbers.co",
+      "parentOrganization": { "@type": "Organization", "name": "Post Oak Labs", "url": "https://postoaklabs.com" }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://ainumbers.co/groth16-explainer.html",
+      "name": "How a Groth16 Receipt Is Made",
+      "url": "https://ainumbers.co/groth16-explainer.html",
+      "description": "Six drawn scenes from kernel source to verified compute receipt.",
+      "isPartOf": { "@id": "https://ainumbers.co/#org" },
+      "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://ainumbers.co" },
+          { "@type": "ListItem", "position": 2, "name": "Methods", "item": "https://ainumbers.co/methods.html" },
+          { "@type": "ListItem", "position": 3, "name": "Groth16 Receipts", "item": "https://ainumbers.co/groth16.html" },
+          { "@type": "ListItem", "position": 4, "name": "Groth16 Explainer", "item": "https://ainumbers.co/groth16-explainer.html" }
+        ]
+      }
+    }
+  ]
+}
+</script>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1000px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* Nav */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.logo-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);line-height:1}
+.nav-links{display:flex;align-items:center;gap:20px}
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);transition:color .2s}
+.nav-links a:hover{color:var(--teal-lt)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg)!important;background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:6px;transition:all .2s}
+.nav-cta:hover{opacity:.85}
+
+/* Hero */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(20,184,166,.05) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.9rem,3.6vw,2.9rem);color:var(--white);max-width:780px;margin-bottom:.9rem}
+.hero-desc{font-size:.95rem;color:var(--body);max-width:680px;line-height:1.9;margin-bottom:1.5rem}
+
+/* Section */
+.section{padding:3.25rem 0;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.section:last-of-type{border-bottom:none}
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem}
+.sec-heading{font-size:clamp(1.2rem,2.2vw,1.7rem);color:var(--white);margin-bottom:1rem}
+.prose{max-width:720px}
+.prose p{font-size:.92rem;color:var(--body);line-height:1.95;margin-bottom:1.1rem}
+.prose p:last-child{margin-bottom:0}
+.prose a{color:var(--teal-lt);border-bottom:1px solid rgba(45,212,191,.3);transition:opacity .2s}
+.prose a:hover{opacity:.75}
+.prose code{font-family:'JetBrains Mono',monospace;font-size:.9em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+.prose pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.2rem 1.4rem;overflow-x:auto;margin-bottom:1.1rem;scrollbar-color:var(--border-2) var(--bg-3);scrollbar-width:thin}
+.prose pre code{background:none;padding:0;color:var(--text);font-size:.74rem;line-height:1.75}
+
+/* Stage meta row */
+.stage-meta{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin:.2rem 0 1.1rem}
+.lvl-badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;padding:.22rem .6rem;border-radius:99px;border:1px solid rgba(45,212,191,.35);color:var(--teal-lt);background:var(--teal-dim)}
+.lvl-badge.lvl-adv{border-color:rgba(155,114,245,.4);color:var(--purple);background:var(--purple-dim)}
+.spec-chip{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;padding:.24rem .6rem;border-radius:99px;border:1px solid var(--border-2);color:var(--gold);background:var(--gold-dim)}
+.spec-chip:hover{border-color:rgba(212,168,71,.5)}
+.stage-copylink{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:none;border:1px solid var(--border);border-radius:99px;padding:.24rem .6rem;transition:color .2s,border-color .2s}
+.stage-copylink:hover{color:var(--teal-lt);border-color:rgba(45,212,191,.4)}
+
+/* Table of contents */
+.toc{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.2rem 1.4rem;margin:0 0 1rem}
+.toc-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.7rem}
+.toc-note{font-size:.78rem;color:var(--muted);margin-bottom:.9rem;line-height:1.6;max-width:680px}
+.toc-list{list-style:decimal;padding-left:1.4rem;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:.35rem 2rem}
+@media(max-width:720px){.toc-list{grid-template-columns:1fr}}
+.toc-list li{font-size:.82rem;color:var(--body);line-height:1.4;padding-left:.2rem}
+.toc-list a{color:var(--bright)}
+.toc-list a:hover{color:var(--teal-lt)}
+
+/* Scenes (drawn SVG figures) */
+.scene{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:1.4rem 1.2rem .9rem;margin:1.3rem 0 .9rem;overflow-x:auto}
+.scene svg{display:block;margin:0 auto;max-width:100%;height:auto}
+.scene-caption{display:flex;gap:.55rem;align-items:baseline;font-size:.74rem;color:var(--muted);line-height:1.7;padding:.55rem .4rem .35rem;border-top:1px solid var(--border);margin-top:.9rem}
+.scene-caption .dot{flex-shrink:0;width:7px;height:7px;border-radius:99px;background:var(--teal);position:relative;top:-1px}
+.scene-note{font-size:.78rem;color:var(--muted);line-height:1.7;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;margin:.9rem 0;max-width:720px}
+
+/* Interaction rows under scenes */
+.iact-row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin:.4rem 0 .6rem;max-width:720px}
+.iact-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;padding:.5rem .95rem;border-radius:var(--radius);border:1px solid var(--border-2);background:var(--bg-3);color:var(--text);transition:all .2s}
+.iact-btn:hover{border-color:rgba(20,184,166,.45);color:var(--teal-lt)}
+.iact-btn.on{border-color:var(--teal);color:var(--teal-lt);background:var(--teal-dim)}
+.iact-btn.on.bad-state{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+.iact-status{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted)}
+.verdict{font-size:.82rem;color:var(--body);line-height:1.8;background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.8rem 1rem;margin:.4rem 0 .6rem;max-width:720px;min-height:2.6rem}
+.verdict.bad{border-left-color:var(--red)}
+
+/* Field reader (stage 2) */
+.reader-grid{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:1.2rem;align-items:start;margin:1.3rem 0 .6rem}
+@media(max-width:860px){.reader-grid{grid-template-columns:1fr}}
+.reader-panel{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:1.1rem 1.2rem}
+.reader-kicker{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem}
+.reader-title{font-family:'Sora',sans-serif;font-size:.95rem;font-weight:500;color:var(--bright);margin-bottom:.55rem}
+.reader-desc{font-size:.8rem;color:var(--body);line-height:1.8;margin-bottom:.8rem}
+.reader-check{font-size:.72rem;color:var(--muted);line-height:1.7;border-top:1px solid var(--border);padding-top:.7rem}
+.reader-check .mech-tag{color:var(--teal-lt)}
+.mech-tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;color:var(--teal-lt)}
+
+/* Concept cards */
+.concepts-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin:1.2rem 0 .4rem}
+@media(max-width:720px){.concepts-grid{grid-template-columns:1fr}}
+.concept-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.15rem 1.25rem;transition:border-color .2s}
+.concept-card:hover{border-color:rgba(20,184,166,.35)}
+.concept-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.45rem}
+.concept-title{font-family:'Sora',sans-serif;font-size:.9rem;font-weight:500;color:var(--bright);margin-bottom:.4rem}
+.concept-desc{font-size:.78rem;color:var(--body);line-height:1.75}
+.concept-desc code{font-family:'JetBrains Mono',monospace;font-size:.9em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+
+/* Depth rows */
+.depth-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.9rem 1.1rem;margin:1rem 0;max-width:760px}
+.depth-row{display:flex;gap:.9rem;align-items:flex-start;padding:.55rem 0}
+.depth-row + .depth-row{border-top:1px solid var(--border)}
+.depth-badge{flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);background:var(--gold-dim);border:1px solid rgba(212,168,71,.3);border-radius:4px;padding:.22rem .5rem;min-width:5.4rem;text-align:center}
+.depth-text{font-size:.78rem;color:var(--body);line-height:1.75}
+.depth-text code{font-family:'JetBrains Mono',monospace;font-size:.9em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+
+/* Stage links + CTA */
+.stage-links{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin:1.2rem 0 0}
+.stage-links-label{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.stage-link{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:99px;padding:.32rem .8rem;transition:background .2s}
+.stage-link:hover{background:var(--teal-dim)}
+.stage-link.try-live{color:var(--gold);border-color:rgba(212,168,71,.35)}
+.cta-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;padding:.65rem 1.2rem;border-radius:var(--radius);border:1px solid var(--teal);transition:all .2s}
+.btn-primary{background:var(--teal);color:var(--bg)}
+.btn-primary:hover{opacity:.85}
+.btn-ghost{background:transparent;color:var(--teal-lt)}
+.btn-ghost:hover{background:var(--teal-dim)}
+
+/* Toast */
+#toast{position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%) translateY(20px);background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;padding:.55rem 1rem;border-radius:var(--radius);opacity:0;pointer-events:none;transition:all .25s;z-index:400}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ROOT-FOOTER-CSS:START */
+/* OCG-ROOT-FOOTER-CSS:v1 */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+/* ROOT-FOOTER-CSS:END */
+
+@media(max-width:760px){
+  .nav-links a:not(.nav-cta){display:none}
+  .container{padding:0 1.25rem}
+}
+</style>
+</head>
+<body>
+
+<nav aria-label="Site navigation">
+  <div class="nav-inner">
+    <a href="index.html" class="logo" aria-label="AINumbers.co home">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+        <div class="logo-tag">Fintech Intelligence Suite</div>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="index.html#cat-1">Infrastructure</a>
+      <a href="chaingraph/chaingraph-hub.html">OpenChainGraph</a>
+      <a href="about.html">About</a>
+      <a href="methods.html">Methods</a>
+      <a href="start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+<!-- Hero -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">Compute proofs &middot; Interactive explainer</div>
+    <h1>How a Groth16 receipt is made, and what it binds</h1>
+    <p class="hero-desc">A drawn companion to the <a href="groth16.html">Groth16 receipts reference page</a>. Six scenes follow one real receipt from the kernel that produced it to the checks that keep it accurate: the two lanes that meet in a node file, the fields a verifier reads, the three bindings that make the receipt count for the published result, and the four ways to check one yourself. Every value shown is a real value from the public repository. Written for auditors and engineers meeting a zkVM receipt for the first time.</p>
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="section" style="padding:2.2rem 0 2.4rem">
+  <div class="container">
+    <div class="toc" role="navigation" aria-label="Contents">
+      <div class="toc-title">On this page</div>
+      <div class="toc-note">Ordered from what a receipt has to establish to where its authority stops. The matching normative text is <a href="chaingraph/standard/SPEC.md" style="color:var(--bright)">section 18 of the OpenChainGraph specification</a>; the prose reference is <a href="groth16.html" style="color:var(--bright)">Groth16 Receipts</a>.</div>
+      <ol class="toc-list">
+        <li><a href="#g16-foundation">Before stage 1: what has to be proved</a></li>
+        <li><a href="#g16-two-lanes">Stage 1 &middot; The two lanes that meet in a node file</a></li>
+        <li><a href="#g16-anatomy">Stage 2 &middot; Anatomy of the receipt</a></li>
+        <li><a href="#g16-triangle">Stage 3 &middot; The binding triangle</a></li>
+        <li><a href="#g16-pairing">Stage 4 &middot; What the seal check does</a></li>
+        <li><a href="#g16-four-ways">Stage 5 &middot; The four ways to verify and their trust roots</a></li>
+        <li><a href="#g16-boundary">Stage 6 &middot; Where the seal stops</a></li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FOUNDATION ═══ -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Before stage 1 &middot; Foundation</div>
+    <h2 class="sec-heading" id="g16-foundation">What has to be proved</h2>
+    <div class="stage-meta"><span class="lvl-badge">Beginner</span><a class="spec-chip" href="chaingraph/standard/SPEC.md" title="The normative compute-integrity section">Normative version: SPEC &sect;18</a><button class="stage-copylink" type="button" onclick="copyStageLink('g16-foundation')">Copy link</button></div>
+    <div class="prose">
+      <p>A receipt is a claim about one execution. For the claim to be worth anything, three facts have to hold together: the execution ran a specific program, the program ran to completion under the zkVM, and it committed exactly one output. Leave any of the three out and the remaining two prove almost nothing: a proof over an unnamed binary binds to whatever binary the prover happened to run, and a proof over an unnamed output could be carried to any result on the page.</p>
+      <p>Groth16 compresses all three facts into a seal of a few hundred bytes. The compression is the point: the original run may have taken minutes of zkVM time, but checking the seal afterwards takes milliseconds, on any machine, with no access to the original inputs and no re-run of the computation. Minutes of proving, paid once by the publisher, become milliseconds of checking, available to everyone.</p>
+    </div>
+    <div class="scene">
+      <svg viewBox="0 0 680 216" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three facts, which program ran, that it ran to completion, and what it committed, compressed into one receipt">
+        <defs>
+          <style>
+            #g0 .lab { font-family:Sora,sans-serif; font-size:11px; font-weight:600; fill:#d4e8f8; }
+            #g0 .sub { font-family:'JetBrains Mono',monospace; font-size:8px; fill:#6888a8; }
+            #g0 .tl  { fill:#14b8a6; }
+            #g0 .gn  { fill:#22c55e; }
+            #g0 .box { fill:#0c1a2e; stroke:#14b8a6; stroke-width:1.5; }
+            #g0 .arr { fill:none; stroke:#14b8a6; stroke-width:1.5; opacity:.0; animation:g0f .5s ease-out forwards; }
+            #g0 .stp { opacity:0; animation:g0f .6s ease-out forwards; }
+            #g0 #g0b1 { animation-delay:.2s } #g0 #g0b2 { animation-delay:.45s } #g0 #g0b3 { animation-delay:.7s }
+            #g0 #g0a1 { animation-delay:.9s }  #g0 #g0a2 { animation-delay:.9s }  #g0 #g0a3 { animation-delay:.9s }
+            #g0 #g0rc { opacity:0; animation:g0f .7s ease-out forwards 1.6s; }
+            @keyframes g0f { to { opacity:1; } }
+          </style>
+          <marker id="g0m" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#14b8a6"/></marker>
+        </defs>
+        <g id="g0">
+          <g id="g0b1" class="stp"><rect class="box" x="16" y="24" width="196" height="62" rx="7"/><text class="lab" x="114" y="50" text-anchor="middle">which program</text><text class="sub tl" x="114" y="70" text-anchor="middle">imageId</text></g>
+          <g id="g0b2" class="stp"><rect class="box" x="242" y="24" width="196" height="62" rx="7"/><text class="lab" x="340" y="50" text-anchor="middle">ran to completion</text><text class="sub tl" x="340" y="70" text-anchor="middle">zkVM execution</text></g>
+          <g id="g0b3" class="stp"><rect class="box" x="468" y="24" width="196" height="62" rx="7"/><text class="lab" x="566" y="50" text-anchor="middle">committed this output</text><text class="sub tl" x="566" y="70" text-anchor="middle">journal</text></g>
+          <path id="g0a1" class="arr" d="M114,86 L310,148" marker-end="url(#g0m)"/>
+          <path id="g0a2" class="arr" d="M340,86 L340,148" marker-end="url(#g0m)"/>
+          <path id="g0a3" class="arr" d="M566,86 L370,148" marker-end="url(#g0m)"/>
+          <g id="g0rc"><rect x="240" y="152" width="200" height="48" rx="7" fill="#0c1a2e" stroke="#22c55e" stroke-width="1.5"/><text class="lab gn" x="340" y="172" text-anchor="middle" font-size="12">one Groth16 receipt</text><text class="sub" x="340" y="190" text-anchor="middle">a few hundred bytes</text></g>
+        </g>
+      </svg>
+      <div class="scene-caption"><span class="dot"></span>three facts about one execution &rarr; one succinct seal &middot; checking replaces re-running</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STAGE 1 · TWO LANES ═══ -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Stage 1 of 6</div>
+    <h2 class="sec-heading" id="g16-two-lanes">The two lanes that meet in a node file</h2>
+    <div class="stage-meta"><span class="lvl-badge">Beginner</span><a class="spec-chip" href="chaingraph/standard/SPEC.md" title="The normative compute-integrity section">Normative version: SPEC &sect;18</a><button class="stage-copylink" type="button" onclick="copyStageLink('g16-two-lanes')">Copy link</button></div>
+    <div class="prose">
+      <p>A receipt has two parents that never meet in time. The publish lane is fast: kernel source, its digest, the guest binary built for the zkVM, its <code>imageId</code>, and the node's recorded inputs all land in the repository like any other code. The prove lane is heavy: the guest runs inside the zkVM, the journal is committed, and a prover produces the Groth16 seal over a Rust toolchain with real compute behind it. Only when both lanes are done does the receipt, the pair of <code>imageId</code> and seal and journal, take its place in the node file next to the code it attests.</p>
+    </div>
+    <div class="scene">
+      <svg viewBox="0 0 760 332" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Publish lane: kernel source, kernel digest, guest binary, imageId, recorded inputs. Prove lane: zkVM execution, journal, prover, seal. Both meet in the node file under compute_proof.">
+        <defs>
+          <style>
+            #g1 .lab { font-family:Sora,sans-serif; font-size:10.5px; font-weight:600; fill:#d4e8f8; }
+            #g1 .sub { font-family:'JetBrains Mono',monospace; font-size:8px; fill:#6888a8; }
+            #g1 .tl  { fill:#14b8a6; } #g1 .pp { fill:#9b72f5; } #g1 .gn { fill:#22c55e; } #g1 .gl { fill:#d4a847; }
+            #g1 .lane { font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:.18em; }
+            #g1 .box { fill:#0c1a2e; stroke-width:1.5; }
+            #g1 .stp { opacity:0; animation:g1f .6s ease-out forwards; }
+            #g1 .arr { fill:none; stroke-width:1.5; opacity:0; stroke-dasharray:150; stroke-dashoffset:150; animation:g1d .7s ease-out forwards; }
+            #g1 #g1nf { opacity:0; animation:g1f .7s ease-out forwards .3s; }
+            #g1 #g1a1 { animation-delay:1.0s } #g1 #g1a2 { animation-delay:1.3s } #g1 #g1a3 { animation-delay:1.6s }
+            #g1 #g1a4 { animation-delay:2.3s } #g1 #g1a5 { animation-delay:2.6s } #g1 #g1a6 { animation-delay:3.1s } #g1 #g1a7 { animation-delay:3.6s }
+            #g1 #g1a8 { animation-delay:4.1s }
+            #g1 #g1p1 { animation-delay:2.0s } #g1 #g1p2 { animation-delay:2.3s } #g1 #g1p3 { animation-delay:2.6s } #g1 #g1p4 { animation-delay:2.9s }
+            #g1 #g1cp { opacity:0; animation:g1f .6s ease-out forwards 3.9s; }
+            #g1 #g1dp { animation:g1p 2.2s ease-in-out infinite 4.4s; }
+            @keyframes g1f { to { opacity:1; } }
+            @keyframes g1d { to { stroke-dashoffset:0; opacity:1; } }
+            @keyframes g1p { 0%,100%{opacity:.45;} 50%{opacity:1;} }
+          </style>
+          <marker id="g1mt" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#14b8a6"/></marker>
+          <marker id="g1mp" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#9b72f5"/></marker>
+        </defs>
+        <g id="g1">
+          <text class="lane tl" x="14" y="22">PUBLISH LANE &middot; IN THE REPOSITORY</text>
+          <g id="g1p1" class="stp"><rect class="box" x="14" y="36" width="158" height="54" rx="7" stroke="#14b8a6"/><text class="lab tl" x="93" y="58" text-anchor="middle">kernel source</text><text class="sub" x="93" y="76" text-anchor="middle">the node's .mjs file</text></g>
+          <g id="g1p2" class="stp"><rect class="box" x="226" y="40" width="150" height="46" rx="7" stroke="#14b8a6"/><text class="sub tl" x="301" y="60" text-anchor="middle">kernel_digest</text><text class="sub" x="301" y="75" text-anchor="middle">sha256:bb655f6f&hellip;</text></g>
+          <g id="g1p3" class="stp"><rect class="box" x="14" y="104" width="158" height="54" rx="7" stroke="#14b8a6"/><text class="lab tl" x="93" y="126" text-anchor="middle">guest binary</text><text class="sub" x="93" y="144" text-anchor="middle">built for the zkVM</text></g>
+          <g id="g1p4" class="stp"><rect class="box" x="226" y="108" width="150" height="46" rx="7" stroke="#14b8a6"/><text class="sub tl" x="301" y="128" text-anchor="middle">imageId</text><text class="sub" x="301" y="143" text-anchor="middle">sha256:a1a0bc89&hellip;</text></g>
+          <g id="g1p5" class="stp"><rect class="box" x="14" y="172" width="158" height="54" rx="7" stroke="#14b8a6"/><text class="lab tl" x="93" y="194" text-anchor="middle">recorded inputs</text><text class="sub" x="93" y="212" text-anchor="middle">policy_parameters</text></g>
+
+          <g id="g1nf"><rect class="box" x="565" y="36" width="185" height="220" rx="7" stroke="#14b8a6"/><text class="lab tl" x="657" y="60" text-anchor="middle">node file</text><line x1="565" y1="70" x2="750" y2="70" stroke="#14b8a6" stroke-width=".5" opacity=".35"/><text class="sub" x="580" y="90">metadata</text><text class="sub" x="580" y="108">schema refs</text><text class="sub" x="580" y="126">conformance fixtures</text><line x1="577" y1="140" x2="738" y2="140" stroke="#1e2f4a" stroke-width="1"/><g id="g1cp"><text class="sub gn" x="580" y="162">compute_proof:</text><text class="sub" x="580" y="180">imageId &middot; seal</text><text class="sub" x="580" y="196">journal:</text><text class="sub" x="592" y="212">kernel_digest</text><text class="sub" x="592" y="228">output = published</text><text class="sub" x="592" y="244">output, byte for byte</text></g></g>
+
+          <path id="g1a1" class="arr" d="M172,63 L226,63" stroke="#14b8a6" marker-end="url(#g1mt)"/>
+          <path id="g1a2" class="arr" d="M376,63 C450,63 500,90 565,105" stroke="#14b8a6" marker-end="url(#g1mt)"/>
+          <path id="g1a3" class="arr" d="M172,131 L226,131" stroke="#14b8a6" marker-end="url(#g1mt)"/>
+          <path id="g1a4" class="arr" d="M376,131 C460,131 505,140 565,148" stroke="#14b8a6" marker-end="url(#g1mt)"/>
+          <path id="g1a5" class="arr" d="M172,199 C400,199 480,190 565,190" stroke="#14b8a6" marker-end="url(#g1mt)"/>
+
+          <text class="lane pp" x="14" y="268">PROVE LANE &middot; OFF-BAND, HEAVY</text>
+          <g id="g1p6" class="stp"><rect class="box" x="14" y="278" width="140" height="44" rx="7" stroke="#9b72f5"/><text class="sub pp" x="84" y="297" text-anchor="middle">guest + inputs</text><text class="sub" x="84" y="312" text-anchor="middle">inside the zkVM</text></g>
+          <g id="g1p7" class="stp"><rect class="box" x="182" y="278" width="128" height="44" rx="7" stroke="#9b72f5"/><text class="sub pp" x="246" y="297" text-anchor="middle">zkVM execution</text><text class="sub" x="246" y="312" text-anchor="middle">halts normally</text></g>
+          <g id="g1p8" class="stp"><rect class="box" x="338" y="278" width="104" height="44" rx="7" stroke="#9b72f5"/><text class="sub pp" x="390" y="297" text-anchor="middle">journal</text><text class="sub" x="390" y="312" text-anchor="middle">output committed</text></g>
+          <g id="g1p9" class="stp"><rect class="box" x="470" y="278" width="120" height="44" rx="7" stroke="#9b72f5"/><text class="sub pp" x="530" y="297" text-anchor="middle">Groth16 prover</text><text class="sub" x="530" y="312" text-anchor="middle">seal, over BN254</text></g>
+          <path id="g1a6" class="arr" d="M154,300 L182,300" stroke="#9b72f5" marker-end="url(#g1mp)"/>
+          <path id="g1a7" class="arr" d="M310,300 L338,300 M442,300 L470,300" stroke="#9b72f5" marker-end="url(#g1mp)"/>
+          <path id="g1a8" class="arr" d="M545,278 C580,266 620,262 648,250" stroke="#9b72f5" marker-end="url(#g1mp)"/>
+          <circle id="g1dp" cx="600" cy="268" r="3.5" fill="#9b72f5"/>
+        </g>
+      </svg>
+      <div class="scene-caption"><span class="dot"></span>publish lane: code and digests land in seconds &middot; prove lane: zkVM run and sealing take real compute &middot; the receipt joins the node file when both finish</div>
+    </div>
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-label">Two identities</div>
+        <div class="concept-title">Source digest, binary digest</div>
+        <div class="concept-desc"><code>kernel_digest</code> names the source code; <code>imageId</code> names the guest binary built from it. A receipt carries both bindings, one to the code a human can read and one to the binary the zkVM actually executed.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-label">Off-band</div>
+        <div class="concept-title">Proving never runs in a browser</div>
+        <div class="concept-desc">The prover needs a Rust toolchain and serious compute. The site and the MCP worker verify receipts; producing new ones happens in the proving pipeline, and the standard forbids claiming otherwise.</div>
+      </div>
+    </div>
+    <div class="stage-links">
+      <span class="stage-links-label">Go deeper:</span>
+      <a href="chaingraph/graph/nodes/art-07-basel31-reporting-delta-calculator.json" class="stage-link">The art-07 node file &#8594;</a>
+      <a href="chaingraph/zkvm-compute-integrity.html" class="stage-link">How coverage reached every proof-bearing kernel &#8594;</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STAGE 2 · ANATOMY ═══ -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Stage 2 of 6</div>
+    <h2 class="sec-heading" id="g16-anatomy">Anatomy of the receipt</h2>
+    <div class="stage-meta"><span class="lvl-badge">Practitioner</span><a class="spec-chip" href="chaingraph/standard/SPEC.md" title="The normative compute-integrity section">Normative version: SPEC &sect;18</a><button class="stage-copylink" type="button" onclick="copyStageLink('g16-anatomy')">Copy link</button></div>
+    <div class="prose">
+      <p>This is the receipt from the Basel 3.1 reporting delta node, the same object the reference page reads from the top. Every value is verbatim from the published node file; the seal is shortened to a head and tail. Select a field to read what it holds and which check looks at it.</p>
+    </div>
+    <div class="reader-grid">
+      <div class="scene" style="margin:0">
+        <svg id="g2svg" viewBox="0 0 360 462" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The compute_proof object of the art-07 node: system, receiptFormat, imageId, seal, journal with kernel_digest and output">
+          <defs>
+            <style>
+              #g2 .lab { font-family:'JetBrains Mono',monospace; font-size:8.5px; fill:#6888a8; }
+              #g2 .val { font-family:'JetBrains Mono',monospace; font-size:8.5px; fill:#2dd4bf; }
+              #g2 .ttl { font-family:Sora,sans-serif; font-size:12px; font-weight:600; fill:#14b8a6; }
+              #g2 .hit { fill:transparent; cursor:pointer; }
+              #g2 .row { stroke-width:0; transition:stroke-width .2s; }
+              #g2 .row.on .hit { fill:rgba(20,184,166,.07); }
+              #g2 .row.on { stroke:#14b8a6; stroke-width:1.2; }
+              #g2 .row.on .lab { fill:#d4e8f8; }
+            </style>
+          </defs>
+          <g id="g2">
+            <rect x="6" y="6" width="348" height="450" rx="10" fill="#0c1a2e" stroke="#14b8a6" stroke-width="1.5"/>
+            <text class="ttl" x="24" y="38">compute_proof</text>
+            <text class="lab" x="24" y="54">art-07-basel31-reporting-delta-calculator</text>
+            <line x1="6" y1="66" x2="354" y2="66" stroke="#14b8a6" stroke-width=".5" opacity=".35"/>
+
+            <g id="gf-sys" class="row"><rect class="hit" x="14" y="74" width="332" height="56" rx="6" stroke="none"/><text class="lab" x="24" y="96">"system": "risc0"</text><text class="val" x="24" y="116">"receiptFormat": "groth16-bn254"</text></g>
+            <g id="gf-img" class="row"><rect class="hit" x="14" y="138" width="332" height="56" rx="6"/><text class="lab" x="24" y="160">"imageId":</text><text class="val" x="24" y="180">"sha256:a1a0bc89b5b1febaeda3519f6dbade0&#8230;"</text></g>
+            <g id="gf-seal" class="row"><rect class="hit" x="14" y="202" width="332" height="56" rx="6"/><text class="lab" x="24" y="224">"seal":</text><text class="val" x="24" y="244">"IHfBGtT0qGiU2bFEFgG3&#8230;M7u/slkH989njTyjh/Q=="</text></g>
+            <g id="gf-kd" class="row"><rect class="hit" x="14" y="266" width="332" height="72" rx="6"/><text class="lab" x="24" y="288">"journal":</text><text class="lab" x="36" y="306">"kernel_digest":</text><text class="val" x="36" y="324">"sha256:bb655f6f08ccd299198d1eff963940&#8230;"</text></g>
+            <g id="gf-out" class="row"><rect class="hit" x="14" y="346" width="332" height="94" rx="6"/><text class="lab" x="24" y="368">"output":</text><text class="val" x="36" y="388">"rwa_delta_bn": -15</text><text class="val" x="36" y="406">"rwa_delta_pct": -42.86</text><text class="val" x="36" y="424">"verdict": "MINIMAL_IMPACT"</text></g>
+          </g>
+        </svg>
+      </div>
+      <div class="reader-panel" aria-live="polite">
+        <div class="reader-kicker">Field reader</div>
+        <div class="reader-title" id="rdTitle">Select a field</div>
+        <div class="reader-desc" id="rdDesc">Five fields carry the whole claim. Together they answer: which zkVM made this proof, which binary ran, what the proof material is, which source produced the output, and what the output says.</div>
+        <div class="reader-check"><span class="mech-tag">Checked by</span> <span id="rdCheck">each field has its own checker; select a field to see it</span></div>
+      </div>
+    </div>
+    <div class="iact-row" role="group" aria-label="Select a receipt field">
+      <button class="iact-btn" data-gf="gf-sys" onclick="gfPick('gf-sys',this)">system + format</button>
+      <button class="iact-btn" data-gf="gf-img" onclick="gfPick('gf-img',this)">imageId</button>
+      <button class="iact-btn" data-gf="gf-seal" onclick="gfPick('gf-seal',this)">seal</button>
+      <button class="iact-btn" data-gf="gf-kd" onclick="gfPick('gf-kd',this)">kernel_digest</button>
+      <button class="iact-btn" data-gf="gf-out" onclick="gfPick('gf-out',this)">journal.output</button>
+    </div>
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-label">Not prose</div>
+        <div class="concept-title">The seal is material, never a message</div>
+        <div class="concept-desc">Base64 decoding the seal yields curve points and field elements, readable by a pairing check and by nothing else. Its only two states are a pass and a failure.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-label">Scope</div>
+        <div class="concept-title">One receipt, one execution</div>
+        <div class="concept-desc">The journal commits the output of a single run over the node's recorded input. Byte equality with the published output is what turns it from a proof about some run into a proof about the result on the page.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STAGE 3 · BINDING TRIANGLE ═══ -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Stage 3 of 6</div>
+    <h2 class="sec-heading" id="g16-triangle">The binding triangle</h2>
+    <div class="stage-meta"><span class="lvl-badge">Practitioner</span><a class="spec-chip" href="chaingraph/standard/SPEC.md" title="The normative compute-integrity section">Normative version: SPEC &sect;18</a><button class="stage-copylink" type="button" onclick="copyStageLink('g16-triangle')">Copy link</button></div>
+    <div class="prose">
+      <p>A receipt earns its keep by pointing three ways at once: at the source code a reviewer can read, at the binary the zkVM executed, and at the published output a reader came for. Each edge of the triangle has a named check waiting for it to slip. Push one of the three buttons to break an edge and watch which check notices.</p>
+    </div>
+    <div class="scene">
+      <svg id="g3svg" viewBox="0 0 720 356" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Triangle binding kernel source, guest binary, and published output through the receipt; each edge has an enforcing check">
+        <defs>
+          <style>
+            #g3 .lab { font-family:Sora,sans-serif; font-size:11px; font-weight:600; fill:#d4e8f8; }
+            #g3 .sub { font-family:'JetBrains Mono',monospace; font-size:8px; fill:#6888a8; }
+            #g3 .box { fill:#0c1a2e; stroke:#14b8a6; stroke-width:1.5; }
+            #g3 .edge { fill:none; stroke:#14b8a6; stroke-width:1.5; transition:stroke .25s; }
+            #g3 .elab { font-family:'JetBrains Mono',monospace; font-size:8px; fill:#14b8a6; transition:fill .25s; }
+            #g3 .elab2 { font-family:'JetBrains Mono',monospace; font-size:7.5px; fill:#6888a8; }
+            #g3 .edge.bad { stroke:#ef4444; }
+            #g3 .elab.bad { fill:#ef4444; }
+            #g3 #g3rc { fill:#0c1a2e; stroke:#22c55e; stroke-width:1.5; }
+          </style>
+          <marker id="g3m" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#14b8a6"/></marker>
+          <marker id="g3mr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#ef4444"/></marker>
+        </defs>
+        <g id="g3">
+          <g><rect class="box" x="40" y="30" width="220" height="58" rx="7"/><text class="lab" x="150" y="54" text-anchor="middle">kernel source</text><text class="sub" x="150" y="74" text-anchor="middle">published as sha256-source image</text></g>
+          <g><rect class="box" x="460" y="30" width="220" height="58" rx="7"/><text class="lab" x="570" y="54" text-anchor="middle">guest binary</text><text class="sub" x="570" y="74" text-anchor="middle">imageId listed in compute_images</text></g>
+          <g><rect class="box" x="250" y="284" width="220" height="58" rx="7"/><text class="lab" x="360" y="308" text-anchor="middle">published output</text><text class="sub" x="360" y="328" text-anchor="middle">the result on the page</text></g>
+          <g><rect id="g3rc" x="300" y="150" width="120" height="56" rx="7"/><text class="lab" x="360" y="174" text-anchor="middle" fill="#22c55e">receipt</text><text class="sub" x="360" y="192" text-anchor="middle">seal + journal</text></g>
+
+          <path id="g3e1" class="edge" d="M260,59 L460,59" marker-end="url(#g3m)"/>
+          <text id="g3l1" class="elab" x="360" y="50" text-anchor="middle">built from this source</text>
+          <path id="g3e2" class="edge" d="M480,88 C430,110 425,128 404,150" marker-end="url(#g3m)"/>
+          <text id="g3l2" class="elab" x="500" y="120" text-anchor="middle">seal covers this imageId</text>
+          <path id="g3e3" class="edge" d="M360,206 L360,284" marker-end="url(#g3m)"/>
+          <text id="g3l3" class="elab" x="372" y="248">journal.output = output</text>
+          <path id="g3e4" class="edge" d="M150,88 C190,120 250,150 300,168" marker-end="url(#g3m)"/>
+          <text id="g3l4" class="elab" x="150" y="132">journal.kernel_digest = source digest</text>
+          <text class="elab2" x="150" y="145">(advisory three-way cross-check)</text>
+        </g>
+      </svg>
+      <div class="scene-caption"><span class="dot"></span>source &harr; binary &harr; output, held together by one receipt &middot; each edge names the check that watches it</div>
+    </div>
+    <div class="iact-row" role="group" aria-label="Break one binding">
+      <button class="iact-btn" id="g3b1" onclick="g3Break('bin',this)">swap the guest binary</button>
+      <button class="iact-btn" id="g3b2" onclick="g3Break('out',this)">edit one published output byte</button>
+      <button class="iact-btn" id="g3b3" onclick="g3Break('seal',this)">flip a byte inside the seal</button>
+      <span class="iact-status" id="g3state">nominal: all three bindings hold</span>
+    </div>
+    <div class="verdict" id="g3verdict">Nominal state. The imageId is in the node's <code>compute_images</code> list, the journal equals the published output byte for byte, and the seal verifies under the published key. All three checks are wired to fail loudly the moment one edge slips.</div>
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-label">Structural</div>
+        <div class="concept-title">Some checks need no cryptography</div>
+        <div class="concept-desc">Membership in <code>compute_images</code> and byte equality of the journal are ordinary file comparisons. They run in the coverage gate on every change, which is why a mismatched receipt cannot reach the site even before any pairing math runs.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-label">Cryptographic</div>
+        <div class="concept-title">One check only math can do</div>
+        <div class="concept-desc">That the seal was produced by a proving ceremony over this binary and this journal is the pairing check's verdict. Everything else could be forged by editing files; the seal cannot.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STAGE 4 · PAIRING CHECK ═══ -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Stage 4 of 6</div>
+    <h2 class="sec-heading" id="g16-pairing">What the seal check does</h2>
+    <div class="stage-meta"><span class="lvl-badge">Practitioner</span><a class="spec-chip" href="chaingraph/standard/SPEC.md" title="The normative compute-integrity section">Normative version: SPEC &sect;18</a><button class="stage-copylink" type="button" onclick="copyStageLink('g16-pairing')">Copy link</button></div>
+    <div class="prose">
+      <p>Verification consumes four things: the seal, the journal, the <code>imageId</code>, and the zkVM vendor's published verifying key. It runs a fixed, small sequence of BN254 pairing operations and returns one of two verdicts. Nothing about the check depends on our infrastructure: the key is the vendor's, the math is the standard's, and the check is cheap enough for a browser tab or a smart contract.</p>
+    </div>
+    <div class="scene">
+      <svg viewBox="0 0 720 262" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Verifier inputs: seal, journal, imageId, plus the vendor verifying key, enter the BN254 pairing check, which returns pass or fail">
+        <defs>
+          <style>
+            #g4 .lab { font-family:Sora,sans-serif; font-size:11px; font-weight:600; fill:#d4e8f8; }
+            #g4 .sub { font-family:'JetBrains Mono',monospace; font-size:8px; fill:#6888a8; }
+            #g4 .arr { fill:none; stroke-width:1.5; opacity:0; stroke-dasharray:130; stroke-dashoffset:130; animation:g4d .7s ease-out forwards; }
+            #g4 .stp { opacity:0; animation:g4f .6s ease-out forwards; }
+            #g4 #g4in { animation-delay:.2s } #g4 #g4key { animation-delay:.5s } #g4 #g4cc { animation-delay:.8s }
+            #g4 #g4ok { animation-delay:1.6s } #g4 #g4no { animation-delay:2.1s }
+            #g4 #g4a1 { animation-delay:1.0s } #g4 #g4a2 { animation-delay:1.2s } #g4 #g4a3 { animation-delay:1.9s } #g4 #g4a4 { animation-delay:2.3s }
+            @keyframes g4f { to { opacity:1; } }
+            @keyframes g4d { to { stroke-dashoffset:0; opacity:1; } }
+          </style>
+          <marker id="g4mt" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#14b8a6"/></marker>
+          <marker id="g4mg" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#d4a847"/></marker>
+          <marker id="g4mn" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#22c55e"/></marker>
+          <marker id="g4mr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#ef4444"/></marker>
+        </defs>
+        <g id="g4">
+          <g id="g4in" class="stp"><rect x="20" y="58" width="200" height="106" rx="7" fill="#0c1a2e" stroke="#14b8a6" stroke-width="1.5"/><text class="lab" x="120" y="82" text-anchor="middle" fill="#14b8a6">verifier inputs</text><line x1="20" y1="94" x2="220" y2="94" stroke="#14b8a6" stroke-width=".5" opacity=".35"/><text class="sub" x="120" y="114" text-anchor="middle">seal</text><text class="sub" x="120" y="132" text-anchor="middle">journal</text><text class="sub" x="120" y="150" text-anchor="middle">imageId</text></g>
+          <g id="g4key" class="stp"><rect x="20" y="188" width="200" height="52" rx="7" fill="#0c1a2e" stroke="#d4a847" stroke-width="1.5"/><text class="sub" x="120" y="210" text-anchor="middle" fill="#d4a847">verifying key</text><text class="sub" x="120" y="228" text-anchor="middle">published by the zkVM vendor</text></g>
+          <g id="g4cc" class="stp"><circle cx="395" cy="130" r="56" fill="#0c1a2e" stroke="#9b72f5" stroke-width="1.5"/><text class="lab" x="395" y="126" text-anchor="middle" fill="#9b72f5">BN254</text><text class="sub" x="395" y="144" text-anchor="middle">pairing check</text></g>
+          <g id="g4ok" class="stp"><rect x="560" y="52" width="150" height="66" rx="7" fill="#0c1a2e" stroke="#22c55e" stroke-width="1.5"/><text class="lab" x="635" y="76" text-anchor="middle" fill="#22c55e">pass</text><text class="sub" x="635" y="96" text-anchor="middle">this program produced</text><text class="sub" x="635" y="110" text-anchor="middle">this output</text></g>
+          <g id="g4no" class="stp"><rect x="560" y="150" width="150" height="66" rx="7" fill="#0c1a2e" stroke="#ef4444" stroke-width="1.5"/><text class="lab" x="635" y="174" text-anchor="middle" fill="#ef4444">fail</text><text class="sub" x="635" y="194" text-anchor="middle">the receipt is rejected;</text><text class="sub" x="635" y="208" text-anchor="middle">there is no third verdict</text></g>
+          <path id="g4a1" class="arr" d="M220,111 L336,124" stroke="#14b8a6" marker-end="url(#g4mt)"/>
+          <path id="g4a2" class="arr" d="M220,208 C300,208 330,160 344,152" stroke="#d4a847" marker-end="url(#g4mg)"/>
+          <path id="g4a3" class="arr" d="M451,116 L560,90" stroke="#22c55e" marker-end="url(#g4mn)"/>
+          <path id="g4a4" class="arr" d="M451,146 L560,180" stroke="#ef4444" marker-end="url(#g4mr)"/>
+        </g>
+      </svg>
+      <div class="scene-caption"><span class="dot"></span>four inputs &rarr; one fixed pairing sequence &rarr; pass or fail &middot; milliseconds in a browser, one read-only <code>eth_call</code> on-chain</div>
+    </div>
+    <div class="depth-block">
+      <div class="depth-rows">
+        <div class="depth-row"><span class="depth-badge">what passes</span><span class="depth-text">The seal is a valid Groth16 proof, under the vendor's key, for an execution of the binary named by the <code>imageId</code> that halted normally and committed exactly this journal. That sentence is the whole verdict; the check adds nothing about the code's logic or about later deployments.</span></div>
+        <div class="depth-row"><span class="depth-badge">the math</span><span class="depth-text">A pairing is an operation that eats two elliptic-curve points and returns one field element, and Groth16 arranges a handful of them into an equation that holds only for a proof built by the ceremony. Constant work, a few milliseconds, no setup beyond the key.</span></div>
+        <div class="depth-row"><span class="depth-badge">delegation</span><span class="depth-text">Verification delegates to the named system's vetted verifier, the same way hashing delegates to WebCrypto and signing delegates to Ed25519 implementations. The trust question becomes: whose verifier, and the answer is published next to the receipt format.</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STAGE 5 · FOUR WAYS ═══ -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Stage 5 of 6</div>
+    <h2 class="sec-heading" id="g16-four-ways">The four ways to verify and their trust roots</h2>
+    <div class="stage-meta"><span class="lvl-badge">Beginner</span><button class="stage-copylink" type="button" onclick="copyStageLink('g16-four-ways')">Copy link</button></div>
+    <div class="prose">
+      <p>One receipt, four doors. They differ in what you have to trust to believe the result: a page's vendored code, Ethereum's precompiles, your own machine, or a specification's gate suite. Pick the door your auditor accepts; the verdict is the same through all four.</p>
+    </div>
+    <div class="scene">
+      <svg viewBox="0 0 720 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Four verification paths with their trust roots: browser, on-chain, from a clone, and the specification">
+        <defs>
+          <style>
+            #g5 .ttl { font-family:Sora,sans-serif; font-size:12.5px; font-weight:600; fill:#d4e8f8; }
+            #g5 .sub { font-family:'JetBrains Mono',monospace; font-size:8px; fill:#6888a8; }
+            #g5 .tr { font-family:'JetBrains Mono',monospace; font-size:8px; fill:#d4a847; }
+            #g5 .stp { opacity:0; animation:g5f .6s ease-out forwards; }
+            #g5 #g5p2 { animation-delay:.25s } #g5 #g5p3 { animation-delay:.5s } #g5 #g5p4 { animation-delay:.75s }
+            @keyframes g5f { to { opacity:1; } }
+          </style>
+        </defs>
+        <g id="g5">
+          <g id="g5p1" class="stp"><rect x="20" y="20" width="330" height="136" rx="9" fill="#0c1a2e" stroke="#14b8a6" stroke-width="1.5"/><text class="ttl" x="40" y="48">In the browser</text><text class="sub" x="40" y="68">verification-desk.html, zero network calls</text><text class="sub" x="40" y="90">drop in any node's JSON; the BN254 seal</text><text class="sub" x="40" y="104">verifies in a self-contained reference verifier</text><line x1="40" y1="126" x2="330" y2="126" stroke="#1e2f4a"/><text class="tr" x="40" y="144">trust root: the vendored verifier in your tab</text></g>
+          <g id="g5p2" class="stp"><rect x="370" y="20" width="330" height="136" rx="9" fill="#0c1a2e" stroke="#d4a847" stroke-width="1.5"/><text class="ttl" x="390" y="48">On-chain</text><text class="sub" x="390" y="68">one read-only eth_call, any Ethereum RPC</text><text class="sub" x="390" y="90">the BN254 precompiles (EIP-196/197, live</text><text class="sub" x="390" y="104">since October 2017) run the vendor's contract</text><line x1="390" y1="126" x2="680" y2="126" stroke="#1e2f4a"/><text class="tr" x="390" y="144">trust root: Ethereum + the vendor's verifier</text></g>
+          <g id="g5p3" class="stp"><rect x="20" y="176" width="330" height="136" rx="9" fill="#0c1a2e" stroke="#22c55e" stroke-width="1.5"/><text class="ttl" x="40" y="204">From a clone</text><text class="sub" x="40" y="224">node scripts/check-compute-proof-coverage.mjs</text><text class="sub" x="40" y="246">replays the structural checks for every receipt</text><text class="sub" x="40" y="260">against a committed ratchet baseline</text><line x1="40" y1="282" x2="330" y2="282" stroke="#1e2f4a"/><text class="tr" x="40" y="300">trust root: your machine + the committed baseline</text></g>
+          <g id="g5p4" class="stp"><rect x="370" y="176" width="330" height="136" rx="9" fill="#0c1a2e" stroke="#9b72f5" stroke-width="1.5"/><text class="ttl" x="390" y="204">The normative text</text><text class="sub" x="390" y="224">SPEC.md section 18</text><text class="sub" x="390" y="246">what a receipt must contain, where it lives,</text><text class="sub" x="390" y="260">and which checks make one malformed</text><line x1="390" y1="282" x2="680" y2="282" stroke="#1e2f4a"/><text class="tr" x="390" y="300">trust root: the spec + the gates that enforce it</text></g>
+        </g>
+      </svg>
+      <div class="scene-caption"><span class="dot"></span>same receipt, four doors &middot; the trust root is the only thing that differs</div>
+    </div>
+    <div class="stage-links">
+      <span class="stage-links-label">Try it live:</span>
+      <a href="verification-desk.html" class="stage-link try-live">Verification Desk &#8594;</a>
+      <a href="docs/receipt-verification.html" class="stage-link try-live">On-chain recipe &#8594;</a>
+      <a href="https://github.com/PostOakLabs/ainumbers/blob/main/scripts/check-compute-proof-coverage.mjs" class="stage-link">The coverage gate &#8594;</a>
+      <a href="chaingraph/standard/SPEC.md" class="stage-link">SPEC section 18 &#8594;</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STAGE 6 · BOUNDARY ═══ -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Stage 6 of 6</div>
+    <h2 class="sec-heading" id="g16-boundary">Where the seal stops</h2>
+    <div class="stage-meta"><span class="lvl-badge">Beginner</span><button class="stage-copylink" type="button" onclick="copyStageLink('g16-boundary')">Copy link</button></div>
+    <div class="prose">
+      <p>The seal answers one question about one execution in the past. Two neighboring questions live outside it, and the site answers each on its own page: whether the kernel's logic models the regulation correctly is the <a href="mechanical.html">mechanical verification</a> question, and whether the bytes served today still match the receipt's node is answered by the <a href="methods.html#deploy-provenance">deploy manifest</a>.</p>
+    </div>
+    <div class="scene">
+      <svg viewBox="0 0 720 264" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="What the seal covers: one past execution. Outside the dashed boundary: the logic question and the served-bytes question">
+        <defs>
+          <style>
+            #g6 .lab { font-family:Sora,sans-serif; font-size:11px; font-weight:600; fill:#d4e8f8; }
+            #g6 .sub { font-family:'JetBrains Mono',monospace; font-size:8px; fill:#6888a8; }
+            #g6 .arr { fill:none; stroke:#d4a847; stroke-width:1.5; opacity:0; stroke-dasharray:110; stroke-dashoffset:110; animation:g6d .7s ease-out forwards 1.2s; }
+            @keyframes g6f { to { opacity:1; } }
+            @keyframes g6d { to { stroke-dashoffset:0; opacity:1; } }
+          </style>
+          <marker id="g6m" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#d4a847"/></marker>
+        </defs>
+        <g id="g6">
+          <rect x="185" y="34" width="350" height="196" rx="12" fill="none" stroke="#22c55e" stroke-width="1.2" stroke-dasharray="6 5" opacity=".9"/>
+          <text class="sub" x="360" y="24" text-anchor="middle" fill="#22c55e">WHAT THE SEAL COVERS</text>
+          <circle cx="360" cy="132" r="52" fill="#0c1a2e" stroke="#22c55e" stroke-width="1.5"/>
+          <text class="lab" x="360" y="128" text-anchor="middle" fill="#22c55e">one past</text>
+          <text class="lab" x="360" y="144" text-anchor="middle" fill="#22c55e">execution</text>
+          <text class="sub" x="360" y="212" text-anchor="middle">this binary &middot; this journal &middot; this moment</text>
+          <path class="arr" d="M185,132 L165,132 L165,132 L152,132" marker-end="url(#g6m)"/>
+          <g><rect x="12" y="92" width="140" height="80" rx="7" fill="#0c1a2e" stroke="#d4a847" stroke-width="1.5"/><text class="lab" x="82" y="118" text-anchor="middle" fill="#d4a847">is the logic</text><text class="lab" x="82" y="134" text-anchor="middle" fill="#d4a847">right?</text><text class="sub" x="82" y="156" text-anchor="middle">mechanical verification</text></g>
+          <path class="arr" d="M535,132 L553,132 L553,132 L566,132" marker-end="url(#g6m)"/>
+          <g><rect x="568" y="92" width="140" height="80" rx="7" fill="#0c1a2e" stroke="#d4a847" stroke-width="1.5"/><text class="lab" x="638" y="118" text-anchor="middle" fill="#d4a847">served bytes,</text><text class="lab" x="638" y="134" text-anchor="middle" fill="#d4a847">still these?</text><text class="sub" x="638" y="156" text-anchor="middle">the deploy manifest</text></g>
+        </g>
+      </svg>
+      <div class="scene-caption"><span class="dot"></span>the dashed line is the seal's edge &middot; the two gold questions are answered by their own evidence pages</div>
+    </div>
+    <div class="cta-row">
+      <a href="verification-desk.html" class="btn btn-primary">Open the Verification Desk</a>
+      <a href="groth16.html" class="btn btn-ghost">The prose reference</a>
+      <a href="mechanical-explainer.html" class="btn btn-ghost">The claim ladder, drawn</a>
+    </div>
+    <div class="prose" style="margin-top:1.75rem">
+      <p>Sources: Groth, <a href="https://eprint.iacr.org/2016/260" target="_blank" rel="noopener">On the Size of Pairing-based Non-interactive Arguments</a>, EUROCRYPT 2016. EIP-196 and EIP-197, <a href="https://eips.ethereum.org/EIPS/eip-196" target="_blank" rel="noopener">BN256 curve and pairing precompiles</a>, live since October 2017. RISC Zero proof system documentation, <a href="https://dev.risczero.com" target="_blank" rel="noopener">dev.risczero.com</a>, accessed September 2026. Receipt values verbatim from <a href="https://github.com/PostOakLabs/ainumbers/blob/main/chaingraph/graph/nodes/art-07-basel31-reporting-delta-calculator.json" target="_blank" rel="noopener">the art-07 node file</a>. All statements on this page are as of September 2026.</p>
+    </div>
+  </div>
+</div>
+</main>
+
+<!--ROOT-FOOTER:START-->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph/chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="chaingraph/rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="chaingraph/openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="chaingraph/openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="chaingraph/ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="chaingraph/aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="chaingraph/ocg-sandbox.html">Sandbox</a>
+        <a href="chaingraph/ocg-chain-builder.html">Chain Builder</a>
+        <a href="chaingraph/ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="chaingraph/ocg-integration-guide.html">Integration Guide</a>
+        <a href="chaingraph/ocg-guide-export.html">Export Profiles</a>
+        <a href="chaingraph/ocg-industries.html">Industry Concepts</a>
+        <a href="helm.html">Helm (Phase 1)</a>
+        <a href="convert.html">Conversion Suite</a>
+        <a href="guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="chaingraph/guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="chaingraph/guide-tempo.html">Tempo Network</a>
+        <a href="chaingraph/guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="chaingraph/guide-buildtype.html">buildType / SLSA</a>
+        <a href="chaingraph/guide-intoto.html">in-toto / DSSE</a>
+        <a href="chaingraph/guide-ed25519.html">Ed25519 Signing</a>
+        <a href="chaingraph/guide-otel.html">OpenTelemetry</a>
+        <a href="chaingraph/guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="chaingraph/guide-okf.html">Open Knowledge Format</a>
+        <a href="guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph/chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="chaingraph/okf/index.md" target="_blank">OKF bundle</a>
+        <a href="data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="openapi.json" target="_blank">openapi.json</a>
+        <a href="llms.txt" target="_blank">llms.txt</a>
+        <a href=".well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="chaingraph/standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="robots.txt" target="_blank">robots.txt</a>
+        <a href="sitemap.html">Sitemap</a>
+        <a href="euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Project</div>
+        <a href="tools.html">All Tools</a>
+        <a href="mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="about.html">About</a>
+        <a href="methods.html">Methods</a>
+        <a href="fv-explainer.html">FV Process Explainer</a>
+        <a href="errata.html">FV Errata</a>
+        <a href="suggest.html">Suggest</a>
+        <a href="contact.html">Contact</a>
+        <a href="security.html">Security</a>
+        <a href="disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!--ROOT-FOOTER:END-->
+
+<script>
+/* Copy-link buttons: clipboard write only, no network, no storage. */
+function copyStageLink(id){
+  var url = location.href.split('#')[0] + '#' + id;
+  function done(){ toast('Link copied'); }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(done, function(){ toast(url); });
+  } else { toast(url); }
+}
+function toast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(function(){ t.classList.remove('show'); }, 2200);
+}
+
+/* Stage 2: field reader. Values verbatim from the art-07 node file. */
+var GF_DATA = {
+  'gf-sys': {
+    title: 'system + receiptFormat',
+    desc: 'Names the zkVM that produced the receipt (risc0) and the proving scheme a verifier should apply (Groth16 over the BN254 curve). Together the two fields decide whose published verifying key applies and which check runs.',
+    check: 'read by every verifier before anything else; a format it cannot handle is a rejection, never a guess.'
+  },
+  'gf-img': {
+    title: 'imageId',
+    desc: 'The SHA-256 digest of the exact guest program binary the zkVM executed. The same digest is published in the node file\'s compute_images list, so the receipt and the node point at the same binary by hash rather than by name.',
+    check: 'the coverage gate: a receipt whose imageId is absent from compute_images is refused.'
+  },
+  'gf-seal': {
+    title: 'seal',
+    desc: 'The Groth16 proof itself, base64-encoded: a few hundred bytes of pairing material. Nothing in it is meant to be read by eye; a verifier feeds it to the BN254 pairing check together with the verifying key.',
+    check: 'the pairing check: it passes, or the receipt fails. There is no partial credit.'
+  },
+  'gf-kd': {
+    title: 'journal.kernel_digest',
+    desc: 'The hash of the kernel source that produced this output, committed into the journal by the guest program during the run. The node publishes the same digest as its sha256-source image, so source, binary, and receipt all point at each other.',
+    check: 'a three-way cross-check against the node\'s published images (advisory in the spec, enforced by the coverage gate\'s comparison).'
+  },
+  'gf-out': {
+    title: 'journal.output',
+    desc: 'The output committed by that one execution: here the Basel 3.1 output-floor recomputation over the node\'s recorded input, with the risk-weighted-assets delta and the verdict. A journal that commits an error fails the gate, since a valid seal over a failed run would prove only that the failure happened.',
+    check: 'the coverage gate: byte-for-byte equality with the node\'s published output, which is what binds the receipt to the result on the page.'
+  }
+};
+function gfPick(key, btn){
+  var d = GF_DATA[key];
+  document.getElementById('rdTitle').textContent = d.title;
+  document.getElementById('rdDesc').textContent = d.desc;
+  document.getElementById('rdCheck').textContent = d.check;
+  var rows = document.querySelectorAll('#g2svg .row');
+  for (var i = 0; i < rows.length; i++) rows[i].classList.remove('on');
+  document.getElementById(key).classList.add('on');
+  var btns = document.querySelectorAll('.iact-btn[data-gf]');
+  for (var j = 0; j < btns.length; j++) btns[j].classList.remove('on');
+  btn.classList.add('on');
+}
+(function(){
+  var rows = document.querySelectorAll('#g2svg .row');
+  for (var i = 0; i < rows.length; i++) {
+    (function(row){
+      row.addEventListener('click', function(){
+        var key = row.id;
+        var btn = document.querySelector('.iact-btn[data-gf="' + key + '"]');
+        if (btn) gfPick(key, btn); else gfPick(key, row);
+      });
+    })(rows[i]);
+  }
+})();
+
+/* Stage 3: binding triangle. One failure active at a time; click again to reset. */
+var G3_STATES = {
+  none: {
+    label: 'nominal: all three bindings hold',
+    verdict: 'Nominal state. The imageId is in the node\'s compute_images list, the journal equals the published output byte for byte, and the seal verifies under the published key. All three checks are wired to fail loudly the moment one edge slips.',
+    bad: false
+  },
+  bin: {
+    label: 'broken: unknown binary',
+    verdict: 'A different guest binary has a different imageId. The receipt\'s imageId no longer appears in the node\'s compute_images list, and the coverage gate refuses the receipt on that ground alone, before any pairing math runs.',
+    bad: true
+  },
+  out: {
+    label: 'broken: output drift',
+    verdict: 'One byte moves in the published output and journal.output stops matching it. The gate requires byte-for-byte equality, so the node fails until the two agree again; a receipt for a near-miss result is still a receipt for the wrong result.',
+    bad: true
+  },
+  seal: {
+    label: 'broken: seal damaged',
+    verdict: 'The pairing check fails, and verification has two outcomes. Nothing structural needs to notice: the file looks intact, which is exactly why the cryptographic check exists and why it is the only check of the three that math alone can answer.',
+    bad: true
+  }
+};
+function g3Break(kind, btn){
+  var svg = document.getElementById('g3svg');
+  var active = btn.classList.contains('on');
+  var btns = document.querySelectorAll('#g3b1,#g3b2,#g3b3');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('on', 'bad-state');
+  var edges = svg.querySelectorAll('.edge');
+  for (var j = 0; j < edges.length; j++) edges[j].classList.remove('bad');
+  var labs = svg.querySelectorAll('.elab');
+  for (var k = 0; k < labs.length; k++) labs[k].classList.remove('bad');
+  var st;
+  if (active) {
+    st = G3_STATES.none;
+  } else {
+    btn.classList.add('on', 'bad-state');
+    st = G3_STATES[kind];
+    if (kind === 'out') {
+      document.getElementById('g3e3').classList.add('bad');
+      document.getElementById('g3l3').classList.add('bad');
+    } else {
+      document.getElementById('g3e2').classList.add('bad');
+      document.getElementById('g3l2').classList.add('bad');
+    }
+  }
+  document.getElementById('g3state').textContent = st.label;
+  var v = document.getElementById('g3verdict');
+  v.textContent = st.verdict;
+  v.classList.toggle('bad', st.bad);
+}
+</script>
+
+</body>
+</html>
