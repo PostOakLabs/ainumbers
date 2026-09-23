@@ -617,14 +617,25 @@ export const COVERED = [
     // (point-in-time snapshots; the directory shape is declared because file
     // names are claim ids, determined at runtime — the euc-register precedent).
     // ⚠ IDEMPOTENT and bot-safe BY DESIGN: the default write path is ADDITIVE —
-    // it never rewrites an existing snapshot, because a snapshot is EVIDENCE of
-    // what the page said at review time. Page drift therefore stays RED on main
-    // (check-evidence-register.mjs CLAIM_DRIFT, blocking) until a human
-    // re-reviews and runs the builder-only
+    // it never rewrites an existing snapshot's WORDING, because a snapshot is
+    // EVIDENCE of what the page said at review time. Page wording drift stays
+    // RED on main (check-evidence-register.mjs CLAIM_DRIFT, blocking) until a
+    // human re-reviews and runs the builder-only
     // `gen-evidence-register.mjs --revalidate=<id>`; the regen bot can add
     // snapshots for new claims but can never launder a drift (the S18 ruling's
-    // "the regen can never launder a staleness regression", same shape). No
-    // wall clock anywhere in the output — dates come from the hand-authored
+    // "the regen can never launder a staleness regression", same shape).
+    // ONE self-certifying exception (EVIDENCE-REGISTER-SENTINEL-AUTOREVAL-1,
+    // 2026-09-23): a claim anchored on a `COUNT:<key>` sentinel whose line
+    // moved ONLY inside `<!--COUNT:...-->N<!--/COUNT-->` spans, with every new
+    // number equal to the counts engine's own value (scripts/counts.mjs), is
+    // re-snapshotted by the default write path itself (logged
+    // SENTINEL_REVALIDATED <id> <old> -> <new>) — a number the engine derives
+    // is not human copy and needs no re-review. Wording drift, and any span
+    // number the engine does not confirm (SENTINEL_REVAL_REFUSED), still
+    // preserve the snapshot and stay red. The engine is imported lazily, ONLY
+    // when such a claim's snapshot actually differs from its live line, so the
+    // clean regen path above still reads no node graph.
+    // No wall clock anywhere in the output — dates come from the hand-authored
     // src (fv-status lesson).
     id: 'evidence-register',
     regen: 'node scripts/gen-evidence-register.mjs',

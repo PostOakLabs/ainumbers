@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (663 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (664 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7176,6 +7176,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-71-cbam-certificate-cost-engine",
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-691-regulatory-obligations-register",
+    "display_name": "Regulatory Obligations Register",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-691-regulatory-obligations-register.html",
+    "description": "A regime-agnostic rule-to-obligation-to-evidence register verdict: obligations in (rule_id, owner, control_ids, evidence_refs), coverage mat",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

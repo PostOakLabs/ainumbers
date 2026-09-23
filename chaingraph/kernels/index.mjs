@@ -619,6 +619,7 @@ import * as art687    from './art-687-wash-sale-window-guard.kernel.mjs';
 import * as art688    from './art-688-education-funding-gap-calculator.kernel.mjs';
 import * as art689    from './art-689-pack-dependency-map.kernel.mjs';
 import * as art69     from './art-69-cbam-embedded-emissions-calculator.kernel.mjs';
+import * as art691    from './art-691-regulatory-obligations-register.kernel.mjs';
 import * as art70     from './art-70-cbam-default-value-resolver.kernel.mjs';
 import * as art71     from './art-71-cbam-certificate-cost-engine.kernel.mjs';
 import * as art72     from './art-72-cbam-precursor-emissions-aggregator.kernel.mjs';
@@ -1284,6 +1285,7 @@ export const KERNELS = {
   'art-688-education-funding-gap-calculator':                   art688,
   'art-689-pack-dependency-map':                                art689,
   'art-69-cbam-embedded-emissions-calculator':                  art69,
+  'art-691-regulatory-obligations-register':                    art691,
   'art-70-cbam-default-value-resolver':                         art70,
   'art-71-cbam-certificate-cost-engine':                        art71,
   'art-72-cbam-precursor-emissions-aggregator':                 art72,
