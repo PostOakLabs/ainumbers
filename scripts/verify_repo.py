@@ -42,7 +42,14 @@ REPO = Path(__file__).resolve().parent.parent
 TOOLS = REPO / "tools"
 GUIDES = REPO / "guides"
 MANIFESTS = REPO / "manifests"
-SITEMAP = REPO / "sitemap.xml"
+# SITEMAP-DEPLOY-SPLIT-1 (2026-09-23): sitemap.xml resolves through the DERIVED_ROOT
+# overlay on merge_group, exactly as scripts/regen-sitemap.mjs already does — the
+# merge_group job assembles the ephemeral derived tree (fresh sitemap included) and
+# only DERIVED_ROOT-registered gates may read it (MERGEGROUP-HARD-GATES-1). Absent or
+# incomplete overlay falls back to the committed artifact, i.e. the pre-change
+# behavior. Overlay read is display/validation only; nothing is ever written.
+_SITEMAP_OVERLAY = Path(os.environ["DERIVED_ROOT"].strip()) if os.environ.get("DERIVED_ROOT", "").strip() else None
+SITEMAP = (_SITEMAP_OVERLAY / "sitemap.xml") if (_SITEMAP_OVERLAY and (_SITEMAP_OVERLAY / "sitemap.xml").exists()) else (REPO / "sitemap.xml")
 ROBOTS = REPO / "robots.txt"
 # ROBOTS-CONTENT-SIGNAL-1 (TIM-COUNTERSIGNED 2026-09-10): the one value the
 # estate publicly signals. Locked here so drift fails the deploy gate.
@@ -445,11 +452,28 @@ def check_sitemap(changed=None):
             fail(f"  {f} — node is not live; run: node scripts/regen-sitemap.mjs")
 
     if missing:
-        fail(f"[SITEMAP] {len(missing)} file(s) missing from sitemap.xml:")
-        for f in missing[:25]:
-            fail(f"  {f}")
-        if len(missing) > 25:
-            fail(f"  ... and {len(missing) - 25} more — run: node scripts/regen-sitemap.mjs")
+        # SITEMAP-DEPLOY-SPLIT-1 (2026-09-23, same class as the #2023 block): sitemap.xml
+        # is a single-writer derived artifact (SO #35) — a PR cannot add the URL without
+        # violating the single-writer rule, and the main-side regen repairs the drift the
+        # instant the merge lands. Structured as a whitelist of PR proofs, mirroring
+        # isMainContext() in derived-artifacts.mjs exactly: ONLY an affirmative
+        # GITHUB_EVENT_NAME == 'pull_request' earns the downgrade; merge_group (which reads
+        # the fresh DERIVED_ROOT overlay above), push-to-main, schedule, and any
+        # unrecognized or absent context still BLOCK. Local runs (no env) block — the
+        # expected-red attestation path covers deliberate local pushes. Scope is
+        # missing-only: the departed-page-still-advertised finding above and every other
+        # verify_repo finding stay hard in ALL contexts.
+        if os.environ.get("GITHUB_EVENT_NAME") == "pull_request":
+            print(f"  ⚠️  [SITEMAP] {len(missing)} file(s) missing from sitemap.xml — PR context: "
+                  f"advisory (single-writer artifact, main-side regen adds them post-merge):")
+            for f in missing[:25]:
+                print(f"  ⚠️  [SITEMAP]   {f}")
+        else:
+            fail(f"[SITEMAP] {len(missing)} file(s) missing from sitemap.xml:")
+            for f in missing[:25]:
+                fail(f"  {f}")
+            if len(missing) > 25:
+                fail(f"  ... and {len(missing) - 25} more — run: node scripts/regen-sitemap.mjs")
     elif still_listed:
         pass  # already failed above; do not print a green line over a red result
     else:

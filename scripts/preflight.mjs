@@ -1726,6 +1726,7 @@ const GATES = [
   ['SSOT spec-page parity',        'node chaingraph/standard/spec-page-parity.mjs'],
   ['SSOT spec-page subsections',   'node chaingraph/standard/spec-page-subsection-parity.mjs'],
   ['verify_repo (PII/sitemap/AP2)', changedRef ? `python scripts/verify_repo.py --changed ${changedRef}` : 'python scripts/verify_repo.py'],
+  ['verify_repo sitemap context controls (PR advisory / merge_group overlay / main hard, SITEMAP-DEPLOY-SPLIT-1)', 'node scripts/verify_repo_sitemap_context.test.mjs'],
   ['AP2 bulk contract-gap ratchet (AP2-DEBT-BASELINE-1)', 'node scripts/check-ap2-contract.mjs'],
   ['AP2 contract-gap gate controls (SO #40b pairing)', 'node scripts/check-ap2-contract.test.mjs'],
   ['Policy Mandate v1.1 additivity (§3.1.1 A10.5, MANDATE-V11-CAVEATS-1)', 'node scripts/validate-policy-mandate.test.mjs'],

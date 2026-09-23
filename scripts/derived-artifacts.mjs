@@ -914,6 +914,24 @@ export const COVERED = [
     share: '94% (124/132; the highest measured skew of any artifact in this file)',
   },
   {
+    id: 'sitemap-deploy-coverage',
+    // SITEMAP-DEPLOY-SPLIT-1 (2026-09-23): the deploy gate's OWN sitemap leg
+    // (verify_repo.py check_sitemap "missing from sitemap.xml"), which stayed
+    // HARD on pull_request after SITEMAP-MAINSIDE-1 moved the repair main-side
+    // — first flatDirs page-adding PR since (#2023) was unlandable: advisory
+    // freshness gates passed while this required context reds (run 35881007896).
+    // Same artifact, same regen, same single-writer doctrine as 'sitemap-xml'
+    // above; registered separately because advisoryGates() matches the exact
+    // command string preflight runs. The PR-side downgrade is missing-only and
+    // lives in verify_repo.py itself (whitelist of PR proofs, mirroring
+    // isMainContext()); departed-page and every other finding stay hard.
+    regen: 'node scripts/regen-sitemap.mjs',
+    gate: 'python scripts/verify_repo.py',
+    artifacts: ['sitemap.xml'],
+    after: 'sitemap-xml',  // same artifact + same regen: run strictly after the owning entry (REGEN-CASCADE-CONSOLIDATE-1)
+    share: 'same repair chain as sitemap-xml (measured on #2023: post-merge regen adds the URL)',
+  },
+  {
     id: 'changelog',
     // CHANGELOG-1 (2026-09-21, CONTRACT Amendment A12); SEED-AUTOFILL contract
     // (2026-09-22): the public changelog is a DERIVED artifact — a pure
@@ -1323,6 +1341,7 @@ export const DERIVED_ROOT_GATES = new Set([
   'node scripts/derived-artifacts.mjs --verify',             // derived freshness (self; re-scopes per gate below)
   'python scripts/check_index_sync.py --strict --no-color',  // index-sync (reads tools.html)
   'node scripts/regen-sitemap.mjs --check',                  // sitemap freshness (reads sitemap.xml)
+  'python scripts/verify_repo.py',                           // deploy gate sitemap leg (SITEMAP-DEPLOY-SPLIT-1; overlay read only)
   'node scripts/check-nav-reachability.mjs',                 // nav islands (reads the monolith for dynamic roots)
   'node scripts/check-nav-reachability.mjs --baseline-check',// nav-island baseline freshness
 ]);
