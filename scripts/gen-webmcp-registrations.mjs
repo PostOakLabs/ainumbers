@@ -1112,8 +1112,13 @@ function readRepoFile(rel, repoRoot) {
 
 // RULINGS 2026-09-10T20:30:44Z (MCP-SCHEMA-CONFORMANCE-1): the seven legal JSON
 // Schema type names. A property with NO `type` keyword is legal (valid 2020-12,
-// accepts any JSON) and maps via the 'string' via (`.value = String(params.p)`) —
-// exactly as the legacy `unknown` did; a `type` that names anything else is refused.
+// accepts any JSON); a `type` that names anything else is refused. Emission law
+// as amended by WEBMCP-WRAPPER-OBJECT-PARAMS-1 (2026-09-23): the typeless
+// property's control write is SHAPE-AWARE — object/array values JSON-encoded,
+// scalars keep String() — because a bare String() wedged a real host on the
+// measured art-118 object parameter ("[object Object]" → JSON.parse throws →
+// the execute() promise never settles). The original bare-String() ruling text
+// is superseded by mappingLine's shape-aware branch, not silently.
 export const LEGAL_TYPE_NAMES = ['string', 'number', 'integer', 'boolean', 'array', 'object', 'null'];
 const LEGAL_TYPE_SET = new Set(LEGAL_TYPE_NAMES);
 
@@ -1265,6 +1270,18 @@ function mappingLine(prop, type, optional, entry, spec) {
   if (via === 'checked' || (!via && type === 'boolean')) expr = `document.getElementById('${jsStr(id)}').checked = params.${prop} === true;`;
   else if (via === 'boolstring') expr = `document.getElementById('${jsStr(id)}').value = String(params.${prop} === true);`;
   else if (via === 'json' || type === 'array' || type === 'object') expr = `document.getElementById('${jsStr(id)}').value = JSON.stringify(params.${prop});`;
+  // WEBMCP-WRAPPER-OBJECT-PARAMS-1 (amends the MCP-SCHEMA-CONFORMANCE-1
+  // 'string'-via default below): a property with NO declared type accepts any
+  // JSON (legal 2020-12), so the emitted write is SHAPE-AWARE — an object or
+  // array value is JSON-encoded into the control (exactly the text the
+  // deep-link and file-import readers already write for the same property,
+  // chaingraph/_page-chrome.mjs's prefill switch) while scalar values keep the
+  // byte-identical String() write. Bare String() on an object produced
+  // "[object Object]", the page's JSON.parse threw, and a real host's
+  // execute() promise never settled (the measured art-118 wedge). A DECLARED
+  // scalar (string/number/integer/null reaching this branch) keeps the plain
+  // String() write: the type contract makes the shape unambiguous.
+  else if (!type) expr = `document.getElementById('${jsStr(id)}').value = (params.${prop} !== null && typeof params.${prop} === 'object') ? JSON.stringify(params.${prop}) : String(params.${prop});`;
   else expr = `document.getElementById('${jsStr(id)}').value = String(params.${prop});`;
   // MR-R4-NULL-NORMALIZE-WEBMCP-1: an optional null used to reach this line and be
   // stringified INTO the input as the literal 4-character text "null" (an
@@ -3599,17 +3616,26 @@ async function selftest(){
     const boolBlock = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', { flag: { element_id: 'flag', via: 'boolstring' } }, 'run');
     check("boolstring via emits .value = String(params.x === true)", boolBlock.includes("document.getElementById('flag').value = String(params.flag === true);") && !boolBlock.includes("getElementById('flag').checked"));
 
-    // 6d. MCP-SCHEMA-CONFORMANCE-1 type law (RULINGS 2026-09-10T20:30:44Z).
-    // GREEN: a property with NO `type` keyword is legal and takes the 'string'
-    // via (`.value = String(params.p)`) — exactly as the legacy `unknown` did.
+    // 6d. MCP-SCHEMA-CONFORMANCE-1 type law (RULINGS 2026-09-10T20:30:44Z),
+    // emission as amended by WEBMCP-WRAPPER-OBJECT-PARAMS-1 (2026-09-23).
+    // GREEN: a property with NO `type` keyword is legal and its control write
+    // is SHAPE-AWARE — an object/array value is JSON-encoded, a scalar keeps
+    // the exact String() bytes (the deep-link/file-import readers' precedent);
+    // a bare String() here is the measured art-118 "[object Object]" wedge.
     const typeless = JSON.parse(JSON.stringify(manifest));
     typeless.mcp_tool_definition.inputSchema.properties.label = { description: 'type not evidenced by kernel source' };
     const typelessShapeErr = checkManifestShape(typeless);
     const typelessBlock = buildBlockForPage(typeless, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', undefined, 'run');
-    check('typeless property is legal (G1) and registers with the string via',
+    check('typeless property is legal (G1) and its write is shape-aware (object/array JSON-encoded, scalars String())',
       typelessShapeErr === null
-        && typelessBlock.includes("document.getElementById('label').value = String(params.label);"),
+        && typelessBlock.includes("document.getElementById('label').value = (params.label !== null && typeof params.label === 'object') ? JSON.stringify(params.label) : String(params.label);"),
       `shapeErr=${JSON.stringify(typelessShapeErr)}`);
+    // GREEN 6d-b: a DECLARED scalar keeps the plain String() write (byte-identical
+    // to the pre-WRAPPER-OBJECT-PARAMS law).
+    const scalarBlock = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', undefined, 'run');
+    check('declared-scalar property keeps the plain String() write',
+      scalarBlock.includes("document.getElementById('label').value = String(params.label);")
+        && !scalarBlock.includes("typeof params.label === 'object'"));
     // RED: the legacy `"type": "unknown"` (not one of the seven legal names) is
     // rejected by the G-gate. (During the transition, adjudicateTool tolerates it
     // ONLY for provenance-owned manifests so the sweep cannot drop the registered
