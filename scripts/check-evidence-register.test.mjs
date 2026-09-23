@@ -14,7 +14,10 @@
  * Usage: node scripts/check-evidence-register.test.mjs
  */
 import { evaluateRegister } from './check-evidence-register.mjs';
-import { hashText, extractClaimLine, snapshotTextFor, snapshotRel } from './gen-evidence-register.mjs';
+import {
+  hashText, extractClaimLine, snapshotTextFor, snapshotRel, buildRegister,
+  countKeyFromAnchor, maskCountSentinels, classifySentinelDrift,
+} from './gen-evidence-register.mjs';
 import { validateRatchetBaseline, RatchetBaselineError } from './ratchet-baseline.mjs';
 
 let failures = 0;
@@ -174,6 +177,119 @@ if (green.findings.length) console.log('  unexpected: ' + JSON.stringify(green.f
     `RED: deleted/corrupt/Infinity baselines hard-fail through the shared loader (got: ${states.join(', ')})`);
   const ok = validateRatchetBaseline('{"overdue":0,"overdue_ids":[]}', ['overdue', { key: 'overdue_ids', type: 'name-list' }], opts);
   assert(ok.overdue === 0, 'GREEN: a valid zero-pin baseline loads');
+}
+
+// Drive buildRegister's drift branches fully in memory: the existing snapshot
+// bytes come from the green world's snapshot map, never the repo's source/.
+const readerFor = (world, id) => (rel) => (rel === snapshotRel(id) ? world.snapshots.get(id) : null);
+
+// ── 13. SENTINEL-ONLY AUTO-REVAL — unit shape of the classifier (AUTOREVAL-1)
+{
+  const line = '<div><!--COUNT:zk.provenNodes-->661<!--/COUNT--> of <!--COUNT:zk.provenTotal-->662<!--/COUNT--></div>';
+  assert(countKeyFromAnchor('COUNT:zk.provenNodes') === 'zk.provenNodes', 'AUTOREVAL: a COUNT:<key> anchor yields its count key');
+  assert(countKeyFromAnchor('data-count="mcp.live"') === null && countKeyFromAnchor(undefined) === null, 'AUTOREVAL: a non-sentinel anchor yields no count key');
+  const { masked, values } = maskCountSentinels(line);
+  assert(!/\d/.test(masked) && values.length === 2 && values[0].key === 'zk.provenNodes' && values[1].value === 662,
+    'AUTOREVAL: masking removes every sentinel numeric span and reports the values in order');
+  const moved = classifySentinelDrift(
+    line,
+    line.replace('<!--COUNT:zk.provenTotal-->662<!--/COUNT-->', '<!--COUNT:zk.provenTotal-->663<!--/COUNT-->'),
+    new Map([['zk.provenNodes', 661], ['zk.provenTotal', 663]]),
+  );
+  assert(moved.sentinelOnly === true && moved.oldValue === '661/662' && moved.newValue === '661/663',
+    'AUTOREVAL: a sibling-span number move with engine agreement classifies sentinel-only');
+  const reworded = classifySentinelDrift(line, line.replace(' of ', ' out of '), new Map());
+  assert(reworded.sentinelOnly === false && reworded.engineMismatch === null,
+    'AUTOREVAL: wording outside the spans classifies NOT sentinel-only');
+  const rogue = classifySentinelDrift(line, line.replace('<!--COUNT:zk.provenTotal-->662<!--/COUNT-->', '<!--COUNT:zk.provenTotal-->999<!--/COUNT-->'),
+    new Map([['zk.provenNodes', 661], ['zk.provenTotal', 662]]));
+  assert(rogue.sentinelOnly === false && rogue.engineMismatch && rogue.engineMismatch.key === 'zk.provenTotal' && rogue.engineMismatch.page === 999,
+    'AUTOREVAL: a span number the engine did not derive classifies as an engine mismatch');
+}
+
+// ── 14. AUTOREVAL (a) — a number-only change, engine agreeing: the DEFAULT
+//     write path re-snapshots it (SENTINEL_REVALIDATED) and the gate reads
+//     the drifted page green with no human step.
+{
+  const driftedPage = PAGE_TEXT.replace('719<!--/COUNT-->', '720<!--/COUNT-->'); // the count engine moved the value
+  const engineCounts = new Map([['mcp.live', 720]]);
+  const old = greenWorld();
+  const built = buildRegister(old.srcDoc, (rel) => (rel === 'index.html' ? driftedPage : null), { engineCounts, readSnapshot: readerFor(old, 'fixture-mcp-live') });
+  const reval = built.notices.find((n) => n.id === 'fixture-mcp-live' && n.kind === 'SENTINEL_REVALIDATED');
+  assert(reval !== undefined, 'AUTOREVAL (a): a number-only sentinel drift is revalidated on the default write path');
+  assert(reval && reval.oldValue === '719' && reval.newValue === '720',
+    `AUTOREVAL (a): logged as SENTINEL_REVALIDATED fixture-mcp-live 719 -> 720 (got ${reval && reval.oldValue} -> ${reval && reval.newValue})`);
+  const write = built.snapshotWrites.find((w) => w.rel === snapshotRel('fixture-mcp-live'));
+  assert(write !== undefined, 'AUTOREVAL (a): the fresh snapshot is on the default write path\'s write list');
+  const healed = evaluateRegister({
+    ...old,
+    pages: new Map([['index.html', driftedPage]]),
+    snapshots: new Map([['fixture-mcp-live', write.text]]),
+    register: { claims: [{ ...old.register.claims[0], snapshot: { path: write.rel, sha256: hashText(write.text) } }] },
+  });
+  assert(healed.findings.length === 0, 'AUTOREVAL (a): after the writer re-snapshots, the gate reads the drifted page GREEN with no human step');
+}
+
+// ── 15. AUTOREVAL (b) — a wording change is NEVER auto-revalidated ─────────
+{
+  const rewordedPage = PAGE_TEXT.replace('Live MCP Tools', 'Live MCP endpoints'); // bytes outside the span moved
+  const engineCounts = new Map([['mcp.live', 719]]); // the engine still agrees with the unchanged number
+  const old = greenWorld();
+  const built = buildRegister(old.srcDoc, (rel) => (rel === 'index.html' ? rewordedPage : null), { engineCounts, readSnapshot: readerFor(old, 'fixture-mcp-live') });
+  assert(!built.notices.some((n) => n.kind === 'SENTINEL_REVALIDATED'), 'AUTOREVAL (b): a wording change is never SENTINEL_REVALIDATED');
+  assert(built.notices.some((n) => n.id === 'fixture-mcp-live' && n.kind === 'SNAPSHOT_DRIFT_PRESERVED'),
+    'AUTOREVAL (b): a wording change keeps today\'s preserved-snapshot behaviour');
+  assert(!built.snapshotWrites.some((w) => w.rel === snapshotRel('fixture-mcp-live')), 'AUTOREVAL (b): no snapshot write for a wording change');
+  const r = evaluateRegister({ ...old, pages: new Map([['index.html', rewordedPage]]) });
+  assert(r.findings.some((f) => f.kind === 'CLAIM_DRIFT'), 'AUTOREVAL (b): a wording change without re-review stays RED (CLAIM_DRIFT)');
+}
+
+// ── 16. AUTOREVAL (c) — a number the engine did not derive is never
+//     certified: refusal notice, snapshot preserved, gate stays red.
+{
+  const roguePage = PAGE_TEXT.replace('719<!--/COUNT-->', '999<!--/COUNT-->'); // hand-edited, NOT the engine's value
+  const engineCounts = new Map([['mcp.live', 719]]);
+  const old = greenWorld();
+  const built = buildRegister(old.srcDoc, (rel) => (rel === 'index.html' ? roguePage : null), { engineCounts, readSnapshot: readerFor(old, 'fixture-mcp-live') });
+  assert(!built.notices.some((n) => n.kind === 'SENTINEL_REVALIDATED'), 'AUTOREVAL (c): an engine-mismatch number is never SENTINEL_REVALIDATED');
+  assert(built.notices.some((n) => n.id === 'fixture-mcp-live' && n.kind === 'SENTINEL_REVAL_REFUSED'),
+    'AUTOREVAL (c): the refusal is logged against the claim');
+  const r = evaluateRegister({ ...old, pages: new Map([['index.html', roguePage]]) });
+  assert(r.findings.some((f) => f.kind === 'CLAIM_DRIFT'), 'AUTOREVAL (c): an engine-mismatch drift stays RED (CLAIM_DRIFT), snapshot preserved');
+}
+
+// ── 17. AUTOREVAL fail-safes — no engine, no revalidation; a claim not
+//     anchored on a COUNT sentinel is never auto-revalidated.
+{
+  const driftedPage = PAGE_TEXT.replace('719<!--/COUNT-->', '720<!--/COUNT-->');
+  const old = greenWorld();
+  const built = buildRegister(old.srcDoc, (rel) => (rel === 'index.html' ? driftedPage : null), { engineCounts: new Map(), readSnapshot: readerFor(old, 'fixture-mcp-live') });
+  assert(built.notices.some((n) => n.kind === 'SENTINEL_REVAL_REFUSED'),
+    'AUTOREVAL fail-safe: an absent/unavailable engine agrees with nothing — drift refused, snapshot preserved');
+  const plain = { ...CLAIM, id: 'fixture-plain-anchor', anchor: 'Live MCP Tools' };
+  const oldPlain = greenWorld({ claim: plain });
+  const builtPlain = buildRegister(oldPlain.srcDoc, (rel) => (rel === 'index.html' ? driftedPage : null), { engineCounts: new Map([['mcp.live', 720]]), readSnapshot: readerFor(oldPlain, 'fixture-plain-anchor') });
+  assert(!builtPlain.notices.some((n) => n.kind === 'SENTINEL_REVALIDATED'),
+    'AUTOREVAL control: a claim not anchored on a COUNT sentinel is never auto-revalidated (today\'s behaviour)');
+}
+
+// ── 18. AUTOREVAL multi-span — the measured 661-of-661 -> 661-of-662 shape:
+//     the claim's OWN number did not move; a sibling sentinel's did. The line
+//     is still sentinel-only, and BOTH span values must match the engine.
+{
+  const claim2 = { ...CLAIM, id: 'fixture-zk-of-total', count_key: 'zk.provenNodes', anchor: 'COUNT:zk.provenNodes' };
+  const oldPage = '<html>\n<body>\n<div><!--COUNT:zk.provenNodes-->661<!--/COUNT--> of <!--COUNT:zk.provenTotal-->661<!--/COUNT--> deterministic nodes carry a proof.</div>\n</body>\n</html>';
+  const newPage = oldPage.replace('<!--COUNT:zk.provenTotal-->661<!--/COUNT-->', '<!--COUNT:zk.provenTotal-->662<!--/COUNT-->');
+  const engineCounts = new Map([['zk.provenNodes', 661], ['zk.provenTotal', 662]]);
+  const old = greenWorld({ claim: claim2, page: oldPage });
+  const built = buildRegister(old.srcDoc, (rel) => (rel === 'index.html' ? newPage : null), { engineCounts, readSnapshot: readerFor(old, 'fixture-zk-of-total') });
+  const reval = built.notices.find((n) => n.id === 'fixture-zk-of-total' && n.kind === 'SENTINEL_REVALIDATED');
+  assert(reval !== undefined && reval.oldValue === '661/661' && reval.newValue === '661/662',
+    'AUTOREVAL: a sibling-sentinel move on the claimed line is sentinel-only (661/661 -> 661/662), both spans engine-checked');
+  const halfConfirmed = buildRegister(old.srcDoc, (rel) => (rel === 'index.html' ? newPage : null),
+    { engineCounts: new Map([['zk.provenNodes', 661], ['zk.provenTotal', 999]]), readSnapshot: readerFor(old, 'fixture-zk-of-total') });
+  assert(!halfConfirmed.notices.some((n) => n.kind === 'SENTINEL_REVALIDATED'),
+    'AUTOREVAL: EVERY span on the line must match the engine — one unconfirmed sibling refuses the whole revalidation');
 }
 
 if (failures) {
