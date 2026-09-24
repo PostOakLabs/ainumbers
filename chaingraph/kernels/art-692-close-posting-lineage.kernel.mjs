@@ -102,19 +102,18 @@ function validateIntake(pp) {
 // The indeterminate payload: every list empty, the reason carried once in errors. Shared by
 // the malformed-input branch and the empty-register branch so the two read identically to a
 // downstream consumer, which only ever needs "no linkage assertion was possible, here is why".
-function indeterminate(reason) {
+// The flag itself is pushed at the call site, inside the branch that earns it, per
+// FLAGS-COMPUTED-LINT-1: a helper that always pushes is an unconditional emission.
+function indeterminatePayload(reason) {
   return {
-    output_payload: {
-      linked_accruals: [],
-      unlinked_accruals: [],
-      dangling_trace_refs: [],
-      orphan_coding: [],
-      missing_source_refs: [],
-      duplicate_lineage_keys: [],
-      overall: 'INDETERMINATE',
-      errors: [reason],
-    },
-    compliance_flags: ['CLOSE_LINEAGE_INDETERMINATE'],
+    linked_accruals: [],
+    unlinked_accruals: [],
+    dangling_trace_refs: [],
+    orphan_coding: [],
+    missing_source_refs: [],
+    duplicate_lineage_keys: [],
+    overall: 'INDETERMINATE',
+    errors: [reason],
   };
 }
 
@@ -138,7 +137,11 @@ export function compute(pp) {
 
   // Stage 1 — intake.
   const intake_error = validateIntake(pp);
-  if (intake_error !== null) return indeterminate(intake_error);
+  if (intake_error !== null) {
+    const compliance_flags = [];
+    compliance_flags.push('CLOSE_LINEAGE_INDETERMINATE');
+    return { output_payload: indeterminatePayload(intake_error), compliance_flags };
+  }
 
   const coding = pp.coding_entries;
   const accruals = pp.accrual_entries;
@@ -146,7 +149,10 @@ export function compute(pp) {
   // An empty accrual set is assertion-free: there is no population over which "every accrual
   // traces to a coding entry" could be true. It is INDETERMINATE, never CLOSE_READY.
   if (accruals.length === 0) {
-    return indeterminate('no accrual entries declared; linkage cannot be asserted over an empty register.');
+    const compliance_flags = [];
+    compliance_flags.push('CLOSE_LINEAGE_INDETERMINATE');
+    const reason = 'no accrual entries declared; linkage cannot be asserted over an empty register.';
+    return { output_payload: indeterminatePayload(reason), compliance_flags };
   }
 
   // Stage 2 — key uniqueness. Lineage keys are caller-declared and period-scoped by

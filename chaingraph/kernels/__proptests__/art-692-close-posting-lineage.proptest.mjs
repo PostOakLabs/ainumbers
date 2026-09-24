@@ -1,5 +1,5 @@
 // art-692-close-posting-lineage — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:283c21b3b560aea23f694080f9469594091f0ed6106a06221fb9d6b38e6d6e65
+// kernel_digest_at_authoring: sha256:2fbdf2a15df31817b5e737ad6147b32c418ea3886cee9b44a3262930ff7eae83
 // spec: CLOSE-COMMAND-CENTER-BUILD-SPEC-2026-09-23.md (workspace root) Sec. D2/F, narrowed to the
 //       lineage node alone by FINTECH-SAAS-SPECS-VALUE-REVIEW-2026-09-24.md (board row CCC-LINEAGE-NODE-1).
 // human_sign_off: PENDING

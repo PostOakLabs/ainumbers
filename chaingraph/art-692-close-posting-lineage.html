@@ -90,7 +90,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 .footer-col a:hover{color:var(--teal)}
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-692-close-posting-lineage.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<!--KERNEL-DIGEST-->sha256:283c21b3b560aea23f694080f9469594091f0ed6106a06221fb9d6b38e6d6e65<!--/KERNEL-DIGEST-->
+<!--KERNEL-DIGEST-->sha256:2fbdf2a15df31817b5e737ad6147b32c418ea3886cee9b44a3262930ff7eae83<!--/KERNEL-DIGEST-->
 </head>
 <body>
 <nav>
@@ -254,19 +254,16 @@ function validateIntake(pp) {
   return null;
 }
 
-function indeterminate(reason) {
+function indeterminatePayload(reason) {
   return {
-    output_payload: {
-      linked_accruals: [],
-      unlinked_accruals: [],
-      dangling_trace_refs: [],
-      orphan_coding: [],
-      missing_source_refs: [],
-      duplicate_lineage_keys: [],
-      overall: 'INDETERMINATE',
-      errors: [reason],
-    },
-    compliance_flags: ['CLOSE_LINEAGE_INDETERMINATE'],
+    linked_accruals: [],
+    unlinked_accruals: [],
+    dangling_trace_refs: [],
+    orphan_coding: [],
+    missing_source_refs: [],
+    duplicate_lineage_keys: [],
+    overall: 'INDETERMINATE',
+    errors: [reason],
   };
 }
 
@@ -274,13 +271,20 @@ function compute(pp) {
   pp = pp || {};
 
   const intake_error = validateIntake(pp);
-  if (intake_error !== null) return indeterminate(intake_error);
+  if (intake_error !== null) {
+    const compliance_flags = [];
+    compliance_flags.push('CLOSE_LINEAGE_INDETERMINATE');
+    return { output_payload: indeterminatePayload(intake_error), compliance_flags };
+  }
 
   const coding = pp.coding_entries;
   const accruals = pp.accrual_entries;
 
   if (accruals.length === 0) {
-    return indeterminate('no accrual entries declared; linkage cannot be asserted over an empty register.');
+    const compliance_flags = [];
+    compliance_flags.push('CLOSE_LINEAGE_INDETERMINATE');
+    const reason = 'no accrual entries declared; linkage cannot be asserted over an empty register.';
+    return { output_payload: indeterminatePayload(reason), compliance_flags };
   }
 
   const seen = {};
