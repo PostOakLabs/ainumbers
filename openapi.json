@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1208 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1209 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -1713,6 +1713,12 @@
       "name": "accredited-investor"
     },
     {
+      "name": "accrual"
+    },
+    {
+      "name": "acctech"
+    },
+    {
       "name": "accumulation-risk"
     },
     {
@@ -2422,6 +2428,12 @@
     },
     {
       "name": "close match"
+    },
+    {
+      "name": "close-lineage"
+    },
+    {
+      "name": "close-readiness"
     },
     {
       "name": "cloud"
@@ -3490,6 +3502,9 @@
     },
     {
       "name": "gir"
+    },
+    {
+      "name": "gl-coding"
     },
     {
       "name": "globe"
@@ -120472,6 +120487,209 @@
         },
         "x-mcp-tool-name": "compute_regulatory_obligations_register",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-691-regulatory-obligations-register.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/verify_close_posting_lineage": {
+      "post": {
+        "operationId": "verify_close_posting_lineage",
+        "summary": "Close Posting Lineage",
+        "description": "A month-end close lineage verdict over declared entries: GL coding entries and accrual entries in (lineage key, GL account, amount, optional source document digest, optional traces_to references), linkage structure out (accruals that resolve to a declared coding entry, accruals with no reference, every reference naming a key nothing declares, coding entries nothing traces to, coding entries with no source digest, repeated lineage keys, overall CLOSE_READY, GAPS_FOUND or INDETERMINATE). Four stages in one pure compute() per CLOSE-COMMAND-CENTER-BUILD-SPEC-2026-09-23.md section D2: intake with fail-closed shape validation, lineage key uniqueness, per accrual linkage classification, coding side observations and verdict. Unlinked accruals, dangling references and duplicate keys gate; orphan coding and missing source digests are advisory. The scope is the structure of declared linkage, never amount agreement. The spec's worked example is carried as the oracle-backed golden fixture (execution_hash 46b2cee4111553128514447ded7e205fb45bbdedccd75579f04c7ebc360d63d1).\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-692-close-posting-lineage.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "close-lineage",
+          "acctech",
+          "gl-coding",
+          "accrual",
+          "evidence-linkage",
+          "close-readiness"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "coding_entries",
+                  "accrual_entries"
+                ],
+                "properties": {
+                  "as_of": {
+                    "type": "string",
+                    "description": "Optional as-of date, YYYY-MM-DD; validated as a date string by the kernel whenever present, and never used as a clock."
+                  },
+                  "coding_entries": {
+                    "type": "array",
+                    "description": "Declared GL coding entries. May be empty; each entry must carry a non-empty key, a non-empty gl_account and a finite amount.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "key",
+                        "gl_account",
+                        "amount"
+                      ],
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "gl_account": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "amount": {
+                          "type": "number"
+                        },
+                        "source_document_digest": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Optional digest of the source document. Absent reads as no declared digest."
+                        }
+                      }
+                    }
+                  },
+                  "accrual_entries": {
+                    "type": "array",
+                    "description": "Declared accrual entries. An empty list makes the register INDETERMINATE.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "key",
+                        "gl_account",
+                        "amount"
+                      ],
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "gl_account": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "amount": {
+                          "type": "number"
+                        },
+                        "traces_to": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "description": "Coding entry keys this accrual claims to trace to. Absent or null reads as no reference."
+                        }
+                      }
+                    }
+                  }
+                },
+                "x_schema_provenance": "derived-from-golden-fixtures 2026-09-24 (mirrors input_schema: policy_parameters across the 20 golden fixture vectors)"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "linked_accruals",
+                    "unlinked_accruals",
+                    "dangling_trace_refs",
+                    "orphan_coding",
+                    "missing_source_refs",
+                    "duplicate_lineage_keys",
+                    "overall"
+                  ],
+                  "properties": {
+                    "linked_accruals": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Accrual keys whose every declared reference resolves to a declared coding entry, in input order. An accrual that partly resolves is not here."
+                    },
+                    "unlinked_accruals": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Accrual keys declaring no reference at all, in input order. Gates the verdict."
+                    },
+                    "dangling_trace_refs": {
+                      "type": "array",
+                      "description": "One entry per reference naming a key no coding entry declares, reported with the accrual that declared it. Gates the verdict.",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "accrual_key",
+                          "trace_ref"
+                        ],
+                        "properties": {
+                          "accrual_key": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "trace_ref": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      }
+                    },
+                    "orphan_coding": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Coding entry keys no accrual traces to. Advisory: recorded, never gating."
+                    },
+                    "missing_source_refs": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Coding entry keys with no declared source_document_digest. Advisory: recorded, never gating."
+                    },
+                    "duplicate_lineage_keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Keys declared more than once across the coding and accrual entries together, once per colliding key in first-repeat order. Gates the verdict."
+                    },
+                    "overall": {
+                      "type": "string",
+                      "enum": [
+                        "CLOSE_READY",
+                        "GAPS_FOUND",
+                        "INDETERMINATE"
+                      ],
+                      "description": "CLOSE_READY iff unlinked_accruals, dangling_trace_refs and duplicate_lineage_keys are all empty over a non-empty accrual set; INDETERMINATE on an empty or malformed register; GAPS_FOUND otherwise."
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "description": "Present only on the indeterminate path, carrying the reason no linkage assertion was possible; non-empty exactly when the conditional compliance flag CLOSE_LINEAGE_INDETERMINATE is present (flag-mirror doctrine)."
+                    }
+                  },
+                  "x_schema_provenance": "derived-from-golden-fixtures 2026-09-24 (re-derived over all 20 golden fixture output_payloads, incl. the spec-oracle worked example; errors observed on the 12 indeterminate vectors only, absent on the 8 assertable vectors)"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "verify_close_posting_lineage",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-692-close-posting-lineage.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }

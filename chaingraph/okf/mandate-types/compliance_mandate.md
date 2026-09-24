@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-333"]
+tags: ["compliance_mandate", "count-334"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_mandate
 
-333 tool(s) in this mandate-type group:
+334 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -342,6 +342,7 @@ status: stable
 - [Short-Sale Locate and SSR Checker](../tools/art-671-short-sale-locate-ssr-checker.md)
 - [EBA IM-Model Validation Tracker](../tools/art-674-eba-im-model-validation-tracker.md)
 - [Consolidation with CTA and Minority Interest](../tools/art-683-consolidation-cta-minority-interest.md)
+- [Close Posting Lineage](../tools/art-692-close-posting-lineage.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)

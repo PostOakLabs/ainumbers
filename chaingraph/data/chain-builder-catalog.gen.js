@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (664 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (665 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7213,6 +7213,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-691-regulatory-obligations-register.html",
     "description": "A regime-agnostic rule-to-obligation-to-evidence register verdict: obligations in (rule_id, owner, control_ids, evidence_refs), coverage mat",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-692-close-posting-lineage",
+    "display_name": "Close Posting Lineage",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-692-close-posting-lineage.html",
+    "description": "A month-end close lineage verdict over declared entries: GL coding entries and accrual entries in (lineage key, GL account, amount, optional",
     "consumes": [],
     "feeds": [],
     "status": "live"
