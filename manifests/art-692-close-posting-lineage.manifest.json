@@ -1,0 +1,326 @@
+{
+  "tool_id": "art-692-close-posting-lineage",
+  "version": "1.0.0",
+  "title": "Close Posting Lineage",
+  "description": "A month-end close lineage verdict over declared entries: GL coding entries and accrual entries in (lineage key, GL account, amount, optional source document digest, optional traces_to references), linkage structure out (accruals that resolve to a declared coding entry, accruals with no reference, every reference naming a key nothing declares, coding entries nothing traces to, coding entries with no source digest, repeated lineage keys, overall CLOSE_READY, GAPS_FOUND or INDETERMINATE). Four stages in one pure compute() per CLOSE-COMMAND-CENTER-BUILD-SPEC-2026-09-23.md section D2: intake with fail-closed shape validation, lineage key uniqueness, per accrual linkage classification, coding side observations and verdict. Unlinked accruals, dangling references and duplicate keys gate; orphan coding and missing source digests are advisory. The scope is the structure of declared linkage, never amount agreement. The spec's worked example is carried as the oracle-backed golden fixture (execution_hash 46b2cee4111553128514447ded7e205fb45bbdedccd75579f04c7ebc360d63d1).",
+  "category": "sox-404-icfr-audit-controls",
+  "tags": [
+    "close-lineage",
+    "acctech",
+    "gl-coding",
+    "accrual",
+    "evidence-linkage",
+    "close-readiness"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "coding_entries",
+      "accrual_entries"
+    ],
+    "properties": {
+      "as_of": {
+        "type": "string",
+        "description": "Optional as-of date, YYYY-MM-DD; validated as a date string by the kernel whenever present, and never used as a clock."
+      },
+      "coding_entries": {
+        "type": "array",
+        "description": "Declared GL coding entries. May be empty; each entry must carry a non-empty key, a non-empty gl_account and a finite amount.",
+        "items": {
+          "type": "object",
+          "required": [
+            "key",
+            "gl_account",
+            "amount"
+          ],
+          "properties": {
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Caller-declared lineage key, period-scoped by convention; a key declared twice across both lists is reported as a duplicate."
+            },
+            "gl_account": {
+              "type": "string",
+              "minLength": 1
+            },
+            "amount": {
+              "type": "number",
+              "description": "Declared amount. Carried, never compared: this node does not verify amount agreement."
+            },
+            "source_document_digest": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional digest of the source document. Absent reads as no declared digest and is reported as an advisory observation, not as malformed."
+            }
+          }
+        }
+      },
+      "accrual_entries": {
+        "type": "array",
+        "description": "Declared accrual entries. An empty list makes the register INDETERMINATE: there is no population over which linkage could be asserted.",
+        "items": {
+          "type": "object",
+          "required": [
+            "key",
+            "gl_account",
+            "amount"
+          ],
+          "properties": {
+            "key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "gl_account": {
+              "type": "string",
+              "minLength": 1
+            },
+            "amount": {
+              "type": "number"
+            },
+            "traces_to": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "Coding entry keys this accrual claims to trace to. Absent or null reads as no reference, not as malformed."
+            }
+          }
+        }
+      }
+    },
+    "x_schema_provenance": "derived-from-golden-fixtures 2026-09-24 (policy_parameters across the 20 vectors: coding_entries and accrual_entries are always the two declared lists, as_of optional; the intentionally malformed intake vectors deviate by design and are the fail-closed path, not the shape this schema describes)"
+  },
+  "output_schema": {
+    "type": "object",
+    "required": [
+      "linked_accruals",
+      "unlinked_accruals",
+      "dangling_trace_refs",
+      "orphan_coding",
+      "missing_source_refs",
+      "duplicate_lineage_keys",
+      "overall"
+    ],
+    "properties": {
+      "linked_accruals": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Accrual keys whose every declared reference resolves to a declared coding entry, in input order. An accrual that partly resolves is not here."
+      },
+      "unlinked_accruals": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Accrual keys declaring no reference at all, in input order. Gates the verdict."
+      },
+      "dangling_trace_refs": {
+        "type": "array",
+        "description": "One entry per reference naming a key no coding entry declares, reported with the accrual that declared it. Gates the verdict.",
+        "items": {
+          "type": "object",
+          "required": [
+            "accrual_key",
+            "trace_ref"
+          ],
+          "properties": {
+            "accrual_key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "trace_ref": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "orphan_coding": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Coding entry keys no accrual traces to. Advisory: recorded, never gating."
+      },
+      "missing_source_refs": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Coding entry keys with no declared source_document_digest. Advisory: recorded, never gating."
+      },
+      "duplicate_lineage_keys": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Keys declared more than once across the coding and accrual entries together, once per colliding key in first-repeat order. Gates the verdict."
+      },
+      "overall": {
+        "type": "string",
+        "enum": [
+          "CLOSE_READY",
+          "GAPS_FOUND",
+          "INDETERMINATE"
+        ],
+        "description": "CLOSE_READY iff unlinked_accruals, dangling_trace_refs and duplicate_lineage_keys are all empty over a non-empty accrual set; INDETERMINATE on an empty or malformed register; GAPS_FOUND otherwise."
+      },
+      "errors": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": "Present only on the indeterminate path, carrying the reason no linkage assertion was possible; non-empty exactly when the conditional compliance flag CLOSE_LINEAGE_INDETERMINATE is present (flag-mirror doctrine)."
+      }
+    },
+    "x_schema_provenance": "derived-from-golden-fixtures 2026-09-24 (re-derived over all 20 golden fixture output_payloads, incl. the spec-oracle worked example; errors observed on the 12 indeterminate vectors only, absent on the 8 assertable vectors)"
+  },
+  "mcp_tool_definition": {
+    "name": "verify_close_posting_lineage",
+    "description": "Month-end close lineage verdict over declared entries: which accruals resolve to a declared GL coding entry, which references dangle, which coding entries nothing traces to, which lack a source digest, repeated lineage keys, overall CLOSE_READY, GAPS_FOUND or INDETERMINATE, per CLOSE-COMMAND-CENTER-BUILD-SPEC-2026-09-23.md",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "coding_entries",
+        "accrual_entries"
+      ],
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "description": "Optional as-of date, YYYY-MM-DD; validated as a date string by the kernel whenever present, and never used as a clock."
+        },
+        "coding_entries": {
+          "type": "array",
+          "description": "Declared GL coding entries. May be empty; each entry must carry a non-empty key, a non-empty gl_account and a finite amount.",
+          "items": {
+            "type": "object",
+            "required": [
+              "key",
+              "gl_account",
+              "amount"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "gl_account": {
+                "type": "string",
+                "minLength": 1
+              },
+              "amount": {
+                "type": "number"
+              },
+              "source_document_digest": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Optional digest of the source document. Absent reads as no declared digest."
+              }
+            }
+          }
+        },
+        "accrual_entries": {
+          "type": "array",
+          "description": "Declared accrual entries. An empty list makes the register INDETERMINATE.",
+          "items": {
+            "type": "object",
+            "required": [
+              "key",
+              "gl_account",
+              "amount"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "gl_account": {
+                "type": "string",
+                "minLength": 1
+              },
+              "amount": {
+                "type": "number"
+              },
+              "traces_to": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "Coding entry keys this accrual claims to trace to. Absent or null reads as no reference."
+              }
+            }
+          }
+        }
+      },
+      "x_schema_provenance": "derived-from-golden-fixtures 2026-09-24 (mirrors input_schema: policy_parameters across the 20 golden fixture vectors)"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-692-close-posting-lineage.html",
+    "function_name": "run",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "authored in-row per CONTRACT.md section 2.7 (new live nodes ship a manifest with output_schema in the same PR); scripts/generate-node-manifest.mjs cannot run pre-assembly (it reads assembled chaingraph.json), so fields were taken from the node shard, the page's inline MANIFEST, and the kernel; output_schema derived from the golden fixtures (20 vectors), never hand-waved",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "as_of": "2026-09-30",
+    "coding_entries": [
+      {
+        "key": "COD-1",
+        "gl_account": "6100-office",
+        "amount": 1200,
+        "source_document_digest": "doc-digest-1"
+      }
+    ],
+    "accrual_entries": [
+      {
+        "key": "ACC-1",
+        "gl_account": "2100-accrued-expense",
+        "amount": 1200,
+        "traces_to": [
+          "COD-1"
+        ]
+      },
+      {
+        "key": "ACC-2",
+        "gl_account": "2200-accrued-interest",
+        "amount": 300,
+        "traces_to": []
+      }
+    ]
+  },
+  "output_example": {
+    "linked_accruals": [
+      "ACC-1"
+    ],
+    "unlinked_accruals": [
+      "ACC-2"
+    ],
+    "dangling_trace_refs": [],
+    "orphan_coding": [],
+    "missing_source_refs": [],
+    "duplicate_lineage_keys": [],
+    "overall": "GAPS_FOUND"
+  },
+  "example_execution_hash": "46b2cee4111553128514447ded7e205fb45bbdedccd75579f04c7ebc360d63d1"
+}
