@@ -387,7 +387,25 @@ export async function deriveCounts() {
     const p = resolve(PROPTESTS_DIR, `${tool_id}.proptest.mjs`)
     return existsSync(p) ? readFileSync(p, 'utf8') : null
   }
-  const { liveKernels } = deriveLiveKernels()
+  // MERGEGROUP overlay, fv-floor edition (measured 2026-09-24, #2041 queue eject, run
+  // 36057960078): deriveLiveKernels() reads the checkout's chaingraph.meta.json — correct
+  // for the §18 gate it serves, and the reason its header says "never the assembled
+  // monolith". But under DERIVED_ROOT every other read here (chaingraph.json, pages,
+  // mcp-counts) prefers the assembled speculative tree, so on a kernel-adding PR the
+  // regen wrote fv.floor* from the monolith while this compute stayed on the meta —
+  // expected=662 got=663, and no PR-side byte could close the gap. On merge_group the
+  // denominator comes from the same assembled monolith the regen used (shard-status
+  // semantics preserved); kernel/floor bytes stay checkout-rooted because they are PR
+  // content. DERIVED_ROOT unset: byte-for-byte unchanged.
+  let liveKernels
+  if (DERIVED_ROOT) {
+    liveKernels = (chaingraph.nodes ?? [])
+      .filter(n => n.status === 'live')
+      .map(n => ({ tool_id: n.tool_id, name: n.mcp_name || n.tool_id }))
+      .filter(k => existsSync(resolve(KDIR, `${k.tool_id}.kernel.mjs`)))
+  } else {
+    ;({ liveKernels } = deriveLiveKernels())
+  }
   const { floored: fvFloored, total: fvTotal } = await evaluateCoverage(liveKernels, readKernelSource, readFloorSource, sourceDigest)
   const fvFloorPct = fvTotal > 0 ? Math.floor(100 * fvFloored.length / fvTotal) : 0
 
