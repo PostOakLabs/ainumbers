@@ -330,7 +330,7 @@ export function panelHits(prose) {
 // style contract allows "one per section", and most pages have 2+ sections.
 const NOTX = /,\s+not\s+(?:a|an|the|som\w+|only|merely)?\s?[\w-]+/gi;
 const SEMI_NOT = /;\s*it is not/gi;
-const DEFAULT_NOTX_CAP = 3;
+export const DEFAULT_NOTX_CAP = 3;
 export function notXCount(text) {
   return (text.match(NOTX) || []).length + (text.match(SEMI_NOT) || []).length;
 }
@@ -456,7 +456,7 @@ const FILLER_VOCAB = [
 // times; legacy debt is shielded by the baseline (ratchet — counts only go down
 // via --update), same design as the em-dash gate. "honest/honestly/honesty"
 // added per Tim 2026-07-21 (why-openchain-graph.html used it 5x; once is plenty).
-const OVERUSE_CAP = 1;
+export const OVERUSE_CAP = 1;
 const OVERUSE_VOCAB = [
   [/\bhonest(?:ly|y)?\b/gi, 'honest'],
 ];
@@ -562,17 +562,20 @@ function headerText(prose) {
   return out.join(' ');
 }
 
-// Gate body runs only when this file is executed directly (node scripts/check-
-// copy-hallmarks.mjs), never on `import` — cosignVocabHits() above is safe to
-// unit-test in isolation (check-copy-hallmarks.test.mjs) without triggering a
-// full repo scan / process.exit as an import side effect.
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// PROMPTS-BORROW-LABELS-1 (2026-09-24), ADDITIVE EXPORT: the per-file scan
+// below is hoisted into hallmarkFindings() so a generator can run the SAME
+// battery on RENDERED output pre-write (gen-prompts-page.mjs's validate()
+// runs it on the page it is about to write, because the repo-level gate only
+// reads the committed page — which on a PR is still the pre-change bytes).
+// The CLI gate in this file consumes the very same function, so the gate and
+// the generator's self-validation can never drift apart. Detection rules are
+// UNCHANGED: this is the same computation the main loop performed inline,
+// moved behind an export.
 
-const findings = {}; // rel path -> { emdash, jargon: [msg], twotone, hallmarks: [msg] }
-const scanFiles = CHANGED ? htmlFiles(REPO).filter((f) => isTouched(relative(REPO, f), CHANGED)) : htmlFiles(REPO);
-for (const file of scanFiles) {
-  const rel = relative(REPO, file).replace(/\\/g, '/');
-  const raw = readFileSync(file, 'utf8');
+/** One document's hallmark findings, computed from raw HTML. Pure: no IO,
+ * no exit, safe to call on in-memory strings. Same buckets the CLI gate
+ * compares against the baseline. */
+export function hallmarkFindings(raw) {
   const prose = proseHtml(raw); // tags intact, badges/script/style/pre/code/comments gone
   const text = visibleText(raw); // fully tag-stripped
 
@@ -652,8 +655,31 @@ for (const file of scanFiles) {
     if (n) overuse[label] = n;
   }
 
-  if (emdash || jargon.length || twotoneHP || triad || loadbearing || cosignVocab.length || hallmarks.length || emojiProse || bold || doubleEscaped || Object.keys(overuse).length || insider.length || aiVocab.length || absolutes.length || notX || panel.length || fragHead.length) {
-    findings[rel] = { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, absolutes, notX, panel, fragHead };
+  return { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, absolutes, notX, panel, fragHead };
+}
+
+/** True iff any bucket carries a hit — the CLI gate's own "record this file"
+ * condition, exported with the scan so callers agree on what counts as debt. */
+export function hasHallmarkDebt(f) {
+  return Boolean(f.emdash || f.jargon.length || f.twotoneHP || f.triad || f.loadbearing || f.cosignVocab.length || f.hallmarks.length || f.emojiProse || f.bold || f.doubleEscaped || Object.keys(f.overuse).length || f.insider.length || f.aiVocab.length || f.absolutes.length || f.notX || f.panel.length || f.fragHead.length);
+}
+
+// Gate body runs only when this file is executed directly (node scripts/check-
+// copy-hallmarks.mjs), never on `import` — cosignVocabHits() above is safe to
+// unit-test in isolation (check-copy-hallmarks.test.mjs) without triggering a
+// full repo scan / process.exit as an import side effect.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+
+const findings = {}; // rel path -> { emdash, jargon: [msg], twotone, hallmarks: [msg] }
+const scanFiles = CHANGED ? htmlFiles(REPO).filter((f) => isTouched(relative(REPO, f), CHANGED)) : htmlFiles(REPO);
+for (const file of scanFiles) {
+  const rel = relative(REPO, file).replace(/\\/g, '/');
+  // PROMPTS-BORROW-LABELS-1: the per-file scan moved into the exported
+  // hallmarkFindings() above — identical computation, now shared with the
+  // generators that self-validate rendered output pre-write.
+  const f = hallmarkFindings(readFileSync(file, 'utf8'));
+  if (hasHallmarkDebt(f)) {
+    findings[rel] = f;
   }
 }
 

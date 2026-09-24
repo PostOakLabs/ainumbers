@@ -1081,6 +1081,17 @@ const DECLARED_DIVERGENCES = new Map([
 // would treat them as unrelated commands and an argument-drift typo on an
 // advisory gate would read as "consistent" because it matched nothing (hole (d)).
 const DISTINCT_LEGS = new Map([
+  ["node scripts/gen-prompts-page.mjs --selftest", {
+    sibling: "node scripts/gen-prompts-page.mjs --check",
+    decided: "2026-09-24 (PROMPTS-BORROW-LABELS-1)",
+    why:
+      "The --selftest leg is the generator's in-memory RED-mutation + GREEN-control battery over its " +
+      "own validate() (the --check assertions, the one-state-per-chain-row checks, and the " +
+      "rendered-copy hallmark battery): it can only be reddened by a change to the generator itself, " +
+      "never by a content PR, so it is the SELF_TEST shape — preflight-only by design. The --check " +
+      "sibling is unchanged: the COVERED id 'prompts-page' freshness gate, advisory on a PR and " +
+      "blocking on main. Deliberately separate legs of one script, not argument drift.",
+  }],
   ["python scripts/verify_repo.py --changed ${changedRef}", {
     sibling: "python scripts/verify_repo.py",
     decided: "2026-09-23 (SITEMAP-DEPLOY-SPLIT-1)",
