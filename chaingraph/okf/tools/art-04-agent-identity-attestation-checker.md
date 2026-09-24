@@ -30,9 +30,9 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md), [EUDI Wallet Credential-Acceptance Readiness Checker](./art-13-eudi-wallet-credential-readiness-checker.md)
+**Consumes:** [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md), [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md), [EUDI Wallet Credential-Acceptance Readiness Checker](./art-13-eudi-wallet-credential-readiness-checker.md)
 
-**Feeds:** [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+**Feeds:** [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md), [A2A Agent-Card Trust-Chain Validator](./art-32-a2a-agent-card-trust-chain-validator.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
 
 ## Attested computation
 

@@ -34,9 +34,9 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md)
+**Consumes:** [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md), [ACP Checkout Conformance Validator](./art-12-acp-checkout-conformance-validator.md)
 
-**Feeds:** [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+**Feeds:** [Agent Commerce Cross-Protocol Conformance Validator](./art-30-agent-commerce-conformance-validator.md), [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md), [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
 
 ## Attested computation
 

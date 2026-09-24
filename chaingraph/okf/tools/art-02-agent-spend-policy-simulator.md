@@ -30,9 +30,9 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md), [Agent Identity & Authorization Attestation Checker](./art-04-agent-identity-attestation-checker.md)
+**Consumes:** [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md), [Agent Identity & Authorization Attestation Checker](./art-04-agent-identity-attestation-checker.md), [A2A Agent-Card Trust-Chain Validator](./art-32-a2a-agent-card-trust-chain-validator.md)
 
-**Feeds:** [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+**Feeds:** [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md), [Agent Identity & Authorization Attestation Checker](./art-04-agent-identity-attestation-checker.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
 
 ## Attested computation
 

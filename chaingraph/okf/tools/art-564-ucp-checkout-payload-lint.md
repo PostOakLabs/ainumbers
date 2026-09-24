@@ -30,7 +30,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 **Consumes:** _none (root node)_
 
-**Feeds:** _terminal node_
+**Feeds:** [ACP Checkout Conformance Validator](./art-12-acp-checkout-conformance-validator.md)
 
 ## Attested computation
 

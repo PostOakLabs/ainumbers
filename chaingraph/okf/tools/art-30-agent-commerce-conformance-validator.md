@@ -30,7 +30,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md), [ACP Checkout Conformance Validator](./art-12-acp-checkout-conformance-validator.md), [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md)
+**Consumes:** [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md), [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md), [ACP Checkout Conformance Validator](./art-12-acp-checkout-conformance-validator.md), [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md)
 
 **Feeds:** [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
 

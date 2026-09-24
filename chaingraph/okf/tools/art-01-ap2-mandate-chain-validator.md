@@ -30,9 +30,9 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** _none (root node)_
+**Consumes:** [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md), [ACP Checkout Conformance Validator](./art-12-acp-checkout-conformance-validator.md), [Tempo MPP Agent Mandate](./art-36-tempo-mpp-agent-mandate.md)
 
-**Feeds:** [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md), [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md), [Agent Identity & Authorization Attestation Checker](./art-04-agent-identity-attestation-checker.md), [ACP Checkout Conformance Validator](./art-12-acp-checkout-conformance-validator.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+**Feeds:** [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md), [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md), [Agent Identity & Authorization Attestation Checker](./art-04-agent-identity-attestation-checker.md), [ACP Checkout Conformance Validator](./art-12-acp-checkout-conformance-validator.md), [Agent Token Scope Checker](./art-385-agent-token-scope-checker.md), [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
 
 ## Attested computation
 

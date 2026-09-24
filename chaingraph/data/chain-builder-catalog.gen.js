@@ -169,12 +169,18 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "payment_mandate",
     "url": "https://ainumbers.co/chaingraph/art-01-ap2-mandate-chain-validator.html",
     "description": "Validates AP2 v0.2 Intent→Cart→Payment mandate trio: signature-chain integrity, scope/limit consistency, TTL/expiry, over-spend detection, H",
-    "consumes": [],
+    "consumes": [
+      "art-02-agent-spend-policy-simulator",
+      "art-12-acp-checkout-conformance-validator",
+      "art-36-tempo-mpp-agent-mandate"
+    ],
     "feeds": [
       "art-02-agent-spend-policy-simulator",
       "art-03-x402-settlement-modeler",
       "art-04-agent-identity-attestation-checker",
       "art-12-acp-checkout-conformance-validator",
+      "art-385-agent-token-scope-checker",
+      "art-62-ap2-payment-receipt-verifier",
       "ptg-01-ap2-prompt-template-generator"
     ],
     "status": "live"
@@ -187,9 +193,12 @@ window.CHAINBUILDER_CATALOG = [
     "description": "Simulates thousands of synthetic agent transactions against a user-authored spend policy (per-merchant caps, category allow/deny, velocity l",
     "consumes": [
       "art-01-ap2-mandate-chain-validator",
-      "art-04-agent-identity-attestation-checker"
+      "art-04-agent-identity-attestation-checker",
+      "art-32-a2a-agent-card-trust-chain-validator"
     ],
     "feeds": [
+      "art-01-ap2-mandate-chain-validator",
+      "art-04-agent-identity-attestation-checker",
       "ptg-01-ap2-prompt-template-generator"
     ],
     "status": "live"
@@ -201,9 +210,12 @@ window.CHAINBUILDER_CATALOG = [
     "url": "https://ainumbers.co/chaingraph/art-03-x402-settlement-modeler.html",
     "description": "Rail-selection and finality recommendation across x402 (HTTP 402), Stripe USDC, card, ACH, and SWIFT. Per-transaction cost, eligibility scor",
     "consumes": [
-      "art-01-ap2-mandate-chain-validator"
+      "art-01-ap2-mandate-chain-validator",
+      "art-12-acp-checkout-conformance-validator"
     ],
     "feeds": [
+      "art-30-agent-commerce-conformance-validator",
+      "art-61-x402-batch-settlement-reconciler",
       "cry-04-merkle-batch-verifier",
       "ptg-01-ap2-prompt-template-generator"
     ],
@@ -217,10 +229,12 @@ window.CHAINBUILDER_CATALOG = [
     "description": "KYA-OS (DIF Trusted AI Agents WG) credential-chain attestation: delegated-authority credential chain, scope limits, validity windows (max 90",
     "consumes": [
       "art-01-ap2-mandate-chain-validator",
+      "art-02-agent-spend-policy-simulator",
       "art-13-eudi-wallet-credential-readiness-checker"
     ],
     "feeds": [
       "art-02-agent-spend-policy-simulator",
+      "art-32-a2a-agent-card-trust-chain-validator",
       "ptg-01-ap2-prompt-template-generator"
     ],
     "status": "live"
@@ -597,9 +611,12 @@ window.CHAINBUILDER_CATALOG = [
     "url": "https://ainumbers.co/chaingraph/art-12-acp-checkout-conformance-validator.html",
     "description": "OpenAI/Stripe Agentic Commerce Protocol (ACP): CheckoutRequest/Response field conformance (10 required fields each), Shared Payment Token st",
     "consumes": [
-      "art-01-ap2-mandate-chain-validator"
+      "art-01-ap2-mandate-chain-validator",
+      "art-564-ucp-checkout-payload-lint"
     ],
     "feeds": [
+      "art-01-ap2-mandate-chain-validator",
+      "art-03-x402-settlement-modeler",
       "ptg-01-ap2-prompt-template-generator"
     ],
     "status": "live"
@@ -3053,8 +3070,9 @@ window.CHAINBUILDER_CATALOG = [
     "description": "The synergy flagship. Validates a single agent purchase end-to-end across up to five protocols: AP2 v0.2 mandate chain (Intent → Cart → Paym",
     "consumes": [
       "art-01-ap2-mandate-chain-validator",
+      "art-03-x402-settlement-modeler",
       "art-12-acp-checkout-conformance-validator",
-      "art-03-x402-settlement-modeler"
+      "art-62-ap2-payment-receipt-verifier"
     ],
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator",
@@ -3276,7 +3294,9 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-32-a2a-agent-card-trust-chain-validator.html",
     "description": "The horizontal agent-to-agent trust complement. Validates an A2A v1.0 agent card (schema, signature, extension URIs) then assesses the deleg",
-    "consumes": [],
+    "consumes": [
+      "art-04-agent-identity-attestation-checker"
+    ],
     "feeds": [
       "art-04-agent-identity-attestation-checker",
       "art-02-agent-spend-policy-simulator",
@@ -3943,7 +3963,9 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-385-agent-token-scope-checker.html",
     "description": "Compares a requested agent action (amount, currency, merchant category, timestamp) against an agent token or mandate's declared scope: spend",
-    "consumes": [],
+    "consumes": [
+      "art-01-ap2-mandate-chain-validator"
+    ],
     "feeds": [],
     "status": "live"
   },
@@ -5877,7 +5899,9 @@ window.CHAINBUILDER_CATALOG = [
     "url": "https://ainumbers.co/chaingraph/art-564-ucp-checkout-payload-lint.html",
     "description": "Deterministic, verify-only structural lint of a caller-supplied Universal Commerce Protocol (UCP; Google + Shopify, announced NRF 2026-01-11",
     "consumes": [],
-    "feeds": [],
+    "feeds": [
+      "art-12-acp-checkout-conformance-validator"
+    ],
     "status": "live"
   },
   {
@@ -6411,9 +6435,11 @@ window.CHAINBUILDER_CATALOG = [
     "url": "https://ainumbers.co/chaingraph/art-61-x402-batch-settlement-reconciler.html",
     "description": "Reconciles an x402 V2 batch settlement (off-chain payment vouchers vs onchain batch total), verifying recon verdict, per-voucher amounts, se",
     "consumes": [
+      "art-03-x402-settlement-modeler",
       "art-60-agent-economy-runtime-fit-diagnostic"
     ],
     "feeds": [
+      "art-62-ap2-payment-receipt-verifier",
       "cry-04-merkle-batch-verifier",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
@@ -6526,10 +6552,13 @@ window.CHAINBUILDER_CATALOG = [
     "url": "https://ainumbers.co/chaingraph/art-62-ap2-payment-receipt-verifier.html",
     "description": "Verifies an AP2 v0.2 PaymentReceipt against its signed Intent/Cart/Payment mandate chain, and applies the Human-Not-Present (HNP) autonomy g",
     "consumes": [
-      "art-60-agent-economy-runtime-fit-diagnostic"
+      "art-01-ap2-mandate-chain-validator",
+      "art-60-agent-economy-runtime-fit-diagnostic",
+      "art-61-x402-batch-settlement-reconciler"
     ],
     "feeds": [
       "art-01-ap2-mandate-chain-validator",
+      "art-30-agent-commerce-conformance-validator",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
     "status": "live"

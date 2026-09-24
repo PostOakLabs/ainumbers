@@ -28,9 +28,9 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md)
+**Consumes:** [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md), [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md)
 
-**Feeds:** [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+**Feeds:** [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md), [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
 
 ## Attested computation
 
