@@ -1661,6 +1661,20 @@ const GATES = [
   // a temp dir and asserts every tamper class REDS, then re-verifies the real
   // card GREEN — the gate is proven to read the bytes, not rubber-stamp.
   ['Server card conformance fixture proof (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-server-card-schema.mjs --self-test'],
+  // WEBMCP-FEEDBACK-SCHEMA-1: the agent-feedback v0 schema twin
+  // (.well-known/agent-feedback.schema.json) is structurally validated
+  // always; the descriptor (.well-known/agent-feedback.json) validates
+  // against the twin when present (it lands with WEBMCP-FEEDBACK-DESCRIPTOR-1
+  // after the worker route). The gate folds copy-hallmark enforcement for
+  // this .well-known JSON prose INTO itself (AF-8: check-copy-hallmarks
+  // scans HTML + chaingraph.json only). Blocking — hand-authored surface,
+  // this gate is its only drift guard.
+  ['Agent feedback twin + descriptor gate (WEBMCP-FEEDBACK-SCHEMA-1)', 'node scripts/check-agent-feedback-descriptor.mjs'],
+  // Paired mutation control (GATE-SELFTEST-META-1, AF-12): mutates twin
+  // copies in a temp dir and asserts every tamper class REDS, plus the
+  // descriptor GREEN/RED classes and the pre-stable unknown-member
+  // MUST-ignore positive control.
+  ['Agent feedback gate controls (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-agent-feedback-descriptor.mjs --self-test'],
   ['llms.txt estate map freshness', 'node scripts/gen-estate-map.mjs --check'],
   ['start.html search index freshness', 'node scripts/gen-start-index.mjs --check'],
   ['sitemap.xml freshness (DISCOVER-1)', 'node scripts/regen-sitemap.mjs --check'],

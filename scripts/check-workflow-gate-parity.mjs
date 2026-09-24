@@ -1205,7 +1205,11 @@ const DECLARED_SOFTENERS = new Map([
   // The WebMCP api-surface sweep row (2026-09-24) moved it :890 → :895 — the
   // bare-alias gate + its self-test (two `node` lines and three `#` comment
   // lines) landed in the same gate `run:` block above the attest step; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:895",
+  // WEBMCP-FEEDBACK-SCHEMA-1 (2026-09-24) moved it :895 → :901 — the
+  // agent-feedback twin/descriptor gate + its self-test (two `node` lines and
+  // four `#` comment lines) landed in the same gate `run:` block above the
+  // attest step; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:901",
    "attest step is advisory-first by design; promotion criterion on the step"],
   ["unwired-gates.yml:continue-on-error:108",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +

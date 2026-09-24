@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainumbers.co/.well-known/agent-feedback.schema.json",
+  "title": "AINumbers agent feedback report (ain-agent-feedback-v0)",
+  "description": "Normative schema for unauthenticated, enum-only agent feedback reports POSTed to https://mcp.ainumbers.co/feedback. Reports carry structural metadata only: no free text, no conversation content, no personal data. v0 is PRE-STABLE: fields may be added or removed before v1.0, and consumers MUST ignore unknown members; this schema therefore never sets additionalProperties to false. This document is the definitions surface for reporting agents: every enum value carries a description and one canonical example. Authored in-house 2026-09-24; the W3C Reporting API and the bandarra.me agent-feedback sketch are cited as inspiration, not implemented text (no bytes copied).",
+  "type": "object",
+  "required": ["schema_version", "report"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "const": "ain-agent-feedback-v0",
+      "description": "Wire discriminator naming the report dialect. v0 is pre-stable: consumers MUST ignore unknown members and MUST NOT attempt to interpret a schema_version they do not implement.",
+      "examples": ["ain-agent-feedback-v0"]
+    },
+    "report": {
+      "type": "object",
+      "description": "The feedback report body. Pre-stable v0: members may be added or removed before v1.0; consumers MUST ignore unknown members rather than rejecting them.",
+      "required": ["tool_name", "doorway", "failure_class"],
+      "additionalProperties": true,
+      "properties": {
+        "tool_name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,127}$",
+          "maxLength": 128,
+          "description": "Name of the tool the agent was invoking, in the estate's mcp_name vocabulary: lowercase snake_case, starting with a letter, at most 128 characters. Send the exact name as attempted; whether that name is registered is collector-side knowledge, never a reporter assertion.",
+          "examples": ["nav_summary"]
+        },
+        "doorway": {
+          "description": "Which access path produced the failure being reported.",
+          "oneOf": [
+            {
+              "const": "page_execute",
+              "description": "A WebMCP page tool executing inside the browser page (the agent selected a page-registered tool and the page ran it).",
+              "examples": ["page_execute"]
+            },
+            {
+              "const": "deep_link",
+              "description": "A versioned deep link (a #p=v1... fragment URL) reached without a registered page-tool invocation.",
+              "examples": ["deep_link"]
+            },
+            {
+              "const": "worker",
+              "description": "A worker-served MCP tool invoked over the /mcp endpoint at mcp.ainumbers.co.",
+              "examples": ["worker"]
+            },
+            {
+              "const": "unknown",
+              "description": "The reporter cannot determine which doorway produced the failure. Send this rather than guessing.",
+              "examples": ["unknown"]
+            }
+          ]
+        },
+        "failure_class": {
+          "description": "Coarse class of the failure, enumerable in v1; the weekly digest aggregates on this field, so a value outside the enumeration is a validation error, not free text.",
+          "oneOf": [
+            {
+              "const": "invalid_args",
+              "description": "The tool rejected the arguments supplied: a validation or policy-parameter failure detected before execution started.",
+              "examples": ["invalid_args"]
+            },
+            {
+              "const": "tool_missing",
+              "description": "The requested tool does not exist, has been removed, or is not visible to the caller.",
+              "examples": ["tool_missing"]
+            },
+            {
+              "const": "execution_failed",
+              "description": "The tool was found and accepted its arguments, but the execution itself failed or returned an error result.",
+              "examples": ["execution_failed"]
+            },
+            {
+              "const": "hash_mismatch",
+              "description": "The execution hash observed differs from the hash the reporter expected: a divergence between claimed and verified output.",
+              "examples": ["hash_mismatch"]
+            },
+            {
+              "const": "schema_unclear",
+              "description": "The agent could not determine how to call the tool correctly from the published schema or documentation, so it never produced a valid call.",
+              "examples": ["schema_unclear"]
+            },
+            {
+              "const": "other",
+              "description": "None of the enumerated classes applies. The digest reports this class separately and reviews a majority share before acting on it.",
+              "examples": ["other"]
+            }
+          ]
+        },
+        "expected_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{1,64}$",
+          "description": "OPTIONAL. Execution hash the reporter expected, lowercase hexadecimal, 1 to 64 characters. Omit the member entirely when the reporter holds no expectation to compare against.",
+          "examples": ["e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"]
+        },
+        "observed_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{1,64}$",
+          "description": "OPTIONAL. Execution hash the reporter observed, lowercase hexadecimal, 1 to 64 characters. Send only when an execution actually produced output to hash.",
+          "examples": ["ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"]
+        },
+        "agent_label": {
+          "type": "string",
+          "pattern": "^[\\x20-\\x7E]{0,64}$",
+          "maxLength": 64,
+          "description": "OPTIONAL. Short printable-ASCII label describing the reporting agent, at most 64 characters. Advisory self-description only: it is never authenticated and never republished per-report.",
+          "examples": ["example-mcp-client"]
+        },
+        "occurred_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}[Tt]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:[Zz]|[+-]\\d{2}:\\d{2})$",
+          "format": "date-time",
+          "description": "OPTIONAL. RFC 3339 / ISO 8601 date-time of the observed failure. Omit the member rather than guessing a time.",
+          "examples": ["2026-09-24T12:00:00Z"]
+        }
+      }
+    }
+  }
+}
