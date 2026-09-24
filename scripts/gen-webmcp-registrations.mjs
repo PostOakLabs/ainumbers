@@ -1306,7 +1306,16 @@ function validationLine(prop, type) {
     case 'boolean': return `if (typeof params.${prop} !== 'boolean') throw new Error('${jsStr(prop)} must be a boolean; received ' + ${r} + '.');`;
     case 'string': return `if (typeof params.${prop} !== 'string') throw new Error('${jsStr(prop)} must be a string; received ' + ${r} + '.');`;
     case 'array': return `if (!Array.isArray(params.${prop})) throw new Error('${jsStr(prop)} must be an array; received ' + ${r} + '.');`;
-    default: return `if (params.${prop} === null || typeof params.${prop} !== 'object' || Array.isArray(params.${prop})) throw new Error('${jsStr(prop)} must be a JSON object; received ' + ${r} + '.');`;
+    case 'object': return `if (params.${prop} === null || typeof params.${prop} !== 'object' || Array.isArray(params.${prop})) throw new Error('${jsStr(prop)} must be a JSON object; received ' + ${r} + '.');`;
+    // WEBMCP-TYPELESS-VALIDATION-EMIT-1: a property with NO `type` keyword (or a
+    // type outside the five declared above) accepts ANY JSON — RULINGS
+    // 2026-09-10T20:30:44Z. The old `default:` arm emitted the object check for
+    // that case, so the page-mode block VALIDATED as object what mappingLine then
+    // WROTE as a string (measured: art-212's
+    // `compute_failed: venue_a must be a JSON object; received "polymarket"`).
+    // A typeless required property now gets a PRESENCE check only — the same line
+    // `directValidationLine` already emits, so both emitters read as one law.
+    default: return `if (params.${prop} === undefined) throw new Error('${jsStr(prop)} is required; received ' + ${r} + '.');`;
   }
 }
 
@@ -3677,6 +3686,16 @@ async function selftest(){
       typelessShapeErr === null
         && typelessBlock.includes("document.getElementById('label').value = (params.label !== null && typeof params.label === 'object') ? JSON.stringify(params.label) : String(params.label);"),
       `shapeErr=${JSON.stringify(typelessShapeErr)}`);
+    // GREEN 6d-a2 (WEBMCP-TYPELESS-VALIDATION-EMIT-1): the typeless law binds
+    // VALIDATION as well as the write. A REQUIRED property with no `type` accepts
+    // any JSON, so the emitted check is PRESENCE-only — the same line the direct
+    // emitter already writes (directValidationLine). The old `default:` arm of
+    // validationLine emitted the object check here, so the block validated as
+    // object what it then wrote as a string (measured: art-212's
+    // `venue_a must be a JSON object; received "polymarket"` compute_failed).
+    check('typeless required property validates presence only, never "must be a JSON object"',
+      typelessBlock.includes("if (params.label === undefined) throw new Error('label is required; received ' + JSON.stringify(params.label) + '.');")
+        && !typelessBlock.includes('label must be a JSON object'));
     // GREEN 6d-b: a DECLARED scalar keeps the plain String() write (byte-identical
     // to the pre-WRAPPER-OBJECT-PARAMS law).
     const scalarBlock = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', undefined, 'run');
