@@ -304,11 +304,22 @@ export const COVERED = [
     // copy-paste prompt library rendered from mcp/showcase-prompts.json (the
     // same SSOT the worker's prompts/list reads) + the mcp.html #workflows
     // table (the recipes source MCP-SUITE-RECIPES-1 reads) + chaingraph.json
-    // (mcp_name → tool_id resolution for the tool chips). Positioned BEFORE
-    // its same-pass readers — infra-registry's scope walk, sitemap-html,
-    // sitemap-xml, start-index and nav-island all consume either the page or
-    // the published-dirs rootPages entry this page satisfies — and after the
-    // writers of what it reads (chaingraph-assemble for the graph; the
+    // (mcp_name → tool_id resolution for the tool chips).
+    // PROMPTS-BORROW-LABELS-1 (2026-09-24) adds two inputs to the same entry:
+    // chaingraph/kernels/index.mjs (read through the new pure helper
+    // scripts/lib-chain-runnability.mjs — the same kernel registry the
+    // worker's getKernel() dispatch reads) so every "Every chain" row carries
+    // its four-state runnability chip (server/partial/browser/reading, the
+    // worker's per-step rule applied verbatim), and
+    // scripts/copy-hallmarks-baseline.json (read via check-copy-hallmarks's
+    // exported battery) so the generator self-validates rendered copy
+    // pre-write. Still positioned BEFORE its same-pass readers —
+    // infra-registry's scope walk, sitemap-html, sitemap-xml, start-index and
+    // nav-island all consume either the page or the published-dirs rootPages
+    // entry this page satisfies — and after the writers of what it reads
+    // (chaingraph-assemble for the graph; kernels/index.mjs is written by the
+    // 'kernel-index' entry, COVERED's position 0, so the run-order edge "this
+    // entry reads a fresh kernel index" holds in every full pass; the
     // #workflows table rows are hand-authored prose that the 'stats' count
     // rewrite does not touch). Deterministic: no wall-clock anywhere, so a
     // second pass is byte-identical (idempotency proven by content hash,

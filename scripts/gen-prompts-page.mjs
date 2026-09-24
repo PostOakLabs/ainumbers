@@ -50,6 +50,11 @@ import { resolve, dirname } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { ROOT_FOOTER, ROOT_FOOTER_CSS } from '../chaingraph/_page-chrome.mjs';
+// PROMPTS-BORROW-LABELS-1 (BORROW-1 + BORROW-2): four-state runnability chips
+// + the SSOT self-link + the connect-first strip + the Claude Desktop handoff.
+import { installLinks } from './gen-install-links.mjs';
+import { classifyChainRows, CHIP_LABELS, RUN_STATES, loadChainGraph } from './lib-chain-runnability.mjs';
+import { hallmarkFindings, DEFAULT_NOTX_CAP, OVERUSE_CAP } from './check-copy-hallmarks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -68,13 +73,12 @@ function loadPrompts() {
   return prompts;
 }
 
-function loadToolPages() {
+function loadToolPages(graph) {
   // "resolved through the never-written chaingraph.json": the graph is a
   // derived, main-regenerated artifact; this generator only READS it to map
   // mcp_name -> tool_id (page name). It never writes it.
-  const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
   const map = new Map();
-  for (const n of cg.nodes ?? []) {
+  for (const n of graph.nodes ?? []) {
     if (n.mcp_name && n.tool_id && !map.has(n.mcp_name)) map.set(n.mcp_name, n.tool_id);
   }
   return map;
@@ -168,6 +172,29 @@ const REQUIRES_LEGEND = {
 };
 const DOORWAY_LABELS = { webmcp: 'WebMCP', mcp: 'hosted MCP', helmd: 'helmd', ledger: 'ledger', anchor: 'anchor', zk: 'zk' };
 
+// ── Claude Desktop handoff (PROMPTS-BORROW-LABELS-1, spec §P10) ─────────────
+// Only the DOCUMENTED form ships: claude://claude.ai/new?q= (Claude support
+// article 14729294: q prefills, ~14,000-char cap, never auto-sends, needs
+// Claude Desktop installed). §J rejects the undocumented https://claude.ai/
+// new?q= and chatgpt.com/?q= forms. The URL is NEVER stored in the HTML —
+// the inline handler below builds it synchronously on click from the card's
+// rendered body, using the same PREFIX constant.
+const HANDOFF_REQUIRES = new Set(['R', 'L', 'A', 'Z']);
+const HANDOFF_PREFIX = 'Connect https://mcp.ainumbers.co/mcp first; if its tools are unavailable, stop and say so.\n\n';
+const HANDOFF_ENCODED_CAP = 14000;
+function handoffEligible(entry) {
+  // requires ⊆ {R, L, A, Z} (vacuously true for a card that names nothing),
+  // and the documented ~14,000-char prefill cap leaves room for the body.
+  return (entry.requires ?? []).every((r) => HANDOFF_REQUIRES.has(r))
+    && encodeURIComponent(HANDOFF_PREFIX + (entry.body ?? '')).length <= HANDOFF_ENCODED_CAP;
+}
+
+// ── Connect-first strip (PROMPTS-BORROW-LABELS-1, spec §P5) ─────────────────
+// The deeplinks are IMPORTED from gen-install-links.mjs (MCP-INSTALL-LINKS-1's
+// derivation) — ⛔ never hand-written here. The `claude mcp add` command is a
+// copy button, not a deeplink, and embeds the same canonical endpoint.
+const CLAUDE_MCP_ADD = 'claude mcp add --transport http ainumbers ' + installLinks.endpoint;
+
 function groupSections(prompts) {
   const byGroup = new Map();
   for (const e of prompts) {
@@ -218,6 +245,10 @@ function cardHtml(entry, toolPages) {
     .map((u) => `<a class="verify-link" href="${esc(u)}">${esc(u)}</a>`)
     .join(' ');
 
+  const handoff = handoffEligible(entry)
+    ? `\n    <button class="handoff-btn" type="button" data-handoff>Open in Claude Desktop</button>`
+    : '';
+
   return `<article class="prompt-card" id="${esc(entry.id)}">
   <div class="card-head">
     <h3 class="card-title">${esc(entry.title)}</h3>
@@ -232,14 +263,43 @@ function cardHtml(entry, toolPages) {
   </div>
   <div class="card-foot">
     ${verify ? `<div class="card-verify"><span class="foot-label">Verify:</span> ${verify}</div>` : ''}
-    ${run}
+    ${run}${handoff}
   </div>
 </article>`;
 }
 
-function renderPage(prompts, chains, toolPages) {
+// One-line legend under the chains note; labels come from the lib's
+// CHIP_LABELS so the legend and the row chips can never drift apart.
+const CHIP_LEGEND = {
+  server: 'every step executes on the hosted worker',
+  partial: 'some steps execute on the worker, the rest run as browser tools',
+  browser: 'the steps run as browser tools on the linked pages',
+  reading: 'the worker has no chain under this name today',
+};
+
+function renderPage(prompts, chains, toolPages, runnability) {
   const { byGroup, known, extra } = groupSections(prompts);
   const n = prompts.length;
+
+  const runChip = (id) => {
+    const state = runnability ? runnability.get(id) : undefined;
+    // A row whose id is missing from the map renders stateless here — and
+    // validate() reds exactly that shape (the selftest carries the fixture).
+    return state ? ` <span class="run-chip run-chip--${state}">${esc(CHIP_LABELS[state])}</span>` : '';
+  };
+
+  const chainLegend = `<p class="chain-legend" aria-label="Runnability legend">Every chain carries one runnability label: ${RUN_STATES.map((s) => `<span class="lg"><span class="run-chip run-chip--${s}">${esc(CHIP_LABELS[s])}</span> ${esc(CHIP_LEGEND[s])}</span>`).join('')}</p>`;
+
+  const installStrip = `<section class="install-sec" aria-label="Connect the suite">
+  <div class="container">
+  <div class="install-strip">
+    <span class="install-label">Connect the hosted suite once, then any prompt below runs through your assistant or agent:</span>
+    <a class="install-link" href="${esc(installLinks.cursor)}" data-install-link="cursor">Add to Cursor</a>
+    <a class="install-link" href="${esc(installLinks.vscode)}" data-install-link="vscode">Add to VS Code</a>
+    <button class="install-cmd-btn" type="button" data-copy-text="${esc(CLAUDE_MCP_ADD)}"><code>claude mcp add</code></button>
+  </div>
+  </div>
+</section>`;
 
   const section = (title, entries) => `<section class="pl-section" aria-label="${esc(title)}">
   <div class="container">
@@ -278,15 +338,16 @@ ${byGroup.get(g).map((e) => cardHtml(e, toolPages)).join('\n')}
     if (!chainGrouped.has(k)) chainGrouped.set(k, []);
     chainGrouped.get(k).push(c);
   }
-  const chainsHtml = chains.length ? `<section class="pl-section" aria-label="Every chain">
+  const chainsHtml = chains.length ? `<section class="pl-section" aria-label="Every chain" id="every-chain">
   <div class="container">
   <div class="sec-label">Prompt library</div>
   <h2 class="sec-heading">Every chain <span class="sec-count">${chains.length}</span></h2>
   <p class="chains-note">One line per workflow recipe in the suite catalog, generated from the mcp.html workflows table. Ask the hosted worker for any of these by name via <code>build_workflow_links</code>, or open the chain page.</p>
+  ${chainLegend}
 ${[...chainGrouped.entries()].map(([g, list]) => `  <div class="domain-group">
     <h3 class="domain-title">${esc(g)}</h3>
     <ul class="chain-list">
-${list.map((c) => `      <li><code class="chain-id">${esc(c.id)}</code> <span class="chain-desc">${esc(c.desc)}</span>${c.href ? ` <a class="chain-open" href="${esc(c.href)}">Open &#8594;</a>` : ''}</li>`).join('\n')}
+${list.map((c) => `      <li><code class="chain-id">${esc(c.id)}</code> <span class="chain-desc">${esc(c.desc)}</span>${runChip(c.id)}${c.href ? ` <a class="chain-open" href="${esc(c.href)}">Open &#8594;</a>` : ''}</li>`).join('\n')}
     </ul>
   </div>`).join('\n')}
   </div>
@@ -397,14 +458,33 @@ a.tool-chip:hover{border-color:var(--teal);color:var(--teal-lt)}
 .verify-link:hover{color:var(--teal-lt);border-bottom-style:solid}
 .run-link{color:var(--teal-lt);letter-spacing:.08em;text-transform:uppercase;font-size:.54rem}
 .run-link:hover{color:var(--white)}
+.handoff-btn{align-self:flex-start;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;color:var(--teal-lt);background:var(--bg-3);border:1px solid var(--border-2);border-radius:4px;padding:.26rem .6rem;transition:all .15s}
+.handoff-btn:hover{border-color:var(--teal);color:var(--white)}
 
 /* Every chain */
 .chains-note{font-size:.8rem;color:var(--body);max-width:680px;margin-bottom:1.25rem}
+.chain-legend{display:flex;flex-wrap:wrap;gap:.4rem 1rem;font-size:.72rem;color:var(--body);margin:-0.6rem 0 1.25rem}
+.chain-legend .lg{display:inline-flex;align-items:center;gap:.4rem}
 .chain-list{list-style:none;display:grid;grid-template-columns:1fr;gap:.35rem}
 .chain-list li{font-size:.76rem;color:var(--body);line-height:1.55;border-bottom:1px dotted var(--border);padding-bottom:.3rem}
 .chain-id{font-size:.66rem;color:var(--teal-lt);background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.05rem .35rem;margin-right:.35rem}
 .chain-open{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);margin-left:.4rem;white-space:nowrap}
 .chain-open:hover{color:var(--teal-lt)}
+.run-chip{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.04em;border:1px solid var(--border-2);border-radius:100px;padding:.06rem .5rem;margin-left:.4rem;white-space:nowrap;background:var(--bg-3);color:var(--text)}
+.run-chip--server{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.run-chip--partial{color:var(--gold);border-color:rgba(212,168,71,.4);background:var(--gold-dim)}
+.run-chip--browser{color:var(--purple);border-color:rgba(155,114,245,.4);background:var(--purple-dim)}
+.run-chip--reading{color:var(--muted);border-style:dashed}
+
+/* Connect-first install strip (PROMPTS-BORROW-LABELS-1) */
+.install-sec{padding:1.1rem 0;border-bottom:1px solid var(--border);position:relative;z-index:1;background:var(--bg-2)}
+.install-strip{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1rem}
+.install-label{font-size:.78rem;color:var(--body)}
+.install-link{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--teal-lt);border:1px solid var(--border-2);border-radius:6px;padding:.32rem .8rem;background:var(--bg-3);transition:all .15s}
+.install-link:hover{border-color:var(--teal);color:var(--white)}
+.install-cmd-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);background:var(--bg-3);border:1px solid var(--border-2);border-radius:6px;padding:.32rem .8rem;transition:all .15s}
+.install-cmd-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.install-cmd-btn.copied,.handoff-btn.copied{color:var(--green);border-color:rgba(34,197,94,.5)}
 
 /* ROOT-FOOTER-CSS:START (generated by scripts/gen-root-chrome.mjs — do not hand-edit) */
 ${ROOT_FOOTER_CSS}
@@ -436,7 +516,7 @@ ${ROOT_FOOTER_CSS}
   <div class="container">
     <div class="sec-label">Prompt library</div>
     <h1>Copy-paste prompts for the AINumbers suite</h1>
-    <p class="hero-sub">Every example prompt in the estate on one page, generated from the same source the hosted worker serves at <code>prompts/list</code>. Copy a body into any MCP-aware assistant, or hand it to your agent with <a href="https://mcp.ainumbers.co/mcp">mcp.ainumbers.co/mcp</a>. Each card names the tools it calls, what the run requires, and where to verify what came back.</p>
+    <p class="hero-sub">Every example prompt in the estate on one page, generated from the same source the hosted worker serves at <code>prompts/list</code>: the SSOT file <a href="./mcp/showcase-prompts.json">mcp/showcase-prompts.json</a>. Copy a body into any MCP-aware assistant, or hand it to your agent with <a href="https://mcp.ainumbers.co/mcp">mcp.ainumbers.co/mcp</a>. Each card names the tools it calls, what the run requires, and where to verify what came back.</p>
     <p class="hero-count"><span data-count="showcase_prompts">${n}</span> prompts &middot; ${chains.length} chain recipes</p>
     <div class="pii-notice">Zero PII, client-side only: this page makes no network calls and stores nothing. Prompt bodies use synthetic inputs. Run results are verifiable: every tool returns an execution hash you can check with <code>verify_execution_hash</code>.</div>
     <div class="legend" aria-label="Requires legend">
@@ -449,6 +529,8 @@ ${ROOT_FOOTER_CSS}
     </div>
   </div>
 </section>
+
+${installStrip}
 
 ${SECTION_ORDER.slice(0, 3).filter((g) => byGroup.has(g)).map((g) => section(SECTION_TITLES[g], byGroup.get(g))).join('\n\n')}
 ${domainsSection ? '\n\n' + domainsSection : ''}
@@ -463,20 +545,44 @@ ${ROOT_FOOTER}
 
 <script>
 (function () {
+  // Same constants the generator used to decide eligibility (see above in
+  // scripts/gen-prompts-page.mjs) — the URL itself is built here, on click.
+  var HANDOFF_PREFIX = 'Connect https://mcp.ainumbers.co/mcp first; if its tools are unavailable, stop and say so.\\n\\n';
+  function flash(btn, label) {
+    if (!btn.getAttribute('data-label')) btn.setAttribute('data-label', btn.textContent);
+    btn.classList.add('copied');
+    btn.textContent = label;
+    setTimeout(function () { btn.classList.remove('copied'); btn.textContent = btn.getAttribute('data-label'); }, 1600);
+  }
   document.addEventListener('click', function (ev) {
-    var btn = ev.target.closest ? ev.target.closest('.copy-btn') : null;
+    var el = ev.target.closest ? ev.target : null;
+    if (!el) return;
+    var ct = el.closest('[data-copy-text]');
+    if (ct) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ct.getAttribute('data-copy-text')).then(function () { flash(ct, 'Copied'); }, function () {});
+      }
+      return;
+    }
+    var hbtn = el.closest('.handoff-btn');
+    if (hbtn) {
+      var hcard = hbtn.closest('.prompt-card');
+      var hpre = hcard ? hcard.querySelector('.card-body') : null;
+      if (hpre) {
+        // Built synchronously on click; documented claude:// form only.
+        flash(hbtn, 'Opening');
+        window.location.href = 'claude://claude.ai/new?q=' + encodeURIComponent(HANDOFF_PREFIX + hpre.textContent);
+      }
+      return;
+    }
+    var btn = el.closest('.copy-btn');
     if (!btn) return;
     var card = btn.closest('.prompt-card');
     if (!card) return;
     var pre = card.querySelector('.card-body');
     if (!pre) return;
-    var done = function () {
-      btn.classList.add('copied');
-      btn.textContent = 'Copied';
-      setTimeout(function () { btn.classList.remove('copied'); btn.textContent = 'Copy prompt'; }, 1600);
-    };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(pre.textContent).then(done, function () {});
+      navigator.clipboard.writeText(pre.textContent).then(function () { flash(btn, 'Copied'); }, function () {});
     }
   });
 })();
@@ -491,12 +597,88 @@ ${ROOT_FOOTER}
 
 function build() {
   const prompts = loadPrompts();
-  const toolPages = loadToolPages();
+  const graph = loadChainGraph(REPO);
+  const toolPages = loadToolPages(graph);
   const chains = loadChains();
-  return { html: renderPage(prompts, chains, toolPages), prompts, chains };
+  const runnability = classifyChainRows(chains, graph);
+  return { html: renderPage(prompts, chains, toolPages, runnability), prompts, chains, runnability };
 }
 
-function validate(html, prompts) {
+// PROMPTS-BORROW-LABELS-1: the repo-level gates read the COMMITTED
+// prompts.html — which on a PR is still the pre-change bytes (main
+// regenerates post-merge). So the generator holds its own RENDERED output to
+// the same standard pre-write: the copy-hallmark battery (via the exported
+// hallmarkFindings(), the very function the repo gate consumes) against this
+// file's scripts/copy-hallmarks-baseline.json ratchet.
+const HALLMARK_BASELINE = existsSync(resolve(HERE, 'copy-hallmarks-baseline.json'))
+  ? JSON.parse(readFileSync(resolve(HERE, 'copy-hallmarks-baseline.json'), 'utf8'))
+  : {};
+
+function hallmarkErrors(html) {
+  const f = hallmarkFindings(html);
+  const b = HALLMARK_BASELINE['prompts.html'] || {};
+  const errs = [];
+  const gt = (v, cap, label, detail) => {
+    if (v > cap) errs.push(`copy-hallmark ${label}: ${v} (cap ${cap})${detail ? ' — ' + detail : ''}`);
+  };
+  gt(f.emdash, b.emdash || 0, 'em-dash in visible text');
+  gt(f.jargon.length, b.jargon || 0, 'build jargon', f.jargon.join('; '));
+  gt(f.bold, b.bold || 0, 'bold/strong in visible text');
+  gt(f.insider.length, b.insider || 0, 'insider-register', f.insider.join('; '));
+  gt(f.aiVocab.length, b.aiVocab || 0, 'AI-vocabulary', f.aiVocab.join('; '));
+  gt(f.absolutes.length, b.absolutes || 0, 'absolute/certainty-claim', f.absolutes.join('; '));
+  gt(f.panel.length, b.panel || 0, 'SCOPE-panel negation-wall', f.panel.join('; '));
+  gt(f.fragHead.length, b.fragHead || 0, 'comma-splice fragment heading', f.fragHead.join('; '));
+  gt(f.notX, b.notX != null ? b.notX : DEFAULT_NOTX_CAP, '",-not X" defensive-negation');
+  for (const [k, v] of Object.entries(f.overuse)) {
+    gt(v, (b.overuse && b.overuse[k] != null) ? b.overuse[k] : OVERUSE_CAP, `"${k}" overuse`);
+  }
+  if (f.doubleEscaped) errs.push(`copy-hallmark double-escaped HTML entity ×${f.doubleEscaped}`);
+  if (f.hallmarks.length) errs.push(`ANTI-AI-TELL: ${f.hallmarks.join('; ')}`);
+  if (f.twotoneHP) errs.push(`HIGH-PRECISION twotone ×${f.twotoneHP}`);
+  if (f.cosignVocab.length) errs.push(`counter_signed_receipt vocabulary: ${f.cosignVocab.join('; ')}`);
+  return errs;
+}
+
+// Exactly one state per "Every chain" row, and it must be the computed one:
+// the chip text must be the canonical CHIP_LABELS wording (the ", not" chip
+// fixture reds here), the state one of RUN_STATES, and the rendered state
+// equal classifyChainRows()'s verdict for that id (render/derivation drift).
+function chainRowErrors(html, chains, runnability) {
+  if (!chains.length) return [];
+  const errs = [];
+  const start = html.indexOf('id="every-chain"');
+  if (start === -1) return [`Every chain section (id="every-chain") not found`];
+  const end = html.indexOf('</section>', start);
+  const sec = html.slice(start, end);
+  const liRe = /<li>[\s\S]*?<\/li>/g;
+  const chipRe = /<span class="run-chip run-chip--(\w+)">([^<]*)<\/span>/g;
+  const idRe = /<code class="chain-id">([^<]*)<\/code>/;
+  let m;
+  let rows = 0;
+  while ((m = liRe.exec(sec)) !== null) {
+    rows++;
+    const row = m[0];
+    const states = [...row.matchAll(chipRe)];
+    if (states.length !== 1) {
+      errs.push(`chain row ${rows} (${(idRe.exec(row) || ['', '?'])[1]}): ${states.length} runnability chips, exactly one required`);
+      continue;
+    }
+    const state = states[0][1];
+    const id = (idRe.exec(row) || [])[1];
+    if (!RUN_STATES.includes(state)) {
+      errs.push(`chain row ${rows} (${id}): unknown runnability state "${state}"`);
+    } else if (CHIP_LABELS[state] !== states[0][2]) {
+      errs.push(`chain row ${rows} (${id}): chip text "${states[0][2]}" is not the canonical label for ${state} ("${CHIP_LABELS[state]}")`);
+    } else if (runnability && runnability.get(id) !== state) {
+      errs.push(`chain row ${rows} (${id}): rendered state ${state} != computed state ${runnability.get(id)}`);
+    }
+  }
+  if (rows !== chains.length) errs.push(`chain row count ${rows} != #workflows table rows ${chains.length}`);
+  return errs;
+}
+
+function validate(html, prompts, chains, runnability) {
   const errs = [];
   const cards = (html.match(/<article class="prompt-card"/g) || []).length;
   if (cards !== prompts.length) errs.push(`card count ${cards} != JSON array length ${prompts.length}`);
@@ -505,37 +687,69 @@ function validate(html, prompts) {
   for (const id of prompts.map((p) => p.id)) {
     if (!html.includes(`id="${id}"`)) errs.push(`entry ${id} has no card anchor`);
   }
-  for (const m of html.matchAll(/href="(?!https?:|#|data:)([^"]+)"/g)) {
+  // claude:, cursor: and vscode: are opaque launch schemes (the documented
+  // Claude Desktop handoff + the MCP-INSTALL-LINKS-1 one-click installs),
+  // mirroring scripts/dead-link-check.mjs's skip set; anything else must
+  // resolve as a file.
+  for (const m of html.matchAll(/href="(?!https?:|#|data:|claude:|cursor:|vscode:)([^"]+)"/g)) {
     const target = m[1].split('#')[0];
     if (target && !existsSync(resolve(REPO, target))) errs.push(`dead internal link target: ${m[1]}`);
   }
+  errs.push(...chainRowErrors(html, chains ?? [], runnability));
+  errs.push(...hallmarkErrors(html));
   return errs;
 }
 
 if (SELFTEST) {
-  // RED mutation battery, entirely in memory: every mutation must fail
-  // validate() (the --check assertions), proving the gate is live.
-  const { html, prompts } = build();
+  // RED mutation battery, entirely in memory: every RED mutation must fail
+  // validate() (the --check assertions), and every GREEN control must pass
+  // it, proving the gate is live without being over-broad.
+  const { html, prompts, chains, runnability } = build();
+  const misses = [];
+  const check = (mutated, mutatedPrompts) => validate(mutated.html ?? mutated, mutatedPrompts ?? prompts, chains, runnability);
   const expectRed = (label, mutate) => {
-    const mutated = mutate(html, JSON.parse(JSON.stringify(prompts)));
-    const errs = validate(mutated.html ?? mutated, mutated.prompts ?? prompts);
-    if (!errs.length) { console.error(`selftest FAILED: mutation "${label}" did NOT go red`); process.exit(1); }
-    console.log(`  selftest RED ok: ${label} -> ${errs[0]}`);
+    const errs = check(mutate(html, JSON.parse(JSON.stringify(prompts))));
+    if (!errs.length) misses.push(`RED mutation "${label}" did NOT go red`);
+    else console.log(`  selftest RED ok: ${label} -> ${errs[0]}`);
+  };
+  const expectGreen = (label, mutate) => {
+    const errs = check(mutate(html, JSON.parse(JSON.stringify(prompts))));
+    if (errs.length) misses.push(`GREEN control "${label}" went red: ${errs[0]}`);
+    else console.log(`  selftest GREEN ok: ${label}`);
   };
   expectRed('count drift (page renders N-1 cards)', (h, p) => {
     p.length = p.length - 1;
-    return renderPage(p, loadChains(), loadToolPages());
+    return renderPage(p, loadChains(), loadToolPages(loadChainGraph(REPO)), runnability);
   });
   expectRed('sentinel drift (hardcoded stale count)', (h) =>
     h.replace(new RegExp(`data-count="showcase_prompts">${prompts.length}<`), 'data-count="showcase_prompts">999<'));
   expectRed('dead internal link', (h) => h.replace('href="helm.html"', 'href="helm-missing.html"'));
   expectRed('dropped card anchor', (h) => h.replace(new RegExp(`id="${prompts[0].id}"`), 'id="removed"'));
-  console.log('selftest: all mutations went RED.');
+  // PROMPTS-BORROW-LABELS-1 fixtures: a bogus scheme stays dead; every chain
+  // row carries exactly one canonical state; chip wording holds the line
+  // against the ", not" negation reflex (CONTRACT §1.4); the documented
+  // claude:// deeplink is skipped, never refused.
+  expectRed('bogus link scheme stays dead', (h) => h.replace('href="about.html"', 'href="wibble://nope/x"'));
+  // Fixtures target a ROW chip (the first chip in the document is the legend's);
+  // a row stripped of its chip, and a row chip drifting off the canonical
+  // wording (the ", not" negation reflex), must both go red.
+  expectRed('chain row with no runnability state', (h) =>
+    h.replace(/(<span class="chain-desc">[^<]*<\/span>) <span class="run-chip run-chip--\w+">[^<]*<\/span>/, '$1'));
+  expectRed('", not" chip wording', (h) =>
+    h.replace(' <span class="run-chip run-chip--partial">Runs in part</span>', ' <span class="run-chip run-chip--partial">Runs in part, not on the worker</span>'));
+  expectGreen('documented claude:// deeplink is skipped by the link check', (h) =>
+    h.replace('href="about.html"', 'href="claude://claude.ai/new?q=smoke"'));
+  if (misses.length) {
+    console.error('selftest FAILED:');
+    for (const x of misses) console.error('  ' + x);
+    process.exit(1);
+  }
+  console.log('selftest: all mutations went RED, all controls stayed GREEN.');
   process.exit(0);
 }
 
-const { html, prompts, chains } = build();
-const errs = validate(html, prompts);
+const { html, prompts, chains, runnability } = build();
+const errs = validate(html, prompts, chains, runnability);
 if (errs.length) {
   console.error(`gen-prompts-page: REFUSING to write, ${errs.length} problem(s):`);
   for (const e of errs) console.error('  ' + e);
@@ -549,7 +763,7 @@ if (CHECK) {
     if (!onDisk) console.error('  (prompts.html is absent on disk)');
     process.exit(1);
   }
-  console.log(`gen-prompts-page --check: byte-exact. ${prompts.length} prompt cards (JSON array length ${prompts.length}), ${chains.length} chain one-liners, count sentinel data-count="showcase_prompts"=${prompts.length}, all internal links resolve.`);
+  console.log(`gen-prompts-page --check: byte-exact. ${prompts.length} prompt cards (JSON array length ${prompts.length}), ${chains.length} chain one-liners each carrying exactly one runnability state (server ${[...runnability.values()].filter((s) => s === 'server').length} / partial ${[...runnability.values()].filter((s) => s === 'partial').length} / browser ${[...runnability.values()].filter((s) => s === 'browser').length} / reading ${[...runnability.values()].filter((s) => s === 'reading').length}), count sentinel data-count="showcase_prompts"=${prompts.length}, all internal links resolve.`);
   process.exit(0);
 }
 
@@ -558,4 +772,4 @@ if (existsSync(OUT) && readFileSync(OUT, 'utf8') === html) {
   process.exit(0);
 }
 writeFileSync(OUT, html);
-console.log(`gen-prompts-page: wrote ${OUT_REL} (${prompts.length} prompt cards, ${chains.length} chain one-liners).`);
+console.log(`gen-prompts-page: wrote ${OUT_REL} (${prompts.length} prompt cards, ${chains.length} chain one-liners: ${[...runnability.values()].filter((s) => s === 'server').length} server / ${[...runnability.values()].filter((s) => s === 'partial').length} partial / ${[...runnability.values()].filter((s) => s === 'browser').length} browser / ${[...runnability.values()].filter((s) => s === 'reading').length} reading).`);
