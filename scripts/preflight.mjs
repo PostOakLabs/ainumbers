@@ -1561,6 +1561,15 @@ const GATES = [
   // other or with the worker's live mcp_names.
   ['WebMCP name uniqueness (check-tool-names family)', 'node scripts/check-webmcp-name-uniqueness.mjs'],
   ['WebMCP name uniqueness controls (RED+GREEN)', 'node scripts/check-webmcp-name-uniqueness.mjs --self-test'],
+  // WEBMCP-DOCCONTEXT-REGEN-1: the WebMCP API-surface ratchet. The spec draft of
+  // 2026-07-21 moved the getter to document.modelContext and Chrome 150
+  // deprecates the navigator alias, so the ONLY sanctioned navigator.modelContext
+  // occurrence in live script is the generator-emitted feature-detect fallback
+  // arm. This sweep reds any other use in tools/, guides/, chaingraph/,
+  // index.html and ledger/ (comments, string literals and displayed teaching
+  // snippets are prose naming the API, not API usage).
+  ['WebMCP API surface (bare navigator.modelContext sweep, WEBMCP-DOCCONTEXT-REGEN-1)', 'node scripts/check-webmcp-snippet.mjs --api-surface'],
+  ['WebMCP snippet gate controls (RED+GREEN)', 'node scripts/check-webmcp-snippet.mjs --self-test'],
   // TOOLPAGE-ASK-AGENT-1 (AGENT-REACH-BUILD-SPEC 3.6): the ask-your-agent block
   // is a derived artifact. --check rebuilds every marker-delimited block from
   // its manifest and reds any hand-edit (byte drift), duplication, tool-name

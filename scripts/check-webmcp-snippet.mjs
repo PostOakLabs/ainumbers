@@ -28,11 +28,36 @@
  *      true (UGC answer class) or omitted WITH an n/a rationale comment
  *      (truthful-hint posture, WEBMCP-AUDIT-DRYRUN-1 #1616).
  *
+ * WEBMCP-DOCCONTEXT-REGEN-1 adds a second, estate-wide mode:
+ *
+ *   --api-surface   sweep tools/, guides/, chaingraph/ (all .html), index.html
+ *                   and ledger/ for BARE `navigator.modelContext` API usage.
+ *                   The WebMCP spec draft of 2026-07-21 moved the getter to
+ *                   `document.modelContext` and Chrome 150 deprecates the
+ *                   `navigator` alias, so the ONLY sanctioned occurrence of the
+ *                   alias in live script is the feature-detect fallback arm the
+ *                   generator emits:
+ *                       document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null)
+ *                   Anything else (a direct registration, property read or call
+ *                   on the alias, a guard-less `document.modelContext ??
+ *                   navigator.modelContext`) is red. Occurrences in comments and
+ *                   string literals are prose naming the API, not API usage, and
+ *                   are blanked before matching; displayed teaching snippets in
+ *                   <code>/<pre> blocks sit outside <script> and are out of
+ *                   scope by construction. Scan is over inline <script> bodies
+ *                   only (a `src=`-loaded script is external and already barred
+ *                   by the egress gate).
+ *
  * Usage:
  *   node scripts/check-webmcp-snippet.mjs <file.html> [<file.html> ...]
+ *   node scripts/check-webmcp-snippet.mjs --api-surface   # estate-wide bare-alias sweep (WEBMCP-DOCCONTEXT-REGEN-1)
  *   node scripts/check-webmcp-snippet.mjs --self-test   # prints RED then GREEN fixture, exit 0 if both verdicts are as expected
  */
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const NETWORK_PATTERNS = [/\bfetch\s*\(/, /\bXMLHttpRequest\b/, /\bWebSocket\s*\(/, /\bEventSource\s*\(/, /navigator\.sendBeacon\s*\(/, /\bimport\s*\(/];
 
@@ -163,6 +188,121 @@ function checkSnippet(src, label) {
   }
 
   return issues;
+}
+
+// ── WEBMCP-DOCCONTEXT-REGEN-1: bare navigator.modelContext API-surface sweep ─
+
+// The one sanctioned shape: the generator-emitted feature-detect fallback arm.
+// Both quote styles are accepted (the generator emits single quotes; some
+// hand-authored history guides show the double-quoted form).
+const SANCTIONED_FALLBACK_RE = /\(\s*['"]modelContext['"]\s+in\s+(?:window\.)?navigator\s*\)\s*\?\s*navigator\.modelContext\s*:\s*null/g;
+const BARE_ALIAS_SOURCE = 'navigator\\.modelContext';
+const INLINE_SCRIPT_RE = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;
+
+// Blanks string-literal contents and comments so only live code tokens remain:
+// NAMING the alias in prose, a comment or a string is not USING it. Position
+// and line structure are preserved (newlines kept, other bytes -> space) so
+// findings can cite real line numbers. A regex literal containing a quote
+// character can desync this micro-lexer; the failure mode is strictly
+// under-reporting (bytes get blanked, never un-blanked), never a false red.
+function blankStringsAndComments(src) {
+  let out = '';
+  let i = 0;
+  const n = src.length;
+  let state = 'code'; // code | sq | dq | tpl | line | block
+  while (i < n) {
+    const c = src[i];
+    const d = i + 1 < n ? src[i + 1] : '';
+    if (state === 'code') {
+      if (c === '/' && d === '/') { state = 'line'; out += '  '; i += 2; continue; }
+      if (c === '/' && d === '*') { state = 'block'; out += '  '; i += 2; continue; }
+      if (c === "'") { state = 'sq'; out += c; i++; continue; }
+      if (c === '"') { state = 'dq'; out += c; i++; continue; }
+      if (c === '`') { state = 'tpl'; out += c; i++; continue; }
+      out += c; i++; continue;
+    }
+    if (state === 'line') {
+      if (c === '\n') { state = 'code'; out += c; } else { out += ' '; }
+      i++; continue;
+    }
+    if (state === 'block') {
+      if (c === '*' && d === '/') { state = 'code'; out += '  '; i += 2; }
+      else { out += c === '\n' ? '\n' : ' '; i++; }
+      continue;
+    }
+    // string states (sq | dq | tpl)
+    if (c === '\\') { out += '  '; i += 2; continue; }
+    if ((state === 'sq' && c === "'") || (state === 'dq' && c === '"') || (state === 'tpl' && c === '`')) {
+      state = 'code'; out += c; i++; continue;
+    }
+    out += c === '\n' ? '\n' : ' '; i++;
+  }
+  return out;
+}
+
+// Pure scanner: returns [{ line, snippet }] for every bare alias occurrence in
+// an HTML page's inline script bodies. Sanctioned fallback arms are exempted;
+// strings and comments are blanked before scanning. The strict 'modelContext'
+// guard literal only exists in the RAW text (blanking empties string contents),
+// so sanctioned ranges are matched on RAW — blankStringsAndComments preserves
+// positions by construction, raw and blanked indexes are identical.
+function bareAliasFindings(html) {
+  const findings = [];
+  const scriptRe = new RegExp(INLINE_SCRIPT_RE.source, 'gi');
+  let m;
+  while ((m = scriptRe.exec(html))) {
+    const raw = m[1];
+    const blanked = blankStringsAndComments(raw);
+    const sanctioned = [];
+    const sRe = new RegExp(SANCTIONED_FALLBACK_RE.source, 'g');
+    let s;
+    while ((s = sRe.exec(raw))) sanctioned.push([s.index, s.index + s[0].length]);
+    const hitRe = new RegExp(BARE_ALIAS_SOURCE, 'g');
+    let hit;
+    const bodyStartAbs = m.index + m[0].indexOf(raw);
+    while ((hit = hitRe.exec(blanked))) {
+      const at = hit.index;
+      if (sanctioned.some(([a, b]) => at >= a && at < b)) continue;
+      const lineInBody = blanked.slice(0, at).split('\n').length;
+      const line = html.slice(0, bodyStartAbs).split('\n').length + lineInBody - 1;
+      const rawLine = raw.split('\n')[lineInBody - 1] || '';
+      findings.push({ line, snippet: rawLine.trim().slice(0, 160) });
+    }
+  }
+  return findings;
+}
+
+// Estate sweep: every tracked .html under the five published WebMCP areas.
+function runApiSurfaceSweep() {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const repoRoot = resolve(here, '..');
+  const pathspecs = ['tools/*.html', 'guides/*.html', 'chaingraph/*.html', 'index.html', 'ledger/*.html'];
+  const out = execFileSync('git', ['ls-files', '--', ...pathspecs], { cwd: repoRoot, env: gitEnv(), encoding: 'utf8' });
+  const files = out.split('\n').filter(Boolean);
+  let badFiles = 0;
+  let hits = 0;
+  for (const file of files) {
+    let src;
+    try {
+      src = readFileSync(resolve(repoRoot, file), 'utf8');
+    } catch {
+      continue; // deleted-but-tracked race; the checkout's gates re-derive the tree
+    }
+    const found = bareAliasFindings(src);
+    if (found.length === 0) continue;
+    badFiles++;
+    hits += found.length;
+    console.error(`✗ ${file}`);
+    found.forEach((f) => console.error(`    line ${f.line}: bare navigator.modelContext — ${f.snippet}`));
+  }
+  console.log(`api-surface: scanned ${files.length} file(s) across tools/, guides/, chaingraph/, index.html, ledger/`);
+  if (badFiles > 0) {
+    console.error(`api-surface: RED — ${hits} bare navigator.modelContext usage(s) in ${badFiles} file(s). ` +
+      `Use the generator-emitted feature-detect form: document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null)`);
+    process.exit(1);
+  }
+  console.log('api-surface: GREEN — 0 bare navigator.modelContext usages (only the sanctioned feature-detect fallback remains)');
+  process.exit(0);
 }
 
 const RED_FIXTURE = `
@@ -300,17 +440,72 @@ if (mc) {
   multiRed.forEach((i) => console.log('  ✗ ' + i));
   console.log(multiRed.some((i) => i.startsWith('registerTool #2:')) ? 'MULTI-TOOL-RED: FAIL (as expected)' : 'MULTI-TOOL-RED: PASS (UNEXPECTED — lint missed the bad second call)');
 
+  // ── API-surface mutation controls (WEBMCP-DOCCONTEXT-REGEN-1) ──────────────
+  // RED: a bare alias registration — exactly the pre-migration shape.
+  const bareRed = bareAliasFindings(`
+<script>
+const mc = navigator.modelContext;
+if (mc) { mc.registerTool({ name: 'x', description: 'x' }); }
+</script>
+`);
+  console.log('--- API-surface RED fixture (expected: 1 bare hit) ---');
+  console.log(bareRed.length === 1 ? 'API-SURFACE-RED: 1 hit (as expected)' : 'API-SURFACE-RED: ' + bareRed.length + ' hits (UNEXPECTED — sweep missed the bare alias)');
+
+  // RED: the guard-less `??` fallback — names the alias as a live code operand.
+  const guardlessRed = bareAliasFindings(`
+<script>
+const mc = document.modelContext ?? navigator.modelContext;
+if (mc) { mc.registerTool({ name: 'x', description: 'x' }); }
+</script>
+`);
+  console.log('--- API-surface guard-less fallback RED fixture (expected: 1 bare hit) ---');
+  console.log(guardlessRed.length === 1 ? 'API-SURFACE-GUARDLESS-RED: 1 hit (as expected)' : 'API-SURFACE-GUARDLESS-RED: ' + guardlessRed.length + ' hits (UNEXPECTED)');
+
+  // GREEN: the canonical generator-emitted feature-detect form.
+  const canonicalGreen = bareAliasFindings(`
+<script>
+const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+if (mc) { mc.registerTool({ name: 'x', description: 'x' }); }
+</script>
+`);
+  console.log('--- API-surface canonical GREEN fixture (expected: 0 hits) ---');
+  console.log(canonicalGreen.length === 0 ? 'API-SURFACE-CANONICAL: PASS (as expected)' : 'API-SURFACE-CANONICAL: FAIL (UNEXPECTED — sanctioned fallback reds)');
+
+  // GREEN: prose naming the alias (comment, string literal, double-quoted
+  // history-guide form of the guard) must not red — naming is not using.
+  const proseGreen = bareAliasFindings(`
+<script>
+// navigator.modelContext is deprecated as of Chrome 150.
+const label = "navigator.modelContext";
+const mc = document.modelContext ?? (("modelContext" in navigator) ? navigator.modelContext : null);
+if (mc) { mc.registerTool({ name: 'x', description: 'x' }); }
+</script>
+`);
+  console.log('--- API-surface prose/string GREEN fixture (expected: 0 hits) ---');
+  console.log(proseGreen.length === 0 ? 'API-SURFACE-PROSE: PASS (as expected)' : 'API-SURFACE-PROSE: FAIL (UNEXPECTED — comment or string literal reds)');
+
+  // GREEN: a page with no script at all (prose-only history page shape).
+  const noScriptGreen = bareAliasFindings('<p>navigator.modelContext moved to document.modelContext.</p>');
+  console.log('--- API-surface no-script GREEN fixture (expected: 0 hits) ---');
+  console.log(noScriptGreen.length === 0 ? 'API-SURFACE-NOSCRIPT: PASS (as expected)' : 'API-SURFACE-NOSCRIPT: FAIL (UNEXPECTED — prose outside <script> reds)');
+
+  const apiOk = bareRed.length === 1 && guardlessRed.length === 1 && canonicalGreen.length === 0
+    && proseGreen.length === 0 && noScriptGreen.length === 0;
+
   const ok = redIssues.length > 0 && greenIssues.length === 0 && genGreen.length === 0 && hintRed.length > 0
-    && multiGreen.length === 0 && multiRed.some((i) => i.startsWith('registerTool #2:'));
+    && multiGreen.length === 0 && multiRed.some((i) => i.startsWith('registerTool #2:'))
+    && apiOk;
   process.exit(ok ? 0 : 1);
 }
 
 const args = process.argv.slice(2);
 if (args.includes('--self-test')) {
   selfTest();
+} else if (args.includes('--api-surface')) {
+  runApiSurfaceSweep();
 } else {
   if (args.length === 0) {
-    console.error('Usage: node scripts/check-webmcp-snippet.mjs <file.html> [...] | --self-test');
+    console.error('Usage: node scripts/check-webmcp-snippet.mjs <file.html> [...] | --api-surface | --self-test');
     process.exit(1);
   }
   let anyFail = false;

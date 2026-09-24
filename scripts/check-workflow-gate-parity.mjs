@@ -1191,7 +1191,10 @@ const DECLARED_SOFTENERS = new Map([
   // the kernel-gates `run:` block above it. The declaration is line-pinned by design.
   // MCPCARD-SCHEMA-1 (2026-09-21) moved it :889 → :890 — one new
   // `node scripts/check-server-card-schema.mjs` line in the gate `run:` block above it; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:890",
+  // WEBMCP-DOCCONTEXT-REGEN-1 (2026-09-24) moved it :890 → :894 — the WebMCP
+  // api-surface gate + its self-test (two `node` lines + two `#` comment lines)
+  // landed in the same gate `run:` block above the attest step; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:894",
    "attest step is advisory-first by design; promotion criterion on the step"],
   ["unwired-gates.yml:continue-on-error:108",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
