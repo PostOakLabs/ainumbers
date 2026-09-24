@@ -788,6 +788,53 @@ export const propertyIdMap = {
     strictness: { element_id: 'strictnessSelect', via: 'string' },
     trunc_threshold: { element_id: 'truncThreshold', via: 'string' },
   },
+
+  // ── WEBMCP-IDMAP-BATCH-3 (the 7 surviving RENAME-ONLY pages re-attempted
+  // from the salvaged WEBMCP-TRIAGE-CENSUS-2 triage, pin 2026-09-13, reaudit-
+  // confirmed; population re-derived fresh at base ceaed002 2026-09-23 — all
+  // 7 still excluded with unchanged reasons). Every control below was
+  // re-verified against the page at this base: the id exists and the page's
+  // own compute reads it (cited file:line).
+  // DROPPED (honest exclusion, no faithful single control — per-page verdicts,
+  // never a guess):
+  //   art-173-ai-system-governance-classifier — `system` is still composite:
+  //   the manifest's single schema prop is an object (the manifest's
+  //   input_example carries the 8-field object) assembled by getParams across
+  //   8 controls (art-173:591-602); the triage's has_systemic_risk is one
+  //   leaf checkbox (art-173:223). BATCH-1's composite-prop drop stands.
+  //   art-375-compute-fund-expense-ratios — `rounding` is a composite object
+  //   assembled from two controls (decimal_places + rounding_mode; pp
+  //   assembly, art-375:522) — binding it to rounding_mode alone writes JSON
+  //   into a 3-option select whose value the page never reads as a whole.
+  //   BATCH-2's drop stands.
+  //   art-404-check-retail-installment-disclosures — `inputs` is a composite
+  //   object spread across ten controls (runCheck, art-404:361-374, assembly
+  //   art-404:411); the triage's tieOutsDiv is an OUTPUT div (innerHTML write,
+  //   art-404:438), not an input control. BATCH-2's drop stands.
+  //   art-515-build-allocation-decision-receipt — `rounding` composite as in
+  //   art-375 (pp assembly, art-515:701-703). BATCH-2's drop stands.
+  //   rca-03-iso20022-address-migration-verifier — `records` still has no
+  //   faithful control: the triage's recordsContainer is the render target
+  //   (innerHTML, rca-03:651-652); the records live in the in-memory
+  //   `_records` array fed by importCsv (rca-03:670-686) and are read
+  //   directly by runBatchVerify (rca-03:799-816). The page keeps its
+  //   BATCH-2 partial binding above and stays excluded.
+
+  // runArb reads every camelCase control explicitly:
+  //   chaingraph/art-212-prediction-market-arbitrage.html:414-419
+  'art-212-prediction-market-arbitrage': {
+    no_price_b: { element_id: 'noPriceB', via: 'string' },
+    payout: { element_id: 'payoutArb', via: 'string' },
+    stake_total: { element_id: 'stakeTotal', via: 'string' },
+    venue_a: { element_id: 'venueA', via: 'string' },
+    venue_b: { element_id: 'venueB', via: 'string' },
+    yes_price_a: { element_id: 'yesPriceA', via: 'string' },
+  },
+  // runCompute JSON.parses the fillsInput textarea:
+  //   chaingraph/art-541-best-execution-recompute.html:367
+  'art-541-best-execution-recompute': {
+    fills: { element_id: 'fillsInput', via: 'json' },
+  },
     // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
   // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
   // own control reads:
