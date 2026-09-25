@@ -239,6 +239,18 @@ const CLUSTERS = [
   },
 ];
 
+/** A refresh/noindex forwarder page: gen-infra-registry.mjs excludes these from
+ *  the registry, so a registry row for one is stale until the main-side regen
+ *  drops it. Such a row is not an unlisted guide; it is a retired URL. */
+function isShimPage(relPath) {
+  try {
+    const html = readFileSync(resolve(REPO, relPath), 'utf8');
+    return /http-equiv=["']?refresh/i.test(html) || /name=["']?robots["']?content=["'][^"']*noindex/i.test(html);
+  } catch {
+    return false;
+  }
+}
+
 /** Coverage proof: clusters partition the guide rows, exactly. */
 function validateClusters(registry) {
   const guideRows = registry.filter(r => r.category === 'guide');
@@ -252,7 +264,8 @@ function validateClusters(registry) {
       if (!guidePaths.has(p)) problems.push(`cluster "${c.label}" names ${p}, which is not a guide-category registry row`);
     }
   }
-  const unassigned = guideRows.filter(r => !seen.has(r.path)).map(r => r.path);
+  const unassigned = guideRows.filter(r => !seen.has(r.path)).map(r => r.path)
+    .filter(p => !isShimPage(p));
   if (unassigned.length) {
     problems.push(`guide rows not in any cluster (a new hub page would ship unlisted): ${unassigned.join(', ')}`);
   }
