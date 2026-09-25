@@ -1,3 +1,8 @@
+// @ts-nocheck — plain CLI gate script, never meant to be type-checked; only swept into
+// tsc --checkJs's program because it lives under chaingraph/kernels/ (JSDOC-CHECKJS-PREFLIGHT-1's
+// path filter watches the whole directory, not just *.kernel.mjs). Without this it fails on bare
+// node:fs/node:path/node:url/process usage — the same directory-wide @types/node gap that
+// golden-parity.test.mjs and check-guest-builtin-safety.mjs carry this line for.
 // _hash.test.mjs — gate for the two canonicalizer defects fixed by HASH-PROTO-DEPTH-GUARD-1.
 //
 // A1 (own-property canonicalization): a JSON member literally named "__proto__" is an ordinary
