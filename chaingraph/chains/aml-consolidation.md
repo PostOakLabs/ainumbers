@@ -1,9 +1,28 @@
-# AML Programme
+# AML & AMLR Consolidation Chain
 
-Customer risk rating > TM rule building > CTR/SAR thresholds > AML Policy Mandate. Full receipted run available in the composer.
+Typology risk scoring > two AML branch entry points. The AMLA transaction-typology scorer anchors both the AML Programme chain (customer risk rating onward) and the EU AMLR Single Rulebook chain (obliged-entity scope onward). Those two chains keep their own steps; this chain records the shared root and the handoff into each, so a run can start once and continue in whichever rulebook applies.
 
 - Page: https://ainumbers.co/chaingraph/chains/aml-consolidation.html
 - Markdown twin: https://ainumbers.co/chaingraph/chains/aml-consolidation.md
+
+## Workflow chain: AML & AMLR Consolidation Chain
+
+Typology risk scoring > two AML branch entry points. The AMLA transaction-typology scorer anchors both the AML Programme chain (customer risk rating onward) and the EU AMLR Single Rulebook chain (obliged-entity scope onward). Those two chains keep their own steps; this chain records the shared root and the handoff into each, so a run can start once and continue in whichever rulebook applies.
+
+Domain: Financial Crime & KYC
+
+### Steps
+
+1. art-10-amla-transaction-typology-risk-scorer
+   overall_risk and top_risk_accounts feed both branch entry points: the aml-programme chain and the amlr-single-rulebook chain
+2. 110-customer-risk-rating
+   Branch A entry point: risk_tier and composite_score continue in the aml-programme chain (TM rule building, CTR/SAR thresholds, AML Policy Mandate); those steps stay in that chain and are not repeated here
+3. 485-amlr-obliged-entity-scope-mapper
+   Branch B entry point: entity_type and obligations continue in the amlr-single-rulebook chain (UBO mapping, cash limit and EDD classification, CDD policy, AMLA readiness); those steps stay in that chain and are not repeated here
+
+### Chain verify
+
+Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
 
 ## Workflow chain: AML Programme
 
