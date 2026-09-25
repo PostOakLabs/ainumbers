@@ -167,6 +167,7 @@ const CLUSTERS = [
       'guides/tradetech-hub.html',
       'chaingraph/guide-digital-trade.html',
       'guides/ebl-control-evidence-guide.html',
+      'guides/fmc-demurrage-detention-hub.html',
     ],
   },
   {
