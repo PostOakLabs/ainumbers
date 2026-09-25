@@ -182,7 +182,6 @@ const CLUSTERS = [
       'guides/hypermap-catalog-projection.html',
       'guides/mcp-clone-guide.html',
       'guides/mcp-agent-demo.html',
-      'guides/webmcp-demo-1.html',
       'guides/webmcp-demo-2.html',
       'guides/webmcp-field-notes.html',
       'guides/division-swarm-demo.html',
