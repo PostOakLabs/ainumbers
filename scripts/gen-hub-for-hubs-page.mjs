@@ -96,6 +96,7 @@ const CLUSTERS = [
       'guides/eu-sustainable-finance-hub.html',
       'guides/sec16b-early-warning-pack.html',
       'guides/ai-act-evidence-cron.html',
+      'guides/refueleu-aviation-fines-hub.html',
       'chaingraph/guide-fair-lending.html',
       'chaingraph/guide-mortgage-compliance.html',
       'chaingraph/guide-sanctions-screening.html',
