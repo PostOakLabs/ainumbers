@@ -1,24 +1,30 @@
 // art-596-ap2-x402-cart-correlation.proptest.mjs — FV property-test FLOOR.
-// kernel_digest_at_authoring: sha256:bd768b21783024010879049cb1560f975da0ac0a210a9fde5da62dca74523c81
+// kernel_digest_at_authoring: sha256:ca67c63df5452d0fd9bf794ae06e15c4e0b373729431053ac2e47b04792153ab
 // spec: research/SPEC-AGENT-COMMERCE-CHAIN-1-2026-08-09.md sect7/sect8
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md section 3, class K -- straight-line
 // decision-table arithmetic over caller-supplied fields, no probability/statistics). NOT a
 // proof, NOT Dafny.
-// float_sensitive: YES for the cart-total comparison (sum of quantity*unit_price vs
-// authorization.value) -- compute() rounds to 1e-8 and compares with a 1e-6 epsilon, both
-// exercised below (P2).
+// float_sensitive: NO for the cart-total comparison as of X402-UNITS-FIXTURE-1. The kernel now
+// converts the cart total to the token's ATOMIC units via the required token_decimals and
+// compares BigInts exactly -- no rounding, no epsilon. P2b exercises that exactness (a
+// one-atomic-unit difference must read false), and P5 exercises it across every decimals
+// 0..18. The float surface that remains is the INPUT side only: quantity/unit_price are JS
+// numbers, read through their own decimal string representation.
 //
 // Checks: fixture-oracle gate (P0), totality/never-throws over hostile inputs (P1), a
-// differential re-derivation of cart_chain_intact (P2a) plus the cart-total epsilon boundary
-// (P2b) built independently in THIS file against the SAME vendored keccak_256 art-595/art-596
+// differential re-derivation of cart_chain_intact (P2a) plus the exact atomic cart-total
+// boundary (P2b) built independently in THIS file against the SAME vendored keccak_256 art-595/art-596
 // both inline (re-deriving Keccak-f[1600] from spec text is a separate, much higher-risk
 // undertaking this floor does not attempt, same posture as art-595's own P2), the
 // correlation_status decision-table property (P3: any false check -> NOT_CORRELATED, all
 // resolvable checks true -> CORRELATED, otherwise INDETERMINATE, over randomized combinations
-// of the three booleans/nulls), and forced categorical boundary cases (P4: missing fields,
-// multi-currency cart, merchant not address-shaped, tampered cart_items breaking the chain).
+// of the three booleans/nulls), forced categorical boundary cases (P4: missing fields,
+// multi-currency cart, merchant not address-shaped, tampered cart_items breaking the chain),
+// and the atomic-unit contract (P5: for EVERY decimals 0..18 the emitted cart_total_atomic
+// equals an independently computed integer scaling of the same cart, the match is exact rather
+// than tolerant, and a missing/non-integer authorization.value is never rounded into a verdict).
 //
 // Zero NEW external dependencies -- the differential leg re-derives the cart hash-chain using
 // the identical vendored keccak_256 block this kernel inlines (copied here for independence
@@ -77,7 +83,24 @@ function baseEvidence(value, to) {
     verdict: 'AUTHORIZATION_VALID', disclosure: 'x',
   };
 }
-function cartTotal(items) { return items.reduce((s, it) => s + it.quantity * it.unit_price, 0); }
+// Every vector this floor builds pays in a 6-decimal token (USDC), so the authorization value
+// it hands the kernel is the cart total in ATOMIC units -- the unit the kernel now compares in.
+const DEC = 6;
+// Independent atomic scaling, built HERE from the item's own cents rather than from the
+// kernel's helpers: cents = round(unit_price * 100) * quantity, then scaled to `decimals`,
+// rounding half away from zero exactly once per item (the kernel's own per-item rule).
+function itemAtomic(it, decimals) {
+  const cents = BigInt(Math.round(it.unit_price * 100)) * BigInt(it.quantity);
+  if (decimals >= 2) return cents * 10n ** BigInt(decimals - 2);
+  const div = 10n ** BigInt(2 - decimals);
+  const q = cents / div, rem = cents % div;
+  return rem * 2n >= div ? q + 1n : q;
+}
+function cartAtomic(items, decimals = DEC) {
+  return items.reduce((s, it) => s + itemAtomic(it, decimals), 0n);
+}
+// The authorization `value` for a cart, in atomic units, as the string shape the pack carries.
+function cartTotal(items) { return cartAtomic(items, DEC).toString(); }
 
 // ---------- P1: totality — compute() never throws, always well-formed shape ----------
 function checkP1_totality() {
@@ -121,7 +144,7 @@ function checkP2a_chain_tamper_flips_intact() {
     const merchant = '0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667';
     const realRoot = computeCartMandate({ cart_items: items, merchant }).output_payload.cart_root;
     const evidence = baseEvidence(cartTotal(items), merchant);
-    const pp = { cart_root: realRoot, cart_items: items, merchant, x402_spend_evidence: evidence };
+    const pp = { cart_root: realRoot, cart_items: items, merchant, token_decimals: DEC, x402_spend_evidence: evidence };
 
     const a = compute(pp).output_payload;
     const b = compute(pp).output_payload;
@@ -140,32 +163,90 @@ function checkP2a_chain_tamper_flips_intact() {
   return { name: 'P2a_chain_tamper_flips_intact_against_independently_produced_root', trials: checked, violations };
 }
 
-// ---------- P2b: cart-total epsilon boundary — matches exactly at the boundary, mismatches just
-// outside it. ----------
-function checkP2b_total_epsilon_boundary() {
+// ---------- P2b: cart-total EXACTNESS in atomic units — matches on the exact atomic figure and
+// mismatches ONE atomic unit off (the old float path compared with a 1e-6 epsilon in currency
+// units, which both hid sub-cent breaks and, worse, called a correct atomic-unit payment a
+// mismatch; nothing in this property may tolerate a near miss). ----------
+function checkP2b_total_exact_atomic_boundary() {
   let violations = 0, checked = 0;
   for (let trial = 0; trial < 40; trial++) {
     checked++;
     const n = 1 + Math.floor(rand() * 3);
     const items = Array.from({ length: n }, (_, i) => randItem(rand, i));
-    const total = cartTotal(items);
+    const atomic = cartAtomic(items);
     const fixedRoot = '0x' + crypto.createHash('sha256').update(JSON.stringify(items)).digest('hex');
     const merchant = '0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667';
+    const pp = { cart_root: fixedRoot, cart_items: items, merchant, token_decimals: DEC };
 
-    const exact = compute({ cart_root: fixedRoot, cart_items: items, merchant, x402_spend_evidence: baseEvidence(total, merchant) }).output_payload;
+    const exact = compute({ ...pp, x402_spend_evidence: baseEvidence(atomic.toString(), merchant) }).output_payload;
     if (exact.cart_total_matches_authorization_value !== true) violations++;
+    if (exact.cart_total_atomic !== atomic.toString()) violations++;
+    if (exact.authorization_value_atomic !== atomic.toString()) violations++;
 
-    const justOff = compute({ cart_root: fixedRoot, cart_items: items, merchant, x402_spend_evidence: baseEvidence(total + 1, merchant) }).output_payload;
-    if (justOff.cart_total_matches_authorization_value !== false) violations++;
+    // ONE atomic unit off in either direction must read false — no epsilon anywhere. (A
+    // zero-priced cart has no legal atomic - 1, so it is probed upward twice instead: `value`
+    // is a uint256 and a negative figure is malformed input, a different property.)
+    for (const off of [atomic + 1n, atomic > 0n ? atomic - 1n : atomic + 2n]) {
+      const justOff = compute({ ...pp, x402_spend_evidence: baseEvidence(off.toString(), merchant) }).output_payload;
+      if (justOff.cart_total_matches_authorization_value !== false) violations++;
+    }
+
+    // a decimal `value` is caller error, never rounded into a verdict.
+    const decimalValue = compute({ ...pp, x402_spend_evidence: baseEvidence('1.5', merchant) }).output_payload;
+    if (decimalValue.cart_total_matches_authorization_value !== null) violations++;
+    if (decimalValue.authorization_value_atomic !== null) violations++;
 
     // multi-currency cart -> total comparison must be null (ambiguous), never guessed.
     if (n >= 2) {
       const mixed = items.map((it, i) => (i === 0 ? { ...it, currency: 'EUR' } : it));
-      const mixedOut = compute({ cart_root: fixedRoot, cart_items: mixed, merchant, x402_spend_evidence: baseEvidence(total, merchant) }).output_payload;
+      const mixedOut = compute({ ...pp, cart_items: mixed, x402_spend_evidence: baseEvidence(atomic.toString(), merchant) }).output_payload;
       if (mixedOut.cart_total_matches_authorization_value !== null) violations++;
+      if (mixedOut.cart_total_atomic !== null) violations++;
     }
   }
-  return { name: 'P2b_total_epsilon_boundary_and_multicurrency_null', trials: checked, violations };
+  return { name: 'P2b_total_exact_atomic_boundary_and_multicurrency_null', trials: checked, violations };
+}
+
+// ---------- P5: the atomic-unit contract across EVERY legal decimals 0..18 — the emitted
+// cart_total_atomic equals this file's own independent integer scaling of the same cart, and
+// the verdict is exact equality against the authorization's own atomic value. A missing
+// token_decimals is INDETERMINATE, never silently defaulted (a defaulted 0 or 6 is exactly the
+// unit guess this row exists to remove). ----------
+function checkP5_atomic_contract_all_decimals() {
+  let violations = 0, checked = 0;
+  const merchant = '0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667';
+  for (let trial = 0; trial < 8; trial++) {
+    const n = 1 + Math.floor(rand() * 3);
+    const items = Array.from({ length: n }, (_, i) => randItem(rand, i));
+    const fixedRoot = '0x' + crypto.createHash('sha256').update(JSON.stringify(items)).digest('hex');
+    for (let d = 0; d <= 18; d++) {
+      checked++;
+      const expected = cartAtomic(items, d);
+      const out = compute({
+        cart_root: fixedRoot, cart_items: items, merchant, token_decimals: d,
+        x402_spend_evidence: baseEvidence(expected.toString(), merchant),
+      }).output_payload;
+      if (out.cart_total_atomic !== expected.toString()) violations++;
+      if (out.cart_total_matches_authorization_value !== true) violations++;
+      const off = compute({
+        cart_root: fixedRoot, cart_items: items, merchant, token_decimals: d,
+        x402_spend_evidence: baseEvidence((expected + 1n).toString(), merchant),
+      }).output_payload;
+      if (off.cart_total_matches_authorization_value !== false) violations++;
+    }
+    // out-of-range and missing token_decimals are refused, never defaulted.
+    for (const bad of [undefined, null, -1, 19, 6.5, '6']) {
+      checked++;
+      const out = compute({
+        cart_root: fixedRoot, cart_items: items, merchant, token_decimals: bad,
+        x402_spend_evidence: baseEvidence('1000000', merchant),
+      }).output_payload;
+      if (out.correlation_status !== 'INDETERMINATE') violations++;
+      if (out.cart_total_atomic !== null) violations++;
+      if (!out.reasons.some((r) => /token_decimals/.test(r))) violations++;
+    }
+  }
+  return { name: 'P5_atomic_contract_exact_for_every_decimals_0_to_18', trials: checked, violations };
 }
 
 // ---------- P3: correlation_status decision table — any false check => NOT_CORRELATED; all
@@ -181,13 +262,13 @@ function checkP3_decision_table() {
         const total = cartTotal(items);
         const merchant = merchantMatch === null ? 'shop.example.com' : '0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667';
         const to = merchantMatch === false ? '0x000000000000000000000000000000000000dead' : '0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667';
-        const value = totalMatch === false ? total + 1 : total;
+        const value = totalMatch === false ? (cartAtomic(items) + 1n).toString() : total;
         const realRoot = computeCartMandate({ cart_items: items, merchant: '0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667' }).output_payload.cart_root;
         const cart_root = chainIntact ? realRoot : '0x' + crypto.createHash('sha256').update(JSON.stringify(items)).digest('hex');
         const evidence = totalMatch === null
           ? { authorization: { from: merchant, to, validAfter: '0', validBefore: '2000000000', nonce: '0x01' }, verdict: 'AUTHORIZATION_VALID', disclosure: 'x' } // value omitted -> null
           : baseEvidence(value, to);
-        const out = compute({ cart_root, cart_items: items, merchant, x402_spend_evidence: evidence }).output_payload;
+        const out = compute({ cart_root, cart_items: items, merchant, token_decimals: DEC, x402_spend_evidence: evidence }).output_payload;
 
         const anyFalse = out.cart_chain_intact === false || out.cart_total_matches_authorization_value === false || out.merchant_matches_authorization_to === false;
         const allTrue = out.cart_chain_intact === true && out.cart_total_matches_authorization_value === true && out.merchant_matches_authorization_to === true;
@@ -212,13 +293,22 @@ function checkP4_forced_categorical() {
     if (o.correlation_status !== 'INDETERMINATE') violations++;
     if (o.reasons.length === 0) violations++; }
   // x402_spend_evidence missing authorization -> reasons flags it
-  { const { output_payload: o } = compute({ cart_root: 'x', merchant: 'm', cart_items: [randItem(rand, 0)], x402_spend_evidence: {} }); checked++;
+  { const { output_payload: o } = compute({ cart_root: 'x', merchant: 'm', token_decimals: DEC, cart_items: [randItem(rand, 0)], x402_spend_evidence: {} }); checked++;
     if (o.reasons.some((r) => /authorization/.test(r)) !== true) violations++; }
   // merchant address-shaped but mismatched -> merchant_matches_authorization_to === false (never null)
   { const items = [randItem(rand, 0)];
     const evidence = baseEvidence(cartTotal(items), '0x000000000000000000000000000000000000dead');
-    const { output_payload: o } = compute({ cart_root: 'nomatch', cart_items: items, merchant: '0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667', x402_spend_evidence: evidence }); checked++;
+    const { output_payload: o } = compute({ cart_root: 'nomatch', cart_items: items, merchant: '0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667', token_decimals: DEC, x402_spend_evidence: evidence }); checked++;
     if (o.merchant_matches_authorization_to !== false) violations++; }
+  // token_decimals omitted while everything else is well-formed -> INDETERMINATE naming it, and
+  // BOTH atomic fields null: the kernel never guesses the token's scale.
+  { const items = [randItem(rand, 0)];
+    const merchant = '0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667';
+    const realRoot = computeCartMandate({ cart_items: items, merchant }).output_payload.cart_root;
+    const { output_payload: o } = compute({ cart_root: realRoot, cart_items: items, merchant, x402_spend_evidence: baseEvidence(cartTotal(items), merchant) }); checked++;
+    if (o.correlation_status !== 'INDETERMINATE') violations++;
+    if (o.cart_total_atomic !== null || o.authorization_value_atomic !== null) violations++;
+    if (!o.reasons.some((r) => /token_decimals/.test(r))) violations++; }
   return { name: 'P4_forced_categorical_boundary_cases', trials: checked, violations };
 }
 
@@ -231,15 +321,17 @@ if (!oracleOk) {
 
 results.properties.push(checkP1_totality());
 results.properties.push(checkP2a_chain_tamper_flips_intact());
-results.properties.push(checkP2b_total_epsilon_boundary());
+results.properties.push(checkP2b_total_exact_atomic_boundary());
 results.properties.push(checkP3_decision_table());
 results.properties.push(checkP4_forced_categorical());
+results.properties.push(checkP5_atomic_contract_all_decimals());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
 console.log(JSON.stringify({
   tool_id: 'art-596-ap2-x402-cart-correlation',
-  float_sensitive: true,
+  // The comparison itself is now integer-exact in atomic units; only the cart INPUTS are floats.
+  float_sensitive: false,
   fixture_oracle_passed: oracleOk,
   fixture_oracle_total: results.fixture_oracle.total,
   properties: results.properties,
