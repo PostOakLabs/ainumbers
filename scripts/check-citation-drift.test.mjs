@@ -11,7 +11,7 @@
  *
  * Usage: node scripts/check-citation-drift.test.mjs
  */
-import { computeFindings, valueSearchVariants } from './check-citation-drift.mjs';
+import { computeFindings, valueSearchVariants, findRegistryDuplicates } from './check-citation-drift.mjs';
 
 let failures = 0;
 function assert(cond, msg) {
@@ -70,6 +70,34 @@ assert(noDateFindings.some((f) => f.kind === 'MISSING_RETRIEVED_AT'), 'RED: a ci
 // ── 6. valueSearchVariants — unit-shape sanity ────────────────────────────
 assert(valueSearchVariants(5, 'pct').includes('5%'), 'valueSearchVariants: pct unit includes the bare "%" form');
 assert(valueSearchVariants(1.5, 'pp').includes('1.5pp'), 'valueSearchVariants: pp unit includes the bare "pp" form');
+
+// ── 7. DUPLICATE_REGISTRY_ENTRY — (id, digest) uniqueness (CLAUSE-REGISTRY-DEDUPE-1) ──
+// Fixture: the same (id, digest) pair twice = the append-twice merge accident. Must RED.
+const dupFixture = [
+  { id: '12 CFR 1026.52', digest: 'sha256:deadbeef', clause_path: '(a)', retrieved_at: '2026-09-03' },
+  { id: '12 CFR 1026.52', digest: 'sha256:deadbeef', clause_path: '(a)', retrieved_at: '2026-09-03' },
+];
+const dupFindings = findRegistryDuplicates(dupFixture);
+assert(dupFindings.length === 1 && dupFindings[0].kind === 'DUPLICATE_REGISTRY_ENTRY', 'RED: a fixture with one duplicated (id, digest) pair yields exactly one DUPLICATE_REGISTRY_ENTRY finding');
+console.log(`  [quotable] RED  — ${dupFindings[0]?.message}`);
+assert(findRegistryDuplicates(dupFixture.slice(0, 1)).length === 0, 'GREEN: the same fixture with the duplicate removed yields no findings');
+
+// Same id + DIFFERENT digest = legitimate re-retrieval. Must never be flagged.
+const reRetrieval = [
+  { id: '12 CFR 1026.52', digest: 'sha256:aaaa' },
+  { id: '12 CFR 1026.52', digest: 'sha256:bbbb' },
+];
+assert(findRegistryDuplicates(reRetrieval).length === 0, 'GREEN: same id with two DIFFERENT digests (legitimate re-retrieval) is never flagged');
+
+// Triple repeat flags each repeat after the first, and order/first-occurrence semantics hold.
+const triple = [
+  { id: 'X', digest: 'sha256:1' },
+  { id: 'X', digest: 'sha256:1' },
+  { id: 'X', digest: 'sha256:1' },
+];
+const tripleFindings = findRegistryDuplicates(triple);
+assert(tripleFindings.length === 2, 'RED: a tripled pair flags both repeats after the first');
+assert(tripleFindings.every((f) => f.message.includes('first seen at entry 0')), 'first occurrence (entry 0) is the survivor in every message');
 
 if (failures) {
   console.error(`\ncheck-citation-drift.test.mjs: ${failures} assertion(s) failed.`);
