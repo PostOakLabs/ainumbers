@@ -56,15 +56,16 @@ const CATEGORY_LABELS = {
 };
 // Section headings say what the section is for, in plain sentences. The old
 // rule-of-three headings ("Execute tools, workflows, and agent automations")
-// were exactly the catalog copy this page exists to replace.
+// were exactly the catalog copy this page exists to replace. No commas in a
+// heading (Tim, 2026-09-26: comma lists and comma fragments read as AI tells).
 const CATEGORY_BLURBS = {
   run: 'Tools and workflows you can run',
-  verify: 'Places to verify an artifact, a receipt, or a conformance claim',
-  anchor: 'Timestamping, signing, and keeping the record',
+  verify: 'Where to check an artifact or a conformance claim',
+  anchor: 'Timestamps and signing keys',
   convert: 'Turning documents into verifiable artifacts',
-  agents: 'Connecting agents: MCP, WebMCP, prompts, and kits',
-  learn: 'Explainers, specs, and the evidence model',
-  helm: 'Helm, the air-gapped control plane',
+  agents: 'How agents connect over MCP and WebMCP',
+  learn: 'Explainers and the specification',
+  helm: 'The air-gapped Helm control plane',
   guide: 'Domain integration guides and hubs',
 };
 const FACT_LABELS = {
@@ -116,7 +117,7 @@ function mapScene(sections, guideCount) {
     station({ href: 'anchor', x: 740, y: 124, h: 86, stroke: 'var(--gold)', cls: 'g', label: 'Anchor', count: c('anchor'), title: 'Authorities timestamp it', sub: 'timestamps and signing keys', d: 0.7 }),
     // Ways in and ways to read.
     station({ href: 'agents', x: 260, y: 12, h: 76, stroke: 'var(--purple)', cls: 'p', label: 'Agents', count: c('agents'), title: 'Agents call the kernels', sub: 'hosted MCP and WebMCP', d: 0.9 }),
-    station({ href: 'helm', x: 260, y: 246, h: 76, stroke: 'var(--gold)', cls: 'g', label: 'Helm', count: c('helm'), title: 'Runs on your own machine', sub: 'loopback only, offline bundles', d: 1.1 }),
+    station({ href: 'helm', x: 260, y: 246, h: 76, stroke: 'var(--gold)', cls: 'g', label: 'Helm', count: c('helm'), title: 'Runs on your own machine', sub: 'bundles that verify offline', d: 1.1 }),
     station({ href: 'learn', x: 740, y: 12, h: 76, stroke: 'var(--border-2)', cls: 's', label: 'Learn', count: c('learn'), title: 'How each piece works', sub: 'explainers and the spec', d: 1.3 }),
     station({ href: 'hubs', x: 740, y: 246, h: 76, stroke: 'var(--border-2)', cls: 's', label: 'Guides', count: pageCount(guideCount), title: 'Hubs and guides by desk', sub: 'on their own map', d: 1.5 }),
     // Arrows along the main row, then Agents into Run and Helm beside it.
@@ -139,7 +140,7 @@ function mapScene(sections, guideCount) {
     title: 'How the sections fit together',
     desc: 'Four stations in a row: Convert, where a file becomes a receipt; Run, where a kernel computes a hash; Verify, where anyone can recompute it; and Anchor, where timestamp authorities sign it. Agents enter Run from above, Helm runs the same kernels on your own machine below it, and Learn and the hubs map sit at the right. A hash travels from Run toward Anchor. Each station links to its section.',
     body,
-    caption: 'One execution hash moves left to right: produced by a run, recomputed by a verifier, then timestamped. Select any station to jump to its pages.',
+    caption: 'A run produces an execution hash that a verifier can recompute and a timestamp authority can sign. Select a station to jump to its pages.',
   });
 }
 
@@ -147,7 +148,7 @@ function verifyScene() {
   // Rungs top to bottom; card fields line up with them.
   const rungs = [
     { y: 77, label: 'Check a timestamp over its receipt root', ref: 'SPEC §20', field: ['anchor binding', ' via session root', 's'] },
-    { y: 121, label: 'Verify the Groth16 seal, 256 bytes', ref: 'SPEC §18', field: ['compute_proof.seal', '', ''] },
+    { y: 121, label: 'Verify the 256-byte Groth16 seal', ref: 'SPEC §18', field: ['compute_proof.seal', '', ''] },
     { y: 165, label: 'Match the kernel digest', ref: 'SPEC §17', field: ['kernel_digest', ' sha256:…', 'g'] },
     { y: 209, label: 'Check the eddsa-jcs-2022 signature', ref: 'SPEC §16', field: ['audit_signature.proof', '', ''] },
     { y: 253, label: 'Recompute the execution hash', ref: 'SPEC §4', field: ['execution_hash', ' sha256:…', 'g'] },
@@ -173,7 +174,7 @@ function verifyScene() {
     title: 'Five checks an artifact supports',
     desc: 'An artifact card on the left lists execution_hash, audit_signature.proof, kernel_digest, compute_proof.seal and an anchor binding. Each field connects to a rung of a ladder on the right: recompute the execution hash (SPEC §4), check the eddsa-jcs-2022 signature (§16), match the kernel digest (§17), verify the 256-byte Groth16 seal (§18), and check a timestamp over the receipt root (§20). Check marks appear from the bottom rung up.',
     body,
-    caption: 'The five checks an OpenChainGraph artifact supports. The <a href="verification-desk.html">Verification Desk</a> runs the hash, signature and seal checks in your browser, and the <a href="ledger/index.html">Ledger</a> in the Anchor section adds the timestamp check.',
+    caption: 'An OpenChainGraph artifact supports five checks. The <a href="verification-desk.html">Verification Desk</a> checks hashes, signatures and seals in your browser, and the <a href="ledger/index.html">Ledger</a> in the Anchor section adds the timestamp.',
   });
 }
 
@@ -200,7 +201,7 @@ function convertScene() {
     title: 'A conversion bound into a receipt',
     desc: 'Inside a dashed boundary marked as the browser tab, a source file passes through a converter (art-189 or art-190) and becomes a converted file; both files are hashed. The input and output hashes flow into a receipt builder (art-191) that binds the input digest, converter identity, parameters and output digest into a binding hash. A verifier (art-192) re-hashes both files, recomputes the binding and shows PASS.',
     body,
-    caption: 'The document-conversion-verification workflow behind this section: a converter hashes both files in the tab, the receipt builder binds the two digests with the converter\'s identity and parameters, and the verifier re-hashes the files to recompute the binding.',
+    caption: 'This is the document-conversion-verification workflow. A converter hashes both files in the tab and the receipt builder binds the two digests to the converter\'s identity and parameters. The verifier re-hashes the files and recomputes the binding.',
   });
 }
 
@@ -224,7 +225,7 @@ function agentsScene() {
     `    <g class="sk-pop" style="--d:1.6s">${icon.hex(610, 135, 40)}</g>`,
     `    <text x="610" y="198" text-anchor="middle" class="s sm sk-fade" style="--d:1.8s">same kernel source</text>`,
     `    <path class="sk-draw" pathLength="100" d="M654 135 H710" stroke="var(--muted)" stroke-width="1.6" fill="none" style="--d:2s"/>${icon.arrowRight(717, 135)}`,
-    `    <text x="828" y="90" text-anchor="middle" class="t sm sk-fade" style="--d:2.3s">same inputs, same hash</text>`,
+    `    <text x="828" y="90" text-anchor="middle" class="t sm sk-fade" style="--d:2.3s">same inputs give the same hash</text>`,
     `    <g class="sk-pop" style="--d:2.2s"><rect x="720" y="100" width="216" height="72" rx="10" fill="var(--bg-3)" stroke="var(--gold)" stroke-width="1.4"/><text x="736" y="122" class="s xs">artifact</text><text x="736" y="142" class="m xs b">execution_hash</text><text x="736" y="160" class="m xs g">sha256:9f2c…</text></g>`,
   ].join('\n');
   return sceneFigure({
@@ -232,9 +233,9 @@ function agentsScene() {
     viewBox: '0 0 960 270',
     minWidth: 700,
     title: 'Three doors into one kernel',
-    desc: 'An agent on the left reaches three doors: WebMCP, where the page registers its tool in the browser; the hosted MCP server at mcp.ainumbers.co/mcp; and helmd on 127.0.0.1 on your own machine. All three lead to one kernel hexagon labelled same kernel source, which produces an artifact with an execution hash under the words same inputs, same hash.',
+    desc: 'An agent on the left reaches three doors: WebMCP, where the page registers its tool in the browser; the hosted MCP server at mcp.ainumbers.co/mcp; and helmd on 127.0.0.1 on your own machine. All three lead to one kernel hexagon labelled same kernel source, which produces an artifact with an execution hash under the words same inputs give the same hash.',
     body,
-    caption: 'Three ways in for an agent. Behind each door is the same kernel source, so the same inputs give the same execution hash. The <a href="prompts.html">prompt library</a> says which doors each task needs.',
+    caption: 'An agent can reach a kernel through any of three doors. Each door runs the same kernel source, so the same inputs give the same execution hash. The <a href="prompts.html">prompt library</a> says which doors each task needs.',
   });
 }
 
@@ -267,7 +268,7 @@ function helmScene() {
     title: 'Helm on your machine',
     desc: 'Inside a dashed boundary marked your machine, Helm in the browser is served from 127.0.0.1 and paired with helmd, an HTTP server bound to 127.0.0.1 only; a note says the core loop makes no outbound request. Journal entries for steps 1 to 4 appear one after another, each linked to the one before. The journal flows into a signed, sealed evidence bundle, which leaves the machine as a file and reaches a verifier outside with no network access, where it verifies.',
     body,
-    caption: 'helmd serves Helm\'s interface from 127.0.0.1 only, records every step in a hash-chained journal, and seals a signed evidence bundle that a third party can verify with no network access. The <a href="helm-walkthrough.html">guided walkthrough</a> verifies a real signed bundle in your tab.',
+    caption: 'helmd serves Helm\'s interface from 127.0.0.1 only and records every step in a hash-chained journal. A run ends in a signed evidence bundle that a third party can verify with no network access, and the <a href="helm-walkthrough.html">guided walkthrough</a> verifies a real one in your tab.',
   });
 }
 
@@ -331,7 +332,7 @@ function renderPage(registry, overrides, chrome) {
     <p class="hero-sub">Domain hubs collect the tools and chains for one desk or one rulebook; single-purpose guides answer one question apiece. All <span data-count="guide_pages">${guideRows.length}</span> of them are grouped by desk on <a href="hub-for-hubs.html">the hubs and guides map</a>. Three to start with:</p>
     <div class="recipe-grid">
       <a class="recipe-card" href="hub-for-hubs.html">
-        <div class="recipe-title">All hubs and guides, on one map</div>
+        <div class="recipe-title">All hubs and guides on one map</div>
         <div class="recipe-outcome">The full catalog of domain hubs and integration guides, clustered by the work they support: payments, regulation, markets and treasury, risk, tokenization, trade, agents, the OpenChainGraph platform, and evidence.</div>
         <div class="recipe-go">Browse</div>
       </a>
@@ -394,8 +395,8 @@ ${chrome.nav}
 <section class="hero">
   <div class="container">
     <div class="hero-eyebrow">Site map</div>
-    <h1>Every page on this site, grouped by the job it does</h1>
-    <p class="hero-sub">This map is generated from the page registry, so a shipped page cannot quietly go missing: a page exists, therefore it is listed here. <span data-count="infra_pages">${total}</span> pages across ${CATEGORIES.length} categories, each declared by a category tag in the page's own head. The <span data-count="guide_pages">${guideRows.length}</span> domain hubs and guides are a map of their own, so the sections below stay browsable. Surfaces with dedicated catalogs keep them: <a href="tools.html">tools</a>, the <a href="chaingraph/chaingraph-hub.html">workflow hub</a>, and <a href="sitemap.html">sitemap</a>.</p>
+    <h1>Every page on this site grouped by the job it does</h1>
+    <p class="hero-sub">This map is generated from the page registry, so every page that ships appears here. <span data-count="infra_pages">${total}</span> pages across ${CATEGORIES.length} categories, each declared by a category tag in the page's own head. The <span data-count="guide_pages">${guideRows.length}</span> domain hubs and guides are a map of their own, so the sections below stay browsable. Surfaces with dedicated catalogs keep them: <a href="tools.html">tools</a>, the <a href="chaingraph/chaingraph-hub.html">workflow hub</a>, and <a href="sitemap.html">sitemap</a>.</p>
 ${mapScene(sections, guideRows.length)}
   </div>
 </section>

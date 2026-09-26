@@ -245,7 +245,7 @@ function anatomyScene() {
   const steps = [
     { title: 'Prompt', sub: 'the card body', tag: 'Copy prompt' },
     { title: 'Your assistant', sub: 'any MCP client', tag: 'connect strip' },
-    { title: 'A door', sub: 'WebMCP, MCP or helmd', tag: 'Requires' },
+    { title: 'A door', sub: 'WebMCP or MCP', sub2: 'or helmd', tag: 'Requires' },
     { title: 'Tools', sub: 'one chip per node', tag: 'tool chips' },
     { title: 'Artifact', sub: 'execution_hash', tag: 'run result' },
     { title: 'Verify', sub: 'ledger or recompute', tag: 'Verify links' },
@@ -255,7 +255,7 @@ function anatomyScene() {
     const arrow = i < steps.length - 1
       ? `<path class="sk-draw" pathLength="100" d="M${x + 144} 69 H${x + 151}" stroke="var(--muted)" stroke-width="1.6" fill="none" style="--d:${(0.35 + i * 0.25).toFixed(2)}s"/>${icon.arrowRight(x + 158, 69)}`
       : '';
-    return `    <g class="sk-pop" style="--d:${(0.1 + i * 0.25).toFixed(2)}s"><rect x="${x}" y="34" width="144" height="70" rx="10" fill="var(--bg-3)" stroke="${i === 4 ? 'var(--gold)' : 'var(--teal)'}" stroke-width="1.3"/><text x="${x + 12}" y="62" class="b sm">${esc(s.title)}</text><text x="${x + 12}" y="82" class="${i === 4 ? 'm g' : 's'} xs">${esc(s.sub)}</text></g>${arrow}
+    return `    <g class="sk-pop" style="--d:${(0.1 + i * 0.25).toFixed(2)}s"><rect x="${x}" y="34" width="144" height="70" rx="10" fill="var(--bg-3)" stroke="${i === 4 ? 'var(--gold)' : 'var(--teal)'}" stroke-width="1.3"/><text x="${x + 12}" y="62" class="b sm">${esc(s.title)}</text><text x="${x + 12}" y="82" class="${i === 4 ? 'm g' : 's'} xs">${esc(s.sub)}</text>${s.sub2 ? `<text x="${x + 12}" y="96" class="s xs">${esc(s.sub2)}</text>` : ''}</g>${arrow}
     <path d="M${x + 72} 104 V124" stroke="var(--border-2)" stroke-width="1.2" stroke-dasharray="2 3"/><text x="${x + 72}" y="142" text-anchor="middle" class="m xs t sk-fade" style="--d:${(0.3 + i * 0.25).toFixed(2)}s">${esc(s.tag)}</text>`;
   }).join('\n') + `\n    <circle cx="84" cy="114" r="4" fill="var(--teal-lt)" class="sk-travel" style="--tx:790px;--dur:4.2s;--d:1.8s"/>`;
   return sceneFigure({
@@ -263,19 +263,19 @@ function anatomyScene() {
     viewBox: '0 0 960 160',
     minWidth: 660,
     title: 'How to read a card',
-    desc: 'Six boxes in a row: the prompt, which is the card body; your assistant, any MCP client; a door, which is WebMCP, the hosted MCP server or helmd; the tools, one chip per node; the artifact with its execution hash; and the verify step, on the ledger or by recomputing. Under each box a label names the matching part of a card: Copy prompt, the connect strip, Requires, the tool chips, the run result and the Verify links.',
+    desc: 'Six boxes in a row: the prompt, which is the card body; your assistant, any MCP client; a door, which is WebMCP or the hosted MCP server or helmd; the tools, one chip per node; the artifact with its execution hash; and the verify step, on the ledger or by recomputing. Under each box a label names the matching part of a card: Copy prompt, the connect strip, Requires, the tool chips, the run result and the Verify links.',
     body,
-    caption: 'How to read a card: copy the body into your assistant, check that it can reach the doors under Requires, and use the Verify links to check what came back.',
+    caption: 'To use a card, copy its body into your assistant and make sure the assistant can reach the doors listed under Requires. The Verify links check what comes back.',
   });
 }
 
 // The deep dive whose body walks private inputs to a hash-only receipt.
 function revealScene() {
   const outputs = [
-    { tool: 'generate_zk_compliance_proof', note: 'public statement, no party fields' },
-    { tool: 'validate_tfr_travel_rule_batch', note: 'verdict and execution_hash' },
+    { tool: 'generate_zk_compliance_proof', note: 'a public statement with no party fields' },
+    { tool: 'validate_tfr_travel_rule_batch', note: 'a verdict and its execution_hash' },
     { tool: 'sdjwt_present', note: 'discloses sanctions_predicate: PASS' },
-    { tool: 'verify_merkle_batch', note: 'one inclusion proof, audit root' },
+    { tool: 'verify_merkle_batch', note: 'an inclusion proof against the audit root' },
   ];
   const rows = [0, 1, 2, 3, 4].map((r) => `<rect x="36" y="${114 + r * 16}" width="58" height="8" rx="2" fill="var(--muted)"/><rect x="104" y="${114 + r * 16}" width="58" height="8" rx="2" fill="var(--muted)"/><rect x="172" y="${114 + r * 16}" width="30" height="8" rx="2" fill="var(--border-2)"/>`).join('');
   const body = [
@@ -443,7 +443,7 @@ ${byGroup.get(g).map((e) => cardHtml(e, toolPages)).join('\n')}
   <div class="container">
   <div class="sec-label">Prompt library</div>
   <h2 class="sec-heading">Every chain <span class="sec-count">${chains.length}</span></h2>
-  <p class="chains-note">One line per workflow recipe in the suite catalog, generated from the mcp.html workflows table. Ask the hosted worker for any of these by name via <code>build_workflow_links</code>, or open the chain page.</p>
+  <p class="chains-note">Each line is one workflow recipe from the suite catalog, generated from the mcp.html workflows table. Ask the hosted worker for any of them by name with <code>build_workflow_links</code>, or open the chain page.</p>
   ${chainLegend}
 ${[...chainGrouped.entries()].map(([g, list]) => `  <div class="domain-group">
     <h3 class="domain-title">${esc(g)}</h3>
@@ -625,7 +625,7 @@ ${SCENE_KIT_CSS}
   <div class="container">
     <div class="sec-label">Prompt library</div>
     <h1>Copy-paste prompts for the AINumbers suite</h1>
-    <p class="hero-sub">Every example prompt in the estate on one page, generated from the same source the hosted worker serves at <code>prompts/list</code>: the SSOT file <a href="./mcp/showcase-prompts.json">mcp/showcase-prompts.json</a>. Copy a body into any MCP-aware assistant, or hand it to your agent with <a href="https://mcp.ainumbers.co/mcp">mcp.ainumbers.co/mcp</a>. Each card names the tools it calls, what the run requires, and where to verify what came back.</p>
+    <p class="hero-sub">This page lists every example prompt in the estate. It is generated from <a href="./mcp/showcase-prompts.json">mcp/showcase-prompts.json</a>, the same file the hosted worker serves at <code>prompts/list</code>. Copy a body into any MCP-aware assistant, or hand it to your agent with <a href="https://mcp.ainumbers.co/mcp">mcp.ainumbers.co/mcp</a>. Each card names the tools it calls and what the run requires, and links to where you can check the result.</p>
     <p class="hero-count"><span data-count="showcase_prompts">${n}</span> prompts &middot; ${chains.length} chain recipes</p>
     <div class="pii-notice">Zero PII, client-side only: this page makes no network calls and stores nothing. Prompt bodies use synthetic inputs. Run results are verifiable: every tool returns an execution hash you can check with <code>verify_execution_hash</code>.</div>
     <div class="legend" aria-label="Requires legend">
