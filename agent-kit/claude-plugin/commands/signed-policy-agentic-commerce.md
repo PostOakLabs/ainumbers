@@ -13,7 +13,7 @@ Act as a procurement agent operating under a signed spend policy. Produce a rece
 5. For the compliant run, call verify_execution_hash on the composite artifact, then emit_chaingraph_artifact to get the in-toto link set. Confirm each link's materials equal the previous step's products.
 6. Open the ledger_url for the compliant run. Report what the §21 gate replay shows and whether the §16 signature and mandate_hash check pass.
 7. Now prove the counterparty would accept the agent: on https://ainumbers.co/chaingraph/art-129-webbotauth-signature-verifier.html, use the page's WebMCP tool to verify a WebBotAuth-signed request header for procurement-bot-01 (synthetic sample). Record the hash.
-8. Call build_session_receipt over all hashes in order (mandate, both runs, identity check) and anchor the root with anchor_hash (FreeTSA RFC 3161). Return the session root, the anchor receipt, and a five-line summary: who authorised, what ran, where it breached, what a human still has to close out (the open resolve handle).
+8. Call build_session_receipt over all hashes in order (mandate, both runs, identity check) and anchor the root with anchor_hash (FreeTSA RFC 3161). Return the session root, the anchor receipt, and a five-line summary: who authorised, what ran, where it breached, what a human still has to close out (the open resolve handle). If a named tool is not in your tool list, call call_tool with { "name": "<tool>", "arguments": { … } }. It runs the same validation and returns the same receipt.
 
 ---
 

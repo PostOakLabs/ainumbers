@@ -14,7 +14,7 @@ You are connected to a local Helm daemon at 127.0.0.1:4173. Run a CECL allowance
 6. Once I paste the ticket, call evidence.export with it. Save the digest-level record.
 7. Cross-check the law: find the same kernel on mcp.ainumbers.co (find_tool "CECL allowance"), call it with the pack's sample inputs, and compare the kernel_digest and execution_hash to the Helm run. State whether the local daemon and the public worker agree.
 8. Call anchor_hash on the Helm run's execution_hash (Sigstore TSA). Return the receipt.
-9. Write the handover: what ran locally, what never left the machine, where the human consent sat in the flow, and how an auditor verifies the bundle offline with `helmd verify <bundle> --keys <publicKeys.json>` and no network.
+9. Write the handover: what ran locally, what never left the machine, where the human consent sat in the flow, and how an auditor verifies the bundle offline with `helmd verify <bundle> --keys <publicKeys.json>` and no network. If a named tool is not in your tool list, call call_tool with { "name": "<tool>", "arguments": { … } }. It runs the same validation and returns the same receipt.
 
 ---
 
