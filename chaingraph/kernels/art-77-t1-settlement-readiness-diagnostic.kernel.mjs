@@ -3,16 +3,26 @@
  * Wave 17 — T+1 Settlement Readiness Diagnostic (D0).
  * Scores a firm's readiness for the coordinated EU/UK/CH T+1 move (11 Oct 2027)
  * against the Industry Roadmap phases, grading trade-date allocation/confirmation
- * (the Dec-2026 23:00 CET machine-readable mandate), SSI automation, FX/funding
+ * (the 23:00 CET structured-format mandate applying from 2026-12-07 under
+ * C(2026) 4640 final), SSI automation, FX/funding
  * compression, corporate-actions, and CSDR-penalty exposure.
  * Routes to the right Wave-17 sd-* chain.
  * Pure decision kernel — no DOM, no window, no Date.now().
  *
- * Citations (verify before citing on any page):
+ * Authority: the clause paths, digests and retrieval dates live in node metadata
+ * (chaingraph/graph/nodes/art-77-t1-settlement-readiness-diagnostic.json →
+ * standards_basis + cited_clause_digest[]), pinned by board row T1-AUTHORITY-PIN-1
+ * and crosswalked in research/t1/T1-AUTHORITY-CROSSWALK-2026-09-24.md.
+ *
+ * Citations:
+ *   Commission Delegated Regulation C(2026) 4640 final, adopted 2026-07-06,
+ *     amending Del. Reg. (EU) 2018/1229: allocations and confirmations received by
+ *     23:00 CET on trade date in structured machine-readable formats. Art. 2 sets
+ *     the applicability split: 2026-12-07 for the allocation, confirmation and
+ *     retail rules, 2027-07-01 for the instruction-field changes, 2027-10-11 for
+ *     settlement-instruction timing.
  *   EU T+1: CSDR amending text in OJ 14 Oct 2025, application 11 Oct 2027.
- *   ESMA CSDR SDR RTS — Final Report 13 Oct 2025 (ESMA74-2119945926-3430):
- *     same-day allocation/confirmation by 23:00 CET + machine-readable formats
- *     from Dec 2026.
+ *   ESMA CSDR SDR RTS Final Report 13 Oct 2025 (ESMA74-2119945926-3430).
  *   ESMA T+1 high-level roadmap (30 Jun 2025).
  *   UK-AST + Swiss Securities Post-Trade Council — same Oct 2027 date.
  *   EDUCATIONAL: outputs are decision-support drafts, not supervisory assessments.
@@ -103,9 +113,9 @@ export function compute(pp) {
   // ── Binding deadlines ──
   const binding_deadline = {
     allocation_confirmation: {
-      date:   'Dec 2026',
+      date:   '2026-12-07',
       rule:   '23:00 CET trade-date allocation/confirmation + machine-readable formats',
-      source: 'ESMA CSDR SDR RTS (13 Oct 2025, ESMA74-2119945926-3430)',
+      source: 'C(2026) 4640 final (adopted 2026-07-06), Art. 1(1), amended Art. 2(2); applicability from Art. 2',
       status: allocation_confirmation_timing === 'same-day-automated' ? 'READY' : 'NOT_READY',
     },
     t1_go_live: {
@@ -119,7 +129,7 @@ export function compute(pp) {
   // ── Gap checklist ──
   const gap_checklist = [];
   if (allocation_confirmation_timing !== 'same-day-automated') {
-    gap_checklist.push({ gap: 'Same-day automated allocation/confirmation', priority: 'CRITICAL', deadline: 'Dec 2026', chain: CHAIN_ROUTES.alloc });
+    gap_checklist.push({ gap: 'Same-day automated allocation/confirmation', priority: 'CRITICAL', deadline: '2026-12-07', chain: CHAIN_ROUTES.alloc });
   }
   if (ssi_automation !== 'golden-source') {
     gap_checklist.push({ gap: 'SSI golden-source automation (~30% of fails)', priority: 'HIGH', deadline: '11 Oct 2027', chain: CHAIN_ROUTES.ssi });
@@ -167,7 +177,7 @@ export function compute(pp) {
     secondary_recommendations,
     firm_type,
     jurisdictions,
-    dual_date_note: 'Allocation/confirmation timing rules binding DEC 2026 · T+1 go-live 11 OCT 2027 — verify current (CSDR Refit/RTS still finalising)',
+    dual_date_note: 'Allocation and confirmation timing rules apply from 2026-12-07 under Commission Delegated Regulation C(2026) 4640 final, adopted 2026-07-06; instruction-field changes from 2027-07-01; settlement-instruction timing from 2027-10-11. Coordinated EU/UK/CH T+1 go-live 11 Oct 2027.',
     note: 'DECISION-SUPPORT DRAFT — not a regulatory assessment. Verify all deadlines and requirements against ESMA CSDR SDR RTS (13 Oct 2025) and current CSDR Refit final text. UK-AST and Swiss SSPTC coordination to be confirmed. CSDR Refit mandatory buy-in reform: verify adoption ~Q1 2026.',
   };
 
