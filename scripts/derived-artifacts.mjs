@@ -456,9 +456,6 @@ export const COVERED = [
       // guard rejects the run. Cross-entry share with 'prompts-page' is the
       // declare-parity WARN class by design.
       'prompts.html',
-      // OCG-STAIRCASE-EXPLAINER-1: the Agent Staircase explainer's comment
-      // sentinels are in verify-counts.mjs's file list; same SO #47 rule.
-      'chaingraph/agent-staircase-explainer.html',
     ],
     // DERIVED-DECLARE-PARITY-1: verify-counts.mjs writes via a `write(rel, …)`
     // helper called mostly with loop/lookup variables (ATTR_RULES `.file`,
@@ -483,7 +480,6 @@ export const COVERED = [
       'infrastructure.html',
       'hub-for-hubs.html',
       'prompts.html',
-      'chaingraph/agent-staircase-explainer.html',
     ],
     share: '27%',
     // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): counts reads

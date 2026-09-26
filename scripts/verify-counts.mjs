@@ -236,10 +236,6 @@ for (const rel of [
   'guides/agentic-rail-scenario.html',
   'guides/baas-programme-scenario.html',
   'tools/92-sca-exemption-mapper.html',
-  // OCG-STAIRCASE-EXPLAINER-1: the Agent Staircase explainer quotes live node,
-  // workflow, MCP-tool, WebMCP-page, recipe and zk-proven counts through comment
-  // sentinels. Declared in derived-artifacts.mjs's 'counts' entry in the same diff.
-  'chaingraph/agent-staircase-explainer.html',
 ]) {
   total += checkHtmlSentinels(rel)
 }
