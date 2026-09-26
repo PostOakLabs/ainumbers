@@ -595,6 +595,7 @@ import * as art662    from './art-662-odnsf-fee-recompute.kernel.mjs';
 import * as art663    from './art-663-apy-earned-recompute.kernel.mjs';
 import * as art664    from './art-664-loan-servicing-waterfall-recompute.kernel.mjs';
 import * as art665    from './art-665-gl-tieout-recompute.kernel.mjs';
+import * as art667    from './art-667-isa530-audit-sampling-mus.kernel.mjs';
 import * as art669    from './art-669-algo-execution-schedule-simulator.kernel.mjs';
 import * as art67     from './art-67-agentic-ai-risk-classifier.kernel.mjs';
 import * as art670    from './art-670-examination-readiness-pack.kernel.mjs';
@@ -1262,6 +1263,7 @@ export const KERNELS = {
   'art-663-apy-earned-recompute':                               art663,
   'art-664-loan-servicing-waterfall-recompute':                 art664,
   'art-665-gl-tieout-recompute':                                art665,
+  'art-667-isa530-audit-sampling-mus':                          art667,
   'art-669-algo-execution-schedule-simulator':                  art669,
   'art-67-agentic-ai-risk-classifier':                          art67,
   'art-670-examination-readiness-pack':                         art670,

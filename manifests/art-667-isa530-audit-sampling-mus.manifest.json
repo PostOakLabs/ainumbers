@@ -1,0 +1,258 @@
+{
+  "tool_id": "art-667-isa530-audit-sampling-mus",
+  "version": "1.0.0",
+  "title": "ISA 530 Audit Sampling + MUS Calculator",
+  "description": "Deterministic audit-sampling arithmetic in three caller-declared functions dispatched on method. monetary_unit_sampling sizes a MUS engagement: n = ceil(book_value * confidence_factor / (performance_materiality - expected_misstatement)) and sampling interval = round(book_value / n), failing closed whenever expected_misstatement >= performance_materiality. misstatement_projection applies the tainting method to caller-supplied sampled items (taint = (book - audited) / book, projected misstatement = sum of taint * interval) and adds the basic-precision figure confidence_factor * interval. benford_screen compares the observed first-significant-digit distribution of caller-supplied positive amounts against the Benford expected proportions with a chi-square deviation flag at the 5% level (8 degrees of freedom, critical value 15.507). The method's source standard is ISA 530 (iaasb.org): this node computes the arithmetic of the method and never certifies compliance with any standard, never opines on audit sufficiency, and never selects sample items. No randomness of any kind: any selection start point a caller uses is a caller-declared input, never generated here.",
+  "category": "sox-404-icfr-audit-controls",
+  "tags": [
+    "audit_sampling",
+    "monetary_unit_sampling",
+    "mus",
+    "benford_screen",
+    "misstatement_projection",
+    "isa530",
+    "mcp:compute_isa530_audit_sampling_mus"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "method"
+    ],
+    "properties": {
+      "method": {
+        "type": "string",
+        "enum": [
+          "monetary_unit_sampling",
+          "misstatement_projection",
+          "benford_screen"
+        ]
+      },
+      "book_value": {
+        "type": "number",
+        "exclusiveMinimum": 0
+      },
+      "performance_materiality": {
+        "type": "number",
+        "exclusiveMinimum": 0
+      },
+      "expected_misstatement": {
+        "type": "number",
+        "minimum": 0
+      },
+      "confidence_factor": {
+        "type": "number",
+        "exclusiveMinimum": 0
+      },
+      "sampling_interval": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "sampled_items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "book_amount",
+            "audited_amount"
+          ],
+          "properties": {
+            "book_amount": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "audited_amount": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "amounts": {
+        "type": "array",
+        "items": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "x_schema_provenance": "authored-from-kernel-input-contract 2026-09-03 (ISA530-BUILD-1)"
+  },
+  "output_schema": {
+    "type": "object",
+    "required": [
+      "trace",
+      "overall"
+    ],
+    "properties": {
+      "sample_size": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "sampling_interval": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "tolerable_misstatement": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "confidence_factor": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "item_count": {
+        "type": "integer"
+      },
+      "usable_item_count": {
+        "type": "integer"
+      },
+      "usable_count": {
+        "type": "integer"
+      },
+      "per_item": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "seq": {
+              "type": "integer"
+            },
+            "book_amount": {
+              "type": "number"
+            },
+            "audited_amount": {
+              "type": "number"
+            },
+            "taint_percent": {
+              "type": "number"
+            },
+            "projected_amount": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "projected_misstatement": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "basic_precision": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "basic_precision_note": {
+        "type": "string"
+      },
+      "first_digit_counts": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": {
+          "type": "integer"
+        }
+      },
+      "chi_square_statistic": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "critical_value": {
+        "type": "number"
+      },
+      "deviation_flag": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "trace": {
+        "type": "string"
+      },
+      "overall": {
+        "type": "string",
+        "enum": [
+          "SAMPLE_COMPUTED",
+          "PROJECTED",
+          "SCREENED_CONSISTENT",
+          "SCREENED_DEVIATES",
+          "INPUT_REJECTED"
+        ]
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "x_schema_provenance": "derived-from-golden-fixtures 2026-09-03 (11 vectors, chaingraph/kernels/fixtures/art-667-isa530-audit-sampling-mus.fixtures.json)"
+  },
+  "mcp_tool_definition": {
+    "name": "compute_isa530_audit_sampling_mus",
+    "description": "Deterministic audit-sampling arithmetic: MUS sample size and interval, tainting-method misstatement projection with basic precision, and a Benford first-digit chi-square screen",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "monetary_unit_sampling",
+            "misstatement_projection",
+            "benford_screen"
+          ]
+        },
+        "book_value": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "performance_materiality": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "expected_misstatement": {
+          "type": "number",
+          "minimum": 0
+        },
+        "confidence_factor": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "sampling_interval": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "sampled_items": {
+          "type": "array"
+        },
+        "amounts": {
+          "type": "array"
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-667-isa530-audit-sampling-mus.html",
+    "function_name": "run",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "authored for ISA530-BUILD-1 (scripts/generate-node-manifest.mjs cannot see a PENDING-ASSEMBLE shard; fields derived from the kernel input contract, the golden fixtures, and the page's inline MANIFEST per CONTRACT.md section 2.7)"
+}
