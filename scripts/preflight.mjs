@@ -1408,6 +1408,11 @@ const GATES = [
   ['Showcase prompts gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-prompts.mjs --self-test'],
   ['Prompt library page freshness (PROMPT-LIBRARY-PAGE-2)', 'node scripts/gen-prompts-page.mjs --check'],
   ['Prompt library page generator selftest (RED mutations + GREEN controls, SO #34c pair)', 'node scripts/gen-prompts-page.mjs --selftest'], // PROMPTS-BORROW-LABELS-1
+  // AGENT-SKILLS-EXPORT-1: skills/ freshness. Gate string is byte-identical to
+  // derived-artifacts.mjs COVERED id 'agent-skills', so the generic
+  // ADVISORY_ON_PR categorisation downgrades it on a PR (the tree is written on
+  // main after merge, SO #35) and keeps it blocking on main.
+  ['Agent Skills export freshness (AGENT-SKILLS-EXPORT-1)', 'node scripts/gen-agent-skills.mjs --check'],
   // CHANGELOG-1 (CONTRACT Amendment A12): the public changelog is generated
   // from LOCAL git history + the committed seed, fail-closed forward, with an
   // in-generator internal-language leak gate (check-copy-hallmarks scans .html
