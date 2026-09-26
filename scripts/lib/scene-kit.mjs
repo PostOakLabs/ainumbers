@@ -23,14 +23,18 @@
  *     page without touching its own styles.
  *   · DETERMINISTIC. No randomness and no clock, so generated pages stay
  *     byte-stable for their --check gates.
+ *   · MOTION STOPS WITHIN FIVE SECONDS (WCAG 2.2.2 Pause, Stop, Hide, Level
+ *     A). Nothing loops forever: sk-travel runs once and sk-pulse twice, and a
+ *     scene keeps every element's --d plus its duration at or under 5s, so
+ *     the page needs no pause control.
  *
  * Animation classes (set on any SVG element inside .sk-scene):
  *   sk-draw   stroke draws in; give the path pathLength="100"
  *   sk-fade   fades in
  *   sk-pop    scales up from its own centre
  *   sk-slide  slides in by --dx / --dy (default 8px up)
- *   sk-pulse  breathes forever (use sparingly)
- *   sk-travel moves by --tx / --ty over --dur, forever; hidden without motion
+ *   sk-pulse  breathes twice (use sparingly)
+ *   sk-travel moves once by --tx / --ty over --dur; hidden without motion
  * Per-element timing: style="--d:.6s" (delay).
  */
 
@@ -61,8 +65,8 @@ export const SCENE_KIT_CSS = `/* SCENE-KIT:v1 (scripts/lib/scene-kit.mjs) */
 .sk-js .sk-scene.sk-play .sk-fade{animation:sk-fade .6s ease-out forwards var(--d,0s)}
 .sk-js .sk-scene.sk-play .sk-pop{animation:sk-pop .5s cubic-bezier(.2,1.4,.4,1) forwards var(--d,0s)}
 .sk-js .sk-scene.sk-play .sk-slide{animation:sk-slide .7s ease-out forwards var(--d,0s)}
-.sk-js .sk-scene.sk-play .sk-pulse{animation:sk-pulse 2.2s ease-in-out infinite var(--d,0s)}
-.sk-js .sk-scene.sk-play .sk-travel{animation:sk-travel var(--dur,2.6s) linear infinite var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-pulse{animation:sk-pulse 2.2s ease-in-out 2 var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-travel{animation:sk-travel var(--dur,2.6s) linear 1 var(--d,0s)}
 @keyframes sk-draw{to{stroke-dashoffset:0}}
 @keyframes sk-fade{to{opacity:1}}
 @keyframes sk-pop{0%{opacity:0;transform:scale(.55)}100%{opacity:1;transform:scale(1)}}

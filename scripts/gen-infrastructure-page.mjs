@@ -219,7 +219,7 @@ function agentsScene() {
         `    <path class="sk-draw" pathLength="100" d="M86 135 C132 135, 132 ${cy}, 180 ${cy}" stroke="var(--purple)" stroke-opacity=".7" stroke-width="1.4" fill="none" style="--d:${(0.3 + i * 0.15).toFixed(2)}s"/>`,
         `    <g class="sk-pop" style="--d:${(0.5 + i * 0.2).toFixed(2)}s"><rect x="180" y="${dr.y}" width="250" height="62" rx="10" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.3"/><rect x="196" y="${cy - 16}" width="20" height="32" rx="2" fill="none" stroke="var(--teal-lt)" stroke-width="1.4"/><circle cx="211" cy="${cy + 1}" r="1.8" fill="var(--teal-lt)"/><text x="230" y="${cy - 3}" class="b sm">${esc(dr.title)}</text><text x="230" y="${cy + 15}" class="${dr.subCls} xs">${esc(dr.sub)}</text></g>`,
         `    <path class="sk-draw" pathLength="100" d="M430 ${cy} C510 ${cy}, 520 135, 566 135" stroke="var(--teal)" stroke-opacity=".7" stroke-width="1.4" fill="none" style="--d:${(1.1 + i * 0.15).toFixed(2)}s"/>`,
-        `    <circle cx="430" cy="${cy}" r="4" fill="var(--teal-lt)" class="sk-travel" style="--tx:136px;--ty:${135 - cy}px;--dur:2.4s;--d:${(1.6 + i * 0.5).toFixed(2)}s"/>`,
+        `    <circle cx="430" cy="${cy}" r="4" fill="var(--teal-lt)" class="sk-travel" style="--tx:136px;--ty:${135 - cy}px;--dur:2.2s;--d:${(1.6 + i * 0.5).toFixed(2)}s"/>`,
       ].join('\n');
     }),
     `    <g class="sk-pop" style="--d:1.6s">${icon.hex(610, 135, 40)}</g>`,

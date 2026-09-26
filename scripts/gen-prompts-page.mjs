@@ -257,7 +257,7 @@ function anatomyScene() {
       : '';
     return `    <g class="sk-pop" style="--d:${(0.1 + i * 0.25).toFixed(2)}s"><rect x="${x}" y="34" width="144" height="70" rx="10" fill="var(--bg-3)" stroke="${i === 4 ? 'var(--gold)' : 'var(--teal)'}" stroke-width="1.3"/><text x="${x + 12}" y="62" class="b sm">${esc(s.title)}</text><text x="${x + 12}" y="82" class="${i === 4 ? 'm g' : 's'} xs">${esc(s.sub)}</text>${s.sub2 ? `<text x="${x + 12}" y="96" class="s xs">${esc(s.sub2)}</text>` : ''}</g>${arrow}
     <path d="M${x + 72} 104 V124" stroke="var(--border-2)" stroke-width="1.2" stroke-dasharray="2 3"/><text x="${x + 72}" y="142" text-anchor="middle" class="m xs t sk-fade" style="--d:${(0.3 + i * 0.25).toFixed(2)}s">${esc(s.tag)}</text>`;
-  }).join('\n') + `\n    <circle cx="84" cy="114" r="4" fill="var(--teal-lt)" class="sk-travel" style="--tx:790px;--dur:4.2s;--d:1.8s"/>`;
+  }).join('\n') + `\n    <circle cx="84" cy="114" r="4" fill="var(--teal-lt)" class="sk-travel" style="--tx:790px;--dur:3s;--d:1.8s"/>`;
   return sceneFigure({
     id: 'anatomy-scene',
     viewBox: '0 0 960 160',
@@ -287,7 +287,7 @@ function revealScene() {
         `    <path class="sk-draw" pathLength="100" d="M220 120 C255 120, 255 ${cy}, 290 ${cy}" stroke="var(--teal)" stroke-opacity=".6" stroke-width="1.3" fill="none" style="--d:${(0.4 + i * 0.2).toFixed(2)}s"/>`,
         `    <g class="sk-pop" style="--d:${(0.6 + i * 0.25).toFixed(2)}s"><rect x="290" y="${cy - 20}" width="330" height="40" rx="8" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/><text x="304" y="${cy - 4}" class="m xs t">${esc(o.tool)}</text><text x="304" y="${cy + 12}" class="s xs">${esc(o.note)}</text></g>`,
         `    <path class="sk-draw" pathLength="100" d="M620 ${cy} C655 ${cy}, 655 95, 690 95" stroke="var(--gold)" stroke-opacity=".6" stroke-width="1.3" fill="none" style="--d:${(1.8 + i * 0.15).toFixed(2)}s"/>`,
-        `    <circle cx="620" cy="${cy}" r="3.5" fill="var(--gold)" class="sk-travel" style="--tx:70px;--ty:${95 - cy}px;--dur:2.2s;--d:${(2.4 + i * 0.4).toFixed(2)}s"/>`,
+        `    <circle cx="620" cy="${cy}" r="3.5" fill="var(--gold)" class="sk-travel" style="--tx:70px;--ty:${95 - cy}px;--dur:1.6s;--d:${(2.4 + i * 0.25).toFixed(2)}s"/>`,
       ].join('\n');
     }),
     `    <g class="sk-pop" style="--d:2.4s"><rect x="690" y="40" width="250" height="104" rx="12" fill="var(--bg-3)" stroke="var(--gold)" stroke-width="1.4"/><text x="706" y="64" class="b sm">session receipt</text>${icon.hashPill(706, 76, 'root sha256:…', 150)}<text x="706" y="128" class="s xs">built from hashes</text></g>`,
