@@ -55,6 +55,8 @@ import { ROOT_FOOTER, ROOT_FOOTER_CSS } from '../chaingraph/_page-chrome.mjs';
 import { installLinks } from './gen-install-links.mjs';
 import { classifyChainRows, CHIP_LABELS, RUN_STATES, loadChainGraph } from './lib-chain-runnability.mjs';
 import { hallmarkFindings, DEFAULT_NOTX_CAP, OVERUSE_CAP } from './check-copy-hallmarks.mjs';
+// INFRA-PROMPTS-SVG-1: the shared animated-scene template.
+import { SCENE_KIT_CSS, SCENE_KIT_HEAD_JS, sceneFigure, icon } from './lib/scene-kit.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -207,6 +209,102 @@ function groupSections(prompts) {
   return { byGroup, known, extra };
 }
 
+// ── Animated scenes (INFRA-PROMPTS-SVG-1, scripts/lib/scene-kit.mjs) ─────────
+// Three illustrations, each drawn only from fields this generator already
+// renders: the anatomy legend mirrors the card parts below it; the door
+// stations light the card's own doorways[]; the deep-dive scene follows the
+// steps of that prompt's body. No prompt text is edited here.
+
+// The door track, in DOORWAY_LABELS order. doorways[] order is not the order
+// a prompt walks them, so the strip lights stations and draws no arrows.
+const DOOR_TRACK = ['webmcp', 'mcp', 'helmd', 'ledger', 'anchor', 'zk'];
+
+// Showcase prompts that get no door strip yet. signed-policy-agentic-commerce
+// cannot run as written: run_chain rejects a vc_issue credential as
+// mandate_unsigned, and its workflow has no gate that could escalate.
+// Illustrate it once the prompt runs end to end.
+const DOOR_STRIP_HOLD = new Set(['signed-policy-agentic-commerce']);
+
+function doorStrip(entry) {
+  if (entry.group !== 'showcase' || DOOR_STRIP_HOLD.has(entry.id)) return '';
+  const used = new Set(entry.doorways ?? []);
+  const label = (d) => DOORWAY_LABELS[d] ?? d;
+  const on = DOOR_TRACK.filter((d) => used.has(d)).map(label);
+  const off = DOOR_TRACK.filter((d) => !used.has(d)).map(label);
+  const aria = `Doors this prompt uses: ${on.join(', ')}.${off.length ? ` Not used: ${off.join(', ')}.` : ''}`;
+  const stations = DOOR_TRACK.map((d, i) => {
+    const cx = 50 + i * 100;
+    return used.has(d)
+      ? `<g class="sk-pop" style="--d:${(0.2 + i * 0.15).toFixed(2)}s"><circle cx="${cx}" cy="24" r="9" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.6"/><circle cx="${cx}" cy="24" r="3.5" fill="var(--teal-lt)"/></g><text x="${cx}" y="54" text-anchor="middle" class="b sm">${esc(label(d))}</text>`
+      : `<circle cx="${cx}" cy="24" r="8" fill="var(--bg)" stroke="var(--border-2)" stroke-width="1.3" stroke-dasharray="3 3"/><text x="${cx}" y="54" text-anchor="middle" class="mu sm">${esc(label(d))}</text>`;
+  }).join('');
+  return `<div class="door-strip"><div class="door-strip-label">Doors this prompt uses</div><div class="sk-scroll"><svg class="sk-scene" viewBox="0 0 600 66" style="min-width:420px" role="img" aria-label="${esc(aria)}" xmlns="http://www.w3.org/2000/svg"><path d="M50 24 H550" stroke="var(--border-2)" stroke-width="1.4"/>${stations}<circle cx="50" cy="24" r="4" fill="var(--gold)" class="sk-travel" style="--tx:500px;--dur:3.6s;--d:.9s"/></svg></div></div>`;
+}
+
+function anatomyScene() {
+  const steps = [
+    { title: 'Prompt', sub: 'the card body', tag: 'Copy prompt' },
+    { title: 'Your assistant', sub: 'any MCP client', tag: 'connect strip' },
+    { title: 'A door', sub: 'WebMCP, MCP or helmd', tag: 'Requires' },
+    { title: 'Tools', sub: 'one chip per node', tag: 'tool chips' },
+    { title: 'Artifact', sub: 'execution_hash', tag: 'run result' },
+    { title: 'Verify', sub: 'ledger or recompute', tag: 'Verify links' },
+  ];
+  const body = steps.map((s, i) => {
+    const x = 14 + i * 158;
+    const arrow = i < steps.length - 1
+      ? `<path class="sk-draw" pathLength="100" d="M${x + 144} 69 H${x + 151}" stroke="var(--muted)" stroke-width="1.6" fill="none" style="--d:${(0.35 + i * 0.25).toFixed(2)}s"/>${icon.arrowRight(x + 158, 69)}`
+      : '';
+    return `    <g class="sk-pop" style="--d:${(0.1 + i * 0.25).toFixed(2)}s"><rect x="${x}" y="34" width="144" height="70" rx="10" fill="var(--bg-3)" stroke="${i === 4 ? 'var(--gold)' : 'var(--teal)'}" stroke-width="1.3"/><text x="${x + 12}" y="62" class="b sm">${esc(s.title)}</text><text x="${x + 12}" y="82" class="${i === 4 ? 'm g' : 's'} xs">${esc(s.sub)}</text></g>${arrow}
+    <path d="M${x + 72} 104 V124" stroke="var(--border-2)" stroke-width="1.2" stroke-dasharray="2 3"/><text x="${x + 72}" y="142" text-anchor="middle" class="m xs t sk-fade" style="--d:${(0.3 + i * 0.25).toFixed(2)}s">${esc(s.tag)}</text>`;
+  }).join('\n') + `\n    <circle cx="84" cy="114" r="4" fill="var(--teal-lt)" class="sk-travel" style="--tx:790px;--dur:4.2s;--d:1.8s"/>`;
+  return sceneFigure({
+    id: 'anatomy-scene',
+    viewBox: '0 0 960 160',
+    minWidth: 660,
+    title: 'How to read a card',
+    desc: 'Six boxes in a row: the prompt, which is the card body; your assistant, any MCP client; a door, which is WebMCP, the hosted MCP server or helmd; the tools, one chip per node; the artifact with its execution hash; and the verify step, on the ledger or by recomputing. Under each box a label names the matching part of a card: Copy prompt, the connect strip, Requires, the tool chips, the run result and the Verify links.',
+    body,
+    caption: 'How to read a card: copy the body into your assistant, check that it can reach the doors under Requires, and use the Verify links to check what came back.',
+  });
+}
+
+// The deep dive whose body walks private inputs to a hash-only receipt.
+function revealScene() {
+  const outputs = [
+    { tool: 'generate_zk_compliance_proof', note: 'public statement, no party fields' },
+    { tool: 'validate_tfr_travel_rule_batch', note: 'verdict and execution_hash' },
+    { tool: 'sdjwt_present', note: 'discloses sanctions_predicate: PASS' },
+    { tool: 'verify_merkle_batch', note: 'one inclusion proof, audit root' },
+  ];
+  const rows = [0, 1, 2, 3, 4].map((r) => `<rect x="36" y="${114 + r * 16}" width="58" height="8" rx="2" fill="var(--muted)"/><rect x="104" y="${114 + r * 16}" width="58" height="8" rx="2" fill="var(--muted)"/><rect x="172" y="${114 + r * 16}" width="30" height="8" rx="2" fill="var(--border-2)"/>`).join('');
+  const body = [
+    `    <g class="sk-fade" style="--d:.1s"><rect x="20" y="40" width="200" height="160" rx="10" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/><text x="36" y="62" class="b sm">synthetic batch</text><text x="36" y="80" class="m xs mu">5 transfers</text><text x="36" y="104" class="m xs mu">originator</text><text x="104" y="104" class="m xs mu">beneficiary</text>${rows}</g>`,
+    `    <text x="120" y="222" text-anchor="middle" class="s xs sk-fade" style="--d:.3s">your agent holds the batch</text>`,
+    ...outputs.map((o, i) => {
+      const cy = 46 + i * 52;
+      return [
+        `    <path class="sk-draw" pathLength="100" d="M220 120 C255 120, 255 ${cy}, 290 ${cy}" stroke="var(--teal)" stroke-opacity=".6" stroke-width="1.3" fill="none" style="--d:${(0.4 + i * 0.2).toFixed(2)}s"/>`,
+        `    <g class="sk-pop" style="--d:${(0.6 + i * 0.25).toFixed(2)}s"><rect x="290" y="${cy - 20}" width="330" height="40" rx="8" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/><text x="304" y="${cy - 4}" class="m xs t">${esc(o.tool)}</text><text x="304" y="${cy + 12}" class="s xs">${esc(o.note)}</text></g>`,
+        `    <path class="sk-draw" pathLength="100" d="M620 ${cy} C655 ${cy}, 655 95, 690 95" stroke="var(--gold)" stroke-opacity=".6" stroke-width="1.3" fill="none" style="--d:${(1.8 + i * 0.15).toFixed(2)}s"/>`,
+        `    <circle cx="620" cy="${cy}" r="3.5" fill="var(--gold)" class="sk-travel" style="--tx:70px;--ty:${95 - cy}px;--dur:2.2s;--d:${(2.4 + i * 0.4).toFixed(2)}s"/>`,
+      ].join('\n');
+    }),
+    `    <g class="sk-pop" style="--d:2.4s"><rect x="690" y="40" width="250" height="104" rx="12" fill="var(--bg-3)" stroke="var(--gold)" stroke-width="1.4"/><text x="706" y="64" class="b sm">session receipt</text>${icon.hashPill(706, 76, 'root sha256:…', 150)}<text x="706" y="128" class="s xs">built from hashes</text></g>`,
+    `    <g class="sk-fade" style="--d:2.9s"><text x="706" y="170" class="t xs u">a verifier sees</text>${icon.check(714, 188, 8)}<text x="730" y="192" class="b xs">predicate results</text>${icon.check(714, 210, 8)}<text x="730" y="214" class="b xs">hashes</text>${icon.lock(706, 224)}<text x="730" y="238" class="s xs">transfer rows stay out of the receipt</text></g>`,
+  ].join('\n');
+  return sceneFigure({
+    id: 'reveal-scene',
+    viewBox: '0 0 960 250',
+    minWidth: 700,
+    title: 'What the final receipt carries',
+    desc: 'A synthetic batch of five transfers, with originator and beneficiary columns, feeds four tool results: generate_zk_compliance_proof gives a public statement with no party fields; validate_tfr_travel_rule_batch gives a verdict and an execution hash; sdjwt_present discloses only sanctions_predicate PASS; verify_merkle_batch gives one inclusion proof against the audit root. Hashes flow into a session receipt built from hashes. A verifier sees predicate results and hashes; the transfer rows stay out of the receipt.',
+    body,
+    caption: 'This deep dive ends with a session receipt built from hashes. The zero-knowledge statement leaves out originator and beneficiary fields and the SD-JWT presentation discloses one claim, so a verifier works from predicate results and hashes.',
+  });
+}
+const CARD_SCENES = { 'prove-compliance-reveal-nothing': revealScene };
+
 function cardHtml(entry, toolPages) {
   const nodeTools = (entry.tools ?? []).filter((t) => !t.startsWith('helmd:'));
   const single = nodeTools.length === 1 && toolPages.has(nodeTools[0])
@@ -249,12 +347,15 @@ function cardHtml(entry, toolPages) {
     ? `\n    <button class="handoff-btn" type="button" data-handoff>Open in Claude Desktop</button>`
     : '';
 
+  // INFRA-PROMPTS-SVG-1: door strip (showcase) and the per-card deep-dive scene.
+  const illus = doorStrip(entry) + (CARD_SCENES[entry.id] ? CARD_SCENES[entry.id]() : '');
+
   return `<article class="prompt-card" id="${esc(entry.id)}">
   <div class="card-head">
     <h3 class="card-title">${esc(entry.title)}</h3>
     ${doorways ? `<div class="card-doorways">${doorways}</div>` : ''}
   </div>
-  <p class="card-one">${esc(entry.one_line)}</p>
+  <p class="card-one">${esc(entry.one_line)}</p>${illus ? `\n  ${illus}` : ''}
   ${chips ? `<div class="card-tools">${chips}</div>` : ''}
   ${requires}
   <div class="card-body-wrap">
@@ -490,7 +591,15 @@ a.tool-chip:hover{border-color:var(--teal);color:var(--teal-lt)}
 ${ROOT_FOOTER_CSS}
 /* ROOT-FOOTER-CSS:END */
 @media(max-width:600px){.nav-links a:not(.nav-cta){display:none}.card-head{flex-direction:column}}
+
+/* INFRA-PROMPTS-SVG-1 scenes */
+${SCENE_KIT_CSS}
+.pl-hero .sk-fig{margin:1.4rem 0 0}
+.prompt-card .sk-fig{margin:.3rem 0 .4rem}
+.door-strip .sk-scroll{background:var(--bg);border-color:var(--border);max-width:560px}
+.door-strip-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
 </style>
+<script>${SCENE_KIT_HEAD_JS}</script>
 </head>
 <body>
 
@@ -527,6 +636,7 @@ ${ROOT_FOOTER_CSS}
       <span class="lg"><span class="lg-k">A</span> ${esc(REQUIRES_LEGEND.A)}</span>
       <span class="lg"><span class="lg-k">Z</span> ${esc(REQUIRES_LEGEND.Z)}</span>
     </div>
+${anatomyScene()}
   </div>
 </section>
 
