@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:3152f3bd790393117c348ef2ecfd1f0eab68504808ece058103511bd988c616d
+// kernel_digest_at_authoring: sha256:25717bc3df656bc517d163314273f3352ab14011d870d2319b3c5b9c7c9bfa72
 //
 // FV-PROPFLOOR-SHARD-B16-1 — property-test floor for art-77-t1-settlement-readiness-diagnostic.
 // Class B (bounded-numeric), FLOAT-SENSITIVE — each dimension's raw 0/2/4 score is divided by 4,
