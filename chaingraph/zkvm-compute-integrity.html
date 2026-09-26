@@ -204,7 +204,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <p>That hash lets two parties confirm their outputs are identical. It does not tell you which code produced the number, or that the code ran faithfully on the inputs it claims. In finance that gap is expensive and concrete. Auditors re-perform calculations by hand. Counterparties stand up duplicate infrastructure just to reconcile. Supervisors accept SOC reports and management attestations they cannot independently check. The trust is social, not mathematical.</p>
     <p>A compute-integrity proof closes that gap. Here is what it buys you, specifically in a regulated setting:</p>
     <ul class="list">
-      <li>A supervisor, auditor, or counterparty confirms the published model ran faithfully on the inputs by checking about 200 bytes, not by re-implementing the model.</li>
+      <li>A supervisor, auditor, or counterparty confirms the published model ran faithfully on the inputs by checking 256 bytes, not by re-implementing the model.</li>
       <li>You can prove the output is correct while keeping the inputs private. A firm can show its capital ratio was computed correctly without handing over the position-level portfolio.</li>
       <li>A decision produced by one institution is verifiable by another with pure code. No shared platform, no vendor lock-in, no API to keep online.</li>
       <li>Verification is offline and self-contained, so it runs inside the locked-down environments finance actually uses.</li>
@@ -276,11 +276,11 @@ export function compute(pp) {
 ]</div>
 
     <h3>Step 3: Run it inside one universal guest</h3>
-    <p>The guest is a small program compiled for the zkVM's instruction set (RISC-V, RV64IM). It embeds a JavaScript engine (QuickJS), takes the kernel source and the inputs, runs <code>compute</code>, and writes three things to its public output, the journal.</p>
-    <div class="cap">universal guest, RV64IM, commits the journal</div>
+    <p>The guest is a small program compiled for the zkVM's instruction set (RISC-V, RV32IM). It embeds a JavaScript engine (QuickJS), takes the kernel source and the inputs, runs <code>compute</code>, and writes three things to its public output, the journal.</p>
+    <div class="cap">universal guest, RV32IM, commits the journal</div>
     <div class="code">// ONE guest proves ANY kernel. The kernel source is an INPUT, never baked in.
 function guest(kernel_source, policy_parameters) {
-  const compute = evalInQuickJS(kernel_source);     // QuickJS, compiled to RV64IM
+  const compute = evalInQuickJS(kernel_source);     // QuickJS, compiled to RV32IM
   commit({                                          // -&gt; the public journal:
     kernel_digest:       SHA-256(kernel_source),    //   which code ran (= §17)
     output:              compute(policy_parameters),//   what it produced
@@ -292,15 +292,15 @@ function guest(kernel_source, policy_parameters) {
     <h3>Step 4: Build the guest reproducibly to get an ImageID</h3>
     <p>Compiling the guest with a pinned toolchain produces a deterministic fingerprint of the program, the ImageID. Publish it.</p>
     <div class="cap">imageid</div>
-    <div class="math">ImageID = digest( compiled_guest_method_image )     // the RV64IM ELF, pinned toolchain
+    <div class="math">ImageID = digest( compiled_guest_method_image )     // the RV32IM ELF, pinned toolchain
 
 reproducible build  =&gt;  same ImageID  =&gt;  one image covers every kernel</div>
     <p>Why it matters: the guest source is not yet public, so reproducibility is asserted by the operator; until a third party can rebuild the guest and get the same ImageID, the ImageID tells you which program the operator says runs their data.</p>
 
     <h3>Step 5: Prove it off-line</h3>
-    <p>A prover runs the guest in the zkVM and produces a STARK receipt, then wraps it into a Groth16 proof over the BN254 curve, about 200 bytes. This is heavy and happens out of band, never in a browser and never on a request path. Always with development mode off, so the receipt is real.</p>
+    <p>A prover runs the guest in the zkVM and produces a STARK receipt, then wraps it into a Groth16 proof over the BN254 curve, 256 bytes (uncompressed BN254 A, B, C). This is heavy and happens out of band, never in a browser and never on a request path. Always with development mode off, so the receipt is real.</p>
     <div class="cap">prove (RISC0_DEV_MODE=0)</div>
-    <pre class="math">STARK receipt  --wrap--&gt;  Groth16 over BN254          (~200 bytes)
+    <pre class="math">STARK receipt  --wrap--&gt;  Groth16 over BN254          (256 bytes)
 
 proof   pi = ( A in G1,  B in G2,  C in G1 )
 
@@ -349,7 +349,7 @@ verify  e(A, B)  =  e(alpha, beta) · e( vk_x, gamma ) · e(C, delta)
     "journal":  { "kernel_digest": "sha256:a3f1c2...",
                   "output": { "cet1_ratio": 0.123456, "breach": false },
                   "chaingraph_version": "0.4.0" },
-    "seal":     "0x... (~200-byte Groth16 proof)"
+    "seal":     "0x... (256-byte Groth16 proof)"
   }
 }
 // execution_hash is taken over { policy_parameters, output_payload } ONLY,
@@ -374,17 +374,17 @@ verify  e(A, B)  =  e(alpha, beta) · e( vk_x, gamma ) · e(C, delta)
         <g id="rcpt-r1" class="row">
           <text x="22" y="56" class="k">imageId</text>
           <line x1="130" y1="53" x2="220" y2="53" stroke="#3a5270" stroke-width="1.5"/>
-          <text x="228" y="58" class="a">which code ran &mdash; the published, rebuildable guest</text>
+          <text x="228" y="58" class="a">which code ran: the published, rebuildable guest</text>
         </g>
         <g id="rcpt-r2" class="row">
           <text x="22" y="88" class="k">journal</text>
           <line x1="130" y1="85" x2="220" y2="85" stroke="#3a5270" stroke-width="1.5"/>
-          <text x="228" y="90" class="a">what it produced &mdash; kernel digest + output, committed public</text>
+          <text x="228" y="90" class="a">what it produced: kernel digest + output, committed public</text>
         </g>
         <g id="rcpt-r3" class="row">
           <text x="22" y="120" class="k">seal</text>
           <line x1="130" y1="117" x2="220" y2="117" stroke="#3a5270" stroke-width="1.5"/>
-          <text x="228" y="122" class="a">whether it is genuine &mdash; the ~200-byte Groth16 proof</text>
+          <text x="228" y="122" class="a">whether it is genuine: the 256-byte Groth16 proof</text>
         </g>
       </svg>
     </div>
@@ -422,7 +422,7 @@ const ok = await verifySeal(
     <div class="lesson">
       <h3>Floating point is not portable</h3>
       <p>The arithmetic standard (IEEE-754) only guarantees the same bits across engines for the basic operations. The library functions do not carry that guarantee, and they can differ in the last unit in the last place between two correct engines. A handful of our kernels (the machine-learning and quantitative ones) produced guest output that differed from the browser by exactly that last bit, and a last-bit difference means the proof does not match the canonical result.</p>
-      <div class="code">Math.exp(0.5)   // V8  vs  QuickJS-on-RV64IM (soft-float): can differ in the last ULP
+      <div class="code">Math.exp(0.5)   // V8  vs  QuickJS-on-RV32IM (soft-float): can differ in the last ULP
 
 // IEEE-754 reproducible across engines:   +   -   *   /   sqrt   (and fma)
 // NOT reproducible:   exp  log  pow  sin  cos  hypot      (the transcendental set)
@@ -560,8 +560,8 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
         <text x="80" y="92" text-anchor="middle" class="n">live node</text>
       </svg>
       <div style="font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:2.1;color:var(--text)">
-        <div><span style="color:#14b8a6">●</span> <code>gpu:false</code> deterministic nodes &mdash; a real proof, or an explicit deferral while a newly landed node waits on the proving queue</div>
-        <div><span style="color:#d4a847">●</span> <code>gpu:true</code> nodes &mdash; carried through the same pipeline, no separate lower bar</div>
+        <div><span style="color:#14b8a6">●</span> <code>gpu:false</code> deterministic nodes: a real proof, or an explicit deferral while a newly landed node waits on the proving queue</div>
+        <div><span style="color:#d4a847">●</span> <code>gpu:true</code> nodes: carried through the same pipeline, no separate lower bar</div>
       </div>
     </div>
 
@@ -616,7 +616,7 @@ deterministic isHttpsUrl, used everywhere   ~ 6.9 x 10^6 cycles   (~800x cheaper
 
     <div class="lesson">
       <h3>The receipt is a replay you do not have to run</h3>
-      <p>Step back from the mechanics and the whole construction has one shape, the OpenChainGraph receipt. A kernel runs once inside the universal guest (ImageID <code>a1a0bc89</code>), the guest commits the kernel digest and the output to its journal, and the proof binds that journal to that exact program. A reader who holds the receipt re-runs nothing: checking the seal is a replay the prover already performed, compressed to about 200 bytes and confirmed with one pairing test. The base execution hash offers the same guarantee the slow way, by actual re-execution, and the cross-engine gate above is what lets the two agree bit for bit, so a receipt and a hand recompute of the same artifact always land on the same output. Recompute-to-verify and prove-to-verify are two readings of one receipt, not two systems.</p>
+      <p>Step back from the mechanics and the whole construction has one shape, the OpenChainGraph receipt. A kernel runs once inside the universal guest (ImageID <code>a1a0bc89</code>), the guest commits the kernel digest and the output to its journal, and the proof binds that journal to that exact program. A reader who holds the receipt re-runs nothing: checking the seal is a replay the prover already performed, compressed to 256 bytes and confirmed with one pairing test. The base execution hash offers the same guarantee the slow way, by actual re-execution, and the cross-engine gate above is what lets the two agree bit for bit, so a receipt and a hand recompute of the same artifact always land on the same output. Recompute-to-verify and prove-to-verify are two readings of one receipt, not two systems.</p>
     </div>
   </div>
 </section>
@@ -686,7 +686,7 @@ RISC0_DEV_MODE=0 cargo run --release   # real proof: STARK -> groth16-bn254 (nev
       <li><a href="https://url.spec.whatwg.org/">WHATWG URL Standard</a> (the faithful URL parser reference).</li>
       <li><a href="https://www.rfc-editor.org/rfc/rfc8785">RFC 8785</a> (JSON Canonicalization Scheme, used for the execution_hash preimage).</li>
       <li><a href="https://eprint.iacr.org/2016/260">Groth16: "On the Size of Pairing-based Non-interactive Arguments"</a>, Groth, EUROCRYPT 2016.</li>
-      <li><a href="https://zkevm.ethereum.foundation/blog/zkevm-standards-v0-release">Ethereum Foundation zkVM Standards v0 (RV64IM)</a>.</li>
+      <li><a href="https://zkevm.ethereum.foundation/blog/zkevm-standards-v0-release">Ethereum Foundation zkVM Standards v0 (RV64 baseline; OCG's universal guest targets RV32IM)</a>.</li>
       <li><a href="https://www.mintlify.com/risc0/risc0/concepts/receipts-and-verification">RISC Zero receipts (journal and seal)</a>.</li>
       <li><a href="https://dev.risczero.com/api/recursion">RISC Zero proof composition and continuations (recursion)</a>.</li>
       <li><a href="https://github.com/Consensys/gnark">gnark: the STARK-to-SNARK Groth16 wrap prover</a> (the Docker gnark step in the pipeline).</li>
