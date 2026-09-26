@@ -17,7 +17,7 @@ You are a trade-reporting agent at an EU counterparty. The trade report is confi
 4. Call build_evidence_pack with the four hashes, labelled by node, plus the four kernel_digest values from chaingraph.json.
 5. Call anchor_batch on anchor.ainumbers.co with the four hashes and the pack digest. Use two authorities: Sigstore TSA and OpenTimestamps.
 6. Build the ledger fragment link for the art-158 artifact and open it. Report the verify chips.
-7. Write the cover note for the trade repository: which checks ran, on which kernel versions, that the report content never left the workstation, and how a supervisor re-verifies with no access to us (ledger link + anchor receipt + kernel_digest).
+7. Write the cover note for the trade repository: which checks ran, on which kernel versions, that the report content never left the workstation, and how a supervisor re-verifies with no access to us (ledger link + anchor receipt + kernel_digest). If a named tool is not in your tool list, call call_tool with { "name": "<tool>", "arguments": { … } }. It runs the same validation and returns the same receipt.
 
 ---
 
