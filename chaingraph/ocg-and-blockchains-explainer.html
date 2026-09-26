@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenChainGraph and Blockchains · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="An animated comparison of OpenChainGraph and a blockchain. Both link records by hash and fold them into Merkle roots. OpenChainGraph has no shared ledger and no validators, and it can still use a blockchain as one witness to when a record existed.">
+<meta name="ain:category" content="learn">
+<meta name="author" content="Post Oak Labs">
+<meta name="ocg-spec-version" content="0.8.13">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/ocg-and-blockchains-explainer.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "OpenChainGraph and Blockchains",
+  "description": "Three animated scenes and a side-by-side table on what OpenChainGraph shares with a blockchain, what it leaves out, and where the two meet.",
+  "author": { "@type": "Organization", "name": "Post Oak Labs" },
+  "publisher": { "@type": "Organization", "name": "Post Oak Labs" },
+  "about": { "@type": "Thing", "name": "Hash-linked records without a shared ledger" },
+  "isPartOf": { "@type": "WebSite", "name": "AINumbers.co", "url": "https://ainumbers.co/" },
+  "license": "https://creativecommons.org/licenses/by/4.0/"
+}
+</script>
+<style>
+:root{
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px;word-break:break-word}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible{outline:2px solid var(--teal-lt);outline-offset:2px}
+.wrap{max-width:1000px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+
+/* hero */
+.hero{padding:3.5rem 0 2.4rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.9rem,4vw,2.9rem);color:var(--white);margin-bottom:.9rem;max-width:820px}
+.hero p{font-size:1rem;color:var(--body);max-width:760px;line-height:1.9;margin-bottom:.8rem}
+
+/* sections */
+.part{padding:2.6rem 0;border-bottom:1px solid var(--border)}
+.part .kicker{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.part h2{font-size:clamp(1.3rem,2.5vw,1.75rem);color:var(--white)}
+.part p{color:var(--body);max-width:760px;margin:.9rem 0}
+.part .lede{color:var(--text)}
+
+/* side-by-side table */
+.cmp-scroll{overflow-x:auto;margin:1.2rem 0}
+.cmp{width:100%;border-collapse:collapse;font-size:.84rem;min-width:620px}
+.cmp th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--body);padding:.6rem .75rem;border-bottom:1px solid var(--border-2)}
+.cmp td{padding:.65rem .75rem;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text)}
+.cmp td:first-child{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--gold);white-space:nowrap}
+.cmp tr.same td:first-child::after{content:' \2713';color:var(--green)}
+
+.cross-link{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--body);background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;line-height:1.9;margin-top:1.4rem}
+.cross-link a{color:var(--gold)}
+.pii{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;font-size:.78rem;color:var(--body);margin:2rem 0;font-family:'JetBrains Mono',monospace}
+
+@media(max-width:760px){.nav-breadcrumb span:last-child,.nav-breadcrumb span:nth-last-child(2){display:none}}
+@media(max-width:480px){nav .nav-breadcrumb{display:none}}
+
+/* SCENE-KIT:v1:START */
+/* SCENE-KIT:v1 (scripts/lib/scene-kit.mjs) */
+.sk-fig{margin:1.1rem 0 1.6rem;min-width:0}
+.sk-scroll{max-width:100%;overflow-x:auto;contain:inline-size;background:var(--bg-2,#0D1627);border:1px solid var(--border,#1E2F4A);border-radius:10px}
+.sk-scroll>svg{display:block;width:100%;height:auto}
+.sk-cap{font-size:.78rem;color:var(--body,#6888A8);line-height:1.6;margin-top:.55rem;max-width:780px}
+.sk-cap a{color:var(--teal-lt,#2DD4BF);border-bottom:1px dotted currentColor}
+.sk-scene text{font-family:'Sora',sans-serif;fill:var(--text,#A8C4DE);font-size:13px}
+.sk-scene .m{font-family:'JetBrains Mono',monospace}
+.sk-scene .h{font-family:'DM Serif Display',serif;fill:var(--white,#EEF6FD)}
+.sk-scene .b{fill:var(--bright,#D4E8F8)}.sk-scene .s{fill:var(--body,#6888A8)}.sk-scene .mu{fill:var(--muted,#3A5270)}
+.sk-scene .g{fill:var(--gold,#D4A847)}.sk-scene .t{fill:var(--teal-lt,#2DD4BF)}.sk-scene .p{fill:var(--purple,#9B72F5)}
+.sk-scene .ok{fill:var(--green,#22C55E)}.sk-scene .r{fill:var(--red,#EF4444)}
+.sk-scene .xs{font-size:10.5px}.sk-scene .sm{font-size:12px}.sk-scene .md{font-size:14px}.sk-scene .lg{font-size:17px}
+.sk-scene .u{letter-spacing:.14em;text-transform:uppercase}
+.sk-scene a{cursor:pointer}
+.sk-scene a:focus{outline:none}
+.sk-scene a:hover .sk-hit,.sk-scene a:focus-visible .sk-hit{stroke:var(--teal-lt,#2DD4BF);stroke-width:2}
+.sk-scene .sk-pop{transform-box:fill-box;transform-origin:center}
+.sk-travel{opacity:0}
+.sk-js .sk-scene .sk-draw{stroke-dasharray:100;stroke-dashoffset:100}
+.sk-js .sk-scene .sk-fade,.sk-js .sk-scene .sk-pop,.sk-js .sk-scene .sk-slide{opacity:0}
+.sk-js .sk-scene.sk-play .sk-draw{animation:sk-draw .9s ease-out forwards var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-fade{animation:sk-fade .6s ease-out forwards var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-pop{animation:sk-pop .5s cubic-bezier(.2,1.4,.4,1) forwards var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-slide{animation:sk-slide .7s ease-out forwards var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-pulse{animation:sk-pulse 2.2s ease-in-out infinite var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-travel{animation:sk-travel var(--dur,2.6s) linear infinite var(--d,0s)}
+@keyframes sk-draw{to{stroke-dashoffset:0}}
+@keyframes sk-fade{to{opacity:1}}
+@keyframes sk-pop{0%{opacity:0;transform:scale(.55)}100%{opacity:1;transform:scale(1)}}
+@keyframes sk-slide{from{opacity:0;transform:translate(var(--dx,0px),var(--dy,8px))}to{opacity:1;transform:translate(0,0)}}
+@keyframes sk-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes sk-travel{0%{opacity:0;transform:translate(0,0)}8%{opacity:1}88%{opacity:1}100%{opacity:0;transform:translate(var(--tx,0px),var(--ty,0px))}}
+@media print,(prefers-reduced-motion:reduce){
+  .sk-js .sk-scene *{animation:none!important}
+  .sk-js .sk-scene .sk-fade,.sk-js .sk-scene .sk-pop,.sk-js .sk-scene .sk-slide{opacity:1!important;transform:none!important}
+  .sk-js .sk-scene .sk-draw{stroke-dashoffset:0!important}
+  .sk-travel{opacity:0!important}
+}
+/* SCENE-KIT:v1:END */
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<!-- SCENE-KIT-JS:v1:START -->
+<script>(function(){var d=document.documentElement;try{if(!('IntersectionObserver' in window))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;d.classList.add('sk-js');document.addEventListener('DOMContentLoaded',function(){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('sk-play');io.unobserve(e.target);}});},{threshold:0.2});Array.prototype.forEach.call(document.querySelectorAll('svg.sk-scene'),function(s){io.observe(s);});});}catch(e){d.classList.remove('sk-js');}})();</script>
+<!-- SCENE-KIT-JS:v1:END -->
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">OpenChainGraph and Blockchains</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">OpenChainGraph &middot; Explainer</div>
+  <h1>What OpenChainGraph shares with a blockchain and what it leaves out</h1>
+  <p>OpenChainGraph links records by hash and folds them into Merkle roots, which is also how a blockchain protects its history. The two designs split on what comes next. A public blockchain asks a network of validators to agree on one shared ledger and rewards them for it. OpenChainGraph has no such network: anyone who holds the inputs recomputes the hash, and the time of a record comes from timestamp authorities you choose.</p>
+  <p>The scenes below take the comparison one piece at a time, and the table at the end puts it side by side.</p>
+</div></header>
+
+<main>
+
+<section class="part" id="alike"><div class="wrap">
+  <div class="kicker">Scene 1 &middot; Where they look alike</div>
+  <h2>Both link records by hash</h2>
+  <p class="lede">A block names the hash of the block before it and commits its transactions under one Merkle root. An OpenChainGraph workflow step names its parent's execution hash (SPEC §21), and a session receipt folds many execution hashes into one Merkle root. Change one byte in the middle and every later link stops matching.</p>
+  <figure class="sk-fig" id="alike-scene">
+  <div class="sk-scroll"><svg class="sk-scene" viewBox="0 0 960 380" style="min-width:720px" role="img" aria-labelledby="alike-scene-t alike-scene-d" xmlns="http://www.w3.org/2000/svg"><title id="alike-scene-t">Hash links on both sides</title><desc id="alike-scene-d">Left, a blockchain: blocks 100, 101 and 102, each naming the previous block's hash and holding a small Merkle tree of four transactions. One byte changes in block 101, its Merkle root changes, and block 102's previous-hash field no longer matches. Right, an OpenChainGraph workflow: steps 1 to 3 (art-590, art-591, art-592), each naming its parent's hash, all folded into a session receipt root. One input changes in step 2, step 3's parent no longer matches, and the session root changes.</desc>
+    <path d="M480 26 V366" stroke="var(--border-2)" stroke-width="1" stroke-dasharray="4 5"/>
+    <text x="28" y="34" class="u xs p">A blockchain</text>
+    <text x="504" y="34" class="u xs t">An OpenChainGraph workflow</text>
+
+    <g class="sk-pop" style="--d:.1s"><rect x="36" y="64" width="120" height="176" rx="10" fill="var(--bg-3)" stroke="var(--purple)" stroke-width="1.3"/><text x="48" y="86" class="b sm">block 100</text><text x="48" y="106" class="m xs s">prev H99</text><text x="48" y="124" class="m xs g">root R100</text><path d="M96 140 L74 164 M96 140 L118 164 M74 164 L62 190 M74 164 L86 190 M118 164 L106 190 M118 164 L130 190" stroke="var(--border-2)" stroke-width="1.2" fill="none"/><circle cx="96" cy="140" r="5" fill="var(--gold)"/><circle cx="74" cy="164" r="4" fill="var(--muted)"/><circle cx="118" cy="164" r="4" fill="var(--muted)"/><rect x="55" y="190" width="14" height="12" rx="2" fill="var(--bg-2)" stroke="var(--border-2)"/><rect x="79" y="190" width="14" height="12" rx="2" fill="var(--bg-2)" stroke="var(--border-2)"/><rect x="99" y="190" width="14" height="12" rx="2" fill="var(--bg-2)" stroke="var(--border-2)"/><rect x="123" y="190" width="14" height="12" rx="2" fill="var(--bg-2)" stroke="var(--border-2)"/><text x="96" y="226" text-anchor="middle" class="s xs">4 transactions</text></g>
+    <g class="sk-pop" style="--d:.35s"><rect x="184" y="64" width="120" height="176" rx="10" fill="var(--bg-3)" stroke="var(--purple)" stroke-width="1.3"/><text x="196" y="86" class="b sm">block 101</text><text x="196" y="106" class="m xs s">prev H100</text><text x="196" y="124" class="m xs g">root R101</text><path d="M244 140 L222 164 M244 140 L266 164 M222 164 L210 190 M222 164 L234 190 M266 164 L254 190 M266 164 L278 190" stroke="var(--border-2)" stroke-width="1.2" fill="none"/><circle cx="244" cy="140" r="5" fill="var(--gold)"/><circle cx="222" cy="164" r="4" fill="var(--muted)"/><circle cx="266" cy="164" r="4" fill="var(--muted)"/><rect x="203" y="190" width="14" height="12" rx="2" fill="var(--bg-2)" stroke="var(--border-2)"/><rect x="227" y="190" width="14" height="12" rx="2" fill="var(--bg-2)" stroke="var(--border-2)"/><rect x="247" y="190" width="14" height="12" rx="2" fill="var(--bg-2)" stroke="var(--border-2)"/><rect x="271" y="190" width="14" height="12" rx="2" fill="var(--bg-2)" stroke="var(--border-2)"/><text x="244" y="226" text-anchor="middle" class="s xs">4 transactions</text></g>
+    <g class="sk-pop" style="--d:.6s"><rect x="332" y="64" width="120" height="176" rx="10" fill="var(--bg-3)" stroke="var(--purple)" stroke-width="1.3"/><text x="344" y="86" class="b sm">block 102</text><text x="344" y="106" class="m xs s">prev H101</text><text x="344" y="124" class="m xs g">root R102</text><path d="M392 140 L370 164 M392 140 L414 164 M370 164 L358 190 M370 164 L382 190 M414 164 L402 190 M414 164 L426 190" stroke="var(--border-2)" stroke-width="1.2" fill="none"/><circle cx="392" cy="140" r="5" fill="var(--gold)"/><circle cx="370" cy="164" r="4" fill="var(--muted)"/><circle cx="414" cy="164" r="4" fill="var(--muted)"/><rect x="351" y="190" width="14" height="12" rx="2" fill="var(--bg-2)" stroke="var(--border-2)"/><rect x="375" y="190" width="14" height="12" rx="2" fill="var(--bg-2)" stroke="var(--border-2)"/><rect x="395" y="190" width="14" height="12" rx="2" fill="var(--bg-2)" stroke="var(--border-2)"/><rect x="419" y="190" width="14" height="12" rx="2" fill="var(--bg-2)" stroke="var(--border-2)"/><text x="392" y="226" text-anchor="middle" class="s xs">4 transactions</text></g>
+    <path class="sk-draw" pathLength="100" d="M184 102 H165" stroke="var(--purple)" stroke-width="1.6" fill="none" style="--d:.8s"/><path d="M157 102 l8 -4.5 v9 Z" fill="var(--purple)" class="sk-fade" style="--d:.9s"/>
+    <path class="sk-draw" pathLength="100" d="M332 102 H313" stroke="var(--purple)" stroke-width="1.6" fill="none" style="--d:1s"/><path d="M305 102 l8 -4.5 v9 Z" fill="var(--purple)" class="sk-fade" style="--d:1.1s"/>
+
+    <g class="sk-pop" style="--d:.3s"><rect x="508" y="64" width="128" height="112" rx="10" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.3"/><text x="520" y="86" class="b sm">step 1</text><text x="624" y="86" text-anchor="end" class="m xs mu">art-590</text><text x="520" y="112" class="m xs g">hash h1</text><text x="520" y="134" class="m xs s">no parent</text></g>
+    <g class="sk-pop" style="--d:.55s"><rect x="656" y="64" width="128" height="112" rx="10" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.3"/><text x="668" y="86" class="b sm">step 2</text><text x="772" y="86" text-anchor="end" class="m xs mu">art-591</text><text x="668" y="112" class="m xs g">hash h2</text><text x="668" y="134" class="m xs s">parent h1</text></g>
+    <g class="sk-pop" style="--d:.8s"><rect x="804" y="64" width="128" height="112" rx="10" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.3"/><text x="816" y="86" class="b sm">step 3</text><text x="920" y="86" text-anchor="end" class="m xs mu">art-592</text><text x="816" y="112" class="m xs g">hash h3</text><text x="816" y="134" class="m xs s">parent h2</text></g>
+    <path class="sk-draw" pathLength="100" d="M656 130 H645" stroke="var(--teal)" stroke-width="1.6" fill="none" style="--d:1s"/><path d="M637 130 l8 -4.5 v9 Z" fill="var(--teal)" class="sk-fade" style="--d:1.1s"/>
+    <path class="sk-draw" pathLength="100" d="M804 130 H793" stroke="var(--teal)" stroke-width="1.6" fill="none" style="--d:1.2s"/><path d="M785 130 l8 -4.5 v9 Z" fill="var(--teal)" class="sk-fade" style="--d:1.3s"/>
+    <path class="sk-draw" pathLength="100" d="M572 176 V200 H620 V224" stroke="var(--gold)" stroke-opacity=".7" stroke-width="1.3" fill="none" style="--d:1.4s"/>
+    <path class="sk-draw" pathLength="100" d="M720 176 V224" stroke="var(--gold)" stroke-opacity=".7" stroke-width="1.3" fill="none" style="--d:1.5s"/>
+    <path class="sk-draw" pathLength="100" d="M868 176 V200 H820 V224" stroke="var(--gold)" stroke-opacity=".7" stroke-width="1.3" fill="none" style="--d:1.6s"/>
+    <g class="sk-pop" style="--d:1.8s"><rect x="560" y="224" width="320" height="66" rx="10" fill="var(--bg-3)" stroke="var(--gold)" stroke-width="1.4"/><text x="576" y="248" class="b sm">session receipt</text><text x="576" y="272" class="m xs g">Merkle root over h1 h2 h3</text></g>
+
+    <g class="sk-fade" style="--d:2.4s"><rect x="227" y="190" width="14" height="12" rx="2" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.6"/><text x="244" y="54" text-anchor="middle" class="r xs">one byte changed</text></g>
+    <circle cx="244" cy="140" r="6" fill="var(--red)" class="sk-pop" style="--d:2.8s"/>
+    <text x="258" y="124" class="r xs sk-fade" style="--d:2.8s">changes</text>
+    <g class="sk-fade" style="--d:3.2s"><path d="M332 102 H313" stroke="var(--red)" stroke-width="2" fill="none"/><circle cx="432" cy="102" r="7" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.3"/><path d="M428 98 L436 106 M436 98 L428 106" stroke="var(--red)" stroke-width="1.6" stroke-linecap="round"/><text x="392" y="54" text-anchor="middle" class="r xs">prev no longer matches</text></g>
+
+    <g class="sk-fade" style="--d:2.4s"><rect x="656" y="64" width="128" height="112" rx="10" fill="none" stroke="var(--red)" stroke-width="2"/><text x="720" y="54" text-anchor="middle" class="r xs">one input changed</text></g>
+    <text x="728" y="112" class="r xs sk-fade" style="--d:2.7s">changes</text>
+    <g class="sk-fade" style="--d:3s"><circle cx="908" cy="130" r="7" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.3"/><path d="M904 126 L912 134 M912 126 L904 134" stroke="var(--red)" stroke-width="1.6" stroke-linecap="round"/><text x="868" y="54" text-anchor="middle" class="r xs">parent no longer matches</text></g>
+    <g class="sk-fade" style="--d:3.4s"><rect x="560" y="224" width="320" height="66" rx="10" fill="none" stroke="var(--red)" stroke-width="2"/><text x="864" y="272" text-anchor="end" class="r xs">root changes</text></g>
+
+    <text x="244" y="322" text-anchor="middle" class="s sm">each block names the block before it</text>
+    <text x="244" y="344" text-anchor="middle" class="s xs">a Merkle root commits each block's transactions</text>
+    <text x="720" y="322" text-anchor="middle" class="s sm">each step names its parent</text>
+    <text x="720" y="344" text-anchor="middle" class="s xs">a session receipt commits many runs at once</text>
+  </svg></div>
+  <figcaption class="sk-cap">In both designs a change to one record breaks every link after it, so a verifier can spot the change without trusting whoever stored the records. The right side is the <a href="chains/x402-spend-evidence.html">x402 spend-evidence workflow</a>, drawn with labels instead of real hashes.</figcaption>
+  </figure>
+</div></section>
+
+<section class="part" id="apart"><div class="wrap">
+  <div class="kicker">Scene 2 &middot; Where they part</div>
+  <h2>A blockchain agrees and OpenChainGraph recomputes</h2>
+  <p class="lede">On a blockchain the next block is whatever the validators accept, and every full node keeps a copy of every transaction. OpenChainGraph has no shared ledger to agree on. Each result is its own artifact, and it holds if anyone with the inputs gets the same hash. The inputs stay with whoever ran the tool, and only hashes need to travel.</p>
+  <figure class="sk-fig" id="apart-scene">
+  <div class="sk-scroll"><svg class="sk-scene" viewBox="0 0 960 380" style="min-width:720px" role="img" aria-labelledby="apart-scene-t apart-scene-d" xmlns="http://www.w3.org/2000/svg"><title id="apart-scene-t">Agreement and recomputation</title><desc id="apart-scene-d">Left, seven validators in a ring send votes toward one shared ledger in the middle, and a coin stands for rewards and fees; every full node keeps every transaction. Right, a single browser tab takes its inputs through a kernel to a hash that matches the published one, and the network lane shows zero requests during the recompute.</desc>
+    <path d="M480 26 V366" stroke="var(--border-2)" stroke-width="1" stroke-dasharray="4 5"/>
+    <text x="28" y="34" class="u xs p">A blockchain</text>
+    <text x="504" y="34" class="u xs t">An OpenChainGraph result</text>
+
+    <path d="M242 78 L330 120 L351 215 L291 291 L193 291 L133 215 L154 120 Z" fill="none" stroke="var(--border-2)" stroke-width="1" stroke-dasharray="3 4"/>
+    <g class="sk-pop" style="--d:.1s"><circle cx="242" cy="78" r="17" fill="var(--bg-3)" stroke="var(--purple)" stroke-width="1.4"/><path d="M235 74 H249 M235 81 H249" stroke="var(--purple)" stroke-width="1.4"/></g>
+    <g class="sk-pop" style="--d:.2s"><circle cx="330" cy="120" r="17" fill="var(--bg-3)" stroke="var(--purple)" stroke-width="1.4"/><path d="M323 116 H337 M323 123 H337" stroke="var(--purple)" stroke-width="1.4"/></g>
+    <g class="sk-pop" style="--d:.3s"><circle cx="351" cy="215" r="17" fill="var(--bg-3)" stroke="var(--purple)" stroke-width="1.4"/><path d="M344 211 H358 M344 218 H358" stroke="var(--purple)" stroke-width="1.4"/></g>
+    <g class="sk-pop" style="--d:.4s"><circle cx="291" cy="291" r="17" fill="var(--bg-3)" stroke="var(--purple)" stroke-width="1.4"/><path d="M284 287 H298 M284 294 H298" stroke="var(--purple)" stroke-width="1.4"/></g>
+    <g class="sk-pop" style="--d:.5s"><circle cx="193" cy="291" r="17" fill="var(--bg-3)" stroke="var(--purple)" stroke-width="1.4"/><path d="M186 287 H200 M186 294 H200" stroke="var(--purple)" stroke-width="1.4"/></g>
+    <g class="sk-pop" style="--d:.6s"><circle cx="133" cy="215" r="17" fill="var(--bg-3)" stroke="var(--purple)" stroke-width="1.4"/><path d="M126 211 H140 M126 218 H140" stroke="var(--purple)" stroke-width="1.4"/></g>
+    <g class="sk-pop" style="--d:.7s"><circle cx="154" cy="120" r="17" fill="var(--bg-3)" stroke="var(--purple)" stroke-width="1.4"/><path d="M147 116 H161 M147 123 H161" stroke="var(--purple)" stroke-width="1.4"/></g>
+    <g class="sk-pop" style="--d:.9s"><rect x="206" y="166" width="72" height="14" rx="3" fill="var(--bg-2)" stroke="var(--gold)" stroke-width="1.2"/><rect x="206" y="184" width="72" height="14" rx="3" fill="var(--bg-2)" stroke="var(--gold)" stroke-width="1.2"/><rect x="206" y="202" width="72" height="14" rx="3" fill="var(--bg-2)" stroke="var(--gold)" stroke-width="1.2"/><text x="242" y="236" text-anchor="middle" class="b xs">one shared ledger</text></g>
+    <circle cx="242" cy="78" r="3.5" fill="var(--purple)" class="sk-travel" style="--tx:0px;--ty:78px;--dur:2.4s;--d:1.2s"/>
+    <circle cx="330" cy="120" r="3.5" fill="var(--purple)" class="sk-travel" style="--tx:-62px;--ty:49px;--dur:2.4s;--d:1.5s"/>
+    <circle cx="351" cy="215" r="3.5" fill="var(--purple)" class="sk-travel" style="--tx:-76px;--ty:-18px;--dur:2.4s;--d:1.8s"/>
+    <circle cx="291" cy="291" r="3.5" fill="var(--purple)" class="sk-travel" style="--tx:-34px;--ty:-71px;--dur:2.4s;--d:2.1s"/>
+    <circle cx="193" cy="291" r="3.5" fill="var(--purple)" class="sk-travel" style="--tx:34px;--ty:-71px;--dur:2.4s;--d:2.4s"/>
+    <circle cx="133" cy="215" r="3.5" fill="var(--purple)" class="sk-travel" style="--tx:76px;--ty:-18px;--dur:2.4s;--d:2.7s"/>
+    <circle cx="154" cy="120" r="3.5" fill="var(--purple)" class="sk-travel" style="--tx:62px;--ty:49px;--dur:2.4s;--d:3s"/>
+    <g class="sk-pop" style="--d:1.1s"><circle cx="420" cy="64" r="15" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.5"/><circle cx="420" cy="64" r="9" fill="none" stroke="var(--gold)" stroke-width="1.2"/><text x="420" y="96" text-anchor="middle" class="g xs">rewards and fees</text></g>
+    <text x="242" y="336" text-anchor="middle" class="s sm">validators agree on each new block</text>
+    <text x="242" y="358" text-anchor="middle" class="s xs">every full node keeps every transaction</text>
+
+    <g class="sk-fade" style="--d:.2s"><rect x="516" y="56" width="420" height="236" rx="12" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/><circle cx="532" cy="72" r="3" fill="var(--muted)"/><circle cx="542" cy="72" r="3" fill="var(--muted)"/><circle cx="552" cy="72" r="3" fill="var(--muted)"/><text x="566" y="76" class="m xs mu">your browser tab</text><text x="536" y="98" class="s xs">the inputs</text><rect x="536" y="106" width="150" height="16" rx="3" fill="var(--bg-2)" stroke="var(--border-2)"/><rect x="536" y="130" width="150" height="16" rx="3" fill="var(--bg-2)" stroke="var(--border-2)"/><rect x="536" y="154" width="150" height="16" rx="3" fill="var(--bg-2)" stroke="var(--border-2)"/></g>
+    <path class="sk-draw" pathLength="100" d="M544 114 H660" stroke="var(--teal)" stroke-width="3" stroke-linecap="round" fill="none" style="--d:.5s"/>
+    <path class="sk-draw" pathLength="100" d="M544 138 H640" stroke="var(--teal)" stroke-width="3" stroke-linecap="round" fill="none" style="--d:.6s"/>
+    <path class="sk-draw" pathLength="100" d="M544 162 H668" stroke="var(--teal)" stroke-width="3" stroke-linecap="round" fill="none" style="--d:.7s"/>
+    <path class="sk-draw" pathLength="100" d="M694 138 H716" stroke="var(--muted)" stroke-width="1.6" fill="none" style="--d:1s"/><path d="M724 138 l-8 -4.5 v9 Z" fill="var(--muted)" class="sk-fade" style="--d:1.1s"/>
+    <g class="sk-pop" style="--d:1.3s"><polygon points="782,154 756,169 730,154 730,124 756,109 782,124" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.8"/><path d="M748 132 L742 139 L748 146 M764 132 L770 139 L764 146 M759 129 L753 149" fill="none" stroke="var(--teal-lt)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <path class="sk-draw" pathLength="100" d="M788 138 H806" stroke="var(--muted)" stroke-width="1.6" fill="none" style="--d:1.6s"/><path d="M814 138 l-8 -4.5 v9 Z" fill="var(--muted)" class="sk-fade" style="--d:1.7s"/>
+    <g class="sk-pop" style="--d:1.9s"><rect x="816" y="125" width="104" height="26" rx="13" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.3"/><text x="868" y="142" text-anchor="middle" class="m xs g">hash</text></g>
+    <g class="sk-pop" style="--d:2.3s"><circle cx="776" cy="196" r="9" fill="var(--green-dim)" stroke="var(--green)" stroke-width="1.5"/><path d="M772 196 L775 199 L781 192" fill="none" stroke="var(--green)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><text x="792" y="200" class="ok xs">matches the published hash</text></g>
+    <g class="sk-fade" style="--d:.8s"><text x="536" y="246" class="u xs s">network</text><path d="M600 262 H916" stroke="var(--body)" stroke-width="1.4" fill="none"/></g>
+    <g class="sk-fade" style="--d:2.6s"><rect x="688" y="252" width="144" height="20" rx="10" fill="var(--bg-2)" stroke="var(--green)" stroke-width="1.2"/><text x="760" y="266" text-anchor="middle" class="ok xs">0 requests</text></g>
+    <text x="726" y="322" text-anchor="middle" class="s sm">anyone with the inputs recomputes the hash</text>
+    <text x="726" y="344" text-anchor="middle" class="s xs">no ledger to agree on and no token</text>
+  </svg></div>
+  <figcaption class="sk-cap">A blockchain spends its effort on agreement. OpenChainGraph spends it on recomputation, which needs one machine and the inputs. The <a href="openchain-graph-explainer.html">OCG Explainer</a> walks through the recompute itself, field by field.</figcaption>
+  </figure>
+</div></section>
+
+<section class="part" id="meet"><div class="wrap">
+  <div class="kicker">Scene 3 &middot; Where they meet</div>
+  <h2>A blockchain can serve as one witness</h2>
+  <p class="lede">OpenChainGraph can use a blockchain without becoming one. A session receipt's root can carry RFC 3161 timestamps from authorities such as Sigstore's TSA, DigiCert and FreeTSA, or an OpenTimestamps anchor whose proof verifies against a Bitcoin block header (SPEC §20). Nodes can also check signatures that belong to one chain: an x402 payment authorization is signed over an EIP-712 digest that names its chain, so it verifies on that chain and fails on every other.</p>
+  <figure class="sk-fig" id="meet-scene">
+  <div class="sk-scroll"><svg class="sk-scene" viewBox="0 0 960 360" style="min-width:720px" role="img" aria-labelledby="meet-scene-t meet-scene-d" xmlns="http://www.w3.org/2000/svg"><title id="meet-scene-t">Timestamps and chain-bound signatures</title><desc id="meet-scene-d">Top, a session receipt root sends hashes to four witnesses: Sigstore TSA, DigiCert and FreeTSA over RFC 3161, and OpenTimestamps calendars that lead to a Bitcoin block header, a blockchain acting as one more witness. Bottom, a USDC authorization whose EIP-712 digest names chain 8453 verifies on Base and is refused on Ethereum with DOMAIN_CHAIN_MISMATCH.</desc>
+    <text x="24" y="34" class="u xs g">Timestamps</text>
+    <g class="sk-pop" style="--d:.1s"><rect x="24" y="86" width="220" height="40" rx="20" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.4"/><text x="134" y="111" text-anchor="middle" class="m sm g">session receipt root</text></g>
+    <path class="sk-draw" pathLength="100" d="M244 106 C318 106, 318 65, 392 65" stroke="var(--gold)" stroke-opacity=".7" stroke-width="1.3" fill="none" style="--d:.4s"/>
+    <path class="sk-draw" pathLength="100" d="M244 106 C318 106, 318 105, 392 105" stroke="var(--gold)" stroke-opacity=".7" stroke-width="1.3" fill="none" style="--d:.5s"/>
+    <path class="sk-draw" pathLength="100" d="M244 106 C318 106, 318 145, 392 145" stroke="var(--gold)" stroke-opacity=".7" stroke-width="1.3" fill="none" style="--d:.6s"/>
+    <path class="sk-draw" pathLength="100" d="M244 106 C318 106, 318 185, 392 185" stroke="var(--purple)" stroke-opacity=".7" stroke-width="1.3" fill="none" style="--d:.7s"/>
+    <g class="sk-pop" style="--d:.8s"><rect x="392" y="50" width="250" height="30" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.2"/><text x="406" y="70" class="b sm">Sigstore TSA</text><text x="630" y="70" text-anchor="end" class="m xs mu">RFC 3161</text></g>
+    <g class="sk-pop" style="--d:.95s"><rect x="392" y="90" width="250" height="30" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.2"/><text x="406" y="110" class="b sm">DigiCert</text><text x="630" y="110" text-anchor="end" class="m xs mu">RFC 3161</text></g>
+    <g class="sk-pop" style="--d:1.1s"><rect x="392" y="130" width="250" height="30" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.2"/><text x="406" y="150" class="b sm">FreeTSA</text><text x="630" y="150" text-anchor="end" class="m xs mu">RFC 3161</text></g>
+    <g class="sk-pop" style="--d:1.25s"><rect x="392" y="170" width="250" height="30" rx="8" fill="var(--bg-3)" stroke="var(--purple)" stroke-width="1.2"/><text x="406" y="190" class="b sm">OpenTimestamps</text><text x="630" y="190" text-anchor="end" class="m xs mu">calendars</text></g>
+    <path class="sk-draw" pathLength="100" d="M642 185 H682" stroke="var(--purple)" stroke-width="1.6" fill="none" style="--d:1.6s"/><path d="M690 185 l-8 -4.5 v9 Z" fill="var(--purple)" class="sk-fade" style="--d:1.7s"/>
+    <g class="sk-pop" style="--d:1.9s"><rect x="692" y="168" width="220" height="34" rx="8" fill="var(--purple-dim)" stroke="var(--purple)" stroke-width="1.4"/><text x="708" y="190" class="b sm">Bitcoin block header</text></g>
+    <text x="802" y="222" text-anchor="middle" class="p xs sk-fade" style="--d:2.1s">a blockchain as one more witness</text>
+    <circle cx="244" cy="106" r="3.5" fill="var(--gold)" class="sk-travel" style="--tx:148px;--ty:-41px;--dur:2.2s;--d:2.2s"/>
+    <circle cx="244" cy="106" r="3.5" fill="var(--gold)" class="sk-travel" style="--tx:148px;--ty:-1px;--dur:2.2s;--d:2.5s"/>
+    <circle cx="244" cy="106" r="3.5" fill="var(--gold)" class="sk-travel" style="--tx:148px;--ty:39px;--dur:2.2s;--d:2.8s"/>
+    <circle cx="244" cy="106" r="3.5" fill="var(--purple)" class="sk-travel" style="--tx:148px;--ty:79px;--dur:2.2s;--d:3.1s"/>
+
+    <path d="M24 244 H936" stroke="var(--border-2)" stroke-width="1" stroke-dasharray="4 5"/>
+    <text x="24" y="272" class="u xs t">Chain-bound signatures</text>
+    <g class="sk-pop" style="--d:2.4s"><rect x="24" y="284" width="250" height="56" rx="10" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.3"/><text x="40" y="306" class="b sm">USDC authorization</text><text x="40" y="326" class="m xs t">EIP-712 digest names chain 8453</text></g>
+    <path class="sk-draw" pathLength="100" d="M274 312 C330 312, 330 294, 392 294" stroke="var(--teal)" stroke-opacity=".7" stroke-width="1.3" fill="none" style="--d:2.7s"/>
+    <path class="sk-draw" pathLength="100" d="M274 312 C330 312, 330 332, 392 332" stroke="var(--teal)" stroke-opacity=".7" stroke-width="1.3" fill="none" style="--d:2.8s"/>
+    <g class="sk-pop" style="--d:3s"><rect x="392" y="280" width="190" height="28" rx="8" fill="var(--bg-3)" stroke="var(--green)" stroke-width="1.2"/><text x="406" y="299" class="b xs">Base &#183; chain 8453</text><circle cx="566" cy="294" r="8" fill="var(--green-dim)" stroke="var(--green)" stroke-width="1.4"/><path d="M562 294 L565 297 L571 290" fill="none" stroke="var(--green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <g class="sk-pop" style="--d:3.3s"><rect x="392" y="318" width="190" height="28" rx="8" fill="var(--bg-3)" stroke="var(--red)" stroke-width="1.2"/><text x="406" y="337" class="b xs">Ethereum &#183; chain 1</text><circle cx="566" cy="332" r="8" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.4"/><path d="M562 328 L570 336 M570 328 L562 336" stroke="var(--red)" stroke-width="1.6" stroke-linecap="round"/></g>
+    <text x="604" y="298" class="ok xs sk-fade" style="--d:3.2s">verifies where it was signed</text>
+    <text x="604" y="336" class="r xs sk-fade" style="--d:3.5s">refused elsewhere: DOMAIN_CHAIN_MISMATCH</text>
+  </svg></div>
+  <figcaption class="sk-cap">Each timestamp or anchor is a separate witness to when the root existed, and a verifier can check any of them without asking AINumbers. In the lower half, <a href="art-590-x402-eip712-digest-recomputer.html">art-590</a> recomputes the authorization's EIP-712 digest and <a href="art-592-x402-domain-nonce-window-checker.html">art-592</a> refuses it on the wrong chain. The <a href="evidence-estate-explainer.html">Evidence Estate</a> explainer covers each anchor type in more depth.</figcaption>
+  </figure>
+</div></section>
+
+<section class="part" id="side-by-side"><div class="wrap">
+  <div class="kicker">Side by side</div>
+  <h2>The comparison in one table</h2>
+  <p class="lede">Rows marked with a check are shared by both designs.</p>
+  <div class="cmp-scroll">
+  <table class="cmp">
+    <thead><tr><th>Property</th><th>A public blockchain</th><th>OpenChainGraph</th></tr></thead>
+    <tbody>
+      <tr class="same"><td>Hash links</td><td>Each block names the previous block's hash.</td><td>Each workflow step names its parent's execution hash (SPEC §21).</td></tr>
+      <tr class="same"><td>Merkle roots</td><td>Each block commits its transactions under one root.</td><td>A session receipt folds many execution hashes into one root.</td></tr>
+      <tr class="same"><td>Signatures</td><td>Account keys sign transactions.</td><td>Artifacts and Work Mandates can carry eddsa-jcs-2022 signatures (SPEC §16 and §22).</td></tr>
+      <tr><td>Shared ledger</td><td>One ledger that every full node keeps.</td><td>There is none. Each result is its own artifact.</td></tr>
+      <tr><td>Agreement</td><td>Validators or miners agree on each new block.</td><td>No agreement step. Anyone recomputes the hash.</td></tr>
+      <tr><td>Token</td><td>A native token rewards the validators.</td><td>There is none.</td></tr>
+      <tr><td>Where inputs live</td><td>In the ledger, on every full node.</td><td>With whoever ran the tool. Only hashes need to leave.</td></tr>
+      <tr><td>Checking a result</td><td>Validate each block against the ledger's rules.</td><td>Recompute the execution hash (SPEC §4) or check its 256-byte Groth16 seal (SPEC §18).</td></tr>
+      <tr><td>Time</td><td>Block time, final after enough confirmations or votes.</td><td>RFC 3161 timestamps from authorities you choose, or an OpenTimestamps anchor in Bitcoin (SPEC §20).</td></tr>
+      <tr><td>Global order</td><td>Every transaction sits in one global order.</td><td>Runs are ordered only by their parent hashes and timestamps.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Git's object model is the closer relative: content-addressed records where you trust a record by recomputing its hash yourself. In-toto and SLSA attestations apply the same idea to software builds, and OpenChainGraph applies it to financial decisions.</p>
+  <div class="cross-link">Related reading: <a href="openchain-graph-explainer.html">OCG Explainer</a> covers the artifact envelope field by field &middot; <a href="evidence-estate-explainer.html">The Evidence Estate</a> covers the anchoring rails &middot; <a href="zkvm-compute-integrity.html">Compute integrity</a> covers the Groth16 receipts &middot; <a href="openchain-graph-paper.html">The OpenChainGraph paper</a> places the design among related work.</div>
+</div></section>
+
+</main>
+
+<div class="wrap">
+  <p class="pii">All content on this page is static and processed locally in your browser. No data is transmitted. Do not enter real personal data into any OpenChainGraph tool. Use synthetic or anonymised inputs only.</p>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Project</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
