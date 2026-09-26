@@ -777,8 +777,9 @@ holder-chosen; an artifact with no `audit_signature.compute_proof` is fully v0.6
 v0.4 root schema). It MUST carry:
 - `type:"ZkVmReceipt"`;
 - `system` — the zkVM identifier (`"risc0" | "sp1" | "jolt" | …`); **system-agnostic** by design;
-- `receiptFormat` — `"groth16-bn254"` (**RECOMMENDED**: a constant ~200-byte SNARK, verifiable in
-  milliseconds in-browser/Worker/CI; the de-facto interop point both Risc0 and SP1 emit) or `"stark"`;
+- `receiptFormat` — `"groth16-bn254"` (**RECOMMENDED**: a constant 256-byte (uncompressed BN254 A, B, C)
+  SNARK, verifiable in milliseconds in-browser/Worker/CI; the de-facto interop point both Risc0 and SP1
+  emit) or `"stark"`;
 - `imageId` — the zkVM program identity (Risc0 ImageID / SP1 vkey) in `sha256:`-form, pinning the exact guest
   program (the cryptographic analogue of §17's `kernel_digest`);
 - `seal` — the standard-base64 proof bytes;

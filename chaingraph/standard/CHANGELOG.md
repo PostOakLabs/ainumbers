@@ -518,8 +518,8 @@ narrates what each bump changed. Normative definitions live in `SPEC.md` + `open
   analogue of the chained-verifiable-computation goal in
   [Trusted Compute Units (arXiv:2504.15717)](https://arxiv.org/abs/2504.15717) — but **software/cryptographic
   only: no TEE, no hardware enclave, no blockchain anchor.** System-agnostic; `groth16-bn254` is the
-  RECOMMENDED interop receipt form (~200-byte SNARK, ms-verifiable in browser/Worker/CI — both Risc0 and SP1
-  emit it). **Seal cryptographic verification is DELEGATED** to the named zkVM's vetted verifier (§18.1),
+  RECOMMENDED interop receipt form (256-byte (uncompressed BN254 A, B, C) SNARK, ms-verifiable in
+  browser/Worker/CI — both Risc0 and SP1 emit it). **Seal cryptographic verification is DELEGATED** to the named zkVM's vetted verifier (§18.1),
   exactly as §4 delegates SHA-256 and §16 delegates Ed25519 to WebCrypto; OCG specifies the **binding**, not a
   re-implemented proof system. **Proving is off-band (§18.2):** zkVM proving needs Rust + heavy compute and
   MUST NOT be claimed to run in the browser tool, the Worker, or CI — a `compute_proof` is produced offline
