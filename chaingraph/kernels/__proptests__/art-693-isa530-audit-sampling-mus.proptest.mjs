@@ -1,4 +1,4 @@
-// art-667-isa530-audit-sampling-mus.proptest.mjs -- class-A property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
+// art-693-isa530-audit-sampling-mus.proptest.mjs -- class-A property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
 // kernel_digest_at_authoring: sha256:ebc623778f99ccb5c4c05bc375890ae5f9a28bd2deaeffaf37b9a3d2adfcf187
 // spec: ISA530-SAMPLING-BUILD-SPEC.md (workspace root, ISA530-BUILD-1).
 // human_sign_off: PENDING
@@ -15,12 +15,12 @@
 // precision, and a differential re-derivation of the Benford chi-square screen (counts summed
 // via an independent first-digit extraction, expected proportions re-derived via Math.log10).
 //
-// Run: node chaingraph/kernels/__proptests__/art-667-isa530-audit-sampling-mus.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-693-isa530-audit-sampling-mus.proptest.mjs
 
-import { compute } from '../art-667-isa530-audit-sampling-mus.kernel.mjs';
+import { compute } from '../art-693-isa530-audit-sampling-mus.kernel.mjs';
 import { runFixtureOracle, summarize, findShapeViolations, mulberry32, pick } from './_pbt-common.mjs';
 
-const KERNEL_ID = 'art-667-isa530-audit-sampling-mus';
+const KERNEL_ID = 'art-693-isa530-audit-sampling-mus';
 const rand = mulberry32(0x5A17667);
 
 const CHI2_CRIT = 15.507; // independent copy of the 8-df 5% critical value

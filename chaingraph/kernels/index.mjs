@@ -595,7 +595,6 @@ import * as art662    from './art-662-odnsf-fee-recompute.kernel.mjs';
 import * as art663    from './art-663-apy-earned-recompute.kernel.mjs';
 import * as art664    from './art-664-loan-servicing-waterfall-recompute.kernel.mjs';
 import * as art665    from './art-665-gl-tieout-recompute.kernel.mjs';
-import * as art667    from './art-667-isa530-audit-sampling-mus.kernel.mjs';
 import * as art669    from './art-669-algo-execution-schedule-simulator.kernel.mjs';
 import * as art67     from './art-67-agentic-ai-risk-classifier.kernel.mjs';
 import * as art670    from './art-670-examination-readiness-pack.kernel.mjs';
@@ -622,6 +621,7 @@ import * as art689    from './art-689-pack-dependency-map.kernel.mjs';
 import * as art69     from './art-69-cbam-embedded-emissions-calculator.kernel.mjs';
 import * as art691    from './art-691-regulatory-obligations-register.kernel.mjs';
 import * as art692    from './art-692-close-posting-lineage.kernel.mjs';
+import * as art693    from './art-693-isa530-audit-sampling-mus.kernel.mjs';
 import * as art70     from './art-70-cbam-default-value-resolver.kernel.mjs';
 import * as art71     from './art-71-cbam-certificate-cost-engine.kernel.mjs';
 import * as art72     from './art-72-cbam-precursor-emissions-aggregator.kernel.mjs';
@@ -1263,7 +1263,6 @@ export const KERNELS = {
   'art-663-apy-earned-recompute':                               art663,
   'art-664-loan-servicing-waterfall-recompute':                 art664,
   'art-665-gl-tieout-recompute':                                art665,
-  'art-667-isa530-audit-sampling-mus':                          art667,
   'art-669-algo-execution-schedule-simulator':                  art669,
   'art-67-agentic-ai-risk-classifier':                          art67,
   'art-670-examination-readiness-pack':                         art670,
@@ -1290,6 +1289,7 @@ export const KERNELS = {
   'art-69-cbam-embedded-emissions-calculator':                  art69,
   'art-691-regulatory-obligations-register':                    art691,
   'art-692-close-posting-lineage':                              art692,
+  'art-693-isa530-audit-sampling-mus':                          art693,
   'art-70-cbam-default-value-resolver':                         art70,
   'art-71-cbam-certificate-cost-engine':                        art71,
   'art-72-cbam-precursor-emissions-aggregator':                 art72,

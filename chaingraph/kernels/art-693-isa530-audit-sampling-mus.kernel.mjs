@@ -1,5 +1,5 @@
 /**
- * art-667-isa530-audit-sampling-mus.kernel.mjs
+ * art-693-isa530-audit-sampling-mus.kernel.mjs
  *
  * ISA530-BUILD-1 (ISA530-SAMPLING-BUILD-SPEC.md) -- deterministic audit-sampling arithmetic:
  * monetary unit sampling (MUS) sizing, tainting-method misstatement projection, and a Benford
@@ -43,7 +43,7 @@
  */
 import { executionHash } from './_hash.mjs';
 
-const TOOL_ID = 'art-667-isa530-audit-sampling-mus';
+const TOOL_ID = 'art-693-isa530-audit-sampling-mus';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
