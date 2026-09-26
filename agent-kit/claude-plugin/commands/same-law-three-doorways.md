@@ -15,7 +15,7 @@ You are on an AINumbers node page. Prove that this tool gives the same answer no
 7. Call build_session_receipt with the two matching hashes in call order. Record session_receipt_root.
 8. Call anchor_hash on anchor.ainumbers.co with session_receipt_root using the OpenTimestamps authority. Return the anchor receipt.
 9. Give me the ledger_url from the remote run, and a one-paragraph statement a regulator could read: which code ran (kernel_digest), where (three doorways), what it decided, and where the timestamp lives.
-Call shape: every ChainGraph node tool takes its arguments nested under one wrapper object, e.g. {"policy_parameters": { ... }}; flat arguments are discarded by schema validation.
+Call shape: every ChainGraph node tool takes its arguments nested under one wrapper object, e.g. {"policy_parameters": { ... }}; flat arguments are discarded by schema validation. If a named tool is not in your tool list, call call_tool with { "name": "<tool>", "arguments": { … } }. It runs the same validation and returns the same receipt.
 
 ---
 
