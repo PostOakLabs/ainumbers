@@ -98,6 +98,7 @@ const CLUSTERS = [
       'guides/ai-act-evidence-cron.html',
       'guides/refueleu-aviation-fines-hub.html',
       'guides/eu-pay-transparency-indicators-hub.html',
+      'guides/hospital-allowed-amount-percentiles-hub.html',
       'chaingraph/guide-fair-lending.html',
       'chaingraph/guide-mortgage-compliance.html',
       'chaingraph/guide-sanctions-screening.html',
