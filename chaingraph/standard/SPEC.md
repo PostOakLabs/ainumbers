@@ -5,7 +5,7 @@ status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
 version_of_record: chaingraph.json#spec_version
-last_reconciled: 2026-09-03
+last_reconciled: 2026-09-25
 renders_to: openchain-graph-spec.html (hand-kept, guarded by spec-version-consistency.mjs)
 mirrors_to: PostOakLabs/chaingraph (GitHub Pages, generated)
 ---
@@ -2248,6 +2248,51 @@ identifier, and RFC 6920 continuity is cited as prior art for that framing.
 contract only: it adds no field to any artifact, does not appear in the §4 preimage, and a deployment that
 never emits a CID is fully conformant.
 
+## §PIN-1 Chain recipe pinning (NORMATIVE, OPTIONAL — additive, recipe-scoped, hash-inert)
+A chain document (`chaingraph.json` `chains[]`) records a composition of node tools; it records nothing
+about the catalog those tools were composed from. Re-running a stored chain after the tools it names have
+evolved yields different `execution_hash`es with nothing in the document to say so, which is false
+reproducibility confidence rather than a detectable mismatch. §PIN-1 adds ONE OPTIONAL chain member,
+`catalog_cid`, naming the exact catalog snapshot a chain was authored against. It is **informative
+metadata about the recipe**, not part of any artifact: it adds no member to the §1 envelope, enters no §4
+preimage, changes no §1/§4 computation, and leaves `chaingraph_version` at `"0.4.0"`. Absence is the
+default and is fully conformant — no existing chain owes a backfill.
+
+**§PIN-1.0 Shape (NORMATIVE).** `catalog_cid` is a string carrying the §CID-1 encoding of the sha2-256
+digest of the exact `chaingraph.json` bytes the chain was authored against:
+`catalog_cid = ocg_cid(sha256(<catalog bytes>))`, i.e. CIDv1 / raw 0x55 / sha2-256 / base32-lower, the one
+encoding rule §CID-1 states once (which for that profile is the text shape `^bafkrei[a-z2-7]{52}$`). The
+digest is taken over the catalog file's bytes as stored, with no re-canonicalization: §PIN-1 pins a FILE,
+so only a byte-preserving copy of that catalog reproduces the value. The member is declared in
+`openchain-graph-v0.4.schema.json` under `$defs/chain` as an OPTIONAL string with that pattern; a chain
+carrying no `catalog_cid` is an un-pinned recipe.
+
+**§PIN-1.1 Importer duties (NORMATIVE).** An implementation that IMPORTS a chain document it did not
+author MUST verify the form of any `catalog_cid` present by decoding it through the §CID-1 `fromCid()`
+rule — a value outside the §CID-1 profile (wrong version, wrong codec, wrong multihash, wrong digest
+length, non-base32-lower text) MUST be rejected as malformed, never carried as an unrecognized-but-
+tolerated string. When the decoded value differs from the CID of the catalog the importer currently runs
+against, the importer MUST surface a visible mismatch warning to the operator, in substance: authored
+against catalog X, current catalog is Y, tool behavior may have moved. The mismatch is a WARNING, not a
+refusal: §PIN-1 makes drift visible and MUST NOT be read as an authorization rule. An importer that
+encounters no `catalog_cid` reports the recipe as un-pinned, a distinct state from "pinned and matching"
+that MUST NOT be reported as agreement.
+
+**§PIN-1.2 Resolution contract (NORMATIVE).** The snapshot bytes a `catalog_cid` names are **not hosted
+by the vendor** and this standard defines no snapshot service. Resolution is git-sibling: a chain stored
+in a repository at commit C stores, or sits beside, the `chaingraph.json` it was authored against **in the
+same repository at the same commit**, and an importer resolves the snapshot by fetching that sibling at
+the same revision and confirming its bytes hash to the pinned CID. Git history is the snapshot store; no
+new infrastructure is implied or required. An implementation that cannot obtain the snapshot bytes reports
+the pin as UNRESOLVED — a third state, never silently merged into either "matching" or "mismatched".
+
+**§PIN-1.3 Scope (NORMATIVE).** §PIN-1 is normative for the recipe layer only. It adds no artifact field,
+appears in no hash preimage, and changes the conformance status of no existing chain or artifact: an
+estate that never writes a `catalog_cid` is fully conformant, and adding one to a chain leaves every
+`execution_hash` that chain's steps produce byte-identical. §PIN-1 pins the catalog a chain was composed
+against; it makes no claim about per-step tool versions, and it is not an ancestry or lineage mechanism
+(that is §21.6).
+
 ## §HEAD-1 Head-commit primitive (NORMATIVE, OPTIONAL — additive, lands at the coordinated record bump)
 OCG's artifact envelope (§1) is immutable and content-addressed by construction — it has no notion of
 "the current tip" of an evolving stream (a NAV series, a policy revision history, an application's
@@ -3825,7 +3870,18 @@ This section adds no second gate and changes no existing gate; nothing emits the
 adoption is a later decision.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **SPEC-TEXT PASS (2026-09-12: §AGID-1 Agent-Identity Binding, staged by
+See `standard/CHANGELOG.md`. **SPEC-TEXT PASS (2026-09-25: §PIN-1 chain recipe pinning, staged by
+`CHAINSTORE-PIN-1` from the adjudicated `CHAIN-STORAGE-BUILD-SPEC.md` §3; the record `spec_version` stays
+at whatever `chaingraph.json` carries, same separation as every prior text pass):** §PIN-1 adds ONE
+OPTIONAL chain member, `catalog_cid`, a §CID-1-profile CID over the exact `chaingraph.json` bytes a chain
+was authored against. It is recipe-layer metadata: no artifact field, no §4 preimage change, no §1/§4
+computation change, `chaingraph_version` stays `"0.4.0"`, and absence is fully conformant (no backfill is
+owed — backfilling the estate's chains is a separate, optional row). Importers MUST form-check the value
+via `fromCid()` and MUST warn visibly on a mismatch against the catalog they run; resolution is
+git-sibling (the snapshot lives beside the chain in the user's own repository at the same commit) and the
+vendor hosts no snapshots. The member lands in `openchain-graph-v0.4.schema.json` under `$defs/chain` in
+the same change, gate-covered by `schema-validate.mjs`; form, rejection, current-catalog and tamper
+vectors are proved by `catalog-snapshot.test.mjs`. **SPEC-TEXT PASS (2026-09-12: §AGID-1 Agent-Identity Binding, staged by
 `AGENTID-SPEC-APPLY-1` from Tim's 2026-09-02 signed proposal `research/OCG-AGENT-IDENTITY-PROPOSAL-2026-09-02.md`;
 the record `spec_version` stays at whatever `chaingraph.json` carries, same separation as every prior
 text pass):** §AGID-1 adds ONE OPTIONAL, hash-excluded member, `audit_signature.requesting_agent`,
@@ -4137,6 +4193,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §25 private-input profile: hash-excluded top-level `private_inputs[]` (zero-entry artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` resolves into `policy_parameters`; the pointed value IS the `sha256:` `commitment`, never plaintext (plaintext-exclusion §25.2); `commitment_scheme` ∈ {`sha256-salted@1`}; a §18 `compute_proof` is present and its `journal` commits every declared `commitment` AND `output_payload`; unknown scheme / unresolved pointer / plaintext-at-pointer / missing commitment-in-journal MUST fail; salt never appears in the artifact; verdict reported without the plaintext; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED (§18 pairing check stays with `compute-proof.test.mjs`) | `validate-private-inputs.test.mjs`, `schema-validate.mjs` | validate |
 | §HASHRES-1 Ledger addressing: the resolution address IS the §4 `execution_hash` (no new hash, no envelope change, `chaingraph_version` 0.4.0 UNCHANGED); a dereference returns content whose recomputed §4 hash equals the address or 404, never a different value — the same live re-verifiability the §4 sweep already asserts over deployed artifacts | `hash-sweep.mjs`, `kernel-hash-integrity.mjs` | post-deploy + validate |
 | §CID-1 OCG CID profile: `toCid()`/`fromCid()` round-trip bijectively over §4-shaped sha256 digests; `toCid()` matches independently-sourced cross-check vectors (never a self-referential proof); `fromCid()` rejects any codec/multihash/version outside the DASL profile (raw 0x55 / sha2-256 / CIDv1) — in particular a dag-cbor (0x71) codec MUST be rejected, proving the "never re-canonicalize into dag-cbor" rule is enforced, not just stated; no new `execution_hash`, `chaingraph_version` stays 0.4.0 | `cid-roundtrip.test.mjs` | validate |
+| §PIN-1 chain recipe pinning: the OPTIONAL `catalog_cid` chain member is a §CID-1-profile CID over the exact `chaingraph.json` bytes (`^bafkrei[a-z2-7]{52}$`), every `catalog_cid` present in the catalog decodes via `fromCid()`, a malformed or foreign-profile value (wrong codec / wrong multihash / wrong base / wrong length) is REJECTED by both `fromCid()` and the schema pattern, the current-catalog vector `toCid(sha256(chaingraph.json))` round-trips to the same digest, and a single flipped catalog byte changes the CID (the pin is not decorative); hash-inert and OPTIONAL — no artifact field, no §4 preimage change, absence conformant, `chaingraph_version` stays 0.4.0 | `catalog-snapshot.test.mjs`, `schema-validate.mjs` | validate |
 | §PQC-1 hybrid dual proof: a §16.5 parallel proof set may carry `eddsa-jcs-2022` + a PQ suite over the SAME §16.1 secured document; each proof verifies independently in dependency order (verifier policy classical/pq/both); no new `execution_hash`, `chaingraph_version` stays 0.4.0; the ML-DSA cryptosuite id is TBD-on-registration and MUST NOT be hardcoded (asserted only as a reserved extension point, so the classical proof alone stays conformant) | `proof-binding.test.mjs` | validate |
 | §HEAD-1 head-commit: genesis shape (`seq:0`, `prev_head_hash:null`); chain laws (strictly-increasing `seq`, `prev_head_hash` == prior `head_hash`, signer continuity or an explicit `rotates_to` rotation head); `eddsa-jcs-2022` proof self-attests (`proof.verificationMethod === signer`) and rejects a tampered field or the wrong public key; an unannounced signer swap MUST fail; `detectEquivocation()` flags two different heads at the same `(stream, seq)` from the same signer, and does NOT flag a repeat of the identical head or different signers/seqs; no new `execution_hash`, no envelope change, `chaingraph_version` stays 0.4.0 | `head-commit.test.mjs` | validate |
 | §SNAP-1 state-snapshot artifact: `mandate_type:"state_snapshot"` accepted in the existing open envelope string; a fixture artifact validates against `$defs/artifact` (`policy_parameters.state_schema/capture_scope/snapshot_seq`, `output_payload.state_digest/entry_count/prev_snapshot_hash`, `chain.parent_hashes` carrying the predecessor); `execution_hash` recomputes byte-identical to a pinned golden vector; frozen `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED | `schema-validate.mjs` (fixture), `golden-parity.test.mjs` | validate |

@@ -234,6 +234,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         <li><a href="#snodepage1"><span class="toc-sec">§NODEPAGE-1</span>Page-less Nodes <span style="color:var(--green)">(SPEC-text pass)</span></a></li>
         <li><a href="#shashres1"><span class="toc-sec">§HASHRES-1</span>Ledger Hash-Resolution Contract</a></li>
         <li><a href="#scid1"><span class="toc-sec">§CID-1</span>OCG CID Profile</a></li>
+        <li><a href="#spin1"><span class="toc-sec">§PIN-1</span>Chain Recipe Pinning <span style="color:var(--green)">(SPEC-text pass)</span></a></li>
         <li><a href="#shead1"><span class="toc-sec">§HEAD-1</span>Head-Commit Primitive</a></li>
         <li><a href="#spqc1"><span class="toc-sec">§PQC-1</span>Post-Quantum Hybrid Proofs</a></li>
         <li><a href="#srevoke1"><span class="toc-sec">§REVOKE-1</span>Receipt and Key Revocation</a></li>
@@ -1540,6 +1541,17 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
     <h2>OCG CID Profile</h2>
     <p>§CID-1 defines a canonical CID re-encoding of the §4 <code>execution_hash</code>, addressing-scoped exactly like §HASHRES-1: no new envelope field, no preimage change, <code>chaingraph_version</code> stays <code>"0.4.0"</code>. It gives the existing intrinsic identifier a second, IPLD-ecosystem-interoperable spelling; it does not mint a new identity. <code>ocg_cid(artifact) = CIDv1(codec=raw(0x55), multihash=sha2-256)</code> over the existing digest bytes, encoded base32-lower per the DASL interop profile; §CID-1 MUST NOT re-canonicalize OCG JSON into dag-cbor, and the round trip <code>cid &rarr; digest &rarr; sha256:&lt;hex&gt;</code> MUST be bijective. §CID-1 applies to any §4-shaped digest (<code>execution_hash</code>, <code>policy_parameters_hash</code>, a §20.1 Merkle root), one encoding rule, stated once. A deployment that never emits a CID is fully conformant.</p>
     <p>Full normative text, including the shape, text-form, and round-trip-law subsections and the machine-checked gate suite for this section, lives in <a href="https://github.com/PostOakLabs/chaingraph/blob/main/SPEC.md">SPEC.md §CID-1</a>, the standard's single source of truth.</p>
+  </div>
+</div>
+
+<!-- ═══ §PIN-1 Chain Recipe Pinning ═══ -->
+<div class="section" id="spin1">
+  <div class="wrap">
+    <div class="sec-num">§PIN-1 · Normative · Optional · Recipe-scoped · Additive</div>
+    <h2>Chain Recipe Pinning</h2>
+    <p>A chain document records a composition of node tools; it records nothing about the catalog those tools were composed from. Re-running a stored chain after the tools it names have evolved yields different <code>execution_hash</code>es with nothing in the document to say so, which is false reproducibility confidence rather than a detectable mismatch. §PIN-1 adds one OPTIONAL chain member, <code>catalog_cid</code>, carrying the §CID-1 encoding of the sha2-256 digest of the exact <code>chaingraph.json</code> bytes the chain was authored against (<code>catalog_cid = ocg_cid(sha256(&lt;catalog bytes&gt;))</code>, text form <code>^bafkrei[a-z2-7]{52}$</code>). It is informative metadata about the recipe: no member is added to the §1 envelope, nothing enters the §4 preimage, no §1/§4 computation changes, and <code>chaingraph_version</code> stays <code>"0.4.0"</code>. Absence is the default, is fully conformant, and no existing chain owes a backfill.</p>
+    <p>An implementation that imports a chain it did not author MUST form-check any <code>catalog_cid</code> present by decoding it through §CID-1 <code>fromCid()</code>, rejecting any value outside that profile as malformed, and MUST surface a visible warning to the operator when the pinned value differs from the CID of the catalog it currently runs against. A mismatch warns; §PIN-1 defines no refusal. Snapshot bytes stay outside vendor hosting: resolution is git-sibling, meaning the catalog a chain was authored against sits beside that chain in the user's own repository at the same commit, and an importer fetches the sibling at the same revision and confirms its bytes hash to the pinned CID. A snapshot that cannot be obtained is reported as UNRESOLVED, a third state that is never folded into either "matching" or "mismatched".</p>
+    <p>Full normative text, including the shape, importer-duty, resolution-contract, and scope subsections and the machine-checked gate suite for this section, lives in <a href="https://github.com/PostOakLabs/chaingraph/blob/main/SPEC.md">SPEC.md §PIN-1</a>, the standard's single source of truth.</p>
   </div>
 </div>
 
