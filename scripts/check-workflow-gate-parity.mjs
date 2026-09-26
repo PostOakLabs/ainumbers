@@ -496,6 +496,19 @@ const PREFLIGHT_ONLY = new Map([
     "via the generic downgrade; main-side freshness is owned by derived-artifacts-regen.yml). " +
     "The --write half is a builder command, never a workflow. Reads only tracked repo " +
     "files — no CI-only input. In-memory mutation self-test: --selftest."],
+  // ── AGENT-SKILLS-EXPORT-1 (2026-09-26) ──────────────────────────────────────
+  ["gen-agent-skills.mjs",
+    "Agent Skills export freshness --check (AGENT-SKILLS-EXPORT-1): regenerates the skills/ " +
+    "tree (one SKILL.md per mcp/showcase-prompts.json entry, plus the generator-emitted " +
+    "skills/README.md) and byte-compares every file, reporting stale, missing and unowned " +
+    "paths. Same shape and same CI route as its sibling gen-prompts-page.mjs above: " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), so a " +
+    "named workflow step would only duplicate the same suite. It is also the COVERED gate of " +
+    "derived-artifacts.mjs id 'agent-skills' (advisory-on-PR / blocking-on-main via the " +
+    "generic downgrade; main-side freshness is owned by derived-artifacts-regen.yml, and a PR " +
+    "is forbidden to commit the tree). The bare write half and the --validate / --selftest " +
+    "legs are builder commands, never workflow steps. Reads only tracked repo files — no " +
+    "network, no CI-only input."],
   // ── WAVE22-SCAFFOLD-MIRROR-FIX-1 (2026-09-12) ──────────────────────────────
   ["gen-wave22-tools.mjs",
     "Wave-22 page registration freshness (WAVE22-SCAFFOLD-MIRROR-FIX-1): RED unless " +

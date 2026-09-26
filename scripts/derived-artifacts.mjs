@@ -333,6 +333,36 @@ export const COVERED = [
     share: 'n/a (new 2026-09-11, PROMPT-LIBRARY-PAGE-2)',
   },
   {
+    // AGENT-SKILLS-EXPORT-1 (2026-09-26, PROMPT-INFRA-UNSTAGED item A3): skills/,
+    // the Agent Skills export of the same mcp/showcase-prompts.json the entry
+    // above renders into prompts.html. One directory per prompt, each holding a
+    // SKILL.md in the agentskills.io format, plus a generator-emitted
+    // skills/README.md — so nothing under skills/ is ever hand-written and the
+    // --check byte-compare covers the whole tree (a hand-committed README inside
+    // a generator-owned tree would fail that compare by construction).
+    // Its ONLY data input is the hand-authored SSOT (no pass-internal writer),
+    // so it carries no `after:` edge; the two modules it imports
+    // (scripts/gen-install-links.mjs for the canonical endpoint and one-click
+    // links, chaingraph/exporters/_meta.mjs for the §A9 reliance notice) are
+    // code, not derived artifacts.
+    // Writes are RUNTIME-NAMED (one directory per prompt id), so the write
+    // target is declared as the generator-owned TREE it writes inside, the
+    // page-md-twins / euc-register directory precedent.
+    // prAbsentOk (ai-catalog precedent): the tree BY DESIGN does not exist on a
+    // PR checkout — SO #35 single-writer, derived-artifacts-regen.yml writes it
+    // on main after merge and a PR is forbidden to commit it. --check-paths
+    // skips it in a PR context only; the existence check stays hard on main.
+    // Idempotent: every byte is a pure function of the committed SSOT (no wall
+    // clock, no network), proven by a second --check pass byte-exact.
+    id: 'agent-skills',
+    regen: 'node scripts/gen-agent-skills.mjs',
+    gate: 'node scripts/gen-agent-skills.mjs --check',
+    writes: ['skills'],
+    artifacts: ['skills'],
+    prAbsentOk: true,
+    share: 'n/a (new 2026-09-26, AGENT-SKILLS-EXPORT-1)',
+  },
+  {
     // INFRA-PAGE-1 (2026-09-08): the derived page registry over every non-tool
     // published page (gen-infra-registry.mjs — scope walk over
     // published-dirs.json, node/tool/chain pages excluded, redirect shims
