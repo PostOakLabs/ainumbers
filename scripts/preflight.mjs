@@ -1373,6 +1373,14 @@ const GATES = [
   // on-main via the generic string-match categorisation, same as every other
   // shared-derived-artifact gate below.
   ['Debt ledger freshness (DEBT-LEDGER-1)', 'node scripts/gen-debt-ledger.mjs --check'],
+  // KERNEL-INPUT-USAGE-CHECK-1: declared-input-usage ratchet (baseline
+  // scripts/kernel-input-usage-baseline.json, single-writer on main). The context
+  // split lives in the checker itself: ADVISORY on pull_request, BLOCKING on
+  // main/merge_group/local — see its header; --init ran exactly once, healing is --prune.
+  ['Kernel input-usage ratchet (KERNEL-INPUT-USAGE-CHECK-1)', 'node scripts/check-kernel-input-usage.mjs'],
+  // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the fixture proof entry below — the
+  // pairing meta-gate requires it beside every new blocking gate.
+  ['Kernel input-usage ratchet controls (fixtures x4 codes + ratchet mechanics + real art-224 shape, GATE-SELFTEST-META-1 pair)', 'node scripts/check-kernel-input-usage.selftest.mjs'],
   ['MCP protocol-version drift', 'node scripts/verify-mcp-protocol-version.mjs'],
   ['Deadline-wall freshness (SI-DEADLINE-FRESH-1)', 'node scripts/check-deadline-freshness.mjs'],
   ['Bank-fact freshness (REVERIFY-BANK-1)', 'node scripts/check-bank-fact-freshness.mjs'],

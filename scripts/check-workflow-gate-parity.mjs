@@ -346,6 +346,16 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── KERNEL-INPUT-USAGE-CHECK-1 (2026-09-26) ─────────────────────────────────
+  ["check-kernel-input-usage.mjs",
+    "Declared-input-usage ratchet (KERNEL-INPUT-USAGE-CHECK-1): regex scan of the top-level " +
+    "art-*.kernel.mjs set + manifests + registers against scripts/kernel-input-usage-baseline.json. " +
+    "Hard in preflight (advisory on pull_request, blocking on main/merge_group — the context split " +
+    "lives in the checker via GITHUB_EVENT_NAME). Its CI route is scripts-verify.yml's full " +
+    "preflight: it reads only tracked repo files (no network, no CI-only input), so a named " +
+    "workflow step would only re-run the same scan preflight already runs in CI. Baseline is " +
+    "single-writer on main (--init ran exactly once; --prune removes healed entries)."],
+  ["check-kernel-input-usage.selftest.mjs", SELF_TEST],
   // ── SITEMAP-DEPLOY-SPLIT-1 (2026-09-23) ─────────────────────────────────────
   ["verify_repo_sitemap_context.test.mjs",
     "Three-state wiring control for the verify_repo sitemap leg's PR-advisory / merge_group-" +
