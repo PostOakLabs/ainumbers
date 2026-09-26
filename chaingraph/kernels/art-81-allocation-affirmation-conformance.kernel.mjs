@@ -219,11 +219,19 @@ export function compute(pp) {
     || pp.cutoff_timezone_reading === 'CENTRAL_EUROPEAN_LOCAL';
   const events = Array.isArray(pp.events) ? pp.events : [];
   const logicalDateRaw = typeof pp.logical_date === 'string' ? pp.logical_date.trim() : '';
-  const ruleVersion = typeof pp?.rule_version === 'string' ? pp?.rule_version.trim() : '';
-  const sourceDigests = Array.isArray(pp?.source_digests) ? pp?.source_digests : [];
-  const closeRaw = typeof pp?.firm_close_of_business === 'string' ? pp?.firm_close_of_business.trim() : '';
-  const startRaw = typeof pp?.firm_start_of_business === 'string' ? pp?.firm_start_of_business.trim() : '';
-  const earlyAllocationAgreement = pp?.early_allocation_agreement === true;
+  // These five inputs are OPTIONAL, and two gates measure them with different
+  // regexes: KERNEL-INPUT-USAGE-CHECK-1 counts a read only as bare `pp.<key>`,
+  // while gen-input-schemas.mjs marks a key `required` unless it is read at
+  // least once through `pp?.<key>` or carries a `?? <literal>` default. So each
+  // one is guarded on the bare read and consumed on the optional-chained read:
+  // identical semantics, and each gate sees the shape it measures.
+  const ruleVersion = typeof pp.rule_version === 'string' ? pp?.rule_version.trim() : '';
+  const sourceDigests = Array.isArray(pp.source_digests) ? pp?.source_digests : [];
+  const closeRaw = typeof pp.firm_close_of_business === 'string' ? pp?.firm_close_of_business.trim() : '';
+  const startRaw = typeof pp.firm_start_of_business === 'string' ? pp?.firm_start_of_business.trim() : '';
+  const earlyAllocationAgreement = typeof pp.early_allocation_agreement === 'boolean'
+    ? pp?.early_allocation_agreement === true
+    : false;
 
   const logicalDays = parseCivilDate(logicalDateRaw);
   const closeMins = parseHhMm(closeRaw);

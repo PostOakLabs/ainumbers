@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:d6d6f8eb91be4fc7715594a7b334c2042c7d1363e7d9b9d594816dc46b619cc0
+// kernel_digest_at_authoring: sha256:397843cce029b4680fbd29ed1399b8d903d95097bbb15ab9c640dd1accc5bf8a
 //
 // FV-PROPFLOOR-SHARD-B17-1 — property-test floor for art-81-allocation-affirmation-conformance.
 // REAUTHORED 2026-09-25 by board row T1-ALLOC-EVIDENCE-REPAIR-1. The previous floor asserted
