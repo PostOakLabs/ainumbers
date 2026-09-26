@@ -48,13 +48,20 @@ export function normId(d) {
  * §18.0/§18.1 BINDING check. Returns boolean (predicate — false on any structural/binding problem).
  * Checks: object shape (type/system/receiptFormat/imageId/seal/journal); journal binds output_payload
  * (journal.output JCS-equals artifact.output_payload); imageId published in the Graph Index
- * (node.compute_images[].image_id) when publishedImageIds is supplied.
+ * (node.compute_images[].image_id) when publishedImageIds is supplied; journal.kernel_digest matches the
+ * node's published kernel identity (node.compute_images[].sha256_source / the Graph Index) when
+ * publishedKernelDigests is supplied.
+ *
+ * SO #34: the digests supplied via publishedKernelDigests must be KNOWN FROM PUBLISHED SOURCE (recomputed
+ * from the kernel bytes, or read from the Graph Index) — NEVER copied out of the receipt under test.
+ * Absent param = today's behavior (leg not engaged); engaged param + missing journal.kernel_digest = FAIL
+ * (absence is not a pass, SO #34c).
  *
  * Does NOT verify the cryptographic seal — use verifySeal() for that. A green binding means "this receipt
  * is well-formed and is ABOUT this artifact's output, by this published program"; the seal proves the
  * program actually produced it.
  */
-export function verifyBinding(artifact, { publishedImageIds = [] } = {}) {
+export function verifyBinding(artifact, { publishedImageIds = [], publishedKernelDigests = [] } = {}) {
   const cp = artifact?.audit_signature?.compute_proof;
   if (!cp || typeof cp !== 'object') return false;
   if (cp.type !== 'ZkVmReceipt') return false;
@@ -68,6 +75,13 @@ export function verifyBinding(artifact, { publishedImageIds = [] } = {}) {
   if (canon(cp.journal.output) !== canon(artifact.output_payload)) return false;
   // §18.1: imageId must be a published program identity for this node.
   if (publishedImageIds.length && !publishedImageIds.map(normId).includes(normId(cp.imageId))) return false;
+  // §17/§18: when the caller supplies the node's PUBLISHED kernel digests, the receipt's kernel_digest
+  // must match the node's published kernel identity (the CI gate's cross-check, mirrored; most receipts
+  // share one universal guest imageId, so imageId alone does not bind a receipt to one tool's kernel).
+  if (publishedKernelDigests.length) {
+    if (typeof cp.journal.kernel_digest !== 'string' || !cp.journal.kernel_digest) return false;
+    if (!publishedKernelDigests.map(normId).includes(normId(cp.journal.kernel_digest))) return false;
+  }
   return true;
 }
 
