@@ -16,21 +16,48 @@
 // integer beyond 2^53 that can't round-trip). assertIJson() rejects those so a
 // non-canonical value can never silently produce an unstable hash.
 
-export function assertIJson(v) {
+// Structural limits. A payload deeper than MAX_DEPTH (or with more than MAX_ELEMENTS
+// values) used to blow the JS stack with a bare `RangeError: Maximum call stack size
+// exceeded` well below the worker's MAX_REQUEST_BODY_BYTES, i.e. an unbounded input
+// produced an un-attributable crash instead of a named refusal. No committed payload
+// comes near either ceiling, so nothing that hashes today starts failing.
+export const MAX_DEPTH = 512;
+export const MAX_ELEMENTS = 1_000_000;
+
+export class HashLimitError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'HashLimitError';
+  }
+}
+
+function walkIJson(v, depth, counter) {
+  if (depth > MAX_DEPTH) throw new HashLimitError(`Input nests deeper than MAX_DEPTH (${MAX_DEPTH}); cannot canonicalize for hashing.`);
+  if (++counter.n > MAX_ELEMENTS) throw new HashLimitError(`Input has more than MAX_ELEMENTS (${MAX_ELEMENTS}) values; cannot canonicalize for hashing.`);
   if (typeof v === 'number') {
     if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
     if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
   } else if (Array.isArray(v)) {
-    v.forEach(assertIJson);
+    for (const el of v) walkIJson(el, depth + 1, counter);
   } else if (v && typeof v === 'object') {
-    for (const k of Object.keys(v)) assertIJson(v[k]);
+    for (const k of Object.keys(v)) walkIJson(v[k], depth + 1, counter);
   }
 }
 
+export function assertIJson(v) {
+  walkIJson(v, 1, { n: 0 });
+}
+
+// The accumulator is null-prototype so that a JSON member literally named "__proto__"
+// lands as an ordinary own enumerable key in sorted position (RFC 8785 §3.2.3 knows no
+// special member names). With a `{}` accumulator that assignment set the prototype
+// instead, so the key AND its whole subtree silently vanished from the preimage.
+// JSON.stringify emits a null-prototype object's keys identically, so every preimage
+// that does not contain "__proto__" is byte-unchanged.
 export const cgCanon = (v) =>
   Array.isArray(v) ? v.map(cgCanon)
   : (v && typeof v === 'object')
-    ? Object.keys(v).sort().reduce((o, k) => (o[k] = cgCanon(v[k]), o), {})
+    ? Object.keys(v).sort().reduce((o, k) => (o[k] = cgCanon(v[k]), o), Object.create(null))
     : v;
 
 // The exact string that gets hashed. Exposed for debugging / parity proofs.
