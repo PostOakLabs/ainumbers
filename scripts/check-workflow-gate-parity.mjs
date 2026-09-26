@@ -1211,7 +1211,7 @@ const DECLARED_SOFTENERS = new Map([
   // attest step; same pin-move.
   ["deploy-to-dreamhost.yml:continue-on-error:901",
    "attest step is advisory-first by design; promotion criterion on the step"],
-  ["unwired-gates.yml:continue-on-error:108",
+  ["unwired-gates.yml:continue-on-error:109",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
    "continue-on-error is deliberate so the job surfaces drift without blocking. " +
    "Promotion to blocking removes this entry together with the continue-on-error."],
