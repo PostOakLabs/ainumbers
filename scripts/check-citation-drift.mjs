@@ -12,6 +12,9 @@
  *   1. Digest resolution (CI-checkable, no snapshot needed): every cited_clause_digest[]
  *      entry across chaingraph/graph/nodes/*.json must resolve in
  *      chaingraph/standard/clause-snapshot-registry.json and carry a retrieved_at date.
+ *   1b. Registry uniqueness (CI-checkable, CLAUSE-REGISTRY-DEDUPE-1): no (id, digest) pair
+ *      may appear twice in the registry -- byte-identical duplicates are the append-twice
+ *      merge accident; same id + different digest is a legitimate re-retrieval and passes.
  *   2. Value match (LOCAL ONLY): a small hand-curated table of citation-derived numeric
  *      constants (scripts/citation-drift-declared-values.json -- the "declared cited_values
  *      map" the row describes, kept here rather than in the node/kernel files since this
@@ -63,7 +66,12 @@ export function findSnapshotDir(startDir) {
   return null;
 }
 const SNAPSHOT_DIR = findSnapshotDir(REPO);
-const REGISTRY_PATH = resolve(REPO, 'chaingraph', 'standard', 'clause-snapshot-registry.json');
+// CLAUSE-REGISTRY-DEDUPE-1: overridable ONLY so the (id, digest) uniqueness gate below can be
+// proven RED end-to-end against a fixture registry; unset in preflight/CI, which always read
+// the real registry. Default path is unchanged.
+const REGISTRY_PATH = process.env.CITATION_DRIFT_REGISTRY
+  ? resolve(process.env.CITATION_DRIFT_REGISTRY)
+  : resolve(REPO, 'chaingraph', 'standard', 'clause-snapshot-registry.json');
 const NODES_DIR = resolve(REPO, 'chaingraph', 'graph', 'nodes');
 const DECLARED_VALUES_PATH = resolve(HERE, 'citation-drift-declared-values.json');
 export const BASELINE_PATH = resolve(HERE, 'citation-drift-baseline.json');
@@ -78,12 +86,48 @@ export function sha256Hex(buf) {
   return 'sha256:' + createHash('sha256').update(buf).digest('hex');
 }
 
+export function readRegistryArray() {
+  if (!existsSync(REGISTRY_PATH)) return [];
+  return JSON.parse(readFileSync(REGISTRY_PATH, 'utf8'));
+}
+
 export function loadRegistry() {
   const map = new Map();
-  if (!existsSync(REGISTRY_PATH)) return map;
-  const arr = JSON.parse(readFileSync(REGISTRY_PATH, 'utf8'));
-  for (const e of arr) map.set(e.digest, e);
+  for (const e of readRegistryArray()) map.set(e.digest, e);
   return map;
+}
+
+/**
+ * CLAUSE-REGISTRY-DEDUPE-1: (id, digest) uniqueness gate over the RAW registry array.
+ *
+ * The registry is resolved by hand (JSON-array merge conflicts across parallel rows), so the
+ * classic append-twice accident lands byte-identical duplicate entries. Every digest-keyed
+ * reader (this one included -- loadRegistry() is a Map) silently collapses them, so nothing
+ * goes red until one copy's digest is refreshed and the other is not, at which point the two
+ * copies disagree and resolution becomes order-dependent. Two entries with the SAME id but
+ * DIFFERENT digests are legitimate re-retrievals and must never be flagged.
+ *
+ * Pure: takes the parsed array, returns findings in the standard shape (empty when unique),
+ * so the self-test can drive it without touching disk.
+ */
+export function findRegistryDuplicates(entries) {
+  const findings = [];
+  const firstSeenAt = new Map();
+  (Array.isArray(entries) ? entries : []).forEach((e, idx) => {
+    const id = JSON.stringify(e?.id ?? null);
+    const digest = e?.digest ?? null;
+    const pair = `${id}|${digest}`;
+    if (firstSeenAt.has(pair)) {
+      findings.push({
+        key: `registry::duplicate::${pair}`,
+        kind: 'DUPLICATE_REGISTRY_ENTRY',
+        message: `clause-snapshot-registry.json entry ${idx} repeats (id ${id}, digest ${digest}), already first seen at entry ${firstSeenAt.get(pair)} -- byte-identical duplicate; dedupe keeping the FIRST occurrence`,
+      });
+    } else {
+      firstSeenAt.set(pair, idx);
+    }
+  });
+  return findings;
 }
 
 export function loadCitedNodes() {
@@ -189,12 +233,18 @@ export function computeFindings({ registry, nodes, declared, snapshotText, local
 // safely unit-testable without a full repo scan / process.exit side effect).
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const localMode = isLocalMode();
+  const registryEntries = readRegistryArray();
   const registry = loadRegistry();
   const nodes = loadCitedNodes();
   const declared = existsSync(DECLARED_VALUES_PATH) ? JSON.parse(readFileSync(DECLARED_VALUES_PATH, 'utf8')) : [];
   const snapshotText = buildSnapshotTextMap();
 
-  const findings = computeFindings({ registry, nodes, declared, snapshotText, localMode });
+  // CLAUSE-REGISTRY-DEDUPE-1: registry (id, digest) uniqueness -- blocking, CI-checkable.
+  // Prepend so a duplicate is reported even when the digest-keyed checks all resolve.
+  const findings = [
+    ...findRegistryDuplicates(registryEntries),
+    ...computeFindings({ registry, nodes, declared, snapshotText, localMode }),
+  ];
   const skipped = findings.filter((f) => f.kind === 'SKIPPED_NO_SNAPSHOT');
   const real = findings.filter((f) => f.kind !== 'SKIPPED_NO_SNAPSHOT');
 
