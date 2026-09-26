@@ -86,6 +86,11 @@ export function displayTitle(raw) {
     /,\s*OpenChainGraph,\s*AINumbers\s*$/i,
     /,\s*OpenChainGraph\s*$/i,
     /\s*,\s*AINumbers\s*$/i,
+    // Explainer-series tails ("The Mandate Loop, an OpenChainGraph Explainer",
+    // "How OpenChainGraph Works, Interactive Explainer"): a comma fragment in a
+    // card heading reads as an AI tell (Tim, 2026-09-26), and the card already
+    // sits in the Learn section.
+    /,\s*(?:an\s+)?(?:OpenChainGraph\s+|Interactive\s+)?Explainer\s*$/i,
   ];
   for (let pass = 0; pass < 3; pass++) {
     const before = t;
