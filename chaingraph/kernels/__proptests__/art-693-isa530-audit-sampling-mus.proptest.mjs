@@ -1,5 +1,5 @@
 // art-693-isa530-audit-sampling-mus.proptest.mjs -- class-A property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:ebc623778f99ccb5c4c05bc375890ae5f9a28bd2deaeffaf37b9a3d2adfcf187
+// kernel_digest_at_authoring: sha256:e92c7887ebf4004dfc6cc8f68bdea0bc5ae6ac9b7b90356275ea4b1a5ee3cd8c
 // spec: ISA530-SAMPLING-BUILD-SPEC.md (workspace root, ISA530-BUILD-1).
 // human_sign_off: PENDING
 //
