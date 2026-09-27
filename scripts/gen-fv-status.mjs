@@ -46,7 +46,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, unlinkSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { sourceDigest } from '../chaingraph/kernels/_buildid.mjs';
+import { sourceDigest, normDigest } from '../chaingraph/kernels/_buildid.mjs';
 import { cgCanon } from '../chaingraph/kernels/_hash.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -96,7 +96,58 @@ function loadFvPilot(toolId) {
 // reused verbatim, never re-invented here.
 const CLASS_TO_TIER = { A: 'exhaustive-enumeration', B: 'property-tested', C: 'machine-checked-proof' };
 
-function provenRecordFor(toolId) {
+// twin_agreement (SPEC.md §29). The record lives in the kernel's fv-pilot file as a §29.0-shaped
+// `twin_execution` object. It is reported as CHECKED only when its `kernel_digest` equals the digest
+// this generator recomputes from the kernel source right now — the same independent-derivation rule
+// (SO #34) the rest of this file follows. A record whose digest no longer matches describes a kernel
+// that is no longer deployed, so it is reported as checked:false with a stale-record note, never as a
+// live agreement claim. Absence of the field is NO CLAIM (§29.5), not a negative one.
+function twinAgreementFor(pilot, recomputedKernelDigest) {
+  const te = pilot?.twin_execution ?? null;
+  const base = { field_pointer: 'audit_signature.twin_execution' };
+
+  if (!te) {
+    return {
+      ...base,
+      checked: false,
+      value: null,
+      note: 'field defined in chaingraph/standard/SPEC.md §29 (landed in FV-TWIN-SCHEMA-1); no twin comparison is on record for this kernel. Absence is NO CLAIM per §29.5, never a negative one -- this artifact surfaces a record when one exists, it does not invent one.',
+    };
+  }
+
+  if (normDigest(te.kernel_digest) !== normDigest(recomputedKernelDigest)) {
+    return {
+      ...base,
+      checked: false,
+      value: null,
+      note: `a twin comparison is on record but it is STALE: its kernel_digest (${te.kernel_digest}) does not match the digest recomputed from the deployed kernel source (${recomputedKernelDigest}), so it describes a kernel that is no longer deployed. Re-run the twin comparison against the live kernel. A stale record is never reported as a live agreement claim.`,
+      stale_record: {
+        recorded_kernel_digest: te.kernel_digest,
+        recomputed_kernel_digest: recomputedKernelDigest,
+        checked_at: te.checked_at ?? null,
+      },
+    };
+  }
+
+  return {
+    ...base,
+    checked: true,
+    value: te.agreement === true,
+    record: {
+      twin_digest: te.twin_digest,
+      kernel_digest: te.kernel_digest,
+      agreement: te.agreement,
+      max_divergence: te.max_divergence,
+      tolerance: te.tolerance,
+      method: te.method,
+      cases_checked: te.cases_checked,
+      checked_at: te.checked_at,
+    },
+    note: 'twin comparison on record for the deployed kernel (recomputed kernel_digest matches the record). Per SPEC.md §29.1 this is evidence the hand-written kernel matches its formal twin -- NOT evidence that either side correctly implements the cited regulation, and an agreement:false would be a finding for human adjudication, never an automatic verdict that the kernel is wrong.',
+  };
+}
+
+function provenRecordFor(toolId, recomputedKernelDigest) {
   const pilot = loadFvPilot(toolId);
   if (!pilot) return null;
   const ev = pilot.evidence_vector ?? {};
@@ -109,15 +160,7 @@ function provenRecordFor(toolId) {
       tolerance: ev.authoritative_vectors?.tolerance ?? null,
       assumptions: ev.machine_proof?.note ?? ev.machine_proof?.gate ?? null,
     },
-    // twin_agreement: SPEC.md §29 field, optional, not yet populated by any
-    // kernel (FV-TWIN-SCHEMA-1 unstaged/unlanded) — honest false state,
-    // never fabricated (design §1, build gate #3).
-    twin_agreement: {
-      checked: false,
-      value: null,
-      field_pointer: 'audit_signature.twin_execution',
-      note: 'field defined in chaingraph/standard/SPEC.md §29, not yet populated by any kernel (FV-TWIN-SCHEMA-1, unstaged) — this artifact surfaces it once shipped, does not invent it',
-    },
+    twin_agreement: twinAgreementFor(pilot, recomputedKernelDigest),
     float_bound: {
       status: 'empirical',
       note: 'proved lemma pending FV-FLOATBOUND-SPEC-1; differential test never retired even once it lands (augments, never replaces — FV-ROBUST-WAVE-BUILD-SPEC.md §3)',
@@ -134,7 +177,13 @@ async function buildArtifacts() {
   let unclaimedCount = 0;
   for (const n of inScope) {
     kernelIds.push(n.tool_id);
-    const rec = provenRecordFor(n.tool_id);
+    // Recomputed from the deployed kernel source, not read from any record — the §29 freshness check
+    // in twinAgreementFor() is only meaningful if this side is independently derived (SO #34).
+    // sourceDigest is a pure function of the bytes, so awaiting inside the loop stays deterministic.
+    // eslint-disable-next-line no-await-in-loop
+    const kernelDigest = await sourceDigest(
+      readFileSync(resolve(KDIR, n.tool_id + '.kernel.mjs'), 'utf8'));
+    const rec = provenRecordFor(n.tool_id, kernelDigest);
     if (rec) provenKernels[n.tool_id] = rec;
     else unclaimedCount++;
   }
