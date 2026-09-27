@@ -356,6 +356,14 @@ const PREFLIGHT_ONLY = new Map([
     "'node-page-footers' (advisory on a PR, blocking on main via the generic downgrade; main-side " +
     "freshness is owned by derived-artifacts-regen.yml). The write half is the regen command, " +
     "never a PR step. Reads only tracked repo files, no CI-only input. Self-test: --selftest."],
+  // ── ZK-PAGES-SVG-PILOT-1 (2026-09-27) ───────────────────────────────────────
+  ["sync-scene-kit.mjs",
+    "SCENE-KIT inline-copy sync + WCAG 2.2.2 motion-timing scan (ZK-PAGES-SVG-PILOT-1). Hard in " +
+    "preflight, both modes. It reads only tracked HTML plus scripts/lib/scene-kit.mjs (no network, " +
+    "no CI-only input) and enumerates via `git ls-files`, so its CI route is scripts-verify.yml's " +
+    "full preflight — a named workflow step would re-run byte-for-byte the same scan. The page list " +
+    "is derived from the markers, never a registry, so nothing here goes stale when a page adopts " +
+    "the kit. The --selftest entry is its paired RED/GREEN mutation control (SO #34c)."],
   // ── KERNEL-INPUT-USAGE-CHECK-1 (2026-09-26) ─────────────────────────────────
   ["check-kernel-input-usage.mjs",
     "Declared-input-usage ratchet (KERNEL-INPUT-USAGE-CHECK-1): regex scan of the top-level " +
