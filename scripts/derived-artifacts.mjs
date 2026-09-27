@@ -89,11 +89,12 @@
  */
 import { execSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
-import { existsSync, mkdtempSync, rmSync, mkdirSync, cpSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, mkdirSync, cpSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { nodeFooterPages } from './gen-node-footers.mjs';
+import { WRITES_REPORT_PATH } from './gen-manifest-examples.mjs';
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -1107,6 +1108,17 @@ export const COVERED = [
     // the static parser (declare-parity), mirroring artifacts
     writes: ['manifests/'],
     artifacts: ['manifests/'],
+    // REGEN-MANIFEST-ATTEST-1 (2026-09-27): the COMMIT pathspec emitted by --paths for
+    // this entry is the writer's ACTUAL write list of its last --write run (the temp-dir
+    // report at WRITES_REPORT_PATH, written by the generator itself), not the static
+    // glob alone — so the bot's chore(derived) commit NAMES each rewritten manifest
+    // instead of sweeping all of manifests/ under a glob that attests no specific file.
+    // Measured cause (commit bfec8c3a): that glob covered the writer's rewrite of the
+    // hand-authored manifests/art-693-*.manifest.json — the "unattested own commit"
+    // ORCH-316 flagged. Report absent (no --write in this checkout) → the declared glob
+    // is the fallback; report paths outside artifacts[] are ignored — the declaration
+    // stays the boundary, the report can only narrow what this run stages.
+    writesReport: WRITES_REPORT_PATH,
     share: 'n/a (new 2026-09-19, MANIFEST-EXAMPLES-ANNOTATIONS-1)',
   },
   {
@@ -1365,6 +1377,40 @@ export function coveredPaths() {
   return [...new Set(COVERED.flatMap((c) => c.artifacts))].sort();
 }
 
+/**
+ * REGEN-MANIFEST-ATTEST-1 (2026-09-27): the commit pathspec EMITTED by --paths.
+ * Identical to coveredPaths() except an entry carrying `writesReport` contributes its
+ * generator's ACTUAL write list of the last --write run (read from the report file),
+ * so the bot commit names each rewritten file instead of staging a bare directory glob
+ * that attests no specific file. Existence checks (--check-paths, missingPaths) stay
+ * on coveredPaths() deliberately: the DECLARED set is the existence contract; the
+ * report only NARROWS what this run stages, never widens it.
+ */
+function entryCommitPaths(entry) {
+  if (!entry.writesReport) return entry.artifacts;
+  let written = null;
+  try {
+    const parsed = JSON.parse(readFileSync(entry.writesReport, 'utf8'));
+    if (Array.isArray(parsed?.written)) written = parsed.written.filter((p) => typeof p === 'string');
+  } catch { /* report absent or unreadable — declared-glob fallback below */ }
+  if (!written) return entry.artifacts;
+  const prefixes = entry.artifacts.map((a) => (a.endsWith('/') ? a : `${a}/`));
+  const exact = new Set(entry.artifacts);
+  const kept = [], dropped = [];
+  for (const p of written) {
+    if (!exact.has(p) && !prefixes.some((pre) => p.startsWith(pre))) { dropped.push(`${p} (outside declared artifacts)`); continue; }
+    if (!existsSync(resolve(REPO, p))) { dropped.push(`${p} (absent on disk)`); continue; }
+    kept.push(p);
+  }
+  if (dropped.length) console.error(`derived-artifacts: entry "${entry.id}" writes-report drops ${dropped.length} path(s): ${dropped.join(', ')}`);
+  return kept;
+}
+
+/** The pathspec the regen workflow stages by — declared set, report-narrowed per entry. */
+export function commitPaths() {
+  return [...new Set(COVERED.flatMap(entryCommitPaths))].sort();
+}
+
 /** Gate commands that are advisory on a PR and blocking on main. */
 export function advisoryGates() {
   return new Set(COVERED.map((c) => c.gate).filter(Boolean));
@@ -1562,7 +1608,7 @@ if (isMain) {
       console.error(`✗ derived-artifacts --paths: ${missing.length} declared artifact(s) do not exist on disk:\n  ${missing.join('\n  ')}\n  Fix the SSOT entry (or run the generator that should create it).`);
       process.exit(1);
     }
-    console.log(coveredPaths().join('\n'));
+    console.log(commitPaths().join('\n'));
   } else if (arg === '--check-paths') {
     // AI-CATALOG-1: entries flagged `prAbsentOk` declare artifacts that BY DESIGN
     // do not exist on a PR checkout (SO #35: written by this regen workflow on
