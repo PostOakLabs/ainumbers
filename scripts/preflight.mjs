@@ -1944,11 +1944,12 @@ const GATES = [
   ['Canvas up-to-date',           'node scripts/gen-canvas.mjs --check'],
   ['Wayfinder freshness',         'node scripts/gen-wayfinder.mjs --check'],
   ['Node-page chrome (nav/footer)', 'node scripts/check-node-page-chrome.mjs'],
-  // FOOTER-INFRA-COLUMN-1 (footer plan v2 D1(b)): node-page footers are a derived
-  // artifact now ('node-page-footers' in derived-artifacts.mjs). The command string
-  // is identical to that entry's `gate`, so the generic ADVISORY_ON_PR rule makes it
-  // advisory on a PR (a template edit leaves every page stale until main's regen)
-  // and blocking on main. The self-test is its RED+GREEN pair (GATE-SELFTEST-META-1).
+  // FOOTER-INFRA-COLUMN-1 (footer plan v2 D1(b)): node-page footers are the derived
+  // artifact 'node-page-footers' in derived-artifacts.mjs. The command string is
+  // identical to that entry's `gate`, so the generic ADVISORY_ON_PR rule classifies
+  // it: on a PR a template edit leaves every page stale by construction (main's regen
+  // writes them after merge), on main it blocks. The self-test is its RED+GREEN pair
+  // (GATE-SELFTEST-META-1).
   ['Node-page footer freshness (FOOTER-INFRA-COLUMN-1)', 'node scripts/gen-node-footers.mjs --check'],
   ['Node-page footer writer self-test (RED+GREEN)', 'node scripts/gen-node-footers.mjs --selftest'],
   // HUB-CHROME-GATE-1: same shape as the node-page chrome gate above, for the
