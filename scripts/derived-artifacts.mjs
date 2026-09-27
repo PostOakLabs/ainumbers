@@ -93,6 +93,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, mkdirSync, cpSync } from
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { nodeFooterPages } from './gen-node-footers.mjs';
 import { WRITES_REPORT_PATH } from './gen-manifest-examples.mjs';
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -166,6 +167,29 @@ export const COVERED = [
     writes: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     share: '8%',
+  },
+  {
+    // FOOTER-INFRA-COLUMN-1 (Tim 2026-09-27, footer plan v2 decision D1(b)): the
+    // footer region of every top-level chaingraph/*.html page, rewritten from
+    // chaingraph/_page-chrome.mjs buildFooter() by the ONE main-side writer
+    // scripts/gen-node-footers.mjs (footer-only normalizeChrome; nav, CSS and body
+    // untouched). Scope = the normalizer's auto-scan set minus CHROME_EXEMPT minus
+    // the pinned footer-in-script pages (node-page-chrome-baseline.json, decision
+    // D4); the CHROME_EXEMPT pages owned by other entries (kernel-vm-explainer.html,
+    // chaingraph-hub.html) are therefore never written here. The page list is
+    // computed from the directory, so a node page added later joins the set.
+    // Ordering: right after chaingraph-assemble, because the footer's "Spec v…"
+    // label is read from chaingraph.json, and ahead of every entry that reads
+    // node-page links (nav-island's baseline in particular). Writes happen inside
+    // the normalizer on a runtime path, so `writes` is declared explicitly.
+    // Idempotent: a second pass is byte-identical (gen-node-footers --selftest).
+    id: 'node-page-footers',
+    regen: 'node scripts/gen-node-footers.mjs',
+    gate: 'node scripts/gen-node-footers.mjs --check',
+    writes: nodeFooterPages(),
+    artifacts: nodeFooterPages(),
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-09-27, FOOTER-INFRA-COLUMN-1)',
   },
   {
     // S18-FRESHNESS-DURABLE-FIX-1 (mechanism b, 2026-09-17): the §18 digest-freshness
