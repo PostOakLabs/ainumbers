@@ -7,10 +7,10 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "ai-marked-asset-anchored"
   verify_surface: "https://ledger.ainumbers.co/ https://ainumbers.co/chaingraph/art-123-c2pa-manifest-validator.html https://anchor.ainumbers.co/mcp"
-  version: "1e8cd3fdd287"
+  version: "647bdbeed4d9"
 ---
 
-# Is this asset real, AI-marked, and provably timestamped?
+# Check that an asset is real and AI-marked and timestamp it
 
 Validate a C2PA manifest and AI Act Art. 50 marking in the page, replay the content-credential chain remotely, and anchor the disclosure manifest to Bitcoin.
 

@@ -7,10 +7,10 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "payments-day-end-to-end"
   verify_surface: "https://ledger.ainumbers.co/ https://mcp.ainumbers.co/mcp https://anchor.ainumbers.co/mcp"
-  version: "1e8cd3fdd287"
+  version: "647bdbeed4d9"
 ---
 
-# Payments day, end to end
+# A payments day from start to finish
 
 One payments day: validate the pain.001, parse the camt.053, reconcile, predict fails, price CSDR penalties, seal the evidence.
 

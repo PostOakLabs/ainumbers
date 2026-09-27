@@ -7,10 +7,10 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "same-law-three-doorways"
   verify_surface: "https://ledger.ainumbers.co/ https://ainumbers.co/chaingraph/chaingraph.json https://anchor.ainumbers.co/mcp"
-  version: "1e8cd3fdd287"
+  version: "647bdbeed4d9"
 ---
 
-# Same law, three doorways
+# One law through three doorways
 
 Run one tool in the page, on the hosted MCP worker, and against its signed receipt, then compare the execution_hash character by character.
 

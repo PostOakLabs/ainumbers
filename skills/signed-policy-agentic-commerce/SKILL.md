@@ -7,10 +7,10 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "signed-policy-agentic-commerce"
   verify_surface: "https://ledger.ainumbers.co/ https://ainumbers.co/chaingraph/art-129-webbotauth-signature-verifier.html https://anchor.ainumbers.co/mcp"
-  version: "1e8cd3fdd287"
+  version: "647bdbeed4d9"
 ---
 
-# Agent buys under a signed policy, and proves the policy governed
+# An agent buys under a signed policy and proves the policy governed
 
 Run an agentic commerce chain under a signed Work Mandate, trip the escalation gate on purpose, and replay the gates on the ledger.
 

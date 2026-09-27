@@ -7,7 +7,7 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "ap2-cart-to-payment-chain"
   verify_surface: "https://ledger.ainumbers.co/ https://mcp.ainumbers.co/mcp"
-  version: "1e8cd3fdd287"
+  version: "647bdbeed4d9"
 ---
 
 # AP2 cart to payment chain

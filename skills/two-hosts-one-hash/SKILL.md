@@ -7,10 +7,10 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "two-hosts-one-hash"
   verify_surface: "https://ledger.ainumbers.co/ https://mcp.ainumbers.co/mcp"
-  version: "1e8cd3fdd287"
+  version: "647bdbeed4d9"
 ---
 
-# Two hosts, one hash
+# Two hosts return one hash
 
 Run the same tool from two different agents and prove they agree on the execution hash.
 

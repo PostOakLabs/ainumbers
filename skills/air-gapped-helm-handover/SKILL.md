@@ -7,10 +7,10 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "air-gapped-helm-handover"
   verify_surface: "https://ledger.ainumbers.co/ https://mcp.ainumbers.co/mcp https://anchor.ainumbers.co/mcp"
-  version: "1e8cd3fdd287"
+  version: "647bdbeed4d9"
 ---
 
-# Air-gapped control plane: the agent runs it, the human releases it, the bundle verifies without us
+# The agent runs Helm and a person releases a bundle anyone can verify
 
 Run a CECL workflow on a loopback-only Helm daemon, hit the consent-tier boundary at evidence export, and cross-check the kernel against the public worker.
 

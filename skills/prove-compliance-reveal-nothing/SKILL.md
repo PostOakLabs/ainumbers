@@ -7,10 +7,10 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "prove-compliance-reveal-nothing"
   verify_surface: "https://ledger.ainumbers.co/ https://mcp.ainumbers.co/mcp"
-  version: "1e8cd3fdd287"
+  version: "647bdbeed4d9"
 ---
 
-# Prove compliance, reveal nothing
+# Prove compliance without revealing the transfers
 
 Prove a transaction passes sanctions and travel-rule predicates without disclosing the transaction.
 

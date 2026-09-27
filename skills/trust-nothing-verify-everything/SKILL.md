@@ -7,10 +7,10 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "trust-nothing-verify-everything"
   verify_surface: "https://ledger.ainumbers.co/ https://ainumbers.co/chaingraph/art-610-erc4626-vault-share-math.html"
-  version: "1e8cd3fdd287"
+  version: "647bdbeed4d9"
 ---
 
-# Trust nothing, verify everything
+# Verify every result yourself
 
 Verify the estate’s own claims from primary bytes: recompute the kernel digest, check the risc0 image id, verify the Groth16 seal with an independent library, then verify a DeFi computation you ran yourself.
 
