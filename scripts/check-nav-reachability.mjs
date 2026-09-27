@@ -66,6 +66,31 @@
 // section and stays a real island. Excused pages are never added to the
 // baseline: they are not islands yet, not islands the reader should accept.
 //
+// ⚠ NAV-ISLAND-PENDING-CHAIN-1 (2026-09-27) — THE SAME ACCOMMODATION FOR CHAIN
+// COMPOSER PAGES. A chain-composer row ships chaingraph/chains/<name>.html +
+// chaingraph/graph/chains/<name>.json + the order.chains append in ONE PR (the
+// four-leg landing shape, #2060/#2061), but the assembled monolith is
+// main-side single-writer (SO #35) and the chain entries chaingraph.json
+// carries are ABSOLUTE composer_url strings (https://ainumbers.co/...) that
+// this gate's DYNAMIC root can never resolve to a repo path — so every
+// additive chain PR reds NAV-ISLAND-1 by construction. Measured on PR #2089:
+// `nav-reachability: 2 NEW island(s)` = its two new composer pages. The fix
+// mirrors the node accommodation above exactly: chainShardNameForPage() below
+// matches a candidate island page to a REAL on-disk chain shard, and the SAME
+// check-shard-assembly.mjs shell-out (no second copy of the branch-aware git
+// logic, SO #34) now classifies chain shards too, printing a
+// `PENDING-ASSEMBLE (CHAINS)` section this gate parses separately from the
+// node one. Same excusal rule, same two guards via that sub-gate: the shard
+// must be absent from the base ref (or its page would be a real island — a
+// chain whose shard is already assembled/registered at the base ref and whose
+// page is still unlinked stays RED), and the branch must not be doing the
+// assembler's own work (for chains, the sub-gate guards on the assembled
+// monolith only — the order.chains append is the chain row's own registration
+// leg, not assembly). Excused pages are never added to the baseline, same as
+// nodes. Chain candidates are deliberately NOT folded into the
+// REACHABLE-PENDING-REGEN pull_request advisory below: the row that lands a
+// base-registered chain's page unlinked owns the link, and stays RED here.
+//
 // --changed <REF> (PREREQ-CHANGED-SCOPING-1, B6 of GATE-MANIFEST-DRAFT.md §1),
 // PLAIN check mode only. Reachability is a GRAPH property, not a per-file
 // property, so the graph itself is still built from every page on disk —
@@ -218,6 +243,18 @@ function nodeShardIdForPage(p) {
   return existsSync(join(ROOT, 'chaingraph', 'graph', 'nodes', `${id}.json`)) ? id : null;
 }
 
+// NAV-ISLAND-PENDING-CHAIN-1 (see header note). A chain page's shard name is
+// its filename minus extension -- only a match against a REAL on-disk chain
+// shard is a candidate; an unrelated page never even reaches the shard-assembly
+// shell-out. Disjoint from nodeShardIdForPage by construction: a chain page's
+// path has a second path segment, which that regex's `[^/]+` cannot match.
+function chainShardNameForPage(p) {
+  const m = /^chaingraph\/chains\/([^/]+)\.html?$/i.exec(p);
+  if (!m) return null;
+  const name = m[1];
+  return existsSync(join(ROOT, 'chaingraph', 'graph', 'chains', `${name}.json`)) ? name : null;
+}
+
 const SHARD_ASSEMBLY_SCRIPT = join(ROOT, 'scripts', 'check-shard-assembly.mjs');
 
 // ── THE SUB-GATE CONTRACT (NAV-SUBGATE-CRASH-1) ──────────────────────────────
@@ -265,31 +302,49 @@ const SHARD_ASSEMBLY_CONTRACT = {
 };
 
 /**
- * @returns {{ verdict: string, subcode: string|null, reason: string, out: string, ids: Set<string> }}
- *          `ids` is meaningful ONLY when verdict === EVALUABLE.
+ * NAV-ISLAND-PENDING-CHAIN-1: `ids` (node shard ids) and `chainIds` (chain
+ * shard names) are meaningful ONLY when verdict === EVALUABLE, and are kept as
+ * TWO sets on purpose — the sub-gate prints the chain classification as its own
+ * `PENDING-ASSEMBLE (CHAINS)` section precisely so the two id namespaces never
+ * mix: a node id and a chain name that collided in one set would excuse a page
+ * off the other namespace's classification.
+ * @returns {{ verdict: string, subcode: string|null, reason: string, out: string, ids: Set<string>, chainIds: Set<string> }}
  */
 function pendingAssembleClassification() {
   const res = runSubGate(['node', SHARD_ASSEMBLY_SCRIPT], { cwd: ROOT }, SHARD_ASSEMBLY_CONTRACT);
   const ids = new Set();
-  if (res.verdict !== SUBGATE_VERDICT.EVALUABLE) return { ...res, ids };
+  const chainIds = new Set();
+  if (res.verdict !== SUBGATE_VERDICT.EVALUABLE) return { ...res, ids, chainIds };
   let inPending = false;
+  let inPendingChains = false;
   for (const line of res.out.split('\n')) {
-    if (/^check-shard-assembly: PENDING-ASSEMBLE —/.test(line)) { inPending = true; continue; }
+    if (/^check-shard-assembly: PENDING-ASSEMBLE —/.test(line)) { inPending = true; inPendingChains = false; continue; }
+    if (/^check-shard-assembly: PENDING-ASSEMBLE \(CHAINS\) —/.test(line)) { inPendingChains = true; inPending = false; continue; }
     if (inPending) {
       const m = /^\s*-\s+(\S+)\s/.exec(line);
       if (m) { ids.add(m[1]); continue; }
       inPending = false;
     }
+    if (inPendingChains) {
+      const m = /^\s*-\s+(\S+)\s/.exec(line);
+      if (m) { chainIds.add(m[1]); continue; }
+      inPendingChains = false;
+    }
   }
-  return { ...res, ids };
+  return { ...res, ids, chainIds };
 }
 
 const candidateNodePages = preIslands
   .map(p => ({ p, id: nodeShardIdForPage(p) }))
   .filter(x => x.id);
 
+// NAV-ISLAND-PENDING-CHAIN-1: chain composer pages, same shape as above.
+const candidateChainPages = preIslands
+  .map(p => ({ p, name: chainShardNameForPage(p) }))
+  .filter(x => x.name);
+
 const excused = new Set();
-if (candidateNodePages.length > 0) {
+if (candidateNodePages.length > 0 || candidateChainPages.length > 0) {
   const sub = pendingAssembleClassification();
 
   // ── FAIL CLOSED, AND SAY WHICH FAILURE THIS IS (NAV-SUBGATE-CRASH-1) ───────
@@ -304,22 +359,26 @@ if (candidateNodePages.length > 0) {
   //     false-NEGATIVE channel — a genuine island would ship every time the
   //     sub-gate broke. That is the SO #34c inversion, not a fix for it.
   //   · Blocking is bounded BY CONSTRUCTION, not by a heuristic: this branch is
-  //     only reachable when candidateNodePages.length > 0, i.e. when at least
+  //     only reachable when a candidate page exists at all, i.e. when at least
   //     one page's verdict genuinely depends on the sub-gate's answer. A tree
-  //     with no candidate node page never spawns the sub-gate and can never be
-  //     blocked by it. (Same shape as L2-HARDLEG-BLOCKING-1: non-empty subject
-  //     set + no verdict ⇒ block; empty subject set ⇒ nothing was lost.)
+  //     with no candidate node/chain page never spawns the sub-gate and can
+  //     never be blocked by it. (Same shape as L2-HARDLEG-BLOCKING-1: non-empty
+  //     subject set + no verdict ⇒ block; empty subject set ⇒ nothing was lost.)
   //   · Measured blast radius vs today: in the measured case the gate ALREADY
   //     exited 1 — this changes what the red SAYS, not whether it is red. The
   //     only runs that flip green->red are those where every resulting island
-  //     was already accepted in the baseline; there are 0 such pages today
-  //     (no baseline entry is a chaingraph/<id>.html with an on-disk shard),
-  //     so the measured added-red set on this tree is EMPTY.
+  //     was already accepted in the baseline. NAV-ISLAND-PENDING-CHAIN-1 grows
+  //     the permanent subject set by exactly one such page — the baseline's
+  //     chaingraph/chains/aml-programme.html, whose chain shard is on disk — so
+  //     on THIS tree the sub-gate now spawns on every run and a SUB-GATE
+  //     ENVIRONMENT failure exits 2 where it previously exited 0/1 as computed.
+  //     That is SO #34c's designed fail-closed state, and CI's full checkouts
+  //     resolve the base ref; it is disclosed here rather than hidden.
   if (sub.verdict !== SUBGATE_VERDICT.EVALUABLE) {
     console.error(`nav-reachability: ${sub.subcode} — SUB-GATE COULD NOT RUN, so NO island verdict was computed.`);
     console.error(`  sub-gate: ${sub.reason}`);
-    console.error(`  ⛔ This is NOT an island finding and NOT a pass. ${candidateNodePages.length} candidate node page(s) depended on that sub-gate's PENDING-ASSEMBLE classification and were left unclassified:`);
-    for (const { p } of candidateNodePages) console.error(`    ${p}`);
+    console.error(`  ⛔ This is NOT an island finding and NOT a pass. ${candidateNodePages.length + candidateChainPages.length} candidate node/chain page(s) depended on that sub-gate's PENDING-ASSEMBLE classification and were left unclassified:`);
+    for (const { p } of [...candidateNodePages, ...candidateChainPages]) console.error(`    ${p}`);
     console.error(`\n  Fix the SUB-GATE's environment, not this page: give the job fetch-depth: 0 (a shallow`);
     console.error(`  checkout leaves origin/main unresolvable), or pass --base-ref / SHARD_ASSEMBLY_BASE_REF`);
     console.error(`  if this checkout names its main line differently. ⛔ Do NOT run --update: baselining a`);
@@ -333,8 +392,13 @@ if (candidateNodePages.length > 0) {
 
   const pending = sub.ids;
   for (const { p, id } of candidateNodePages) if (pending.has(id)) excused.add(p);
+  // NAV-ISLAND-PENDING-CHAIN-1: chain pages are excused off the sub-gate's own
+  // PENDING-ASSEMBLE (CHAINS) classification — same rule, same guards, separate
+  // id namespace (see pendingAssembleClassification above).
+  const pendingChains = sub.chainIds;
+  for (const { p, name } of candidateChainPages) if (pendingChains.has(name)) excused.add(p);
   if (excused.size > 0) {
-    console.log(`nav-reachability: ${excused.size} page(s) excused as PENDING-ASSEMBLE (NAV-ISLAND-PENDING-ASSEMBLE-1, per check-shard-assembly.mjs) -- not an island yet, and not added to the baseline:`);
+    console.log(`nav-reachability: ${excused.size} page(s) excused as PENDING-ASSEMBLE (NAV-ISLAND-PENDING-ASSEMBLE-1 / NAV-ISLAND-PENDING-CHAIN-1, per check-shard-assembly.mjs) -- not an island yet, and not added to the baseline:`);
     for (const p of [...excused].sort()) console.log(`  ${p}`);
   }
 }
