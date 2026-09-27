@@ -24,10 +24,12 @@
  * 'node-page-footers' (scripts/gen-node-footers.mjs), whose --check compares the
  * WHOLE footer of every one of the ~690 pages to buildFooter() byte for byte,
  * blocking on main, and whose regen writes the 20 pages to exact parity after
- * merge. The leg could no longer hold under D1(b): a template edit reds it on
- * the PR (drift beyond the pins) and the regen reds it again on main (pins
- * stale once the pages are exact), so it was removed together with its
- * "linkParity" section in scripts/node-page-chrome-baseline.json.
+ * merge. Under D1(b) the leg would red EVERY template-editing PR, because node
+ * pages keep the old footer until main's regen (measured: 20 failures on the PR
+ * that built the writer), while its pins were already at exact parity (tightened
+ * 2026-09-21), so after the regen it guards nothing the byte-for-byte --check
+ * does not. It was removed together with its "linkParity" section in
+ * scripts/node-page-chrome-baseline.json.
  *
  * Pages listed in KNOWN_SKIPS have pre-existing HTML quirks (body-embedded <footer>
  * elements or no chaingraph.json entry) that require manual follow-up — they are
