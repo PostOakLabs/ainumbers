@@ -1398,6 +1398,15 @@ const GATES = [
   ['Topic cross-link block freshness (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/apply-topic-links.mjs --check'],
   ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
   ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
+  // ZK-PAGES-SVG-PILOT-1 (2026-09-27): SCENE-KIT v1 lives in
+  // scripts/lib/scene-kit.mjs; generated pages import it and hand-authored
+  // explainers carry an inline copy, which is exactly the shape that drifts.
+  // This gate rewrites-and-compares both marker regions from the lib, and
+  // holds every page carrying <svg class="sk-scene"> to WCAG 2.2.2 (Pause,
+  // Stop, Hide, Level A) by computing each scene's last animation end from
+  // durations PARSED OUT OF the kit CSS, never hardcoded.
+  ['SCENE-KIT inline copies + motion timing (ZK-PAGES-SVG-PILOT-1)', 'node scripts/sync-scene-kit.mjs --check'],
+  ['SCENE-KIT gate controls (RED/GREEN mutations, SO #34c pairing)', 'node scripts/sync-scene-kit.mjs --selftest'],
   ['Homepage MCP-ACTIVITY sentinel matches data/mcp-activity.json (generator --check)', 'node scripts/mcp-activity-embed.mjs --check'],
   // AIN-AGENT-KIT-1: agent-kit artifacts are generator-emitted (gen-agent-kit.mjs from
   // agent-kit/kit.json); this gate regenerates twice into temp, byte-compares determinism
