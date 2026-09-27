@@ -578,3 +578,43 @@ jobs:
       # is not evidence that the step works.
       - name: Fail the run if the assembler refused to write
         run: node scripts/assemble-chaingraph.mjs --refusal-status
+
+      # ── RE-REQUEST CI ON PRS PARKED ON MAIN-SIDE DERIVED REDS ─────────────
+      # GitHub does not re-run an open PR's checks when main moves, so a PR
+      # whose only reds are main-side derived reds (S17 kernel-identity, S18
+      # recompute, absence-tree staleness) sat parked until a human noticed
+      # main had caught up and re-requested its checks by hand. This step is
+      # the clearing mechanism, attached to the single writer that makes
+      # main catch up: after a SUCCESSFUL chore(derived) commit (the `if:`
+      # mirrors the commit step's condition exactly — nothing runs on a
+      # no-diff, dry-run, self-test or refused-assembler pass), it re-requests
+      # the stale failed check suites of PRs the classifier finds parked, and
+      # prints the decision table either way.
+      #
+      # Report-only side effects by design: the script's ONLY write is the
+      # check-suite rerequest API ("re-run the checks you already ran"). No
+      # merge, no label, no comment, no branch write — it cannot do any of
+      # those, there is no code path for them. Idempotent: a check run that
+      # started after the regen commit is already fresh and is skipped, so the
+      # re-request fires at most once per regen commit. Hard cap 5 PRs per
+      # run. `continue-on-error: true` because a re-check bookkeeping failure
+      # must never redden a green regen of main.
+      #
+      # TOKEN (measured, disclosed): the App token is minted with
+      # contents:write ONLY, and this workflow's permissions block is
+      # contents: read — so neither the checks-API rerequest (checks:write)
+      # nor the actions rerun-failed-jobs fallback (actions:write) can pass.
+      # The script tries checks-API first, falls back to rerun-failed-jobs on
+      # the measured 404 (runs_rerequestable:false — the only path that
+      # worked live on 2026-09-27), and on any permission refusal prints the
+      # decision table and EXITS 0 — the row's explicit visibility-only
+      # fallback. Granting those permissions is a token-scope change this row
+      # deliberately does NOT make (fence: no ruleset or token scope change).
+      - name: Re-request CI on PRs parked on main-side derived reds
+        if: steps.stage.outputs.changed == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run == true) && !(github.event_name == 'workflow_dispatch' && inputs.self_test != 'off')
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          RECHECK_REGEN_SHA="$(git rev-parse HEAD)" node scripts/recheck-parked-prs.mjs
