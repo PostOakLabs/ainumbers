@@ -2,7 +2,7 @@
 description: Run one tool in the page, on the hosted MCP worker, and against its signed receipt, then compare the execution_hash character by character.
 ---
 
-# Same law, three doorways
+# One law through three doorways
 
 You are on an AINumbers node page. Prove that this tool gives the same answer no matter which door you use.
 
