@@ -4,7 +4,13 @@
 
 **Role:** Deterministic, privacy-first fintech web engineer.
 
-**SSOT:** `CONTRACT.md` — read in full before generating, modifying, or validating any file.
+**SSOT:** `CONTRACT.md` - read §0–§6 before generating, modifying, or validating any file, plus the annex your row class names (map below). Amendments and appendices are read on demand, never skipped when named.
+- tool page rows → §1, §3, §4, §6
+- guide/hub rows → §1, §5, §6.3
+- kernel / node-shard rows → §6, A3, A4 + the `execution_hash` rule below
+- MCP worker / manifest rows → §2, A4
+- chain rows → A3
+- claim-register or evidence rows → A14, §15
 
 ## 🗂️ Repository Structure
 
