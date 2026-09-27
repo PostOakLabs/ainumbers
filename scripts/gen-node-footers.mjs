@@ -19,7 +19,8 @@
  * footer-only mode (nav, CSS and body stay byte-identical; the normalizer's own
  * guards apply). Scope = top-level chaingraph/*.html minus CHROME_EXEMPT minus
  * the pages pinned in scripts/node-page-chrome-baseline.json (their only footer
- * sits inside a <script> template literal, plan decision D4, unruled). Hubs,
+ * sits inside a <script> template literal, plan decision D4, unruled) minus the
+ * GENERATOR_OWNED pages below, whose own generator renders the footer. Hubs,
  * chain pages and root pages are not this writer's: root pages belong to
  * gen-root-chrome.mjs and the generated map pages copy start.html.
  *
@@ -79,6 +80,15 @@ export function pinnedScriptFooterPages() {
 /** Basenames this writer owns, sorted: the normalizer's own auto-scan set
  *  (top-level *.html minus CHROME_EXEMPT) minus the pinned pages. Empty in a
  *  checkout with no chaingraph/ (fixture repos). */
+// Top-level chaingraph pages rendered WHOLE by their own generator, footer
+// included (it imports buildFooter()), with a --check that is hard on a PR. A
+// template edit regenerates them in that PR, so this writer leaves them to their
+// single writer. Measured 2026-09-27: the only generator that embeds the footer
+// and writes a top-level chaingraph page not already in CHROME_EXEMPT.
+export const GENERATOR_OWNED = new Map([
+  ['agentic-payments-map.html', 'rendered whole by scripts/gen-agentic-payments-map.mjs (buildFooter() embedded; --check hard in preflight)'],
+]);
+
 function ownedBasenames() {
   if (!existsSync(CG) || !existsSync(PAGE_CHROME)) return [];
   const exempt = exemptBasenames();
@@ -87,6 +97,7 @@ function ownedBasenames() {
     .filter((f) => f.endsWith('.html'))
     .filter((f) => !exempt.has(f))
     .filter((f) => !pinned.has(f))
+    .filter((f) => !GENERATOR_OWNED.has(f))
     .sort();
 }
 
