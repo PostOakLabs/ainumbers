@@ -346,6 +346,16 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── FOOTER-INFRA-COLUMN-1 (2026-09-27) ──────────────────────────────────────
+  ["gen-node-footers.mjs",
+    "Node-page footer freshness (FOOTER-INFRA-COLUMN-1, footer plan v2 D1(b)): re-renders the " +
+    "footer region of every top-level chaingraph/*.html page from chaingraph/_page-chrome.mjs " +
+    "buildFooter() in memory and compares. Hard in preflight; its CI route is scripts-verify.yml's " +
+    "full preflight (the workflow runs `node scripts/preflight.mjs`), so a named workflow step " +
+    "would only duplicate the same suite. It is also the COVERED gate of derived-artifacts.mjs id " +
+    "'node-page-footers' (advisory on a PR, blocking on main via the generic downgrade; main-side " +
+    "freshness is owned by derived-artifacts-regen.yml). The write half is the regen command, " +
+    "never a PR step. Reads only tracked repo files, no CI-only input. Self-test: --selftest."],
   // ── KERNEL-INPUT-USAGE-CHECK-1 (2026-09-26) ─────────────────────────────────
   ["check-kernel-input-usage.mjs",
     "Declared-input-usage ratchet (KERNEL-INPUT-USAGE-CHECK-1): regex scan of the top-level " +
@@ -1104,6 +1114,17 @@ const DECLARED_DIVERGENCES = new Map([
 // would treat them as unrelated commands and an argument-drift typo on an
 // advisory gate would read as "consistent" because it matched nothing (hole (d)).
 const DISTINCT_LEGS = new Map([
+  ["node scripts/gen-node-footers.mjs --selftest", {
+    sibling: "node scripts/gen-node-footers.mjs --check",
+    decided: "2026-09-27 (FOOTER-INFRA-COLUMN-1)",
+    why:
+      "The --selftest leg copies one real node page into a scratch directory and proves the writer " +
+      "rewrites only the footer region, that a fresh copy reads GREEN, that one mutated footer link " +
+      "reads RED, and that a second write is byte-identical: it can only be reddened by a change to the " +
+      "writer or the normalizer it wraps, never by a content PR, so it is the SELF_TEST shape, " +
+      "preflight-only by design. The --check sibling is the COVERED id 'node-page-footers' freshness " +
+      "gate, advisory on a PR and blocking on main. Separate legs of one script, not argument drift.",
+  }],
   ["node scripts/gen-prompts-page.mjs --selftest", {
     sibling: "node scripts/gen-prompts-page.mjs --check",
     decided: "2026-09-24 (PROMPTS-BORROW-LABELS-1)",
