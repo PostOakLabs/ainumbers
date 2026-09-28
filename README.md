@@ -1,7 +1,8 @@
 # AINumbers.co: Fintech Intelligence Suite
 
 [![Deploy to DreamHost](https://github.com/PostOakLabs/ainumbers/actions/workflows/deploy-to-dreamhost.yml/badge.svg)](https://github.com/PostOakLabs/ainumbers/actions/workflows/deploy-to-dreamhost.yml)
-[![License: CC BY 4.0](https://img.shields.io/badge/license-CC%20BY%204.0-D4A847.svg)](https://creativecommons.org/licenses/by/4.0/)
+[![License: MIT (code)](https://img.shields.io/badge/code-MIT-blue.svg)](LICENSE)
+[![Content: CC BY 4.0](https://img.shields.io/badge/content-CC%20BY%204.0-D4A847.svg)](LICENSE-content.md)
 
 Fintech compliance calculations get done by hand, in spreadsheets, or inside a vendor black box with no way to check the work. AINumbers.co gives payments engineers, ops teams, treasury analysts, and compliance professionals 500+ deterministic browser tools plus ChainGraph: an open standard where every calculation emits a reproducible hash, so any output can be independently re-verified instead of trusted on faith.
 
@@ -90,5 +91,5 @@ Full workflow: `CLAUDE.md` in this directory, then `CONTRACT.md` for the full sp
 - [Ledger](https://ledger.ainumbers.co)
 - [Post Oak Labs](https://postoaklabs.com)
 
-Post Oak Labs. CC BY 4.0.
+Post Oak Labs. Code MIT; site content CC BY 4.0.
 
