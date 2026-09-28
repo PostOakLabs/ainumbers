@@ -55,6 +55,8 @@ python scripts/strip_lang_toggle.py                    # dry-run; prints "clean 
 
 > **MCP / manifest disclosure (standardized 2026-06-11).** Tools expose `manifest.json` through a single `mfst` toggle: `.mfst-btn` (or an inline-styled equivalent) placed before the footer, controlling `#mfstBody` / `#mfstCode`, opened by `toggleMfst()` which lazy-renders `JSON.stringify(MANIFEST, null, 2)`. The inline `MANIFEST` const is the single source of truth. The legacy `.mcp-toggle` / `.mcp-panel` / `#mcpPanel` / `toggleMCP()` button-and-panel pattern is RETIRED and MUST NOT appear in new or existing tools. (rationale: `CONTRACT-RATIONALE.md` §1.2)
 
+> **Explainer pages start from the shared kit (2026-09-28).** A new explainer page MUST be created with `node scripts/sync-explainer-kit.mjs --new <slug>` and MUST pass `node scripts/sync-explainer-kit.mjs --check`, which holds the page's inline copy of EXPLAINER-KIT v1 (`scripts/lib/explainer-kit.mjs`) byte-identical to the lib and refuses any animation the page declares outside the kit regions, so motion stays in SCENE-KIT v1 and the estate keeps one animation system. A row that edits an explainer still on its own design migrates it to the kit.
+
 ### 1.3 Unified PII Banner Text
 ```text
 🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.

@@ -29,13 +29,21 @@
  *     the page needs no pause control.
  *
  * Animation classes (set on any SVG element inside .sk-scene):
- *   sk-draw   stroke draws in; give the path pathLength="100"
+ *   sk-draw   stroke draws in; give the path pathLength="100", or set --len
+ *             to the path's own length
  *   sk-fade   fades in
  *   sk-pop    scales up from its own centre
  *   sk-slide  slides in by --dx / --dy (default 8px up)
  *   sk-pulse  breathes twice (use sparingly)
  *   sk-travel moves once by --tx / --ty over --dur; hidden without motion
+ *   sk-strike fades in fast, for a mark laid over something already drawn
  * Per-element timing: style="--d:.6s" (delay).
+ *
+ * EXPLAINER-KIT-1 (2026-09-28) folded the Agent Staircase explainer's private
+ * animation classes into this kit so the estate keeps ONE animation system:
+ * --len on sk-draw, sk-strike, and the .w / .bl / .xl scene helpers all
+ * arrived from that page. Every addition is additive, so the kit renders the
+ * pages that already carried it exactly as before.
  */
 
 export const SCENE_KIT_VERSION = 'v1';
@@ -52,21 +60,23 @@ export const SCENE_KIT_CSS = `/* SCENE-KIT:v1 (scripts/lib/scene-kit.mjs) */
 .sk-scene .b{fill:var(--bright,#D4E8F8)}.sk-scene .s{fill:var(--body,#6888A8)}.sk-scene .mu{fill:var(--muted,#3A5270)}
 .sk-scene .g{fill:var(--gold,#D4A847)}.sk-scene .t{fill:var(--teal-lt,#2DD4BF)}.sk-scene .p{fill:var(--purple,#9B72F5)}
 .sk-scene .ok{fill:var(--green,#22C55E)}.sk-scene .r{fill:var(--red,#EF4444)}
-.sk-scene .xs{font-size:10.5px}.sk-scene .sm{font-size:12px}.sk-scene .md{font-size:14px}.sk-scene .lg{font-size:17px}
+.sk-scene .w{fill:var(--warn,#F59E0B)}.sk-scene .bl{fill:var(--blue,#60A5FA)}
+.sk-scene .xs{font-size:10.5px}.sk-scene .sm{font-size:12px}.sk-scene .md{font-size:14px}.sk-scene .lg{font-size:17px}.sk-scene .xl{font-size:21px}
 .sk-scene .u{letter-spacing:.14em;text-transform:uppercase}
 .sk-scene a{cursor:pointer}
 .sk-scene a:focus{outline:none}
 .sk-scene a:hover .sk-hit,.sk-scene a:focus-visible .sk-hit{stroke:var(--teal-lt,#2DD4BF);stroke-width:2}
 .sk-scene .sk-pop{transform-box:fill-box;transform-origin:center}
 .sk-travel{opacity:0}
-.sk-js .sk-scene .sk-draw{stroke-dasharray:100;stroke-dashoffset:100}
-.sk-js .sk-scene .sk-fade,.sk-js .sk-scene .sk-pop,.sk-js .sk-scene .sk-slide{opacity:0}
+.sk-js .sk-scene .sk-draw{stroke-dasharray:var(--len,100);stroke-dashoffset:var(--len,100)}
+.sk-js .sk-scene .sk-fade,.sk-js .sk-scene .sk-pop,.sk-js .sk-scene .sk-slide,.sk-js .sk-scene .sk-strike{opacity:0}
 .sk-js .sk-scene.sk-play .sk-draw{animation:sk-draw .9s ease-out forwards var(--d,0s)}
 .sk-js .sk-scene.sk-play .sk-fade{animation:sk-fade .6s ease-out forwards var(--d,0s)}
 .sk-js .sk-scene.sk-play .sk-pop{animation:sk-pop .5s cubic-bezier(.2,1.4,.4,1) forwards var(--d,0s)}
 .sk-js .sk-scene.sk-play .sk-slide{animation:sk-slide .7s ease-out forwards var(--d,0s)}
 .sk-js .sk-scene.sk-play .sk-pulse{animation:sk-pulse 2.2s ease-in-out 2 var(--d,0s)}
 .sk-js .sk-scene.sk-play .sk-travel{animation:sk-travel var(--dur,2.6s) linear 1 var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-strike{animation:sk-fade .4s ease-out forwards var(--d,0s)}
 @keyframes sk-draw{to{stroke-dashoffset:0}}
 @keyframes sk-fade{to{opacity:1}}
 @keyframes sk-pop{0%{opacity:0;transform:scale(.55)}100%{opacity:1;transform:scale(1)}}
@@ -75,7 +85,7 @@ export const SCENE_KIT_CSS = `/* SCENE-KIT:v1 (scripts/lib/scene-kit.mjs) */
 @keyframes sk-travel{0%{opacity:0;transform:translate(0,0)}8%{opacity:1}88%{opacity:1}100%{opacity:0;transform:translate(var(--tx,0px),var(--ty,0px))}}
 @media print,(prefers-reduced-motion:reduce){
   .sk-js .sk-scene *{animation:none!important}
-  .sk-js .sk-scene .sk-fade,.sk-js .sk-scene .sk-pop,.sk-js .sk-scene .sk-slide{opacity:1!important;transform:none!important}
+  .sk-js .sk-scene .sk-fade,.sk-js .sk-scene .sk-pop,.sk-js .sk-scene .sk-slide,.sk-js .sk-scene .sk-strike{opacity:1!important;transform:none!important}
   .sk-js .sk-scene .sk-draw{stroke-dashoffset:0!important}
   .sk-travel{opacity:0!important}
 }`;
