@@ -53,7 +53,7 @@ Every tool ships a manifest at `manifests/{tool}.manifest.json` for MCP auto-dis
 
 - **Single-file tools and nodes.** Each lives in `tools/` or `chaingraph/` with fully inline CSS/JS. No build step, no dependencies, no CDNs.
 - **Deterministic execution.** Rule-based math, schema validation, static reference tables. Bit-for-bit reproducible outputs across runs.
-- **ChainGraph as the sole orchestration surface.** Multi-tool workflows are ChainGraph chains (`chaingraph/chains/`), not the deprecated Composer/Scenario Guide page types. See `chaingraph/standard/SPEC.md` §18.4 for the strength-of-verifiable ladder (L1 execution hash → L2 signature proof → L3 zk compute receipt) and §15 for the conformance gates.
+- **ChainGraph as the sole orchestration surface.** Multi-tool workflows are ChainGraph chains (`chaingraph/chains/`), not the deprecated Composer/Scenario Guide page types. See `chaingraph/standard/SPEC.md` §18.4 for the strength-of-verifiable ladder (L1 §4 hash → L2 §16 proof binding → L3 §18 compute receipt) and §15 for the conformance gates.
 - **AINumbers Policy Mandate export.** Policy, rule, mandate, and compliance tools export a structured Policy Mandate (JSON and Markdown), validated before download. This is AINumbers' own schema, not Google's AP2 payments protocol (CONTRACT §3.1).
 - **Ledger.** `ledger/` is the one carve-out from the site's zero-client-storage rule (CONTRACT §A7): local-only IndexedDB receipt store, export/import, zero transmission except a user-initiated anchor call.
 
