@@ -346,6 +346,20 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── SOURCE-CURRENCY-FEED-1 (2026-09-28) ─────────────────────────────────────
+  ["check-source-currency.mjs",
+    "Offline source-currency gate (SOURCE-CURRENCY-FEED-1): reads the committed eCFR map " +
+    "scripts/source-currency.json and flags a kernel whose pin predates its section's last " +
+    "amendment. Reads only tracked repo files (no network — the fetch half is the workspace-root " +
+    "instrument AINumbers/scripts/source-currency-refresh.mjs, outside this repo) and enumerates " +
+    "via readdirSync, so its CI route is scripts-verify.yml's full preflight; a named workflow " +
+    "step would re-run byte-for-byte the same scan. Advisory on pull_request by the gate's OWN " +
+    "exit semantics (GITHUB_EVENT_NAME), blocking on main only when SOURCE_CURRENCY_ENFORCE=1 — " +
+    "when that flip lands (post-triage of the initial FLAGGED set, 6 rows measured 2026-09-28) " +
+    "the gate moves out of this list into a named main-workflow step."],
+  ["check-source-currency.test.mjs",
+    "Paired RED/GREEN fixture proof of check-source-currency.mjs (GATE-SELFTEST-META-1 / SO #34c) " +
+    "— same preflight-only route and post-triage CI plan as its gate above."],
   // ── FOOTER-INFRA-COLUMN-1 (2026-09-27) ──────────────────────────────────────
   ["gen-node-footers.mjs",
     "Node-page footer freshness (FOOTER-INFRA-COLUMN-1, footer plan v2 D1(b)): re-renders the " +

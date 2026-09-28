@@ -2027,6 +2027,18 @@ const GATES = [
   ['Authority contradiction gate fixture proof', 'node scripts/check-authority-contradiction.test.mjs'],
   ['Amendment detection gate (CB7-AMENDMENT-DETECT-1)', 'node scripts/check-amendment-detection.mjs'],
   ['Amendment detection gate fixture proof', 'node scripts/check-amendment-detection.test.mjs'],
+  // SOURCE-CURRENCY-FEED-1: the first gate that asks THE SOURCE whether a pinned
+  // section changed. Reads the committed eCFR map (scripts/source-currency.json,
+  // written by the workspace-root network instrument AINumbers/scripts/
+  // source-currency-refresh.mjs — this gate is offline) and flags a kernel whose
+  // pin predates its section's last amendment. Exit semantics: pull_request runs
+  // are always advisory; a main run is blocking exactly when SOURCE_CURRENCY_ENFORCE=1
+  // is set, which CI flips once the initial FLAGGED set is triaged into rows.
+  // Measured 2026-09-28 (first refresh): 6 FLAGGED, 1 UNMAPPED_SECTION, 28 NO-PIN —
+  // run `node scripts/check-source-currency.mjs` to see where the estate stands
+  // right now. No typed baseline — the JSON itself is the record.
+  ['Source-currency feed gate (SOURCE-CURRENCY-FEED-1)', 'node scripts/check-source-currency.mjs'],
+  ['Source-currency feed gate fixture proof', 'node scripts/check-source-currency.test.mjs'],
   ['JSON-LD structural validity (JSONLD-1)', 'node scripts/check-jsonld.mjs'],
   ['Citation drift -- pinned numbers vs clause snapshot (CITATION-DRIFT-GATE-1)', 'node scripts/check-citation-drift.mjs'],
   ['Citation drift gate fixture proof', 'node scripts/check-citation-drift.test.mjs'],
