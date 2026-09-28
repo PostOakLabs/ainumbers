@@ -364,6 +364,17 @@ const PREFLIGHT_ONLY = new Map([
     "full preflight — a named workflow step would re-run byte-for-byte the same scan. The page list " +
     "is derived from the markers, never a registry, so nothing here goes stale when a page adopts " +
     "the kit. The --selftest entry is its paired RED/GREEN mutation control (SO #34c)."],
+  // ── EXPLAINER-KIT-1 (2026-09-28) ────────────────────────────────────────────
+  ["sync-explainer-kit.mjs",
+    "EXPLAINER-KIT inline-copy sync plus the one-animation-system composition rule " +
+    "(EXPLAINER-KIT-1). Hard in preflight, both modes. Same shape as sync-scene-kit.mjs above: it " +
+    "reads only tracked HTML plus scripts/lib/explainer-kit.mjs and scripts/lib/scene-kit.mjs (no " +
+    "network, no CI-only input) and enumerates via `git ls-files`, so its CI route is " +
+    "scripts-verify.yml's full preflight and a named workflow step would re-run byte-for-byte the " +
+    "same scan. The page list is derived from the markers, never a registry, so nothing goes stale " +
+    "when a page adopts the kit. The --selftest entry is its paired RED/GREEN mutation control " +
+    "(SO #34c). Motion timing is NOT restated here: an explainer carries its scenes as " +
+    "<svg class=\"sk-scene\">, so sync-scene-kit.mjs --check already holds it to WCAG 2.2.2."],
   // ── KERNEL-INPUT-USAGE-CHECK-1 (2026-09-26) ─────────────────────────────────
   ["check-kernel-input-usage.mjs",
     "Declared-input-usage ratchet (KERNEL-INPUT-USAGE-CHECK-1): regex scan of the top-level " +

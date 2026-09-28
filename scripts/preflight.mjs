@@ -1407,6 +1407,15 @@ const GATES = [
   // durations PARSED OUT OF the kit CSS, never hardcoded.
   ['SCENE-KIT inline copies + motion timing (ZK-PAGES-SVG-PILOT-1)', 'node scripts/sync-scene-kit.mjs --check'],
   ['SCENE-KIT gate controls (RED/GREEN mutations, SO #34c pairing)', 'node scripts/sync-scene-kit.mjs --selftest'],
+  // EXPLAINER-KIT-1 (2026-09-28): EXPLAINER-KIT v1 lives in
+  // scripts/lib/explainer-kit.mjs and carries the shared explainer design plus
+  // its presenter script. Same inline-copy shape as the scene kit, same drift.
+  // This gate rewrites-and-compares both marker regions from the lib, and
+  // enforces the composition rule that keeps ONE animation system in the
+  // estate: a marked page must also carry the SCENE-KIT regions and may
+  // declare no @keyframes and no animation property of its own.
+  ['EXPLAINER-KIT inline copies + one animation system (EXPLAINER-KIT-1)', 'node scripts/sync-explainer-kit.mjs --check'],
+  ['EXPLAINER-KIT gate controls (RED/GREEN mutations, SO #34c pairing)', 'node scripts/sync-explainer-kit.mjs --selftest'],
   ['Homepage MCP-ACTIVITY sentinel matches data/mcp-activity.json (generator --check)', 'node scripts/mcp-activity-embed.mjs --check'],
   // AIN-AGENT-KIT-1: agent-kit artifacts are generator-emitted (gen-agent-kit.mjs from
   // agent-kit/kit.json); this gate regenerates twice into temp, byte-compares determinism
