@@ -50,7 +50,15 @@ test('session-root parity: SSOT routine reproduces every committed fixture root'
 
 test('session-root parity: bridge snippet v1.2 carries the identical routine bytes', () => {
   const snippet = readFileSync(resolve(REPO, 'scripts', 'ain-bridge-v1.snippet.html'), 'utf8');
-  assert.ok(snippet.includes("version:'1.2'"), 'bridge snippet must be version 1.2 (COMPOSER-PLAN-AND-ROOT-WEBMCP-1 bump)');
+  // The snippet declares its version ONCE, and since BRIDGE-SNIPPET-SYNC-GEN-1
+  // that one place is `var BRIDGE_VERSION='1.2'` (scripts/sync-ain-bridge.mjs
+  // reads it to decide what it stamps onto a page). The older inline form
+  // `version:'1.2'` is still accepted so this assertion tests the VERSION, not
+  // the syntax that happens to carry it.
+  assert.ok(
+    /var BRIDGE_VERSION='1\.2';/.test(snippet) || snippet.includes("version:'1.2'"),
+    'bridge snippet must be version 1.2 (COMPOSER-PLAN-AND-ROOT-WEBMCP-1 bump)',
+  );
   // The byte-identical core: everything between the signature line and the final closing brace.
   const core = SESSION_ROOT_SOURCE.slice(SESSION_ROOT_SOURCE.indexOf('  if (!Array.isArray'), SESSION_ROOT_SOURCE.lastIndexOf('}')).trimEnd();
   assert.ok(snippet.includes(core), 'bridge snippet must contain the byte-identical session-root core');
