@@ -916,7 +916,17 @@ const { advisoryGates, isMainContext, COVERED, DERIVED_ROOT_GATES } = await impo
 // correctness, which is the same tradeoff helmPathsTouched() already makes.
 const { primaryScriptPath } = await import('./check-derived-declare-parity.mjs');
 function derivedRegenLiveScopeTouched() {
-  const relevant = new Set(['scripts/derived-artifacts.mjs']);
+  // DERIVED-SET-SELFTEST-TRIGGER-1: this gate's own script and its test were
+  // absent from this set — site PR #2104 changed check-derived-regen-live.mjs
+  // (+246/−16) and preflight answered "no derived-artifacts/generator path
+  // touched, skipped": changing the gate did not exercise the gate. The gate's
+  // script, its test, and this wiring file itself now trigger it.
+  const relevant = new Set([
+    'scripts/derived-artifacts.mjs',
+    'scripts/check-derived-regen-live.mjs', // DERIVED-SET-SELFTEST-TRIGGER-1: the gate's own script
+    'scripts/check-derived-regen-live.test.mjs', // DERIVED-SET-SELFTEST-TRIGGER-1: the gate's test
+    'scripts/preflight.mjs', // DERIVED-SET-SELFTEST-TRIGGER-1: the gate's wiring file
+  ]);
   for (const c of COVERED) {
     const rp = primaryScriptPath(c.regen);
     if (rp) relevant.add(rp);
