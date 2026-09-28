@@ -911,6 +911,7 @@ const PREFLIGHT_ONLY = new Map([
   ["check-deploy-superseded.test.mjs", SELF_TEST],
   ["check-served-egress.test.mjs", SELF_TEST],
   ["check-workflow-gate-parity.test.mjs", SELF_TEST],
+  ["sync-ain-bridge.test.mjs", SELF_TEST],
   ["check-chain-edge-contracts.selftest.mjs", SELF_TEST],
   ["check-chain-l2-contracts.selftest.mjs", SELF_TEST],
   // Landed on main after this row branched, and caught by axis 3 on the rebase

@@ -1115,6 +1115,11 @@ const GATES = [
       ? null
       : { notRun: 'this push touches no chaingraph/kernels/**/*.mjs file, so the JSDoc CheckJS gate had nothing to examine' }],
   ['JSDoc CheckJS fixture proof (classifyDiagnostics, TOUCHTAX-DIFFSCOPE-1)', 'node scripts/jsdoc-checkjs-gate.test.mjs'],
+  // The DRIFT report below is advisory; the generator's own safety asserts are
+  // not. This runs the region finder and the byte-reversibility proof over the
+  // three live page shapes, so a rewriter that could corrupt a page reds here
+  // long before anyone points it at one.
+  ['AIN Bridge region finder + byte-safety asserts (BRIDGE-SNIPPET-SYNC-GEN-1)', 'node scripts/sync-ain-bridge.test.mjs'],
   ['Kernel exports (meta+compute)','node scripts/check-kernel-exports.mjs'],
   ['Forbidden-hash lint',          'node chaingraph/kernels/lint-forbidden-hash.mjs'],
   ['Hash golden-parity',           'node chaingraph/kernels/golden-parity.test.mjs'],
@@ -3009,6 +3014,34 @@ gateStart(CCPP_CONSISTENCY_LABEL);
       gateFail('   ⚠ SURPRISES — an observed-vs-declared mismatch fired in the consistency harness (ADVISORY: printed, NOT blocking; blocking flip is CCPP-GATE-BLOCK-1)');
       console.log('\n' + r.out.trim() + '\n');
     }
+  }
+}
+
+// ── Advisory (non-blocking): AIN Bridge block drift (BRIDGE-SNIPPET-SYNC-GEN-1) ──
+// scripts/sync-ain-bridge.mjs --check re-derives every page's bridge region
+// from the master snippet (scripts/ain-bridge-v1.snippet.html) and reports the
+// pages whose bytes differ. Measured 2026-09-28 (BRIDGE-SNIPPET-SYNC-GEN-1):
+// 600 bridge pages scanned, 595 drifted, 5 SKIP. ADVISORY BY DESIGN, exit 0
+// always: a blocking gate on that backlog reds main on the exact debt row
+// BRIDGE-SNIPPET-ROLL-1 exists to clear. Promotion to blocking is that row's
+// own last batch and a separate decision, never a side effect of this line.
+// Run `node scripts/sync-ain-bridge.mjs --check --summary` to see where the
+// count stands now. The SKIP list is the load-bearing half of the output:
+// those pages are shapes the generator deliberately will not rewrite (a bridge
+// that is not in its own script element, a page carrying two CFG lines), and
+// they are the pages the ROLL row will NOT reach.
+const BRIDGE_SYNC_LABEL = 'AIN Bridge block drift vs the master snippet (advisory report, BRIDGE-SNIPPET-SYNC-GEN-1)';
+gateStart(BRIDGE_SYNC_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/sync-ain-bridge.mjs --check --summary');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(BRIDGE_SYNC_LABEL, r.reason, r.out);
+  } else {
+    const lines = (r.out || '').trim().split('\n').filter(Boolean);
+    gatePass(lines.find((l) => l.startsWith('sync-ain-bridge:')) || 'no summary line printed — see node scripts/sync-ain-bridge.mjs --check');
+    for (const l of lines.filter((l) => l.trim().startsWith('SKIP'))) console.log(l);
+    // A non-zero exit here means DRIFT, which is this row's expected state and
+    // its documented contract — not a checker that misbehaved.
   }
 }
 
