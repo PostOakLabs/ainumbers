@@ -28,6 +28,17 @@
           (worker.mjs buildSessionReceiptCore). scripts/session-root-parity.test.mjs
           asserts the byte identity and the fixture roots. Never re-derive.
 
+     Feature detection (B7, BRIDGE-SNIPPET-SYNC-GEN-1): AINBridge.capabilities
+     is {version, prefill, mandate, handoff, sendToVerify, sessionRoot}. The
+     five flags are booleans DERIVED from the routines present in this closure,
+     so an agent reads what a page actually supports without calling a function
+     to see whether it throws; version carries the string this block declares.
+     Pages pick it up when scripts/sync-ain-bridge.mjs re-stamps them.
+
+     THIS FILE IS THE ONLY PLACE A BRIDGE VERSION IS AUTHORED. Re-stamp a page
+     with `node scripts/sync-ain-bridge.mjs <page>`; find drift with
+     `node scripts/sync-ain-bridge.mjs --check`. Never hand-edit a page's block.
+
      Contract posture: zero network, zero storage reads or writes,
      values assigned via .value/.checked (no innerHTML of payload),
      functions invoked only via CFG.runFn whitelist.
@@ -46,6 +57,11 @@
 <script>
 (function(){
 'use strict';
+/* Declared ONCE and read by both AINBridge.version and AINBridge.capabilities.version,
+   so the two can never disagree. scripts/sync-ain-bridge.mjs reads this literal to
+   decide the version it stamps onto a page's header comment and bridge_version
+   metadata — the master snippet is the only place a bridge version is authored. */
+var BRIDGE_VERSION='1.2';
 var CFG=window.AIN_BRIDGE_CFG||{};
 var L={
  en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
@@ -183,7 +199,20 @@ async function ainSessionRoot(executionHashes) {
   return level[0];
 }
 window.AINBridge={
-  version:'1.2',
+  version:BRIDGE_VERSION,
+  /* capabilities — B7 (BRIDGE-SNIPPET-SYNC-GEN-1). A feature-detect surface so an
+     agent can read what this page's bridge supports instead of probing it by
+     calling functions and watching them throw. Every flag is DERIVED from the
+     routine actually present in this closure, never hand-maintained: an older
+     page carrying an older copy of this block reports the truth about itself. */
+  capabilities:{
+    version:BRIDGE_VERSION,
+    prefill:typeof applyFields==='function',
+    mandate:typeof intakeApply==='function',
+    handoff:typeof onComposerMessage==='function',
+    sendToVerify:typeof apSendToVerify==='function',
+    sessionRoot:typeof ainSessionRoot==='function'
+  },
   apply:applyFields,
   run:runTool,
   intake:intakeApply,
@@ -192,7 +221,10 @@ window.AINBridge={
   getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
   makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
 };
-window.addEventListener('message',function(e){
+/* Named (was an inline anonymous listener) so capabilities.handoff can be derived
+   from the routine's presence rather than asserted. Function declarations hoist,
+   so the typeof test above is true at the moment AINBridge is assigned. */
+function onComposerMessage(e){
   if(window.parent===window||e.source!==window.parent)return;
   if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
   var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
@@ -200,7 +232,8 @@ window.addEventListener('message',function(e){
   if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
   else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
   else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
-});
+}
+window.addEventListener('message',onComposerMessage);
 function boot(){buildIntakeUI();initPrefill();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
