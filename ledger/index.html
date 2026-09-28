@@ -81,6 +81,9 @@ nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filt
 /* artifact card (ledger row) */
 .artifact-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;cursor:pointer;transition:border-color .2s,background .2s;position:relative}
 .artifact-card:hover{border-color:var(--border-2);background:var(--bg-3)}
+/* B3/B4 live channel: the row a tool tab just handed over, or the row a duplicate
+   receipt resolved to. Static, no animation (SCENE-KIT v1 owns motion). */
+.artifact-card.card-live{border-color:var(--teal);background:var(--bg-3)}
 .artifact-card .card-chip{flex-shrink:0}
 .artifact-card .card-body{flex:1;min-width:0}
 .artifact-card .card-title{font-size:.9rem;color:var(--bright);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -711,7 +714,7 @@ function artifactTitle(artifact) {
 }
 
 function sourceLabel(src) {
-  const map = { link: 'via link', paste: 'pasted', file: 'from file', folder: 'from folder', import: 'imported', unknown: 'unknown' };
+  const map = { link: 'via link', paste: 'pasted', file: 'from file', folder: 'from folder', import: 'imported', live: 'from a tool tab', unknown: 'unknown' };
   return map[src] || src;
 }
 
@@ -748,6 +751,65 @@ function extractAllArtifacts(parsed) {
     return parsed.flatMap(item => extractAllArtifacts(item));
   }
   return [];
+}
+
+/* ── AIN LEDGER LIVE CHANNEL v1: MESSAGE SCHEMA (B3/B4/B5) ────────────────────
+   This comment block is IDENTICAL in ledger/index.html and in
+   scripts/ain-bridge-v1.snippet.html. Change one, change both.
+
+   Transport: BroadcastChannel, name 'ain-ledger-v1'. Same-origin by
+   construction: a message only ever reaches a tab on the SAME origin, so the
+   channel carries nothing across an origin boundary. The ledger serves at BOTH
+   ainumbers.co/ledger/ (path form) and ledger.ainumbers.co (subdomain form);
+   only the path form shares an origin with a tool page, so the subdomain form
+   keeps today's fragment-only intake unchanged.
+
+   Envelope: JSON-RPC 2.0 in the MCP Apps ui/ dialect, the same envelope the AIN
+   Bridge postMessage leg carries. Both legs are notifications, so neither
+   carries an id and neither expects a JSON-RPC response object.
+
+   page to ledger:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt",
+      "params":{"v":1,"receipt":<OCG artifact>}}
+
+   ledger to page:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt-ack",
+      "params":{"v":1,"execution_hash":"<hash>",
+                "status":"added"|"duplicate"|"rejected"}}
+
+   Identity: a receipt's ledger identity is its execution_hash, the keyPath of
+   the artifact store. The ack deliberately does NOT use the name record_hash:
+   on this page record_hash already means the SPEC.md 22.8.4 escalation-record
+   hash, a different value over a different object.
+
+   params.receipt is validated exactly the way a #a=v1 fragment is, by the same
+   extractArtifact + isArtifact pair, and anything else acks 'rejected'. The
+   channel carries a receipt only, never a mandate body and never any other
+   payload: the same rule the fragment leg already follows.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Pure half of the channel, lifted live by scripts/ledger-dedup.test.mjs through
+   scripts/lib-extract-shipped.mjs, so the gate tests the shipped code rather
+   than a replica of it. */
+
+function isLedgerReceiptNotification(msg) {
+  if (!msg || typeof msg !== 'object') return false;
+  if (msg.jsonrpc !== '2.0' || msg.method !== 'ui/notifications/receipt') return false;
+  const p = msg.params;
+  return !!p && typeof p === 'object' && p.v === 1 && !!p.receipt && typeof p.receipt === 'object';
+}
+
+function ledgerReceiptAck(executionHash, status) {
+  return { jsonrpc: '2.0', method: 'ui/notifications/receipt-ack', params: { v: 1, execution_hash: executionHash, status: status } };
+}
+
+/* B4 de-dup. `existing` is what dbGet returned for the receipt's execution_hash
+   (undefined when the receipt is new). Pure: no IndexedDB and no DOM here, so the
+   decision every ingress path takes is one testable function rather than an
+   if-statement repeated per channel. */
+function dedupDecision(artifact, existing) {
+  if (!isArtifact(artifact)) return { status: 'rejected', execution_hash: null };
+  return { status: existing ? 'duplicate' : 'added', execution_hash: artifact.execution_hash };
 }
 
 /* ── INDEXEDDB ──────────────────────────────────────────────────── */
@@ -3168,14 +3230,74 @@ async function handleFragmentImport() {
   // Strip fragment from address bar
   history.replaceState(null, '', location.pathname + '#view/' + artifact.execution_hash);
 
-  // Check if already in DB
-  const existing = await dbGet(artifact.execution_hash);
-  if (!existing) {
+  // B4: one de-dup decision, shared with the live channel. A receipt already in
+  // the store is not offered for a second row; the user lands on the row it has.
+  const decision = dedupDecision(artifact, await dbGet(artifact.execution_hash));
+  if (decision.status === 'added') {
     const keep = await confirmKeep(artifact);
     if (keep) await persistArtifact(artifact, 'link');
+  } else if (decision.status === 'duplicate') {
+    showToast('Already recorded: ' + shortHash(artifact.execution_hash), 'warn');
   }
 
   await showRecord(artifact);
+}
+
+/* ── LIVE CHANNEL WIRING (B3/B5) ────────────────────────────────── */
+const LEDGER_CHANNEL_NAME = 'ain-ledger-v1';
+let _ledgerChannel = null;
+
+// A browser without BroadcastChannel keeps exactly today's fragment-only intake.
+function openLedgerChannel() {
+  if (typeof BroadcastChannel !== 'function') return null;
+  try { _ledgerChannel = new BroadcastChannel(LEDGER_CHANNEL_NAME); }
+  catch { return null; }
+  _ledgerChannel.onmessage = ev => { handleChannelReceipt(ev?.data); };
+  return _ledgerChannel;
+}
+
+// B3 intake + B5 ack. Anything that is not a well-formed receipt notification is
+// ignored without an ack, so the ledger's own ack messages cannot loop back in.
+async function handleChannelReceipt(msg) {
+  if (!isLedgerReceiptNotification(msg)) return;
+  const artifact = extractArtifact(msg.params.receipt);
+  const existing = artifact && isArtifact(artifact) ? await dbGet(artifact.execution_hash) : undefined;
+  const decision = dedupDecision(artifact, existing);
+  if (decision.status === 'added') await persistArtifact(artifact, 'live');
+  postLedgerAck(decision);
+  if (decision.status !== 'rejected') await reflectChannelReceipt(decision);
+}
+
+function postLedgerAck(decision) {
+  if (!_ledgerChannel) return;
+  try { _ledgerChannel.postMessage(ledgerReceiptAck(decision.execution_hash, decision.status)); } catch {}
+}
+
+// B3: render without a reload, and leave the user where they were. A record view
+// or the evidence tab is not yanked out from under them; the list view refreshes
+// and marks the row the receipt resolved to.
+async function reflectChannelReceipt(decision) {
+  const dup = decision.status === 'duplicate';
+  showToast(
+    dup ? 'Already recorded: ' + shortHash(decision.execution_hash) : 'Receipt recorded from a tool tab.',
+    dup ? 'warn' : 'success'
+  );
+  if (location.hash.startsWith('#view/') || location.hash === '#evidence') return;
+  await renderLedger();
+  highlightRecord(decision.execution_hash);
+}
+
+function highlightRecord(hash) {
+  // Attribute-selector guard: only a well-formed hash is ever interpolated.
+  if (typeof hash !== 'string' || !/^(sha256:)?[0-9a-f]{64}$/i.test(hash)) return;
+  const card = document.querySelector('.artifact-card[data-hash="' + hash + '"]');
+  if (!card) return;
+  card.classList.add('card-live');
+  card.scrollIntoView({ block: 'nearest' });
+}
+
+function shortHash(h) {
+  return typeof h === 'string' && h.length > 16 ? h.slice(0, 16) + '...' : String(h || '');
 }
 
 /* ── NAV WIRING ─────────────────────────────────────────────────── */
@@ -3234,6 +3356,10 @@ function wireNav() {
   document.getElementById('footer-version').textContent = 'v' + VERSION;
 
   wireNav();
+
+  // B3: live receipts from same-origin tool tabs. Opened before the first route
+  // so a receipt posted while this tab loads is not dropped.
+  openLedgerChannel();
 
   // Load persisted folder handle
   _folderHandle = await loadFolderHandle();
