@@ -62,11 +62,12 @@ function undoPermittedEdits(original, out, origRegion) {
 }
 
 test('the master snippet is readable by the same finder that reads a page', () => {
-  assert.equal(MASTER.version, '1.2');
+  // 1.3 since BRIDGE-MCP-APPS-ALIGN-1 added the MCP Apps ui/ layer to the master.
+  assert.equal(MASTER.version, '1.3');
   assert.match(MASTER.body, /window\.AINBridge\s*=/);
   assert.match(MASTER.body, /capabilities:\{/, 'B7: the master exports a capabilities object');
   // B7: every flag is derived from a routine, never a hard-coded true.
-  for (const k of ['prefill', 'mandate', 'handoff', 'sendToVerify', 'sessionRoot']) {
+  for (const k of ['prefill', 'mandate', 'handoff', 'sendToVerify', 'sessionRoot', 'mcpApps']) {
     assert.match(MASTER.body, new RegExp(`${k}:typeof \\w+==='function'`), `${k} is derived, not asserted`);
   }
   assert.match(MASTER.body, /function onComposerMessage\(e\)\{/, 'handoff is derived from a named routine');

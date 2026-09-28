@@ -346,6 +346,23 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── BRIDGE-MCP-APPS-ALIGN-1 (2026-09-28) ────────────────────────────────────
+  ["check-bridge-jsonrpc.mjs",
+    "AIN Bridge MCP Apps ui/ dialect lint: reads ONE tracked file's bytes " +
+    "(scripts/ain-bridge-v1.snippet.html) and holds its two method allowlists to the MCP Apps " +
+    "specification 2026-01-26 plus the origin-pinning rule. No network, no CI-only input, no " +
+    "enumeration — the only PR that can redden it is one that edits the master snippet or this " +
+    "gate, and both live under scripts/, which is exactly scripts-verify.yml's path filter, so its " +
+    "CI route is that workflow's full `node scripts/preflight.mjs` run. A named workflow step would " +
+    "re-read the same single file. It moves to a named step if BRIDGE-SNIPPET-ROLL-1 widens its " +
+    "scope to the ~600 published pages, where a content PR could redden it too."],
+  ["check-bridge-jsonrpc.test.mjs", SELF_TEST],
+  ["ain-bridge-jsonrpc.test.mjs",
+    "Unit suite for the master snippet's MCP-APPS-JSONRPC region (BRIDGE-MCP-APPS-ALIGN-1): it cuts " +
+    "the region out of scripts/ain-bridge-v1.snippet.html and evaluates it, so like a paired " +
+    "self-test it can only be reddened by a change to that snippet or to itself — both under " +
+    "scripts/, both caught by scripts-verify.yml's path-scoped full preflight. No network, no " +
+    "CI-only input, no estate enumeration."],
   // ── SOURCE-CURRENCY-FEED-1 (2026-09-28) ─────────────────────────────────────
   ["check-source-currency.mjs",
     "Offline source-currency gate (SOURCE-CURRENCY-FEED-1): reads the committed eCFR map " +
