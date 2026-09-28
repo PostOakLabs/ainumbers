@@ -1442,14 +1442,13 @@ function highlightFailure(stepIdx) {
    URL STATE
 ═══════════════════════════════════════════ */
 function updateURL() {
-  const params = new URLSearchParams({
-    t: currentTemplate,
-    f: overlays.failure ? '1' : '0',
-    ti: overlays.timing ? '1' : '0',
-    r: overlays.returns ? '1' : '0',
-  });
-  const url = `${location.origin}${location.pathname}?${params.toString()}`;
-  window.history.replaceState({}, '', `?${params.toString()}`);
+  // State rides in the fragment, which the browser never sends to a server.
+  const frag = 't=' + encodeURIComponent(currentTemplate)
+    + '&f='  + (overlays.failure ? '1' : '0')
+    + '&ti=' + (overlays.timing  ? '1' : '0')
+    + '&r='  + (overlays.returns ? '1' : '0');
+  const url = `${location.origin}${location.pathname}#${frag}`;
+  window.history.replaceState({}, '', '#' + frag);
   return url;
 }
 
@@ -1469,19 +1468,32 @@ function copyShareURL() {
   });
 }
 
+function hashParam(key) {
+  const m = (location.hash || '').match(new RegExp('[#&]' + key + '=([^&]*)'));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 function loadFromURL() {
-  const p = new URLSearchParams(location.search);
-  if (p.get('t') && TEMPLATES[p.get('t')]) {
-    currentTemplate = p.get('t');
+  // LEGACY CONVERTER (query-string privacy baseline): older share links carried
+  // ?t=&f=&ti=&r=. Move them to the fragment and strip the query so the state
+  // stops being sent to the host on every open.
+  const legacyQuery = location.search;
+  if (/[?&](t|f|ti|r)=/.test(legacyQuery)) {
+    window.history.replaceState({}, '', location.pathname + '#' + legacyQuery.slice(1));
+  }
+  const t = hashParam('t');
+  if (t && TEMPLATES[t]) {
+    currentTemplate = t;
     document.querySelectorAll('.template-btn').forEach((btn, i) => {
       const keys = ['fednow','ach','ukob','sepa'];
       btn.classList.toggle('active', keys[i] === currentTemplate);
     });
     document.getElementById('canvas-title').textContent = TEMPLATES[currentTemplate].name;
   }
-  if (p.get('f') !== null) { overlays.failure = p.get('f') === '1'; document.getElementById('toggle-failure').checked = overlays.failure; }
-  if (p.get('ti') !== null){ overlays.timing  = p.get('ti') !== '0'; document.getElementById('toggle-timing').checked = overlays.timing; }
-  if (p.get('r') !== null) { overlays.returns = p.get('r') === '1'; document.getElementById('toggle-returns').checked = overlays.returns; }
+  const f = hashParam('f'), ti = hashParam('ti'), r = hashParam('r');
+  if (f !== null)  { overlays.failure = f === '1';  document.getElementById('toggle-failure').checked = overlays.failure; }
+  if (ti !== null) { overlays.timing  = ti !== '0'; document.getElementById('toggle-timing').checked = overlays.timing; }
+  if (r !== null)  { overlays.returns = r === '1';  document.getElementById('toggle-returns').checked = overlays.returns; }
 }
 
 /* ═══════════════════════════════════════════

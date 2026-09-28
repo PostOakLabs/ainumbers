@@ -1247,6 +1247,17 @@ const GATES = [
   // fixture/manifest/page divergences are baselined WARN (downward ratchet).
   ['Deep-link contract (fragment-only prefill+run)', 'node scripts/check-deeplink-contract.mjs'],
   ['Deep-link contract gate controls', 'node scripts/check-deeplink-contract.test.mjs'],
+  // QUERYSTRING-PRIVACY-1: the deep-link gate above covers only the WebMCP-
+  // REGISTERED pages, so the fragment-only rule held over a subset of the
+  // estate and nowhere else — tool 08 shipped `?s=<base64 merchant config>`
+  // under copy promising nothing reached a server. This gate carries the same
+  // rule across every published .html: no `location.search` read, no
+  // `URLSearchParams(` over the query, no history call writing a literal `?`,
+  // beyond two structurally-recognised benign shapes (the `embed=1` display
+  // flag, the fragment strip) and a shrink-only baseline holding exactly the
+  // two legacy `?` -> `#` converters on tools 08 and 13.
+  ['Query-string privacy (no user state in `?`)', 'node scripts/check-query-string-privacy.mjs'],
+  ['Query-string privacy gate controls (RED/GREEN, SO #34c pairing)', 'node scripts/check-query-string-privacy.mjs --self-test'],
   // WEBMCP-WRAPPER-OBJECT-PARAMS-1: the wrapper-execute vm gate. The deep-link
   // gate above never calls the REGISTERED tool's execute() body — the door the
   // art-118 String(object) wedge shipped through (a real host's execute()

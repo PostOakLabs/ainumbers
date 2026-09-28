@@ -304,7 +304,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:1.4rem 
   <div class="out-panel" style="margin-bottom:1.5rem">
     <div class="out-header"><span class="out-title">AIN Bridge: Prefill Snippet</span><button class="copy-btn" id="copyBridgeBtn" onclick="copyBridge()">Copy</button></div>
     <div class="out-body">
-      <p style="font-size:.72rem;color:var(--body);margin-bottom:.5rem">Use this to prefill T477 from another tool or MCP workflow (e.g. KYA Firewall):</p>
+      <p style="font-size:.72rem;color:var(--body);margin-bottom:.5rem">Use this to prefill T477 from another tool or MCP workflow (e.g. KYA Firewall). The selections travel in the link's fragment (<code>#in=</code>), which browsers do not send to a server:</p>
       <div class="bridge-snip" id="bridgeSnip">Run assessment to generate bridge snippet.</div>
     </div>
   </div>
@@ -471,9 +471,15 @@ function buildMd(composite, tier, cdd, dims) {
 }
 
 function buildBridge(dims) {
-  var params = {};
-  ['entity_type','geography','product_service','channel','pep_sanctions','transaction_pattern'].forEach(function(k,i){params[k]=dims[i].key;});
-  return '<!-- AIN Bridge prefill -->\n<a href="477-fatf-customer-risk-rating.html\n  ?prefill=true&bridge_version=1.0\n  &entity_type='+dims[0].key+'\n  &geography='+dims[1].key+'\n  &product_service='+dims[2].key+'\n  &channel='+dims[3].key+'\n  &pep_sanctions='+dims[4].key+'\n  &transaction_pattern='+dims[5].key+'">Launch pre-filled T477</a>';
+  // CONTRACT §2.4 deep link: #in=<base64url JSON {element_id: value}>.
+  // A fragment never reaches a server; the old ?prefill= query string did.
+  var fields = {};
+  ['entity_type','geography','product_service','channel','pep_sanctions','transaction_pattern'].forEach(function(k,i){
+    var el = document.getElementById(k);
+    fields[k] = (el && el.value) ? el.value : (dims[i].key + '|' + dims[i].raw_score);
+  });
+  var enc = btoa(unescape(encodeURIComponent(JSON.stringify(fields)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  return '<!-- AIN Bridge prefill (CONTRACT §2.4) -->\n<a href="477-fatf-customer-risk-rating.html#in='+enc+'">Launch pre-filled T477</a>';
 }
 
 function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -481,23 +487,9 @@ function copyMandate(){if(_mandate){navigator.clipboard.writeText(_mandate).then
 function copyMd(){if(_md){navigator.clipboard.writeText(_md).then(function(){var b=document.querySelector('.out-panel:nth-of-type(3) .copy-btn');if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy';},2000);}});}}
 function copyBridge(){var t=document.getElementById('bridgeSnip').textContent;if(t&&t!=='Run assessment to generate bridge snippet.'){navigator.clipboard.writeText(t).then(function(){var b=document.getElementById('copyBridgeBtn');if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy';},2000);}});}}
 
-// URL prefill (AIN Bridge)
-(function(){
-  try{
-    var p=new URLSearchParams(window.location.search);
-    if(p.get('prefill')==='true'){
-      ['entity_type','geography','product_service','channel','pep_sanctions','transaction_pattern'].forEach(function(k){
-        var v=p.get(k); if(!v)return;
-        var el=document.getElementById(k); if(!el)return;
-        for(var i=0;i<el.options.length;i++){if(el.options[i].value.startsWith(v)){el.selectedIndex=i;break;}}
-      });
-      ['w_entity','w_geo','w_product','w_channel','w_pep','w_txn'].forEach(function(k){
-        var v=p.get(k); if(!v)return;
-        var el=document.getElementById(k); if(el)el.value=v;
-      });
-    }
-  }catch(e){}
-})();
+// URL prefill is handled by the AIN Bridge #in= reader (CONTRACT §2.4).
+// The former ?prefill= query reader was removed: a query string is sent to the
+// host on every open, and no emitter of that format exists.
 </script>
 <!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
 <script>
