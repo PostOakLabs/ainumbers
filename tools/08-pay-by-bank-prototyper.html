@@ -1007,7 +1007,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem
 
         <p><strong>Friction overlay:</strong> The ⚡ overlay mode annotates each screen with the most significant friction points and their estimated impact on conversion. Overlays are static per screen: they do not change based on your config: as they reflect structural UX friction inherent to each step of the Pay-by-Bank journey regardless of merchant branding.</p>
 
-        <p><strong>Sharing:</strong> The "Share Prototype" button encodes all merchant config (name, amount, product, colour, rail) into a <code>?s=</code> URL parameter as a base64 JSON string. No data is sent to any server: the URL is decoded entirely in the recipient's browser. Sensitive config should not be shared via unsecured channels.</p>
+        <p><strong>Sharing:</strong> The "Share Prototype" button encodes all merchant config (name, amount, product, colour, rail) into the link's fragment (<code>#s=</code>) as a base64 JSON string. Browsers do not send a fragment to a server, so the config is decoded entirely in the recipient's browser. Anyone holding the link can read it, so share synthetic values only.</p>
 
         <p><strong><span data-i18n="about.dataprivacy">Data privacy:</span></strong> This tool runs entirely in your browser. No data is transmitted to any server. All processing happens locally on your device.</p>
         <p><strong><span data-i18n="about.source">Source:</span></strong> Built by <a href="../index.html" target="_blank" rel="noopener">AINumbers.co</a> · Tool 08 · MIT License.</p>
@@ -1637,7 +1637,8 @@ function decodeState(encoded) {
 }
 
 function sharePrototype() {
-  const url = window.location.href.split('?')[0] + '?s=' + encodeState();
+  // State rides in the URL fragment, which the browser never sends to a server.
+  const url = window.location.href.split('?')[0].split('#')[0] + '#s=' + encodeState();
   navigator.clipboard.writeText(url).then(() => {
     const btn = document.getElementById('copy-url-btn');
     const orig = btn.textContent;
@@ -1672,9 +1673,18 @@ function toggleCollapsible(trigger, bodyId) {
 
 /* ── INIT ── */
 (function init() {
-  // Check for shared URL state
-  const params = new URLSearchParams(window.location.search);
-  const encoded = params.get('s');
+  // Shared state lives in the fragment (#s=...). Read it there first.
+  const hm = (window.location.hash || '').match(/[#&]s=([^&]+)/);
+  let encoded = hm ? hm[1] : '';
+  if (!encoded) {
+    // LEGACY CONVERTER (query-string privacy baseline): older links used ?s=.
+    // Convert to #s= and drop the query so the value stops reaching the host.
+    const qm = (window.location.search || '').match(/[?&]s=([^&]+)/);
+    if (qm) {
+      encoded = qm[1];
+      history.replaceState(null, '', window.location.pathname + '#s=' + encoded);
+    }
+  }
   if (encoded && decodeState(encoded)) {
     writeConfig();
   }

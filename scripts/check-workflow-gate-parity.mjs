@@ -1333,7 +1333,11 @@ const DECLARED_SOFTENERS = new Map([
   // JCS-RFC8785-VECTORS-1 (2026-09-28) moved it :902 → :904 — the RFC 8785
   // vectors gate + its red-proof self-test (two `node` lines) landed in the
   // same gate `run:` block above the attest step; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:904",
+  // QUERYSTRING-PRIVACY-1 (2026-09-28) moved it :904 → :909 — the query-string
+  // privacy gate + its --self-test (two `node` lines) plus three `#` comment
+  // lines landed in the same gate `run:` block above the attest step; same
+  // pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:909",
    "attest step is advisory-first by design; promotion criterion on the step"],
   ["unwired-gates.yml:continue-on-error:109",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
