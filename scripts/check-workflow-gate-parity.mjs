@@ -892,6 +892,7 @@ const PREFLIGHT_ONLY = new Map([
   ["check-kernel-asof-staleness.test.mjs", SELF_TEST],
   ["check-hub-chrome.test.mjs", SELF_TEST],
   ["codec-roundtrip.test.mjs", SELF_TEST],
+  ["verify-fragment-parity.test.mjs", SELF_TEST],
   ["gate-replay-tamper.test.mjs", SELF_TEST],
   ["escalation-closure-tamper.test.mjs", SELF_TEST],
   ["ocg-verify-hash-tamper.test.mjs", SELF_TEST],
