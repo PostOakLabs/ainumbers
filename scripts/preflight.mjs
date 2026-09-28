@@ -1996,6 +1996,13 @@ const GATES = [
   ['Ledger §18 Groth16 seal parity red-proof (GATE-SELFTEST-META-1 pair)', 'node scripts/check-ledger-proof-parity.mjs --self-test'],
   ['Playground hermetic (A8)',     'node scripts/check-playground-hermetic.mjs'],
   ['Ledger codec round-trip',      'node scripts/codec-roundtrip.test.mjs'],
+  // VERIFY-FRAGMENT-INTAKE-1: chaingraph/verify.html carries a VERBATIM COPY of the
+  // ledger's fragment codec (pages are self-contained, CONTRACT §1 — there is no
+  // module to import). A copy with no gate is a copy that drifts, and the drift is
+  // invisible: a ledger-side codec fix would leave the verifier decoding by the old
+  // rules and the same receipt link would open on one page and fail on the other
+  // with nothing red anywhere. This asserts the two copies are identical.
+  ['Verify/ledger fragment codec parity (VERIFY-FRAGMENT-INTAKE-1)', 'node scripts/verify-fragment-parity.test.mjs'],
   ['Ledger gate-replay tamper (shipped source)', 'node scripts/gate-replay-tamper.test.mjs'],
   ['Ledger escalation-closure tamper (shipped source)', 'node scripts/escalation-closure-tamper.test.mjs'],
   ['OCG verify.html proven-to-reject (AV-REJECT-FIX-1)', 'node scripts/ocg-verify-hash-tamper.test.mjs'],

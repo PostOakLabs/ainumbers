@@ -232,6 +232,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <button class="btn btn-ghost" id="sendBundleABtn" onclick="apSendToBundleDiff('a')" title="Open Bundle Diff and hand it this artifact as Bundle A — same-origin message, no file, no network">Send to Bundle Diff (A) →</button>
       <button class="btn btn-ghost" id="sendBundleBBtn" onclick="apSendToBundleDiff('b')" title="Open Bundle Diff and hand it this artifact as Bundle B — same-origin message, no file, no network">Send to Bundle Diff (B) →</button>
       <button class="btn btn-ghost" id="sendWpiBtn" onclick="apSendToWorkpaperIndex()" title="Open the Workpaper Index and hand it this artifact — same-origin message, no file, no network">Send to Workpaper Index →</button>
+      <a class="btn btn-ghost" id="openInLedger" href="../ledger/" style="display:none" title="Open the same link fragment in the Ledger. The artifact stays in the fragment, so it is never sent to a server.">Open in Ledger →</a>
     </div>
   </div>
 
@@ -1635,6 +1636,99 @@ function apSendToBundleDiff(slot) {
 function apSendToWorkpaperIndex() {
   apSendHandoff('../workpaper-index.html', 'ainWorkpaperIndexTab', {}, 'the Workpaper Index');
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   FRAGMENT INTAKE — read the same `#a=v1.<encoded>` fragment the
+   ledger writes, so a receipt link opens prefilled and verified.
+
+   THE THREE FUNCTIONS DIRECTLY BELOW ARE A VERBATIM COPY of the
+   ledger's fragment codec: ledger/index.html lines 833-844 (gunzip),
+   852-860 (b64uDec) and 871-886 (decodeFragment). They are copied
+   rather than imported because every page in this repo is
+   self-contained (CONTRACT §1 — inline CSS/JS only, no shared module).
+   Keep them byte-identical with the ledger: the drift gate for the
+   pair is scripts/verify-fragment-parity.test.mjs, which extracts both
+   copies and asserts they are equal.
+   ───────────────────────────────────────────────────────────────── */
+async function gunzip(bytes) {
+  const cs = new DecompressionStream('gzip');
+  const w = cs.writable.getWriter();
+  w.write(bytes); w.close();
+  const chunks = [];
+  const reader = cs.readable.getReader();
+  while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+  const total = chunks.reduce((a, c) => a + c.length, 0);
+  const out = new Uint8Array(total); let off = 0;
+  for (const c of chunks) { out.set(c, off); off += c.length; }
+  return new TextDecoder().decode(out);
+}
+
+function b64uDec(s) {
+  const p = s.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = (4 - p.length % 4) % 4;
+  const b64 = p + '='.repeat(pad);
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function decodeFragment(frag) {
+  if (!frag || !frag.startsWith('#a=')) return null;
+  const payload = frag.slice(3);
+  if (payload.startsWith('v1.')) {
+    try {
+      const compressed = b64uDec(payload.slice(3));
+      const json = await gunzip(compressed);
+      return JSON.parse(json);
+    } catch {}
+  }
+  // Fallback: plain base64url JSON
+  try {
+    const bytes = b64uDec(payload);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch { return null; }
+}
+
+/* END OF THE COPIED CODEC. Everything below is this page's own
+   wiring; never edit the block above to make the wiring work. Fix the
+   wiring, or change the ledger and both copies together.
+
+   Fragment intake writes NOTHING to storage (this page stores nothing
+   today and keeps it that way) and makes no network call: the hash is
+   never sent anywhere, and the artifact is decoded in this tab. A
+   fragment that will not decode falls through to the page's existing
+   error box. No fragment at all leaves the page exactly as it was. */
+function ledgerFragmentUrl(frag) {
+  // Fragment only, never a query string: a query string would put the
+  // artifact in the request line, and the whole point of the '#'
+  // carrier is that it never leaves the browser.
+  return '../ledger/' + frag;
+}
+
+async function loadFromFragment() {
+  const link = document.getElementById('openInLedger');
+  const frag = location.hash;
+  if (!frag || !frag.startsWith('#a=v1.')) {
+    if (link) link.style.display = 'none';
+    return;
+  }
+  hideError();
+  let artifact = null;
+  try { artifact = await decodeFragment(frag); } catch (e) { artifact = null; }
+  if (!artifact || typeof artifact !== 'object') {
+    if (link) link.style.display = 'none';
+    showError('This link carries an artifact fragment that could not be decoded. Paste the artifact JSON below instead.');
+    return;
+  }
+  document.getElementById('artifactInput').value = JSON.stringify(artifact, null, 2);
+  if (link) { link.href = ledgerFragmentUrl(frag); link.style.display = 'inline-flex'; }
+  handoffNotice('Artifact read from the link and verified below. Nothing was uploaded and nothing was stored.', true);
+  runVerify();
+}
+
+window.addEventListener('hashchange', loadFromFragment);
+loadFromFragment();
 
 /* ─────────────────────────────────────────────────────────────────
    MANIFEST
