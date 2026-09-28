@@ -1647,6 +1647,17 @@ const GATES = [
   // produces the committed output) is ocg-conformance/derive-vector.mjs <id> --check.
   ['OCG receipt-conformance corpus hashes (CONFCORPUS-GATE-1)', 'node scripts/check-conformance-vectors.mjs --quiet'],
   ['OCG receipt-conformance corpus gate self-test (CONFCORPUS-GATE-1 RED+GREEN)', 'node scripts/check-conformance-vectors.test.mjs'],
+  // TRUST-SIGNALS-WELLKNOWN-1 (2026-09-28): the /.well-known/trust-signals.json
+  // digest. The freshness half's command string is byte-identical to
+  // derived-artifacts.mjs COVERED id 'trust-signals', so the generic
+  // ADVISORY_ON_PR categorisation downgrades it on a PR (the file is
+  // single-writer on main, SO #35) and it stays blocking on main. The schema +
+  // commit-anchor check is a separate HARD gate in every context: a PR ships
+  // the digest and can always satisfy schema validation; only its commit-anchor
+  // leg self-downgrades on a PR (the split lives inside the checker).
+  ['Trust-signals digest freshness (single-writer main regen, TRUST-SIGNALS-WELLKNOWN-1)', 'node scripts/gen-trust-signals.mjs --check'],
+  ['Trust-signals digest schema + commit anchor (TRUST-SIGNALS-WELLKNOWN-1)', 'node scripts/check-trust-signals.mjs'],
+  ['Trust-signals gate controls (validator RED/GREEN + anchor quadrants, GATE-SELFTEST-META-1 pair)', 'node scripts/check-trust-signals.test.mjs'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
   ['Hub node-card coverage (HUB-GEN-1)', 'node scripts/gen-chaingraph-hub.mjs --check'],

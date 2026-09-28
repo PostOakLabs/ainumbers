@@ -443,6 +443,31 @@ const PREFLIGHT_ONLY = new Map([
     "never a workflow. In-memory mutation self-test: gen-changelog.selftest.mjs (its own GATES " +
     "entry)."],
   ["gen-changelog.selftest.mjs", SELF_TEST],
+  // ── TRUST-SIGNALS-WELLKNOWN-1 (2026-09-28) ──────────────────────────────────
+  ["gen-trust-signals.mjs",
+    "Trust-signals digest freshness --check (TRUST-SIGNALS-WELLKNOWN-1): re-derives " +
+    ".well-known/trust-signals.json from the public gates' own machine-readable surfaces (the " +
+    "§18 coverage/freshness classifiers, the kernel-determinism gate's exit, the published " +
+    "Sigsum lineage record, the Rekor record fixture, the citation-drift baseline, the " +
+    "conformance manifest) and byte-compares. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), so a " +
+    "named workflow step would only duplicate the same suite. It is the COVERED gate of " +
+    "derived-artifacts.mjs id 'trust-signals' (advisory-on-PR / blocking-on-main via the " +
+    "generic downgrade), and the single writer is derived-artifacts-regen.yml, which " +
+    "regenerates it post-merge exactly like the sitemap — a raw invocation anywhere " +
+    "PR-reachable would duplicate that writer. Reads only tracked repo files plus local git " +
+    "(through gitEnv()) — no network, no CI-only input. The write half is a builder/main-side " +
+    "regen command, never a workflow step by name."],
+  ["check-trust-signals.mjs",
+    "Trust-signals digest schema + commit-anchor gate (TRUST-SIGNALS-WELLKNOWN-1): validates the " +
+    "published .well-known/trust-signals.json against its schema (hard in every context) and " +
+    "asserts the digest's commit anchor equals the current fact-commit on main (advisory on a " +
+    "PR — the digest is single-writer on main, SO #35, so a PR cannot refresh it; the split " +
+    "lives inside the checker, matching the house derived-artifact shape). Hard in preflight; " +
+    "its CI route is scripts-verify.yml full preflight — it reads only tracked repo files plus " +
+    "local git, so a named workflow step would re-run byte-for-byte the same check. Its paired " +
+    "mutation control is check-trust-signals.test.mjs (its own GATES entry)."],
+  ["check-trust-signals.test.mjs", SELF_TEST],
   // ── EVREG-1 (2026-09-22) ────────────────────────────────────────────────────
   ["check-evidence-register.mjs",
     "Claim-level evidence register gate (EVREG-1): verifies the generated register " +

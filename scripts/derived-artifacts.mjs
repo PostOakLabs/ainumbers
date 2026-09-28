@@ -980,6 +980,26 @@ export const COVERED = [
     share: '94% (124/132; the highest measured skew of any artifact in this file)',
   },
   {
+    id: 'trust-signals',
+    // TRUST-SIGNALS-WELLKNOWN-1 (2026-09-28): the machine-readable digest of
+    // facts the public gates already compute, published at
+    // /.well-known/trust-signals.json for third parties and trust directories.
+    // Single writer on main, exactly like sitemap-xml above: every number is
+    // READ from a gate (the §18 coverage/freshness gates' own exported
+    // classifiers, the kernel-determinism gate's exit, the published Sigsum
+    // lineage record, the Rekor record fixture, the citation-drift baseline,
+    // the conformance manifest) — never typed. `commit` is anchored to the
+    // newest NON-bot commit (a literal HEAD sha could never reach this
+    // workflow's regenerate→zero-drift fixpoint; see the generator header).
+    // Reads chaingraph.json, so it must follow 'chaingraph-assemble' in this
+    // array's cascade order.
+    regen: 'node scripts/gen-trust-signals.mjs',
+    gate: 'node scripts/gen-trust-signals.mjs --check',
+    artifacts: ['.well-known/trust-signals.json'],
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-09-28, TRUST-SIGNALS-WELLKNOWN-1)',
+  },
+  {
     id: 'sitemap-deploy-coverage',
     // SITEMAP-DEPLOY-SPLIT-1 (2026-09-23): the deploy gate's OWN sitemap leg
     // (verify_repo.py check_sitemap "missing from sitemap.xml"), which stayed
