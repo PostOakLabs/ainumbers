@@ -2,7 +2,7 @@
      AIN Bridge v1.2 — canonical snippet (master copy; per-tool copies are
      inserted before </body> with a tool-specific AIN_BRIDGE_CFG line).
 
-     Provides five capabilities (Engagement Brief 2026-06-06, Phases 1–3;
+     Provides six capabilities (Engagement Brief 2026-06-06, Phases 1–3;
      Send to Verify added 2026-08-03, SPINE-BRIDGE-SEND2VERIFY-1;
      sessionRoot added 2026-09-05, COMPOSER-PLAN-AND-ROOT-WEBMCP-1):
        1. Prefill deep-links:  tool.html#in=<base64url(JSON)>[&run=1]
@@ -28,9 +28,15 @@
           (worker.mjs buildSessionReceiptCore). scripts/session-root-parity.test.mjs
           asserts the byte identity and the fixture roots. Never re-derive.
 
+       6. Live ledger channel (B3/B5, LEDGER-BRIDGE-LIVE-1): on a path-form
+          origin, sendToVerify also posts the receipt to an open Ledger tab over
+          BroadcastChannel 'ain-ledger-v1' and resolves with the ledger's ack
+          (added / duplicate / rejected) when one arrives inside 2 s. See the
+          message-schema block below, which is identical in ledger/index.html.
+
      Feature detection (B7, BRIDGE-SNIPPET-SYNC-GEN-1): AINBridge.capabilities
-     is {version, prefill, mandate, handoff, sendToVerify, sessionRoot}. The
-     five flags are booleans DERIVED from the routines present in this closure,
+     is {version, prefill, mandate, handoff, sendToVerify, sessionRoot,
+     liveLedger}. The flags are booleans DERIVED from the routines present in this closure,
      so an agent reads what a page actually supports without calling a function
      to see whether it throws; version carries the string this block declares.
      Pages pick it up when scripts/sync-ain-bridge.mjs re-stamps them.
@@ -146,14 +152,97 @@ function initPrefill(){
   }
 }
 var HANDOFF_MAX_CHARS=2000000;
+/* ── AIN LEDGER LIVE CHANNEL v1: MESSAGE SCHEMA (B3/B4/B5) ────────────────────
+   This comment block is IDENTICAL in ledger/index.html and in
+   scripts/ain-bridge-v1.snippet.html. Change one, change both.
+
+   Transport: BroadcastChannel, name 'ain-ledger-v1'. Same-origin by
+   construction: a message only ever reaches a tab on the SAME origin, so the
+   channel carries nothing across an origin boundary. The ledger serves at BOTH
+   ainumbers.co/ledger/ (path form) and ledger.ainumbers.co (subdomain form);
+   only the path form shares an origin with a tool page, so the subdomain form
+   keeps today's fragment-only intake unchanged.
+
+   Envelope: JSON-RPC 2.0 in the MCP Apps ui/ dialect, the same envelope the AIN
+   Bridge postMessage leg carries. Both legs are notifications, so neither
+   carries an id and neither expects a JSON-RPC response object.
+
+   page to ledger:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt",
+      "params":{"v":1,"receipt":<OCG artifact>}}
+
+   ledger to page:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt-ack",
+      "params":{"v":1,"execution_hash":"<hash>",
+                "status":"added"|"duplicate"|"rejected"}}
+
+   Identity: a receipt's ledger identity is its execution_hash, the keyPath of
+   the artifact store. The ack deliberately does NOT use the name record_hash:
+   on this page record_hash already means the SPEC.md 22.8.4 escalation-record
+   hash, a different value over a different object.
+
+   params.receipt is validated exactly the way a #a=v1 fragment is, by the same
+   extractArtifact + isArtifact pair, and anything else acks 'rejected'. The
+   channel carries a receipt only, never a mandate body and never any other
+   payload: the same rule the fragment leg already follows.
+   ─────────────────────────────────────────────────────────────────────────── */
+var AIN_LEDGER_CHANNEL='ain-ledger-v1';
+var AIN_LEDGER_ACK_MS=2000;
+/* B3 origin guard. BroadcastChannel is same-origin, so a receipt can only reach a
+   ledger tab served from THIS origin, which is the path form ainumbers.co/ledger/.
+   Returns the ledger URL this page may live-update, or null when this origin has
+   no path-form ledger (ledger.ainumbers.co included: a different origin, whose
+   intake stays fragment-only). Pure: reads the origin it is handed, no globals. */
+function ainLedgerTarget(origin){
+  if(typeof origin!=='string'||!origin)return null;
+  var u;try{u=new URL(origin);}catch(e){return null;}
+  if(u.protocol!=='https:'&&u.protocol!=='http:')return null;
+  var h=u.hostname.toLowerCase();
+  if(h!=='ainumbers.co'&&h!=='localhost'&&h!=='127.0.0.1')return null;
+  return u.origin+'/ledger/';
+}
+function ainLedgerReceipt(receipt){
+  return {jsonrpc:'2.0',method:'ui/notifications/receipt',params:{v:1,receipt:receipt}};
+}
+function ainIsLedgerAck(msg){
+  if(!msg||typeof msg!=='object')return false;
+  if(msg.jsonrpc!=='2.0'||msg.method!=='ui/notifications/receipt-ack')return false;
+  var p=msg.params;
+  if(!p||typeof p!=='object'||p.v!==1)return false;
+  if(typeof p.execution_hash!=='string'&&p.execution_hash!==null)return false;
+  return p.status==='added'||p.status==='duplicate'||p.status==='rejected';
+}
+/* B3 send + B5 ack. Resolves with the ack params when a ledger tab answers inside
+   AIN_LEDGER_ACK_MS, else with null, so a page with no ledger tab open behaves
+   exactly as it did before this leg existed. */
+function ainLedgerSend(receipt,origin){
+  var target=ainLedgerTarget(origin||(typeof location!=='undefined'?location.origin:''));
+  if(!target||typeof BroadcastChannel!=='function')return Promise.resolve(null);
+  var ch;try{ch=new BroadcastChannel(AIN_LEDGER_CHANNEL);}catch(e){return Promise.resolve(null);}
+  return new Promise(function(resolve){
+    var done=false,timer=null;
+    function finish(v){if(done)return;done=true;if(timer)clearTimeout(timer);try{ch.close();}catch(e){}resolve(v);}
+    ch.onmessage=function(ev){if(ainIsLedgerAck(ev&&ev.data))finish(ev.data.params);};
+    try{ch.postMessage(ainLedgerReceipt(receipt));}catch(e){finish(null);return;}
+    timer=setTimeout(function(){finish(null);},AIN_LEDGER_ACK_MS);
+  });
+}
 function apSendToVerify(){
   var m;try{m=window.AINBridge.getMandate();}catch(e){m=null;}
-  if(!m){notice('⚠ No Policy Mandate to send — run the tool first.','warn');return;}
-  var json;try{json=JSON.stringify(m);}catch(e){notice('⚠ Could not serialize the mandate: '+e.message,'warn');return;}
-  if(json.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to hand off ('+json.length+' chars).','warn');return;}
+  if(!m){notice('⚠ No Policy Mandate to send — run the tool first.','warn');return Promise.resolve(null);}
+  var json;try{json=JSON.stringify(m);}catch(e){notice('⚠ Could not serialize the mandate: '+e.message,'warn');return Promise.resolve(null);}
+  if(json.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to hand off ('+json.length+' chars).','warn');return Promise.resolve(null);}
+  /* B3/B5: hand the receipt to an open ledger tab on this origin. Fired BEFORE
+     window.open so the user gesture is not spent waiting on the ack. With no
+     ledger tab open the promise resolves null and nothing on this page changes. */
+  var ledgerAck=ainLedgerSend(m).then(function(ack){
+    if(ack&&ack.status==='added')notice('🧾 Recorded in the open Ledger tab.','ok');
+    else if(ack&&ack.status==='duplicate')notice('🧾 Already recorded in the open Ledger tab.','ok');
+    return ack;
+  });
   var target=new URL('../chaingraph/verify.html',window.location.href).href;
   var win=window.open(target,'_blank');
-  if(!win){notice('⚠ The verifier window was blocked. Allow pop-ups for this site.','warn');return;}
+  if(!win){notice('⚠ The verifier window was blocked. Allow pop-ups for this site.','warn');return ledgerAck;}
   var sent=false,timer=null;
   function onReady(ev){
     if(ev.origin!==window.location.origin)return;
@@ -173,6 +262,7 @@ function apSendToVerify(){
     window.removeEventListener('message',onReady);
     notice('⚠ The verifier did not answer. Export the mandate and paste it in.','warn');
   },10000);
+  return ledgerAck;
 }
 window.apSendToVerify=apSendToVerify;
 /* sessionRoot — COMPOSER-PLAN-AND-ROOT-WEBMCP-1. ONE ROUTINE LAW: the core below
@@ -211,13 +301,16 @@ window.AINBridge={
     mandate:typeof intakeApply==='function',
     handoff:typeof onComposerMessage==='function',
     sendToVerify:typeof apSendToVerify==='function',
-    sessionRoot:typeof ainSessionRoot==='function'
+    sessionRoot:typeof ainSessionRoot==='function',
+    liveLedger:typeof ainLedgerSend==='function'
   },
   apply:applyFields,
   run:runTool,
   intake:intakeApply,
   sendToVerify:apSendToVerify,
   sessionRoot:ainSessionRoot,
+  ledgerSend:ainLedgerSend,
+  ledgerTarget:ainLedgerTarget,
   getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
   makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
 };

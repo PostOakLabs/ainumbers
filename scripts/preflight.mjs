@@ -2026,6 +2026,11 @@ const GATES = [
   ['Verify/ledger fragment codec parity (VERIFY-FRAGMENT-INTAKE-1)', 'node scripts/verify-fragment-parity.test.mjs'],
   ['Ledger gate-replay tamper (shipped source)', 'node scripts/gate-replay-tamper.test.mjs'],
   ['Ledger escalation-closure tamper (shipped source)', 'node scripts/escalation-closure-tamper.test.mjs'],
+  // LEDGER-BRIDGE-LIVE-1: the ledger live channel (B3/B4/B5). Anchored to BOTH
+  // shipped sources — ledger/index.html and the master bridge snippet — so the
+  // de-dup rule, the path-form origin guard and the JSON-RPC 2.0 envelope cannot
+  // drift apart between the page that sends and the page that records.
+  ['Ledger live channel de-dup + envelope (LEDGER-BRIDGE-LIVE-1, shipped source)', 'node scripts/ledger-dedup.test.mjs'],
   ['OCG verify.html proven-to-reject (AV-REJECT-FIX-1)', 'node scripts/ocg-verify-hash-tamper.test.mjs'],
   ['tools/568 receipt verifier proven-to-reject (AV-REJECT-FIX-1, shipped source)', 'node scripts/ocg-receipt-verifier-568-tamper.test.mjs'],
   // TAMPER-GATE-SHIPPED-SOURCE-1: retitled off "proven-to-reject". That label claimed a
