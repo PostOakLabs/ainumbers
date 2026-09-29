@@ -357,6 +357,7 @@ function assertIJson(v) {
   } else if (Array.isArray(v)) { v.forEach(assertIJson); }
   else if (v && typeof v === 'object') { for (const k of Object.keys(v)) assertIJson(v[k]); }
 }
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 function cgCanon(v) {
   if (Array.isArray(v)) return v.map(cgCanon);
   if (v && typeof v === 'object') return Object.keys(v).sort().reduce((o, k) => { o[k] = cgCanon(v[k]); return o; }, {});
@@ -393,7 +394,7 @@ async function rawPubkeyToDidKey(publicKey) {
   prefixed.set(ED25519_MULTICODEC, 0); prefixed.set(raw, ED25519_MULTICODEC.length);
   return 'did:key:z' + b58encode(prefixed);
 }
-function jcsBytes(obj) { return new TextEncoder().encode(JSON.stringify(cgCanon(obj))); }
+function jcsBytes(obj) { return new TextEncoder().encode(__ocgJcs((obj))); }
 async function sha256Bytes(bytes) { return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)); }
 function proofOptions({ verificationMethod, created }) {
   return { type: 'DataIntegrityProof', cryptosuite: 'eddsa-jcs-2022', verificationMethod, proofPurpose: 'assertionMethod', created };
@@ -483,7 +484,7 @@ async function layoutDigest(layout) {
   const stripped = Object.assign({}, layout);
   delete stripped.layout_digest;
   assertIJson(stripped);
-  return sha256Hex(JSON.stringify(cgCanon(stripped)));
+  return sha256Hex(__ocgJcs((stripped)));
 }
 
 /* ─────────────────────────────────────────────────────────────────

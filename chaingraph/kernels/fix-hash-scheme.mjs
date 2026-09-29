@@ -25,14 +25,19 @@ const CHAINGRAPH_JSON = resolve(REPO, 'chaingraph', 'chaingraph.json');
 const APPLY = process.argv.includes('--apply');
 const JSON_OUT = process.argv.includes('--json');
 
-// The canonical helpers injected into a tool that lacks them. Minified, JCS-aligned,
-// byte-equivalent to kernels/_hash.mjs and worker.mjs cgCanon. Marker comment lets
-// us detect prior injection (idempotency) and lets the forbidden-pattern lint allow it.
+// The canonical helpers injected into a tool that lacks them. Minified, JCS-aligned.
+// __ocgCanon is byte-equivalent to kernels/_hash.mjs and worker.mjs cgCanon (the legacy
+// object sorter, kept byte-stable); __ocgJcs is the one-line ES5 transcription of
+// _hash.mjs's jcsStringify — it builds the string directly, so array-index member names
+// are ordered by UTF-16 code unit per RFC 8785 §3.2.3 instead of by object enumeration
+// order (JCS-CANON-PAGES-1). Marker comment lets us detect prior injection (idempotency)
+// and lets the forbidden-pattern lint allow it.
 const OCG_MARK = '/* OCG-CANON v1 — managed by fix-hash-scheme.mjs; RFC 8785/JCS (I-JSON). DO NOT hand-edit. */';
 const OCG_BLOCK = `${OCG_MARK}
 function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
 function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
-function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
 async function __ocgHash(policy_parameters,output_payload){const b=new TextEncoder().encode(__ocgCanonStr({policy_parameters,output_payload}));const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}`;
 
 // Scheme A signature: the array-replacer expression. Tolerant of the identifier name.
