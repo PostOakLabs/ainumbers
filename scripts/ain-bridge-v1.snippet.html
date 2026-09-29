@@ -1,5 +1,5 @@
 <!-- ═══════════════════════════════════════════════════════════════════════
-     AIN Bridge v1.2 — canonical snippet (master copy; per-tool copies are
+     AIN Bridge v1.3 — canonical snippet (master copy; per-tool copies are
      inserted before </body> with a tool-specific AIN_BRIDGE_CFG line).
 
      Provides six capabilities (Engagement Brief 2026-06-06, Phases 1–3;
@@ -27,6 +27,14 @@
           composer page) and a port of the worker's build_session_receipt
           (worker.mjs buildSessionReceiptCore). scripts/session-root-parity.test.mjs
           asserts the byte identity and the fixture roots. Never re-derive.
+       6. MCP Apps View layer (BRIDGE-MCP-APPS-ALIGN-1, 2026-09-28): when this
+          page is framed, the bridge speaks the MCP Apps `ui/` JSON-RPC 2.0
+          dialect (specification 2026-01-26) to its host, so any MCP Apps host
+          can embed the page as a View with no custom bridge. The message
+          shapes and the two allowlists are quoted from the primary text in the
+          MCP-APPS-JSONRPC region below; scripts/check-bridge-jsonrpc.mjs holds
+          them to that text and scripts/ain-bridge-jsonrpc.test.mjs exercises
+          the handshake, the origin pinning, the legacy alias and -32601.
 
        6. Live ledger channel (B3/B5, LEDGER-BRIDGE-LIVE-1): on a path-form
           origin, sendToVerify also posts the receipt to an open Ledger tab over
@@ -35,8 +43,8 @@
           message-schema block below, which is identical in ledger/index.html.
 
      Feature detection (B7, BRIDGE-SNIPPET-SYNC-GEN-1): AINBridge.capabilities
-     is {version, prefill, mandate, handoff, sendToVerify, sessionRoot,
-     liveLedger}. The flags are booleans DERIVED from the routines present in this closure,
+      is {version, prefill, mandate, handoff, sendToVerify, sessionRoot,
+      liveLedger, mcpApps}. The flags are booleans DERIVED from the routines present in this closure,
      so an agent reads what a page actually supports without calling a function
      to see whether it throws; version carries the string this block declares.
      Pages pick it up when scripts/sync-ain-bridge.mjs re-stamps them.
@@ -52,7 +60,7 @@
 <meta charset="UTF-8"><!-- standalone viewing only; stripped context in tools (they declare their own charset) -->
 <!-- Standalone-view notice only — the per-tool inserter copies from the second script tag onward, so this block is never injected into tools. -->
 <div style="font-family:monospace;max-width:720px;margin:3rem auto;padding:1.5rem;border:1px dashed #999;border-radius:8px;color:#333;background:#fafafa">
-  <strong>AIN Bridge v1.2 — master snippet (not a page)</strong><br><br>
+  <strong>AIN Bridge v1.3 — master snippet (not a page)</strong><br><br>
   This file is the canonical source for the bridge script injected into pilot tools before
   <code>&lt;/body&gt;</code>. It renders nothing by itself.<br><br>
   To test the bridge, open a pilot tool instead:<br>
@@ -67,7 +75,7 @@
    so the two can never disagree. scripts/sync-ain-bridge.mjs reads this literal to
    decide the version it stamps onto a page's header comment and bridge_version
    metadata — the master snippet is the only place a bridge version is authored. */
-var BRIDGE_VERSION='1.2';
+var BRIDGE_VERSION='1.3';
 var CFG=window.AIN_BRIDGE_CFG||{};
 var L={
  en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
@@ -141,11 +149,19 @@ function buildIntakeUI(){
   z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
   a.parentNode.insertBefore(z,a);
 }
+/* ONE INTAKE PATH (BRIDGE-MCP-APPS-ALIGN-1, goal 1). The `#in=` deep link and the
+   host's ui/notifications/tool-input notification carry the SAME shape — a bare
+   id→value map, or {"fields":{...}} — so both feed this routine. The MCP leg gets
+   no second parser: a divergence between the two would be invisible on the page
+   and visible only to whichever host happened to send the other shape. */
+function intakeFieldObject(obj){
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  return applyFields(fields);
+}
 function initPrefill(){
   var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
   var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
-  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
-  var n=applyFields(fields);
+  var n=intakeFieldObject(obj);
   if(n>0){
     if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
     else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
@@ -240,6 +256,11 @@ function apSendToVerify(){
     else if(ack&&ack.status==='duplicate')notice('🧾 Already recorded in the open Ledger tab.','ok');
     return ack;
   });
+  /* An MCP Apps host that answered ui/initialize is told, in its own transcript,
+     that a receipt now exists (BRIDGE-MCP-APPS-ALIGN-1, goal 1). Identifiers only
+     — mcpReceiptText never carries the mandate body. The same-origin verifier
+     handoff below is unchanged and happens either way. */
+  if(MCP.ready)mcpPost(mcpMessageRequest(mcpNextId(),mcpReceiptText(m)));
   var target=new URL('../chaingraph/verify.html',window.location.href).href;
   var win=window.open(target,'_blank');
   if(!win){notice('⚠ The verifier window was blocked. Allow pop-ups for this site.','warn');return ledgerAck;}
@@ -265,6 +286,254 @@ function apSendToVerify(){
   return ledgerAck;
 }
 window.apSendToVerify=apSendToVerify;
+/* ══ MCP-APPS-JSONRPC v1 START ══════════════════════════════════════════════
+   BRIDGE-MCP-APPS-ALIGN-1. Primary text: MCP Apps specification 2026-01-26
+   (modelcontextprotocol/ext-apps, specification/2026-01-26/apps.mdx). Message
+   shapes quoted from it, direction as the spec labels them:
+
+     ui/initialize                    View→Host REQUEST
+         params {protocolVersion, clientInfo, appCapabilities}
+         result {protocolVersion, hostCapabilities, hostInfo, hostContext}
+     ui/notifications/initialized     View→Host notification, after that result
+     ui/message                       View→Host request
+         params {role:'user', content:{type:'text', text}}
+     ui/open-link                     View→Host request   params {url}
+     ui/request-display-mode          View→Host request   params {mode}
+     ui/update-model-context          View→Host request   params {content?, structuredContent?}
+     ui/notifications/size-changed    View→Host notification  params {width, height}
+     tools/call                       View→Host, proxied by the host to the server
+
+     ui/notifications/tool-input          Host→View  params {arguments}  at most once
+     ui/notifications/tool-input-partial  Host→View  params {arguments}  0..n, before tool-input
+     ui/notifications/tool-result         Host→View  params CallToolResult {content, structuredContent, _meta}
+     ui/notifications/tool-cancelled      Host→View  params {reason}
+     ui/notifications/host-context-changed Host→View params {hostContext}
+     ui/resource-teardown                 Host→View  REQUEST (carries an id), result {}
+
+   ui/notifications/sandbox-proxy-ready and ui/notifications/sandbox-resource-ready
+   are RESERVED for a web host's sandbox proxy (spec, "Reserved Messages (Sandbox
+   Proxy)"): a View neither sends nor receives them, so they are absent from both
+   lists by decision, not by oversight.
+
+   NOTHING IN THIS REGION MAY REFERENCE AN IDENTIFIER DECLARED OUTSIDE IT. The
+   routines are pure: scripts/ain-bridge-jsonrpc.test.mjs cuts the region out of
+   this file and evaluates it on its own, and scripts/check-bridge-jsonrpc.mjs
+   reads the two allowlists out of it and holds them to the spec list above.
+   ────────────────────────────────────────────────────────────────────────── */
+var MCP_PROTOCOL_VERSION='2026-01-26';
+/* Host→View: the methods this View ACCEPTS. Anything else with an id is answered
+   -32601 (JSON-RPC 2.0 "Method not found"); anything else without one is dropped,
+   because a notification has no reply channel to carry an error on. */
+var MCP_HOST_METHODS=[
+  'ui/notifications/tool-input',
+  'ui/notifications/tool-input-partial',
+  'ui/notifications/tool-result',
+  'ui/notifications/tool-cancelled',
+  'ui/notifications/host-context-changed',
+  'ui/resource-teardown'
+];
+/* View→Host: the methods this View may EMIT. A send outside this list is a bug in
+   the bridge, not a host problem, so mcpEnvelopeOut refuses it locally. */
+var MCP_VIEW_METHODS=[
+  'ui/initialize',
+  'ui/notifications/initialized',
+  'ui/message',
+  'ui/open-link',
+  'ui/request-display-mode',
+  'ui/update-model-context',
+  'ui/notifications/size-changed',
+  'tools/call'
+];
+/* ain-handoff/v1 alias table (goal 3) — kept for ONE snippet version so pages
+   rolled at different times interoperate; a later row deletes it. One line each,
+   naming the MCP method the legacy type corresponds to, or null where the legacy
+   leg has no MCP twin at all (getMandate is a composer pull; the spec has no
+   Host→View "give me your state" request, so it stays ain-handoff-only). */
+var MCP_LEGACY_ALIAS={
+  'ain:prefill':'ui/notifications/tool-input',
+  'ain:run':'ui/notifications/tool-input',
+  'ain:getMandate':null
+};
+function mcpNewState(){return {hostOrigin:null,ready:false,initId:null,nextId:2,hostCapabilities:null,hostInfo:null,hostContext:null};}
+/* 'request' | 'notification' | 'response' | null. null = not a JSON-RPC 2.0
+   envelope we can act on (this includes every ain-handoff/v1 message, which the
+   legacy listener owns). */
+function mcpEnvelopeKind(d){
+  if(!d||typeof d!=='object'||d.jsonrpc!=='2.0')return null;
+  if(typeof d.method==='string')return (d.id===undefined||d.id===null)?'notification':'request';
+  if(d.id!==undefined&&('result' in d||'error' in d))return 'response';
+  return null;
+}
+function mcpError(id,code,message){return {jsonrpc:'2.0',id:id,error:{code:code,message:message}};}
+function mcpOk(id,result){return {jsonrpc:'2.0',id:id,result:result};}
+/* Pure. The outbound envelope, or null when the method is not one this View is
+   allowed to emit. */
+function mcpEnvelopeOut(method,params,id){
+  if(MCP_VIEW_METHODS.indexOf(method)===-1)return null;
+  var env={jsonrpc:'2.0',method:method};
+  if(id!==undefined&&id!==null)env.id=id;
+  if(params!==undefined)env.params=params;
+  return env;
+}
+/* appCapabilities per the spec's McpUiAppCapabilities: `tools` is omitted because
+   the page exposes no MCP-style tools TO the host (its WebMCP registrations are a
+   different surface), and the B7 capabilities object rides in `experimental`,
+   whose structure the spec leaves open. */
+function mcpAppCapabilities(caps){
+  return {experimental:{ainBridge:caps||null},availableDisplayModes:['inline','fullscreen']};
+}
+function mcpInitRequest(id,caps,version){
+  return mcpEnvelopeOut('ui/initialize',{
+    protocolVersion:MCP_PROTOCOL_VERSION,
+    clientInfo:{name:'ainumbers-ain-bridge',version:String(version||'')},
+    appCapabilities:mcpAppCapabilities(caps)
+  },id);
+}
+function mcpInitializedNotification(){return mcpEnvelopeOut('ui/notifications/initialized',{});}
+/* Origin pinning. Before the handshake the host origin is unknown, so any origin
+   may carry the ui/initialize RESPONSE; from the moment that response lands, the
+   origin it came from is the only one this View will read or write. */
+function mcpOriginOk(state,origin){
+  if(state.hostOrigin===null)return true;
+  return origin===state.hostOrigin;
+}
+/* Pure. Consume the ui/initialize response: pin the origin, keep the host's own
+   three fields. Returns the ui/notifications/initialized envelope to send, or
+   null when this is not our pending handshake (or the host answered with an
+   error, in which case the View stays unpinned and un-ready). */
+function mcpAcceptInitResponse(state,d,origin){
+  if(state.ready)return null;
+  if(state.initId===null||d.id!==state.initId)return null;
+  if(d.error)return null;
+  var r=d.result||{};
+  state.hostOrigin=origin;
+  state.ready=true;
+  state.hostCapabilities=r.hostCapabilities||null;
+  state.hostInfo=r.hostInfo||null;
+  state.hostContext=r.hostContext||null;
+  return mcpInitializedNotification();
+}
+/* Pure. One line of text naming the receipt a Send to Verify just produced —
+   identifiers only, never the mandate body: ui/message content goes into the
+   host's chat transcript, and the payload can carry the user's own inputs. */
+function mcpReceiptText(mandate){
+  var m=mandate||{};
+  var bits=['AINumbers Policy Mandate ready to verify'];
+  if(m.mandate_id)bits.push('mandate '+m.mandate_id);
+  if(m.tool_id)bits.push('tool '+m.tool_id);
+  if(m.execution_hash)bits.push('execution_hash '+m.execution_hash);
+  return bits.join(' · ');
+}
+function mcpMessageRequest(id,text){
+  return mcpEnvelopeOut('ui/message',{role:'user',content:{type:'text',text:String(text)}},id);
+}
+/**
+ * Pure. Handle one Host→View envelope.
+ * deps: {applyArguments(args,complete), renderResult(callToolResult),
+ *        cancelled(reason), hostContextChanged(hostContext)} — every one
+ * optional; a missing dep means that leg is a no-op, never a throw.
+ * Returns {responses:[envelope...], handled:<method|null>, ignored:<reason|null>}.
+ */
+function mcpHandleHostMessage(state,d,origin,deps){
+  var out={responses:[],handled:null,ignored:null};
+  var kind=mcpEnvelopeKind(d);
+  if(kind===null||kind==='response'){out.ignored='not-a-host-message';return out;}
+  if(!mcpOriginOk(state,origin)){out.ignored='origin-not-pinned-host';return out;}
+  var method=d.method,params=d.params||{},fn;
+  if(MCP_HOST_METHODS.indexOf(method)===-1){
+    if(kind==='request')out.responses.push(mcpError(d.id,-32601,'Method not found: '+method));
+    out.ignored='method-not-allowlisted';
+    return out;
+  }
+  if(method==='ui/notifications/tool-input'||method==='ui/notifications/tool-input-partial'){
+    fn=deps&&deps.applyArguments;
+    if(fn)fn(params.arguments,method==='ui/notifications/tool-input');
+  }else if(method==='ui/notifications/tool-result'){
+    fn=deps&&deps.renderResult;
+    if(fn)fn(params);
+  }else if(method==='ui/notifications/tool-cancelled'){
+    fn=deps&&deps.cancelled;
+    if(fn)fn(params.reason);
+  }else if(method==='ui/notifications/host-context-changed'){
+    state.hostContext=params.hostContext||params||null;
+    fn=deps&&deps.hostContextChanged;
+    if(fn)fn(state.hostContext);
+  }else if(method==='ui/resource-teardown'){
+    /* Responded to WITHOUT work: the page holds no host-owned resource and no
+       unsaved state of the host's, so there is nothing to flush and nothing that
+       could make the host wait (the spec has it wait for this response). */
+    if(kind==='request')out.responses.push(mcpOk(d.id,{}));
+  }
+  out.handled=method;
+  return out;
+}
+/* ══ MCP-APPS-JSONRPC v1 END ═══════════════════════════════════════════════ */
+/* DOM wiring for the region above. Everything that touches window lives HERE, so
+   the region stays evaluable on its own. */
+var MCP=mcpNewState();
+/* Every post after the handshake goes through this: no host origin, no send. The
+   targetOrigin is the pinned origin, never a wildcard. */
+function mcpPost(env){
+  if(!MCP.hostOrigin)return false;
+  if(!env)return false;
+  try{window.parent.postMessage(env,MCP.hostOrigin);}catch(e){return false;}
+  return true;
+}
+/* The ONE pre-handshake send. The host's origin is unknowable until it answers
+   ui/initialize (a sandboxed View is not told who framed it), so this single
+   message is addressed with a wildcard and carries nothing but our capability
+   declaration — no page data. Every later send is mcpPost, pinned. */
+function mcpPostInit(env){
+  if(!env)return false;
+  try{window.parent.postMessage(env,MCP.hostOrigin||'*');}catch(e){return false;} /* PRE-HANDSHAKE-ORIGIN-OK: MCP.hostOrigin is null until ui/initialize answers */
+  return true;
+}
+function mcpSend(method,params,id){return mcpPost(mcpEnvelopeOut(method,params,id));}
+function mcpNextId(){return MCP.nextId++;}
+function mcpApplyArguments(args,complete){
+  var n=intakeFieldObject(args||{});
+  if(n>0)notice((complete?'🔗 ':'… ')+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  return n;
+}
+/* The existing result hook, reused: a CallToolResult whose structuredContent is a
+   Policy Mandate goes through intakeApply — the same routine the 📥 import zone
+   and a dropped .policy.json use. Anything else is reported, not parsed. */
+function mcpRenderResult(res){
+  var r=res||{};
+  var sc=r.structuredContent;
+  if(looksLikeMandate(sc)){try{return intakeApply(JSON.stringify(sc));}catch(e){}}
+  if(sc&&typeof sc==='object'&&looksLikeMandate(sc.mandate)){try{return intakeApply(JSON.stringify(sc.mandate));}catch(e){}}
+  if(r.isError)notice('⚠ The host reported a tool error.','warn');
+  else notice('✓ Tool result received from the host.','ok');
+  return 0;
+}
+function mcpOnMessage(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  var d=e.data;
+  var kind=mcpEnvelopeKind(d);
+  if(kind===null)return; /* ain-handoff/v1 and everything else: onComposerMessage owns it */
+  if(kind==='response'){
+    var initialized=mcpAcceptInitResponse(MCP,d,e.origin);
+    if(initialized)mcpPost(initialized);
+    return;
+  }
+  var r=mcpHandleHostMessage(MCP,d,e.origin,{
+    applyArguments:mcpApplyArguments,
+    renderResult:mcpRenderResult,
+    cancelled:function(reason){notice('⚠ The host cancelled the tool call'+(reason?': '+reason:'.'),'warn');},
+    hostContextChanged:null
+  });
+  for(var i=0;i<r.responses.length;i++){
+    /* A -32601 or a teardown result before the handshake has nowhere pinned to
+       go; mcpPost refuses it rather than broadcasting. */
+    mcpPost(r.responses[i]);
+  }
+}
+function mcpBoot(){
+  if(window.parent===window)return false;
+  MCP.initId=1;
+  return mcpPostInit(mcpInitRequest(MCP.initId,window.AINBridge&&window.AINBridge.capabilities,BRIDGE_VERSION));
+}
 /* sessionRoot — COMPOSER-PLAN-AND-ROOT-WEBMCP-1. ONE ROUTINE LAW: the core below
    is byte-identical to SESSION_ROOT_SOURCE in scripts/gen-webmcp-registrations.mjs
    (emitted onto every chain composer page) and a port of the worker's
@@ -302,7 +571,8 @@ window.AINBridge={
     handoff:typeof onComposerMessage==='function',
     sendToVerify:typeof apSendToVerify==='function',
     sessionRoot:typeof ainSessionRoot==='function',
-    liveLedger:typeof ainLedgerSend==='function'
+    liveLedger:typeof ainLedgerSend==='function',
+    mcpApps:typeof mcpHandleHostMessage==='function'
   },
   apply:applyFields,
   run:runTool,
@@ -311,23 +581,46 @@ window.AINBridge={
   sessionRoot:ainSessionRoot,
   ledgerSend:ainLedgerSend,
   ledgerTarget:ainLedgerTarget,
+  /* MCP Apps View legs, so a page never hand-rolls a JSON-RPC envelope: every
+     send goes through the allowlist (mcpEnvelopeOut) and the pinned origin
+     (mcpPost). Reads of the host's own three fields are copies of state. */
+  mcp:{
+    ready:function(){return MCP.ready;},
+    host:function(){return {origin:MCP.hostOrigin,info:MCP.hostInfo,capabilities:MCP.hostCapabilities,context:MCP.hostContext};},
+    send:mcpSend,
+    message:function(text){return mcpPost(mcpMessageRequest(mcpNextId(),text));},
+    openLink:function(url){return mcpPost(mcpEnvelopeOut('ui/open-link',{url:String(url)},mcpNextId()));}
+  },
   getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
   makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
 };
 /* Named (was an inline anonymous listener) so capabilities.handoff can be derived
    from the routine's presence rather than asserted. Function declarations hoist,
    so the typeof test above is true at the moment AINBridge is assigned. */
+/* Reply target for the ain-handoff/v1 legs. Once a host has answered
+   ui/initialize, the pinned origin is the only address used — the wildcard
+   below can only be reached before any handshake, on an opaque-origin page
+   (file://), where a same-origin composer has no other addressable form. */
+function legacyTarget(e){
+  if(MCP.hostOrigin)return MCP.hostOrigin;
+  return (e.origin&&e.origin!=='null')?e.origin:'*'; /* PRE-HANDSHAKE-ORIGIN-OK: MCP.hostOrigin is null, opaque-origin composer */
+}
 function onComposerMessage(e){
   if(window.parent===window||e.source!==window.parent)return;
   if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
-  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var ro=legacyTarget(e);
   var d=e.data||{};
+  /* MCP_LEGACY_ALIAS (goal 3) names the ui/ method each of these three legacy
+     types corresponds to; the behaviour below is unchanged, so a page rolled to
+     v1.3 and a composer still speaking ain-handoff/v1 keep working together for
+     this one snippet version. A later row deletes the alias and this listener. */
   if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
   else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
   else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
 }
 window.addEventListener('message',onComposerMessage);
-function boot(){buildIntakeUI();initPrefill();}
+window.addEventListener('message',mcpOnMessage);
+function boot(){buildIntakeUI();initPrefill();mcpBoot();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
 </script>

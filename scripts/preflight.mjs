@@ -1130,6 +1130,17 @@ const GATES = [
   // three live page shapes, so a rewriter that could corrupt a page reds here
   // long before anyone points it at one.
   ['AIN Bridge region finder + byte-safety asserts (BRIDGE-SNIPPET-SYNC-GEN-1)', 'node scripts/sync-ain-bridge.test.mjs'],
+  // BRIDGE-MCP-APPS-ALIGN-1. Blocking from the first push, no baseline: the
+  // snippet's MCP Apps layer is brand new, so there is no legacy debt for a
+  // ratchet to shield — the only way this gate can be red is a change made after
+  // it landed. The lint reads the master snippet's bytes (method allowlists vs the
+  // MCP Apps 2026-01-26 primary text, wildcard postMessage targets); the unit
+  // suite evaluates the snippet's MCP-APPS-JSONRPC region and exercises the
+  // handshake, origin pinning, the alias table and -32601; the .test.mjs pair is
+  // the gate's own SO #40b RED/GREEN proof.
+  ['AIN Bridge MCP Apps ui/ dialect lint (BRIDGE-MCP-APPS-ALIGN-1)', 'node scripts/check-bridge-jsonrpc.mjs'],
+  ['AIN Bridge MCP Apps lint controls (RED x9 + GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-bridge-jsonrpc.test.mjs'],
+  ['AIN Bridge MCP Apps View behaviour (handshake, origin pinning, alias, -32601)', 'node scripts/ain-bridge-jsonrpc.test.mjs'],
   ['Kernel exports (meta+compute)','node scripts/check-kernel-exports.mjs'],
   ['Forbidden-hash lint',          'node chaingraph/kernels/lint-forbidden-hash.mjs'],
   ['Hash golden-parity',           'node chaingraph/kernels/golden-parity.test.mjs'],
