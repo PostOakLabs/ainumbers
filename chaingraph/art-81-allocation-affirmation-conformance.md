@@ -8,21 +8,35 @@ Checks allocation and confirmation/affirmation events against the ESMA CSDR SDR 
 
 ## Inputs
 
-- cutoff_local (any, optional): type not evidenced by kernel source
-- events (any, optional): type not evidenced by kernel source
+- cutoff_timezone_reading (string, optional)
+- early_allocation_agreement (boolean, optional)
+- events (array, required)
+- firm_close_of_business (string, optional)
+- firm_start_of_business (string, optional)
+- logical_date (string, required)
+- regime (string, optional)
+- rule_version (string, optional)
+- source_digests (array, optional)
 
 ## Outputs
 
-- cutoff_applied (string, optional)
-- cutoff_timezone (string, optional)
-- dual_date_note (string, optional)
-- events_flagged (array, optional)
-- format_nonconformance_count (integer, optional)
+- status (string, optional)
+- on_time_rate (number,null, optional)
+- rate_basis (string, optional)
+- counts (object, optional)
+- events (array, optional)
+- unresolved (array, optional)
+- issues (array, optional)
+- regime (string, optional)
+- logical_date (string,null, optional)
+- applicability_wave (string,null, optional)
+- cutoff_timezone_reading (string, optional)
+- cutoff_disclosure (string, optional)
+- rule_version (string,null, optional)
+- source_digests (array, optional)
+- disclosures (array, optional)
+- evidence_labels (object, optional)
 - note (string, optional)
-- on_time_events (integer, optional)
-- on_time_rate (integer, optional)
-- reference (object, optional)
-- total_events (integer, optional)
 
 ## Sample
 
