@@ -17,7 +17,7 @@
 // registry/kernel/*.json records (the landed, gate-verified F2 positive half —
 // REGISTRY-RESOLVE-STATIC-1), each file's filename hex must equal its own
 // `kernel_digest` field, values are re-canonicalized through the estate's ONE
-// canonicalizer (chaingraph/kernels/_hash.mjs cgCanon). Nothing is hand-listed;
+// canonicalizer (chaingraph/kernels/_hash.mjs jcsStringify). Nothing is hand-listed;
 // a hand-maintained key set is permanently discarded, not a fallback.
 //
 // ── NO SECOND MERKLE IMPLEMENTATION (SPEC §20.1) ─────────────────────────────
@@ -87,7 +87,7 @@ import { fileURLToPath } from 'node:url';
 import {
   hashLeafNode, hashInteriorNode, sha256, concatBytes, parseSignedNote, bytesToHex, hexToBytes, bytesEqual,
 } from '../chaingraph/kernels/c2sp-tlog-verify.mjs';
-import { cgCanon } from '../chaingraph/kernels/_hash.mjs';
+import { jcsStringify } from '../chaingraph/kernels/_hash.mjs';
 import { mth, readEntryBundles } from './gen-registry-lineage.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -147,7 +147,7 @@ export function loadKeySet(keyDir = KEY_DIR) {
 // #34: recompute from the record content, never trust a byte a previous
 // process wrote).
 export function valueBytesFor(record) {
-  return new TextEncoder().encode(JSON.stringify(cgCanon(record)));
+  return new TextEncoder().encode(jcsStringify((record)));
 }
 
 // leaf = SHA-256(0x00 ‖ key(32) ‖ SHA-256(value)) — BUILD-SPEC §4.2's node hash,

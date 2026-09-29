@@ -14,7 +14,7 @@
 // Exports (also imported by compute-proof.test.mjs, which has no top-level side effects when imported
 // because the `isMain` guard below fences off this file's own gate run):
 //   matchVectors(output, vectors)      -> sorted array of indices whose vectors[i].output_payload
-//                                          canonically (cgCanon/JCS) equals `output` — never the receipt,
+//                                          canonically (jcsStringify/JCS) equals `output` — never the receipt,
 //                                          independent of it (§18.0's independence requirement).
 //   honestyStatement(index, vectors)   -> { ok, statement }. index 0 is the implicit default (ok:true,
 //                                          statement:null, no new field required). A non-zero index needs
@@ -25,9 +25,9 @@
 //                                          is needed for kernels that already name their vectors.
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
-import { cgCanon } from './_hash.mjs';
+import { jcsStringify } from './_hash.mjs';
 
-const canon = (o) => JSON.stringify(cgCanon(o ?? null));
+const canon = (o) => jcsStringify((o ?? null));
 
 export function matchVectors(output, vectors) {
   const target = canon(output);
