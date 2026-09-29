@@ -130,3 +130,18 @@ Rulings R8–R10 (popup-confirmed 2026-09-29): R8 publish expected within a day 
 **Behavior change live after merge:** PRs moving `data/counts.json` must run `sync-registry.mjs --write` (patch bump) or the pre-push hook blocks with the fix command printed — the intended ratchet; drift nag stays red until publish per the bump→publish flow.
 
 **Still open:** helm GIF redo (blocked on daemon update to 2026.9.26), anchor GIF redo (optional), README sentinels + OCS/worker/postoaklabs gate rollout (template = #426), remote branch sweep (declined unless wanted).
+
+---
+
+## 10. ADDENDUM 2026-09-29 (pass 2) — freshness re-verification + Dependabot triage
+
+**Freshness re-verification (all 22 merged claims re-checked against live mains):** zero post-merge movement anywhere except: ainumbers derived-regen (expected, single-writer), chaingraph spec syncs ×2 (spec STILL 0.8.13; every section cited by #7/#8 — §1 §4 §5 §7 §15 §18 §13.11 — verified still extant; "Five Tests" still 0; the remap survived the sync), OCS #111 (newsletter copy, not numbers). mcp-apps counts still 725/1188 on master. apexlogics/newtripoli/addr/a2a/postoaklabs/helm: no post-merge commits. All claims current.
+
+**Dependabot triage (was flagged twice as a footnote; now properly assessed):** 29 alerts (8 high, 19 medium, 2 low), ALL runtime-scoped, ALL in six express-era packages (`hono`, `@hono/node-server`, `body-parser`, `qs`, `fast-uri`, `ip-address`) belonging to the RETIRED `server.mjs` Render/express path. The deployed `worker.mjs` imports none of them (zero requires; vendored data via ASSETS binding) → **production exposure likely near-zero despite the headline**. Remediation options need a ruling (see §10.1); no Dependabot update PRs are open (checked).
+
+**No further autonomous action taken** — remaining items are blocked on user actions or rulings:
+- 10.1 Dependabot remediation (needs ruling): (a) bump the six packages to Dependabot-fixed versions — risk: version jumps may break `server.mjs` local-dev and this environment never runs npm to verify; (b) delete the `server.mjs` legacy path outright — needs Tim's ruling that no deployment path uses it; (c) leave (scanner noise only). Default until ruled: (c).
+- 10.2 #426 review/merge (user) → then publish-day runbook §9.
+- 10.3 Helm GIF redo blocked on daemon update to 2026.9.26 (user machine).
+- 10.4 Gate rollout (apexlogics pair first) starts after #426 lands per certified sequencing — not built early to avoid review pile-up and pattern-adjustment waste.
+- 10.5 Remote `pub-*` branch sweep on publish day (after #426 merge; `counts-gate-parity-1` is #426's head — do not delete before merge).
