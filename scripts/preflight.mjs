@@ -1661,6 +1661,15 @@ const GATES = [
   // produces the committed output) is ocg-conformance/derive-vector.mjs <id> --check.
   ['OCG receipt-conformance corpus hashes (CONFCORPUS-GATE-1)', 'node scripts/check-conformance-vectors.mjs --quiet'],
   ['OCG receipt-conformance corpus gate self-test (CONFCORPUS-GATE-1 RED+GREEN)', 'node scripts/check-conformance-vectors.test.mjs'],
+  // SCITT-SELFTEST-WIRE-1 (2026-09-28): scripts/export-scitt.mjs ships its own
+  // RED+GREEN suite — COSE_Sign1 round-trips (ES256, Ed25519), the RFC 9162
+  // inclusion-proof walk and RFC 9942 vds/vdp header parsing, each paired with a
+  // tampered-input rejection — and until this row nothing ran it. Hard in every
+  // context: the subcommand reads nothing outside the exporter's own in-memory
+  // fixtures, writes no files, and finishes in about 0.4 s. It is also a named
+  // step in deploy-to-dreamhost.yml (push-to-main only), so axis 3 of
+  // check-workflow-gate-parity.mjs is satisfied by wiring, not by a declaration.
+  ['SCITT exporter selftest (RED+GREEN built in)', 'node scripts/export-scitt.mjs selftest'],
   // TRUST-SIGNALS-WELLKNOWN-1 (2026-09-28): the /.well-known/trust-signals.json
   // digest. The freshness half's command string is byte-identical to
   // derived-artifacts.mjs COVERED id 'trust-signals', so the generic
