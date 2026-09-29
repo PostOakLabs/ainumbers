@@ -115,7 +115,10 @@ Every OpenChainGraph node tool and chain page MUST emit this envelope. Fields an
 `execution_hash` MUST be a **WebCrypto SHA-256** over the **RFC 8785 / JCS-canonical** JSON of
 exactly `{ policy_parameters, output_payload }` and nothing else, produced by the single shared
 canonicalizer **`kernels/_hash.mjs`** (browser tools inline it at build; the Worker imports it; both
-byte-identical).
+byte-identical). Member names are ordered by UTF-16 code unit including names that are array
+indices, which a JavaScript engine enumerates numerically, so a conforming implementation
+serializes without relying on object enumeration order; conformance is checked against the RFC 8785
+author's test vectors by `jcs-rfc8785-vectors.test.mjs`.
 
 **FORBIDDEN** (enforced by `lint-forbidden-hash.mjs`): array-replacer canonicalization
 (`JSON.stringify(x, Object.keys(x).sort())`), non-SHA-256 placeholders (`simpleHash`/djb2/FNV, any
@@ -1812,7 +1815,7 @@ enforces it; the profile introduces no gate of its own.
 | # | Source | Rule under this profile | Enforcing mechanism / §15 gate |
 |---|---|---|---|
 | D1 | **Non-finite floats** (`NaN`, `±Infinity`) | An `output_payload` MUST canonicalize under RFC 8785 / I-JSON, which forbids non-finite numbers; a kernel MUST either return finite output or reject its input cleanly, never emit a silent `NaN`. | §4 canonicalization (`kernel-hash-integrity.mjs`, `lint-forbidden-hash.mjs`, `golden-parity.test.mjs`) rejects non-finite numbers at hash time; the degenerate empty-input path is swept by `empty-input-finite.test.mjs`. |
-| D2 | **Object / key iteration order** | Serialization MUST NOT depend on property insertion or enumeration order; the preimage is built by the one canonical RFC 8785 (JCS) sorter in `_hash.mjs`, never by hand. | §4 canonical `execution_hash` (`kernel-hash-integrity.mjs`, `golden-parity.test.mjs`); ad-hoc canonicalization trips `lint-forbidden-hash.mjs` ("Scheme E"). Chain-level order fixed by `gate-parity.test.mjs`. |
+| D2 | **Object / key iteration order** | Serialization MUST NOT depend on property insertion or enumeration order; the preimage is built by the one canonical RFC 8785 (JCS) sorter in `_hash.mjs`, never by hand. | §4 canonical `execution_hash` (`kernel-hash-integrity.mjs`, `golden-parity.test.mjs`, `jcs-rfc8785-vectors.test.mjs`); ad-hoc canonicalization trips `lint-forbidden-hash.mjs` ("Scheme E"). Chain-level order fixed by `gate-parity.test.mjs`. |
 | D3 | **Transcendental math** (`Math.exp/log/log2/sin/cos/pow`) | Only `+ − × ÷ √` are IEEE-754 bit-portable; every transcendental MUST route through the shared pure-JS fdlibm port `kernels/_detmath.bundle.mjs` (inlined per kernel, never engine libm), so the value users see equals the value proven (§18.5(c)). | §4 cross-surface hash stability (`golden-parity.test.mjs`) + evaluator byte-parity (`gate-parity.test.mjs`); the re-baseline is frozen by the same golden fixtures. |
 | D4 | **Wall-clock time** (`Date.*`, timers) | No `Date`, timestamp, or timer reading may enter `output_payload` or the §4 preimage. Time-bearing evidence (anchor `genTime`, escalation `opened_at`) is defined hash-EXCLUDED (§20, §22.8). The §18 guest disables `Date` at the intrinsic level (§18.5); VM-1 disables it identically. | §4 reproducibility (`golden-parity.test.mjs`, live `hash-sweep.mjs`); wall-clock exclusion of escalation records enforced by `test-escalate-emit.mjs` (§22.8.2 — asserts `record_hash` is identical across two escalation runs with different `opened_at`; `linear-hash-freeze.mjs`/`gate-parity.test.mjs` do not exercise escalation records, corrected SPECREF-GATEPARITY-FIX-1 2026-07-28). |
 | D5 | **Randomness** (`Math.random`, CSPRNG) | No nondeterministic randomness may reach `output_payload`. `Math.random` is stubbed out of the §18 guest and the VM-1 prelude. The one CSPRNG in the standard (§13.12 SD-JWT salts) is confined to disclosure material that is EXCLUDED from the artifact hash. | §4 determinism (`golden-parity.test.mjs`); SD-JWT salt-as-sole-nondeterminism is pinned by `sd-export-roundtrip.test.mjs`. |
@@ -4154,7 +4157,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 
 | Rule | Gate | When |
 |---|---|---|
-| §4 canonical execution_hash | `kernel-hash-integrity.mjs`, `lint-forbidden-hash.mjs`, `golden-parity.test.mjs`, `determinism-replay.test.mjs` (N=3 idempotency + JCS key-order stability) | validate |
+| §4 canonical execution_hash | `kernel-hash-integrity.mjs`, `lint-forbidden-hash.mjs`, `golden-parity.test.mjs`, `determinism-replay.test.mjs` (N=3 idempotency + JCS key-order stability), `jcs-rfc8785-vectors.test.mjs` (RFC 8785 author's test vectors) | validate |
 | §12 every gpu:false node has a kernel (no silent skip) | `check-kernel-coverage.mjs --strict` | validate |
 | §4 buildArtifact reproduces hash offline | `kernel-contract.test.mjs` | validate |
 | §4 **live** re-verifiability of every deployed node | **`hash-sweep.mjs`** | post-deploy |

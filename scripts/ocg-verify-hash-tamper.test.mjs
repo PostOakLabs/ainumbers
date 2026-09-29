@@ -5,8 +5,12 @@
  * core OCG artifact hash verifier. A verifier never observed to reject
  * isn't known to verify.
  *
- * Inlines the same cgCanon/canonicalPreimage/executionHash logic from
+ * Inlines the same canonicalPreimage/executionHash logic from
  * chaingraph/verify.html so this test never opens a second canon impl.
+ * JCS-CANON-FIX-1: the hash path here is jcsStringify (kernels/_hash.mjs semantics),
+ * which is byte-identical to the page's legacy stringify-of-sorted-object wrap for every
+ * payload without array-index member names in a disagreeing order (none in this
+ * fixture set); the page canonicalizers move to jcsStringify in JCS-CANON-PAGES-1.
  */
 
 function assertIJson(v) {
@@ -28,10 +32,36 @@ function cgCanon(v) {
   return v;
 }
 
+// Same semantics as kernels/_hash.mjs jcsStringify (RFC 8785 §3.2.3 member order holds
+// for array-index member names): Object.keys sorted by UTF-16 code unit, the string
+// built directly instead of through an intermediate sorted object.
+function jcsStringify(v) {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) {
+    let s = '[';
+    for (let i = 0; i < v.length; i++) {
+      if (i) s += ',';
+      const e = v[i];
+      s += (e === undefined || typeof e === 'function' || typeof e === 'symbol') ? 'null' : jcsStringify(e);
+    }
+    return s + ']';
+  }
+  const keys = Object.keys(v).sort();
+  let s = '{', first = true;
+  for (const k of keys) {
+    const e = v[k];
+    if (e === undefined || typeof e === 'function' || typeof e === 'symbol') continue;
+    if (!first) s += ',';
+    first = false;
+    s += JSON.stringify(k) + ':' + jcsStringify(e);
+  }
+  return s + '}';
+}
+
 function canonicalPreimage(policy_parameters, output_payload) {
   const obj = { policy_parameters, output_payload };
   assertIJson(obj);
-  return JSON.stringify(cgCanon(obj));
+  return jcsStringify(obj);
 }
 
 async function executionHash(policy_parameters, output_payload) {

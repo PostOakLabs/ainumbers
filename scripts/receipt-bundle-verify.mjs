@@ -10,7 +10,7 @@
 // that and NEVER as "verified". There is no single boolean anywhere in this file's output. `proof` and
 // `logged` are siblings, each with its own verdict token, in every output mode.
 //
-// ⛔ NO SECOND CANONICALIZER (§1.4). Journal bytes come from cgCanon (chaingraph/kernels/_hash.mjs) via the
+// ⛔ NO SECOND CANONICALIZER (§1.4). Journal bytes come from jcsStringify (chaingraph/kernels/_hash.mjs) via the
 // §18.1 reference verifier in chaingraph/kernels/_computeproof.mjs. ⛔ NO SECOND MERKLE / SIGNED-NOTE
 // IMPLEMENTATION (§20.1): every transparency-log primitive is imported from the shared C2SP module
 // chaingraph/kernels/c2sp-tlog-verify.mjs. This file adds ZERO crypto of its own — it is assembly.
@@ -29,7 +29,7 @@ import { webcrypto } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
-import { cgCanon } from '../chaingraph/kernels/_hash.mjs';
+import { jcsStringify } from '../chaingraph/kernels/_hash.mjs';
 import { verifySeal, normId } from '../chaingraph/kernels/_computeproof.mjs';
 import {
   bytesToHex,
@@ -107,7 +107,7 @@ export async function loadPinnedPolicy(name, repoRoot = REPO) {
 
 // The §18.7 recompute, independent of every annotation in the bundle.
 async function recomputeJournal(receipt) {
-  const journalBytes = enc(JSON.stringify(cgCanon(receipt.journal)));
+  const journalBytes = enc(jcsStringify((receipt.journal)));
   return { journalBytes, journalDigest: 'sha256:' + bytesToHex(await sha256(journalBytes)) };
 }
 

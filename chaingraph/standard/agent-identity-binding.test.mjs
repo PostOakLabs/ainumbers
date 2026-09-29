@@ -9,7 +9,7 @@
 // without the member is fully conformant (§AGID-1.5c — no MUST-emit).
 // Node 18+ (WebCrypto + node: builtins only — zero npm deps).
 // Run:  node chaingraph/standard/agent-identity-binding.test.mjs
-import { cgCanon, canonicalPreimage, executionHash } from '../kernels/_hash.mjs';
+import { jcsStringify, canonicalPreimage, executionHash } from '../kernels/_hash.mjs';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -38,7 +38,7 @@ const withMember = { ...without, audit_signature: { ...shell, requesting_agent: 
 const withMutated = { ...without, audit_signature: { ...shell, requesting_agent: { ...member, id: 'did:web:producer.example' } } };
 
 // ---- §AGID-1 / §AGID-1.5 THE HASH-EXCLUSION PROOF (non-vacuous, mirrors §21.6/§PPH-1) -------------
-ok(JSON.stringify(cgCanon(withMember)) !== JSON.stringify(cgCanon(without)),
+ok(jcsStringify((withMember)) !== jcsStringify((without)),
    'the member DOES change the artifact\'s canonical form (it is materially present — the next assertions are not vacuous)');
 for (const [label, art] of [['added', withMember], ['mutated', withMutated]]) {
   ok(canonicalPreimage(art.policy_parameters, art.output_payload) === canonicalPreimage(without.policy_parameters, without.output_payload),

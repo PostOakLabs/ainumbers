@@ -26,12 +26,12 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dir, '..');
 const GATE = resolve(__dir, 'check-conformance-vectors.mjs');
 
-const { cgCanon, executionHash } = await import(
+const { jcsStringify, executionHash } = await import(
   pathToFileURL(resolve(REPO, 'chaingraph', 'kernels', '_hash.mjs')).href
 );
 const { createHash } = await import('node:crypto');
 const sha256Hex = (bytes) => createHash('sha256').update(bytes).digest('hex');
-const canonSha = (obj) => sha256Hex(new TextEncoder().encode(JSON.stringify(cgCanon(obj))));
+const canonSha = (obj) => sha256Hex(new TextEncoder().encode(jcsStringify((obj))));
 
 const failures = [];
 const assert = (cond, label) => {

@@ -1,13 +1,13 @@
 // ancestry-digest.test.mjs — §21.6 ancestry_digest GATE (SPEC.md §21.6, v0.8.17).
 // Proves: the digest is bottom-up over {execution_hash, parent_ancestry_digests} through the ONE
-// canonical cgCanon path (§21.6.1), a root's digest is a pure function of its own execution_hash
+// canonical jcsStringify path (§21.6.1), a root's digest is a pure function of its own execution_hash
 // (§21.6.1), it is hash-EXCLUDED so adding it never moves execution_hash (§21.6.3), it is
 // mutation-sensitive to an omitted/reordered/substituted ancestor or a topology change (§21.6.4/
 // §21.6.6), absence is fully conformant (§21.6.3), and a verifier missing a cited ancestor reports
 // the distinct incomplete-bundle tier rather than failed (§21.6.6).
 // Node 18+ (WebCrypto + node: builtins only — zero npm deps).
 // Run:  node chaingraph/standard/ancestry-digest.test.mjs
-import { cgCanon, canonicalPreimage, executionHash } from '../kernels/_hash.mjs';
+import { jcsStringify, canonicalPreimage, executionHash } from '../kernels/_hash.mjs';
 import { ancestryDigest } from '../kernels/_ancestry.mjs';
 
 let fail = 0;
@@ -39,7 +39,7 @@ ok(SHA256REF.test('sha256:' + rootAd), '§21.6.2: the prefixed form is ALSO sche
 ok(rootAd !== rootHash, 'ancestry_digest is NOT the execution_hash it covers');
 ok(await ancestryDigest(rootHash, []) === rootAd, 'root digest is deterministic and a pure function of its own execution_hash');
 
-// Key-order independence via cgCanon (mirrors §PPH-1's proof of the shared canon path).
+// Key-order independence via jcsStringify (mirrors §PPH-1's proof of the shared canon path).
 const reKeyedRootPolicy = { input_parameters: { algorithm: 'sha256', document_id: 'DOC-ANC-001' }, execution_backend: 'server' };
 ok(await executionHash(reKeyedRootPolicy, rootOutput) === rootHash, 'control: re-keyed policy_parameters still hashes identically (JCS canon)');
 
@@ -59,7 +59,7 @@ ok(await ancestryDigest(multiHash, [rootAd, otherAd]) === multiAdForward, 'diges
 const withoutField = { tool_id: 'art-121-document-integrity-anchor', execution_hash: rootHash, chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 }, policy_parameters: rootPolicy, output_payload: rootOutput };
 const withField = { ...withoutField, chain: { ...withoutField.chain, ancestry_digest: rootAd } };
 
-ok(JSON.stringify(cgCanon(withField)) !== JSON.stringify(cgCanon(withoutField)),
+ok(jcsStringify((withField)) !== jcsStringify((withoutField)),
    'the member DOES change the artifact\'s canonical form (it is materially present — makes the next assertion non-vacuous)');
 ok(canonicalPreimage(withField.policy_parameters, withField.output_payload)
    === canonicalPreimage(withoutField.policy_parameters, withoutField.output_payload),

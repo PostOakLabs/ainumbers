@@ -8,7 +8,7 @@
 // that ports it inline (CONTRACT §1.1 forbids a self-contained page from
 // importing a module at runtime).
 //
-// JCS canonicalization is NEVER reimplemented here — cgCanon/assertIJson are
+// JCS canonicalization is NEVER reimplemented here — jcsStringify/assertIJson are
 // imported verbatim from _hash.mjs, the repo's single canonicalization SSOT
 // (CLAUDE.md: "there is exactly one correct canonicalization ... it lives in
 // _hash.mjs"). This module's own contribution is only the VPSF composite
@@ -25,7 +25,7 @@
 // Runs unchanged in Node 18+, Workers, and browsers (globalThis.crypto.subtle,
 // atob/btoa — no Buffer, no node:crypto import).
 
-import { cgCanon, assertIJson } from './_hash.mjs';
+import { jcsStringify, assertIJson } from './_hash.mjs';
 
 export const CLAIM_TYPES = Object.freeze(['PaymentIntent', 'SettlementReceipt', 'RefundClaim', 'DelegationGrant']);
 export const OPERATORS = Object.freeze(['conjunction', 'implication', 'aggregation', 'selective_disclosure', 'revocation']);
@@ -34,7 +34,7 @@ export const OPERATORS = Object.freeze(['conjunction', 'implication', 'aggregati
 // canonical form of a preimage object, encoded as "sha256:<lowercase-hex-64>".
 export async function jcsPreimageHash(obj) {
   assertIJson(obj);
-  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(obj)));
+  const bytes = new TextEncoder().encode(jcsStringify((obj)));
   const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
   return 'sha256:' + Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
@@ -68,7 +68,7 @@ const CLAIM_TYPE_SUBJECT_ROLE = Object.freeze({
 export function extractSubjectValue(claim) {
   const s = claim && claim.subject;
   if (s === undefined || s === null) return null;
-  if (typeof s === 'object') return s.value !== undefined ? s.value : JSON.stringify(cgCanon(s));
+  if (typeof s === 'object') return s.value !== undefined ? s.value : jcsStringify((s));
   return s;
 }
 
