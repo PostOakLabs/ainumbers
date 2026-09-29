@@ -14,9 +14,38 @@
 // under member reordering, the injected-member invariant, and threshold monotonicity.
 //
 // Run: node chaingraph/kernels/__proptests__/art-700-authorization-payload-linter.proptest.mjs
+//
+// MUTATION-MODE TRIAL CAP (same shape as pnr-01's PNR01-MUTATION-MC-COST-1 cap, see that
+// header): under the mutation tier (scripts/run-mutation-tier.mjs, Stryker 8.7.1 command
+// runner) each of the kernel's 2,054 mutants (measured at the first tier run,
+// 2026-09-29) re-runs this whole floor, so the full-trial counts cost ~1.07 s per
+// mutant and 2,054 x 1.07 s / 2 runners exceeds the tier's 600 s per-kernel bound --
+// the measured result is the MUTATION-TIER TIMEOUT hard fail
+// (MUTATION-TIER-HANG-MMS03-PNR01-1 shape), i.e. the tier can never complete, let
+// alone report a score. The proptest may therefore cap its RANDOM trial counts IN
+// MUTATION MODE, detected two ways (both pnr-01 verbatim): (a) the seam Stryker
+// itself owns -- CommandTestRunner.mutantRun() sets env __STRYKER_ACTIVE_MUTANT__
+// for MUTANT runs; (b) the tier sandbox cwd -- the tier copies this proptest into
+// %TEMP%\ain-mutation-tier-<pid>\ and runs the Stryker INITIAL DRY RUN there too,
+// so __dirname under that root marks dry-run context (Stryker's own dryRunTimeout
+// would otherwise kill a full-trial dry run before any mutant executes). OUTSIDE
+// mutation mode nothing changes: full trials (1200/1200/1200/1200/1200 + 5 + 100 +
+// 400 + 400 + 400 + the 28 fixture vectors), the shipped floor, byte-identical
+// behavior. INSIDE the tier (dry run or mutant run) the random trial counts are
+// capped (default 25; override with documented env PROPFLOOR_TRIAL_CAP, a positive
+// integer, invalid values throw). The fixture oracle is NEVER capped -- it is the
+// exact-output gate over all 28 golden vectors and the cheap per-mutant kill
+// backbone. Every property is deterministic (seeded mulberry32; a capped run takes
+// the first N draws of the same shared stream), so a violation found under the cap
+// is found under full trials too -- kill power can only be affected by violations
+// that first surface on a late draw.
 
 import { compute } from '../art-700-authorization-payload-linter.kernel.mjs';
 import { runFixtureOracle, summarize, findShapeViolations, mulberry32, pick } from './_pbt-common.mjs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const KERNEL_ID = 'art-700-authorization-payload-linter';
 const rand = mulberry32(0x700A17);
@@ -135,7 +164,21 @@ function randomPP(rng) {
   return eip3009PP(rng);
 }
 
-const TRIALS = 1200;
+// ---------- mutation-mode trial cap (see header) ----------
+const MUTATION_MODE =
+  process.env.__STRYKER_ACTIVE_MUTANT__ !== undefined ||
+  __dirname.replace(/\\/g, '/').includes('/ain-mutation-tier-');
+let mutationTrials = 25; // default per-mutant cap; full trials remain the default outside the tier
+if (process.env.PROPFLOOR_TRIAL_CAP !== undefined) {
+  const cap = Number(process.env.PROPFLOOR_TRIAL_CAP);
+  if (!Number.isInteger(cap) || cap <= 0) {
+    throw new Error(`PROPFLOOR_TRIAL_CAP must be a positive integer, got "${process.env.PROPFLOOR_TRIAL_CAP}"`);
+  }
+  mutationTrials = cap;
+}
+const TRIALS = MUTATION_MODE ? mutationTrials : 1200;
+const SMALL_TRIALS = MUTATION_MODE ? mutationTrials : 400; // P7/P8/P9 loops
+const capped = (n) => (MUTATION_MODE ? Math.min(n, mutationTrials) : n);
 
 // ---------- P1: determinism ----------
 function checkP1_determinism() {
@@ -255,7 +298,7 @@ function checkP6_mode_discipline() {
     if (compliance_flags.indexOf('MODE_NOT_DECLARED') === -1) violations++;
     if (op.classification.standard !== 'NOT_CLASSIFIED') violations++;
   }
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < capped(100); i++) {
     const { output_payload: op } = compute(rawHashPP());
     checked++;
     if (statusOf(op, 'BLIND_SIGNATURE') !== 'FLAGGED') violations++;
@@ -273,7 +316,7 @@ function checkP6_mode_discipline() {
 // its recognised label, and the known name must raise the lookalike flag.
 function checkP7_lookalike_under_reordering() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 400; i++) {
+  for (let i = 0; i < SMALL_TRIALS; i++) {
     const pp = pick(rand, [erc2612PP, eip3009PP])(rand);
     const td = pp.typed_data;
     const fields = td.types[td.primaryType].slice();
@@ -297,7 +340,7 @@ function checkP7_lookalike_under_reordering() {
 // ---------- P8: an injected member is always caught ----------
 function checkP8_injected_member() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 400; i++) {
+  for (let i = 0; i < SMALL_TRIALS; i++) {
     const pp = pick(rand, [erc2612PP, permit2PP, eip3009PP])(rand);
     const clean = compute(pp).output_payload;
     checked++;
@@ -314,7 +357,7 @@ function checkP8_injected_member() {
 // A maximum below the signed amount always flags; a maximum at or above it never does.
 function checkP9_threshold_monotonicity() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 400; i++) {
+  for (let i = 0; i < SMALL_TRIALS; i++) {
     const pp = permit2PP(rand);
     const amount = BigInt(pp.typed_data.message.permitted.amount);
     const below = { ...pp, policy: { max_amount_by_token: { [USDC]: (amount - 1n).toString() } } };
@@ -344,6 +387,6 @@ const properties = [
   checkP8_injected_member(),
   checkP9_threshold_monotonicity(),
 ];
-console.log(`[${KERNEL_ID}] class-K floor property test.`);
+console.log(`[${KERNEL_ID}] class-K floor property test${MUTATION_MODE ? ` (mutation-mode trial cap applied: ${mutationTrials}; fixture oracle never capped)` : ' (full trials)'}.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
