@@ -1882,7 +1882,9 @@ export function compute(pp) {
     };
   }
 
-  flags.push('X402_PERMIT2_DIGEST_RECOMPUTED');
+  // The recomputed marker is earned by the digest actually existing, so it is emitted behind
+  // that condition rather than asserted on the way out.
+  if (digestHex !== null) flags.push('X402_PERMIT2_DIGEST_RECOMPUTED');
 
   const output_payload = {
     verdict: 'DIGEST_RECOMPUTED',

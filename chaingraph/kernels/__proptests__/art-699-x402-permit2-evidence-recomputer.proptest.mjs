@@ -1,5 +1,5 @@
 // art-699-x402-permit2-evidence-recomputer — class-K property-test FLOOR (X402-PERMIT2-EVIDENCE-1).
-// kernel_digest_at_authoring: sha256:69eb00a1b10856b1a6f5e2067267be66919bc626f214529d7f666147755ae9eb
+// kernel_digest_at_authoring: sha256:610d0247168f9ed0ac30b0c745503f178fb840da35d67b3fb9f3342801021ba5
 // spec: GASLESS-AUTH-EVIDENCE-BUILD-SPEC.md §2
 // human_sign_off: PENDING
 //
