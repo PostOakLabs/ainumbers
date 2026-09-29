@@ -114,3 +114,19 @@ Discrepancy handling: any miss → check whether a NEWER ruling superseded this 
 ## 8. Session provenance
 
 Session model performed: full-fleet review (17 public repos + profile, all cloned locally then removed), user triage via popups ×3, two adversarial passes, 22 PRs authored (all README/docs/GIF/license-only; zero kernel, zero chaingraph.json, zero workflow, zero derived-artifact edits — verified by diff scope at each commit), 2 automerge routings corrected mid-flight (F7/F8), all scratch clones removed except those listed in §6.5. Workspace commit: this file only, explicit pathspec, per CLAUDE.md workflow. `.claude/settings.json` pre-existing modification intentionally untouched.
+
+---
+
+## 9. ADDENDUM 2026-09-29 — REGISTRY-PARITY-1 built (first counts-gate landed as PR)
+
+Rulings R8–R10 (popup-confirmed 2026-09-29): R8 publish expected within a day or two; R9 landing shape = **absorb** (#420 merged into the gate PR; #420 CLOSED as absorbed — do not reopen); R10 publish-day division: session runs merge→`sync-registry --write`→commit→push, **Tim runs only `mcp-publisher.exe publish`** (SO #8).
+
+**Delivered:** open PR **ainumbers-mcp-apps #426** (branch `counts-gate-parity-1`, stacked on #420's `pub-readme-hygiene-1`): `--check` mode in `scripts/sync-registry.mjs` (hermetic: exits before the live fetch; description-only — version stays `--check-drift`'s job), gate entry in `scripts/preflight.mjs`, matching step in `ci.yml` Validate job. SO #34c red-before-green proof quoted in the PR body. CI-verified: run 36608051545 **success**, gate line "✅ registry-parity … matches the counts SSOT (725 MCP tools / 1188 catalog tools)" executed in the cloud; zizmor pass ×2 on the ci.yml edit. SO #6 dissolved by ci.yml's `pull_request` trigger (not main-only). No automerge label — workflow change awaits Tim's review/merge.
+
+**Publish-day runbook (updated):** Tim reviews+merges #426 → session: `node scripts/sync-registry.mjs --write`, commit, push → Tim: `mcp-publisher.exe publish` → session verifies registry serves the new version + drift red clears on next scheduled run.
+
+**Scratch cleanup executed:** all 12 `.wt/pub-*` worktrees + `.claude/worktrees/pubreadme/` clones removed (verified 0 remaining). Remote `pub-*` branches still exist (deletion unrequested).
+
+**Behavior change live after merge:** PRs moving `data/counts.json` must run `sync-registry.mjs --write` (patch bump) or the pre-push hook blocks with the fix command printed — the intended ratchet; drift nag stays red until publish per the bump→publish flow.
+
+**Still open:** helm GIF redo (blocked on daemon update to 2026.9.26), anchor GIF redo (optional), README sentinels + OCS/worker/postoaklabs gate rollout (template = #426), remote branch sweep (declined unless wanted).
