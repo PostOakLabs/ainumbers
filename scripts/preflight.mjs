@@ -1424,6 +1424,11 @@ const GATES = [
   ['MCP protocol-version drift', 'node scripts/verify-mcp-protocol-version.mjs'],
   ['Deadline-wall freshness (SI-DEADLINE-FRESH-1)', 'node scripts/check-deadline-freshness.mjs'],
   ['Bank-fact freshness (REVERIFY-BANK-1)', 'node scripts/check-bank-fact-freshness.mjs'],
+  // FACT-STAMPS-PILOT-1: the visible "Verified YYYY-MM-DD against …" stamps are a
+  // pure function of data/bank-fact-freshness.json (the same sidecar the bank-fact
+  // gate above watches). A drifted region means the page no longer shows what the
+  // freshest re-verification says. Fix: run the generator in write mode, commit.
+  ['Fact-stamp regions (FACT-STAMPS-PILOT-1)', 'node scripts/gen-fact-stamps.mjs --check'],
   ['Tool-number uniqueness',       'node scripts/check-tool-number-unique.mjs'],
   // PR-ID-COLLISION-GATE-1 (2026-09-06): art-685/art-686 each collided twice in one
   // evening across OPEN PRs, which no in-tree uniqueness gate can ever see. This gate

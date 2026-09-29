@@ -1356,7 +1356,11 @@ const DECLARED_SOFTENERS = new Map([
   // --self-test (two `node` lines + three `#` comment lines) landed in the SAME
   // `run:` block above the attest step; each row alone measured :909, the two
   // together shift it to :914.
-  ["deploy-to-dreamhost.yml:continue-on-error:914",
+  // FACT-STAMPS-PILOT-1 (2026-09-29) moved it :914 → :922 — the fact-stamp
+  // sentinel-region gate (one step: a `#`-commented `node
+  // scripts/gen-fact-stamps.mjs --check`) landed as a new step in the preflight
+  // job above the attest step; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:922",
    "attest step is advisory-first by design; promotion criterion on the step"],
   ["unwired-gates.yml:continue-on-error:109",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
