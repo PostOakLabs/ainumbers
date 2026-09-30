@@ -28,7 +28,7 @@ Incident of record: the first CronUpdate hit farm-watch's id instead of live-smo
 
 ## 3. PR #430 — server-side `?profile=lite` (OPEN; merge = deploy)
 
-`PostOakLabs/ainumbers-mcp-apps` PR #430, branch `MCP-LITE-PROFILE-1`, base `master` (repo head 98e2053 v0.4.12). `?profile=lite` on the SAME `/mcp` endpoint serves `data/mcp/static/tools-list-lite.sse.txt` — a GENERATED 4-tool discovery template (find_tool, describe_tool, call_tool, list_ainumbers_tools; 5,591B vs 1,875,668B full = 335×), filtered from the same captured registration array by `scripts/precompute-discovery.mjs` (nothing hand-typed; interpolated counts ride along per A5.3).
+`PostOakLabs/ainumbers-mcp-apps` PR #430, branch `MCP-LITE-PROFILE-1`, base `master` (repo head 98e2053 v0.4.12). `?profile=lite` on the SAME `/mcp` endpoint serves `data/mcp/static/tools-list-lite.sse.txt` — a GENERATED 4-tool discovery template (find_tool, describe_tool, call_tool, list_ainumbers_tools; 5,597B on disk vs 1,875,668B full ≈ 335×), filtered from the same captured registration array by `scripts/precompute-discovery.mjs` (nothing hand-typed; interpolated counts ride along per A5.3).
 
 - Execution is NOT scoped: `tools/call` untouched; call_tool relays by name behind its fail-closed read-only allowlist. Fail-soft: missing/broken/SPA-garbage lite asset → falls back to the FULL template (prefix-verified; availability choice, not approval boundary). Memo keys profile-aware (`tools\0lite`) in getStaticListTemplate AND the buildListPage index — lite/full pagination state cannot collide.
 - Gates: `check-worker-invariants` (f) asserts lite file exists, parses, exactly the 4 names in registration order, byte-identical per entry to the full list; `smoke-mcp` gains a `lite-profile` phase (one paced request, post-deploy proof). CI validate PASSED on the PR; local push ran the 52-gate worker preflight (4 site-dependent gates skipped — local `repo/` checkout stale; CI backstops them).
@@ -36,9 +36,9 @@ Incident of record: the first CronUpdate hit farm-watch's id instead of live-smo
 - Known wart: `initialize.instructions`/`server/discover` still carry full-catalog text ("page 1 is 75 of 722 tools") to lite clients. Cosmetic; lite-aware instructions = follow-up only if the profile gets real users.
 - **Reviews:** robustness review (url scoping proven in-scope — the /mcp route guard uses the same variable; SPA-fallback 200-garbage found and fixed) + product-surface review (boundary above; tracking claim conditional — see §4). PR self-review comment on record.
 
-### Merge-order coupling (READ BEFORE MERGING EITHER PR)
+### Merge-order coupling (READ BEFORE MERGING EITHER PR) — CORRECTED by independent review 2026-09-30
 
-Open PR **#429** (`vendor: refresh from site X402-UNITS-FIXTURE-1`, art-596) touches the SAME vendored `data/`. A vendor bump moves interpolated counts inside tool descriptions (e.g. "722 tools" → 723), so **whoever merges second owes a `node scripts/precompute-discovery.mjs` re-run + commit** — invariant (f) will FAIL CI otherwise. This is the gate working, not a defect. Recommendation on record: merge #430 first (fully tested), then rebase #429 + re-run precompute. Every future vendor PR owes the precompute re-run too — the lite file is a first-class vendored artifact now.
+Open PR **#429** (`vendor: refresh from site X402-UNITS-FIXTURE-1`) touches the SAME repo. **Correction (the original claim here overstated it):** #429 as opened carries 99 chaingraph *pages* + `chain-fixtures.json` and does NOT touch `chaingraph.json`/`counts.json`/mcp-static — it moves NO interpolated count, so as-opened it triggers nothing; the two PRs are order-independent as they stand. The coupling is REAL but LATENT: it activates for any vendor PR that DOES move interpolated counts in the four lite tools' descriptions (i.e. touching `chaingraph.json`/`counts.json`) — invariant (f) byte-compares lite vs full (check-worker-invariants.mjs:183-204), so the stale side FAILS CI and owes a `node scripts/precompute-discovery.mjs` re-run + commit. Precompute regenerates both files from one captured array (independently verified byte-fixpoint). Note also: call_tool's "13 pages, 722 tools" literal is HAND-TYPED in worker.mjs (~line 4461) and never moves — it is stale vs counts.json (725) on the FULL list already; see open items.
 
 ### Deploy + post-merge protocol (A4.4/A4.5)
 
@@ -52,11 +52,17 @@ Merge on master = gated deploy (validate → deploy → smoke). After merge: con
 4. **Worker repo direct PRs vs board rows:** Tim-directed worker changes may ride as direct PRs (this one) with memorial + channel-FYI instead of retroactive board rows — a retro row with no builder receipts pollutes claimed/done. The channel FYI (7F-TO-ORCH, one line) is the coordination surface for merge-order coupling with seat-owned work.
 5. **Verification protocol for a fresh session:** `node scripts/ainumbers-lite-proxy.test.mjs && node scripts/ainumbers-lite-proxy.mocktest.mjs` (proxy), `node scripts/check-worker-invariants.mjs` (lite artifact), `gh pr checks 430 --repo PostOakLabs/ainumbers-mcp-apps` (CI), automation cadences via CronList against §1's table, backups listed in §2.
 
-## 5. Open items
+## 5. Independent review record (2026-09-30, two fresh-context reviewer agents; Tim-directed "do it here")
 
-- [ ] Merge #430 (Tim/7F call; merge-order coupling with #429 above).
+- **Correctness/security reviewer: APPROVE.** url scoping proven (single fetch handler, no intervening function 6579–7160); default path byte-identical (liteSel=false → identical memo key/file/bytes); memo keys collision-proof (entry requires STATIC_DISCOVERY_METHODS membership — client input cannot forge a NUL key); fail-soft prefix matches frame() exactly, recursion depth 1, assertSingleSplice guards lite; zero new egress; rate limiters precede the branch; pagination on lite never issues a cursor (5,597B << 150,000 budget) and cross-profile tokens refuse with -32602. Two benign theoretical notes: fail-soft fallback serves full bytes under the lite memo key (latent key-semantics coupling, harmless while ASSETS is deterministic) and a broken lite asset costs one extra ASSETS.fetch per request (never memoizes garbage).
+- **Contract/process reviewer: APPROVE-WITH-NOTES.** A4.2 byte-fixpoint proven (fresh precompute regenerates all 8 outputs sha256-identical, tree clean); A4.1 compliant; A5.3 compliant for the PR; ci.yml wiring verified (validate :53/:99, deploy gated `push && master` :456 — PRs cannot deploy, smoke :591, liteProfile wired not dead); A4.7 zero egress; no registry surface touched. Findings folded in: coupling premise corrected (above), worker comment byte figures fixed, plus NEW pre-existing issue → open item below.
+
+## 6. Open items
+
+- [ ] Merge #430 (Tim/7F call; #429 order-independent as opened — see corrected §3).
 - [ ] Post-merge: estate migration to `?profile=lite` + retire local proxy (§2 retirement path).
+- [ ] **A5.4 gate gap (pre-existing):** call_tool's "13 pages, 722 tools" is hand-typed in worker.mjs (~line 4461) and stale vs counts.json (725); no gate scans served descriptions for count literals. Candidate WU: extend surface-parity or add a counts-text gate.
 - [ ] CONTRACT §2 or mcp-apps-poc README line documenting the param (A5.4 follow-up).
-- [ ] Optional: profile token in ANALYTICS datapoint; lite-aware instructions string.
+- [ ] Optional: profile token in ANALYTICS datapoint; lite-aware instructions string; REGISTRY-LOG.md post-merge note (§2.6, arguably owed).
 - [ ] Untriaged automations: orch-autoboot (hourly — biggest single remaining launch cost), 7f-seat, dailies, weeklies.
 - [ ] `.wt/` 613-worktree cleanup (disk hygiene; zero token impact) during a pipeline-dry window.
