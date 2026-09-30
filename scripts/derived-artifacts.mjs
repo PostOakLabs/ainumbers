@@ -881,16 +881,27 @@ export const COVERED = [
     // in EXCLUDED below, nothing here writes an unbounded tile set.
     // ⚠ The lineage BINDING is a different surface with a different writer: the
     // {tree_root, key_count} entry is appended to registry-lineage-records.json
-    // and published via gen-registry-lineage.mjs (EXCLUDED — Sigsum budget + tile
-    // paths). When a node registration grows the key set, THIS regen updates
-    // tree.json automatically, and the binding half of
+    // by scripts/append-absence-lineage-record.mjs and published via
+    // gen-registry-lineage.mjs (EXCLUDED — Sigsum budget + tile paths;
+    // "publishing stays a manual/generated run", gen-registry-absence-tree.mjs
+    // header — only the ANCHOR is excluded, the append itself is network-free,
+    // deterministic and idempotent: COVERED-safe by this entry's own
+    // no-wall-clock / no-network / fixed-path criteria).
+    // REGISTRY-ABSENCE-LINEAGE-REBIND-1: the regen command CHAINS the append so
+    // a main-side regen commit always carries the tree TOGETHER with its
+    // binding record — before this chain, a regen could move tree.json's root
+    // while nothing appended the matching record, and the two-command
+    // append+publish remedy could itself silently JAM (a records file behind
+    // the published log made gen-registry-lineage's size-only skip fire). The
+    // append reconciles any log-ahead divergence first, so the binding always
+    // lands at the next LOG index. The binding half of
     // `gen-registry-absence-tree.mjs --check` (wired directly into preflight.mjs,
-    // hard in every context) goes red BY DESIGN until the two-command
-    // append+publish remedy runs — printed with the failure. That is the same
-    // deliberate red-until-anchored philosophy as the node-registration gap gate.
-    regen: 'node scripts/gen-registry-absence-tree.mjs --write',
+    // hard in every context) still goes red BY DESIGN until the publish+anchor
+    // command runs — printed with the failure. That is the same deliberate
+    // red-until-anchored philosophy as the node-registration gap gate.
+    regen: 'node scripts/gen-registry-absence-tree.mjs --write && node scripts/append-absence-lineage-record.mjs',
     gate: 'node scripts/gen-registry-absence-tree.mjs --check',
-    artifacts: ['registry/absence/tree.json'],
+    artifacts: ['registry/absence/tree.json', 'chaingraph/kernels/registry-lineage-records.json'],
     // Reads the registry/kernel output of registry-kernel-resolve; a stale key
     // set would publish a stale tree. Order is load-bearing, as with euc-register.
     after: 'registry-kernel-resolve',
