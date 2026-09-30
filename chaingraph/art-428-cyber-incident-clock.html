@@ -100,6 +100,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <meta name="ai-tool" content="compute_cyber_incident_notification_clock">
+<meta name="kernel-digest" content="sha256:6bbd5af5d5a8f8a001a6b5e62fde257a5a22943d218e038ce6c4ae78bb142c8e">
 </head>
 <body>
 <nav>
@@ -152,7 +153,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
   <div class="card"><div class="grid" id="form">
     <div class="q"><label>Incident ID (optional)</label><input type="text" id="incident_id" placeholder="INC-2026-0428" aria-label="incident_id" aria-description="type not evidenced by kernel source"></div>
-    <div class="q"><label>Determination timestamp (UTC)</label><input type="datetime-local" id="determination_at" value="2026-07-20T10:00" aria-label="determination_at" aria-description="type not evidenced by kernel source"><div class="hint">When the incident was determined to be a reportable cyber incident. Clocks start here.</div></div>
+    <div class="q"><label>Determination timestamp (UTC)</label><input type="datetime-local" id="determination_at" placeholder="2026-07-20T10:00" aria-label="determination_at" aria-description="type not evidenced by kernel source"><div class="hint">When the incident was determined to be a reportable cyber incident. Clocks start here. Example: 2026-07-20 10:00 UTC (display only, never a prefilled computation input).</div></div>
     <div class="q"><label>Determination evidence hash (optional)</label><input type="text" id="determination_evidence_hash" placeholder="sha256:..." aria-label="determination_evidence_hash" aria-description="type not evidenced by kernel source"><div class="hint">Hash of the underlying incident-evidence bundle (e.g. an art-379/art-418 incident record), anchored into this artifact's inputs.</div></div>
     <div class="q"><label>Evaluate status as of (optional)</label><input type="datetime-local" id="evaluated_at" aria-label="evaluated_at" aria-description="type not evidenced by kernel source"><div class="hint">Leave blank to skip overdue detection.</div></div>
     <div class="q"><label>Bank holding company (12 CFR 225)?</label><select id="is_bank_holding_company" aria-label="is_bank_holding_company" aria-description="type not evidenced by kernel source"><option value="false" selected>No</option><option value="true">Yes</option></select></div>
@@ -230,7 +231,7 @@ function compute(pp){
   const nydfs_deadline_ms=detMs!=null&&nydfs_applicable?detMs+72*HOUR_MS:null;
   const determinations=[
     buildDetermination({obligation_id:'banking_regulator_36hr',regulator:'OCC (national banks) / FRB (bank holding companies, state member banks) / FDIC (insured state non-member banks): harmonized interagency rule',statute_citation:'12 CFR pt. 53 (OCC) / 12 CFR pt. 225 (FRB, Regulation Y) / 12 CFR pt. 304 (FDIC) — Interagency Computer-Security Incident Notification Requirements',applicable:banking_applicable,deadlineMs:banking_deadline_ms,completedAtMs:parseIsoOrNull(banking_notification_completed_at),evaluatedAtMs:evalMs,extraNote:'Calendar-hour deadline (36 hours from determination); the rule carries no business-day exception.'}),
-    buildDetermination({obligation_id:'sec_8k_item_1_05',regulator:'U.S. Securities and Exchange Commission',statute_citation:'17 CFR 249.308 (Form 8-K), Item 1.05 (Material Cybersecurity Incidents); "business day" per Exchange Act Rule 0-3(a)',applicable:sec_applicable,deadlineMs:sec_deadline_ms,completedAtMs:parseIsoOrNull(sec_8k_filed_at),evaluatedAtMs:evalMs,extraNote:sec_rescission_petition_pending?'A rescission petition against Item 1.05 was pending as of April 2026. That status does NOT suspend the four-business-day filing clock under the rule as currently in force; this note flags the legal-status context without altering the computed deadline.':'Four-business-day deadline; weekends-only business-day arithmetic (see scope-limit note above); no SEC-closure holiday calendar is consulted.'}),
+    buildDetermination({obligation_id:'sec_8k_item_1_05',regulator:'U.S. Securities and Exchange Commission',statute_citation:'17 CFR 249.308 (Form 8-K), Item 1.05 (Material Cybersecurity Incidents); "business day" per Exchange Act Rule 0-3(a)',applicable:sec_applicable,deadlineMs:sec_deadline_ms,completedAtMs:parseIsoOrNull(sec_8k_filed_at),evaluatedAtMs:evalMs,extraNote:sec_rescission_petition_pending?'A rescission petition against Item 1.05 was pending as of April 2026. That status does NOT suspend the four-business-day filing clock under the rule as currently in force; this note flags the legal-status context without altering the computed deadline.':'Four-business-day deadline; weekends-only business-day arithmetic (see kernel scope-limit note); no SEC-closure holiday calendar is consulted.'}),
     buildDetermination({obligation_id:'nydfs_72hr_500',regulator:'New York State Department of Financial Services',statute_citation:'23 NYCRR 500.17(a): Notice of Cybersecurity Incident',applicable:nydfs_applicable,deadlineMs:nydfs_deadline_ms,completedAtMs:parseIsoOrNull(nydfs_notification_completed_at),evaluatedAtMs:evalMs,extraNote:'Calendar-hour deadline (72 hours from determination).'}),
   ];
   const compliance_flags=[];
@@ -260,21 +261,24 @@ const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys
 async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
 function localToIso(id){const el=document.getElementById(id);if(!el||!el.value)return null;return new Date(el.value+':00Z').toISOString();}
 async function run(){
-  const pp={
-    incident_id:document.getElementById('incident_id').value||'',
-    determination_at:localToIso('determination_at'),
-    determination_evidence_hash:document.getElementById('determination_evidence_hash').value||null,
-    evaluated_at:localToIso('evaluated_at'),
-    is_bank_holding_company:document.getElementById('is_bank_holding_company').value==='true',
-    is_national_bank:document.getElementById('is_national_bank').value==='true',
-    is_state_member_bank:document.getElementById('is_state_member_bank').value==='true',
-    sec_reporting_company:document.getElementById('sec_reporting_company').value==='true',
-    sec_rescission_petition_pending:document.getElementById('sec_rescission_petition_pending').value==='true',
-    nydfs_covered_entity:document.getElementById('nydfs_covered_entity').value==='true',
-    banking_notification_completed_at:localToIso('banking_notification_completed_at'),
-    sec_8k_filed_at:localToIso('sec_8k_filed_at'),
-    nydfs_notification_completed_at:localToIso('nydfs_notification_completed_at'),
-  };
+  /* Hashed-input discipline (WEBMCP-CPARITY-ART428-1): policy_parameters echo
+     EXACTLY what the caller declared. Empty controls are omitted, never
+     re-materialised as ''/null/false page-side defaults, so the same input
+     bytes hash identically on this page, the MCP worker, and the kernel
+     (kernel destructuring defaults are equivalent for every omitted key).
+     The form's demo timestamp is display-only and never enters this object. */
+  const ctrlText=id=>{const el=document.getElementById(id);return el&&typeof el.value==='string'&&el.value!==''?el.value:null;};
+  const pp={};
+  const incidentId=ctrlText('incident_id');if(incidentId!=null)pp.incident_id=incidentId;
+  const detIso=localToIso('determination_at');if(detIso!=null)pp.determination_at=detIso;
+  const evidenceHash=ctrlText('determination_evidence_hash');if(evidenceHash!=null)pp.determination_evidence_hash=evidenceHash;
+  const evalIso=localToIso('evaluated_at');if(evalIso!=null)pp.evaluated_at=evalIso;
+  for(const flagId of ['is_bank_holding_company','is_national_bank','is_state_member_bank','sec_reporting_company','sec_rescission_petition_pending','nydfs_covered_entity']){
+    if(document.getElementById(flagId).value==='true')pp[flagId]=true;
+  }
+  const bankingDoneIso=localToIso('banking_notification_completed_at');if(bankingDoneIso!=null)pp.banking_notification_completed_at=bankingDoneIso;
+  const secFiledIso=localToIso('sec_8k_filed_at');if(secFiledIso!=null)pp.sec_8k_filed_at=secFiledIso;
+  const nydfsDoneIso=localToIso('nydfs_notification_completed_at');if(nydfsDoneIso!=null)pp.nydfs_notification_completed_at=nydfsDoneIso;
   const {output_payload:op,compliance_flags}=compute(pp);
   const hash=await execHash(pp,op);
   const generatedAt = new Date().toISOString();
@@ -498,16 +502,17 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-428
 /* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
 function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
 function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
-function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 </script>
 <script>
 /* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
-/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+/* Signs through __ocgJcs (the OCG-CANON v1 block's serializer — single canon path; RFC 8785 §3.2.3-exact for array-index member names, same bytes as kernels/_proof.mjs jcsStringify since JCS-CANON-FIX-1). */
 /* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
    __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
 (function(){
   var CS='eddsa-jcs-2022';
-  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function jcs(o){return new TextEncoder().encode(__ocgJcs(o));}
   function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
   function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
   function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}

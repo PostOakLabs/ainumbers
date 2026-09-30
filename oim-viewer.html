@@ -189,6 +189,7 @@ function assertIJson(v){
   } else if (Array.isArray(v)) { v.forEach(assertIJson); }
   else if (v && typeof v === 'object') { for (const k of Object.keys(v)) assertIJson(v[k]); }
 }
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 function cgCanon(v){
   return Array.isArray(v) ? v.map(cgCanon)
     : (v && typeof v === 'object') ? Object.keys(v).sort().reduce((o,k)=>(o[k]=cgCanon(v[k]),o),{})
@@ -197,7 +198,7 @@ function cgCanon(v){
 async function executionHashHex(pp, op){
   const obj = { policy_parameters: pp, output_payload: op };
   assertIJson(obj);
-  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(obj)));
+  const bytes = new TextEncoder().encode(__ocgJcs((obj)));
   const dig = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
@@ -275,7 +276,7 @@ async function runViewer(){
 
   let jcsOrdered = false, jcsDetail = '';
   try {
-    const canonOnce = JSON.stringify(cgCanon(doc));
+    const canonOnce = __ocgJcs((doc));
     const rawCompact = JSON.stringify(doc);
     jcsOrdered = canonOnce === rawCompact;
     jcsDetail = jcsOrdered ? 'key order matches JCS (RFC 8785)' : 'key order is NOT canonical — re-canonicalizing changes byte layout';
