@@ -21,7 +21,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifySeal } from '../chaingraph/kernels/_computeproof.mjs';
-import { cgCanon } from '../chaingraph/kernels/_hash.mjs';
+import { cgCanon, jcsStringify } from '../chaingraph/kernels/_hash.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -34,13 +34,17 @@ if (typeof globalThis.atob !== 'function') {
 }
 
 // Extract the ledger page's ACTUAL shipped verifier from the HTML (single source).
+// JCS-CANON-PAGES-1: the shipped block's journal bytes serialize through the page's
+// __ocgJcs (the SSOT line, byte-equivalent to _hash.mjs jcsStringify), so the extraction
+// injects it exactly like the pre-existing cgCanon parameter — the gate-side identity
+// for the block's serializer is the core one, which is the equivalence under test.
 function loadLedgerVerifier(html) {
   const begin = html.indexOf('GROTH16-VERIFY:BEGIN');
   const endMarker = html.indexOf('GROTH16-VERIFY:END');
   if (begin === -1 || endMarker === -1 || endMarker < begin)
     throw new Error('ledger/index.html: GROTH16-VERIFY:BEGIN/END markers missing — the vendored §18.1 verifier block was removed or renamed');
   const code = html.slice(html.indexOf('*/', begin) + 2, html.lastIndexOf('/*', endMarker));
-  return new Function('cgCanon', `"use strict";\n${code}\n;return ledgerVerifySeal;`)(cgCanon);
+  return new Function('cgCanon', '__ocgJcs', `"use strict";\n${code}\n;return ledgerVerifySeal;`)(cgCanon, jcsStringify);
 }
 
 function publishedReceipts() {

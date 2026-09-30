@@ -317,6 +317,7 @@ function assertIJson(v){
   }else if(Array.isArray(v)){v.forEach(assertIJson);}
   else if(v&&typeof v==='object'){for(const k of Object.keys(v))assertIJson(v[k]);}
 }
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 function cgCanon(v){
   return Array.isArray(v)?v.map(cgCanon)
     :(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=cgCanon(v[k]),o),{})
@@ -325,7 +326,7 @@ function cgCanon(v){
 function canonicalPreimage(policy_parameters,output_payload){
   const obj={policy_parameters,output_payload};
   assertIJson(obj);
-  return JSON.stringify(cgCanon(obj));
+  return __ocgJcs((obj));
 }
 async function executionHash(policy_parameters,output_payload){
   const bytes=new TextEncoder().encode(canonicalPreimage(policy_parameters,output_payload));
@@ -423,7 +424,7 @@ function computeDiff(originalText,revisedText){
   return{aLines,bLines,ops,hunks,renderOps};
 }
 async function hunkDigest(hunk,idx){
-  return sha256Hex(JSON.stringify(cgCanon({hunk_index:idx,orig_lines:hunk.orig,revised_lines:hunk.rev})));
+  return sha256Hex(__ocgJcs(({hunk_index:idx,orig_lines:hunk.orig,revised_lines:hunk.rev})));
 }
 function reconstructAcceptedText(renderOps,dispositions){
   const out=[];
@@ -545,7 +546,7 @@ function didKeyToRawPub(did){
   if(prefixed[0]!==0xed||prefixed[1]!==0x01)throw new Error('did:key is not Ed25519');
   return prefixed.slice(2);
 }
-function jcsBytes(obj){return new TextEncoder().encode(JSON.stringify(cgCanon(obj)));}
+function jcsBytes(obj){return new TextEncoder().encode(__ocgJcs((obj)));}
 async function sha256Bytes(bytes){return new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));}
 function haProofOptions(o){
   return{type:'DataIntegrityProof',cryptosuite:'eddsa-jcs-2022',verificationMethod:o.verificationMethod,proofPurpose:'assertionMethod',created:o.created};
