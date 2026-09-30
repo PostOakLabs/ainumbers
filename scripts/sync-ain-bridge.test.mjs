@@ -258,12 +258,36 @@ test('both bridge_version fields on a two-field page are stamped', () => {
 });
 
 // ── the estate scan and the writer ─────────────────────────────────────────
-test('--check scans the published estate and finds the drift it is built to find', () => {
+// BRIDGE-SNIPPET-ROLL-1 batches 1–6 rolled every reachable page (2026-09-30
+// measured: 93 → 0 drifted), and batch 6 promoted the preflight wiring for
+// `--check` from advisory to blocking — so the LIVE-estate leg of this test now
+// asserts the estate is CLEAN (the invariant the blocking gate enforces), not
+// that it drifts. The scanner's ability to FIND drift is still proven here, on
+// the same real page shape, via a temp-file copy with one bridge_version token
+// rolled back — the tree itself is never touched.
+test('--check scans the published estate (clean after BRIDGE-SNIPPET-ROLL-1) and finds the drift it is built to find', () => {
   const res = scan(publishedPages(), MASTER);
   assert.ok(res.scanned > 500, `expected the measured ~600 bridge pages, scanned ${res.scanned}`);
-  assert.ok(res.drifted.length > 0, 'the master carries B7, so the un-rolled estate must read as drifted');
+  assert.deepEqual(res.drifted, [], 'the estate is fully rolled; any drift here reds the BLOCKING preflight gate (BRIDGE-SNIPPET-ROLL-1 batch 6)');
   // A SKIP is a reported outcome, never a silent pass: every one carries a reason.
   for (const s of res.skipped) assert.match(s.reason, /^[a-zA-Z_-]+(\(\d+\))?$/);
+
+  // Drift-detection proof on a controlled fixture: one token rollback in a temp
+  // copy of a real shape page must be found drifted, by path, and nothing else.
+  const dir = mkdtempSync(join(tmpdir(), 'sync-ain-bridge-'));
+  try {
+    const src = read(SHAPES[0][1]);
+    const stale = src.replace(/"bridge_version"\s*:\s*"[^"]*"/, `"bridge_version": "1.0"`);
+    assert.notEqual(stale, src, 'fixture build: the version rollback must change the bytes');
+    const f = join(dir, 'page.html');
+    writeFileSync(f, stale);
+    const probe = scan([f], MASTER);
+    assert.equal(probe.scanned, 1);
+    assert.equal(probe.drifted.length, 1);
+    assert.ok(probe.drifted[0].endsWith('page.html'), `expected the temp fixture, got ${probe.drifted[0]}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('the writer writes the rewritten bytes and is a no-op on a second run', async () => {
