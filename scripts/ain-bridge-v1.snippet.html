@@ -35,6 +35,13 @@
           MCP-APPS-JSONRPC region below; scripts/check-bridge-jsonrpc.mjs holds
           them to that text and scripts/ain-bridge-jsonrpc.test.mjs exercises
           the handshake, the origin pinning, the legacy alias and -32601.
+       7. Share link (BRIDGE-SHARE-FLAG-1, 2026-09-29): when a page's
+          CFG.share is true, a "Copy share link" button rebuilds the page
+          address with #in= from the tool's current inputs. Fragment link,
+          clipboard only: everything after # never reaches a server, ours
+          included. No storage, no network, no history rewrite. Independent of
+          the flag, a #in= link whose fields match nothing on this page now
+          says so instead of filling silently (all pages, every roll).
 
        6. Live ledger channel (B3/B5, LEDGER-BRIDGE-LIVE-1): on a path-form
           origin, sendToVerify also posts the receipt to an open Ledger tab over
@@ -67,7 +74,7 @@
   • <a href="../tools/320-ap2-mcp-policy-validator.html#in=eyJ2YWxpZGF0ZUlucHV0Ijoie30ifQ">T320 with a prefilled input</a> (notice bar + 📥 import zone)<br>
   • <a href="../chaingraph/chains/agentic-policy.html">Agentic Policy</a> (journey chain)
 </div>
-<script>window.AIN_BRIDGE_CFG={runFn:null,intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>window.AIN_BRIDGE_CFG={runFn:null,intake:false,intakeTarget:null,intakeAnchor:null,share:false};</script>
 <script>
 (function(){
 'use strict';
@@ -149,6 +156,54 @@ function buildIntakeUI(){
   z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
   a.parentNode.insertBefore(z,a);
 }
+/* ── SHARE LINK (BRIDGE-SHARE-FLAG-1, 2026-09-29) — off by default ───────────
+   Behind CFG.share===true. The button rebuilds this page's address with #in=
+   from the tool's current inputs: fragment only, clipboard only. Everything
+   after # never reaches a server, ours included; the button never calls
+   history.replaceState or pushState, never stores anything, and never makes a
+   network call. The collected field set is exactly what applyFields can write
+   back (same tag gate, keyed by id), minus file, password and hidden inputs,
+   so a shared link can only ever carry values this page's own prefill path
+   accepts. makeLink carries the encoding, so share and prefill can never
+   diverge on the wire shape. */
+function writableFields(){
+  var out={};var els=document.querySelectorAll('input[id],select[id],textarea[id]');
+  for(var i=0;i<els.length;i++){var el=els[i];
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')continue;
+    if(el.type==='file'||el.type==='password'||el.type==='hidden')continue;
+    out[el.id]=(el.type==='checkbox'||el.type==='radio')?!!el.checked:String(el.value);
+  }
+  return out;
+}
+/* Select-and-copy fallback for browsers without navigator.clipboard or when a
+   permission prompt is denied: off-screen textarea, select, execCommand. */
+function legacyCopy(text){
+  var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+  ta.setAttribute('style','position:fixed;left:-9999px;top:0');
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{ta.setSelectionRange(0,text.length);}catch(e){}
+  var ok=false;try{ok=document.execCommand('copy');}catch(e){ok=false;}
+  document.body.removeChild(ta);return ok;
+}
+function copyShareLink(){
+  if(!window.AINBridge||typeof window.AINBridge.makeLink!=='function')return;
+  var link=window.AINBridge.makeLink(writableFields(),false);
+  if(link.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to share ('+link.length+' chars).','warn');return;}
+  var report=function(ok){notice(ok?'🔗 Link copied. It reopens this tool with the same inputs. Share synthetic values only.':'⚠ Copy failed. Copy the address from the browser bar instead.',ok?'ok':'warn');};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(link).then(function(){report(true);},function(){report(legacyCopy(link));});}
+  else report(legacyCopy(link));
+}
+function buildShareUI(){
+  if(CFG.share!==true)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainShareZone';
+  z.setAttribute('style','margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace');
+  var b=document.createElement('button');b.type='button';b.id='ainShareBtn';b.textContent='🔗 Copy share link';
+  b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');
+  b.addEventListener('click',copyShareLink);
+  z.appendChild(b);
+  a.parentNode.insertBefore(z,a);
+}
 /* ONE INTAKE PATH (BRIDGE-MCP-APPS-ALIGN-1, goal 1). The `#in=` deep link and the
    host's ui/notifications/tool-input notification carry the SAME shape — a bare
    id→value map, or {"fields":{...}} — so both feed this routine. The MCP leg gets
@@ -166,6 +221,9 @@ function initPrefill(){
     if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
     else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
   }
+  /* BRIDGE-SHARE-FLAG-1: a link that parsed but matches no field here must say
+     so — silence reads as "this tool accepted the link" to whoever shared it. */
+  else notice('⚠ This link had no fields matching this tool.','warn');
 }
 var HANDOFF_MAX_CHARS=2000000;
 /* ── AIN LEDGER LIVE CHANNEL v1: MESSAGE SCHEMA (B3/B4/B5) ────────────────────
@@ -572,7 +630,11 @@ window.AINBridge={
     sendToVerify:typeof apSendToVerify==='function',
     sessionRoot:typeof ainSessionRoot==='function',
     liveLedger:typeof ainLedgerSend==='function',
-    mcpApps:typeof mcpHandleHostMessage==='function'
+    mcpApps:typeof mcpHandleHostMessage==='function',
+    /* BRIDGE-SHARE-FLAG-1: derived from the page's own config, not the routine's
+       presence — every rolled page carries copyShareLink, but only a page whose
+       CFG.share is true supports it. */
+    share:CFG.share===true
   },
   apply:applyFields,
   run:runTool,
@@ -620,7 +682,7 @@ function onComposerMessage(e){
 }
 window.addEventListener('message',onComposerMessage);
 window.addEventListener('message',mcpOnMessage);
-function boot(){buildIntakeUI();initPrefill();mcpBoot();}
+function boot(){buildIntakeUI();buildShareUI();initPrefill();mcpBoot();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
 </script>
