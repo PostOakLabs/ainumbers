@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (665 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (666 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6470,7 +6470,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "ERC-2612 Permit Binding Verifier",
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-612-erc2612-permit-binding-verifier.html",
-    "description": "Recomputes the EIP-712 typed-data digest for an ERC-2612 Permit struct (the gasless-approval rail used by USDC/DAI-style tokens) from caller",
+    "description": "Recomputes the EIP-712 typed-data digest for an ERC-2612 Permit struct (the gasless-approval rail used by USDC and other ERC-2612 tokens) fr",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7223,6 +7223,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-692-close-posting-lineage.html",
     "description": "A month-end close lineage verdict over declared entries: GL coding entries and accrual entries in (lineage key, GL account, amount, optional",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-693-isa530-audit-sampling-mus",
+    "display_name": "ISA 530 Audit Sampling + MUS",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-693-isa530-audit-sampling-mus.html",
+    "description": "Deterministic audit-sampling arithmetic in three caller-declared functions dispatched on method. monetary_unit_sampling sizes a MUS engageme",
     "consumes": [],
     "feeds": [],
     "status": "live"

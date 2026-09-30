@@ -537,7 +537,7 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
     <div class="note"><strong>Stage 4, exercised for real:</strong> when a kernel stayed too expensive even after the chunk ladder, the next lever was a second, native-Rust-compiled guest image built for that kernel specifically, trading the "one universal guest" simplicity for raw speed on that one hot path. The content-identification kernel (<code>art-201</code>) is the case that needed it: its in-guest hashing ran to over a billion cycles under the universal QuickJS guest, and a purpose-built native image brought it to a real proof. It carries a second entry in <code>compute_images[]</code> alongside the universal ImageID, not a replacement for it; <code>verifySeal</code> checks whichever image the artifact declares.</div>
 
     <h3 id="full-coverage">Reaching full coverage: how every deferral fell</h3>
-    <p><strong><!--COUNT:zk.provenPct-->100<!--/COUNT-->% of live deterministic nodes are ZK-proven</strong> (<!--COUNT:zk.provenNodes-->663<!--/COUNT--> of <!--COUNT:zk.provenTotal-->663<!--/COUNT--> live nodes, re-derived from <code>chaingraph.json</code> on every build, never a hardcoded figure). Scope, precisely: "live" means shipped and callable today, not a target; "deterministic node" means a kernel with no clock, randomness, or I/O; "ZK-proven" means a real risc0 groth16-bn254 receipt whose journal is byte-identical to the kernel's own <code>compute()</code> output, independently replayable and verifiable offline by anyone, with development mode off for every one of them.</p>
+    <p><strong><!--COUNT:zk.provenPct-->100<!--/COUNT-->% of live deterministic nodes are ZK-proven</strong> (<!--COUNT:zk.provenNodes-->664<!--/COUNT--> of <!--COUNT:zk.provenTotal-->664<!--/COUNT--> live nodes, re-derived from <code>chaingraph.json</code> on every build, never a hardcoded figure). Scope, precisely: "live" means shipped and callable today, not a target; "deterministic node" means a kernel with no clock, randomness, or I/O; "ZK-proven" means a real risc0 groth16-bn254 receipt whose journal is byte-identical to the kernel's own <code>compute()</code> output, independently replayable and verifiable offline by anyone, with development mode off for every one of them.</p>
     <p>Coverage started partial and candid. Nodes that could not yet be proven carried an explicit <code>compute_proof_ready:"deferred"</code> flag; no placeholder or fake proof ever shipped. A downward-only ratchet gate (<code>check-compute-proof-coverage.mjs</code>) ensured the deferred count could only ever go down, never up, and it now reads zero. Getting there meant working through five distinct failure classes, plus one final holdout: the content-identification kernel whose in-guest hashing interpreted to over a billion cycles was carried to a working proof via a second, native-compiled guest image (see the note below), and a 35,000-segment Monte Carlo node followed the same route. Nothing was proven by relaxing what "proven" means; the holdouts took longer compute, not a lower bar.</p>
 
     <div class="cap">coverage, by class</div>
@@ -624,17 +624,17 @@ deterministic isHttpsUrl, used everywhere   ~ 6.9 x 10^6 cycles   (~800x cheaper
 <section id="s04">
   <div class="wrap">
     <div class="sec-eyebrow">04 · How it compares</div>
-    <h2>Reproducible determinism, not hardware or consensus</h2>
+    <h2>Reproducible determinism instead of hardware or consensus</h2>
     <p>Most verifiable-compute approaches anchor trust in one of two places. OCG §18 uses neither in the verify path.</p>
     <table class="cmp">
       <thead><tr><th>Approach</th><th>What you have to trust</th><th>OCG §18</th></tr></thead>
       <tbody>
         <tr><td>Secure hardware (TEE, confidential compute)</td><td>A chip vendor's attestation and supply chain</td><td>No enclave. Trust comes from the reproducible re-execution and the proof.</td></tr>
-        <tr><td>Blockchain or token network</td><td>A consensus set and its economic incentives</td><td>No chain in the verify path. Verification is a local pairing check.</td></tr>
+        <tr><td>Blockchain or token network</td><td>A consensus set and its economic incentives</td><td>No chain in the verify path. Verification is a local pairing check. <a href="ocg-and-blockchains-explainer.html">How OpenChainGraph compares with a blockchain</a>.</td></tr>
         <tr><td>Operator attestation (SOC reports)</td><td>The operator's controls and an auditor's review of them</td><td>No operator trust in the math: the proof binds the code identified by the published fingerprint to this output. The verifier itself is our JavaScript served from our origin; a skeptic pins a reviewed commit or reimplements the check.</td></tr>
       </tbody>
     </table>
-    <p>Proving can use heavy compute, and a proving network is one way to get it. Verification stays self-contained, offline, and chain-free. That split is the whole promise: proving may be expensive and optional, checking is cheap and for everyone.</p>
+    <p>Proving can use heavy compute, and a proving network is one way to get it. Verification runs offline and needs no chain. Proving may be expensive and is optional, while checking is cheap and open to anyone.</p>
   </div>
 </section>
 
@@ -650,6 +650,7 @@ const proof = artifact.audit_signature.compute_proof;
 const ok    = await verifySeal(proof, PUBLISHED_IMAGE_ID);
 //  ok === true        real proof of this exact output
 //  ok === false       tampered output, wrong journal, or wrong image</div>
+    <p>To check a proof and its transparency-log record together in one place, open the <a href="receipt-bundle-verify.html">Receipt Bundle Verifier</a>, which runs both halves in the browser and reports each verdict separately.</p>
     <h3>Proving, or confirming the ImageID (full toolchain)</h3>
     <p>If you want to generate proofs, or independently confirm that the published ImageID matches the published guest source, you run the prover. Rebuild the guest and confirm you get the same ImageID we published, then prove with development mode off.</p>
     <div class="cap">prove it yourself (Linux or WSL, ideally a GPU)</div>
@@ -752,8 +753,8 @@ RISC0_DEV_MODE=0 cargo run --release   # real proof: STARK -> groth16-bn254 (nev
       </div>
       <div class="footer-col">
         <div class="footer-col-label">Guides</div>
-        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
-        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
         <a href="guide-prov-dm.html">W3C PROV-DM</a>
         <a href="guide-buildtype.html">buildType / SLSA</a>
         <a href="guide-intoto.html">in-toto / DSSE</a>
@@ -778,22 +779,25 @@ RISC0_DEV_MODE=0 cargo run --release   # real proof: STARK -> groth16-bn254 (nev
         <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
         <a href="../robots.txt" target="_blank">robots.txt</a>
         <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
         <a href="../euc-register.html">EUC Register</a>
       </div>
       <div class="footer-col">
-        <div class="footer-col-label">Project</div>
-        <a href="../tools.html">All Tools</a>
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
         <a href="../mcp.html">MCP Docs</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
         <a href="../about.html">About</a>
         <a href="../methods.html">Methods</a>
         <a href="../fv-explainer.html">FV Process Explainer</a>
         <a href="../errata.html">FV Errata</a>
         <a href="../suggest.html">Suggest</a>
         <a href="../contact.html">Contact</a>
-        <a href="../security.html">Security</a>
-        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
       </div>
     </div>

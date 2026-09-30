@@ -7,7 +7,7 @@
 // retention_class is treated as case-file, never transient (§20.3.4).
 // Node 18+ (WebCrypto + node: builtins only — zero npm deps).
 // Run:  node chaingraph/standard/retention-profile.test.mjs
-import { cgCanon, canonicalPreimage, executionHash } from '../kernels/_hash.mjs';
+import { jcsStringify, canonicalPreimage, executionHash } from '../kernels/_hash.mjs';
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.error('  ✗ ' + m); } else console.log('  ✓ ' + m); };
@@ -108,7 +108,7 @@ const baseHash = await executionHash(policy, output);
 const withoutField = { tool_id: 'art-121-document-integrity-anchor', execution_hash: baseHash, chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 }, policy_parameters: policy, output_payload: output };
 const withField = { ...withoutField, retention_class: 'regulatory-6-years' };
 
-ok(JSON.stringify(cgCanon(withField)) !== JSON.stringify(cgCanon(withoutField)),
+ok(jcsStringify((withField)) !== jcsStringify((withoutField)),
    'retention_class DOES change the artifact\'s canonical form (materially present — makes the next assertion non-vacuous)');
 ok(canonicalPreimage(withField.policy_parameters, withField.output_payload)
    === canonicalPreimage(withoutField.policy_parameters, withoutField.output_payload),

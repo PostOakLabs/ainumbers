@@ -214,6 +214,7 @@ function assertIJson(v) {
   } else if (Array.isArray(v)) { v.forEach(assertIJson); }
   else if (v && typeof v === 'object') { for (const k of Object.keys(v)) assertIJson(v[k]); }
 }
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 function cgCanon(v) {
   if (Array.isArray(v)) return v.map(cgCanon);
   if (v && typeof v === 'object') return Object.keys(v).sort().reduce((o, k) => { o[k] = cgCanon(v[k]); return o; }, {});
@@ -222,7 +223,7 @@ function cgCanon(v) {
 async function executionHash(policy_parameters, output_payload) {
   const obj = { policy_parameters, output_payload };
   assertIJson(obj);
-  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(obj)));
+  const bytes = new TextEncoder().encode(__ocgJcs((obj)));
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
@@ -235,7 +236,7 @@ async function definitionDigest(def) {
   const stripped = Object.assign({}, def);
   delete stripped.definition_digest; delete stripped.audit_signature;
   assertIJson(stripped);
-  return sha256Hex(JSON.stringify(cgCanon(stripped)));
+  return sha256Hex(__ocgJcs((stripped)));
 }
 
 /* ─────────────────────────────────────────────────────────────────

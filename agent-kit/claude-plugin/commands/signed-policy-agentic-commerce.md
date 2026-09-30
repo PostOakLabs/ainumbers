@@ -2,7 +2,7 @@
 description: Run an agentic commerce chain under a signed Work Mandate, trip the escalation gate on purpose, and replay the gates on the ledger.
 ---
 
-# Agent buys under a signed policy, and proves the policy governed
+# An agent buys under a signed policy and proves the policy governed
 
 Act as a procurement agent operating under a signed spend policy. Produce a receipt that proves the policy governed every step.
 

@@ -131,6 +131,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <meta name="ai-tool" content="validate_eudr_geolocation">
+<meta name="kernel-digest" content="sha256:8f52903ef0106be3d988c08666ae2f0f87f7e1b19703d6d8c0a4dcfe6fd3079e">
 </head>
 <body>
 
@@ -406,8 +407,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-166
       </div>
       <div class="footer-col">
         <div class="footer-col-label">Guides</div>
-        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
-        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
         <a href="guide-prov-dm.html">W3C PROV-DM</a>
         <a href="guide-buildtype.html">buildType / SLSA</a>
         <a href="guide-intoto.html">in-toto / DSSE</a>
@@ -432,22 +433,25 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-166
         <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
         <a href="../robots.txt" target="_blank">robots.txt</a>
         <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
         <a href="../euc-register.html">EUC Register</a>
       </div>
       <div class="footer-col">
-        <div class="footer-col-label">Project</div>
-        <a href="../tools.html">All Tools</a>
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
         <a href="../mcp.html">MCP Docs</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
         <a href="../about.html">About</a>
         <a href="../methods.html">Methods</a>
         <a href="../fv-explainer.html">FV Process Explainer</a>
         <a href="../errata.html">FV Errata</a>
         <a href="../suggest.html">Suggest</a>
         <a href="../contact.html">Contact</a>
-        <a href="../security.html">Security</a>
-        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
       </div>
     </div>
@@ -490,120 +494,93 @@ const MANIFEST = {
 // State
 let _lastArtifact = null, _lastPP = null, _lastOP = null, _lastFlags = null;
 
-// Kernel compute()
+// Kernel compute() — synced to chaingraph/kernels/art-166-eudr-geolocation-plot-validator.kernel.mjs
+// (WEBMCP-CPARITY-ART166-1). EUDR Art. 9(1)(d) requires geo-location of all plots where the
+// commodity was produced. For areas <4 ha: a single Point (longitude, latitude) is sufficient.
+// For areas ≥4 ha: a Polygon with closed ring is required. Micro-operators (<10 employees,
+// <€2M turnover) may substitute a postal address. This kernel validates GeoJSON geometry type,
+// coordinate validity, size-rule compliance, polygon closure, and micro-operator exemption.
+// Feeds commodity classifier (art-167). Zero network.
 function compute(pp) {
   const { geo = {} } = pp;
-  const issues = [];
-  const micro_exemption = geo.micro_operator_postal_address_provided === true;
 
-  // If micro-operator exemption is claimed, geolocation check is waived
+  const area_ha_raw = Number(geo.area_ha);
+  const area_ha = Number.isFinite(area_ha_raw) ? area_ha_raw : 0;
+
+  const micro_exemption = geo.micro_operator_postal_address_provided === true;
   if (micro_exemption) {
     return {
       output_payload: {
         valid: true,
-        geo_type: geo.type || null,
-        area_ha: Number.isFinite(Number(geo.area_ha)) ? Number(geo.area_ha) : null,
+        geo_type: null,
+        area_ha,
         size_rule_met: true,
         coordinates_valid: true,
         polygon_closed: null,
         micro_operator_exemption: true,
         issues: [],
-        declared_country: (typeof geo.declared_country === 'string' ? geo.declared_country.trim().toUpperCase() : null) || null,
       },
-      compliance_flags: ['EUDR_GEO_ASSESSED', 'EUDR_GEO_MICRO_EXEMPTION']
+      compliance_flags: ['EUDR_GEO_ASSESSED', 'EUDR_GEO_MICRO_EXEMPTION'],
     };
   }
 
-  const allowed_types = ['Point', 'Polygon', 'MultiPolygon'];
-  const geo_type = geo.type || null;
-  if (!geo_type || !allowed_types.includes(geo_type)) {
-    issues.push('geo_type_invalid: must be Point, Polygon, or MultiPolygon');
-  }
+  const type = typeof geo.type === 'string' ? geo.type : null;
+  const coords = Array.isArray(geo.coordinates) ? geo.coordinates : [];
+  const issues = [];
 
-  // Coordinate validation
-  let coordinates_valid = false;
-  const coords = geo.coordinates;
-  if (Array.isArray(coords)) {
-    if (geo_type === 'Point') {
-      const [lon, lat] = coords;
-      const lon_ok = typeof lon === 'number' && Number.isFinite(lon) && lon >= -180 && lon <= 180;
-      const lat_ok = typeof lat === 'number' && Number.isFinite(lat) && lat >= -90 && lat <= 90;
-      coordinates_valid = lon_ok && lat_ok;
-      if (!lon_ok) issues.push('longitude_out_of_range: must be -180 to 180');
-      if (!lat_ok) issues.push('latitude_out_of_range: must be -90 to 90');
-    } else if (geo_type === 'Polygon' || geo_type === 'MultiPolygon') {
-      // For polygon, coords should be array of rings; for multipoly array of polygons
-      coordinates_valid = coords.length > 0;
-      if (!coordinates_valid) issues.push('coordinates_empty');
-    }
-  } else {
-    issues.push('coordinates_missing_or_not_array');
-  }
+  // Validate geometry type
+  const valid_types = ['Point', 'Polygon', 'MultiPolygon'];
+  const type_valid = valid_types.includes(type);
+  if (!type_valid) issues.push('invalid_geometry_type');
 
-  // Size rule: <4 ha → Point ok; ≥4 ha → Polygon required
-  const area_raw = Number(geo.area_ha);
-  const area_ha = Number.isFinite(area_raw) && area_raw >= 0 ? area_raw : null;
-  let size_rule_met = false;
-  if (area_ha === null) {
-    issues.push('area_ha_missing_or_invalid');
-  } else if (area_ha < 4) {
-    // Point acceptable
-    size_rule_met = true;
-    if (geo_type && geo_type !== 'Point' && geo_type !== 'Polygon' && geo_type !== 'MultiPolygon') {
-      issues.push('size_rule_violated: unknown type for small plot');
-    }
-  } else {
-    // ≥4 ha requires Polygon or MultiPolygon
-    if (geo_type === 'Point') {
-      issues.push('size_rule_violated: plot ≥4 ha requires Polygon geometry, not Point');
-      size_rule_met = false;
-    } else if (geo_type === 'Polygon' || geo_type === 'MultiPolygon') {
-      size_rule_met = true;
-    } else {
-      size_rule_met = false;
+  // Size rule: <4 ha → Point OK; ≥4 ha → Polygon or MultiPolygon required
+  const large_plot = Number.isFinite(area_ha_raw) && area_ha >= 4;
+  const size_rule_met = !large_plot || type === 'Polygon' || type === 'MultiPolygon';
+  if (!size_rule_met) issues.push('large_plot_requires_polygon');
+
+  // Coordinate validity: longitude [-180,180], latitude [-90,90]
+  let coordinates_valid = true;
+  if (type === 'Point') {
+    if (coords.length >= 2) {
+      const lon = Number(coords[0]);
+      const lat = Number(coords[1]);
+      if (!Number.isFinite(lon) || lon < -180 || lon > 180) { coordinates_valid = false; issues.push('invalid_longitude'); }
+      if (!Number.isFinite(lat) || lat < -90 || lat > 90) { coordinates_valid = false; issues.push('invalid_latitude'); }
+    } else { coordinates_valid = false; issues.push('point_missing_coordinates'); }
+  } else if (type === 'Polygon') {
+    // coords[0] = exterior ring array of [lon,lat] pairs
+    const ring = Array.isArray(coords[0]) ? coords[0] : [];
+    if (ring.length < 4) { coordinates_valid = false; issues.push('polygon_insufficient_points'); }
+    else {
+      for (const pt of ring) {
+        const lon = Number(Array.isArray(pt) ? pt[0] : NaN);
+        const lat = Number(Array.isArray(pt) ? pt[1] : NaN);
+        if (!Number.isFinite(lon) || lon < -180 || lon > 180 || !Number.isFinite(lat) || lat < -90 || lat > 90) {
+          coordinates_valid = false; issues.push('invalid_ring_coordinate'); break;
+        }
+      }
     }
   }
 
-  // Polygon closure check
+  // Polygon closure check: first == last coordinate
   let polygon_closed = null;
-  if (geo_type === 'Polygon' && Array.isArray(coords) && coords.length > 0) {
+  if (type === 'Polygon' && Array.isArray(coords[0]) && coords[0].length >= 2) {
     const ring = coords[0];
-    if (Array.isArray(ring) && ring.length >= 4) {
-      const first = ring[0], last = ring[ring.length - 1];
-      polygon_closed = Array.isArray(first) && Array.isArray(last) &&
-        first[0] === last[0] && first[1] === last[1];
-      if (!polygon_closed) issues.push('polygon_ring_not_closed: first and last coordinate must match');
-    } else {
-      polygon_closed = false;
-      issues.push('polygon_ring_too_short: minimum 4 positions required for a closed ring');
-    }
-  } else if (geo_type === 'MultiPolygon') {
-    polygon_closed = null; // not checked at this level in simplified form
+    const first = ring[0]; const last = ring[ring.length - 1];
+    polygon_closed = Array.isArray(first) && Array.isArray(last) &&
+      Number(first[0]) === Number(last[0]) && Number(first[1]) === Number(last[1]);
+    if (!polygon_closed) issues.push('polygon_not_closed');
   }
 
-  const declared_country = (typeof geo.declared_country === 'string' ? geo.declared_country.trim().toUpperCase() : null) || null;
-  if (!declared_country || !/^[A-Z]{2}$/.test(declared_country)) {
-    issues.push('declared_country_invalid: must be ISO 3166-1 alpha-2');
-  }
+  const valid = type_valid && size_rule_met && coordinates_valid && (polygon_closed !== false);
 
-  const valid = issues.length === 0;
   const compliance_flags = [];
   compliance_flags.push('EUDR_GEO_ASSESSED');
   if (valid) compliance_flags.push('EUDR_GEO_VALID');
   else compliance_flags.push('EUDR_GEO_INVALID');
 
   return {
-    output_payload: {
-      valid,
-      geo_type,
-      area_ha,
-      size_rule_met,
-      coordinates_valid,
-      polygon_closed,
-      micro_operator_exemption: false,
-      issues,
-      declared_country,
-    },
+    output_payload: { valid, geo_type: type, area_ha, size_rule_met, coordinates_valid, polygon_closed, micro_operator_exemption: false, issues },
     compliance_flags,
   };
 }

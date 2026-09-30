@@ -1,10 +1,8 @@
 # AINumbers.co: Fintech Intelligence Suite
 
-<!-- rce-round3-proof-a: scratch merge-queue proof, deleted after use -->
-
-
 [![Deploy to DreamHost](https://github.com/PostOakLabs/ainumbers/actions/workflows/deploy-to-dreamhost.yml/badge.svg)](https://github.com/PostOakLabs/ainumbers/actions/workflows/deploy-to-dreamhost.yml)
-[![License: CC BY 4.0](https://img.shields.io/badge/license-CC%20BY%204.0-D4A847.svg)](https://creativecommons.org/licenses/by/4.0/)
+[![License: MIT (code)](https://img.shields.io/badge/code-MIT-blue.svg)](LICENSE)
+[![Content: CC BY 4.0](https://img.shields.io/badge/content-CC%20BY%204.0-D4A847.svg)](LICENSE-content.md)
 
 Fintech compliance calculations get done by hand, in spreadsheets, or inside a vendor black box with no way to check the work. AINumbers.co gives payments engineers, ops teams, treasury analysts, and compliance professionals 500+ deterministic browser tools plus ChainGraph: an open standard where every calculation emits a reproducible hash, so any output can be independently re-verified instead of trusted on faith.
 
@@ -22,7 +20,7 @@ Counts drift as tools ship. Never trust a hardcoded number here or anywhere else
 
 ## What this is
 
-A privacy-first, deterministic tool suite spanning 32 fintech categories: AML/KYC, cross-border payments, DLT/tokenization, treasury, embedded finance, e-invoicing, DORA/PSD3/MiCA compliance, and more. Plus ChainGraph, an open standard for verifiable, hash-chained decision artifacts. Every ChainGraph node emits a reproducible `execution_hash`. Chains cite the hashes of the nodes they consume, so any agent can independently re-verify a multi-step decision. See `chaingraph/standard/SPEC.md` for the normative spec.
+A privacy-first, deterministic tool suite spanning 32 fintech categories: AML/KYC, cross-border payments, DLT/tokenization, treasury, embedded finance, e-invoicing, DORA/PSD3/MiCA compliance, and more. Plus ChainGraph, an open standard for verifiable, hash-chained decision artifacts (the standard's formal name is OpenChainGraph; ChainGraph is the name its AINumbers surfaces use). Every ChainGraph node emits a reproducible `execution_hash`. Chains cite the hashes of the nodes they consume, so any agent can independently re-verify a multi-step decision. See `chaingraph/standard/SPEC.md` for the normative spec.
 
 Two consumption surfaces:
 - **Browser, direct.** Every tool and ChainGraph node is a single self-contained `.html` page, zero network calls after load.
@@ -56,7 +54,7 @@ Every tool ships a manifest at `manifests/{tool}.manifest.json` for MCP auto-dis
 
 - **Single-file tools and nodes.** Each lives in `tools/` or `chaingraph/` with fully inline CSS/JS. No build step, no dependencies, no CDNs.
 - **Deterministic execution.** Rule-based math, schema validation, static reference tables. Bit-for-bit reproducible outputs across runs.
-- **ChainGraph as the sole orchestration surface.** Multi-tool workflows are ChainGraph chains (`chaingraph/chains/`), not the deprecated Composer/Scenario Guide page types. See `chaingraph/standard/SPEC.md` §3 for the four conformance levels.
+- **ChainGraph as the sole orchestration surface.** Multi-tool workflows are ChainGraph chains (`chaingraph/chains/`), not the deprecated Composer/Scenario Guide page types. See `chaingraph/standard/SPEC.md` §18.4 for the strength-of-verifiable ladder (L1 §4 hash → L2 §16 proof binding → L3 §18 compute receipt) and §15 for the conformance gates.
 - **AINumbers Policy Mandate export.** Policy, rule, mandate, and compliance tools export a structured Policy Mandate (JSON and Markdown), validated before download. This is AINumbers' own schema, not Google's AP2 payments protocol (CONTRACT §3.1).
 - **Ledger.** `ledger/` is the one carve-out from the site's zero-client-storage rule (CONTRACT §A7): local-only IndexedDB receipt store, export/import, zero transmission except a user-initiated anchor call.
 
@@ -93,5 +91,5 @@ Full workflow: `CLAUDE.md` in this directory, then `CONTRACT.md` for the full sp
 - [Ledger](https://ledger.ainumbers.co)
 - [Post Oak Labs](https://postoaklabs.com)
 
-Post Oak Labs. CC BY 4.0.
+Post Oak Labs. Code MIT; site content CC BY 4.0.
 

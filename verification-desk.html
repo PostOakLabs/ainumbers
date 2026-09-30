@@ -209,15 +209,16 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 
 <script>
 /* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to chaingraph/kernels/_hash.mjs. */
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
 async function __ocgSha256Hex(bytesOrStr){var b=typeof bytesOrStr==='string'?new TextEncoder().encode(bytesOrStr):bytesOrStr;var d=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(d)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}
-async function executionHash(policy_parameters,output_payload){return __ocgSha256Hex(new TextEncoder().encode(JSON.stringify(__ocgCanon({policy_parameters:policy_parameters,output_payload:output_payload}))));}
+async function executionHash(policy_parameters,output_payload){return __ocgSha256Hex(new TextEncoder().encode(__ocgJcs(({policy_parameters:policy_parameters,output_payload:output_payload}))));}
 </script>
 <script>
 /* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 verify path (OCG §16). DO NOT hand-edit. Byte-identical to chaingraph/kernels/_proof.mjs. */
 (function(){
   var CS='eddsa-jcs-2022';
-  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function jcs(o){return new TextEncoder().encode(__ocgJcs(o));}
   function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
   function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
   function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
@@ -234,7 +235,7 @@ async function __vcVerify(credential){
   if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!=='eddsa-jcs-2022')return false;
   if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return false;
   var po={type:'DataIntegrityProof',cryptosuite:'eddsa-jcs-2022',verificationMethod:pr.verificationMethod,proofPurpose:'assertionMethod',created:pr.created};
-  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function jcs(o){return new TextEncoder().encode(__ocgJcs(o));}
   function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
   var secured=structuredClone(credential);delete secured.proof;
   var oh=await sha(jcs(po)),dh=await sha(jcs(secured));
@@ -280,7 +281,7 @@ function ge(o){return o instanceof Uint8Array||ArrayBuffer.isView(o)&&o.construc
 const bn254 = Zn, sha256 = Mn;
 // ── end _noble-bn254.bundle.mjs ──
 
-const canon=(o)=>JSON.stringify(__ocgCanon(o??null));
+const canon=(o)=>__ocgJcs((o??null));
 const RECEIPT_FORMATS=new Set(['groth16-bn254','stark']);
 function normId(d){return typeof d==='string'&&d.startsWith('sha256:')?d:'sha256:'+d;}
 function verifyBinding(artifact,opts){opts=opts||{};var publishedImageIds=opts.publishedImageIds||[];var publishedKernelDigests=opts.publishedKernelDigests||[];
@@ -326,7 +327,7 @@ function verifySeal(receipt){
   if(cp.receiptFormat!=='groth16-bn254')return false;
   if(typeof cp.imageId!=='string'||typeof cp.seal!=='string')return false;
   if(!cp.journal||typeof cp.journal!=='object')return false;
-  var journalBytes=enc(JSON.stringify(__ocgCanon(cp.journal)));
+  var journalBytes=enc(__ocgJcs((cp.journal)));
   var imageIdBytes=hexToBytes(normId(cp.imageId).slice('sha256:'.length));
   if(imageIdBytes.length!==32)return false;
   var claimDigest=claimDigestOk(imageIdBytes,journalBytes);
@@ -721,11 +722,11 @@ async function check23(a){
     if(!pointerOk){ rows.push(line+'<div class="detail-line">✗ pointer does not resolve inside policy_parameters</div>'); continue; }
     if(e.type==='vc-2.0'){
       var digestOk=true;
-      try{ if(e.proof&&e.proof.credentialSubject&&e.proof.credentialSubject.digest){ var d='sha256:'+await __ocgSha256Hex(new TextEncoder().encode(JSON.stringify(__ocgCanon(resolved)))); digestOk=(d===e.proof.credentialSubject.digest); } }catch(err){digestOk=false;}
+      try{ if(e.proof&&e.proof.credentialSubject&&e.proof.credentialSubject.digest){ var d='sha256:'+await __ocgSha256Hex(new TextEncoder().encode(__ocgJcs((resolved)))); digestOk=(d===e.proof.credentialSubject.digest); } }catch(err){digestOk=false;}
       var sigOk=await __vcVerify(e.proof).catch(function(){return false;});
       rows.push(line+'<div class="detail-line">structural: ✓ &middot; digest binding: '+(digestOk?'✓':'✗')+' &middot; eddsa-jcs-2022 proof: '+(sigOk?'✓ verified':'✗ failed')+'</div>');
     } else if(e.type==='rfc3161-snapshot'){
-      var expected='sha256:'+await __ocgSha256Hex(new TextEncoder().encode(JSON.stringify(__ocgCanon(resolved))));
+      var expected='sha256:'+await __ocgSha256Hex(new TextEncoder().encode(__ocgJcs((resolved))));
       var r=await window.__ocgVerifyRfc3161(e.proof, expected, e.source_ref);
       rows.push(line+'<div class="detail-line">digest binding: '+(r.digestBound?'✓':'✗')+' &middot; CMS signature: '+(r.signatureVerified?'✓':'✗')+' &middot; genTime: '+escHtml(r.genTime||'—')+' &middot; pinned-root chain: '+(r.chainedToRoot?'✓ '+escHtml(r.chainedToRoot):'✗')+'</div>');
     } else if(e.type==='c2pa-manifest'){

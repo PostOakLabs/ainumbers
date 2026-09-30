@@ -62,9 +62,59 @@
  * from the scratch worktree is ever committed, and the worktree is destroyed
  * (`git worktree remove --force`) before this process exits.
  *
+ * ── PER-ENTRY TIMEOUT (DERIVED-REGEN-LIVE-SELFTEST-TIMEOUT-1) ────────────────
+ * Every regen/gate command this file executes is bounded. Before 2026-09-28 the
+ * per-entry `execSync` carried no `timeout`, so one command that waited on the
+ * network, on a lock in the scratch tree, or on a child reading stdin blocked
+ * the WHOLE gate — and, because preflight.mjs runs inside the pre-push hook,
+ * wedged the push with it: measured on the #2101 branch, ~4 % CPU for 20+
+ * minutes, killed twice, with no line in the log naming which entry was stuck
+ * (ORCH-332, 2026-09-27). Three things close that:
+ *   - `timeout: ENTRY_TIMEOUT_MS` (default 180 s, env override
+ *     `DERIVED_REGEN_LIVE_TIMEOUT_MS`) + `killSignal: 'SIGKILL'`, and
+ *     `stdio[0] = 'ignore'` so no child can block on stdin in the first place.
+ *   - a TIMEOUT is its own reported state, named by ENTRY, with the elapsed
+ *     seconds and the last 20 output lines — and the scan CONTINUES to the next
+ *     entry, so one hung generator can no longer hide every other entry's
+ *     verdict (it still hard-fails the gate, exit 1).
+ *   - a progress line per target as it starts and ends, so even a run that dies
+ *     to an outer kill leaves its culprit named in the log.
+ *
+ * ── PROBE-TARGET DE-DUPLICATION (DERIVED-REGEN-PROBE-DEDUP-1, 2026-09-28) ────
+ * The live scan is O(probe targets), not O(entries): the #2104 full run walked
+ * 785 probe targets for 48 regen commands (node-page-footers alone 731 of the
+ * 785, ~8-9 min inside one entry id; nav-island 44.4 s for one target) for a
+ * 26 min 15 s wall with zero timeouts and exit 0. Every command returned well
+ * inside the 180 s per-entry bound, so no bound can shorten the wall — only
+ * de-duplication can. Entries legitimately sharing one output file (the
+ * marker-region cooperator pattern CLASS C treats as advisory — counts/catalog
+ * on mcp/*.json, llms.txt, index.html; chain-index/chaingraph-hub/stats on
+ * chaingraph-hub.html; counts/node-page-footers on four node pages; …) each
+ * re-probed the SAME bytes and re-ran a regen cycle against them. Now the
+ * unique-target set is built once per scan (and per --only run — its covered
+ * list is already scoped): the FIRST entry in declared array order to reach a
+ * target probes it and runs its cycle exactly once; every LATER entry targeting
+ * the same resolved bytes (same absolute path — including a directory artifact
+ * whose representative file collides with another entry's file declaration)
+ * INHERITS that cycle's verdict instead of repeating it. The inherited verdict
+ * is attributed to the inheriting entry (its id/path, the owning run's
+ * regen/elapsed/output), so per-entry verdicts and the report shape are
+ * unchanged; a progress line marks each reuse. Per-entry progress lines now
+ * report the entry's declared target count next to how many are unique to
+ * probe, and the scan-end line totals visits vs unique probe cycles, so the
+ * saving is visible in the log. Per-target probe isolation INSIDE one entry
+ * (one probe per declared target, regen per probe — the runLiveScan docstring's
+ * counts/19-paths rationale) is untouched: only the CROSS-ENTRY repeat of the
+ * same bytes is collapsed. Verdict classes, the 180 s per-entry bound, --check
+ * mtime comparisons and exit codes are unchanged.
+ *
  * Usage:
  *   node scripts/check-derived-regen-live.mjs           # human-readable report
  *   node scripts/check-derived-regen-live.mjs --check    # exit 0/1, wired into preflight (scoped)
+ *   node scripts/check-derived-regen-live.mjs --list     # print covered entries + regen commands, run nothing
+ *   node scripts/check-derived-regen-live.mjs --only <entry>   # run ONE entry (diagnosis)
+ *   node scripts/check-derived-regen-live.mjs --self-test      # fixture proof of the timeout path (no real generator)
+ *   DERIVED_REGEN_LIVE_TIMEOUT_MS=30000 node scripts/check-derived-regen-live.mjs --only counts
  */
 import { execSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync, readdirSync, statSync, rmSync } from 'node:fs';
@@ -228,8 +278,50 @@ function collectProbeTargets(dir, entry, skippedEmptyDirs) {
 // inheritance hazard as this file's own git calls (see the header comment
 // above `cleanGitEnv`), so the entry.regen/entry.gate execution environment
 // gets the same treatment, not just this file's direct git calls.
-const EXEC_OPTS = (dir) => ({ cwd: dir, env: { ...cleanGitEnv(), PYTHONIOENCODING: 'utf-8' }, stdio: ['ignore', 'pipe', 'pipe'] });
+//
+// TIMEOUT (DERIVED-REGEN-LIVE-SELFTEST-TIMEOUT-1, see the file header): bounded
+// per command, SIGKILL on expiry, stdin already closed (`'ignore'`) so nothing
+// can wait on a terminal that isn't there. 180 s is generous against the
+// slowest real entry measured (chaingraph-assemble, tens of seconds) and still
+// ~3× faster to fail than the two 20-minute stalls that motivated the bound.
+const DEFAULT_ENTRY_TIMEOUT_MS = 180_000;
+function envTimeoutMs() {
+  const raw = process.env.DERIVED_REGEN_LIVE_TIMEOUT_MS;
+  if (raw === undefined || raw === '') return DEFAULT_ENTRY_TIMEOUT_MS;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) {
+    console.error(`derived-regen-live: ignoring DERIVED_REGEN_LIVE_TIMEOUT_MS="${raw}" (not a positive number), using ${DEFAULT_ENTRY_TIMEOUT_MS} ms`);
+    return DEFAULT_ENTRY_TIMEOUT_MS;
+  }
+  return n;
+}
+const EXEC_OPTS = (dir, timeoutMs = DEFAULT_ENTRY_TIMEOUT_MS) => ({
+  cwd: dir,
+  env: { ...cleanGitEnv(), PYTHONIOENCODING: 'utf-8' },
+  stdio: ['ignore', 'pipe', 'pipe'],
+  timeout: timeoutMs,
+  killSignal: 'SIGKILL',
+});
 function execOutput(e) { return ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim(); }
+/** Last `n` lines of a command's combined output — a timeout report needs the tail, never the whole log. */
+function tailLines(text, n = 20) {
+  const lines = (text || '').split('\n');
+  return lines.slice(-n).join('\n');
+}
+/**
+ * Did this execSync rejection come from the timeout rather than a non-zero exit?
+ * Node reports it three different ways depending on platform and how the child
+ * died, so all three are accepted: `killed` + the kill signal, or the
+ * ETIMEDOUT code. `elapsedMs` is the caller's own measurement, used as the
+ * corroborating signal rather than the sole one (a genuinely slow command that
+ * exits 1 at 181 s must still read as a failure, not a timeout).
+ */
+function isTimeoutError(e, timeoutMs, elapsedMs) {
+  if (e?.code === 'ETIMEDOUT') return true;
+  if (e?.killed === true && elapsedMs >= timeoutMs * 0.9) return true;
+  if ((e?.signal === 'SIGKILL' || e?.signal === 'SIGTERM') && elapsedMs >= timeoutMs * 0.9) return true;
+  return false;
+}
 
 /**
  * Run every COVERED-shaped entry's regen command for real, inside `dir` (must
@@ -248,16 +340,57 @@ function execOutput(e) { return ((e.stdout?.toString() || '') + (e.stderr?.toStr
  * inside the run silently swallow the whole invocation, reading as 19 unrelated
  * no-write findings instead of the one real cause. Isolating each probe keeps
  * every finding attributable to the single byte that produced it.
+ *
+ * DERIVED-REGEN-PROBE-DEDUP-1: targets resolving to the SAME bytes across
+ * DIFFERENT entries are probed once — the first entry in array order owns the
+ * cycle, later entries inherit its verdict (see the header section). The
+ * returned object additionally carries `probeTargetVisits` and
+ * `uniqueProbeTargets` so tests can count probes, not just findings.
  */
-function runLiveScan({ dir, covered }) {
+function runLiveScan({ dir, covered, timeoutMs = DEFAULT_ENTRY_TIMEOUT_MS, progress = () => {} }) {
   const classA = [];
   const classB = [];
+  const timeouts = [];
   const executionFailures = [];
   const probeUnsafe = [];
   const probeBlind = [];
   const unverifiable = [];
   const skippedEmptyDirs = [];
   const anchoredProbes = [];
+
+  // DERIVED-REGEN-PROBE-DEDUP-1: the scan's unique-target set, built
+  // incrementally in declared dependency order. The FIRST entry to reach a
+  // target owns its probe cycle; a LATER entry whose declared target resolves
+  // to the same bytes inherits the owner's verdict instead of repeating the
+  // cycle. Keyed by resolved absolute path, which is what "same bytes" means
+  // here — it covers both identical declared paths and a directory artifact's
+  // representative file colliding with another entry's file declaration.
+  const sharedProbeResults = new Map(); // targetAbs -> { ownerId, verdict, rec }
+  let probeTargetVisits = 0;
+
+  // Attribute an inherited probe verdict to the entry that declares the shared
+  // bytes, so per-entry verdicts keep their pre-dedup shape (same record
+  // fields, the inheriting entry's id/declaredPath). regen/elapsed/output in an
+  // inherited record stay the OWNING run's — they describe the command that
+  // actually produced the verdict. An 'ok' cycle pushes nothing, so neither
+  // does its inheritor.
+  const inheritSharedVerdict = (entry, target, shared) => {
+    const rec = shared.rec;
+    if (!rec) return;
+    if (shared.verdict === 'TIMEOUT') {
+      timeouts.push({ id: entry.id, path: target.declaredPath, regen: rec.regen, timeoutMs: rec.timeoutMs, elapsedMs: rec.elapsedMs, output: rec.output });
+    } else if (shared.verdict === 'execution-failure') {
+      executionFailures.push({ id: entry.id, regen: rec.regen, output: rec.output });
+    } else if (shared.verdict === 'probe-unsafe') {
+      probeUnsafe.push({ id: entry.id, path: target.declaredPath, reason: rec.reason });
+    } else if (shared.verdict === 'probe-blind') {
+      probeBlind.push({ id: entry.id, path: target.declaredPath, reason: rec.reason });
+    } else if (shared.verdict === 'unverifiable') {
+      unverifiable.push({ id: entry.id, path: target.declaredPath, reason: rec.reason });
+    } else if (shared.verdict === 'CLASS-A') {
+      classA.push({ id: entry.id, path: target.declaredPath, issue: rec.issue });
+    }
+  };
 
   let prevStatus = gitStatusPaths(dir);
   const initialDirty = [...prevStatus];
@@ -266,8 +399,25 @@ function runLiveScan({ dir, covered }) {
     if (!entry.regen) continue;
 
     const targets = collectProbeTargets(dir, entry, skippedEmptyDirs);
+    if (!targets.length) continue;
+
+    // DERIVED-REGEN-PROBE-DEDUP-1: the entry's declared target count (the old
+    // per-entry number) next to how many are unique to probe this scan.
+    const freshCount = targets.filter((t) => !sharedProbeResults.has(t.targetAbs)).length;
+    progress(`entry ${entry.id}: ${targets.length} declared probe target(s) — ${freshCount} unique to probe, ${targets.length - freshCount} shared (result reused)`);
 
     for (const target of targets) {
+      probeTargetVisits++;
+
+      if (sharedProbeResults.has(target.targetAbs)) {
+        const shared = sharedProbeResults.get(target.targetAbs);
+        progress(`entry ${entry.id} (${target.declaredPath}) … shared — bytes already probed by entry ${shared.ownerId} (${shared.verdict})`);
+        inheritSharedVerdict(entry, target, shared);
+        continue;
+      }
+
+      let verdict = 'ok';
+      let sharedRec = null;
       // PROBE BYTE, chosen deliberately: a single NON-whitespace character
       // (`~`), never a space. Two failure modes were measured and ruled out
       // before landing on this:
@@ -304,8 +454,44 @@ function runLiveScan({ dir, covered }) {
       const mtimeBefore = statSync(target.targetAbs).mtimeMs;
       const preStatus = gitStatusPaths(dir);
 
+      progress(`entry ${entry.id} (${target.declaredPath}) … start`);
       let execError = null;
-      try { execSync(entry.regen, EXEC_OPTS(dir)); } catch (e) { execError = execOutput(e); }
+      let timedOut = false;
+      let elapsedMs = 0;
+      {
+        const startedAt = Date.now();
+        try {
+          execSync(entry.regen, EXEC_OPTS(dir, timeoutMs));
+          elapsedMs = Date.now() - startedAt;
+        } catch (e) {
+          elapsedMs = Date.now() - startedAt;
+          execError = execOutput(e);
+          timedOut = isTimeoutError(e, timeoutMs, elapsedMs);
+        }
+      }
+
+      if (timedOut) {
+        // A timed-out command is NOT re-run (the probe-unsafe disambiguation
+        // below would simply hang for another full timeout), and the scan does
+        // not stop: one hung generator must not hide every other entry's
+        // verdict. Restore the probe, record the entry BY NAME, move on. Still
+        // a hard failure overall — see printReport.
+        progress(`entry ${entry.id} (${target.declaredPath}) … TIMEOUT ${(elapsedMs / 1000).toFixed(1)} s`);
+        try { execSync(`git checkout -- "${target.targetRel}"`, { cwd: dir, ...GIT_EXEC_OPTS }); } catch { /* best effort */ }
+        sharedRec = {
+          id: entry.id,
+          path: target.declaredPath,
+          regen: entry.regen,
+          timeoutMs,
+          elapsedMs,
+          output: tailLines(execError),
+        };
+        timeouts.push(sharedRec);
+        verdict = 'TIMEOUT';
+        sharedProbeResults.set(target.targetAbs, { ownerId: entry.id, verdict, rec: sharedRec });
+        prevStatus = gitStatusPaths(dir);
+        continue;
+      }
 
       if (execError !== null) {
         // Was the crash CAUSED by corrupting this specific declared artifact,
@@ -319,16 +505,52 @@ function runLiveScan({ dir, covered }) {
         // silently folded into either PASS or a hard FAIL.
         try { execSync(`git checkout -- "${target.targetRel}"`, { cwd: dir, ...GIT_EXEC_OPTS }); } catch { /* best effort */ }
         let cleanError = null;
-        try { execSync(entry.regen, EXEC_OPTS(dir)); } catch (e2) { cleanError = execOutput(e2); }
-        if (cleanError !== null) {
-          executionFailures.push({ id: entry.id, regen: entry.regen, output: cleanError });
+        let cleanTimedOut = false;
+        let cleanElapsedMs = 0;
+        {
+          const startedAt = Date.now();
+          try {
+            execSync(entry.regen, EXEC_OPTS(dir, timeoutMs));
+            cleanElapsedMs = Date.now() - startedAt;
+          } catch (e2) {
+            cleanElapsedMs = Date.now() - startedAt;
+            cleanError = execOutput(e2);
+            cleanTimedOut = isTimeoutError(e2, timeoutMs, cleanElapsedMs);
+          }
+        }
+        if (cleanTimedOut) {
+          // The probe crashed it and the CLEAN re-run hung — the hang is the
+          // finding worth reporting, named by entry, not an execution failure.
+          progress(`entry ${entry.id} (${target.declaredPath}) … TIMEOUT ${(cleanElapsedMs / 1000).toFixed(1)} s (clean re-run)`);
+          sharedRec = {
+            id: entry.id,
+            path: target.declaredPath,
+            regen: entry.regen,
+            timeoutMs,
+            elapsedMs: cleanElapsedMs,
+            output: tailLines(cleanError),
+          };
+          timeouts.push(sharedRec);
+          verdict = 'TIMEOUT';
+        } else if (cleanError !== null) {
+          progress(`entry ${entry.id} (${target.declaredPath}) … FAIL ${(cleanElapsedMs / 1000).toFixed(1)} s`);
+          sharedRec = { id: entry.id, regen: entry.regen, output: cleanError };
+          executionFailures.push(sharedRec);
+          verdict = 'execution-failure';
         } else {
-          probeUnsafe.push({
+          // Every `… start` line gets a terminal line, including the branches
+          // that `continue` — a start with no end is exactly the ambiguity the
+          // progress output exists to remove.
+          progress(`entry ${entry.id} (${target.declaredPath}) … probe-unsafe ${(cleanElapsedMs / 1000).toFixed(1)} s (clean re-run OK)`);
+          sharedRec = {
             id: entry.id,
             path: target.declaredPath,
             reason: 'regen reads this declared artifact as required structured input — corrupting it crashes the command; a clean re-run of the same command succeeds, so this is a probe-method limit, not a no-write finding',
-          });
+          };
+          probeUnsafe.push(sharedRec);
+          verdict = 'probe-unsafe';
         }
+        sharedProbeResults.set(target.targetAbs, { ownerId: entry.id, verdict, rec: sharedRec });
         prevStatus = gitStatusPaths(dir);
         continue; // classA/classB are inconclusive for a probe that never ran to completion
       }
@@ -352,19 +574,26 @@ function runLiveScan({ dir, covered }) {
         // ran and did not fix it -> the real kernel-index-shaped defect.
         if (entry.gate) {
           let gateReportsClean = false;
-          try { execSync(entry.gate, EXEC_OPTS(dir)); gateReportsClean = true; } catch { gateReportsClean = false; }
+          // Bounded like regen is: a hung --check gate stalls the run exactly
+          // as a hung generator does. A timeout here reads as "not clean",
+          // which routes to CLASS A — the gate could not vouch for the tree.
+          try { execSync(entry.gate, EXEC_OPTS(dir, timeoutMs)); gateReportsClean = true; } catch { gateReportsClean = false; }
           if (gateReportsClean) {
-            probeBlind.push({
+            sharedRec = {
               id: entry.id,
               path: target.declaredPath,
               reason: "the probe byte sits outside whatever region/field this entry's own --check gate reads, so no drift was visible to test here",
-            });
+            };
+            probeBlind.push(sharedRec);
+            verdict = 'probe-blind';
           } else {
-            classA.push({
+            sharedRec = {
               id: entry.id,
               path: target.declaredPath,
               issue: "this entry's own --check gate reports the corrupted artifact STALE, yet the regen command that just ran did not fix it — genuine no-write defect",
-            });
+            };
+            classA.push(sharedRec);
+            verdict = 'CLASS-A';
           }
         } else {
           // No --check gate exists for this entry (e.g. `catalog`, a Python
@@ -373,11 +602,13 @@ function runLiveScan({ dir, covered }) {
           // oracle to ask. SO #34c: a missing result is its own state, never
           // silently folded into a defect OR a pass — report UNVERIFIABLE and
           // move on; guessing either way would be worse than naming the gap.
-          unverifiable.push({
+          sharedRec = {
             id: entry.id,
             path: target.declaredPath,
             reason: 'declared artifact mtime did not advance after regen ran, and this entry has no --check gate to independently confirm whether that is a real no-write defect or a probe-blind spot',
-          });
+          };
+          unverifiable.push(sharedRec);
+          verdict = 'unverifiable';
         }
       }
 
@@ -394,10 +625,16 @@ function runLiveScan({ dir, covered }) {
       // leftover byte from being misattributed to the next target or entry).
       try { execSync(`git checkout -- "${target.targetRel}"`, { cwd: dir, ...GIT_EXEC_OPTS }); } catch { /* best effort */ }
       prevStatus = gitStatusPaths(dir);
+      sharedProbeResults.set(target.targetAbs, { ownerId: entry.id, verdict, rec: sharedRec });
+      progress(`entry ${entry.id} (${target.declaredPath}) … ok ${(elapsedMs / 1000).toFixed(1)} s`);
     }
   }
 
-  return { classA, classB, executionFailures, probeUnsafe, probeBlind, unverifiable, skippedEmptyDirs, initialDirty, anchoredProbes };
+  // DERIVED-REGEN-PROBE-DEDUP-1: the saving, in the log — total target visits
+  // vs unique probe cycles actually run.
+  progress(`probe-target dedup (DERIVED-REGEN-PROBE-DEDUP-1): ${probeTargetVisits} probe target(s) walked, ${sharedProbeResults.size} unique probe cycle(s) run, ${probeTargetVisits - sharedProbeResults.size} shared verdict(s) reused`);
+
+  return { classA, classB, timeouts, executionFailures, probeUnsafe, probeBlind, unverifiable, skippedEmptyDirs, initialDirty, anchoredProbes, probeTargetVisits, uniqueProbeTargets: sharedProbeResults.size };
 }
 
 // ── CLI: scratch worktree wrapper ──────────────────────────────────────────────
@@ -417,8 +654,18 @@ function withScratchWorktree(fn) {
   }
 }
 
-function printReport({ classA, classB, executionFailures, probeUnsafe, probeBlind, unverifiable, skippedEmptyDirs, initialDirty, dupFindings, shareFindings, anchoredProbes }) {
-  console.log(`derived-regen-live: ${COVERED.filter((c) => c.regen).length} regen commands executed in a scratch worktree\n`);
+function printReport({ classA, classB, timeouts = [], executionFailures, probeUnsafe, probeBlind, unverifiable, skippedEmptyDirs, initialDirty, dupFindings, shareFindings, anchoredProbes, executedCount = COVERED.filter((c) => c.regen).length }) {
+  console.log(`derived-regen-live: ${executedCount} regen commands executed in a scratch worktree\n`);
+
+  if (timeouts.length) {
+    console.log(`✗ TIMEOUT — ${timeouts.length} regen command(s) exceeded their per-entry bound and were SIGKILLed:`);
+    for (const f of timeouts) {
+      console.log(`  - "${f.id}" (${f.path}) ran ${(f.elapsedMs / 1000).toFixed(1)} s against a ${(f.timeoutMs / 1000).toFixed(0)} s bound (\`${f.regen}\`)`);
+      if (f.output) console.log(`      last output lines:\n      ${f.output.split('\n').join('\n      ')}`);
+    }
+  } else {
+    console.log('✓ no regen command exceeded its per-entry timeout');
+  }
 
   if (initialDirty.length) {
     console.log(`⚠ scratch worktree was not clean immediately after creation (${initialDirty.length} path(s)) — findings below are relative to that baseline\n`);
@@ -428,7 +675,7 @@ function printReport({ classA, classB, executionFailures, probeUnsafe, probeBlin
     console.log(`✗ EXECUTION FAILURE — ${executionFailures.length} regen command(s) exited non-zero:`);
     for (const f of executionFailures) console.log(`  - "${f.id}" (\`${f.regen}\`):\n      ${f.output.split('\n').join('\n      ')}`);
   } else {
-    console.log('✓ every regen command ran to completion');
+    console.log('✓ every regen command that returned exited 0');
   }
 
   if (classA.length) {
@@ -482,16 +729,143 @@ function printReport({ classA, classB, executionFailures, probeUnsafe, probeBlin
     for (const f of unverifiable) console.log(`  - "${f.id}" (${f.path}): ${f.reason}`);
   }
 
-  return executionFailures.length > 0 || classA.length > 0 || classB.length > 0 || dupFindings.length > 0;
+  return executionFailures.length > 0 || classA.length > 0 || classB.length > 0 || dupFindings.length > 0 || timeouts.length > 0;
+}
+
+// ── self-test: fixture proof of the timeout path (no real generator) ───────────
+// SO #40b shape, in-script so the bound is provable without the paired test
+// file: one FAST entry that writes (must pass) plus one entry whose regen
+// deliberately outlives the configured bound (must TIMEOUT, by name, within
+// that bound). The hanging fixture reaps ITSELF after 30 s rather than sleeping
+// forever: Node's execSync timeout kills the shell it spawned, and on Windows a
+// grandchild `node -e` can outlive that kill, so an unbounded sleep here would
+// leave an orphan process behind every run.
+function runSelfTest() {
+  const TIMEOUT_MS = 2_000;
+  const dir = mkdtempSync(join(tmpdir(), 'derived-regen-live-selftest-'));
+  // DERIVED-REGEN-PROBE-DEDUP-1: the counted generator logs each run HERE —
+  // deliberately OUTSIDE the fixture repo, because an in-repo log would be an
+  // undeclared write and read as CLASS B. gitEnv() passes ambient env through
+  // to regen children (minus GIT_*), so process.env reaches the fixture.
+  const runsLog = join(tmpdir(), `derived-regen-live-selftest-runs-${process.pid}.log`);
+  process.env.DERIVED_REGEN_LIVE_SELFTEST_RUNS = runsLog;
+  let failures = 0;
+  const ok = (cond, msg) => { console.log(`  ${cond ? '✓' : '✗'} ${msg}`); if (!cond) failures++; };
+  try {
+    execSync('git init -q', { cwd: dir, ...GIT_EXEC_OPTS });
+    execSync('git config user.email test@test.local', { cwd: dir, ...GIT_EXEC_OPTS });
+    execSync('git config user.name selftest', { cwd: dir, ...GIT_EXEC_OPTS });
+    writeFileSync(join(dir, 'gen-fast.mjs'), "import { writeFileSync } from 'node:fs';\nwriteFileSync('fast.json', '{\"regenerated\":true}\\n');\n");
+    writeFileSync(join(dir, 'gen-hang.mjs'), 'setTimeout(() => process.exit(0), 30_000); // outlives the bound, then reaps itself\n');
+    writeFileSync(join(dir, 'gen-counted.mjs'), "import { appendFileSync, writeFileSync } from 'node:fs';\nappendFileSync(process.env.DERIVED_REGEN_LIVE_SELFTEST_RUNS, process.argv[2] + '\\n');\nwriteFileSync(process.argv[2], '{\"regenerated\":true}\\n');\n");
+    writeFileSync(join(dir, 'fast.json'), '{}\n');
+    writeFileSync(join(dir, 'slow.json'), '{}\n');
+    writeFileSync(join(dir, 'shared.json'), '{}\n');
+    writeFileSync(join(dir, 'unique.json'), '{}\n');
+    execSync('git add -A', { cwd: dir, ...GIT_EXEC_OPTS });
+    execSync('git commit -q -m fixture', { cwd: dir, ...GIT_EXEC_OPTS });
+
+    const covered = [
+      { id: 'fixture-fast', regen: 'node gen-fast.mjs', artifacts: ['fast.json'] },
+      // DERIVED-REGEN-PROBE-DEDUP-1 shared-target fixture: two entries, SAME
+      // bytes. fixture-shared-a owns the probe cycle; fixture-shared-b must
+      // inherit the verdict so the generator runs EXACTLY ONCE for both —
+      // while both entries still get verdicts (the b line via the shared
+      // result). fixture-unique proves a unique-target entry is unaffected.
+      { id: 'fixture-shared-a', regen: 'node gen-counted.mjs shared.json', artifacts: ['shared.json'] },
+      { id: 'fixture-shared-b', regen: 'node gen-counted.mjs shared.json --second-entry', artifacts: ['shared.json'] },
+      { id: 'fixture-unique', regen: 'node gen-counted.mjs unique.json', artifacts: ['unique.json'] },
+      { id: 'fixture-hang', regen: 'node gen-hang.mjs', artifacts: ['slow.json'] },
+    ];
+    const progressLines = [];
+    console.log(`check-derived-regen-live --self-test (bound ${TIMEOUT_MS} ms)`);
+    const startedAt = Date.now();
+    const res = runLiveScan({ dir, covered, timeoutMs: TIMEOUT_MS, progress: (line) => { progressLines.push(line); console.log(`  · ${line}`); } });
+    const wallMs = Date.now() - startedAt;
+
+    ok(res.timeouts.length === 1, `exactly one TIMEOUT finding, got ${res.timeouts.length}`);
+    ok(res.timeouts[0]?.id === 'fixture-hang', `the TIMEOUT names the hanging entry, got "${res.timeouts[0]?.id}"`);
+    ok(res.timeouts[0]?.elapsedMs >= TIMEOUT_MS * 0.9, `the TIMEOUT reports its elapsed time (${res.timeouts[0]?.elapsedMs} ms)`);
+    ok(wallMs < TIMEOUT_MS * 6, `the whole scan finished in ${wallMs} ms, i.e. the bound actually cut the hang short`);
+    ok(res.executionFailures.length === 0, `a timeout is NOT reported as an execution failure, got ${JSON.stringify(res.executionFailures)}`);
+    ok(!res.timeouts.some((t) => t.id === 'fixture-fast'), 'the fast entry is not flagged as a timeout');
+    ok(res.classA.length === 0 && res.classB.length === 0, `the fast entry produced no CLASS A/B finding, got ${JSON.stringify([res.classA, res.classB])}`);
+
+    // DERIVED-REGEN-PROBE-DEDUP-1 assertions: count the probes.
+    const runs = existsSync(runsLog) ? readFileSync(runsLog, 'utf8').split('\n').filter(Boolean) : [];
+    ok(runs.filter((r) => r === 'shared.json').length === 1,
+      `two entries targeting the same bytes executed exactly ONE probe cycle (one generator run), got runs=${JSON.stringify(runs)}`);
+    ok(runs.filter((r) => r === 'unique.json').length === 1,
+      'the unique-target entry is unaffected — its own probe cycle ran');
+    ok(res.uniqueProbeTargets === 4, `4 unique probe targets (fast, shared, unique, slow), got ${res.uniqueProbeTargets}`);
+    ok(res.probeTargetVisits === 5, `5 probe-target visits (4 unique + 1 shared reuse), got ${res.probeTargetVisits}`);
+    ok(progressLines.some((l) => l.startsWith('entry fixture-shared-a (shared.json) … ok')),
+      'fixture-shared-a got its own verdict line');
+    ok(progressLines.some((l) => l.startsWith('entry fixture-shared-b (shared.json) … shared')),
+      'fixture-shared-b got a verdict via the shared-result line');
+    ok(progressLines.some((l) => l.includes('probe-target dedup') && l.includes('1 shared verdict(s) reused')),
+      'the scan-end dedup line reports the reuse count');
+    ok(![...res.classA, ...res.classB, ...res.executionFailures, ...res.probeUnsafe, ...res.probeBlind, ...res.unverifiable]
+      .some((f) => String(f.id).startsWith('fixture-shared') || f.id === 'fixture-unique'),
+      'neither shared entry nor the unique entry appears in any finding class');
+    ok(printReport({ ...res, dupFindings: [], shareFindings: [], executedCount: covered.length }) === true,
+      'printReport hard-fails on a TIMEOUT finding');
+  } finally {
+    delete process.env.DERIVED_REGEN_LIVE_SELFTEST_RUNS;
+    try { rmSync(runsLog, { force: true }); } catch { /* best effort */ }
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
+  }
+  console.log(`\ncheck-derived-regen-live --self-test: ${failures === 0 ? 'PASS' : `${failures} assertion(s) FAILED`}`);
+  return failures === 0;
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
 if (isMain) {
-  const dupFindings = withinEntryDuplicates(COVERED);
-  const shareFindings = crossEntryShares(COVERED);
-  const result = withScratchWorktree((dir) => runLiveScan({ dir, covered: COVERED }));
-  const hardFail = printReport({ ...result, dupFindings, shareFindings });
-  process.exit(hardFail ? 1 : 0);
+  const argv = process.argv.slice(2);
+  if (argv.includes('--self-test')) {
+    process.exit(runSelfTest() ? 0 : 1);
+  } else if (argv.includes('--list')) {
+    // Diagnosis aid: what WOULD run, and under what bound. Executes nothing.
+    console.log(`derived-regen-live: ${COVERED.filter((c) => c.regen).length} covered entries carry a regen command (bound ${envTimeoutMs()} ms each)\n`);
+    for (const c of COVERED) {
+      if (!c.regen) continue;
+      console.log(`  ${c.id}\n    regen: ${c.regen}\n    gate:  ${c.gate || '(none)'}`);
+    }
+    process.exit(0);
+  } else {
+    const onlyIdx = argv.indexOf('--only');
+    let covered = COVERED;
+    if (onlyIdx !== -1) {
+      const wanted = argv[onlyIdx + 1];
+      if (!wanted || wanted.startsWith('--')) {
+        console.error('derived-regen-live: --only needs an entry id (see --list)');
+        process.exit(2);
+      }
+      covered = COVERED.filter((c) => c.id === wanted);
+      if (covered.length === 0) {
+        console.error(`derived-regen-live: no covered entry with id "${wanted}" (see --list)`);
+        process.exit(2);
+      }
+      console.log(`derived-regen-live: --only "${wanted}" — running one entry, not the whole set\n`);
+    }
+    const timeoutMs = envTimeoutMs();
+    // CLASS C is static and scoped to whatever set is being run, so --only
+    // reports duplicates for that entry alone rather than the whole estate's.
+    const dupFindings = withinEntryDuplicates(covered);
+    const shareFindings = crossEntryShares(covered);
+    const result = withScratchWorktree((dir) => runLiveScan({
+      dir,
+      covered,
+      timeoutMs,
+      // stderr, not stdout: preflight captures a gate's stdout and prints it
+      // only on failure, so a run killed from OUTSIDE (the 20-minute stalls
+      // that motivated this) would lose exactly the lines that name the
+      // culprit. stderr streams through.
+      progress: (line) => process.stderr.write(`derived-regen-live: ${line}\n`),
+    }));
+    const hardFail = printReport({ ...result, dupFindings, shareFindings, executedCount: covered.filter((c) => c.regen).length });
+    process.exit(hardFail ? 1 : 0);
+  }
 }
 
 // withScratchWorktree is exported (MERGEQUEUE-GATE-PARITY-1) so

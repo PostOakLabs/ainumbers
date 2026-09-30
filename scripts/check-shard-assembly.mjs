@@ -32,9 +32,12 @@
  * ⚠ Node case is BLOCKING as of NODE-REGISTRATION-GAP-1. Chain case stays
  * ADVISORY (GATE-FREEZE, Tim 2026-07-18) since no chain-leak incident has
  * been measured — a chain shard whose CGSHARD row is mid-flight is EXPECTED
- * to be unassembled, and this gate cannot yet distinguish mid-flight from
- * stale for chains. If a chain-leak incident is ever measured, promote that
- * half the same way node case was promoted here.
+ * to be unassembled. (NAV-ISLAND-PENDING-CHAIN-1, 2026-09-27: the gate NOW
+ * does distinguish mid-flight from stale for chains — the branch-aware split
+ * below — but only to REPORT the distinction, in the PENDING-ASSEMBLE
+ * (CHAINS) section; the advisory/blocking switch is unchanged.) If a
+ * chain-leak incident is ever measured, promote that half the same way node
+ * case was promoted here.
  *
  * TO FLIP THE CHAIN CHECK BLOCKING (only once a chain-leak incident is
  * measured): change `const CHAINS_BLOCKING = false` below to `true`. No
@@ -171,6 +174,41 @@
  *   - schema violations and orphans ⇒ RED unconditionally (unchanged).
  * ──────────────────────────────────────────────────────────────────────────
  *
+ * ──────────────────────────────────────────────────────────────────────────
+ * NAV-ISLAND-PENDING-CHAIN-1 (2026-09-27) — THE BRANCH-AWARE SPLIT, NOW FOR
+ * CHAINS TOO.
+ *
+ * The node split above existed because a class-K row cannot make its page
+ * reachable. The same is true of a chain-composer row, measured on PR #2089:
+ * it ships chaingraph/chains/<name>.html + chaingraph/graph/chains/<name>.json
+ * + the order.chains append (the four-leg landing shape, #2060/#2061), but the
+ * assembled monolith is main-side single-writer (SO #35), and the chain
+ * entries chaingraph.json carries are ABSOLUTE composer_url strings
+ * (https://ainumbers.co/...) that check-nav-reachability.mjs's dynamic root
+ * can never resolve to a repo path — so every additive chain PR reds
+ * NAV-ISLAND-1 by construction.
+ *
+ * So the split above now runs for chains as well, with the same two guards:
+ * base ref unresolvable ⇒ fail closed, nothing pending; and a base-published
+ * chain that is STILL unassembled is never pending (stale, not mid-flight).
+ * Chain pendings are printed as their OWN section — `PENDING-ASSEMBLE
+ * (CHAINS)` — rather than merged into the node section, so the nav gate's
+ * node parser (which keys on the unparenthesized prefix) is untouched and its
+ * chain parser keys on the parenthesized one; the two id namespaces stay
+ * separate end to end.
+ *
+ * ⚠ ONE DELIBERATE DIVERGENCE FROM GUARD 2, chain side only. For nodes,
+ * "assembling branch" means touching chaingraph.json OR chaingraph.meta.json.
+ * For chains that would be wrong on both counts at once: appending to
+ * order.chains is the chain row's OWN registration leg (the four-leg shape —
+ * the row MUST edit chaingraph.meta.json), and the assembly of that
+ * registration into chaingraph.json belongs to the main-side writer by
+ * construction (RULINGS 2026-08-22 (b) AUTO-LAND). So for the CHAIN axis,
+ * "assembling branch" means touching chaingraph.json — the writer's file —
+ * only. A branch that edits the monolith gets no chain exemption; a branch
+ * that does the four-leg landing gets it. The node guard is unchanged.
+ * ──────────────────────────────────────────────────────────────────────────
+ *
  * Zero-dep, node: builtins only (site repo is ZERO-DEP). git is shelled to
  * the same way the rest of this tree shells to it — same trust tier as node.
  *
@@ -230,6 +268,7 @@ const CHAINS_DIR = resolve(root, 'chaingraph/graph/chains')
 const CG_PATH = resolve(root, 'chaingraph/chaingraph.json')
 
 const NODES_DIR_REL = 'chaingraph/graph/nodes'
+const CHAINS_DIR_REL = 'chaingraph/graph/chains' // NAV-ISLAND-PENDING-CHAIN-1
 const CG_REL = 'chaingraph/chaingraph.json'
 const META_REL = 'chaingraph/chaingraph.meta.json'
 
@@ -355,10 +394,14 @@ function resolveBase() {
 // merge-base..working-tree so a branch that has merely fallen behind main
 // (and therefore carries an older chaingraph.json) is not mistaken for one
 // that is rewriting it.
-function branchIsAssembling(baseRef) {
+function branchTouches(baseRef, files) {
   const mb = git(['merge-base', baseRef, 'HEAD'])
   if (!mb) return true // cannot tell ⇒ assume assembler ⇒ no exemption.
-  return !gitOk(['diff', '--quiet', mb.trim(), '--', CG_REL, META_REL])
+  return !gitOk(['diff', '--quiet', mb.trim(), '--', ...files])
+}
+
+function branchIsAssembling(baseRef) {
+  return branchTouches(baseRef, [CG_REL, META_REL])
 }
 
 // ── shard sets on disk vs assembled ───────────────────────────────────────
@@ -434,8 +477,13 @@ let pendingNodeIds = []
 let leakedNodeIds = candidateNodeIds
 let writerBlockedNodeIds = []
 let baseNote = null
+// NAV-ISLAND-PENDING-CHAIN-1: the chain axis of the same split. pendingChainIds
+// feed the PENDING-ASSEMBLE (CHAINS) section; chainNote carries the chain axis's
+// own fail-closed / assembling-branch declarations.
+let pendingChainIds = []
+let chainNote = null
 
-if (candidateNodeIds.length > 0) {
+if (candidateNodeIds.length > 0 || unassembledChainIds.length > 0) {
   const { base, attempted, reason } = resolveBase()
   if (!base) {
     baseNote =
@@ -443,30 +491,58 @@ if (candidateNodeIds.length > 0) {
       `mid-flight (SO #34c: a missing result is a distinct state, never a green one).` +
       (attempted.length ? `\n  attempted: ${attempted.join('; ')}` : '') +
       `\n  Pass --base-ref <ref> (or set SHARD_ASSEMBLY_BASE_REF) if this checkout names its main line differently.`
-  } else if (branchIsAssembling(base.ref)) {
-    baseNote =
-      `check-shard-assembly: base ${base.ref} @ ${base.sha}${base.when ? ` (${base.when})` : ''} — but this ` +
-      `branch MODIFIES ${CG_REL} or ${META_REL}, so it is an ASSEMBLING branch and gets NO mid-flight ` +
-      `exemption: registering every shard it carries is exactly its job (SHARD-GATE-PRE-ASSEMBLE-1 guard 2).`
   } else {
-    pendingNodeIds = candidateNodeIds.filter((id) => !base.ids.has(id))
-    const onBaseIds = candidateNodeIds.filter((id) => base.ids.has(id))
-    const splitNote =
-      `check-shard-assembly: branch-aware split against ${base.ref} @ ${base.sha}` +
-      `${base.when ? ` (${base.when})` : ''}, resolved via ${base.why}; ${base.ids.size} node shard(s) published there.`
-    // REGEN-VALIDATE-RED-1: classify the on-base candidates against the base
-    // ref's OWN committed chaingraph.json. Absent there ⇒ the writer itself
-    // is behind (backlog), not a branch-side leak. Unreadable ⇒ fail closed.
-    const baseCgIds = assembledNodeIdsAtRef(base.ref)
-    if (baseCgIds === null) {
-      leakedNodeIds = onBaseIds
-      baseNote =
-        splitNote +
-        `\n  (base committed ${CG_REL} unreadable — WRITER-BLOCKED split skipped, FAILING CLOSED, SO #34c)`
-    } else {
-      writerBlockedNodeIds = onBaseIds.filter((id) => !baseCgIds.has(id))
-      leakedNodeIds = onBaseIds.filter((id) => baseCgIds.has(id))
-      baseNote = splitNote
+    if (candidateNodeIds.length > 0) {
+      if (branchIsAssembling(base.ref)) {
+        baseNote =
+          `check-shard-assembly: base ${base.ref} @ ${base.sha}${base.when ? ` (${base.when})` : ''} — but this ` +
+          `branch MODIFIES ${CG_REL} or ${META_REL}, so it is an ASSEMBLING branch and gets NO mid-flight ` +
+          `exemption: registering every shard it carries is exactly its job (SHARD-GATE-PRE-ASSEMBLE-1 guard 2).`
+      } else {
+        pendingNodeIds = candidateNodeIds.filter((id) => !base.ids.has(id))
+        const onBaseIds = candidateNodeIds.filter((id) => base.ids.has(id))
+        const splitNote =
+          `check-shard-assembly: branch-aware split against ${base.ref} @ ${base.sha}` +
+          `${base.when ? ` (${base.when})` : ''}, resolved via ${base.why}; ${base.ids.size} node shard(s) published there.`
+        // REGEN-VALIDATE-RED-1: classify the on-base candidates against the base
+        // ref's OWN committed chaingraph.json. Absent there ⇒ the writer itself
+        // is behind (backlog), not a branch-side registration leak. Unreadable ⇒ fail closed.
+        const baseCgIds = assembledNodeIdsAtRef(base.ref)
+        if (baseCgIds === null) {
+          leakedNodeIds = onBaseIds
+          baseNote =
+            splitNote +
+            `\n  (base committed ${CG_REL} unreadable — WRITER-BLOCKED split skipped, FAILING CLOSED, SO #34c)`
+        } else {
+          writerBlockedNodeIds = onBaseIds.filter((id) => !baseCgIds.has(id))
+          leakedNodeIds = onBaseIds.filter((id) => baseCgIds.has(id))
+          baseNote = splitNote
+        }
+      }
+    }
+    // NAV-ISLAND-PENDING-CHAIN-1: the same branch-aware split, chain side. See the
+    // header note for the ONE deliberate divergence from guard 2: for chains,
+    // "assembling branch" means touching the assembled monolith (CG_REL) — the
+    // writer's file — only. The order.chains append to META_REL is the chain row's
+    // OWN registration leg (the four-leg landing shape, #2060/#2061), so a branch
+    // carrying it is exactly the mid-flight actor the PENDING-ASSEMBLE (CHAINS)
+    // section exists to name, not an assembler.
+    if (unassembledChainIds.length > 0) {
+      if (branchTouches(base.ref, [CG_REL])) {
+        chainNote =
+          `check-shard-assembly: base ${base.ref} @ ${base.sha}${base.when ? ` (${base.when})` : ''} — but this ` +
+          `branch MODIFIES ${CG_REL}, so it is doing the assembler's own work and gets NO chain mid-flight ` +
+          `exemption (NAV-ISLAND-PENDING-CHAIN-1).`
+      } else {
+        const chainIdsAtBase = shardIdsAtRef(base.ref, CHAINS_DIR_REL)
+        if (chainIdsAtBase === null) {
+          chainNote =
+            `check-shard-assembly: ${CHAINS_DIR_REL}/ is empty or unreadable at ${base.ref} @ ${base.sha} — ` +
+            `FAILING CLOSED for chains, no chain is treated as mid-flight (SO #34c).`
+        } else {
+          pendingChainIds = unassembledChainIds.filter((id) => !chainIdsAtBase.has(id))
+        }
+      }
     }
   }
 }
@@ -500,6 +576,20 @@ if (writerBlockedNodes.length > 0) {
     console.log(`  - ${id}  (mcp_name: ${label})`)
   }
   console.log(`check-shard-assembly: this state exists at the base ref itself — the main-side single writer (derived-artifacts-regen.yml) is behind on assembling these, and a non-assembling PR branch neither caused it nor can repair it (SO #35 forbids hand-committing the derived artifact). The blocking surface is main's own regen run, not this branch (REGEN-VALIDATE-RED-1, 2026-08-30). A PR whose copy repair unblocks the writer is the sanctioned path. If main's writer is GREEN and this state persists, treat it as a registration leak and investigate.`)
+}
+
+// NAV-ISLAND-PENDING-CHAIN-1: the chain axis's own declarations, printed BEFORE
+// the section consumers parse so a fail-closed chainNote is never mistaken for
+// a classification.
+if (chainNote) console.log(chainNote)
+
+if (pendingChainIds.length > 0) {
+  const pendingChains = describeUnassembled(CHAINS_DIR, pendingChainIds)
+  console.log(`check-shard-assembly: PENDING-ASSEMBLE (CHAINS) — ${pendingChains.length} chain shard(s) present on this branch but ABSENT from the base ref, so they are mid-flight chains awaiting the main-side writer's auto-land (RULINGS 2026-08-22 (b)), not a registration leak (NAV-ISLAND-PENDING-CHAIN-1):`)
+  for (const { id, label } of pendingChains) {
+    console.log(`  - ${id}  (name: ${label})  [new on this branch]`)
+  }
+  console.log('check-shard-assembly: PENDING-ASSEMBLE (CHAINS) is INFORMATIONAL — the writer auto-lands additive chains after merge. The section exists so consumers (check-nav-reachability.mjs chainShardNameForPage) can excuse the matching composer page on this branch only; the moment such a chain shard reaches the base ref unregistered, it leaves this section for the stale/advisory one below.')
 }
 
 if (

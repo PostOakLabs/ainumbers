@@ -102,6 +102,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <meta name="ai-tool" content="classify_rate_rec_5pct_threshold">
+<meta name="kernel-digest" content="sha256:d64faa0765db8024c6f6057f6f2e5ae0c86940532c5207fd7dabd0b07488b14c">
 </head>
 <body>
 <nav>
@@ -336,8 +337,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-635
       </div>
       <div class="footer-col">
         <div class="footer-col-label">Guides</div>
-        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
-        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
         <a href="guide-prov-dm.html">W3C PROV-DM</a>
         <a href="guide-buildtype.html">buildType / SLSA</a>
         <a href="guide-intoto.html">in-toto / DSSE</a>
@@ -362,22 +363,25 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-635
         <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
         <a href="../robots.txt" target="_blank">robots.txt</a>
         <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
         <a href="../euc-register.html">EUC Register</a>
       </div>
       <div class="footer-col">
-        <div class="footer-col-label">Project</div>
-        <a href="../tools.html">All Tools</a>
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
         <a href="../mcp.html">MCP Docs</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
         <a href="../about.html">About</a>
         <a href="../methods.html">Methods</a>
         <a href="../fv-explainer.html">FV Process Explainer</a>
         <a href="../errata.html">FV Errata</a>
         <a href="../suggest.html">Suggest</a>
         <a href="../contact.html">Contact</a>
-        <a href="../security.html">Security</a>
-        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
       </div>
     </div>
@@ -396,8 +400,8 @@ const DISAGGREGATION_CITATION={
   tax_credits:'ASC 740-10-50-12A(b)(1)',nontaxable_or_nondeductible_items:'ASC 740-10-50-12A(b)(1)',
   other_not_listed:'ASC 740-10-50-12A(b)(3)',state_and_local_income_tax_net_of_federal:'ASC 740-10-50-12A(b); ASC 740-10-50-12B',
 };
-const BREAK_EVEN_NOTE='ASU 2023-09 BC38 records that the Board considered and declined to provide guidance on applying the 5 percent threshold at or around break even, or where the domicile has no or minimal statutory rates. This tool draws no numeric break-even band for that reason.';
-const ZERO_BASE_CAVEAT='The threshold base is zero, so every amount clears it trivially. Reported not_assessable under ASU 2023-09 BC38 rather than divided silently.';
+const BREAK_EVEN_NOTE='ASU 2023-09 BC38 records that the Board considered and declined to provide guidance on applying the 5 percent threshold where an entity operates at or around break even or is domiciled in a jurisdiction with no or minimal statutory income tax rates, and expects the entity to apply judgment. This node draws no numeric break even band for that reason.';
+const ZERO_BASE_CAVEAT='The threshold base is zero, so every amount clears it trivially and a verdict would be an artefact of the degenerate denominator rather than a reading of ASC 740-10-50-12A(b). Reported as not assessable under ASU 2023-09 BC38 rather than divided silently.';
 function isFiniteNumber(v){return typeof v==='number'&&Number.isFinite(v);}
 function compute(pp){
   const raw_category=pp.reconciling_item_category??null;
@@ -411,12 +415,12 @@ function compute(pp){
   const inputs_valid=E!==null&&P!==null&&R!==null&&R>=0;
   if(!inputs_valid){
     management_judgment_required=true;
-    not_assessable_reason='reconciling_item_amount, pretax_income and statutory_rate_pct must each be a finite number and statutory_rate_pct must not be negative.';
+    not_assessable_reason='reconciling_item_amount, pretax_income and statutory_rate_pct must each be a finite number and statutory_rate_pct must not be negative. One or more fell outside the declared domain, so no threshold verdict is returned.';
   }else{
     const base_product=P*R,abs_base_product=Math.abs(base_product);
     if(!Number.isFinite(base_product)){
       management_judgment_required=true;
-      not_assessable_reason='The product of pretax_income and statutory_rate_pct overflowed to a non finite value.';
+      not_assessable_reason='The product of pretax_income and statutory_rate_pct overflowed to a non finite value, so the threshold base is not representable and no verdict is returned.';
     }else if(abs_base_product===0){
       threshold_base_amount=0;threshold_amount=0;management_judgment_required=true;
       denominator_near_zero_caveat=ZERO_BASE_CAVEAT;
@@ -437,11 +441,11 @@ function compute(pp){
   const disaggregation_citation=category_recognized?(DISAGGREGATION_CITATION[raw_category]??'ASC 740-10-50-12A(b)'):null;
   let basis;
   if(!entity_is_public_business_entity){
-    basis='ASC 740-10-50-12A applies to a public business entity. entity_is_public_business_entity is false, so the separate disclosure requirement of 50-12A(b) does not attach; ASC 740-10-50-13 requires a qualitative disclosure instead. The threshold arithmetic is still reported for information.';
+    basis='ASC 740-10-50-12A applies to a public business entity. entity_is_public_business_entity is false, so the separate disclosure requirement of 50-12A(b) does not attach; ASC 740-10-50-13 requires a qualitative disclosure over the same categories instead and does not require a numerical reconciliation. The threshold arithmetic is still reported for information.';
   }else if(crosses_5pct_threshold===true){
-    basis='The absolute value of the reconciling item effect is equal to or greater than the absolute value of 5 percent of the threshold base, so ASC 740-10-50-12A(b) requires separate disclosure. Comparison taken in absolute amount on both sides per ASU 2023-09 BC35.';
+    basis='The absolute value of the reconciling item effect is equal to or greater than the absolute value of 5 percent of continuing operations pretax income multiplied by the applicable statutory federal or national rate of the domicile jurisdiction, so ASC 740-10-50-12A(b) requires separate disclosure. Comparison taken in absolute amount on both sides per ASU 2023-09 BC35.';
   }else if(crosses_5pct_threshold===false){
-    basis='The absolute value of the reconciling item effect is below the absolute value of 5 percent of the threshold base, so ASC 740-10-50-12A(b) does not require separate disclosure of this item at this level of aggregation.';
+    basis='The absolute value of the reconciling item effect is below the absolute value of 5 percent of the threshold base, so ASC 740-10-50-12A(b) does not require separate disclosure of this item at the level of aggregation the caller declared.';
   }else{
     basis='No threshold verdict is returned. '+(not_assessable_reason??'')+' ASC 740-10-50-12C separately requires the entity to explain individual reconciling items and the judgment used in categorising them.';
   }

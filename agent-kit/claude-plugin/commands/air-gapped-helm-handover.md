@@ -2,7 +2,7 @@
 description: Run a CECL workflow on a loopback-only Helm daemon, hit the consent-tier boundary at evidence export, and cross-check the kernel against the public worker.
 ---
 
-# Air-gapped control plane: the agent runs it, the human releases it, the bundle verifies without us
+# The agent runs Helm and a person releases a bundle anyone can verify
 
 You are connected to a local Helm daemon at 127.0.0.1:4173. Run a CECL allowance workflow end to end, prove it, and get the evidence out the only way the daemon allows.
 

@@ -623,6 +623,7 @@ status: stable
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md) — `calculate_cbam_embedded_emissions`
 - [Regulatory Obligations Register](./art-691-regulatory-obligations-register.md) — `compute_regulatory_obligations_register`
 - [Close Posting Lineage](./art-692-close-posting-lineage.md) — `verify_close_posting_lineage`
+- [ISA 530 Audit Sampling + MUS](./art-693-isa530-audit-sampling-mus.md) — `compute_isa530_audit_sampling_mus`
 - [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md) — `resolve_cbam_default_value`
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md) — `model_cbam_certificate_cost`
 - [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md) — `aggregate_cbam_precursor_emissions`

@@ -2,7 +2,7 @@
 description: Validate a C2PA manifest and AI Act Art. 50 marking in the page, replay the content-credential chain remotely, and anchor the disclosure manifest to Bitcoin.
 ---
 
-# Is this asset real, AI-marked, and provably timestamped?
+# Check that an asset is real and AI-marked and timestamp it
 
 A marketing team is about to publish an AI-generated product image with a C2PA manifest. Decide if it can ship, and give them proof.
 

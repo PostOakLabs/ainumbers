@@ -916,7 +916,17 @@ const { advisoryGates, isMainContext, COVERED, DERIVED_ROOT_GATES } = await impo
 // correctness, which is the same tradeoff helmPathsTouched() already makes.
 const { primaryScriptPath } = await import('./check-derived-declare-parity.mjs');
 function derivedRegenLiveScopeTouched() {
-  const relevant = new Set(['scripts/derived-artifacts.mjs']);
+  // DERIVED-SET-SELFTEST-TRIGGER-1: this gate's own script and its test were
+  // absent from this set — site PR #2104 changed check-derived-regen-live.mjs
+  // (+246/−16) and preflight answered "no derived-artifacts/generator path
+  // touched, skipped": changing the gate did not exercise the gate. The gate's
+  // script, its test, and this wiring file itself now trigger it.
+  const relevant = new Set([
+    'scripts/derived-artifacts.mjs',
+    'scripts/check-derived-regen-live.mjs', // DERIVED-SET-SELFTEST-TRIGGER-1: the gate's own script
+    'scripts/check-derived-regen-live.test.mjs', // DERIVED-SET-SELFTEST-TRIGGER-1: the gate's test
+    'scripts/preflight.mjs', // DERIVED-SET-SELFTEST-TRIGGER-1: the gate's wiring file
+  ]);
   for (const c of COVERED) {
     const rp = primaryScriptPath(c.regen);
     if (rp) relevant.add(rp);
@@ -1115,9 +1125,28 @@ const GATES = [
       ? null
       : { notRun: 'this push touches no chaingraph/kernels/**/*.mjs file, so the JSDoc CheckJS gate had nothing to examine' }],
   ['JSDoc CheckJS fixture proof (classifyDiagnostics, TOUCHTAX-DIFFSCOPE-1)', 'node scripts/jsdoc-checkjs-gate.test.mjs'],
+  // The DRIFT report below is advisory; the generator's own safety asserts are
+  // not. This runs the region finder and the byte-reversibility proof over the
+  // three live page shapes, so a rewriter that could corrupt a page reds here
+  // long before anyone points it at one.
+  ['AIN Bridge region finder + byte-safety asserts (BRIDGE-SNIPPET-SYNC-GEN-1)', 'node scripts/sync-ain-bridge.test.mjs'],
+  // BRIDGE-MCP-APPS-ALIGN-1. Blocking from the first push, no baseline: the
+  // snippet's MCP Apps layer is brand new, so there is no legacy debt for a
+  // ratchet to shield — the only way this gate can be red is a change made after
+  // it landed. The lint reads the master snippet's bytes (method allowlists vs the
+  // MCP Apps 2026-01-26 primary text, wildcard postMessage targets); the unit
+  // suite evaluates the snippet's MCP-APPS-JSONRPC region and exercises the
+  // handshake, origin pinning, the alias table and -32601; the .test.mjs pair is
+  // the gate's own SO #40b RED/GREEN proof.
+  ['AIN Bridge MCP Apps ui/ dialect lint (BRIDGE-MCP-APPS-ALIGN-1)', 'node scripts/check-bridge-jsonrpc.mjs'],
+  ['AIN Bridge MCP Apps lint controls (RED x9 + GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-bridge-jsonrpc.test.mjs'],
+  ['AIN Bridge MCP Apps View behaviour (handshake, origin pinning, alias, -32601)', 'node scripts/ain-bridge-jsonrpc.test.mjs'],
   ['Kernel exports (meta+compute)','node scripts/check-kernel-exports.mjs'],
   ['Forbidden-hash lint',          'node chaingraph/kernels/lint-forbidden-hash.mjs'],
   ['Hash golden-parity',           'node chaingraph/kernels/golden-parity.test.mjs'],
+  ['Hash RFC 8785 vectors (JCS-RFC8785-VECTORS-1)', 'node chaingraph/standard/jcs-rfc8785-vectors.test.mjs'],
+  // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the self-test entry below.
+  ['Hash RFC 8785 vectors red-proof (GATE-SELFTEST-META-1 pair)', 'node chaingraph/standard/jcs-rfc8785-vectors.test.mjs --self-test'],
   ['Canonicalizer limits + __proto__ (HASH-PROTO-DEPTH-GUARD-1)', 'node chaingraph/kernels/_hash.test.mjs'],
   ['Kernel-identity monolith upsert controls (GENKERNELID-UPSERT-FIX-1)', 'node chaingraph/kernels/gen-kernel-identity.test.mjs'],
   ['Determinism replay (N=3 + JCS)', 'node chaingraph/kernels/determinism-replay.test.mjs'],
@@ -1229,6 +1258,17 @@ const GATES = [
   // fixture/manifest/page divergences are baselined WARN (downward ratchet).
   ['Deep-link contract (fragment-only prefill+run)', 'node scripts/check-deeplink-contract.mjs'],
   ['Deep-link contract gate controls', 'node scripts/check-deeplink-contract.test.mjs'],
+  // QUERYSTRING-PRIVACY-1: the deep-link gate above covers only the WebMCP-
+  // REGISTERED pages, so the fragment-only rule held over a subset of the
+  // estate and nowhere else — tool 08 shipped `?s=<base64 merchant config>`
+  // under copy promising nothing reached a server. This gate carries the same
+  // rule across every published .html: no `location.search` read, no
+  // `URLSearchParams(` over the query, no history call writing a literal `?`,
+  // beyond two structurally-recognised benign shapes (the `embed=1` display
+  // flag, the fragment strip) and a shrink-only baseline holding exactly the
+  // two legacy `?` -> `#` converters on tools 08 and 13.
+  ['Query-string privacy (no user state in `?`)', 'node scripts/check-query-string-privacy.mjs'],
+  ['Query-string privacy gate controls (RED/GREEN, SO #34c pairing)', 'node scripts/check-query-string-privacy.mjs --self-test'],
   // WEBMCP-WRAPPER-OBJECT-PARAMS-1: the wrapper-execute vm gate. The deep-link
   // gate above never calls the REGISTERED tool's execute() body — the door the
   // art-118 String(object) wedge shipped through (a real host's execute()
@@ -1384,6 +1424,11 @@ const GATES = [
   ['MCP protocol-version drift', 'node scripts/verify-mcp-protocol-version.mjs'],
   ['Deadline-wall freshness (SI-DEADLINE-FRESH-1)', 'node scripts/check-deadline-freshness.mjs'],
   ['Bank-fact freshness (REVERIFY-BANK-1)', 'node scripts/check-bank-fact-freshness.mjs'],
+  // FACT-STAMPS-PILOT-1: the visible "Verified YYYY-MM-DD against …" stamps are a
+  // pure function of data/bank-fact-freshness.json (the same sidecar the bank-fact
+  // gate above watches). A drifted region means the page no longer shows what the
+  // freshest re-verification says. Fix: run the generator in write mode, commit.
+  ['Fact-stamp regions (FACT-STAMPS-PILOT-1)', 'node scripts/gen-fact-stamps.mjs --check'],
   ['Tool-number uniqueness',       'node scripts/check-tool-number-unique.mjs'],
   // PR-ID-COLLISION-GATE-1 (2026-09-06): art-685/art-686 each collided twice in one
   // evening across OPEN PRs, which no in-tree uniqueness gate can ever see. This gate
@@ -1398,6 +1443,24 @@ const GATES = [
   ['Topic cross-link block freshness (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/apply-topic-links.mjs --check'],
   ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
   ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
+  // ZK-PAGES-SVG-PILOT-1 (2026-09-27): SCENE-KIT v1 lives in
+  // scripts/lib/scene-kit.mjs; generated pages import it and hand-authored
+  // explainers carry an inline copy, which is exactly the shape that drifts.
+  // This gate rewrites-and-compares both marker regions from the lib, and
+  // holds every page carrying <svg class="sk-scene"> to WCAG 2.2.2 (Pause,
+  // Stop, Hide, Level A) by computing each scene's last animation end from
+  // durations PARSED OUT OF the kit CSS, never hardcoded.
+  ['SCENE-KIT inline copies + motion timing (ZK-PAGES-SVG-PILOT-1)', 'node scripts/sync-scene-kit.mjs --check'],
+  ['SCENE-KIT gate controls (RED/GREEN mutations, SO #34c pairing)', 'node scripts/sync-scene-kit.mjs --selftest'],
+  // EXPLAINER-KIT-1 (2026-09-28): EXPLAINER-KIT v1 lives in
+  // scripts/lib/explainer-kit.mjs and carries the shared explainer design plus
+  // its presenter script. Same inline-copy shape as the scene kit, same drift.
+  // This gate rewrites-and-compares both marker regions from the lib, and
+  // enforces the composition rule that keeps ONE animation system in the
+  // estate: a marked page must also carry the SCENE-KIT regions and may
+  // declare no @keyframes and no animation property of its own.
+  ['EXPLAINER-KIT inline copies + one animation system (EXPLAINER-KIT-1)', 'node scripts/sync-explainer-kit.mjs --check'],
+  ['EXPLAINER-KIT gate controls (RED/GREEN mutations, SO #34c pairing)', 'node scripts/sync-explainer-kit.mjs --selftest'],
   ['Homepage MCP-ACTIVITY sentinel matches data/mcp-activity.json (generator --check)', 'node scripts/mcp-activity-embed.mjs --check'],
   // AIN-AGENT-KIT-1: agent-kit artifacts are generator-emitted (gen-agent-kit.mjs from
   // agent-kit/kit.json); this gate regenerates twice into temp, byte-compares determinism
@@ -1408,6 +1471,11 @@ const GATES = [
   ['Showcase prompts gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-prompts.mjs --self-test'],
   ['Prompt library page freshness (PROMPT-LIBRARY-PAGE-2)', 'node scripts/gen-prompts-page.mjs --check'],
   ['Prompt library page generator selftest (RED mutations + GREEN controls, SO #34c pair)', 'node scripts/gen-prompts-page.mjs --selftest'], // PROMPTS-BORROW-LABELS-1
+  // AGENT-SKILLS-EXPORT-1: skills/ freshness. Gate string is byte-identical to
+  // derived-artifacts.mjs COVERED id 'agent-skills', so the generic
+  // ADVISORY_ON_PR categorisation downgrades it on a PR (the tree is written on
+  // main after merge, SO #35) and keeps it blocking on main.
+  ['Agent Skills export freshness (AGENT-SKILLS-EXPORT-1)', 'node scripts/gen-agent-skills.mjs --check'],
   // CHANGELOG-1 (CONTRACT Amendment A12): the public changelog is generated
   // from LOCAL git history + the committed seed, fail-closed forward, with an
   // in-generator internal-language leak gate (check-copy-hallmarks scans .html
@@ -1609,6 +1677,26 @@ const GATES = [
   // produces the committed output) is ocg-conformance/derive-vector.mjs <id> --check.
   ['OCG receipt-conformance corpus hashes (CONFCORPUS-GATE-1)', 'node scripts/check-conformance-vectors.mjs --quiet'],
   ['OCG receipt-conformance corpus gate self-test (CONFCORPUS-GATE-1 RED+GREEN)', 'node scripts/check-conformance-vectors.test.mjs'],
+  // SCITT-SELFTEST-WIRE-1 (2026-09-28): scripts/export-scitt.mjs ships its own
+  // RED+GREEN suite — COSE_Sign1 round-trips (ES256, Ed25519), the RFC 9162
+  // inclusion-proof walk and RFC 9942 vds/vdp header parsing, each paired with a
+  // tampered-input rejection — and until this row nothing ran it. Hard in every
+  // context: the subcommand reads nothing outside the exporter's own in-memory
+  // fixtures, writes no files, and finishes in about 0.4 s. It is also a named
+  // step in deploy-to-dreamhost.yml (push-to-main only), so axis 3 of
+  // check-workflow-gate-parity.mjs is satisfied by wiring, not by a declaration.
+  ['SCITT exporter selftest (RED+GREEN built in)', 'node scripts/export-scitt.mjs selftest'],
+  // TRUST-SIGNALS-WELLKNOWN-1 (2026-09-28): the /.well-known/trust-signals.json
+  // digest. The freshness half's command string is byte-identical to
+  // derived-artifacts.mjs COVERED id 'trust-signals', so the generic
+  // ADVISORY_ON_PR categorisation downgrades it on a PR (the file is
+  // single-writer on main, SO #35) and it stays blocking on main. The schema +
+  // commit-anchor check is a separate HARD gate in every context: a PR ships
+  // the digest and can always satisfy schema validation; only its commit-anchor
+  // leg self-downgrades on a PR (the split lives inside the checker).
+  ['Trust-signals digest freshness (single-writer main regen, TRUST-SIGNALS-WELLKNOWN-1)', 'node scripts/gen-trust-signals.mjs --check'],
+  ['Trust-signals digest schema + commit anchor (TRUST-SIGNALS-WELLKNOWN-1)', 'node scripts/check-trust-signals.mjs'],
+  ['Trust-signals gate controls (validator RED/GREEN + anchor quadrants, GATE-SELFTEST-META-1 pair)', 'node scripts/check-trust-signals.test.mjs'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
   ['Hub node-card coverage (HUB-GEN-1)', 'node scripts/gen-chaingraph-hub.mjs --check'],
@@ -1939,6 +2027,14 @@ const GATES = [
   ['Canvas up-to-date',           'node scripts/gen-canvas.mjs --check'],
   ['Wayfinder freshness',         'node scripts/gen-wayfinder.mjs --check'],
   ['Node-page chrome (nav/footer)', 'node scripts/check-node-page-chrome.mjs'],
+  // FOOTER-INFRA-COLUMN-1 (footer plan v2 D1(b)): node-page footers are the derived
+  // artifact 'node-page-footers' in derived-artifacts.mjs. The command string is
+  // identical to that entry's `gate`, so the generic ADVISORY_ON_PR rule classifies
+  // it: on a PR a template edit leaves every page stale by construction (main's regen
+  // writes them after merge), on main it blocks. The self-test is its RED+GREEN pair
+  // (GATE-SELFTEST-META-1).
+  ['Node-page footer freshness (FOOTER-INFRA-COLUMN-1)', 'node scripts/gen-node-footers.mjs --check'],
+  ['Node-page footer writer self-test (RED+GREEN)', 'node scripts/gen-node-footers.mjs --selftest'],
   // HUB-CHROME-GATE-1: same shape as the node-page chrome gate above, for the
   // OTHER ungated chrome surface the 2026-08-21 0xAlpha audit found (Findings
   // A/B). Logo check is baseline-ratcheted (45 known text-only hubs,
@@ -1960,8 +2056,20 @@ const GATES = [
   ['Ledger §18 Groth16 seal parity red-proof (GATE-SELFTEST-META-1 pair)', 'node scripts/check-ledger-proof-parity.mjs --self-test'],
   ['Playground hermetic (A8)',     'node scripts/check-playground-hermetic.mjs'],
   ['Ledger codec round-trip',      'node scripts/codec-roundtrip.test.mjs'],
+  // VERIFY-FRAGMENT-INTAKE-1: chaingraph/verify.html carries a VERBATIM COPY of the
+  // ledger's fragment codec (pages are self-contained, CONTRACT §1 — there is no
+  // module to import). A copy with no gate is a copy that drifts, and the drift is
+  // invisible: a ledger-side codec fix would leave the verifier decoding by the old
+  // rules and the same receipt link would open on one page and fail on the other
+  // with nothing red anywhere. This asserts the two copies are identical.
+  ['Verify/ledger fragment codec parity (VERIFY-FRAGMENT-INTAKE-1)', 'node scripts/verify-fragment-parity.test.mjs'],
   ['Ledger gate-replay tamper (shipped source)', 'node scripts/gate-replay-tamper.test.mjs'],
   ['Ledger escalation-closure tamper (shipped source)', 'node scripts/escalation-closure-tamper.test.mjs'],
+  // LEDGER-BRIDGE-LIVE-1: the ledger live channel (B3/B4/B5). Anchored to BOTH
+  // shipped sources — ledger/index.html and the master bridge snippet — so the
+  // de-dup rule, the path-form origin guard and the JSON-RPC 2.0 envelope cannot
+  // drift apart between the page that sends and the page that records.
+  ['Ledger live channel de-dup + envelope (LEDGER-BRIDGE-LIVE-1, shipped source)', 'node scripts/ledger-dedup.test.mjs'],
   ['OCG verify.html proven-to-reject (AV-REJECT-FIX-1)', 'node scripts/ocg-verify-hash-tamper.test.mjs'],
   ['tools/568 receipt verifier proven-to-reject (AV-REJECT-FIX-1, shipped source)', 'node scripts/ocg-receipt-verifier-568-tamper.test.mjs'],
   // TAMPER-GATE-SHIPPED-SOURCE-1: retitled off "proven-to-reject". That label claimed a
@@ -1996,6 +2104,18 @@ const GATES = [
   ['Authority contradiction gate fixture proof', 'node scripts/check-authority-contradiction.test.mjs'],
   ['Amendment detection gate (CB7-AMENDMENT-DETECT-1)', 'node scripts/check-amendment-detection.mjs'],
   ['Amendment detection gate fixture proof', 'node scripts/check-amendment-detection.test.mjs'],
+  // SOURCE-CURRENCY-FEED-1: the first gate that asks THE SOURCE whether a pinned
+  // section changed. Reads the committed eCFR map (scripts/source-currency.json,
+  // written by the workspace-root network instrument AINumbers/scripts/
+  // source-currency-refresh.mjs — this gate is offline) and flags a kernel whose
+  // pin predates its section's last amendment. Exit semantics: pull_request runs
+  // are always advisory; a main run is blocking exactly when SOURCE_CURRENCY_ENFORCE=1
+  // is set, which CI flips once the initial FLAGGED set is triaged into rows.
+  // Measured 2026-09-28 (first refresh): 6 FLAGGED, 1 UNMAPPED_SECTION, 28 NO-PIN —
+  // run `node scripts/check-source-currency.mjs` to see where the estate stands
+  // right now. No typed baseline — the JSON itself is the record.
+  ['Source-currency feed gate (SOURCE-CURRENCY-FEED-1)', 'node scripts/check-source-currency.mjs'],
+  ['Source-currency feed gate fixture proof', 'node scripts/check-source-currency.test.mjs'],
   ['JSON-LD structural validity (JSONLD-1)', 'node scripts/check-jsonld.mjs'],
   ['Citation drift -- pinned numbers vs clause snapshot (CITATION-DRIFT-GATE-1)', 'node scripts/check-citation-drift.mjs'],
   ['Citation drift gate fixture proof', 'node scripts/check-citation-drift.test.mjs'],
@@ -2987,6 +3107,34 @@ gateStart(CCPP_CONSISTENCY_LABEL);
       gateFail('   ⚠ SURPRISES — an observed-vs-declared mismatch fired in the consistency harness (ADVISORY: printed, NOT blocking; blocking flip is CCPP-GATE-BLOCK-1)');
       console.log('\n' + r.out.trim() + '\n');
     }
+  }
+}
+
+// ── Advisory (non-blocking): AIN Bridge block drift (BRIDGE-SNIPPET-SYNC-GEN-1) ──
+// scripts/sync-ain-bridge.mjs --check re-derives every page's bridge region
+// from the master snippet (scripts/ain-bridge-v1.snippet.html) and reports the
+// pages whose bytes differ. Measured 2026-09-28 (BRIDGE-SNIPPET-SYNC-GEN-1):
+// 600 bridge pages scanned, 595 drifted, 5 SKIP. ADVISORY BY DESIGN, exit 0
+// always: a blocking gate on that backlog reds main on the exact debt row
+// BRIDGE-SNIPPET-ROLL-1 exists to clear. Promotion to blocking is that row's
+// own last batch and a separate decision, never a side effect of this line.
+// Run `node scripts/sync-ain-bridge.mjs --check --summary` to see where the
+// count stands now. The SKIP list is the load-bearing half of the output:
+// those pages are shapes the generator deliberately will not rewrite (a bridge
+// that is not in its own script element, a page carrying two CFG lines), and
+// they are the pages the ROLL row will NOT reach.
+const BRIDGE_SYNC_LABEL = 'AIN Bridge block drift vs the master snippet (advisory report, BRIDGE-SNIPPET-SYNC-GEN-1)';
+gateStart(BRIDGE_SYNC_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/sync-ain-bridge.mjs --check --summary');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(BRIDGE_SYNC_LABEL, r.reason, r.out);
+  } else {
+    const lines = (r.out || '').trim().split('\n').filter(Boolean);
+    gatePass(lines.find((l) => l.startsWith('sync-ain-bridge:')) || 'no summary line printed — see node scripts/sync-ain-bridge.mjs --check');
+    for (const l of lines.filter((l) => l.trim().startsWith('SKIP'))) console.log(l);
+    // A non-zero exit here means DRIFT, which is this row's expected state and
+    // its documented contract — not a checker that misbehaved.
   }
 }
 

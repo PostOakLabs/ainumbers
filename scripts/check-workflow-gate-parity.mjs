@@ -346,6 +346,66 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── BRIDGE-MCP-APPS-ALIGN-1 (2026-09-28) ────────────────────────────────────
+  ["check-bridge-jsonrpc.mjs",
+    "AIN Bridge MCP Apps ui/ dialect lint: reads ONE tracked file's bytes " +
+    "(scripts/ain-bridge-v1.snippet.html) and holds its two method allowlists to the MCP Apps " +
+    "specification 2026-01-26 plus the origin-pinning rule. No network, no CI-only input, no " +
+    "enumeration — the only PR that can redden it is one that edits the master snippet or this " +
+    "gate, and both live under scripts/, which is exactly scripts-verify.yml's path filter, so its " +
+    "CI route is that workflow's full `node scripts/preflight.mjs` run. A named workflow step would " +
+    "re-read the same single file. It moves to a named step if BRIDGE-SNIPPET-ROLL-1 widens its " +
+    "scope to the ~600 published pages, where a content PR could redden it too."],
+  ["check-bridge-jsonrpc.test.mjs", SELF_TEST],
+  ["ain-bridge-jsonrpc.test.mjs",
+    "Unit suite for the master snippet's MCP-APPS-JSONRPC region (BRIDGE-MCP-APPS-ALIGN-1): it cuts " +
+    "the region out of scripts/ain-bridge-v1.snippet.html and evaluates it, so like a paired " +
+    "self-test it can only be reddened by a change to that snippet or to itself — both under " +
+    "scripts/, both caught by scripts-verify.yml's path-scoped full preflight. No network, no " +
+    "CI-only input, no estate enumeration."],
+  // ── SOURCE-CURRENCY-FEED-1 (2026-09-28) ─────────────────────────────────────
+  ["check-source-currency.mjs",
+    "Offline source-currency gate (SOURCE-CURRENCY-FEED-1): reads the committed eCFR map " +
+    "scripts/source-currency.json and flags a kernel whose pin predates its section's last " +
+    "amendment. Reads only tracked repo files (no network — the fetch half is the workspace-root " +
+    "instrument AINumbers/scripts/source-currency-refresh.mjs, outside this repo) and enumerates " +
+    "via readdirSync, so its CI route is scripts-verify.yml's full preflight; a named workflow " +
+    "step would re-run byte-for-byte the same scan. Advisory on pull_request by the gate's OWN " +
+    "exit semantics (GITHUB_EVENT_NAME), blocking on main only when SOURCE_CURRENCY_ENFORCE=1 — " +
+    "when that flip lands (post-triage of the initial FLAGGED set, 6 rows measured 2026-09-28) " +
+    "the gate moves out of this list into a named main-workflow step."],
+  ["check-source-currency.test.mjs",
+    "Paired RED/GREEN fixture proof of check-source-currency.mjs (GATE-SELFTEST-META-1 / SO #34c) " +
+    "— same preflight-only route and post-triage CI plan as its gate above."],
+  // ── FOOTER-INFRA-COLUMN-1 (2026-09-27) ──────────────────────────────────────
+  ["gen-node-footers.mjs",
+    "Node-page footer freshness (FOOTER-INFRA-COLUMN-1, footer plan v2 D1(b)): re-renders the " +
+    "footer region of every top-level chaingraph/*.html page from chaingraph/_page-chrome.mjs " +
+    "buildFooter() in memory and compares. Hard in preflight; its CI route is scripts-verify.yml's " +
+    "full preflight (the workflow runs `node scripts/preflight.mjs`), so a named workflow step " +
+    "would only duplicate the same suite. It is also the COVERED gate of derived-artifacts.mjs id " +
+    "'node-page-footers' (advisory on a PR, blocking on main via the generic downgrade; main-side " +
+    "freshness is owned by derived-artifacts-regen.yml). The write half is the regen command, " +
+    "never a PR step. Reads only tracked repo files, no CI-only input. Self-test: --selftest."],
+  // ── ZK-PAGES-SVG-PILOT-1 (2026-09-27) ───────────────────────────────────────
+  ["sync-scene-kit.mjs",
+    "SCENE-KIT inline-copy sync + WCAG 2.2.2 motion-timing scan (ZK-PAGES-SVG-PILOT-1). Hard in " +
+    "preflight, both modes. It reads only tracked HTML plus scripts/lib/scene-kit.mjs (no network, " +
+    "no CI-only input) and enumerates via `git ls-files`, so its CI route is scripts-verify.yml's " +
+    "full preflight — a named workflow step would re-run byte-for-byte the same scan. The page list " +
+    "is derived from the markers, never a registry, so nothing here goes stale when a page adopts " +
+    "the kit. The --selftest entry is its paired RED/GREEN mutation control (SO #34c)."],
+  // ── EXPLAINER-KIT-1 (2026-09-28) ────────────────────────────────────────────
+  ["sync-explainer-kit.mjs",
+    "EXPLAINER-KIT inline-copy sync plus the one-animation-system composition rule " +
+    "(EXPLAINER-KIT-1). Hard in preflight, both modes. Same shape as sync-scene-kit.mjs above: it " +
+    "reads only tracked HTML plus scripts/lib/explainer-kit.mjs and scripts/lib/scene-kit.mjs (no " +
+    "network, no CI-only input) and enumerates via `git ls-files`, so its CI route is " +
+    "scripts-verify.yml's full preflight and a named workflow step would re-run byte-for-byte the " +
+    "same scan. The page list is derived from the markers, never a registry, so nothing goes stale " +
+    "when a page adopts the kit. The --selftest entry is its paired RED/GREEN mutation control " +
+    "(SO #34c). Motion timing is NOT restated here: an explainer carries its scenes as " +
+    "<svg class=\"sk-scene\">, so sync-scene-kit.mjs --check already holds it to WCAG 2.2.2."],
   // ── KERNEL-INPUT-USAGE-CHECK-1 (2026-09-26) ─────────────────────────────────
   ["check-kernel-input-usage.mjs",
     "Declared-input-usage ratchet (KERNEL-INPUT-USAGE-CHECK-1): regex scan of the top-level " +
@@ -400,6 +460,31 @@ const PREFLIGHT_ONLY = new Map([
     "never a workflow. In-memory mutation self-test: gen-changelog.selftest.mjs (its own GATES " +
     "entry)."],
   ["gen-changelog.selftest.mjs", SELF_TEST],
+  // ── TRUST-SIGNALS-WELLKNOWN-1 (2026-09-28) ──────────────────────────────────
+  ["gen-trust-signals.mjs",
+    "Trust-signals digest freshness --check (TRUST-SIGNALS-WELLKNOWN-1): re-derives " +
+    ".well-known/trust-signals.json from the public gates' own machine-readable surfaces (the " +
+    "§18 coverage/freshness classifiers, the kernel-determinism gate's exit, the published " +
+    "Sigsum lineage record, the Rekor record fixture, the citation-drift baseline, the " +
+    "conformance manifest) and byte-compares. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), so a " +
+    "named workflow step would only duplicate the same suite. It is the COVERED gate of " +
+    "derived-artifacts.mjs id 'trust-signals' (advisory-on-PR / blocking-on-main via the " +
+    "generic downgrade), and the single writer is derived-artifacts-regen.yml, which " +
+    "regenerates it post-merge exactly like the sitemap — a raw invocation anywhere " +
+    "PR-reachable would duplicate that writer. Reads only tracked repo files plus local git " +
+    "(through gitEnv()) — no network, no CI-only input. The write half is a builder/main-side " +
+    "regen command, never a workflow step by name."],
+  ["check-trust-signals.mjs",
+    "Trust-signals digest schema + commit-anchor gate (TRUST-SIGNALS-WELLKNOWN-1): validates the " +
+    "published .well-known/trust-signals.json against its schema (hard in every context) and " +
+    "asserts the digest's commit anchor equals the current fact-commit on main (advisory on a " +
+    "PR — the digest is single-writer on main, SO #35, so a PR cannot refresh it; the split " +
+    "lives inside the checker, matching the house derived-artifact shape). Hard in preflight; " +
+    "its CI route is scripts-verify.yml full preflight — it reads only tracked repo files plus " +
+    "local git, so a named workflow step would re-run byte-for-byte the same check. Its paired " +
+    "mutation control is check-trust-signals.test.mjs (its own GATES entry)."],
+  ["check-trust-signals.test.mjs", SELF_TEST],
   // ── EVREG-1 (2026-09-22) ────────────────────────────────────────────────────
   ["check-evidence-register.mjs",
     "Claim-level evidence register gate (EVREG-1): verifies the generated register " +
@@ -496,6 +581,19 @@ const PREFLIGHT_ONLY = new Map([
     "via the generic downgrade; main-side freshness is owned by derived-artifacts-regen.yml). " +
     "The --write half is a builder command, never a workflow. Reads only tracked repo " +
     "files — no CI-only input. In-memory mutation self-test: --selftest."],
+  // ── AGENT-SKILLS-EXPORT-1 (2026-09-26) ──────────────────────────────────────
+  ["gen-agent-skills.mjs",
+    "Agent Skills export freshness --check (AGENT-SKILLS-EXPORT-1): regenerates the skills/ " +
+    "tree (one SKILL.md per mcp/showcase-prompts.json entry, plus the generator-emitted " +
+    "skills/README.md) and byte-compares every file, reporting stale, missing and unowned " +
+    "paths. Same shape and same CI route as its sibling gen-prompts-page.mjs above: " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), so a " +
+    "named workflow step would only duplicate the same suite. It is also the COVERED gate of " +
+    "derived-artifacts.mjs id 'agent-skills' (advisory-on-PR / blocking-on-main via the " +
+    "generic downgrade; main-side freshness is owned by derived-artifacts-regen.yml, and a PR " +
+    "is forbidden to commit the tree). The bare write half and the --validate / --selftest " +
+    "legs are builder commands, never workflow steps. Reads only tracked repo files — no " +
+    "network, no CI-only input."],
   // ── WAVE22-SCAFFOLD-MIRROR-FIX-1 (2026-09-12) ──────────────────────────────
   ["gen-wave22-tools.mjs",
     "Wave-22 page registration freshness (WAVE22-SCAFFOLD-MIRROR-FIX-1): RED unless " +
@@ -861,8 +959,23 @@ const PREFLIGHT_ONLY = new Map([
   ["check-kernel-asof-staleness.test.mjs", SELF_TEST],
   ["check-hub-chrome.test.mjs", SELF_TEST],
   ["codec-roundtrip.test.mjs", SELF_TEST],
+  ["verify-fragment-parity.test.mjs", SELF_TEST],
   ["gate-replay-tamper.test.mjs", SELF_TEST],
   ["escalation-closure-tamper.test.mjs", SELF_TEST],
+  ["ledger-dedup.test.mjs",
+    "Ledger live-channel de-dup + envelope gate (LEDGER-BRIDGE-LIVE-1). NOT classified SELF_TEST, " +
+    "because that reason claims a gate can only be reddened by a change to its own checker and this " +
+    "one carries no checker: it brace-extracts the shipped routines out of ledger/index.html and " +
+    "scripts/ain-bridge-v1.snippet.html through lib-extract-shipped.mjs, so a regression in either " +
+    "SHIPPED file reds it. Reads only tracked repo files, no network and no CI-only input, so its CI " +
+    "route is scripts-verify.yml's full preflight (`node scripts/preflight.mjs`) and a named workflow " +
+    "step would re-run the same assertions. That route covers the snippet half, which lives under " +
+    "scripts/**. It does NOT cover a PR that touches ledger/index.html alone: ledger/** is in no " +
+    "workflow path filter and in scripts/ci-paths.json. That is a PRE-EXISTING hole shared with " +
+    "verify-fragment-parity, gate-replay-tamper and escalation-closure-tamper above, all four of " +
+    "which read the same shipped page; closing it means adding ledger/** to the scripts-verify " +
+    "filter, which covers four gates at once and belongs to its own row, not to the row that merely " +
+    "added the fourth."],
   ["ocg-verify-hash-tamper.test.mjs", SELF_TEST],
   ["ocg-receipt-verifier-568-tamper.test.mjs", SELF_TEST],
   ["witness-checkpoint-424-tamper.test.mjs", SELF_TEST],
@@ -880,6 +993,7 @@ const PREFLIGHT_ONLY = new Map([
   ["check-deploy-superseded.test.mjs", SELF_TEST],
   ["check-served-egress.test.mjs", SELF_TEST],
   ["check-workflow-gate-parity.test.mjs", SELF_TEST],
+  ["sync-ain-bridge.test.mjs", SELF_TEST],
   ["check-chain-edge-contracts.selftest.mjs", SELF_TEST],
   ["check-chain-l2-contracts.selftest.mjs", SELF_TEST],
   // Landed on main after this row branched, and caught by axis 3 on the rebase
@@ -1091,6 +1205,17 @@ const DECLARED_DIVERGENCES = new Map([
 // would treat them as unrelated commands and an argument-drift typo on an
 // advisory gate would read as "consistent" because it matched nothing (hole (d)).
 const DISTINCT_LEGS = new Map([
+  ["node scripts/gen-node-footers.mjs --selftest", {
+    sibling: "node scripts/gen-node-footers.mjs --check",
+    decided: "2026-09-27 (FOOTER-INFRA-COLUMN-1)",
+    why:
+      "The --selftest leg copies one real node page into a scratch directory and proves the writer " +
+      "rewrites only the footer region, that a fresh copy reads GREEN, that one mutated footer link " +
+      "reads RED, and that a second write is byte-identical: it can only be reddened by a change to the " +
+      "writer or the normalizer it wraps, never by a content PR, so it is the SELF_TEST shape, " +
+      "preflight-only by design. The --check sibling is the COVERED id 'node-page-footers' freshness " +
+      "gate, advisory on a PR and blocking on main. Separate legs of one script, not argument drift.",
+  }],
   ["node scripts/gen-prompts-page.mjs --selftest", {
     sibling: "node scripts/gen-prompts-page.mjs --check",
     decided: "2026-09-24 (PROMPTS-BORROW-LABELS-1)",
@@ -1222,7 +1347,20 @@ const DECLARED_SOFTENERS = new Map([
   // HASH-PROTO-DEPTH-GUARD-1 (2026-09-25) moved it :901 → :902 — one new
   // `node chaingraph/kernels/_hash.test.mjs` line in the same gate `run:` block
   // above the attest step; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:902",
+  // JCS-RFC8785-VECTORS-1 (2026-09-28) moved it :902 → :904 — the RFC 8785
+  // vectors gate + its red-proof self-test (two `node` lines) landed in the
+  // same gate `run:` block above the attest step; same pin-move.
+  // SCITT-SELFTEST-WIRE-1 (2026-09-28) + QUERYSTRING-PRIVACY-1 (2026-09-28)
+  // combined pin-move :904 → :914 — the SCITT exporter selftest (one `node`
+  // line + four `#` comment lines) and the query-string privacy gate + its
+  // --self-test (two `node` lines + three `#` comment lines) landed in the SAME
+  // `run:` block above the attest step; each row alone measured :909, the two
+  // together shift it to :914.
+  // FACT-STAMPS-PILOT-1 (2026-09-29) moved it :914 → :922 — the fact-stamp
+  // sentinel-region gate (one step: a `#`-commented `node
+  // scripts/gen-fact-stamps.mjs --check`) landed as a new step in the preflight
+  // job above the attest step; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:922",
    "attest step is advisory-first by design; promotion criterion on the step"],
   ["unwired-gates.yml:continue-on-error:109",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
