@@ -24,7 +24,7 @@ Incident of record: the first CronUpdate hit farm-watch's id instead of live-smo
 - Overnight validation: 22/22 MCP connects OK, zero MCP-attributable errors; a 7f-seat session logged `registeredToolCount: 6` (was ~722). ~2-3M tokens/day saved at then-current launch rates.
 - **Restore full catalog (any scope, one line):** `{"type":"remote","url":"https://mcp.ainumbers.co/mcp"}`. Full instructions: `board/automations/AINUMBERS-MCP-LITE-SETUP.md`.
 - **Tim ruling:** leave the catalog-in-every-session problem SOLVED but do not market anything (see §4). A future session must NOT re-add the full catalog "to be safe" without reading this memorial.
-- Retirement path: once PR #430 merges and smokes, the estate can point the config entry at `https://mcp.ainumbers.co/mcp?profile=lite` and retire the local proxy (keep the tests; they document the transport).
+- Retirement path: **DONE 2026-09-30T18:5xZ** — #430 merged (squash), gated run 36760847853 success (Validate ✓, Deploy ✓, post-deploy smoke 18:51:03Z logged `✓ lite profile OK — ?profile=lite serves the 4-tool discovery template`), live check from this box confirmed the 4-tool surface, and BOTH ZCode scopes now carry `{"type":"remote","url":"https://mcp.ainumbers.co/mcp?profile=lite"}` (stage backups `*.bak-20260930-stage2` hold the proxy config; `*.bak-20260930` hold the original full-catalog remote). The local proxy files are RETIRED but retained as transport reference + tests.
 
 ## 3. PR #430 — server-side `?profile=lite` (OPEN; merge = deploy)
 
@@ -59,8 +59,8 @@ Merge on master = gated deploy (validate → deploy → smoke). After merge: con
 
 ## 6. Open items
 
-- [ ] Merge #430 (Tim/7F call; #429 order-independent as opened — see corrected §3).
-- [ ] Post-merge: estate migration to `?profile=lite` + retire local proxy (§2 retirement path).
+- [x] Merge #430 — DONE 2026-09-30T18:45Z (squash), gated run 36760847853 success incl. the lite-profile smoke phase; #429 confirmed order-independent as opened (memorial §3 corrected).
+- [x] Post-merge estate migration — DONE 2026-09-30T18:5xZ (both scopes → profile URL; proxy retired, files retained).
 - [ ] **A5.4 gate gap (pre-existing):** call_tool's "13 pages, 722 tools" is hand-typed in worker.mjs (~line 4461) and stale vs counts.json (725); no gate scans served descriptions for count literals. Candidate WU: extend surface-parity or add a counts-text gate.
 - [ ] CONTRACT §2 or mcp-apps-poc README line documenting the param (A5.4 follow-up).
 - [ ] Optional: profile token in ANALYTICS datapoint; lite-aware instructions string; REGISTRY-LOG.md post-merge note (§2.6, arguably owed).
