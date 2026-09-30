@@ -121,6 +121,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <meta name="ai-tool" content="verify_eth_state_proof">
+<meta name="kernel-digest" content="sha256:cdf00978c1f9c8e64aa49fd927d7dab925a232f49b3f745381396674785ce592">
 </head>
 <body>
 <nav>
@@ -534,15 +535,23 @@ function compute(pp) {
 }
 
 // ─── UI ──────────────────────────────────────────────────────────────────────
+/* getPP mirrors the kernel's own input normalization (absent ⇔ empty): only
+   values the caller actually declared enter the hashed policy_parameters
+   preimage. The form's empty-field defaults ('' / []) are render-only and never
+   hashed, so a parameter-free deep link (input_example {}) hashes the same
+   preimage as the kernel — WEBMCP-CPARITY-ART279-1. */
 function getPP() {
+  const pp = {};
+  const root = document.getElementById('block_state_root').value.trim();
+  if (root) pp.block_state_root = root;
+  const addr = document.getElementById('address').value.trim();
+  if (addr) pp.address = addr;
   let account_proof = [], storage_slots = [];
   try { const t = document.getElementById('account_proof').value.trim(); account_proof = t ? JSON.parse(t) : []; } catch (e) { account_proof = []; }
   try { const t = document.getElementById('storage_slots').value.trim(); storage_slots = t ? JSON.parse(t) : []; } catch (e) { storage_slots = []; }
-  return {
-    block_state_root: document.getElementById('block_state_root').value.trim(),
-    address: document.getElementById('address').value.trim(),
-    account_proof, storage_slots,
-  };
+  if (account_proof.length) pp.account_proof = account_proof;
+  if (storage_slots.length) pp.storage_slots = storage_slots;
+  return pp;
 }
 
 const PRESETS = {
@@ -689,7 +698,10 @@ function exportJSON() {
   document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
-loadPreset('single');
+/* No preset auto-load: a fresh page (and every deep link) must hash only the
+   caller-declared policy_parameters. The preset buttons above remain available
+   for interactive use — a preset becomes part of the preimage only when the
+   user clicks it (WEBMCP-CPARITY-ART279-1). */
 </script>
 
 
