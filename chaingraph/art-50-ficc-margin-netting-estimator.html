@@ -97,6 +97,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <meta name="ai-tool" content="estimate_ficc_margin_netting">
+<meta name="kernel-digest" content="sha256:fcea3a670c5ee043f842757592ea575bbe5426b8f825016d4ec0c0d18d2e304b">
 </head>
 <body>
 <nav>
@@ -184,26 +185,77 @@ const DAILY_VOL_BP={'0-2y':3,'2-5y':5,'5-10y':6,'10-30y':7};
 const BUCKET_CORR=0.80, MIN_CHARGE_RATE=0.001;
 const bucketOf=t=>t<=2?'0-2y':t<=5?'2-5y':t<=10?'5-10y':'10-30y';
 const modDur=t=>t/1.04;
-function compute(pp){
-  const positions=pp.positions||[];
-  const z=Z[pp.confidence_level]??2.326, sq=Math.sqrt(Math.max(1,+pp.mpor_days||1));
-  const xprod=(pp.include_cross_product===true||pp.include_cross_product==='true');
-  let grossNotional=0; const netDV01={'0-2y':0,'2-5y':0,'5-10y':0,'10-30y':0}; let grossBilateralIM=0;
-  for(const p of positions){const notional=+p.notional||0;const tenor=+p.tenor_years||((p.instrument==='repo'||p.instrument==='reverse-repo')?0.1:5);const sign=(p.direction==='short'||p.instrument==='reverse-repo')?-1:1;const dv01=notional*modDur(tenor)*0.0001;grossNotional+=Math.abs(notional);const b=bucketOf(tenor);const isRepo=p.instrument==='repo'||p.instrument==='reverse-repo';const offsets=xprod||!isRepo;netDV01[b]+=offsets?sign*dv01:Math.abs(dv01);grossBilateralIM+=Math.abs(dv01)*z*DAILY_VOL_BP[b]*sq;}
-  const bucketVaR={}; for(const b of BUCKETS)bucketVaR[b]=Math.abs(netDV01[b])*z*DAILY_VOL_BP[b]*sq;
-  let varSq=0; for(const a of BUCKETS)for(const c of BUCKETS)varSq+=bucketVaR[a]*bucketVaR[c]*(a===c?1:BUCKET_CORR);
-  let netClearedIM=Math.sqrt(varSq);
-  const doneAway=pp.clearing_model==='cleared-done-away'; const done_away_uplift=doneAway?0.10:0;
-  netClearedIM*=(1-done_away_uplift);
-  const minCharge=grossNotional*MIN_CHARGE_RATE; const minimum_charge_applied=netClearedIM<minCharge;
-  const estimated_vbm=Math.max(netClearedIM,minCharge);
-  const netting_benefit_usd=Math.max(0,grossBilateralIM-estimated_vbm);
-  const netting_benefit_pct=grossBilateralIM>0?+((netting_benefit_usd/grossBilateralIM)*100).toFixed(1):0;
-  const margin_by_bucket=BUCKETS.map(b=>({bucket:b,net_dv01:+netDV01[b].toFixed(2),var:Math.round(bucketVaR[b])}));
-  const compliance_flags=['ESTIMATE_NOT_OFFICIAL_FICC_VBM'];
-  if(minimum_charge_applied)compliance_flags.push('MINIMUM_CHARGE_BINDING');
-  if(netting_benefit_pct>=40)compliance_flags.push('LARGE_NETTING_BENEFIT');
-  return {output_payload:{estimated_vbm:Math.round(estimated_vbm),gross_bilateral_im:Math.round(grossBilateralIM),net_cleared_im:Math.round(estimated_vbm),netting_benefit_usd:Math.round(netting_benefit_usd),netting_benefit_pct,done_away_uplift_pct:+(done_away_uplift*100).toFixed(1),margin_by_bucket,minimum_charge_applied,assumptions:{confidence_level:pp.confidence_level,mpor_days:+pp.mpor_days||1,daily_vol_bp:DAILY_VOL_BP,bucket_corr:BUCKET_CORR},note:'Educational VaR-based-margin proxy for FICC-cleared UST/repo. Not the official FICC VBM; for indicative netting economics only.'},compliance_flags};
+function compute(pp) {
+  const {
+    positions = [],
+    clearing_model = 'cleared-done-away',
+    confidence_level = 0.99,
+    mpor_days = 1,
+    include_cross_product = true,
+  } = pp;
+
+  const z = Z[confidence_level] ?? 2.326;
+  const sq = Math.sqrt(Math.max(1, Number(mpor_days) || 1));
+
+  // DV01 per position ($ per 1bp). repo/reverse-repo: short-dated rate risk → small bucket.
+  let grossNotional = 0;
+  const netDV01 = { '0-2y': 0, '2-5y': 0, '5-10y': 0, '10-30y': 0 };
+  let grossBilateralIM = 0;
+  for (const p of positions) {
+    const notional = Number(p.notional) || 0;
+    const tenor = Number(p.tenor_years) || (p.instrument === 'repo' || p.instrument === 'reverse-repo' ? 0.1 : 5);
+    const sign = (p.direction === 'short' || p.instrument === 'reverse-repo') ? -1 : 1;
+    const dv01 = notional * modDur(tenor) * 0.0001; // $ per 1bp
+    grossNotional += Math.abs(notional);
+    const b = bucketOf(tenor);
+    // cross-product netting: when ON, repo offsets (signed) within its bucket; when OFF,
+    // repo sits in a separate netting set (approximate by adding its magnitude, no offset).
+    const isRepo = p.instrument === 'repo' || p.instrument === 'reverse-repo';
+    const offsets = include_cross_product || !isRepo;
+    netDV01[b] += offsets ? sign * dv01 : Math.abs(dv01);
+    // standalone (bilateral, no offset) VaR for this position
+    grossBilateralIM += Math.abs(dv01) * z * DAILY_VOL_BP[b] * sq;
+  }
+
+  // Bucketed VaR with correlation.
+  const bucketVaR = {};
+  for (const b of BUCKETS) bucketVaR[b] = Math.abs(netDV01[b]) * z * DAILY_VOL_BP[b] * sq;
+  let varSq = 0;
+  for (const a of BUCKETS) for (const c of BUCKETS) varSq += bucketVaR[a] * bucketVaR[c] * (a === c ? 1 : BUCKET_CORR);
+  let netClearedIM = Math.sqrt(varSq);
+
+  // Done-away gets an extra cross-counterparty netting uplift.
+  const doneAway = clearing_model === 'cleared-done-away';
+  const done_away_uplift = doneAway ? 0.10 : 0;
+  netClearedIM *= (1 - done_away_uplift);
+
+  // Minimum/special charge floor.
+  const minCharge = grossNotional * MIN_CHARGE_RATE;
+  const minimum_charge_applied = netClearedIM < minCharge;
+  const estimated_vbm = Math.max(netClearedIM, minCharge);
+
+  const netting_benefit_usd = Math.max(0, grossBilateralIM - estimated_vbm);
+  const netting_benefit_pct = grossBilateralIM > 0 ? +((netting_benefit_usd / grossBilateralIM) * 100).toFixed(1) : 0;
+
+  const margin_by_bucket = BUCKETS.map((b) => ({ bucket: b, net_dv01: +netDV01[b].toFixed(2), var: Math.round(bucketVaR[b]) }));
+
+  const compliance_flags = ['ESTIMATE_NOT_OFFICIAL_FICC_VBM'];
+  if (minimum_charge_applied) compliance_flags.push('MINIMUM_CHARGE_BINDING');
+  if (netting_benefit_pct >= 40) compliance_flags.push('LARGE_NETTING_BENEFIT');
+
+  const output_payload = {
+    estimated_vbm: Math.round(estimated_vbm),
+    gross_bilateral_im: Math.round(grossBilateralIM),
+    net_cleared_im: Math.round(estimated_vbm),
+    netting_benefit_usd: Math.round(netting_benefit_usd),
+    netting_benefit_pct,
+    done_away_uplift_pct: +(done_away_uplift * 100).toFixed(1),
+    margin_by_bucket,
+    minimum_charge_applied,
+    assumptions: { confidence_level, mpor_days: Number(mpor_days) || 1, daily_vol_bp: DAILY_VOL_BP, bucket_corr: BUCKET_CORR },
+    note: 'Educational VaR-based-margin proxy for FICC-cleared UST/repo. Not the official FICC VBM; for indicative netting economics only.',
+  };
+  return { output_payload, compliance_flags };
 }
 const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
 async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
