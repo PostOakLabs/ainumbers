@@ -547,7 +547,7 @@ function simulate(cash, rev, burn, growthPct, burnReductionPct, revBoostPct){
   let c = cash;
   let r = rev;
   let b = burn * (1 - burnReductionPct/100);
-  const gBase   = 1 + growthRate()/100;
+  const gBase   = 1 + growthPct/100;
   const gBoost  = 1 + revBoostPct/100;
   const gMonthly = gBase * (revBoostPct > 0 ? gBoost : 1);
 
@@ -558,9 +558,11 @@ function simulate(cash, rev, burn, growthPct, burnReductionPct, revBoostPct){
     c += net;
     r *= gMonthly;
     if(c <= 0 && deathMonth === null){
-      // interpolate for precision
-      const prevNet = pts[m-1];
-      const frac = prevNet / (prevNet - c + net); // fraction into month
+      // interpolate for precision: prevCash is the cash at the end of the
+      // previous month; frac is the fraction of this month until cash hits 0
+      // (net < 0 here — cash only runs out while the month burns money)
+      const prevCash = pts[m-1];
+      const frac = net < 0 ? prevCash / (-net) : 0;
       deathMonth = (m - 1) + frac;
       c = 0;
     }
