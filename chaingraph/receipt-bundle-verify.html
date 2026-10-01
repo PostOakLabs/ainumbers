@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Receipt Bundle Verifier (RECEIPT-BUNDLE v0.1) | AINumbers</title>
+<meta name="description" content="Paste a RECEIPT-BUNDLE v0.1 portable receipt bundle and verify both halves offline in the browser: the zk proof half (Groth16 seal over the journal byte contract) and the logged half (Sigsum inclusion proof plus witness cosignature quorum). The two verdicts are always reported separately. Zero network calls. Zero PII.">
+<meta name="ain:category" content="verify">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/receipt-bundle-verify.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Receipt Bundle Verifier","url":"https://ainumbers.co/chaingraph/receipt-bundle-verify.html","applicationCategory":"DeveloperApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;line-height:1.55}
+a{color:var(--teal)}
+main{max-width:1040px;margin:0 auto;padding:24px 24px 64px}
+h1{font-family:'DM Serif Display',Georgia,serif;font-size:2rem;color:var(--white);margin:.4em 0 .1em}
+h2{font-size:1.05rem;color:var(--bright);margin:1.6em 0 .4em}
+p.lede{color:var(--body);margin:.2em 0 1em;max-width:74ch}
+.pii-banner{background:var(--gold-dim);border:1px solid var(--gold);border-radius:var(--radius);padding:10px 14px;font-size:.85rem;color:var(--bright);margin:14px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin:14px 0}
+textarea{width:100%;min-height:220px;font-family:'JetBrains Mono',monospace;font-size:.75rem;border:1px solid var(--border-2);border-radius:var(--radius);padding:10px;background:var(--bg-3);color:var(--text)}
+button{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:.72rem;letter-spacing:.04em;border-radius:var(--radius);border:none;background:var(--gold);color:#080E1A;padding:.5rem 1rem;cursor:pointer}
+button.secondary{background:none;border:1px solid var(--border-2);color:var(--text)}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.verdict{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:700;padding:10px 12px;border-radius:var(--radius);border:1px solid var(--border-2);margin:8px 0;background:var(--bg-3)}
+.verdict .tok{display:inline-block;min-width:17ch}
+.v-ok{color:var(--green)}
+.v-bad{color:var(--red)}
+.note{font-size:.84rem;color:var(--body);margin:.4em 0}
+.scope{font-size:.85rem;color:var(--bright);background:var(--teal-dim);border:1px solid var(--teal);border-radius:var(--radius);padding:10px 12px;margin:10px 0}
+ul.checks{list-style:none;padding:0;margin:.4em 0;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--body)}
+ul.checks li{padding:4px 0;border-bottom:1px dashed var(--border)}
+.mark{font-weight:700;margin-right:8px}
+.m-pass{color:var(--green)}
+.m-fail{color:var(--red)}
+.m-na{color:var(--warn)}
+code{font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal-lt)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">Receipt Bundle Verifier (RECEIPT-BUNDLE v0.1) | AINumbers</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<main>
+<h1>Receipt Bundle Verifier</h1>
+<p class="lede">One file, one command, two verdicts. Paste a RECEIPT-BUNDLE v0.1 bundle below and this page checks both halves of its trust story offline: the zk proof half (a Groth16 seal over the image id and the canonical journal bytes) and the logged half (a Sigsum inclusion proof with witness cosignatures, against a trust policy this page pins itself).</p>
+
+<div class="pii-banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+<div class="card">
+  <h2>How to read the two verdicts</h2>
+  <p class="note">The proof half and the logged half are separate statements about separate subjects, so both are always printed and one is never summarised as the other: a receipt can be soundly proven while its subject was never logged, and a logged subject can carry a broken seal.</p>
+  <p class="note">In a v0.1 bundle the logged half commits to a published registry checkpoint rather than to the individual receipt, and that scope is printed beside every logged verdict.</p>
+</div>
+
+<div class="card">
+  <h2>Bundle JSON</h2>
+  <textarea id="bundleIn" spellcheck="false" aria-label="Receipt bundle JSON"></textarea>
+  <div class="row">
+    <button id="verifyBtn" type="button">Verify both halves</button>
+    <button id="exampleBtn" class="secondary" type="button">Load the shipped example</button>
+    <button id="clearBtn" class="secondary" type="button">Clear</button>
+  </div>
+  <p class="note">Nothing leaves this page. The trust policy keys are pinned in the page itself and are never read out of the bundle.</p>
+</div>
+
+<div id="out"></div>
+
+<p class="note">Verification logic is ported from <code>chaingraph/kernels/_computeproof.mjs</code> and <code>chaingraph/kernels/c2sp-tlog-verify.mjs</code>. The format is specified in <a href="standard/RECEIPT-BUNDLE.md">RECEIPT-BUNDLE v0.1</a>.</p>
+</main>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* OCG-CANON v1 — RFC 8785 / JCS recursive key-sort canonicalizer, byte-equivalent to kernels/_hash.mjs cgCanon. */
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+</script>
+
+<script type="module">
+/* §18 COMPUTE-INTEGRITY PROOF — vendored self-contained BN254 Groth16 reference verifier.
+   Pasted verbatim from chaingraph/kernels/_noble-bn254.bundle.mjs (MIT, @noble/curves, Cure53-audited)
+   plus a port of chaingraph/kernels/_computeproof.mjs verifySeal(). DO NOT hand-edit the vendored block;
+   re-vendor from the SSOT kernel. A single self-contained page cannot import a module (CONTRACT §1.1,
+   zero network calls after load), which is why both blocks are inline copies rather than imports. */
+
+// ── begin _noble-bn254.bundle.mjs (verbatim, minified upstream) ──
+/* Vendored: @noble/curves + @noble/hashes v2.2.0 (MIT, (c) Paul Miller paulmillr.com). Self-contained ESM
+   bundle (esbuild) exporting { bn254, sha256 }. DO NOT hand-edit — rebuild from pinned source. Used by OCG
+   kernels/_computeproof.mjs as the §18 self-contained BN254 Groth16 reference verifier (zero npm/runtime dep). */
+function ge(o){return o instanceof Uint8Array||ArrayBuffer.isView(o)&&o.constructor.name==="Uint8Array"&&"BYTES_PER_ELEMENT"in o&&o.BYTES_PER_ELEMENT===1}function Ft(o,t=""){if(typeof o!="number"){let n=t&&`"${t}" `;throw new TypeError(`${n}expected number, got ${typeof o}`)}if(!Number.isSafeInteger(o)||o<0){let n=t&&`"${t}" `;throw new RangeError(`${n}expected integer >= 0, got ${o}`)}}function J(o,t,n=""){let e=ge(o),r=o?.length,s=t!==void 0;if(!e||s&&r!==t){let i=n&&`"${n}" `,c=s?` of length ${t}`:"",u=e?`length=${r}`:`type=${typeof o}`,f=i+"expected Uint8Array"+c+", got "+u;throw e?new RangeError(f):new TypeError(f)}return o}function kt(o,t=!0){if(o.destroyed)throw new Error("Hash instance has been destroyed");if(t&&o.finished)throw new Error("Hash#digest() has already been called")}function xe(o,t){J(o,void 0,"digestInto() output");let n=t.outputLen;if(o.length<n)throw new RangeError('"digestInto() output" expected to be of length >='+n)}function bt(...o){for(let t=0;t<o.length;t++)o[t].fill(0)}function St(o){return new DataView(o.buffer,o.byteOffset,o.byteLength)}function Y(o,t){return o<<32-t|o>>>t}var Ee=typeof Uint8Array.from([]).toHex=="function"&&typeof Uint8Array.fromHex=="function",an=Array.from({length:256},(o,t)=>t.toString(16).padStart(2,"0"));function Rt(o){if(J(o),Ee)return o.toHex();let t="";for(let n=0;n<o.length;n++)t+=an[o[n]];return t}var $={_0:48,_9:57,A:65,F:70,a:97,f:102};function be(o){if(o>=$._0&&o<=$._9)return o-$._0;if(o>=$.A&&o<=$.F)return o-($.A-10);if(o>=$.a&&o<=$.f)return o-($.a-10)}function Xt(o){if(typeof o!="string")throw new TypeError("hex string expected, got "+typeof o);if(Ee)try{return Uint8Array.fromHex(o)}catch(r){throw r instanceof SyntaxError?new RangeError(r.message):r}let t=o.length,n=t/2;if(t%2)throw new RangeError("hex string expected, got unpadded hex of length "+t);let e=new Uint8Array(n);for(let r=0,s=0;r<n;r++,s+=2){let i=be(o.charCodeAt(s)),c=be(o.charCodeAt(s+1));if(i===void 0||c===void 0){let u=o[s]+o[s+1];throw new RangeError('hex string expected, got non-hex character "'+u+'" at index '+s)}e[r]=i*16+c}return e}function ye(...o){let t=0;for(let e=0;e<o.length;e++){let r=o[e];J(r),t+=r.length}let n=new Uint8Array(t);for(let e=0,r=0;e<o.length;e++){let s=o[e];n.set(s,r),r+=s.length}return n}function we(o,t={}){let n=(r,s)=>o(s).update(r).digest(),e=o(void 0);return n.outputLen=e.outputLen,n.blockLen=e.blockLen,n.canXOF=e.canXOF,n.create=r=>o(r),Object.assign(n,t),Object.freeze(n)}function Be(o=32){Ft(o,"bytesLength");let t=typeof globalThis=="object"?globalThis.crypto:null;if(typeof t?.getRandomValues!="function")throw new Error("crypto.getRandomValues must be defined");if(o>65536)throw new RangeError(`"bytesLength" expected <= 65536, got ${o}`);return t.getRandomValues(new Uint8Array(o))}var Oe=o=>({oid:Uint8Array.from([6,9,96,134,72,1,101,3,4,2,o])});var H=(o,t,n)=>J(o,t,n),Kt=Ft,ve=Rt,ot=(...o)=>ye(...o),Fe=o=>Xt(o);var $t=o=>Be(o),It=BigInt(0),_t=BigInt(1);function gt(o,t=""){if(typeof o!="boolean"){let n=t&&`"${t}" `;throw new TypeError(n+"expected boolean, got type="+typeof o)}return o}function Tt(o){if(typeof o=="bigint"){if(!Nt(o))throw new RangeError("positive bigint expected, got "+o)}else Kt(o);return o}function tt(o,t=""){if(typeof o!="number"){let n=t&&`"${t}" `;throw new TypeError(n+"expected number, got type="+typeof o)}if(!Number.isSafeInteger(o)){let n=t&&`"${t}" `;throw new RangeError(n+"expected safe integer, got "+o)}}function xt(o){let t=Tt(o).toString(16);return t.length&1?"0"+t:t}function Se(o){if(typeof o!="string")throw new TypeError("hex string expected, got "+typeof o);return o===""?It:BigInt("0x"+o)}function Et(o){return Se(Rt(o))}function Wt(o){return Se(Rt(ln(J(o)).reverse()))}function qt(o,t){if(Ft(t),t===0)throw new RangeError("zero length");o=Tt(o);let n=o.toString(16);if(n.length>t*2)throw new RangeError("number too large");return Xt(n.padStart(t*2,"0"))}function Qt(o,t){return qt(o,t).reverse()}function ln(o){return Uint8Array.from(H(o))}var Nt=o=>typeof o=="bigint"&&It<=o;function dn(o,t,n){return Nt(o)&&Nt(t)&&Nt(n)&&t<=o&&o<n}function At(o,t,n,e){if(!dn(t,n,e))throw new RangeError("expected valid "+o+": "+n+" <= n < "+e+", got "+t)}function G(o){if(o<It)throw new Error("expected non-negative bigint, got "+o);let t;for(t=0;o>It;o>>=_t,t+=1);return t}function Re(o,t){return o>>BigInt(t)&_t}var jt=o=>(_t<<BigInt(o))-_t;function st(o,t={},n={}){if(Object.prototype.toString.call(o)!=="[object Object]")throw new TypeError("expected valid options object");function e(s,i,c){if(!c&&i!=="function"&&!Object.hasOwn(o,s))throw new TypeError(`param "${s}" is invalid: expected own property`);let u=o[s];if(c&&u===void 0)return;let f=typeof u;if(f!==i||u===null)throw new TypeError(`param "${s}" is invalid: expected ${i}, got ${f}`)}let r=(s,i)=>Object.entries(s).forEach(([c,u])=>e(c,u,i));r(t,!1),r(n,!0)}var Lt=()=>{throw new Error("not implemented")};var z=BigInt(0),j=BigInt(1),it=BigInt(2),_e=BigInt(3),Te=BigInt(4),qe=BigInt(5),hn=BigInt(7),Ae=BigInt(8),pn=BigInt(9),je=BigInt(16);function k(o,t){if(t<=z)throw new Error("mod: expected positive modulus, got "+t);let n=o%t;return n>=z?n:t+n}function Ne(o,t){if(o===z)throw new Error("invert: expected non-zero number");if(t<=z)throw new Error("invert: expected positive modulus, got "+t);let n=k(o,t),e=t,r=z,s=j,i=j,c=z;for(;n!==z;){let f=e/n,a=e-n*f,d=r-i*f,x=s-c*f;e=n,n=a,r=i,s=c,i=d,c=x}if(e!==j)throw new Error("invert: does not exist");return k(r,t)}function Pt(o,t,n){let e=o;if(!e.eql(e.sqr(t),n))throw new Error("Cannot find square root")}function Le(o,t){let n=o,e=(n.ORDER+j)/Te,r=n.pow(t,e);return Pt(n,r,t),r}function mn(o,t){let n=o,e=(n.ORDER-qe)/Ae,r=n.mul(t,it),s=n.pow(r,e),i=n.mul(t,s),c=n.mul(n.mul(i,it),s),u=n.mul(i,n.sub(c,n.ONE));return Pt(n,u,t),u}function bn(o){let t=et(o),n=De(o),e=n(t,t.neg(t.ONE)),r=n(t,e),s=n(t,t.neg(e)),i=(o+hn)/je;return((c,u)=>{let f=c,a=f.pow(u,i),d=f.mul(a,e),x=f.mul(a,r),y=f.mul(a,s),N=f.eql(f.sqr(d),u),I=f.eql(f.sqr(x),u);a=f.cmov(a,d,N),d=f.cmov(y,x,I);let A=f.eql(f.sqr(d),u),D=f.cmov(a,d,A);return Pt(f,D,u),D})}function De(o){if(o<_e)throw new Error("sqrt is not defined for small field");let t=o-j,n=0;for(;t%it===z;)t/=it,n++;let e=it,r=et(o);for(;yt(r,e)===1;)if(e++>1e3)throw new Error("Cannot find square root: probably non-prime P");if(n===1)return Le;let s=r.pow(e,t),i=(t+j)/it;return function(u,f){let a=u;if(a.is0(f))return f;if(yt(a,f)!==1)throw new Error("Cannot find square root");let d=n,x=a.mul(a.ONE,s),y=a.pow(f,t),N=a.pow(f,i);for(;!a.eql(y,a.ONE);){if(a.is0(y))return a.ZERO;let I=1,A=a.sqr(y);for(;!a.eql(A,a.ONE);)if(I++,A=a.sqr(A),I===d)throw new Error("Cannot find square root");let D=j<<BigInt(d-I-1),rt=a.pow(x,D);d=I,x=a.sqr(rt),y=a.mul(y,x),N=a.mul(N,rt)}return N}}function gn(o){return o%Te===_e?Le:o%Ae===qe?mn:o%je===pn?bn(o):De(o)}var xn=["create","isValid","is0","neg","inv","sqrt","sqr","eql","add","sub","mul","pow","div","addN","subN","mulN","sqrN"];function Ue(o){let t={ORDER:"bigint",BYTES:"number",BITS:"number"},n=xn.reduce((e,r)=>(e[r]="function",e),t);if(st(o,n),tt(o.BYTES,"BYTES"),tt(o.BITS,"BITS"),o.BYTES<1||o.BITS<1)throw new Error("invalid field: expected BYTES/BITS > 0");if(o.ORDER<=j)throw new Error("invalid field: expected ORDER > 1, got "+o.ORDER);return o}function wt(o,t,n){let e=o;if(n<z)throw new Error("invalid exponent, negatives unsupported");if(n===z)return e.ONE;if(n===j)return t;let r=e.ONE,s=t;for(;n>z;)n&j&&(r=e.mul(r,s)),s=e.sqr(s),n>>=j;return r}function ct(o,t,n=!1){let e=o,r=new Array(t.length).fill(n?e.ZERO:void 0),s=t.reduce((c,u,f)=>e.is0(u)?c:(r[f]=c,e.mul(c,u)),e.ONE),i=e.inv(s);return t.reduceRight((c,u,f)=>e.is0(u)?c:(r[f]=e.mul(c,r[f]),e.mul(c,u)),i),r}function yt(o,t){let n=o,e=(n.ORDER-j)/it,r=n.pow(t,e),s=n.eql(r,n.ONE),i=n.eql(r,n.ZERO),c=n.eql(r,n.neg(n.ONE));if(!s&&!i&&!c)throw new Error("invalid Legendre symbol result");return s?1:i?0:-1}function En(o,t){if(t!==void 0&&Kt(t),o<=z)throw new Error("invalid n length: expected positive n, got "+o);if(t!==void 0&&t<1)throw new Error("invalid n length: expected positive bit length, got "+t);let n=G(o);if(t!==void 0&&t<n)throw new Error(`invalid n length: expected bit length (${n}) >= n.length (${t})`);let e=t!==void 0?t:n,r=Math.ceil(e/8);return{nBitLength:e,nByteLength:r}}var Ie=new WeakMap,Dt=class{ORDER;BITS;BYTES;isLE;ZERO=z;ONE=j;_lengths;_mod;constructor(t,n={}){if(t<=j)throw new Error("invalid field: expected ORDER > 1, got "+t);let e;this.isLE=!1,n!=null&&typeof n=="object"&&(typeof n.BITS=="number"&&(e=n.BITS),typeof n.sqrt=="function"&&Object.defineProperty(this,"sqrt",{value:n.sqrt,enumerable:!0}),typeof n.isLE=="boolean"&&(this.isLE=n.isLE),n.allowedLengths&&(this._lengths=Object.freeze(n.allowedLengths.slice())),typeof n.modFromBytes=="boolean"&&(this._mod=n.modFromBytes));let{nBitLength:r,nByteLength:s}=En(t,e);if(s>2048)throw new Error("invalid field: expected ORDER of <= 2048 bytes");this.ORDER=t,this.BITS=r,this.BYTES=s,Object.freeze(this)}create(t){return k(t,this.ORDER)}isValid(t){if(typeof t!="bigint")throw new TypeError("invalid field element: expected bigint, got "+typeof t);return z<=t&&t<this.ORDER}is0(t){return t===z}isValidNot0(t){return!this.is0(t)&&this.isValid(t)}isOdd(t){return(t&j)===j}neg(t){return k(-t,this.ORDER)}eql(t,n){return t===n}sqr(t){return k(t*t,this.ORDER)}add(t,n){return k(t+n,this.ORDER)}sub(t,n){return k(t-n,this.ORDER)}mul(t,n){return k(t*n,this.ORDER)}pow(t,n){return wt(this,t,n)}div(t,n){return k(t*Ne(n,this.ORDER),this.ORDER)}sqrN(t){return t*t}addN(t,n){return t+n}subN(t,n){return t-n}mulN(t,n){return t*n}inv(t){return Ne(t,this.ORDER)}sqrt(t){let n=Ie.get(this);return n||Ie.set(this,n=gn(this.ORDER)),n(this,t)}toBytes(t){return this.isLE?Qt(t,this.BYTES):qt(t,this.BYTES)}fromBytes(t,n=!1){H(t);let{_lengths:e,BYTES:r,isLE:s,ORDER:i,_mod:c}=this;if(e){if(t.length<1||!e.includes(t.length)||t.length>r)throw new Error("Field.fromBytes: expected "+e+" bytes, got "+t.length);let f=new Uint8Array(r);f.set(t,s?0:f.length-t.length),t=f}if(t.length!==r)throw new Error("Field.fromBytes: expected "+r+" bytes, got "+t.length);let u=s?Wt(t):Et(t);if(c&&(u=k(u,i)),!n&&!this.isValid(u))throw new Error("invalid field element: outside of range 0..ORDER");return u}invertBatch(t){return ct(this,t)}cmov(t,n,e){return gt(e,"condition"),e?n:t}};Object.freeze(Dt.prototype);function et(o,t={}){return new Dt(o,t)}function He(o){if(typeof o!="bigint")throw new Error("field order must be bigint");if(o<=j)throw new Error("field order must be greater than 1");let t=G(o-j);return Math.ceil(t/8)}function Jt(o){let t=He(o);return t+Math.ceil(t/2)}function ze(o,t,n=!1){H(o);let e=o.length,r=He(t),s=Math.max(Jt(t),16);if(e<s||e>1024)throw new Error("expected "+s+"-1024 bytes of input, got "+e);let i=n?Wt(o):Et(o),c=k(i,t-j)+j;return n?Qt(c,r):qt(c,r)}var dt=BigInt(0),ut=BigInt(1);function Bt(o,t){let n=t.negate();return o?n:t}function re(o,t){let n=ct(o.Fp,t.map(e=>e.Z));return t.map((e,r)=>o.fromAffine(e.toAffine(n[r])))}function Me(o,t){if(!Number.isSafeInteger(o)||o<=0||o>t)throw new Error("invalid window size, expected [1.."+t+"], got W="+o)}function te(o,t){Me(o,t);let n=Math.ceil(t/o)+1,e=2**(o-1),r=2**o,s=jt(o),i=BigInt(o);return{windows:n,windowSize:e,mask:s,maxNumber:r,shiftBy:i}}function Ce(o,t,n){let{windowSize:e,mask:r,maxNumber:s,shiftBy:i}=n,c=Number(o&r),u=o>>i;c>e&&(c-=s,u+=ut);let f=t*e,a=f+Math.abs(c)-1,d=c===0,x=c<0,y=t%2!==0;return{nextN:u,offset:a,isZero:d,isNeg:x,isNegF:y,offsetF:f}}var ee=new WeakMap,Ye=new WeakMap;function ne(o){return Ye.get(o)||1}function Ze(o){if(o!==dt)throw new Error("invalid wNAF")}var Ut=class{BASE;ZERO;Fn;bits;constructor(t,n){this.BASE=t.BASE,this.ZERO=t.ZERO,this.Fn=t.Fn,this.bits=n}_unsafeLadder(t,n,e=this.ZERO){let r=t;for(;n>dt;)n&ut&&(e=e.add(r)),r=r.double(),n>>=ut;return e}precomputeWindow(t,n){let{windows:e,windowSize:r}=te(n,this.bits),s=[],i=t,c=i;for(let u=0;u<e;u++){c=i,s.push(c);for(let f=1;f<r;f++)c=c.add(i),s.push(c);i=c.double()}return s}wNAF(t,n,e){if(!this.Fn.isValid(e))throw new Error("invalid scalar");let r=this.ZERO,s=this.BASE,i=te(t,this.bits);for(let c=0;c<i.windows;c++){let{nextN:u,offset:f,isZero:a,isNeg:d,isNegF:x,offsetF:y}=Ce(e,c,i);e=u,a?s=s.add(Bt(x,n[y])):r=r.add(Bt(d,n[f]))}return Ze(e),{p:r,f:s}}wNAFUnsafe(t,n,e,r=this.ZERO){let s=te(t,this.bits);for(let i=0;i<s.windows&&e!==dt;i++){let{nextN:c,offset:u,isZero:f,isNeg:a}=Ce(e,i,s);if(e=c,!f){let d=n[u];r=r.add(a?d.negate():d)}}return Ze(e),r}getPrecomputes(t,n,e){let r=ee.get(n);return r||(r=this.precomputeWindow(n,t),t!==1&&(typeof e=="function"&&(r=e(r)),ee.set(n,r))),r}cached(t,n,e){let r=ne(t);return this.wNAF(r,this.getPrecomputes(r,t,e),n)}unsafe(t,n,e,r){let s=ne(t);return s===1?this._unsafeLadder(t,n,r):this.wNAFUnsafe(s,this.getPrecomputes(s,t,e),n,r)}createCache(t,n){Me(n,this.bits),Ye.set(t,n),ee.delete(t)}hasCache(t){return ne(t)!==1}};function Ge(o,t,n,e){let r=t,s=o.ZERO,i=o.ZERO;for(;n>dt||e>dt;)n&ut&&(s=s.add(r)),e&ut&&(i=i.add(r)),r=r.double(),n>>=ut,e>>=ut;return{p1:s,p2:i}}function Ve(o,t,n){if(t){if(t.ORDER!==o)throw new Error("Field.ORDER must match order: Fp == p, Fn == n");return Ue(t),t}else return et(o,{isLE:n})}function ke(o,t,n={},e){if(e===void 0&&(e=o==="edwards"),!t||typeof t!="object")throw new Error(`expected valid ${o} CURVE object`);for(let u of["p","n","h"]){let f=t[u];if(!(typeof f=="bigint"&&f>dt))throw new Error(`CURVE.${u} must be positive bigint`)}let r=Ve(t.p,n.Fp,e),s=Ve(t.n,n.Fn,e),c=["Gx","Gy","a",o==="weierstrass"?"b":"d"];for(let u of c)if(!r.isValid(t[u]))throw new Error(`CURVE.${u} must be valid field element of CURVE.Fp`);return t=Object.freeze(Object.assign({},t)),{CURVE:t,Fp:r,Fn:s}}var Xe=(o,t)=>(o+(o>=0?t:-t)/Bn)/t;function wn(o,t,n){At("scalar",o,ft,n);let[[e,r],[s,i]]=t,c=Xe(i*o,n),u=Xe(-r*o,n),f=o-c*e-u*s,a=-c*r-u*i,d=f<ft,x=a<ft;d&&(f=-f),x&&(a=-a);let y=jt(Math.ceil(G(n)/2))+Ot;if(f<ft||f>=y||a<ft||a>=y)throw new Error("splitScalar (endomorphism): failed for k");return{k1neg:d,k1:f,k2neg:x,k2:a}}var oe=class extends Error{constructor(t=""){super(t)}},W={Err:oe,_tlv:{encode:(o,t)=>{let{Err:n}=W;if(tt(o,"tag"),o<0||o>255)throw new n("tlv.encode: wrong tag");if(typeof t!="string")throw new TypeError('"data" expected string, got type='+typeof t);if(t.length&1)throw new n("tlv.encode: unpadded data");let e=t.length/2,r=xt(e);if(r.length/2&128)throw new n("tlv.encode: long form length too big");let s=e>127?xt(r.length/2|128):"";return xt(o)+s+r+t},decode(o,t){let{Err:n}=W;t=H(t,void 0,"DER data");let e=0;if(o<0||o>255)throw new n("tlv.encode: wrong tag");if(t.length<2||t[e++]!==o)throw new n("tlv.decode: wrong tlv");let r=t[e++],s=!!(r&128),i=0;if(!s)i=r;else{let u=r&127;if(!u)throw new n("tlv.decode(long): indefinite length not supported");if(u>4)throw new n("tlv.decode(long): byte length is too big");let f=t.subarray(e,e+u);if(f.length!==u)throw new n("tlv.decode: length bytes not complete");if(f[0]===0)throw new n("tlv.decode(long): zero leftmost byte");for(let a of f)i=i<<8|a;if(e+=u,i<128)throw new n("tlv.decode(long): not minimal encoding")}let c=t.subarray(e,e+i);if(c.length!==i)throw new n("tlv.decode: wrong value length");return{v:c,l:t.subarray(e+i)}}},_int:{encode(o){let{Err:t}=W;if(Tt(o),o<ft)throw new t("integer: negative integers are not allowed");let n=xt(o);if(Number.parseInt(n[0],16)&8&&(n="00"+n),n.length&1)throw new t("unexpected DER parsing assertion: unpadded hex");return n},decode(o){let{Err:t}=W;if(o.length<1)throw new t("invalid signature integer: empty");if(o[0]&128)throw new t("invalid signature integer: negative");if(o.length>1&&o[0]===0&&!(o[1]&128))throw new t("invalid signature integer: unnecessary leading zero");return Et(o)}},toSig(o){let{Err:t,_int:n,_tlv:e}=W,r=H(o,void 0,"signature"),{v:s,l:i}=e.decode(48,r);if(i.length)throw new t("invalid signature: left bytes after parsing");let{v:c,l:u}=e.decode(2,s),{v:f,l:a}=e.decode(2,u);if(a.length)throw new t("invalid signature: left bytes after parsing");return{r:n.decode(c),s:n.decode(f)}},hexFromSig(o){let{_tlv:t,_int:n}=W,e=t.encode(2,n.encode(o.r)),r=t.encode(2,n.encode(o.s)),s=e+r;return t.encode(48,s)}};Object.freeze(W._tlv);Object.freeze(W._int);Object.freeze(W);var ft=BigInt(0),Ot=BigInt(1),Bn=BigInt(2),Ht=BigInt(3),On=BigInt(4);function se(o,t={}){let n=ke("weierstrass",o,t),e=n.Fp,r=n.Fn,s=n.CURVE,{h:i,n:c}=s;st(t,{},{allowInfinityPoint:"boolean",clearCofactor:"function",isTorsionFree:"function",fromBytes:"function",toBytes:"function",endo:"object"});let{endo:u,allowInfinityPoint:f}=t;if(u&&(!e.is0(s.a)||typeof u.beta!="bigint"||!Array.isArray(u.basises)))throw new Error('invalid endo: expected "beta": bigint and "basises": array');let a=Fn(e,r);function d(){if(!e.isOdd)throw new Error("compression is not supported: Field does not have .isOdd()")}function x(E,l,h){if(f&&l.is0())return Uint8Array.of(0);let{x:p,y:b}=l.toAffine(),O=e.toBytes(p);if(gt(h,"isCompressed"),h){d();let w=!e.isOdd(b);return ot(vn(w),O)}else return ot(Uint8Array.of(4),O,e.toBytes(b))}function y(E){H(E,void 0,"Point");let{publicKey:l,publicKeyUncompressed:h}=a,p=E.length,b=E[0],O=E.subarray(1);if(f&&p===1&&b===0)return{x:e.ZERO,y:e.ZERO};if(p===l&&(b===2||b===3)){let w=e.fromBytes(O);if(!e.isValid(w))throw new Error("bad point: is not on curve, wrong x");let B=A(w),m;try{m=e.sqrt(B)}catch(Z){let L=Z instanceof Error?": "+Z.message:"";throw new Error("bad point: is not on curve, sqrt error"+L)}d();let v=e.isOdd(m);return(b&1)===1!==v&&(m=e.neg(m)),{x:w,y:m}}else if(p===h&&b===4){let w=e.BYTES,B=e.fromBytes(O.subarray(0,w)),m=e.fromBytes(O.subarray(w,w*2));if(!D(B,m))throw new Error("bad point: is not on curve");return{x:B,y:m}}else throw new Error(`bad point: got length ${p}, expected compressed=${l} or uncompressed=${h}`)}let N=t.toBytes===void 0?x:t.toBytes,I=t.fromBytes===void 0?y:t.fromBytes;function A(E){let l=e.sqr(E),h=e.mul(l,E);return e.add(e.add(h,e.mul(E,s.a)),s.b)}function D(E,l){let h=e.sqr(l),p=A(E);return e.eql(h,p)}if(!D(s.Gx,s.Gy))throw new Error("bad curve params: generator point");let rt=e.mul(e.pow(s.a,Ht),On),Gt=e.mul(e.sqr(s.b),BigInt(27));if(e.is0(e.add(rt,Gt)))throw new Error("bad curve params: a or b");function P(E,l,h=!1){if(!e.isValid(l)||h&&e.is0(l))throw new Error(`bad point coordinate ${E}`);return l}function mt(E){if(!(E instanceof g))throw new Error("Weierstrass Point expected")}function vt(E){if(!u||!u.basises)throw new Error("no endo");return wn(E,u.basises,r.ORDER)}function T(E,l,h,p,b){return h=new g(e.mul(h.X,E),h.Y,h.Z),l=Bt(p,l),h=Bt(b,h),l.add(h)}class g{static BASE=new g(s.Gx,s.Gy,e.ONE);static ZERO=new g(e.ZERO,e.ONE,e.ZERO);static Fp=e;static Fn=r;X;Y;Z;constructor(l,h,p){this.X=P("x",l),this.Y=P("y",h,!0),this.Z=P("z",p),Object.freeze(this)}static CURVE(){return s}static fromAffine(l){let{x:h,y:p}=l||{};if(!l||!e.isValid(h)||!e.isValid(p))throw new Error("invalid affine point");if(l instanceof g)throw new Error("projective point not allowed");return e.is0(h)&&e.is0(p)?g.ZERO:new g(h,p,e.ONE)}static fromBytes(l){let h=g.fromAffine(I(H(l,void 0,"point")));return h.assertValidity(),h}static fromHex(l){return g.fromBytes(Fe(l))}get x(){return this.toAffine().x}get y(){return this.toAffine().y}precompute(l=8,h=!0){return R.createCache(this,l),h||this.multiply(Ht),this}assertValidity(){let l=this;if(l.is0()){if(t.allowInfinityPoint&&e.is0(l.X)&&e.eql(l.Y,e.ONE)&&e.is0(l.Z))return;throw new Error("bad point: ZERO")}let{x:h,y:p}=l.toAffine();if(!e.isValid(h)||!e.isValid(p))throw new Error("bad point: x or y not field elements");if(!D(h,p))throw new Error("bad point: equation left != right");if(!l.isTorsionFree())throw new Error("bad point: not in prime-order subgroup")}hasEvenY(){let{y:l}=this.toAffine();if(!e.isOdd)throw new Error("Field doesn't support isOdd");return!e.isOdd(l)}equals(l){mt(l);let{X:h,Y:p,Z:b}=this,{X:O,Y:w,Z:B}=l,m=e.eql(e.mul(h,B),e.mul(O,b)),v=e.eql(e.mul(p,B),e.mul(w,b));return m&&v}negate(){return new g(this.X,e.neg(this.Y),this.Z)}double(){let{a:l,b:h}=s,p=e.mul(h,Ht),{X:b,Y:O,Z:w}=this,B=e.ZERO,m=e.ZERO,v=e.ZERO,F=e.mul(b,b),Z=e.mul(O,O),L=e.mul(w,w),q=e.mul(b,O);return q=e.add(q,q),v=e.mul(b,w),v=e.add(v,v),B=e.mul(l,v),m=e.mul(p,L),m=e.add(B,m),B=e.sub(Z,m),m=e.add(Z,m),m=e.mul(B,m),B=e.mul(q,B),v=e.mul(p,v),L=e.mul(l,L),q=e.sub(F,L),q=e.mul(l,q),q=e.add(q,v),v=e.add(F,F),F=e.add(v,F),F=e.add(F,L),F=e.mul(F,q),m=e.add(m,F),L=e.mul(O,w),L=e.add(L,L),F=e.mul(L,q),B=e.sub(B,F),v=e.mul(L,Z),v=e.add(v,v),v=e.add(v,v),new g(B,m,v)}add(l){mt(l);let{X:h,Y:p,Z:b}=this,{X:O,Y:w,Z:B}=l,m=e.ZERO,v=e.ZERO,F=e.ZERO,Z=s.a,L=e.mul(s.b,Ht),q=e.mul(h,O),V=e.mul(p,w),M=e.mul(b,B),lt=e.add(h,p),U=e.add(O,w);lt=e.mul(lt,U),U=e.add(q,V),lt=e.sub(lt,U),U=e.add(h,b);let X=e.add(O,B);return U=e.mul(U,X),X=e.add(q,M),U=e.sub(U,X),X=e.add(p,b),m=e.add(w,B),X=e.mul(X,m),m=e.add(V,M),X=e.sub(X,m),F=e.mul(Z,U),m=e.mul(L,M),F=e.add(m,F),m=e.sub(V,F),F=e.add(V,F),v=e.mul(m,F),V=e.add(q,q),V=e.add(V,q),M=e.mul(Z,M),U=e.mul(L,U),V=e.add(V,M),M=e.sub(q,M),M=e.mul(Z,M),U=e.add(U,M),q=e.mul(V,U),v=e.add(v,q),q=e.mul(X,U),m=e.mul(lt,m),m=e.sub(m,q),q=e.mul(lt,V),F=e.mul(X,F),F=e.add(F,q),new g(m,v,F)}subtract(l){return mt(l),this.add(l.negate())}is0(){return this.equals(g.ZERO)}multiply(l){let{endo:h}=t;if(!r.isValidNot0(l))throw new RangeError("invalid scalar: out of range");let p,b,O=w=>R.cached(this,w,B=>re(g,B));if(h){let{k1neg:w,k1:B,k2neg:m,k2:v}=vt(l),{p:F,f:Z}=O(B),{p:L,f:q}=O(v);b=Z.add(q),p=T(h.beta,F,L,w,m)}else{let{p:w,f:B}=O(l);p=w,b=B}return re(g,[p,b])[0]}multiplyUnsafe(l){let{endo:h}=t,p=this,b=l;if(!r.isValid(b))throw new RangeError("invalid scalar: out of range");if(b===ft||p.is0())return g.ZERO;if(b===Ot)return p;if(R.hasCache(this))return this.multiply(b);if(h){let{k1neg:O,k1:w,k2neg:B,k2:m}=vt(b),{p1:v,p2:F}=Ge(g,p,w,m);return T(h.beta,v,F,O,B)}else return R.unsafe(p,b)}toAffine(l){let h=this,p=l,{X:b,Y:O,Z:w}=h;if(e.eql(w,e.ONE))return{x:b,y:O};let B=h.is0();p==null&&(p=B?e.ONE:e.inv(w));let m=e.mul(b,p),v=e.mul(O,p),F=e.mul(w,p);if(B)return{x:e.ZERO,y:e.ZERO};if(!e.eql(F,e.ONE))throw new Error("invZ was invalid");return{x:m,y:v}}isTorsionFree(){let{isTorsionFree:l}=t;return i===Ot?!0:l?l(g,this):R.unsafe(this,c).is0()}clearCofactor(){let{clearCofactor:l}=t;return i===Ot?this:l?l(g,this):this.multiplyUnsafe(i)}isSmallOrder(){return i===Ot?this.is0():this.clearCofactor().is0()}toBytes(l=!0){return gt(l,"isCompressed"),this.assertValidity(),N(g,this,l)}toHex(l=!0){return ve(this.toBytes(l))}toString(){return`<Point ${this.is0()?"ZERO":this.toHex()}>`}}let S=r.BITS,R=new Ut(g,t.endo?Math.ceil(S/2):S);return S>=8&&g.BASE.precompute(8),Object.freeze(g.prototype),Object.freeze(g),g}function vn(o){return Uint8Array.of(o?2:3)}function Fn(o,t){return{secretKey:t.BYTES,publicKey:1+o.BYTES,publicKeyUncompressed:1+2*o.BYTES,publicKeyHasPrefix:!0,signature:2*t.BYTES}}var Sn=BigInt(0),zt=BigInt(1),Ke=BigInt(2),ht=BigInt(3);function Rn(o){let t=[];for(;o>zt;o>>=zt)(o&zt)===Sn?t.unshift(0):(o&ht)===ht?(t.unshift(-1),o+=zt):t.unshift(1);return t}function Nn(o,t,n,e){let{Fr:r,Fp2:s,Fp12:i}=o,{twistType:c,ateLoopSize:u,xNegative:f,postPrecompute:a}=e,d;if(c==="multiplicative")d=(T,g,S,R,E,l)=>i.mul014(R,T,s.mul(g,E),s.mul(S,l));else if(c==="divisive")d=(T,g,S,R,E,l)=>i.mul034(R,s.mul(S,l),s.mul(g,E),T);else throw new Error("bls: unknown twist type");let x=s.div(s.ONE,s.mul(s.ONE,Ke));function y(T,g,S,R){let E=s.sqr(S),l=s.sqr(R),h=s.mulByB(s.mul(l,ht)),p=s.mul(h,ht),b=s.sub(s.sub(s.sqr(s.add(S,R)),l),E),O=s.sub(h,E),w=s.mul(s.sqr(g),ht),B=s.neg(b);return T.push([O,w,B]),g=s.mul(s.mul(s.mul(s.sub(E,p),g),S),x),S=s.sub(s.sqr(s.mul(s.add(E,p),x)),s.mul(s.sqr(h),ht)),R=s.mul(E,b),{Rx:g,Ry:S,Rz:R}}function N(T,g,S,R,E,l){let h=s.sub(S,s.mul(l,R)),p=s.sub(g,s.mul(E,R)),b=s.sub(s.mul(h,E),s.mul(p,l)),O=s.neg(h),w=p;T.push([b,O,w]);let B=s.sqr(p),m=s.mul(B,p),v=s.mul(B,g),F=s.add(s.sub(m,s.mul(v,Ke)),s.mul(s.sqr(h),R));return g=s.mul(p,F),S=s.sub(s.mul(s.sub(v,F),h),s.mul(m,S)),R=s.mul(R,m),{Rx:g,Ry:S,Rz:R}}let I=Rn(u),A=T=>{let g=T,{x:S,y:R}=g.toAffine(),E=S,l=R,h=s.neg(R),p=E,b=l,O=s.ONE,w=[];for(let B of I){let m=[];({Rx:p,Ry:b,Rz:O}=y(m,p,b,O)),B&&({Rx:p,Ry:b,Rz:O}=N(m,p,b,O,E,B===-1?h:l)),w.push(m)}if(a){let B=w[w.length-1];a(p,b,O,E,l,N.bind(null,B))}return w};function D(T,g=!1){let S=i.ONE;if(T.length){let R=T[0][0].length;for(let E=0;E<R;E++){S=i.sqr(S);for(let[l,h,p]of T)for(let[b,O,w]of l[E])S=d(b,O,w,S,h,p)}}return f&&(S=i.conjugate(S)),g?i.finalExponentiate(S):S}function rt(T,g=!0){let S=[];for(let{g1:R,g2:E}of T){if(R.is0()||E.is0())throw new Error("pairing is not available for ZERO point");R.assertValidity(),E.assertValidity();let l=R.toAffine();S.push([A(E),l.x,l.y])}return D(S,g)}function Gt(T,g,S=!0){return rt([{g1:T,g2:g}],S)}let P={seed:Jt(r.ORDER)},mt=e.randomBytes===void 0?$t:e.randomBytes,vt=T=>(T=T===void 0?mt(P.seed):T,H(T,P.seed,"seed"),ze(T,r.ORDER));return Object.freeze(P),{lengths:P,Fr:r,Fp12:i,millerLoopBatch:D,pairing:Gt,pairingBatch:rt,calcPairingPrecomputes:A,randomSecretKey:vt}}function $e(o,t,n,e){let{Fp:r,Fr:s,Fp2:i,Fp6:c,Fp12:u}=o,f={Point:t},a={Point:n},d=Nn(o,t,n,e),{millerLoopBatch:x,pairing:y,pairingBatch:N,calcPairingPrecomputes:I,randomSecretKey:A,lengths:D}=d;return f.Point.BASE.precompute(4),Object.freeze(f),Object.freeze(a),Object.freeze({lengths:Object.freeze(D),millerLoopBatch:x,pairing:y,pairingBatch:N,G1:f,G2:a,fields:Object.freeze({Fr:s,Fp:r,Fp2:i,Fp6:c,Fp12:u}),params:Object.freeze({ateLoopSize:e.ateLoopSize,twistType:e.twistType}),utils:Object.freeze({randomSecretKey:A,calcPairingPrecomputes:I})})}var Pe=BigInt(0),at=BigInt(1),C=BigInt(2),We=BigInt(3),In=BigInt(6),_n=BigInt(12),pt=o=>!!o&&typeof o=="object";function fe(o,t,n,e,r=1,s){tt(r,"num");let i=o;if(r<=0)throw new Error("calcFrobeniusCoefficients: expected positive row count, got "+r);let c=BigInt(s===void 0?e:s),u=n**BigInt(e),f=[];for(let a=0;a<r;a++){let d=BigInt(a+1),x=[];for(let y=0,N=at;y<e;y++){let I=d*N-d;if(I%c)throw new Error("calcFrobeniusCoefficients: inexact tower exponent");let A=I/c%u;x.push(i.pow(t,A)),N*=n}f.push(x)}return f}function Je(o,t,n){let e=t.pow(n,(o.ORDER-at)/We),r=t.pow(n,(o.ORDER-at)/C);function s(x,y){let N=t.mul(t.frobeniusMap(x,1),e),I=t.mul(t.frobeniusMap(y,1),r);return[N,I]}let i=t.pow(n,(o.ORDER**C-at)/We),c=t.pow(n,(o.ORDER**C-at)/C);if(!t.eql(c,t.neg(t.ONE)))throw new Error("psiFrobenius: PSI2_Y!==-1");function u(x,y){return[t.mul(x,i),t.neg(y)]}let f=x=>(y,N)=>{let I=N.toAffine(),A=x(I.x,I.y);return y.fromAffine({x:A[0],y:A[1]})},a=f(s),d=f(u);return{psi:s,psi2:u,G2psi:a,G2psi2:d,PSI_X:e,PSI_Y:r,PSI2_X:i,PSI2_Y:c}}var ie=class{ORDER;BITS;BYTES;isLE;ZERO;ONE;Fp;NONRESIDUE;mulByB;Fp_NONRESIDUE;Fp_div2;FROBENIUS_COEFFICIENTS;constructor(t,n={}){let{NONRESIDUE:e=BigInt(-1),FP2_NONRESIDUE:r,Fp2mulByB:s}=n,i=t.ORDER,c=i*i;this.Fp=t,this.ORDER=c,this.BITS=G(c),this.BYTES=Math.ceil(G(c)/8),this.isLE=t.isLE,this.ZERO=this.create({c0:t.ZERO,c1:t.ZERO}),this.ONE=this.create({c0:t.ONE,c1:t.ZERO}),this.Fp_NONRESIDUE=t.create(e),this.Fp_div2=t.div(t.ONE,C),this.NONRESIDUE=this.create({c0:r[0],c1:r[1]}),this.FROBENIUS_COEFFICIENTS=Object.freeze(fe(t,this.Fp_NONRESIDUE,t.ORDER,2)[0]),this.mulByB=u=>{let{c0:f,c1:a}=s(u);return Object.freeze({c0:f,c1:a})},Object.freeze(this)}fromBigTuple(t){if(!Array.isArray(t)||t.length!==2)throw new Error("invalid Fp2.fromBigTuple");let[n,e]=t;if(typeof n!="bigint"||typeof e!="bigint")throw new Error("invalid Fp2.fromBigTuple");return this.create({c0:n,c1:e})}create(t){let{Fp:n}=this,e=n.create(t.c0),r=n.create(t.c1);return Object.freeze({c0:e,c1:r})}isValid(t){if(!pt(t))throw new TypeError("invalid field element: expected object, got "+typeof t);let{c0:n,c1:e}=t,{Fp:r}=this;return r.isValid(n)&&r.isValid(e)}is0(t){if(!pt(t))return!1;let{c0:n,c1:e}=t,{Fp:r}=this;return r.is0(n)&&r.is0(e)}isValidNot0(t){return!this.is0(t)&&this.isValid(t)}eql({c0:t,c1:n},{c0:e,c1:r}){let{Fp:s}=this;return s.eql(t,e)&&s.eql(n,r)}neg({c0:t,c1:n}){let{Fp:e}=this;return Object.freeze({c0:e.neg(t),c1:e.neg(n)})}pow(t,n){return wt(this,t,n)}invertBatch(t){return ct(this,t)}add(t,n){let{Fp:e}=this,{c0:r,c1:s}=t,{c0:i,c1:c}=n;return Object.freeze({c0:e.add(r,i),c1:e.add(s,c)})}sub({c0:t,c1:n},{c0:e,c1:r}){let{Fp:s}=this;return Object.freeze({c0:s.sub(t,e),c1:s.sub(n,r)})}mul({c0:t,c1:n},e){let{Fp:r}=this;if(typeof e=="bigint")return Object.freeze({c0:r.mul(t,e),c1:r.mul(n,e)});let{c0:s,c1:i}=e,c=r.mul(t,s),u=r.mul(n,i),f=r.sub(c,u),a=r.sub(r.mul(r.add(t,n),r.add(s,i)),r.add(c,u));return Object.freeze({c0:f,c1:a})}sqr({c0:t,c1:n}){let{Fp:e}=this,r=e.add(t,n),s=e.sub(t,n),i=e.add(t,t);return Object.freeze({c0:e.mul(r,s),c1:e.mul(i,n)})}addN(t,n){return this.add(t,n)}subN(t,n){return this.sub(t,n)}mulN(t,n){return this.mul(t,n)}sqrN(t){return this.sqr(t)}div(t,n){let{Fp:e}=this;return this.mul(t,typeof n=="bigint"?e.inv(e.create(n)):this.inv(n))}inv({c0:t,c1:n}){let{Fp:e}=this,r=e.inv(e.create(t*t+n*n));return Object.freeze({c0:e.mul(r,e.create(t)),c1:e.mul(r,e.create(-n))})}sqrt(t){let{Fp:n}=this,e=this,{c0:r,c1:s}=t;if(n.is0(s))return yt(n,r)===1?e.create({c0:n.sqrt(r),c1:n.ZERO}):e.create({c0:n.ZERO,c1:n.sqrt(n.div(r,this.Fp_NONRESIDUE))});let i=n.sqrt(n.sub(n.sqr(r),n.mul(n.sqr(s),this.Fp_NONRESIDUE))),c=n.mul(n.add(i,r),this.Fp_div2);yt(n,c)===-1&&(c=n.sub(c,i));let f=n.sqrt(c),a=e.create({c0:f,c1:n.div(n.mul(s,this.Fp_div2),f)});if(!e.eql(e.sqr(a),t))throw new Error("Cannot find square root");let d=a,x=e.neg(d),{re:y,im:N}=e.reim(d),{re:I,im:A}=e.reim(x);return N>A||N===A&&y>I?d:x}isOdd(t){let{re:n,im:e}=this.reim(t),r=n%C,s=n===Pe,i=e%C;return BigInt(r||s&&i)==at}fromBytes(t){let{Fp:n}=this;if(H(t),t.length!==this.BYTES)throw new Error("fromBytes invalid length="+t.length);return this.create({c0:n.fromBytes(t.subarray(0,n.BYTES)),c1:n.fromBytes(t.subarray(n.BYTES))})}toBytes({c0:t,c1:n}){return ot(this.Fp.toBytes(t),this.Fp.toBytes(n))}cmov({c0:t,c1:n},{c0:e,c1:r},s){let{Fp:i}=this;return this.create({c0:i.cmov(t,e,s),c1:i.cmov(n,r,s)})}reim({c0:t,c1:n}){return{re:t,im:n}}Fp4Square(t,n){let e=this,r=e.sqr(t),s=e.sqr(n);return{first:e.add(e.mulByNonresidue(s),r),second:e.sub(e.sub(e.sqr(e.add(t,n)),r),s)}}mulByNonresidue({c0:t,c1:n}){return this.mul({c0:t,c1:n},this.NONRESIDUE)}frobeniusMap({c0:t,c1:n},e){return Object.freeze({c0:t,c1:this.Fp.mul(n,this.FROBENIUS_COEFFICIENTS[e%2])})}},ce=class{ORDER;BITS;BYTES;isLE;ZERO;ONE;Fp2;constructor(t){this.Fp2=t,this.ORDER=t.Fp.ORDER**In,this.BITS=3*t.BITS,this.BYTES=3*t.BYTES,this.isLE=t.isLE,this.ZERO=this.create({c0:t.ZERO,c1:t.ZERO,c2:t.ZERO}),this.ONE=this.create({c0:t.ONE,c1:t.ZERO,c2:t.ZERO}),Object.freeze(this)}get FROBENIUS_COEFFICIENTS_1(){let t=Ct.get(this);if(t)return t[0];let{Fp2:n}=this,{Fp:e}=n,r=fe(n,n.NONRESIDUE,e.ORDER,6,2,3),s=[Object.freeze(r[0]),Object.freeze(r[1])];return Ct.set(this,s),s[0]}get FROBENIUS_COEFFICIENTS_2(){let t=Ct.get(this);return t?t[1]:(this.FROBENIUS_COEFFICIENTS_1,Ct.get(this)[1])}add({c0:t,c1:n,c2:e},{c0:r,c1:s,c2:i}){let{Fp2:c}=this;return Object.freeze({c0:c.add(t,r),c1:c.add(n,s),c2:c.add(e,i)})}sub({c0:t,c1:n,c2:e},{c0:r,c1:s,c2:i}){let{Fp2:c}=this;return Object.freeze({c0:c.sub(t,r),c1:c.sub(n,s),c2:c.sub(e,i)})}mul({c0:t,c1:n,c2:e},r){let{Fp2:s}=this;if(typeof r=="bigint")return Object.freeze({c0:s.mul(t,r),c1:s.mul(n,r),c2:s.mul(e,r)});let{c0:i,c1:c,c2:u}=r,f=s.mul(t,i),a=s.mul(n,c),d=s.mul(e,u);return Object.freeze({c0:s.add(f,s.mulByNonresidue(s.sub(s.mul(s.add(n,e),s.add(c,u)),s.add(a,d)))),c1:s.add(s.sub(s.mul(s.add(t,n),s.add(i,c)),s.add(f,a)),s.mulByNonresidue(d)),c2:s.sub(s.add(a,s.mul(s.add(t,e),s.add(i,u))),s.add(f,d))})}sqr({c0:t,c1:n,c2:e}){let{Fp2:r}=this,s=r.sqr(t),i=r.mul(r.mul(t,n),C),c=r.mul(r.mul(n,e),C),u=r.sqr(e);return Object.freeze({c0:r.add(r.mulByNonresidue(c),s),c1:r.add(r.mulByNonresidue(u),i),c2:r.sub(r.sub(r.add(r.add(i,r.sqr(r.add(r.sub(t,n),e))),c),s),u)})}addN(t,n){return this.add(t,n)}subN(t,n){return this.sub(t,n)}mulN(t,n){return this.mul(t,n)}sqrN(t){return this.sqr(t)}create(t){let{Fp2:n}=this,e=n.create(t.c0),r=n.create(t.c1),s=n.create(t.c2);return Object.freeze({c0:e,c1:r,c2:s})}isValid(t){if(!pt(t))throw new TypeError("invalid field element: expected object, got "+typeof t);let{c0:n,c1:e,c2:r}=t,{Fp2:s}=this;return s.isValid(n)&&s.isValid(e)&&s.isValid(r)}is0(t){if(!pt(t))return!1;let{c0:n,c1:e,c2:r}=t,{Fp2:s}=this;return s.is0(n)&&s.is0(e)&&s.is0(r)}isValidNot0(t){return!this.is0(t)&&this.isValid(t)}neg({c0:t,c1:n,c2:e}){let{Fp2:r}=this;return Object.freeze({c0:r.neg(t),c1:r.neg(n),c2:r.neg(e)})}eql({c0:t,c1:n,c2:e},{c0:r,c1:s,c2:i}){let{Fp2:c}=this;return c.eql(t,r)&&c.eql(n,s)&&c.eql(e,i)}sqrt(t){return Lt()}div(t,n){let{Fp2:e}=this,{Fp:r}=e;return this.mul(t,typeof n=="bigint"?r.inv(r.create(n)):this.inv(n))}pow(t,n){return wt(this,t,n)}invertBatch(t){return ct(this,t)}inv({c0:t,c1:n,c2:e}){let{Fp2:r}=this,s=r.sub(r.sqr(t),r.mulByNonresidue(r.mul(e,n))),i=r.sub(r.mulByNonresidue(r.sqr(e)),r.mul(t,n)),c=r.sub(r.sqr(n),r.mul(t,e)),u=r.inv(r.add(r.mulByNonresidue(r.add(r.mul(e,i),r.mul(n,c))),r.mul(t,s)));return Object.freeze({c0:r.mul(u,s),c1:r.mul(u,i),c2:r.mul(u,c)})}fromBytes(t){let{Fp2:n}=this;if(H(t),t.length!==this.BYTES)throw new Error("fromBytes invalid length="+t.length);let e=n.BYTES;return this.create({c0:n.fromBytes(t.subarray(0,e)),c1:n.fromBytes(t.subarray(e,e*2)),c2:n.fromBytes(t.subarray(2*e))})}toBytes({c0:t,c1:n,c2:e}){let{Fp2:r}=this;return ot(r.toBytes(t),r.toBytes(n),r.toBytes(e))}cmov({c0:t,c1:n,c2:e},{c0:r,c1:s,c2:i},c){let{Fp2:u}=this;return this.create({c0:u.cmov(t,r,c),c1:u.cmov(n,s,c),c2:u.cmov(e,i,c)})}fromBigSix(t){let{Fp2:n}=this;if(!Array.isArray(t)||t.length!==6)throw new Error("invalid Fp6.fromBigSix");for(let r=0;r<6;r++)if(typeof t[r]!="bigint")throw new Error("invalid Fp6.fromBigSix");let e=t;return this.create({c0:n.fromBigTuple(e.slice(0,2)),c1:n.fromBigTuple(e.slice(2,4)),c2:n.fromBigTuple(e.slice(4,6))})}frobeniusMap({c0:t,c1:n,c2:e},r){let{Fp2:s}=this;return Object.freeze({c0:s.frobeniusMap(t,r),c1:s.mul(s.frobeniusMap(n,r),this.FROBENIUS_COEFFICIENTS_1[r%6]),c2:s.mul(s.frobeniusMap(e,r),this.FROBENIUS_COEFFICIENTS_2[r%6])})}mulByFp2({c0:t,c1:n,c2:e},r){let{Fp2:s}=this;return Object.freeze({c0:s.mul(t,r),c1:s.mul(n,r),c2:s.mul(e,r)})}mulByNonresidue({c0:t,c1:n,c2:e}){let{Fp2:r}=this;return Object.freeze({c0:r.mulByNonresidue(e),c1:t,c2:n})}mul1({c0:t,c1:n,c2:e},r){let{Fp2:s}=this;return Object.freeze({c0:s.mulByNonresidue(s.mul(e,r)),c1:s.mul(t,r),c2:s.mul(n,r)})}mul01({c0:t,c1:n,c2:e},r,s){let{Fp2:i}=this,c=i.mul(t,r),u=i.mul(n,s);return Object.freeze({c0:i.add(i.mulByNonresidue(i.sub(i.mul(i.add(n,e),s),u)),c),c1:i.sub(i.sub(i.mul(i.add(r,s),i.add(t,n)),c),u),c2:i.add(i.sub(i.mul(i.add(t,e),r),c),u)})}},Ct=new WeakMap,ue=class{ORDER;BITS;BYTES;isLE;ZERO;ONE;Fp6;X_LEN;finalExponentiate;constructor(t,n){let{X_LEN:e,Fp12finalExponentiate:r}=n,{Fp2:s}=t,{Fp:i}=s;this.Fp6=t,this.ORDER=i.ORDER**_n,this.BITS=2*t.BITS,this.BYTES=2*t.BYTES,this.isLE=t.isLE,this.ZERO=this.create({c0:t.ZERO,c1:t.ZERO}),this.ONE=this.create({c0:t.ONE,c1:t.ZERO}),this.X_LEN=e,this.finalExponentiate=c=>{let u=({c0:d,c1:x})=>Object.freeze({c0:d,c1:x}),f=({c0:d,c1:x,c2:y})=>Object.freeze({c0:u(d),c1:u(x),c2:u(y)}),a=r(c);return Object.freeze({c0:f(a.c0),c1:f(a.c1)})},Object.freeze(this)}get FROBENIUS_COEFFICIENTS(){let t=Qe.get(this);if(t)return t;let{Fp2:n}=this.Fp6,{Fp:e}=n,r=Object.freeze(fe(n,n.NONRESIDUE,e.ORDER,12,1,6)[0]);return Qe.set(this,r),r}create(t){let{Fp6:n}=this,e=n.create(t.c0),r=n.create(t.c1);return Object.freeze({c0:e,c1:r})}isValid(t){if(!pt(t))throw new TypeError("invalid field element: expected object, got "+typeof t);let{c0:n,c1:e}=t,{Fp6:r}=this;return r.isValid(n)&&r.isValid(e)}is0(t){if(!pt(t))return!1;let{c0:n,c1:e}=t,{Fp6:r}=this;return r.is0(n)&&r.is0(e)}isValidNot0(t){return!this.is0(t)&&this.isValid(t)}neg({c0:t,c1:n}){let{Fp6:e}=this;return Object.freeze({c0:e.neg(t),c1:e.neg(n)})}eql({c0:t,c1:n},{c0:e,c1:r}){let{Fp6:s}=this;return s.eql(t,e)&&s.eql(n,r)}sqrt(t){return Lt()}inv({c0:t,c1:n}){let{Fp6:e}=this,r=e.inv(e.sub(e.sqr(t),e.mulByNonresidue(e.sqr(n))));return Object.freeze({c0:e.mul(t,r),c1:e.neg(e.mul(n,r))})}div(t,n){let{Fp6:e}=this,{Fp2:r}=e,{Fp:s}=r;return this.mul(t,typeof n=="bigint"?s.inv(s.create(n)):this.inv(n))}pow(t,n){return wt(this,t,n)}invertBatch(t){return ct(this,t)}add({c0:t,c1:n},{c0:e,c1:r}){let{Fp6:s}=this;return Object.freeze({c0:s.add(t,e),c1:s.add(n,r)})}sub({c0:t,c1:n},{c0:e,c1:r}){let{Fp6:s}=this;return Object.freeze({c0:s.sub(t,e),c1:s.sub(n,r)})}mul({c0:t,c1:n},e){let{Fp6:r}=this;if(typeof e=="bigint")return Object.freeze({c0:r.mul(t,e),c1:r.mul(n,e)});let{c0:s,c1:i}=e,c=r.mul(t,s),u=r.mul(n,i);return Object.freeze({c0:r.add(c,r.mulByNonresidue(u)),c1:r.sub(r.mul(r.add(t,n),r.add(s,i)),r.add(c,u))})}sqr({c0:t,c1:n}){let{Fp6:e}=this,r=e.mul(t,n);return Object.freeze({c0:e.sub(e.sub(e.mul(e.add(e.mulByNonresidue(n),t),e.add(t,n)),r),e.mulByNonresidue(r)),c1:e.add(r,r)})}addN(t,n){return this.add(t,n)}subN(t,n){return this.sub(t,n)}mulN(t,n){return this.mul(t,n)}sqrN(t){return this.sqr(t)}fromBytes(t){let{Fp6:n}=this;if(H(t),t.length!==this.BYTES)throw new Error("fromBytes invalid length="+t.length);return this.create({c0:n.fromBytes(t.subarray(0,n.BYTES)),c1:n.fromBytes(t.subarray(n.BYTES))})}toBytes({c0:t,c1:n}){let{Fp6:e}=this;return ot(e.toBytes(t),e.toBytes(n))}cmov({c0:t,c1:n},{c0:e,c1:r},s){let{Fp6:i}=this;return this.create({c0:i.cmov(t,e,s),c1:i.cmov(n,r,s)})}fromBigTwelve(t){let{Fp6:n}=this;if(!Array.isArray(t)||t.length!==12)throw new Error("invalid Fp12.fromBigTwelve");for(let r=0;r<12;r++)if(typeof t[r]!="bigint")throw new Error("invalid Fp12.fromBigTwelve");let e=t;return this.create({c0:n.fromBigSix(e.slice(0,6)),c1:n.fromBigSix(e.slice(6,12))})}frobeniusMap(t,n){let{Fp6:e}=this,{Fp2:r}=e,{c0:s,c1:i,c2:c}=e.frobeniusMap(t.c1,n),u=this.FROBENIUS_COEFFICIENTS[n%12];return Object.freeze({c0:e.frobeniusMap(t.c0,n),c1:Object.freeze({c0:r.mul(s,u),c1:r.mul(i,u),c2:r.mul(c,u)})})}mulByFp2({c0:t,c1:n},e){let{Fp6:r}=this;return Object.freeze({c0:r.mulByFp2(t,e),c1:r.mulByFp2(n,e)})}conjugate({c0:t,c1:n}){return Object.freeze({c0:t,c1:this.Fp6.neg(n)})}mul014({c0:t,c1:n},e,r,s){let{Fp6:i}=this,{Fp2:c}=i,u=i.mul01(t,e,r),f=i.mul1(n,s);return Object.freeze({c0:i.add(i.mulByNonresidue(f),u),c1:i.sub(i.sub(i.mul01(i.add(n,t),e,c.add(r,s)),u),f)})}mul034({c0:t,c1:n},e,r,s){let{Fp6:i}=this,{Fp2:c}=i,u=Object.freeze({c0:c.mul(t.c0,e),c1:c.mul(t.c1,e),c2:c.mul(t.c2,e)}),f=i.mul01(n,r,s),a=i.mul01(i.add(t,n),c.add(e,r),s);return Object.freeze({c0:i.add(i.mulByNonresidue(f),u),c1:i.sub(a,i.add(u,f))})}_cyclotomicSquare({c0:t,c1:n}){let{Fp6:e}=this,{Fp2:r}=e,{c0:s,c1:i,c2:c}=t,{c0:u,c1:f,c2:a}=n,{first:d,second:x}=r.Fp4Square(s,f),{first:y,second:N}=r.Fp4Square(u,c),{first:I,second:A}=r.Fp4Square(i,a),D=r.mulByNonresidue(A);return Object.freeze({c0:Object.freeze({c0:r.add(r.mul(r.sub(d,s),C),d),c1:r.add(r.mul(r.sub(y,i),C),y),c2:r.add(r.mul(r.sub(I,c),C),I)}),c1:Object.freeze({c0:r.add(r.mul(r.add(D,u),C),D),c1:r.add(r.mul(r.add(x,f),C),x),c2:r.add(r.mul(r.add(N,a),C),N)})})}_cyclotomicExp(t,n){At("cyclotomic exponent",n,Pe,at<<BigInt(this.X_LEN));let e=this.ONE;for(let r=this.X_LEN-1;r>=0;r--)e=this._cyclotomicSquare(e),Re(n,r)&&(e=this.mul(e,t));return e}},Qe=new WeakMap;function tn(o){if(st(o,{ORDER:"bigint",X_LEN:"number",FP2_NONRESIDUE:"object",Fp2mulByB:"function",Fp12finalExponentiate:"function"},{NONRESIDUE:"bigint"}),tt(o.X_LEN,"X_LEN"),o.X_LEN<1)throw new Error("invalid X_LEN");let t=o.FP2_NONRESIDUE;if(!Array.isArray(t)||t.length!==2)throw new Error("invalid FP2_NONRESIDUE");if(typeof t[0]!="bigint"||typeof t[1]!="bigint")throw new Error("invalid FP2_NONRESIDUE");let n=et(o.ORDER),e=new ie(n,o),r=new ce(e),s=new ue(r,o);return{Fp:n,Fp2:e,Fp6:r,Fp12:s}}var Tn=BigInt(0),ae=BigInt(1),nn=BigInt(2),qn=BigInt(3),rn=BigInt(6),Zt=BigInt("4965661367192848881"),An=G(Zt),jn=rn*Zt**nn,Vt={p:BigInt("0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47"),n:BigInt("0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001"),h:ae,a:Tn,b:qn,Gx:ae,Gy:BigInt(2)},Mt=et(Vt.n),on={c0:BigInt("19485874751759354771024239261021720505790618469301721065564631296452457478373"),c1:BigInt("266929791119991161246907387137283842545076965332900288569378510910307636690")},_,de=(()=>{let o=tn({ORDER:Vt.p,X_LEN:An,FP2_NONRESIDUE:[BigInt(9),ae],Fp2mulByB:t=>K.mul(t,on),Fp12finalExponentiate:t=>{let n=d=>_.conjugate(_._cyclotomicExp(d,Zt)),e=_.mul(_.conjugate(t),_.inv(t)),r=_.mul(_.frobeniusMap(e,2),e),s=_._cyclotomicSquare(n(r)),i=_.mul(_._cyclotomicSquare(s),s),c=n(i),u=n(_._cyclotomicSquare(c)),f=_.mul(_.mul(_.conjugate(u),c),_.conjugate(i)),a=_.mul(f,s);return _.mul(_.frobeniusMap(_.mul(_.conjugate(r),a),3),_.mul(_.frobeniusMap(f,2),_.mul(_.frobeniusMap(a,1),_.mul(_.mul(f,c),r))))}});return _=o.Fp12,o})(),he=de.Fp,K=de.Fp2,en,sn=()=>en||(en=Je(he,K,K.NONRESIDUE)),le=(o,t)=>{let n=sn().psi;return le=n,n(o,t)},cn=(o,t)=>{let n=sn().G2psi;return cn=n,n(o,t)},Ln=(o,t,n,e,r,s)=>{let i=le(e,r);({Rx:o,Ry:t,Rz:n}=s(o,t,n,i[0],i[1]));let c=le(i[0],i[1]);s(o,t,n,c[0],K.neg(c[1]))},Dn={p:K.ORDER,n:Vt.n,h:BigInt("0x30644e72e131a029b85045b68181585e06ceecda572a2489345f2299c0f9fa8d"),a:K.ZERO,b:on,Gx:K.fromBigTuple([BigInt("10857046999023057135944570762232829481370756359578518086990519993285655852781"),BigInt("11559732032986387107991004021392285783925812861821192530917403151452391805634")]),Gy:K.fromBigTuple([BigInt("8495653923123431417604973247489272438418190587263600148770280649306958101930"),BigInt("4082367875863433681332203403145435568316851327593401208105741076214120093531")])},Un={Fp:he,Fp2:K,Fp6:de.Fp6,Fp12:_,Fr:Mt},Hn=se(Vt,{Fp:he,Fn:Mt,allowInfinityPoint:!0}),zn=se(Dn,{Fp:K,Fn:Mt,allowInfinityPoint:!0,isTorsionFree:(o,t)=>t.multiplyUnsafe(jn).equals(cn(o,t))}),Cn={ateLoopSize:Zt*rn+nn,r:Mt.ORDER,xNegative:!1,twistType:"divisive",postPrecompute:Ln},Zn=$e(Un,Hn,zn,Cn);function un(o,t,n){return o&t^~o&n}function fn(o,t,n){return o&t^o&n^t&n}var Yt=class{blockLen;outputLen;canXOF=!1;padOffset;isLE;buffer;view;finished=!1;length=0;pos=0;destroyed=!1;constructor(t,n,e,r){this.blockLen=t,this.outputLen=n,this.padOffset=e,this.isLE=r,this.buffer=new Uint8Array(t),this.view=St(this.buffer)}update(t){kt(this),J(t);let{view:n,buffer:e,blockLen:r}=this,s=t.length;for(let i=0;i<s;){let c=Math.min(r-this.pos,s-i);if(c===r){let u=St(t);for(;r<=s-i;i+=r)this.process(u,i);continue}e.set(t.subarray(i,i+c),this.pos),this.pos+=c,i+=c,this.pos===r&&(this.process(n,0),this.pos=0)}return this.length+=t.length,this.roundClean(),this}digestInto(t){kt(this),xe(t,this),this.finished=!0;let{buffer:n,view:e,blockLen:r,isLE:s}=this,{pos:i}=this;n[i++]=128,bt(this.buffer.subarray(i)),this.padOffset>r-i&&(this.process(e,0),i=0);for(let d=i;d<r;d++)n[d]=0;e.setBigUint64(r-8,BigInt(this.length*8),s),this.process(e,0);let c=St(t),u=this.outputLen;if(u%4)throw new Error("_sha2: outputLen must be aligned to 32bit");let f=u/4,a=this.get();if(f>a.length)throw new Error("_sha2: outputLen bigger than state");for(let d=0;d<f;d++)c.setUint32(4*d,a[d],s)}digest(){let{buffer:t,outputLen:n}=this;this.digestInto(t);let e=t.slice(0,n);return this.destroy(),e}_cloneInto(t){t||=new this.constructor,t.set(...this.get());let{blockLen:n,buffer:e,length:r,finished:s,destroyed:i,pos:c}=this;return t.destroyed=i,t.finished=s,t.length=r,t.pos=c,r%n&&t.buffer.set(e),t}clone(){return this._cloneInto()}},Q=Uint32Array.from([1779033703,3144134277,1013904242,2773480762,1359893119,2600822924,528734635,1541459225]);var Vn=Uint32Array.from([1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298]),nt=new Uint32Array(64),pe=class extends Yt{constructor(t){super(64,t,8,!1)}get(){let{A:t,B:n,C:e,D:r,E:s,F:i,G:c,H:u}=this;return[t,n,e,r,s,i,c,u]}set(t,n,e,r,s,i,c,u){this.A=t|0,this.B=n|0,this.C=e|0,this.D=r|0,this.E=s|0,this.F=i|0,this.G=c|0,this.H=u|0}process(t,n){for(let d=0;d<16;d++,n+=4)nt[d]=t.getUint32(n,!1);for(let d=16;d<64;d++){let x=nt[d-15],y=nt[d-2],N=Y(x,7)^Y(x,18)^x>>>3,I=Y(y,17)^Y(y,19)^y>>>10;nt[d]=I+nt[d-7]+N+nt[d-16]|0}let{A:e,B:r,C:s,D:i,E:c,F:u,G:f,H:a}=this;for(let d=0;d<64;d++){let x=Y(c,6)^Y(c,11)^Y(c,25),y=a+x+un(c,u,f)+Vn[d]+nt[d]|0,I=(Y(e,2)^Y(e,13)^Y(e,22))+fn(e,r,s)|0;a=f,f=u,u=c,c=i+y|0,i=s,s=r,r=e,e=y+I|0}e=e+this.A|0,r=r+this.B|0,s=s+this.C|0,i=i+this.D|0,c=c+this.E|0,u=u+this.F|0,f=f+this.G|0,a=a+this.H|0,this.set(e,r,s,i,c,u,f,a)}roundClean(){bt(nt)}destroy(){this.destroyed=!0,this.set(0,0,0,0,0,0,0,0),bt(this.buffer)}},me=class extends pe{A=Q[0]|0;B=Q[1]|0;C=Q[2]|0;D=Q[3]|0;E=Q[4]|0;F=Q[5]|0;G=Q[6]|0;H=Q[7]|0;constructor(){super(32)}};var Mn=we(()=>new me,Oe(1));const bn254=Zn, nobleSha256=Mn;
+// ── end _noble-bn254.bundle.mjs ──
+
+/* BEGIN c2sp-tlog-verify.mjs verbatim port. */
+// c2sp-tlog-verify.mjs — shared C2SP transparency-log verification primitives.
+// Sibling to _hash.mjs: ONE canonical implementation of checkpoint (signed-note)
+// parsing/framing, tlog-cosignature message construction, and RFC 6962
+// inclusion-proof verification, imported (never duplicated) by every C2SP-based
+// log verifier in this repo. Extracted per C2SP-TLOG-VERIFY-MODULE-1 from two
+// independent hand-rolled parsers in register-sigsum.mjs and register-rekor.mjs
+// — SIGSUM-NAMED-POLICY-1 found a real bug in one of them (witness key_hash
+// read from a nonexistent field) that this shared module removes the room for.
+//
+// Specs implemented (C2SP, https://github.com/C2SP/C2SP):
+//   tlog-checkpoint.md   — checkpoint = signed-note with origin/size/root lines
+//   signed-note.md       — note framing + "— <name> <base64(keyHint(4)+sig)>" lines
+//   tlog-cosignature.md  — "cosignature/v1\ntime <ts>\n<checkpoint>" cosigned message
+//   (RFC 6962 §2.1.3.2)  — 0x00/0x01-prefixed leaf/interior hashing + inclusion walk
+//
+// Leaf serialization, submission/registration, and trust-policy CONTENT are
+// deliberately NOT here (BUILD-SPEC §2) — those stay per-log.
+//
+// CHAINPOINT GUARD (SO #0): every function below is a pure function of its
+// arguments. Zero fetch/network calls anywhere in this file's call graph —
+// every byte and every trust key is the caller's to supply.
+//
+// Runs unchanged in Node 18+, Workers, and browsers (globalThis.crypto.subtle,
+// atob/btoa — no Buffer, no node:crypto import) so a future browser tool
+// (C2SP-TLOG-VERIFY-TOOL-1, BUILD-SPEC §4) can import this file directly.
+
+// ---------------------------------------------------------------------------
+// Byte helpers (Uint8Array-based — no Buffer, browser-safe).
+// ---------------------------------------------------------------------------
+
+function bytesToHex(bytes) {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToBytes(hex) {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return out;
+}
+
+function bytesToBase64(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+function base64ToBytes(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function concatBytes(parts) {
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) { out.set(p, off); off += p.length; }
+  return out;
+}
+
+function bytesEqual(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// RFC 6962 §2.1 Merkle primitives — 0x00-prefixed leaf, 0x01-prefixed interior.
+// Identical algorithm both callers implemented independently before this row.
+// ---------------------------------------------------------------------------
+
+async function sha256(...parts) {
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', concatBytes(parts));
+  return new Uint8Array(digest);
+}
+
+async function hashLeafNode(data) { return sha256(new Uint8Array([0x00]), data); }
+async function hashInteriorNode(left, right) { return sha256(new Uint8Array([0x01]), left, right); }
+
+// RFC 6962 §2.1.3.2 inclusion-proof verification, iterative form (mirrors
+// sigsum-go's merkle.VerifyInclusion: isOdd(fn) => left sibling on path;
+// fn<sn => right sibling on path). `size` = tree size (leaf count), `index` =
+// 0-based leaf index, `path` = bottom-up sibling hashes (the standard C2SP/
+// RFC 6962 audit-path ordering both Sigsum and Rekor/Trillian emit).
+async function verifyInclusion({ leaf, index, size, root, path }) {
+  let r = leaf;
+  let fn = index;
+  let p = path;
+  for (let sn = size - 1; sn > 0; fn = Math.floor(fn / 2), sn = Math.floor(sn / 2)) {
+    const isOdd = (fn & 1) === 1;
+    if (isOdd) {
+      if (!p.length) return false;
+      r = await hashInteriorNode(p[0], r);
+      p = p.slice(1);
+    } else if (fn < sn) {
+      if (!p.length) return false;
+      r = await hashInteriorNode(r, p[0]);
+      p = p.slice(1);
+    }
+  }
+  return bytesEqual(r, root);
+}
+
+// RFC 6962 §2.1.2 consistency-proof verification (SUBPROOF/PROOF construction,
+// verifier form — mirrors the reference algorithm in the Certificate
+// Transparency python client and golang.org/x/mod/sumdb/tlog.CheckTree):
+// confirms `newRoot` (tree of size `newSize`) is an append-only extension of
+// `oldRoot` (tree of size `oldSize`) without trusting either root's provenance
+// — both are recomputed by the caller from tile bytes, per REGISTRY-TILES-
+// BUILD-SPEC.md §2.3. Added per REGISTRY-CONSISTENCY-VERIFY-BUILD-1 — the gate
+// §2.3 requires cannot exist without it (SPEC §20.1: no second Merkle impl).
+async function verifyConsistency({ oldSize, newSize, oldRoot, newRoot, proof }) {
+  if (!Number.isInteger(oldSize) || !Number.isInteger(newSize) || oldSize < 0 || newSize < oldSize) return false;
+  if (oldSize === newSize) return proof.length === 0 && bytesEqual(oldRoot, newRoot);
+  if (oldSize === 0) return proof.length === 0; // empty tree is consistent with anything, no root to check
+
+  const p = proof.slice();
+  let node = oldSize - 1;
+  let lastNode = newSize - 1;
+  while (node % 2 === 1) {
+    node = Math.floor(node / 2);
+    lastNode = Math.floor(lastNode / 2);
+  }
+
+  let oldHash, newHash;
+  if (node > 0) {
+    if (p.length === 0) return false;
+    oldHash = newHash = p.shift();
+  } else {
+    oldHash = newHash = oldRoot;
+  }
+
+  while (node > 0) {
+    if (node % 2 === 1) {
+      if (p.length === 0) return false;
+      const h = p.shift();
+      oldHash = await hashInteriorNode(h, oldHash);
+      newHash = await hashInteriorNode(h, newHash);
+    } else if (node < lastNode) {
+      if (p.length === 0) return false;
+      const h = p.shift();
+      newHash = await hashInteriorNode(newHash, h);
+    }
+    node = Math.floor(node / 2);
+    lastNode = Math.floor(lastNode / 2);
+  }
+
+  if (!bytesEqual(oldHash, oldRoot)) return false;
+
+  while (lastNode > 0) {
+    if (p.length === 0) return false;
+    const h = p.shift();
+    newHash = await hashInteriorNode(newHash, h);
+    lastNode = Math.floor(lastNode / 2);
+  }
+
+  return bytesEqual(newHash, newRoot) && p.length === 0;
+}
+
+// ---------------------------------------------------------------------------
+// tlog-checkpoint.md — checkpoint framing: "<origin>\n<size>\n<root-b64>\n"
+// plus optional extension lines, all per signed-note.md's note body grammar.
+// ---------------------------------------------------------------------------
+
+function formatCheckpoint(origin, size, rootHash, extensionLines = []) {
+  const rootB64 = bytesToBase64(rootHash);
+  const ext = extensionLines.length ? extensionLines.map((l) => `${l}\n`).join('') : '';
+  return `${origin}\n${size}\n${rootB64}\n${ext}`;
+}
+
+// signed-note.md: a note is "<text body>\n\n— <name> <base64(sig)>\n..." where
+// each signature's base64 payload is keyHint(4 bytes) || raw-signature-bytes.
+// tlog-checkpoint.md's checkpoint IS a note whose text body is the origin/
+// size/root(/extension) lines above. Returns the note body fields plus every
+// cosignature line found, each split into its 4-byte key-ID hint and the
+// remaining (algorithm-specific — Ed25519 raw, ECDSA DER, etc.) signature
+// bytes; the caller verifies the signature with whatever algorithm its log
+// uses, this function only implements the wire FRAMING (C2SP-TLOG-VERIFY-
+// MODULE-1's "signed-note parsing" export).
+function parseSignedNote(text) {
+  const lines = text.split('\n');
+  if (lines.length < 4) throw new Error('signed-note: too few lines for a checkpoint (need origin/size/root + blank + signature)');
+  const origin = lines[0];
+  const size = Number(lines[1]);
+  if (!Number.isInteger(size) || size < 0) throw new Error(`signed-note: malformed size line: ${lines[1]}`);
+  const rootHash = base64ToBytes(lines[2]);
+
+  // Extension lines run until the blank separator line (signed-note.md: the
+  // note body is text lines, blank line, then "— name sig" signature lines).
+  let i = 3;
+  const extensionLines = [];
+  while (i < lines.length && lines[i] !== '') { extensionLines.push(lines[i]); i++; }
+  if (i >= lines.length) throw new Error('signed-note: no blank separator before signature block');
+  const noteText = lines.slice(0, i).join('\n') + '\n'; // exact bytes every signature covers
+
+  const cosignatures = [];
+  for (let k = i + 1; k < lines.length; k++) {
+    const line = lines[k];
+    if (!line) continue;
+    if (!line.startsWith('— ')) continue; // U+2014 EM DASH per signed-note.md
+    const parts = line.split(' ');
+    const name = parts[1];
+    const sigBytes = base64ToBytes(parts[2]);
+    if (sigBytes.length < 4) throw new Error(`signed-note: cosignature for ${name} too short to hold a 4-byte key hint`);
+    cosignatures.push({
+      name,
+      keyIdHex: bytesToHex(sigBytes.subarray(0, 4)),
+      sigBytes: sigBytes.subarray(4),
+    });
+  }
+
+  return { origin, size, rootHash, extensionLines, noteText, cosignatures };
+}
+
+// tlog-cosignature.md: the message a witness actually signs over a checkpoint.
+function toCosignedData(origin, size, rootHash, timestamp, namespace = 'cosignature/v1') {
+  return `${namespace}\ntime ${timestamp}\n${formatCheckpoint(origin, size, rootHash)}`;
+}
+/* END c2sp-tlog-verify.mjs verbatim port. Everything between the BEGIN/END markers above is
+ * chaingraph/kernels/c2sp-tlog-verify.mjs's own function bodies, with only ES-module linkage
+ * (the `export` keywords) removed. */
+
+/* ── §18.1 verifySeal port (chaingraph/kernels/_computeproof.mjs L102-L226) ──────────────────────── */
+const { G1, G2, fields, pairingBatch } = bn254;
+const Fp12 = fields.Fp12;
+const CONTROL_ROOT_HEX = 'a54dc85ac99f851c92d7c96d7318af41dbe7c0194edfcc37eb4d422a998c1f56';
+const BN254_CONTROL_ID_HEX = 'c07a65145c3cb48b6101962ea607a4dd93c753bb26975cb47feb00d3666e4404';
+const VK = {
+  alpha: ['20491192805390485299153009773594534940189261866228447918068658471970481763042',
+          '9383485363053290200918347156157836566562967994039712273449902621266178545958'],
+  beta:  ['6375614351688725206403948262868962793625744043794305715222011528459656738731',
+          '4252822878758300859123897981450591353533073413197771768651442665752259397132',
+          '10505242626370262277552901082094356697409835680220590971873171140371331206856',
+          '21847035105528745403288232691147584728191162732299865338377159692350059136679'],
+  gamma: ['10857046999023057135944570762232829481370756359578518086990519993285655852781',
+          '11559732032986387107991004021392285783925812861821192530917403151452391805634',
+          '8495653923123431417604973247489272438418190587263600148770280649306958101930',
+          '4082367875863433681332203403145435568316851327593401208105741076214120093531'],
+  delta: ['12043754404802191763554326994664886008979042643626290185762540825416902247219',
+          '1668323501672964604911431804142266013250380587483576094566949227275849579036',
+          '13740680757317479711909903993315946540841369848973133181051452051592786724563',
+          '7710631539206257456743780535472368339139328733484942210876916214502466455394'],
+  IC: [
+    ['8446592859352799428420270221449902464741693648963397251242447530457567083492','1064796367193003797175961162477173481551615790032213185848276823815288302804'],
+    ['3179835575189816632597428042194253779818690147323192973511715175294048485951','20895841676865356752879376687052266198216014795822152491318012491767775979074'],
+    ['5332723250224941161709478398807683311971555792614491788690328996478511465287','21199491073419440416471372042641226693637837098357067793586556692319371762571'],
+    ['12457994489566736295787256452575216703923664299075106359829199968023158780583','19706766271952591897761291684837117091856807401404423804318744964752784280790'],
+    ['19617808913178163826953378459323299110911217259216006187355745713323154132237','21663537384585072695701846972542344484111393047775983928357046779215877070466'],
+    ['6834578911681792552110317589222010969491336870276623105249474534788043166867','15060583660288623605191393599883223885678013570733629274538391874953353488393'],
+  ],
+};
+const enc = (s) => new TextEncoder().encode(s);
+const cpHexToBytes = (h) => Uint8Array.from(h.match(/../g).map((x) => parseInt(x, 16)));
+const intBE = (b) => b.reduce((a, x) => (a << 8n) + BigInt(x), 0n);
+const intLE = (b) => intBE(Uint8Array.from(b).reverse());
+const u32le = (n) => Uint8Array.from([n & 0xff, (n >> 8) & 0xff, (n >> 16) & 0xff, (n >> 24) & 0xff]);
+const u16le = (n) => Uint8Array.from([n & 0xff, (n >> 8) & 0xff]);
+const concat = (arrs) => { const t = []; for (const a of arrs) for (const b of a) t.push(b); return Uint8Array.from(t); };
+const ZERO32 = new Uint8Array(32);
+function normId(d) { return typeof d === 'string' && d.startsWith('sha256:') ? d : 'sha256:' + d; }
+function taggedStruct(tag, down, data) {
+  return nobleSha256(concat([nobleSha256(enc(tag)), ...down, ...data.map(u32le), u16le(down.length)]));
+}
+function claimDigestOk(imageIdBytes, journalBytes) {
+  const post = taggedStruct('risc0.SystemState', [ZERO32], [0]);
+  const output = taggedStruct('risc0.Output', [nobleSha256(journalBytes), ZERO32], []);
+  return taggedStruct('risc0.ReceiptClaim', [ZERO32, imageIdBytes, post, output], [0, 0]);
+}
+function splitDigest(bytes32) {
+  const be = Uint8Array.from(bytes32).reverse();
+  return [intBE(be.slice(16, 32)), intBE(be.slice(0, 16))];
+}
+const g1 = ([x, y]) => G1.Point.fromAffine({ x: BigInt(x), y: BigInt(y) });
+const g2 = ([x0, x1, y0, y1]) => G2.Point.fromAffine({ x: { c0: BigInt(x0), c1: BigInt(x1) }, y: { c0: BigInt(y0), c1: BigInt(y1) } });
+
+function verifySeal(cp) {
+  if (!cp || typeof cp !== 'object') return false;
+  if (cp.receiptFormat === 'stark') {
+    throw new Error('stark seal verification is delegated to the vendor verifier; this page implements the groth16-bn254 reference verifier only');
+  }
+  if (cp.receiptFormat !== 'groth16-bn254') return false;
+  if (typeof cp.imageId !== 'string' || typeof cp.seal !== 'string') return false;
+  if (!cp.journal || typeof cp.journal !== 'object') return false;
+  const journalBytes = enc(__ocgJcs((cp.journal)));
+  const imageIdBytes = cpHexToBytes(normId(cp.imageId).slice('sha256:'.length));
+  if (imageIdBytes.length !== 32) return false;
+  const claimDigest = claimDigestOk(imageIdBytes, journalBytes);
+  const [a0, a1] = splitDigest(cpHexToBytes(CONTROL_ROOT_HEX));
+  const [c0, c1] = splitDigest(claimDigest);
+  const idBn254 = intLE(cpHexToBytes(BN254_CONTROL_ID_HEX));
+  const pub = [a0, a1, c0, c1, idBn254];
+  let seal;
+  try { seal = Uint8Array.from(atob(cp.seal), (ch) => ch.charCodeAt(0)); } catch { return false; }
+  if (seal.length !== 256) return false;
+  let A, B, C, vkx;
+  try {
+    A = G1.Point.fromAffine({ x: intBE(seal.slice(0, 32)), y: intBE(seal.slice(32, 64)) });
+    B = G2.Point.fromAffine({
+      x: { c0: intBE(seal.slice(96, 128)), c1: intBE(seal.slice(64, 96)) },
+      y: { c0: intBE(seal.slice(160, 192)), c1: intBE(seal.slice(128, 160)) },
+    });
+    C = G1.Point.fromAffine({ x: intBE(seal.slice(192, 224)), y: intBE(seal.slice(224, 256)) });
+    A.assertValidity(); B.assertValidity(); C.assertValidity();
+    const IC = VK.IC.map(g1);
+    vkx = IC[0];
+    for (let i = 0; i < pub.length; i++) vkx = vkx.add(IC[i + 1].multiply(pub[i]));
+  } catch { return false; }
+  try {
+    const gt = pairingBatch([
+      { g1: A, g2: B },
+      { g1: g1(VK.alpha).negate(), g2: g2(VK.beta) },
+      { g1: vkx.negate(), g2: g2(VK.gamma) },
+      { g1: C.negate(), g2: g2(VK.delta) },
+    ]);
+    return Fp12.eql(gt, Fp12.ONE);
+  } catch { return false; }
+}
+
+/* ── §3.2.1 THE PAGE'S OWN PINS ─────────────────────────────────────────────────────────────────────
+ * The bundle carries a trust-policy NAME for humans; the PINS DO NOT TRAVEL IN THE BUNDLE. The two
+ * published policy files are embedded below verbatim, and their sha256 is computed at run time from
+ * those exact bytes. An unknown policy name yields NOT-LOGGED-POLICY-UNPINNED: this page never adopts
+ * a trust policy out of the artifact under test. */
+const POLICY_TEXT = {
+  'sigsum-generic-2025-1': "# This is a Sigsum trust policy that has been vetted by the Sigsum project\n# See https://git.glasklar.is/sigsum/project/documentation/-/blob/main/policy-maintenance.md\n\n# https://git.glasklar.is/glasklar/services/sigsum-logs/-/blob/main/instances/seasalp.md (accessed 2025-12-04)\nlog 0ec7e16843119b120377a73913ac6acbc2d03d82432e2c36b841b09a95841f25 https://seasalp.glasklar.is\n\n# https://ginkgo.tlog.mullvad.net/about (accessed 2025-12-04)\nlog f00c159663d09bbda6131ee1816863b6adcacfe80b0b288000b11aba8fe38314 https://ginkgo.tlog.mullvad.net\n\n# https://git.glasklar.is/glasklar/services/witnessing/-/blob/main/witness.glasklar.is/about.md (accessed 2025-12-04)\nwitness witness.glasklar.is            b2106db9065ec97f25e09c18839216751a6e26d8ed8b41e485a563d3d1498536\n\n# https://witness.mullvad.net/about (accessed 2025-12-04)\nwitness witness.mullvad.net            15d6d0141543247b74bab3c1076372d9c894f619c376d64b29aa312cc00f61ad\n\n# https://github.com/tillitis/tillitis.se-tillitis-witness-1/blob/main/about.md (accessed 2025-12-04)\nwitness tillitis.se/tillitis-witness-1 076be8c9ee7ea60916f0df3608c945d7730082ecb37749dad2c9ed339fea770c\n\n# Requiring 2 of 3 is intended to give reasonable balance between security and availability.\ngroup quorum-rule 2 witness.glasklar.is witness.mullvad.net tillitis.se/tillitis-witness-1\n\nquorum quorum-rule\n",
+  'ainumbers-registry-lineage': "# AINumbers self-operated trust policy for the F3 anchor-lineage registry\n# log, per C2SP tlog-policy.md grammar. Landed by REGISTRY-LINEAGE-TILES-BUILD-1\n# (REGISTRY-TILES-BUILD-SPEC.md §3.3, §6). Unlike rekor-pinned.tlog-policy and\n# sigsum-generic-2025-1.tlog-policy above (both pin a THIRD-PARTY log's key),\n# this file pins OUR OWN log's key: AINumbers is the operator of\n# registry/lineage, generated and served as static C2SP tlog-tiles files by\n# scripts/gen-registry-lineage.mjs.\n#\n# Checkpoint origin (first line of the signed note body, no trailing slash):\n#   ainumbers.co/registry/lineage\n#\n# Algorithm: Ed25519 (signed-note.md algorithm tag 0x01). Public key below is\n# the raw 32-byte verify key, hex-encoded, generated 2026-08-18 via WebCrypto\n# (mirrors register-sigsum.mjs's own `keygen` command). The matching PRIVATE\n# key is held OUTSIDE this repo, at workspace-root\n# research/registry-lineage-log-key.priv.jwk.json (never committed — same\n# internal-artifact fence as research/sigsum-key.priv.jwk.json), per the\n# workspace CLAUDE.md path-ambiguity trap section.\n#\n# ⭐ NO WITNESS COSIGNING is defined for this log directly (single-operator\n# log, per tlog-policy.md's \"a policy without witness cosigning can be\n# defined using a quorum none line\", same deviation rekor-pinned.tlog-policy\n# above documents). Equivocation resistance instead comes from a SEPARATE,\n# ADDITIVE mechanism (REGISTRY-TILES-BUILD-SPEC.md §2.1): every checkpoint\n# this log publishes is ALSO submitted as a leaf to the public Sigsum log\n# (chaingraph/policies/sigsum-generic-2025-1.tlog-policy governs verification\n# of THAT anchor). The self-contained Sigsum anchor record is stored beside\n# each checkpoint at registry/lineage/checkpoint.sigsum-record.json. A\n# consumer who checks the Sigsum record can detect (never \"prevent\" — the\n# honest word per BUILD-SPEC §9) equivocation of this log's own head; a\n# consumer who never checks is not protected, exactly as BUILD-SPEC §2.1\n# states plainly.\nlog fe5eb9f2560469be7ff76e45fc695459db739a86117b659622cfc92513de13fa https://ainumbers.co/registry/lineage\n\nquorum none\n",
+};
+const POLICY_SOURCE = {
+  'sigsum-generic-2025-1': 'chaingraph/policies/sigsum-generic-2025-1.tlog-policy',
+  'ainumbers-registry-lineage': 'chaingraph/policies/ainumbers-registry-lineage.tlog-policy',
+};
+
+function parseTlogPolicy(text) {
+  const logs = []; const witnesses = []; const groups = {}; let quorum = null;
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const f = line.split(/\s+/);
+    if (f[0] === 'log') logs.push({ keyHex: f[1], url: f[2] });
+    else if (f[0] === 'witness') witnesses.push({ name: f[1], keyHex: f[2] });
+    else if (f[0] === 'group') groups[f[1]] = { threshold: Number(f[2]), members: f.slice(3) };
+    else if (f[0] === 'quorum') quorum = f[1];
+  }
+  const q = quorum && quorum !== 'none' ? groups[quorum] : { threshold: 0, members: [] };
+  return { logs, witnesses, groups, quorum, threshold: q ? q.threshold : 0, quorumMembers: q ? q.members : [] };
+}
+
+async function loadPinnedPolicy(name) {
+  const text = POLICY_TEXT[name];
+  if (text === undefined) return null;
+  const parsed = parseTlogPolicy(text);
+  return { name, source: POLICY_SOURCE[name], sha256: 'sha256:' + bytesToHex(await sha256(enc(text))), ...parsed };
+}
+
+/* Two SHA-256 implementations are in scope and they are deliberately named apart: `sha256` is the c2sp
+ * module's async WebCrypto one (used by every transparency-log primitive), and `nobleSha256` is the
+ * vendored synchronous one the Groth16 claim digest needs. Neither call site can pick up the other. */
+
+async function ed25519Verify(pubKeyHex, sigBytes, msgBytes) {
+  try {
+    const key = await crypto.subtle.importKey('raw', hexToBytes(pubKeyHex), { name: 'Ed25519' }, true, ['verify']);
+    return await crypto.subtle.verify({ name: 'Ed25519' }, key, sigBytes, msgBytes);
+  } catch { return false; }
+}
+
+/* ── §3.1 the proof half ─────────────────────────────────────────────────────────────────────────── */
+async function verifyProofHalf(bundle) {
+  const checks = [];
+  const add = (name, ok, detail) => { checks.push({ name, ok, detail }); return ok; };
+  const r = bundle && bundle.receipt;
+  if (!r || typeof r !== 'object') {
+    add('receipt.present', false, 'bundle.receipt is missing or is not an object');
+    return { verdict: 'PROOF-INVALID', checks, annotations: [] };
+  }
+  add('receipt.type', r.type === 'ZkVmReceipt', 'type=' + JSON.stringify(r.type) + ' (want "ZkVmReceipt")');
+  add('receipt.system', typeof r.system === 'string' && !!r.system, 'system=' + JSON.stringify(r.system));
+  add('receipt.receiptFormat', r.receiptFormat === 'groth16-bn254', 'receiptFormat=' + JSON.stringify(r.receiptFormat));
+  add('receipt.imageId', typeof r.imageId === 'string' && /^sha256:[0-9a-f]{64}$/.test(normId(r.imageId || '')), 'imageId=' + JSON.stringify(r.imageId));
+  add('receipt.journal', !!r.journal && typeof r.journal === 'object', 'journal must be an object');
+  let sealLen = null;
+  try { sealLen = base64ToBytes(r.seal).length; } catch { sealLen = null; }
+  add('seal.256bytes', sealLen === 256, 'decoded seal length=' + sealLen + ' (want 256)');
+
+  checks.push({ name: 'binding.journal_output_vs_artifact_output_payload', ok: null,
+    detail: 'NOT-ENGAGED: a bundle carries no OCG artifact, and synthesising an output_payload from the receipt\'s own journal.output would validate the artifact under test against itself. Engage this leg against the published artifact.' });
+  checks.push({ name: 'binding.published_image_and_kernel_identity', ok: null,
+    detail: 'NOT-ENGAGED: imageId and journal.kernel_digest bind to published Graph Index identities, which a portable offline bundle does not carry.' });
+
+  if (checks.some((c) => c.ok === false)) return { verdict: 'PROOF-INVALID', checks, annotations: [] };
+
+  const journalBytes = enc(__ocgJcs((r.journal)));
+  const journalDigest = 'sha256:' + bytesToHex(await sha256(journalBytes));
+  const annotations = [];
+  const jc = bundle.journal_contract || {};
+  if (jc.journal_digest !== undefined && jc.journal_digest !== null) {
+    const agrees = normId(jc.journal_digest) === journalDigest;
+    annotations.push({ field: 'journal_contract.journal_digest', agrees,
+      note: agrees ? 'annotation agrees with the recomputed value (advisory either way)'
+                   : 'REPORTED DISCREPANCY: annotated ' + jc.journal_digest + ', recomputed ' + journalDigest + '. The verdict is decided by the recomputed value; the annotation is never trusted.' });
+  }
+  let sealOk = false;
+  try { sealOk = verifySeal(r) === true; } catch (e) { sealOk = false; add('seal.pairing.error', false, String(e.message || e)); }
+  add('seal.groth16_pairing', sealOk, sealOk
+    ? 'the pairing equation holds for the decoded seal against the risc0 3.0.x verifying key'
+    : 'the pairing equation did NOT hold for the decoded seal over the recomputed ReceiptClaim');
+  return { verdict: sealOk ? 'PROOF-VALID' : 'PROOF-INVALID', checks, annotations, recomputed: { journal_digest: journalDigest } };
+}
+
+/* ── §3.2 the logged half ────────────────────────────────────────────────────────────────────────── */
+const TREE_LEAF_NAMESPACE = 'sigsum.org/v1/tree-leaf';
+
+async function verifyLoggedHalf(bundle) {
+  const checks = [];
+  const add = (name, ok, detail) => { checks.push({ name, ok, detail }); return ok; };
+  const anchor = bundle && bundle.anchor;
+  const rec = anchor && anchor.record;
+  if (!anchor || !rec || typeof rec !== 'object' || typeof anchor.checkpoint_text !== 'string') {
+    add('anchor.present', false, 'NOT-LOGGED: the bundle carries no anchor (record plus checkpoint_text). A bundle with no log half is log-absent, and that is what gets reported, never "verified".');
+    return { verdict: 'NOT-LOGGED', checks, subject: (anchor && anchor.subject) || null, quorum: null, failing: ['anchor.present'] };
+  }
+  const declaredName = bundle.trust_policy && bundle.trust_policy.name;
+  const pinned = await loadPinnedPolicy(declaredName);
+  if (!pinned) {
+    add('policy.pinned', false, 'NOT-LOGGED-POLICY-UNPINNED: trust_policy.name=' + JSON.stringify(declaredName) + ' is not a policy this page holds. Known: ' + Object.keys(POLICY_TEXT).join(', ') + '.');
+    return { verdict: 'NOT-LOGGED-POLICY-UNPINNED', checks, subject: anchor.subject || null, quorum: null, failing: ['policy.pinned'] };
+  }
+  add('policy.pinned', true, pinned.name + ' @ ' + pinned.source + ' ' + pinned.sha256 + ' (' + pinned.logs.length + ' logs, ' + pinned.witnesses.length + ' witnesses, quorum ' + pinned.threshold + '-of-' + pinned.quorumMembers.length + ')');
+  if (bundle.trust_policy && bundle.trust_policy.sha256) {
+    const claimed = normId(bundle.trust_policy.sha256);
+    add('policy.sha256_annotation_agrees', claimed === pinned.sha256, claimed === pinned.sha256
+      ? 'the bundle\'s policy sha256 annotation agrees with this page\'s own embedded copy'
+      : 'REPORTED DISCREPANCY (advisory): the bundle says ' + claimed + ', this page\'s own copy hashes to ' + pinned.sha256 + '. The page proceeds on its own pins.');
+  }
+
+  const cpDigest = 'sha256:' + bytesToHex(await sha256(enc(anchor.checkpoint_text)));
+  const anchoredHash = normId(String(rec.anchored_hash || ''));
+  add('anchored_hash.commits_to_checkpoint_text', cpDigest === anchoredHash,
+    'sha256(utf8(checkpoint_text))=' + cpDigest + ' vs record.anchored_hash=' + anchoredHash);
+
+  const subjectPolicyName = String((anchor.subject && anchor.subject.log_policy) || '').split('/').pop().replace(/\.tlog-policy$/, '');
+  const subjectPinned = await loadPinnedPolicy(subjectPolicyName);
+  if (!subjectPinned) {
+    add('subject_policy.pinned', false, 'NOT-LOGGED-POLICY-UNPINNED: anchor.subject.log_policy names a policy this page does not hold.');
+    return { verdict: 'NOT-LOGGED-POLICY-UNPINNED', checks, subject: anchor.subject || null, quorum: null, failing: ['subject_policy.pinned'] };
+  }
+  let note = null;
+  try { note = parseSignedNote(anchor.checkpoint_text); } catch (e) {
+    add('checkpoint.signed_note_parse', false, 'signed-note framing rejected: ' + e.message);
+  }
+  if (note) {
+    add('checkpoint.signed_note_parse', true, 'origin=' + note.origin + ' size=' + note.size + ' signature_lines=' + note.cosignatures.length);
+    const operatorKey = subjectPinned.logs[0] && subjectPinned.logs[0].keyHex;
+    let cpSigOk = false;
+    for (const cs of note.cosignatures) {
+      if (await ed25519Verify(operatorKey, cs.sigBytes, enc(note.noteText))) { cpSigOk = true; break; }
+    }
+    add('checkpoint.operator_signature', cpSigOk, cpSigOk
+      ? 'verifies against the operator key pinned in ' + subjectPinned.source
+      : 'no signature line on the checkpoint verifies against the pinned operator key from ' + subjectPinned.source);
+  }
+
+  const anchoredBytes = hexToBytes(anchoredHash.slice('sha256:'.length));
+  const checksum = await sha256(anchoredBytes);
+  add('leaf.checksum', bytesToHex(checksum) === String((rec.leaf && rec.leaf.checksum) || ''),
+    'sha256(anchored_hash bytes)=' + bytesToHex(checksum) + ' vs leaf.checksum=' + (rec.leaf && rec.leaf.checksum));
+  const leafMsg = concatBytes([enc(TREE_LEAF_NAMESPACE), new Uint8Array([0x00]), checksum]);
+  const leafSigOk = await ed25519Verify(String((rec.leaf && rec.leaf.public_key) || ''), hexToBytes(String((rec.leaf && rec.leaf.signature) || '')), leafMsg);
+  add('leaf.signature', leafSigOk, leafSigOk
+    ? 'the leaf signature verifies over the namespaced checksum against record.leaf.public_key'
+    : 'the leaf signature did NOT verify over the domain-separated tree-leaf message');
+
+  const keyHash = await sha256(hexToBytes(String((rec.leaf && rec.leaf.public_key) || '')));
+  const leafBin = concatBytes([checksum, hexToBytes(String((rec.leaf && rec.leaf.signature) || '')), keyHash]);
+  const leafNode = await hashLeafNode(leafBin);
+  const root = hexToBytes(String((rec.tree_head && rec.tree_head.root_hash) || ''));
+  const inclusionOk = await verifyInclusion({
+    leaf: leafNode,
+    index: rec.inclusion_proof && rec.inclusion_proof.leaf_index,
+    size: rec.tree_head && rec.tree_head.size,
+    root,
+    path: ((rec.inclusion_proof && rec.inclusion_proof.path) || []).map((h) => hexToBytes(h)),
+  });
+  add('inclusion_proof', inclusionOk, 'the RFC 6962 walk at (index ' + (rec.inclusion_proof && rec.inclusion_proof.leaf_index) + ', size ' + (rec.tree_head && rec.tree_head.size) + ') ' + (inclusionOk ? 'reconstructs' : 'does NOT reconstruct') + ' tree_head.root_hash');
+
+  let matchedLog = null;
+  for (const l of pinned.logs) {
+    const derivedOrigin = 'sigsum.org/v1/tree/' + bytesToHex(await sha256(hexToBytes(l.keyHex)));
+    if (l.keyHex === String(rec.log_public_key || '') || derivedOrigin === String(rec.log_origin || '')) { matchedLog = Object.assign({}, l, { derivedOrigin }); break; }
+  }
+  if (!matchedLog) {
+    add('log.pinned_key_match', false, 'record.log_public_key matches NO log pinned in ' + pinned.source + '. A record\'s own log key is never accepted as an authority.');
+  } else {
+    add('log.pinned_key_match', true, 'pinned log ' + matchedLog.url + ', origin independently derived from the pinned key');
+    add('log.origin_matches_derived', matchedLog.derivedOrigin === String(rec.log_origin || ''),
+      'derived=' + matchedLog.derivedOrigin + ' vs record.log_origin=' + rec.log_origin);
+    const logCheckpoint = formatCheckpoint(matchedLog.derivedOrigin, rec.tree_head.size, root);
+    const logSigOk = await ed25519Verify(matchedLog.keyHex, hexToBytes(String((rec.tree_head && rec.tree_head.log_signature) || '')), enc(logCheckpoint));
+    add('log.tree_head_signature', logSigOk, logSigOk
+      ? 'tree_head.log_signature verifies against the pinned log key over the derived checkpoint'
+      : 'tree_head.log_signature did NOT verify against the pinned log key over the derived checkpoint');
+  }
+
+  const quorum = { threshold: pinned.threshold, carried: (rec.witness_cosignatures || []).length, matched: 0, valid: 0, witnesses: [] };
+  if (matchedLog) {
+    const byHash = new Map();
+    for (const w of pinned.witnesses) byHash.set(bytesToHex(await sha256(hexToBytes(w.keyHex))), w);
+    for (const cs of rec.witness_cosignatures || []) {
+      const w = byHash.get(String(cs.key_hash || ''));
+      if (!w) continue;
+      quorum.matched++;
+      const msg = toCosignedData(matchedLog.derivedOrigin, rec.tree_head.size, root, cs.timestamp);
+      const ok = await ed25519Verify(w.keyHex, hexToBytes(String(cs.signature || '')), enc(msg));
+      if (ok) quorum.valid++;
+      quorum.witnesses.push({ name: w.name, valid: ok, timestamp: cs.timestamp });
+    }
+  }
+  add('witness_quorum', quorum.valid >= quorum.threshold,
+    quorum.valid + ' valid pinned cosignature(s) of ' + quorum.matched + ' matched (of ' + quorum.carried + ' carried) vs quorum ' + quorum.threshold + '-of-' + pinned.quorumMembers.length
+    + (quorum.witnesses.length ? ': ' + quorum.witnesses.map((w) => w.name + '=' + (w.valid ? 'valid' : 'INVALID')).join(', ') : ''));
+
+  const failed = checks.filter((c) => c.ok === false);
+  return { verdict: failed.length ? 'NOT-LOGGED' : 'LOGGED', checks, subject: anchor.subject || null, quorum, failing: failed.map((c) => c.name) };
+}
+
+/* ── §3.3 the combined verdict, and §3.4 the subject scope sentence ──────────────────────────────── */
+function subjectScopeSentence(subject, record) {
+  if (!subject) return 'The log half commits to an unstated subject: the bundle names no anchor subject, so what the logged half covers cannot be stated. It is not the receipt.';
+  if (subject.kind === 'registry-checkpoint') {
+    return 'The log half commits to the registry checkpoint ' + subject.origin + ' at size ' + ((record && record.tree_head && record.tree_head.size) || '?') + ', NOT to the receipt itself.';
+  }
+  if (subject.kind === 'execution_hash') {
+    return 'The log half commits to the subject artifact execution_hash ' + (subject.artifact_execution_hash || '(unnamed)') + '.';
+  }
+  return 'The log half commits to a subject of kind ' + JSON.stringify(subject.kind) + ', NOT to the receipt itself.';
+}
+
+async function verifyBundle(bundle) {
+  const proof = await verifyProofHalf(bundle);
+  const logged = await verifyLoggedHalf(bundle);
+  return {
+    bundle_version: (bundle && bundle.bundle_version) || null,
+    bundle_version_supported: bundle && bundle.bundle_version === '0.1',
+    proof, logged,
+    subject: logged.subject,
+    subject_scope: subjectScopeSentence(logged.subject, bundle && bundle.anchor && bundle.anchor.record),
+    combined: proof.verdict + ' + ' + logged.verdict,
+    non_collapse_note: proof.verdict === 'PROOF-VALID' && logged.verdict !== 'LOGGED'
+      ? 'Proof valid, not logged. This bundle is proof-valid and log-absent. It is NOT "verified": the seal verifies a computation by the named guest image, and nothing here shows the subject was sequenced in a witnessed transparency log.'
+      : 'Both halves are reported separately above. Neither verdict implies the other.',
+  };
+}
+
+/* ── rendering: both verdicts stay independently legible ─────────────────────────────────────────── */
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function renderChecks(title, res) {
+  const items = res.checks.map((c) => {
+    const cls = c.ok === true ? 'm-pass' : c.ok === false ? 'm-fail' : 'm-na';
+    const mark = c.ok === true ? 'PASS' : c.ok === false ? 'FAIL' : 'n/a';
+    return '<li><span class="mark ' + cls + '">' + mark + '</span>' + esc(c.name) + (c.detail ? ': ' + esc(c.detail) : '') + '</li>';
+  }).join('');
+  const notes = (res.annotations || []).map((a) => '<li><span class="mark m-na">note</span>' + esc(a.field) + ': ' + esc(a.note) + '</li>').join('');
+  return '<h2>' + esc(title) + '</h2><ul class="checks">' + items + notes + '</ul>';
+}
+
+function render(v) {
+  const pCls = v.proof.verdict === 'PROOF-VALID' ? 'v-ok' : 'v-bad';
+  const lCls = v.logged.verdict === 'LOGGED' ? 'v-ok' : 'v-bad';
+  let html = '<div class="card">';
+  html += '<div class="verdict ' + pCls + '"><span class="tok">' + esc(v.proof.verdict) + '</span> groth16 seal over the image id and the canonical journal bytes</div>';
+  html += '<div class="verdict ' + lCls + '"><span class="tok">' + esc(v.logged.verdict) + '</span> sigsum inclusion and witness quorum</div>';
+  html += '<div class="scope">' + esc(v.subject_scope) + '</div>';
+  html += '<p class="note">' + esc(v.non_collapse_note) + '</p>';
+  if (v.logged.failing && v.logged.failing.length) html += '<p class="note">Failing checks in the logged half: ' + esc(v.logged.failing.join(', ')) + '</p>';
+  if (!v.bundle_version_supported) html += '<p class="note">This page implements bundle_version 0.1. The pasted bundle declares ' + esc(String(v.bundle_version)) + '.</p>';
+  html += renderChecks('Proof half checks', v.proof);
+  html += renderChecks('Logged half checks', v.logged);
+  html += '</div>';
+  return html;
+}
+
+const EXAMPLE_BUNDLE = {"bundle_version":"0.1","receipt":{"type":"ZkVmReceipt","system":"risc0","receiptFormat":"groth16-bn254","imageId":"sha256:93c746e79afcf4b27f6d2a6da6cd142a4dd0da31f33d942f92b97344188526c5","seal":"JprnquQV+W8PZGrVb3psyDFR3XLhdjfIXqv6BPQl4toSEZPGzDAQMW9vktjGPijzYCJ0LVWuD4QDae75YBVN5yiYvlT5xX5ckesO7VwnQJQ3cy/anmRyuV+fRqJANv8+K1LR1CCL+LXDs4OfqZ2lyurNSDIj9hmmOpLSmlSJGSwMuYvNwbuaD922LK8Mf0/KcNL8mKQKpgTJ2YLQ0qhlQC8GKlwA+eHTMZ99YTSTmL/sF5oK+IcawyJYOC7UaI4pIMMFVtoU7i6xui5DA4tUENjZ8ZUG3+IGa91Jq2qjEskn/Vla1uuySzmfJv4LREJAHEFMXLwaXL2lBbxbiV4uGA==","journal":{"chaingraph_version":"0.4.0","kernel_digest":"sha256:f4e9e5aed913e80c7f97e3d0d2501e7349c523de4ffd433a1d29081620197b1f","output":{"overall_status":"warn","pass":6,"fail":0,"warn":2,"checks":[{"code":"KYA-T01","status":"pass"},{"code":"KYA-R01","status":"pass"},{"code":"KYA-R02","status":"pass"},{"code":"KYA-R03","status":"pass"},{"code":"KYA-R04","status":"warn"},{"code":"KYA-R05","status":"pass"},{"code":"KYA-R06","status":"pass"},{"code":"KYA-EU1","status":"warn"}],"root_agent_id":"a1","scopes":["read:account"]}}},"journal_contract":{"spec":"SPEC.md §18.7","serialization":"rfc8785-jcs+utf8","journal_digest":"sha256:3a089ca010da4cc939c482b41b52b659a6ff177a2b82df91c64a774164bcd4be","claim_digest":null},"provenance":{"repo":"PostOakLabs/ainumbers","receipt_source":"chaingraph/kernels/fixtures/compute-proof/art-04-agent-identity-attestation-checker.receipt.json","receipt_source_sha256":"sha256:ecd8c0478a1abbaa634f096a32e46738a64fd5b1963ee98d83ac2ca42d5a11e6","anchor_source":"registry/lineage/checkpoint.sigsum-record.json","checkpoint_source":"registry/lineage/checkpoint"},"anchor":{"type":"c2sp-tlog-proof-v1","record":{"anchor_type":"c2sp-tlog-proof-v1","log_origin":"sigsum.org/v1/tree/44ad38f8226ff9bd27629a41e55df727308d0a1cd8a2c31d3170048ac1dd22a1","log_url":"https://seasalp.glasklar.is","log_public_key":"0ec7e16843119b120377a73913ac6acbc2d03d82432e2c36b841b09a95841f25","anchored_hash":"sha256:ad2ce87071cd0cf48926c515c7454da021371ee71ddd3749f776615bbebf2db3","leaf":{"checksum":"57272f5d8a5e264c6c931ea71a4908da41557f34a9d6e80923832c087304d5ce","signature":"969e8151364b198e5a20a4d0508b114931fe367b993f7959e888a2cba71b698047f52968295939b5e261bb275ce906aee89dc18295214b14c1ce2dce2bf0980a","public_key":"64ffed0396abb761968b34ce849b7b09bc47b8a492ba2efd006b6b8f5622ceca"},"tree_head":{"size":68570,"root_hash":"908c4e1e869ff748abf5da1d2c946774f6190da88305bd8e6cff54b1a2751ad5","log_signature":"3c0ef97f2a698d39f78a59d90eb45242b17b8748288caf9e01b2eb964eab44d164ce9144e4d50ac5a04ddf6e800dbae1ea61625045bdfb946d4df89c0a135405"},"inclusion_proof":{"leaf_index":68569,"path":["2de8102c22e6c4afb977971912b3a8bd3d53627c6abd4e8074ef8d74d5a81d78","eda54d3240690b8e5ee7e0e3d68c0f49710a934ee11d8117f588bc9fc2f0c180","7be7e78934d0d5b61a27599d5d080616c92d8c614742654c3b655704503665f0","802fda4f1a4f7278d6e1d0082f6f12fd13988874a43fb677a9d413070b120756","accf0a8302536c4e1b139708231883aa24bb1dd6c08ef0d068742f61e9e65627","fa186e86f4bb5d7c56dc30234ff482d257289b278a23f21cdd290aaa1bbc0a55","a85bbc5df00dc3726e3aa3774c5ef44db8bc47d77b1cbf5ea28a701953cd2df7","9e9bb4cfbf93340beb01d5e9e2ea944207d4c78a7c8bfcb2b1e4529a1eb7ac3b","6e3104eb98a720cc868416197a730db01f0032cbbb3f74602bf997125a81f28b"]},"witness_cosignatures":[{"key_hash":"cd02db1cc0488c28245d7c3ff50b3e214334c067f2571e849425146bb6bd173d","timestamp":1790448270,"signature":"a32301743ad85a5388fd2793d8f4fe5c8ca32c8bc2ab77dbf48e7b94ae4bb9caf6ae4eb6f64476b24900609dbbc9a6a001f866a96d674541388b4f8cec67bb06"},{"key_hash":"6bdf03b285fce48e00ff9b199cb2b77472dcc4a112f067fa5b274929cb9504e3","timestamp":1790448270,"signature":"3965c8fc597ffc67921a91e5cf3b304ae2b38b8b2466a3998687465ef77f0376f5b96026528fb595d5adafe2438faf61d07b67d074ea7b26178c4f5f24049209"},{"key_hash":"5da2b3803c2f802eed9744b74e3e4a3d31e1e77ed994ef56730d57fa52f698a5","timestamp":1790448270,"signature":"fad5dda4a24ae25c49b0c2a9dcc0794dfcebc7c0a7ca60606e4dedc3d5cc6917bec9a2b557862ec142f7f642d16a2a7d10cb539c905f22de6fe12e3bc3ae480f"},{"key_hash":"3573fb7fdab7434cd0dad9fd6460abf420388055db8aaaec177c248f03a990cc","timestamp":1790448270,"signature":"dfc9e2d675b7c8324c112abf13d7f107a642ee11f87aab19d4589e2bdcf430527ded3b09ceedf8fb973280c552da08a1c233bd804fdf748b1b0d8c9e95381302"},{"key_hash":"d59098d686f47ec1d4d1984c8ac0ab97a3d8a65c7ba8cb6422ada0fae927e194","timestamp":1790448270,"signature":"1f9e0bb803f91bad87e2cfbe3406967f1695eb3914e13a62bcee826f1b123db1d1bf5a81c4b54e56cda26106c463452f1a6e93c2c766e4e62daea12250720201"},{"key_hash":"774fafee07d3b0d9399d669676440a6301db9fa8fe2140d7d352418da25144c5","timestamp":1790448270,"signature":"fac750a7400143969599fb0cbb2606f13b489c6f53bbe787b34aeb5a99938d6377a2694fc45d457c37d6e35c4ffd639b62b8fde114ab65eb573527f12ad50302"},{"key_hash":"f6f91669f7955f542718af9edb6a1276d88a0f8822cba9046e549d0b3796f394","timestamp":1790448270,"signature":"9efbf4a8bf7f0c7f79cd17dfd4775573a5a0eb0e628b5f2b0765729576eef8c0e53e2705c2b9d873896816e55e6e4fd4c31ef9a66ee480d193d5c9db8617b20a"},{"key_hash":"6d6a78191e59815eff9131941fc3e08dd716a281c8b886dd67880d552e587a23","timestamp":1790448270,"signature":"74042151d77e10fb1e2ab56ea1180e33dced3e6dc56c21ed25b03490af3144c728348b147117440af748c98f28012a9eb733822ab9b1b77dc9c0297f1cfe0d02"},{"key_hash":"9a0dcddbd96f6d6d404227b5ff23de7a43f25cdde9790af5ace332d347fac49a","timestamp":1790448270,"signature":"1474693a24a29a69c865b6062f475cab77419d944f10fbe1efb937907e29ce6b7db51d25d40bf009174b0037e6584a59b339e970ddbdea009bb2782c08b2fd03"},{"key_hash":"81538d254f0a67aa07172826ef46fe0cd04b7425bd634a50bb0a8419d55fa65f","timestamp":1790448270,"signature":"be9ec1ca6a84e646f02b26692962bab14513ccd4d13883d289b63fa16fe439a23b587962a91877d200a93077cb201ec5d1d9a4ccae6c6b8c770d0ff34bbae803"},{"key_hash":"ff2f237a707a2d3a6adfb1600d3375cafe4527ba4fcec793e6093b9b1a4bd79a","timestamp":1790448270,"signature":"fd8457dd3409213820f0b8c5bea141cacf8f715aa268bab7acba64e6b2c47f57b2ee972fb20f307beeee31d17b031adf7d093cdb6822f31683146213da2c540c"},{"key_hash":"0dad9d849c57687454f100d87fa729b54cb69f7af97346613348defcba9c361c","timestamp":1790448270,"signature":"18828592c4730d1150893bba48c69411677a75e8141cfc6cd1df67c78e0935fe736adbf5b4a5debf7b9af0f307dc75786b7de3e3804a88abec27a06c5e810a0c"}]},"checkpoint_text":"ainumbers.co/registry/lineage\n33\n7ZnuzwH05Z3dZm5oITv4taJlIUvJgh7wVAC8a0p1+Us=\n\n— ainumbers.co/registry/lineage JrLnuog5R/AbF5SlsHgd64MYkVMfDz/WbDBBirw2gh44YJcH7tmWx6i5ORnfQ0E9tjveR5xwszzf6x2ereivrVzZpQg=\n","subject":{"kind":"registry-checkpoint","origin":"ainumbers.co/registry/lineage","log_policy":"chaingraph/policies/ainumbers-registry-lineage.tlog-policy"}},"trust_policy":{"name":"sigsum-generic-2025-1","source":"chaingraph/policies/sigsum-generic-2025-1.tlog-policy","sha256":"sha256:666d9d0b9ab2e4019769c42eaccd7d6d502a9abac45979bb9b08b7213e4f53e3","shape":"2 logs, 3 witnesses, quorum 2-of-3"},"build_note":"Fixture (a): live single-node receipt + the published registry-lineage checkpoint anchor. art-04 is the §18.7 discriminating-journal receipt (unsorted nested journal keys), so a non-JCS canonicalizer fails the proof half here."};
+
+const out = document.getElementById('out');
+const input = document.getElementById('bundleIn');
+
+document.getElementById('exampleBtn').addEventListener('click', () => {
+  input.value = JSON.stringify(EXAMPLE_BUNDLE, null, 2);
+  out.innerHTML = '<div class="card"><p class="note">Example bundle loaded. It is the shipped fixture: a live single node receipt plus the published registry checkpoint anchor.</p></div>';
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => { input.value = ''; out.innerHTML = ''; });
+
+document.getElementById('verifyBtn').addEventListener('click', async () => {
+  out.innerHTML = '<div class="card"><p class="note">Verifying both halves locally. The pairing check takes a moment.</p></div>';
+  let bundle;
+  try { bundle = JSON.parse(input.value); } catch (e) {
+    out.innerHTML = '<div class="card"><p class="note">That is not valid JSON: ' + esc(e.message) + '</p></div>';
+    return;
+  }
+  try {
+    const v = await verifyBundle(bundle);
+    out.innerHTML = render(v);
+  } catch (e) {
+    out.innerHTML = '<div class="card"><p class="note">The verifier stopped on an error: ' + esc(e.message) + '</p></div>';
+  }
+});
+
+window.__ocgVerifyReceiptBundle = verifyBundle;
+
+/* Deep link for demos and for capture: /chaingraph/receipt-bundle-verify.html#demo loads the shipped
+ * example and verifies it on load. Still entirely local, still no network. */
+if (location.hash === '#demo') {
+  input.value = JSON.stringify(EXAMPLE_BUNDLE, null, 2);
+  verifyBundle(EXAMPLE_BUNDLE).then((v) => { out.innerHTML = render(v); });
+}
+</script>
+</body>
+</html>

@@ -25,6 +25,17 @@
 // output_schema is best-effort single-sample JSON-Schema-from-example,
 // never hand-composed — see deriveSchema().
 //
+// mcp_tool_definition.annotations (REGEN-MANIFEST-ATTEST-1, 2026-09-27): emitted from
+// day one, using the SAME derivation the manifests tree writer applies —
+// gen-manifest-examples.mjs's annotationVerdict + ANNOTATIONS, imported, never a
+// second table. A hand-authored manifest for a PENDING-ASSEMBLE shard therefore
+// already carries the block the writer would otherwise add, so the bot's regen is
+// byte-stable over it (measured cause: commit bfec8c3a — the tree writer rewrote the
+// hand-authored art-693 manifest under the `manifests/` commit glob, an unattested
+// own-commit write). Keyed LAST in mcp_tool_definition on purpose: the writer's
+// applyPlan appends `annotations` after the existing keys — same position, zero
+// key reflow under a later regen.
+//
 // Modes:
 //   --all --check              dry run over every in-scope node, no writes,
 //                               reports tier counts + per-TODO counts +
@@ -38,6 +49,7 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ANNOTATIONS, annotationVerdict } from './gen-manifest-examples.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -234,6 +246,26 @@ function draftManifest(node) {
   const inputSchema = inline?.mcp_tool_definition?.inputSchema || { type: 'object' };
   const mcpDescription = inline?.mcp_tool_definition?.description || node.description;
 
+  // REGEN-MANIFEST-ATTEST-1: annotations from the same source function the tree
+  // writer computes them from — annotationVerdict qualifies on the node's published
+  // status/gpu/kernel signals (the same hasKernel predicate gen-manifest-examples
+  // walk() builds), and all four VALUES come from the writer's frozen ANNOTATIONS
+  // (never a second table); the key names are spelled out because they are the
+  // MCP 2026-07-28 reviewed-risk vocabulary the manifest schema pins.
+  const mcpToolDefinition = {
+    name: node.mcp_name,
+    description: mcpDescription,
+    inputSchema,
+  };
+  if (annotationVerdict(toolId, node, (id) => existsSync(resolve(REPO, 'chaingraph', 'kernels', `${id}.kernel.mjs`))).qualifies) {
+    mcpToolDefinition.annotations = {
+      readOnlyHint: ANNOTATIONS.readOnlyHint,
+      destructiveHint: ANNOTATIONS.destructiveHint,
+      idempotentHint: ANNOTATIONS.idempotentHint,
+      openWorldHint: ANNOTATIONS.openWorldHint,
+    };
+  }
+
   const manifest = {
     tool_id: toolId,
     version: node.tool_version || '1.0.0',
@@ -242,11 +274,7 @@ function draftManifest(node) {
     category,
     tags,
     input_schema: inputSchema,
-    mcp_tool_definition: {
-      name: node.mcp_name,
-      description: mcpDescription,
-      inputSchema,
-    },
+    mcp_tool_definition: mcpToolDefinition,
     execution: {
       type: 'browser-javascript',
       entry: relativeEntry(node.url),

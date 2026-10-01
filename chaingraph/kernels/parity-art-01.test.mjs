@@ -11,7 +11,7 @@
 //      does NOT anchor inputs — demonstrates the bug this kernel fixes.
 
 import { compute, buildArtifact } from './art-01-ap2-mandate-chain-validator.kernel.mjs';
-import { executionHash, cgCanon } from './_hash.mjs';
+import { executionHash, jcsStringify } from './_hash.mjs';
 
 // ── Deterministic fixtures (absolute timestamps; fixed validate_at) ──
 const VALIDATE_AT = '2026-06-18T12:00:00.000Z';
@@ -91,7 +91,7 @@ const mutOut = compute(mutated).output_payload;
 const legacyBase = await legacyBrowserHash(base.pp, baseOut);
 const legacyMut = await legacyBrowserHash(mutated.pp ?? mutated, mutOut);
 ok(legacyBase === legacyMut, '[regression] legacy browser canonicalizer collapses both inputs to the SAME hash (demonstrates the bug the kernel fixes)');
-console.log(`        legacy preimage = ${JSON.stringify(cgCanon({ policy_parameters: base.pp, output_payload: baseOut })).length} bytes of real data, but legacy hash ignores it`);
+console.log(`        legacy preimage = ${jcsStringify(({ policy_parameters: base.pp, output_payload: baseOut })).length} bytes of real data, but legacy hash ignores it`);
 
 console.log(`\n${failures === 0 ? '✅ ALL CHECKS PASSED' : `❌ ${failures} CHECK(S) FAILED`}`);
 process.exit(failures === 0 ? 0 : 1);

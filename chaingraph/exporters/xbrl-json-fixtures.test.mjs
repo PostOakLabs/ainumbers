@@ -11,7 +11,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cgCanon } from '../kernels/_hash.mjs';
+import { jcsStringify } from '../kernels/_hash.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXDIR = join(HERE, 'fixtures', 'xbrl-json');
@@ -38,11 +38,11 @@ function assertCanonicalValues(doc, label) {
 }
 
 function assertDeterminism(raw, doc, label) {
-  const once = JSON.stringify(cgCanon(doc));
-  const twice = JSON.stringify(cgCanon(JSON.parse(once)));
+  const once = jcsStringify((doc));
+  const twice = jcsStringify((JSON.parse(once)));
   ok(once === twice, `${label}: re-canonicalizing twice is byte-identical`);
   // The committed fixture is itself already in JCS key order — canonicalizing it must be a no-op.
-  ok(JSON.stringify(cgCanon(doc)) === JSON.stringify(doc), `${label}: fixture on disk is already in canonical (JCS) key order`);
+  ok(jcsStringify((doc)) === JSON.stringify(doc), `${label}: fixture on disk is already in canonical (JCS) key order`);
 }
 
 console.log('§13.13 xBRL-JSON export profile — fixture gate\n');

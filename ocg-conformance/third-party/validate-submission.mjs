@@ -203,7 +203,7 @@ note('vector id namespace-prefix check: ' + (errors.some((e) => e.includes('does
 
 // 5: recompute file/canonical/execution hashes via the ONE canonicalizer
 const hashMjsUrl = pathToFileURL(path.join(__dirname, '..', '..', 'chaingraph', 'kernels', '_hash.mjs')).href;
-const { cgCanon, executionHash } = await import(hashMjsUrl);
+const { jcsStringify, executionHash } = await import(hashMjsUrl);
 
 async function sha256Hex(bytes) {
   const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
@@ -227,8 +227,8 @@ for (const v of manifest.vectors || []) {
   const inputParsed = JSON.parse(inputRaw.toString('utf8'));
   const outputParsed = JSON.parse(outputRaw.toString('utf8'));
 
-  const inputCanonicalSha256 = await sha256Hex(new TextEncoder().encode(JSON.stringify(cgCanon(inputParsed))));
-  const outputCanonicalSha256 = await sha256Hex(new TextEncoder().encode(JSON.stringify(cgCanon(outputParsed))));
+  const inputCanonicalSha256 = await sha256Hex(new TextEncoder().encode(jcsStringify((inputParsed))));
+  const outputCanonicalSha256 = await sha256Hex(new TextEncoder().encode(jcsStringify((outputParsed))));
   if (inputCanonicalSha256 !== v.input_canonical_sha256) fail(`${v.id}: input_canonical_sha256 mismatch (declared ${v.input_canonical_sha256}, actual ${inputCanonicalSha256})`);
   if (outputCanonicalSha256 !== v.expected_output_canonical_sha256) fail(`${v.id}: expected_output_canonical_sha256 mismatch (declared ${v.expected_output_canonical_sha256}, actual ${outputCanonicalSha256})`);
 

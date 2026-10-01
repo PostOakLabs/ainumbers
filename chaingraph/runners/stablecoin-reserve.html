@@ -98,7 +98,7 @@ footer{border-top:1px solid var(--border);padding:1.5rem;margin-top:2rem}
 <div class="hero"><div class="container">
   <div class="hero-eyebrow">OpenChainGraph · Live Chain Runner · 3 Steps</div>
   <h1>Live Runner: GENIUS Act / MiCA Reserve Compliance</h1>
-  <p class="hero-desc">Executes this 3-step chain entirely in your browser. Each step runs in a sandboxed same-origin iframe driven via the AIN Bridge; real tool outputs are collected and anchored under <strong>one composite execution hash</strong> — computed over the actual outputs, not over a static chain description.</p>
+  <p class="hero-desc">Executes this 3-step chain entirely in your browser. Each step runs in a sandboxed same-origin iframe driven via the AIN Bridge; real tool outputs are collected and anchored under one composite execution hash, computed over the actual outputs, not over a static chain description.</p>
   <div class="badges">
     <span class="badge b-teal">3 Steps · Client-Side</span>
     <span class="badge b-gold">Composite §4 Hash</span>
@@ -114,14 +114,14 @@ footer{border-top:1px solid var(--border);padding:1.5rem;margin-top:2rem}
   <div class="control-bar">
     <button class="run-btn" id="runBtn" onclick="runChain()">&#x25B6; Run Chain</button>
     <button class="ghost-btn" id="resetBtn" onclick="resetChain()">&#x21BB; Reset</button>
-    <span class="run-status" id="runStatus">idle — tools loaded, ready to run</span>
+    <span class="run-status" id="runStatus">idle: tools loaded, ready to run</span>
   </div>
 
   <div id="stages"></div>
 
   <div class="result-section" id="resultSection" style="display:none">
     <div class="rs-title">§4 Composite Execution Hash · over real tool outputs</div>
-    <div class="hash-display"><span class="hash-label">execution_hash:</span><span id="hashValue">—</span></div>
+    <div class="hash-display"><span class="hash-label">execution_hash:</span><span id="hashValue">pending</span></div>
     <div class="hash-note" id="hashNote">sha-256 over canonical {policy_parameters, output_payload} · RFC 8785/JCS · deterministic slice (no timestamps/ids) · reproducible</div>
     <div class="export-row">
       <button class="ex-btn ex-primary" id="verifyBtn" onclick="verifyHash()">✓ Verify</button>
@@ -426,13 +426,14 @@ function toggleJson() {
 /* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
 function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
 function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
-function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 </script>
 <script>
 /* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
 (function(){
   var CS='eddsa-jcs-2022';
-  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function jcs(o){return new TextEncoder().encode(__ocgJcs(o));}
   function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
   function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
   function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}

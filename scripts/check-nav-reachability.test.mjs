@@ -1,10 +1,13 @@
 #!/usr/bin/env node
-// check-nav-reachability.test.mjs — fixture proof for NAV-ISLAND-PENDING-ASSEMBLE-1.
+// check-nav-reachability.test.mjs — fixture proof for NAV-ISLAND-PENDING-ASSEMBLE-1
+// and NAV-ISLAND-PENDING-CHAIN-1.
 //
 // WHAT THIS PROVES: check-nav-reachability.mjs's PENDING-ASSEMBLE accommodation
 // gives a class-K row's new node page (chaingraph/<id>.html, shipped in the same
-// PR as its shard per RIDER-KERNEL K-FULL) a pass on THIS branch, without ever
-// becoming a permanent hole once the shard is genuinely registered or leaked.
+// PR as its shard per RIDER-KERNEL K-FULL) — and, since NAV-ISLAND-PENDING-CHAIN-1
+// (2026-09-27), a chain-composer row's new chaingraph/chains/<name>.html the same
+// way — a pass on THIS branch, without ever becoming a permanent hole once the
+// shard is genuinely registered or leaked.
 // Every case below builds a throwaway repo with a bare `origin`, pushes a real
 // main, and runs the REAL scripts/check-nav-reachability.mjs (which itself
 // shells to the REAL scripts/check-shard-assembly.mjs — copied in verbatim,
@@ -157,6 +160,31 @@ function nodePage(work, id) {
   writeFileSync(join(work, 'chaingraph', `${id}.html`), '<!doctype html><html><body>test node page</body></html>\n', 'utf8')
 }
 
+// A chain shard fixture — same shape as the real ones (name/title/description/
+// composer_url/steps, per chaingraph/graph/chains/*.json on main). The sub-gate
+// schema-validates NODE shards only, so no schema weight is needed here; the
+// name field is what describeUnassembled prints as the label.
+function chainShard(work, name) {
+  writeJson(join(work, 'chaingraph/graph/chains', `${name}.json`), {
+    name,
+    domain: 'Test Fixture',
+    title: name,
+    description: 'test fixture chain shard for check-nav-reachability.test.mjs',
+    composer_url: `https://ainumbers.co/chaingraph/chains/${name}.html`,
+    steps: [],
+  })
+}
+
+// The chain composer page — a chain-composer row ships this in the SAME PR as
+// the shard and the order.chains append (the four-leg landing shape,
+// #2060/#2061). Page BYTES are irrelevant to the gate under test, same as
+// nodePage above.
+function chainPage(work, name) {
+  const p = join(work, 'chaingraph', 'chains', `${name}.html`)
+  mkdirSync(dirname(p), { recursive: true })
+  writeFileSync(p, '<!doctype html><html><body>test chain page</body></html>\n', 'utf8')
+}
+
 // REAL historical content, not a synthetic reproduction (SO #40(b) — use a
 // real fixture where one exists, the same discipline check-shard-assembly
 // .test.mjs's own art-662 fixture applies): the EXACT bytes
@@ -241,7 +269,13 @@ function makeFixture() {
 
   writeFileSync(join(work, 'index.html'), '<!doctype html><html><body>root, deliberately link-free</body></html>\n', 'utf8')
   nodeShard(work, 'art-nip-baseline')
-  writeAssembled(work, ['art-nip-baseline'], [])
+  // NAV-ISLAND-PENDING-CHAIN-1: one registered baseline CHAIN shard too, so the
+  // chain axis of check-shard-assembly.mjs's branch-aware split has a real,
+  // non-empty chaingraph/graph/chains tree at the base ref to resolve against
+  // (its shardIdsAtRef() reads an EMPTY dir listing as "unresolvable", so an
+  // only-.gitkeep chains dir would fail the whole chain axis closed).
+  chainShard(work, 'chain-nip-baseline')
+  writeAssembled(work, ['art-nip-baseline'], ['chain-nip-baseline'])
   // check-shard-assembly.mjs readdirSync()s chaingraph/graph/chains unconditionally
   // (even when the chain half has nothing to say) — it must exist on disk, tracked,
   // so it survives every checkout in this fixture. Not a .json file, so it is
@@ -405,6 +439,121 @@ test('STATE 4 / MUTATION (real art-652 tree) — the SAME PENDING-ASSEMBLE page 
   assert(after.status === 1, `post-publish ("main context") expected exit 1, got ${after.status}\n${after.out}`)
   assert(!/excused as PENDING-ASSEMBLE/.test(after.out), `post-publish must NOT still be excused:\n${after.out}`)
   assert(/chaingraph\/art-652-verify-receipt\.html/.test(after.out), `expected the page now named as an island, got:\n${after.out}`)
+  assert(/NEW island\(s\)/.test(after.out), `expected the new-island failure, got:\n${after.out}`)
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// NAV-ISLAND-PENDING-CHAIN-1 (2026-09-27) — THE SAME ACCOMMODATION, CHAIN SIDE.
+//
+// A chain-composer row ships chaingraph/chains/<name>.html + the chain shard +
+// the order.chains append in ONE PR, but the assembled monolith is main-side
+// single-writer (SO #35) and chain entries in chaingraph.json are ABSOLUTE
+// composer_url strings this gate's dynamic root can never resolve — so without
+// the accommodation every additive chain PR reds NAV-ISLAND-1 by construction
+// (measured: PR #2089, `nav-reachability: 2 NEW island(s)`). The four cases the
+// row requires:
+//   (a) a NEW chain page whose on-disk shard is absent from the base  -> excused
+//   (b) a chain page with NO shard behind it at all                   -> island
+//   (c) a chain page whose shard is already assembled+registered at
+//       the base ref, page unlinked                                    -> island
+//   (d) the node case unchanged — that is STATES 1-4 and the B6(iii) block
+//       below, which run in this same suite and must keep passing untouched.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── CHAIN (a) — a PENDING-ASSEMBLE chain composer page is excused ──────────
+// The #2089 shape, replayed against the fixture: page + shard on the branch,
+// order.chains append is meta-side, the monolith cannot move until merge.
+test('CHAIN (a) — a PENDING-ASSEMBLE chain composer page is excused, exit 0', () => {
+  const { work } = makeFixture()
+  git(work, ['checkout', '-q', '-b', 'chain-composer-row'])
+  chainShard(work, 'chain-nip-new')
+  chainPage(work, 'chain-nip-new')
+  commit(work, 'chain shard + composer page; the monolith is main-side single-writer')
+
+  const { status, out } = runGate(work)
+  assert(status === 0, `expected exit 0 for a mid-flight chain page, got ${status}\n${out}`)
+  assert(/excused as PENDING-ASSEMBLE/.test(out), `expected the excusal line, got:\n${out}`)
+  assert(/chaingraph\/chains\/chain-nip-new\.html/.test(out), `expected the chain page named, got:\n${out}`)
+  assert(!/NEW island\(s\)/.test(out), `must not be reported as a new island:\n${out}`)
+  assert(/nav-reachability: OK/.test(out), `expected the OK line, got:\n${out}`)
+})
+
+test('CHAIN (a) — the excused chain page is NOT written to the baseline via --update', () => {
+  const { work } = makeFixture()
+  git(work, ['checkout', '-q', '-b', 'chain-composer-row'])
+  chainShard(work, 'chain-nip-new')
+  chainPage(work, 'chain-nip-new')
+  commit(work, 'chain shard + composer page')
+
+  const { status, out } = runGate(work, ['--update'])
+  assert(status === 0, `expected exit 0, got ${status}\n${out}`)
+  const baseline = JSON.parse(readFileSync(join(work, 'scripts/nav-island-baseline.json'), 'utf8'))
+  assert(!baseline.includes('chaingraph/chains/chain-nip-new.html'), `excused chain page must never be baselined: ${JSON.stringify(baseline)}`)
+})
+
+// ── CHAIN (b) — a chain page with no shard behind it stays RED ─────────────
+// Mirrors the node case at STATE 3: the path looks like a chain page, but
+// chaingraph/graph/chains/<name>.json was never created — it must not be
+// mistaken for a candidate at all, and nothing may be excused.
+test('CHAIN (b) — a chain page with NO on-disk shard stays a real island, exit 1', () => {
+  const { work } = makeFixture()
+  git(work, ['checkout', '-q', '-b', 'chain-row-broken'])
+  chainPage(work, 'chain-nip-ghost')
+  commit(work, 'a chain composer page with no backing shard file')
+
+  const { status, out } = runGate(work)
+  assert(status === 1, `expected exit 1, got ${status}\n${out}`)
+  assert(/NEW island\(s\)/.test(out), `expected the new-island failure, got:\n${out}`)
+  assert(/chaingraph\/chains\/chain-nip-ghost\.html/.test(out), `expected the page named as an island, got:\n${out}`)
+  assert(!/excused as PENDING-ASSEMBLE/.test(out), `a page with no shard file must never be excused:\n${out}`)
+})
+
+// ── CHAIN (c) — base-registered chain, late unlinked page stays RED ────────
+// The over-loosening guard: chain-nip-baseline's shard is in origin/main's
+// shard tree AND in the base ref's own assembled chaingraph.json; the page
+// arrives late and unlinked. Nothing here is mid-flight, so the exemption
+// must not eat it — the row that lands a registered chain's page unlinked
+// owns the link.
+test('CHAIN (c) — a chain page whose shard is already assembled+registered at the base ref stays a real island, exit 1', () => {
+  const { work } = makeFixture()
+  git(work, ['checkout', '-q', '-b', 'chain-page-late'])
+  chainPage(work, 'chain-nip-baseline')
+  commit(work, 'late unlinked composer page for an already-landed chain')
+
+  const { status, out } = runGate(work)
+  assert(status === 1, `expected exit 1, got ${status}\n${out}`)
+  assert(/NEW island\(s\)/.test(out), `expected the new-island failure, got:\n${out}`)
+  assert(/chaingraph\/chains\/chain-nip-baseline\.html/.test(out), `expected the page named as an island, got:\n${out}`)
+  assert(!/excused as PENDING-ASSEMBLE/.test(out), `an already-registered chain must NOT be excused:\n${out}`)
+  assert(!/PENDING-ASSEMBLE \(CHAINS\)/.test(out), `an assembled chain must not appear in the pending section:\n${out}`)
+})
+
+// ── CHAIN (d) — the branch-scoped mutation, chain side ─────────────────────
+// The SAME chain page flips excused(green) -> RED once its shard reaches the
+// base ref (unregistered), proving the chain accommodation is branch-scoped,
+// not a standing grant — STATE 4's mutation shape, replayed for chains.
+test('CHAIN (d) — the SAME PENDING-ASSEMBLE chain page flips excused(green) -> RED once its shard reaches origin/main', () => {
+  const { work } = makeFixture()
+  git(work, ['checkout', '-q', '-b', 'chain-composer-row'])
+  chainShard(work, 'chain-nip-new')
+  chainPage(work, 'chain-nip-new')
+  commit(work, 'chain shard + composer page')
+
+  const before = runGate(work)
+  assert(before.status === 0, `pre-publish expected exit 0, got ${before.status}\n${before.out}`)
+  assert(/excused as PENDING-ASSEMBLE/.test(before.out) && /chaingraph\/chains\/chain-nip-new\.html/.test(before.out), `pre-publish expected the chain page excused, got:\n${before.out}`)
+
+  // Publish shard + page to origin/main, still unregistered — the writer has
+  // not run, so the shard is on the base ref and NOT pending there: it is the
+  // stale/advisory case, and the page is a real island in main context.
+  git(work, ['checkout', '-q', 'main'])
+  git(work, ['merge', '-q', '--ff-only', 'chain-composer-row'])
+  git(work, ['push', '-q', 'origin', 'main'])
+
+  const after = runGate(work)
+  assert(after.status === 1, `post-publish ("main context") expected exit 1, got ${after.status}\n${after.out}`)
+  assert(!/excused as PENDING-ASSEMBLE/.test(after.out), `post-publish must NOT still be excused:\n${after.out}`)
+  assert(/chaingraph\/chains\/chain-nip-new\.html/.test(after.out), `expected the page now named as an island, got:\n${after.out}`)
   assert(/NEW island\(s\)/.test(after.out), `expected the new-island failure, got:\n${after.out}`)
 })
 

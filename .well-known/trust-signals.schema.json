@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainumbers.co/.well-known/trust-signals.schema.json",
+  "title": "AINumbers trust-signals digest (ainumbers.co/trust-signals/v1)",
+  "description": "Normative schema for .well-known/trust-signals.json — the machine-readable digest of facts the site's public gates already compute (SPEC §18 proof coverage, §18 receipt digest freshness, kernel determinism, transparency-log anchors, citation-drift budget, receipt-conformance corpus). The file is a SHARED DERIVED ARTIFACT with a single writer: scripts/gen-trust-signals.mjs regenerates it on main after every merge (derived-artifacts-regen.yml); every number is read from a gate, never typed. Consumers MUST ignore unknown members; this schema never sets additionalProperties to false at the top level. Local enforcement uses the zero-dependency keyword subset implemented in scripts/check-trust-signals.mjs (types, required, const, pattern, minimum, items); keywords outside that subset are documentation.",
+  "type": "object",
+  "required": ["schema", "generated_at", "commit", "signals", "verify"],
+  "properties": {
+    "schema": {
+      "const": "ainumbers.co/trust-signals/v1",
+      "description": "Wire discriminator naming the digest dialect. v1 is pre-stable: consumers MUST ignore unknown members and MUST NOT attempt to interpret a schema value they do not implement."
+    },
+    "generated_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "Committer timestamp (UTC, ISO 8601) of the commit named by `commit` — the state of main the digest describes. Derived, never wall-clock, so a regeneration is byte-reproducible at the same commit (the derived-artifacts idempotency doctrine)."
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Full git sha of the main commit whose tree the digest's facts were computed from. Anchored to the most recent commit that is not the mechanical chore(derived) regen-bot commit, so the file stays byte-stable across the bot's own commit cycle (a self-referential HEAD sha could never reach a fixpoint). On main this equals HEAD except in that one mechanical window, where it equals HEAD^; scripts/check-trust-signals.mjs asserts exactly this on main."
+    },
+    "signals": {
+      "type": "object",
+      "description": "The digest body: one member per published signal family. Every number is computed by a public gate script at regeneration time.",
+      "required": ["proof_coverage", "digest_freshness", "determinism", "anchors", "citation_drift", "conformance_corpus"],
+      "properties": {
+        "proof_coverage": {
+          "type": "object",
+          "description": "SPEC §18 compute-integrity proof coverage over LIVE gpu:false nodes, classified by scripts/check-compute-proof-coverage.mjs's own evaluateCoverage().",
+          "required": ["covered", "total"],
+          "properties": {
+            "covered": { "type": "integer", "minimum": 0, "description": "Live gpu:false nodes carrying a well-formed audit_signature.compute_proof." },
+            "total": { "type": "integer", "minimum": 0, "description": "All live gpu:false nodes in §18 scope (proven + deferred + missing)." }
+          }
+        },
+        "digest_freshness": {
+          "type": "object",
+          "description": "§18 receipt digest freshness over live gpu:false proven nodes, computed by scripts/check-s18-digest-freshness.mjs's own computeStaleness() against the currently-deployed kernel sources. Stale means the receipt attests to an earlier kernel revision — never that the proof is invalid.",
+          "required": ["fresh", "stale"],
+          "properties": {
+            "fresh": { "type": "integer", "minimum": 0, "description": "Receipts whose journal.kernel_digest matches a fresh recompute of the deployed kernel source." },
+            "stale": { "type": "integer", "minimum": 0, "description": "Receipts attesting to an earlier kernel revision (seal still cryptographically valid)." }
+          }
+        },
+        "determinism": {
+          "type": "object",
+          "description": "Static kernel-determinism lint posture, from scripts/check-kernel-determinism.mjs and its committed allowlist.",
+          "required": ["static_clean", "allowlisted"],
+          "properties": {
+            "static_clean": { "type": "boolean", "description": "True iff scripts/check-kernel-determinism.mjs exits 0 at regeneration time (zero new locale/time/random/env-sensitive constructs; the gate is hard in CI, so a shipped digest is always clean)." },
+            "allowlisted": { "type": "integer", "minimum": 0, "description": "Kernel files deliberately allowlisted for engine-approximated transcendentals (scripts/kernel-determinism-allowlist.json, transcendentals.files)." }
+          }
+        },
+        "anchors": {
+          "type": "object",
+          "description": "Transparency-log anchor records binding published artifacts into public logs.",
+          "required": ["sigsum", "rekor"],
+          "properties": {
+            "sigsum": {
+              "type": "object",
+              "description": "Latest published Sigsum anchor of the registry-lineage log, read from registry/lineage/checkpoint.sigsum-record.json.",
+              "required": ["latest_leaf", "cosigners"],
+              "properties": {
+                "latest_leaf": { "type": "integer", "minimum": 0, "description": "inclusion_proof.leaf_index of the latest published lineage anchor." },
+                "cosigners": { "type": "integer", "minimum": 0, "description": "witness_cosignatures count carried by that anchor record." }
+              }
+            },
+            "rekor": {
+              "type": "object",
+              "description": "Latest published Sigstore Rekor entry, read from scripts/register-rekor.fixtures.json (the tracked copy of the real record).",
+              "required": ["latest_entry"],
+              "properties": {
+                "latest_entry": { "type": "string", "pattern": "^[0-9a-f]{64,128}$", "description": "Hex UUID of the Rekor (hashedrekord) entry — 64 hex for classic leaf-hash UUIDs, 80 hex for the newer transparent-entry format." }
+              }
+            }
+          }
+        },
+        "citation_drift": {
+          "type": "object",
+          "description": "Citation-drift ratchet posture, read from scripts/citation-drift-baseline.json.",
+          "required": ["baseline"],
+          "properties": {
+            "baseline": { "type": "integer", "minimum": 0, "description": "Known findings shielded by the citation-drift baseline (advisory pre-existing debt; any NEW finding blocks the gate)." }
+          }
+        },
+        "conformance_corpus": {
+          "type": "object",
+          "description": "The public OCG receipt-conformance corpus, read from ocg-conformance/vectors/manifest.json.",
+          "required": ["vectors", "manifest_version"],
+          "properties": {
+            "vectors": { "type": "integer", "minimum": 0, "description": "Vector count in the corpus manifest." },
+            "manifest_version": { "type": "string", "description": "The corpus manifest's own version string." }
+          }
+        }
+      }
+    },
+    "verify": {
+      "type": "object",
+      "description": "How a third party re-derives every number in this file.",
+      "required": ["how"],
+      "properties": {
+        "how": { "type": "string", "minLength": 1, "description": "One sentence pointing at the public gate scripts." }
+      }
+    }
+  }
+}

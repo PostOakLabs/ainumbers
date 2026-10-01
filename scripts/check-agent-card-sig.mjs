@@ -6,7 +6,7 @@
  * WebCrypto against the public key published at /.well-known/jwks.json:
  *
  *   - detached-JWS verify: Ed25519 over `<protected>.<b64url(JCS(card minus signatures))>`
- *     (JCS = RFC 8785, the same canon as cgCanon in chaingraph/kernels/_hash.mjs —
+ *     (JCS = RFC 8785, the same canon as jcsStringify in chaingraph/kernels/_hash.mjs —
  *     byte-identical to what scripts/sign-agent-card.mjs signed);
  *   - the protected header's `kid` MUST match a JWKS key's `kid` (§16 fingerprint
  *     convention: the did:key z6Mk… form, rawPubkeyToDidKey);
@@ -26,7 +26,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cgCanon } from '../chaingraph/kernels/_hash.mjs';
+import { jcsStringify } from '../chaingraph/kernels/_hash.mjs';
 import { didKeyToPublicKey } from '../chaingraph/kernels/_proof.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -46,7 +46,7 @@ async function verifySignature(card) {
   if (!Array.isArray(sigs) || sigs.length === 0) return { ok: false, why: 'no signatures[] member (unsigned card)' };
   const cardForCanon = structuredClone(card);
   delete cardForCanon.signatures; // the payload is the card WITHOUT its signatures (detached)
-  const payloadB64 = Buffer.from(enc(JSON.stringify(cgCanon(cardForCanon)))).toString('base64url');
+  const payloadB64 = Buffer.from(enc(jcsStringify((cardForCanon)))).toString('base64url');
   for (const sig of sigs) {
     if (typeof sig?.protected !== 'string' || typeof sig?.signature !== 'string')
       return { ok: false, why: 'malformed signatures[] entry (protected/signature strings required)' };

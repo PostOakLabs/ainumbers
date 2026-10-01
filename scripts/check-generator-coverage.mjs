@@ -115,7 +115,17 @@ function extractInvokedPaths(src) {
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
   const arrayMatch = liveLines.match(/const GATES = \[([\s\S]*?)\n\];/);
-  const arraySrc = arrayMatch ? arrayMatch[1] : '';
+  // BRIDGE-SNIPPET-SYNC-GEN-1 (2026-09-28): the GATES array is not preflight's
+  // only execution site. An advisory block calls its checker through
+  // runAdvisoryChecker('node scripts/x.mjs …'), which EXECUTES the generator
+  // just as a GATES row does — the difference is the exit code's consequence,
+  // not whether the freshness check ran. Counting only GATES made this
+  // meta-gate demand that every --check generator be BLOCKING, which is a
+  // different decision from "is it wired at all" and not one this gate owns.
+  // Held to the same standard as the GATES extraction: a literal call site in
+  // live (non-commented) source, never a substring match against the file.
+  const advisorySrc = (liveLines.match(/runAdvisoryChecker\((['"`])[\s\S]*?\1\)/g) || []).join('\n');
+  const arraySrc = (arrayMatch ? arrayMatch[1] : '') + '\n' + advisorySrc;
   const invoked = new Set();
   // Every fully-quoted string in the array — capture up to the MATCHING
   // quote char (not just "the next quote") so a path is never truncated or

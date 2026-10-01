@@ -4,7 +4,7 @@
  *
  * Signs /.well-known/agent-card.json as an A2A 1.0 Signed Agent Card: a DETACHED
  * JWS (RFC 7515, alg EdDSA) over the JCS-canonicalised card (RFC 8785 — the same
- * canon as cgCanon in chaingraph/kernels/_hash.mjs), stored in the card's
+ * canon as jcsStringify in chaingraph/kernels/_hash.mjs), stored in the card's
  * signatures[] member:
  *
  *   "signatures": [ { "protected": "<b64url header JSON>", "signature": "<b64url sig>" } ]
@@ -37,7 +37,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPrivateKey } from 'node:crypto';
-import { cgCanon } from '../chaingraph/kernels/_hash.mjs';
+import { jcsStringify } from '../chaingraph/kernels/_hash.mjs';
 import { rawPubkeyToDidKey } from '../chaingraph/kernels/_proof.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -77,7 +77,7 @@ if (!card.protocolVersion) fail('card has no protocolVersion — not an A2A agen
 delete card.signatures; // a re-sign replaces any prior signature; canon input never includes it
 
 // ── JCS canonical bytes (RFC 8785) — identical canon to the §16 proof path ────
-const canon = enc(JSON.stringify(cgCanon(card)));
+const canon = enc(jcsStringify((card)));
 
 // ── import the PKCS#8 Ed25519 key into WebCrypto; derive kid from the raw pub ─
 const pem = readFileSync(KEY_PATH, 'utf8');

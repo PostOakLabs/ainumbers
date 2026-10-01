@@ -35,12 +35,31 @@ const REPO = resolve(HERE, '..');
 const KERNELS_DIR = resolve(REPO, 'chaingraph', 'kernels');
 const FIXTURES_DIR = resolve(KERNELS_DIR, 'fixtures');
 
-// --- Inline cgCanon (verbatim from _hash.mjs — must stay in sync) ---
-const cgCanon = (v) =>
-  Array.isArray(v) ? v.map(cgCanon)
-  : (v && typeof v === 'object')
-    ? Object.keys(v).sort().reduce((o, k) => (o[k] = cgCanon(v[k]), o), {})
-    : v;
+// --- Inline jcsStringify (same semantics as kernels/_hash.mjs; RFC 8785 §3.2.3 member
+// --- order holds for array-index member names, which a JS engine enumerates numerically.
+// --- Pure ECMA-262, so it also runs in the emitted QuickJS bundle below. ---
+const jcsStringify = (v) => {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) {
+    let s = '[';
+    for (let i = 0; i < v.length; i++) {
+      if (i) s += ',';
+      const e = v[i];
+      s += (e === undefined || typeof e === 'function' || typeof e === 'symbol') ? 'null' : jcsStringify(e);
+    }
+    return s + ']';
+  }
+  const keys = Object.keys(v).sort();
+  let s = '{', first = true;
+  for (const k of keys) {
+    const e = v[k];
+    if (e === undefined || typeof e === 'function' || typeof e === 'symbol') continue;
+    if (!first) s += ',';
+    first = false;
+    s += JSON.stringify(k) + ':' + jcsStringify(e);
+  }
+  return s + '}';
+};
 
 // --- Pure-JS SHA-256 (no WebCrypto / no node:crypto — works in any ECMA-262 engine) ---
 function sha256hex(str) {
@@ -94,9 +113,9 @@ function sha256hex(str) {
   return [h0,h1,h2,h3,h4,h5,h6,h7].map(x => (x>>>0).toString(16).padStart(8,'0')).join('');
 }
 
-// --- Canonical preimage: { policy_parameters, output_payload } sorted recursively ---
+// --- Canonical preimage: { policy_parameters, output_payload } through jcsStringify ---
 function preimage(pp, output_payload) {
-  return JSON.stringify(cgCanon({ output_payload, policy_parameters: pp }));
+  return jcsStringify(({ output_payload, policy_parameters: pp }));
 }
 
 // --- Argument parsing ---
@@ -198,9 +217,12 @@ if (bundleFile) {
   lines.push('}');
   lines.push('');
 
-  // Inline cgCanon
+  // Inline cgCanon — some kernels' compute regions still call it (imports are stripped).
   lines.push('const cgCanon=(v)=>Array.isArray(v)?v.map(cgCanon):(v&&typeof v==="object")?Object.keys(v).sort().reduce((o,k)=>(o[k]=cgCanon(v[k]),o),{}):v;');
-  lines.push('function preimage(pp,op){return JSON.stringify(cgCanon({output_payload:op,policy_parameters:pp}));}');
+  // Inline jcsStringify (same semantics as kernels/_hash.mjs; RFC 8785 §3.2.3 member order
+  // holds for array-index member names) — preimage() below hashes through it.
+  lines.push('function jcsStringify(v){if(v===null||typeof v!=="object")return JSON.stringify(v);if(Array.isArray(v)){var s="[";for(var i=0;i<v.length;i++){if(i)s+=",";var e=v[i];s+=(e===undefined||typeof e==="function"||typeof e==="symbol")?"null":jcsStringify(e);}return s+"]";}var keys=Object.keys(v).sort();var o2="{";var first=true;for(var j=0;j<keys.length;j++){var k=keys[j];var e2=v[k];if(e2===undefined||typeof e2==="function"||typeof e2==="symbol")continue;if(!first)o2+=",";first=false;o2+=JSON.stringify(k)+":"+jcsStringify(e2);}return o2+"}";}');
+  lines.push('function preimage(pp,op){return jcsStringify(({output_payload:op,policy_parameters:pp}));}');
   lines.push('');
   lines.push('const MANIFEST = {};');
   lines.push('');

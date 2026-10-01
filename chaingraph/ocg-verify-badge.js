@@ -39,17 +39,43 @@
     }
     return v;
   }
+  // Legacy object sorter kept byte-stable (mirrors kernels/_hash.mjs cgCanon); the hash
+  // paths below use jcsStringify, which orders member names by UTF-16 code unit while
+  // building the string directly, so RFC 8785 §3.2.3 member order holds even for
+  // array-index member names, which a JavaScript engine enumerates numerically.
+  function jcsStringify(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) {
+      var out = '[';
+      for (var j = 0; j < v.length; j++) {
+        if (j) out += ',';
+        var e = v[j];
+        out += (e === undefined || typeof e === 'function' || typeof e === 'symbol') ? 'null' : jcsStringify(e);
+      }
+      return out + ']';
+    }
+    var keys2 = Object.keys(v).sort();
+    var out2 = '{', first = true;
+    for (var j2 = 0; j2 < keys2.length; j2++) {
+      var k = keys2[j2], e2 = v[k];
+      if (e2 === undefined || typeof e2 === 'function' || typeof e2 === 'symbol') continue;
+      if (!first) out2 += ',';
+      first = false;
+      out2 += JSON.stringify(k) + ':' + jcsStringify(e2);
+    }
+    return out2 + '}';
+  }
   function canonicalPreimage(policy_parameters, output_payload) {
     var obj = { policy_parameters: policy_parameters, output_payload: output_payload };
     assertIJson(obj);
-    return JSON.stringify(cgCanon(obj));
+    return jcsStringify(obj);
   }
   async function executionHash(policy_parameters, output_payload) {
     var bytes = new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
     var digest = await crypto.subtle.digest('SHA-256', bytes);
     return Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
   }
-  function jcsBytes(obj) { return new TextEncoder().encode(JSON.stringify(cgCanon(obj))); }
+  function jcsBytes(obj) { return new TextEncoder().encode(jcsStringify(obj)); }
   async function sha256(bytes) { var d = await crypto.subtle.digest('SHA-256', bytes); return new Uint8Array(d); }
   function hexToBytes(hex) {
     hex = String(hex || '');

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // errata-sign.mjs — FV-ERRATA-BUILD-2
 //
-// Signs errata.json (JCS-canonical bytes, RFC 8785, via the shared cgCanon
+// Signs errata.json (JCS-canonical bytes, RFC 8785, via the shared jcsStringify
 // in chaingraph/kernels/_hash.mjs) with the CI policy SSHSIG key under
 // namespace fv-policy-sign@ainumbers.co (helm/hub/extsig.mjs,
 // FV-SSHSIG-POLICY-KEY-1). Independently implemented here rather than
@@ -32,16 +32,16 @@ import { readFileSync, writeFileSync, mkdtempSync, unlinkSync, existsSync } from
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { cgCanon, assertIJson } from '../chaingraph/kernels/_hash.mjs';
+import { jcsStringify, assertIJson } from '../chaingraph/kernels/_hash.mjs';
 
 export const CI_POLICY_SSHSIG_NAMESPACE = 'fv-policy-sign@ainumbers.co';
 
 // JCS-canonical bytes of the whole errata.json object (RFC 8785, via the
-// shared cgCanon — same canonicalizer the OCG artifact hash path uses,
+// shared jcsStringify — same canonicalizer the OCG artifact hash path uses,
 // reused here for a plain file signature, not an execution_hash).
 export function canonicalErrataBytes(errataObj) {
   assertIJson(errataObj);
-  return Buffer.from(JSON.stringify(cgCanon(errataObj)), 'utf8');
+  return Buffer.from(jcsStringify((errataObj)), 'utf8');
 }
 
 function flag(args, name, fallback) {
