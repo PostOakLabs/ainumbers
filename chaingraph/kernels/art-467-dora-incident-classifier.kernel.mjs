@@ -63,15 +63,10 @@ const TOOL_VERSION = '2.0.0';
 export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, mcp_name: 'classify_dora_ict_incident_and_clock_deadlines', mandate_type: 'attestation_mandate', gpu: false };
 
 const HOUR_MS = 3600 * 1000;
-
 // Stable, caller-visible constants (cited roles — never re-derived in prose strings).
 const TABLE_VERSION = 'DORA-2025-301-ART5-STAGE-CLOCKS-2026-10';
 const TABLE_SOURCE = 'Commission Delegated Regulation (EU) 2025/301 Art. 5 (initial 4h-from-classification AND 24h-from-awareness, whichever earlier; intermediate 72h from submission of the initial; final 1 month from the intermediate or the latest updated intermediate; weekend/bank-holiday extension to noon next working day with the initial/intermediate entity-class and NCA-notification exceptions; final keeps it) + Arts. 1-4 (per-stage content); Commission Implementing Regulation (EU) 2025/302 Art. 7 (TPP aggregated reporting) and Annex I (template fields); month arithmetic per Regulation (EEC, Euratom) No 1182/71 Art. 2; DORA (EU) 2022/2554 Arts. 19-20; corroborated by Joint ESAs report JC 2026 16 (2026-06-03) paras 3(i)-(iii).';
 
-const ENTITY_CLASSES = ['credit_institution', 'ccp', 'trading_venue', 'nis2_essential_important', 'nca_notified', 'other'];
-// 2025/301 Art. 5: the extension is NOT available for initial/intermediate reports by
-// these classes, nor by any entity an NCA has notified (`nca_notified`).
-const EXTENSION_DENIED_CLASSES = ['credit_institution', 'ccp', 'trading_venue', 'nis2_essential_important', 'nca_notified'];
 
 // ISO-8601 datetime with a MANDATORY explicit offset (Z or +/-hh:mm(/hhmm)).
 const ISO_OFFSET_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:?\d{2})$/;
@@ -121,6 +116,12 @@ function rollToNoonNextWorkingDay(ms, holidaySet) {
 }
 
 function extensionDecision(stageName, entityClass, extensionWithdrawn, holidayCount) {
+  // 2025/301 Art. 5: the extension is NOT available for initial/intermediate reports by
+  // credit institutions, CCPs, trading-venue operators or NIS2 essential/important
+  // entities, nor by any entity an NCA has notified (`nca_notified`).
+  const extensionDeniedClass = entityClass === 'credit_institution' || entityClass === 'ccp'
+    || entityClass === 'trading_venue' || entityClass === 'nis2_essential_important'
+    || entityClass === 'nca_notified';
   // Returns { allowed, reason } for whether the Art. 5 extension MAY apply to this stage.
   if (stageName === 'final_report') {
     return { allowed: true, reason: 'EXTENSION_KEEP_FINAL_REPORT' }; // final reports keep it
@@ -128,7 +129,7 @@ function extensionDecision(stageName, entityClass, extensionWithdrawn, holidayCo
   if (extensionWithdrawn === true) {
     return { allowed: false, reason: 'EXTENSION_DENIED_NCA_WITHDRAWN' }; // NCA withdrew it after notice
   }
-  if (EXTENSION_DENIED_CLASSES.indexOf(entityClass) !== -1) {
+  if (extensionDeniedClass) {
     return { allowed: false, reason: 'EXTENSION_DENIED_ENTITY_CLASS' };
   }
   return { allowed: true, reason: holidayCount > 0 ? 'EXTENSION_ALLOWED_WEEKEND_BANK_HOLIDAY' : 'EXTENSION_ALLOWED_WEEKEND' };
@@ -173,15 +174,18 @@ export function compute(pp) {
     || latestUpdateMs === 'malformed' || holidayMalformed;
 
   // --- overall schedule state (the shared degraded vocabulary; never a silent default) ---
+  const entityClassKnown = entityClass === 'credit_institution' || entityClass === 'ccp'
+    || entityClass === 'trading_venue' || entityClass === 'nis2_essential_important'
+    || entityClass === 'nca_notified' || entityClass === 'other';
   let schedule_state;
   if (anyMalformed) schedule_state = 'malformed';
-  else if (awarenessMs == null || classMs == null || entityClass === '' || ENTITY_CLASSES.indexOf(entityClass) === -1) schedule_state = 'not_evaluable';
+  else if (awarenessMs == null || classMs == null || entityClass === '' || !entityClassKnown) schedule_state = 'not_evaluable';
   else schedule_state = 'evaluable';
 
   if (schedule_state === 'evaluable') compliance_flags.push('DORA_CLOCK_SCHEDULE_EVALUABLE');
   else if (schedule_state === 'not_evaluable') compliance_flags.push('DORA_CLOCK_SCHEDULE_NOT_EVALUABLE');
   else compliance_flags.push('DORA_CLOCK_SCHEDULE_MALFORMED');
-  if (entityClass !== '' && ENTITY_CLASSES.indexOf(entityClass) === -1) compliance_flags.push('DORA_ENTITY_CLASS_UNKNOWN');
+  if (entityClass !== '' && !entityClassKnown) compliance_flags.push('DORA_ENTITY_CLASS_UNKNOWN');
   if (extensionWithdrawn) compliance_flags.push('DORA_EXTENSION_WITHDRAWN_BY_NCA');
   if (tppAggregated) compliance_flags.push('DORA_TPP_AGGREGATED_SUBMISSION');
 
