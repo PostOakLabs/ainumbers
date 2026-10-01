@@ -1,0 +1,820 @@
+{
+  "tool_id": "art-700-authorization-payload-linter",
+  "version": "1.0.0",
+  "title": "Authorization Payload Linter",
+  "description": "Lints an authorization payload before it is signed, against a signing policy the caller declares. Three declared input modes: EIP-712 typed data as passed to eth_signTypedData_v4, an EIP-7702 authorization tuple, and a bare 32-byte hash about to be signed blind. Classification is string equality of the computed EIP-712 encodeType against the canonical type strings of ERC-2612, the older DAI permit struct, the five recognized Permit2 structs, the three EIP-3009 authorizations, the EntryPoint v0.8 PackedUserOperation and the OpenZeppelin v5 ForwardRequest; a primaryType carrying a known standard's name with a different encodeType is reported as a lookalike, and anything else is reported as unrecognized rather than guessed. Every check carries a stable id and returns FLAGGED, CLEAR or NOT_EVALUATED with the field path, the observed value and the policy value. There are no numeric defaults: every threshold, allowlist, counterparty set, clock reading and chain fact is caller-declared, and a check whose input was not declared reports NOT_EVALUATED and is listed separately, never folded into a CLEAR. Zero chain reads, no signer recovery, no digest computation, and nothing is ever submitted.",
+  "category": "evm-token-standard-recomputation",
+  "tags": [
+    "authorization_payload",
+    "pre_sign_lint",
+    "eip712",
+    "permit2",
+    "eip7702",
+    "eip3009",
+    "erc7730",
+    "signing_policy",
+    "mcp:lint_authorization_payload"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "mode"
+    ],
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": [
+          "typed_data",
+          "eip7702_tuple",
+          "raw_hash"
+        ]
+      },
+      "typed_data": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "object"
+          },
+          "types": {
+            "type": "object"
+          },
+          "primaryType": {
+            "type": "string"
+          },
+          "message": {
+            "type": "object"
+          }
+        }
+      },
+      "tuple": {
+        "type": "object",
+        "properties": {
+          "chain_id": {
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "address": {
+            "type": "string"
+          },
+          "nonce": {
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        }
+      },
+      "raw_hash": {
+        "type": "string"
+      },
+      "signature": {
+        "type": [
+          "string",
+          "object"
+        ]
+      },
+      "policy": {
+        "type": "object",
+        "properties": {
+          "active_chain_id": {
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "allowed_chain_ids": {
+            "type": "array"
+          },
+          "allowed_verifying_contracts": {
+            "type": "array"
+          },
+          "allowed_primary_types": {
+            "type": "array"
+          },
+          "forbidden_primary_types": {
+            "type": "array"
+          },
+          "spender_allowlist": {
+            "type": "array"
+          },
+          "payee_allowlist": {
+            "type": "array"
+          },
+          "delegate_allowlist": {
+            "type": "array"
+          },
+          "contract_addresses": {
+            "type": "array"
+          },
+          "max_amount_by_token": {
+            "type": "object"
+          },
+          "max_validity_seconds": {
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "now_unix": {
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "network_chain_ids": {
+            "type": "object"
+          },
+          "expected_x402": {
+            "type": "object"
+          },
+          "intent": {
+            "type": "object"
+          },
+          "erc7730_descriptor": {
+            "type": "object"
+          }
+        }
+      },
+      "display_hints": {
+        "type": "object",
+        "properties": {
+          "token_decimals": {
+            "type": "object"
+          },
+          "token_ticker": {
+            "type": "object"
+          },
+          "address_labels": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "x_schema_provenance": "authored-from-kernel-input-contract 2026-09-29 (AUTH-PAYLOAD-LINTER-1)"
+  },
+  "output_schema": {
+    "type": "object",
+    "required": [
+      "mode",
+      "classification",
+      "checks",
+      "not_evaluated",
+      "policy_conformance"
+    ],
+    "properties": {
+      "mode": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "classification": {
+        "type": "object",
+        "properties": {
+          "standard": {
+            "type": "string"
+          },
+          "primary_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "encode_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "witness_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "witness_is_named_payment_witness": {
+            "type": "boolean"
+          },
+          "lookalike": {
+            "type": "boolean"
+          },
+          "entry_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "payment_method": {
+            "type": "string"
+          }
+        }
+      },
+      "checks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "id",
+            "status"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "FLAGGED",
+                "CLEAR",
+                "NOT_EVALUATED"
+              ]
+            },
+            "severity": {
+              "type": "string"
+            },
+            "field_path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "observed": {},
+            "policy": {}
+          }
+        }
+      },
+      "not_evaluated": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "evaluated_count": {
+        "type": "integer"
+      },
+      "flagged_count": {
+        "type": "integer"
+      },
+      "policy_conformance": {
+        "type": "string",
+        "enum": [
+          "CONFORMS",
+          "DEVIATES",
+          "INDETERMINATE"
+        ]
+      },
+      "display": {
+        "type": "array"
+      },
+      "handoffs": {
+        "type": "object"
+      },
+      "signature_form": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "scope_note": {
+        "type": "string"
+      }
+    },
+    "x_schema_provenance": "derived-from-golden-fixtures 2026-09-29 (28 vectors, chaingraph/kernels/fixtures/art-700-authorization-payload-linter.fixtures.json)"
+  },
+  "mcp_tool_definition": {
+    "name": "lint_authorization_payload",
+    "description": "Lints an authorization payload before it is signed against a caller-declared signing policy: classifies EIP-712 typed data by encodeType string equality, reads EIP-7702 tuples, flags a blind hash, and reports every check as FLAGGED, CLEAR or NOT_EVALUATED",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "typed_data",
+            "eip7702_tuple",
+            "raw_hash"
+          ]
+        },
+        "typed_data": {
+          "type": "object"
+        },
+        "tuple": {
+          "type": "object"
+        },
+        "raw_hash": {
+          "type": "string"
+        },
+        "signature": {
+          "type": [
+            "string",
+            "object"
+          ]
+        },
+        "policy": {
+          "type": "object"
+        },
+        "display_hints": {
+          "type": "object"
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-700-authorization-payload-linter.html",
+    "function_name": "run",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "authored for AUTH-PAYLOAD-LINTER-1 (scripts/generate-node-manifest.mjs cannot see a PENDING-ASSEMBLE shard; fields derived from the kernel input contract, the golden fixtures, and the page's inline MANIFEST per CONTRACT.md section 2.7)",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "mode": "typed_data",
+    "typed_data": {
+      "domain": {
+        "name": "USD Coin",
+        "version": "2",
+        "chainId": 1,
+        "verifyingContract": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+      },
+      "types": {
+        "EIP712Domain": [
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "version",
+            "type": "string"
+          },
+          {
+            "name": "chainId",
+            "type": "uint256"
+          },
+          {
+            "name": "verifyingContract",
+            "type": "address"
+          }
+        ],
+        "Permit": [
+          {
+            "name": "owner",
+            "type": "address"
+          },
+          {
+            "name": "spender",
+            "type": "address"
+          },
+          {
+            "name": "value",
+            "type": "uint256"
+          },
+          {
+            "name": "nonce",
+            "type": "uint256"
+          },
+          {
+            "name": "deadline",
+            "type": "uint256"
+          }
+        ]
+      },
+      "primaryType": "Permit",
+      "message": {
+        "owner": "0xe05fcc23807536bee418f142d19fa0d21bb0cff7",
+        "spender": "0x1111111111111111111111111111111111111111",
+        "value": "1000000",
+        "nonce": "0",
+        "deadline": "2000000000"
+      }
+    }
+  },
+  "output_example": {
+    "mode": "typed_data",
+    "classification": {
+      "standard": "ERC2612_PERMIT",
+      "primary_type": "Permit",
+      "encode_type": "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)",
+      "witness_type": null,
+      "witness_is_named_payment_witness": false,
+      "lookalike": false,
+      "entry_count": null,
+      "payment_method": "not_detected"
+    },
+    "checks": [
+      {
+        "id": "AMOUNT_ABOVE_POLICY",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "message.value",
+        "observed": null,
+        "policy": "max_amount_by_token was not declared, or the classified payload carries no amount member"
+      },
+      {
+        "id": "BLIND_SIGNATURE",
+        "status": "CLEAR",
+        "severity": "structure",
+        "field_path": "mode",
+        "observed": "typed_data",
+        "policy": "a structured payload was supplied"
+      },
+      {
+        "id": "CHAIN_MISMATCH_ACTIVE",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "domain.chainId",
+        "observed": null,
+        "policy": "active_chain_id was not declared, or the payload carries no domain.chainId"
+      },
+      {
+        "id": "CHAIN_NOT_ALLOWED",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "domain.chainId",
+        "observed": null,
+        "policy": "allowed_chain_ids was not declared, or the payload carries no domain.chainId"
+      },
+      {
+        "id": "CROSS_CHAIN_AUTHORIZATION",
+        "status": "NOT_EVALUATED",
+        "severity": "eip7702",
+        "field_path": "mode",
+        "observed": null,
+        "policy": "these checks read a delegation tuple; this payload is structured data"
+      },
+      {
+        "id": "DELEGATE_NOT_ALLOWLISTED",
+        "status": "NOT_EVALUATED",
+        "severity": "eip7702",
+        "field_path": "mode",
+        "observed": null,
+        "policy": "these checks read a delegation tuple; this payload is structured data"
+      },
+      {
+        "id": "DELEGATION_CLEAR",
+        "status": "NOT_EVALUATED",
+        "severity": "eip7702",
+        "field_path": "mode",
+        "observed": null,
+        "policy": "these checks read a delegation tuple; this payload is structured data"
+      },
+      {
+        "id": "EIP2_HIGH_S",
+        "status": "NOT_EVALUATED",
+        "severity": "eip7702",
+        "field_path": "mode",
+        "observed": null,
+        "policy": "these checks read a delegation tuple; this payload is structured data"
+      },
+      {
+        "id": "EIP3009_TRANSFER_TO_CONTRACT",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "message.to",
+        "observed": null,
+        "policy": "contract_addresses was not declared, or the payload is not the transfer-form authorization"
+      },
+      {
+        "id": "ERC6492_WRAPPED",
+        "status": "NOT_EVALUATED",
+        "severity": "informational",
+        "field_path": "signature",
+        "observed": null,
+        "policy": "no signature was supplied"
+      },
+      {
+        "id": "ERC7730_DESCRIPTOR_MISMATCH",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "domain",
+        "observed": null,
+        "policy": "erc7730_descriptor was not declared"
+      },
+      {
+        "id": "EXPIRED",
+        "status": "NOT_EVALUATED",
+        "severity": "informational",
+        "field_path": "message.deadline",
+        "observed": null,
+        "policy": "now_unix or a deadline member was not present"
+      },
+      {
+        "id": "HIGH_S",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "signature",
+        "observed": null,
+        "policy": "no signature was supplied, or it carries no recoverable s"
+      },
+      {
+        "id": "LOOKALIKE_TYPE",
+        "status": "CLEAR",
+        "severity": "structure",
+        "field_path": "typed_data.primaryType",
+        "observed": "Permit",
+        "policy": "a known struct name must carry its canonical encodeType"
+      },
+      {
+        "id": "MESSAGE_FIELD_MISSING",
+        "status": "CLEAR",
+        "severity": "structure",
+        "field_path": "typed_data.message",
+        "observed": [],
+        "policy": "every declared member must be present in message"
+      },
+      {
+        "id": "MESSAGE_FIELD_NOT_IN_TYPES",
+        "status": "CLEAR",
+        "severity": "structure",
+        "field_path": "typed_data.message",
+        "observed": [],
+        "policy": "every message member must be declared in types"
+      },
+      {
+        "id": "NONCE_OUT_OF_RANGE",
+        "status": "NOT_EVALUATED",
+        "severity": "eip7702",
+        "field_path": "mode",
+        "observed": null,
+        "policy": "these checks read a delegation tuple; this payload is structured data"
+      },
+      {
+        "id": "NON_ECDSA_LENGTH",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "signature",
+        "observed": null,
+        "policy": "no signature was supplied"
+      },
+      {
+        "id": "NOT_YET_VALID",
+        "status": "NOT_EVALUATED",
+        "severity": "informational",
+        "field_path": "message",
+        "observed": null,
+        "policy": "now_unix or a start-of-window member was not present"
+      },
+      {
+        "id": "NO_EXPIRY",
+        "status": "CLEAR",
+        "severity": "policy",
+        "field_path": "message",
+        "observed": {
+          "no_expiry": [],
+          "expires_this_block": []
+        },
+        "policy": "a ceiling deadline, or a zero expiry on the legacy permit struct, never expires"
+      },
+      {
+        "id": "PAYEE_NOT_ALLOWLISTED",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "message",
+        "observed": null,
+        "policy": "payee_allowlist was not declared, or the classified payload carries no payee"
+      },
+      {
+        "id": "PAYLOAD_DIVERGES_FROM_INTENT",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "message",
+        "observed": null,
+        "policy": "intent was not declared"
+      },
+      {
+        "id": "PERMIT2_DOMAIN_SHAPE",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "domain",
+        "observed": null,
+        "policy": "the payload is not classified as one of the recognised allowance-router types"
+      },
+      {
+        "id": "SPENDER_NOT_ALLOWLISTED",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "message.spender",
+        "observed": null,
+        "policy": "spender_allowlist was not declared, or the classified payload carries no spender"
+      },
+      {
+        "id": "SPENDER_NOT_DECLARED_CONTRACT",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "message.spender",
+        "observed": null,
+        "policy": "contract_addresses was not declared, or the classified payload carries no spender"
+      },
+      {
+        "id": "UNLIMITED_AMOUNT",
+        "status": "CLEAR",
+        "severity": "policy",
+        "field_path": "message.value",
+        "observed": [],
+        "policy": "an amount at its type ceiling is an unlimited allowance"
+      },
+      {
+        "id": "UNRECOGNIZED_TYPE",
+        "status": "CLEAR",
+        "severity": "informational",
+        "field_path": "typed_data.primaryType",
+        "observed": "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)",
+        "policy": "classification by encodeType string equality"
+      },
+      {
+        "id": "VALIDITY_BEYOND_POLICY",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "message.deadline",
+        "observed": null,
+        "policy": "max_validity_seconds, now_unix, or a deadline member was not present"
+      },
+      {
+        "id": "VERIFYING_CONTRACT_NOT_ALLOWED",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "domain.verifyingContract",
+        "observed": null,
+        "policy": "allowed_verifying_contracts was not declared, or the payload carries no domain.verifyingContract"
+      },
+      {
+        "id": "V_FORM_RAW_YPARITY",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "signature",
+        "observed": null,
+        "policy": "no 65-byte signature was supplied"
+      },
+      {
+        "id": "X402_AMOUNT_MISMATCH",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "message.value",
+        "observed": null,
+        "policy": "expected_x402.scheme, expected_x402.amount, or an amount member was not present"
+      },
+      {
+        "id": "X402_ASSET_MISMATCH",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "message",
+        "observed": null,
+        "policy": "expected_x402.asset was not declared, or the classified payload carries no token"
+      },
+      {
+        "id": "X402_METHOD_NOT_OFFLINE_CHECKABLE",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "typed_data.primaryType",
+        "observed": null,
+        "policy": "expected_x402 was not declared"
+      },
+      {
+        "id": "X402_NETWORK_MISMATCH",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "domain.chainId",
+        "observed": null,
+        "policy": "expected_x402.network, the caller-declared network_chain_ids map, or domain.chainId was not present"
+      },
+      {
+        "id": "X402_PAYTO_MISMATCH",
+        "status": "NOT_EVALUATED",
+        "severity": "policy",
+        "field_path": "message",
+        "observed": null,
+        "policy": "expected_x402.payTo was not declared, or the classified payload carries no payee"
+      },
+      {
+        "id": "Y_PARITY_OUT_OF_RANGE",
+        "status": "NOT_EVALUATED",
+        "severity": "eip7702",
+        "field_path": "mode",
+        "observed": null,
+        "policy": "these checks read a delegation tuple; this payload is structured data"
+      }
+    ],
+    "not_evaluated": [
+      "AMOUNT_ABOVE_POLICY",
+      "CHAIN_MISMATCH_ACTIVE",
+      "CHAIN_NOT_ALLOWED",
+      "CROSS_CHAIN_AUTHORIZATION",
+      "DELEGATE_NOT_ALLOWLISTED",
+      "DELEGATION_CLEAR",
+      "EIP2_HIGH_S",
+      "EIP3009_TRANSFER_TO_CONTRACT",
+      "ERC6492_WRAPPED",
+      "ERC7730_DESCRIPTOR_MISMATCH",
+      "EXPIRED",
+      "HIGH_S",
+      "NONCE_OUT_OF_RANGE",
+      "NON_ECDSA_LENGTH",
+      "NOT_YET_VALID",
+      "PAYEE_NOT_ALLOWLISTED",
+      "PAYLOAD_DIVERGES_FROM_INTENT",
+      "PERMIT2_DOMAIN_SHAPE",
+      "SPENDER_NOT_ALLOWLISTED",
+      "SPENDER_NOT_DECLARED_CONTRACT",
+      "VALIDITY_BEYOND_POLICY",
+      "VERIFYING_CONTRACT_NOT_ALLOWED",
+      "V_FORM_RAW_YPARITY",
+      "X402_AMOUNT_MISMATCH",
+      "X402_ASSET_MISMATCH",
+      "X402_METHOD_NOT_OFFLINE_CHECKABLE",
+      "X402_NETWORK_MISMATCH",
+      "X402_PAYTO_MISMATCH",
+      "Y_PARITY_OUT_OF_RANGE"
+    ],
+    "evaluated_count": 7,
+    "flagged_count": 0,
+    "policy_conformance": "CONFORMS",
+    "display": [
+      {
+        "path": "domain.chainId",
+        "label": "Chain",
+        "format": "chainId",
+        "value": "1",
+        "params": {}
+      },
+      {
+        "path": "domain.verifyingContract",
+        "label": "Verifying contract",
+        "format": "addressName",
+        "value": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "params": {
+          "raw": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        }
+      },
+      {
+        "path": "message.spender",
+        "label": "Spender",
+        "format": "addressName",
+        "value": "0x1111111111111111111111111111111111111111",
+        "params": {
+          "raw": "0x1111111111111111111111111111111111111111"
+        }
+      },
+      {
+        "path": "message.value",
+        "label": "Amount",
+        "format": "tokenAmount",
+        "value": "1000000",
+        "params": {
+          "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "decimals": null,
+          "ticker": null,
+          "raw_base_units": true
+        }
+      },
+      {
+        "path": "message.deadline",
+        "label": "Expires",
+        "format": "date",
+        "value": "2033-05-18T03:33:20Z",
+        "params": {
+          "unix": "2000000000"
+        }
+      }
+    ],
+    "handoffs": {
+      "art_612": {
+        "name": "USD Coin",
+        "version": "2",
+        "chainId": "1",
+        "verifyingContract": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "owner": "0xe05fcc23807536bee418f142d19fa0d21bb0cff7",
+        "spender": "0x1111111111111111111111111111111111111111",
+        "value": "1000000",
+        "nonce": "0",
+        "deadline": "2000000000",
+        "r": null,
+        "s": null,
+        "yParity": null
+      }
+    },
+    "signature_form": null,
+    "warnings": [
+      "29 check(s) could not be evaluated because a declared input was absent; they are listed in not_evaluated and are never counted as CLEAR"
+    ],
+    "scope_note": "Classifies an authorization payload that is about to be signed and reports how it stands against a signing policy the caller declares. Classification is string equality of the computed encodeType against canonical type strings, so a type this node does not recognise is reported as UNRECOGNIZED and never guessed. Every threshold, allowlist, counterparty set and clock reading is a caller-declared input: a check whose input was not declared reports NOT_EVALUATED and is listed separately, never folded into a CLEAR. This node performs no chain read, recovers no signer, computes no digest, and never submits anything. It reports flags against a declared policy; it does not judge a counterparty, a delegate contract, or an outcome."
+  },
+  "example_execution_hash": "5b490d32b349d6dd020fb7484027254939121c5478e4cc2d429bb15f958be12f"
+}

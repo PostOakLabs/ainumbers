@@ -622,7 +622,9 @@ import * as art69     from './art-69-cbam-embedded-emissions-calculator.kernel.m
 import * as art691    from './art-691-regulatory-obligations-register.kernel.mjs';
 import * as art692    from './art-692-close-posting-lineage.kernel.mjs';
 import * as art693    from './art-693-isa530-audit-sampling-mus.kernel.mjs';
+import * as art699    from './art-699-x402-permit2-evidence-recomputer.kernel.mjs';
 import * as art70     from './art-70-cbam-default-value-resolver.kernel.mjs';
+import * as art700    from './art-700-authorization-payload-linter.kernel.mjs';
 import * as art71     from './art-71-cbam-certificate-cost-engine.kernel.mjs';
 import * as art72     from './art-72-cbam-precursor-emissions-aggregator.kernel.mjs';
 import * as art73     from './art-73-taxonomy-alignment-scorer.kernel.mjs';
@@ -1290,7 +1292,9 @@ export const KERNELS = {
   'art-691-regulatory-obligations-register':                    art691,
   'art-692-close-posting-lineage':                              art692,
   'art-693-isa530-audit-sampling-mus':                          art693,
+  'art-699-x402-permit2-evidence-recomputer':                   art699,
   'art-70-cbam-default-value-resolver':                         art70,
+  'art-700-authorization-payload-linter':                       art700,
   'art-71-cbam-certificate-cost-engine':                        art71,
   'art-72-cbam-precursor-emissions-aggregator':                 art72,
   'art-73-taxonomy-alignment-scorer':                           art73,

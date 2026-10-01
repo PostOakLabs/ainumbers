@@ -1,0 +1,31 @@
+---
+type: Attested Computation
+title: "X402 Permit2 Evidence Recomputer — attested computation"
+runtime: server
+computation: "Kernel-backed evaluation for the compliance_control decision, producing a hash-anchored OpenChainGraph artifact."
+executor:
+  resource: https://ainumbers.co/chaingraph/kernels/art-699-x402-permit2-evidence-recomputer.kernel.mjs
+  receipt: ["type", "system", "receiptFormat", "imageId", "seal", "journal"]
+attester:
+  resource: https://ainumbers.co/chaingraph/graph/nodes/art-699-x402-permit2-evidence-recomputer.json#compute_images
+timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+---
+
+# X402 Permit2 Evidence Recomputer — attested computation
+
+> §10.2 Attested Computation binding for [X402 Permit2 Evidence Recomputer](../tools/art-699-x402-permit2-evidence-recomputer.md).
+
+## Executor
+
+Kernel source: `chaingraph/kernels/art-699-x402-permit2-evidence-recomputer.kernel.mjs`. A §18 zkVM compute-integrity
+proof, when attached to an artifact this kernel produced, carries these receipt fields:
+`type`, `system`, `receiptFormat`, `imageId`, `seal`, `journal` (SPEC.md §18.0).
+
+## Attester
+
+Kernel identity: `sha256:610d0247168f9ed0ac30b0c745503f178fb840da35d67b3fb9f3342801021ba5` (SPEC.md §17.1 `compute_images`) — a
+content-addressed digest of this node's deployed kernel source, already published in the
+Graph Index. Static and dereferenceable; nothing in OpenChainGraph verification depends on
+this OKF bundle, and this concept asserts no execution event or `verified:` status.

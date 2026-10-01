@@ -288,6 +288,20 @@ function draftManifest(node) {
     manifest.output_schema = deriveSchema(outputSample);
   }
 
+  // Top-level `x_*` keys are hand-curated declarations with no chaingraph.json
+  // or inline-MANIFEST source (e.g. `x_order_bearing: ["<prop>", ...]` naming
+  // order-sensitive inputs, read by declares() in scripts/lib/mr-relations.mjs).
+  // Carry them from the existing on-disk manifest into the draft so a redraft
+  // never silently drops them (MR-ART117-CONTENT-CHANGED-2, V337: the
+  // top-level manifest array is THE home for order-bearing declarations).
+  const existingManifestPath = resolve(MANIFESTS_DIR, `${toolId}.manifest.json`);
+  if (existsSync(existingManifestPath)) {
+    const existing = JSON.parse(readFileSync(existingManifestPath, 'utf8'));
+    for (const [key, value] of Object.entries(existing)) {
+      if (key.startsWith('x_')) manifest[key] = value;
+    }
+  }
+
   const remainingTodo = todo.filter((t) => t !== 'category');
   const fieldNote = `${remainingTodo.length ? remainingTodo.join(', ') + ' are TODO markers, no source found; ' : ''}category sourced from ${categorySource || 'no source (TODO_CATEGORY_REVIEW)'}`;
   manifest.source = outputSample !== null
