@@ -231,9 +231,23 @@ export async function runWrapperExecute(pageAbs, pageRel, params) {
 /* ── BASELINE + DOWNWARD RATCHET (check-deeplink-contract pattern) ───────── */
 const BASELINE_PATH = join(HERE, 'webmcp-wrapper-execute-baseline.json');
 
+/**
+ * The baseline read honours AINUM_WRAPPER_EXECUTE_BASELINE so the gate's
+ * self-test can drive the STALE-entry controls against a temp copy — the full
+ * preflight suite runs this gate and its self-test concurrently
+ * (AINUM_PREFLIGHT_CONCURRENCY), so the test must never mutate the real file.
+ * Unset (every preflight/CI invocation) reads the checked-in baseline, exactly
+ * as before.
+ */
+function baselinePath() {
+  const override = process.env.AINUM_WRAPPER_EXECUTE_BASELINE;
+  return override ? resolve(override) : BASELINE_PATH;
+}
+
 function loadBaseline() {
-  if (!existsSync(BASELINE_PATH)) return new Map();
-  const parsed = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
+  const path = baselinePath();
+  if (!existsSync(path)) return new Map();
+  const parsed = JSON.parse(readFileSync(path, 'utf8'));
   return new Map(Object.entries(parsed));
 }
 
@@ -253,6 +267,7 @@ function classify(problem) {
 async function collectFailures() {
   const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(REPO);
   const problems = [];
+  const ranPages = new Set();
   let checked = 0;
   for (const id of cleared) {
     if (ONLY && id !== ONLY) continue;
@@ -260,6 +275,7 @@ async function collectFailures() {
     if (!d.ok) continue;
     const pageAbs = resolve(REPO, d.detail.page);
     checked++;
+    ranPages.add(d.detail.page);
     const fixturePath = join(REPO, 'chaingraph', 'kernels', 'fixtures', `${id}.fixtures.json`);
     if (!existsSync(fixturePath)) { problems.push(`${d.detail.page}: no fixture file chaingraph/kernels/fixtures/${id}.fixtures.json — cannot drive the wrapper`); continue; }
     let fixture;
@@ -276,12 +292,12 @@ async function collectFailures() {
     }
     if (JSONMODE) console.log(JSON.stringify({ page: d.detail.page, tool: result.toolName, hash: String(result.executionHash).replace(/^sha256:/, '') }));
   }
-  return { problems, checked };
+  return { problems, checked, ranPages };
 }
 
 async function main() {
   const baseline = loadBaseline();
-  const { problems, checked } = await collectFailures();
+  const { problems, checked, ranPages } = await collectFailures();
   const fresh = [];
   const warned = [];
   for (const p of problems) {
@@ -289,9 +305,20 @@ async function main() {
     if (baseline.has(page)) warned.push(p);
     else fresh.push(p);
   }
-  if (fresh.length) {
-    console.error(`✗ check-webmcp-wrapper-execute FAILED (${fresh.length} NEW problem(s) over ${checked} registered page(s); ${warned.length} baselined WARN):`);
+  // WEBMCP-WRAPPER-BASELINE-STALE-1: the downward ratchet's other direction.
+  // A baseline entry whose page no longer fails — healed by a later page fix,
+  // or the page is no longer a registered WebMCP page — shields nothing and is
+  // itself a failure: left in place it would downgrade a REGRESSION on that
+  // page to a WARN (the gate-integrity audit's silent-green shape). Same
+  // check-a11y-tree.mjs precedent: STALE entry → exit 1 until removed.
+  // Scoped to the pages actually run: under --only, un-run entries are never
+  // reported stale.
+  const failingPages = new Set(problems.map((p) => p.slice(0, p.indexOf(':'))));
+  const stale = [...baseline.keys()].filter((page) => (!ONLY || ranPages.has(page)) && !failingPages.has(page));
+  if (fresh.length || stale.length) {
+    console.error(`✗ check-webmcp-wrapper-execute FAILED (${fresh.length} NEW problem(s), ${stale.length} STALE baseline entr${stale.length === 1 ? 'y' : 'ies'} over ${checked} registered page(s); ${warned.length} baselined WARN):`);
     fresh.forEach((p) => console.error('    ' + p));
+    stale.forEach((page) => console.error(`    STALE baseline entry — ${page} no longer fails the wrapper-execute gate; remove it from the baseline (down-only ratchet): ${baselinePath()}`));
     console.error('  Pre-existing wrapper-path divergences belong in scripts/webmcp-wrapper-execute-baseline.json with a reason — never silence, never a fix-forward.');
     process.exit(1);
   }
