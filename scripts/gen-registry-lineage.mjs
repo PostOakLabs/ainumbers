@@ -11,7 +11,7 @@
 //    appended by an operator/future row — NEVER written by this generator,
 //    same read-only relationship this lane has with chaingraph.json, §5.2/5.3).
 // 2. Each record becomes one leaf: RFC 8785/JCS canonical bytes (via
-//    chaingraph/kernels/_hash.mjs's cgCanon — the ONE canonicalizer, never
+//    chaingraph/kernels/_hash.mjs's jcsStringify — the ONE canonicalizer, never
 //    hand-rolled) hashed with hashLeafNode from the shared C2SP module.
 // 3. Builds the RFC 6962 dense tree over those leaf hashes and the C2SP
 //    tlog-tiles tile/partial-tile/entry-bundle layout (§3.3) in memory.
@@ -72,7 +72,7 @@ import {
   verifyConsistency, formatCheckpoint, parseSignedNote,
   bytesToHex, hexToBytes, bytesToBase64, concatBytes, bytesEqual,
 } from '../chaingraph/kernels/c2sp-tlog-verify.mjs';
-import { cgCanon } from '../chaingraph/kernels/_hash.mjs';
+import { jcsStringify } from '../chaingraph/kernels/_hash.mjs';
 
 const subtle = webcrypto.subtle;
 
@@ -320,7 +320,7 @@ export function loadRecords() {
 }
 
 export function canonicalEntryBytes(record) {
-  return new TextEncoder().encode(JSON.stringify(cgCanon(record)));
+  return new TextEncoder().encode(jcsStringify((record)));
 }
 
 // ---------------------------------------------------------------------------

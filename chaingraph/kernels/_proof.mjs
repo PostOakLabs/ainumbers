@@ -16,7 +16,7 @@
 // OPTIONAL + holder-chosen (§16.2): nothing here runs unless a caller passes a private key. Signing
 // de-anonymizes a run; callers MUST surface that before signing.
 
-import { cgCanon } from './_hash.mjs';
+import { jcsStringify } from './_hash.mjs';
 
 // ── §PQC-1 hybrid ML-DSA proof (OCG SPEC.md §PQC-1, NORMATIVE OPTIONAL) — vendored FIPS 204 impl ──
 // Vendored verbatim (function bodies unmodified; only import/export boilerplate stripped and a
@@ -2961,8 +2961,8 @@ const ml_dsa87 = /* @__PURE__ */ (() => getDilithium({
 const CRYPTOSUITE = 'eddsa-jcs-2022';
 const enc = (s) => new TextEncoder().encode(s);
 
-// JCS canonical bytes (RFC 8785) — byte-identical canon to _hash.mjs (cgCanon + minimal JSON.stringify).
-function jcsBytes(obj) { return enc(JSON.stringify(cgCanon(obj))); }
+// JCS canonical bytes (RFC 8785) — byte-identical canon to _hash.mjs (jcsStringify + minimal JSON.stringify).
+function jcsBytes(obj) { return enc(jcsStringify((obj))); }
 
 async function sha256(bytes) {
   const d = await globalThis.crypto.subtle.digest('SHA-256', bytes);

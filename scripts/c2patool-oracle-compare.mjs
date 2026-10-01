@@ -45,18 +45,36 @@ if (!c2patoolBin || !existsSync(c2patoolBin)) {
   process.exit(2);
 }
 
-// ── cgCanon, duplicated from _hash.mjs / the kernel's own inlined copy (documented
-// duplication, same pattern as the kernel's top-of-file note — VM-safety isn't a concern
-// here since this runs under plain Node, but keeping the SAME formula is load-bearing:
-// it is what makes FORCED_DIGEST_HEX below actually equal what compute() will derive). ──
-const cgCanon = (v) =>
-  Array.isArray(v) ? v.map(cgCanon)
-  : (v && typeof v === 'object')
-    ? Object.keys(v).sort().reduce((o, k) => (o[k] = cgCanon(v[k]), o), {})
-    : v;
+// ── jcsStringify, duplicated from _hash.mjs (documented duplication — same pattern
+// as the kernel's own inlined canonicalizer note; keeping the SAME formula is
+// load-bearing: it is what makes FORCED_DIGEST_HEX below actually equal what
+// compute() will derive; byte-identical to the kernel's legacy stringify-of-sorted-object
+// wrap for every value without array-index member names in a disagreeing order). ──
+const jcsStringify = (v) => {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) {
+    let s = '[';
+    for (let i = 0; i < v.length; i++) {
+      if (i) s += ',';
+      const e = v[i];
+      s += (e === undefined || typeof e === 'function' || typeof e === 'symbol') ? 'null' : jcsStringify(e);
+    }
+    return s + ']';
+  }
+  const keys = Object.keys(v).sort();
+  let s = '{', first = true;
+  for (const k of keys) {
+    const e = v[k];
+    if (e === undefined || typeof e === 'function' || typeof e === 'symbol') continue;
+    if (!first) s += ',';
+    first = false;
+    s += JSON.stringify(k) + ':' + jcsStringify(e);
+  }
+  return s + '}';
+};
 
 async function canonicalDigestHex(value) {
-  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(value)));
+  const bytes = new TextEncoder().encode(jcsStringify(value));
   const d = await globalThis.crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(d)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }

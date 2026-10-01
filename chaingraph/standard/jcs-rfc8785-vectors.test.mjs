@@ -15,6 +15,13 @@
  *                         preimage string {"output_payload":null,"policy_parameters":<expected>} (the §4 path).
  *   twin-jcsCanonicalize  jcsCanonicalize(v) from ../vm/twin/verify.mjs, which mirrors the zkVM guest's
  *                         journal serializer (UTF-8 key order, fail-closed on exponent-form numbers).
+ *   page-ocgJcs           the PAGE estate's inline canonicalizer (JCS-CANON-PAGES-1): the SSOT lines
+ *                         __ocgAssertIJson / __ocgJcs / __ocgCanonStr are extracted live from
+ *                         kernels/fix-hash-scheme.mjs (the ocgJcs/ocgCanonStr manifest pairs' SSOT),
+ *                         evaluated in a node:vm context, and every vector is run through the page hash
+ *                         path __ocgCanonStr(v) = assertIJson + __ocgJcs. Its outcome MUST equal
+ *                         ocg-hash-path's on every vector (enforced below), so a page hash and the host
+ *                         hash can never disagree on an RFC 8785 case again.
  * OUTCOMES: PASS | FAIL | POLICY-REJECT (assertIJson refused the input) | THROW (any other error).
  *
  * BASELINE (./jcs-rfc8785-baseline.json) is SHRINK-ONLY. Every non-PASS outcome must be listed with the
@@ -38,6 +45,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 import { policyParametersHash, canonicalPreimage } from '../kernels/_hash.mjs';
 import { jcsCanonicalize } from '../vm/twin/verify.mjs';
 
@@ -45,6 +53,46 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const VENDOR = resolve(HERE, 'vendor', 'rfc8785-testdata');
 const PROBES = resolve(HERE, 'fixtures', 'jcs-ocg-probes.json');
 const BASELINE = resolve(HERE, 'jcs-rfc8785-baseline.json');
+const SSOT = resolve(HERE, '..', 'kernels', 'fix-hash-scheme.mjs');
+
+// -- page-ocgJcs: extract the SSOT helper lines and build the page hash path evaluator --
+// Same balanced-brace extraction the inline-ssot-sync gate uses for its `line` pairs.
+function extractInlineFn(text, trigger) {
+  const out = [];
+  let from = 0;
+  while (true) {
+    const s = text.indexOf(trigger, from);
+    if (s === -1) break;
+    const braceStart = text.indexOf('{', s);
+    if (braceStart === -1) { from = s + trigger.length; continue; }
+    let depth = 0, end = -1;
+    for (let i = braceStart; i < text.length; i++) {
+      if (text[i] === '{') depth++;
+      else if (text[i] === '}') { depth--; if (depth === 0) { end = i + 1; break; } }
+    }
+    if (end === -1) { from = s + trigger.length; continue; }
+    out.push(text.slice(s, end));
+    from = end;
+  }
+  return out;
+}
+function loadPageOcgJcs() {
+  const ssot = readFileSync(SSOT, 'utf8');
+  const lines = [
+    ...extractInlineFn(ssot, 'function __ocgAssertIJson('),
+    ...extractInlineFn(ssot, 'function __ocgJcs(v)'),
+    ...extractInlineFn(ssot, 'function __ocgCanonStr('),
+  ];
+  if (lines.length !== 3 || lines.some((l) => !l)) {
+    throw new Error(`page-ocgJcs: expected exactly 1 __ocgAssertIJson + 1 __ocgJcs + 1 __ocgCanonStr line in ${SSOT}, found ${lines.length} — SSOT/manifest is stale, fix before trusting this gate`);
+  }
+  const ctx = vm.createContext({});
+  new vm.Script(lines.join('\n'), { filename: 'page-ocgJcs.ssot-inline' }).runInContext(ctx); // definitions only
+  return (v) => {
+    ctx.__vec = v; // host-realm object; __ocgJcs uses only typeof/Array.isArray/Object.keys — realm-safe
+    return vm.runInContext('__ocgCanonStr(__vec)', ctx, { timeout: 5000 });
+  };
+}
 
 // Upstream cyberphone/json-canonicalization @ 19d51d7fe467d4706a3ff08adf8a748f29fc21e0 (see PROVENANCE.md).
 const PINS = {
@@ -99,20 +147,22 @@ export function loadCases() {
 const classify = (e) => (POLICY_RE.test(String(e && e.message)) ? 'POLICY-REJECT' : 'THROW');
 
 export async function runMatrix(cases) {
+  const pageOcgJcs = loadPageOcgJcs();
   const rows = [];
   for (const c of cases) {
     const expectedText = c.expected.toString('utf8');
     const want = sha256hex(c.expected);
-    let a, p, t;
+    let a, p, t, g;
     try { a = (await policyParametersHash(JSON.parse(c.text))) === want ? 'PASS' : 'FAIL'; } catch (e) { a = classify(e); }
     try { p = canonicalPreimage(JSON.parse(c.text), null) === `{"output_payload":null,"policy_parameters":${expectedText}}` ? 'PASS' : 'FAIL'; } catch (e) { p = classify(e); }
     try { t = Buffer.from(jcsCanonicalize(JSON.parse(c.text))).equals(c.expected) ? 'PASS' : 'FAIL'; } catch { t = 'THROW'; }
-    rows.push({ case: c.id, source: c.source, 'ocg-hash-path': a, 'ocg-preimage': p, 'twin-jcsCanonicalize': t });
+    try { g = sha256hex(Buffer.from(pageOcgJcs(JSON.parse(c.text)), 'utf8')) === want ? 'PASS' : 'FAIL'; } catch (e) { g = classify(e); }
+    rows.push({ case: c.id, source: c.source, 'ocg-hash-path': a, 'ocg-preimage': p, 'twin-jcsCanonicalize': t, 'page-ocgJcs': g });
   }
   return rows;
 }
 
-export const IMPLS = ['ocg-hash-path', 'ocg-preimage', 'twin-jcsCanonicalize'];
+export const IMPLS = ['ocg-hash-path', 'ocg-preimage', 'twin-jcsCanonicalize', 'page-ocgJcs'];
 
 export function compare(rows, known) {
   const errors = [];
@@ -130,6 +180,11 @@ export function compare(rows, known) {
         errors.push(`CHANGED: ${impl} × ${r.case} = ${r[impl]} (baseline says ${k.outcome})`);
       }
       if (k) seen.add(key(impl, r.case));
+    }
+    // page-ocgJcs is the page estate's twin of ocg-hash-path: any outcome divergence means a
+    // page hash and the host hash would disagree on that vector — the defect this gate exists for.
+    if (r['page-ocgJcs'] !== r['ocg-hash-path']) {
+      errors.push(`PAGE DIVERGENCE: page-ocgJcs × ${r.case} = ${r['page-ocgJcs']} but ocg-hash-path = ${r['ocg-hash-path']} — a page hash would disagree with the host hash on this input`);
     }
   }
   for (const k of known) if (!seen.has(key(k.impl, k.case))) errors.push(`ORPHAN baseline entry: ${k.impl} × ${k.case} (no such case or implementation)`);

@@ -1424,6 +1424,11 @@ const GATES = [
   ['MCP protocol-version drift', 'node scripts/verify-mcp-protocol-version.mjs'],
   ['Deadline-wall freshness (SI-DEADLINE-FRESH-1)', 'node scripts/check-deadline-freshness.mjs'],
   ['Bank-fact freshness (REVERIFY-BANK-1)', 'node scripts/check-bank-fact-freshness.mjs'],
+  // FACT-STAMPS-PILOT-1: the visible "Verified YYYY-MM-DD against …" stamps are a
+  // pure function of data/bank-fact-freshness.json (the same sidecar the bank-fact
+  // gate above watches). A drifted region means the page no longer shows what the
+  // freshest re-verification says. Fix: run the generator in write mode, commit.
+  ['Fact-stamp regions (FACT-STAMPS-PILOT-1)', 'node scripts/gen-fact-stamps.mjs --check'],
   ['Tool-number uniqueness',       'node scripts/check-tool-number-unique.mjs'],
   // PR-ID-COLLISION-GATE-1 (2026-09-06): art-685/art-686 each collided twice in one
   // evening across OPEN PRs, which no in-tree uniqueness gate can ever see. This gate
@@ -3105,20 +3110,25 @@ gateStart(CCPP_CONSISTENCY_LABEL);
   }
 }
 
-// ── Advisory (non-blocking): AIN Bridge block drift (BRIDGE-SNIPPET-SYNC-GEN-1) ──
+// ── BLOCKING: AIN Bridge block drift (BRIDGE-SNIPPET-SYNC-GEN-1, promoted by
+// BRIDGE-SNIPPET-ROLL-1 batch 6) ──
 // scripts/sync-ain-bridge.mjs --check re-derives every page's bridge region
 // from the master snippet (scripts/ain-bridge-v1.snippet.html) and reports the
-// pages whose bytes differ. Measured 2026-09-28 (BRIDGE-SNIPPET-SYNC-GEN-1):
-// 600 bridge pages scanned, 595 drifted, 5 SKIP. ADVISORY BY DESIGN, exit 0
-// always: a blocking gate on that backlog reds main on the exact debt row
-// BRIDGE-SNIPPET-ROLL-1 exists to clear. Promotion to blocking is that row's
-// own last batch and a separate decision, never a side effect of this line.
+// pages whose bytes differ. Was ADVISORY while the ROLL backlog existed (2026-09-28
+// measured: 600 pages scanned, 595 drifted, 5 SKIP) — a blocking gate on that
+// backlog would have reded main on the exact debt row BRIDGE-SNIPPET-ROLL-1
+// existed to clear. That row's batches 1–6 (PRs #2142 #2147 #2149 #2150 #2151 +
+// this one) rolled every reachable page; 2026-09-30 measured: 93 → 0 DRIFTED,
+// 5 SKIP. With the backlog at zero the promotion this block always anticipated is
+// this row's own last batch: DRIFT (a non-zero --check exit) now BLOCKS, shaped
+// like L2-HARDLEG-BLOCKING-1 — after the gate loop, --keep-going cannot waive it.
 // Run `node scripts/sync-ain-bridge.mjs --check --summary` to see where the
 // count stands now. The SKIP list is the load-bearing half of the output:
 // those pages are shapes the generator deliberately will not rewrite (a bridge
 // that is not in its own script element, a page carrying two CFG lines), and
-// they are the pages the ROLL row will NOT reach.
-const BRIDGE_SYNC_LABEL = 'AIN Bridge block drift vs the master snippet (advisory report, BRIDGE-SNIPPET-SYNC-GEN-1)';
+// they are the pages the ROLL row did NOT reach — they stay visible here, not
+// gate-red, because the generator's own shape contract refuses them by design.
+const BRIDGE_SYNC_LABEL = 'AIN Bridge block drift vs the master snippet (BLOCKING, BRIDGE-SNIPPET-SYNC-GEN-1 promoted by BRIDGE-SNIPPET-ROLL-1 batch 6)';
 gateStart(BRIDGE_SYNC_LABEL);
 {
   const r = runAdvisoryChecker('node scripts/sync-ain-bridge.mjs --check --summary');
@@ -3126,10 +3136,14 @@ gateStart(BRIDGE_SYNC_LABEL);
     gateUnavailable(BRIDGE_SYNC_LABEL, r.reason, r.out);
   } else {
     const lines = (r.out || '').trim().split('\n').filter(Boolean);
-    gatePass(lines.find((l) => l.startsWith('sync-ain-bridge:')) || 'no summary line printed — see node scripts/sync-ain-bridge.mjs --check');
+    const driftLine = lines.find((l) => l.startsWith('sync-ain-bridge:'));
+    gatePass(driftLine || 'no summary line printed — see node scripts/sync-ain-bridge.mjs --check');
     for (const l of lines.filter((l) => l.trim().startsWith('SKIP'))) console.log(l);
-    // A non-zero exit here means DRIFT, which is this row's expected state and
-    // its documented contract — not a checker that misbehaved.
+    if (r.state === 'WARNED') {
+      gateFail(`✗ DRIFT — ${driftLine || r.reason} · fix: node scripts/sync-ain-bridge.mjs <drifted pages> (SKIP pages are out of scope by the generator's own shape contract)`);
+      console.log('\n' + r.out.trim() + '\n');
+      process.exit(1); // BLOCKING (was advisory): discovered after the gate loop, like L2-HARDLEG-BLOCKING-1 — no later checkpoint would otherwise make a recorded failure exit non-zero.
+    }
   }
 }
 

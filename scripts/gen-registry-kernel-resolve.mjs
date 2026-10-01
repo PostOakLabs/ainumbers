@@ -20,10 +20,10 @@
 // earlier process wrote (e.g. an existing compute_images sha256-source entry
 // is never consulted).
 //
-// CANONICALIZATION: record bytes are produced through the shared cgCanon()
+// CANONICALIZATION: record bytes are produced through the shared jcsStringify()
 // path in chaingraph/kernels/_hash.mjs — the one correct canonicalization in
 // this estate. This is NOT an execution_hash preimage (there is no
-// policy_parameters/output_payload pair here); cgCanon is reused only for its
+// policy_parameters/output_payload pair here); jcsStringify is reused only for its
 // key-sort + minimal-whitespace JSON shape, so every generator in the estate
 // keeps producing byte-identical records for byte-identical inputs.
 //
@@ -70,7 +70,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, rmSync
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sourceDigest } from '../chaingraph/kernels/_buildid.mjs';
-import { cgCanon } from '../chaingraph/kernels/_hash.mjs';
+import { jcsStringify } from '../chaingraph/kernels/_hash.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -183,7 +183,7 @@ export function parseConfirmPrune(argv) {
 }
 
 export function canonicalRecordBytes(record) {
-  return JSON.stringify(cgCanon(record));
+  return jcsStringify((record));
 }
 
 /**

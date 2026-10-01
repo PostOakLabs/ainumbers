@@ -116,6 +116,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <meta name="ai-tool" content="check_linea_l2_finality_window">
+<meta name="kernel-digest" content="sha256:96bc4cfa0b4c4dc33183c6c6c36cb074ef7ecf0c8a4e10dbd7552fefa7eeeb97">
 </head>
 <body>
 <nav>
@@ -271,7 +272,19 @@ const PRESETS = {
 };
 function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val == null ? '' : val; }
 function loadPreset(p) { const pr = PRESETS[p]; if (!pr) return; Object.keys(pr).forEach(function(k){ setVal(k, pr[k]); }); }
-function getPP() { return { l2_block: document.getElementById('l2_block').value, batch_submission_status: document.getElementById('batch_submission_status').value, l1_finalization_status: document.getElementById('l1_finalization_status').value, corridor_cutoff: document.getElementById('corridor_cutoff').value, asset_type: document.getElementById('asset_type').value }; }
+function getPP() {
+  /* Type-faithful l2_block (WEBMCP-CPARITY-ART290-1). The kernel hashes
+     policy_parameters exactly as the caller sent them (JSON number); DOM
+     inputs only carry strings, so the machine legs (WebMCP execute, deep
+     link) silently changed the hashed preimage — page hash 60daa110c2a4
+     where the kernel, the live MCP and the manifest's own
+     example_execution_hash all agree on 8d0c6a29a769. A canonical decimal
+     restores the number the caller meant; anything else passes through
+     verbatim, so a non-numeric value is hashed exactly as received. */
+  var l2Raw = document.getElementById('l2_block').value;
+  var l2 = /^-?(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(l2Raw) ? Number(l2Raw) : l2Raw;
+  return { l2_block: l2, batch_submission_status: document.getElementById('batch_submission_status').value, l1_finalization_status: document.getElementById('l1_finalization_status').value, corridor_cutoff: document.getElementById('corridor_cutoff').value, asset_type: document.getElementById('asset_type').value };
+}
 
 async function computeHash(pp, op) {
   function jcs(v) { if (v === null || typeof v !== 'object') return JSON.stringify(v); if (Array.isArray(v)) return '[' + v.map(jcs).join(',') + ']'; const keys = Object.keys(v).sort(); return '{' + keys.map(k => JSON.stringify(k) + ':' + jcs(v[k])).join(',') + '}'; }
@@ -547,12 +560,13 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-290
 <script>
 function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
 function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
-function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 </script>
 <script>
 (function(){
   var CS='eddsa-jcs-2022';
-  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function jcs(o){return new TextEncoder().encode(__ocgJcs(o));}
   function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
   function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
   function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}

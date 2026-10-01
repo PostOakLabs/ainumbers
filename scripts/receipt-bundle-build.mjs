@@ -7,7 +7,7 @@
 // ⛔ §4 BUILDER CONFORMANCE — "bundles are evidence CARRIERS, not evidence MAKERS":
 //   · copies the six receipt members VERBATIM (no re-serialization of `seal`, no re-keying of `journal`);
 //   · copies the anchor record and checkpoint text BYTE-FOR-BYTE from the published files;
-//   · computes only §2's derivable fields, via the ONE canonicalizer (cgCanon, §1.4);
+//   · computes only §2's derivable fields, via the ONE canonicalizer (jcsStringify, §1.4);
 //   · performs ZERO network operations (§1.3 never-re-stamp, §1.2 no re-proving). This file imports no
 //     network API and never runs a prover or a log submission. A builder that could contact a log is
 //     defective by design (§1.3).
@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, relative } from 'node:path';
 
-import { cgCanon } from '../chaingraph/kernels/_hash.mjs';
+import { jcsStringify } from '../chaingraph/kernels/_hash.mjs';
 import { bytesToHex, sha256 } from '../chaingraph/kernels/c2sp-tlog-verify.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -61,7 +61,7 @@ export async function buildBundle({ receipt, receiptSourcePath, anchor, trustPol
   for (const m of SIX_MEMBERS) receiptOut[m] = receipt[m];
 
   // §2 derivable: journal bytes via the ONE canonicalizer (RFC 8785 JCS per SPEC.md §18.7).
-  const journalBytes = enc(JSON.stringify(cgCanon(receiptOut.journal)));
+  const journalBytes = enc(jcsStringify((receiptOut.journal)));
   const journalDigest = 'sha256:' + bytesToHex(await sha256(journalBytes));
 
   const bundle = {

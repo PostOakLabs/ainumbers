@@ -7,7 +7,7 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "air-gapped-helm-handover"
   verify_surface: "https://ledger.ainumbers.co/ https://mcp.ainumbers.co/mcp https://anchor.ainumbers.co/mcp"
-  version: "647bdbeed4d9"
+  version: "8770e0e5aba5"
 ---
 
 # The agent runs Helm and a person releases a bundle anyone can verify

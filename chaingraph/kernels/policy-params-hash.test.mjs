@@ -5,7 +5,7 @@
 // prefix-insensitively (§PPH-1.3).
 // Node 18+ (WebCrypto + node: builtins only — zero npm deps).
 // Run:  node chaingraph/kernels/policy-params-hash.test.mjs
-import { cgCanon, canonicalPreimage, executionHash, policyParametersHash } from './_hash.mjs';
+import { jcsStringify, canonicalPreimage, executionHash, policyParametersHash } from './_hash.mjs';
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.error('  ✗ ' + m); } else console.log('  ✓ ' + m); };
@@ -14,7 +14,7 @@ const SHA256REF = /^(sha256:)?[0-9a-f]{64}$/; // #/$defs/sha256ref — prefix OP
 
 // §PPH-1.1 / §PPH-1.1a: policyParametersHash() is now the single exported helper in _hash.mjs
 // (SPEC.md §PPH-1, PPH1-CODE-1) — SHA-256 over the JCS canonical form of policy_parameters ALONE,
-// through cgCanon, the same canonicalizer §4 uses. This gate exercises that shared function
+// through jcsStringify, the same canonicalizer §4 uses. This gate exercises that shared function
 // directly rather than a local re-implementation, so there is exactly one canon path in the repo.
 
 // §PPH-1.3 verifier: strips the OPTIONAL prefix and compares the 64 hex chars. MUST NOT care
@@ -25,7 +25,7 @@ async function verifyPPH(artifact) {
 }
 
 // A representative artifact's hashed members. Key order is deliberately NOT sorted here, so the
-// JCS sort in cgCanon is exercised rather than accidentally satisfied by insertion order.
+// JCS sort in jcsStringify is exercised rather than accidentally satisfied by insertion order.
 const policy_parameters = {
   execution_backend: 'server',
   input_parameters: { zeta: 3, alpha: 'a', nested: { b: false, a: [2, 1] } }
@@ -63,7 +63,7 @@ ok(await policyParametersHash(policy_parameters) === pph, 'digest unmoved by an 
 const withoutField = { tool_id: 'representative', execution_hash: baseHash, policy_parameters, output_payload };
 const withField = { ...withoutField, policy_parameters_hash: pph };
 
-ok(JSON.stringify(cgCanon(withField)) !== JSON.stringify(cgCanon(withoutField)),
+ok(jcsStringify((withField)) !== jcsStringify((withoutField)),
    'the member DOES change the artifact\'s canonical form (it is materially present — makes the next assertion non-vacuous)');
 ok(canonicalPreimage(withField.policy_parameters, withField.output_payload)
    === canonicalPreimage(withoutField.policy_parameters, withoutField.output_payload),
