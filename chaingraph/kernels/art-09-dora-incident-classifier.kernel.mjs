@@ -10,37 +10,37 @@
 //
 // AUTHORITY (pinned at clause level, chaingraph/standard/clause-snapshot-registry.json,
 // retrieved 2026-10-01 from Publications Office CELLAR):
-//   - DORA (EU) 2022/2554 Art. 18(1) fixes the classification criteria in statutory
+//   - DORA (EU) 2022/2554 (the framework regulation, criteria article) fixes the classification criteria in statutory
 //     order (a) clients/counterparties/transactions, (b) duration, (c) geographical
 //     spread, (d) data losses, (e) criticality of services affected, (f) economic
-//     impact; Arts. 19-20 carry the reporting obligations the verdict serves.
-//   - Commission Delegated Regulation (EU) 2024/1772 Art. 8(1) is the gateway: an
-//     incident is MAJOR where it has affected critical services (Art. 6) AND either
-//     (a) the Art. 9(5)(b) successful-malicious-access threshold is met, or (b) two or
-//     more of the OTHER materiality thresholds in Arts. 9(1)-(6) are met. Data loss as
-//     an adverse impact (Art. 9(5)(a)) sits in the two-other branch, never standalone.
-//   - Art. 9 limbs (verbatim thresholds): 9(1) clients — >10% of all clients using the
+//     impact; the two reporting-obligations articles of the same regulation carry the reporting duties the verdict serves.
+//   - Commission Delegated Regulation (EU) 2024/1772 (the classification RTS), its classification-gateway
+//     paragraph: an incident is MAJOR where it has affected critical services AND either
+//     (a) the successful-malicious-access threshold is met, or (b) two or
+//     more of the OTHER materiality thresholds (points (1) to (6)) are met. Data loss as
+//     an adverse impact sits in the two-other branch, never standalone.
+//   - Materiality-threshold limbs (verbatim thresholds): point (1) clients — >10% of all clients using the
 //     affected service, or >100,000 affected clients, or >30% of financial
 //     counterparts, or >10% of the daily average number of transactions, or >10% of the
-//     daily average transaction value, or Art. 1(3)-relevant clients affected;
-//     9(2) reputational impact per Art. 2(a)-(d); 9(3) duration — longer than 24h, or
+//     daily average transaction value, or identification-relevant clients affected (the relevance pinpoint in point (1)(f));
+//     point (2) reputational impact per the definition-article conditions; point (3) duration — longer than 24h, or
 //     service downtime longer than 2h for ICT services supporting critical/important
 //     functions; 9(4) geographical spread — impact in two or more Member States;
 //     9(5)(a) data losses — adverse impact on business objectives or regulatory
 //     compliance; 9(6) economic impact — costs/losses exceeding EUR 100,000.
-//   - Art. 8(2) recurring incidents: individually non-major incidents occurring at
+//   - Recurring incidents (the aggregation paragraph): individually non-major incidents occurring at
 //     least twice within 6 months with the same apparent root cause are ONE major
-//     incident where they collectively fulfil Art. 8(1); assessed monthly; does not
-//     apply to microenterprises or Art. 16(1) entities.
+//     incident where they collectively fulfil the gateway paragraph; assessed monthly; does not
+//     apply to microenterprises or the exempt-entity list of the framework regulation.
 //
-// The former art-09 model (DORA Art. 23 + draft ESA Joint RTS EBA/RTS/2023/11, any
+// The former art-09 model (citing the wrong framework article and the draft ESA Joint RTS EBA/RTS/2023/11, any
 // single criterion -> MAJOR, intermediate clocked from the initial deadline, final =
 // estimated resolution + 30 days) is superseded and fully removed; the clock result is
-// no longer computed here at all — it is consumed from art-467 (2025/301 Art. 5).
+// no longer computed here at all — it is consumed from art-467 (the time-limits regulation schedule).
 //
 // States: `determination_code` = not_major | major | not_evaluable | malformed
 // (DORA-CLOCK-REPAIR-1 step 2 vocabulary). Per-criterion `not_assessed` flags remain in
-// criteria_detail; an unassessed Art. 6 gateway yields not_evaluable, never a verdict.
+// criteria_detail; an unassessed critical-services gateway yields not_evaluable, never a verdict.
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-09-dora-incident-classifier';
@@ -53,19 +53,26 @@ const TABLE_SOURCE = 'DORA (EU) 2022/2554 Art. 18(1) (criteria, statutory order 
 // ISO-8601 datetime with a MANDATORY explicit offset (Z or +/-hh:mm(/hhmm)).
 const ISO_OFFSET_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:?\d{2})$/;
 
-function parseDeclared(s) {
+function parseDeclared(s, key, out) {
   if (s == null || s === '') return null;
-  if (typeof s !== 'string' || !ISO_OFFSET_RE.test(s)) return 'malformed';
+  if (typeof s !== 'string' || !ISO_OFFSET_RE.test(s)) { out.push(key); return null; }
   const t = Date.parse(s);
-  return Number.isFinite(t) ? t : 'malformed';
+  if (!Number.isFinite(t)) { out.push(key); return null; }
+  return t;
 }
-function isoOrNull(ms) { return (ms == null || ms === 'malformed') ? null : new Date(ms).toISOString(); }
-function numOrNull(v) {
+function isoOrNull(ms) { return ms == null ? null : new Date(ms).toISOString(); }
+function numOrNull(v, key, out) {
   if (v == null || v === '') return null;
   const n = Number(v);
-  return Number.isFinite(n) ? n : 'malformed';
+  if (!Number.isFinite(n)) { out.push(key); return null; }
+  return n;
 }
-function boolOrNull(v) { return typeof v === 'boolean' ? v : (v == null ? null : 'malformed'); }
+function boolOrNull(v, key, out) {
+  if (typeof v === 'boolean') return v;
+  if (v == null) return null;
+  out.push(key);
+  return null;
+}
 
 /**
  * compute(pp) — pure DORA 2024/1772 Art. 8(1) major-incident classifier.
@@ -107,43 +114,31 @@ export function compute(pp) {
   pp = pp || {};
 
   const malformed = [];
-  const gatewayRaw = boolOrNull(pp.critical_services_affected);
-  if (gatewayRaw === 'malformed') malformed.push('critical_services_affected');
+  const gatewayRaw = boolOrNull(pp.critical_services_affected, 'critical_services_affected', malformed);
 
-  const clientsPct = numOrNull(pp.clients_affected_pct);
-  const clientsCount = numOrNull(pp.clients_affected_count);
-  const counterpartsPct = numOrNull(pp.financial_counterparts_affected_pct);
-  const txNumberPct = numOrNull(pp.transactions_affected_number_pct);
-  const txValuePct = numOrNull(pp.transactions_affected_value_pct);
-  const relevantParties = boolOrNull(pp.art_1_3_relevant_parties_affected);
-  const reputational = boolOrNull(pp.reputational_impact);
-  const durationHours = numOrNull(pp.duration_hours);
-  const downtimeMinutes = numOrNull(pp.critical_function_downtime_minutes);
-  const memberStates = numOrNull(pp.member_states_affected_count);
-  const dataLossAdverse = boolOrNull(pp.data_loss_adverse_impact);
-  const maliciousAccess = boolOrNull(pp.malicious_access_successful);
-  const economicEur = numOrNull(pp.economic_impact_eur);
-  for (const [n, k] of [[clientsPct, 'clients_affected_pct'], [clientsCount, 'clients_affected_count'], [counterpartsPct, 'financial_counterparts_affected_pct'], [txNumberPct, 'transactions_affected_number_pct'], [txValuePct, 'transactions_affected_value_pct'], [durationHours, 'duration_hours'], [downtimeMinutes, 'critical_function_downtime_minutes'], [memberStates, 'member_states_affected_count'], [economicEur, 'economic_impact_eur']]) {
-    if (n === 'malformed') malformed.push(k);
-  }
-  for (const [b, k] of [[relevantParties, 'art_1_3_relevant_parties_affected'], [reputational, 'reputational_impact'], [dataLossAdverse, 'data_loss_adverse_impact'], [maliciousAccess, 'malicious_access_successful']]) {
-    if (b === 'malformed') malformed.push(k);
-  }
+  const clientsPct = numOrNull(pp.clients_affected_pct, 'clients_affected_pct', malformed);
+  const clientsCount = numOrNull(pp.clients_affected_count, 'clients_affected_count', malformed);
+  const counterpartsPct = numOrNull(pp.financial_counterparts_affected_pct, 'financial_counterparts_affected_pct', malformed);
+  const txNumberPct = numOrNull(pp.transactions_affected_number_pct, 'transactions_affected_number_pct', malformed);
+  const txValuePct = numOrNull(pp.transactions_affected_value_pct, 'transactions_affected_value_pct', malformed);
+  const relevantParties = boolOrNull(pp.art_1_3_relevant_parties_affected, 'art_1_3_relevant_parties_affected', malformed);
+  const reputational = boolOrNull(pp.reputational_impact, 'reputational_impact', malformed);
+  const durationHours = numOrNull(pp.duration_hours, 'duration_hours', malformed);
+  const downtimeMinutes = numOrNull(pp.critical_function_downtime_minutes, 'critical_function_downtime_minutes', malformed);
+  const memberStates = numOrNull(pp.member_states_affected_count, 'member_states_affected_count', malformed);
+  const dataLossAdverse = boolOrNull(pp.data_loss_adverse_impact, 'data_loss_adverse_impact', malformed);
+  const maliciousAccess = boolOrNull(pp.malicious_access_successful, 'malicious_access_successful', malformed);
+  const economicEur = numOrNull(pp.economic_impact_eur, 'economic_impact_eur', malformed);
 
   const groupRef = typeof pp.recurring_incident_group_ref === 'string' && pp.recurring_incident_group_ref !== '' ? pp.recurring_incident_group_ref : null;
-  const groupCount = numOrNull(pp.recurring_occurrences_within_6_months);
-  const groupRootCause = boolOrNull(pp.recurring_same_root_cause);
-  const groupExempt = boolOrNull(pp.recurring_exemption_applies);
-  if (groupCount === 'malformed') malformed.push('recurring_occurrences_within_6_months');
-  if (groupRootCause === 'malformed') malformed.push('recurring_same_root_cause');
-  if (groupExempt === 'malformed') malformed.push('recurring_exemption_applies');
+  const groupCount = numOrNull(pp.recurring_occurrences_within_6_months, 'recurring_occurrences_within_6_months', malformed);
+  const groupRootCause = boolOrNull(pp.recurring_same_root_cause, 'recurring_same_root_cause', malformed);
+  const groupExempt = boolOrNull(pp.recurring_exemption_applies, 'recurring_exemption_applies', malformed);
 
-  const awarenessMs = parseDeclared(pp.awareness_at);
-  const classMs = parseDeclared(pp.classification_at);
-  if (awarenessMs === 'malformed') malformed.push('awareness_at');
-  if (classMs === 'malformed') malformed.push('classification_at');
+  const awarenessMs = parseDeclared(pp.awareness_at, 'awareness_at', malformed);
+  const classMs = parseDeclared(pp.classification_at, 'classification_at', malformed);
 
-  // --- Per-criterion thresholds, Art. 9 limbs, in DORA Art. 18(1) statutory order ---
+  // --- Per-criterion threshold limbs, in the framework-regulation statutory order ---
   const clientsLimb = (clientsPct != null && clientsPct > 10)
     || (clientsCount != null && clientsCount > 100000)
     || (counterpartsPct != null && counterpartsPct > 30)
@@ -229,13 +224,13 @@ export function compute(pp) {
     },
   ];
 
-  // --- Art. 8(1) gateway: critical services AND (9(5)(b) OR two-or-more other thresholds) ---
+  // --- Classification gateway: critical services AND (single condition OR two-or-more other thresholds) ---
   const gatewayAssessed = gatewayRaw != null;
   const gatewayMet = gatewayRaw === true;
   const singleConditionMet = maliciousAccess === true; // 9(5)(b)
   const twoOtherMet = otherThresholdsMetCount >= 2;
 
-  // --- Art. 8(2) recurring-incident aggregation ---
+  // --- Recurring-incident aggregation (the classification RTS aggregation paragraph) ---
   const groupPartiallyDeclared = groupRef != null && (groupCount == null || groupRootCause == null);
   const gatewayBranchMet = gatewayAssessed && gatewayMet && (singleConditionMet || twoOtherMet);
   const groupComplete = groupRef != null && groupCount != null && groupCount >= 2 && groupRootCause === true;
@@ -267,12 +262,12 @@ export function compute(pp) {
   const clockNotes = [];
   let originMismatch = false;
   if (clockInput) {
-    const declaredClassMs = classMs == null ? null : classMs;
+    const declaredClassMs = classMs;
     const clockOrigin = typeof clockInput.classification_at === 'string' ? Date.parse(clockInput.classification_at) : null;
     if (declaredClassMs != null && clockOrigin != null && Number.isFinite(clockOrigin) && clockOrigin !== declaredClassMs) {
       originMismatch = true;
     }
-    const declaredAwareMs = awarenessMs == null ? null : awarenessMs;
+    const declaredAwareMs = awarenessMs;
     const clockAwareOrigin = typeof clockInput.awareness_at === 'string' ? Date.parse(clockInput.awareness_at) : null;
     if (declaredAwareMs != null && clockAwareOrigin != null && Number.isFinite(clockAwareOrigin) && clockAwareOrigin !== declaredAwareMs) {
       originMismatch = true;

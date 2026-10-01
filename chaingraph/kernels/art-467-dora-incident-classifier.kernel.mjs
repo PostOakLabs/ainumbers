@@ -73,21 +73,23 @@ const ISO_OFFSET_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-
 // Calendar-date form accepted only inside bank_holiday_dates[].
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Deterministic UTC parse of a caller-declared timestamp. Returns ms since epoch,
-// or null when absent/empty, or 'malformed' when present but not an explicit-offset
-// ISO-8601 datetime or unparseable. Never reads a wall clock.
-function parseDeclared(s) {
+// Deterministic UTC parse of a caller-declared timestamp. Returns ms since epoch, or
+// null when absent/empty; a present-but-invalid value (not an explicit-offset ISO-8601
+// datetime, or unparseable) records the field name in `out` and returns null. Never
+// reads a wall clock.
+function parseDeclared(s, key, out) {
   if (s == null || s === '') return null;
-  if (typeof s !== 'string' || !ISO_OFFSET_RE.test(s)) return 'malformed';
+  if (typeof s !== 'string' || !ISO_OFFSET_RE.test(s)) { out.push(key); return null; }
   const t = Date.parse(s);
-  return Number.isFinite(t) ? t : 'malformed';
+  if (!Number.isFinite(t)) { out.push(key); return null; }
+  return t;
 }
 function isoOrNull(ms) { return ms == null ? null : new Date(ms).toISOString(); }
 function isoDateUtc(ms) { return new Date(ms).toISOString().slice(0, 10); }
 function utcDayOfWeek(ms) { return new Date(ms).getUTCDay(); } // 0=Sun .. 6=Sat
 
 // Adds one CALENDAR month (UTC) with an end-of-month clamp (Jan 31 + 1 month -> Feb 28/29),
-// per Regulation (EEC, Euratom) No 1182/71 Art. 2. Deterministic, no Intl/locale dependency.
+// per Regulation (EEC, Euratom) No 1182/71 (month-expiry rule). Deterministic, no Intl/locale dependency.
 function addCalendarMonthUtc(ms) {
   const d = new Date(ms);
   const y = d.getUTCFullYear();
@@ -98,7 +100,7 @@ function addCalendarMonthUtc(ms) {
   return Date.UTC(y, m + 1, clampedDay, d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds());
 }
 
-// 2025/301 Art. 5: a deadline falling on a Saturday, a Sunday or a declared bank-holiday
+// Reporting time-limits (the pinned time-limits regulation): a deadline falling on a Saturday, a Sunday or a declared bank-holiday
 // date moves to 12:00 (noon) UTC on the next working day. Final reports keep the
 // extension; initial/intermediate lose it per entity class / NCA notice (decided by the
 // caller of this helper).
@@ -116,13 +118,13 @@ function rollToNoonNextWorkingDay(ms, holidaySet) {
 }
 
 function extensionDecision(stageName, entityClass, extensionWithdrawn, holidayCount) {
-  // 2025/301 Art. 5: the extension is NOT available for initial/intermediate reports by
+  // The extension is NOT available for initial/intermediate reports by
   // credit institutions, CCPs, trading-venue operators or NIS2 essential/important
   // entities, nor by any entity an NCA has notified (`nca_notified`).
   const extensionDeniedClass = entityClass === 'credit_institution' || entityClass === 'ccp'
     || entityClass === 'trading_venue' || entityClass === 'nis2_essential_important'
     || entityClass === 'nca_notified';
-  // Returns { allowed, reason } for whether the Art. 5 extension MAY apply to this stage.
+  // Returns { allowed, reason } for whether the weekend/bank-holiday extension MAY apply to this stage.
   if (stageName === 'final_report') {
     return { allowed: true, reason: 'EXTENSION_KEEP_FINAL_REPORT' }; // final reports keep it
   }
@@ -147,31 +149,28 @@ function stageState(deadlineMs, logicalMs) {
 export function compute(pp) {
   pp = pp || {};
   const entityClass = typeof pp.entity_class === 'string' ? pp.entity_class : '';
-  const logicalMs = parseDeclared(pp.logical_date);
-  const awarenessMs = parseDeclared(pp.awareness_at);
-  const classMs = parseDeclared(pp.classification_at);
-  const initialSubMs = parseDeclared(pp.initial_submitted_at);
-  const intermediateSubMs = parseDeclared(pp.intermediate_submitted_at);
-  const latestUpdateMs = parseDeclared(pp.latest_intermediate_update_at);
+  const malformed = [];
+  const logicalMs = parseDeclared(pp.logical_date, 'logical_date', malformed);
+  const awarenessMs = parseDeclared(pp.awareness_at, 'awareness_at', malformed);
+  const classMs = parseDeclared(pp.classification_at, 'classification_at', malformed);
+  const initialSubMs = parseDeclared(pp.initial_submitted_at, 'initial_submitted_at', malformed);
+  const intermediateSubMs = parseDeclared(pp.intermediate_submitted_at, 'intermediate_submitted_at', malformed);
+  const latestUpdateMs = parseDeclared(pp.latest_intermediate_update_at, 'latest_intermediate_update_at', malformed);
   const extensionWithdrawn = pp.extension_withdrawn_by_nca === true;
   const tppAggregated = pp.tpp_aggregated_submission === true;
   const calendarRef = typeof pp.bank_holiday_calendar_ref === 'string' && pp.bank_holiday_calendar_ref !== '' ? pp.bank_holiday_calendar_ref : null;
 
   // Declared holiday dates for the declared calendar — never inferred, never shipped.
   const holidaySet = new Set();
-  let holidayMalformed = false;
   if (Array.isArray(pp.bank_holiday_dates)) {
     for (const d of pp.bank_holiday_dates) {
       if (typeof d === 'string' && ISO_DATE_RE.test(d)) holidaySet.add(d);
-      else holidayMalformed = true;
+      else malformed.push('bank_holiday_dates');
     }
   }
 
   const compliance_flags = [];
-  const requiredMalformed = awarenessMs === 'malformed' || classMs === 'malformed';
-  const anyMalformed = requiredMalformed
-    || logicalMs === 'malformed' || initialSubMs === 'malformed' || intermediateSubMs === 'malformed'
-    || latestUpdateMs === 'malformed' || holidayMalformed;
+  const anyMalformed = malformed.length > 0;
 
   // --- overall schedule state (the shared degraded vocabulary; never a silent default) ---
   const entityClassKnown = entityClass === 'credit_institution' || entityClass === 'ccp'
@@ -191,9 +190,9 @@ export function compute(pp) {
 
   const reporting_clock = {
     entity_class: entityClass,
-    classification_at: isoOrNull(classMs == null || classMs === 'malformed' ? null : classMs),
-    awareness_at: isoOrNull(awarenessMs == null || awarenessMs === 'malformed' ? null : awarenessMs),
-    logical_date: isoOrNull(logicalMs == null || logicalMs === 'malformed' ? null : logicalMs),
+    classification_at: isoOrNull(classMs),
+    awareness_at: isoOrNull(awarenessMs),
+    logical_date: isoOrNull(logicalMs),
     bank_holiday_calendar_ref: calendarRef,
     stages: {
       initial_notification: null,

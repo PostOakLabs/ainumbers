@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:af58a383b88a30343f7ce0e607eefdaf9750ab8b93036300fa44892766a341a7
+// kernel_digest_at_authoring: sha256:f089bd26d7542e03a9042da30e4d37ba6c95c91ea08f9ce1fe390793fbe73cb9
 //
 // DORA-CLOCK-REPAIR-1 — property-test floor for art-467-dora-incident-classifier
 // (rewritten with the kernel: art-467 is the 2025/301 Art. 5 stage-clock kernel under the
