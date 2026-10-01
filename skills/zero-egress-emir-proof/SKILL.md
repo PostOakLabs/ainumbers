@@ -7,7 +7,7 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "zero-egress-emir-proof"
   verify_surface: "https://ledger.ainumbers.co/ https://ainumbers.co/chaingraph/art-158-emir-reporting-readiness-diagnostic.html https://anchor.ainumbers.co/mcp"
-  version: "647bdbeed4d9"
+  version: "8770e0e5aba5"
 ---
 
 # Regulatory proof without the data leaving the browser

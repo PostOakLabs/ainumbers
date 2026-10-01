@@ -33,7 +33,7 @@ for (const id of TOOLS) {
   const artifact = await kernel.buildArtifact(pp, { now: NOW });
   const preimage = canonicalPreimage(pp, artifact.output_payload);
   const vector = {
-    _comment: 'OpenChainGraph v0.4 conformance vector. Reproduce: execution_hash = SHA-256 hex of canonical_preimage; canonical_preimage = JSON.stringify(cgCanon({policy_parameters, output_payload})) per standard/SPEC.md §4. See README.md.',
+    _comment: 'OpenChainGraph v0.4 conformance vector. Reproduce: execution_hash = SHA-256 hex of canonical_preimage; canonical_preimage = jcsStringify({policy_parameters, output_payload}) per standard/SPEC.md §4. See README.md.',
     tool_id: id,
     spec_version: '0.4.0',
     fixture: fx.vectors[0].name,

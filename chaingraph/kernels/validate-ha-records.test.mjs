@@ -38,7 +38,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { executionHash, cgCanon } from './_hash.mjs';
+import { executionHash, jcsStringify } from './_hash.mjs';
 import { evaluateHaGate } from './_hagate.mjs';
 import { readCases } from './_shape.mjs';
 
@@ -308,7 +308,7 @@ function isConformantEvidence(record) {
 // art-502 kernel rather than asserting it in prose:
 //
 //   (8a) OFFLINE RECOMPUTATION — the preimage the kernel echoes is re-hashed here through a DIFFERENT
-//        code path (_hash.mjs cgCanon + WebCrypto) than the kernel used (its inlined synchronous
+//        code path (_hash.mjs jcsStringify + WebCrypto) than the kernel used (its inlined synchronous
 //        SHA-256 for the §18 guest). Agreement across two implementations is the actual claim.
 //   (8b) CLOSED PREIMAGE — exactly three members, and a caller who adds a run identifier, a host and a
 //        timestamp gets a BYTE-IDENTICAL subject_hash, so no clock or session state can enter it.
@@ -340,10 +340,10 @@ function isConformantEvidence(record) {
 
       // (8a) OFFLINE RECOMPUTATION through the independent WebCrypto path.
       const preimage = op.subject_preimage;
-      const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(preimage)));
+      const bytes = new TextEncoder().encode(jcsStringify((preimage)));
       const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
       const recomputed = `sha256:${Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')}`;
-      if (recomputed === op.subject_hash) ok(`§27.4 offline recomputation: an independent verifier re-hashing the echoed three-member preimage through cgCanon + WebCrypto reproduces the kernel's subject_hash (${op.subject_hash.slice(0, 23)}…) — the kernel used its own inlined synchronous SHA-256, so two implementations agree`);
+      if (recomputed === op.subject_hash) ok(`§27.4 offline recomputation: an independent verifier re-hashing the echoed three-member preimage through jcsStringify + WebCrypto reproduces the kernel's subject_hash (${op.subject_hash.slice(0, 23)}…) — the kernel used its own inlined synchronous SHA-256, so two implementations agree`);
       else bad(`§27.4 offline recomputation FAILED: kernel says ${op.subject_hash}, independent recomputation says ${recomputed} — the subject is not offline-verifiable`);
 
       // (8b) CLOSED PREIMAGE — exactly three members, and caller extras cannot reach it.

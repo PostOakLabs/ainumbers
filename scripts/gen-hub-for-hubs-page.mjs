@@ -351,7 +351,7 @@ ${chrome.nav}
 <section class="hero">
   <div class="container">
     <div class="hero-eyebrow">Hubs &amp; guides</div>
-    <h1>Every hub and integration guide, clustered by the work it supports</h1>
+    <h1>Every hub and integration guide clustered by the work it supports</h1>
     <p class="hero-sub">Domain hubs collect the tools and chains for one desk or one rulebook; single-purpose guides answer one question apiece. <span data-count="guide_pages">${guideRows.length}</span> of them live here, in ${CLUSTERS.length} clusters. The working surfaces of the site stay on the <a href="infrastructure.html">infrastructure map</a>.</p>
   </div>
 </section>

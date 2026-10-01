@@ -23,7 +23,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cgCanon } from '../kernels/_hash.mjs';
+import { jcsStringify } from '../kernels/_hash.mjs';
 import { OCG_EXT_NAMESPACE_URI, OCG_EXT_CONCEPT_NAMES } from './xbrl.mjs';
 import { buildXbrlCsv } from './xbrl-csv.mjs';
 import { buildArtifact } from '../kernels/art-35-tempo-payments-business-case.kernel.mjs';
@@ -53,10 +53,10 @@ console.log('sample.metadata.json:');
 let rowIdColumn, templateColumns, ocgExtPrefix;
 {
   const { raw, doc } = loadJson('sample.metadata.json');
-  const once = JSON.stringify(cgCanon(doc));
-  const twice = JSON.stringify(cgCanon(JSON.parse(once)));
+  const once = jcsStringify((doc));
+  const twice = jcsStringify((JSON.parse(once)));
   ok(once === twice, 'sample.metadata.json: re-canonicalizing twice is byte-identical');
-  ok(JSON.stringify(cgCanon(doc)) === JSON.stringify(doc), 'sample.metadata.json: fixture on disk is already in canonical (JCS) key order');
+  ok(jcsStringify((doc)) === JSON.stringify(doc), 'sample.metadata.json: fixture on disk is already in canonical (JCS) key order');
   ok(doc.documentInfo?.features?.['xbrl:canonicalValues'] === true, 'sample.metadata.json: documentInfo.features["xbrl:canonicalValues"] === true');
   ok(typeof doc.documentInfo?.['ocg:metadata']?.execution_hash === 'string' &&
      doc.documentInfo['ocg:metadata'].execution_hash.startsWith('sha256:'),
@@ -155,7 +155,7 @@ console.log('\nlive exporter (exporters/xbrl-csv.mjs) — §13.14.6 properties o
   ok(Object.values(parts).every((f) => f.method === 0), 'live export: both parts are STORE (method 0) — no compression to independently re-implement to read them');
 
   const liveDoc = JSON.parse(new TextDecoder().decode(parts['metadata.json'].data));
-  ok(JSON.stringify(cgCanon(liveDoc)) === JSON.stringify(liveDoc), 'live export: metadata.json is byte-identical to its own canonical (JCS) re-serialization (§13.14.1)');
+  ok(jcsStringify((liveDoc)) === JSON.stringify(liveDoc), 'live export: metadata.json is byte-identical to its own canonical (JCS) re-serialization (§13.14.1)');
   ok(liveDoc.documentInfo?.features?.['xbrl:canonicalValues'] === true, 'live export: documentInfo.features["xbrl:canonicalValues"] === true');
   ok(typeof liveDoc.documentInfo?.['ocg:metadata']?.execution_hash === 'string' &&
      liveDoc.documentInfo['ocg:metadata'].execution_hash === `sha256:${artifact.execution_hash.replace(/^sha256:/, '')}`,

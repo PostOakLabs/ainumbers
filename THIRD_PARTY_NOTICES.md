@@ -86,3 +86,32 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
 - **Path(s) in this repo:**
   - `chaingraph/standard/vendor/claude-plugin.schema.json`
   - `chaingraph/standard/vendor/VENDORED.md`
+
+## RFC 8785 (JSON Canonicalization Scheme) test data, cyberphone/json-canonicalization
+
+- **Version:** pin 19d51d7fe467d4706a3ff08adf8a748f29fc21e0
+- **License:** Apache-2.0
+- **Upstream:** https://github.com/cyberphone/json-canonicalization
+- **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** Official RFC 8785 test vectors by the RFC's author, vendored unmodified by JCS-RFC8785-VECTORS-1 for chaingraph/standard/jcs-rfc8785-vectors.test.mjs. Pinned upstream commit 19d51d7fe467d4706a3ff08adf8a748f29fc21e0; per-file sha256 in PROVENANCE.md and the gate's PINS. PROVENANCE.md in the same directory is first-party pin documentation, covered by this entry because the coverage gate keys on the vendor/ path segment.
+- **Path(s) in this repo:**
+  - `chaingraph/standard/vendor/rfc8785-testdata/LICENSE`
+  - `chaingraph/standard/vendor/rfc8785-testdata/PROVENANCE.md`
+  - `chaingraph/standard/vendor/rfc8785-testdata/input/arrays.json`
+  - `chaingraph/standard/vendor/rfc8785-testdata/input/french.json`
+  - `chaingraph/standard/vendor/rfc8785-testdata/input/structures.json`
+  - `chaingraph/standard/vendor/rfc8785-testdata/input/unicode.json`
+  - `chaingraph/standard/vendor/rfc8785-testdata/input/values.json`
+  - `chaingraph/standard/vendor/rfc8785-testdata/input/weird.json`
+  - `chaingraph/standard/vendor/rfc8785-testdata/output/arrays.json`
+  - `chaingraph/standard/vendor/rfc8785-testdata/output/french.json`
+  - `chaingraph/standard/vendor/rfc8785-testdata/output/structures.json`
+  - `chaingraph/standard/vendor/rfc8785-testdata/output/unicode.json`
+  - `chaingraph/standard/vendor/rfc8785-testdata/output/values.json`
+  - `chaingraph/standard/vendor/rfc8785-testdata/output/weird.json`
+  - `chaingraph/standard/vendor/rfc8785-testdata/outhex/arrays.txt`
+  - `chaingraph/standard/vendor/rfc8785-testdata/outhex/french.txt`
+  - `chaingraph/standard/vendor/rfc8785-testdata/outhex/structures.txt`
+  - `chaingraph/standard/vendor/rfc8785-testdata/outhex/unicode.txt`
+  - `chaingraph/standard/vendor/rfc8785-testdata/outhex/values.txt`
+  - `chaingraph/standard/vendor/rfc8785-testdata/outhex/weird.txt`

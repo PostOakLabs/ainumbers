@@ -257,6 +257,7 @@ function assertIJson(v) {
   }
 }
 
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 const cgCanon = (v) =>
   Array.isArray(v) ? v.map(cgCanon)
   : (v && typeof v === 'object')
@@ -271,7 +272,7 @@ const CLAIM_TYPES = Object.freeze(['PaymentIntent', 'SettlementReceipt', 'Refund
 
 async function jcsPreimageHash(obj) {
   assertIJson(obj);
-  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(obj)));
+  const bytes = new TextEncoder().encode(__ocgJcs((obj)));
   const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
   return 'sha256:' + Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
@@ -291,7 +292,7 @@ const CLAIM_TYPE_SUBJECT_ROLE = Object.freeze({
 function extractSubjectValue(claim) {
   const s = claim && claim.subject;
   if (s === undefined || s === null) return null;
-  if (typeof s === 'object') return s.value !== undefined ? s.value : JSON.stringify(cgCanon(s));
+  if (typeof s === 'object') return s.value !== undefined ? s.value : __ocgJcs((s));
   return s;
 }
 
@@ -603,7 +604,7 @@ async function runVerifierUI() {
   out.innerHTML =
     '<div class="out-section"><div class="out-header"><span class="out-title">Verdict</span></div><div class="out-body">' + verdictHtml +
     '<table class="result-table"><thead><tr><th>Node</th><th>Status</th><th>JCS Preimage Hash</th><th>Notes</th></tr></thead><tbody>' + tableRows + '</tbody></table>' +
-    (report.preimage ? '<div class="note-box">Top-level composite preimage (JCS): ' + esc(JSON.stringify(cgCanon(report.preimage))) + '</div>' : '') +
+    (report.preimage ? '<div class="note-box">Top-level composite preimage (JCS): ' + esc(__ocgJcs((report.preimage))) + '</div>' : '') +
     '</div></div>';
 }
 
