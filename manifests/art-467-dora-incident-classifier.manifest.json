@@ -1,99 +1,156 @@
 {
   "tool_id": "art-467-dora-incident-classifier",
-  "version": "1.0.0",
-  "title": "DORA ICT Incident Classifier & Reporting Clock",
-  "description": "Classifies an ICT-related incident as major or non-major under DORA (EU 2022/2554) Art. 18, applying the published RTS (EU 2024/1772) numeric criteria (clients affected %, duration, geographical spread, data losses, economic impact, critical-services impact, reputational impact), then starts the DORA Art. 19 reporting clock (4-hour initial notification, 72-hour intermediate report, 1-calendar-month final report, all from classification) once classified major. Follows the art-428-cyber-incident-clock deadline-clock pattern for the EU DORA regime; see that node for the analogous US banking/SEC/NYDFS clock. Not a duplicate of the existing art-09-dora-incident-classifier (earlier draft-RTS citation, no notification-clock link, infrastructure_mandate) -- art-467 cites the final 2024 RTS/ITS package and is built to the attestation-clock pattern; the overlap between the two is flagged for review, not hidden. This node classifies and computes deadlines only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice.",
+  "version": "2.0.0",
+  "title": "DORA Major-Incident Reporting Clock (2025/301 Art. 5 Stage Deadlines)",
+  "description": "Computes the DORA 2025/301 Art. 5 report-stage deadline schedule from caller-declared timestamps: initial = min(classification + 4h, awareness + 24h), whichever earlier; intermediate = initial submission + 72h; final = one month from the intermediate submission or the latest updated intermediate (Regulation 1182/71 month arithmetic); weekend/bank-holiday extension to noon next working day, denied on initial/intermediate for credit institutions, CCPs, trading-venue operators, NIS2 essential/important and NCA-notified entities, kept on final. Upstream clock producer of dora-escalation-demo (art-467 feeds art-09; art-09 consumes this clock result). Does not classify - classification lives in art-09-dora-incident-classifier (2024/1772 Art. 8(1)). Deterministic, no wall clock, no network.",
   "category": "dora-readiness-diagnostic",
   "tags": [
-    "TODO_TAGS_REVIEW",
-    "TODO_AP2_EXPORT_REVIEW"
+    "DORA",
+    "reporting clock",
+    "incident reporting",
+    "operational resilience",
+    "regulatory reporting"
   ],
   "input_schema": {
     "type": "object",
     "required": [
-      "classification_at",
-      "clients_affected_pct",
-      "critical_services_affected",
-      "data_losses",
-      "duration_minutes",
-      "economic_impact_amount",
-      "geographical_spread_countries_count",
-      "incident_id",
-      "reputational_impact"
+      "entity_class",
+      "awareness_at",
+      "classification_at"
     ],
     "properties": {
+      "entity_class": {
+        "type": "string",
+        "enum": [
+          "credit_institution",
+          "ccp",
+          "trading_venue",
+          "nis2_essential_important",
+          "nca_notified",
+          "other"
+        ]
+      },
+      "awareness_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO-8601 with explicit offset; 24h initial-report limb starts here"
+      },
       "classification_at": {
-        "description": "type not evidenced by kernel source"
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO-8601 with explicit offset; 4h initial-report limb starts here"
       },
-      "clients_affected_pct": {
-        "description": "Percentage value; type not evidenced by kernel source"
+      "initial_submitted_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO-8601 with explicit offset; intermediate 72h limb starts here"
       },
-      "critical_services_affected": {
-        "type": "boolean"
+      "intermediate_submitted_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO-8601 with explicit offset; final one-month limb starts here"
       },
-      "data_losses": {
-        "type": "boolean"
+      "latest_intermediate_update_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO-8601 with explicit offset; re-bases the final deadline when later than the intermediate submission"
       },
-      "duration_minutes": {
-        "description": "type not evidenced by kernel source"
+      "logical_date": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO-8601 with explicit offset; the declared as-of instant for not_yet_due/due/overdue states (never a wall clock)"
       },
-      "economic_impact_amount": {
-        "description": "type not evidenced by kernel source"
+      "bank_holiday_calendar_ref": {
+        "type": "string",
+        "description": "Declared calendar id; never inferred"
       },
-      "geographical_spread_countries_count": {
-        "description": "Count; type not evidenced by kernel source"
+      "bank_holiday_dates": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "YYYY-MM-DD dates observed under the declared calendar"
       },
-      "incident_id": {
-        "description": "type not evidenced by kernel source"
+      "extension_withdrawn_by_nca": {
+        "type": "boolean",
+        "description": "NCA withdrew the Art. 5 extension after notice"
       },
-      "reputational_impact": {
-        "type": "boolean"
+      "tpp_aggregated_submission": {
+        "type": "boolean",
+        "description": "2025/302 Art. 7 TPP aggregated reporting path declared"
       }
     }
   },
   "mcp_tool_definition": {
     "name": "classify_dora_ict_incident_and_clock_deadlines",
-    "description": "Classifies an ICT-related incident as major or non-major under DORA (EU 2022/2554) Art. 18, applying the published RTS (EU 2024/1772) numeric criteria (clients affected %, duration, geographical spread, data losses, economic impact, critical-services impact, reputational impact), then starts the DORA Art. 19 reporting clock (4-hour initial notification, 72-hour intermediate report, 1-calendar-month final report, all from classification) once classified major. Follows the art-428-cyber-incident-clock deadline-clock pattern for the EU DORA regime; see that node for the analogous US banking/SEC/NYDFS clock. Not a duplicate of the existing art-09-dora-incident-classifier (earlier draft-RTS citation, no notification-clock link, infrastructure_mandate) -- art-467 cites the final 2024 RTS/ITS package and is built to the attestation-clock pattern; the overlap between the two is flagged for review, not hidden. This node classifies and computes deadlines only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice.",
+    "description": "Computes the DORA 2025/301 Art. 5 stage-clock schedule from caller-declared timestamps: initial = min(classification + 4h, awareness + 24h); intermediate = initial submission + 72h; final = one month from the latest intermediate/update; weekend/bank-holiday extension per entity class (initial/intermediate denied for credit institutions, CCPs, trading venues, NIS2 essential/important and NCA-notified entities; final keeps it). Classification is not performed here; art-09-dora-incident-classifier consumes this clock result.",
     "inputSchema": {
       "type": "object",
       "required": [
-        "classification_at",
-        "clients_affected_pct",
-        "critical_services_affected",
-        "data_losses",
-        "duration_minutes",
-        "economic_impact_amount",
-        "geographical_spread_countries_count",
-        "incident_id",
-        "reputational_impact"
+        "entity_class",
+        "awareness_at",
+        "classification_at"
       ],
       "properties": {
+        "entity_class": {
+          "type": "string",
+          "enum": [
+            "credit_institution",
+            "ccp",
+            "trading_venue",
+            "nis2_essential_important",
+            "nca_notified",
+            "other"
+          ]
+        },
+        "awareness_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; 24h initial-report limb starts here"
+        },
         "classification_at": {
-          "description": "type not evidenced by kernel source"
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; 4h initial-report limb starts here"
         },
-        "clients_affected_pct": {
-          "description": "Percentage value; type not evidenced by kernel source"
+        "initial_submitted_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; intermediate 72h limb starts here"
         },
-        "critical_services_affected": {
-          "type": "boolean"
+        "intermediate_submitted_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; final one-month limb starts here"
         },
-        "data_losses": {
-          "type": "boolean"
+        "latest_intermediate_update_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; re-bases the final deadline when later than the intermediate submission"
         },
-        "duration_minutes": {
-          "description": "type not evidenced by kernel source"
+        "logical_date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; the declared as-of instant for stage states (never a wall clock)"
         },
-        "economic_impact_amount": {
-          "description": "type not evidenced by kernel source"
+        "bank_holiday_calendar_ref": {
+          "type": "string",
+          "description": "Declared calendar id; never inferred"
         },
-        "geographical_spread_countries_count": {
-          "description": "Count; type not evidenced by kernel source"
+        "bank_holiday_dates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "YYYY-MM-DD dates observed under the declared calendar"
         },
-        "incident_id": {
-          "description": "type not evidenced by kernel source"
+        "extension_withdrawn_by_nca": {
+          "type": "boolean",
+          "description": "NCA withdrew the Art. 5 extension after notice"
         },
-        "reputational_impact": {
-          "type": "boolean"
+        "tpp_aggregated_submission": {
+          "type": "boolean",
+          "description": "2025/302 Art. 7 TPP aggregated reporting path declared"
         }
       }
     },
@@ -114,120 +171,125 @@
   "output_schema": {
     "type": "object",
     "properties": {
-      "criteria_detail": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "article": {
-              "type": "string"
-            },
-            "criterion_id": {
-              "type": "string"
-            },
-            "met": {
-              "type": "boolean"
-            },
-            "value": {
-              "type": "string"
-            }
+      "schedule_state": {
+        "type": "string",
+        "enum": [
+          "evaluable",
+          "not_evaluable",
+          "malformed"
+        ]
+      },
+      "entity_class": {
+        "type": "string"
+      },
+      "reporting_clock": {
+        "type": "object",
+        "properties": {
+          "entity_class": {
+            "type": "string"
+          },
+          "classification_at": {
+            "type": "string"
+          },
+          "awareness_at": {
+            "type": "string"
+          },
+          "logical_date": {
+            "type": "string"
+          },
+          "bank_holiday_calendar_ref": {
+            "type": "string"
+          },
+          "stages": {
+            "type": "object"
           }
         }
       },
-      "incident_id": {
-        "type": "string"
-      },
-      "major_incident": {
+      "tpp_aggregated_submission": {
         "type": "boolean"
       },
-      "note": {
-        "type": "string"
-      },
-      "qualifying_criteria": {
-        "type": "array"
-      },
-      "reporting_clock": {
-        "type": "string"
-      },
-      "table_source": {
+      "reporting_path_note": {
         "type": "string"
       },
       "table_version": {
         "type": "string"
       },
-      "verdict": {
+      "table_source": {
+        "type": "string"
+      },
+      "note": {
         "type": "string"
       }
     }
   },
-  "source": "generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1/NODECAT-WIRE-1, derivation tier 2); tags, execution.function_name, ap2_export are TODO markers, no source found; category sourced from hub-categories.json cluster; output_schema is best-effort single-sample typing — review before treating as authoritative",
+  "source": "hand-curated by DORA-CLOCK-REPAIR-1 (REVERSED D) — input_schema/mcp_tool_definition.inputSchema aligned to the measured kernel reads (check-schema-read-divergence acceptance gate), output_schema to the computed output_payload; 2.0.0 — breaking input-contract change (stage timestamps replace severity inputs; the kernel no longer classifies); the former input_schema_provenance mark was removed because this manifest is no longer generator-backfilled",
   "author": "PostOakLabs",
   "license": "CC-BY-4.0",
   "input_example": {
-    "incident_id": "INC-2026-0100",
-    "classification_at": "2026-07-20T09:00:00Z",
-    "clients_affected_pct": 2,
-    "duration_minutes": 30,
-    "geographical_spread_countries_count": 1,
-    "data_losses": false,
-    "economic_impact_amount": 5000,
-    "critical_services_affected": false,
-    "reputational_impact": false
+    "entity_class": "other",
+    "awareness_at": "2026-07-20T09:00:00Z",
+    "classification_at": "2026-07-20T10:00:00Z",
+    "initial_submitted_at": "2026-07-20T11:00:00Z",
+    "intermediate_submitted_at": "2026-07-23T11:00:00Z",
+    "latest_intermediate_update_at": "2026-07-25T16:00:00Z",
+    "logical_date": "2026-07-26T11:00:00Z"
   },
   "output_example": {
-    "incident_id": "INC-2026-0100",
-    "verdict": "NON_MAJOR",
-    "major_incident": false,
-    "qualifying_criteria": [],
-    "criteria_detail": [
-      {
-        "criterion_id": "clients_affected",
-        "article": "DORA Art. 18(1)(a); RTS (EU) 2024/1772 clients-affected threshold",
-        "met": false,
-        "value": "2% (threshold >=10%)"
-      },
-      {
-        "criterion_id": "duration",
-        "article": "DORA Art. 18(1)(b); RTS (EU) 2024/1772 duration threshold",
-        "met": false,
-        "value": "30 min (threshold >=1440 min)"
-      },
-      {
-        "criterion_id": "geographical_spread",
-        "article": "DORA Art. 18(1)(c); RTS (EU) 2024/1772 geographical-spread threshold",
-        "met": false,
-        "value": "1 member state(s) (threshold >=2)"
-      },
-      {
-        "criterion_id": "data_losses",
-        "article": "DORA Art. 18(1)(d); RTS (EU) 2024/1772 data-losses criterion (confidentiality/integrity/availability impact)",
-        "met": false,
-        "value": "No data loss reported"
-      },
-      {
-        "criterion_id": "economic_impact",
-        "article": "DORA Art. 18(1)(e); RTS (EU) 2024/1772 economic-impact threshold",
-        "met": false,
-        "value": "EUR 5000 (threshold >=EUR 100000)"
-      },
-      {
-        "criterion_id": "critical_services_affected",
-        "article": "DORA Art. 18(1)(f); RTS (EU) 2024/1772 criticality-of-services criterion",
-        "met": false,
-        "value": "No critical/important function affected"
-      },
-      {
-        "criterion_id": "reputational_impact",
-        "article": "DORA Art. 18(1)(g); RTS (EU) 2024/1772 reputational-impact criterion",
-        "met": false,
-        "value": "No reputational impact reported"
+    "schedule_state": "evaluable",
+    "entity_class": "other",
+    "reporting_clock": {
+      "entity_class": "other",
+      "classification_at": "2026-07-20T10:00:00.000Z",
+      "awareness_at": "2026-07-20T09:00:00.000Z",
+      "logical_date": "2026-07-26T11:00:00.000Z",
+      "bank_holiday_calendar_ref": null,
+      "stages": {
+        "initial_notification": {
+          "deadline": "2026-07-20T14:00:00.000Z",
+          "state": "overdue",
+          "reason_code": "INITIAL_DEADLINE_CLASSIFICATION_4H",
+          "computed_from": "2026-07-20T10:00:00.000Z",
+          "origin_rule": "classification_at + 4h",
+          "extension_rule": "EXTENSION_ALLOWED_WEEKEND",
+          "extension": {
+            "applied": false,
+            "original_deadline": null,
+            "basis": "2025/301 Art. 5 extension to noon next working day"
+          }
+        },
+        "intermediate_report": {
+          "deadline": "2026-07-23T11:00:00.000Z",
+          "state": "overdue",
+          "reason_code": "INTERMEDIATE_FROM_INITIAL_SUBMISSION_72H",
+          "computed_from": "2026-07-20T11:00:00.000Z",
+          "origin_rule": "initial_submitted_at + 72h",
+          "extension_rule": "EXTENSION_ALLOWED_WEEKEND",
+          "extension": {
+            "applied": false,
+            "original_deadline": null,
+            "basis": "2025/301 Art. 5 extension to noon next working day"
+          }
+        },
+        "final_report": {
+          "deadline": "2026-08-25T16:00:00.000Z",
+          "state": "not_yet_due",
+          "reason_code": "FINAL_FROM_LATEST_UPDATE_1M",
+          "computed_from": "2026-07-25T16:00:00.000Z",
+          "origin_rule": "max(intermediate_submitted_at, latest_intermediate_update_at) + 1 calendar month (Regulation (EEC, Euratom) No 1182/71 Art. 2, end-of-month clamp)",
+          "extension_rule": "EXTENSION_KEEP_FINAL_REPORT",
+          "extension": {
+            "applied": false,
+            "original_deadline": null,
+            "basis": "2025/301 Art. 5 extension to noon next working day"
+          }
+        }
       }
-    ],
-    "reporting_clock": null,
-    "table_version": "DORA-RTS-2024-1772-CLASSIFICATION+ITS-2025-302-TIMELINES-2026-07",
-    "table_source": "DORA (EU) 2022/2554 Art. 18 (classification criteria) + Art. 19 (reporting obligations/timelines); Commission Delegated Regulation (EU) 2024/1772 (RTS on classification criteria for major ICT-related incidents and significant cyber threats); Commission Implementing Regulation (EU) 2025/302 (ITS on standard forms/templates and timelines for major-incident reports). Numeric thresholds pinned at MODERATE confidence -- verify against final consolidated RTS/ITS text at legal review before relying on this verdict for an actual filing.",
-    "note": "Deterministic DORA (Art. 18) major-incident classification over caller-declared severity dimensions, plus a DORA Art. 19 reporting-clock (initial/intermediate/final) once classified major. See art-428-cyber-incident-clock.kernel.mjs for the analogous US notification-clock pattern. This kernel classifies and computes deadlines only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice. Criticality of the affected function/provider (critical_services_affected) is a caller-supplied input, not computed or judged here."
+    },
+    "tpp_aggregated_submission": false,
+    "reporting_path_note": "Direct reporting path; the Art. 5 clocks apply per stage as emitted.",
+    "table_version": "DORA-2025-301-ART5-STAGE-CLOCKS-2026-10",
+    "table_source": "Commission Delegated Regulation (EU) 2025/301 Art. 5 (initial 4h-from-classification AND 24h-from-awareness, whichever earlier; intermediate 72h from submission of the initial; final 1 month from the intermediate or the latest updated intermediate; weekend/bank-holiday extension to noon next working day with the initial/intermediate entity-class and NCA-notification exceptions; final keeps it) + Arts. 1-4 (per-stage content); Commission Implementing Regulation (EU) 2025/302 Art. 7 (TPP aggregated reporting) and Annex I (template fields); month arithmetic per Regulation (EEC, Euratom) No 1182/71 Art. 2; DORA (EU) 2022/2554 Arts. 19-20; corroborated by Joint ESAs report JC 2026 16 (2026-06-03) paras 3(i)-(iii).",
+    "note": "DORA 2025/301 Art. 5 stage-clock schedule over caller-declared timestamps. Classification is NOT performed here: under the REVERSED D split, art-09-dora-incident-classifier classifies per 2024/1772 Art. 8(1) and CONSUMES this clock result (art-467 declares feeds -> art-09). All timestamps are caller-declared with explicit offsets; due-ness states are computed against the declared logical_date, never a wall clock. This kernel computes deadlines only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice."
   },
-  "example_execution_hash": "a77f3a1dd9ad3df840a62797eba6147ab52bb2d739084c7ad80b93a6c92d2615",
-  "input_schema_provenance": "derived-from-kernel-reads 2026-09-01"
+  "example_execution_hash": "aa0b513bb73208fb829faff54037e7490c8e1429ba52ba6312cf9abbb9b95f16"
 }
