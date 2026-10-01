@@ -28,7 +28,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** _none (root node)_
+**Consumes:** [Authorization Payload Linter](./art-700-authorization-payload-linter.md)
 
 **Feeds:** _terminal node_
 
