@@ -10,7 +10,7 @@
  *       · initial report: as early as possible within 4 hours of major classification
  *         AND no later than 24 hours after awareness — the EARLIER of the two limbs binds;
  *       · intermediate report: within 72 hours of SUBMISSION of the initial notification
- *         (never from the initial deadline), even if unchanged, plus an updated
+ *         (never from the initial deadline), due even when it restates the same content, plus an updated
  *         intermediate without undue delay and when regular activity resumes;
  *       · final report: no later than one month after submission of the intermediate
  *         report or the latest updated intermediate report (whichever is later);
@@ -33,9 +33,9 @@
  *
  * REVERSED D SPLIT (this kernel's role): art-467 is the UPSTREAM clock producer of
  * dora-escalation-demo. It does NOT classify: classification lives in
- * art-09-dora-incident-classifier.kernel.mjs, which CONSUMES this kernel's clock result
- * through the declared edge (art-467 declares `feeds` -> art-09; art-09 declares
- * `consumes` <- art-467). This kernel stays usable standalone: every input is
+ * art-09-dora-incident-classifier.kernel.mjs, which reads this kernel's clock result
+ * across the declared chain edge (art-467 declares `feeds` -> art-09 in its node
+ * shard). This kernel stays usable standalone: every input is
  * caller-declared, and it never reads a wall clock (zero Date.now(), zero randomness,
  * zero network). Due-ness states are computed against the caller-declared `logical_date`,
  * never against "now".
@@ -375,11 +375,11 @@ export function compute(pp) {
     reporting_clock,
     tpp_aggregated_submission: tppAggregated,
     reporting_path_note: tppAggregated
-      ? 'TPP aggregated submission declared (2025/302 Art. 7): the reporting path runs through the third-party provider aggregated channel; the Art. 5 clocks themselves are unchanged.'
+      ? 'TPP aggregated submission declared (2025/302 Art. 7): the reporting path runs through the third-party provider aggregated channel; the Art. 5 clocks are computed exactly as emitted below.'
       : 'Direct reporting path; the Art. 5 clocks apply per stage as emitted.',
     table_version: TABLE_VERSION,
     table_source: TABLE_SOURCE,
-    note: 'DORA 2025/301 Art. 5 stage-clock schedule over caller-declared timestamps. Classification is NOT performed here: under the REVERSED D split, art-09-dora-incident-classifier classifies per 2024/1772 Art. 8(1) and CONSUMES this clock result (art-467 declares feeds -> art-09). All timestamps are caller-declared with explicit offsets; due-ness states are computed against the declared logical_date, never a wall clock. This kernel computes deadlines only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice.',
+    note: 'DORA 2025/301 Art. 5 stage-clock schedule over caller-declared timestamps. Classification is NOT performed here: under the REVERSED D split, art-09-dora-incident-classifier classifies per 2024/1772 Art. 8(1) and reads this clock result across the declared chain edge (art-467 declares feeds -> art-09 in the node shards). All timestamps are caller-declared with explicit offsets; due-ness states are computed against the declared logical_date, never a wall clock. This kernel computes deadlines only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice.',
   };
 
   return { output_payload, compliance_flags };
