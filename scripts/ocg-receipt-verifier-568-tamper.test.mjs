@@ -48,7 +48,7 @@ const EXTRACT_SPEC = {
   prelude: 'var window = {};',
   decls: ['B58', 'FIXTURES'],
   fns: [
-    'assertIJson', 'cgCanon', 'canonicalPreimage', 'executionHash', 'jcsBytes', 'sha256',
+    '__ocgJcs', 'assertIJson', 'cgCanon', 'canonicalPreimage', 'executionHash', 'jcsBytes', 'sha256',
     'hexToBytes', 'bytesToHex', 'b58decode', 'didKeyToPublicKey', 'proofOptions', 'hashData',
     'securedArtifact', 'verifyOneProof', 'verifyArtifactProofs',
     'concatBytes', 'leafHash', 'nodeHash', 'rootFromInclusion', 'verifyMerkleInclusion',

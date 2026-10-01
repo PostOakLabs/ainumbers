@@ -37,12 +37,12 @@ if (!id) {
   process.exit(1);
 }
 
-const { cgCanon, executionHash } = await import(
+const { jcsStringify, executionHash } = await import(
   pathToFileURL(resolve(REPO, 'chaingraph', 'kernels', '_hash.mjs')).href
 );
 const { createHash } = await import('node:crypto');
 const sha256Hex = (bytes) => createHash('sha256').update(bytes).digest('hex');
-const canonSha = (obj) => sha256Hex(new TextEncoder().encode(JSON.stringify(cgCanon(obj))));
+const canonSha = (obj) => sha256Hex(new TextEncoder().encode(jcsStringify((obj))));
 
 const manifestPath = resolve(__dir, 'vectors', 'manifest.json');
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));

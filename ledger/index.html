@@ -485,6 +485,7 @@ const ARTIFACT_REQUIRED = ['@context','chaingraph_version','execution_hash','cha
 /* ── JCS CANONICALIZER (inlined from kernels/_hash.mjs) ─────────── */
 // OpenChainGraph shared canonicalizer + execution hash (OCG Standard §4).
 // Inline copy for browser-native verification; semantics byte-identical to the Worker.
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 function cgCanon(v) {
   if (Array.isArray(v)) return v.map(cgCanon);
   if (v !== null && typeof v === 'object')
@@ -509,7 +510,7 @@ async function recomputeExecutionHash(artifact) {
     delete op.step_compliance_flags;
   }
   const obj = { policy_parameters: artifact.policy_parameters, output_payload: op };
-  const preimage = JSON.stringify(cgCanon(obj));
+  const preimage = __ocgJcs((obj));
   const bytes = new TextEncoder().encode(preimage);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -617,7 +618,7 @@ async function computeEscalationRecordHash(record) {
   if (record.mandate_hash) preimage.mandate_hash = record.mandate_hash;
   preimage.decision = record.decision;
   preimage.halted_steps = record.halted_steps;
-  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(preimage)));
+  const bytes = new TextEncoder().encode(__ocgJcs((preimage)));
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
@@ -968,8 +969,9 @@ function base58Decode(str) {
      sha256 d389cfa8eb9081831b29c2c187ab4ebde9609be7afd8fd910359b65d13a65f8c
    VENDORED-FROM: chaingraph/kernels/_computeproof.mjs (verifySeal verify subset)
      sha256 544e2f8910e1aaae3692c58758003b267998d9f2f1533267745b96a2291e393f
-   The page's cgCanon (inlined from kernels/_hash.mjs above) is the SAME canonicalizer
-   the kernel-side verifier uses, so both verifiers hash byte-identical journal bytes.
+   The page's __ocgJcs (SSOT line from kernels/fix-hash-scheme.mjs; byte-equivalent to
+   _hash.mjs jcsStringify, which the kernel-side verifySeal now hashes through) serializes
+   the journal bytes, so both verifiers hash byte-identical journal bytes.
    Parity gate: node scripts/check-ledger-proof-parity.mjs
    ── GROTH16-VERIFY:BEGIN (parity-gate extraction markers — do not remove) ────── */
 const _noble_bn254 = (function () {
@@ -1067,7 +1069,7 @@ function verifySeal(receipt) {
   if (!cp.journal || typeof cp.journal !== 'object') return false;
 
   // 1. canonical journal bytes the guest committed = utf8(JCS(journal object)).
-  const journalBytes = enc(JSON.stringify(cgCanon(cp.journal)));
+  const journalBytes = enc(__ocgJcs((cp.journal)));
   // 2. image id digest bytes.
   const imageIdBytes = hexToBytes(normId(cp.imageId).slice('sha256:'.length));
   if (imageIdBytes.length !== 32) return false;
@@ -1217,8 +1219,8 @@ async function _verifyDataIntegrityProof(docWithoutProof, proof) {
     const proofOpts = Object.assign({}, proof);
     delete proofOpts.proofValue;
 
-    const docDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(cgCanon(docWithoutProof))));
-    const optDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(cgCanon(proofOpts))));
+    const docDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(__ocgJcs((docWithoutProof))));
+    const optDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(__ocgJcs((proofOpts))));
 
     // Sign input: SHA-256(proofOptions) || SHA-256(document)
     const sigInput = new Uint8Array(64);
@@ -1301,7 +1303,7 @@ function _parseAnchors(bindings, execHash) {
  * attestations stays fully conformant; the honest caveat (§23.2 last line) is
  * surfaced by the caller regardless of this function's return. */
 async function sha256HexOfCanon(value) {
-  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(value)));
+  const bytes = new TextEncoder().encode(__ocgJcs((value)));
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
@@ -1339,7 +1341,7 @@ async function _verifyInputAttestations(artifact) {
         const subj = cred.credentialSubject || {};
         const subjDigest = subj.digestSHA256 || subj.digest || null;
         const subjBound = subjDigest ? subjDigest === valueDigest
-          : JSON.stringify(cgCanon(subj.value !== undefined ? subj.value : subj)) === JSON.stringify(cgCanon(value));
+          : __ocgJcs((subj.value !== undefined ? subj.value : subj)) === __ocgJcs((value));
         if (!subjBound) { entry.note = 'credentialSubject does not bind the pointed-to input.'; entries.push(entry); continue; }
         entry.structural = 'pass';
         const credCopy = Object.assign({}, cred); delete credCopy.proof;

@@ -9,6 +9,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Digital Product Passport Cradle-to-Gate Lineage Builder · ART-116 · OpenChainGraph · AINumbers.co</title>
 <meta name="description" content="Build a cradle-to-gate supplier lineage with hash-only claims per stage. Each stage carries a supplier_hash anchor and carbon_value. Aggregates total carbon deterministically.">
+<meta name="kernel-digest" content="sha256:c90285303f490a09ce2e73fc197bc99fb23ca31e2db96426f18f373ba021c574">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-116-product-lineage-builder.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-116-product-lineage-builder.md">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
@@ -459,19 +460,26 @@ const MANIFEST = {
   "chaingraph": true
 };
 
-function compute(pp){
-  const{product_id,stages}=pp;
-  const arr=Array.isArray(stages)?stages:[];
-  const lineage=[];
-  let total_carbon=0;
-  for(const s of arr){
-    const hash_valid=typeof s.supplier_hash==='string'&&s.supplier_hash.startsWith('sha256:');
-    lineage.push({stage:s.stage,supplier_hash:s.supplier_hash,hash_valid,certification:s.certification||null,dataVersion:s.dataVersion||null,carbon_value:Number(s.carbon_value)||0});
-    total_carbon+=Number(s.carbon_value)||0;
-  }
-  total_carbon=Math.round(total_carbon*1e6)/1e6;
-  const all_anchored=lineage.every(l=>l.hash_valid);
-  return{output_payload:{product_id,lineage,total_carbon,stage_count:lineage.length,depth:lineage.length,all_anchored},compliance_flags:[all_anchored?'ALL_STAGES_HASH_ANCHORED':'UNANCHORED_STAGES_FOUND','CARBON_AGGREGATED','EU_ESPR_LINEAGE_READY']};
+/* BYTE-EXACT COPY of chaingraph/kernels/art-116-product-lineage-builder.kernel.mjs compute()
+   (kernel authoritative, Tim ruling 2026-09-30T01:42Z): identical pp -> identical hashed payload.
+   Only the `export ` keyword is dropped; the body below must stay byte-identical to the kernel. */
+function compute(pp) {
+  const { product_id, stages = [] } = pp; // [{stage, supplier_hash, certification, dataVersion, carbon_value}]
+  const lineage = [];
+  let total_carbon = 0;
+  let broken = false;
+  stages.forEach((s, i) => {
+    const anchored = typeof s.supplier_hash === 'string' && s.supplier_hash.startsWith('sha256:');
+    if (!anchored) broken = true;
+    total_carbon += Number(s.carbon_value) || 0;
+    lineage.push({ depth: i, stage: s.stage, anchored, certification: s.certification ?? null, dataVersion: s.dataVersion ?? null });
+  });
+  // round deterministically to avoid float drift in the hash preimage
+  total_carbon = Math.round(total_carbon * 1e6) / 1e6;
+  const compliance_flags = [];
+  compliance_flags.push('PRODUCT_LINEAGE_BUILT');
+  compliance_flags.push(broken ? 'LINEAGE_UNANCHORED_STAGE' : 'LINEAGE_FULLY_ANCHORED');
+  return { output_payload: { product_id: product_id ?? null, lineage, total_carbon, depth: stages.length }, compliance_flags };
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
@@ -508,15 +516,24 @@ async function run(){
   document.getElementById('ap2ExportBtn').disabled=false;
 }
 
+/* Render layer only. stage_count, all_anchored and the EU ESPR readiness banner are RENDER-ONLY
+   derivations from the kernel-shaped lineage (Tim ruling 2026-09-30T01:42Z): displayed values are
+   computed here from op.lineage / the kernel compliance_flags and are NEVER added to output_payload
+   or compliance_flags, so the hashed payload stays byte-identical to the kernel's. */
 function renderResults(op,flags,execHash,artifact){
+  var stageCount=op.lineage.length;
+  var allAnchored=op.lineage.every(function(l){return l.anchored;});
+  var esprReady=flags.indexOf('LINEAGE_FULLY_ANCHORED')!==-1;
+  var carbonByDepth=((artifact&&artifact.policy_parameters&&artifact.policy_parameters.stages)||[]).map(function(s){return Number(s.carbon_value)||0;});
   document.getElementById('heroRow').innerHTML=
-    '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">'+op.stage_count+'</div><div class="hero-lbl">Stages</div></div>'+
-    '<div class="hero-stat"><div class="hero-val" style="color:'+(op.all_anchored?'var(--green)':'var(--red)')+'">'+( op.all_anchored?'✓':'✗')+'</div><div class="hero-lbl">All Anchored</div></div>'+
+    '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">'+stageCount+'</div><div class="hero-lbl">Stages</div></div>'+
+    '<div class="hero-stat"><div class="hero-val" style="color:'+(allAnchored?'var(--green)':'var(--red)')+'">'+( allAnchored?'✓':'✗')+'</div><div class="hero-lbl">All Anchored</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:var(--gold);font-size:1.2rem">'+op.total_carbon+'</div><div class="hero-lbl">Total kg CO₂e</div></div>';
   document.getElementById('verdictDiv').innerHTML=
-    '<div class="verdict '+(op.all_anchored?'pass':'warn')+'">'+(op.all_anchored?'✓ All lineage stages hash-anchored. Total carbon aggregated: '+op.total_carbon+' kg CO₂e.':'⚠ Some stages lack valid sha256: supplier hashes.')+'</div>'+
-    '<div style="margin-top:6px">'+flags.map(f=>'<span class="badge '+(f.includes('UNANCHORED')?'err':'ok')+'">'+f+'</span>').join('')+'</div>';
-  document.getElementById('detailDiv').innerHTML='<table class="tbl"><thead><tr><th>Stage</th><th>Hash Valid</th><th>Carbon</th><th>Cert</th></tr></thead><tbody>'+op.lineage.map(l=>'<tr><td>'+l.stage+'</td><td><span class="badge '+(l.hash_valid?'ok':'err')+'">'+( l.hash_valid?'✓':'✗')+'</span></td><td>'+l.carbon_value+'</td><td>'+(l.certification||'—')+'</td></tr>').join('')+'</tbody></table>';
+    '<div class="verdict '+(allAnchored?'pass':'warn')+'">'+(allAnchored?'✓ All lineage stages hash-anchored. Total carbon aggregated: '+op.total_carbon+' kg CO₂e.':'⚠ Some stages lack valid sha256: supplier hashes.')+'</div>'+
+    '<div style="margin-top:6px">'+flags.map(f=>'<span class="badge '+(f.includes('UNANCHORED')?'err':'ok')+'">'+f+'</span>').join('')+
+    '<span class="badge '+(esprReady?'ok':'err')+'" title="display-only derivation from the kernel compliance_flags; never part of output_payload or compliance_flags">EU_ESPR_LINEAGE_'+(esprReady?'READY':'INCOMPLETE')+' (display-only)</span></div>';
+  document.getElementById('detailDiv').innerHTML='<table class="tbl"><thead><tr><th>Stage</th><th>Hash Valid</th><th>Carbon</th><th>Cert</th></tr></thead><tbody>'+op.lineage.map(l=>'<tr><td>'+l.stage+'</td><td><span class="badge '+(l.anchored?'ok':'err')+'">'+( l.anchored?'✓':'✗')+'</span></td><td>'+(carbonByDepth[l.depth]!==undefined?carbonByDepth[l.depth]:'—')+'</td><td>'+(l.certification||'—')+'</td></tr>').join('')+'</tbody></table>';
   document.getElementById('execHash').textContent=execHash;
   document.getElementById('artifactPre').textContent=JSON.stringify(artifact,null,2);
   document.getElementById('resultsPanel').classList.add('show');
@@ -538,16 +555,17 @@ loadPreset('anchored');
 /* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
 function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
 function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
-function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 </script>
 <script>
 /* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
-/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+/* Signs through __ocgJcs (the OCG-CANON v1 block's serializer — single canon path; RFC 8785 §3.2.3-exact for array-index member names, same bytes as kernels/_proof.mjs jcsStringify since JCS-CANON-FIX-1). */
 /* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
    __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
 (function(){
   var CS='eddsa-jcs-2022';
-  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function jcs(o){return new TextEncoder().encode(__ocgJcs(o));}
   function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
   function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
   function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}

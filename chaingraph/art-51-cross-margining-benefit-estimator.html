@@ -99,6 +99,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <meta name="ai-tool" content="estimate_cross_margin_benefit">
+<meta name="kernel-digest" content="sha256:830bc39ca270ab8fec28d7bbd220b84a37787e3dfc4e61110e95816a63d70da1">
 </head>
 <body>
 <nav>
@@ -141,12 +142,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
   <div class="card">
     <div class="cols">
-      <div><label>UST positions (JSON)</label><textarea id="ust_positions" aria-label="ust_positions" aria-description="type not evidenced by kernel source">[
-  {"instrument":"ust-note","notional":1000000000,"tenor_years":10,"direction":"long"}
-]</textarea></div>
-      <div><label>CME positions (JSON) — ZT/ZF/ZN/ZB/UB/SR1/SR3</label><textarea id="cme_positions" aria-label="cme_positions" aria-description="type not evidenced by kernel source">[
-  {"contract":"ZN","num_contracts":1500,"direction":"short"}
-]</textarea></div>
+      <div><label>UST positions (JSON)</label><textarea id="ust_positions" placeholder='[{"instrument":"ust-note","notional":1000000000,"tenor_years":10,"direction":"long"}]' aria-label="ust_positions" aria-description="type not evidenced by kernel source"></textarea></div>
+      <div><label>CME positions (JSON) — ZT/ZF/ZN/ZB/UB/SR1/SR3</label><textarea id="cme_positions" placeholder='[{"contract":"ZN","num_contracts":1500,"direction":"short"}]' aria-label="cme_positions" aria-description="type not evidenced by kernel source"></textarea></div>
     </div>
     <div class="row3">
       <div><label>Account type</label><select id="account_type" aria-label="account_type" aria-description="type not evidenced by kernel source"><option value="house" selected>House (member)</option><option value="customer">Customer</option></select></div>
@@ -188,11 +185,16 @@ const CME={ZT:{dv01:38,bucket:'0-2y'},ZF:{dv01:47,bucket:'2-5y'},ZN:{dv01:65,buc
 const modDur=t=>t/1.04, bucketOf=t=>t<=2?'0-2y':t<=5?'2-5y':t<=10?'5-10y':'10-30y';
 function bucketVaRtotal(netDV01,z,sq){const bv={};for(const b of BUCKETS)bv[b]=Math.abs(netDV01[b]||0)*z*DAILY_VOL_BP[b]*sq;let s=0;for(const a of BUCKETS)for(const c of BUCKETS)s+=bv[a]*bv[c]*(a===c?1:BUCKET_CORR);return Math.sqrt(s);}
 function compute(pp){
-  const z=Z[pp.confidence_level]??2.326, sq=Math.sqrt(Math.max(1,+pp.mpor_days||1));
+  /* Kernel-default discipline (WEBMCP-CPARITY-ART51-1): parameter defaults, and
+     the values recorded into output_payload, mirror the kernel module's
+     destructuring defaults exactly (chaingraph/kernels/art-51-*.kernel.mjs), so
+     identical pp produce identical hashed payloads on page, worker, and kernel. */
+  const {ust_positions=[],cme_positions=[],account_type='house',confidence_level=0.99,mpor_days=1}=pp;
+  const z=Z[confidence_level]??2.326, sq=Math.sqrt(Math.max(1,+mpor_days||1));
   const ustDV01={'0-2y':0,'2-5y':0,'5-10y':0,'10-30y':0};
-  for(const p of (pp.ust_positions||[])){const notional=+p.notional||0;const tenor=+p.tenor_years||((p.instrument==='repo'||p.instrument==='reverse-repo')?0.1:5);const sign=(p.direction==='short'||p.instrument==='reverse-repo')?-1:1;ustDV01[bucketOf(tenor)]+=sign*notional*modDur(tenor)*0.0001;}
+  for(const p of (ust_positions||[])){const notional=+p.notional||0;const tenor=+p.tenor_years||((p.instrument==='repo'||p.instrument==='reverse-repo')?0.1:5);const sign=(p.direction==='short'||p.instrument==='reverse-repo')?-1:1;ustDV01[bucketOf(tenor)]+=sign*notional*modDur(tenor)*0.0001;}
   const cmeDV01={'0-2y':0,'2-5y':0,'5-10y':0,'10-30y':0}; const eligible_offsets=[],ineligible_offsets=[];
-  for(const p of (pp.cme_positions||[])){const spec=CME[p.contract];if(!spec){ineligible_offsets.push({contract:p.contract,reason:'unknown CME contract'});continue;}const sign=p.direction==='short'?-1:1;cmeDV01[spec.bucket]+=sign*(+p.num_contracts||0)*spec.dv01;}
+  for(const p of (cme_positions||[])){const spec=CME[p.contract];if(!spec){ineligible_offsets.push({contract:p.contract,reason:'unknown CME contract'});continue;}const sign=p.direction==='short'?-1:1;cmeDV01[spec.bucket]+=sign*(+p.num_contracts||0)*spec.dv01;}
   for(const b of BUCKETS){if(ustDV01[b]!==0&&cmeDV01[b]!==0){if(Math.sign(ustDV01[b])!==Math.sign(cmeDV01[b]))eligible_offsets.push({bucket:b,ust_dv01:+ustDV01[b].toFixed(1),cme_dv01:+cmeDV01[b].toFixed(1)});else ineligible_offsets.push({bucket:b,reason:'same-direction risk — no offset'});}}
   const imUST=bucketVaRtotal(ustDV01,z,sq), imCME=bucketVaRtotal(cmeDV01,z,sq), standalone_im_total=imUST+imCME;
   const combined={}; for(const b of BUCKETS)combined[b]=(ustDV01[b]||0)+(cmeDV01[b]||0);
@@ -201,21 +203,37 @@ function compute(pp){
   const im_reduction_pct=standalone_im_total>0?+((im_reduction_usd/standalone_im_total)*100).toFixed(1):0;
   const COMBINED_PORTFOLIO_MAX_SAVINGS_PCT=80, CUSTOMER_GO_LIVE='2026-04-30';
   const compliance_flags=[];
-  if(pp.account_type==='customer')compliance_flags.push('CUSTOMER_CROSS_MARGIN_PENDING_GO_LIVE');
+  if(account_type==='customer')compliance_flags.push('CUSTOMER_CROSS_MARGIN_PENDING_GO_LIVE');
   if(ineligible_offsets.length)compliance_flags.push('OFFSET_OUTSIDE_ELIGIBLE_SCOPE');
   if(im_reduction_pct>=30)compliance_flags.push('MATERIAL_CROSS_MARGIN_BENEFIT');
   if(im_reduction_pct>COMBINED_PORTFOLIO_MAX_SAVINGS_PCT)compliance_flags.push('EXCEEDS_CITED_PROGRAM_CAP');
-  const account_type_note=pp.account_type==='customer'?`Customer cross-margining (Combined Portfolio) expands to customer accounts ${CUSTOMER_GO_LIVE}; confirm operational go-live before relying on it.`:'House (member) cross-margining — established FICC–CME Combined Portfolio arrangement.';
-  const long_maturity_positions=(pp.ust_positions||[]).filter(p=>(+p.tenor_years||0)>1).length;
+  const account_type_note=account_type==='customer'?`Customer cross-margining (Combined Portfolio) expands to customer accounts ${CUSTOMER_GO_LIVE}; confirm operational go-live before relying on it.`:'House (member) cross-margining — established FICC–CME Combined Portfolio arrangement.';
+  const long_maturity_positions=(ust_positions||[]).filter(p=>(+p.tenor_years||0)>1).length;
   const combined_portfolio={program:'CME-FICC Combined Portfolio',max_savings_pct_cited:COMBINED_PORTFOLIO_MAX_SAVINGS_PCT,customer_go_live:CUSTOMER_GO_LIVE,maturity_eligibility_note:'Combined Portfolio covers UST cash/repo maturity >1yr vs CME rate futures; shorter-tenor positions are still netted in this estimate but fall outside the cited program scope.',long_maturity_position_count:long_maturity_positions};
-  return {output_payload:{standalone_im_total:Math.round(standalone_im_total),cross_margined_im:Math.round(cross_margined_im),im_reduction_usd:Math.round(im_reduction_usd),im_reduction_pct,eligible_offsets,ineligible_offsets,account_type_note,combined_portfolio,assumptions:{confidence_level:pp.confidence_level,mpor_days:+pp.mpor_days||1,cme_dv01_table:'approx per-contract $/bp',bucket_corr:BUCKET_CORR},note:'Educational FICC–CME Combined Portfolio cross-margining estimate; CME DV01s are approximate. Not the official cross-margin calculator.'},compliance_flags};
+  return {output_payload:{standalone_im_total:Math.round(standalone_im_total),cross_margined_im:Math.round(cross_margined_im),im_reduction_usd:Math.round(im_reduction_usd),im_reduction_pct,eligible_offsets,ineligible_offsets,account_type_note,combined_portfolio,assumptions:{confidence_level,mpor_days:+mpor_days||1,cme_dv01_table:'approx per-contract $/bp',bucket_corr:BUCKET_CORR},note:'Educational FICC–CME Combined Portfolio cross-margining estimate; CME DV01s are approximate. Not the official cross-margin calculator.'},compliance_flags};
 }
 const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
 async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
 const fmt=n=>'$'+(n/1e6).toFixed(2)+'M';
 async function run(){
-  let ust,cme; try{ust=JSON.parse(document.getElementById('ust_positions').value);cme=JSON.parse(document.getElementById('cme_positions').value);}catch(e){alert('Positions must be valid JSON');return;}
-  const pp={ust_positions:ust,cme_positions:cme,account_type:document.getElementById('account_type').value,confidence_level:Number(document.getElementById('confidence_level').value),mpor_days:Number(document.getElementById('mpor_days').value)};
+  /* Hashed-input discipline (WEBMCP-CPARITY-ART51-1): policy_parameters echo
+     EXACTLY what the caller declared. Empty controls are omitted, never
+     re-materialised as page-side demo defaults, so the same input bytes hash
+     identically on this page, the MCP worker, and the kernel (kernel
+     destructuring defaults are equivalent for every omitted key). The
+     textareas' demo positions are placeholders — display-only examples. */
+  const ctrlText=id=>{const el=document.getElementById(id);return el&&typeof el.value==='string'&&el.value.trim()!==''?el.value.trim():null;};
+  const pp={};
+  const ustText=ctrlText('ust_positions');
+  if(ustText!=null){try{pp.ust_positions=JSON.parse(ustText);}catch(e){alert('Positions must be valid JSON');return;}}
+  const cmeText=ctrlText('cme_positions');
+  if(cmeText!=null){try{pp.cme_positions=JSON.parse(cmeText);}catch(e){alert('Positions must be valid JSON');return;}}
+  const acct=document.getElementById('account_type').value;
+  if(typeof acct==='string'&&acct!==''&&acct!=='house')pp.account_type=acct;
+  const conf=document.getElementById('confidence_level').value;
+  if(conf!=null&&conf!==''&&Number(conf)!==0.99)pp.confidence_level=Number(conf);
+  const mp=document.getElementById('mpor_days').value;
+  if(mp!=null&&String(mp)!==''&&Number(mp)!==1)pp.mpor_days=Number(mp);
   const {output_payload:op,compliance_flags}=compute(pp);
   const hash=await execHash(pp,op);
   const generatedAt = new Date().toISOString();
@@ -435,16 +453,17 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-51-
 /* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
 function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
 function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
-function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 </script>
 <script>
 /* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
-/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+/* Signs through __ocgJcs (the OCG-CANON v1 block's serializer — single canon path; RFC 8785 §3.2.3-exact for array-index member names, same bytes as kernels/_proof.mjs jcsStringify since JCS-CANON-FIX-1). */
 /* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
    __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
 (function(){
   var CS='eddsa-jcs-2022';
-  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function jcs(o){return new TextEncoder().encode(__ocgJcs(o));}
   function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
   function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
   function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}

@@ -111,6 +111,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <meta name="ai-tool" content="run_agent_economy_fit">
+<meta name="kernel-digest" content="sha256:05da7b2247131bc9f19b998edc08d9be543cdf7507b90012e036e3e7b28289f1">
 </head>
 <body>
 <nav>
@@ -313,24 +314,31 @@ const S={
 const pick=(t,v,d=0)=>v in t?t[v]:d;
 const letter=s=>s>=85?'A':s>=70?'B':s>=55?'C':s>=40?'D':'F';
 const WEIGHTS={rail:.25,receipt:.20,autonomy:.20,recon:.15,metering:.10,risk:.10};
-const ROUTE={rail:'agent-economy-batch-settlement',receipt:'agent-economy-payment-receipt',autonomy:'agent-economy-autonomous-guardrail',recon:'agent-economy-batch-settlement',metering:'agent-economy-metering',risk:'agent-economy-fraud-runtime'};
+const ROUTE={rail:'aer-batch-settlement',receipt:'aer-payment-receipt',autonomy:'aer-autonomous-guardrail',recon:'aer-batch-settlement',metering:'aer-metering',risk:'aer-fraud-runtime'};
 const REMED={
-  rail:'Upgrade to x402 V2 batch settlement (escrow-voucher). Run agent-economy-batch-settlement.',
-  receipt:'Adopt AP2 v0.2 PaymentReceipt + VC-signed mandate chain. Run agent-economy-payment-receipt.',
-  autonomy:'Add HNP policy gate (spend cap + category + mandate-age check). Run agent-economy-autonomous-guardrail.',
-  recon:'Move to hash-anchored reconciliation + automated dispute path. Run agent-economy-batch-settlement.',
-  metering:'Meter every agent service call individually. Run agent-economy-metering.',
-  risk:'Add velocity limits + agent-graph collusion detection. Run agent-economy-fraud-runtime.'
+  rail:'Upgrade settlement rail to x402 V2 batch settlement (escrow-voucher pattern). Run aer-batch-settlement to reconcile voucher set → onchain batch and validate settlement-risk window.',
+  receipt:'Adopt AP2 v0.2 PaymentReceipt (FIDO Alliance). Wire VC-signed mandate chain. Run aer-payment-receipt to verify receipt against mandate chain and apply HNP guardrail.',
+  autonomy:'Add Human-Not-Present (HNP) policy gate: per-mandate spend caps, allowed-category list, mandate-age check. Run aer-autonomous-guardrail to enforce AP2 v0.2 HNP policy on executed payments.',
+  recon:'Move to hash-anchored reconciliation: each settled voucher carries an execution_hash verifiable by the counterparty. Add automated dispute path. Run aer-batch-settlement.',
+  metering:'Meter every agent service call individually (per-call basis). Run aer-metering to model unit economics and identify negative-margin scenarios.',
+  risk:'Implement velocity limits + agent-graph collusion detection for the runtime payment stream. Run aer-fraud-runtime to identify policy violations and anomalous network patterns.'
 };
 
 function compute(pp){
+  const{
+    settlement_protocol='none',batch_settlement='none',receipt_standard='none',
+    mandate_binding='none',hnp_autonomy='not-used',spend_controls='none',
+    recon_model='manual',dispute_path='none',metering_basis='unmetered',
+    runtime_fraud_controls='none',
+    agent_volume_txns_per_day=0,operator_type='agent-platform',
+  }=pp;
   const sub={
-    rail:[pick(S.settlement_protocol,pp.settlement_protocol),pick(S.batch_settlement,pp.batch_settlement)],
-    receipt:[pick(S.receipt_standard,pp.receipt_standard),pick(S.mandate_binding,pp.mandate_binding)],
-    autonomy:[pick(S.hnp_autonomy,pp.hnp_autonomy),pick(S.spend_controls,pp.spend_controls)],
-    recon:[pick(S.recon_model,pp.recon_model),pick(S.dispute_path,pp.dispute_path)],
-    metering:[pick(S.metering_basis,pp.metering_basis)],
-    risk:[pick(S.runtime_fraud_controls,pp.runtime_fraud_controls)],
+    rail:[pick(S.settlement_protocol,settlement_protocol),pick(S.batch_settlement,batch_settlement)],
+    receipt:[pick(S.receipt_standard,receipt_standard),pick(S.mandate_binding,mandate_binding)],
+    autonomy:[pick(S.hnp_autonomy,hnp_autonomy),pick(S.spend_controls,spend_controls)],
+    recon:[pick(S.recon_model,recon_model),pick(S.dispute_path,dispute_path)],
+    metering:[pick(S.metering_basis,metering_basis)],
+    risk:[pick(S.runtime_fraud_controls,runtime_fraud_controls)],
   };
   const dim_scores={};
   for(const k in sub){const avg=sub[k].reduce((a,b)=>a+b,0)/sub[k].length;dim_scores[k]={score:+(avg/4*100).toFixed(1),grade:letter(avg/4*100)};}
@@ -339,21 +347,21 @@ function compute(pp){
   const ranked=Object.keys(dim_scores).sort((a,b)=>dim_scores[a].score-dim_scores[b].score);
   const primary_recommendation=ROUTE[ranked[0]];
   const secondary_recommendations=[];
-  if(pp.batch_settlement!=='none'&&ROUTE.rail!==primary_recommendation&&!secondary_recommendations.includes('agent-economy-batch-settlement'))secondary_recommendations.push('agent-economy-batch-settlement');
-  if(pp.receipt_standard!=='none'&&ROUTE.receipt!==primary_recommendation&&!secondary_recommendations.includes('agent-economy-payment-receipt'))secondary_recommendations.push('agent-economy-payment-receipt');
-  if(pp.hnp_autonomy!=='not-used'&&ROUTE.autonomy!==primary_recommendation&&!secondary_recommendations.includes('agent-economy-autonomous-guardrail'))secondary_recommendations.push('agent-economy-autonomous-guardrail');
-  if(pp.metering_basis!=='unmetered'&&ROUTE.metering!==primary_recommendation&&!secondary_recommendations.includes('agent-economy-metering'))secondary_recommendations.push('agent-economy-metering');
-  if(pp.operator_type==='marketplace'&&!secondary_recommendations.includes('agent-economy-marketplace'))secondary_recommendations.push('agent-economy-marketplace');
+  if(batch_settlement!=='none'&&ROUTE.rail!==primary_recommendation&&!secondary_recommendations.includes('aer-batch-settlement'))secondary_recommendations.push('aer-batch-settlement');
+  if(receipt_standard!=='none'&&ROUTE.receipt!==primary_recommendation&&!secondary_recommendations.includes('aer-payment-receipt'))secondary_recommendations.push('aer-payment-receipt');
+  if(hnp_autonomy!=='not-used'&&ROUTE.autonomy!==primary_recommendation&&!secondary_recommendations.includes('aer-autonomous-guardrail'))secondary_recommendations.push('aer-autonomous-guardrail');
+  if(metering_basis!=='unmetered'&&ROUTE.metering!==primary_recommendation&&!secondary_recommendations.includes('aer-metering'))secondary_recommendations.push('aer-metering');
+  if(operator_type==='marketplace'&&!secondary_recommendations.includes('aer-marketplace'))secondary_recommendations.push('aer-marketplace');
   if(!secondary_recommendations.includes(ROUTE[ranked[1]])&&ROUTE[ranked[1]]!==primary_recommendation)secondary_recommendations.push(ROUTE[ranked[1]]);
-  if(!secondary_recommendations.includes('agent-economy-audit-pack'))secondary_recommendations.push('agent-economy-audit-pack');
+  if(!secondary_recommendations.includes('aer-audit-pack'))secondary_recommendations.push('aer-audit-pack');
   const remediation_checklist=[];
   for(const k in dim_scores)if(dim_scores[k].grade==='D'||dim_scores[k].grade==='F')remediation_checklist.push({dimension:k,grade:dim_scores[k].grade,action:REMED[k]});
   const compliance_flags=[];
-  if(pp.hnp_autonomy==='unbounded')compliance_flags.push('HNP_AUTONOMY_UNBOUNDED');
-  if(pp.batch_settlement==='none')compliance_flags.push('NO_BATCH_RECONCILIATION');
-  if(pp.metering_basis==='unmetered')compliance_flags.push('UNMETERED_AGENT_SERVICE');
+  if(hnp_autonomy==='unbounded')compliance_flags.push('HNP_AUTONOMY_UNBOUNDED');
+  if(batch_settlement==='none')compliance_flags.push('NO_BATCH_RECONCILIATION');
+  if(metering_basis==='unmetered')compliance_flags.push('UNMETERED_AGENT_SERVICE');
   if(overall_grade==='D'||overall_grade==='F')compliance_flags.push('LOW_RUNTIME_READINESS');
-  const hnp_risk_flag=pp.hnp_autonomy==='unbounded'?'CRITICAL: HNP autonomy is unbounded — no spend cap or category gate. Apply AP2 v0.2 HNP policy immediately.':null;
+  const hnp_risk_flag=hnp_autonomy==='unbounded'?'CRITICAL: HNP autonomy is unbounded — no spend cap or category gate. Apply AP2 v0.2 HNP policy immediately.':null;
   return {output_payload:{dim_scores,overall_score:overall,overall_grade,primary_recommendation,secondary_recommendations,remediation_checklist,hnp_risk_flag,note:"Educational runtime readiness diagnostic for the Agent Economy Runtime layer (post-trade / settlement). Grades x402 V2 batch settlement, AP2 v0.2 PaymentReceipt + HNP autonomy, reconciliation, metering, and runtime fraud controls. This is the runtime/post-trade counterpart to Wave 6's pre-trade conformance cluster — not a re-skin. Not settlement, legal, or financial advice. Verify x402 V2 and AP2 v0.2 specs against current Linux Foundation x402 Foundation / FIDO Alliance primary sources (2026-06-20)."},compliance_flags};
 }
 
@@ -620,16 +628,17 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-60-
 /* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
 function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
 function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
-function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 </script>
 <script>
 /* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
-/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+/* Signs through __ocgJcs (the OCG-CANON v1 block's serializer — single canon path; RFC 8785 §3.2.3-exact for array-index member names, same bytes as kernels/_proof.mjs jcsStringify since JCS-CANON-FIX-1). */
 /* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
    __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
 (function(){
   var CS='eddsa-jcs-2022';
-  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function jcs(o){return new TextEncoder().encode(__ocgJcs(o));}
   function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
   function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
   function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}

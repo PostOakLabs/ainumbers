@@ -47,7 +47,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, unlink
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sourceDigest, normDigest } from '../chaingraph/kernels/_buildid.mjs';
-import { cgCanon } from '../chaingraph/kernels/_hash.mjs';
+import { jcsStringify } from '../chaingraph/kernels/_hash.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -244,7 +244,7 @@ async function buildArtifacts() {
 }
 
 function canonicalBytes(artifact) {
-  return JSON.stringify(cgCanon(artifact));
+  return jcsStringify((artifact));
 }
 
 // Fields that legitimately change on every run (freshness, never coverage) —

@@ -121,6 +121,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <meta name="ai-tool" content="verify_eth_state_proof">
+<meta name="kernel-digest" content="sha256:cdf00978c1f9c8e64aa49fd927d7dab925a232f49b3f745381396674785ce592">
 </head>
 <body>
 <nav>
@@ -534,15 +535,23 @@ function compute(pp) {
 }
 
 // ─── UI ──────────────────────────────────────────────────────────────────────
+/* getPP mirrors the kernel's own input normalization (absent ⇔ empty): only
+   values the caller actually declared enter the hashed policy_parameters
+   preimage. The form's empty-field defaults ('' / []) are render-only and never
+   hashed, so a parameter-free deep link (input_example {}) hashes the same
+   preimage as the kernel — WEBMCP-CPARITY-ART279-1. */
 function getPP() {
+  const pp = {};
+  const root = document.getElementById('block_state_root').value.trim();
+  if (root) pp.block_state_root = root;
+  const addr = document.getElementById('address').value.trim();
+  if (addr) pp.address = addr;
   let account_proof = [], storage_slots = [];
   try { const t = document.getElementById('account_proof').value.trim(); account_proof = t ? JSON.parse(t) : []; } catch (e) { account_proof = []; }
   try { const t = document.getElementById('storage_slots').value.trim(); storage_slots = t ? JSON.parse(t) : []; } catch (e) { storage_slots = []; }
-  return {
-    block_state_root: document.getElementById('block_state_root').value.trim(),
-    address: document.getElementById('address').value.trim(),
-    account_proof, storage_slots,
-  };
+  if (account_proof.length) pp.account_proof = account_proof;
+  if (storage_slots.length) pp.storage_slots = storage_slots;
+  return pp;
 }
 
 const PRESETS = {
@@ -689,7 +698,10 @@ function exportJSON() {
   document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
-loadPreset('single');
+/* No preset auto-load: a fresh page (and every deep link) must hash only the
+   caller-declared policy_parameters. The preset buttons above remain available
+   for interactive use — a preset becomes part of the preimage only when the
+   user clicks it (WEBMCP-CPARITY-ART279-1). */
 </script>
 
 
@@ -893,16 +905,17 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-279
 /* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
 function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
 function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
-function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 </script>
 <script>
 /* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
-/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+/* Signs through __ocgJcs (the OCG-CANON v1 block's serializer — single canon path; RFC 8785 §3.2.3-exact for array-index member names, same bytes as kernels/_proof.mjs jcsStringify since JCS-CANON-FIX-1). */
 /* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
    __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
 (function(){
   var CS='eddsa-jcs-2022';
-  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function jcs(o){return new TextEncoder().encode(__ocgJcs(o));}
   function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
   function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
   function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}

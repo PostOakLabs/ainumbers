@@ -952,6 +952,7 @@ function assertIJson(v) {
     for (const k of Object.keys(v)) assertIJson(v[k]);
   }
 }
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 const cgCanon = (v) =>
   Array.isArray(v) ? v.map(cgCanon)
   : (v && typeof v === 'object')
@@ -960,7 +961,7 @@ const cgCanon = (v) =>
 function canonicalPreimage(policy_parameters, output_payload) {
   const obj = { policy_parameters, output_payload };
   assertIJson(obj);
-  return JSON.stringify(cgCanon(obj));
+  return __ocgJcs((obj));
 }
 async function executionHash(policy_parameters, output_payload) {
   const bytes = new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
@@ -969,7 +970,7 @@ async function executionHash(policy_parameters, output_payload) {
 }
 async function policyParametersHash(policy_parameters) {
   assertIJson(policy_parameters);
-  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(policy_parameters)));
+  const bytes = new TextEncoder().encode(__ocgJcs((policy_parameters)));
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
@@ -986,7 +987,7 @@ function stripSha256Prefix(s) { return typeof s === 'string' && s.startsWith('sh
  * member is reported as present-but-unverified rather than silently skipped or falsely passed.
  * ============================================================================================ */
 const CRYPTOSUITE = 'eddsa-jcs-2022';
-function jcsBytes(obj) { return new TextEncoder().encode(JSON.stringify(cgCanon(obj))); }
+function jcsBytes(obj) { return new TextEncoder().encode(__ocgJcs((obj))); }
 function securedDocument(artifact) {
   const a = structuredClone(artifact);
   if (a && a.audit_signature) {

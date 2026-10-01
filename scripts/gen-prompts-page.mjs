@@ -219,11 +219,11 @@ function groupSections(prompts) {
 // a prompt walks them, so the strip lights stations and draws no arrows.
 const DOOR_TRACK = ['webmcp', 'mcp', 'helmd', 'ledger', 'anchor', 'zk'];
 
-// Showcase prompts that get no door strip yet. signed-policy-agentic-commerce
-// cannot run as written: run_chain rejects a vc_issue credential as
-// mandate_unsigned, and its workflow has no gate that could escalate.
-// Illustrate it once the prompt runs end to end.
-const DOOR_STRIP_HOLD = new Set(['signed-policy-agentic-commerce']);
+// Showcase prompts that get no door strip yet. Empty since 2026-09-27, when
+// signed-policy-agentic-commerce was rewritten onto an embedded signed Work
+// Mandate that run_chain accepts and onto a workflow whose §21 gate escalates.
+// Add an id here only while its prompt cannot run end to end.
+const DOOR_STRIP_HOLD = new Set([]);
 
 function doorStrip(entry) {
   if (entry.group !== 'showcase' || DOOR_STRIP_HOLD.has(entry.id)) return '';
