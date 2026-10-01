@@ -1587,11 +1587,44 @@ function runRegenPass() {
   }
 }
 
+/** REGEN-REPORT-UNION-1: each entry's writes report as it stands now (null when absent or
+ *  unreadable). COVERED by default; --verify --self-test injects a temp-file entry. */
+function snapshotWritesReports(entries = COVERED) {
+  const snap = new Map();
+  for (const c of entries) {
+    if (!c.writesReport) continue;
+    try { snap.set(c.writesReport, JSON.parse(readFileSync(c.writesReport, 'utf8'))); } catch { snap.set(c.writesReport, null); }
+  }
+  return snap;
+}
+
+/** REGEN-REPORT-UNION-1: put back every path an earlier pass wrote. A writer rewrites its
+ *  report on every --write run (gen-manifest-examples.mjs, empty list included), so a second
+ *  pass that writes nothing new would otherwise erase the first pass's list and --paths would
+ *  stage none of those files. The declared artifacts[] stay the boundary: entryCommitPaths()
+ *  still drops anything outside them or absent on disk. */
+function unionWritesReports(before) {
+  for (const [p, prev] of before) {
+    if (!prev || !Array.isArray(prev.written)) continue;
+    let cur = null;
+    try { cur = JSON.parse(readFileSync(p, 'utf8')); } catch { /* no report after the pass: restore the earlier one */ }
+    const now = cur && Array.isArray(cur.written) ? cur.written : [];
+    const written = [...new Set([...prev.written, ...now])].sort();
+    writeFileSync(p, JSON.stringify({ ...(cur || prev), written }, null, 2) + '\n', 'utf8');
+  }
+}
+
 /** --verify's classification step (REGEN-CASCADE-CONSOLIDATE-1): ONE more full regen
  *  pass, then every covered gate again. Injectable so --verify --self-test can drive it
- *  without spawning anything; production calls pass nothing. */
-function classifyWithSecondPass({ regen = runRegenPass, gates = () => runVerifyGates('pass-2') } = {}) {
+ *  without spawning anything; production calls pass nothing.
+ *  REGEN-REPORT-UNION-1: the writes reports are snapshotted before the pass and unioned
+ *  after it, so a file the first pass rewrote stays in the --paths commit set (main's
+ *  derived regen escaped on the node-700 manifest without this: runs 36871263397,
+ *  36873698714). */
+function classifyWithSecondPass({ regen = runRegenPass, gates = () => runVerifyGates('pass-2'), entries = COVERED } = {}) {
+  const before = snapshotWritesReports(entries);
   regen();
+  unionWritesReports(before);
   return gates();
 }
 
@@ -1761,6 +1794,8 @@ if (isMain) {
     // every --write run, empty list included). The manifest must stay in the --paths set, or
     // the regen workflow's escape check fails on it (runs 36871263397, 36873698714).
     const udir = mkdtempSync(join(tmpdir(), 'da-report-union-'));
+    const cleanUnionDir = () => rmSync(udir, { recursive: true, force: true });
+    process.once('exit', cleanUnionDir); // fail() calls process.exit, which skips the finally below
     try {
       const rp = join(udir, 'writes.json');
       const put = (written) => writeFileSync(rp, JSON.stringify({ written }, null, 2) + '\n', 'utf8');
@@ -1785,7 +1820,7 @@ if (isMain) {
       JSON.stringify(stagedF) === JSON.stringify([MAN_A, MAN_B].sort()) || fail(`--paths must stage both passes' writes once each, got ${JSON.stringify(stagedF)}`);
       console.log('✓ self-test (f): writes from both passes are staged, sorted and deduplicated');
     } finally {
-      rmSync(udir, { recursive: true, force: true });
+      cleanUnionDir();
     }
     console.log('\n✓ derived-artifacts --verify --self-test: all directions green.');
     process.exit(0);
