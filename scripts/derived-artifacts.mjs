@@ -89,7 +89,7 @@
  */
 import { execSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
-import { existsSync, mkdtempSync, readFileSync, rmSync, mkdirSync, cpSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync, mkdirSync, cpSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -1587,6 +1587,14 @@ function runRegenPass() {
   }
 }
 
+/** --verify's classification step (REGEN-CASCADE-CONSOLIDATE-1): ONE more full regen
+ *  pass, then every covered gate again. Injectable so --verify --self-test can drive it
+ *  without spawning anything; production calls pass nothing. */
+function classifyWithSecondPass({ regen = runRegenPass, gates = () => runVerifyGates('pass-2') } = {}) {
+  regen();
+  return gates();
+}
+
 /** One freshness-gate pass for --verify (MERGEGROUP-DERIVED-REGEN-FIX-1): in
  *  ephemeral mode (DERIVED_ROOT set, unless opts.ephemeral overrides) a covered
  *  gate NOT in DERIVED_ROOT_GATES is main-regen-owned and SKIPS with a printed
@@ -1746,6 +1754,39 @@ if (isMain) {
 
     const d = runVerifyGates('selftest', { list, ephemeral: true, awareSet: new Set([AWARE]), exec: okExec });
     d.failed.length === 0 && d.skipped.length === 1 || fail(`green ephemeral run must not fail, got failed=${JSON.stringify(d.failed)} skipped=${JSON.stringify(d.skipped)}`);
+
+    // REGEN-REPORT-UNION-1: pass 1 rewrote a manifest and the writer's report names it; a
+    // content red after pass 1 forces the classification pass, whose writer re-run finds
+    // nothing new and rewrites its report (gen-manifest-examples.mjs writes the report on
+    // every --write run, empty list included). The manifest must stay in the --paths set, or
+    // the regen workflow's escape check fails on it (runs 36871263397, 36873698714).
+    const udir = mkdtempSync(join(tmpdir(), 'da-report-union-'));
+    try {
+      const rp = join(udir, 'writes.json');
+      const put = (written) => writeFileSync(rp, JSON.stringify({ written }, null, 2) + '\n', 'utf8');
+      // Real committed files, so entryCommitPaths' on-disk filter keeps them.
+      const MAN_A = 'manifests/01-a2a-fee-route-optimizer.manifest.json';
+      const MAN_B = 'manifests/152-baas-provider-comparator.manifest.json';
+      const entry = { id: 'selftest-manifest-examples', artifacts: ['manifests/'], writesReport: rp };
+      const contentRed = () => ({ failed: ['selftest-content-red'], skipped: [] });
+
+      // (e) pass 2 writes nothing: the pass-1 manifest must still be staged.
+      put([MAN_A]);
+      const e = classifyWithSecondPass({ entries: [entry], regen: () => put([]), gates: contentRed });
+      e.failed.length === 1 || fail(`the simulated content red must persist across pass 2, got ${JSON.stringify(e.failed)}`);
+      const stagedE = entryCommitPaths(entry);
+      stagedE.includes(MAN_A) || fail(`--paths must still stage the manifest pass 1 rewrote after a pass-2 content red, got ${JSON.stringify(stagedE)}`);
+      console.log('✓ self-test (e): a pass-2 content red keeps the pass-1 manifest in --paths');
+
+      // (f) pass 2 writes a different manifest: both passes' writes are staged, sorted, once each.
+      put([MAN_A]);
+      classifyWithSecondPass({ entries: [entry], regen: () => put([MAN_B, MAN_A]), gates: contentRed });
+      const stagedF = entryCommitPaths(entry);
+      JSON.stringify(stagedF) === JSON.stringify([MAN_A, MAN_B].sort()) || fail(`--paths must stage both passes' writes once each, got ${JSON.stringify(stagedF)}`);
+      console.log('✓ self-test (f): writes from both passes are staged, sorted and deduplicated');
+    } finally {
+      rmSync(udir, { recursive: true, force: true });
+    }
     console.log('\n✓ derived-artifacts --verify --self-test: all directions green.');
     process.exit(0);
   } else if (arg === '--verify') {
@@ -1803,8 +1844,7 @@ if (isMain) {
       process.exit(1);
     }
     console.error(`\n⚠ pass-1 red set (${red1.length}): ${red1.join(', ')} — running ONE second regen pass to classify (fixpoint violation vs un-healable content red) …\n`);
-    runRegenPass();
-    const { failed: red2 } = runVerifyGates('pass-2');
+    const { failed: red2 } = classifyWithSecondPass();
     const healed = red1.filter((id) => !red2.includes(id));
     const newlyRed = red2.filter((id) => !red1.includes(id));
     if (healed.length || newlyRed.length) {
