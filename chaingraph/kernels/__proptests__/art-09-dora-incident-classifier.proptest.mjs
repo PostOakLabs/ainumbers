@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:402db5fdc85927df292a47afb1b93448eb3e655291d3fbdef48466732382561d
+// kernel_digest_at_authoring: sha256:6c839be20f25882992361741b4401a2be918a35be9761973816e42566ba06436
 //
 // DORA-CLOCK-REPAIR-1 — property-test floor for art-09-dora-incident-classifier
 // (rewritten with the kernel: art-09 CLASSIFIES per 2024/1772 Art. 8(1) + Art. 9(1)-(6)

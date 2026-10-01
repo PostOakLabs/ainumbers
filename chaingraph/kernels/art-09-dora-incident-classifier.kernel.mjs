@@ -312,10 +312,15 @@ export function compute(pp) {
   if (maliciousAccess === false && gatewayMet && twoOtherMet) compliance_flags.push('DORA_TWO_OTHER_THRESHOLDS_BRANCH');
   if (originMismatch) compliance_flags.push('DORA_CONSUMED_CLOCK_ORIGIN_MISMATCH');
 
+  // Flag-mirror doctrine (the authoring standard): the conditional compliance_flags mirror into
+  // the payload so gates can route on the caveat without reading compliance_flags.
+  const warnings = determination_code === 'major' ? ['REPORTING_OBLIGATION_TRIGGERED'] : [];
+
   const output_payload = {
     determination_code,
     major_incident: determination_code === 'major',
     determination_reason_codes: reason_codes,
+    warnings,
     gateway: {
       critical_services_affected: gatewayRaw === true,
       assessed: gatewayAssessed,
