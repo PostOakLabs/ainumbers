@@ -1,85 +1,95 @@
 /**
  * art-467-dora-incident-classifier.kernel.mjs
- * Assurance Waves program (DORA-ROI-BUILD-SPEC.md §1, DORA-K-1) — DORA major-ICT-incident
- * classification thresholds + reporting-clock deadlines.
+ * DORA-CLOCK-REPAIR-1 (REVERSED D split, ruling 2026-10-01) — DORA major-incident
+ * REPORTING-CLOCK kernel: the 2025/301 report-stage deadline schedule, computed
+ * deterministically from caller-declared stage timestamps.
  *
- * DORA (EU) 2022/2554 Art. 18 sets the classification criteria for major ICT-related incidents
- * (clients/counterparties affected, duration, geographical spread, data losses, economic impact,
- * criticality of services affected, reputational impact). The numeric materiality thresholds for
- * each criterion are set out in the ESAs' final RTS on classification of major incidents and
- * significant cyber threats — Commission Delegated Regulation (EU) 2024/1772 of 13 Mar 2024
- * (based on DORA Art. 18(3)). Reporting timelines (initial notification, intermediate report,
- * final report, DORA Art. 19) are set out in the companion RTS/ITS on incident-reporting content
- * and timelines (Commission Implementing Regulation (EU) 2025/302, ITS on standard forms/
- * templates and timelines for the report on major ICT-related incidents).
+ * AUTHORITY (correct roles, per the DORA-AUTHORITY-PIN-1 crosswalk and the pinned
+ * clause-snapshot registry entries):
+ *   - Commission Delegated Regulation (EU) 2025/301 Art. 5 supplies the time limits:
+ *       · initial report: as early as possible within 4 hours of major classification
+ *         AND no later than 24 hours after awareness — the EARLIER of the two limbs binds;
+ *       · intermediate report: within 72 hours of SUBMISSION of the initial notification
+ *         (never from the initial deadline), due even when it restates the same content, plus an updated
+ *         intermediate without undue delay and when regular activity resumes;
+ *       · final report: no later than one month after submission of the intermediate
+ *         report or the latest updated intermediate report (whichever is later);
+ *       · weekend/bank-holiday extension to noon next working day, NOT available for
+ *         initial/intermediate reports by credit institutions, CCPs, trading-venue
+ *         operators or NIS2 essential/important entities, nor by any entity an NCA has
+ *         notified; final reports keep the extension; an NCA may withdraw it from other
+ *         entities after notice.
+ *   - Commission Delegated Regulation (EU) 2025/301 Arts. 1-4 supply per-stage report
+ *     content; Commission Implementing Regulation (EU) 2025/302 Art. 7 supplies TPP
+ *     aggregated reporting and Annex I the template field list (this kernel does not
+ *     draft the forms; see tool 303 for the Annex I draft surface).
+ *   - Calendar-month arithmetic follows Regulation (EEC, Euratom) No 1182/71 Art. 2:
+ *     a one-month period expires on the corresponding date in the target month, with an
+ *     end-of-month clamp when the target month is shorter (documented, deterministic,
+ *     UTC, no Intl/locale dependency).
+ *   - DORA (EU) 2022/2554 Arts. 19-20 carry the reporting obligations the deadlines
+ *     serve; Joint ESAs report JC 2026 16 (2026-06-03) paras 3(i)-(iii) corroborate the
+ *     clocks in the ESAs' own words.
  *
- * TABLE VERSION / CITATION CONFIDENCE (documented, not silently assumed — STP-WAVE-COMPLIANCE-
- * RIDERS.md §3 convention): the numeric thresholds below (10% clients, 24h duration, 2 member
- * states, EUR 100,000 economic impact) and the reporting-clock hour figures (4h initial / 72h
- * intermediate / 1 calendar month final, all clocked from classification) are pinned to the
- * commonly-cited headline figures from the 2024 RTS/ITS package as understood at kernel-build
- * time (2026-07-24). They are MODERATE, not certified, confidence — the RTS combines several
- * criteria with per-criterion nuance (e.g. the clients-affected test also has an absolute-count
- * limb, the economic-impact test has a relative-to-Tier-1-capital limb for some entity types)
- * that this kernel does NOT model. table_version below records the pin; a legal/compliance
- * review MUST verify these figures against the final consolidated RTS/ITS text before this
- * kernel's verdict is relied on for an actual regulatory filing. This kernel classifies and
- * computes deadlines; it does not itself transmit, file, or submit any regulatory notification,
- * and it is not legal advice.
+ * REVERSED D SPLIT (this kernel's role): art-467 is the UPSTREAM clock producer of
+ * dora-escalation-demo. It does NOT classify: classification lives in
+ * art-09-dora-incident-classifier.kernel.mjs, which reads this kernel's clock result
+ * across the declared chain edge (art-467 declares `feeds` -> art-09 in its node
+ * shard). This kernel stays usable standalone: every input is
+ * caller-declared, and it never reads a wall clock (zero Date.now(), zero randomness,
+ * zero network). Due-ness states are computed against the caller-declared `logical_date`,
+ * never against "now".
  *
- * NEAR-COLLISION DISAMBIGUATION (found during DORA-K-1 build, 2026-07-24): a DORA incident
- * classifier already ships as art-09-dora-incident-classifier.kernel.mjs (wave 1,
- * mcp_name `classify_dora_incident`, mandate_type `infrastructure_mandate`, citing the EARLIER
- * draft ESA Joint RTS EBA/RTS/2023/11, no §18 conformance fixtures, not linked to any
- * notification-clock sibling). art-467 is NOT a straight duplicate build, but the overlap is
- * real and is flagged to the calling session for review: art-467 (a) cites the FINAL 2024
- * RTS/ITS package rather than the 2023 draft, (b) is built to the Banking OCG program's mature
- * attestation-clock pattern (art-428-style: `attestation_mandate`, conformance_fixtures:true,
- * bidirectional link to a notification-clock sibling), and (c) is scoped as a companion to
- * art-466's Register-of-Information builder inside the Assurance Waves program rather than a
- * standalone wave-1 tool. Do NOT build a THIRD DORA incident classifier without first resolving
- * whether art-09 and art-467 should be consolidated or clearly re-scoped against each other.
+ * States: overall `schedule_state` = evaluable | not_evaluable | malformed (the shared
+ * degraded vocabulary of DORA-CLOCK-REPAIR-1 step 2; `major`/`not_major` live on the
+ * classifier). Per stage: not_yet_due | due | overdue | not_evaluable |
+ * no_final_report_yet. Empty or contradictory timestamps yield `not_evaluable` — never a
+ * fabricated deadline. Every deadline carries the origin timestamp it was computed from
+ * and a stable reason code.
  *
- * See art-428-cyber-incident-clock.kernel.mjs for the analogous US banking/SEC/NYDFS
- * notification-clock pattern this kernel follows for the EU DORA regime (calendar-hour
- * deadlines computed deterministically in UTC from one caller-declared classification
- * timestamp, plus a decision-tree attestation slot per report). art-428 carries a matching
- * forward-pointing note to this kernel.
+ * `bank_holiday_calendar_ref` is a DECLARED calendar id (never inferred from the entity
+ * class or locale). The holiday dates themselves are caller-declared via
+ * `bank_holiday_dates[]` (YYYY-MM-DD, observed under that calendar); the kernel ships no
+ * holiday table of its own. Weekends (Saturday/Sunday UTC) are applied unconditionally.
  *
- * Zero network, zero randomness, zero wall-clock reads inside compute() (all timestamps are
- * caller-declared policy_parameters).
+ * Zero network, zero randomness, zero wall-clock reads inside compute().
  *
- * Spec: DORA-ROI-BUILD-SPEC.md §1 (DORA-K-1, art-467).
+ * Spec: DORA-CLOCK-REPAIR-1 (board row) · SPEC.md §17/§18 kernel identity + proof.
  */
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-467-dora-incident-classifier';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '2.0.0';
 export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, mcp_name: 'classify_dora_ict_incident_and_clock_deadlines', mandate_type: 'attestation_mandate', gpu: false };
 
 const HOUR_MS = 3600 * 1000;
+// Stable, caller-visible constants (cited roles — never re-derived in prose strings).
+const TABLE_VERSION = 'DORA-2025-301-ART5-STAGE-CLOCKS-2026-10';
+const TABLE_SOURCE = 'Commission Delegated Regulation (EU) 2025/301 Art. 5 (initial 4h-from-classification AND 24h-from-awareness, whichever earlier; intermediate 72h from submission of the initial; final 1 month from the intermediate or the latest updated intermediate; weekend/bank-holiday extension to noon next working day with the initial/intermediate entity-class and NCA-notification exceptions; final keeps it) + Arts. 1-4 (per-stage content); Commission Implementing Regulation (EU) 2025/302 Art. 7 (TPP aggregated reporting) and Annex I (template fields); month arithmetic per Regulation (EEC, Euratom) No 1182/71 Art. 2; DORA (EU) 2022/2554 Arts. 19-20; corroborated by Joint ESAs report JC 2026 16 (2026-06-03) paras 3(i)-(iii).';
 
-const TABLE_VERSION = 'DORA-RTS-2024-1772-CLASSIFICATION+ITS-2025-302-TIMELINES-2026-07';
-const TABLE_SOURCE = 'DORA (EU) 2022/2554 Art. 18 (classification criteria) + Art. 19 (reporting obligations/timelines); Commission Delegated Regulation (EU) 2024/1772 (RTS on classification criteria for major ICT-related incidents and significant cyber threats); Commission Implementing Regulation (EU) 2025/302 (ITS on standard forms/templates and timelines for major-incident reports). Numeric thresholds pinned at MODERATE confidence -- verify against final consolidated RTS/ITS text at legal review before relying on this verdict for an actual filing.';
 
-const THRESHOLDS = {
-  clients_affected_pct_min: 10, // >=10% of registered clients/users/counterparties affected
-  duration_minutes_min: 24 * 60, // 24 hours of service disruption
-  geographical_spread_countries_min: 2, // >=2 EU member states affected
-  economic_impact_eur_min: 100000, // EUR 100,000 absolute materiality threshold
-};
+// ISO-8601 datetime with a MANDATORY explicit offset (Z or +/-hh:mm(/hhmm)).
+const ISO_OFFSET_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:?\d{2})$/;
+// Calendar-date form accepted only inside bank_holiday_dates[].
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Deterministic UTC parse -- returns ms since epoch or null.
-function parseIsoOrNull(s) {
+// Deterministic UTC parse of a caller-declared timestamp. Returns ms since epoch, or
+// null when absent/empty; a present-but-invalid value (not an explicit-offset ISO-8601
+// datetime, or unparseable) records the field name in `out` and returns null. Never
+// reads a wall clock.
+function parseDeclared(s, key, out) {
   if (s == null || s === '') return null;
+  if (typeof s !== 'string' || !ISO_OFFSET_RE.test(s)) { out.push(key); return null; }
   const t = Date.parse(s);
-  return Number.isFinite(t) ? t : null;
+  if (!Number.isFinite(t)) { out.push(key); return null; }
+  return t;
 }
 function isoOrNull(ms) { return ms == null ? null : new Date(ms).toISOString(); }
+function isoDateUtc(ms) { return new Date(ms).toISOString().slice(0, 10); }
+function utcDayOfWeek(ms) { return new Date(ms).getUTCDay(); } // 0=Sun .. 6=Sat
 
-// Adds one CALENDAR month (UTC), clamping the day-of-month if the target month is shorter
-// (e.g. Jan 31 + 1 month -> Feb 28/29), matching common civil-calendar "final report in one
-// month" reporting-clock conventions. Deterministic, no engine Intl/locale dependency.
+// Adds one CALENDAR month (UTC) with an end-of-month clamp (Jan 31 + 1 month -> Feb 28/29),
+// per Regulation (EEC, Euratom) No 1182/71 (month-expiry rule). Deterministic, no Intl/locale dependency.
 function addCalendarMonthUtc(ms) {
   const d = new Date(ms);
   const y = d.getUTCFullYear();
@@ -90,111 +100,286 @@ function addCalendarMonthUtc(ms) {
   return Date.UTC(y, m + 1, clampedDay, d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds());
 }
 
-function numOrZero(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
+// Reporting time-limits (the pinned time-limits regulation): a deadline falling on a Saturday, a Sunday or a declared bank-holiday
+// date moves to 12:00 (noon) UTC on the next working day. Final reports keep the
+// extension; initial/intermediate lose it per entity class / NCA notice (decided by the
+// caller of this helper).
+function rollToNoonNextWorkingDay(ms, holidaySet) {
+  const d = new Date(ms);
+  let t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 12, 0, 0, 0);
+  let guard = 0;
+  while (guard < 60) {
+    const dow = utcDayOfWeek(t);
+    if (dow !== 0 && dow !== 6 && !holidaySet.has(isoDateUtc(t))) return t;
+    t += 24 * HOUR_MS;
+    guard++;
+  }
+  return t; // unreachable in practice (60-day guard keeps compute() total)
+}
+
+function extensionDecision(stageName, entityClass, extensionWithdrawn, holidayCount) {
+  // The extension is NOT available for initial/intermediate reports by
+  // credit institutions, CCPs, trading-venue operators or NIS2 essential/important
+  // entities, nor by any entity an NCA has notified (`nca_notified`).
+  const extensionDeniedClass = entityClass === 'credit_institution' || entityClass === 'ccp'
+    || entityClass === 'trading_venue' || entityClass === 'nis2_essential_important'
+    || entityClass === 'nca_notified';
+  // Returns { allowed, reason } for whether the weekend/bank-holiday extension MAY apply to this stage.
+  if (stageName === 'final_report') {
+    return { allowed: true, reason: 'EXTENSION_KEEP_FINAL_REPORT' }; // final reports keep it
+  }
+  if (extensionWithdrawn === true) {
+    return { allowed: false, reason: 'EXTENSION_DENIED_NCA_WITHDRAWN' }; // NCA withdrew it after notice
+  }
+  if (extensionDeniedClass) {
+    return { allowed: false, reason: 'EXTENSION_DENIED_ENTITY_CLASS' };
+  }
+  return { allowed: true, reason: holidayCount > 0 ? 'EXTENSION_ALLOWED_WEEKEND_BANK_HOLIDAY' : 'EXTENSION_ALLOWED_WEEKEND' };
+}
+
+// Per-stage state against the caller-declared logical_date (never a wall clock).
+function stageState(deadlineMs, logicalMs) {
+  if (deadlineMs == null) return null;
+  if (logicalMs == null) return 'not_evaluable'; // due-ness unknowable without a declared as-of
+  if (logicalMs < deadlineMs) return 'not_yet_due';
+  if (logicalMs === deadlineMs) return 'due';
+  return 'overdue';
+}
 
 export function compute(pp) {
   pp = pp || {};
-  const incident_id = typeof pp.incident_id === 'string' ? pp.incident_id : '';
-  const classification_at = pp.classification_at;
-  const clients_affected_pct = numOrZero(pp.clients_affected_pct);
-  const duration_minutes = numOrZero(pp.duration_minutes);
-  const geographical_spread_countries_count = numOrZero(pp.geographical_spread_countries_count);
-  const data_losses = pp.data_losses === true;
-  const economic_impact_amount = numOrZero(pp.economic_impact_amount);
-  const critical_services_affected = pp.critical_services_affected === true;
-  const reputational_impact = pp.reputational_impact === true;
+  const entityClass = typeof pp.entity_class === 'string' ? pp.entity_class : '';
+  const malformed = [];
+  const logicalMs = parseDeclared(pp.logical_date, 'logical_date', malformed);
+  const awarenessMs = parseDeclared(pp.awareness_at, 'awareness_at', malformed);
+  const classMs = parseDeclared(pp.classification_at, 'classification_at', malformed);
+  const initialSubMs = parseDeclared(pp.initial_submitted_at, 'initial_submitted_at', malformed);
+  const intermediateSubMs = parseDeclared(pp.intermediate_submitted_at, 'intermediate_submitted_at', malformed);
+  const latestUpdateMs = parseDeclared(pp.latest_intermediate_update_at, 'latest_intermediate_update_at', malformed);
+  const extensionWithdrawn = pp.extension_withdrawn_by_nca === true;
+  const tppAggregated = pp.tpp_aggregated_submission === true;
+  const calendarRef = typeof pp.bank_holiday_calendar_ref === 'string' && pp.bank_holiday_calendar_ref !== '' ? pp.bank_holiday_calendar_ref : null;
 
-  const classMs = parseIsoOrNull(classification_at);
-
-  const criteria = [
-    {
-      criterion_id: 'clients_affected',
-      article: 'DORA Art. 18(1)(a); RTS (EU) 2024/1772 clients-affected threshold',
-      met: clients_affected_pct >= THRESHOLDS.clients_affected_pct_min,
-      value: `${clients_affected_pct}% (threshold >=${THRESHOLDS.clients_affected_pct_min}%)`,
-    },
-    {
-      criterion_id: 'duration',
-      article: 'DORA Art. 18(1)(b); RTS (EU) 2024/1772 duration threshold',
-      met: duration_minutes >= THRESHOLDS.duration_minutes_min,
-      value: `${duration_minutes} min (threshold >=${THRESHOLDS.duration_minutes_min} min)`,
-    },
-    {
-      criterion_id: 'geographical_spread',
-      article: 'DORA Art. 18(1)(c); RTS (EU) 2024/1772 geographical-spread threshold',
-      met: geographical_spread_countries_count >= THRESHOLDS.geographical_spread_countries_min,
-      value: `${geographical_spread_countries_count} member state(s) (threshold >=${THRESHOLDS.geographical_spread_countries_min})`,
-    },
-    {
-      criterion_id: 'data_losses',
-      article: 'DORA Art. 18(1)(d); RTS (EU) 2024/1772 data-losses criterion (confidentiality/integrity/availability impact)',
-      met: data_losses,
-      value: data_losses ? 'Data loss reported' : 'No data loss reported',
-    },
-    {
-      criterion_id: 'economic_impact',
-      article: 'DORA Art. 18(1)(e); RTS (EU) 2024/1772 economic-impact threshold',
-      met: economic_impact_amount >= THRESHOLDS.economic_impact_eur_min,
-      value: `EUR ${economic_impact_amount} (threshold >=EUR ${THRESHOLDS.economic_impact_eur_min})`,
-    },
-    {
-      criterion_id: 'critical_services_affected',
-      article: 'DORA Art. 18(1)(f); RTS (EU) 2024/1772 criticality-of-services criterion',
-      met: critical_services_affected,
-      value: critical_services_affected ? 'Critical/important function affected' : 'No critical/important function affected',
-    },
-    {
-      criterion_id: 'reputational_impact',
-      article: 'DORA Art. 18(1)(g); RTS (EU) 2024/1772 reputational-impact criterion',
-      met: reputational_impact,
-      value: reputational_impact ? 'Reputational impact reported' : 'No reputational impact reported',
-    },
-  ];
-
-  // Gateway logic (documented approximation, see header): a "gateway" criterion (clients
-  // affected OR critical services affected) plus at least one other met criterion triggers
-  // MAJOR; data_losses independently triggers MAJOR regardless of the gateway (confidentiality/
-  // integrity/availability impact on data is treated in the RTS as capable of standing alone).
-  const gatewayMet = criteria.find((c) => c.criterion_id === 'clients_affected').met
-    || criteria.find((c) => c.criterion_id === 'critical_services_affected').met;
-  const metCount = criteria.filter((c) => c.met).length;
-  const otherMetCount = metCount - (gatewayMet ? 1 : 0);
-  const dataLossIndependentTrigger = data_losses;
-  const major = dataLossIndependentTrigger || (gatewayMet && otherMetCount >= 1) || metCount >= 2;
-  const verdict = major ? 'MAJOR' : 'NON_MAJOR';
-
-  const qualifying_criteria = criteria.filter((c) => c.met).map((c) => c.criterion_id);
-
-  let reporting_clock = null;
-  if (major && classMs != null) {
-    const initialMs = classMs + 4 * HOUR_MS;
-    const intermediateMs = classMs + 72 * HOUR_MS;
-    const finalMs = addCalendarMonthUtc(classMs);
-    reporting_clock = {
-      classification_at: isoOrNull(classMs),
-      initial_notification_deadline: isoOrNull(initialMs),
-      intermediate_report_deadline: isoOrNull(intermediateMs),
-      final_report_deadline: isoOrNull(finalMs),
-      note: 'Initial notification 4h, intermediate report 72h, final report 1 calendar month -- all clocked from classification_at (see kernel header for citation + confidence caveat).',
-    };
+  // Declared holiday dates for the declared calendar — never inferred, never shipped.
+  const holidaySet = new Set();
+  if (Array.isArray(pp.bank_holiday_dates)) {
+    for (const d of pp.bank_holiday_dates) {
+      if (typeof d === 'string' && ISO_DATE_RE.test(d)) holidaySet.add(d);
+      else malformed.push('bank_holiday_dates');
+    }
   }
 
   const compliance_flags = [];
-  compliance_flags.push(major ? 'DORA_MAJOR_INCIDENT' : 'DORA_NON_MAJOR_INCIDENT');
-  if (major) compliance_flags.push('DORA_REPORTING_OBLIGATION_TRIGGERED');
-  if (classMs == null && major) compliance_flags.push('CLASSIFICATION_TIMESTAMP_MISSING_OR_UNPARSEABLE');
-  if (data_losses) compliance_flags.push('DATA_LOSSES_REPORTED');
+  const anyMalformed = malformed.length > 0;
+
+  // --- overall schedule state (the shared degraded vocabulary; never a silent default) ---
+  const entityClassKnown = entityClass === 'credit_institution' || entityClass === 'ccp'
+    || entityClass === 'trading_venue' || entityClass === 'nis2_essential_important'
+    || entityClass === 'nca_notified' || entityClass === 'other';
+  let schedule_state;
+  if (anyMalformed) schedule_state = 'malformed';
+  else if (awarenessMs == null || classMs == null || entityClass === '' || !entityClassKnown) schedule_state = 'not_evaluable';
+  else schedule_state = 'evaluable';
+
+  if (schedule_state === 'evaluable') compliance_flags.push('DORA_CLOCK_SCHEDULE_EVALUABLE');
+  else if (schedule_state === 'not_evaluable') compliance_flags.push('DORA_CLOCK_SCHEDULE_NOT_EVALUABLE');
+  else compliance_flags.push('DORA_CLOCK_SCHEDULE_MALFORMED');
+  if (entityClass !== '' && !entityClassKnown) compliance_flags.push('DORA_ENTITY_CLASS_UNKNOWN');
+  if (extensionWithdrawn) compliance_flags.push('DORA_EXTENSION_WITHDRAWN_BY_NCA');
+  if (tppAggregated) compliance_flags.push('DORA_TPP_AGGREGATED_SUBMISSION');
+
+  const reporting_clock = {
+    entity_class: entityClass,
+    classification_at: isoOrNull(classMs),
+    awareness_at: isoOrNull(awarenessMs),
+    logical_date: isoOrNull(logicalMs),
+    bank_holiday_calendar_ref: calendarRef,
+    stages: {
+      initial_notification: null,
+      intermediate_report: null,
+      final_report: null,
+    },
+  };
+
+  // Contradictory stage order (each present pair must be non-decreasing): awareness <=
+  // classification <= initial submission <= intermediate submission <= latest update.
+  const orderPairs = [
+    ['awareness_at', 'classification_at', awarenessMs, classMs],
+    ['classification_at', 'initial_submitted_at', classMs, initialSubMs],
+    ['initial_submitted_at', 'intermediate_submitted_at', initialSubMs, intermediateSubMs],
+    ['intermediate_submitted_at', 'latest_intermediate_update_at', intermediateSubMs, latestUpdateMs],
+  ];
+  const contradictions = [];
+  for (const [a, b, av, bv] of orderPairs) {
+    if (typeof av === 'number' && typeof bv === 'number' && bv < av) contradictions.push(`${b}_before_${a}`);
+  }
+  if (contradictions.length) compliance_flags.push('DORA_TIMESTAMP_ORDER_CONTRADICTION');
+
+  const ev = (schedule_state === 'evaluable');
+
+  // ---- Stage 1: initial notification — min(classification + 4h, awareness + 24h) ----
+  if (ev && !contradictions.length) {
+    const limbClass = classMs + 4 * HOUR_MS;
+    const limbAware = awarenessMs + 24 * HOUR_MS;
+    let initialMs;
+    let reasonCode;
+    if (limbClass < limbAware) { initialMs = limbClass; reasonCode = 'INITIAL_DEADLINE_CLASSIFICATION_4H'; }
+    else if (limbAware < limbClass) { initialMs = limbAware; reasonCode = 'INITIAL_DEADLINE_AWARENESS_24H'; }
+    else { initialMs = limbClass; reasonCode = 'INITIAL_DEADLINE_LIMBS_EQUAL'; }
+    const ext = extensionDecision('initial_notification', entityClass, extensionWithdrawn, holidaySet.size);
+    let finalInitialMs = initialMs;
+    let extension = { applied: false, original_deadline: null, basis: '2025/301 Art. 5 extension to noon next working day' };
+    const isNonWorking = utcDayOfWeek(initialMs) === 0 || utcDayOfWeek(initialMs) === 6 || holidaySet.has(isoDateUtc(initialMs));
+    if (isNonWorking) {
+      if (ext.allowed) {
+        finalInitialMs = rollToNoonNextWorkingDay(initialMs, holidaySet);
+        extension = { applied: true, original_deadline: isoOrNull(initialMs), basis: '2025/301 Art. 5 extension to noon next working day' };
+        compliance_flags.push('DORA_EXTENSION_APPLIED_INITIAL');
+      } else {
+        compliance_flags.push('DORA_EXTENSION_DENIED_INITIAL');
+      }
+    } else {
+      compliance_flags.push('DORA_EXTENSION_NOT_NEEDED_INITIAL');
+    }
+    reporting_clock.stages.initial_notification = {
+      deadline: isoOrNull(finalInitialMs),
+      state: stageState(finalInitialMs, logicalMs),
+      reason_code: reasonCode,
+      computed_from: reasonCode === 'INITIAL_DEADLINE_AWARENESS_24H' ? isoOrNull(awarenessMs) : isoOrNull(classMs),
+      origin_rule: reasonCode === 'INITIAL_DEADLINE_AWARENESS_24H' ? 'awareness_at + 24h' : 'classification_at + 4h',
+      extension_rule: ext.reason,
+      extension,
+    };
+  } else {
+    reporting_clock.stages.initial_notification = {
+      deadline: null,
+      state: 'not_evaluable',
+      reason_code: anyMalformed ? 'TIMESTAMP_UNPARSEABLE_OR_NO_OFFSET'
+        : contradictions.length ? 'TIMESTAMP_ORDER_CONTRADICTION' : 'STAGE_TIMESTAMP_MISSING',
+      computed_from: null,
+      origin_rule: 'min(classification_at + 4h, awareness_at + 24h)',
+      extension_rule: null,
+      extension: { applied: false, original_deadline: null, basis: '2025/301 Art. 5 extension to noon next working day' },
+    };
+  }
+
+  // ---- Stage 2: intermediate report — initial SUBMISSION + 72h (never from the deadline) ----
+  if (ev) {
+    if (typeof initialSubMs === 'number' && !contradictions.length) {
+      const interMs = initialSubMs + 72 * HOUR_MS;
+      const ext = extensionDecision('intermediate_report', entityClass, extensionWithdrawn, holidaySet.size);
+      let finalInterMs = interMs;
+      let extension = { applied: false, original_deadline: null, basis: '2025/301 Art. 5 extension to noon next working day' };
+      const isNonWorking = utcDayOfWeek(interMs) === 0 || utcDayOfWeek(interMs) === 6 || holidaySet.has(isoDateUtc(interMs));
+      if (isNonWorking) {
+        if (ext.allowed) {
+          finalInterMs = rollToNoonNextWorkingDay(interMs, holidaySet);
+          extension = { applied: true, original_deadline: isoOrNull(interMs), basis: '2025/301 Art. 5 extension to noon next working day' };
+          compliance_flags.push('DORA_EXTENSION_APPLIED_INTERMEDIATE');
+        } else {
+          compliance_flags.push('DORA_EXTENSION_DENIED_INTERMEDIATE');
+        }
+      } else {
+        compliance_flags.push('DORA_EXTENSION_NOT_NEEDED_INTERMEDIATE');
+      }
+      reporting_clock.stages.intermediate_report = {
+        deadline: isoOrNull(finalInterMs),
+        state: stageState(finalInterMs, logicalMs),
+        reason_code: 'INTERMEDIATE_FROM_INITIAL_SUBMISSION_72H',
+        computed_from: isoOrNull(initialSubMs),
+        origin_rule: 'initial_submitted_at + 72h',
+        extension_rule: ext.reason,
+        extension,
+      };
+    } else {
+      reporting_clock.stages.intermediate_report = {
+        deadline: null,
+        state: 'not_evaluable',
+        reason_code: contradictions.length ? 'TIMESTAMP_ORDER_CONTRADICTION' : 'INTERMEDIATE_INITIAL_NOT_SUBMITTED',
+        computed_from: null,
+        origin_rule: 'initial_submitted_at + 72h',
+        extension_rule: null,
+        extension: { applied: false, original_deadline: null, basis: '2025/301 Art. 5 extension to noon next working day' },
+      };
+    }
+  } else {
+    reporting_clock.stages.intermediate_report = {
+      deadline: null,
+      state: 'not_evaluable',
+      reason_code: anyMalformed ? 'TIMESTAMP_UNPARSEABLE_OR_NO_OFFSET' : 'STAGE_TIMESTAMP_MISSING',
+      computed_from: null,
+      origin_rule: 'initial_submitted_at + 72h',
+      extension_rule: null,
+      extension: { applied: false, original_deadline: null, basis: '2025/301 Art. 5 extension to noon next working day' },
+    };
+  }
+
+  // ---- Stage 3: final report — max(intermediate submission, latest update) + 1 month ----
+  if (ev) {
+    if (typeof intermediateSubMs !== 'number') {
+      reporting_clock.stages.final_report = {
+        deadline: null,
+        state: 'no_final_report_yet',
+        reason_code: 'FINAL_NO_INTERMEDIATE_SUBMITTED',
+        computed_from: null,
+        origin_rule: 'max(intermediate_submitted_at, latest_intermediate_update_at) + 1 calendar month (Regulation (EEC, Euratom) No 1182/71 Art. 2, end-of-month clamp)',
+        extension_rule: 'EXTENSION_KEEP_FINAL_REPORT',
+        extension: { applied: false, original_deadline: null, basis: '2025/301 Art. 5 extension to noon next working day' },
+      };
+    } else {
+      let baseMs = intermediateSubMs;
+      let reasonCode = 'FINAL_FROM_INTERMEDIATE_SUBMISSION_1M';
+      if (typeof latestUpdateMs === 'number' && latestUpdateMs > baseMs) {
+        baseMs = latestUpdateMs;
+        reasonCode = 'FINAL_FROM_LATEST_UPDATE_1M';
+      }
+      const finalMs = addCalendarMonthUtc(baseMs);
+      const ext = extensionDecision('final_report', entityClass, extensionWithdrawn, holidaySet.size);
+      let finalDeadlineMs = finalMs;
+      let extension = { applied: false, original_deadline: null, basis: '2025/301 Art. 5 extension to noon next working day' };
+      const isNonWorking = utcDayOfWeek(finalMs) === 0 || utcDayOfWeek(finalMs) === 6 || holidaySet.has(isoDateUtc(finalMs));
+      if (isNonWorking && ext.allowed) {
+        finalDeadlineMs = rollToNoonNextWorkingDay(finalMs, holidaySet);
+        extension = { applied: true, original_deadline: isoOrNull(finalMs), basis: '2025/301 Art. 5 extension to noon next working day' };
+        compliance_flags.push('DORA_EXTENSION_APPLIED_FINAL');
+      } else if (isNonWorking) {
+        compliance_flags.push('DORA_EXTENSION_DENIED_FINAL');
+      } else {
+        compliance_flags.push('DORA_EXTENSION_NOT_NEEDED_FINAL');
+      }
+      reporting_clock.stages.final_report = {
+        deadline: isoOrNull(finalDeadlineMs),
+        state: stageState(finalDeadlineMs, logicalMs),
+        reason_code: reasonCode,
+        computed_from: isoOrNull(baseMs),
+        origin_rule: 'max(intermediate_submitted_at, latest_intermediate_update_at) + 1 calendar month (Regulation (EEC, Euratom) No 1182/71 Art. 2, end-of-month clamp)',
+        extension_rule: ext.reason,
+        extension,
+      };
+    }
+  } else {
+    reporting_clock.stages.final_report = {
+      deadline: null,
+      state: anyMalformed ? 'not_evaluable' : 'no_final_report_yet',
+      reason_code: anyMalformed ? 'TIMESTAMP_UNPARSEABLE_OR_NO_OFFSET' : 'FINAL_NO_INTERMEDIATE_SUBMITTED',
+      computed_from: null,
+      origin_rule: 'max(intermediate_submitted_at, latest_intermediate_update_at) + 1 calendar month (Regulation (EEC, Euratom) No 1182/71 Art. 2, end-of-month clamp)',
+      extension_rule: 'EXTENSION_KEEP_FINAL_REPORT',
+      extension: { applied: false, original_deadline: null, basis: '2025/301 Art. 5 extension to noon next working day' },
+    };
+  }
 
   const output_payload = {
-    incident_id: String(incident_id || ''),
-    verdict,
-    major_incident: major,
-    qualifying_criteria,
-    criteria_detail: criteria,
+    schedule_state,
+    entity_class: entityClass,
     reporting_clock,
+    tpp_aggregated_submission: tppAggregated,
+    reporting_path_note: tppAggregated
+      ? 'TPP aggregated submission declared (2025/302 Art. 7): the reporting path runs through the third-party provider aggregated channel; the Art. 5 clocks are computed exactly as emitted below.'
+      : 'Direct reporting path; the Art. 5 clocks apply per stage as emitted.',
     table_version: TABLE_VERSION,
     table_source: TABLE_SOURCE,
-    note: 'Deterministic DORA (Art. 18) major-incident classification over caller-declared severity dimensions, plus a DORA Art. 19 reporting-clock (initial/intermediate/final) once classified major. See art-428-cyber-incident-clock.kernel.mjs for the analogous US notification-clock pattern. This kernel classifies and computes deadlines only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice. Criticality of the affected function/provider (critical_services_affected) is a caller-supplied input, not computed or judged here.',
+    note: 'DORA 2025/301 Art. 5 stage-clock schedule over caller-declared timestamps. Classification is NOT performed here: under the REVERSED D split, art-09-dora-incident-classifier classifies per 2024/1772 Art. 8(1) and reads this clock result across the declared chain edge (art-467 declares feeds -> art-09 in the node shards). All timestamps are caller-declared with explicit offsets; due-ness states are computed against the declared logical_date, never a wall clock. This kernel computes deadlines only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice.',
   };
 
   return { output_payload, compliance_flags };

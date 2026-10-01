@@ -1,8 +1,8 @@
 {
   "tool_id": "art-09-dora-incident-classifier",
-  "version": "1.0.0",
-  "title": "DORA Major-Incident Reporting Threshold Classifier",
-  "description": "DORA Article 19/20 reporting determination and reporting-clock start. Clients affected, transaction value, downtime, geographic spread, cross-border component. Fast, deterministic.",
+  "version": "2.0.0",
+  "title": "DORA Major-Incident Classifier (2024/1772 Art. 8(1) Gateway)",
+  "description": "Classifies an ICT-related incident as major or not-major under Commission Delegated Regulation (EU) 2024/1772 Art. 8(1): critical services (Art. 6) AND either the Art. 9(5)(b) successful-malicious-access condition or two or more of the other Art. 9(1)-(6) materiality thresholds, with their absolute and relative limbs (clients count AND share, downtime AND duration, economic impact), Art. 8(2) recurring-incident aggregation, and DORA Art. 18(1)(a)-(f) criteria labels in statutory order. Consumes the 2025/301 clock result from art-467 (art-467 feeds art-09) and marks it binding only on a major determination; accepts a caller-declared clock result of the same shape standalone; an origin mismatch yields not_evaluable stages, never silent precedence. Deterministic, no wall clock, no network.",
   "category": "chaingraph",
   "tags": [
     "DORA",
@@ -14,103 +14,187 @@
   "input_schema": {
     "type": "object",
     "properties": {
-      "incident_type": {
+      "critical_services_affected": {
+        "type": "boolean",
+        "description": "Art. 6 / Art. 8(1) gateway — the mandatory gate; absence yields not_evaluable"
+      },
+      "clients_affected_pct": {
+        "type": "number",
+        "description": "Art. 9(1)(a): percentage of all clients using the affected service (threshold: higher than 10%)"
+      },
+      "clients_affected_count": {
+        "type": "number",
+        "description": "Art. 9(1)(b): number of affected clients (threshold: higher than 100,000)"
+      },
+      "financial_counterparts_affected_pct": {
+        "type": "number",
+        "description": "Art. 9(1)(c): percentage of financial counterparts on the affected service (threshold: higher than 30%)"
+      },
+      "transactions_affected_number_pct": {
+        "type": "number",
+        "description": "Art. 9(1)(d): percentage of daily average transaction count (threshold: higher than 10%)"
+      },
+      "transactions_affected_value_pct": {
+        "type": "number",
+        "description": "Art. 9(1)(e): percentage of daily average transaction value (threshold: higher than 10%)"
+      },
+      "art_1_3_relevant_parties_affected": {
+        "type": "boolean",
+        "description": "Art. 9(1)(f): Art. 1(3)-relevant clients or financial counterparts affected"
+      },
+      "reputational_impact": {
+        "type": "boolean",
+        "description": "Art. 9(2): reputational impact per Art. 2(a)-(d), caller-assessed"
+      },
+      "duration_hours": {
+        "type": "number",
+        "description": "Art. 9(3)(a): incident duration in hours (threshold: longer than 24)"
+      },
+      "critical_function_downtime_minutes": {
+        "type": "number",
+        "description": "Art. 9(3)(b): service downtime in minutes on critical/important functions (threshold: longer than 120)"
+      },
+      "member_states_affected_count": {
+        "type": "number",
+        "description": "Art. 9(4): Member States impacted (threshold: two or more)"
+      },
+      "data_loss_adverse_impact": {
+        "type": "boolean",
+        "description": "Art. 9(5)(a): data loss with adverse impact on business objectives or regulatory compliance — two-other branch only, never standalone"
+      },
+      "malicious_access_successful": {
+        "type": "boolean",
+        "description": "Art. 9(5)(b): successful, malicious, unauthorised access — the single-condition branch inside the gateway"
+      },
+      "economic_impact_eur": {
+        "type": "number",
+        "description": "Art. 9(6): costs and losses in EUR (threshold: exceeding 100,000)"
+      },
+      "recurring_incident_group_ref": {
         "type": "string",
-        "enum": [
-          "ict_outage",
-          "cyber_attack",
-          "data_breach",
-          "third_party_failure",
-          "other"
-        ]
+        "description": "Art. 8(2) recurring-incident group reference; when declared, the threshold inputs carry the COLLECTIVE assessment"
       },
-      "detection_datetime": {
+      "recurring_occurrences_within_6_months": {
+        "type": "number",
+        "description": "Art. 8(2)(a): occurrences within 6 months (threshold: at least twice)"
+      },
+      "recurring_same_root_cause": {
+        "type": "boolean",
+        "description": "Art. 8(2)(b): same apparent root cause per DORA Art. 20 first subparagraph (b)"
+      },
+      "recurring_exemption_applies": {
+        "type": "boolean",
+        "description": "Art. 8(2) exemption: microenterprise or Art. 16(1) entity — aggregation not applied"
+      },
+      "awareness_at": {
         "type": "string",
-        "format": "date-time"
+        "format": "date-time",
+        "description": "ISO-8601 with explicit offset; cross-checked against the consumed clock result origin"
       },
-      "clients_affected": {
-        "type": "integer"
+      "classification_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO-8601 with explicit offset; cross-checked against the consumed clock result origin"
       },
-      "total_clients": {
-        "type": "integer"
-      },
-      "transaction_value_eur_millions": {
-        "type": "number"
-      },
-      "outage_duration_minutes": {
-        "type": "integer"
-      },
-      "eu_member_states_affected": {
-        "type": "integer"
-      },
-      "data_loss_occurred": {
-        "type": "boolean"
-      },
-      "critical_function_affected": {
-        "type": "boolean"
-      },
-      "cross_border_payment": {
-        "type": "boolean"
+      "reporting_clock": {
+        "type": "object",
+        "description": "The consumed art-467 2025/301 clock result (or a caller-declared one of the same shape, standalone); origin mismatch marks stages not_evaluable"
       }
-    },
-    "required": [
-      "detection_datetime",
-      "clients_affected",
-      "total_clients",
-      "outage_duration_minutes"
-    ]
+    }
   },
   "mcp_tool_definition": {
     "name": "classify_dora_incident",
-    "description": "Classifies an ICT-related incident under DORA Articles 19–23. Returns major/non-major determination, qualifying criteria, and the reporting clock (4h initial, 72h intermediate, 1-month final).",
+    "description": "Classifies an ICT-related incident as major or not-major under DORA 2024/1772 Art. 8(1): critical-services gateway (Art. 6) AND either the Art. 9(5)(b) malicious-access condition or two or more other Art. 9 thresholds; Art. 8(2) recurring aggregation; DORA Art. 18(1)(a)-(f) labels. Consumes the 2025/301 clock result from art-467 (or accepts a caller-declared one); binding only on a major determination; origin mismatch yields not_evaluable stages.",
     "inputSchema": {
       "type": "object",
       "properties": {
-        "incident_type": {
+        "critical_services_affected": {
+          "type": "boolean",
+          "description": "Art. 6 / Art. 8(1) gateway — the mandatory gate; absence yields not_evaluable"
+        },
+        "clients_affected_pct": {
+          "type": "number",
+          "description": "Art. 9(1)(a): percentage of all clients using the affected service (threshold: higher than 10%)"
+        },
+        "clients_affected_count": {
+          "type": "number",
+          "description": "Art. 9(1)(b): number of affected clients (threshold: higher than 100,000)"
+        },
+        "financial_counterparts_affected_pct": {
+          "type": "number",
+          "description": "Art. 9(1)(c): percentage of financial counterparts on the affected service (threshold: higher than 30%)"
+        },
+        "transactions_affected_number_pct": {
+          "type": "number",
+          "description": "Art. 9(1)(d): percentage of daily average transaction count (threshold: higher than 10%)"
+        },
+        "transactions_affected_value_pct": {
+          "type": "number",
+          "description": "Art. 9(1)(e): percentage of daily average transaction value (threshold: higher than 10%)"
+        },
+        "art_1_3_relevant_parties_affected": {
+          "type": "boolean",
+          "description": "Art. 9(1)(f): Art. 1(3)-relevant clients or financial counterparts affected"
+        },
+        "reputational_impact": {
+          "type": "boolean",
+          "description": "Art. 9(2): reputational impact per Art. 2(a)-(d), caller-assessed"
+        },
+        "duration_hours": {
+          "type": "number",
+          "description": "Art. 9(3)(a): incident duration in hours (threshold: longer than 24)"
+        },
+        "critical_function_downtime_minutes": {
+          "type": "number",
+          "description": "Art. 9(3)(b): service downtime in minutes on critical/important functions (threshold: longer than 120)"
+        },
+        "member_states_affected_count": {
+          "type": "number",
+          "description": "Art. 9(4): Member States impacted (threshold: two or more)"
+        },
+        "data_loss_adverse_impact": {
+          "type": "boolean",
+          "description": "Art. 9(5)(a): data loss with adverse impact — two-other branch only, never standalone"
+        },
+        "malicious_access_successful": {
+          "type": "boolean",
+          "description": "Art. 9(5)(b): successful, malicious, unauthorised access — the single-condition branch inside the gateway"
+        },
+        "economic_impact_eur": {
+          "type": "number",
+          "description": "Art. 9(6): costs and losses in EUR (threshold: exceeding 100,000)"
+        },
+        "recurring_incident_group_ref": {
           "type": "string",
-          "enum": [
-            "ict_outage",
-            "cyber_attack",
-            "data_breach",
-            "third_party_failure",
-            "other"
-          ]
+          "description": "Art. 8(2) recurring-incident group reference; inputs carry the collective assessment when declared"
         },
-        "detection_datetime": {
+        "recurring_occurrences_within_6_months": {
+          "type": "number",
+          "description": "Art. 8(2)(a): occurrences within 6 months (threshold: at least twice)"
+        },
+        "recurring_same_root_cause": {
+          "type": "boolean",
+          "description": "Art. 8(2)(b): same apparent root cause"
+        },
+        "recurring_exemption_applies": {
+          "type": "boolean",
+          "description": "Art. 8(2) exemption: microenterprise or Art. 16(1) entity"
+        },
+        "awareness_at": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; cross-checked against the consumed clock result origin"
         },
-        "clients_affected": {
-          "type": "integer"
+        "classification_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; cross-checked against the consumed clock result origin"
         },
-        "total_clients": {
-          "type": "integer"
-        },
-        "transaction_value_eur_millions": {
-          "type": "number"
-        },
-        "outage_duration_minutes": {
-          "type": "integer"
-        },
-        "eu_member_states_affected": {
-          "type": "integer"
-        },
-        "data_loss_occurred": {
-          "type": "boolean"
-        },
-        "critical_function_affected": {
-          "type": "boolean"
-        },
-        "cross_border_payment": {
-          "type": "boolean"
+        "reporting_clock": {
+          "type": "object",
+          "description": "The consumed art-467 2025/301 clock result (or a caller-declared one of the same shape)"
         }
-      },
-      "required": [
-        "detection_datetime",
-        "clients_affected",
-        "total_clients",
-        "outage_duration_minutes"
-      ]
+      }
     },
     "annotations": {
       "readOnlyHint": true,
@@ -129,11 +213,35 @@
   "output_schema": {
     "type": "object",
     "properties": {
+      "determination_code": {
+        "type": "string",
+        "enum": [
+          "major",
+          "not_major",
+          "not_evaluable",
+          "malformed"
+        ]
+      },
       "major_incident": {
         "type": "boolean"
       },
-      "determination_code": {
-        "type": "string"
+      "determination_reason_codes": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "gateway": {
+        "type": "object"
+      },
+      "malicious_access_single_condition": {
+        "type": "object"
+      },
+      "other_thresholds_met_count": {
+        "type": "integer"
+      },
+      "two_other_thresholds_branch_met": {
+        "type": "boolean"
       },
       "qualifying_criteria": {
         "type": "array",
@@ -141,106 +249,165 @@
           "type": "string"
         }
       },
-      "reporting_clock": {
-        "type": "object",
-        "properties": {
-          "detection_datetime": {
-            "type": "string"
-          },
-          "classification_datetime": {
-            "type": "string"
-          },
-          "initial_notification_deadline": {
-            "type": "string"
-          },
-          "intermediate_report_deadline": {
-            "type": "string"
-          },
-          "final_report_deadline": {
-            "type": "string"
-          }
+      "criteria_detail": {
+        "type": "array",
+        "items": {
+          "type": "object"
         }
       },
-      "entity_type": {
+      "recurring_incident_aggregation": {
+        "type": "object"
+      },
+      "reporting_clock": {
+        "type": "object"
+      },
+      "reporting_clock_notes": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "malformed_inputs": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "table_version": {
         "type": "string"
       },
-      "incident_type": {
+      "table_source": {
         "type": "string"
       },
-      "cross_border": {
-        "type": "boolean"
-      },
-      "third_party_ict": {
-        "type": "boolean"
-      },
-      "competent_authority_note": {
+      "note": {
         "type": "string"
       },
-      "regulatory_framework": {
-        "type": "string"
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
       }
     }
   },
-  "source": "generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1, derivation tier 1); category/tags/ap2_export/execution.function_name all sourced from the page inline MANIFEST; output_schema is best-effort single-sample typing — review before treating as authoritative",
+  "source": "hand-curated by DORA-CLOCK-REPAIR-1 (REVERSED D) — input_schema/mcp_tool_definition.inputSchema aligned to the measured kernel reads (check-schema-read-divergence acceptance gate), output_schema to the computed output_payload; 2.0.0 — breaking input-contract change (2024/1772 Art. 9 limb inputs replace the 2023 draft-RTS fields; the clock result is consumed from art-467, not computed here); all inputs optional — an unassessed Art. 6 gateway yields not_evaluable, never a default verdict",
   "author": "PostOakLabs",
   "license": "CC-BY-4.0",
-  "input_example": {},
+  "input_example": {
+    "critical_services_affected": false,
+    "clients_affected_pct": 0,
+    "duration_hours": 1,
+    "member_states_affected_count": 1
+  },
   "output_example": {
+    "determination_code": "not_major",
     "major_incident": false,
-    "determination_code": "NON_MAJOR",
-    "qualifying_criteria": [],
+    "determination_reason_codes": [],
     "warnings": [],
+    "gateway": {
+      "critical_services_affected": false,
+      "assessed": true,
+      "authority": "2024/1772 Art. 6 + Art. 8(1)"
+    },
+    "malicious_access_single_condition": {
+      "met": false,
+      "authority": "2024/1772 Art. 9(5)(b)"
+    },
+    "other_thresholds_met_count": 0,
+    "two_other_thresholds_branch_met": false,
+    "qualifying_criteria": [],
     "criteria_detail": [
       {
-        "id": "critical_fn",
+        "id": "clients_counterparties_transactions",
+        "dora_label": "DORA Art. 18(1)(a) — clients, financial counterparts and transactions affected",
+        "authority": "2024/1772 Art. 9(1)",
         "met": false,
         "not_assessed": false,
-        "value": "No",
-        "article": "DORA Art. 23(1)(a) / ESA RTS Art. 3"
-      },
-      {
-        "id": "clients",
-        "met": false,
-        "not_assessed": true,
-        "value": "0 (0.0%)",
-        "article": "DORA Art. 23(1)(b) / ESA RTS Art. 4"
-      },
-      {
-        "id": "data_loss",
-        "met": false,
-        "not_assessed": false,
-        "value": "No",
-        "article": "DORA Art. 23(1)(c) / ESA RTS Art. 5"
-      },
-      {
-        "id": "tx_value",
-        "met": false,
-        "not_assessed": true,
-        "value": "Not applicable",
-        "article": "DORA Art. 23(1)(d) / ESA RTS Art. 6"
+        "limbs": {
+          "clients_over_10pct": false,
+          "clients_over_100000": false,
+          "counterparts_over_30pct": false,
+          "transactions_number_over_10pct": false,
+          "transactions_value_over_10pct": false,
+          "art_1_3_relevant_parties": false
+        }
       },
       {
         "id": "duration",
-        "met": false,
-        "not_assessed": true,
-        "value": "Not applicable",
-        "article": "DORA Art. 23(1)(e) / ESA RTS Art. 7"
-      },
-      {
-        "id": "geographic",
+        "dora_label": "DORA Art. 18(1)(b) — duration of the incident and service downtime",
+        "authority": "2024/1772 Art. 9(3)",
         "met": false,
         "not_assessed": false,
-        "value": "1 member state",
-        "article": "DORA Art. 23(1)(f) / ESA RTS Art. 8"
+        "limbs": {
+          "duration_over_24h": false,
+          "downtime_over_2h_critical_important_fn": false
+        }
+      },
+      {
+        "id": "geographical_spread",
+        "dora_label": "DORA Art. 18(1)(c) — geographical spread",
+        "authority": "2024/1772 Art. 9(4)",
+        "met": false,
+        "not_assessed": false,
+        "limbs": {
+          "member_states_two_or_more": false
+        }
+      },
+      {
+        "id": "data_losses",
+        "dora_label": "DORA Art. 18(1)(d) — data losses",
+        "authority": "2024/1772 Art. 9(5)(a)",
+        "met": false,
+        "not_assessed": true,
+        "limbs": {
+          "adverse_impact_9_5_a": false
+        }
+      },
+      {
+        "id": "criticality_of_services",
+        "dora_label": "DORA Art. 18(1)(e) — criticality of services affected (Art. 8(1) GATEWAY)",
+        "authority": "2024/1772 Art. 6 + Art. 8(1)",
+        "met": false,
+        "not_assessed": false,
+        "limbs": {
+          "critical_services_affected": false
+        }
+      },
+      {
+        "id": "economic_impact",
+        "dora_label": "DORA Art. 18(1)(f) — economic impact",
+        "authority": "2024/1772 Art. 9(6)",
+        "met": false,
+        "not_assessed": true,
+        "limbs": {
+          "costs_over_eur_100000": false
+        }
+      },
+      {
+        "id": "reputational_impact",
+        "dora_label": "Reputational impact (materiality threshold; counted in the two-other branch)",
+        "authority": "2024/1772 Art. 9(2)",
+        "met": false,
+        "not_assessed": true,
+        "limbs": {
+          "art_2_conditions_declared": false
+        }
       }
     ],
+    "recurring_incident_aggregation": {
+      "group_ref": null,
+      "occurrences_within_6_months": null,
+      "same_root_cause": null,
+      "exemption_applies": false,
+      "applied": false,
+      "authority": "2024/1772 Art. 8(2)"
+    },
     "reporting_clock": null,
-    "entity_type": "other",
-    "incident_type": "other",
-    "cross_border": false,
-    "third_party_ict": false,
-    "competent_authority_note": "Report to your national competent authority (NCA) per DORA Art. 19. Cross-border incidents require coordination per Art. 19(6).",
-    "regulatory_framework": "DORA (EU) 2022/2554 Art. 23 · ESA Joint RTS EBA/RTS/2023/11 (published January 2025)"
+    "reporting_clock_notes": [],
+    "malformed_inputs": [],
+    "table_version": "DORA-2024-1772-ART8-GATEWAY+ART9-LIMBS-2026-10",
+    "table_source": "DORA (EU) 2022/2554 Art. 18(1) (criteria, statutory order (a)-(f)) + Arts. 19-20 (reporting obligations); Commission Delegated Regulation (EU) 2024/1772 Art. 8(1) (critical-services gateway AND (9(5)(b) malicious access OR two or more other Art. 9 thresholds)) + Art. 9(1)-(6) (materiality thresholds with their absolute and relative limbs) + Art. 8(2) (recurring-incident aggregation); clock result consumed from art-467 (2025/301 Art. 5).",
+    "note": "DORA 2024/1772 Art. 8(1) classification over caller-declared threshold limbs. The 2025/301 reporting clock is NOT computed here: under the REVERSED D split this kernel consumes the art-467 clock result through the declared edge (art-467 feeds -> art-09) and marks it binding only on a major determination; a mismatch between declared timestamps and consumed origins yields not_evaluable stages, never silent precedence. A caller-declared clock result of the same shape keeps this kernel usable standalone. This kernel classifies only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice."
   },
-  "example_execution_hash": "1b41399efd109d874192154463c460a7a6bcf5b87ce0c8e5c870718207e0bfd9"
+  "example_execution_hash": "d4b21ddc3d4e717d6947d8a24570b3ea75a55482b231423308212d496e6fcbfa"
 }

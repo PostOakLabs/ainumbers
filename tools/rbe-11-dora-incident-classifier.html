@@ -319,6 +319,16 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
         <div class="field">
           <label data-i18n="label_class_time" for="classTime">Classification Time (UTC) <span style="color:var(--red)">← 4h clock starts here</span></label>
           <input type="datetime-local" id="classTime">
+          <label data-i18n="label_entity_class" for="entityClass">Entity class (2025/301 Art. 5 extension rule)</label>
+          <select id="entityClass"><option value="other">Other</option><option value="credit_institution">Credit institution</option><option value="ccp">CCP</option><option value="trading_venue">Trading venue operator</option><option value="nis2_essential_important">NIS2 essential/important entity</option><option value="nca_notified">NCA-notified entity</option></select>
+          <label data-i18n="label_awareness_time" for="awarenessTime">Awareness Time (UTC) <span style="color:var(--red)">&larr; 24h limb (2025/301 Art. 5)</span></label>
+          <input type="datetime-local" id="awarenessTime">
+          <label data-i18n="label_initial_submitted" for="initialSubmitted">Initial notification SUBMITTED (UTC, optional)</label>
+          <input type="datetime-local" id="initialSubmitted">
+          <label data-i18n="label_intermediate_submitted" for="intermediateSubmitted">Intermediate report SUBMITTED (UTC, optional)</label>
+          <input type="datetime-local" id="intermediateSubmitted">
+          <label data-i18n="label_latest_update" for="latestUpdate">Latest updated intermediate (UTC, optional)</label>
+          <input type="datetime-local" id="latestUpdate">
         </div>
       </div>
       <div class="panel-row">
@@ -519,11 +529,11 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
       <!-- Reporting deadlines (Major only) -->
       <div id="deadlineSection" style="display:none">
         <div class="countdown-box">
-          <div class="countdown-label">⏰ Time remaining to initial notification (4h from classification)</div>
+          <div class="countdown-label">⏰ Time remaining to initial notification (min(classification + 4h, awareness + 24h))</div>
           <div class="countdown-time" id="countdownDisplay">–:–:–</div>
         </div>
         <div class="deadline-block">
-          <div class="deadline-header">Reporting Deadlines (DORA Art. 17–20)</div>
+          <div class="deadline-header">Reporting Deadlines (2025/301 Art. 5; DORA Art. 18-20)</div>
           <div class="deadline-row">
             <span class="deadline-name">Initial notification</span>
             <span class="deadline-time" id="dlInitial">-</span>
@@ -604,7 +614,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
       </div>
       <div class="about-item">
         <strong>Regulatory coverage</strong>
-        <span class="cite">DORA (EU) 2022/2554 Art. 17–20</span> · <span class="cite">RTS (EU) 2024/1772</span> · <span class="cite">ITS EU 2025/302</span> · <span class="cite">NIS2 (EU) 2022/2555</span>
+        <span class="cite">DORA (EU) 2022/2554 Art. 18-20</span> · <span class="cite">RTS (EU) 2024/1772</span> · <span class="cite">ITS EU 2025/302</span> · <span class="cite">NIS2 (EU) 2022/2555</span>
       </div>
       
     </div>
@@ -734,10 +744,17 @@ const DORA_RTS_THRESHOLDS = {
     major_min: 100000,               // corrected: was 1000000
   },
 
-  // Reporting deadlines
-  initial_notification_hours: 4,
-  intermediate_report_hours: 72,   // from initial notification submission
-  final_report_days: 30,
+  // Reporting deadlines — 2025/301 Art. 5 (DORA-CLOCK-REPAIR-1):
+  //   initial = min(classification + 4h, awareness + 24h), whichever earlier;
+  //   intermediate = initial SUBMISSION + 72h (never the initial deadline);
+  //   final = max(intermediate submission, latest update) + 1 calendar month (Reg. 1182/71 clamp);
+  //   weekend extension to noon next working day: denied on initial/intermediate for credit
+  //   institutions, CCPs, trading venues, NIS2 essential/important and NCA-notified entities;
+  //   final reports keep it.
+  initial_notification_hours_from_classification: 4,
+  initial_notification_hours_from_awareness: 24,
+  intermediate_report_hours_from_initial_submission: 72,
+  final_report_calendar_months_from_latest_intermediate: 1,
 
   // Proximity warning threshold (20% of Major threshold)
   proximity_warning_pct: 0.20,
@@ -907,13 +924,32 @@ function classifyIncident(){
 
   // Get times
   const classTimeStr = document.getElementById('classTime').value;
-  if(!classTimeStr){showToast('Enter Classification Time (Panel A) — the 4h clock starts here','error');return;}
+  if(!classTimeStr){showToast('Enter Classification Time (Panel A): the 4h initial-notification limb starts here (awareness gives the 24h limb)','error');return;}
   classificationTime = new Date(classTimeStr+'Z').getTime();
   if(isNaN(classificationTime)){showToast('Invalid classification time','error');return;}
 
-  initialNotificationTime = addHours(classificationTime, DORA_RTS_THRESHOLDS.initial_notification_hours);
-  const intermediateTime = addHours(initialNotificationTime, DORA_RTS_THRESHOLDS.intermediate_report_hours);
-  const finalTime = addDays(classificationTime, DORA_RTS_THRESHOLDS.final_report_days);
+  // 2025/301 Art. 5 stage clocks (DORA-CLOCK-REPAIR-1)
+  const awarenessStr = document.getElementById('awarenessTime').value;
+  const initialSubmittedStr = document.getElementById('initialSubmitted').value;
+  const intermediateSubmittedStr = document.getElementById('intermediateSubmitted').value;
+  const latestUpdateStr = document.getElementById('latestUpdate').value;
+  const awarenessMs = awarenessStr ? new Date(awarenessStr + 'Z').getTime() : null;
+  const initSubMs = initialSubmittedStr ? new Date(initialSubmittedStr + 'Z').getTime() : null;
+  const interSubMs = intermediateSubmittedStr ? new Date(intermediateSubmittedStr + 'Z').getTime() : null;
+  const latestUpdMs = latestUpdateStr ? new Date(latestUpdateStr + 'Z').getTime() : null;
+  const limbClass = classificationTime + DORA_RTS_THRESHOLDS.initial_notification_hours_from_classification * 3600000;
+  const limbAware = awarenessMs != null ? awarenessMs + DORA_RTS_THRESHOLDS.initial_notification_hours_from_awareness * 3600000 : null;
+  const isNonWorkingDay = (ms) => { const d = new Date(ms); return d.getUTCDay() === 0 || d.getUTCDay() === 6; };
+  const rollToNoonNextWorkingDay = (ms) => { const d = new Date(ms); let t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 12, 0, 0, 0); let guard = 0; while (guard < 60) { const dow = new Date(t).getUTCDay(); if (dow !== 0 && dow !== 6) return t; t += 24 * 3600000; guard++; } return t; };
+  const entityClassEl = document.getElementById('entityClass');
+  const entityClass = entityClassEl ? entityClassEl.value : 'other';
+  const EXTENSION_DENIED = ['credit_institution', 'ccp', 'trading_venue', 'nis2_essential_important', 'nca_notified'];
+  const applyExt = (ms, stage) => { if (ms == null || !isNonWorkingDay(ms)) return ms; const allowed = stage === 'final' || EXTENSION_DENIED.indexOf(entityClass) === -1; return allowed ? rollToNoonNextWorkingDay(ms) : ms; };
+  const addCalMonth = (ms) => { const d = new Date(ms); const y = d.getUTCFullYear(), m = d.getUTCMonth(), day = d.getUTCDate(); const last = new Date(Date.UTC(y, m + 2, 0)).getUTCDate(); return Date.UTC(y, m + 1, Math.min(day, last), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds()); };
+  initialNotificationTime = applyExt(limbAware != null ? Math.min(limbClass, limbAware) : limbClass, 'initial');
+  const intermediateTime = initSubMs != null ? applyExt(initSubMs + DORA_RTS_THRESHOLDS.intermediate_report_hours_from_initial_submission * 3600000, 'intermediate') : null;
+  const finalBase = interSubMs != null || latestUpdMs != null ? Math.max(interSubMs ?? 0, latestUpdMs ?? 0) : null;
+  const finalTime = finalBase != null ? applyExt(addCalMonth(finalBase), 'final') : null;
 
   // Show result panel
   document.getElementById('resultPanel').style.display='block';
@@ -958,8 +994,8 @@ function classifyIncident(){
   if(result.result==='major'){
     document.getElementById('deadlineSection').style.display='block';
     document.getElementById('dlInitial').textContent = fmtUTC(initialNotificationTime);
-    document.getElementById('dlIntermediate').textContent = fmtUTC(intermediateTime);
-    document.getElementById('dlFinal').textContent = fmtUTC(finalTime);
+    document.getElementById('dlIntermediate').textContent = intermediateTime != null ? fmtUTC(intermediateTime) : 'initial notification not yet submitted';
+    document.getElementById('dlFinal').textContent = finalTime != null ? fmtUTC(finalTime) : 'no intermediate report submitted yet';
     startCountdown(initialNotificationTime);
   } else {
     document.getElementById('deadlineSection').style.display='none';
@@ -1104,7 +1140,7 @@ function renderITS(result, scores){
       <div>☐ Submission made to National Competent Authority within 4 hours of classification</div>
       <div>☐ Internal escalation completed per ICT incident management policy</div>
       <div>☐ Threat actor attribution reviewed (if applicable)</div>
-      <div>☐ Intermediate report scheduled: <b style="color:var(--red)">${fmtUTC(addHours(initialNotificationTime,DORA_RTS_THRESHOLDS.intermediate_report_hours))}</b></div>
+      <div>☐ Intermediate report scheduled: <b style="color:var(--red)">${intermediateTime != null ? fmtUTC(intermediateTime) : '72h from initial SUBMISSION (not yet computable)'}</b></div>
     </div>`;
 }
 
@@ -1158,7 +1194,7 @@ function buildAP2(result, scores, proximity, deadlines){
       initial_notification_utc: new Date(deadlines.initialNotificationTime).toISOString(),
       intermediate_report_utc: new Date(deadlines.intermediateTime).toISOString(),
       final_report_utc: new Date(deadlines.finalTime).toISOString(),
-      time_to_initial_notification_seconds: DORA_RTS_THRESHOLDS.initial_notification_hours * 3600,
+      time_to_initial_notification_seconds: DORA_RTS_THRESHOLDS.initial_notification_hours_from_classification * 3600,
     } : null,
     initial_notification_draft: result.result==='major' ? {
       its_template_reference: "EU Regulation 2025/302 Annex I",

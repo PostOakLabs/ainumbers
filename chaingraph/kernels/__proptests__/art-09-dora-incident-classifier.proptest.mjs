@@ -1,10 +1,12 @@
-// kernel_digest_at_authoring: sha256:34a97e2f8bf698256758e5a961ca48865bc61479195b7fe14a950d2761f10bfc
+// kernel_digest_at_authoring: sha256:6c839be20f25882992361741b4401a2be918a35be9761973816e42566ba06436
 //
-// FV-PROPFLOOR-SHARD-B1-1 — property-test floor for art-09-dora-incident-classifier.
-// Class B (bounded-numeric), FLOAT-SENSITIVE (client %, tx-value/outage/member-state threshold
-// comparisons) — ULP-boundary forcing is MANDATORY per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external
-// dependencies. Read-only w.r.t. the kernel it imports.
-// ART09-DORA-FIELDNAME-MISMATCH-1: randPP/base fixtures renamed to the published schema field names.
+// DORA-CLOCK-REPAIR-1 — property-test floor for art-09-dora-incident-classifier
+// (rewritten with the kernel: art-09 CLASSIFIES per 2024/1772 Art. 8(1) + Art. 9(1)-(6)
+// and CONSUMES the art-467 2025/301 clock result under the REVERSED D split; it no
+// longer clocks anything itself). Class B (bounded-numeric), float:no — thresholds are
+// fixed statutory cutoffs compared via strict > / >=, never float rounding math. Forced
+// CATEGORICAL boundary cases stand in for ULP forcing per FV-PBT-FLOOR-BUILD-SPEC.md §3.
+// Zero external dependencies. This file is READ-ONLY with respect to the kernel it imports.
 //
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec §4)
 //
@@ -40,118 +42,197 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(0xA09A1);
-function randRange(rng, lo, hi) { return lo + rng() * (hi - lo); }
-function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+const rand = mulberry32(0xA09CA);
+const TRIALS = 5000;
+const STATES = new Set(['major', 'not_major', 'not_evaluable', 'malformed']);
+const CRITERION_IDS = new Set(['clients_counterparties_transactions', 'duration', 'geographical_spread', 'data_losses', 'criticality_of_services', 'economic_impact', 'reputational_impact']);
 
-const ENTITY_TYPES = ['credit_institution', 'payment_institution', 'investment_firm', 'insurance', 'crypto_asset', 'other'];
-const INCIDENT_TYPES = ['ict_outage', 'cyber_attack', 'data_breach', 'third_party_failure', 'other'];
-const TRIALS = 20000;
-
-function randPP(rng) {
-  const total = randRange(rng, 1, 1_000_000);
+function mkPP(rng) {
+  const pick = (p) => (rng() < p ? true : rng() < 0.5 ? false : undefined);
   return {
-    incident_type: pick(rng, INCIDENT_TYPES),
-    entity_type: pick(rng, ENTITY_TYPES),
-    clients_affected: randRange(rng, 0, total),
-    total_clients: total,
-    transaction_value_eur_millions: rng() < 0.7 ? randRange(rng, 0, 100) : 0,
-    outage_duration_minutes: rng() < 0.7 ? randRange(rng, 0, 500) : 0,
-    eu_member_states_affected: Math.floor(randRange(rng, 1, 27)),
-    data_loss_occurred: rng() < 0.5,
-    critical_function_affected: rng() < 0.5,
-    cross_border_payment: rng() < 0.5,
-    tp_ict: rng() < 0.5,
+    critical_services_affected: rng() < 0.15 ? undefined : rng() < 0.5,
+    clients_affected_pct: rng() < 0.5 ? rng() * 100 : undefined,
+    clients_affected_count: rng() < 0.2 ? rng() * 200000 : undefined,
+    financial_counterparts_affected_pct: rng() < 0.15 ? rng() * 100 : undefined,
+    transactions_affected_number_pct: rng() < 0.15 ? rng() * 100 : undefined,
+    transactions_affected_value_pct: rng() < 0.15 ? rng() * 100 : undefined,
+    art_1_3_relevant_parties_affected: pick(0.1),
+    reputational_impact: pick(0.3),
+    duration_hours: rng() < 0.4 ? rng() * 100 : undefined,
+    critical_function_downtime_minutes: rng() < 0.3 ? rng() * 1000 : undefined,
+    member_states_affected_count: rng() < 0.4 ? Math.floor(rng() * 10) : undefined,
+    data_loss_adverse_impact: pick(0.4),
+    malicious_access_successful: pick(0.4),
+    economic_impact_eur: rng() < 0.4 ? rng() * 500000 : undefined,
   };
 }
-const CRITERIA_IDS = ['critical_fn', 'clients', 'data_loss', 'tx_value', 'duration', 'geographic'];
 
-// ---------- P1: boundedness — determination_code agrees with major_incident, 6 fixed criteria, qualifying subset ----------
-function checkP1_boundedness() {
-  let violations = 0, checked = 0;
-  for (let i = 0; i < TRIALS; i++) {
-    const r = compute(randPP(rand)).output_payload;
-    checked++;
-    if (r.determination_code !== (r.major_incident ? 'MAJOR' : 'NON_MAJOR')) violations++;
-    if (r.criteria_detail.length !== 6) violations++;
-    if (r.criteria_detail.map((c) => c.id).join(',') !== CRITERIA_IDS.join(',')) violations++;
-    for (const q of r.qualifying_criteria) if (!CRITERIA_IDS.includes(q)) violations++;
+// The Art. 8(1) formula the kernel must implement exactly:
+// MAJOR <=> gateway assessed AND gateway met AND (9(5)(b) malicious OR >=2 other thresholds)
+// other thresholds pool = { clients 9(1), reputational 9(2), duration 9(3), geographic 9(4),
+//                           data-loss adverse 9(5)(a), economic 9(6) } — strict statutory cutoffs.
+function expectedDetermination(pp) {
+  const malformed = [];
+  for (const v of [pp.critical_services_affected, pp.art_1_3_relevant_parties_affected, pp.reputational_impact, pp.data_loss_adverse_impact, pp.malicious_access_successful]) {
+    if (v !== undefined && typeof v !== 'boolean') malformed.push(1);
   }
-  return { name: 'P1_boundedness_fixed_criteria_shape', trials: checked, violations };
+  for (const v of [pp.clients_affected_pct, pp.clients_affected_count, pp.financial_counterparts_affected_pct, pp.transactions_affected_number_pct, pp.transactions_affected_value_pct, pp.duration_hours, pp.critical_function_downtime_minutes, pp.member_states_affected_count, pp.economic_impact_eur]) {
+    if (v !== undefined && (typeof v !== 'number' || !Number.isFinite(v))) malformed.push(1);
+  }
+  if (malformed.length) return 'malformed';
+  if (pp.critical_services_affected === undefined) return 'not_evaluable';
+  const clients = (pp.clients_affected_pct ?? -Infinity) > 10
+    || (pp.clients_affected_count ?? -Infinity) > 100000
+    || (pp.financial_counterparts_affected_pct ?? -Infinity) > 30
+    || (pp.transactions_affected_number_pct ?? -Infinity) > 10
+    || (pp.transactions_affected_value_pct ?? -Infinity) > 10
+    || pp.art_1_3_relevant_parties_affected === true;
+  const duration = (pp.duration_hours ?? -Infinity) > 24 || (pp.critical_function_downtime_minutes ?? -Infinity) > 120;
+  const geo = (pp.member_states_affected_count ?? -Infinity) >= 2;
+  const dataLoss = pp.data_loss_adverse_impact === true;
+  const econ = (pp.economic_impact_eur ?? -Infinity) > 100000;
+  const rep = pp.reputational_impact === true;
+  const otherCount = [clients, rep, duration, geo, dataLoss, econ].filter(Boolean).length;
+  return (pp.critical_services_affected === true && (pp.malicious_access_successful === true || otherCount >= 2)) ? 'major' : 'not_major';
 }
 
-// ---------- P2: monotone — clients criterion "met" is monotone non-decreasing as clients_affected rises ----------
-function checkP2_monotoneClientsCriterion() {
+// ---------- P1: exact Art. 8(1) gateway formula ----------
+function checkP1_gatewayFormula() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
-    const totalClients = randRange(rand, 1000, 1_000_000);
-    const c1 = randRange(rand, 0, totalClients / 2);
-    const c2 = c1 + randRange(rand, 0, totalClients / 2); // c2 >= c1
-    const base = { incident_type: 'other', entity_type: 'other', total_clients: totalClients, transaction_value_eur_millions: 0, outage_duration_minutes: 0, eu_member_states_affected: 1, data_loss_occurred: false, critical_function_affected: false, cross_border_payment: false, tp_ict: false };
-    const r1 = compute({ ...base, clients_affected: c1 }).output_payload;
-    const r2 = compute({ ...base, clients_affected: c2 }).output_payload;
+    const pp = mkPP(rand);
+    const r = compute(pp);
     checked++;
-    const met1 = r1.criteria_detail.find((c) => c.id === 'clients').met;
-    const met2 = r2.criteria_detail.find((c) => c.id === 'clients').met;
-    if (met1 && !met2) violations++; // met can only turn ON as clients_affected rises, never OFF
+    const expected = expectedDetermination(pp);
+    if (r.output_payload.determination_code !== expected) violations++;
+    if (r.output_payload.major_incident !== (r.output_payload.determination_code === 'major')) violations++;
   }
-  return { name: 'P2_monotone_clients_criterion', trials: checked, violations };
+  return { name: 'P1_art_8_1_gateway_formula_exact', trials: checked, violations };
 }
 
-// ---------- P3: fixed-threshold-tier agreement — clients criterion met iff pct>=10 or abs>=100000 ----------
-function checkP3_clientsThresholdAgreement() {
+// ---------- P2: data loss (9(5)(a)) NEVER fires standalone; 9(5)(b) never without the gateway ----------
+function checkP2_noStandaloneTriggers() {
+  let violations = 0, checked = 0;
+  const cases = [
+    { critical_services_affected: false, data_loss_adverse_impact: true },
+    { critical_services_affected: false, malicious_access_successful: true },
+    { critical_services_affected: undefined, data_loss_adverse_impact: true, malicious_access_successful: true },
+    { critical_services_affected: false, clients_affected_pct: 100, duration_hours: 999, member_states_affected_count: 27, economic_impact_eur: 999999999, data_loss_adverse_impact: true, malicious_access_successful: true },
+  ];
+  for (const pp of cases) {
+    const r = compute(pp);
+    checked++;
+    if (r.output_payload.determination_code !== 'not_major' && r.output_payload.determination_code !== 'not_evaluable') violations++;
+  }
+  return { name: 'P2_data_loss_and_malicious_access_never_standalone', trials: checked, violations };
+}
+
+// ---------- P3: boundedness — determination in the 4-state enum, criteria ids bounded ----------
+function checkP3_bounded() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
-    const pp = randPP(rand);
-    const r = compute(pp).output_payload;
+    const pp = mkPP(rand);
+    const r = compute(pp);
     checked++;
-    const clientsCrit = r.criteria_detail.find((c) => c.id === 'clients');
-    if (clientsCrit.not_assessed) continue;
-    const pct = (pp.clients_affected / pp.total_clients) * 100;
-    const expected = pct >= 10 || pp.clients_affected >= 100000;
-    if (clientsCrit.met !== expected) violations++;
+    if (!STATES.has(r.output_payload.determination_code)) violations++;
+    if (r.output_payload.criteria_detail.length !== 7) violations++;
+    for (const c of r.output_payload.criteria_detail) {
+      if (!CRITERION_IDS.has(c.id)) violations++;
+      if (typeof c.met !== 'boolean' || typeof c.not_assessed !== 'boolean') violations++;
+    }
+    for (const id of r.output_payload.qualifying_criteria) if (!CRITERION_IDS.has(id)) violations++;
+    if (r.output_payload.other_thresholds_met_count < 0 || r.output_payload.other_thresholds_met_count > 6) violations++;
   }
-  return { name: 'P3_clients_threshold_agreement', trials: checked, violations };
+  return { name: 'P3_states_and_criteria_bounded_to_declared_sets', trials: checked, violations };
 }
 
-// ---------- P4 (mandatory): ULP-boundary forcing ----------
-const base = { incident_type: 'other', entity_type: 'other', total_clients: 1000, transaction_value_eur_millions: 0, outage_duration_minutes: 0, eu_member_states_affected: 1, data_loss_occurred: false, critical_function_affected: false, cross_border_payment: false, tp_ict: false };
-const ULP_BOUNDARY_CASES = [
-  ['clients pct exactly 10% — must be met (>= not >)', { ...base, clients_affected: 100, total_clients: 1000 }],
-  ['clients pct 1 ULP under 10% — must NOT be met', { ...base, clients_affected: 100 - Number.EPSILON * 512, total_clients: 1000 }],
-  ['tx_value exactly at 50M (other entity) — must be met', { ...base, entity_type: 'other', transaction_value_eur_millions: 50 }],
-  ['tx_value 1 ULP under 50M — must NOT be met', { ...base, entity_type: 'other', transaction_value_eur_millions: 50 - Number.EPSILON * 32 }],
-  ['tx_value exactly at 10M (payment institution) — must be met', { ...base, entity_type: 'payment_institution', transaction_value_eur_millions: 10 }],
-  ['duration exactly at 120min (critical fn) — must be met', { ...base, critical_function_affected: true, outage_duration_minutes: 120 }],
-  ['duration 1 ULP under 120min (critical fn) — must NOT be met', { ...base, critical_function_affected: true, outage_duration_minutes: 120 - Number.EPSILON * 128 }],
-  ['member_states exactly 2 — geographic must be met', { ...base, eu_member_states_affected: 2 }],
-  ['member_states=1 — geographic must NOT be met', { ...base, eu_member_states_affected: 1 }],
-  ['clients_affected=-0 negative zero', { ...base, clients_affected: -0 }],
-  ['clients_affected subnormal, total_clients huge', { ...base, clients_affected: Number.MIN_VALUE, total_clients: 1e6 }],
+// ---------- P4: consumed-clock consistency (REVERSED D) — matching origins bind on major; mismatch => not_evaluable stages, never silent precedence ----------
+function checkP4_consumedClock() {
+  let violations = 0, checked = 0;
+  const clock = (classification_at, awareness_at) => ({
+    classification_at,
+    awareness_at,
+    stages: {
+      initial_notification: { deadline: '2026-07-20T14:00:00.000Z', state: 'not_yet_due', reason_code: 'INITIAL_DEADLINE_CLASSIFICATION_4H' },
+      intermediate_report: { deadline: null, state: 'not_evaluable', reason_code: 'INTERMEDIATE_INITIAL_NOT_SUBMITTED' },
+      final_report: { deadline: null, state: 'no_final_report_yet', reason_code: 'FINAL_NO_INTERMEDIATE_SUBMITTED' },
+    },
+  });
+  const factPatterns = [
+    { critical_services_affected: true, malicious_access_successful: true },
+    { critical_services_affected: true, clients_affected_pct: 15, duration_hours: 30 },
+    { critical_services_affected: true, clients_affected_pct: 15 },
+  ];
+  for (let i = 0; i < factPatterns.length; i++) {
+    // consistent origins + major/not-major
+    const ppA = { ...factPatterns[i], classification_at: '2026-07-20T10:00:00Z', awareness_at: '2026-07-20T09:00:00Z', reporting_clock: clock('2026-07-20T10:00:00Z', '2026-07-20T09:00:00Z') };
+    const rA = compute(ppA);
+    checked++;
+    if (rA.output_payload.reporting_clock.binding !== (rA.output_payload.determination_code === 'major')) violations++;
+    for (const stage of ['initial_notification', 'intermediate_report', 'final_report']) {
+      if (rA.output_payload.reporting_clock.stages[stage].reason_code === 'CONSUMED_CLOCK_ORIGIN_MISMATCH') violations++;
+    }
+    // mismatched classification origin — stages not_evaluable regardless of the verdict
+    const ppB = { ...factPatterns[i], classification_at: '2026-07-20T10:00:00Z', reporting_clock: clock('2026-07-21T10:00:00Z', '2026-07-20T09:00:00Z') };
+    const rB = compute(ppB);
+    checked++;
+    if (rB.output_payload.reporting_clock.binding !== false) violations++;
+    for (const stage of ['initial_notification', 'intermediate_report', 'final_report']) {
+      const s = rB.output_payload.reporting_clock.stages[stage];
+      if (!(s.state === 'not_evaluable' && s.reason_code === 'CONSUMED_CLOCK_ORIGIN_MISMATCH')) violations++;
+    }
+    // mismatched awareness origin — same refusal
+    const ppC = { ...factPatterns[i], awareness_at: '2026-07-20T09:00:00Z', reporting_clock: clock('2026-07-20T10:00:00Z', '2026-07-19T09:00:00Z') };
+    const rC = compute(ppC);
+    checked++;
+    if (rC.output_payload.reporting_clock.binding !== false) violations++;
+    if (rC.output_payload.reporting_clock.stages.initial_notification.reason_code !== 'CONSUMED_CLOCK_ORIGIN_MISMATCH') violations++;
+  }
+  return { name: 'P4_consumed_clock_origins_never_silent_precedence', trials: checked, violations };
+}
+
+// ---------- P5 (mandatory, float:no exception): forced statutory cutoff boundaries ----------
+const G = true; // gateway met
+const BOUNDARY_CASES = [
+  [{ critical_services_affected: G, clients_affected_pct: 10.000001 }, 'clients 9(1)(a) just over 10% — met ("higher than 10%")'],
+  [{ critical_services_affected: G, clients_affected_pct: 10 }, 'clients exactly 10% — NOT met (strictly "higher than")'],
+  [{ critical_services_affected: G, clients_affected_count: 100000.001 }, 'clients 9(1)(b) just over 100,000 — met'],
+  [{ critical_services_affected: G, clients_affected_count: 100000 }, 'clients exactly 100,000 — NOT met (strictly "higher than")'],
+  [{ critical_services_affected: G, duration_hours: 24.000001 }, 'duration 9(3)(a) just over 24h — met'],
+  [{ critical_services_affected: G, duration_hours: 24 }, 'duration exactly 24h — NOT met ("longer than")'],
+  [{ critical_services_affected: G, critical_function_downtime_minutes: 120.000001 }, 'downtime 9(3)(b) just over 2h — met'],
+  [{ critical_services_affected: G, critical_function_downtime_minutes: 120 }, 'downtime exactly 2h — NOT met ("longer than")'],
+  [{ critical_services_affected: G, member_states_affected_count: 2 }, 'geographic 9(4) exactly 2 member states — met ("two or more")'],
+  [{ critical_services_affected: G, member_states_affected_count: 1 }, 'geographic 1 member state — NOT met'],
+  [{ critical_services_affected: G, economic_impact_eur: 100000.001 }, 'economic 9(6) just over EUR 100,000 — met'],
+  [{ critical_services_affected: G, economic_impact_eur: 100000 }, 'economic exactly EUR 100,000 — NOT met ("exceeded")'],
+  [{ critical_services_affected: G, data_loss_adverse_impact: true, reputational_impact: true }, 'gateway + data-loss(9(5)(a)) + reputational(9(2)) = TWO other — MAJOR via the two-other branch'],
+  [{ critical_services_affected: G, data_loss_adverse_impact: true }, 'gateway + data loss alone — NOT major (one other only, no malicious access)'],
+  [{ critical_services_affected: G, malicious_access_successful: true }, 'gateway + 9(5)(b) — MAJOR single-condition branch'],
+  [{ malicious_access_successful: true }, '9(5)(b) WITHOUT gateway — NOT major (branch lives inside the gateway)'],
 ];
 
-function checkP4_forced() {
+function checkP5_forced() {
   const rows = [];
-  for (const [label, pp] of ULP_BOUNDARY_CASES) {
-    const r = compute(pp).output_payload;
-    const finite = Number.isFinite(pp.clients_affected) || pp.clients_affected === 0;
-    const shapeOk = r.criteria_detail.length === 6 && (r.determination_code === (r.major_incident ? 'MAJOR' : 'NON_MAJOR'));
-    rows.push({ label, major_incident: r.major_incident, clients_met: r.criteria_detail.find((c) => c.id === 'clients').met, duration_met: r.criteria_detail.find((c) => c.id === 'duration').met, geographic_met: r.criteria_detail.find((c) => c.id === 'geographic').met, tx_value_met: r.criteria_detail.find((c) => c.id === 'tx_value').met, plausible: shapeOk });
+  for (const [pp, label] of BOUNDARY_CASES) {
+    const r = compute(pp);
+    const plausible = STATES.has(r.output_payload.determination_code) && typeof r.output_payload.major_incident === 'boolean';
+    rows.push({ label, input: pp, determination: r.output_payload.determination_code, reasons: r.output_payload.determination_reason_codes, other_count: r.output_payload.other_thresholds_met_count, flags: r.compliance_flags, plausible });
   }
   return rows;
 }
 
-// ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED — spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
   process.exit(1);
 }
 
-results.properties.push(checkP1_boundedness());
-results.properties.push(checkP2_monotoneClientsCriterion());
-results.properties.push(checkP3_clientsThresholdAgreement());
-results.boundary_forced = checkP4_forced();
+results.properties.push(checkP1_gatewayFormula());
+results.properties.push(checkP2_noStandaloneTriggers());
+results.properties.push(checkP3_bounded());
+results.properties.push(checkP4_consumedClock());
+results.boundary_forced = checkP5_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 const anyBoundaryImplausible = results.boundary_forced.some((b) => !b.plausible);
