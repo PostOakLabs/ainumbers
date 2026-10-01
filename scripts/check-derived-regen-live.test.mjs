@@ -271,6 +271,89 @@ test('DEPENDENCY SAFETY - a no-write entry does not cascade into a false finding
   assert(classB.length === 0, `entry a's leftover probe byte must not misattribute to entry b, got ${JSON.stringify(classB)}`);
 });
 
+// ── TIMEOUT: the ORCH-332 shape — one regen command never returns ──────────────
+// Before DERIVED-REGEN-LIVE-SELFTEST-TIMEOUT-1 the per-entry execSync carried no
+// `timeout`, so a command blocked on the network, on a lock, or on stdin hung the
+// whole gate (and the pre-push hook with it: ~4 % CPU for 20+ minutes, killed
+// twice, with nothing in the log naming the culprit). The bound must (a) fire,
+// (b) name the ENTRY, and (c) not stop the scan — the entries AFTER the hung one
+// still get their verdicts.
+//
+// The hanging fixture reaps itself after 30 s instead of sleeping forever:
+// execSync's timeout kills the shell, and on Windows the grandchild `node` can
+// outlive that kill, so an unbounded sleep would orphan a process per run.
+const HANG_SRC = 'setTimeout(() => process.exit(0), 30_000);\n';
+
+test('TIMEOUT RED - a regen command that never returns is bounded, named and killed', () => {
+  const dir = makeRepo();
+  writeFileSync(join(dir, 'gen-hang.mjs'), HANG_SRC);
+  writeFileSync(join(dir, 'out.json'), '{}\n');
+  commit(dir, 'init');
+
+  const entry = { id: 'fixture-hang', regen: 'node gen-hang.mjs', artifacts: ['out.json'] };
+  const startedAt = Date.now();
+  const { timeouts, executionFailures, classA } = runLiveScan({ dir, covered: [entry], timeoutMs: 1500 });
+  const wallMs = Date.now() - startedAt;
+
+  assert(timeouts.length === 1 && timeouts[0].id === 'fixture-hang',
+    `expected exactly one TIMEOUT finding naming fixture-hang, got ${JSON.stringify(timeouts)}`);
+  assert(timeouts[0].elapsedMs >= 1350, `the finding must report its elapsed time, got ${timeouts[0].elapsedMs} ms`);
+  assert(wallMs < 15000, `the bound must actually cut the 30 s hang short, whole scan took ${wallMs} ms`);
+  assert(executionFailures.length === 0, `a timeout is its own state, never an execution failure: ${JSON.stringify(executionFailures)}`);
+  assert(classA.length === 0, `a timed-out probe is inconclusive for CLASS A, got ${JSON.stringify(classA)}`);
+});
+
+test('TIMEOUT - the scan continues past a hung entry so later entries still get verdicts', () => {
+  const dir = makeRepo();
+  writeFileSync(join(dir, 'gen-hang.mjs'), HANG_SRC);
+  writeFileSync(join(dir, 'gen-b.mjs'), `
+    import { writeFileSync } from 'node:fs';
+    writeFileSync('b-out.json', '{"regenerated":true}\\n');
+    writeFileSync('undeclared.json', '{"escaped":true}\\n');
+  `);
+  writeFileSync(join(dir, 'a-out.json'), '{}\n');
+  writeFileSync(join(dir, 'b-out.json'), '{}\n');
+  commit(dir, 'init');
+
+  const entries = [
+    { id: 'hang', regen: 'node gen-hang.mjs', artifacts: ['a-out.json'] },
+    { id: 'b', regen: 'node gen-b.mjs', artifacts: ['b-out.json'] },
+  ];
+  const { timeouts, classB } = runLiveScan({ dir, covered: entries, timeoutMs: 1500 });
+  assert(timeouts.length === 1 && timeouts[0].id === 'hang', `expected the hang named once, got ${JSON.stringify(timeouts)}`);
+  assert(classB.length === 1 && classB[0].id === 'b' && classB[0].path === 'undeclared.json',
+    `entry b's escape must still be found after the hung entry, got ${JSON.stringify(classB)}`);
+});
+
+test('TIMEOUT GREEN - a command that finishes inside the bound is not flagged', () => {
+  const dir = makeRepo();
+  writeFileSync(join(dir, 'gen.mjs'), `
+    import { writeFileSync } from 'node:fs';
+    writeFileSync('out.json', '{"regenerated":true}\\n');
+  `);
+  writeFileSync(join(dir, 'out.json'), '{}\n');
+  commit(dir, 'init');
+
+  const entry = { id: 'fixture-fast', regen: 'node gen.mjs', artifacts: ['out.json'] };
+  const { timeouts, executionFailures, classA } = runLiveScan({ dir, covered: [entry], timeoutMs: 60000 });
+  assert(timeouts.length === 0, `a fast command must not be flagged as a timeout, got ${JSON.stringify(timeouts)}`);
+  assert(executionFailures.length === 0, `regen should exit 0: ${JSON.stringify(executionFailures)}`);
+  assert(classA.length === 0, `the write moved mtime, so no CLASS A: ${JSON.stringify(classA)}`);
+});
+
+test('TIMEOUT - a command that exits NON-ZERO fast is still an execution failure, not a timeout', () => {
+  const dir = makeRepo();
+  writeFileSync(join(dir, 'gen.mjs'), `process.exit(3); // broken regardless of any probe\n`);
+  writeFileSync(join(dir, 'out.json'), '{}\n');
+  commit(dir, 'init');
+
+  const entry = { id: 'fixture-broken', regen: 'node gen.mjs', artifacts: ['out.json'] };
+  const { timeouts, executionFailures } = runLiveScan({ dir, covered: [entry], timeoutMs: 1500 });
+  assert(timeouts.length === 0, `a fast non-zero exit is not a timeout, got ${JSON.stringify(timeouts)}`);
+  assert(executionFailures.length === 1 && executionFailures[0].id === 'fixture-broken',
+    `expected one execution failure, got ${JSON.stringify(executionFailures)}`);
+});
+
 // ── CLASS C: the fv-explainer.html shape — one entry lists a path twice ────────
 test('CLASS C RED - a path listed twice within one entry\'s own artifacts[] is caught', () => {
   const covered = [{ id: 'fixture-c', regen: 'node gen.mjs', artifacts: ['x.html', 'y.html', 'x.html'] }];

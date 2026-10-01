@@ -41,9 +41,12 @@ const REPO = resolve(HERE, '..');
 const SHIPPED_REL = 'ledger/index.html';
 
 // The extraction contract: exactly the shipped symbols the §22.8 closure path is made of.
+// JCS-CANON-PAGES-1 moved the closure record hash onto the page's __ocgJcs serializer (the
+// page estate's jcsStringify), so the path is now made of __ocgJcs too; cgCanon stays
+// extracted for the direct §4-order assertion below.
 const EXTRACT_SPEC = {
   file: SHIPPED_REL,
-  fns: ['cgCanon', 'computeEscalationRecordHash', 'escalationRecordOf', 'escalationClosureOf', 'verifyEscalationClosure'],
+  fns: ['__ocgJcs', 'cgCanon', 'computeEscalationRecordHash', 'escalationRecordOf', 'escalationClosureOf', 'verifyEscalationClosure'],
 };
 
 // ── Fixture: the real dora-escalation-demo open record (ML-2 session 2, pinned in
@@ -178,14 +181,16 @@ test('extraction: all §22.8 closure symbols located in ' + SHIPPED_REL, () => {
 report('shipped §22.8 closure verifier: full tamper suite (10 assertions)', await runClosureSuite(V));
 
 // ── 2. Self-proving: TAMPER THE SHIPPED SOURCE, in process, and require the RED ──
-// The recursive key-sort in the shipped `cgCanon` is dropped on a copy of
-// ledger/index.html's own text; the pinned worker hash and every tamper branch that
-// depends on it must then fail. This is the row's RED condition, re-proven on every
-// run rather than once in a PR body. If the mutation point moves, `mutateSource`
-// throws instead of quietly disarming the self-proof.
-const TAMPER_NEEDLE = 'return Object.keys(v).sort().reduce((o, k) => { o[k] = cgCanon(v[k]); return o; }, {});';
+// The shipped §22.8 record hash serializes through __ocgJcs (JCS-CANON-PAGES-1; the
+// bytes are identical to the pre-row cgCanon wrap on this pin's record, so the worker-pinned
+// hash holds). Dropping the canonical serializer from the shipped preimage on a copy of
+// ledger/index.html's own text must then fail the pinned-hash and every tamper branch that
+// depends on it. This is the row's RED condition, re-proven on every run rather than once
+// in a PR body. If the mutation point moves, `mutateSource` throws instead of quietly
+// disarming the self-proof.
+const TAMPER_NEEDLE = 'const bytes = new TextEncoder().encode(__ocgJcs((preimage)));';
 const tamperedSrc = mutateSource(shippedSrc, SHIPPED_REL, TAMPER_NEEDLE,
-  'return Object.keys(v).reduce((o, k) => { o[k] = cgCanon(v[k]); return o; }, {}); /* TAMPERED IN MEMORY: no .sort() */');
+  'const bytes = new TextEncoder().encode(JSON.stringify(preimage)); /* TAMPERED IN MEMORY: no canonical serializer */');
 const tamperedFails = await runClosureSuite(buildShipped(tamperedSrc, { ...EXTRACT_SPEC, file: SHIPPED_REL + ' <tampered-in-memory>' }));
 test(`self-test: tampering the SHIPPED canonicalizer reds the suite (${tamperedFails.length} assertion failures caught)`, () => {
   if (tamperedFails.length === 0)

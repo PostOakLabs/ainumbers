@@ -82,6 +82,7 @@
  */
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { readCases } from '../chaingraph/kernels/_shape.mjs';
 import { deriveSchema, validateSubset } from './check-output-schema-coverage.mjs';
@@ -109,6 +110,15 @@ export const ANNOTATIONS = Object.freeze({
 
 /** The top-level keys this generator owns. Nothing else in a manifest is its business. */
 export const OWNED_TOP_LEVEL_KEYS = ['author', 'license', 'input_example', 'output_example', 'example_execution_hash'];
+
+// REGEN-MANIFEST-ATTEST-1 (2026-09-27): every --write run reports the files it ACTUALLY
+// wrote to this OS temp path, and scripts/derived-artifacts.mjs --paths reads the same
+// exported constant so the bot commit's pathspec NAMES each rewritten manifest instead
+// of sweeping the bare `manifests/` glob (which attests no specific file — the measured
+// bfec8c3a cause). Temp dir, deliberately not the repo: the regen workflow's escape
+// guard reds on any untracked repo file, and the report must never become one.
+export const WRITES_REPORT_FILENAME = 'ainumbers-manifest-examples-writes.json';
+export const WRITES_REPORT_PATH = resolve(tmpdir(), WRITES_REPORT_FILENAME);
 
 const BASELINE_REQUIRED_KEYS = ['pending_count', { key: 'pending_ids', type: 'name-list' }];
 const REPIN_COMMAND = 'node scripts/gen-manifest-examples.mjs --update-baseline';
@@ -424,10 +434,22 @@ function main() {
       pinnedIds = new Set(baseline.pending_ids);
     }
     const { selected, skippedPinned } = selectWrites(rows, { only, limit, pinnedIds });
+    const written = [];
     for (const r of selected) {
       const out = applyPlan(r.manifest, r.plan);
       writeFileSync(resolve(MAN_DIR, r.file), JSON.stringify(out, null, 2) + '\n', 'utf8');
+      written.push(`manifests/${r.file}`);
     }
+    // REGEN-MANIFEST-ATTEST-1: the run's actual write list, consumed by
+    // scripts/derived-artifacts.mjs --paths so the bot's chore(derived) commit
+    // stages by named file. Written on EVERY --write run — empty list included —
+    // so a report never outlives the run that produced it. Silent on success,
+    // loud on failure (writeFileSync throws).
+    writeFileSync(WRITES_REPORT_PATH, JSON.stringify({
+      _comment: 'Actual write list of the last gen-manifest-examples.mjs --write run; consumed by scripts/derived-artifacts.mjs --paths (REGEN-MANIFEST-ATTEST-1).',
+      generated_by: 'node scripts/gen-manifest-examples.mjs --write',
+      written,
+    }, null, 2) + '\n', 'utf8');
     const remaining = walk(REPO).filter((r) => r.plan?.changed).length;
     const skipNote = landedOnly ? ` (${skippedPinned} skipped as baseline-pinned — landed-only never advances the batch frontier)` : '';
     console.log(`✓ wrote ${selected.length} manifest(s); ${remaining} still pending${skipNote}. Re-pin the ratchet with: ${REPIN_COMMAND}`);

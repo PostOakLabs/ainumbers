@@ -135,7 +135,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-612 &middot; ERC-2612 / EIP-712 Crypto Primitive</div>
   <h1>ERC-2612 Permit Binding Verifier</h1>
-  <p class="sub">Recomputes the EIP-712 typed-data digest for an ERC-2612 <code>Permit</code> struct (the gasless-approval rail used by USDC/DAI-style tokens): <code>digest = keccak256(0x19 || 0x01 || domainSeparator || structHash)</code>, recovers the ECDSA signer from a caller-supplied signature, and reports whether the recovered signer binds to the caller-claimed <code>owner</code> or names the diverging field. All four EIP-712 domain fields (name, version, chainId, verifyingContract) are mandatory inputs and are never defaulted or guessed (a guessed <code>verifyingContract</code> would defeat the entire point of domain separation). This node makes no claim about on-chain nonce freshness, current allowance state, or whether <code>deadline</code> has passed relative to now.</p>
+  <p class="sub">Recomputes the EIP-712 typed-data digest for an ERC-2612 <code>Permit</code> struct (the gasless-approval rail used by USDC and other ERC-2612 tokens): <code>digest = keccak256(0x19 || 0x01 || domainSeparator || structHash)</code>, recovers the ECDSA signer from a caller-supplied signature, and reports whether the recovered signer binds to the caller-claimed <code>owner</code> or names the diverging field. DAI's legacy permit (holder, spender, nonce, expiry, allowed) is a different struct this node does not verify. A permit whose signer is a smart-contract wallet is validated on-chain under ERC-1271 (<code>isValidSignature</code>), which an ECDSA-only recovery cannot judge: this tool reports such a case as "signer is not an EOA match" (<code>recovered_signer_matches_owner</code>: false), never as valid. All four EIP-712 domain fields (name, version, chainId, verifyingContract) are mandatory inputs and are never defaulted or guessed (a guessed <code>verifyingContract</code> would defeat the entire point of domain separation). This node makes no claim about on-chain nonce freshness, current allowance state, or whether <code>deadline</code> has passed relative to now.</p>
   <div style="margin-bottom:6px">
     <span class="flag info">EIP-712 / ERC-2612</span><span class="flag info">keccak256 + secp256k1 (vendored, no hand-rolled crypto)</span><span class="flag info">Binds / does not bind, never "valid/approved/authorized"</span>
   </div>
@@ -222,7 +222,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
   </div>
   <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
-  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `verify_erc2612_permit_binding`. Task: Recompute the EIP-712 typed-data digest for an ERC-2612 Permit struct (the gasless-approval rail used by USDC/DAI-style tokens) from caller-supplied domain and message fields, recovers the ECDSA signer from a caller-supplied signature, and reports whether the recovered signer binds to the caller-claimed owner or names the diverging field.
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `verify_erc2612_permit_binding`. Task: Recompute the EIP-712 typed-data digest for an ERC-2612 Permit struct (the gasless-approval rail used by USDC and other ERC-2612 tokens) from caller-supplied domain and message fields, recovers the ECDSA signer from a caller-supplied signature, and reports whether the recovered signer binds to the caller-claimed owner or names the diverging field.
 Call it with arguments: {"policy_parameters":{"name":"USD Coin","version":"2","chainId":1,"verifyingContract":"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48","owner":"0xe05fcc23807536bee418f142d19fa0d21bb0cff7","spender":"0x1111111111111111111111111111111111111111","value":1000000,"nonce":0,"deadline":2000000000,"r":"0x70bb0933677f1bd68df1604ed9dcdfab90cb39809ff6b370e3676fb81baa6081","s":"0x25f5a16ced7deac7fd852ea8501a09b720578aeec619db7ffd7022fea1ab7565","yParity":0}}
 Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
 Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
@@ -281,8 +281,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-612
       </div>
       <div class="footer-col">
         <div class="footer-col-label">Guides</div>
-        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
-        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
         <a href="guide-prov-dm.html">W3C PROV-DM</a>
         <a href="guide-buildtype.html">buildType / SLSA</a>
         <a href="guide-intoto.html">in-toto / DSSE</a>
@@ -307,22 +307,25 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-612
         <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
         <a href="../robots.txt" target="_blank">robots.txt</a>
         <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
         <a href="../euc-register.html">EUC Register</a>
       </div>
       <div class="footer-col">
-        <div class="footer-col-label">Project</div>
-        <a href="../tools.html">All Tools</a>
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
         <a href="../mcp.html">MCP Docs</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
         <a href="../about.html">About</a>
         <a href="../methods.html">Methods</a>
         <a href="../fv-explainer.html">FV Process Explainer</a>
         <a href="../errata.html">FV Errata</a>
         <a href="../suggest.html">Suggest</a>
         <a href="../contact.html">Contact</a>
-        <a href="../security.html">Security</a>
-        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
       </div>
     </div>

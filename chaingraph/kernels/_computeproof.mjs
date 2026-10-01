@@ -22,11 +22,11 @@
 // run in the browser tool, the Worker, or CI. A compute_proof is produced offline and attached; these
 // helpers only ATTACH and VERIFY. Default-off (§18.3).
 
-import { cgCanon } from './_hash.mjs';
+import { jcsStringify } from './_hash.mjs';
 import { bn254, sha256 } from './_noble-bn254.bundle.mjs';
 
 // JCS-canonical compare (same canonicalizer as §4 — no second canonicalization path).
-const canon = (o) => JSON.stringify(cgCanon(o ?? null));
+const canon = (o) => jcsStringify((o ?? null));
 
 // §18.1 — a self-contained reference verifier is shipped for groth16-bn254; stark stays delegated.
 export const SEAL_VERIFICATION = 'reference-verifier';
@@ -183,7 +183,7 @@ export function verifySeal(receipt) {
   if (!cp.journal || typeof cp.journal !== 'object') return false;
 
   // 1. canonical journal bytes the guest committed = utf8(JCS(journal object)).
-  const journalBytes = enc(JSON.stringify(cgCanon(cp.journal)));
+  const journalBytes = enc(jcsStringify((cp.journal)));
   // 2. image id digest bytes.
   const imageIdBytes = hexToBytes(normId(cp.imageId).slice('sha256:'.length));
   if (imageIdBytes.length !== 32) return false;

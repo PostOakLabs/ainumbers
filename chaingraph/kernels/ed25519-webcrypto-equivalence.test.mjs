@@ -60,8 +60,31 @@ const b64uToBytes = (s) => {
   return new Uint8Array(Buffer.from(t, 'base64'));
 };
 const b64ToBytes = (s) => new Uint8Array(Buffer.from(String(s), 'base64'));
-const cgCanon = (v) => Array.isArray(v) ? v.map(cgCanon)
-  : (v && typeof v === 'object') ? Object.keys(v).sort().reduce((o, k) => (o[k] = cgCanon(v[k]), o), {}) : v;
+// jcsStringify, inline with the same semantics as _hash.mjs (RFC 8785 §3.2.3 member
+// order holds for array-index member names, which a JS engine enumerates numerically):
+// Object.keys sorted by UTF-16 code unit, the string built directly.
+const jcsStringify = (v) => {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) {
+    let s = '[';
+    for (let i = 0; i < v.length; i++) {
+      if (i) s += ',';
+      const e = v[i];
+      s += (e === undefined || typeof e === 'function' || typeof e === 'symbol') ? 'null' : jcsStringify(e);
+    }
+    return s + ']';
+  }
+  const keys = Object.keys(v).sort();
+  let s = '{', first = true;
+  for (const k of keys) {
+    const e = v[k];
+    if (e === undefined || typeof e === 'function' || typeof e === 'symbol') continue;
+    if (!first) s += ',';
+    first = false;
+    s += JSON.stringify(k) + ':' + jcsStringify(e);
+  }
+  return s + '}';
+};
 
 async function wcVerify(pubRaw, sig, msg) {
   try {
@@ -181,7 +204,7 @@ function art284Triples() {
       const parameters = e.parameters ?? {};
       const priorRef = idx === 0 ? (parameters.scid ?? null) : prior;
       const entryInput = { versionId: priorRef, versionTime: e.versionTime ?? null, parameters, state: e.state ?? null };
-      const msg = new TextEncoder().encode(JSON.stringify(cgCanon(entryInput)));
+      const msg = new TextEncoder().encode(jcsStringify((entryInput)));
       const proofs = Array.isArray(e.proof) ? e.proof : (e.proof ? [e.proof] : []);
       for (const proof of proofs) {
         const vm = typeof proof.verificationMethod === 'string' ? proof.verificationMethod.split('#')[0] : proof.verificationMethod;

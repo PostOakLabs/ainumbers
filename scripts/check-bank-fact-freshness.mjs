@@ -33,6 +33,13 @@ const SUMMARY = process.argv.includes('--summary');
 // named here per SO #7 — extending the INPUT SET, never editing the sibling
 // gate's constant.
 const STALE_THRESHOLD_DAYS = 120;
+
+// ADVISORY early warning (FRESHNESS-REVERIFY-1), matching the sibling deadline gate and named
+// independently here per SO #7. A fact within this many days of the strict threshold is PRINTED;
+// the exit code and the 120-day threshold above are untouched. Both facts here share verified_on
+// 2026-07-25 and would have turned preflight red together on 2026-11-23 with no prior signal.
+const EXPIRY_WARNING_DAYS = 30;
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const data = JSON.parse(readFileSync(DATA_PATH, 'utf8'));
@@ -55,6 +62,7 @@ assertDenominatorOrExit(entries.length, 1, {
 
 const now = new Date();
 const stale = [];
+const expiringSoon = [];
 
 for (const entry of entries) {
   const verifiedOn = entry.verified_on;
@@ -70,11 +78,28 @@ for (const entry of entries) {
   const ageDays = Math.floor((now.getTime() - verifiedDate.getTime()) / MS_PER_DAY);
   if (ageDays > STALE_THRESHOLD_DAYS) {
     stale.push({ id: entry.id, verified_on: verifiedOn, age: ageDays, reason: null });
+  } else if (ageDays > STALE_THRESHOLD_DAYS - EXPIRY_WARNING_DAYS) {
+    expiringSoon.push({
+      id: entry.id,
+      verified_on: verifiedOn,
+      age: ageDays,
+      expires_on: new Date(verifiedDate.getTime() + (STALE_THRESHOLD_DAYS + 1) * MS_PER_DAY).toISOString().slice(0, 10),
+      days_left: STALE_THRESHOLD_DAYS - ageDays,
+    });
   }
 }
 
+// Advisory, never fatal: printed in both modes, changes no exit code.
+if (expiringSoon.length) {
+  console.log(`⚠ advisory — ${expiringSoon.length} of ${entries.length} fact(s) cross the ${STALE_THRESHOLD_DAYS}-day threshold within ${EXPIRY_WARNING_DAYS} days:`);
+  for (const e of expiringSoon.sort((a, b) => a.days_left - b.days_left)) {
+    console.log(`  • ${e.id} — verified ${e.verified_on}, ${e.age}d old, reds this gate on ${e.expires_on} (${e.days_left}d left)`);
+  }
+  console.log('  This is a warning only. Re-verify against source_url and update verified_on before that date.');
+}
+
 if (SUMMARY) {
-  console.log(`bank-fact freshness — ${entries.length} fact(s), ${stale.length} stale (threshold ${STALE_THRESHOLD_DAYS}d)`);
+  console.log(`bank-fact freshness — ${entries.length} fact(s), ${stale.length} stale, ${expiringSoon.length} expiring within ${EXPIRY_WARNING_DAYS}d (threshold ${STALE_THRESHOLD_DAYS}d)`);
   process.exit(0);
 }
 

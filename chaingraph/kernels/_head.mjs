@@ -5,7 +5,7 @@
 // JCS-canonical, self-contained:
 //   { head_version, stream, signer, seq, prev_head_hash, root, root_cid?, timestamp, proof }
 //
-// head_hash = JCS-SHA-256 over the object MINUS `proof` — the one canonical hash path (cgCanon from
+// head_hash = JCS-SHA-256 over the object MINUS `proof` — the one canonical hash path (jcsStringify from
 // _hash.mjs, the SAME canonicalizer §4/§16/§CID-1 already use). There is no second canonicalization
 // here. The proof itself is a §16 eddsa-jcs-2022 Data Integrity proof, secured over the same
 // proof-stripped document — this file reimplements that small pipeline (not import it from
@@ -14,14 +14,14 @@
 // `.proof`. The did:key <-> raw Ed25519 conversion IS reused from _proof.mjs — that part is
 // object-shape-agnostic.
 
-import { cgCanon } from './_hash.mjs';
+import { jcsStringify } from './_hash.mjs';
 import { rawPubkeyToDidKey, didKeyToPublicKey } from './_proof.mjs';
 
 export { rawPubkeyToDidKey, didKeyToPublicKey };
 
 const CRYPTOSUITE = 'eddsa-jcs-2022';
 const enc = (s) => new TextEncoder().encode(s);
-const jcsBytes = (obj) => enc(JSON.stringify(cgCanon(obj)));
+const jcsBytes = (obj) => enc(jcsStringify((obj)));
 async function sha256Hex(bytes) {
   const d = await globalThis.crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(d)).map((b) => b.toString(16).padStart(2, '0')).join('');

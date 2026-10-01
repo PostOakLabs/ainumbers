@@ -6470,7 +6470,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "ERC-2612 Permit Binding Verifier",
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-612-erc2612-permit-binding-verifier.html",
-    "description": "Recomputes the EIP-712 typed-data digest for an ERC-2612 Permit struct (the gasless-approval rail used by USDC/DAI-style tokens) from caller",
+    "description": "Recomputes the EIP-712 typed-data digest for an ERC-2612 Permit struct (the gasless-approval rail used by USDC and other ERC-2612 tokens) fr",
     "consumes": [],
     "feeds": [],
     "status": "live"

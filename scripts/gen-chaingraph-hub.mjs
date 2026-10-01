@@ -8,10 +8,22 @@
 // art_ids:[...]} }. chaingraph.json (node list/titles/descriptions) is untouched — read-only
 // input. The --check coverage gate fails if any chaingraph.json art-* node is missing from
 // hub-categories.json (an unmapped new node), forcing a cluster assignment before it can ship.
+//
+// HUB-FOOTER-CANONICAL-1 (footer-plan v2 decision D3): this generator also owns the page's
+// single rendered <footer>, rendered from chaingraph/_page-chrome.mjs buildFooter() — the same
+// template every other page uses, so the hub follows every later template edit instead of
+// drifting as hand-kept text. Of the three COVERED writers that share this page
+// (chaingraph-hub = node cards, chain-index = GEN:MORE-CHAINS + hero stat ids, stats = mcp.html
+// stats; the hub's hero stats are delegated to chain-index), none rendered a footer, so giving
+// it to this one adds an owner without a fight. Two rules keep it that way: this writer matches
+// EXACTLY ONE rendered <footer> element and refuses (non-zero exit, no write) on zero or
+// several, and no other writer may start emitting a footer. The hub is CHROME_EXEMPT, so the
+// node-page chrome normalizer/gate never touch it — this generator is its only footer path.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isNonLive } from './_node-status.mjs';
+import { buildFooter, ROOT_FOOTER_CSS } from '../chaingraph/_page-chrome.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -207,15 +219,62 @@ if (!blockMatch) {
 }
 const embeddedCount = (blockMatch[0].match(/class="tool-card da"/g) || []).length;
 
+// ── CANONICAL FOOTER (HUB-FOOTER-CANONICAL-1) ────────────────────────────────
+// The footer sits outside every GEN: region, so it gets its own single-match
+// rule rather than START/END markers: the page must contain exactly one
+// rendered <footer> element. Zero means someone removed it (a marker-style
+// silent no-op would ship a footerless homepage-linked hub); several means a
+// second writer started emitting one, which is the drift this row closes. Both
+// refuse to write.
+const FOOTER_RE = /<footer[\s>][\s\S]*?<\/footer>/g;
+const footerMatches = hub.match(FOOTER_RE) || [];
+if (footerMatches.length !== 1) {
+  console.error(`gen-chaingraph-hub: expected EXACTLY ONE rendered <footer> element in chaingraph-hub.html, found ${footerMatches.length}. Refusing to write (HUB-FOOTER-CANONICAL-1).`);
+  process.exit(2);
+}
+// Depth: the hub lives in chaingraph/, so root='../' and cg='' — the same
+// parameters the node pages use (_page-chrome.mjs FOOTER).
+const canonicalFooter = buildFooter({ root: '../', cg: '' });
+
+// Footer CSS: reuse _page-chrome.mjs's footer-only block verbatim (never a
+// copied literal here) so a template class added later arrives with it. The
+// hub's hand-written <style> already carries most of these rules with
+// identical values; this block is emitted last, so it is a no-op for those and
+// supplies the ones the canonical footer adds (.footer-brand-mark, .social-row,
+// .footer-col flex). ROOT_FOOTER_CSS is depth-independent — its "root" name is
+// about which pages first consumed it, not about link prefixes.
+const CSS_START = '/* OCG-HUB-FOOTER-CSS:START (generator-owned -- do not hand-edit; regenerate via node scripts/gen-chaingraph-hub.mjs) */';
+const CSS_END = '/* OCG-HUB-FOOTER-CSS:END */';
+const cssBlock = `${CSS_START}\n${ROOT_FOOTER_CSS}\n${CSS_END}`;
+const CSS_RE = /\/\* OCG-HUB-FOOTER-CSS:START[\s\S]*?OCG-HUB-FOOTER-CSS:END \*\//;
+
+function withCanonicalFooter(html) {
+  let o = html.replace(FOOTER_RE, () => canonicalFooter);
+  if (CSS_RE.test(o)) return o.replace(CSS_RE, () => cssBlock);
+  const at = o.indexOf('</style>');
+  if (at < 0) {
+    console.error('gen-chaingraph-hub: no </style> in chaingraph-hub.html to host the canonical footer CSS. Refusing to write.');
+    process.exit(2);
+  }
+  return o.slice(0, at) + cssBlock + '\n' + o.slice(at);
+}
+
+const footerStale = footerMatches[0] !== canonicalFooter;
+const footerCssStale = !hub.includes(cssBlock);
+
 if (process.argv.includes('--check')) {
   if (embeddedCount !== totalCards) {
     console.error(`gen-chaingraph-hub --check FAIL: expected ${totalCards} node cards, hub has ${embeddedCount}. Run: node scripts/gen-chaingraph-hub.mjs`);
     process.exit(1);
   }
-  console.log(`gen-chaingraph-hub --check: hub fresh (${totalCards} node cards across ${clusterEntries.length} clusters, coverage OK).`);
+  if (footerStale || footerCssStale) {
+    console.error(`gen-chaingraph-hub --check FAIL: hub footer is not the canonical _page-chrome.mjs footer (${footerStale ? 'markup stale' : 'markup OK'}, ${footerCssStale ? 'footer CSS block missing/stale' : 'footer CSS OK'}). Run: node scripts/gen-chaingraph-hub.mjs`);
+    process.exit(1);
+  }
+  console.log(`gen-chaingraph-hub --check: hub fresh (${totalCards} node cards across ${clusterEntries.length} clusters, coverage OK; canonical footer + footer CSS current).`);
   process.exit(0);
 }
 
-const out = hub.replace(BLOCK_RE, genBlock);
+const out = withCanonicalFooter(hub).replace(BLOCK_RE, () => genBlock);
 writeFileSync(HUB, out);
-console.log(`gen-chaingraph-hub: rendered ${totalCards} node cards across ${clusterEntries.length} clusters into chaingraph-hub.html (was ${embeddedCount}).`);
+console.log(`gen-chaingraph-hub: rendered ${totalCards} node cards across ${clusterEntries.length} clusters into chaingraph-hub.html (was ${embeddedCount}); footer ${footerStale ? 'REPLACED with' : 'already'} the canonical _page-chrome.mjs footer, footer CSS ${footerCssStale ? 'injected/refreshed' : 'already current'}.`);

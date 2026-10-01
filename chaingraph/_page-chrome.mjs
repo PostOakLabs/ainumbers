@@ -63,7 +63,15 @@ export function buildNav(breadcrumbCurrent) {
  * The DATA & ARTIFACTS column folds in the full machine-artifact surface
  * (openapi.json, .well-known/mcp.json, mcp/server.json, mcp/catalog.json, sitemap.xml,
  * robots.txt, SPEC.md) so the agent-facing links live in one column, not a separate row.
+ * The INFRASTRUCTURE column (FOOTER-INFRA-COLUMN-1, Tim 2026-09-27) leads with the
+ * infrastructure map and the verify/ledger/MCP entry points, then the project links;
+ * Security and Terms & Reliance are linked from the pages that need them, not here.
  * Copyright line: license/promise trio only (no year, no company name).
+ *
+ * WRITERS: node pages (top-level chaingraph/*.html) get this footer from the main-side
+ * writer scripts/gen-node-footers.mjs (a derived-artifacts COVERED entry, footer plan
+ * D1(b)); root pages from scripts/gen-root-chrome.mjs; the generated map pages copy
+ * it out of start.html. Edit the template here and let those writers carry it.
  */
 export function buildFooter({ root = '../', cg = '' } = {}) {
   return `<footer>
@@ -116,8 +124,8 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
       </div>
       <div class="footer-col">
         <div class="footer-col-label">Guides</div>
-        <a href="${cg}guide-avalanche.html">Avalanche L1 / Evergreen</a>
-        <a href="${cg}guide-tempo.html">Tempo Network</a>
+        <a href="${root}hub-for-hubs.html">Hubs and Guides</a>
+        <a href="${cg}agent-staircase-explainer.html">Agent Staircase</a>
         <a href="${cg}guide-prov-dm.html">W3C PROV-DM</a>
         <a href="${cg}guide-buildtype.html">buildType / SLSA</a>
         <a href="${cg}guide-intoto.html">in-toto / DSSE</a>
@@ -142,22 +150,25 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${root}sitemap.xml" target="_blank">sitemap.xml</a>
         <a href="${root}robots.txt" target="_blank">robots.txt</a>
         <a href="${root}sitemap.html">Sitemap</a>
+        <a href="${cg}clause-edge-report.html">Clause Edge Report</a>
         <a href="${root}euc-register.html">EUC Register</a>
       </div>
       <div class="footer-col">
-        <div class="footer-col-label">Project</div>
-        <a href="${root}tools.html">All Tools</a>
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="${root}infrastructure.html">Infrastructure Map</a>
+        <a href="${cg}verify.html">Artifact Verifier</a>
+        <a href="${root}ledger/index.html">Receipt Ledger</a>
+        <a href="${root}mcp-playground.html">MCP Playground</a>
         <a href="${root}mcp.html">MCP Docs</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="${root}tools.html">All Tools</a>
         <a href="${root}about.html">About</a>
         <a href="${root}methods.html">Methods</a>
         <a href="${root}fv-explainer.html">FV Process Explainer</a>
         <a href="${root}errata.html">FV Errata</a>
         <a href="${root}suggest.html">Suggest</a>
         <a href="${root}contact.html">Contact</a>
-        <a href="${root}security.html">Security</a>
-        <a href="${root}disclosures/terms.html">Terms &amp; Reliance</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
       </div>
     </div>

@@ -423,10 +423,40 @@ if (typeof URL === 'undefined') {
     }
     return v;
   }
+  // ES5 jcsStringify with the same semantics as kernels/_hash.mjs (RFC 8785 §3.2.3 member
+  // order holds for array-index member names, which a JS engine enumerates numerically):
+  // members whose value is undefined / function / symbol are omitted, such array elements
+  // become null, enumeration is Object.keys sorted by UTF-16 code unit, primitives go
+  // through JSON.stringify. Built directly, no intermediate object. (The zkVM guests do
+  // not use this file; they run harness.c with the real _hash.mjs passed as input.)
+  function jcsStringify(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) {
+      var out = '[';
+      for (var i = 0; i < v.length; i++) {
+        if (i) out += ',';
+        var e = v[i];
+        out += (e === undefined || typeof e === 'function' || typeof e === 'symbol') ? 'null' : jcsStringify(e);
+      }
+      return out + ']';
+    }
+    var keys = Object.keys(v).sort();
+    var out2 = '{';
+    var first = true;
+    for (var i2 = 0; i2 < keys.length; i2++) {
+      var k = keys[i2];
+      var e2 = v[k];
+      if (e2 === undefined || typeof e2 === 'function' || typeof e2 === 'symbol') continue;
+      if (!first) out2 += ',';
+      first = false;
+      out2 += JSON.stringify(k) + ':' + jcsStringify(e2);
+    }
+    return out2 + '}';
+  }
   globalThis.executionHash = async function ocgExecutionHash(policy_parameters, output_payload) {
     var obj = { policy_parameters: policy_parameters, output_payload: output_payload };
     assertIJson(obj);
-    var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(obj)));
+    var bytes = new TextEncoder().encode(jcsStringify(obj));
     var digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
     return Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
   };
@@ -435,7 +465,7 @@ if (typeof URL === 'undefined') {
   // strip below removes that import too, so it needs the same host-bridged re-definition.
   globalThis.policyParametersHash = async function ocgPolicyParametersHash(policy_parameters) {
     assertIJson(policy_parameters);
-    var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(policy_parameters)));
+    var bytes = new TextEncoder().encode(jcsStringify(policy_parameters));
     var digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
     return Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
   };
