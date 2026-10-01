@@ -620,71 +620,94 @@ const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.m
 if (mc) {
   mc.registerTool({
     name: 'classify_dora_ict_incident_and_clock_deadlines',
-    description: 'Classifies an ICT-related incident as major or non-major under DORA (EU 2022/2554) Art. 18, applying the published RTS (EU 2024/1772) numeric criteria (clients affected %, duration, geographical spread, data losses, economic impact, critical-services impact, reputational impact), then starts the DORA Art. 19 reporting clock (4-hour initial notification, 72-hour intermediate report, 1-calendar-month final report, all from classification) once classified major. Follows the art-428-cyber-incident-clock deadline-clock pattern for the EU DORA regime; see that node for the analogous US banking/SEC/NYDFS clock. Not a duplicate of the existing art-09-dora-incident-classifier (earlier draft-RTS citation, no notification-clock link, infrastructure_mandate) -- art-467 cites the final 2024 RTS/ITS package and is built to the attestation-clock pattern; the overlap between the two is flagged for review, not hidden. This node classifies and computes deadlines only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice.',
+    description: 'Computes the DORA 2025/301 Art. 5 stage-clock schedule from caller-declared timestamps: initial = min(classification + 4h, awareness + 24h); intermediate = initial submission + 72h; final = one month from the latest intermediate/update; weekend/bank-holiday extension per entity class (initial/intermediate denied for credit institutions, CCPs, trading venues, NIS2 essential/important and NCA-notified entities; final keeps it). Classification is not performed here; art-09-dora-incident-classifier consumes this clock result.',
     inputSchema: {
       "type": "object",
       "required": [
-        "classification_at",
-        "clients_affected_pct",
-        "critical_services_affected",
-        "data_losses",
-        "duration_minutes",
-        "economic_impact_amount",
-        "geographical_spread_countries_count",
-        "incident_id",
-        "reputational_impact"
+        "entity_class",
+        "awareness_at",
+        "classification_at"
       ],
       "properties": {
+        "entity_class": {
+          "type": "string",
+          "enum": [
+            "credit_institution",
+            "ccp",
+            "trading_venue",
+            "nis2_essential_important",
+            "nca_notified",
+            "other"
+          ]
+        },
+        "awareness_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; 24h initial-report limb starts here"
+        },
         "classification_at": {
-          "description": "type not evidenced by kernel source"
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; 4h initial-report limb starts here"
         },
-        "clients_affected_pct": {
-          "description": "Percentage value; type not evidenced by kernel source"
+        "initial_submitted_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; intermediate 72h limb starts here"
         },
-        "critical_services_affected": {
-          "type": "boolean"
+        "intermediate_submitted_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; final one-month limb starts here"
         },
-        "data_losses": {
-          "type": "boolean"
+        "latest_intermediate_update_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; re-bases the final deadline when later than the intermediate submission"
         },
-        "duration_minutes": {
-          "description": "type not evidenced by kernel source"
+        "logical_date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with explicit offset; the declared as-of instant for stage states (never a wall clock)"
         },
-        "economic_impact_amount": {
-          "description": "type not evidenced by kernel source"
+        "bank_holiday_calendar_ref": {
+          "type": "string",
+          "description": "Declared calendar id; never inferred"
         },
-        "geographical_spread_countries_count": {
-          "description": "Count; type not evidenced by kernel source"
+        "bank_holiday_dates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "YYYY-MM-DD dates observed under the declared calendar"
         },
-        "incident_id": {
-          "description": "type not evidenced by kernel source"
+        "extension_withdrawn_by_nca": {
+          "type": "boolean",
+          "description": "NCA withdrew the Art. 5 extension after notice"
         },
-        "reputational_impact": {
-          "type": "boolean"
+        "tpp_aggregated_submission": {
+          "type": "boolean",
+          "description": "2025/302 Art. 7 TPP aggregated reporting path declared"
         }
       }
     },
     annotations: { readOnlyHint: true },
     execute: async function(params) {
       try {
-      if (params.classification_at === undefined) throw new Error('classification_at is required; received ' + JSON.stringify(params.classification_at) + '.');
-      if (params.clients_affected_pct === undefined) throw new Error('clients_affected_pct is required; received ' + JSON.stringify(params.clients_affected_pct) + '.');
-      if (typeof params.critical_services_affected !== 'boolean') throw new Error('critical_services_affected must be a boolean; received ' + JSON.stringify(params.critical_services_affected) + '.');
-      if (typeof params.data_losses !== 'boolean') throw new Error('data_losses must be a boolean; received ' + JSON.stringify(params.data_losses) + '.');
-      if (params.duration_minutes === undefined) throw new Error('duration_minutes is required; received ' + JSON.stringify(params.duration_minutes) + '.');
-      if (params.economic_impact_amount === undefined) throw new Error('economic_impact_amount is required; received ' + JSON.stringify(params.economic_impact_amount) + '.');
-      if (params.geographical_spread_countries_count === undefined) throw new Error('geographical_spread_countries_count is required; received ' + JSON.stringify(params.geographical_spread_countries_count) + '.');
-      if (params.incident_id === undefined) throw new Error('incident_id is required; received ' + JSON.stringify(params.incident_id) + '.');
-      if (typeof params.reputational_impact !== 'boolean') throw new Error('reputational_impact must be a boolean; received ' + JSON.stringify(params.reputational_impact) + '.');
-      document.getElementById('classification_at').value = (params.classification_at !== null && typeof params.classification_at === 'object') ? JSON.stringify(params.classification_at) : String(params.classification_at);
-      document.getElementById('clients_affected_pct').value = (params.clients_affected_pct !== null && typeof params.clients_affected_pct === 'object') ? JSON.stringify(params.clients_affected_pct) : String(params.clients_affected_pct);
-      document.getElementById('critical_services_affected').checked = params.critical_services_affected === true;
-      document.getElementById('data_losses').checked = params.data_losses === true;
-      document.getElementById('duration_minutes').value = (params.duration_minutes !== null && typeof params.duration_minutes === 'object') ? JSON.stringify(params.duration_minutes) : String(params.duration_minutes);
-      document.getElementById('economic_impact_amount').value = (params.economic_impact_amount !== null && typeof params.economic_impact_amount === 'object') ? JSON.stringify(params.economic_impact_amount) : String(params.economic_impact_amount);
-      document.getElementById('geographical_spread_countries_count').value = (params.geographical_spread_countries_count !== null && typeof params.geographical_spread_countries_count === 'object') ? JSON.stringify(params.geographical_spread_countries_count) : String(params.geographical_spread_countries_count);
-      document.getElementById('incident_id').value = (params.incident_id !== null && typeof params.incident_id === 'object') ? JSON.stringify(params.incident_id) : String(params.incident_id);
-      document.getElementById('reputational_impact').checked = params.reputational_impact === true;
+      if (typeof params.entity_class !== 'string') throw new Error('entity_class must be a string; received ' + JSON.stringify(params.entity_class) + '.');
+      if (typeof params.awareness_at !== 'string') throw new Error('awareness_at must be a string; received ' + JSON.stringify(params.awareness_at) + '.');
+      if (typeof params.classification_at !== 'string') throw new Error('classification_at must be a string; received ' + JSON.stringify(params.classification_at) + '.');
+      document.getElementById('entity_class').value = String(params.entity_class);
+      document.getElementById('awareness_at').value = String(params.awareness_at);
+      document.getElementById('classification_at').value = String(params.classification_at);
+      if (params.initial_submitted_at !== undefined && params.initial_submitted_at !== null) document.getElementById('initial_submitted_at').value = String(params.initial_submitted_at);
+      if (params.intermediate_submitted_at !== undefined && params.intermediate_submitted_at !== null) document.getElementById('intermediate_submitted_at').value = String(params.intermediate_submitted_at);
+      if (params.latest_intermediate_update_at !== undefined && params.latest_intermediate_update_at !== null) document.getElementById('latest_intermediate_update_at').value = String(params.latest_intermediate_update_at);
+      if (params.logical_date !== undefined && params.logical_date !== null) document.getElementById('logical_date').value = String(params.logical_date);
+      if (params.bank_holiday_calendar_ref !== undefined && params.bank_holiday_calendar_ref !== null) document.getElementById('bank_holiday_calendar_ref').value = String(params.bank_holiday_calendar_ref);
+      if (params.bank_holiday_dates !== undefined && params.bank_holiday_dates !== null) document.getElementById('bank_holiday_dates').value = JSON.stringify(params.bank_holiday_dates);
+      if (params.extension_withdrawn_by_nca !== undefined && params.extension_withdrawn_by_nca !== null) document.getElementById('extension_withdrawn_by_nca').checked = params.extension_withdrawn_by_nca === true;
+      if (params.tpp_aggregated_submission !== undefined && params.tpp_aggregated_submission !== null) document.getElementById('tpp_aggregated_submission').checked = params.tpp_aggregated_submission === true;
       await run();
       return _lastArtifact;
       } catch (err) {
@@ -706,7 +729,7 @@ if (mc) {
   'use strict';
   var BUDGET = 30000;
   var RUN_TARGET = "run";
-  var PREFILL = {"classification_at":["classification_at","string"],"clients_affected_pct":["clients_affected_pct","string"],"critical_services_affected":["critical_services_affected","checked"],"data_losses":["data_losses","checked"],"duration_minutes":["duration_minutes","string"],"economic_impact_amount":["economic_impact_amount","string"],"geographical_spread_countries_count":["geographical_spread_countries_count","string"],"incident_id":["incident_id","string"],"reputational_impact":["reputational_impact","checked"]};
+  var PREFILL = {"entity_class":["entity_class","string"],"awareness_at":["awareness_at","string"],"classification_at":["classification_at","string"],"initial_submitted_at":["initial_submitted_at","string"],"intermediate_submitted_at":["intermediate_submitted_at","string"],"latest_intermediate_update_at":["latest_intermediate_update_at","string"],"logical_date":["logical_date","string"],"bank_holiday_calendar_ref":["bank_holiday_calendar_ref","string"],"bank_holiday_dates":["bank_holiday_dates","json"],"extension_withdrawn_by_nca":["extension_withdrawn_by_nca","checked"],"tpp_aggregated_submission":["tpp_aggregated_submission","checked"]};
   var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
 
   function b64uDec(s) {
@@ -852,7 +875,7 @@ if (mc) {
   'use strict';
   var MAX = 1000000;
   var RUN_TARGET = "run";
-  var PREFILL = {"classification_at":["classification_at","string"],"clients_affected_pct":["clients_affected_pct","string"],"critical_services_affected":["critical_services_affected","checked"],"data_losses":["data_losses","checked"],"duration_minutes":["duration_minutes","string"],"economic_impact_amount":["economic_impact_amount","string"],"geographical_spread_countries_count":["geographical_spread_countries_count","string"],"incident_id":["incident_id","string"],"reputational_impact":["reputational_impact","checked"]};
+  var PREFILL = {"entity_class":["entity_class","string"],"awareness_at":["awareness_at","string"],"classification_at":["classification_at","string"],"initial_submitted_at":["initial_submitted_at","string"],"intermediate_submitted_at":["intermediate_submitted_at","string"],"latest_intermediate_update_at":["latest_intermediate_update_at","string"],"logical_date":["logical_date","string"],"bank_holiday_calendar_ref":["bank_holiday_calendar_ref","string"],"bank_holiday_dates":["bank_holiday_dates","json"],"extension_withdrawn_by_nca":["extension_withdrawn_by_nca","checked"],"tpp_aggregated_submission":["tpp_aggregated_submission","checked"]};
   var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
 
   function fail(msg) {
