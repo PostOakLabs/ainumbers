@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Authorization Payload Linter · ART-700 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Lints an authorization payload before it is signed against a signing policy you declare. Classifies EIP-712 typed data by encodeType, reads EIP-7702 tuples, flags a blind hash. Client-side, zero PII, no chain reads.">
+<meta name="ain:category" content="run">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-700-authorization-payload-linter.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-700-authorization-payload-linter.md">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:760px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px;letter-spacing:.02em}
+.field textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:4px;padding:.4rem .5rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;min-height:260px;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.55rem 1.1rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.btn-2{background:transparent;color:var(--text);border:1px solid var(--border-2)}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:140px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--bright)}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem;font-weight:500}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:420px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+#ap2ExportBtn:disabled{opacity:.4;cursor:not-allowed}
+#ap2ExportBtn.ready{border-color:var(--teal);color:var(--bright)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+table.map{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.6rem;margin-top:10px}
+table.map th,table.map td{border:1px solid var(--border);padding:.4rem .5rem;text-align:left;vertical-align:top;color:var(--text)}
+table.map th{color:var(--teal);font-weight:600;background:var(--bg-3)}
+table.map td.none{color:var(--muted)}
+.checks-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.6rem;margin-top:10px}
+.checks-table th,.checks-table td{border:1px solid var(--border);padding:.35rem .5rem;text-align:left;vertical-align:top}
+.checks-table th{color:var(--teal);background:var(--bg-3)}
+.checks-table td.s-FLAGGED{color:var(--warn)}
+.checks-table td.s-CLEAR{color:var(--green)}
+.checks-table td.s-NOT_EVALUATED{color:var(--muted)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem}
+.footer-col a:hover{color:var(--teal)}
+</style>
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-700-authorization-payload-linter.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:6f656bb896a5c568378f091572e1c6bcf1d22803b6929de33b9315eb3771d6ac">
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a><span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a><span>›</span>
+      <span style="color:var(--gold)">ART-700 · Authorization Payload Linter</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-700</div>
+  <h1>Authorization Payload Linter</h1>
+  <p class="sub">Reads an authorization payload before a key touches it, and reports how that payload stands against a signing policy you declare. Three declared modes. In <code>typed_data</code> the input is the EIP-712 object your wallet would receive from <code>eth_signTypedData_v4</code>. In <code>eip7702_tuple</code> it is a delegation tuple of chain id, delegate address and nonce. In <code>raw_hash</code> it is a bare 32-byte hash about to be signed blind, which raises <code>BLIND_SIGNATURE</code> and stops, because nothing about what is being authorized can be read from it. Classification is string equality of the computed EIP-712 <code>encodeType</code> against canonical type strings, so a struct carrying a known name with a different member list comes back as <code>LOOKALIKE_TYPE</code> and an unknown struct comes back as <code>UNRECOGNIZED</code> instead of a guess. Every check returns <code>FLAGGED</code>, <code>CLEAR</code> or <code>NOT_EVALUATED</code> with the field path, the observed value and the policy value. There are no numeric defaults on this page: every threshold, allowlist, counterparty set and clock reading is yours, and a check whose input you did not declare reports <code>NOT_EVALUATED</code> and is listed separately. This tool performs no chain read, recovers no signer, computes no digest, and never submits anything.</p>
+  <div style="margin-bottom:6px"><span class="flag">payment_policy</span><span class="flag">Zero PII</span><span class="flag">Client-side only</span><span class="flag">No chain reads</span></div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="info-box"><div class="ib-title">Scope and reliance</div>This page reports flags against the policy you declared, and a <code>CONFORMS</code> result covers only the checks it could evaluate, so read <code>not_evaluated</code> alongside it. Every chain fact here stays a caller assertion: on-chain nonce state, current allowances and whether an address holds code are inputs you declare, signer recovery and digest recomputation belong to the sibling nodes named under <code>handoffs</code>, agent-counterparty credential scope belongs to <a href="art-565-kya-x402-scope-verifier.html">art-565</a>, and this node ships <code>compute_proof_ready: deferred</code> as the proof-status note below records.</div>
+  <div class="card">
+    <div class="section-head">Policy Parameters (JSON)</div>
+    <div class="field"><label>policy_parameters (passed verbatim to compute(); set mode to typed_data, eip7702_tuple, or raw_hash)</label><textarea id="ppInput" spellcheck="false"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button onclick="run()">Run</button>
+      <button class="btn-2" onclick="loadSample('permit')">Load Permit Sample</button>
+      <button class="btn-2" onclick="loadSample('lookalike')">Load Lookalike Sample</button>
+      <button class="btn-2" onclick="loadSample('permit2')">Load Permit2 Sample</button>
+      <button class="btn-2" onclick="loadSample('tuple')">Load Delegation Sample</button>
+      <button class="btn-2" onclick="loadSample('blind')">Load Blind Hash Sample</button>
+    </div>
+  </div>
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictDiv"></div>
+      <div class="info-box" id="traceBox"><div class="ib-title">Classification</div><span id="traceText"></span></div>
+      <table class="checks-table" id="checksTable"></table>
+      <pre id="outputPre"></pre>
+      <div class="info-box" style="margin-top:12px"><div class="ib-title">Proof status</div>This node ships <code>compute_proof_ready: deferred</code>. Standards-implementing nodes here land without a receipt, pass a line-by-line reconciliation against the pinned primary text, and are proved after that. The result above is a deterministic recompute of the published kernel, pinned to it by the kernel-digest stamp in this page's head, with a property-test floor over its branches.</div>
+    </div>
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS canonical, RFC 8785). The Permit sample reproduces the first golden vector in this node's fixture file: 5b490d32b349d6dd&hellip;58be12f.</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the lint above to generate a Policy Mandate">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+        <button class="btn-2" onclick="exportArtifact()">Export §4 Artifact</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Where these policy fields live in an agent wallet</div>
+    <p class="muted-txt">Observation table recorded 2026-09-28 from the research record in this node's build spec (section 7.4). The cells below were not primary-retrieved in this build row, so treat each as a dated observation and confirm against the vendor's current documentation before you rely on it. A wider platform and protocol comparison lives in <a href="../tools/644-agent-spend-control-feature-matrix.html">tools/644</a>.</p>
+    <table class="map">
+      <tr><th>Policy field here</th><th>Turnkey</th><th>Privy</th><th>Coinbase CDP</th></tr>
+      <tr><td>allowed_primary_types</td><td>eth.eip_712.primary_type (2026-09-28)</td><td class="none">none recorded (2026-09-28)</td><td class="none">none recorded (2026-09-28)</td></tr>
+      <tr><td>allowed_verifying_contracts</td><td>eth.eip_712.message[...] with any() and all() (2026-09-28)</td><td>field_source ethereum_typed_data_domain (2026-09-28)</td><td>evmTypedDataVerifyingContract (2026-09-28)</td></tr>
+      <tr><td>allowed_chain_ids and active_chain_id</td><td>eth.eip_712.message[...] with any() and all() (2026-09-28)</td><td>field_source ethereum_typed_data_domain (2026-09-28)</td><td>evmNetwork (2026-09-28)</td></tr>
+      <tr><td>spender_allowlist and payee_allowlist</td><td>eth.eip_712.message[...] with any() and all() (2026-09-28)</td><td>field_source ethereum_typed_data_message (2026-09-28)</td><td class="none">none recorded for a typed-data counterparty field (2026-09-28)</td></tr>
+      <tr><td>max_amount_by_token</td><td>eth.eip_712.message[...] with any() and all() (2026-09-28)</td><td>field_source ethereum_typed_data_message (2026-09-28)</td><td>netUSDChange, which needs a price oracle and has no offline equivalent (2026-09-28)</td></tr>
+      <tr><td>delegate_allowlist for an EIP-7702 tuple</td><td class="none">none: a delegation tuple is not EIP-712 (2026-09-28)</td><td class="none">none: a delegation tuple is not EIP-712 (2026-09-28)</td><td class="none">none: a delegation tuple is not EIP-712 (2026-09-28)</td></tr>
+    </table>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+const MANIFEST={tool_id:"art-700-authorization-payload-linter",version:"1.0.0",title:"Authorization Payload Linter",mcp_tool_definition:{name:"lint_authorization_payload",description:"Lints an authorization payload before it is signed against a caller-declared signing policy: classifies EIP-712 typed data by encodeType string equality, reads EIP-7702 tuples, flags a blind hash, and reports every check as FLAGGED, CLEAR or NOT_EVALUATED"},ap2_export:true,chaingraph:true};
+// art-700 -- authorization payload linter.
+// Inline port of chaingraph/kernels/art-700-authorization-payload-linter.kernel.mjs (byte-pinned by
+// the kernel-digest sentinel above; scripts/check-page-kernel-digest.mjs verifies).
+// No randomness, no clock, no network, no storage, no chain read.
+
+const TOOL_ID = 'art-700-authorization-payload-linter';
+const TOOL_VERSION = '1.0.0';
+
+const meta = {
+  tool_id: TOOL_ID, tool_version: TOOL_VERSION,
+  mcp_name: 'lint_authorization_payload',
+  mandate_type: 'payment_policy', gpu: false,
+};
+
+const SCOPE_NOTE = 'Classifies an authorization payload that is about to be signed and reports how it '
+  + 'stands against a signing policy the caller declares. Classification is string equality of the '
+  + 'computed encodeType against canonical type strings, so a type this node does not recognise is '
+  + 'reported as UNRECOGNIZED and never guessed. Every threshold, allowlist, counterparty set and '
+  + 'clock reading is a caller-declared input: a check whose input was not declared reports '
+  + 'NOT_EVALUATED and is listed separately, never folded into a CLEAR. This node performs no chain '
+  + 'read, recovers no signer, computes no digest, and never submits anything. It reports flags '
+  + 'against a declared policy; it does not judge a counterparty, a delegate contract, or an outcome.';
+
+const MODES = ['typed_data', 'eip7702_tuple', 'raw_hash'];
+
+const CANONICAL_TYPES = [
+  ['Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)',
+    'ERC2612_PERMIT'],
+  ['Permit(address holder,address spender,uint256 nonce,uint256 expiry,bool allowed)',
+    'DAI_LEGACY_PERMIT'],
+  ['PermitTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline)TokenPermissions(address token,uint256 amount)',
+    'PERMIT2_PERMIT_TRANSFER_FROM'],
+  ['PermitBatchTransferFrom(TokenPermissions[] permitted,address spender,uint256 nonce,uint256 deadline)TokenPermissions(address token,uint256 amount)',
+    'PERMIT2_PERMIT_BATCH_TRANSFER_FROM'],
+  ['PermitSingle(PermitDetails details,address spender,uint256 sigDeadline)PermitDetails(address token,uint160 amount,uint48 expiration,uint48 nonce)',
+    'PERMIT2_PERMIT_SINGLE'],
+  ['PermitBatch(PermitDetails[] details,address spender,uint256 sigDeadline)PermitDetails(address token,uint160 amount,uint48 expiration,uint48 nonce)',
+    'PERMIT2_PERMIT_BATCH'],
+  ['TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)',
+    'EIP3009_TRANSFER_WITH_AUTHORIZATION'],
+  ['ReceiveWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)',
+    'EIP3009_RECEIVE_WITH_AUTHORIZATION'],
+  ['CancelAuthorization(address authorizer,bytes32 nonce)',
+    'EIP3009_CANCEL_AUTHORIZATION'],
+  ['PackedUserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData)',
+    'ERC4337_PACKED_USER_OPERATION'],
+  ['ForwardRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,uint48 deadline,bytes data)',
+    'ERC2771_FORWARD_REQUEST'],
+];
+
+const WITNESS_HEAD = 'PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,';
+const TOKEN_PERMISSIONS_TYPE = 'TokenPermissions(address token,uint256 amount)';
+const X402_WITNESS_TYPE = 'Witness(address to,uint256 validAfter)';
+
+const KNOWN_STRUCT_NAMES = [
+  'Permit', 'PermitTransferFrom', 'PermitBatchTransferFrom', 'PermitWitnessTransferFrom',
+  'PermitSingle', 'PermitBatch', 'TransferWithAuthorization', 'ReceiveWithAuthorization',
+  'CancelAuthorization', 'PackedUserOperation', 'ForwardRequest',
+];
+
+const PERMIT2_SIGNATURE_TRANSFER = [
+  'PERMIT2_PERMIT_TRANSFER_FROM', 'PERMIT2_PERMIT_BATCH_TRANSFER_FROM', 'PERMIT2_PERMIT_WITNESS_TRANSFER_FROM',
+];
+const PERMIT2_ALLOWANCE_TRANSFER = ['PERMIT2_PERMIT_SINGLE', 'PERMIT2_PERMIT_BATCH'];
+const EIP3009_TYPES = [
+  'EIP3009_TRANSFER_WITH_AUTHORIZATION', 'EIP3009_RECEIVE_WITH_AUTHORIZATION', 'EIP3009_CANCEL_AUTHORIZATION',
+];
+
+const CANONICAL_PERMIT2 = '0x000000000022d473030f116ddee9f6b43ac78ba3';
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+const MAX_UINT256 = (1n << 256n) - 1n;
+const MAX_UINT160 = (1n << 160n) - 1n;
+const MAX_UINT48 = (1n << 48n) - 1n;
+const NONCE_CEILING_7702 = (1n << 64n) - 1n;
+const SECP256K1N_HALF = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0n;
+const S_MASK_255 = (1n << 255n) - 1n;
+const MAGIC_6492 = '6492649264926492649264926492649264926492649264926492649264926492';
+
+function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+function isStr(v) { return typeof v === 'string' && v.length > 0; }
+function lower(v) { return typeof v === 'string' ? v.toLowerCase() : v; }
+
+function addr(v) {
+  if (typeof v !== 'string') return null;
+  const s = v.trim();
+  return /^0x[0-9a-fA-F]{40}$/.test(s) ? s.toLowerCase() : null;
+}
+
+function q(v) {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v) || v < 0 || !Number.isInteger(v)) return null;
+    return BigInt(v);
+  }
+  if (typeof v === 'bigint') return v >= 0n ? v : null;
+  if (typeof v !== 'string') return null;
+  const s = v.trim();
+  if (/^[0-9]+$/.test(s)) return BigInt(s);
+  if (/^0x[0-9a-fA-F]+$/.test(s)) return BigInt(s);
+  return null;
+}
+
+function qs(v) { const n = q(v); return n === null ? null : n.toString(); }
+
+function inList(list, value) {
+  if (!Array.isArray(list) || value === null || value === undefined) return null;
+  const needle = lower(value);
+  for (const entry of list) if (lower(entry) === needle) return true;
+  return false;
+}
+
+function stripHex(s) { return typeof s === 'string' && /^0x/i.test(s) ? s.slice(2) : s; }
+
+function typeString(name, types) {
+  const fields = types[name];
+  if (!Array.isArray(fields)) return null;
+  const members = [];
+  for (const f of fields) {
+    if (!isObj(f) || !isStr(f.type) || !isStr(f.name)) return null;
+    members.push(f.type + ' ' + f.name);
+  }
+  return name + '(' + members.join(',') + ')';
+}
+
+function baseType(t) {
+  const i = t.indexOf('[');
+  return i === -1 ? t : t.slice(0, i);
+}
+
+function encodeType(primaryType, types) {
+  if (!isStr(primaryType) || !isObj(types) || !Array.isArray(types[primaryType])) return null;
+  const found = {};
+  const stack = [primaryType];
+  while (stack.length > 0) {
+    const name = stack.pop();
+    const fields = types[name];
+    if (!Array.isArray(fields)) return null;
+    for (const f of fields) {
+      if (!isObj(f) || !isStr(f.type)) return null;
+      const base = baseType(f.type);
+      if (base !== primaryType && Array.isArray(types[base]) && !found[base]) {
+        found[base] = true;
+        stack.push(base);
+      }
+    }
+  }
+  const head = typeString(primaryType, types);
+  if (head === null) return null;
+  const referenced = Object.keys(found).sort();
+  let out = head;
+  for (const name of referenced) {
+    const piece = typeString(name, types);
+    if (piece === null) return null;
+    out += piece;
+  }
+  return out;
+}
+
+function walkStructure(structName, types, value, path, extras, missing, seen) {
+  if (!Array.isArray(types[structName])) return;
+  const guard = structName + '@' + path;
+  if (seen[guard]) return;
+  seen[guard] = true;
+  if (!isObj(value)) return;
+  const declared = {};
+  for (const f of types[structName]) {
+    if (!isObj(f) || !isStr(f.name)) continue;
+    declared[f.name] = f.type;
+  }
+  for (const key of Object.keys(value)) {
+    if (!Object.prototype.hasOwnProperty.call(declared, key)) extras.push(path + key);
+  }
+  for (const key of Object.keys(declared)) {
+    if (!Object.prototype.hasOwnProperty.call(value, key)) { missing.push(path + key); continue; }
+    const t = declared[key];
+    const base = baseType(t);
+    if (!Array.isArray(types[base])) continue;
+    const child = value[key];
+    if (t.indexOf('[') !== -1) {
+      if (!Array.isArray(child)) continue;
+      for (let i = 0; i < child.length; i++) {
+        walkStructure(base, types, child[i], path + key + '[' + i + '].', extras, missing, seen);
+      }
+    } else {
+      walkStructure(base, types, child, path + key + '.', extras, missing, seen);
+    }
+  }
+}
+
+function makeChecks() {
+  const rows = [];
+  return {
+    rows,
+    add(id, status, fieldPath, observed, policy, severity) {
+      rows.push({
+        id,
+        status,
+        severity: severity || 'policy',
+        field_path: fieldPath === undefined ? null : fieldPath,
+        observed: observed === undefined ? null : observed,
+        policy: policy === undefined ? null : policy,
+      });
+    },
+    gated(id, present, reason, fieldPath, evaluate, severity) {
+      if (!present) { this.add(id, 'NOT_EVALUATED', fieldPath, null, reason, severity); return; }
+      const r = evaluate();
+      this.add(id, r.flagged ? 'FLAGGED' : 'CLEAR', r.field_path === undefined ? fieldPath : r.field_path,
+        r.observed, r.policy, severity);
+    },
+  };
+}
+
+function classify(primaryType, types) {
+  const et = encodeType(primaryType, types);
+  if (et === null) {
+    return { label: 'UNRECOGNIZED', encode_type: null, witness_type: null, x402_witness: false, lookalike: false };
+  }
+  for (const row of CANONICAL_TYPES) {
+    if (et === row[0]) {
+      return { label: row[1], encode_type: et, witness_type: null, x402_witness: false, lookalike: false };
+    }
+  }
+  if (primaryType === 'PermitWitnessTransferFrom'
+    && et.indexOf(WITNESS_HEAD) === 0
+    && et.indexOf(TOKEN_PERMISSIONS_TYPE) !== -1) {
+    const witnessField = types[primaryType][types[primaryType].length - 1];
+    const witnessStruct = isObj(witnessField) ? baseType(witnessField.type) : null;
+    const witnessType = witnessStruct && Array.isArray(types[witnessStruct])
+      ? typeString(witnessStruct, types) : null;
+    return {
+      label: 'PERMIT2_PERMIT_WITNESS_TRANSFER_FROM',
+      encode_type: et,
+      witness_type: witnessType,
+      x402_witness: witnessType === X402_WITNESS_TYPE,
+      lookalike: false,
+    };
+  }
+  const lookalike = KNOWN_STRUCT_NAMES.indexOf(primaryType) !== -1;
+  return { label: 'UNRECOGNIZED', encode_type: et, witness_type: null, x402_witness: false, lookalike };
+}
+
+function extract(label, message, domain) {
+  const out = {
+    spender: null, payee: null, owner: null, token: null, amounts: [], deadline: null,
+    valid_after: null, expirations: [], dai_allowed: null, entry_count: null,
+  };
+  const m = isObj(message) ? message : {};
+  const domainToken = addr(domain && domain.verifyingContract);
+
+  if (label === 'ERC2612_PERMIT') {
+    out.owner = addr(m.owner);
+    out.spender = addr(m.spender);
+    out.token = domainToken;
+    const v = q(m.value);
+    if (v !== null) out.amounts.push({ path: 'message.value', value: v, token: domainToken, ceiling: MAX_UINT256 });
+    const d = q(m.deadline);
+    if (d !== null) out.deadline = { path: 'message.deadline', value: d, ceiling: MAX_UINT256 };
+  } else if (label === 'DAI_LEGACY_PERMIT') {
+    out.owner = addr(m.holder);
+    out.spender = addr(m.spender);
+    out.token = domainToken;
+    out.dai_allowed = m.allowed === true;
+    const e = q(m.expiry);
+    if (e !== null && e !== 0n) out.deadline = { path: 'message.expiry', value: e, ceiling: MAX_UINT256 };
+  } else if (PERMIT2_SIGNATURE_TRANSFER.indexOf(label) !== -1) {
+    out.spender = addr(m.spender);
+    const permitted = m.permitted;
+    if (Array.isArray(permitted)) {
+      out.entry_count = permitted.length;
+      for (let i = 0; i < permitted.length; i++) {
+        const e = isObj(permitted[i]) ? permitted[i] : {};
+        const v = q(e.amount);
+        if (v !== null) out.amounts.push({ path: 'message.permitted[' + i + '].amount', value: v, token: addr(e.token), ceiling: MAX_UINT256 });
+      }
+      if (permitted.length > 0 && isObj(permitted[0])) out.token = addr(permitted[0].token);
+    } else if (isObj(permitted)) {
+      out.entry_count = 1;
+      out.token = addr(permitted.token);
+      const v = q(permitted.amount);
+      if (v !== null) out.amounts.push({ path: 'message.permitted.amount', value: v, token: out.token, ceiling: MAX_UINT256 });
+    }
+    const d = q(m.deadline);
+    if (d !== null) out.deadline = { path: 'message.deadline', value: d, ceiling: MAX_UINT256 };
+    if (isObj(m.witness)) {
+      out.payee = addr(m.witness.to);
+      const va = q(m.witness.validAfter);
+      if (va !== null) out.valid_after = { path: 'message.witness.validAfter', value: va };
+    }
+  } else if (PERMIT2_ALLOWANCE_TRANSFER.indexOf(label) !== -1) {
+    out.spender = addr(m.spender);
+    const details = m.details;
+    const list = Array.isArray(details) ? details : (isObj(details) ? [details] : []);
+    out.entry_count = list.length;
+    const prefix = Array.isArray(details) ? 'message.details[' : 'message.details';
+    for (let i = 0; i < list.length; i++) {
+      const e = isObj(list[i]) ? list[i] : {};
+      const base = Array.isArray(details) ? prefix + i + ']' : prefix;
+      const t = addr(e.token);
+      const v = q(e.amount);
+      if (v !== null) out.amounts.push({ path: base + '.amount', value: v, token: t, ceiling: MAX_UINT160 });
+      const x = q(e.expiration);
+      if (x !== null) out.expirations.push({ path: base + '.expiration', value: x, ceiling: MAX_UINT48 });
+      if (i === 0) out.token = t;
+    }
+    const d = q(m.sigDeadline);
+    if (d !== null) out.deadline = { path: 'message.sigDeadline', value: d, ceiling: MAX_UINT256 };
+  } else if (label === 'EIP3009_TRANSFER_WITH_AUTHORIZATION' || label === 'EIP3009_RECEIVE_WITH_AUTHORIZATION') {
+    out.owner = addr(m.from);
+    out.payee = addr(m.to);
+    out.token = domainToken;
+    const v = q(m.value);
+    if (v !== null) out.amounts.push({ path: 'message.value', value: v, token: domainToken, ceiling: MAX_UINT256 });
+    const vb = q(m.validBefore);
+    if (vb !== null) out.deadline = { path: 'message.validBefore', value: vb, ceiling: MAX_UINT256 };
+    const va = q(m.validAfter);
+    if (va !== null) out.valid_after = { path: 'message.validAfter', value: va };
+  } else if (label === 'ERC2771_FORWARD_REQUEST') {
+    out.owner = addr(m.from);
+    out.payee = addr(m.to);
+    const v = q(m.value);
+    if (v !== null) out.amounts.push({ path: 'message.value', value: v, token: null, ceiling: MAX_UINT256 });
+    const d = q(m.deadline);
+    if (d !== null) out.deadline = { path: 'message.deadline', value: d, ceiling: MAX_UINT48 };
+  } else if (label === 'ERC4337_PACKED_USER_OPERATION') {
+    out.owner = addr(m.sender);
+  }
+  return out;
+}
+
+function signatureForm(sig) {
+  if (!isStr(sig)) return null;
+  const hex = stripHex(sig.trim());
+  if (!/^[0-9a-fA-F]*$/.test(hex) || hex.length === 0 || hex.length % 2 !== 0) {
+    return { length_class: 'not-hex', bytes: null, s: null, v: null, erc6492: false };
+  }
+  const bytes = hex.length / 2;
+  const erc6492 = hex.length >= 64 && hex.slice(hex.length - 64).toLowerCase() === MAGIC_6492;
+  if (erc6492) return { length_class: 'erc6492-wrapped', bytes, s: null, v: null, erc6492: true };
+  if (bytes === 65) {
+    const s = BigInt('0x' + hex.slice(64, 128));
+    const v = parseInt(hex.slice(128, 130), 16);
+    return { length_class: '65', bytes, s, v, erc6492: false };
+  }
+  if (bytes === 64) {
+    const yParityAndS = BigInt('0x' + hex.slice(64, 128));
+    return {
+      length_class: '64-eip2098', bytes, s: yParityAndS & S_MASK_255,
+      v: Number(yParityAndS >> 255n), erc6492: false,
+    };
+  }
+  return { length_class: 'other-non-ecdsa', bytes, s: null, v: null, erc6492: false };
+}
+
+function buildDisplay(label, cls, domain, message, ex, hints) {
+  const decimals = isObj(hints.token_decimals) ? hints.token_decimals : {};
+  const tickers = isObj(hints.token_ticker) ? hints.token_ticker : {};
+  const labels = isObj(hints.address_labels) ? hints.address_labels : {};
+  const rows = [];
+
+  function addressRow(path, value, lbl) {
+    if (!value) return;
+    const named = labels[value] || labels[lower(value)] || null;
+    rows.push({ path, label: lbl, format: 'addressName', value: named || value, params: { raw: value } });
+  }
+  function amountRow(a, lbl) {
+    const token = a.token;
+    const dec = token !== null && Object.prototype.hasOwnProperty.call(decimals, token) ? decimals[token] : null;
+    const tick = token !== null && Object.prototype.hasOwnProperty.call(tickers, token) ? tickers[token] : null;
+    rows.push({
+      path: a.path, label: lbl, format: 'tokenAmount', value: a.value.toString(),
+      params: { token, decimals: dec, ticker: tick, raw_base_units: true },
+    });
+  }
+
+  const chainId = q(domain && domain.chainId);
+  if (chainId !== null) {
+    rows.push({ path: 'domain.chainId', label: 'Chain', format: 'chainId', value: chainId.toString(), params: {} });
+  }
+  addressRow('domain.verifyingContract', addr(domain && domain.verifyingContract), 'Verifying contract');
+  addressRow('message.spender', ex.spender, 'Spender');
+  addressRow('message.to', ex.payee, 'Recipient');
+  for (const a of ex.amounts) amountRow(a, 'Amount');
+  if (ex.deadline !== null) {
+    rows.push({ path: ex.deadline.path, label: 'Expires', format: 'date', value: rfc3339(ex.deadline.value), params: { unix: ex.deadline.value.toString() } });
+  }
+  if (ex.valid_after !== null) {
+    rows.push({ path: ex.valid_after.path, label: 'Valid from', format: 'date', value: rfc3339(ex.valid_after.value), params: { unix: ex.valid_after.value.toString() } });
+  }
+  for (const x of ex.expirations) {
+    rows.push({ path: x.path, label: 'Allowance expiration', format: 'date', value: rfc3339(x.value), params: { unix: x.value.toString() } });
+  }
+  void label; void cls; void message;
+  return rows;
+}
+
+function rfc3339(seconds) {
+  if (seconds === null) return null;
+  if (seconds > 253402300799n) return null;
+  let days = Number(seconds / 86400n);
+  let rem = Number(seconds % 86400n);
+  const hh = Math.floor(rem / 3600); rem -= hh * 3600;
+  const mm = Math.floor(rem / 60);
+  const ss = rem - mm * 60;
+  let year = 1970;
+  for (;;) {
+    const len = isLeap(year) ? 366 : 365;
+    if (days < len) break;
+    days -= len;
+    year += 1;
+  }
+  const monthLens = [31, isLeap(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  let month = 0;
+  while (days >= monthLens[month]) { days -= monthLens[month]; month += 1; }
+  return pad(year, 4) + '-' + pad(month + 1, 2) + '-' + pad(days + 1, 2)
+    + 'T' + pad(hh, 2) + ':' + pad(mm, 2) + ':' + pad(ss, 2) + 'Z';
+}
+function isLeap(y) { return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; }
+function pad(n, w) { let s = String(n); while (s.length < w) s = '0' + s; return s; }
+
+function buildHandoffs(label, domain, message, sigParts) {
+  const handoffs = {};
+  const d = isObj(domain) ? domain : {};
+  const m = isObj(message) ? message : {};
+  const chainId = qs(d.chainId);
+  const verifying = addr(d.verifyingContract);
+
+  if (label === 'EIP3009_TRANSFER_WITH_AUTHORIZATION' || label === 'EIP3009_RECEIVE_WITH_AUTHORIZATION') {
+    handoffs.art_590 = {
+      name: isStr(d.name) ? d.name : null,
+      version: isStr(d.version) ? d.version : null,
+      chainId, verifyingContract: verifying,
+      from: addr(m.from), to: addr(m.to), value: qs(m.value),
+      validAfter: qs(m.validAfter), validBefore: qs(m.validBefore),
+      nonce: isStr(m.nonce) ? lower(m.nonce) : null,
+    };
+  }
+  if (label === 'ERC2612_PERMIT') {
+    handoffs.art_612 = {
+      name: isStr(d.name) ? d.name : null,
+      version: isStr(d.version) ? d.version : null,
+      chainId, verifyingContract: verifying,
+      owner: addr(m.owner), spender: addr(m.spender), value: qs(m.value),
+      nonce: qs(m.nonce), deadline: qs(m.deadline),
+      r: sigParts.r, s: sigParts.s, yParity: sigParts.yParity,
+    };
+  }
+  return handoffs;
+}
+
+function splitSignature(sig, form) {
+  const out = { r: null, s: null, yParity: null };
+  if (!isStr(sig) || form === null) return out;
+  const hex = stripHex(sig.trim());
+  if (form.length_class !== '65' && form.length_class !== '64-eip2098') return out;
+  out.r = '0x' + hex.slice(0, 64).toLowerCase();
+  out.s = '0x' + pad32(form.s);
+  if (form.length_class === '65') {
+    out.yParity = form.v === 27 || form.v === 28 ? form.v - 27 : (form.v === 0 || form.v === 1 ? form.v : null);
+  } else {
+    out.yParity = form.v;
+  }
+  return out;
+}
+function pad32(v) { let h = v.toString(16); while (h.length < 64) h = '0' + h; return h; }
+
+function lintTypedData(pp, policy, warnings) {
+  const td = isObj(pp.typed_data) ? pp.typed_data : {};
+  const domain = isObj(td.domain) ? td.domain : {};
+  const types = isObj(td.types) ? td.types : {};
+  const message = isObj(td.message) ? td.message : {};
+  const primaryType = isStr(td.primaryType) ? td.primaryType : null;
+  const C = makeChecks();
+
+  const cls = classify(primaryType, types);
+  const label = cls.label;
+  const ex = extract(label, message, domain);
+
+  C.add('BLIND_SIGNATURE', 'CLEAR', 'mode', 'typed_data', 'a structured payload was supplied', 'structure');
+
+  if (primaryType === null || !Array.isArray(types[primaryType])) {
+    warnings.push('typed_data.primaryType is absent or has no matching entry in typed_data.types; structure checks could not run');
+    C.add('MESSAGE_FIELD_NOT_IN_TYPES', 'NOT_EVALUATED', 'typed_data.types', null, 'primaryType has no struct definition', 'structure');
+    C.add('MESSAGE_FIELD_MISSING', 'NOT_EVALUATED', 'typed_data.types', null, 'primaryType has no struct definition', 'structure');
+  } else {
+    const extras = [];
+    const missing = [];
+    walkStructure(primaryType, types, message, 'message.', extras, missing, {});
+    C.add('MESSAGE_FIELD_NOT_IN_TYPES', extras.length > 0 ? 'FLAGGED' : 'CLEAR', 'typed_data.message',
+      extras, 'every message member must be declared in types', 'structure');
+    C.add('MESSAGE_FIELD_MISSING', missing.length > 0 ? 'FLAGGED' : 'CLEAR', 'typed_data.message',
+      missing, 'every declared member must be present in message', 'structure');
+  }
+
+  C.add('LOOKALIKE_TYPE', cls.lookalike ? 'FLAGGED' : 'CLEAR', 'typed_data.primaryType',
+    cls.lookalike ? { primary_type: primaryType, encode_type: cls.encode_type } : primaryType,
+    'a known struct name must carry its canonical encodeType', 'structure');
+  C.add('UNRECOGNIZED_TYPE', label === 'UNRECOGNIZED' ? 'FLAGGED' : 'CLEAR', 'typed_data.primaryType',
+    cls.encode_type, 'classification by encodeType string equality', 'informational');
+
+  const domainChain = q(domain.chainId);
+  C.gated('CHAIN_MISMATCH_ACTIVE',
+    policy.active_chain_id !== undefined && policy.active_chain_id !== null && domainChain !== null,
+    'active_chain_id was not declared, or the payload carries no domain.chainId', 'domain.chainId',
+    () => {
+      const active = q(policy.active_chain_id);
+      return { flagged: active === null || active !== domainChain, observed: domainChain === null ? null : domainChain.toString(), policy: active === null ? null : active.toString() };
+    });
+  C.gated('CHAIN_NOT_ALLOWED', Array.isArray(policy.allowed_chain_ids) && domainChain !== null,
+    'allowed_chain_ids was not declared, or the payload carries no domain.chainId', 'domain.chainId',
+    () => {
+      const allowed = policy.allowed_chain_ids.map((x) => (q(x) === null ? null : q(x).toString()));
+      return { flagged: allowed.indexOf(domainChain.toString()) === -1, observed: domainChain.toString(), policy: allowed };
+    });
+  const verifying = addr(domain.verifyingContract);
+  C.gated('VERIFYING_CONTRACT_NOT_ALLOWED', Array.isArray(policy.allowed_verifying_contracts) && verifying !== null,
+    'allowed_verifying_contracts was not declared, or the payload carries no domain.verifyingContract',
+    'domain.verifyingContract',
+    () => ({ flagged: inList(policy.allowed_verifying_contracts, verifying) !== true, observed: verifying, policy: policy.allowed_verifying_contracts.map(lower) }));
+
+  const isPermit2 = PERMIT2_SIGNATURE_TRANSFER.indexOf(label) !== -1 || PERMIT2_ALLOWANCE_TRANSFER.indexOf(label) !== -1;
+  C.gated('PERMIT2_DOMAIN_SHAPE', isPermit2,
+    'the payload is not classified as one of the recognised allowance-router types', 'domain',
+    () => {
+      const declared = Array.isArray(types.EIP712Domain)
+        ? types.EIP712Domain.map((f) => (isObj(f) && isStr(f.name) ? f.name : '?'))
+        : Object.keys(domain);
+      const shapeOk = declared.length === 3
+        && declared.indexOf('name') !== -1 && declared.indexOf('chainId') !== -1
+        && declared.indexOf('verifyingContract') !== -1;
+      const nameOk = domain.name === 'Permit2';
+      const addrOk = verifying === CANONICAL_PERMIT2;
+      return {
+        flagged: !(shapeOk && nameOk && addrOk),
+        observed: { domain_fields: declared, name: isStr(domain.name) ? domain.name : null, verifying_contract: verifying },
+        policy: { domain_fields: ['name', 'chainId', 'verifyingContract'], name: 'Permit2', verifying_contract: CANONICAL_PERMIT2 },
+      };
+    });
+
+  const unlimited = [];
+  for (const a of ex.amounts) if (a.value === a.ceiling) unlimited.push(a.path);
+  const daiUnlimited = ex.dai_allowed === true;
+  C.gated('UNLIMITED_AMOUNT', ex.amounts.length > 0 || ex.dai_allowed !== null,
+    'the classified payload carries no amount member', ex.amounts.length > 0 ? ex.amounts[0].path : 'message.allowed',
+    () => ({
+      flagged: unlimited.length > 0 || daiUnlimited,
+      observed: daiUnlimited ? { allowed: true, effect: 'grants the maximum allowance' } : unlimited,
+      policy: 'an amount at its type ceiling is an unlimited allowance',
+    }));
+
+  C.gated('AMOUNT_ABOVE_POLICY', isObj(policy.max_amount_by_token) && ex.amounts.length > 0,
+    'max_amount_by_token was not declared, or the classified payload carries no amount member',
+    ex.amounts.length > 0 ? ex.amounts[0].path : 'message',
+    () => {
+      const over = [];
+      const compared = [];
+      for (const a of ex.amounts) {
+        if (a.token === null) continue;
+        const capRaw = Object.prototype.hasOwnProperty.call(policy.max_amount_by_token, a.token)
+          ? policy.max_amount_by_token[a.token] : null;
+        const cap = q(capRaw);
+        if (cap === null) continue;
+        compared.push({ path: a.path, token: a.token, amount: a.value.toString(), max: cap.toString() });
+        if (a.value > cap) over.push({ path: a.path, token: a.token, amount: a.value.toString(), max: cap.toString() });
+      }
+      return {
+        flagged: over.length > 0,
+        observed: { over_policy: over, compared, entry_count: ex.entry_count },
+        policy: policy.max_amount_by_token,
+      };
+    });
+
+  const noExpiryPaths = [];
+  const blockOnly = [];
+  if (ex.deadline !== null && ex.deadline.value === ex.deadline.ceiling) noExpiryPaths.push(ex.deadline.path);
+  for (const x of ex.expirations) {
+    if (x.value === x.ceiling) noExpiryPaths.push(x.path);
+    if (x.value === 0n) blockOnly.push(x.path);
+  }
+  const daiNoExpiry = label === 'DAI_LEGACY_PERMIT' && q(message.expiry) === 0n;
+  if (daiNoExpiry) noExpiryPaths.push('message.expiry');
+  C.gated('NO_EXPIRY', ex.deadline !== null || ex.expirations.length > 0 || label === 'DAI_LEGACY_PERMIT',
+    'the classified payload carries no deadline or expiration member', 'message',
+    () => ({
+      flagged: noExpiryPaths.length > 0,
+      observed: { no_expiry: noExpiryPaths, expires_this_block: blockOnly },
+      policy: 'a ceiling deadline, or a zero expiry on the legacy permit struct, never expires',
+    }));
+
+  const now = q(policy.now_unix);
+  C.gated('VALIDITY_BEYOND_POLICY',
+    policy.max_validity_seconds !== undefined && policy.max_validity_seconds !== null && now !== null && ex.deadline !== null,
+    'max_validity_seconds, now_unix, or a deadline member was not present', ex.deadline === null ? 'message' : ex.deadline.path,
+    () => {
+      const maxWindow = q(policy.max_validity_seconds);
+      if (maxWindow === null) return { flagged: false, observed: null, policy: null };
+      const window = ex.deadline.value > now ? ex.deadline.value - now : 0n;
+      return { flagged: window > maxWindow, observed: { seconds_until_deadline: window.toString() }, policy: maxWindow.toString() };
+    });
+
+  C.gated('EXPIRED', now !== null && ex.deadline !== null,
+    'now_unix or a deadline member was not present', ex.deadline === null ? 'message' : ex.deadline.path,
+    () => ({ flagged: ex.deadline.value < now, observed: ex.deadline.value.toString(), policy: now.toString() }), 'informational');
+  C.gated('NOT_YET_VALID', now !== null && ex.valid_after !== null,
+    'now_unix or a start-of-window member was not present', ex.valid_after === null ? 'message' : ex.valid_after.path,
+    () => ({ flagged: ex.valid_after.value > now, observed: ex.valid_after.value.toString(), policy: now.toString() }), 'informational');
+
+  C.gated('SPENDER_NOT_ALLOWLISTED', Array.isArray(policy.spender_allowlist) && ex.spender !== null,
+    'spender_allowlist was not declared, or the classified payload carries no spender', 'message.spender',
+    () => ({ flagged: inList(policy.spender_allowlist, ex.spender) !== true, observed: ex.spender, policy: policy.spender_allowlist.map(lower) }));
+  C.gated('PAYEE_NOT_ALLOWLISTED', Array.isArray(policy.payee_allowlist) && ex.payee !== null,
+    'payee_allowlist was not declared, or the classified payload carries no payee', 'message',
+    () => ({ flagged: inList(policy.payee_allowlist, ex.payee) !== true, observed: ex.payee, policy: policy.payee_allowlist.map(lower) }));
+  C.gated('SPENDER_NOT_DECLARED_CONTRACT', Array.isArray(policy.contract_addresses) && ex.spender !== null,
+    'contract_addresses was not declared, or the classified payload carries no spender', 'message.spender',
+    () => ({ flagged: inList(policy.contract_addresses, ex.spender) !== true, observed: ex.spender, policy: 'the spender must appear in the caller-declared set of known contract addresses' }));
+  C.gated('EIP3009_TRANSFER_TO_CONTRACT',
+    Array.isArray(policy.contract_addresses) && label === 'EIP3009_TRANSFER_WITH_AUTHORIZATION' && ex.payee !== null,
+    'contract_addresses was not declared, or the payload is not the transfer-form authorization', 'message.to',
+    () => ({ flagged: inList(policy.contract_addresses, ex.payee) === true, observed: ex.payee, policy: 'a declared contract payee should receive the receive-form authorization instead' }));
+
+  const form = signatureForm(pp.signature);
+  const sigParts = splitSignature(pp.signature, form);
+  C.gated('HIGH_S', form !== null && form.s !== null, 'no signature was supplied, or it carries no recoverable s', 'signature',
+    () => ({ flagged: form.s > SECP256K1N_HALF, observed: '0x' + pad32(form.s), policy: 'the low-s half order' }));
+  C.gated('V_FORM_RAW_YPARITY', form !== null && form.length_class === '65',
+    'no 65-byte signature was supplied', 'signature',
+    () => ({ flagged: form.v === 0 || form.v === 1, observed: form.v, policy: 'a 65-byte signature carries v of 27 or 28 on the paths that recover it' }));
+  C.gated('NON_ECDSA_LENGTH', form !== null, 'no signature was supplied', 'signature',
+    () => ({ flagged: form.length_class === 'other-non-ecdsa' || form.length_class === 'not-hex', observed: { length_class: form.length_class, bytes: form.bytes }, policy: '65-byte, 64-byte compact, or a wrapped smart-wallet form' }));
+  C.gated('ERC6492_WRAPPED', form !== null, 'no signature was supplied', 'signature',
+    () => ({ flagged: form.erc6492, observed: form.length_class, policy: 'the wrapper suffix marks a counterfactual smart-wallet signature, where key recovery does not apply' }), 'informational');
+
+  const x402 = isObj(policy.expected_x402) ? policy.expected_x402 : null;
+  const method = EIP3009_TYPES.indexOf(label) !== -1 ? 'eip3009' : (isPermit2 ? 'permit2' : 'not_detected');
+  C.gated('X402_METHOD_NOT_OFFLINE_CHECKABLE', x402 !== null, 'expected_x402 was not declared', 'typed_data.primaryType',
+    () => ({ flagged: method === 'not_detected', observed: method, policy: 'only the authorization-signature methods can be checked without a chain read' }));
+  C.gated('X402_AMOUNT_MISMATCH', x402 !== null && isStr(x402.scheme) && q(x402.amount) !== null && ex.amounts.length > 0,
+    'expected_x402.scheme, expected_x402.amount, or an amount member was not present',
+    ex.amounts.length > 0 ? ex.amounts[0].path : 'message',
+    () => {
+      const want = q(x402.amount);
+      const got = ex.amounts[0].value;
+      if (x402.scheme === 'exact') return { flagged: got !== want, observed: got.toString(), policy: { scheme: 'exact', amount: want.toString(), rule: 'the signed amount equals the required amount' } };
+      if (x402.scheme === 'upto') return { flagged: got < want, observed: got.toString(), policy: { scheme: 'upto', amount: want.toString(), rule: 'the signed amount is a ceiling and is at least the required amount' } };
+      return { flagged: true, observed: { scheme: x402.scheme }, policy: 'scheme must be one of exact or upto' };
+    });
+  C.gated('X402_PAYTO_MISMATCH', x402 !== null && addr(x402.payTo) !== null && ex.payee !== null,
+    'expected_x402.payTo was not declared, or the classified payload carries no payee', 'message',
+    () => ({ flagged: ex.payee !== addr(x402.payTo), observed: ex.payee, policy: addr(x402.payTo) }));
+  C.gated('X402_ASSET_MISMATCH', x402 !== null && addr(x402.asset) !== null && ex.token !== null,
+    'expected_x402.asset was not declared, or the classified payload carries no token', 'message',
+    () => ({ flagged: ex.token !== addr(x402.asset), observed: ex.token, policy: addr(x402.asset) }));
+  C.gated('X402_NETWORK_MISMATCH',
+    x402 !== null && isStr(x402.network) && isObj(policy.network_chain_ids) && domainChain !== null,
+    'expected_x402.network, the caller-declared network_chain_ids map, or domain.chainId was not present',
+    'domain.chainId',
+    () => {
+      const want = q(policy.network_chain_ids[x402.network]);
+      if (want === null) return { flagged: true, observed: domainChain.toString(), policy: { network: x402.network, chain_id: null, rule: 'the declared map carries no chain id for this network name' } };
+      return { flagged: want !== domainChain, observed: domainChain.toString(), policy: { network: x402.network, chain_id: want.toString() } };
+    });
+
+  const intent = isObj(policy.intent) ? policy.intent : null;
+  C.gated('PAYLOAD_DIVERGES_FROM_INTENT', intent !== null, 'intent was not declared', 'message',
+    () => {
+      const diverging = [];
+      const compared = [];
+      if (addr(intent.payee) !== null && ex.payee !== null) {
+        compared.push('payee');
+        if (ex.payee !== addr(intent.payee)) diverging.push({ field: 'payee', observed: ex.payee, intent: addr(intent.payee) });
+      }
+      if (addr(intent.asset) !== null && ex.token !== null) {
+        compared.push('asset');
+        if (ex.token !== addr(intent.asset)) diverging.push({ field: 'asset', observed: ex.token, intent: addr(intent.asset) });
+      }
+      if (q(intent.max_amount) !== null && ex.amounts.length > 0) {
+        compared.push('max_amount');
+        const cap = q(intent.max_amount);
+        for (const a of ex.amounts) {
+          if (a.value > cap) diverging.push({ field: 'max_amount', observed: a.value.toString(), intent: cap.toString(), path: a.path });
+        }
+      }
+      if (q(intent.chain_id) !== null && domainChain !== null) {
+        compared.push('chain_id');
+        if (q(intent.chain_id) !== domainChain) diverging.push({ field: 'chain_id', observed: domainChain.toString(), intent: q(intent.chain_id).toString() });
+      }
+      return { flagged: diverging.length > 0, observed: { diverging, compared }, policy: 'the payload must carry the values the request decided on' };
+    });
+
+  const desc = isObj(policy.erc7730_descriptor) ? policy.erc7730_descriptor : null;
+  C.gated('ERC7730_DESCRIPTOR_MISMATCH', desc !== null, 'erc7730_descriptor was not declared', 'domain',
+    () => {
+      const ctx = isObj(desc.context) ? desc.context : {};
+      const e712 = isObj(ctx.eip712) ? ctx.eip712 : {};
+      const bound = isObj(e712.domain) ? e712.domain : {};
+      const diverging = [];
+      for (const key of Object.keys(bound)) {
+        const want = bound[key];
+        const got = domain[key];
+        const same = (key === 'verifyingContract') ? (addr(want) !== null && addr(want) === addr(got))
+          : (key === 'chainId') ? (q(want) !== null && q(got) !== null && q(want) === q(got))
+            : String(want) === String(got);
+        if (!same) diverging.push({ key, descriptor: want === undefined ? null : want, payload: got === undefined ? null : got });
+      }
+      const deployments = Array.isArray(e712.deployments) ? e712.deployments : null;
+      if (deployments !== null) {
+        let matched = false;
+        for (const dep of deployments) {
+          if (!isObj(dep)) continue;
+          if (q(dep.chainId) !== null && domainChain !== null && q(dep.chainId) === domainChain
+            && addr(dep.address) !== null && addr(dep.address) === verifying) { matched = true; break; }
+        }
+        if (!matched) diverging.push({ key: 'deployments', descriptor: deployments, payload: { chainId: domainChain === null ? null : domainChain.toString(), verifyingContract: verifying } });
+      }
+      return {
+        flagged: diverging.length > 0,
+        observed: diverging.length > 0 ? 'DESCRIPTOR_MISMATCH' : 'DESCRIPTOR_BINDS',
+        policy: { diverging, bound_keys: Object.keys(bound) },
+      };
+    });
+
+  for (const id of ['CROSS_CHAIN_AUTHORIZATION', 'DELEGATE_NOT_ALLOWLISTED', 'DELEGATION_CLEAR', 'EIP2_HIGH_S', 'Y_PARITY_OUT_OF_RANGE', 'NONCE_OUT_OF_RANGE']) {
+    C.add(id, 'NOT_EVALUATED', 'mode', null, 'these checks read a delegation tuple; this payload is structured data', 'eip7702');
+  }
+
+  return {
+    checks: C.rows,
+    classification: {
+      standard: label,
+      primary_type: primaryType,
+      encode_type: cls.encode_type,
+      witness_type: cls.witness_type,
+      witness_is_named_payment_witness: cls.x402_witness,
+      lookalike: cls.lookalike,
+      entry_count: ex.entry_count,
+      payment_method: method,
+    },
+    display: buildDisplay(label, cls, domain, message, ex, isObj(pp.display_hints) ? pp.display_hints : {}),
+    handoffs: buildHandoffs(label, domain, message, sigParts),
+    signature_form: form === null ? null : { length_class: form.length_class, bytes: form.bytes, v: form.v },
+  };
+}
+
+function lintTuple(pp, policy, warnings) {
+  const t = isObj(pp.tuple) ? pp.tuple : {};
+  const C = makeChecks();
+  const chainId = q(t.chain_id);
+  const delegate = addr(t.address);
+  const nonce = q(t.nonce);
+  const sig = isObj(pp.signature) ? pp.signature : null;
+
+  if (chainId === null) warnings.push('tuple.chain_id is absent or not a non-negative integer; the cross-chain check could not run');
+  if (delegate === null) warnings.push('tuple.address is absent or not a 20-byte hex address; the delegate checks could not run');
+  if (nonce === null) warnings.push('tuple.nonce is absent or not a non-negative integer; the nonce-range check could not run');
+
+  C.add('BLIND_SIGNATURE', 'CLEAR', 'mode', 'eip7702_tuple', 'a structured tuple was supplied', 'structure');
+
+  C.gated('CROSS_CHAIN_AUTHORIZATION', chainId !== null, 'tuple.chain_id was not supplied', 'tuple.chain_id',
+    () => ({ flagged: chainId === 0n, observed: chainId.toString(), policy: 'a zero chain id authorizes the delegation on every chain' }));
+  C.gated('DELEGATION_CLEAR', delegate !== null, 'tuple.address was not supplied', 'tuple.address',
+    () => ({ flagged: delegate === ZERO_ADDRESS, observed: delegate, policy: 'the zero address clears the account code rather than naming a delegate' }), 'informational');
+  C.gated('DELEGATE_NOT_ALLOWLISTED',
+    Array.isArray(policy.delegate_allowlist) && delegate !== null && delegate !== ZERO_ADDRESS,
+    'delegate_allowlist was not declared, or the tuple clears the delegation instead of naming one', 'tuple.address',
+    () => ({ flagged: inList(policy.delegate_allowlist, delegate) !== true, observed: delegate, policy: policy.delegate_allowlist.map(lower) }));
+  C.gated('NONCE_OUT_OF_RANGE', nonce !== null, 'tuple.nonce was not supplied', 'tuple.nonce',
+    () => ({ flagged: nonce >= NONCE_CEILING_7702, observed: nonce.toString(), policy: NONCE_CEILING_7702.toString() }));
+
+  const s = sig === null ? null : q(sig.s);
+  const yParity = sig === null || sig.y_parity === undefined || sig.y_parity === null ? null : q(sig.y_parity);
+  C.gated('EIP2_HIGH_S', s !== null, 'signature.s was not supplied', 'signature.s',
+    () => ({ flagged: s > SECP256K1N_HALF, observed: '0x' + pad32(s), policy: 'the low-s half order; a tuple above it is skipped by clients' }));
+  C.gated('Y_PARITY_OUT_OF_RANGE', yParity !== null, 'signature.y_parity was not supplied', 'signature.y_parity',
+    () => ({ flagged: yParity !== 0n && yParity !== 1n, observed: yParity.toString(), policy: '0 or 1' }));
+
+  for (const id of ['MESSAGE_FIELD_NOT_IN_TYPES', 'MESSAGE_FIELD_MISSING', 'LOOKALIKE_TYPE', 'UNRECOGNIZED_TYPE',
+    'CHAIN_MISMATCH_ACTIVE', 'CHAIN_NOT_ALLOWED', 'VERIFYING_CONTRACT_NOT_ALLOWED', 'PERMIT2_DOMAIN_SHAPE',
+    'UNLIMITED_AMOUNT', 'AMOUNT_ABOVE_POLICY', 'NO_EXPIRY', 'VALIDITY_BEYOND_POLICY', 'EXPIRED', 'NOT_YET_VALID',
+    'SPENDER_NOT_ALLOWLISTED', 'PAYEE_NOT_ALLOWLISTED', 'SPENDER_NOT_DECLARED_CONTRACT', 'EIP3009_TRANSFER_TO_CONTRACT',
+    'HIGH_S', 'V_FORM_RAW_YPARITY', 'NON_ECDSA_LENGTH', 'ERC6492_WRAPPED',
+    'X402_METHOD_NOT_OFFLINE_CHECKABLE', 'X402_AMOUNT_MISMATCH', 'X402_PAYTO_MISMATCH', 'X402_ASSET_MISMATCH',
+    'X402_NETWORK_MISMATCH', 'PAYLOAD_DIVERGES_FROM_INTENT', 'ERC7730_DESCRIPTOR_MISMATCH']) {
+    C.add(id, 'NOT_EVALUATED', 'mode', null, 'these checks read structured data; this payload is a delegation tuple', 'structure');
+  }
+
+  const display = [];
+  if (chainId !== null) display.push({ path: 'tuple.chain_id', label: 'Chain', format: 'chainId', value: chainId.toString(), params: {} });
+  if (delegate !== null) display.push({ path: 'tuple.address', label: 'Delegate', format: 'addressName', value: delegate, params: { raw: delegate } });
+
+  const handoffs = {};
+  handoffs.art_614 = {
+    chainId: chainId === null ? null : chainId.toString(),
+    address: delegate,
+    nonce: nonce === null ? null : nonce.toString(),
+    r: sig !== null && isStr(sig.r) ? lower(sig.r) : null,
+    s: sig !== null && isStr(sig.s) ? lower(sig.s) : null,
+    yParity: yParity === null ? null : Number(yParity),
+  };
+
+  return {
+    checks: C.rows,
+    classification: {
+      standard: 'EIP7702_AUTHORIZATION_TUPLE', primary_type: null, encode_type: null, witness_type: null,
+      witness_is_named_payment_witness: false, lookalike: false, entry_count: null, payment_method: 'not_detected',
+    },
+    display,
+    handoffs,
+    signature_form: null,
+  };
+}
+
+function lintRawHash(pp, warnings) {
+  const C = makeChecks();
+  const raw = isStr(pp.raw_hash) ? pp.raw_hash.trim() : null;
+  const wellFormed = raw !== null && /^0x[0-9a-fA-F]{64}$/.test(raw);
+  if (raw !== null && !wellFormed) warnings.push('raw_hash is not a 32-byte hex value; it is echoed as supplied');
+  if (raw === null) warnings.push('raw_hash was not supplied; the payload is still reported as a blind signing request because the declared mode says so');
+
+  C.add('BLIND_SIGNATURE', 'FLAGGED', 'raw_hash', wellFormed ? lower(raw) : raw,
+    'a bare hash carries no readable structure, so nothing about what is being authorized can be checked', 'structure');
+
+  for (const id of ['MESSAGE_FIELD_NOT_IN_TYPES', 'MESSAGE_FIELD_MISSING', 'LOOKALIKE_TYPE', 'UNRECOGNIZED_TYPE',
+    'CHAIN_MISMATCH_ACTIVE', 'CHAIN_NOT_ALLOWED', 'VERIFYING_CONTRACT_NOT_ALLOWED', 'PERMIT2_DOMAIN_SHAPE',
+    'UNLIMITED_AMOUNT', 'AMOUNT_ABOVE_POLICY', 'NO_EXPIRY', 'VALIDITY_BEYOND_POLICY', 'EXPIRED', 'NOT_YET_VALID',
+    'SPENDER_NOT_ALLOWLISTED', 'PAYEE_NOT_ALLOWLISTED', 'SPENDER_NOT_DECLARED_CONTRACT', 'EIP3009_TRANSFER_TO_CONTRACT',
+    'CROSS_CHAIN_AUTHORIZATION', 'DELEGATE_NOT_ALLOWLISTED', 'DELEGATION_CLEAR', 'EIP2_HIGH_S',
+    'Y_PARITY_OUT_OF_RANGE', 'NONCE_OUT_OF_RANGE', 'HIGH_S', 'V_FORM_RAW_YPARITY', 'NON_ECDSA_LENGTH',
+    'ERC6492_WRAPPED', 'X402_METHOD_NOT_OFFLINE_CHECKABLE', 'X402_AMOUNT_MISMATCH', 'X402_PAYTO_MISMATCH',
+    'X402_ASSET_MISMATCH', 'X402_NETWORK_MISMATCH', 'PAYLOAD_DIVERGES_FROM_INTENT', 'ERC7730_DESCRIPTOR_MISMATCH']) {
+    C.add(id, 'NOT_EVALUATED', 'raw_hash', null, 'a bare hash exposes no field to read', 'structure');
+  }
+
+  return {
+    checks: C.rows,
+    classification: {
+      standard: 'BLIND_HASH', primary_type: null, encode_type: null, witness_type: null,
+      witness_is_named_payment_witness: false, lookalike: false, entry_count: null, payment_method: 'not_detected',
+    },
+    display: [],
+    handoffs: {},
+    signature_form: null,
+  };
+}
+
+function compute(pp) {
+  pp = (pp !== null && typeof pp === 'object') ? pp : {};
+  const warnings = [];
+  const policy = isObj(pp.policy) ? pp.policy : {};
+
+  const modeRaw = isStr(pp.mode) ? pp.mode.trim() : null;
+  const mode = modeRaw !== null && MODES.indexOf(modeRaw) !== -1 ? modeRaw : null;
+
+  if (mode === null) {
+    const compliance_flags = [];
+    compliance_flags.push('MODE_NOT_DECLARED');
+    return {
+      output_payload: {
+        mode: null,
+        classification: {
+          standard: 'NOT_CLASSIFIED', primary_type: null, encode_type: null, witness_type: null,
+          witness_is_named_payment_witness: false, lookalike: false, entry_count: null, payment_method: 'not_detected',
+        },
+        checks: [], not_evaluated: [], evaluated_count: 0, flagged_count: 0,
+        policy_conformance: 'INDETERMINATE', display: [], handoffs: {}, signature_form: null,
+        warnings: ['mode is required and must be one of ' + MODES.join(', ') + '; nothing was read'],
+        scope_note: SCOPE_NOTE,
+      },
+      compliance_flags,
+    };
+  }
+
+  let r;
+  if (mode === 'typed_data') r = lintTypedData(pp, policy, warnings);
+  else if (mode === 'eip7702_tuple') r = lintTuple(pp, policy, warnings);
+  else r = lintRawHash(pp, warnings);
+
+  const checks = r.checks.slice().sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const notEvaluated = [];
+  let flagged = 0;
+  let evaluated = 0;
+  const flaggedIds = [];
+  for (const c of checks) {
+    if (c.status === 'NOT_EVALUATED') { notEvaluated.push(c.id); continue; }
+    evaluated += 1;
+    if (c.status === 'FLAGGED') { flagged += 1; flaggedIds.push(c.id); }
+  }
+
+  let conformance;
+  if (evaluated === 0) conformance = 'INDETERMINATE';
+  else if (flagged > 0) conformance = 'DEVIATES';
+  else conformance = 'CONFORMS';
+
+  if (notEvaluated.length > 0) {
+    warnings.push(notEvaluated.length + ' check(s) could not be evaluated because a declared input was absent; they are listed in not_evaluated and are never counted as CLEAR');
+  }
+
+  const compliance_flags = [];
+  if (conformance === 'DEVIATES') compliance_flags.push('PAYLOAD_DEVIATES_FROM_DECLARED_POLICY');
+  if (conformance === 'CONFORMS') compliance_flags.push('PAYLOAD_CONFORMS_TO_DECLARED_POLICY');
+  if (conformance === 'INDETERMINATE') compliance_flags.push('PAYLOAD_LINT_INDETERMINATE');
+  for (const id of flaggedIds) compliance_flags.push('FLAGGED_' + id);
+
+  return {
+    output_payload: {
+      mode,
+      classification: r.classification,
+      checks,
+      not_evaluated: notEvaluated,
+      evaluated_count: evaluated,
+      flagged_count: flagged,
+      policy_conformance: conformance,
+      display: r.display,
+      handoffs: r.handoffs,
+      signature_form: r.signature_form,
+      warnings,
+      scope_note: SCOPE_NOTE,
+    },
+    compliance_flags,
+  };
+}
+
+// ---------- hashing (browser-side mirror of chaingraph/kernels/_hash.mjs) ----------
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+async function sha256Hex(bytes){const dig=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);return sha256Hex(buf);}
+
+// ---------- samples ----------
+const SAMPLES={
+permit:'{\n  "mode": "typed_data",\n  "typed_data": {\n    "domain": { "name": "USD Coin", "version": "2", "chainId": 1, "verifyingContract": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" },\n    "types": {\n      "EIP712Domain": [\n        { "name": "name", "type": "string" },\n        { "name": "version", "type": "string" },\n        { "name": "chainId", "type": "uint256" },\n        { "name": "verifyingContract", "type": "address" }\n      ],\n      "Permit": [\n        { "name": "owner", "type": "address" },\n        { "name": "spender", "type": "address" },\n        { "name": "value", "type": "uint256" },\n        { "name": "nonce", "type": "uint256" },\n        { "name": "deadline", "type": "uint256" }\n      ]\n    },\n    "primaryType": "Permit",\n    "message": {\n      "owner": "0xe05fcc23807536bee418f142d19fa0d21bb0cff7",\n      "spender": "0x1111111111111111111111111111111111111111",\n      "value": "1000000",\n      "nonce": "0",\n      "deadline": "2000000000"\n    }\n  }\n}',
+lookalike:'{\n  "mode": "typed_data",\n  "typed_data": {\n    "domain": { "name": "USD Coin", "version": "2", "chainId": 1, "verifyingContract": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" },\n    "types": {\n      "EIP712Domain": [\n        { "name": "name", "type": "string" },\n        { "name": "version", "type": "string" },\n        { "name": "chainId", "type": "uint256" },\n        { "name": "verifyingContract", "type": "address" }\n      ],\n      "Permit": [\n        { "name": "spender", "type": "address" },\n        { "name": "owner", "type": "address" },\n        { "name": "value", "type": "uint256" },\n        { "name": "nonce", "type": "uint256" },\n        { "name": "deadline", "type": "uint256" }\n      ]\n    },\n    "primaryType": "Permit",\n    "message": {\n      "owner": "0xe05fcc23807536bee418f142d19fa0d21bb0cff7",\n      "spender": "0x1111111111111111111111111111111111111111",\n      "value": "1000000",\n      "nonce": "0",\n      "deadline": "2000000000"\n    }\n  }\n}',
+permit2:'{\n  "mode": "typed_data",\n  "typed_data": {\n    "domain": { "name": "Permit2", "chainId": 8453, "verifyingContract": "0x000000000022D473030F116dDEE9F6B43aC78BA3" },\n    "types": {\n      "EIP712Domain": [\n        { "name": "name", "type": "string" },\n        { "name": "chainId", "type": "uint256" },\n        { "name": "verifyingContract", "type": "address" }\n      ],\n      "PermitWitnessTransferFrom": [\n        { "name": "permitted", "type": "TokenPermissions" },\n        { "name": "spender", "type": "address" },\n        { "name": "nonce", "type": "uint256" },\n        { "name": "deadline", "type": "uint256" },\n        { "name": "witness", "type": "Witness" }\n      ],\n      "TokenPermissions": [\n        { "name": "token", "type": "address" },\n        { "name": "amount", "type": "uint256" }\n      ],\n      "Witness": [\n        { "name": "to", "type": "address" },\n        { "name": "validAfter", "type": "uint256" }\n      ]\n    },\n    "primaryType": "PermitWitnessTransferFrom",\n    "message": {\n      "permitted": { "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "amount": "1000000" },\n      "spender": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",\n      "nonce": "9",\n      "deadline": "2000000000",\n      "witness": { "to": "0x2222222222222222222222222222222222222222", "validAfter": "1700000000" }\n    }\n  },\n  "policy": {\n    "expected_x402": { "scheme": "exact", "asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "payTo": "0x2222222222222222222222222222222222222222", "amount": "500000" }\n  }\n}',
+tuple:'{\n  "mode": "eip7702_tuple",\n  "tuple": { "chain_id": 0, "address": "0x3333333333333333333333333333333333333333", "nonce": "3" },\n  "signature": { "r": "0x1111111111111111111111111111111111111111111111111111111111111111", "s": "0x0000000000000000000000000000000000000000000000000000000000000011", "y_parity": 0 },\n  "policy": { "delegate_allowlist": ["0x3333333333333333333333333333333333333333"] }\n}',
+blind:'{\n  "mode": "raw_hash",\n  "raw_hash": "0xdededededededededededededededededededededededededededededededede"\n}'
+};
+function loadSample(kind){document.getElementById('ppInput').value=SAMPLES[kind]||SAMPLES.permit;}
+loadSample('permit');
+
+// ---------- run + render ----------
+let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
+async function run(){
+  let pp;
+  try{pp=JSON.parse(document.getElementById('ppInput').value);}catch(e){alert('policy_parameters must be well-formed JSON: '+e.message);return;}
+  const{output_payload,compliance_flags}=compute(pp);
+  const rawHash=await executionHashLocal(pp,output_payload);
+  const execHash='sha256:'+rawHash;
+  const generatedAt=new Date().toISOString();
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',chaingraph_version:'0.4.0',spec_version:'0.5.0',compute_mode:'browser',mandate_type:meta.mandate_type,tool_id:MANIFEST.tool_id,tool_version:MANIFEST.version,generated_at:generatedAt,execution_hash:execHash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload,compliance_flags,audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  _lastArtifact=artifact;_lastPP=pp;_lastOP=output_payload;_lastHash=execHash;_lastFlags=compliance_flags;
+  renderResults(output_payload,compliance_flags,execHash);
+  const btn=document.getElementById('ap2ExportBtn');
+  if(btn){btn.disabled=false;btn.classList.add('ready');btn.title='For API integration · audit trail';}
+}
+function verdictClass(conformance){
+  if(conformance==='DEVIATES')return 'warn';
+  if(conformance==='INDETERMINATE')return 'fail';
+  return 'pass';
+}
+function statusClass(status){
+  if(status==='FLAGGED')return 'warn';
+  if(status==='CLEAR')return 'ok';
+  return 'fail';
+}
+function renderResults(op,flags,execHash){
+  document.getElementById('generatedAt').textContent='generated_at '+_lastArtifact.generated_at;
+  const heroRow=document.getElementById('heroRow');
+  heroRow.textContent='';
+  const stats=[['flagged',op.flagged_count],['evaluated',op.evaluated_count],['not evaluated',op.not_evaluated.length],['checks',op.checks.length]];
+  for(const [lbl,val] of stats){
+    const stat=document.createElement('div');stat.className='hero-stat';
+    const v=document.createElement('div');v.className='hero-val';v.textContent=String(val);
+    const l=document.createElement('div');l.className='hero-lbl';l.textContent=lbl;
+    stat.appendChild(v);stat.appendChild(l);heroRow.appendChild(stat);
+  }
+  const vc=verdictClass(op.policy_conformance);
+  const verdictDiv=document.getElementById('verdictDiv');
+  verdictDiv.textContent='';
+  const v=document.createElement('div');v.className='verdict '+vc;v.textContent='policy_conformance: '+op.policy_conformance;
+  verdictDiv.appendChild(v);
+  const badges=document.createElement('div');
+  for(const f of flags){
+    const b=document.createElement('span');
+    b.className='badge '+(f.indexOf('FLAGGED_')===0?'warn':vc==='pass'?'ok':'fail');
+    b.textContent=f;
+    badges.appendChild(b);
+  }
+  verdictDiv.appendChild(badges);
+  const c=op.classification;
+  document.getElementById('traceText').textContent=c.standard+(c.encode_type?' · encodeType '+c.encode_type:'')+(c.witness_is_named_payment_witness?' · payment witness named':'');
+  const tbl=document.getElementById('checksTable');
+  tbl.textContent='';
+  const head=document.createElement('tr');
+  for(const h of ['check','status','field path','observed','policy']){const th=document.createElement('th');th.textContent=h;head.appendChild(th);}
+  tbl.appendChild(head);
+  for(const row of op.checks){
+    const tr=document.createElement('tr');
+    const cells=[row.id,row.status,row.field_path===null?'':row.field_path,
+      row.observed===null?'':(typeof row.observed==='object'?JSON.stringify(row.observed):String(row.observed)),
+      row.policy===null?'':(typeof row.policy==='object'?JSON.stringify(row.policy):String(row.policy))];
+    for(let i=0;i<cells.length;i++){
+      const td=document.createElement('td');
+      if(i===1)td.className='s-'+row.status;
+      td.textContent=cells[i];
+      tr.appendChild(td);
+    }
+    tbl.appendChild(tr);
+  }
+  document.getElementById('outputPre').textContent=JSON.stringify(op,null,2);
+  document.getElementById('execHash').textContent=execHash;
+  document.getElementById('artifactPre').textContent=JSON.stringify(_lastArtifact,null,2);
+  document.getElementById('resultsPanel').classList.add('show');
+  void statusClass;
+}
+
+// ---------- exports ----------
+function uuidV4(){
+  if(crypto.randomUUID)return crypto.randomUUID();
+  const b=crypto.getRandomValues(new Uint8Array(16));
+  b[6]=(b[6]&0x0f)|0x40;b[8]=(b[8]&0x3f)|0x80;
+  const h=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+const AP2Schema={validate:function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!m||typeof m!=='object')throw new Error('AP2Schema: mandate must be an object');
+  if(typeof m.tool_id!=='string'||!m.tool_id)throw new Error('AP2Schema: missing tool_id');
+  if(!RE_UUID4.test(m.mandate_id))throw new Error('AP2Schema: mandate_id must be UUIDv4');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)throw new Error('AP2Schema: missing mandate_type');
+  if(!Array.isArray(m.jurisdiction))throw new Error('AP2Schema: jurisdiction must be an array');
+  if(!m.payload||typeof m.payload!=='object')throw new Error('AP2Schema: missing payload');
+  if(typeof m.summary!=='string'||!m.summary)throw new Error('AP2Schema: missing summary');
+  if(!Array.isArray(m.agent_instructions))throw new Error('AP2Schema: agent_instructions must be an array');
+  return true;
+}};
+function exportAP2(){
+  if(!_lastArtifact){alert('Run the lint above to generate a Policy Mandate.');return;}
+  var ts=_lastArtifact.generated_at;
+  var tid=MANIFEST.tool_id;
+  var mandate={
+    mandate_id:uuidV4(),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:MANIFEST.version,
+    mandate_type:meta.mandate_type,
+    jurisdiction:['ZZ'],
+    regulatory_frameworks:['EIP-712','EIP-7702','ERC-7730'],
+    payload:{policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags},
+    summary:'Pre-signature lint of an authorization payload classified as '+(_lastOP.classification.standard||'NOT_CLASSIFIED')+'; policy_conformance '+(_lastOP.policy_conformance||'INDETERMINATE')+' over '+_lastOP.evaluated_count+' evaluated check(s), with '+_lastOP.not_evaluated.length+' listed as not evaluated.',
+    agent_instructions:[
+      'Recompute the execution_hash over the {policy_parameters, output_payload} preimage before relying on this mandate.',
+      'Read not_evaluated before reading policy_conformance: a check listed there was never compared against anything.',
+      'Treat every allowlist, threshold, contract-address set and clock reading in policy_parameters as a caller assertion, never a verified fact.',
+      'Route any FLAGGED check through your own review process before a key signs the payload.'
+    ],
+    valid_from:ts.slice(0,10),
+    source_tool_inputs:_lastPP,
+    regulatory_citations:['EIP-712 typed structured data hashing and signing','EIP-7702 set code for EOAs','ERC-7730 clear signing metadata'],
+    caveats:['Reports flags against a declared policy and never certifies an outcome or a counterparty.','Performs no chain read: nonce state, current allowances, and whether an address holds code are caller-declared inputs.','No signer recovery and no digest recomputation happen here; those belong to the nodes named in handoffs.'],
+    audit_metadata:{execution_hash:_lastHash,client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  try{AP2Schema.validate(mandate);}catch(e){alert(e.message);return;}
+  dl(JSON.stringify(mandate,null,2),tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json','application/json');
+}
+function exportArtifact(){if(!_lastArtifact)return;dl(JSON.stringify(_lastArtifact,null,2),MANIFEST.tool_id+'-artifact.json','application/json');}
+function dl(c,f,m){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:m}));a.download=f;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else b.style.display='none';}
+</script>
+</body>
+</html>
