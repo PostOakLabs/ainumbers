@@ -1,11 +1,12 @@
-// kernel_digest_at_authoring: sha256:2f4fe65161e59aee68e9609258e251c1a571a671f2167a00a2d0dc1c514ac4a7
+// kernel_digest_at_authoring: sha256:ced311fa333c6d47b12d2320065ac477f982acbc1950db4e4a2859f65f527812
 //
-// FV-PROPFLOOR-SHARD-B25-1 — property-test floor for art-467-dora-incident-classifier.
-// Class B (bounded-numeric), float:no per WU — all inputs are compared against fixed integer/
-// percentage thresholds via >=, never float rounding math. Forced CATEGORICAL boundary cases
-// (each threshold value exactly at its declared cutoff) are used in place of ULP forcing, per
-// FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external dependencies. This file is READ-ONLY with respect
-// to the kernel it imports.
+// DORA-CLOCK-REPAIR-1 — property-test floor for art-467-dora-incident-classifier
+// (rewritten with the kernel: art-467 is the 2025/301 Art. 5 stage-clock kernel under the
+// REVERSED D split; it no longer classifies). Class B (bounded-numeric), float:no — all
+// time math is integer UTC millisecond arithmetic against fixed hour/month offsets;
+// forced CATEGORICAL boundary cases stand in for ULP forcing per FV-PBT-FLOOR-BUILD-SPEC.md
+// §3. Zero external dependencies. This file is READ-ONLY with respect to the kernel it
+// imports.
 //
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec §4)
 //
@@ -41,120 +42,199 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(0x467C3);
-function randRange(rng, lo, hi) { return lo + rng() * (hi - lo); }
-function randInt(rng, lo, hi) { return Math.floor(randRange(rng, lo, hi + 1)); }
-const TRIALS = 10000;
+const rand = mulberry32(0xD04A1);
+const H = 3600 * 1000;
+function randInt(rng, lo, hi) { return lo + Math.floor(rng() * (hi - lo + 1)); }
+function isoAt(rng, day, hourBase) {
+  const h = (hourBase + randInt(rng, 0, 20)) % 24;
+  const m = randInt(rng, 0, 59);
+  return `2026-07-${String(day).padStart(2, '0')}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}Z`;
+}
+const TRIALS = 5000;
+const CLASSES = ['credit_institution', 'ccp', 'trading_venue', 'nis2_essential_important', 'nca_notified', 'other'];
+const EXTENSION_DENIED = new Set(['credit_institution', 'ccp', 'trading_venue', 'nis2_essential_important', 'nca_notified']);
+const STAGE_STATES = new Set(['not_yet_due', 'due', 'overdue', 'not_evaluable', 'no_final_report_yet']);
+const SCHEDULE_STATES = new Set(['evaluable', 'not_evaluable', 'malformed']);
 
 function mkPP(rng) {
-  return {
-    incident_id: 'INC-' + randInt(rng, 0, 99999),
-    classification_at: rng() < 0.9 ? '2026-0' + randInt(rng, 1, 9) + '-15T0' + randInt(rng, 0, 9) + ':00:00Z' : undefined,
-    clients_affected_pct: randRange(rng, 0, 100),
-    duration_minutes: randRange(rng, 0, 5000),
-    geographical_spread_countries_count: randInt(rng, 0, 10),
-    data_losses: rng() < 0.5,
-    economic_impact_amount: randRange(rng, 0, 500000),
-    critical_services_affected: rng() < 0.5,
-    reputational_impact: rng() < 0.5,
+  const day = randInt(rng, 5, 20);
+  const withOffset = rng() > 0.05;
+  const pp = {
+    entity_class: CLASSES[randInt(rng, 0, CLASSES.length - 1)],
+    awareness_at: withOffset ? isoAt(rng, day, 6) : '2026-07-05T06:00:00',
+    classification_at: withOffset ? isoAt(rng, day, 7) : undefined,
+    logical_date: isoAt(rng, day, 8),
   };
+  if (rng() < 0.5) pp.initial_submitted_at = isoAt(rng, day + 1, 9);
+  if (rng() < 0.4) pp.intermediate_submitted_at = isoAt(rng, day + 2, 10);
+  if (rng() < 0.3) pp.latest_intermediate_update_at = isoAt(rng, day + 3, 11);
+  return pp;
 }
 
-// ---------- P1: fixed rule — MAJOR iff data_losses OR (gateway && other>=1) OR metCount>=2 ----------
-function checkP1_majorFormula() {
+const parse = (s) => (s == null ? null : Date.parse(s));
+const addMonthClamped = (ms) => {
+  const d = new Date(ms); const y = d.getUTCFullYear(); const m = d.getUTCMonth(); const day = d.getUTCDate();
+  const last = new Date(Date.UTC(y, m + 2, 0)).getUTCDate();
+  return Date.UTC(y, m + 1, Math.min(day, last), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds());
+};
+// The Art. 5 extension rule the properties assert against (weekend-only — the random
+// generator declares no bank-holiday dates): a weekend deadline moves to noon UTC next
+// working day when the stage+class allows it, and final reports always keep it.
+const isNonWorking = (ms) => { const d = new Date(ms); return d.getUTCDay() === 0 || d.getUTCDay() === 6; };
+function applyExtension(ms, stage, entityClass, withdrawn) {
+  if (!isNonWorking(ms)) return ms;
+  const allowed = stage === 'final_report' || (!withdrawn && !EXTENSION_DENIED.has(entityClass));
+  if (!allowed) return ms;
+  const d = new Date(ms);
+  let t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 12, 0, 0, 0);
+  let guard = 0;
+  while (isNonWorking(t) && guard < 30) { t += 24 * H; guard++; }
+  return t;
+}
+
+// ---------- P1: initial = min(classification + 4h, awareness + 24h), origin recorded ----------
+function checkP1_initialDualLimb() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
     const r = compute(pp);
     checked++;
-    const gateway = pp.clients_affected_pct >= 10 || pp.critical_services_affected === true;
-    const metCount = [
-      pp.clients_affected_pct >= 10,
-      pp.duration_minutes >= 1440,
-      pp.geographical_spread_countries_count >= 2,
-      pp.data_losses === true,
-      pp.economic_impact_amount >= 100000,
-      pp.critical_services_affected === true,
-      pp.reputational_impact === true,
-    ].filter(Boolean).length;
-    const otherMet = metCount - (gateway ? 1 : 0);
-    const expectedMajor = pp.data_losses === true || (gateway && otherMet >= 1) || metCount >= 2;
-    if (r.output_payload.major_incident !== expectedMajor) violations++;
-    if (r.output_payload.verdict !== (expectedMajor ? 'MAJOR' : 'NON_MAJOR')) violations++;
+    const st = r.output_payload.reporting_clock.stages.initial_notification;
+    if (r.output_payload.schedule_state !== 'evaluable') continue;
+    if (st.reason_code === 'TIMESTAMP_ORDER_CONTRADICTION') {
+      // Contradictory declared order (e.g. awareness after classification): no deadline, never.
+      if (!(st.deadline === null && st.state === 'not_evaluable')) violations++;
+      continue;
+    }
+    const limbClass = parse(pp.classification_at) + 4 * H;
+    const limbAware = parse(pp.awareness_at) + 24 * H;
+    const expectedRaw = Math.min(limbClass, limbAware);
+    const expected = applyExtension(expectedRaw, 'initial_notification', pp.entity_class, pp.extension_withdrawn_by_nca === true);
+    if (st.deadline !== new Date(expected).toISOString()) violations++;
+    if (limbAware < limbClass && st.reason_code !== 'INITIAL_DEADLINE_AWARENESS_24H') violations++;
+    if (limbClass < limbAware && st.reason_code !== 'INITIAL_DEADLINE_CLASSIFICATION_4H') violations++;
+    if (limbClass === limbAware && st.reason_code !== 'INITIAL_DEADLINE_LIMBS_EQUAL') violations++;
+    if (st.computed_from == null) violations++;
   }
-  return { name: 'P1_major_incident_exact_gateway_formula', trials: checked, violations };
+  return { name: 'P1_initial_min_of_4h_and_24h_with_origin', trials: checked, violations };
 }
 
-// ---------- P2: fixed rule — reporting_clock present iff major AND classification_at parseable ----------
-function checkP2_reportingClockGate() {
+// ---------- P2: intermediate = initial SUBMISSION + 72h; else not_evaluable, never derived from the deadline ----------
+function checkP2_intermediateFromSubmission() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
     const r = compute(pp);
     checked++;
-    const hasClock = r.output_payload.reporting_clock !== null;
-    const classParseable = pp.classification_at !== undefined && Number.isFinite(Date.parse(pp.classification_at));
-    const expected = r.output_payload.major_incident && classParseable;
-    if (hasClock !== expected) violations++;
-  }
-  return { name: 'P2_reporting_clock_present_iff_major_and_timestamp_parseable', trials: checked, violations };
-}
-
-// ---------- P3: boundedness — verdict in declared enum, qualifying_criteria subset of criteria ids ----------
-function checkP3_bounded() {
-  let violations = 0, checked = 0;
-  const IDS = new Set(['clients_affected', 'duration', 'geographical_spread', 'data_losses', 'economic_impact', 'critical_services_affected', 'reputational_impact']);
-  for (let i = 0; i < TRIALS; i++) {
-    const pp = mkPP(rand);
-    const r = compute(pp);
-    checked++;
-    if (!['MAJOR', 'NON_MAJOR'].includes(r.output_payload.verdict)) violations++;
-    for (const c of r.output_payload.qualifying_criteria) if (!IDS.has(c)) violations++;
-    if (r.output_payload.criteria_detail.length !== 7) violations++;
-  }
-  return { name: 'P3_verdict_and_criteria_bounded_to_declared_sets', trials: checked, violations };
-}
-
-// ---------- P4: round-trip — reporting_clock deadlines strictly increase (initial<intermediate<final) whenever present ----------
-function checkP4_clockOrdering() {
-  let violations = 0, checked = 0;
-  for (let i = 0; i < TRIALS; i++) {
-    const pp = mkPP(rand);
-    const r = compute(pp);
-    checked++;
-    const clock = r.output_payload.reporting_clock;
-    if (clock) {
-      const a = Date.parse(clock.initial_notification_deadline);
-      const b = Date.parse(clock.intermediate_report_deadline);
-      const c = Date.parse(clock.final_report_deadline);
-      if (!(a < b && b <= c)) violations++;
+    const st = r.output_payload.reporting_clock.stages.intermediate_report;
+    if (r.output_payload.schedule_state !== 'evaluable') continue;
+    if (st.reason_code === 'TIMESTAMP_ORDER_CONTRADICTION') {
+      if (!(st.deadline === null && st.state === 'not_evaluable')) violations++;
+      continue;
+    }
+    if (pp.initial_submitted_at == null) {
+      if (!(st.deadline === null && st.state === 'not_evaluable' && st.reason_code === 'INTERMEDIATE_INITIAL_NOT_SUBMITTED')) violations++;
+    } else {
+      const expected = applyExtension(parse(pp.initial_submitted_at) + 72 * H, 'intermediate_report', pp.entity_class, pp.extension_withdrawn_by_nca === true);
+      if (st.deadline !== new Date(expected).toISOString()) violations++;
+      if (st.reason_code !== 'INTERMEDIATE_FROM_INITIAL_SUBMISSION_72H') violations++;
+      if (st.computed_from !== new Date(parse(pp.initial_submitted_at)).toISOString()) violations++;
     }
   }
-  return { name: 'P4_reporting_clock_deadlines_strictly_ordered', trials: checked, violations };
+  return { name: 'P2_intermediate_from_initial_submission_only', trials: checked, violations };
 }
 
-// ---------- P5 (mandatory, float:no exception): forced categorical threshold-boundary cases ----------
-const BASE = { incident_id: 'INC-B', classification_at: '2026-08-01T00:00:00Z', clients_affected_pct: 0, duration_minutes: 0, geographical_spread_countries_count: 0, data_losses: false, economic_impact_amount: 0, critical_services_affected: false, reputational_impact: false };
+// ---------- P3: final = max(intermediate sub, latest update) + 1 month; absent -> no_final_report_yet ----------
+function checkP3_finalRebasing() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = mkPP(rand);
+    const r = compute(pp);
+    checked++;
+    const st = r.output_payload.reporting_clock.stages.final_report;
+    if (r.output_payload.schedule_state !== 'evaluable') continue;
+    if (st.reason_code === 'TIMESTAMP_ORDER_CONTRADICTION') {
+      if (!(st.deadline === null && st.state === 'not_evaluable')) violations++;
+      continue;
+    }
+    if (pp.intermediate_submitted_at == null) {
+      if (!(st.deadline === null && st.state === 'no_final_report_yet')) violations++;
+    } else {
+      const base = Math.max(parse(pp.intermediate_submitted_at), parse(pp.latest_intermediate_update_at) ?? 0);
+      const expected = applyExtension(addMonthClamped(base), 'final_report', pp.entity_class, pp.extension_withdrawn_by_nca === true);
+      if (st.deadline !== new Date(expected).toISOString()) violations++;
+    }
+  }
+  return { name: 'P3_final_one_month_from_latest_submission_rebasing', trials: checked, violations };
+}
+
+// ---------- P4: extension per stage per entity class (initial/intermediate denied classes; final keeps it) ----------
+function checkP4_extensionPolicy() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = mkPP(rand);
+    const r = compute(pp);
+    checked++;
+    const ec = pp.entity_class;
+    const s = r.output_payload.reporting_clock.stages;
+    if (r.output_payload.schedule_state !== 'evaluable') continue;
+    for (const stage of ['initial_notification', 'intermediate_report']) {
+      const st = s[stage];
+      if (st.extension && st.extension.applied === true && EXTENSION_DENIED.has(ec) && pp.extension_withdrawn_by_nca !== false) violations++;
+      if (st.extension && st.extension.applied === true && st.extension.original_deadline == null) violations++;
+    }
+    if (s.final_report && s.final_report.deadline != null) {
+      const dl = new Date(s.final_report.deadline);
+      const dow = dl.getUTCDay();
+      const applied = s.final_report.extension && s.final_report.extension.applied;
+      if (applied === true && dl.getUTCHours() !== 12) violations++; // extension always lands at noon UTC
+      if (!applied && (dow === 0 || dow === 6)) violations++; // a weekend final deadline without the extension is wrong
+    }
+  }
+  return { name: 'P4_extension_per_stage_per_entity_class_final_keeps_it', trials: checked, violations };
+}
+
+// ---------- P5: boundedness — schedule_state and every stage state within the declared enums ----------
+function checkP5_boundedStates() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = mkPP(rand);
+    const r = compute(pp);
+    checked++;
+    if (!SCHEDULE_STATES.has(r.output_payload.schedule_state)) violations++;
+    const s = r.output_payload.reporting_clock.stages;
+    for (const stage of ['initial_notification', 'intermediate_report', 'final_report']) {
+      if (!STAGE_STATES.has(s[stage].state)) violations++;
+      if (s[stage].deadline != null && Number.isNaN(Date.parse(s[stage].deadline))) violations++;
+    }
+    if (typeof r.output_payload.reporting_clock.classification_at !== 'string' && r.output_payload.reporting_clock.classification_at !== null) violations++;
+  }
+  return { name: 'P5_states_bounded_to_declared_enums', trials: checked, violations };
+}
+
+// ---------- P6 (mandatory, float:no exception): forced categorical boundary cases ----------
+const BASE = { entity_class: 'other', awareness_at: '2026-08-01T09:00:00Z', classification_at: '2026-08-01T10:00:00Z', logical_date: '2026-08-01T11:00:00Z' };
 const BOUNDARY_CASES = [
-  [{ ...BASE, clients_affected_pct: 10 }, 'clients_affected_pct exactly at 10% threshold — must be MET (>=)'],
-  [{ ...BASE, clients_affected_pct: 9.999999999999998 }, 'clients_affected_pct one ULP below 10% — must be NOT met'],
-  [{ ...BASE, duration_minutes: 1440 }, 'duration_minutes exactly at 24h threshold — must be MET'],
-  [{ ...BASE, duration_minutes: 1439 }, 'duration_minutes one minute below 24h threshold — must be NOT met'],
-  [{ ...BASE, geographical_spread_countries_count: 2 }, 'geographical_spread exactly at 2-country threshold — must be MET'],
-  [{ ...BASE, geographical_spread_countries_count: 1 }, 'geographical_spread one below 2-country threshold — must be NOT met'],
-  [{ ...BASE, economic_impact_amount: 100000 }, 'economic_impact exactly at EUR 100,000 threshold — must be MET'],
-  [{ ...BASE, economic_impact_amount: 99999.99 }, 'economic_impact just below EUR 100,000 threshold — must be NOT met'],
-  [{ ...BASE, data_losses: true }, 'data_losses alone (no other criterion met, no gateway) — must independently trigger MAJOR per the kernel own rule'],
-  [{ ...BASE, clients_affected_pct: 10, critical_services_affected: false, duration_minutes: 0 }, 'gateway met (clients) but zero OTHER criteria — must stay NON_MAJOR (gateway alone is insufficient)'],
-  [{ ...BASE, classification_at: 'not-a-date', clients_affected_pct: 10, duration_minutes: 1440 }, 'unparseable classification_at with MAJOR verdict — reporting_clock must be null, CLASSIFICATION_TIMESTAMP_MISSING_OR_UNPARSEABLE flag set'],
+  [{ ...BASE }, '4h limb vs 24h limb — classification+4h (14:00) earlier than awareness+24h — 4h binds'],
+  [{ ...BASE, awareness_at: '2026-07-31T11:00:00Z' }, 'awareness+24h (11:00) exactly one hour earlier than classification+4h (14:00) — 24h binds (strict earlier)'],
+  [{ ...BASE, classification_at: '2026-08-01T07:00:00Z' }, 'limbs EQUAL at 2026-08-01T11:00Z — reason INITIAL_DEADLINE_LIMBS_EQUAL'],
+  [{ ...BASE, initial_submitted_at: '2026-08-04T14:00:00Z' }, 'intermediate = submission+72h = 2026-08-07T14:00Z (from submission, never from the 13:00/14:00 deadline)'],
+  [{ ...BASE, initial_submitted_at: '2026-08-06T11:00:00Z' }, 'intermediate limb lands Saturday 2026-08-08T11:00Z — class other: extension to Monday noon 2026-08-10T12:00Z'],
+  [{ ...BASE, entity_class: 'credit_institution', initial_submitted_at: '2026-08-06T11:00:00Z' }, 'weekend intermediate limb, credit_institution — extension DENIED, deadline stays Saturday 11:00'],
+  [{ ...BASE, intermediate_submitted_at: '2026-08-31T16:00:00Z' }, 'final = 2026-08-31 + 1 month clamped to 2026-09-30T16:00Z (end-of-month, Regulation 1182/71)'],
+  [{ ...BASE, awareness_at: '2026-08-01T09:00:00' }, 'missing explicit offset on awareness_at — schedule_state malformed, no deadline'],
+  [{ ...BASE, classification_at: undefined }, 'classification_at absent — schedule_state not_evaluable, no stage deadline'],
+  [{ ...BASE, awareness_at: '2026-08-02T09:00:00Z' }, 'awareness AFTER classification — contradictory order, initial not_evaluable TIMESTAMP_ORDER_CONTRADICTION'],
 ];
 
-function checkP5_forced() {
+function checkP6_forced() {
   const rows = [];
   for (const [pp, label] of BOUNDARY_CASES) {
     const r = compute(pp);
-    const plausible = ['MAJOR', 'NON_MAJOR'].includes(r.output_payload.verdict) && (r.output_payload.reporting_clock === null || typeof r.output_payload.reporting_clock === 'object');
-    rows.push({ label, input: pp, verdict: r.output_payload.verdict, reporting_clock: r.output_payload.reporting_clock, flags: r.compliance_flags, plausible });
+    const s = r.output_payload.reporting_clock.stages;
+    const plausible = SCHEDULE_STATES.has(r.output_payload.schedule_state)
+      && ['initial_notification', 'intermediate_report', 'final_report'].every((k) => STAGE_STATES.has(s[k].state));
+    rows.push({ label, input: pp, schedule_state: r.output_payload.schedule_state, stages: s, flags: r.compliance_flags, plausible });
   }
   return rows;
 }
@@ -165,11 +245,12 @@ if (!oracleOk) {
   process.exit(1);
 }
 
-results.properties.push(checkP1_majorFormula());
-results.properties.push(checkP2_reportingClockGate());
-results.properties.push(checkP3_bounded());
-results.properties.push(checkP4_clockOrdering());
-results.boundary_forced = checkP5_forced();
+results.properties.push(checkP1_initialDualLimb());
+results.properties.push(checkP2_intermediateFromSubmission());
+results.properties.push(checkP3_finalRebasing());
+results.properties.push(checkP4_extensionPolicy());
+results.properties.push(checkP5_boundedStates());
+results.boundary_forced = checkP6_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 const anyBoundaryImplausible = results.boundary_forced.some((b) => !b.plausible);
