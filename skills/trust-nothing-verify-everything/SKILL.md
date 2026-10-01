@@ -7,7 +7,7 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "trust-nothing-verify-everything"
   verify_surface: "https://ledger.ainumbers.co/ https://ainumbers.co/chaingraph/art-610-erc4626-vault-share-math.html"
-  version: "647bdbeed4d9"
+  version: "8770e0e5aba5"
 ---
 
 # Verify every result yourself

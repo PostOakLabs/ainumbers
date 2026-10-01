@@ -2697,8 +2697,9 @@ signing metadata, and all three external formats §XMAP-1 maps place their equiv
 Nesting it to avoid a schema review would have made that annex incoherent.
 
 **§PPH-1.5 Relationship to §XMAP-1 (informative).** This section is the normative home of the member that
-the §XMAP-1 annex, shipped in v0.8.9, already refers to as the OCG-side anchor for `covenantHash`,
-`credentialSubject.action.parameters_hash`, and `arguments_hash`. **That annex text is unchanged by this
+the §XMAP-1 annex, shipped in v0.8.9, already refers to as the OCG-side anchor for AGT's `inputHash` (shipped as `args_hash`),
+`credentialSubject.action.parameters_hash`, and `arguments_hash` (corrected 2026-09-28; this sentence
+named `covenantHash`, following the annex's original first row). **That annex text is unchanged by this
 tick and is deliberately not restated here** — it stays INFORMATIVE, it defines nothing, and duplicating a
 definition across two sections is worse than leaving one place to look. What changes is that its reference
 now resolves: before this tick the annex named a member that no normative section defined and that
@@ -2723,14 +2724,29 @@ project's public material as of the observation date; the remaining members of e
 mapped** and are deliberately left blank rather than guessed. A blank is an unmapped field, never an
 asserted absence.
 
-| OCG member | Microsoft AGT receipts (draft) | agent-receipts (VC 2.0 `AgentReceipt`) | Attested Intelligence AGA | SCITT (RFC 9943 architecture + RFC 9942 COSE Receipts) | ToIP ACDC (v1.1, ratified 2026-01-21) |
+| OCG member | Microsoft AGT receipts (proposal Draft; shipped as `mcp-receipt-governed`) | agent-receipts (VC 2.0 `AgentReceipt`) | Attested Intelligence AGA | SCITT (RFC 9943 architecture + RFC 9942 COSE Receipts) | ToIP ACDC (v1.1, ratified 2026-01-21) |
 |---|---|---|---|---|---|
-| `policy_parameters_hash` | `covenantHash` (bound covenant/input digest) | `credentialSubject.action.parameters_hash` | `arguments_hash` | — (unmapped; a SCITT Signed Statement's payload is issuer-chosen claims, not a fixed input-hash field — this exporter carries `execution_hash` there instead, see format notes) | — (unmapped; an ACDC's own `d` field is a SAID — a self-addressing digest of the WHOLE container, issuer + schema + attributes + edges together — not a parameters-only hash isolable the way this member is; see format notes) |
-| `chain.parent_hashes[]` | `previousReceiptHash` | `credentialSubject.chain.previous_receipt_hash` | previous-hash chain member | — (unmapped; SCITT is a registration/transparency-log model, not a peer-to-peer hash chain — see format notes) | `e` (edges) block — SAID-keyed digest links from one ACDC to the prior ACDCs it derives from or attests over; the closest true isomorphism in this row |
-| party identity (§9 `did:key` keyid / LEI) | `agentDid` | credential `issuer` / `credentialSubject.principal` | — (unmapped) | COSE protected header `cwt-claims` (label 15, RFC 9597) `iss` (claim 1) | issuer AID (Autonomic Identifier, KERI-controlled) in the `i` field |
-| §16 proof (`eddsa-jcs-2022`) | Ed25519 over JCS, bilateral pre/post-execution seals | `Ed25519Signature2020` proof | "Ed25519-SHA256-JCS" | COSE_Sign1 (RFC 9052) over the protected header + payload; ES256 or EdDSA | CESR-Proof signature anchored to a KERI key-event log; cipher-suite-agnostic (commonly Ed25519, but not pinned to it the way `eddsa-jcs-2022` is) |
+| `policy_parameters_hash` | `inputHash` in the proposal's action details, shipped as `args_hash` (see the canonicalization note) | `credentialSubject.action.parameters_hash` | `arguments_hash` | — (unmapped; a SCITT Signed Statement's payload is issuer-chosen claims, not a fixed input-hash field — this exporter carries `execution_hash` there instead, see format notes; the `noa.receipt/0.1` profile in the detail table fixes one, `action.paramsHash`) | — (unmapped; an ACDC's own `d` field is a SAID — a self-addressing digest of the WHOLE container, issuer + schema + attributes + edges together — not a parameters-only hash isolable the way this member is; see format notes) |
+| `chain.parent_hashes[]` | `previousReceiptHash`, shipped as `parent_receipt_hash`: a link to the preceding receipt in issuance order, so its closer OCG counterpart is §HEAD-1 `prev_head_hash` (see the detail table); it coincides with `chain.parent_hashes[]` only in a linear chain (§21.1) | `credentialSubject.chain.previous_receipt_hash` | previous-hash chain member | — (unmapped; SCITT is a registration/transparency-log model, not a peer-to-peer hash chain — see format notes; the `noa.receipt/0.1` profile in the detail table adds one, `chain`) | `e` (edges) block — SAID-keyed digest links from one ACDC to the prior ACDCs it derives from or attests over; the closest true isomorphism in this row |
+| party identity (§9 `did:key` keyid / LEI) | `agentDid`, shipped as `agent_did` | credential `issuer` / `credentialSubject.principal` | — (unmapped) | COSE protected header `cwt-claims` (label 15, RFC 9597) `iss` (claim 1) | issuer AID (Autonomic Identifier, KERI-controlled) in the `i` field |
+| §16 proof (`eddsa-jcs-2022`) | Ed25519 over the canonical payload bytes (`signature`), with an optional second Ed25519 signature from a distinct authorizer key (`authorization_signature`) | `Ed25519Signature2020` proof | "Ed25519-SHA256-JCS" | COSE_Sign1 (RFC 9052) over the protected header + payload; ES256 or EdDSA | CESR-Proof signature anchored to a KERI key-event log; cipher-suite-agnostic (commonly Ed25519, but not pinned to it the way `eddsa-jcs-2022` is) |
 | §20.1 Merkle inclusion | — (unmapped) | — (unmapped) | Merkle-rooted evidence bundles | COSE Receipt (RFC 9942) — transparency-service inclusion proof, RFC 9162 Merkle combine/audit-path algorithm | — (unmapped; a KERI key-event log is a hash-chained log with witness receipts, not a Merkle transparency-service proof) |
 | §15 gate suite | — (unmapped) | — (unmapped) | pinned conformance corpus | — (unmapped) | — (unmapped) |
+
+**Per-member detail: AGT's shipped receipt and the SCITT AI-agent receipt profile (informative, verified 2026-09-28).** Both formats now publish a closed member list, so the correspondence can be stated member by member. A cell reading "Unmapped" is an unmapped field and never an asserted absence.
+
+| OCG member | AGT `mcp-receipt-governed` receipt (MIT, `main`) | SCITT AI-agent receipt profile `noa.receipt/0.1` (`draft-noa-scitt-ai-agent-receipt-01`) |
+|---|---|---|
+| `policy_parameters_hash` (§PPH-1) | `args_hash`: SHA-256 hex of the tool arguments as the adapter serializes them (see the canonicalization note) | `action.paramsHash` (`sha256:<hex>` or `hmac-sha256:<hex>`). The draft leaves the preimage to the producer, so an OCG producer can carry `sha256:` plus its `policy_parameters_hash` here; the draft forbids comparing these values across producers |
+| mandate hash (§22.2: the Work Mandate's own `execution_hash`) | the proposal's `covenantHash`, the hash of the policy in effect; the shipped receipt names its policy by `cedar_policy_id` and carries no policy digest | `governance.compliance.policyHash` |
+| `execution_hash` (§4: inputs bound to outputs) | Unmapped: the shipped receipt carries no result digest | Unmapped by design: the receipt object is closed and has no output member, and the draft routes further claims to separate artifacts, so an OCG artifact travels as its own Signed Statement as `repo/scripts/export-scitt.mjs` builds it |
+| `tool_id` with `tool_version` | `tool_name` | `action.id`; `action.canonical` is an issuer risk-table key with no OCG counterpart |
+| `generated_at` (ISO 8601) | `timestamp` (float, epoch seconds) | `ts` (RFC 3339, the time the issuer recorded the receipt) |
+| §HEAD-1 sequence chaining: `seq`, `prev_head_hash` and the derived `head_hash` | `parent_receipt_hash`, the SHA-256 hex of the preceding receipt's canonical payload; no sequence number | `chain.seq`, `chain.prevHash` and `chain.hash`; genesis has `seq` 0 and a null `prevHash`, as §HEAD-1.2 requires of a head |
+| party identity (§9) | `agent_did`, with the signing key as raw hex in `signer_public_key` | `agent.id` with a closed `agent.principal` class; the verification key resolves from `sig.kid` |
+| §16 proof (`eddsa-jcs-2022`) | a hex Ed25519 `signature` over the canonical payload bytes; an optional `authorization_signature` from a distinct authorizer key (`assurance_level: externally_authorized`) | native `sig`: base64 Ed25519 over the 21-octet tag `NOA-Receipt-v0.1-sig:` followed by the raw 32-octet digest; an optional COSE_Sign1 envelope with `alg` -19 (RFC 9864). The key type is shared with §16 and the signed bytes differ in all three formats |
+| authorization verdict (no envelope member; the nearest are §22.5 runtime rejection and §22.8 escalation records) | `cedar_decision` (`allow` or `deny`) | `governance.verdict` (lifecycle) and `governance.compliance.verdict` (`ALLOW` or `DENY`), reported separately |
+| §APROV-1.4 reserved in-toto `predicateType` | `to_slsa_provenance()` wraps a receipt as an in-toto Statement v1 with a SLSA provenance v1 predicate whose subject digest is `args_hash` | Unmapped |
 
 **Format notes.** *SCITT* is architecturally different from the other three: it is a **registration/transparency-log
 model** — an issuer submits a COSE_Sign1 Signed Statement to a transparency service, which returns a COSE Receipt
@@ -2740,12 +2756,21 @@ Receipts = RFC 9942 (verified against rfc-editor.org 2026-08-05; supersedes any 
 `draft-ietf-scitt-architecture-22`, the pre-publication number). `repo/scripts/export-scitt.mjs` is a zero-dep
 interop exporter/verifier — OCG artifact to Signed Statement, plus RFC 9942 receipt inclusion-proof verification —
 proven via its own `selftest` command; it has not yet been exercised against a live transparency service
-(external registration is FLAG-AND-WAIT, unauthorized spend of a third-party account). *AGT* is a DRAFT — the draft label is retained deliberately and the mapping MUST be
-re-verified before any downstream use; its receipt is a 12-field structure of which the rows above are the
-verified subset. *agent-receipts* carries a proof-suite delta worth stating: it uses `Ed25519Signature2020`
+(external registration is FLAG-AND-WAIT, unauthorized spend of a third-party account). *AGT*: the proposal document is still labelled Draft (last reviewed 2026-09-23 at commit `46cdb34c`) and
+lists 12 fields. Receipt code first shipped on 2026-04-22 (PR #1333); that implementation, with its
+pre/post-execution seal pair, was removed upstream on 2026-04-27 (#1498). The receipt AGT ships today is
+`mcp-receipt-governed`: 19 members under snake_case names, including an optional external-authorization
+profile (#4099, 2026-09-23). The AGT cells of both tables above were re-verified against the proposal and
+that code on 2026-09-28 and MUST be re-verified again before any downstream use. *agent-receipts* carries a proof-suite delta worth stating: it uses `Ed25519Signature2020`
 where §16 uses `eddsa-jcs-2022`. Both are Ed25519 over a canonical form, so the key type is shared, but the
 suites are NOT interchangeable and a verifier written for one will not accept the other without an explicit
 mapping; §13.11 is where any OCG→VC projection is defined, not here.
+
+**Correction (2026-09-28).** The v0.8.9 text of this annex mapped `policy_parameters_hash` to AGT's `covenantHash`. AGT's proposal defines `covenantHash` as the hash of the policy document in effect and names the call-input digest separately as `inputHash`, in its first version (2026-04-22) and in its current one. The first row now follows that text, `covenantHash` moves to the mandate-hash row of the detail table, and §PPH-1.5 is corrected to match.
+
+**Canonicalization is where these formats actually diverge.** AGT's proposal names RFC 8785 JCS. The shipped adapter serializes tool arguments with Python `json.dumps(sort_keys=True, separators=(",", ":"))`, which agrees with JCS on part of the input space only. A seven-vector parity check run on 2026-09-28 against this standard's §4 hash path agreed on an ASCII string, a money-style decimal, a null member and the empty object. It disagreed on a non-ASCII string (`args_hash` escapes `ü` as `\u00fc`), on an exponent-form float (`1e-07` where JCS writes `1e-7`) and on member names outside the Basic Multilingual Plane (code-point order where JCS sorts by UTF-16 code unit). `noa.receipt/0.1` pins every JCS parameter, including the UTF-16 member sort and integer-only numbers up to 2^53 − 1, and the §4 hash path meets those parameters, checked against the RFC 8785 author's test vectors by `jcs-rfc8785-vectors.test.mjs`. A digest is comparable across formats only when both sides hashed one pinned preimage with one serializer.
+
+*SCITT AI-agent receipt profile.* `draft-noa-scitt-ai-agent-receipt-01` (T. Toraman, 2026-08-15; an individual Internet-Draft with no IETF standing, expiring 2027-02-16) defines `noa.receipt/0.1`: one signed receipt per governed agent action, carried bare or as an RFC 9943 Signed Statement inside a tagged COSE_Sign1. It fixes two members that base SCITT leaves to the issuer, an input digest (`action.paramsHash`) and a sequence chain (`chain`). Its chain has the shape of §HEAD-1: `seq` starts at 0 with a null predecessor, and each `prevHash` equals the prior receipt's `chain.hash`, a SHA-256 over the JCS object minus `chain.hash` and `sig.value`. Two differences remain. The draft keeps `sig.alg` and `sig.kid` inside that hash input where §HEAD-1.1 strips the whole proof, and it leaves equivocation to a Transparency Service where §HEAD-1.4 defines its own check. Its object is closed, so an output binding has no slot; the draft routes further claims to separate artifacts, which is where an OCG artifact belongs. The profile is tracked as a draft: re-verify against its current revision before relying on any row.
 
 **AGA — INTEROP-ONLY, recorded as a DATED OBSERVATION (2026-07-16).** The AGA column exists so that an
 implementer holding an AGA receipt can find the corresponding OCG member. It is **not an endorsement, not a

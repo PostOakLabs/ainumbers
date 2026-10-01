@@ -97,6 +97,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <meta name="ai-tool" content="estimate_ficc_margin_netting">
+<meta name="kernel-digest" content="sha256:fcea3a670c5ee043f842757592ea575bbe5426b8f825016d4ec0c0d18d2e304b">
 </head>
 <body>
 <nav>
@@ -184,26 +185,77 @@ const DAILY_VOL_BP={'0-2y':3,'2-5y':5,'5-10y':6,'10-30y':7};
 const BUCKET_CORR=0.80, MIN_CHARGE_RATE=0.001;
 const bucketOf=t=>t<=2?'0-2y':t<=5?'2-5y':t<=10?'5-10y':'10-30y';
 const modDur=t=>t/1.04;
-function compute(pp){
-  const positions=pp.positions||[];
-  const z=Z[pp.confidence_level]??2.326, sq=Math.sqrt(Math.max(1,+pp.mpor_days||1));
-  const xprod=(pp.include_cross_product===true||pp.include_cross_product==='true');
-  let grossNotional=0; const netDV01={'0-2y':0,'2-5y':0,'5-10y':0,'10-30y':0}; let grossBilateralIM=0;
-  for(const p of positions){const notional=+p.notional||0;const tenor=+p.tenor_years||((p.instrument==='repo'||p.instrument==='reverse-repo')?0.1:5);const sign=(p.direction==='short'||p.instrument==='reverse-repo')?-1:1;const dv01=notional*modDur(tenor)*0.0001;grossNotional+=Math.abs(notional);const b=bucketOf(tenor);const isRepo=p.instrument==='repo'||p.instrument==='reverse-repo';const offsets=xprod||!isRepo;netDV01[b]+=offsets?sign*dv01:Math.abs(dv01);grossBilateralIM+=Math.abs(dv01)*z*DAILY_VOL_BP[b]*sq;}
-  const bucketVaR={}; for(const b of BUCKETS)bucketVaR[b]=Math.abs(netDV01[b])*z*DAILY_VOL_BP[b]*sq;
-  let varSq=0; for(const a of BUCKETS)for(const c of BUCKETS)varSq+=bucketVaR[a]*bucketVaR[c]*(a===c?1:BUCKET_CORR);
-  let netClearedIM=Math.sqrt(varSq);
-  const doneAway=pp.clearing_model==='cleared-done-away'; const done_away_uplift=doneAway?0.10:0;
-  netClearedIM*=(1-done_away_uplift);
-  const minCharge=grossNotional*MIN_CHARGE_RATE; const minimum_charge_applied=netClearedIM<minCharge;
-  const estimated_vbm=Math.max(netClearedIM,minCharge);
-  const netting_benefit_usd=Math.max(0,grossBilateralIM-estimated_vbm);
-  const netting_benefit_pct=grossBilateralIM>0?+((netting_benefit_usd/grossBilateralIM)*100).toFixed(1):0;
-  const margin_by_bucket=BUCKETS.map(b=>({bucket:b,net_dv01:+netDV01[b].toFixed(2),var:Math.round(bucketVaR[b])}));
-  const compliance_flags=['ESTIMATE_NOT_OFFICIAL_FICC_VBM'];
-  if(minimum_charge_applied)compliance_flags.push('MINIMUM_CHARGE_BINDING');
-  if(netting_benefit_pct>=40)compliance_flags.push('LARGE_NETTING_BENEFIT');
-  return {output_payload:{estimated_vbm:Math.round(estimated_vbm),gross_bilateral_im:Math.round(grossBilateralIM),net_cleared_im:Math.round(estimated_vbm),netting_benefit_usd:Math.round(netting_benefit_usd),netting_benefit_pct,done_away_uplift_pct:+(done_away_uplift*100).toFixed(1),margin_by_bucket,minimum_charge_applied,assumptions:{confidence_level:pp.confidence_level,mpor_days:+pp.mpor_days||1,daily_vol_bp:DAILY_VOL_BP,bucket_corr:BUCKET_CORR},note:'Educational VaR-based-margin proxy for FICC-cleared UST/repo. Not the official FICC VBM; for indicative netting economics only.'},compliance_flags};
+function compute(pp) {
+  const {
+    positions = [],
+    clearing_model = 'cleared-done-away',
+    confidence_level = 0.99,
+    mpor_days = 1,
+    include_cross_product = true,
+  } = pp;
+
+  const z = Z[confidence_level] ?? 2.326;
+  const sq = Math.sqrt(Math.max(1, Number(mpor_days) || 1));
+
+  // DV01 per position ($ per 1bp). repo/reverse-repo: short-dated rate risk → small bucket.
+  let grossNotional = 0;
+  const netDV01 = { '0-2y': 0, '2-5y': 0, '5-10y': 0, '10-30y': 0 };
+  let grossBilateralIM = 0;
+  for (const p of positions) {
+    const notional = Number(p.notional) || 0;
+    const tenor = Number(p.tenor_years) || (p.instrument === 'repo' || p.instrument === 'reverse-repo' ? 0.1 : 5);
+    const sign = (p.direction === 'short' || p.instrument === 'reverse-repo') ? -1 : 1;
+    const dv01 = notional * modDur(tenor) * 0.0001; // $ per 1bp
+    grossNotional += Math.abs(notional);
+    const b = bucketOf(tenor);
+    // cross-product netting: when ON, repo offsets (signed) within its bucket; when OFF,
+    // repo sits in a separate netting set (approximate by adding its magnitude, no offset).
+    const isRepo = p.instrument === 'repo' || p.instrument === 'reverse-repo';
+    const offsets = include_cross_product || !isRepo;
+    netDV01[b] += offsets ? sign * dv01 : Math.abs(dv01);
+    // standalone (bilateral, no offset) VaR for this position
+    grossBilateralIM += Math.abs(dv01) * z * DAILY_VOL_BP[b] * sq;
+  }
+
+  // Bucketed VaR with correlation.
+  const bucketVaR = {};
+  for (const b of BUCKETS) bucketVaR[b] = Math.abs(netDV01[b]) * z * DAILY_VOL_BP[b] * sq;
+  let varSq = 0;
+  for (const a of BUCKETS) for (const c of BUCKETS) varSq += bucketVaR[a] * bucketVaR[c] * (a === c ? 1 : BUCKET_CORR);
+  let netClearedIM = Math.sqrt(varSq);
+
+  // Done-away gets an extra cross-counterparty netting uplift.
+  const doneAway = clearing_model === 'cleared-done-away';
+  const done_away_uplift = doneAway ? 0.10 : 0;
+  netClearedIM *= (1 - done_away_uplift);
+
+  // Minimum/special charge floor.
+  const minCharge = grossNotional * MIN_CHARGE_RATE;
+  const minimum_charge_applied = netClearedIM < minCharge;
+  const estimated_vbm = Math.max(netClearedIM, minCharge);
+
+  const netting_benefit_usd = Math.max(0, grossBilateralIM - estimated_vbm);
+  const netting_benefit_pct = grossBilateralIM > 0 ? +((netting_benefit_usd / grossBilateralIM) * 100).toFixed(1) : 0;
+
+  const margin_by_bucket = BUCKETS.map((b) => ({ bucket: b, net_dv01: +netDV01[b].toFixed(2), var: Math.round(bucketVaR[b]) }));
+
+  const compliance_flags = ['ESTIMATE_NOT_OFFICIAL_FICC_VBM'];
+  if (minimum_charge_applied) compliance_flags.push('MINIMUM_CHARGE_BINDING');
+  if (netting_benefit_pct >= 40) compliance_flags.push('LARGE_NETTING_BENEFIT');
+
+  const output_payload = {
+    estimated_vbm: Math.round(estimated_vbm),
+    gross_bilateral_im: Math.round(grossBilateralIM),
+    net_cleared_im: Math.round(estimated_vbm),
+    netting_benefit_usd: Math.round(netting_benefit_usd),
+    netting_benefit_pct,
+    done_away_uplift_pct: +(done_away_uplift * 100).toFixed(1),
+    margin_by_bucket,
+    minimum_charge_applied,
+    assumptions: { confidence_level, mpor_days: Number(mpor_days) || 1, daily_vol_bp: DAILY_VOL_BP, bucket_corr: BUCKET_CORR },
+    note: 'Educational VaR-based-margin proxy for FICC-cleared UST/repo. Not the official FICC VBM; for indicative netting economics only.',
+  };
+  return { output_payload, compliance_flags };
 }
 const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
 async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
@@ -430,16 +482,17 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-50-
 /* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
 function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
 function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
-function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 </script>
 <script>
 /* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
-/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+/* Signs through __ocgJcs (the OCG-CANON v1 block's serializer — single canon path; RFC 8785 §3.2.3-exact for array-index member names, same bytes as kernels/_proof.mjs jcsStringify since JCS-CANON-FIX-1). */
 /* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
    __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
 (function(){
   var CS='eddsa-jcs-2022';
-  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function jcs(o){return new TextEncoder().encode(__ocgJcs(o));}
   function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
   function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
   function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}

@@ -7,7 +7,7 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "agent-spend-policy-stress"
   verify_surface: "https://ledger.ainumbers.co/ https://mcp.ainumbers.co/mcp"
-  version: "647bdbeed4d9"
+  version: "8770e0e5aba5"
 ---
 
 # Agent spend policy stress

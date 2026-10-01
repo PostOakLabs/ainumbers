@@ -510,7 +510,7 @@ var MANIFEST={
   "mcp_tool_definition":{"name":"inspect_visa_trusted_agent_protocol","description":"Inspect a Visa Trusted Agent Protocol HTTP Message Signature and score TAP readiness.","inputSchema":{"type":"object","properties":{"signature_input":{"type":"string","description":"Signature-Input header"},"signature":{"type":"string","description":"Signature header"}}}},
   "execution":{"type":"browser-javascript","entry":"chaingraph/art-23-visa-trusted-agent-protocol-inspector.html","function_name":"runInspect","timeout_ms":3000},
   "ap2_export":true,
-  "bridge_version":"1.0"
+  "bridge_version":"1.3"
 };
 function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
 </script>
@@ -540,28 +540,629 @@ AP2Schema.validate=function(m){
 <script>
 (function(){
 'use strict';
+/* Declared ONCE and read by both AINBridge.version and AINBridge.capabilities.version,
+   so the two can never disagree. scripts/sync-ain-bridge.mjs reads this literal to
+   decide the version it stamps onto a page's header comment and bridge_version
+   metadata — the master snippet is the only place a bridge version is authored. */
+var BRIDGE_VERSION='1.3';
 var CFG=window.AIN_BRIDGE_CFG||{};
+var L={
+ en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
+ es:{pf:'Campos precargados desde el enlace — revise y ejecute',ran:'Campos precargados desde el enlace y ejecutados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Suelte un .policy.json aquí, o',choose:'Elegir archivo',paste:'Pegar JSON',apply:'Aplicar',ok:'Policy Mandate importado desde',bad:'JSON de Policy Mandate no válido'},
+ fr:{pf:'Champs préremplis depuis le lien — vérifiez puis exécutez',ran:'Champs préremplis depuis le lien et exécutés',fields:'champs',it:'Importer un Policy Mandate (.policy.json)',drop:'Déposez un .policy.json ici, ou',choose:'Choisir un fichier',paste:'Coller le JSON',apply:'Appliquer',ok:'Policy Mandate importé depuis',bad:'JSON Policy Mandate non valide'},
+ ar:{pf:'تم ملء الحقول مسبقًا من الرابط — راجع ثم شغّل',ran:'تم ملء الحقول من الرابط وتنفيذها',fields:'حقول',it:'استيراد Policy Mandate (.policy.json)',drop:'أسقط ملف ‎.policy.json هنا، أو',choose:'اختر ملفًا',paste:'لصق JSON',apply:'تطبيق',ok:'تم استيراد Policy Mandate من',bad:'JSON غير صالح لـ Policy Mandate'},
+ pt:{pf:'Campos pré-preenchidos a partir do link — revise e execute',ran:'Campos pré-preenchidos a partir do link e executados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Solte um .policy.json aqui, ou',choose:'Escolher arquivo',paste:'Colar JSON',apply:'Aplicar',ok:'Policy Mandate importado de',bad:'JSON de Policy Mandate inválido'},
+ zh:{pf:'已从链接预填输入 — 请检查后运行',ran:'已从链接预填并自动执行',fields:'个字段',it:'导入 Policy Mandate (.policy.json)',drop:'将 .policy.json 拖放到此处，或',choose:'选择文件',paste:'粘贴 JSON',apply:'应用',ok:'已导入 Policy Mandate，来源：',bad:'无效的 AINumbers Policy Mandate JSON'}
+};
+function t(k){return (L.en&&L.en[k])||k;}
 function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
-function applyFields(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;if(el.tagName==='TEXTAREA'||el.tagName==='INPUT'){el.value=fields[id];el.dispatchEvent(new Event('change'));}n++;});return n;}
-function notice(msg,type){var d=document.getElementById('ainBridgeNotice');if(!d){d=document.createElement('div');d.id='ainBridgeNotice';d.style.cssText='font-family:\'JetBrains Mono\',monospace;font-size:.6rem;padding:.4rem .85rem;margin:.5rem 0;border-radius:4px;border:1px solid';document.querySelector('.tool-body .container').prepend(d);}d.textContent=msg;d.style.background=type==='ok'?'rgba(34,197,94,.08)':'rgba(245,158,11,.08)';d.style.borderColor=type==='ok'?'rgba(34,197,94,.3)':'rgba(245,158,11,.3)';d.style.color=type==='ok'?'var(--green)':'var(--warn)';}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
 function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
-try{var hash=location.hash;if(hash&&hash.indexOf('#in=')===0){var raw=hash.slice(4),runNow=false;if(raw.indexOf('&run=1')>-1){raw=raw.replace('&run=1','');runNow=true;}var fields=JSON.parse(b64uDec(raw));var n=applyFields(fields);if(runNow){runTool();notice('Inputs prefilled and executed · '+n+' fields','ok');}else{notice('Inputs prefilled from link — review, then Run · '+n+' fields','warn');}}}catch(e){}
+function anchorEl(){return (CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.getElementById('ainIntakeZone')||anchorEl();
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function looksLikeMandate(o){return !!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){
+  var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}
+  if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}
+  var n=0;
+  if(CFG.intakeTarget){var ta=document.getElementById(CFG.intakeTarget);
+    if(ta){ta.value=JSON.stringify(o,null,2);try{ta.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}n++;}}
+  if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);
+  if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);
+  notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');
+  return n;
+}
+function buildIntakeUI(){
+  if(!CFG.intake)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainIntakeZone';
+  z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');
+  var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');
+  var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');
+  var txt=document.createElement('span');txt.textContent=t('drop');
+  function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}
+  var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));
+  var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';
+  fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});
+  bFile.addEventListener('click',function(){fi.click();});
+  var pasteRow=document.createElement('div');pasteRow.style.display='none';pasteRow.setAttribute('style','display:none;margin-top:.6rem');
+  var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');
+  var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';
+  bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});
+  pasteRow.appendChild(ta);pasteRow.appendChild(bApply);
+  bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});
+  z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});
+  z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});
+  z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});
+  row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);
+  z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
+  a.parentNode.insertBefore(z,a);
+}
+/* ── SHARE LINK (BRIDGE-SHARE-FLAG-1, 2026-09-29) — off by default ───────────
+   Behind CFG.share===true. The button rebuilds this page's address with #in=
+   from the tool's current inputs: fragment only, clipboard only. Everything
+   after # never reaches a server, ours included; the button never calls
+   history.replaceState or pushState, never stores anything, and never makes a
+   network call. The collected field set is exactly what applyFields can write
+   back (same tag gate, keyed by id), minus file, password and hidden inputs,
+   so a shared link can only ever carry values this page's own prefill path
+   accepts. makeLink carries the encoding, so share and prefill can never
+   diverge on the wire shape. */
+function writableFields(){
+  var out={};var els=document.querySelectorAll('input[id],select[id],textarea[id]');
+  for(var i=0;i<els.length;i++){var el=els[i];
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')continue;
+    if(el.type==='file'||el.type==='password'||el.type==='hidden')continue;
+    out[el.id]=(el.type==='checkbox'||el.type==='radio')?!!el.checked:String(el.value);
+  }
+  return out;
+}
+/* Select-and-copy fallback for browsers without navigator.clipboard or when a
+   permission prompt is denied: off-screen textarea, select, execCommand. */
+function legacyCopy(text){
+  var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+  ta.setAttribute('style','position:fixed;left:-9999px;top:0');
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{ta.setSelectionRange(0,text.length);}catch(e){}
+  var ok=false;try{ok=document.execCommand('copy');}catch(e){ok=false;}
+  document.body.removeChild(ta);return ok;
+}
+function copyShareLink(){
+  if(!window.AINBridge||typeof window.AINBridge.makeLink!=='function')return;
+  var link=window.AINBridge.makeLink(writableFields(),false);
+  if(link.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to share ('+link.length+' chars).','warn');return;}
+  var report=function(ok){notice(ok?'🔗 Link copied. It reopens this tool with the same inputs. Share synthetic values only.':'⚠ Copy failed. Copy the address from the browser bar instead.',ok?'ok':'warn');};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(link).then(function(){report(true);},function(){report(legacyCopy(link));});}
+  else report(legacyCopy(link));
+}
+function buildShareUI(){
+  if(CFG.share!==true)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainShareZone';
+  z.setAttribute('style','margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace');
+  var b=document.createElement('button');b.type='button';b.id='ainShareBtn';b.textContent='🔗 Copy share link';
+  b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');
+  b.addEventListener('click',copyShareLink);
+  z.appendChild(b);
+  a.parentNode.insertBefore(z,a);
+}
+/* ONE INTAKE PATH (BRIDGE-MCP-APPS-ALIGN-1, goal 1). The `#in=` deep link and the
+   host's ui/notifications/tool-input notification carry the SAME shape — a bare
+   id→value map, or {"fields":{...}} — so both feed this routine. The MCP leg gets
+   no second parser: a divergence between the two would be invisible on the page
+   and visible only to whichever host happened to send the other shape. */
+function intakeFieldObject(obj){
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  return applyFields(fields);
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var n=intakeFieldObject(obj);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
+    else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  }
+  /* BRIDGE-SHARE-FLAG-1: a link that parsed but matches no field here must say
+     so — silence reads as "this tool accepted the link" to whoever shared it. */
+  else notice('⚠ This link had no fields matching this tool.','warn');
+}
+var HANDOFF_MAX_CHARS=2000000;
+/* ── AIN LEDGER LIVE CHANNEL v1: MESSAGE SCHEMA (B3/B4/B5) ────────────────────
+   This comment block is IDENTICAL in ledger/index.html and in
+   scripts/ain-bridge-v1.snippet.html. Change one, change both.
+
+   Transport: BroadcastChannel, name 'ain-ledger-v1'. Same-origin by
+   construction: a message only ever reaches a tab on the SAME origin, so the
+   channel carries nothing across an origin boundary. The ledger serves at BOTH
+   ainumbers.co/ledger/ (path form) and ledger.ainumbers.co (subdomain form);
+   only the path form shares an origin with a tool page, so the subdomain form
+   keeps today's fragment-only intake unchanged.
+
+   Envelope: JSON-RPC 2.0 in the MCP Apps ui/ dialect, the same envelope the AIN
+   Bridge postMessage leg carries. Both legs are notifications, so neither
+   carries an id and neither expects a JSON-RPC response object.
+
+   page to ledger:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt",
+      "params":{"v":1,"receipt":<OCG artifact>}}
+
+   ledger to page:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt-ack",
+      "params":{"v":1,"execution_hash":"<hash>",
+                "status":"added"|"duplicate"|"rejected"}}
+
+   Identity: a receipt's ledger identity is its execution_hash, the keyPath of
+   the artifact store. The ack deliberately does NOT use the name record_hash:
+   on this page record_hash already means the SPEC.md 22.8.4 escalation-record
+   hash, a different value over a different object.
+
+   params.receipt is validated exactly the way a #a=v1 fragment is, by the same
+   extractArtifact + isArtifact pair, and anything else acks 'rejected'. The
+   channel carries a receipt only, never a mandate body and never any other
+   payload: the same rule the fragment leg already follows.
+   ─────────────────────────────────────────────────────────────────────────── */
+var AIN_LEDGER_CHANNEL='ain-ledger-v1';
+var AIN_LEDGER_ACK_MS=2000;
+/* B3 origin guard. BroadcastChannel is same-origin, so a receipt can only reach a
+   ledger tab served from THIS origin, which is the path form ainumbers.co/ledger/.
+   Returns the ledger URL this page may live-update, or null when this origin has
+   no path-form ledger (ledger.ainumbers.co included: a different origin, whose
+   intake stays fragment-only). Pure: reads the origin it is handed, no globals. */
+function ainLedgerTarget(origin){
+  if(typeof origin!=='string'||!origin)return null;
+  var u;try{u=new URL(origin);}catch(e){return null;}
+  if(u.protocol!=='https:'&&u.protocol!=='http:')return null;
+  var h=u.hostname.toLowerCase();
+  if(h!=='ainumbers.co'&&h!=='localhost'&&h!=='127.0.0.1')return null;
+  return u.origin+'/ledger/';
+}
+function ainLedgerReceipt(receipt){
+  return {jsonrpc:'2.0',method:'ui/notifications/receipt',params:{v:1,receipt:receipt}};
+}
+function ainIsLedgerAck(msg){
+  if(!msg||typeof msg!=='object')return false;
+  if(msg.jsonrpc!=='2.0'||msg.method!=='ui/notifications/receipt-ack')return false;
+  var p=msg.params;
+  if(!p||typeof p!=='object'||p.v!==1)return false;
+  if(typeof p.execution_hash!=='string'&&p.execution_hash!==null)return false;
+  return p.status==='added'||p.status==='duplicate'||p.status==='rejected';
+}
+/* B3 send + B5 ack. Resolves with the ack params when a ledger tab answers inside
+   AIN_LEDGER_ACK_MS, else with null, so a page with no ledger tab open behaves
+   exactly as it did before this leg existed. */
+function ainLedgerSend(receipt,origin){
+  var target=ainLedgerTarget(origin||(typeof location!=='undefined'?location.origin:''));
+  if(!target||typeof BroadcastChannel!=='function')return Promise.resolve(null);
+  var ch;try{ch=new BroadcastChannel(AIN_LEDGER_CHANNEL);}catch(e){return Promise.resolve(null);}
+  return new Promise(function(resolve){
+    var done=false,timer=null;
+    function finish(v){if(done)return;done=true;if(timer)clearTimeout(timer);try{ch.close();}catch(e){}resolve(v);}
+    ch.onmessage=function(ev){if(ainIsLedgerAck(ev&&ev.data))finish(ev.data.params);};
+    try{ch.postMessage(ainLedgerReceipt(receipt));}catch(e){finish(null);return;}
+    timer=setTimeout(function(){finish(null);},AIN_LEDGER_ACK_MS);
+  });
+}
+function apSendToVerify(){
+  var m;try{m=window.AINBridge.getMandate();}catch(e){m=null;}
+  if(!m){notice('⚠ No Policy Mandate to send — run the tool first.','warn');return Promise.resolve(null);}
+  var json;try{json=JSON.stringify(m);}catch(e){notice('⚠ Could not serialize the mandate: '+e.message,'warn');return Promise.resolve(null);}
+  if(json.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to hand off ('+json.length+' chars).','warn');return Promise.resolve(null);}
+  /* B3/B5: hand the receipt to an open ledger tab on this origin. Fired BEFORE
+     window.open so the user gesture is not spent waiting on the ack. With no
+     ledger tab open the promise resolves null and nothing on this page changes. */
+  var ledgerAck=ainLedgerSend(m).then(function(ack){
+    if(ack&&ack.status==='added')notice('🧾 Recorded in the open Ledger tab.','ok');
+    else if(ack&&ack.status==='duplicate')notice('🧾 Already recorded in the open Ledger tab.','ok');
+    return ack;
+  });
+  /* An MCP Apps host that answered ui/initialize is told, in its own transcript,
+     that a receipt now exists (BRIDGE-MCP-APPS-ALIGN-1, goal 1). Identifiers only
+     — mcpReceiptText never carries the mandate body. The same-origin verifier
+     handoff below is unchanged and happens either way. */
+  if(MCP.ready)mcpPost(mcpMessageRequest(mcpNextId(),mcpReceiptText(m)));
+  var target=new URL('../chaingraph/verify.html',window.location.href).href;
+  var win=window.open(target,'_blank');
+  if(!win){notice('⚠ The verifier window was blocked. Allow pop-ups for this site.','warn');return ledgerAck;}
+  var sent=false,timer=null;
+  function onReady(ev){
+    if(ev.origin!==window.location.origin)return;
+    if(ev.source!==win)return;
+    var d=ev.data;
+    if(!d||typeof d!=='object'||d.type!=='ain-handoff-ready/v1')return;
+    if(sent)return;sent=true;
+    window.removeEventListener('message',onReady);
+    if(timer)clearTimeout(timer);
+    win.postMessage({type:'ain-handoff/v1',kind:'policy-mandate',mandate:json},window.location.origin);
+    notice('➡ Sent to the Artifact Verifier in the new tab.','ok');
+  }
+  window.addEventListener('message',onReady);
+  notice('Opening the Artifact Verifier…','ok');
+  timer=setTimeout(function(){
+    if(sent)return;
+    window.removeEventListener('message',onReady);
+    notice('⚠ The verifier did not answer. Export the mandate and paste it in.','warn');
+  },10000);
+  return ledgerAck;
+}
+window.apSendToVerify=apSendToVerify;
+/* ══ MCP-APPS-JSONRPC v1 START ══════════════════════════════════════════════
+   BRIDGE-MCP-APPS-ALIGN-1. Primary text: MCP Apps specification 2026-01-26
+   (modelcontextprotocol/ext-apps, specification/2026-01-26/apps.mdx). Message
+   shapes quoted from it, direction as the spec labels them:
+
+     ui/initialize                    View→Host REQUEST
+         params {protocolVersion, clientInfo, appCapabilities}
+         result {protocolVersion, hostCapabilities, hostInfo, hostContext}
+     ui/notifications/initialized     View→Host notification, after that result
+     ui/message                       View→Host request
+         params {role:'user', content:{type:'text', text}}
+     ui/open-link                     View→Host request   params {url}
+     ui/request-display-mode          View→Host request   params {mode}
+     ui/update-model-context          View→Host request   params {content?, structuredContent?}
+     ui/notifications/size-changed    View→Host notification  params {width, height}
+     tools/call                       View→Host, proxied by the host to the server
+
+     ui/notifications/tool-input          Host→View  params {arguments}  at most once
+     ui/notifications/tool-input-partial  Host→View  params {arguments}  0..n, before tool-input
+     ui/notifications/tool-result         Host→View  params CallToolResult {content, structuredContent, _meta}
+     ui/notifications/tool-cancelled      Host→View  params {reason}
+     ui/notifications/host-context-changed Host→View params {hostContext}
+     ui/resource-teardown                 Host→View  REQUEST (carries an id), result {}
+
+   ui/notifications/sandbox-proxy-ready and ui/notifications/sandbox-resource-ready
+   are RESERVED for a web host's sandbox proxy (spec, "Reserved Messages (Sandbox
+   Proxy)"): a View neither sends nor receives them, so they are absent from both
+   lists by decision, not by oversight.
+
+   NOTHING IN THIS REGION MAY REFERENCE AN IDENTIFIER DECLARED OUTSIDE IT. The
+   routines are pure: scripts/ain-bridge-jsonrpc.test.mjs cuts the region out of
+   this file and evaluates it on its own, and scripts/check-bridge-jsonrpc.mjs
+   reads the two allowlists out of it and holds them to the spec list above.
+   ────────────────────────────────────────────────────────────────────────── */
+var MCP_PROTOCOL_VERSION='2026-01-26';
+/* Host→View: the methods this View ACCEPTS. Anything else with an id is answered
+   -32601 (JSON-RPC 2.0 "Method not found"); anything else without one is dropped,
+   because a notification has no reply channel to carry an error on. */
+var MCP_HOST_METHODS=[
+  'ui/notifications/tool-input',
+  'ui/notifications/tool-input-partial',
+  'ui/notifications/tool-result',
+  'ui/notifications/tool-cancelled',
+  'ui/notifications/host-context-changed',
+  'ui/resource-teardown'
+];
+/* View→Host: the methods this View may EMIT. A send outside this list is a bug in
+   the bridge, not a host problem, so mcpEnvelopeOut refuses it locally. */
+var MCP_VIEW_METHODS=[
+  'ui/initialize',
+  'ui/notifications/initialized',
+  'ui/message',
+  'ui/open-link',
+  'ui/request-display-mode',
+  'ui/update-model-context',
+  'ui/notifications/size-changed',
+  'tools/call'
+];
+/* ain-handoff/v1 alias table (goal 3) — kept for ONE snippet version so pages
+   rolled at different times interoperate; a later row deletes it. One line each,
+   naming the MCP method the legacy type corresponds to, or null where the legacy
+   leg has no MCP twin at all (getMandate is a composer pull; the spec has no
+   Host→View "give me your state" request, so it stays ain-handoff-only). */
+var MCP_LEGACY_ALIAS={
+  'ain:prefill':'ui/notifications/tool-input',
+  'ain:run':'ui/notifications/tool-input',
+  'ain:getMandate':null
+};
+function mcpNewState(){return {hostOrigin:null,ready:false,initId:null,nextId:2,hostCapabilities:null,hostInfo:null,hostContext:null};}
+/* 'request' | 'notification' | 'response' | null. null = not a JSON-RPC 2.0
+   envelope we can act on (this includes every ain-handoff/v1 message, which the
+   legacy listener owns). */
+function mcpEnvelopeKind(d){
+  if(!d||typeof d!=='object'||d.jsonrpc!=='2.0')return null;
+  if(typeof d.method==='string')return (d.id===undefined||d.id===null)?'notification':'request';
+  if(d.id!==undefined&&('result' in d||'error' in d))return 'response';
+  return null;
+}
+function mcpError(id,code,message){return {jsonrpc:'2.0',id:id,error:{code:code,message:message}};}
+function mcpOk(id,result){return {jsonrpc:'2.0',id:id,result:result};}
+/* Pure. The outbound envelope, or null when the method is not one this View is
+   allowed to emit. */
+function mcpEnvelopeOut(method,params,id){
+  if(MCP_VIEW_METHODS.indexOf(method)===-1)return null;
+  var env={jsonrpc:'2.0',method:method};
+  if(id!==undefined&&id!==null)env.id=id;
+  if(params!==undefined)env.params=params;
+  return env;
+}
+/* appCapabilities per the spec's McpUiAppCapabilities: `tools` is omitted because
+   the page exposes no MCP-style tools TO the host (its WebMCP registrations are a
+   different surface), and the B7 capabilities object rides in `experimental`,
+   whose structure the spec leaves open. */
+function mcpAppCapabilities(caps){
+  return {experimental:{ainBridge:caps||null},availableDisplayModes:['inline','fullscreen']};
+}
+function mcpInitRequest(id,caps,version){
+  return mcpEnvelopeOut('ui/initialize',{
+    protocolVersion:MCP_PROTOCOL_VERSION,
+    clientInfo:{name:'ainumbers-ain-bridge',version:String(version||'')},
+    appCapabilities:mcpAppCapabilities(caps)
+  },id);
+}
+function mcpInitializedNotification(){return mcpEnvelopeOut('ui/notifications/initialized',{});}
+/* Origin pinning. Before the handshake the host origin is unknown, so any origin
+   may carry the ui/initialize RESPONSE; from the moment that response lands, the
+   origin it came from is the only one this View will read or write. */
+function mcpOriginOk(state,origin){
+  if(state.hostOrigin===null)return true;
+  return origin===state.hostOrigin;
+}
+/* Pure. Consume the ui/initialize response: pin the origin, keep the host's own
+   three fields. Returns the ui/notifications/initialized envelope to send, or
+   null when this is not our pending handshake (or the host answered with an
+   error, in which case the View stays unpinned and un-ready). */
+function mcpAcceptInitResponse(state,d,origin){
+  if(state.ready)return null;
+  if(state.initId===null||d.id!==state.initId)return null;
+  if(d.error)return null;
+  var r=d.result||{};
+  state.hostOrigin=origin;
+  state.ready=true;
+  state.hostCapabilities=r.hostCapabilities||null;
+  state.hostInfo=r.hostInfo||null;
+  state.hostContext=r.hostContext||null;
+  return mcpInitializedNotification();
+}
+/* Pure. One line of text naming the receipt a Send to Verify just produced —
+   identifiers only, never the mandate body: ui/message content goes into the
+   host's chat transcript, and the payload can carry the user's own inputs. */
+function mcpReceiptText(mandate){
+  var m=mandate||{};
+  var bits=['AINumbers Policy Mandate ready to verify'];
+  if(m.mandate_id)bits.push('mandate '+m.mandate_id);
+  if(m.tool_id)bits.push('tool '+m.tool_id);
+  if(m.execution_hash)bits.push('execution_hash '+m.execution_hash);
+  return bits.join(' · ');
+}
+function mcpMessageRequest(id,text){
+  return mcpEnvelopeOut('ui/message',{role:'user',content:{type:'text',text:String(text)}},id);
+}
+/**
+ * Pure. Handle one Host→View envelope.
+ * deps: {applyArguments(args,complete), renderResult(callToolResult),
+ *        cancelled(reason), hostContextChanged(hostContext)} — every one
+ * optional; a missing dep means that leg is a no-op, never a throw.
+ * Returns {responses:[envelope...], handled:<method|null>, ignored:<reason|null>}.
+ */
+function mcpHandleHostMessage(state,d,origin,deps){
+  var out={responses:[],handled:null,ignored:null};
+  var kind=mcpEnvelopeKind(d);
+  if(kind===null||kind==='response'){out.ignored='not-a-host-message';return out;}
+  if(!mcpOriginOk(state,origin)){out.ignored='origin-not-pinned-host';return out;}
+  var method=d.method,params=d.params||{},fn;
+  if(MCP_HOST_METHODS.indexOf(method)===-1){
+    if(kind==='request')out.responses.push(mcpError(d.id,-32601,'Method not found: '+method));
+    out.ignored='method-not-allowlisted';
+    return out;
+  }
+  if(method==='ui/notifications/tool-input'||method==='ui/notifications/tool-input-partial'){
+    fn=deps&&deps.applyArguments;
+    if(fn)fn(params.arguments,method==='ui/notifications/tool-input');
+  }else if(method==='ui/notifications/tool-result'){
+    fn=deps&&deps.renderResult;
+    if(fn)fn(params);
+  }else if(method==='ui/notifications/tool-cancelled'){
+    fn=deps&&deps.cancelled;
+    if(fn)fn(params.reason);
+  }else if(method==='ui/notifications/host-context-changed'){
+    state.hostContext=params.hostContext||params||null;
+    fn=deps&&deps.hostContextChanged;
+    if(fn)fn(state.hostContext);
+  }else if(method==='ui/resource-teardown'){
+    /* Responded to WITHOUT work: the page holds no host-owned resource and no
+       unsaved state of the host's, so there is nothing to flush and nothing that
+       could make the host wait (the spec has it wait for this response). */
+    if(kind==='request')out.responses.push(mcpOk(d.id,{}));
+  }
+  out.handled=method;
+  return out;
+}
+/* ══ MCP-APPS-JSONRPC v1 END ═══════════════════════════════════════════════ */
+/* DOM wiring for the region above. Everything that touches window lives HERE, so
+   the region stays evaluable on its own. */
+var MCP=mcpNewState();
+/* Every post after the handshake goes through this: no host origin, no send. The
+   targetOrigin is the pinned origin, never a wildcard. */
+function mcpPost(env){
+  if(!MCP.hostOrigin)return false;
+  if(!env)return false;
+  try{window.parent.postMessage(env,MCP.hostOrigin);}catch(e){return false;}
+  return true;
+}
+/* The ONE pre-handshake send. The host's origin is unknowable until it answers
+   ui/initialize (a sandboxed View is not told who framed it), so this single
+   message is addressed with a wildcard and carries nothing but our capability
+   declaration — no page data. Every later send is mcpPost, pinned. */
+function mcpPostInit(env){
+  if(!env)return false;
+  try{window.parent.postMessage(env,MCP.hostOrigin||'*');}catch(e){return false;} /* PRE-HANDSHAKE-ORIGIN-OK: MCP.hostOrigin is null until ui/initialize answers */
+  return true;
+}
+function mcpSend(method,params,id){return mcpPost(mcpEnvelopeOut(method,params,id));}
+function mcpNextId(){return MCP.nextId++;}
+function mcpApplyArguments(args,complete){
+  var n=intakeFieldObject(args||{});
+  if(n>0)notice((complete?'🔗 ':'… ')+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  return n;
+}
+/* The existing result hook, reused: a CallToolResult whose structuredContent is a
+   Policy Mandate goes through intakeApply — the same routine the 📥 import zone
+   and a dropped .policy.json use. Anything else is reported, not parsed. */
+function mcpRenderResult(res){
+  var r=res||{};
+  var sc=r.structuredContent;
+  if(looksLikeMandate(sc)){try{return intakeApply(JSON.stringify(sc));}catch(e){}}
+  if(sc&&typeof sc==='object'&&looksLikeMandate(sc.mandate)){try{return intakeApply(JSON.stringify(sc.mandate));}catch(e){}}
+  if(r.isError)notice('⚠ The host reported a tool error.','warn');
+  else notice('✓ Tool result received from the host.','ok');
+  return 0;
+}
+function mcpOnMessage(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  var d=e.data;
+  var kind=mcpEnvelopeKind(d);
+  if(kind===null)return; /* ain-handoff/v1 and everything else: onComposerMessage owns it */
+  if(kind==='response'){
+    var initialized=mcpAcceptInitResponse(MCP,d,e.origin);
+    if(initialized)mcpPost(initialized);
+    return;
+  }
+  var r=mcpHandleHostMessage(MCP,d,e.origin,{
+    applyArguments:mcpApplyArguments,
+    renderResult:mcpRenderResult,
+    cancelled:function(reason){notice('⚠ The host cancelled the tool call'+(reason?': '+reason:'.'),'warn');},
+    hostContextChanged:null
+  });
+  for(var i=0;i<r.responses.length;i++){
+    /* A -32601 or a teardown result before the handshake has nowhere pinned to
+       go; mcpPost refuses it rather than broadcasting. */
+    mcpPost(r.responses[i]);
+  }
+}
+function mcpBoot(){
+  if(window.parent===window)return false;
+  MCP.initId=1;
+  return mcpPostInit(mcpInitRequest(MCP.initId,window.AINBridge&&window.AINBridge.capabilities,BRIDGE_VERSION));
+}
+/* sessionRoot — COMPOSER-PLAN-AND-ROOT-WEBMCP-1. ONE ROUTINE LAW: the core below
+   is byte-identical to SESSION_ROOT_SOURCE in scripts/gen-webmcp-registrations.mjs
+   (emitted onto every chain composer page) and a port of the worker's
+   build_session_receipt (worker.mjs buildSessionReceiptCore). Asserted by
+   scripts/session-root-parity.test.mjs. Never re-derive the Merkle rule. */
+async function ainSessionRoot(executionHashes) {
+  if (!Array.isArray(executionHashes) || executionHashes.length === 0) throw new Error('execution_hashes must be a non-empty array.');
+  var normalize = function (h) { return String(h).replace(/^sha256:/, '').toLowerCase(); };
+  var level = executionHashes.map(normalize).map(function (h) { return 'sha256:' + h; });
+  var hashPair = async function (a, b) {
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalize(a) + normalize(b)));
+    return 'sha256:' + Array.from(new Uint8Array(buf)).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+  };
+  while (level.length > 1) {
+    var next = [];
+    for (var i = 0; i < level.length; i += 2) {
+      var right = level[i + 1] !== undefined ? level[i + 1] : level[i]; // duplicate last leaf when odd
+      next.push(await hashPair(level[i], right));
+    }
+    level = next;
+  }
+  return level[0];
+}
+window.AINBridge={
+  version:BRIDGE_VERSION,
+  /* capabilities — B7 (BRIDGE-SNIPPET-SYNC-GEN-1). A feature-detect surface so an
+     agent can read what this page's bridge supports instead of probing it by
+     calling functions and watching them throw. Every flag is DERIVED from the
+     routine actually present in this closure, never hand-maintained: an older
+     page carrying an older copy of this block reports the truth about itself. */
+  capabilities:{
+    version:BRIDGE_VERSION,
+    prefill:typeof applyFields==='function',
+    mandate:typeof intakeApply==='function',
+    handoff:typeof onComposerMessage==='function',
+    sendToVerify:typeof apSendToVerify==='function',
+    sessionRoot:typeof ainSessionRoot==='function',
+    liveLedger:typeof ainLedgerSend==='function',
+    mcpApps:typeof mcpHandleHostMessage==='function',
+    /* BRIDGE-SHARE-FLAG-1: derived from the page's own config, not the routine's
+       presence — every rolled page carries copyShareLink, but only a page whose
+       CFG.share is true supports it. */
+    share:CFG.share===true
+  },
+  apply:applyFields,
+  run:runTool,
+  intake:intakeApply,
+  sendToVerify:apSendToVerify,
+  sessionRoot:ainSessionRoot,
+  ledgerSend:ainLedgerSend,
+  ledgerTarget:ainLedgerTarget,
+  /* MCP Apps View legs, so a page never hand-rolls a JSON-RPC envelope: every
+     send goes through the allowlist (mcpEnvelopeOut) and the pinned origin
+     (mcpPost). Reads of the host's own three fields are copies of state. */
+  mcp:{
+    ready:function(){return MCP.ready;},
+    host:function(){return {origin:MCP.hostOrigin,info:MCP.hostInfo,capabilities:MCP.hostCapabilities,context:MCP.hostContext};},
+    send:mcpSend,
+    message:function(text){return mcpPost(mcpMessageRequest(mcpNextId(),text));},
+    openLink:function(url){return mcpPost(mcpEnvelopeOut('ui/open-link',{url:String(url)},mcpNextId()));}
+  },
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+/* Named (was an inline anonymous listener) so capabilities.handoff can be derived
+   from the routine's presence rather than asserted. Function declarations hoist,
+   so the typeof test above is true at the moment AINBridge is assigned. */
+/* Reply target for the ain-handoff/v1 legs. Once a host has answered
+   ui/initialize, the pinned origin is the only address used — the wildcard
+   below can only be reached before any handshake, on an opaque-origin page
+   (file://), where a same-origin composer has no other addressable form. */
+function legacyTarget(e){
+  if(MCP.hostOrigin)return MCP.hostOrigin;
+  return (e.origin&&e.origin!=='null')?e.origin:'*'; /* PRE-HANDSHAKE-ORIGIN-OK: MCP.hostOrigin is null, opaque-origin composer */
+}
+function onComposerMessage(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=legacyTarget(e);
+  var d=e.data||{};
+  /* MCP_LEGACY_ALIAS (goal 3) names the ui/ method each of these three legacy
+     types corresponds to; the behaviour below is unchanged, so a page rolled to
+     v1.3 and a composer still speaking ain-handoff/v1 keep working together for
+     this one snippet version. A later row deletes the alias and this listener. */
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+}
+window.addEventListener('message',onComposerMessage);
+window.addEventListener('message',mcpOnMessage);
+function boot(){buildIntakeUI();buildShareUI();initPrefill();mcpBoot();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
 </script>
 <script>
 /* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
 function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
 function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
-function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 </script>
 <script>
 /* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
-/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+/* Signs through __ocgJcs (the OCG-CANON v1 block's serializer — single canon path; RFC 8785 §3.2.3-exact for array-index member names, same bytes as kernels/_proof.mjs jcsStringify since JCS-CANON-FIX-1). */
 /* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
    __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
 (function(){
   var CS='eddsa-jcs-2022';
-  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function jcs(o){return new TextEncoder().encode(__ocgJcs(o));}
   function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
   function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
   function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}

@@ -253,6 +253,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 <script>
 /* OCG-CANON v1 — RFC 8785 / JCS recursive key-sort canonicalizer, byte-equivalent to kernels/_hash.mjs cgCanon. */
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
 function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
 </script>
 
@@ -555,7 +556,7 @@ function verifySeal(cp) {
   if (cp.receiptFormat !== 'groth16-bn254') return false;
   if (typeof cp.imageId !== 'string' || typeof cp.seal !== 'string') return false;
   if (!cp.journal || typeof cp.journal !== 'object') return false;
-  const journalBytes = enc(JSON.stringify(__ocgCanon(cp.journal)));
+  const journalBytes = enc(__ocgJcs((cp.journal)));
   const imageIdBytes = cpHexToBytes(normId(cp.imageId).slice('sha256:'.length));
   if (imageIdBytes.length !== 32) return false;
   const claimDigest = claimDigestOk(imageIdBytes, journalBytes);
@@ -662,7 +663,7 @@ async function verifyProofHalf(bundle) {
 
   if (checks.some((c) => c.ok === false)) return { verdict: 'PROOF-INVALID', checks, annotations: [] };
 
-  const journalBytes = enc(JSON.stringify(__ocgCanon(r.journal)));
+  const journalBytes = enc(__ocgJcs((r.journal)));
   const journalDigest = 'sha256:' + bytesToHex(await sha256(journalBytes));
   const annotations = [];
   const jc = bundle.journal_contract || {};
