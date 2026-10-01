@@ -7,6 +7,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="kernel-digest" content="sha256:ba852e7332b2eb306965c24556629e1120bcfa2adb18d491c6832fc1423640f6">
 <title>CODM Significant Expense Classifier · ART-634 · OpenChainGraph · AINumbers.co</title>
 <meta name="description" content="Classify one candidate segment expense under the ASU 2023-07 significant expense principle added to ASC 280: separately disclosable, folds into other segment items, or outside the principle. Client-side. Zero PII.">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-634-codm-expense-significance-classifier.html">
@@ -397,6 +398,11 @@ const SPECIFIED_ITEMS_50_22={
   equity_in_net_income_of_equity_method_investees:'ASC 280-10-50-22(g)',income_tax_expense_or_benefit:'ASC 280-10-50-22(h)',
   significant_noncash_items_other_than_dda:'ASC 280-10-50-22(j)',
 };
+// Inline copy of chaingraph/kernels/art-634-codm-expense-significance-classifier.kernel.mjs compute():
+// keep byte-equivalent with the kernel (basis strings and the two scope-note payload fields are
+// hash-bearing; they enter the execution_hash preimage via output_payload).
+const SEGMENT_LEVEL_DUTIES='This node classifies one candidate expense. ASC 280-10-50-26B separately requires an amount and a qualitative description of other segment items for each reportable segment, and ASC 280-10-50-26C requires that disclosure even when no significant expense categories are reported for a segment, together with an explanation of the nature of the expense information the chief operating decision maker uses to manage that segment (ASC 280-10-55-15G). Those are per-segment duties decided across all of a segment expenses, not from any single candidate, and are not decided here.';
+const BUCKET_C_OUT_OF_SCOPE='ASC 280-10-50-26B(c) covers a segment gains, losses or other amounts included in the reported measure of profit or loss rather than expense categories, so it is outside the subject of this node and is never returned.';
 function compute(pp){
   const included_in_segment_profit_measure=pp.included_in_segment_profit_measure===true;
   const regularly_provided_to_codm=pp.regularly_provided_to_codm===true;
@@ -425,11 +431,11 @@ function compute(pp){
   if(raw_item==='interest_expense')citations.push('ASC 280-10-50-24');
   let basis;
   if(must_disclose_separately_50_26A){
-    basis='Disclosed separately under ASC 280-10-50-26A: included in the reported measure, '+(regularly_provided_to_codm?'regularly provided to the CODM':'easily computable from information regularly provided to the CODM under ASC 280-10-55-15A/55-15B')+', and assessed significant.';
+    basis='Disclosed separately for this reportable segment under ASC 280-10-50-26A: the expense is included in the reported measure of segment profit or loss, it '+(regularly_provided_to_codm?'is regularly provided to the chief operating decision maker':'is easily computable from information regularly provided to the chief operating decision maker under ASC 280-10-55-15A and 55-15B')+', and the entity has assessed the category as significant. This node did not compute that significance assessment and the Update states no benchmark for it.';
   }else if(folds_into_other_segment_items_50_26B){
-    basis='Included in other segment items under ASC 280-10-50-26B rather than disclosed separately: '+(!reaches_codm?'neither regularly provided to the CODM nor easily computable from information that is':'not assessed as significant')+'.';
+    basis='Included in other segment items under ASC 280-10-50-26B rather than disclosed separately. The expense sits inside the reported measure of segment profit or loss but '+(!reaches_codm?'is neither regularly provided to the chief operating decision maker nor easily computable from information that is, so ASC 280-10-50-26A never evaluates it':'the entity has not assessed the category as significant')+'. Other segment items is a reconciling residual, so nothing inside the reported measure is excluded from disclosure entirely.';
   }else{
-    basis='Outside the significant expense principle: not included in the reported measure of segment profit or loss. '+(separate_disclosure_required_50_22?'Remains separately disclosable under ASC 280-10-50-22.':'No ASC 280-10-50-22 duty arises on these inputs.');
+    basis='Outside the significant expense principle: the expense is not included in the reported measure of segment profit or loss, so neither ASC 280-10-50-26A nor ASC 280-10-50-26B reaches it. '+(separate_disclosure_required_50_22?'It remains separately disclosable under ASC 280-10-50-22, which applies when a specified amount is included in the measure of segment profit or loss or is otherwise regularly provided to the chief operating decision maker even if not included in that measure.':'No ASC 280-10-50-22 specified-item duty arises on these inputs either.');
   }
   const compliance_flags=['SEG_EXPENSE_CLASSIFIED'];
   if(must_disclose_separately_50_26A)compliance_flags.push('SEG_EXPENSE_DISCLOSE_SEPARATELY');
@@ -439,7 +445,7 @@ function compute(pp){
   if(separate_disclosure_required_50_22)compliance_flags.push('SEG_EXPENSE_50_22_SEPARATE_DISCLOSURE_REQUIRED');
   if(raw_item==='interest_expense')compliance_flags.push('SEG_EXPENSE_INTEREST_EXPENSE_50_24_INTERACTION');
   if(input_outside_declared_domain)compliance_flags.push('SEG_EXPENSE_INPUT_OUTSIDE_DECLARED_DOMAIN');
-  return{output_payload:{included_in_segment_profit_measure,regularly_provided_to_codm,easily_computable_from_codm_information,assessed_significant,specified_item_50_22:raw_item,input_outside_declared_domain,evaluated_under_50_26A,must_disclose_separately_50_26A,folds_into_other_segment_items_50_26B,other_segment_items_buckets,outside_significant_expense_principle,separate_disclosure_required_50_22,citation:citations.join('; '),basis},compliance_flags};
+  return{output_payload:{included_in_segment_profit_measure,regularly_provided_to_codm,easily_computable_from_codm_information,assessed_significant,specified_item_50_22:raw_item,input_outside_declared_domain,evaluated_under_50_26A,must_disclose_separately_50_26A,folds_into_other_segment_items_50_26B,other_segment_items_buckets,outside_significant_expense_principle,separate_disclosure_required_50_22,citation:citations.join('; '),basis,segment_level_duties_not_decided_here:SEGMENT_LEVEL_DUTIES,bucket_c_scope_note:BUCKET_C_OUT_OF_SCOPE},compliance_flags};
 }
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
 async function sha256Hex(bytes){const dig=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
