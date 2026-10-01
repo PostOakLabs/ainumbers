@@ -44675,7 +44675,9 @@
   "url": "https://ainumbers.co/chaingraph/art-590-x402-eip712-digest-recomputer.html",
   "description": "Recomputes the EIP-712 typed-data digest for an EIP-3009 TransferWithAuthorization struct (the x402 payments rail's underlying authorization primitive) from caller-supplied domain and struct fields only: domain separator, struct hash, and the final keccak256(0x19 || 0x01 || domainSeparator || structHash) digest. All four EIP-712 domain fields (name, version, chainId, verifyingContract) are mandatory inputs and are never defaulted or guessed -- a guessed verifyingContract would defeat the entire point of domain separation. keccak256 comes from the already-vendored, pinned noble-curves/noble-hashes bundle (no new vendoring); the EIP-712/EIP-3009 ABI encoding scheme is implemented directly as public-spec arithmetic on top of it. This node performs no signature recovery and no domain/nonce/window checks -- it makes no claim about signature validity, on-chain settlement, or spend. Zero network calls; never a facilitator, proxy, or settlement relay. Golden vectors are cross-checked against externally published references (the EIP-712 spec's own domain-separator worked example, and Circle's production TransferWithAuthorization typehash), not round-trip self-tests alone.",
   "input_schema_ref": "chaingraph/art-590-x402-eip712-digest-recomputer.html#manifest",
-  "consumes": [],
+  "consumes": [
+    "art-700-authorization-payload-linter"
+  ],
   "feeds": [
     "art-591-x402-signer-recovery-verifier"
   ],
@@ -44747,7 +44749,7 @@
   "url": "https://ainumbers.co/chaingraph/art-591-x402-signer-recovery-verifier.html",
   "description": "Recovers the ECDSA signer address from a caller-supplied EIP-712 digest (the sibling art-590-x402-eip712-digest-recomputer's output) and a signature in (r,s,v) or (r,s,yParity) form, normalizing the recovery-id across the raw bit, legacy Ethereum v (27/28), and EIP-155 v (chainId*2+35/36) conventions. Reports the recovered address as a fact plus a separate boolean comparison against any caller-claimed from address. Signature recovery comes from the already-vendored, pinned noble-curves bundle (no new vendoring); malformed or invalid-recovery-id signatures produce a clean refusal finding, never a thrown exception. Proves that an address signed the exact digest supplied; does not prove settlement, spend, or that funds moved. Zero network calls; never a facilitator, proxy, or settlement relay.",
   "input_schema_ref": "chaingraph/art-591-x402-signer-recovery-verifier.html#manifest",
-  "consumes": ["art-590-x402-eip712-digest-recomputer"],
+  "consumes": ["art-590-x402-eip712-digest-recomputer", "art-699-x402-permit2-evidence-recomputer"],
   "feeds": [],
   "status": "live",
   "conformance_fixtures": true,
@@ -46750,7 +46752,10 @@
   "url": "https://ainumbers.co/chaingraph/art-612-erc2612-permit-binding-verifier.html",
   "description": "Recomputes the EIP-712 typed-data digest for an ERC-2612 Permit struct (the gasless-approval rail used by USDC and other ERC-2612 tokens) from caller-supplied domain and message fields, recovers the ECDSA signer from a caller-supplied signature, and reports whether the recovered signer binds to the caller-claimed owner or names the diverging field. DAI's legacy permit (holder, spender, nonce, expiry, allowed) is a different struct this node does not verify. All four EIP-712 domain fields (name, version, chainId, verifyingContract) are mandatory inputs and are never defaulted or guessed -- a guessed verifyingContract would defeat domain separation. keccak256 and secp256k1 recovery come from the already-vendored, pinned noble-curves/noble-hashes bundle shared with the sibling art-590/art-591 x402 pair (no new vendoring); the EIP-712/ERC-2612 ABI encoding scheme is implemented directly as public-spec arithmetic on top of it. This node makes no claim about on-chain nonce freshness, current allowance state, or whether deadline has passed relative to now -- it states plainly what it never fetched. Zero network calls; never a facilitator, proxy, or settlement relay. Golden vectors are cross-checked against an independently re-implemented EIP-712 encoding path and real secp256k1 signatures, not round-trip self-tests alone.",
   "input_schema_ref": "chaingraph/art-612-erc2612-permit-binding-verifier.html#manifest",
-  "consumes": [],
+  "consumes": [
+    "art-699-x402-permit2-evidence-recomputer",
+    "art-700-authorization-payload-linter"
+  ],
   "feeds": [],
   "status": "live",
   "conformance_fixtures": true,
@@ -46933,7 +46938,9 @@
   "url": "https://ainumbers.co/chaingraph/art-614-eip7702-authorization-tuple-decoder.html",
   "description": "Recomputes the EIP-7702 authorization-tuple hash (keccak256(0x05 || rlp([chain_id, address, nonce])), the 'Set EOA account code' standard live on Ethereum mainnet since the Pectra upgrade, 2025-05-07), recovers the ECDSA signer from a caller-supplied signature, and reports the address the recovered signer is authorizing as its delegate. The node does not apply EIP-2's low-s rule, which EIP-7702 requires. A tuple with s above secp256k1n/2 is skipped by clients, yet still returns AUTHORIZATION_RECOVERED here. The tuple's own address field IS the delegate: the code the EOA is pointing itself at. A zero delegate address clears the account's delegation rather than naming a delegate. This node stops at that address -- it never inspects, fetches, or judges the delegate contract's bytecode, and makes no safe/unsafe verdict about it. chain_id = 0 is EIP-7702-defined as a valid, deliberate cross-chain authorization (replayable on any chain) and is reported as such, never treated as malformed input. RLP encoding is hand-authored public-spec arithmetic (Ethereum Yellow Paper Appendix B); keccak256 and secp256k1 recovery come from the already-vendored, pinned noble-curves bundle, no new vendoring. Zero network calls: does not confirm the authorization was ever submitted on-chain, does not confirm the EOA's account nonce matches the declared nonce at any block, and makes no settlement claim.",
   "input_schema_ref": "chaingraph/art-614-eip7702-authorization-tuple-decoder.html#manifest",
-  "consumes": [],
+  "consumes": [
+    "art-700-authorization-payload-linter"
+  ],
   "feeds": [],
   "status": "live",
   "conformance_fixtures": true,
@@ -52288,6 +52295,354 @@
       }
     }
   }
+},
+    {
+  "tool_id": "art-699-x402-permit2-evidence-recomputer",
+  "tool_version": "1.0.0",
+  "display_name": "X402 Permit2 Evidence Recomputer",
+  "mcp_name": "recompute_x402_permit2_digest",
+  "mandate_type": "compliance_control",
+  "wave": 119,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-699-x402-permit2-evidence-recomputer.html",
+  "description": "Recomputes the Permit2 typed-data digest a payer's wallet signs for an x402 payment, for the three single-item message shapes the exact and upto schemes use: a witness transfer that binds the destination, an unwitnessed signature transfer, and an allowance permit. From caller-supplied domain and message fields it derives the domain separator, the struct hash and the digest, deriving each type hash at run time from the type string rather than carrying a transcribed constant, and it reports binding facts against a caller-supplied payment requirement: whether the spender is the pinned x402 proxy, whether the destination bound into the witness matches payTo, whether the token matches the asset, whether the chain matches the network, and whether the amount holds under the scheme rule, which is equality under exact and a ceiling under upto. It reports nonce facts in the right space, keeping the unordered bitmap decomposition of the transfer shapes apart from the sequential counter of the allowance shape, and it reports that an allowance expiration of zero lasts only the current block rather than never expiring. Signature bytes are classified without recovery: length class, whether s sits above half the curve order, the recovery byte form including the raw parity case an on-chain call cannot use, and the counterfactual wrapper marker. Signer recovery itself is handed off to art-591 in that node's exact input shape, and a sponsored approval leg is handed off to art-612 in its. Scope limits: it reads no chain, so nonce spend state, stored allowance, contract code and the current time are caller-declared inputs echoed back, and any absent input reports NOT_EVALUATED rather than a pass. It never originates, relays or submits a payment.",
+  "input_schema_ref": "chaingraph/art-699-x402-permit2-evidence-recomputer.html#manifest",
+  "consumes": [],
+  "feeds": [
+    "art-591-x402-signer-recovery-verifier",
+    "art-612-erc2612-permit-binding-verifier"
+  ],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:610d0247168f9ed0ac30b0c745503f178fb840da35d67b3fb9f3342801021ba5",
+      "valid_from": "2026-09-29"
+    }
+  ],
+  "export_capability": [
+    "json"
+  ],
+  "standards_basis": "implements_standard",
+  "cited_clause_digest": [
+    {
+      "digest": "sha256:b0d1ea1043743e21eef8e02793422ce320c4d94cd4128dceb6e5f3c583cdfa5e",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/permit2/main/src/EIP712.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "src/EIP712.sol lines 9-41",
+      "scheme": "solidity-source",
+      "id": "Permit2 EIP712 domain (3 fields)"
+    },
+    {
+      "digest": "sha256:e1a18221b55e1ba4ed3cf1385f6eb9bf5d702439290d4efb9f91de0bbfefdee5",
+      "source_url": "https://raw.githubusercontent.com/x402-foundation/x402/main/specs/schemes/exact/scheme_exact_evm.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Reference Implementation: x402ExactPermit2Proxy, WITNESS_TYPE_STRING and WITNESS_TYPEHASH",
+      "scheme": "x402-spec",
+      "id": "x402 exact witness type string"
+    },
+    {
+      "digest": "sha256:f74d1e8b582009eeb8393fb679665b104717aaa1f4091317647918ecc35d969a",
+      "source_url": "https://raw.githubusercontent.com/x402-foundation/x402/main/contracts/evm/src/x402ExactPermit2Proxy.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "contract x402ExactPermit2Proxy: settle and settleWithPermit",
+      "scheme": "solidity-source",
+      "id": "x402 exact x402ExactPermit2Proxy"
+    },
+    {
+      "digest": "sha256:c1cf279c6802fbf3863e8eb7e5d53c66b0d3998fea3140fc6f392252245e9de2",
+      "source_url": "https://raw.githubusercontent.com/x402-foundation/x402/main/contracts/evm/src/x402BasePermit2Proxy.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "x402BasePermit2Proxy._settle require checks (amount, owner, destination, validAfter)",
+      "scheme": "solidity-source",
+      "id": "x402 exact proxy enforcement (witness.to, validAfter)"
+    },
+    {
+      "digest": "sha256:e0880c4e1c659a69b27ce15796fe0b46ce4cfc9cf7150209416910f6251362c8",
+      "source_url": "https://raw.githubusercontent.com/x402-foundation/x402/main/specs/schemes/upto/scheme_upto.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Sec 4 Maximum Amount Enforcement; Sec 5 Phase-Dependent amount Semantics",
+      "scheme": "x402-spec",
+      "id": "x402 upto amount semantics"
+    },
+    {
+      "digest": "sha256:db24d77fce5684d45a1d9664e8632166426647c9395e142919f9d3a2671f084b",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/permit2/main/src/SignatureTransfer.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "bitmapPositions + _useUnorderedNonce",
+      "scheme": "solidity-source",
+      "id": "Permit2 SignatureTransfer bitmap nonce"
+    },
+    {
+      "digest": "sha256:3888022cd3e2798b851154de71683ab079d857a3881bc316857d5f5f147679f5",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/permit2/main/src/libraries/Allowance.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Allowance library: updateAll / updateAmountAndExpiration expiration==0 handling",
+      "scheme": "solidity-source",
+      "id": "Permit2 Allowance expiration semantics (incl. 0)"
+    },
+    {
+      "digest": "sha256:002e065fcd87530562d2baa3db3e6f33f33193feb24797e1f4c9475faf904523",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/permit2/main/src/AllowanceTransfer.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "_transfer expiry check and uint160 max-allowance bypass",
+      "scheme": "solidity-source",
+      "id": "Permit2 AllowanceTransfer transfer-time expiry check"
+    },
+    {
+      "digest": "sha256:2e9acc9950f1b9152d959406a4314af4bf38de63700099064144f72ed05eb4cf",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/permit2/main/src/libraries/SignatureVerification.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "library SignatureVerification.verify (65-byte, 64-byte EIP-2098, ERC-1271; no high-s rejection)",
+      "scheme": "solidity-source",
+      "id": "Permit2 SignatureVerification paths (65/64/1271, high-s)"
+    },
+    {
+      "digest": "sha256:0497c232e80235d7e8f5a55c6785fe302160369ed98e797a54924eaa6d8e222b",
+      "source_url": "https://raw.githubusercontent.com/x402-foundation/x402/main/specs/extensions/eip2612_gas_sponsoring.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "PaymentRequired extension schema and required fields",
+      "scheme": "x402-spec",
+      "id": "x402 eip2612GasSponsoring payload shape"
+    },
+    {
+      "digest": "sha256:c52a44c68f2fab236498e59c27a79391abf2e15cb1d29c5bec486b1235de4f70",
+      "source_url": "https://raw.githubusercontent.com/ethereum/EIPs/master/EIPS/eip-712.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Definition of encodeType; EIP712Domain chainId field (refuse-to-sign)",
+      "scheme": "eip",
+      "id": "EIP-712 encodeType ordering and chainId refuse-to-sign"
+    },
+    {
+      "digest": "sha256:912975371d4cfc871411ebf7ab9a193bf919d8a9638d2aaa8708eda2c77a4372",
+      "source_url": "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-2612.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "permit semantics + Permit typehash; Rationale uint(-1) deadline",
+      "scheme": "erc",
+      "id": "ERC-2612 permit type and deadline convention"
+    },
+    {
+      "digest": "sha256:030b29feb0dc42fa4c15234ffab7cf9ce6234367c22aab3ffec3e531cd4de60d",
+      "source_url": "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-2098.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Compact signature representation: r || yParity<<255 || s",
+      "scheme": "erc",
+      "id": "EIP-2098 compact signature form"
+    },
+    {
+      "digest": "sha256:9731f21073d8744b2440a6de87c9d19d61e5b315e4fbafe55203837f36404475",
+      "source_url": "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-6492.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "magicBytes literal (16x 6492 = 32 bytes); check ordering before ERC-1271 and ecrecover",
+      "scheme": "erc",
+      "id": "ERC-6492 magic suffix"
+    }
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "New gpu:false node. Proving order for a standards-implementing node is build, land deferred, side-by-side review, then prove (standing order 39), so no GPU prove is run or proposed by the building row. The exec-only cycle preflight was run in this row's own worktree and its measured user_cycles is recorded in the row's check-off for the later prove row to book against."
+},
+    {
+  "tool_id": "art-700-authorization-payload-linter",
+  "tool_version": "1.0.0",
+  "display_name": "Authorization Payload Linter",
+  "mcp_name": "lint_authorization_payload",
+  "mandate_type": "payment_policy",
+  "wave": 119,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-700-authorization-payload-linter.html",
+  "description": "Lints an authorization payload before it is signed, against a signing policy the caller declares. Three declared input modes: EIP-712 typed data as it would be passed to eth_signTypedData_v4, an EIP-7702 authorization tuple, and a bare 32-byte hash about to be signed blind. Classification is string equality of the computed EIP-712 encodeType against the canonical type strings of ERC-2612, the older DAI permit struct, the five recognized Permit2 structs, the three EIP-3009 authorizations, the EntryPoint v0.8 PackedUserOperation, and the OpenZeppelin v5 ForwardRequest; a primaryType whose name matches a known standard but whose encodeType differs is reported as a lookalike, and anything else is reported as unrecognized rather than guessed. Every check carries a stable id and returns FLAGGED, CLEAR or NOT_EVALUATED with the field path, the observed value and the policy value. There are no numeric defaults anywhere: every threshold, allowlist, counterparty set, clock reading and chain fact is a caller-declared input, and a check whose input was not declared reports NOT_EVALUATED and is listed separately, never folded into a CLEAR. policy_conformance is CONFORMS when at least one check was evaluated and every evaluated check is CLEAR, DEVIATES when any check is FLAGGED, and INDETERMINATE when nothing could be evaluated. The display block uses the ERC-7730 field-format vocabulary (tokenAmount in raw base units with caller-declared decimals and ticker, addressName, date in RFC 3339, chainId) so the output composes with clear-signing wallets, and an optional ERC-7730 descriptor is used for a context binding check only, never for rendering. Two facts about the sibling EIP-7702 tuple decoder are reported here rather than changed there: that node does not apply the low-s rule EIP-7702 requires, and it names a zero delegate address as a delegate where EIP-7702 clears the account code instead. Handoffs echo the payload fields in the exact input shapes of the EIP-3009 digest recomputer and the ERC-2612 binding verifier and the EIP-7702 tuple decoder, so post-signature evidence composes. This node performs zero chain reads, recovers no signer, computes no digest, and never originates, relays or submits a transaction. It flags a payload against a declared policy; it does not judge a counterparty, a delegate contract, or an outcome, and it never re-verifies a know-your-agent credential (cite art-565 for that scope). Out of scope in this version and named rather than promised: calldata mode, Seaport orders, Solana, and ERC-1271 signature checking, which needs a chain read.",
+  "input_schema_ref": "chaingraph/art-700-authorization-payload-linter.html#manifest",
+  "consumes": [],
+  "feeds": [
+    "art-590-x402-eip712-digest-recomputer",
+    "art-612-erc2612-permit-binding-verifier",
+    "art-614-eip7702-authorization-tuple-decoder"
+  ],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:6f656bb896a5c568378f091572e1c6bcf1d22803b6929de33b9315eb3771d6ac","valid_from":"2026-09-29"}],
+  "export_capability": ["json"],
+  "standards_basis": "implements_standard",
+  "cited_clause_digest": [
+    {
+      "digest": "sha256:c52a44c68f2fab236498e59c27a79391abf2e15cb1d29c5bec486b1235de4f70",
+      "source_url": "https://raw.githubusercontent.com/ethereum/EIPs/master/EIPS/eip-712.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Definition of encodeType; EIP712Domain chainId field (refuse-to-sign)",
+      "scheme": "eip",
+      "id": "EIP-712 encodeType ordering and chainId refuse-to-sign"
+    },
+    {
+      "digest": "sha256:912975371d4cfc871411ebf7ab9a193bf919d8a9638d2aaa8708eda2c77a4372",
+      "source_url": "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-2612.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "permit semantics + Permit typehash; Rationale uint(-1) deadline",
+      "scheme": "erc",
+      "id": "ERC-2612 permit type and deadline convention"
+    },
+    {
+      "digest": "sha256:98c30454777b19141981f24e3bdbce8e0331a7dd8f65eddc7326a6d4391099c3",
+      "source_url": "https://raw.githubusercontent.com/makerdao/dss/master/src/dai.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "PERMIT_TYPEHASH constant; function permit (expiry==0, allowed -> uint(-1))",
+      "scheme": "solidity-source",
+      "id": "DAI legacy permit"
+    },
+    {
+      "digest": "sha256:96f39c5d9f2435f5a268b4c46d49cdfc7db583c57fa878f9e852fd61bee23122",
+      "source_url": "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-3009.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "TRANSFER/RECEIVE/CANCEL typehash constants; Security Considerations receiveWithAuthorization",
+      "scheme": "erc",
+      "id": "EIP-3009 typehashes and receiveWithAuthorization rationale"
+    },
+    {
+      "digest": "sha256:b0d1ea1043743e21eef8e02793422ce320c4d94cd4128dceb6e5f3c583cdfa5e",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/permit2/main/src/EIP712.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "src/EIP712.sol lines 9-41",
+      "scheme": "solidity-source",
+      "id": "Permit2 EIP712 domain (3 fields)"
+    },
+    {
+      "digest": "sha256:3888022cd3e2798b851154de71683ab079d857a3881bc316857d5f5f147679f5",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/permit2/main/src/libraries/Allowance.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Allowance library: updateAll / updateAmountAndExpiration expiration==0 handling",
+      "scheme": "solidity-source",
+      "id": "Permit2 Allowance expiration semantics (incl. 0)"
+    },
+    {
+      "digest": "sha256:db24d77fce5684d45a1d9664e8632166426647c9395e142919f9d3a2671f084b",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/permit2/main/src/SignatureTransfer.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "bitmapPositions + _useUnorderedNonce",
+      "scheme": "solidity-source",
+      "id": "Permit2 SignatureTransfer bitmap nonce"
+    },
+    {
+      "digest": "sha256:2e9acc9950f1b9152d959406a4314af4bf38de63700099064144f72ed05eb4cf",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/permit2/main/src/libraries/SignatureVerification.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "library SignatureVerification.verify (65-byte, 64-byte EIP-2098, ERC-1271; no high-s rejection)",
+      "scheme": "solidity-source",
+      "id": "Permit2 SignatureVerification paths (65/64/1271, high-s)"
+    },
+    {
+      "digest": "sha256:831f7e7cd1ad8637dfafae9e6ec1f3c1bce9a95388283effd9ecd21925b5eccf",
+      "source_url": "https://raw.githubusercontent.com/x402-foundation/x402/main/typescript/packages/mechanisms/evm/test/unit/exact/client.test.ts",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "createPaymentPayload with Permit2: spender, witness.to, domain.name, verifyingContract, primaryType assertions",
+      "scheme": "x402-spec",
+      "id": "x402 exact permit2 client test vector"
+    },
+    {
+      "digest": "sha256:e1a18221b55e1ba4ed3cf1385f6eb9bf5d702439290d4efb9f91de0bbfefdee5",
+      "source_url": "https://raw.githubusercontent.com/x402-foundation/x402/main/specs/schemes/exact/scheme_exact_evm.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Reference Implementation: x402ExactPermit2Proxy, WITNESS_TYPE_STRING and WITNESS_TYPEHASH",
+      "scheme": "x402-spec",
+      "id": "x402 exact witness type string"
+    },
+    {
+      "digest": "sha256:e0880c4e1c659a69b27ce15796fe0b46ce4cfc9cf7150209416910f6251362c8",
+      "source_url": "https://raw.githubusercontent.com/x402-foundation/x402/main/specs/schemes/upto/scheme_upto.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Sec 4 Maximum Amount Enforcement; Sec 5 Phase-Dependent amount Semantics",
+      "scheme": "x402-spec",
+      "id": "x402 upto amount semantics"
+    },
+    {
+      "digest": "sha256:23fc7c8de68d29ff973abf76bcc7f58c2ff4822c780b22dd235cf17e9ddfc696",
+      "source_url": "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.8.0/contracts/core/UserOperationLib.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "PACKED_USEROP_TYPEHASH constant; encode(); hash()",
+      "scheme": "solidity-source",
+      "id": "EIP-7702 EntryPoint v0.8 PACKED_USEROP_TYPEHASH"
+    },
+    {
+      "digest": "sha256:80866c4819c8d24b7a8778fbd7e575baeb95729519e7af4c018ac3a330912a13",
+      "source_url": "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v5.7.0/contracts/metatx/ERC2771Forwarder.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "ForwardRequestData struct; FORWARD_REQUEST_TYPEHASH (uint48 deadline)",
+      "scheme": "solidity-source",
+      "id": "ERC-2771 OZ v5 ForwardRequest type string"
+    },
+    {
+      "digest": "sha256:61ad5489200be52f498ef120ad4189fcc84572a94ec11b493b63353a18f5661d",
+      "source_url": "https://raw.githubusercontent.com/ethereum/EIPs/master/EIPS/eip-7702.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Authorization tuple bounds; Behavior steps 1-9 (low-s, zero-address clear)",
+      "scheme": "eip",
+      "id": "EIP-7702 authorization validity and zero-address clear"
+    },
+    {
+      "digest": "sha256:96daf0d618a7ccb25a75a4ef379cdb75371a5cd0ffcd831617ba89809172fd4e",
+      "source_url": "https://raw.githubusercontent.com/circlefin/stablecoin-evm/master/contracts/util/ECRecover.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "ECRecover.recover: high-s revert, v in {27,28}, zero-address check",
+      "scheme": "solidity-source",
+      "id": "Circle ECRecover low-s and v rules"
+    },
+    {
+      "digest": "sha256:030b29feb0dc42fa4c15234ffab7cf9ce6234367c22aab3ffec3e531cd4de60d",
+      "source_url": "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-2098.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Compact signature representation: r || yParity<<255 || s",
+      "scheme": "erc",
+      "id": "EIP-2098 compact signature form"
+    },
+    {
+      "digest": "sha256:9731f21073d8744b2440a6de87c9d19d61e5b315e4fbafe55203837f36404475",
+      "source_url": "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-6492.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "magicBytes literal (16x 6492 = 32 bytes); check ordering before ERC-1271 and ecrecover",
+      "scheme": "erc",
+      "id": "ERC-6492 magic suffix"
+    },
+    {
+      "digest": "sha256:ee73255c38555a48658374505099c4886b8de42353aa153a67d1c6b6048d3a7e",
+      "source_url": "https://raw.githubusercontent.com/ethereum/clear-signing-erc7730-registry/master/specs/erc-7730.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Field format specification (format vocabulary per field)",
+      "scheme": "erc",
+      "id": "ERC-7730 field formats"
+    },
+    {
+      "digest": "sha256:797b408b40f064c9d56af95821e04c309be49a30b4a9ad0b75170cfcd2ddff2d",
+      "source_url": "https://raw.githubusercontent.com/ethereum/clear-signing-erc7730-registry/master/specs/erc-7730.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Context section: contract.deployments; eip712.domain; eip712.deployments MUST-match rules",
+      "scheme": "erc",
+      "id": "ERC-7730 context binding"
+    }
+  ],
+  "cited_clause_source": [
+    "https://raw.githubusercontent.com/ethereum/EIPs/master/EIPS/eip-712.md",
+    "https://raw.githubusercontent.com/ethereum/EIPs/master/EIPS/eip-7702.md",
+    "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-2612.md",
+    "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-3009.md",
+    "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-2098.md",
+    "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-6492.md",
+    "https://raw.githubusercontent.com/ethereum/clear-signing-erc7730-registry/master/specs/erc-7730.md",
+    "https://raw.githubusercontent.com/Uniswap/permit2/main/src/EIP712.sol",
+    "https://raw.githubusercontent.com/makerdao/dss/master/src/dai.sol",
+    "https://raw.githubusercontent.com/circlefin/stablecoin-evm/master/contracts/util/ECRecover.sol",
+    "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.8.0/contracts/core/UserOperationLib.sol",
+    "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v5.7.0/contracts/metatx/ERC2771Forwarder.sol",
+    "https://raw.githubusercontent.com/x402-foundation/x402/main/specs/schemes/exact/scheme_exact_evm.md",
+    "https://raw.githubusercontent.com/x402-foundation/x402/main/specs/schemes/upto/scheme_upto.md"
+  ],
+  "clause_retrieved_date": "2026-09-28",
+  "clause_snapshot_location": "research/clause-snapshots/gasless-2026-09/",
+  "scope_statement": "Classifies an authorization payload before signing and reports how it stands against a caller-declared signing policy. Computes an EIP-712 encodeType and compares it for string equality against canonical type strings; it does not compute a domain separator, a struct hash, a digest, or recover a signer, and it never reads a chain. A check whose declared input is absent reports NOT_EVALUATED and is listed separately from the CLEAR results.",
+  "float_sensitive": "no",
+  "cycle_preflight": "FAST - 23,680,813 user_cycles max across all 28 fixture vectors (argmax v24, x402-intent-mismatch-on-payto), measured exec-only 2026-09-29 in WSL against this row's own worktree bytes (kernel digest sha256:6f656bb896a5c568378f091572e1c6bcf1d22803b6929de33b9315eb3771d6ac, EXEC_OK on all 28); 0.79x the 30,000,000 line. No flock, no GPU, no prove: SO #39 defers the prove to the post-side-by-side row.",
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "New gpu:false node. Standards-implementing nodes prove in the order build, land deferred, side-by-side reconciliation, prove (SO #39), so this row lands the node without a receipt and the later prove row carries it. Cycle class measured in this row by the exec-only preflight and recorded on the board row; the classification path is string equality with no keccak and no signature recovery, so the measured count is well inside the fast lane."
 },
     {
       "tool_id": "cry-01-zk-compliance-proof-generator",
