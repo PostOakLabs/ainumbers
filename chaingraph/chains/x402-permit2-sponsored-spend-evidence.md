@@ -23,3 +23,13 @@ Domain: Digital-Asset Rails
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: A facilitator wants to pay the gas and submit both of my payer's signatures. Does the approval signature bind to the same owner as the transfer?
+Run the AINumbers MCP tool `run_chain` with {"chain":"x402-permit2-sponsored-spend-evidence"} and read `art-612-erc2612-permit-binding-verifier.recovered_signer_matches_owner`.
+Re-run with `inputs` for `art-612-erc2612-permit-binding-verifier`, reusing the values that result echoed, with `owner` changed so any other twenty byte address, which breaks the owner binding. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/x402-permit2-sponsored-spend-evidence.html
