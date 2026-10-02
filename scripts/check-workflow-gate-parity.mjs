@@ -350,6 +350,9 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── WEBMCP-META-LINT-CEILING-1 (2026-10-01) ─────────────────────────────────
+  ["check-webmcp-meta-budgets.test.mjs", SELF_TEST],
+  ["check-webmcp-meta-neardupes.test.mjs", SELF_TEST],
   // ── KERNEL-IMPORT-SPECIFIER-LINT-1 (2026-10-01) ───────────────────────────
   ["check-kernel-determinism.test.mjs", SELF_TEST],
   // ── BRIDGE-MCP-APPS-ALIGN-1 (2026-09-28) ────────────────────────────────────
