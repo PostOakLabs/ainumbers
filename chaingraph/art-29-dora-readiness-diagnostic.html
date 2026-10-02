@@ -593,15 +593,46 @@ function exportMarkdown(){
 
 function b64uEnc(s){ return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
 function b64uDec(s){ s=s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4)s+='='; return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join('')); }
+/* This page shares its own answer state because its answers are not form fields, so the shared AIN Bridge share button cannot carry them. */
 function copyShareLink(){
-  if(!lastResult){ toast('Score the diagnostic first'); return; }
+  if(!lastResult){toast('Score the diagnostic first');return;}
   var link=location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(lastResult.answers))+'&run=1';
-  if(navigator.clipboard){ navigator.clipboard.writeText(link); toast('Result link copied — answers travel in the URL hash only'); }
+  var prev=document.querySelector('textarea[data-share-fallback]'); if(prev&&prev.parentNode)prev.parentNode.removeChild(prev);
+  function copied(){toast('Link copied. It reopens this diagnostic with the same answers. Opening it sends the answers to no server, because they sit after the #.');}
+  function manualField(){
+    var btn=null,bs=document.querySelectorAll('button');
+    for(var i=0;i<bs.length;i++){ if(bs[i].getAttribute('onclick')==='copyShareLink()'){btn=bs[i];break;} }
+    var f=document.createElement('textarea');
+    f.setAttribute('data-share-fallback','');
+    f.setAttribute('readonly','');
+    f.value=link;
+    f.style.display='block';f.style.width='min(680px,100%)';f.style.margin='0.4rem 0';
+    if(btn&&btn.parentNode)btn.insertAdjacentElement('afterend',f);else document.body.appendChild(f);
+    f.select();
+    toast('Copy failed. Select the link below and copy it.');
+  }
+  function execCopy(){
+    var t=document.createElement('textarea');
+    t.setAttribute('readonly','');
+    t.style.position='fixed';t.style.left='-9999px';t.style.top='0';
+    t.value=link;
+    document.body.appendChild(t);t.select();
+    var did=false;
+    try{did=document.execCommand('copy');}catch(e){did=false;}
+    document.body.removeChild(t);
+    if(did)copied();else manualField();
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(link).then(copied,execCopy);}
+  else{execCopy();}
 }
 (function initFromHash(){
   var m=(location.hash||'').match(/[#&]in=([A-Za-z0-9_\-]+)/); if(!m)return;
-  var obj; try{ obj=JSON.parse(b64uDec(m[1])); }catch(e){ return; }
-  Object.keys(obj).forEach(function(qid){ if(/^q\d+$/.test(qid)&&VALUES[obj[qid]]!==undefined) answer(qid,obj[qid]); });
+  var obj=null; try{obj=JSON.parse(b64uDec(m[1]));}catch(e){obj=null;}
+  var set=0;
+  if(obj&&typeof obj==='object'){
+    Object.keys(obj).forEach(function(qid){ if(/^q\d+$/.test(qid)&&VALUES[obj[qid]]!==undefined){answer(qid,obj[qid]);set++;} });
+  }
+  if(!set){toast('This link had no answers this diagnostic recognises.');return;}
   if(/[#&]run=1/.test(location.hash)) runDiagnostic();
 })();
 
