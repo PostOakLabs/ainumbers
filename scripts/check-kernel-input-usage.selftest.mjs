@@ -5,10 +5,14 @@
 // SHIPPED CLI from ./check-kernel-input-usage.mjs — never a restatement of their logic (SO #34).
 //
 // Layers:
-//   1. FIXTURE SCAN — four fixture kernels + manifests (one per finding code, one clean exercising
-//      all four read shapes) plus two registers, copied into a temp root and scanned through
-//      scanRepo(): each code fires exactly once, on exactly its fixture, and the clean
-//      kernel/register yield nothing.
+//   1. FIXTURE SCAN — four fixture kernels + manifests (one per surviving finding code, one clean
+//      exercising all four read shapes) plus two registers, copied into a temp root and scanned
+//      through scanRepo(): each surviving code fires exactly once, on exactly its fixture, and the
+//      clean kernel/register yield nothing. Registers are no longer scanned: REGISTER-EMPTY-INPUTS
+//      was retired by INPUT-USAGE-REGISTER-CLASS-1 (2026-10-01) — a register's `declared_inputs`
+//      are upstream graph edges (gen-euc-register.mjs:211 `node.consumes ?? []`), never schema
+//      inputs, so the art-9005 empty-inputs register (declared_inputs: [], manifest with
+//      properties) is the standing control that it fires NOTHING.
 //   2. RATCHET MECHANICS — diffBaseline() accepts/shields/heals; the CLI --init pins (and refuses a
 //      second pin), the plain run fails a NEW finding and shields a baselined one, --prune removes
 //      healed entries and never adds, --json parses with per-finding baselined flags, and a missing
@@ -46,7 +50,6 @@ const FINDING_KEYS = [
   'art-9001-declared-not-read DECLARED-NOT-READ unused_threshold',
   'art-9002-read-not-used READ-NOT-USED notice_text',
   'art-9003-read-not-declared READ-NOT-DECLARED rush_processing',
-  'art-9005-empty-inputs REGISTER-EMPTY-INPUTS -',
 ];
 
 try {
@@ -55,14 +58,16 @@ try {
   const scan = scanRepo(root);
   const keys = scan.findings.map(keyOf);
   for (const k of FINDING_KEYS) check(`fixture fires: ${k}`, keys.includes(k));
-  check('no finding besides the four fixtures', keys.length === FINDING_KEYS.length, `got ${JSON.stringify(keys)}`);
+  check('no finding besides the three fixtures', keys.length === FINDING_KEYS.length, `got ${JSON.stringify(keys)}`);
+  check('retired class fires nothing: art-9005 register (declared_inputs: [], manifest with properties) yields NO REGISTER-EMPTY-INPUTS finding',
+    !keys.some((k) => k.includes('REGISTER-EMPTY-INPUTS')), `got ${JSON.stringify(keys.filter((k) => k.includes('REGISTER-EMPTY-INPUTS')))}`);
   check('clean kernel yields nothing', !keys.some((k) => k.startsWith('art-9004-clean')));
   check('clean register yields nothing', !keys.some((k) => k.startsWith('art-9004-clean')));
   check('counts exact', JSON.stringify(scan.counts) === JSON.stringify({
-    'DECLARED-NOT-READ': 1, 'READ-NOT-USED': 1, 'READ-NOT-DECLARED': 1, 'REGISTER-EMPTY-INPUTS': 1,
+    'DECLARED-NOT-READ': 1, 'READ-NOT-USED': 1, 'READ-NOT-DECLARED': 1,
   }), JSON.stringify(scan.counts));
-  check('scanned 4 kernels + 2 registers', scan.kernels_scanned === 4 && scan.registers_scanned === 2,
-    `kernels=${scan.kernels_scanned} registers=${scan.registers_scanned}`);
+  check('scanned 4 kernels', scan.kernels_scanned === 4,
+    `kernels=${scan.kernels_scanned}`);
 
   // The clean fixture names all four read shapes — assert each shape was actually read (if a
   // shape regex broke, its key would fall into DECLARED-NOT-READ and the count assert above
@@ -82,7 +87,7 @@ try {
   const fullAccepted = FINDING_KEYS.slice();
   const d0 = diffBaseline(scan.findings, fullAccepted);
   check('accepts everything: no new', d0.new.length === 0);
-  check('accepts everything: 4 baselined with indices', d0.baselined.length === 4 && d0.baselined.every((b) => b.baseline_index >= 0));
+  check('accepts everything: 3 baselined with indices', d0.baselined.length === 3 && d0.baselined.every((b) => b.baseline_index >= 0));
   check('accepts everything: nothing healed', d0.healed.length === 0);
 
   // A finding that disappears from the tree while still accepted is HEALED (prune material);
@@ -91,7 +96,7 @@ try {
   const d1 = diffBaseline(fewer, fullAccepted);
   check('no new when the tree merely healed', d1.new.length === 0);
   check('live findings shrink -> HEALED names the dead entry', d1.healed.length === 1 && d1.healed[0] === FINDING_KEYS[0], JSON.stringify(d1.healed));
-  check('the remaining three stay baselined', d1.baselined.length === 3);
+  check('the remaining two stay baselined', d1.baselined.length === 2);
 
   check('advisoryContext: pull_request is advisory',
     advisoryContext({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request' }) === true);
@@ -124,9 +129,9 @@ try {
   check('CLI: --init exits 0', r.status === 0, `status=${r.status} ${outOf(r).slice(0, 120)}`);
   check('CLI: --init wrote the baseline', existsSync(join(root, 'scripts', 'kernel-input-usage-baseline.json')));
   const pinned = JSON.parse(readFileSync(join(root, 'scripts', 'kernel-input-usage-baseline.json'), 'utf8'));
-  check('CLI: --init accepted all four findings', JSON.stringify(pinned.accepted.slice().sort()) === JSON.stringify(FINDING_KEYS.slice().sort()), JSON.stringify(pinned.accepted));
-  check('CLI: --init pinned the four counts',
-    pinned.declared_not_read === 1 && pinned.read_not_used === 1 && pinned.read_not_declared === 1 && pinned.register_empty_inputs === 1,
+  check('CLI: --init accepted all three findings', JSON.stringify(pinned.accepted.slice().sort()) === JSON.stringify(FINDING_KEYS.slice().sort()), JSON.stringify(pinned.accepted));
+  check('CLI: --init pinned the three counts and no retired-class key',
+    pinned.declared_not_read === 1 && pinned.read_not_used === 1 && pinned.read_not_declared === 1 && pinned.register_empty_inputs === undefined,
     JSON.stringify(pinned));
   r = run(['--init']);
   check('CLI: second --init REFUSED (exit 2)', r.status === 2, `status=${r.status}`);
@@ -144,8 +149,8 @@ try {
   try { doc = JSON.parse(jsonLine); } catch { /* named by the check below */ }
   check('CLI: --json emits a parseable document', doc !== null);
   if (doc) {
-    check('CLI: --json counts exact', JSON.stringify(doc.counts) === JSON.stringify({ 'DECLARED-NOT-READ': 1, 'READ-NOT-USED': 1, 'READ-NOT-DECLARED': 1, 'REGISTER-EMPTY-INPUTS': 1 }));
-    check('CLI: --json flags baselined findings', doc.findings.length === 4 && doc.findings.every((f) => f.baselined === true));
+    check('CLI: --json counts exact', JSON.stringify(doc.counts) === JSON.stringify({ 'DECLARED-NOT-READ': 1, 'READ-NOT-USED': 1, 'READ-NOT-DECLARED': 1 }));
+    check('CLI: --json flags baselined findings', doc.findings.length === 3 && doc.findings.every((f) => f.baselined === true));
     check('CLI: --json new/healed empty', doc.new.length === 0 && doc.healed.length === 0);
   }
 
@@ -158,7 +163,7 @@ try {
   r = run(['--prune']);
   check('CLI: --prune exits 0 and removes 1', r.status === 0 && /removed 1 healed/.test(r.stdout || ''), `status=${r.status}`);
   const pruned = JSON.parse(readFileSync(join(root, 'scripts', 'kernel-input-usage-baseline.json'), 'utf8'));
-  check('CLI: --prune shrank accepted to 3', pruned.accepted.length === 3 && !pruned.accepted.includes(FINDING_KEYS[0]), JSON.stringify(pruned.accepted));
+  check('CLI: --prune shrank accepted to 2', pruned.accepted.length === 2 && !pruned.accepted.includes(FINDING_KEYS[0]), JSON.stringify(pruned.accepted));
   cpSync(join(FIXTURES, 'chaingraph', 'kernels', 'art-9001-declared-not-read.kernel.mjs'), join(root, 'chaingraph', 'kernels', 'art-9001-declared-not-read.kernel.mjs'));
   cpSync(join(FIXTURES, 'manifests', 'art-9001-declared-not-read.manifest.json'), join(root, 'manifests', 'art-9001-declared-not-read.manifest.json'));
   r = run([]);
@@ -190,8 +195,8 @@ try {
     } catch { /* unreadable -> not healed */ }
     check(`REAL-KERNEL ${want}${healedShape ? ' — HEALED-ABSENCE (ART224-DECLARED-UNUSED-INPUT-1 landed; the shape is gone)' : ' — MISSING and the kernel still carries the shape: FAIL'}`, healedShape);
   }
-  check('real scan covers the estate', real.kernels_scanned > 400 && real.registers_scanned > 400,
-    `kernels=${real.kernels_scanned} registers=${real.registers_scanned}`);
+  check('real scan covers the estate', real.kernels_scanned > 400,
+    `kernels=${real.kernels_scanned}`);
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

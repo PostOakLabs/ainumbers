@@ -190,7 +190,14 @@ const EFFECTIVE_FROM_MS = Date.parse(EFFECTIVE_FROM);
 export function isProtectedPath(file) {
   if (!file) return false;
   const p = file.replace(/\\/g, '/');
-  return PROTECTED_PATHS.some((root) => p === root || p.startsWith(`${root}/`));
+  // MAIN-REGEN-ATTEST-PREFIX-1: strip a declared root's trailing separators BEFORE
+  // building the prefix — a root declared as 'manifests/' must not test against
+  // 'manifests//', which matches nothing. The exact-root `p === r` comparison
+  // stays, so a root that IS the file still matches.
+  return PROTECTED_PATHS.some((root) => {
+    const r = String(root).replace(/[\\/]+$/, '');
+    return p === r || p.startsWith(`${r}/`);
+  });
 }
 
 /**
@@ -234,7 +241,15 @@ export const SPEC_SYNC_APP = Object.freeze({
 export function isDeclaredDerivedPath(file) {
   if (!file) return false;
   const p = file.replace(/\\/g, '/');
-  return coveredPaths().some((root) => p === root || p.startsWith(`${root}/`));
+  // MAIN-REGEN-ATTEST-PREFIX-1: same normalization as isProtectedPath(). The
+  // derived set declares directory roots WITH trailing slashes (coveredPaths()
+  // carries 'manifests/'), so the bare `${root}/` prefix built 'manifests//' and
+  // classified every bot-written manifest OUTSIDE the single-writer fence —
+  // UNATTESTED on main (CI run 36891468893, head 50f3bd35).
+  return coveredPaths().some((root) => {
+    const r = String(root).replace(/[\\/]+$/, '');
+    return p === r || p.startsWith(`${r}/`);
+  });
 }
 
 export function isSpecSyncCommitter(name, email) {
@@ -693,6 +708,12 @@ export const SCENARIOS = [
   'bot-in-scope',           // GREEN: pinned app, every file inside the declared derived set
   'bot-out-of-scope',       // RED:   pinned app writing outside its single-writer fence
   'bot-wrong-app',          // RED:   a different [bot] identity — the old "any [bot] passes" hole, closed
+  // MAIN-REGEN-ATTEST-PREFIX-1 — the trailing-slash declared root. coveredPaths()
+  // declares the manifests root as 'manifests/' WITH a trailing slash; before the
+  // root normalization the prefix test built 'manifests//' and matched nothing,
+  // so every bot-written manifest classified OUTSIDE the declared derived set
+  // (UNATTESTED, CI run 36891468893 on main 50f3bd35).
+  'bot-manifest-dir-slash', // GREEN: pinned bot writing a manifest under the trailing-slash declared root 'manifests/'
   // PREPUSH-ATTEST-BOT-RESOLUTION-1 — the user-id pin's own control shapes:
   'bot-app-lookup-fails',   // GREEN: user id pins the bot; the app lookup failing under the CI token is logged, not fatal
   'bot-wrong-user-id',      // RED:   exact bot login but a DIFFERENT user id — not the pinned single writer
@@ -712,6 +733,7 @@ const EXPECTED = {
   'bot-in-scope': { exitCode: 0, verdict: 'AUTOMATION', state: 'PASS' },
   'bot-out-of-scope': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
   'bot-wrong-app': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
+  'bot-manifest-dir-slash': { exitCode: 0, verdict: 'AUTOMATION', state: 'PASS' },
   'bot-app-lookup-fails': { exitCode: 0, verdict: 'AUTOMATION', state: 'PASS' },
   'bot-wrong-user-id': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
   'bot-resolution-unavailable': { exitCode: 1, verdict: 'INDETERMINATE', state: 'FAIL' },
@@ -784,6 +806,15 @@ function buildFixture(scenario, dir) {
   } else if (scenario === 'bot-out-of-scope') {
     botCommit([['scripts/fixture-gate.mjs', 'protected path OUTSIDE the declared derived set']],
       'chore(derived): regenerate shared derived artifacts on main');
+  } else if (scenario === 'bot-manifest-dir-slash') {
+    // MAIN-REGEN-ATTEST-PREFIX-1: the declared root for bot-written manifests is
+    // 'manifests/' WITH a trailing slash (coveredPaths() artifacts entry). Before
+    // the root normalization the prefix test built 'manifests//' and matched
+    // nothing, so this exact shape went UNATTESTED on main (CI run 36891468893,
+    // head 50f3bd35) — the file name is the one quoted by that red.
+    botCommit([['manifests/art-700-authorization-payload-linter.manifest.json',
+      'fixture bot-written manifest under the trailing-slash declared root']],
+      'chore(derived): regenerate shared derived artifacts on main');
   } else {
     commitProtected('feat(scripts): fixture protected-path change', 'fixture protected-path change');
   }
@@ -808,7 +839,8 @@ function buildFixture(scenario, dir) {
     // entire point of this scenario.
     g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m', `PREFLIGHT-VERIFIED sha=${prHead} ts=${ts}`, prHead);
   } else if (scenario === 'bot-in-scope' || scenario === 'bot-out-of-scope' || scenario === 'bot-wrong-app'
-    || scenario === 'bot-app-lookup-fails' || scenario === 'bot-wrong-user-id' || scenario === 'bot-resolution-unavailable') {
+    || scenario === 'bot-app-lookup-fails' || scenario === 'bot-wrong-user-id' || scenario === 'bot-resolution-unavailable'
+    || scenario === 'bot-manifest-dir-slash') {
     g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m', `PREFLIGHT-VERIFIED sha=${base} ts=${ts}`, base);
   }
   // 'notes-ref-absent' deliberately creates no note at all.
@@ -904,6 +936,34 @@ function selfTest() {
       console.error(`✗ self-test ${scenario}: expected exit ${exp.exitCode}/${exp.state}/${exp.verdict}, got exit ${res.exitCode}/${res.state}/${gotVerdict}`);
     } else {
       console.log(`✓ self-test ${scenario}: exit ${res.exitCode} · state ${res.state}${gotVerdict ? ` · ${gotVerdict}` : ''}`);
+    }
+  }
+  // MAIN-REGEN-ATTEST-PREFIX-1 — declared-root trailing-slash RED/GREEN controls.
+  // coveredPaths() declares the manifests root as 'manifests/' WITH a trailing
+  // slash; before the root normalization the prefix test built `${root}/` =
+  // 'manifests//' and matched nothing, so the first control read false on the
+  // pre-fix bytes (that false is what went UNATTESTED in CI run 36891468893).
+  const slashRootPath = 'manifests/art-700-authorization-payload-linter.manifest.json';
+  const controls = [
+    { name: 'declared-root-trailing-slash-green', want: true,
+      desc: "manifest under the trailing-slash declared root 'manifests/' classifies DECLARED",
+      got: isDeclaredDerivedPath(slashRootPath) },
+    { name: 'protected-root-green', want: true,
+      desc: 'the same manifest classifies as a PROTECTED path',
+      got: isProtectedPath(slashRootPath) },
+    { name: 'undeclared-stays-outside-derived-red', want: false,
+      desc: 'this gate script itself stays OUTSIDE the declared derived set',
+      got: isDeclaredDerivedPath('scripts/check-prepush-attestation.mjs') },
+    { name: 'unprotected-stays-outside-red', want: false,
+      desc: 'README.md stays OUTSIDE the protected set',
+      got: isProtectedPath('README.md') },
+  ];
+  for (const c of controls) {
+    if (c.got !== c.want) {
+      failures++;
+      console.error(`✗ self-test ${c.name}: expected ${c.want}, got ${c.got} — ${c.desc}`);
+    } else {
+      console.log(`✓ self-test ${c.name}: ${c.desc} → ${c.got}`);
     }
   }
   if (failures) {
