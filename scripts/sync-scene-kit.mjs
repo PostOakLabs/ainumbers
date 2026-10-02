@@ -30,8 +30,21 @@
  * --d / --dur is read from its own style attribute or, failing that, from its
  * nearest ancestor inside the scene.
  *
+ * SCENE-PACKET (SCENE-PACKET-ARROW-LINT-1, Tim 2026-10-02): site PR 2182 fixed
+ * message boxes that slid across a scene and vanished, leaving no arrow to show
+ * direction — the gate now holds that line. A travel-animated element (class
+ * `sk-travel`) that contains a <text> descendant is a labelled packet; a scene
+ * holding one needs a persistent arrowhead in the same scene (a <polygon>
+ * element, or any element with a marker-start/marker-end attribute). Scope is
+ * the scene, not the page: only a scene that is new in the PR or whose bytes
+ * differ from the same scene at the base ref (origin/main, resolved through
+ * _changed-files-lib.js's resolveChangedScope exactly as the copy gate does)
+ * can fail — every other defective scene is counted in one advisory summary
+ * line and never fails.
+ *
  * Usage:
- *   node scripts/sync-scene-kit.mjs --check     — verify copies + motion timing (exit 1 on drift)
+ *   node scripts/sync-scene-kit.mjs --check     — verify copies + motion timing + the SCENE-PACKET
+ *                                                 arrowhead rule (exit 1 on drift)
  *   node scripts/sync-scene-kit.mjs --write     — rewrite every marked page's regions from the lib
  *   node scripts/sync-scene-kit.mjs --selftest  — RED/GREEN mutation control over in-memory fixtures
  */
@@ -39,6 +52,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gitSync } from './_git-env-lib.mjs';
+import { resolveChangedScope, isTouched } from './_changed-files-lib.js';
 import { SCENE_KIT_CSS, SCENE_KIT_HEAD_JS } from './lib/scene-kit.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -52,6 +66,11 @@ const JS_END = '<!-- SCENE-KIT-JS:v1:END -->';
 // The scene marker every animated page carries, and the WCAG 2.2.2 line.
 const SCENE_TAG = '<svg class="sk-scene"';
 const MAX_END_MS = 5000;
+
+// SCENE-PACKET: the PR base the packet rule is scoped against, and the one
+// travel class it watches.
+const PACKET_BASE_REF = 'origin/main';
+const TRAVEL_CLS = 'sk-travel';
 
 const cssRegion = () => `${CSS_START}\n${SCENE_KIT_CSS}\n${CSS_END}`;
 const jsRegion = () => `${JS_START}\n<script>${SCENE_KIT_HEAD_JS}</script>\n${JS_END}`;
@@ -230,6 +249,92 @@ export function infiniteRules(timings) {
   return [...timings.entries()].filter(([, r]) => r.infinite).map(([cls]) => cls);
 }
 
+// ── SCENE-PACKET: a travelling packet that carries text needs an arrowhead ──
+
+/**
+ * The one SCENE-PACKET rule (SCENE-PACKET-ARROW-LINT-1). In a scene, a
+ * travel-animated element (class `sk-travel`) that contains a <text>
+ * descendant is a labelled packet; a scene holding one needs a persistent
+ * arrowhead in the same scene — a <polygon> element, or any element with a
+ * marker-start/marker-end attribute. Unlabelled marks are exempt.
+ *
+ * `changed` is the page's changed-scope verdict (resolveChangedScope vs
+ * PACKET_BASE_REF); `baseSrc` is the page at the base ref, null when the page
+ * is new in the PR. Scope is the scene: a defective scene fails the gate only
+ * when it is new (no base scene at its index) or its bytes differ from the
+ * base scene at the same index — every other defective scene is returned in
+ * `advisory` for the summary line and never fails.
+ * Returns { failures, advisory }: gate-RED lines, and the unchanged defect
+ * scenes [{ index, id, packets }].
+ */
+export function packetArrowFindings(src, { baseSrc = null, changed = false } = {}) {
+  // Audit one page: every scene block with its index, name, labelled-packet
+  // count and arrowhead flag. Same block-splitting discipline as sceneTimings.
+  const audit = (html) => {
+    const out = [];
+    let from = 0;
+    for (;;) {
+      const start = html.indexOf(SCENE_TAG, from);
+      if (start === -1) break;
+      const end = html.indexOf('</svg>', start);
+      const block = html.slice(start, end === -1 ? html.length : end + 6).replace(/<!--[\s\S]*?-->/g, '');
+      from = end === -1 ? html.length : end + 6;
+
+      // Name the scene the way sceneTimings does: own id, else the figure id
+      // the kit's aria-labelledby is built from.
+      const openTag = block.slice(0, block.indexOf('>') + 1);
+      const ownId = /\bid="([^"]+)"/.exec(openTag)?.[1];
+      const labelId = /\baria-labelledby="([^"\s]+)/.exec(openTag)?.[1]?.replace(/-t$/, '');
+
+      // Walk the tags: every sk-travel frame remembers whether a <text>
+      // opened inside it; a <polygon> or a marker attribute anywhere in the
+      // scene is the persistent arrowhead.
+      const frames = [];
+      let packets = 0;
+      let arrow = block.includes('<polygon');
+      const tagRePacket = /<(\/?)([a-zA-Z][\w:-]*)((?:"[^"]*"|'[^']*'|[^>])*?)(\/?)>/g;
+      let t;
+      while ((t = tagRePacket.exec(block)) !== null) {
+        const [, closing, name, attrs, selfClose] = t;
+        if (closing) {
+          const frame = frames.pop();
+          if (frame?.travel && frame.textSeen) packets += 1;
+          continue;
+        }
+        if (/\bmarker-(?:start|end)\s*=/.test(attrs)) arrow = true;
+        const classAttr = /\bclass="([^"]*)"/.exec(attrs)?.[1] ?? '';
+        const isTravel = classAttr.split(/\s+/).includes(TRAVEL_CLS);
+        if (name.toLowerCase() === 'text') {
+          for (let i = frames.length - 1; i >= 0; i -= 1) {
+            if (frames[i].travel) { frames[i].textSeen = true; break; }
+          }
+        }
+        if (!selfClose && !VOID_TAGS.has(name.toLowerCase())) frames.push({ travel: isTravel, textSeen: false });
+      }
+      out.push({ index: out.length, id: ownId ?? labelId ?? '(unnamed scene)', block, packets, arrow });
+    }
+    return out;
+  };
+
+  const base = baseSrc === null ? null : audit(baseSrc);
+  const failures = [];
+  const advisory = [];
+  for (const scene of audit(src)) {
+    if (!scene.packets || scene.arrow) continue;
+    // In scope only when the page is touched AND this scene is new (the base
+    // page has no scene at its index) or its bytes differ from the base
+    // scene at the same index.
+    if (changed && (base === null || scene.index >= base.length || scene.block !== base[scene.index].block)) {
+      failures.push(`scene #${scene.index} ${scene.id} carries ${scene.packets} labelled packet(s) `
+        + `travelling with no persistent arrowhead — a packet that carries text needs a <polygon> `
+        + `or a marker-start/marker-end in the same scene`);
+    } else {
+      advisory.push({ index: scene.index, id: scene.id, packets: scene.packets });
+    }
+  }
+  return { failures, advisory };
+}
+
 // ── Repo walk ──────────────────────────────────────────────────────────────
 
 // SO #52: enumerate with git, never a directory walk — this workspace holds
@@ -256,9 +361,32 @@ function runCheck() {
   if (endless.length) failures.push(['scripts/lib/scene-kit.mjs', [`kit rules run forever: ${endless.join(', ')} — WCAG 2.2.2 would need a pause control`]]);
 
   const pages = relevantPages();
+  // SCENE-PACKET scope (PREREQ-CHANGED-SCOPING-1): which pages the PR touches,
+  // vs the PR base. resolveChangedScope exactly as the copy gate
+  // (check-copy-hallmarks.mjs) — an undeterminable diff fails CLOSED.
+  const CHANGED = resolveChangedScope(PACKET_BASE_REF, { gate: 'sync-scene-kit.mjs --check (SCENE-PACKET)', failClosed: true });
+  const advisoryScenes = [];
   for (const { rel, src } of pages) {
     const problems = checkHtml(src, timings);
+    const touched = isTouched(rel, CHANGED);
+    // The page at the base ref, for the scene-by-scene byte comparison.
+    // A failed `git show` means the page is new in the PR: baseSrc stays null.
+    let baseSrc = null;
+    if (touched) {
+      try { baseSrc = gitSync(['show', `${PACKET_BASE_REF}:${rel}`], { cwd: REPO }); } catch { baseSrc = null; }
+    }
+    const { failures: packetFailures, advisory } = packetArrowFindings(src, { baseSrc, changed: touched });
+    problems.push(...packetFailures);
+    for (const scene of advisory) advisoryScenes.push({ rel, ...scene });
     if (problems.length) failures.push([rel, problems]);
+  }
+  // Unchanged defective scenes NEVER fail (scope is the scene, not the page):
+  // one detail line each, then the advisory summary line.
+  for (const { rel, index, id, packets } of advisoryScenes) {
+    console.log(`SCENE-PACKET (advisory): ${rel} scene #${index} ${id} holds ${packets} labelled packet(s) with no arrowhead`);
+  }
+  if (advisoryScenes.length) {
+    console.log(`SCENE-PACKET (advisory): ${advisoryScenes.length} unchanged scenes hold a labelled packet with no arrowhead`);
   }
   const scenes = pages.reduce((n, p) => n + sceneTimings(p.src, timings).length, 0);
   if (failures.length) {
@@ -352,6 +480,52 @@ ${JS_END}
 
   // --write repairs exactly what --check flags.
   assert('--write repairs the CSS drift', checkHtml(syncedHtml(cssMutant).html, timings).length === 0);
+
+  // ── SCENE-PACKET control pair (SCENE-PACKET-ARROW-LINT-1) ──────────────────
+  // A travelling packet that carries text needs a persistent arrowhead in its
+  // scene when the scene is new in the PR or differs from the base scene.
+  const packetScene = (inner) => `${SCENE_TAG} id="packet-scene" viewBox="0 0 100 100">${inner}</svg>`;
+  const baseScene = packetScene(`<circle r="1"/>`); // base: no packet in this scene
+  const packet = `<g class="sk-travel" style="--d:.4s;--tx:40px"><circle r="4"/><text x="10" y="10">msg</text></g>`;
+  const scoped = { baseSrc: baseScene, changed: true };
+
+  // RED: a changed scene whose labelled packet has no polygon or marker.
+  const redPacket = packetArrowFindings(packetScene(packet), scoped);
+  assert('a changed scene whose labelled packet has no arrowhead is RED',
+    redPacket.failures.length === 1 && redPacket.advisory.length === 0 && redPacket.failures[0].includes('packet-scene'));
+
+  // GREEN: the same scene with a <polygon>.
+  const polyOut = packetArrowFindings(packetScene(packet + `<polygon points="0,0 4,2 0,4"/>`), scoped);
+  assert('the same scene with a <polygon> is GREEN', polyOut.failures.length === 0 && polyOut.advisory.length === 0);
+
+  // GREEN: the same scene with a marker-end path.
+  const markerOut = packetArrowFindings(packetScene(packet + `<path d="M0 0L4 2" marker-end="url(#a)"/>`), scoped);
+  assert('the same scene with a marker-end path is GREEN', markerOut.failures.length === 0 && markerOut.advisory.length === 0);
+
+  // GREEN: unlabelled marks are exempt — a bare circle that travels, its text
+  // living in a plain group, is no packet at all.
+  const bare = packetScene(`<g><text x="10" y="10">label</text></g><g class="sk-travel" style="--d:.4s"><circle r="4"/></g>`);
+  const bareOut = packetArrowFindings(bare, scoped);
+  assert('an unlabelled travelling circle is GREEN (exempt)', bareOut.failures.length === 0 && bareOut.advisory.length === 0);
+
+  // Advisory-only: a scene the PR did not change never fails, whatever it holds.
+  const sameBytes = packetArrowFindings(packetScene(packet), { baseSrc: packetScene(packet), changed: true });
+  assert('an unchanged defective scene is advisory-only', sameBytes.failures.length === 0 && sameBytes.advisory.length === 1);
+  const untouched = packetArrowFindings(packetScene(packet), { changed: false });
+  assert('a page outside the changed scope is advisory-only', untouched.failures.length === 0 && untouched.advisory.length === 1);
+  // A scene new in the PR (the base page has no scene at its index) is in scope.
+  const keptScene = packetScene(`<rect/>`).replace('id="packet-scene"', 'id="kept-scene"');
+  const addedPage = keptScene + packetScene(packet).replace('id="packet-scene"', 'id="added-scene"');
+  const newScene = packetArrowFindings(addedPage, { baseSrc: keptScene, changed: true });
+  assert('a scene new in the PR is in scope', newScene.failures.length === 1 && newScene.failures[0].includes('added-scene'));
+
+  // Mutation control (SO #34c): removing the check must turn the selftest RED.
+  // The RED case above only bites through the function the --check path calls,
+  // so hold runCheck to its wiring by reading this script's own source.
+  const selfSrc = readFileSync(fileURLToPath(import.meta.url), 'utf8');
+  const runCheckSrc = selfSrc.slice(selfSrc.indexOf('function runCheck'), selfSrc.indexOf('function runWrite'));
+  assert('runCheck still invokes the packet check (mutation control)', runCheckSrc.includes('packetArrowFindings('));
+  assert('runCheck still resolves the changed scope (mutation control)', runCheckSrc.includes('resolveChangedScope('));
 
   let failed = 0;
   for (const [name, ok] of results) {
