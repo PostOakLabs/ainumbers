@@ -1158,6 +1158,7 @@ const GATES = [
   ['Quantization parity (§24.6)',  'node chaingraph/kernels/quantization-parity.test.mjs'],
   ['Seed replay (§24.6.2)',        'node chaingraph/kernels/seed-replay.test.mjs'],
   ['Kernel determinism lint',      'node scripts/check-kernel-determinism.mjs'],
+  ['Kernel determinism import-specifier controls (KERNEL-IMPORT-SPECIFIER-LINT-1)', 'node scripts/check-kernel-determinism.test.mjs'],
   // GPU-FLAG-PARITY-GATE-1 (ART124-POLICY-CORE-PROVE-1): kernel meta.gpu and the shard
   // gpu flag had no gate watching the pair; art-124 was the only live contradiction
   // (kernel false vs shard true, measured 2026-09-17 over all 661 live nodes) and the
