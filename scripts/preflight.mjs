@@ -2046,6 +2046,18 @@ const GATES = [
   // (GATE-SELFTEST-META-1).
   ['Node-page footer freshness (FOOTER-INFRA-COLUMN-1)', 'node scripts/gen-node-footers.mjs --check'],
   ['Node-page footer writer self-test (RED+GREEN)', 'node scripts/gen-node-footers.mjs --selftest'],
+  // CHAIN-PROMPT-INFRA-1: the chain example prompt is mandatory for every chain
+  // (CONTRACT §A3.1). The gate below is hard in both contexts — it reads the
+  // authored SSOT and the assembled graph, neither of which a main-side regen
+  // owns. Its region writer is the derived artifact 'chain-ask-agent' in
+  // derived-artifacts.mjs, and that command string is identical to the entry's
+  // `gate`, so the generic ADVISORY_ON_PR rule classifies it: advisory on a PR
+  // (main's regen writes the pages after merge), blocking on main. Both
+  // self-tests are the RED+GREEN pairs (GATE-SELFTEST-META-1).
+  ['Chain example prompts (CHAIN-PROMPT-INFRA-1)', 'node scripts/check-chain-prompts.mjs'],
+  ['Chain example prompt controls (RED+GREEN)', 'node scripts/check-chain-prompts.mjs --self-test'],
+  ['Chain ask-agent region freshness (CHAIN-PROMPT-INFRA-1)', 'node scripts/gen-chain-ask-agent.mjs --check'],
+  ['Chain ask-agent writer self-test (RED+GREEN)', 'node scripts/gen-chain-ask-agent.mjs --selftest'],
   // HUB-CHROME-GATE-1: same shape as the node-page chrome gate above, for the
   // OTHER ungated chrome surface the 2026-08-21 0xAlpha audit found (Findings
   // A/B). Logo check is baseline-ratcheted (45 known text-only hubs,

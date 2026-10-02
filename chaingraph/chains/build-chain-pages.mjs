@@ -24,6 +24,14 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// CHAIN-PROMPT-INFRA-1: the ask-your-agent region on a chain page is a derived
+// artifact with its own main-side writer (scripts/gen-chain-ask-agent.mjs). A
+// rebuild here renders the page from the template and would otherwise DROP that
+// region, so an existing one is carried through verbatim. The marker pair and
+// the splice rule are imported from the writer and the shared chrome, so the
+// anchor can never drift between the two files.
+import { CHAIN_ASK_AGENT_END, chainAskAgentBeginLine } from '../_page-chrome.mjs';
+import { carryRegion } from '../../scripts/gen-chain-ask-agent.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');                 // repo/
@@ -642,6 +650,20 @@ function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);i
 `;
 }
 
+/** Carry an existing ask-your-agent region from the old page into the rebuilt
+ *  one, at the same anchor the writer uses. Byte-verbatim, so a rebuild is not
+ *  a second writer of that region: if the prompt moved, the main-side writer
+ *  refreshes it. No region on the old page means nothing to carry. */
+function carryAskAgentRegion(oldHtml, newHtml, chainName) {
+  const markers = { begin: chainAskAgentBeginLine(chainName), end: CHAIN_ASK_AGENT_END };
+  const spliced = carryRegion(oldHtml, newHtml, markers);
+  if (spliced === null) {
+    console.warn(`!! ${chainName}: rebuilt page has no anchor for the ask-your-agent region; run node scripts/gen-chain-ask-agent.mjs after this build`);
+    return newHtml;
+  }
+  return spliced;
+}
+
 const allChains = cg.chains ?? [];
 let targets;
 if (ALL) {
@@ -663,7 +685,7 @@ for (const chain of targets) {
   }
   const file = resolve(HERE, `${chain.name}.html`);
   const exists = existsSync(file);
-  if (WRITE) writeFileSync(file, page(chain));
+  if (WRITE) writeFileSync(file, carryAskAgentRegion(exists ? readFileSync(file, 'utf8') : '', page(chain), chain.name));
   console.log(`${WRITE ? 'wrote' : 'would write'}  chains/${chain.name}.html  (${chain.steps.length} step${chain.steps.length !== 1 ? 's' : ''})${exists && !ALL ? '  [OVERWRITES existing]' : ''}`);
   count++;
 }
