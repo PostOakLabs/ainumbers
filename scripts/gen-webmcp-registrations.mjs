@@ -133,6 +133,12 @@
  * chaingraph/webmcp-ot-token.txt; placeholder = nothing emitted) and --check
  * runs the OT token gate (origin/feature/expiry, 14-day renewal floor).
  *
+ * WEBMCP-ORPHAN-OT-1: both directions are now gated. A page carrying the OT
+ * region with NO WebMCP registration (neither this generator's nor a hand-written
+ * one) is an ORPHAN: --check reds it and the whole-tree --write strips the region.
+ * A tokened page that registers by hand is never touched and never red — --check
+ * warns that it sits outside the generator.
+ *
  * Exit: 0 clean; 1 on any --check drift or hard-guard failure.
  */
 import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync, mkdirSync } from 'node:fs';
@@ -255,6 +261,44 @@ export function applyOtMeta(pageSrc, block) {
   let at = m.index + m[0].length;
   if (src[at] === '\n') at += 1;
   return src.slice(0, at) + block + '\n' + src.slice(at);
+}
+
+// ── Orphan origin-trial regions (WEBMCP-ORPHAN-OT-1) ─────────────────────────
+/**
+ * The OT freshness check (section 4 of --check) only walks pages that carry the
+ * generator's registration marker, and the writers only call applyOtMeta() on
+ * pages they register — so a page holding an OT region with NO registration is
+ * invisible to both modes and keeps a retired or renewed token forever. This
+ * pair closes that direction:
+ *   - ORPHAN = OT region, no generator registration AND no hand-written one
+ *     (`registerTool(` / `modelContext` anywhere on the page). --check reds it,
+ *     --write strips the region (byte-identical with a never-tokenized page).
+ *   - HAND-REGISTERED = OT region, no generator registration, but the page
+ *     registers by hand. Never stripped (that would switch WebMCP off on a
+ *     working page, G4's ownership rule) and never red (a hard red there would
+ *     block every build PR over a routing question) — --check WARNs instead.
+ */
+const HAND_REGISTRATION_MARKERS = [/registerTool\s*\(/, /modelContext/];
+
+/** 'none' | 'generated' | 'hand-registered' | 'orphan' for one page's source. */
+export function classifyOtRegion(pageSrc) {
+  if (!otMetaRegionOf(pageSrc)) return 'none';
+  if (pageSrc.includes(BEGIN)) return 'generated';
+  return HAND_REGISTRATION_MARKERS.some((re) => re.test(pageSrc)) ? 'hand-registered' : 'orphan';
+}
+
+/** Walk the same page set the OT token gate scans; bucket the unowned regions. */
+export function scanOtRegions(repoRoot, pages) {
+  const orphans = [];
+  const handRegistered = [];
+  for (const p of (pages || listPages(repoRoot))) {
+    let src;
+    try { src = readRepoFile(p, repoRoot); } catch { continue; }
+    const verdict = classifyOtRegion(src);
+    if (verdict === 'orphan') orphans.push(p);
+    else if (verdict === 'hand-registered') handRegistered.push(p);
+  }
+  return { orphans, handRegistered };
 }
 
 // ── Per-tool manifest-property → element-id map (WEBMCP-GEN-IDMAP-1) ──────────
@@ -2021,6 +2065,17 @@ function runCheck() {
       }
     }
   }
+  // 4b. Orphan OT regions (WEBMCP-ORPHAN-OT-1): the opposite direction of the
+  // scan above, and RED whether or not a token is present — the retire path
+  // writes the placeholder, so an unowned region would keep a dead token on a
+  // page no write mode visits. A hand-registered tokened page only WARNs.
+  const otScan = scanOtRegions(REPO);
+  for (const p of otScan.orphans) {
+    problems.push(`${p}: carries an origin-trial meta region but registers no WebMCP tool at all (orphan) — a retired or renewed token would linger here; strip it with node scripts/gen-webmcp-registrations.mjs --all --write`);
+  }
+  for (const p of otScan.handRegistered) {
+    console.log(`WARNING ${p}: tokened page outside the generator — it carries an origin-trial region and a hand-written WebMCP registration, so the generator neither writes nor strips it (token changes there are manual).`);
+  }
 
   if (problems.length) {
     console.error(`✗ webmcp-registration freshness FAILED (${problems.length}):`);
@@ -2061,6 +2116,24 @@ function runReportOrWrite(write, onlyTool) {
     } else {
       emitted++;
       console.log(`WOULD EMIT ${d.detail.page} (name: ${d.detail.name}, manifest: ${d.detail.manifest}, result: ${d.detail.resGlobal})`);
+    }
+  }
+  // WEBMCP-ORPHAN-OT-1: orphan OT regions ride the same write pass. Scoped to
+  // the whole-tree modes — `--tool <id>` writes one page and never sweeps.
+  if (!onlyTool) {
+    const otScan = scanOtRegions(REPO);
+    for (const p of otScan.orphans) {
+      const abs = resolve(REPO, p);
+      if (write) {
+        const src = readFileSync(abs, 'utf8');
+        const next = applyOtMeta(src, null);
+        if (next !== src) { writeFileSync(abs, next, 'utf8'); console.log(`✓ stripped orphan origin-trial region from ${p} (page registers no WebMCP tool)`); }
+      } else {
+        console.log(`WOULD STRIP orphan origin-trial region ${p} (page registers no WebMCP tool)`);
+      }
+    }
+    for (const p of otScan.handRegistered) {
+      console.log(`WARNING ${p}: tokened page outside the generator — hand-written registration, left untouched.`);
     }
   }
   if (write) console.log(`\n${emitted} page(s) written, ${exact} already byte-exact; ${exclusions.length} excluded with per-tool reasons:`);
@@ -4046,6 +4119,15 @@ async function selftest(){
     check('OT meta: insert is idempotent', applyOtMeta(withMeta, metaBlock) === withMeta);
     check('OT meta: placeholder strips back to byte-identical', applyOtMeta(withMeta, null) === headPage);
     check('OT meta: no <head> is refused, never guessed', (() => { try { applyOtMeta('<html><body></body></html>', metaBlock); return false; } catch { return true; } })());
+    // 15b. Orphan OT region control pair (WEBMCP-ORPHAN-OT-1): the same fixture
+    // page is RED as an orphan and GREEN once stripped; a generator-owned page
+    // and a hand-registered page are neither.
+    check('OT orphan RED: region with no registration at all classifies orphan', classifyOtRegion(withMeta) === 'orphan');
+    check('OT orphan GREEN: the stripped fixture is clean and byte-identical', classifyOtRegion(applyOtMeta(withMeta, null)) === 'none' && applyOtMeta(withMeta, null) === headPage);
+    check('OT orphan: a generator-owned region is never an orphan',
+      classifyOtRegion(withMeta.replace('<body>', `<body>${BEGIN}manifest=x -->\n${END}`)) === 'generated');
+    check('OT orphan: a hand-registered tokened page warns, never orphan',
+      classifyOtRegion(withMeta.replace('</body>', '<script>document.modelContext.registerTool({});</script></body>')) === 'hand-registered');
     writeFileSync(join(tmp, 'chaingraph', 'webmcp-ot-token.txt'), OT_TOKEN_PLACEHOLDER + '\n');
     check('OT read: the placeholder classifies ABSENT (no meta emitted)', readOtToken(tmp).present === false && readOtToken(tmp).placeholder === true);
     writeFileSync(join(tmp, 'chaingraph', 'webmcp-ot-token.txt'), 'real-token-shape\n');

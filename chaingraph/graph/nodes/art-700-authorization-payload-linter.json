@@ -1,0 +1,620 @@
+{
+  "tool_id": "art-700-authorization-payload-linter",
+  "tool_version": "1.0.0",
+  "display_name": "Authorization Payload Linter",
+  "mcp_name": "lint_authorization_payload",
+  "mandate_type": "payment_policy",
+  "wave": 119,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-700-authorization-payload-linter.html",
+  "description": "Lints an authorization payload before it is signed, against a signing policy the caller declares. Three declared input modes: EIP-712 typed data as it would be passed to eth_signTypedData_v4, an EIP-7702 authorization tuple, and a bare 32-byte hash about to be signed blind. Classification is string equality of the computed EIP-712 encodeType against the canonical type strings of ERC-2612, the older DAI permit struct, the five recognized Permit2 structs, the three EIP-3009 authorizations, the EntryPoint v0.8 PackedUserOperation, and the OpenZeppelin v5 ForwardRequest; a primaryType whose name matches a known standard but whose encodeType differs is reported as a lookalike, and anything else is reported as unrecognized rather than guessed. Every check carries a stable id and returns FLAGGED, CLEAR or NOT_EVALUATED with the field path, the observed value and the policy value. There are no numeric defaults anywhere: every threshold, allowlist, counterparty set, clock reading and chain fact is a caller-declared input, and a check whose input was not declared reports NOT_EVALUATED and is listed separately, never folded into a CLEAR. policy_conformance is CONFORMS when at least one check was evaluated and every evaluated check is CLEAR, DEVIATES when any check is FLAGGED, and INDETERMINATE when nothing could be evaluated. The display block uses the ERC-7730 field-format vocabulary (tokenAmount in raw base units with caller-declared decimals and ticker, addressName, date in RFC 3339, chainId) so the output composes with clear-signing wallets, and an optional ERC-7730 descriptor is used for a context binding check only, never for rendering. Two facts about the sibling EIP-7702 tuple decoder are reported here rather than changed there: that node does not apply the low-s rule EIP-7702 requires, and it names a zero delegate address as a delegate where EIP-7702 clears the account code instead. Handoffs echo the payload fields in the exact input shapes of the EIP-3009 digest recomputer and the ERC-2612 binding verifier and the EIP-7702 tuple decoder, so post-signature evidence composes. This node performs zero chain reads, recovers no signer, computes no digest, and never originates, relays or submits a transaction. It flags a payload against a declared policy; it does not judge a counterparty, a delegate contract, or an outcome, and it never re-verifies a know-your-agent credential (cite art-565 for that scope). Out of scope in this version and named rather than promised: calldata mode, Seaport orders, Solana, and ERC-1271 signature checking, which needs a chain read.",
+  "input_schema_ref": "chaingraph/art-700-authorization-payload-linter.html#manifest",
+  "consumes": [],
+  "feeds": [
+    "art-590-x402-eip712-digest-recomputer",
+    "art-612-erc2612-permit-binding-verifier",
+    "art-614-eip7702-authorization-tuple-decoder"
+  ],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:6f656bb896a5c568378f091572e1c6bcf1d22803b6929de33b9315eb3771d6ac","valid_from":"2026-09-29"},{"system":"risc0","image_id":"sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6","valid_from":"2026-10-02"}],
+  "export_capability": ["json"],
+  "standards_basis": "implements_standard",
+  "cited_clause_digest": [
+    {
+      "digest": "sha256:c52a44c68f2fab236498e59c27a79391abf2e15cb1d29c5bec486b1235de4f70",
+      "source_url": "https://raw.githubusercontent.com/ethereum/EIPs/master/EIPS/eip-712.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Definition of encodeType; EIP712Domain chainId field (refuse-to-sign)",
+      "scheme": "eip",
+      "id": "EIP-712 encodeType ordering and chainId refuse-to-sign"
+    },
+    {
+      "digest": "sha256:912975371d4cfc871411ebf7ab9a193bf919d8a9638d2aaa8708eda2c77a4372",
+      "source_url": "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-2612.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "permit semantics + Permit typehash; Rationale uint(-1) deadline",
+      "scheme": "erc",
+      "id": "ERC-2612 permit type and deadline convention"
+    },
+    {
+      "digest": "sha256:98c30454777b19141981f24e3bdbce8e0331a7dd8f65eddc7326a6d4391099c3",
+      "source_url": "https://raw.githubusercontent.com/makerdao/dss/master/src/dai.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "PERMIT_TYPEHASH constant; function permit (expiry==0, allowed -> uint(-1))",
+      "scheme": "solidity-source",
+      "id": "DAI legacy permit"
+    },
+    {
+      "digest": "sha256:96f39c5d9f2435f5a268b4c46d49cdfc7db583c57fa878f9e852fd61bee23122",
+      "source_url": "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-3009.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "TRANSFER/RECEIVE/CANCEL typehash constants; Security Considerations receiveWithAuthorization",
+      "scheme": "erc",
+      "id": "EIP-3009 typehashes and receiveWithAuthorization rationale"
+    },
+    {
+      "digest": "sha256:b0d1ea1043743e21eef8e02793422ce320c4d94cd4128dceb6e5f3c583cdfa5e",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/permit2/main/src/EIP712.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "src/EIP712.sol lines 9-41",
+      "scheme": "solidity-source",
+      "id": "Permit2 EIP712 domain (3 fields)"
+    },
+    {
+      "digest": "sha256:3888022cd3e2798b851154de71683ab079d857a3881bc316857d5f5f147679f5",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/permit2/main/src/libraries/Allowance.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Allowance library: updateAll / updateAmountAndExpiration expiration==0 handling",
+      "scheme": "solidity-source",
+      "id": "Permit2 Allowance expiration semantics (incl. 0)"
+    },
+    {
+      "digest": "sha256:db24d77fce5684d45a1d9664e8632166426647c9395e142919f9d3a2671f084b",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/permit2/main/src/SignatureTransfer.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "bitmapPositions + _useUnorderedNonce",
+      "scheme": "solidity-source",
+      "id": "Permit2 SignatureTransfer bitmap nonce"
+    },
+    {
+      "digest": "sha256:2e9acc9950f1b9152d959406a4314af4bf38de63700099064144f72ed05eb4cf",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/permit2/main/src/libraries/SignatureVerification.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "library SignatureVerification.verify (65-byte, 64-byte EIP-2098, ERC-1271; no high-s rejection)",
+      "scheme": "solidity-source",
+      "id": "Permit2 SignatureVerification paths (65/64/1271, high-s)"
+    },
+    {
+      "digest": "sha256:831f7e7cd1ad8637dfafae9e6ec1f3c1bce9a95388283effd9ecd21925b5eccf",
+      "source_url": "https://raw.githubusercontent.com/x402-foundation/x402/main/typescript/packages/mechanisms/evm/test/unit/exact/client.test.ts",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "createPaymentPayload with Permit2: spender, witness.to, domain.name, verifyingContract, primaryType assertions",
+      "scheme": "x402-spec",
+      "id": "x402 exact permit2 client test vector"
+    },
+    {
+      "digest": "sha256:e1a18221b55e1ba4ed3cf1385f6eb9bf5d702439290d4efb9f91de0bbfefdee5",
+      "source_url": "https://raw.githubusercontent.com/x402-foundation/x402/main/specs/schemes/exact/scheme_exact_evm.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Reference Implementation: x402ExactPermit2Proxy, WITNESS_TYPE_STRING and WITNESS_TYPEHASH",
+      "scheme": "x402-spec",
+      "id": "x402 exact witness type string"
+    },
+    {
+      "digest": "sha256:e0880c4e1c659a69b27ce15796fe0b46ce4cfc9cf7150209416910f6251362c8",
+      "source_url": "https://raw.githubusercontent.com/x402-foundation/x402/main/specs/schemes/upto/scheme_upto.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Sec 4 Maximum Amount Enforcement; Sec 5 Phase-Dependent amount Semantics",
+      "scheme": "x402-spec",
+      "id": "x402 upto amount semantics"
+    },
+    {
+      "digest": "sha256:23fc7c8de68d29ff973abf76bcc7f58c2ff4822c780b22dd235cf17e9ddfc696",
+      "source_url": "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.8.0/contracts/core/UserOperationLib.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "PACKED_USEROP_TYPEHASH constant; encode(); hash()",
+      "scheme": "solidity-source",
+      "id": "EIP-7702 EntryPoint v0.8 PACKED_USEROP_TYPEHASH"
+    },
+    {
+      "digest": "sha256:80866c4819c8d24b7a8778fbd7e575baeb95729519e7af4c018ac3a330912a13",
+      "source_url": "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v5.7.0/contracts/metatx/ERC2771Forwarder.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "ForwardRequestData struct; FORWARD_REQUEST_TYPEHASH (uint48 deadline)",
+      "scheme": "solidity-source",
+      "id": "ERC-2771 OZ v5 ForwardRequest type string"
+    },
+    {
+      "digest": "sha256:61ad5489200be52f498ef120ad4189fcc84572a94ec11b493b63353a18f5661d",
+      "source_url": "https://raw.githubusercontent.com/ethereum/EIPs/master/EIPS/eip-7702.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Authorization tuple bounds; Behavior steps 1-9 (low-s, zero-address clear)",
+      "scheme": "eip",
+      "id": "EIP-7702 authorization validity and zero-address clear"
+    },
+    {
+      "digest": "sha256:96daf0d618a7ccb25a75a4ef379cdb75371a5cd0ffcd831617ba89809172fd4e",
+      "source_url": "https://raw.githubusercontent.com/circlefin/stablecoin-evm/master/contracts/util/ECRecover.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "ECRecover.recover: high-s revert, v in {27,28}, zero-address check",
+      "scheme": "solidity-source",
+      "id": "Circle ECRecover low-s and v rules"
+    },
+    {
+      "digest": "sha256:030b29feb0dc42fa4c15234ffab7cf9ce6234367c22aab3ffec3e531cd4de60d",
+      "source_url": "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-2098.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Compact signature representation: r || yParity<<255 || s",
+      "scheme": "erc",
+      "id": "EIP-2098 compact signature form"
+    },
+    {
+      "digest": "sha256:9731f21073d8744b2440a6de87c9d19d61e5b315e4fbafe55203837f36404475",
+      "source_url": "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-6492.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "magicBytes literal (16x 6492 = 32 bytes); check ordering before ERC-1271 and ecrecover",
+      "scheme": "erc",
+      "id": "ERC-6492 magic suffix"
+    },
+    {
+      "digest": "sha256:ee73255c38555a48658374505099c4886b8de42353aa153a67d1c6b6048d3a7e",
+      "source_url": "https://raw.githubusercontent.com/ethereum/clear-signing-erc7730-registry/master/specs/erc-7730.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Field format specification (format vocabulary per field)",
+      "scheme": "erc",
+      "id": "ERC-7730 field formats"
+    },
+    {
+      "digest": "sha256:797b408b40f064c9d56af95821e04c309be49a30b4a9ad0b75170cfcd2ddff2d",
+      "source_url": "https://raw.githubusercontent.com/ethereum/clear-signing-erc7730-registry/master/specs/erc-7730.md",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "Context section: contract.deployments; eip712.domain; eip712.deployments MUST-match rules",
+      "scheme": "erc",
+      "id": "ERC-7730 context binding"
+    }
+  ],
+  "cited_clause_source": [
+    "https://raw.githubusercontent.com/ethereum/EIPs/master/EIPS/eip-712.md",
+    "https://raw.githubusercontent.com/ethereum/EIPs/master/EIPS/eip-7702.md",
+    "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-2612.md",
+    "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-3009.md",
+    "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-2098.md",
+    "https://raw.githubusercontent.com/ethereum/ERCs/master/ERCS/erc-6492.md",
+    "https://raw.githubusercontent.com/ethereum/clear-signing-erc7730-registry/master/specs/erc-7730.md",
+    "https://raw.githubusercontent.com/Uniswap/permit2/main/src/EIP712.sol",
+    "https://raw.githubusercontent.com/makerdao/dss/master/src/dai.sol",
+    "https://raw.githubusercontent.com/circlefin/stablecoin-evm/master/contracts/util/ECRecover.sol",
+    "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.8.0/contracts/core/UserOperationLib.sol",
+    "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v5.7.0/contracts/metatx/ERC2771Forwarder.sol",
+    "https://raw.githubusercontent.com/x402-foundation/x402/main/specs/schemes/exact/scheme_exact_evm.md",
+    "https://raw.githubusercontent.com/x402-foundation/x402/main/specs/schemes/upto/scheme_upto.md"
+  ],
+  "clause_retrieved_date": "2026-09-28",
+  "clause_snapshot_location": "research/clause-snapshots/gasless-2026-09/",
+  "scope_statement": "Classifies an authorization payload before signing and reports how it stands against a caller-declared signing policy. Computes an EIP-712 encodeType and compares it for string equality against canonical type strings; it does not compute a domain separator, a struct hash, a digest, or recover a signer, and it never reads a chain. A check whose declared input is absent reports NOT_EVALUATED and is listed separately from the CLEAR results.",
+  "float_sensitive": "no",
+  "cycle_preflight": "FAST - 23,680,813 user_cycles max across all 28 fixture vectors (argmax v24, x402-intent-mismatch-on-payto), measured exec-only 2026-09-29 in WSL against this row's own worktree bytes (kernel digest sha256:6f656bb896a5c568378f091572e1c6bcf1d22803b6929de33b9315eb3771d6ac, EXEC_OK on all 28); 0.79x the 30,000,000 line. No flock, no GPU, no prove: SO #39 defers the prove to the post-side-by-side row.",
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "IEEhM8LFJTcgXhXJL9J/VEiuz5Ltz3m3luUjfhO7cboAm3tJOg+xO3OK/3aRhrr0GTU9I1DN/kJKEoX6LwWJoQI8zmafrPGwkbdCSXWH65sKZ/vKuBUxRuHVG+aUtsXtDmY1Tw7S364Fa0R3ELWA3TmI+GT4nmXCdZS5idcVHvcrCG0IwuNY7ibHgz1clrPy3yMSo61pVAtKIr88xcL52gIdZ0i3lm2WyRJuJxWEMbJyLkGgNVwoJZQ6Xnn7gqWPFyxOHe4daB271QcXyOhY2ZavJXOtqsA+wcFx2JbBlx4ZqSIn/u6Hw/EJhyoH5tpig4YXACGrspaOdoIZQbaxiw==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:6f656bb896a5c568378f091572e1c6bcf1d22803b6929de33b9315eb3771d6ac",
+      "output": {
+        "checks": [
+          {
+            "field_path": "message.value",
+            "id": "AMOUNT_ABOVE_POLICY",
+            "observed": null,
+            "policy": "max_amount_by_token was not declared, or the classified payload carries no amount member",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "mode",
+            "id": "BLIND_SIGNATURE",
+            "observed": "typed_data",
+            "policy": "a structured payload was supplied",
+            "severity": "structure",
+            "status": "CLEAR"
+          },
+          {
+            "field_path": "domain.chainId",
+            "id": "CHAIN_MISMATCH_ACTIVE",
+            "observed": null,
+            "policy": "active_chain_id was not declared, or the payload carries no domain.chainId",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "domain.chainId",
+            "id": "CHAIN_NOT_ALLOWED",
+            "observed": null,
+            "policy": "allowed_chain_ids was not declared, or the payload carries no domain.chainId",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "mode",
+            "id": "CROSS_CHAIN_AUTHORIZATION",
+            "observed": null,
+            "policy": "these checks read a delegation tuple; this payload is structured data",
+            "severity": "eip7702",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "mode",
+            "id": "DELEGATE_NOT_ALLOWLISTED",
+            "observed": null,
+            "policy": "these checks read a delegation tuple; this payload is structured data",
+            "severity": "eip7702",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "mode",
+            "id": "DELEGATION_CLEAR",
+            "observed": null,
+            "policy": "these checks read a delegation tuple; this payload is structured data",
+            "severity": "eip7702",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "mode",
+            "id": "EIP2_HIGH_S",
+            "observed": null,
+            "policy": "these checks read a delegation tuple; this payload is structured data",
+            "severity": "eip7702",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "message.to",
+            "id": "EIP3009_TRANSFER_TO_CONTRACT",
+            "observed": null,
+            "policy": "contract_addresses was not declared, or the payload is not the transfer-form authorization",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "signature",
+            "id": "ERC6492_WRAPPED",
+            "observed": null,
+            "policy": "no signature was supplied",
+            "severity": "informational",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "domain",
+            "id": "ERC7730_DESCRIPTOR_MISMATCH",
+            "observed": null,
+            "policy": "erc7730_descriptor was not declared",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "message.deadline",
+            "id": "EXPIRED",
+            "observed": null,
+            "policy": "now_unix or a deadline member was not present",
+            "severity": "informational",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "signature",
+            "id": "HIGH_S",
+            "observed": null,
+            "policy": "no signature was supplied, or it carries no recoverable s",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "typed_data.primaryType",
+            "id": "LOOKALIKE_TYPE",
+            "observed": "Permit",
+            "policy": "a known struct name must carry its canonical encodeType",
+            "severity": "structure",
+            "status": "CLEAR"
+          },
+          {
+            "field_path": "typed_data.message",
+            "id": "MESSAGE_FIELD_MISSING",
+            "observed": [],
+            "policy": "every declared member must be present in message",
+            "severity": "structure",
+            "status": "CLEAR"
+          },
+          {
+            "field_path": "typed_data.message",
+            "id": "MESSAGE_FIELD_NOT_IN_TYPES",
+            "observed": [],
+            "policy": "every message member must be declared in types",
+            "severity": "structure",
+            "status": "CLEAR"
+          },
+          {
+            "field_path": "mode",
+            "id": "NONCE_OUT_OF_RANGE",
+            "observed": null,
+            "policy": "these checks read a delegation tuple; this payload is structured data",
+            "severity": "eip7702",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "signature",
+            "id": "NON_ECDSA_LENGTH",
+            "observed": null,
+            "policy": "no signature was supplied",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "message",
+            "id": "NOT_YET_VALID",
+            "observed": null,
+            "policy": "now_unix or a start-of-window member was not present",
+            "severity": "informational",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "message",
+            "id": "NO_EXPIRY",
+            "observed": {
+              "expires_this_block": [],
+              "no_expiry": []
+            },
+            "policy": "a ceiling deadline, or a zero expiry on the legacy permit struct, never expires",
+            "severity": "policy",
+            "status": "CLEAR"
+          },
+          {
+            "field_path": "message",
+            "id": "PAYEE_NOT_ALLOWLISTED",
+            "observed": null,
+            "policy": "payee_allowlist was not declared, or the classified payload carries no payee",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "message",
+            "id": "PAYLOAD_DIVERGES_FROM_INTENT",
+            "observed": null,
+            "policy": "intent was not declared",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "domain",
+            "id": "PERMIT2_DOMAIN_SHAPE",
+            "observed": null,
+            "policy": "the payload is not classified as one of the recognised allowance-router types",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "message.spender",
+            "id": "SPENDER_NOT_ALLOWLISTED",
+            "observed": null,
+            "policy": "spender_allowlist was not declared, or the classified payload carries no spender",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "message.spender",
+            "id": "SPENDER_NOT_DECLARED_CONTRACT",
+            "observed": null,
+            "policy": "contract_addresses was not declared, or the classified payload carries no spender",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "message.value",
+            "id": "UNLIMITED_AMOUNT",
+            "observed": [],
+            "policy": "an amount at its type ceiling is an unlimited allowance",
+            "severity": "policy",
+            "status": "CLEAR"
+          },
+          {
+            "field_path": "typed_data.primaryType",
+            "id": "UNRECOGNIZED_TYPE",
+            "observed": "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)",
+            "policy": "classification by encodeType string equality",
+            "severity": "informational",
+            "status": "CLEAR"
+          },
+          {
+            "field_path": "message.deadline",
+            "id": "VALIDITY_BEYOND_POLICY",
+            "observed": null,
+            "policy": "max_validity_seconds, now_unix, or a deadline member was not present",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "domain.verifyingContract",
+            "id": "VERIFYING_CONTRACT_NOT_ALLOWED",
+            "observed": null,
+            "policy": "allowed_verifying_contracts was not declared, or the payload carries no domain.verifyingContract",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "signature",
+            "id": "V_FORM_RAW_YPARITY",
+            "observed": null,
+            "policy": "no 65-byte signature was supplied",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "message.value",
+            "id": "X402_AMOUNT_MISMATCH",
+            "observed": null,
+            "policy": "expected_x402.scheme, expected_x402.amount, or an amount member was not present",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "message",
+            "id": "X402_ASSET_MISMATCH",
+            "observed": null,
+            "policy": "expected_x402.asset was not declared, or the classified payload carries no token",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "typed_data.primaryType",
+            "id": "X402_METHOD_NOT_OFFLINE_CHECKABLE",
+            "observed": null,
+            "policy": "expected_x402 was not declared",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "domain.chainId",
+            "id": "X402_NETWORK_MISMATCH",
+            "observed": null,
+            "policy": "expected_x402.network, the caller-declared network_chain_ids map, or domain.chainId was not present",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "message",
+            "id": "X402_PAYTO_MISMATCH",
+            "observed": null,
+            "policy": "expected_x402.payTo was not declared, or the classified payload carries no payee",
+            "severity": "policy",
+            "status": "NOT_EVALUATED"
+          },
+          {
+            "field_path": "mode",
+            "id": "Y_PARITY_OUT_OF_RANGE",
+            "observed": null,
+            "policy": "these checks read a delegation tuple; this payload is structured data",
+            "severity": "eip7702",
+            "status": "NOT_EVALUATED"
+          }
+        ],
+        "classification": {
+          "encode_type": "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)",
+          "entry_count": null,
+          "lookalike": false,
+          "payment_method": "not_detected",
+          "primary_type": "Permit",
+          "standard": "ERC2612_PERMIT",
+          "witness_is_named_payment_witness": false,
+          "witness_type": null
+        },
+        "display": [
+          {
+            "format": "chainId",
+            "label": "Chain",
+            "params": {},
+            "path": "domain.chainId",
+            "value": "1"
+          },
+          {
+            "format": "addressName",
+            "label": "Verifying contract",
+            "params": {
+              "raw": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+            },
+            "path": "domain.verifyingContract",
+            "value": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+          },
+          {
+            "format": "addressName",
+            "label": "Spender",
+            "params": {
+              "raw": "0x1111111111111111111111111111111111111111"
+            },
+            "path": "message.spender",
+            "value": "0x1111111111111111111111111111111111111111"
+          },
+          {
+            "format": "tokenAmount",
+            "label": "Amount",
+            "params": {
+              "decimals": null,
+              "raw_base_units": true,
+              "ticker": null,
+              "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+            },
+            "path": "message.value",
+            "value": "1000000"
+          },
+          {
+            "format": "date",
+            "label": "Expires",
+            "params": {
+              "unix": "2000000000"
+            },
+            "path": "message.deadline",
+            "value": "2033-05-18T03:33:20Z"
+          }
+        ],
+        "evaluated_count": 7,
+        "flagged_count": 0,
+        "handoffs": {
+          "art_612": {
+            "chainId": "1",
+            "deadline": "2000000000",
+            "name": "USD Coin",
+            "nonce": "0",
+            "owner": "0xe05fcc23807536bee418f142d19fa0d21bb0cff7",
+            "r": null,
+            "s": null,
+            "spender": "0x1111111111111111111111111111111111111111",
+            "value": "1000000",
+            "verifyingContract": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "version": "2",
+            "yParity": null
+          }
+        },
+        "mode": "typed_data",
+        "not_evaluated": [
+          "AMOUNT_ABOVE_POLICY",
+          "CHAIN_MISMATCH_ACTIVE",
+          "CHAIN_NOT_ALLOWED",
+          "CROSS_CHAIN_AUTHORIZATION",
+          "DELEGATE_NOT_ALLOWLISTED",
+          "DELEGATION_CLEAR",
+          "EIP2_HIGH_S",
+          "EIP3009_TRANSFER_TO_CONTRACT",
+          "ERC6492_WRAPPED",
+          "ERC7730_DESCRIPTOR_MISMATCH",
+          "EXPIRED",
+          "HIGH_S",
+          "NONCE_OUT_OF_RANGE",
+          "NON_ECDSA_LENGTH",
+          "NOT_YET_VALID",
+          "PAYEE_NOT_ALLOWLISTED",
+          "PAYLOAD_DIVERGES_FROM_INTENT",
+          "PERMIT2_DOMAIN_SHAPE",
+          "SPENDER_NOT_ALLOWLISTED",
+          "SPENDER_NOT_DECLARED_CONTRACT",
+          "VALIDITY_BEYOND_POLICY",
+          "VERIFYING_CONTRACT_NOT_ALLOWED",
+          "V_FORM_RAW_YPARITY",
+          "X402_AMOUNT_MISMATCH",
+          "X402_ASSET_MISMATCH",
+          "X402_METHOD_NOT_OFFLINE_CHECKABLE",
+          "X402_NETWORK_MISMATCH",
+          "X402_PAYTO_MISMATCH",
+          "Y_PARITY_OUT_OF_RANGE"
+        ],
+        "policy_conformance": "CONFORMS",
+        "scope_note": "Classifies an authorization payload that is about to be signed and reports how it stands against a signing policy the caller declares. Classification is string equality of the computed encodeType against canonical type strings, so a type this node does not recognise is reported as UNRECOGNIZED and never guessed. Every threshold, allowlist, counterparty set and clock reading is a caller-declared input: a check whose input was not declared reports NOT_EVALUATED and is listed separately, never folded into a CLEAR. This node performs no chain read, recovers no signer, computes no digest, and never submits anything. It reports flags against a declared policy; it does not judge a counterparty, a delegate contract, or an outcome.",
+        "signature_form": null,
+        "warnings": [
+          "29 check(s) could not be evaluated because a declared input was absent; they are listed in not_evaluated and are never counted as CLEAR"
+        ]
+      }
+    }
+  }
+}

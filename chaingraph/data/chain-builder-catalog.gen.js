@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (666 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (669 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6199,7 +6199,9 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-590-x402-eip712-digest-recomputer.html",
     "description": "Recomputes the EIP-712 typed-data digest for an EIP-3009 TransferWithAuthorization struct (the x402 payments rail's underlying authorization",
-    "consumes": [],
+    "consumes": [
+      "art-700-authorization-payload-linter"
+    ],
     "feeds": [
       "art-591-x402-signer-recovery-verifier"
     ],
@@ -6212,7 +6214,8 @@ window.CHAINBUILDER_CATALOG = [
     "url": "https://ainumbers.co/chaingraph/art-591-x402-signer-recovery-verifier.html",
     "description": "Recovers the ECDSA signer address from a caller-supplied EIP-712 digest (the sibling art-590-x402-eip712-digest-recomputer's output) and a s",
     "consumes": [
-      "art-590-x402-eip712-digest-recomputer"
+      "art-590-x402-eip712-digest-recomputer",
+      "art-699-x402-permit2-evidence-recomputer"
     ],
     "feeds": [],
     "status": "live"
@@ -6471,7 +6474,10 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-612-erc2612-permit-binding-verifier.html",
     "description": "Recomputes the EIP-712 typed-data digest for an ERC-2612 Permit struct (the gasless-approval rail used by USDC and other ERC-2612 tokens) fr",
-    "consumes": [],
+    "consumes": [
+      "art-699-x402-permit2-evidence-recomputer",
+      "art-700-authorization-payload-linter"
+    ],
     "feeds": [],
     "status": "live"
   },
@@ -6491,7 +6497,9 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-614-eip7702-authorization-tuple-decoder.html",
     "description": "Recomputes the EIP-7702 authorization-tuple hash (keccak256(0x05 || rlp([chain_id, address, nonce])), the 'Set EOA account code' standard li",
-    "consumes": [],
+    "consumes": [
+      "art-700-authorization-payload-linter"
+    ],
     "feeds": [],
     "status": "live"
   },
@@ -7238,6 +7246,19 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-699-x402-permit2-evidence-recomputer",
+    "display_name": "X402 Permit2 Evidence Recomputer",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-699-x402-permit2-evidence-recomputer.html",
+    "description": "Recomputes the Permit2 typed-data digest a payer's wallet signs for an x402 payment, for the three single-item message shapes the exact and ",
+    "consumes": [],
+    "feeds": [
+      "art-591-x402-signer-recovery-verifier",
+      "art-612-erc2612-permit-binding-verifier"
+    ],
+    "status": "live"
+  },
+  {
     "tool_id": "art-70-cbam-default-value-resolver",
     "display_name": "CBAM Default-Value Resolver",
     "mandate_type": "compliance_mandate",
@@ -7249,6 +7270,30 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "art-69-cbam-embedded-emissions-calculator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-700-authorization-payload-linter",
+    "display_name": "Authorization Payload Linter",
+    "mandate_type": "payment_policy",
+    "url": "https://ainumbers.co/chaingraph/art-700-authorization-payload-linter.html",
+    "description": "Lints an authorization payload before it is signed, against a signing policy the caller declares. Three declared input modes: EIP-712 typed ",
+    "consumes": [],
+    "feeds": [
+      "art-590-x402-eip712-digest-recomputer",
+      "art-612-erc2612-permit-binding-verifier",
+      "art-614-eip7702-authorization-tuple-decoder"
+    ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-701-three-way-invoice-match",
+    "display_name": "Three Way Invoice Match",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-701-three-way-invoice-match.html",
+    "description": "Matches one invoice against its purchase order and its goods receipt and decides whether the invoice can be paid: every invoice line is pair",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

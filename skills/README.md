@@ -2,7 +2,7 @@
 
 Every example prompt AINumbers publishes, exported as an Agent Skill: one directory per prompt, each holding a SKILL.md in the agentskills.io format. Hosts that do not implement MCP prompts can still load these from disk.
 
-This tree is generated from mcp/showcase-prompts.json, the same source the hosted worker serves at prompts/list and the same source prompts.html renders. Do not hand-edit anything under skills/: run `node scripts/gen-agent-skills.mjs` instead. Source digest of this build: 647bdbeed4d9.
+This tree is generated from mcp/showcase-prompts.json, the same source the hosted worker serves at prompts/list and the same source prompts.html renders. Do not hand-edit anything under skills/: run `node scripts/gen-agent-skills.mjs` instead. Source digest of this build: 8770e0e5aba5.
 
 ## What is here
 
@@ -28,7 +28,7 @@ Each SKILL.md carries the required `name` and `description` frontmatter fields, 
 
 ## Reliance
 
-Not legal, investment, tax, or compliance advice. A computed view of the cited authority as of generated_at, not a substitute for review by a qualified advisor against the current official source text. For this tree, generated_at is the build that produced it: source digest 647bdbeed4d9, taken over mcp/showcase-prompts.json. Check every regulation, standard, or rule a prompt names against its current official text before relying on a result.
+Not legal, investment, tax, or compliance advice. A computed view of the cited authority as of generated_at, not a substitute for review by a qualified advisor against the current official source text. For this tree, generated_at is the build that produced it: source digest 8770e0e5aba5, taken over mcp/showcase-prompts.json. Check every regulation, standard, or rule a prompt names against its current official text before relying on a result.
 
 ## License
 

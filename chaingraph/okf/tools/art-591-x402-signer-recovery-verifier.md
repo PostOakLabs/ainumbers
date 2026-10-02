@@ -28,7 +28,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** [x402 EIP-712 Digest Recomputer](./art-590-x402-eip712-digest-recomputer.md)
+**Consumes:** [x402 EIP-712 Digest Recomputer](./art-590-x402-eip712-digest-recomputer.md), [X402 Permit2 Evidence Recomputer](./art-699-x402-permit2-evidence-recomputer.md)
 
 **Feeds:** _terminal node_
 

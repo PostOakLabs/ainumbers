@@ -217,6 +217,73 @@ async function main() {
     check('--check RED on hand-edited derived schema (mutation)', red.problems.length > 0 && red.problems.some((p) => p.includes('drifted')),
       `problems=${JSON.stringify(red.problems)}`);
 
+    // ── WORKER-NULLPARITY-MANIFESTS-1: x_null_distinct home → in-schema fold ──
+    // The worker normalizer exempts in-schema `x_null_distinct: true` properties
+    // at any depth (mcp-apps-poc/_null_normalize.mjs:47); the declaration HOME is
+    // the top-level manifest sibling (same doctrine as x_order_bearing). The
+    // derived region must be reachable ONLY through home + generator: fold green,
+    // hand in-schema key red, bad path red, one-slot-only parity red.
+    console.log('x_null_distinct fold (home → in-schema, items.properties depth, round-trip):');
+    const { foldXNullDistinct, nullDistinctHome, foldHomeIntoInputSchema } = await import('./gen-input-schemas.mjs');
+    const pristine = JSON.parse(JSON.stringify(manifest)); // the un-tampered manifest written above
+    pristine.input_schema = JSON.parse(JSON.stringify(derived));
+    pristine.mcp_tool_definition.inputSchema = JSON.parse(JSON.stringify(derived));
+    // Pure-function controls on fx-903's derived schema (it has an array property):
+    const derived903 = deriveInputSchema(tmp, 'chaingraph/kernels/fx-903-defaults-required.kernel.mjs').inputSchema;
+    const folded903 = JSON.parse(JSON.stringify(derived903));
+    foldXNullDistinct(folded903, ['properties.discount', 'properties.line_items.items.properties.unit']);
+    check('fold creates declaration-only items.properties shell (no type/description invented)',
+      JSON.stringify(folded903.properties.line_items.items) === JSON.stringify({ properties: { unit: { x_null_distinct: true } } }),
+      `got ${JSON.stringify(folded903.properties.line_items.items)}`);
+    check('fold sets the key on an existing terminal property',
+      folded903.properties.discount.x_null_distinct === true && folded903.properties.discount.default === 0,
+      `got ${JSON.stringify(folded903.properties.discount)}`);
+    // RED: a home naming a nonexistent top-level property must never silently fold
+    try {
+      foldXNullDistinct(JSON.parse(JSON.stringify(derived)), ['properties.nonexistent_property']);
+      check('home naming a nonexistent top-level property -> RED (never invents)', false, 'no throw');
+    } catch (e) {
+      check('home naming a nonexistent top-level property -> RED (never invents)', /read set/.test(e.message), `threw: ${e.message}`);
+    }
+    // RED: an in-schema x_null_distinct WITHOUT the home is drift like any hand-edit
+    const orphan = JSON.parse(JSON.stringify(pristine));
+    orphan.input_schema.properties.risk_level.x_null_distinct = true;
+    fs.writeFileSync(path.join(tmp, 'manifests', 'fx-901-enum-inference.manifest.json'), JSON.stringify(orphan, null, 2) + '\n', 'utf8');
+    const orphanRed = checkDerivedSchemas(tmp);
+    check('--check RED on in-schema x_null_distinct without a home (hand-edit class)',
+      orphanRed.problems.length > 0 && orphanRed.problems.some((p) => p.includes('drifted')),
+      `problems=${JSON.stringify(orphanRed.problems)}`);
+    check('nullDistinctHome validates shape (non-array home red)',
+      (() => { try { nullDistinctHome({ tool_id: 'x', x_null_distinct: 'properties.a' }); return false; } catch { return true; } })());
+    // Disk controls on the fx-901 fixture manifest: home folded into BOTH slots.
+    const homeManifest = JSON.parse(JSON.stringify(pristine));
+    homeManifest.x_null_distinct = ['properties.risk_level'];
+    const folded = JSON.parse(JSON.stringify(deriveInputSchema(tmp, 'chaingraph/kernels/fx-901-enum-inference.kernel.mjs').inputSchema));
+    foldXNullDistinct(folded, homeManifest.x_null_distinct);
+    homeManifest.input_schema = JSON.parse(JSON.stringify(folded));
+    homeManifest.mcp_tool_definition.inputSchema = JSON.parse(JSON.stringify(folded));
+    fs.writeFileSync(path.join(tmp, 'manifests', 'fx-901-enum-inference.manifest.json'), JSON.stringify(homeManifest, null, 2) + '\n', 'utf8');
+    const foldGreen = checkDerivedSchemas(tmp);
+    check('--check GREEN when in-schema keys == fold(top-level home)',
+      foldGreen.owned === 1 && foldGreen.problems.length === 0,
+      `owned=${foldGreen.owned} problems=${JSON.stringify(foldGreen.problems)}`);
+    // RED: two-writer parity — the fold must land in BOTH schema slots
+    const parity = JSON.parse(JSON.stringify(homeManifest));
+    parity.mcp_tool_definition.inputSchema = JSON.parse(JSON.stringify(pristine.input_schema)); // home folded in one slot only
+    fs.writeFileSync(path.join(tmp, 'manifests', 'fx-901-enum-inference.manifest.json'), JSON.stringify(parity, null, 2) + '\n', 'utf8');
+    const parityRed = checkDerivedSchemas(tmp);
+    check('--check RED when only input_schema carries the fold (two-writer parity)',
+      parityRed.problems.length > 0 && parityRed.problems.some((p) => p.includes('two schema writers')),
+      `problems=${JSON.stringify(parityRed.problems)}`);
+    // round-trip: the same home re-folded onto a fresh derivation reproduces the
+    // on-disk schema byte-for-byte (the redraft-stability property --check enforces)
+    const refolded = JSON.parse(JSON.stringify(deriveInputSchema(tmp, 'chaingraph/kernels/fx-901-enum-inference.kernel.mjs').inputSchema));
+    foldHomeIntoInputSchema(homeManifest, refolded);
+    check('round-trip: fold(home, fresh derivation) reproduces the on-disk schema',
+      JSON.stringify(refolded) === JSON.stringify(homeManifest.input_schema));
+    // restore the GREEN home state for the flip-guard controls below
+    fs.writeFileSync(path.join(tmp, 'manifests', 'fx-901-enum-inference.manifest.json'), JSON.stringify(homeManifest, null, 2) + '\n', 'utf8');
+
     // ── WebMCP flip guard ──
     console.log('WebMCP flip guard:');
     fs.mkdirSync(path.join(tmp, 'chaingraph'), { recursive: true });

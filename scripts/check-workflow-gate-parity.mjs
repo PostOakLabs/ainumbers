@@ -224,6 +224,10 @@ const NOT_A_GATE = new Map([
   ["fullsuite-schedule.yml",
     "schedule (weekly) + workflow_dispatch only; steps are continue-on-error by design " +
     "so the whole suite reports rather than stopping at the first red."],
+  ["gitlab-backup.yml",
+    "schedule (monthly) + workflow_dispatch only — the off-GitHub backup push of main and tags " +
+    "to GitLab, post-merge. It has no pull_request, merge_group or push trigger, runs no node " +
+    "gate, and blocks no merge."],
   ["helm-guide-freshness-schedule.yml",
     "schedule only."],
   ["mutation-full-scheduled.yml",
@@ -346,6 +350,11 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── WEBMCP-META-LINT-CEILING-1 (2026-10-01) ─────────────────────────────────
+  ["check-webmcp-meta-budgets.test.mjs", SELF_TEST],
+  ["check-webmcp-meta-neardupes.test.mjs", SELF_TEST],
+  // ── KERNEL-IMPORT-SPECIFIER-LINT-1 (2026-10-01) ───────────────────────────
+  ["check-kernel-determinism.test.mjs", SELF_TEST],
   // ── BRIDGE-MCP-APPS-ALIGN-1 (2026-09-28) ────────────────────────────────────
   ["check-bridge-jsonrpc.mjs",
     "AIN Bridge MCP Apps ui/ dialect lint: reads ONE tracked file's bytes " +

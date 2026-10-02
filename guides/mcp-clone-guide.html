@@ -104,7 +104,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem}
   </ul>
   <p>If your catalog is small, most of what follows is overkill. The interesting parts start at roughly one hundred tools, where per-request schema construction and bundle size both stop being free.</p>
 
-  <h2>2. The two-repo shape, and why</h2>
+  <h2>2. The two-repo shape and why the split exists</h2>
   <p>Two repositories, deliberately:</p>
   <table>
     <tr><th>Repo</th><th>Default branch</th><th>Holds</th></tr>
@@ -114,7 +114,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem}
   <p>The split exists because the two halves have opposite dependency profiles. The site repo is a zero-dependency static estate that must stay installable-free and auditable. The Worker repo needs the MCP SDK, Wrangler, and a dependency bot keeping them current. Keeping them in one repository would push npm into the site, or push a build step into the pages.</p>
   <p>The cost of the split is a copy step, which is the single largest source of outages in this design. Section 3 is that copy step, and section 4 is the gate that catches its worst failure.</p>
 
-  <h2>3. The generation step, and the rule that prevents outages</h2>
+  <h2>3. The generation step and the rule that prevents outages</h2>
   <p>A script in the Worker repo, <code>generate.mjs</code>, reads the site checkout and writes into the Worker repo:</p>
   <ul>
     <li><code>data/chaingraph/chaingraph.json</code>, the catalog the Worker registers tools from.</li>
@@ -129,7 +129,7 @@ node generate.mjs --repo=/path/to/ainumbers</code></pre>
   <div class="rule-note"><span class="lead-teal">The rule.</span> Edit the catalog or a kernel, re-run <code>generate.mjs</code>, and commit <code>data/</code> and <code>kernels/</code> in the same push. The cloud build cannot run generation, because the sibling site checkout does not exist there. A push that changes the catalog without the regenerated output deploys a stale or unresolvable bundle. This one rule accounts for the recurring class of "the server went down right after a merge".</div>
   <p>Two gates make the rule enforceable rather than aspirational. A dry-run bundle fails if any static import cannot resolve in the committed tree, which catches the case where <code>kernels/</code> was never committed. A vendor-freshness check re-reads the site repository at HEAD in CI and compares it semantically against the committed vendored copies, which catches the case where they were committed but are stale.</p>
 
-  <h2>4. Unique tool names, or the handshake dies</h2>
+  <h2>4. Unique tool names or the handshake dies</h2>
   <p>The MCP SDK throws when the same tool name is registered twice. That throw happens inside server construction, so it does not break one tool: it returns a 500 for <code>initialize</code> and the entire server becomes unusable to every client. A bundle can be perfectly valid and still do this.</p>
   <p>So name uniqueness is a build gate, not a convention. The check reads the vendored data, meaning what will actually deploy, and asserts a single namespace across three sources:</p>
   <ul>

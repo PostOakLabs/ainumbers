@@ -41,9 +41,33 @@ const nodePageIds = readdirSync(CG_DIR).filter((f) => /\.html$/.test(f) && !/^(c
 for (const id of nodePageIds) if ((/^(art|cry|ml|qfa|rca|sim|pnr|mms|ptg|rbe)-/.test(id) || /^\d+-/.test(id)) && !nodeIds.has(id)) { console.warn(`⚠ chaingraph/${id}.html has no nodes[] entry (orphan/promoted)`); warns++; }
 
 // ---- B. ORPHAN chain pages: chains/*.html that NO chain's composer_url points to ----
+// Composer targets come from the chaingraph.json monolith AND the chain shards under
+// graph/chains/*.json. The monolith is a derived artifact only the main-side regen rewrites,
+// so on a pull_request a branch that adds a chain (shard + page) still reads the stale
+// monolith; without the shard union its brand-new page reported as an orphan (PR #2089,
+// 2026-10-01) and the only PR-side green was baselining a page that is not an orphan.
+// A shard that names a page is the same source of truth the assembler reads, so counting
+// it here changes nothing on main (every assembled chain is also a shard) and removes the
+// false orphan on a branch. Legacy orphan detection is unchanged: a page no shard and no
+// monolith chain points to still errors.
 const chainsDir = join(CG_DIR, 'chains');
+const shardsDir = join(CG_DIR, 'graph', 'chains');
+function shardComposerTargets() {
+  if (!existsSync(shardsDir)) return [];
+  const out = [];
+  for (const f of readdirSync(shardsDir).filter((f) => /\.json$/.test(f))) {
+    try {
+      const s = JSON.parse(readFileSync(join(shardsDir, f), 'utf8'));
+      if (s && typeof s.composer_url === 'string') out.push(s.composer_url.split('/').pop());
+    } catch { /* an unparseable shard is CGSHARD-1's finding, not this gate's */ }
+  }
+  return out.filter(Boolean);
+}
 if (existsSync(chainsDir)) {
-  const composerTargets = new Set(chains.map((c) => (c.composer_url || '').split('/').pop()).filter(Boolean));
+  const composerTargets = new Set([
+    ...chains.map((c) => (c.composer_url || '').split('/').pop()).filter(Boolean),
+    ...shardComposerTargets(),
+  ]);
   for (const f of readdirSync(chainsDir).filter((f) => /\.html$/.test(f))) {
     if (!composerTargets.has(f)) { console.error(`✗ orphan page chains/${f} — no chain composer_url references it (superseded?)`); errs++; }
   }
