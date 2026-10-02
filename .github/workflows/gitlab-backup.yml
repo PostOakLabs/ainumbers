@@ -1,0 +1,90 @@
+name: GitLab backup mirror
+
+# Monthly off-GitHub backup of this public repo: main plus every tag, pushed to
+# gitlab.com/postoaklabs/ainumbers-backup (a private GitLab project). Requested
+# by Tim on 2026-10-01 as the first step of keeping chaingraph.json and its
+# sources somewhere that does not depend on GitHub alone.
+#
+# APPEND-ONLY BY DESIGN: no --mirror, no --prune, no --force. A force-pushed or
+# deleted ref on GitHub can never overwrite or erase the backup. If main's
+# history were ever rewritten, GitLab rejects the non-fast-forward push and
+# this job goes red, which is the alarm we want, not a silent overwrite.
+#
+# AUTH: one SSH deploy key with write access, scoped to that single GitLab
+# project (secret GITLAB_BACKUP_SSH_KEY). No personal token, so nothing grants
+# access to any other GitLab project and nothing expires on a timer.
+#
+# HOST KEYS ARE PINNED, never trust-on-first-use. The three lines below are the
+# known_hosts entries published at docs.gitlab.com/user/gitlab_com, checked on
+# 2026-10-01 against a live ssh-keyscan of gitlab.com (all three matched):
+#   ED25519 SHA256:eUXGGm1YGsMAS7vkcx6JOJdOGHPem5gQp4taiCfCLB8
+#   ECDSA   SHA256:HbW3g8zUjNSksFbqTiUWPWg2Bq1x8xdGUrliXFzSnUw
+#   RSA     SHA256:ROQFvPThGrW4RuWLoL9tq9I9zJ42fK4XywyRtbOz/EQ
+#
+# PERMISSIONS: contents: read only. The push uses the deploy key, never the
+# GITHUB_TOKEN, and checkout does not persist credentials.
+
+on:
+  schedule:
+    - cron: '17 6 1 * *'   # 06:17 UTC on the 1st of every month
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gitlab-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Push main and tags to GitLab
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Refuse any ref but main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::The GitLab backup only runs from main (got ${GITHUB_REF})."
+          exit 1
+
+      - name: Check out full history and tags
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Push main and tags (append-only)
+        env:
+          GITLAB_BACKUP_SSH_KEY: ${{ secrets.GITLAB_BACKUP_SSH_KEY }}
+          GITLAB_REMOTE: git@gitlab.com:postoaklabs/ainumbers-backup.git
+        run: |
+          set -euo pipefail
+          if [ -z "${GITLAB_BACKUP_SSH_KEY}" ]; then
+            echo "::error::Secret GITLAB_BACKUP_SSH_KEY is not set, so there is nothing to push with."
+            exit 1
+          fi
+
+          ssh_dir="${RUNNER_TEMP}/gitlab-ssh"
+          trap 'rm -rf "${ssh_dir}"' EXIT
+          mkdir -p "${ssh_dir}"
+          chmod 700 "${ssh_dir}"
+          printf '%s\n' "${GITLAB_BACKUP_SSH_KEY}" > "${ssh_dir}/id"
+          chmod 600 "${ssh_dir}/id"
+          printf '%s\n' \
+            'gitlab.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfuCHKVTjquxvt6CM6tdG4SLp1Btn/nOeHHE5UOzRdf' \
+            'gitlab.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBFSMqzJeV9rUzU4kWitGjeR4PWSa29SPqJ1fVkhtj3Hw9xjLVXVYrU9QlYWrOLXBpQ6KWjbjTDTdDkoohFzgbEY=' \
+            'gitlab.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCsj2bNKTBSpIYDEGk9KxsGh3mySTRgMtXL583qmBpzeQ+jqCMRgBqB98u3z++J1sKlXHWfM9dyhSevkMwSbhoR8XIq/U0tCNyokEi/ueaBMCvbcTHhO7FcwzY92WK4Yt0aGROY5qX2UKSeOvuP4D6TPqKF1onrSzH9bx9XUf2lEdWT/ia1NEKjunUqu1xOB/StKDHMoX4/OKyIzuS0q/T1zOATthvasJFoPrAjkohTyaDUz2LN5JoH839hViyEG82yB+MjcFV5MU3N1l1QL3cVUCh93xSaua1N85qivl+siMkPGbO5xR/En4iEY6K2XPASUEMaieWVNTRCtJ4S8H+9' \
+            > "${ssh_dir}/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i ${ssh_dir}/id -o IdentitiesOnly=yes -o UserKnownHostsFile=${ssh_dir}/known_hosts -o StrictHostKeyChecking=yes"
+
+          git remote add gitlab "${GITLAB_REMOTE}"
+          git push gitlab "${GITHUB_SHA}:refs/heads/main"
+          git push gitlab --tags
+
+          remote_main="$(git ls-remote gitlab refs/heads/main | cut -f1)"
+          if [ "${remote_main}" != "${GITHUB_SHA}" ]; then
+            echo "::error::GitLab main is ${remote_main:-missing}, expected ${GITHUB_SHA}."
+            exit 1
+          fi
+          echo "GitLab backup OK: main = ${GITHUB_SHA}, tags = $(git tag | wc -l)."
