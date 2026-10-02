@@ -108,7 +108,7 @@ const CLUSTERS = [
     ],
   },
   {
-    id: 'markets', label: 'Markets, settlement and treasury',
+    id: 'markets', label: 'Markets and settlement and treasury',
     blurb: 'Settlement cycles, reserve and reconciliation arithmetic, and the treasury desk\u2019s daily work.',
     paths: [
       'guides/capital-markets-settlement-hub.html',
@@ -130,7 +130,7 @@ const CLUSTERS = [
     ],
   },
   {
-    id: 'risk', label: 'Risk, capital and insurance',
+    id: 'risk', label: 'Risk and capital and insurance',
     blurb: 'Capital treatment, credit and fraud risk, and the insurance desk\u2019s equivalents.',
     paths: [
       'guides/basel-iv-frtb-model-risk-hub.html',
@@ -147,7 +147,7 @@ const CLUSTERS = [
     ],
   },
   {
-    id: 'tokenization', label: 'Tokenization, DLT and stablecoins',
+    id: 'tokenization', label: 'Tokenization and DLT and stablecoins',
     blurb: 'Tokenized assets and the chains they settle on, from Canton and shared ledgers to the payments-first L1s.',
     paths: [
       'guides/dlt-tokenization-hub.html',
