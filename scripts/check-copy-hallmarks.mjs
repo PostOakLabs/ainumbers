@@ -106,7 +106,7 @@
  *
  * Usage:
  *   node scripts/check-copy-hallmarks.mjs            # gate (preflight + CI)
- *   node scripts/check-copy-hallmarks.mjs --update   # regenerate the em-dash/jargon/bold/insider/aiVocab/absolutes/notX/fragHead baseline
+ *   node scripts/check-copy-hallmarks.mjs --update   # regenerate the em-dash/jargon/bold/insider/aiVocab/absolutes/notX/fragHead/pairHead baseline
  *   node scripts/check-copy-hallmarks.mjs --report   # write the Tier-1 H1+H5 remediation ranking to workspace-root research/
  *
  * Style rule of record: CONTRACT.md §1.4 (reader-facing copy).
@@ -378,6 +378,76 @@ export function fragHeadHits(prose) {
   }
   return hits;
 }
+// PAIRHEAD (COPY-HEADCOMMA-GATE-1, 2026-10-02; spec
+// research/copy-hallmarks-headings-2026-09/REPORT.md "Recommended gate
+// change"): the balanced-pair heading — "X, and Y" — audit class (b),
+// measured at 65 headings on 47 published pages, every one of which fragHead
+// waves through because FRAGHEAD_CONJ reads the conjunction as proof of a
+// grammatical heading. A SIBLING bucket, not a FRAGHEAD_CONJ widening: that
+// rule is FROZEN for calibration (above) and folding class (b) into fragHead
+// would reopen the 2026-09-22 calibration. Baseline+ratchet, same per-file
+// shrink-only shape as fragHead: a file absent from the baseline gets zero
+// tolerance; legacy debt shields under a per-file `pairHead` count that only
+// goes down via --update. Detection runs AFTER the same pre-normalisation
+// fragHeadHits applies (parenthetical strip; node-id strip; entity decode;
+// numeric comma collapse; whitespace collapse): flag a heading when a comma
+// is immediately followed by a coordinating conjunction. Skip when
+// FRAGHEAD_NOTX_DEFER matches (audit class (c) stays in the notX category —
+// no double-flag against its cap), when EVERY comma segment is a NAME
+// segment (the audit's class (e) rule: split on commas, tokenise on
+// whitespace and "/", strip leading/trailing punctuation, drop
+// stopwords/bare numbers/roman numerals, require every remaining token to
+// begin uppercase or a digit), or when a segment matches
+// FRAGHEAD_ACRONYM_SEG (acronym tag-list headings).
+const PAIRHEAD_CONJ = /,\s*(?:and|or|but|nor|yet)\b/i;
+// Lowercase-initial product names the NAME-segment rule cannot see (it keys
+// on capitalisation). Measured need (audit rule (e), 1 of 266 hallmark
+// headings): EXACTLY ONE corpus heading family — the x402 product list
+// ("x402 Header Decoder, Payload Linter, and 402 Flow Simulator"). Ship it
+// literal and narrow; never widen by feel — a new lowercase-initial product
+// name goes through a calibration row.
+const PAIRHEAD_LOWER_NAME = new Set(['x402', 'zkvm', 'helmd', 'in-toto', 'mcp']);
+const PAIRHEAD_STOPWORD = new Set(['and', 'or', 'of', 'the', 'for', 'in', 'on', 'to', 'a', 'an', '&', 'de', 'van', 'per', 'vs']);
+function pairHeadNameSegment(seg) {
+  for (let tok of seg.split(/[\s/]+/)) {
+    tok = tok.replace(/^[^\w&-]+/, '').replace(/[^\w&-]+$/, '');
+    if (!tok) continue;
+    const lower = tok.toLowerCase();
+    if (PAIRHEAD_STOPWORD.has(lower)) continue;
+    if (/^\d+$/.test(tok)) continue; // bare number
+    if (/^[ivxlcdm]+$/.test(lower)) continue; // roman numeral
+    if (!/^[A-Z0-9]/.test(tok) && !PAIRHEAD_LOWER_NAME.has(lower)) return false;
+  }
+  return true;
+}
+export function pairHeadHits(prose) {
+  const hits = [];
+  const re = /<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/gi;
+  let m;
+  while ((m = re.exec(prose))) {
+    const t = m[1]
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&[a-z#0-9]+;/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!t) continue;
+    const x = t
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(FRAGHEAD_NODE_ID, '')
+      .replace(/(\d),(\d)/g, '$1$2')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (FRAGHEAD_NOTX_DEFER.test(x)) continue;
+    const segs = x.split(',').map((s) => s.trim()).filter(Boolean);
+    if (segs.length < 2) continue;
+    if (!PAIRHEAD_CONJ.test(x)) continue;
+    if (segs.every((s) => pairHeadNameSegment(s))) continue;
+    if (segs.some((s) => FRAGHEAD_ACRONYM_SEG.test(s))) continue;
+    hits.push(`balanced-pair heading "${t.slice(0, 60)}"`);
+  }
+  return hits;
+}
 // Blocking, zero-tolerance, no baseline (COPYTELL-SWEEP-1) — HIGH-PRECISION twotone family.
 const TWOTONE_HIGHPRECISION = /\b(?:is|are|was|were) not (?:a|an|the )?[\w-]+\.\s+(?:It|They|This|That) (?:is|are)\b/g;
 // Advisory only, PERMANENTLY — heuristic, catches legitimate 3-item lists too often for a hard gate.
@@ -598,6 +668,7 @@ export function hallmarkFindings(raw) {
   const notX = notXCount(text);
   const panel = panelHits(prose);
   const fragHead = fragHeadHits(prose);
+  const pairHead = pairHeadHits(prose);
 
   const hallmarks = [];
   // Italic/bold emphasis in HEADINGS (h1-h6) is now a blocking tell too (Tim
@@ -655,13 +726,13 @@ export function hallmarkFindings(raw) {
     if (n) overuse[label] = n;
   }
 
-  return { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, absolutes, notX, panel, fragHead };
+  return { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, absolutes, notX, panel, fragHead, pairHead };
 }
 
 /** True iff any bucket carries a hit — the CLI gate's own "record this file"
  * condition, exported with the scan so callers agree on what counts as debt. */
 export function hasHallmarkDebt(f) {
-  return Boolean(f.emdash || f.jargon.length || f.twotoneHP || f.triad || f.loadbearing || f.cosignVocab.length || f.hallmarks.length || f.emojiProse || f.bold || f.doubleEscaped || Object.keys(f.overuse).length || f.insider.length || f.aiVocab.length || f.absolutes.length || f.notX || f.panel.length || f.fragHead.length);
+  return Boolean(f.emdash || f.jargon.length || f.twotoneHP || f.triad || f.loadbearing || f.cosignVocab.length || f.hallmarks.length || f.emojiProse || f.bold || f.doubleEscaped || Object.keys(f.overuse).length || f.insider.length || f.aiVocab.length || f.absolutes.length || f.notX || f.panel.length || f.fragHead.length || f.pairHead.length);
 }
 
 // Gate body runs only when this file is executed directly (node scripts/check-
@@ -692,7 +763,7 @@ if (!CHANGED || isTouched('chaingraph/chaingraph.json', CHANGED)) {
   let cgEmdash = 0;
   for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
   for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
-  if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], absolutes: [], notX: 0, panel: [], fragHead: [] };
+  if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], absolutes: [], notX: 0, panel: [], fragHead: [], pairHead: [] };
 }
 
 // mcp/showcase-prompts.json titles + one_lines (MCP-SHOWCASE-PROMPTS-1) — reader-facing
@@ -716,7 +787,7 @@ if (!CHANGED || isTouched('mcp/showcase-prompts.json', CHANGED)) {
       }
     }
     if (spEmdash || spTwotone || spAi.length || spAbs.length) {
-      findings['mcp/showcase-prompts.json#title-one-line'] = { emdash: spEmdash, jargon: [], twotoneHP: spTwotone, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, doubleEscaped: 0, overuse: {}, insider: [], aiVocab: spAi, absolutes: spAbs, notX: 0, panel: [], fragHead: [] };
+      findings['mcp/showcase-prompts.json#title-one-line'] = { emdash: spEmdash, jargon: [], twotoneHP: spTwotone, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, doubleEscaped: 0, overuse: {}, insider: [], aiVocab: spAi, absolutes: spAbs, notX: 0, panel: [], fragHead: [], pairHead: [] };
     }
   }
 }
@@ -741,13 +812,14 @@ if (UPDATE) {
     const overDebt = {};
     for (const [k, v] of Object.entries(f.overuse || {})) if (v > OVERUSE_CAP) overDebt[k] = v;
     const notXDebt = f.notX > DEFAULT_NOTX_CAP ? f.notX : 0;
-    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length + f.insider.length + f.aiVocab.length + f.absolutes.length + (notXDebt ? 1 : 0) + f.panel.length + f.fragHead.length;
+    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length + f.insider.length + f.aiVocab.length + f.absolutes.length + (notXDebt ? 1 : 0) + f.panel.length + f.fragHead.length + f.pairHead.length;
     if (debt) {
       baseline[rel] = { emdash: f.emdash, jargon: f.jargon.length, bold: f.bold, insider: f.insider.length, aiVocab: f.aiVocab.length, absolutes: f.absolutes.length };
       if (Object.keys(overDebt).length) baseline[rel].overuse = overDebt;
       if (notXDebt) baseline[rel].notX = notXDebt;
       if (f.panel.length) baseline[rel].panel = f.panel.length;
       if (f.fragHead.length) baseline[rel].fragHead = f.fragHead.length;
+      if (f.pairHead.length) baseline[rel].pairHead = f.pairHead.length;
     }
   }
   writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n');
@@ -791,6 +863,13 @@ for (const [rel, f] of Object.entries(findings)) {
   const bFragHead = b.fragHead || 0;
   if (f.fragHead.length > bFragHead) failures.push(`${rel}: comma-splice fragment heading(s): ${f.fragHead.join('; ')} (baseline ${bFragHead}) — CONTRACT §1.4: rewrite as a natural heading ("The formula and its four checks", not "One formula, four checks")`);
   else if (f.fragHead.length < bFragHead) improvements.push(`${rel}: fragment headings ${bFragHead} -> ${f.fragHead.length}`);
+  // PAIRHEAD (balanced-pair heading): BLOCKING for new/changed pages — a file
+  // absent from the baseline gets zero tolerance, same shape as fragHead
+  // above. Baselined legacy headings ratchet down via --update; never grow
+  // the baseline to admit a new heading.
+  const bPairHead = b.pairHead || 0;
+  if (f.pairHead.length > bPairHead) failures.push(`${rel}: balanced-pair heading(s): ${f.pairHead.join('; ')} (baseline ${bPairHead}) — CONTRACT §1.4: rewrite as a natural heading (assert the shared subject once, then state both halves directly)`);
+  else if (f.pairHead.length < bPairHead) improvements.push(`${rel}: balanced-pair headings ${bPairHead} -> ${f.pairHead.length}`);
   {
     const allowedNotX = b.notX != null ? b.notX : DEFAULT_NOTX_CAP;
     if (f.notX > allowedNotX) failures.push(`${rel}: ${f.notX} ",-not X" defensive-negation hit(s) — over cap (max ${allowedNotX})`);

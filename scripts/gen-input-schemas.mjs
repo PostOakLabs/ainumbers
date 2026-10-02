@@ -383,6 +383,80 @@ export function provenanceMark(m) {
   return m?.input_schema_provenance;
 }
 
+// ── x_null_distinct fold (WORKER-NULLPARITY-MANIFESTS-1) ─────────────────────
+// The worker's null-member normalizer (mcp-apps-poc/_null_normalize.mjs:47)
+// exempts an input property declaring `x_null_distinct: true` IN the schema, at
+// the depth the member sits at (nested `properties`/`items` honoured). The
+// declaration HOME is the top-level manifest sibling `x_null_distinct`
+// (array of property paths) — same doctrine as `x_order_bearing` (#2096): the
+// top-level manifest is the hand-curated home for order/semantics declarations,
+// never the derived region. This generator folds the home into both derived
+// schema slots (`input_schema` and `mcp_tool_definition.inputSchema`), and
+// --check byte-matches disk against fresh-derivation-plus-fold, so the in-schema
+// keys can only change through the home + this generator (never by hand).
+//
+// Path syntax: '.'-segregated schema segments as the generator writes them,
+// e.g. "properties.events.items.properties.prev_tlc" — `properties` descends
+// into the current node's `properties` map, `items` into its `items` node.
+// Missing intermediate nodes are created as DECLARATION-ONLY shells (bare
+// `properties`/`items` objects, no `type`, no `description`, no `required`
+// claims — the derived honesty rules never invent types, and the fold invents
+// nothing but the opt-out plumbing the normalizer reads). A terminal node is
+// created as `{ x_null_distinct: true }`; an existing one gains the key.
+
+/** Validate + read the top-level home. Returns string[] (empty when absent). */
+export function nullDistinctHome(manifest) {
+  const home = manifest?.x_null_distinct;
+  if (home === undefined) return [];
+  if (!Array.isArray(home) || !home.every((p) => typeof p === 'string' && p.length > 0)) {
+    throw new Error(`x_null_distinct home must be an array of non-empty property-path strings (tool ${manifest?.tool_id})`);
+  }
+  return home;
+}
+
+/** Fold `paths` into `schema`, creating declaration-only shells as needed. */
+export function foldXNullDistinct(schema, paths) {
+  let out = schema;
+  for (const p of paths) {
+    const segs = p.split('.');
+    let node = out;
+    for (let i = 0; i < segs.length; i++) {
+      const seg = segs[i];
+      const isLast = i === segs.length - 1;
+      if (seg === 'properties' || seg === 'items') {
+        if (isLast) throw new Error(`x_null_distinct path "${p}" ends at schema keyword "${seg}" — must name a property`);
+        if (seg === 'properties') {
+          const key = segs[i + 1];
+          if (i === 0 && !(schema.properties && schema.properties[key])) {
+            // the FIRST property names a member of the kernel-evidenced read set —
+            // never invented (deeper shells below an existing property are the
+            // declaration-only plumbing the normalizer walks)
+            throw new Error(`x_null_distinct path "${p}": top-level property "${key}" is not in the kernel-evidenced read set — a home may only name properties the derivation produced`);
+          }
+          if (!node.properties || typeof node.properties !== 'object') node.properties = {};
+          if (!node.properties[key] || typeof node.properties[key] !== 'object') node.properties[key] = {};
+          node = node.properties[key];
+          i++;
+        } else { // items
+          if (!node.items || typeof node.items !== 'object') node.items = {};
+          node = node.items;
+        }
+      } else {
+        throw new Error(`x_null_distinct path "${p}": unexpected segment "${seg}" (only properties/items/property names allowed)`);
+      }
+    }
+    if (out === schema && node === schema) throw new Error(`x_null_distinct path "${p}" did not resolve`);
+    node.x_null_distinct = true;
+  }
+  return out;
+}
+
+/** Fold a manifest's home into a freshly derived schema (no-op without a home). */
+export function foldHomeIntoInputSchema(manifest, inputSchema) {
+  const paths = nullDistinctHome(manifest);
+  return paths.length ? foldXNullDistinct(inputSchema, paths) : inputSchema;
+}
+
 /** Ownership test: the mark must be the generator's dated provenance string. */
 export function isOwnedMark(prov) {
   return typeof prov === 'string' && PROVENANCE_RE.test(prov);
@@ -485,6 +559,33 @@ function draftViaMfstgen(repoRoot, toolId) {
   }
 }
 
+/**
+ * WORKER-NULLPARITY-MANIFESTS-1: redraft an OWNED manifest's two schema slots as
+ * fresh-derivation-plus-fold of its own top-level x_null_distinct home. Unlike
+ * buildBackfillManifest this path does NOT run the WebMCP flip probe: the fold
+ * only adds x_null_distinct constraint keys under EXISTING top-level properties
+ * (it never adds a top-level property, never completes a page mapping), so it
+ * cannot cause a flip; the authority (gen-webmcp-registrations.mjs --check) runs
+ * in preflight and stays the arbiter. Every other manifest byte is preserved.
+ */
+export async function foldOwnedManifest(repoRoot, item) {
+  const mf = item.manifest || `manifests/${item.toolId}.manifest.json`;
+  const onDisk = JSON.parse(fs.readFileSync(path.join(repoRoot, mf), 'utf8'));
+  const home = nullDistinctHome(onDisk);
+  if (!home.length) return { error: `${mf}: no top-level x_null_distinct home — owned manifests are only redrafted through the fold landing path` };
+  if (!onDisk.input_schema?.properties || !isOwnedMark(provenanceMark(onDisk))) {
+    return { error: `${mf}: not a provenance-marked derived schema — refusing to redraft` };
+  }
+  if (!onDisk.mcp_tool_definition) return { error: `${mf} lacks mcp_tool_definition — cannot keep the two schema writers in parity` };
+  const { inputSchema } = deriveInputSchema(repoRoot, item.kernelFile);
+  const folded = JSON.parse(JSON.stringify(inputSchema));
+  foldXNullDistinct(folded, home);
+  onDisk.input_schema = folded;
+  onDisk.mcp_tool_definition.inputSchema = JSON.parse(JSON.stringify(folded));
+  onDisk.input_schema_provenance = PROVENANCE; // re-stamp: the mark's date is the shape's, unchanged by the fold
+  return { manifest: onDisk, home };
+}
+
 /** Build the enriched manifest for one planned kernel (no I/O side effects on repo). */
 export async function buildBackfillManifest(repoRoot, item, indexes) {
   const { inputSchema } = deriveInputSchema(repoRoot, item.kernelFile, indexes);
@@ -503,6 +604,11 @@ export async function buildBackfillManifest(repoRoot, item, indexes) {
   }
   manifest.input_schema = JSON.parse(JSON.stringify(inputSchema));
   manifest.mcp_tool_definition.inputSchema = JSON.parse(JSON.stringify(inputSchema));
+  // WORKER-NULLPARITY-MANIFESTS-1: a top-level x_null_distinct home on the paired
+  // manifest survives this rewrite — the fresh derivation is folded before the
+  // write so the normalizer's exemption keys stay byte-stable across redrafts.
+  foldHomeIntoInputSchema(manifest, manifest.input_schema);
+  manifest.mcp_tool_definition.inputSchema = JSON.parse(JSON.stringify(manifest.input_schema));
   // The provenance mark lives at the manifest level (RULINGS 2026-09-10T20:30:44Z
   // — moved out of the schema objects; MCP reserves `x-` for extensions). The
   // write replaces both schema slots wholesale, so a legacy inner mark cannot survive.
@@ -558,6 +664,15 @@ export function checkDerivedSchemas(repoRoot) {
     let fresh;
     try { fresh = deriveInputSchema(repoRoot, kernelFile, { manifestIndex, mcpNameByTool }).inputSchema; } catch (e) {
       problems.push(`${rel}: re-derivation failed: ${e.message}`);
+      continue;
+    }
+    // WORKER-NULLPARITY-MANIFESTS-1: the on-disk schema must equal the fresh
+    // derivation PLUS the fold of the manifest's own top-level x_null_distinct
+    // home (when present). In-schema x_null_distinct keys without a home (or a
+    // home that does not fold to exactly the on-disk keys) are drift like any
+    // other hand-edit to a derived block.
+    try { fresh = foldHomeIntoInputSchema(m, fresh); } catch (e) {
+      problems.push(`${rel}: x_null_distinct home invalid: ${e.message}`);
       continue;
     }
     // The on-disk schema must equal the fresh derivation byte for byte. (The
@@ -633,14 +748,26 @@ function main() {
     const flips = [];
     const failures = [];
     for (const item of targets) {
-      if (item.action !== 'BACKFILL-INJECT' && item.action !== 'BACKFILL-CREATE') continue;
-      const res = await buildBackfillManifest(REPO, item);
+      let res;
+      if (item.action !== 'BACKFILL-INJECT' && item.action !== 'BACKFILL-CREATE') {
+        // WORKER-NULLPARITY-MANIFESTS-1: an owned manifest (ALREADY-DERIVED, or
+        // SKIP-CLEARED — reads already == declared) is redrafted ONLY when
+        // explicitly named via --only AND its on-disk manifest carries a
+        // top-level x_null_distinct home (the fold's landing path — the derived
+        // schema region is never hand-edited). A bare --write still never
+        // rewrites owned manifests.
+        if ((item.action !== 'ALREADY-DERIVED' && item.action !== 'SKIP-CLEARED') || !only || !only.includes(item.toolId)) continue;
+        res = await foldOwnedManifest(REPO, item);
+      } else {
+        res = await buildBackfillManifest(REPO, item);
+      }
       if (res.error) { failures.push(`${item.toolId}: ${res.error}`); continue; }
       if (res.flip) { flips.push(`${item.toolId}: ${res.reason}`); continue; }
-      const outPath = path.join(REPO, item.manifest);
+      const mfPath = item.manifest || `manifests/${item.toolId}.manifest.json`;
+      const outPath = path.join(REPO, mfPath);
       fs.writeFileSync(outPath, JSON.stringify(res.manifest, null, 2) + '\n', 'utf8');
-      written.push(item.manifest);
-      console.log(`✓ ${item.action === 'BACKFILL-CREATE' ? 'created' : 'injected'} ${item.manifest} (${item.toolId})`);
+      written.push(mfPath);
+      console.log(`✓ ${item.action === 'BACKFILL-CREATE' ? 'created' : item.action === 'BACKFILL-INJECT' ? 'injected' : 'folded x_null_distinct into'} ${mfPath} (${item.toolId})`);
     }
     if (flips.length) {
       console.error(`\n⚠ ${flips.length} WebMCP-flip skip(s) — handed to WEBMCP-GEN-FROM-MANIFEST-1 tranche-2:`);
