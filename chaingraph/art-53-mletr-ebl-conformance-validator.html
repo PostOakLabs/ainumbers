@@ -112,6 +112,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 .related-topics{max-width:900px;margin:0 auto}
 
 </style>
+<meta name="kernel-digest" content="sha256:0f260f878472634095d299ddde16662204d6432e1b458c6afddc094d2bac7dd8">
 <meta name="ai-tool" content="validate_mletr_record">
 </head>
 <body>
@@ -237,29 +238,30 @@ const pick=(t,v,d=0)=>v in t?t[v]:d;
 const pct=r=>+(r/4*100).toFixed(1);
 const letter=s=>s>=85?'A':s>=70?'B':s>=55?'C':s>=40?'D':'F';
 const REMED={singularity:'Implement a single authoritative-copy mechanism — token-based registry or designated system of record per MLETR Art. 10.',control:'Establish exclusive control via cryptographic key assignment (not shared-platform access) per MLETR Art. 11.',integrity:'Add hash-chain or digital-signature integrity to the electronic record per MLETR Art. 10.',reliability:'Upgrade to a qualified trust service or platform-attested reliability standard per MLETR Art. 12.'};
-const ARTS={singularity:'MLETR Art. 10 — singularity',control:'MLETR Art. 11 — exclusive control',integrity:'MLETR Art. 10 — integrity',reliability:'MLETR Art. 12 — reliability'};
+const ARTS={singularity:'MLETR Art. 10 — singularity / authoritative copy',control:'MLETR Art. 11 — exclusive control',integrity:'MLETR Art. 10 — integrity of the electronic record',reliability:'MLETR Art. 12 — reliability of the issuing system'};
 
 function compute(pp){
-  const raw={singularity:pick(TS.singularity,pp.singularity_mechanism),control:pick(TS.control,pp.control_method),integrity:pick(TS.integrity,pp.integrity_method),reliability:pick(TS.reliability,pp.reliability_standard)};
+  const{record_type='ebl',singularity_mechanism='registry-control',control_method='platform-custody',integrity_method='digital-signature',reliability_standard='platform-attested',origin_jurisdiction='mletr-adopted',dest_jurisdiction='mletr-adopted',platform='',governing_law='UK'}=pp;
+  const raw={singularity:pick(TS.singularity,singularity_mechanism),control:pick(TS.control,control_method),integrity:pick(TS.integrity,integrity_method),reliability:pick(TS.reliability,reliability_standard)};
   const test_results={};
   for(const[k,s4]of Object.entries(raw)){const sc=pct(s4);const gr=letter(sc);const res=s4>=4?'pass':s4>=2?'partial':'fail';test_results[k]={score:sc,grade:gr,result:res,article:ARTS[k],remediation:res!=='pass'?REMED[k]:null};}
   const avg_score=+(Object.values(raw).reduce((a,b)=>a+b,0)/4/4*100).toFixed(1);
   const conformance_grade=letter(avg_score);
-  const ox=JX[pp.origin_jurisdiction]??'not-adopted';const dx=JX[pp.dest_jurisdiction]??'not-adopted';
+  const ox=JX[origin_jurisdiction]??'not-adopted';const dx=JX[dest_jurisdiction]??'not-adopted';
   let tier;
   if(ox==='adopted'&&dx==='adopted')tier='strong';
   else if(ox==='not-adopted'||dx==='not-adopted')tier='weak';
   else tier='conditional';
   let gl_rec;
-  if(tier==='strong')gl_rec=`${pp.governing_law} governing law is consistent with both MLETR-adopted jurisdictions — no change needed.`;
+  if(tier==='strong')gl_rec=`${governing_law} governing law is consistent with both MLETR-adopted jurisdictions — no change needed.`;
   else if(tier==='conditional')gl_rec=`Consider specifying ${PREF_GL[0]} or ${PREF_GL[1]} governing law to strengthen enforceability where one corridor is only MLETR-aligned.`;
-  else gl_rec=`Weak corridor — specify ${PREF_GL[0]}, ${PREF_GL[1]}, or ${PREF_GL[2]} governing law. Paper fallback may be required.`;
+  else gl_rec=`Weak corridor — specify ${PREF_GL[0]}, ${PREF_GL[1]}, or ${PREF_GL[2]} governing law and ensure the eBL terms expressly incorporate MLETR-equivalent requirements. Paper fallback may be required.`;
   const remediation_checklist=Object.entries(test_results).filter(([,v])=>v.result!=='pass').map(([k,v])=>({test:k,grade:v.grade,article:v.article,action:v.remediation}));
   const compliance_flags=[];
   Object.entries(test_results).forEach(([k,v])=>{if(v.result==='fail')compliance_flags.push('MLETR_NONCONFORMANT_'+k.toUpperCase());});
   if(tier==='weak'){compliance_flags.push('CORRIDOR_NOT_ENFORCEABLE');compliance_flags.push('PAPER_FALLBACK_REQUIRED');}
   if(conformance_grade==='D'||conformance_grade==='F')compliance_flags.push('LOW_CONFORMANCE');
-  return{output_payload:{conformance_grade,conformance_score:avg_score,test_results,enforceability_tier:tier,corridor_matrix:{origin:pp.origin_jurisdiction,dest:pp.dest_jurisdiction,origin_status:ox,dest_status:dx,verdict:tier},governing_law_recommendation:gl_rec,remediation_checklist,status_table_asof:'2026-01-01',note:'Verify jurisdiction status against the current UNCITRAL MLETR status table before relying on this assessment. Educational tool — not legal advice.'},compliance_flags};
+  return{output_payload:{conformance_grade,conformance_score:avg_score,test_results,enforceability_tier:tier,corridor_matrix:{origin:origin_jurisdiction,dest:dest_jurisdiction,origin_status:ox,dest_status:dx,verdict:tier},governing_law_recommendation:gl_rec,remediation_checklist,status_table_asof:'2026-01-01',note:'Verify jurisdiction status against the current UNCITRAL MLETR status table before relying on this assessment. Educational tool — not legal advice.'},compliance_flags};
 }
 
 const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
@@ -308,6 +310,24 @@ async function run(){
 
 
 
+
+
+
+<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-53-mletr-ebl-conformance-validator.manifest.json -->
+<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `validate_mletr_record`. Task: Validate an electronic transferable record (eBL or other ETR) against MLETR functional-equivalence tests (Arts.
+Call it with arguments: {"policy_parameters":{}}
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string, or re-run the in-page WebMCP tool `validate_mletr_record`.
+Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
+PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
+Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-53-mletr-ebl-conformance-validator.html#p=v1.H4sIAAAAAAAA_wECAP3_e31Dv6ajAgAAAA</pre>
+</section>
+<!-- ASK-AGENT:END -->
 
 <!-- A11Y-TREE:BEGIN generator=scripts/check-a11y-tree.mjs manifest=manifests/art-53-mletr-ebl-conformance-validator.manifest.json -->
 <script>
@@ -383,22 +403,6 @@ async function run(){
 })();
 </script>
 <!-- A11Y-TREE:END -->
-
-<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-53-mletr-ebl-conformance-validator.manifest.json -->
-<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
-  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
-    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
-  </div>
-  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
-  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `validate_mletr_record`. Task: Validate an electronic transferable record (eBL or other ETR) against MLETR functional-equivalence tests (Arts.
-Call it with arguments: {"policy_parameters":{}}
-Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string, or re-run the in-page WebMCP tool `validate_mletr_record`.
-Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
-PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
-Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-53-mletr-ebl-conformance-validator.html#p=v1.H4sIAAAAAAAA_wECAP3_e31Dv6ajAgAAAA</pre>
-</section>
-<!-- ASK-AGENT:END -->
 
 <footer>
   <div class="footer-inner">
