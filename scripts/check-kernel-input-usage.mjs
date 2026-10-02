@@ -19,18 +19,17 @@
 // a computed `pp[var]` is invisible. Neither can invent a finding class the AST would remove —
 // they can only shift individual rows, and the ratchet makes shifting expensive.
 //
-// Findings, four codes:
+// Findings, three codes:
 //   DECLARED-NOT-READ      key in manifest input_schema.properties, never read in any shape
 //   READ-NOT-USED          the art-224 shape: read into a const local that never recurs
 //   READ-NOT-DECLARED      the inverse lie: kernel reads a key the schema does not declare
-//   REGISTER-EMPTY-INPUTS  chaingraph/register/*.register.json has declared_inputs: [] while its
-//                          manifest declares >= 1 property (registers whose manifest is absent
-//                          are skipped — there is nothing to compare against)
+//
+//   REGISTER-EMPTY-INPUTS was retired 2026-10-01 by INPUT-USAGE-REGISTER-CLASS-1: a register's `declared_inputs` are the upstream `consumes` graph edges (gen-euc-register.mjs line 211, `node.consumes ?? []`), never schema inputs, so the class misflagged every root node by construction — its 355 false entries, accepted at `--init`, are pruned main-side by the first green regen (never hand-edited).
 // Scope: top-level chaingraph/kernels/art-*.kernel.mjs that have manifests/<tool_id>.manifest.json.
 //
 // Baseline ratchet, nav-island shape (scripts/nav-island-baseline.json) with the shared HARD-FAILING
 // loader (scripts/ratchet-baseline.mjs — the object-baseline loader `loadRatchetBaselineOrExit`; this
-// baseline carries a `accepted` name-list plus the four count ceilings, so it loads through there
+// baseline carries a `accepted` name-list plus the count ceilings, so it loads through there
 // rather than being hand-parsed):
 //   plain run  : a finding NOT in the baseline FAILS (exit 1) — the recurrence guard.
 //                A finding already in the baseline is printed and marked `[baselined]`.
@@ -65,12 +64,11 @@ export const REPO = process.env.KIU_REPO_ROOT || join(dirname(fileURLToPath(impo
 export const BASELINE_PATH = join(REPO, 'scripts', 'kernel-input-usage-baseline.json');
 export const BASELINE_LABEL = 'kernel-input-usage ratchet';
 export const BASELINE_REPIN = 'node scripts/check-kernel-input-usage.mjs --init';
-export const CODES = ['DECLARED-NOT-READ', 'READ-NOT-USED', 'READ-NOT-DECLARED', 'REGISTER-EMPTY-INPUTS'];
+export const CODES = ['DECLARED-NOT-READ', 'READ-NOT-USED', 'READ-NOT-DECLARED'];
 const COUNT_KEYS = {
   'DECLARED-NOT-READ': 'declared_not_read',
   'READ-NOT-USED': 'read_not_used',
   'READ-NOT-DECLARED': 'read_not_declared',
-  'REGISTER-EMPTY-INPUTS': 'register_empty_inputs',
 };
 const REQUIRED_BASELINE_KEYS = [
   { key: 'accepted', type: 'name-list' },
@@ -138,15 +136,13 @@ export function classifyKernel(src, declared) {
   return { read: new Set(reads.keys()), unusedBound, neverRead, notDeclared };
 }
 
-// Pure whole scan (exported for the self-test): root must contain chaingraph/kernels,
-// manifests, chaingraph/register. Deterministic order: kernels by stem, codes in CODES order,
-// keys sorted; registers after kernels by tool_id.
+// Pure whole scan (exported for the self-test): root must contain chaingraph/kernels and
+// manifests. Deterministic order: kernels by stem, codes in CODES order, keys sorted.
 export function scanRepo(root) {
   const kdir = join(root, 'chaingraph', 'kernels');
   const mdir = join(root, 'manifests');
-  const rdir = join(root, 'chaingraph', 'register');
   const findings = [];
-  let kernelsScanned = 0, registersScanned = 0;
+  let kernelsScanned = 0;
   const stems = existsSync(kdir)
     ? readdirSync(kdir).filter((n) => /^art-.*\.kernel\.mjs$/.test(n)).map((n) => n.replace(/\.kernel\.mjs$/, '')).sort()
     : [];
@@ -165,26 +161,9 @@ export function scanRepo(root) {
     for (const k of unusedBound.sort()) findings.push({ tool_id: toolId, code: 'READ-NOT-USED', key: k });
     for (const k of notDeclared.sort()) findings.push({ tool_id: toolId, code: 'READ-NOT-DECLARED', key: k });
   }
-  if (existsSync(rdir)) {
-    const regs = readdirSync(rdir).filter((n) => n.endsWith('.register.json')).sort();
-    for (const r of regs) {
-      let reg;
-      try { reg = JSON.parse(readFileSync(join(rdir, r), 'utf8')); } catch { continue; }
-      const toolId = typeof reg.tool_id === 'string' && reg.tool_id ? reg.tool_id : r.replace(/\.register\.json$/, '');
-      const mpath = join(mdir, `${toolId}.manifest.json`);
-      if (!existsSync(mpath)) continue; // no manifest to compare against — skip
-      let manifest;
-      try { manifest = JSON.parse(readFileSync(mpath, 'utf8')); } catch { continue; }
-      const declaredN = Object.keys((manifest.input_schema && manifest.input_schema.properties) || {}).length;
-      registersScanned++;
-      if (Array.isArray(reg.declared_inputs) && reg.declared_inputs.length === 0 && declaredN >= 1) {
-        findings.push({ tool_id: toolId, code: 'REGISTER-EMPTY-INPUTS', key: '-' });
-      }
-    }
-  }
   const counts = Object.fromEntries(CODES.map((c) => [c, 0]));
   for (const f of findings) counts[f.code]++;
-  return { findings, counts, kernels_scanned: kernelsScanned, registers_scanned: registersScanned };
+  return { findings, counts, kernels_scanned: kernelsScanned };
 }
 
 // Pure ratchet diff (exported for the self-test): accepted is the baseline's `accepted` strings.
@@ -221,7 +200,7 @@ function printReport(scan, diff, advisory) {
     const tag = diff.baselined.some((b) => keyOf(b) === k) ? ' [baselined]' : ' [NEW]';
     console.log(`${k}${tag}`);
   }
-  console.log(`DECLARED-NOT-READ ${scan.counts['DECLARED-NOT-READ']} / READ-NOT-USED ${scan.counts['READ-NOT-USED']} / READ-NOT-DECLARED ${scan.counts['READ-NOT-DECLARED']} / REGISTER-EMPTY-INPUTS ${scan.counts['REGISTER-EMPTY-INPUTS']}  (kernels=${scan.kernels_scanned}, registers=${scan.registers_scanned}, head=${repoHead()})`);
+  console.log(`DECLARED-NOT-READ ${scan.counts['DECLARED-NOT-READ']} / READ-NOT-USED ${scan.counts['READ-NOT-USED']} / READ-NOT-DECLARED ${scan.counts['READ-NOT-DECLARED']}  (kernels=${scan.kernels_scanned}, head=${repoHead()})`);
 }
 
 function jsonDoc(scan, diff, advisory) {
@@ -229,7 +208,6 @@ function jsonDoc(scan, diff, advisory) {
     context: advisory ? 'pull_request-advisory' : 'blocking',
     counts: scan.counts,
     kernels_scanned: scan.kernels_scanned,
-    registers_scanned: scan.registers_scanned,
     head: repoHead(),
     findings: scan.findings.map((f) => {
       const d = diff.baselined.find((b) => keyOf(b) === keyOf(f));
@@ -256,12 +234,11 @@ function main() {
       declared_not_read: scan.counts['DECLARED-NOT-READ'],
       read_not_used: scan.counts['READ-NOT-USED'],
       read_not_declared: scan.counts['READ-NOT-DECLARED'],
-      register_empty_inputs: scan.counts['REGISTER-EMPTY-INPUTS'],
     };
     mkdirSync(dirname(BASELINE_PATH), { recursive: true });
     writeFileSync(BASELINE_PATH, JSON.stringify(doc, null, 2) + '\n');
     console.log(`--init wrote ${BASELINE_PATH}: ${doc.accepted.length} accepted findings`);
-    console.log(`DECLARED-NOT-READ ${doc.declared_not_read} / READ-NOT-USED ${doc.read_not_used} / READ-NOT-DECLARED ${doc.read_not_declared} / REGISTER-EMPTY-INPUTS ${doc.register_empty_inputs}`);
+    console.log(`DECLARED-NOT-READ ${doc.declared_not_read} / READ-NOT-USED ${doc.read_not_used} / READ-NOT-DECLARED ${doc.read_not_declared}`);
     return;
   }
 
@@ -277,13 +254,12 @@ function main() {
       declared_not_read: scan.counts['DECLARED-NOT-READ'],
       read_not_used: scan.counts['READ-NOT-USED'],
       read_not_declared: scan.counts['READ-NOT-DECLARED'],
-      register_empty_inputs: scan.counts['REGISTER-EMPTY-INPUTS'],
     };
     mkdirSync(dirname(BASELINE_PATH), { recursive: true });
     writeFileSync(BASELINE_PATH, JSON.stringify(doc, null, 2) + '\n');
     const removed = prior ? prior.accepted.length - accepted.length : 0;
     console.log(`--prune wrote ${BASELINE_PATH}: ${accepted.length} accepted (removed ${removed} healed; never adds)`);
-    console.log(`DECLARED-NOT-READ ${doc.declared_not_read} / READ-NOT-USED ${doc.read_not_used} / READ-NOT-DECLARED ${doc.read_not_declared} / REGISTER-EMPTY-INPUTS ${doc.register_empty_inputs}`);
+    console.log(`DECLARED-NOT-READ ${doc.declared_not_read} / READ-NOT-USED ${doc.read_not_used} / READ-NOT-DECLARED ${doc.read_not_declared}`);
     return;
   }
 
