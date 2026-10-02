@@ -224,6 +224,10 @@ const NOT_A_GATE = new Map([
   ["fullsuite-schedule.yml",
     "schedule (weekly) + workflow_dispatch only; steps are continue-on-error by design " +
     "so the whole suite reports rather than stopping at the first red."],
+  ["gitlab-backup.yml",
+    "schedule (monthly) + workflow_dispatch only — the off-GitHub backup push of main and tags " +
+    "to GitLab, post-merge. It has no pull_request, merge_group or push trigger, runs no node " +
+    "gate, and blocks no merge."],
   ["helm-guide-freshness-schedule.yml",
     "schedule only."],
   ["mutation-full-scheduled.yml",
