@@ -1,6 +1,6 @@
 # Arc CCTP v2 Transfer Validator
 
-Validates a CCTP v2 cross-chain USDC transfer for domain pair eligibility, Fast Transfer 30-second finality risk (LP availability), Hook payload safety, CCTP v1 sunset migration status (31 Jul 2026), and large-notional LP-depth risk. 6 checks, A–F grade. 13 CCTP v2 domains as of Oct 2025.
+Validates a CCTP v2 cross-chain USDC transfer for domain pair eligibility, Fast Transfer 30-second finality risk (LP availability), Hook payload safety, CCTP V1 (Legacy) deprecation status (begins 31 Oct 2026, completes 1 Dec 2026), and large-notional LP-depth risk. 6 checks, A–F grade. 13 CCTP v2 domains as of Oct 2025.
 
 - Page: https://ainumbers.co/chaingraph/art-47-arc-cctp-transfer.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-47-arc-cctp-transfer.md

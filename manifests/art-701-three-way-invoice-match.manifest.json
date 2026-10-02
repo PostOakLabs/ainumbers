@@ -1,0 +1,317 @@
+{
+  "tool_id": "art-701-three-way-invoice-match",
+  "version": "1.0.0",
+  "title": "Three Way Invoice Match",
+  "description": "Matches one invoice against its purchase order and its goods receipt and decides whether the invoice can be paid: explicit line pairing (declared po_line, then exact sku, then a free same-number PO line; no fuzzy text matching), a fixed first-apply line-verdict order (quantity over received, receipt missing as a two-way flag, quantity over ordered, price outside the declared basis-point tolerance with the boundary passing), integer minor-unit totals with half-up tax from one declared rate, and duplicate-invoice screening against same-vendor priors on the normalized invoice number, same total inside the declared day window, or the same PO. Fractional quantities and sub-minor-unit prices are refused with a named reason, never rounded; one currency per invoice; no tax-jurisdiction logic; day differences come from integer days-from-civil arithmetic with no clock.",
+  "category": "chaingraph",
+  "tags": [
+    "compliance_mandate",
+    "accounts-payable",
+    "three-way-match",
+    "invoice",
+    "purchase-order",
+    "goods-receipt",
+    "duplicate-detection",
+    "integer-minor-units",
+    "mcp:match_invoice_three_way"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "currency",
+      "invoice",
+      "vendor_terms",
+      "duplicate_window_days"
+    ],
+    "properties": {
+      "currency": {
+        "type": "string",
+        "description": "ISO 4217 code of the single currency this invoice is declared in; required."
+      },
+      "invoice": {
+        "type": "object",
+        "description": "The invoice under test: invoice_number, issue_date (YYYY-MM-DD), vendor_id, po_number, subtotal_minor, tax_minor, total_minor, and lines[] each carrying line, optional po_line, optional sku, qty (integer > 0), unit_price_minor, amount_minor."
+      },
+      "purchase_order": {
+        "type": "object",
+        "description": "The referenced purchase order: po_number and lines[] each carrying line, optional sku, qty (integer > 0), unit_price_minor. Optional; absence makes the run a no_po outcome."
+      },
+      "goods_receipt": {
+        "type": "object",
+        "description": "The goods receipt: receipt_id and lines[] each carrying po_line and qty_received (integer >= 0). Optional; absence downgrades the run to a two-way match reported per line as receipt_missing."
+      },
+      "vendor_terms": {
+        "type": "object",
+        "description": "Declared terms: price_tolerance_bp, tax_rate_bp, tax_rounding (half_up)."
+      },
+      "prior_invoices": {
+        "type": "array",
+        "description": "Earlier invoices from the same vendor for duplicate screening: id, vendor_id, invoice_number, issue_date, total_minor, po_number. Optional."
+      },
+      "duplicate_window_days": {
+        "type": "integer",
+        "description": "Day window for the within-window duplicate reason; |day difference| <= window counts as inside."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "match_invoice_three_way",
+    "description": "Matches an invoice against its purchase order and goods receipt in integer minor units, with explicit line pairing (declared po_line, then exact sku, then a free same-number PO line), a fixed first-apply line-verdict order, half-up tax from one declared rate, and same-vendor duplicate screening on the normalized invoice number, same total inside the day window, or same PO. Refuses fractional quantities, sub-minor prices, negative or non-integer money, duplicate line numbers, unknown tax roundings and a missing currency with named reasons; outcome match | mismatch | no_po | refused.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "currency",
+        "invoice",
+        "vendor_terms",
+        "duplicate_window_days"
+      ],
+      "properties": {
+        "currency": {
+          "type": "string"
+        },
+        "invoice": {
+          "type": "object"
+        },
+        "purchase_order": {
+          "type": "object"
+        },
+        "goods_receipt": {
+          "type": "object"
+        },
+        "vendor_terms": {
+          "type": "object"
+        },
+        "prior_invoices": {
+          "type": "array"
+        },
+        "duplicate_window_days": {
+          "type": "integer"
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-701-three-way-invoice-match.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "outcome": {
+        "type": "string",
+        "enum": [
+          "match",
+          "mismatch",
+          "no_po",
+          "refused"
+        ]
+      },
+      "refusal_reason": {
+        "type": "string"
+      },
+      "po_number": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "receipt_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "lines": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "totals": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "mismatches": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "duplicates": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "hold_recommended": {
+        "type": "boolean"
+      },
+      "scope_note": {
+        "type": "string"
+      }
+    }
+  },
+  "source": "chaingraph/kernels/art-701-three-way-invoice-match.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: currency, invoice, purchase_order, goods_receipt, vendor_terms, prior_invoices, duplicate_window_days.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "currency": "USD",
+    "invoice": {
+      "invoice_number": "INV-0042",
+      "issue_date": "2026-09-30",
+      "vendor_id": "V-1",
+      "po_number": "PO-7",
+      "subtotal_minor": 170000,
+      "tax_minor": 14025,
+      "total_minor": 184025,
+      "lines": [
+        {
+          "line": 1,
+          "po_line": 1,
+          "sku": "A-100",
+          "qty": 10,
+          "unit_price_minor": 12000,
+          "amount_minor": 120000
+        },
+        {
+          "line": 2,
+          "po_line": 2,
+          "sku": "B-200",
+          "qty": 5,
+          "unit_price_minor": 4000,
+          "amount_minor": 20000
+        },
+        {
+          "line": 3,
+          "po_line": 3,
+          "sku": "C-300",
+          "qty": 2,
+          "unit_price_minor": 15000,
+          "amount_minor": 30000
+        }
+      ]
+    },
+    "purchase_order": {
+      "po_number": "PO-7",
+      "lines": [
+        {
+          "line": 1,
+          "sku": "A-100",
+          "qty": 10,
+          "unit_price_minor": 12000
+        },
+        {
+          "line": 2,
+          "sku": "B-200",
+          "qty": 5,
+          "unit_price_minor": 4000
+        },
+        {
+          "line": 3,
+          "sku": "C-300",
+          "qty": 2,
+          "unit_price_minor": 15000
+        }
+      ]
+    },
+    "goods_receipt": {
+      "receipt_id": "GR-3",
+      "lines": [
+        {
+          "po_line": 1,
+          "qty_received": 10
+        },
+        {
+          "po_line": 2,
+          "qty_received": 5
+        },
+        {
+          "po_line": 3,
+          "qty_received": 2
+        }
+      ]
+    },
+    "vendor_terms": {
+      "price_tolerance_bp": 200,
+      "tax_rate_bp": 825,
+      "tax_rounding": "half_up"
+    },
+    "prior_invoices": [],
+    "duplicate_window_days": 14
+  },
+  "output_example": {
+    "outcome": "match",
+    "po_number": "PO-7",
+    "receipt_id": "GR-3",
+    "lines": [
+      {
+        "line": 1,
+        "paired_po_line": 1,
+        "qty": 10,
+        "qty_ordered": 10,
+        "qty_received": 10,
+        "unit_price_minor": 12000,
+        "po_unit_price_minor": 12000,
+        "variance_bp": 0,
+        "amount_ok": true,
+        "verdict": "ok"
+      },
+      {
+        "line": 2,
+        "paired_po_line": 2,
+        "qty": 5,
+        "qty_ordered": 5,
+        "qty_received": 5,
+        "unit_price_minor": 4000,
+        "po_unit_price_minor": 4000,
+        "variance_bp": 0,
+        "amount_ok": true,
+        "verdict": "ok"
+      },
+      {
+        "line": 3,
+        "paired_po_line": 3,
+        "qty": 2,
+        "qty_ordered": 2,
+        "qty_received": 2,
+        "unit_price_minor": 15000,
+        "po_unit_price_minor": 15000,
+        "variance_bp": 0,
+        "amount_ok": true,
+        "verdict": "ok"
+      }
+    ],
+    "totals": {
+      "line_sum_minor": 170000,
+      "subtotal_ok": true,
+      "tax_expected_minor": 14025,
+      "tax_ok": true,
+      "total_expected_minor": 184025,
+      "total_ok": true
+    },
+    "mismatches": [],
+    "duplicates": [],
+    "domain_errors": [],
+    "hold_recommended": false,
+    "scope_note": "Integer minor units only: fractional quantities and sub-minor-unit prices are refused, not rounded. One currency per invoice. One declared tax rate; no tax-jurisdiction logic."
+  },
+  "example_execution_hash": "a52bb0025fa24cc852916664074485dbe41738628395c343223d16fadd59b775"
+}
