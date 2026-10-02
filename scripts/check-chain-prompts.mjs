@@ -59,6 +59,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { hallmarkFindings, DEFAULT_NOTX_CAP, OVERUSE_CAP } from './check-copy-hallmarks.mjs';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PROMPT_DIR = resolve(REPO, 'chaingraph', 'chain-prompts');
@@ -251,7 +252,11 @@ function loadBaseline() {
 
 function git(args) {
   try {
-    return execFileSync('git', ['-C', REPO, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    // GIT-ENV-LEAK-SWEEP-1: under .githooks/pre-push an inherited GIT_DIR/GIT_WORK_TREE
+    // would point this shrink-only leg at the OUTER repository, so the baseline leg
+    // would compare against a tree this branch never sat on. `-C REPO` alone does not
+    // win over those exports; the scrub does.
+    return execFileSync('git', ['-C', REPO, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: gitEnv() });
   } catch {
     return null;
   }
