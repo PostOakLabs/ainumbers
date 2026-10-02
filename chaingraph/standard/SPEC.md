@@ -130,6 +130,8 @@ hash anchors them.
 recompute the identical `execution_hash`. This is asserted on the live deployed surface by
 `hash-sweep.mjs` (§15) — not merely in the bundle.
 
+**Legacy enumeration order (additive).** Implementations that serialized through JavaScript object enumeration, as the reference implementation did until 2026-09-30, placed array-index member names first in numeric order, so an artifact they minted with such a name outside RFC 8785 order fails the recompute above. A verifier MAY retry the recompute in that legacy order, and a match on the retry MUST carry its own verdict, distinct from a pass.
+
 **Normalized preimage (NORMATIVE):** the `policy_parameters` member of the hashed preimage is the
 **normalized** form, in which object members whose value is `null` have been removed at every depth,
 while `null` array elements are preserved unchanged because they are positional (dropping one shifts
