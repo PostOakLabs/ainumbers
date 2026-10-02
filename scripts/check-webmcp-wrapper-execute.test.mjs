@@ -22,7 +22,20 @@
  *      validation baseline entries).
  *   5. LIVE regression specimen: the gate's --only run on
  *      art-118-fsma204-cte-validator (this row's measured wedge page)
- *      reproduces the fixture-0 golden_hash through the wrapper path.
+ *      reproduces the fixture-0 golden through the wrapper path.
+ *   6. RED (stale baseline entry, WEBMCP-WRAPPER-BASELINE-STALE-1): a baseline
+ *      entry for a page that now PASSES makes the gate exit 1 with the STALE
+ *      line (down-only ratchet) — a stale entry would downgrade a regression
+ *      on the healed page to a WARN.
+ *   7. SCOPE: the same --only run reports NO other baseline entry as stale —
+ *      un-run entries are never reported stale.
+ *   8. GREEN: without the synthetic entry the same --only run exits 0 with
+ *      zero STALE lines.
+ *
+ * Controls 6-8 drive the gate through its AINUM_WRAPPER_EXECUTE_BASELINE
+ * baseline-read override against temp copies — never by mutating the real
+ * baseline file: the full preflight suite runs this gate and this self-test
+ * concurrently (AINUM_PREFLIGHT_CONCURRENCY).
  *
  * Usage: node scripts/check-webmcp-wrapper-execute.test.mjs   (exit 0 = all controls pass)
  */
@@ -151,8 +164,60 @@ async function main() {
     check('LIVE: art-118 wrapper path reproduces the fixture-0 golden', hash === golden, `produced ${hash}, golden ${golden}`);
   }
 
+  // 6-8. WEBMCP-WRAPPER-BASELINE-STALE-1 controls: the downward ratchet's
+  //      other direction. art-118 is a live-passing page (control 5), so a
+  //      baseline entry for it must FAIL the gate with the STALE line — left
+  //      in place it would downgrade a regression on the healed page to a
+  //      WARN. Baseline reads are redirected to temp copies
+  //      (AINUM_WRAPPER_EXECUTE_BASELINE); the real file is never touched.
+  {
+    const tmp2 = mkdtempSync(join(tmpdir(), 'cwwx-stale-'));
+    try {
+      const realBaseline = readFileSync(join(HERE, 'webmcp-wrapper-execute-baseline.json'), 'utf8');
+      const pageKey = 'chaingraph/art-118-fsma204-cte-validator.html';
+      const withStale = join(tmp2, 'baseline-with-stale.json');
+      const withoutStale = join(tmp2, 'baseline-clean.json');
+      const synth = JSON.parse(realBaseline);
+      synth[pageKey] = { class: 'hash-mismatch', reason: 'synthetic stale-entry control (check-webmcp-wrapper-execute.test.mjs)' };
+      writeFileSync(withStale, JSON.stringify(synth, null, 2) + '\n');
+      writeFileSync(withoutStale, realBaseline);
+      const runGate = (baselineFile) => {
+        try {
+          // stdio piped: the RED leg's expected gate failure must not leak its
+          // ✗ FAILED block into the suite's output.
+          const out = execFileSync('node', ['scripts/check-webmcp-wrapper-execute.mjs', '--only', 'art-118-fsma204-cte-validator'], { cwd: REPO, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, AINUM_WRAPPER_EXECUTE_BASELINE: baselineFile } });
+          return { code: 0, out };
+        } catch (e) {
+          return { code: e.status ?? 1, out: String(e.stdout || '') + String(e.stderr || '') };
+        }
+      };
+      const red = runGate(withStale);
+      // Entry lines carry the em dash; the FAILED summary line ("1 STALE
+      // baseline entry over …") must not count as one.
+      const staleLines = red.out.split('\n').filter((l) => l.trim().startsWith('STALE baseline entry — '));
+      check(
+        'RED (stale entry): a baseline entry for a passing page exits 1 with the STALE line',
+        red.code === 1 && staleLines.length === 1 && staleLines[0].includes(pageKey) && staleLines[0].includes('down-only ratchet'),
+        `exit ${red.code}; stale lines: ${JSON.stringify(staleLines)}`,
+      );
+      check(
+        'SCOPE (--only): no un-run baseline entry is reported stale',
+        staleLines.every((l) => l.includes(pageKey)),
+        staleLines.join(' | '),
+      );
+      const green = runGate(withoutStale);
+      check(
+        'GREEN: without the stale entry the same --only run exits 0 with zero STALE lines',
+        green.code === 0 && !green.out.includes('STALE baseline entry'),
+        `exit ${green.code}; ${green.out.split('\n').find((l) => l.includes('STALE')) || ''}`,
+      );
+    } finally {
+      rmSync(tmp2, { recursive: true, force: true });
+    }
+  }
+
   console.log(failures === 0
-    ? '✓ check-webmcp-wrapper-execute controls: PASS (gate detects the art-118 wedge class; the live specimen reproduces its golden through the wrapper path)'
+    ? '✓ check-webmcp-wrapper-execute controls: PASS (gate detects the art-118 wedge class; the live specimen reproduces its golden through the wrapper path; a stale baseline entry for a passing page FAILS the gate — down-only ratchet)'
     : `✗ check-webmcp-wrapper-execute controls: FAIL (${failures} control(s))`);
   process.exit(failures === 0 ? 0 : 1);
 }
