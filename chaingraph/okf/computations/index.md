@@ -629,6 +629,7 @@ status: stable
 - [X402 Permit2 Evidence Recomputer](./art-699-x402-permit2-evidence-recomputer.md)
 - [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md)
 - [Authorization Payload Linter](./art-700-authorization-payload-linter.md)
+- [Three Way Invoice Match](./art-701-three-way-invoice-match.md)
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md)
 - [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md)
 - [EU Taxonomy Alignment Scorer](./art-73-taxonomy-alignment-scorer.md)

@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (668 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (669 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7284,6 +7284,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-612-erc2612-permit-binding-verifier",
       "art-614-eip7702-authorization-tuple-decoder"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-701-three-way-invoice-match",
+    "display_name": "Three Way Invoice Match",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-701-three-way-invoice-match.html",
+    "description": "Matches one invoice against its purchase order and its goods receipt and decides whether the invoice can be paid: every invoice line is pair",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

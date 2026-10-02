@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-95"]
+tags: ["compliance_control", "count-96"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-95 tool(s) in this mandate-type group:
+96 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -107,3 +107,4 @@ status: stable
 - [Regulatory Obligations Register](../tools/art-691-regulatory-obligations-register.md)
 - [ISA 530 Audit Sampling + MUS](../tools/art-693-isa530-audit-sampling-mus.md)
 - [X402 Permit2 Evidence Recomputer](../tools/art-699-x402-permit2-evidence-recomputer.md)
+- [Three Way Invoice Match](../tools/art-701-three-way-invoice-match.md)
