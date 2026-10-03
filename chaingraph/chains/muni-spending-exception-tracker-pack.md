@@ -21,3 +21,13 @@ Domain: Public Finance & Government Payments
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: The issuer reports spend-proceeds compliance for the year. Has the issue met its spending timeline at the mid-year point?
+Run the AINumbers MCP tool `run_chain` with {"chain":"muni-spending-exception-tracker-pack"} and read `art-569-muni-arbitrage-spending-exception-checker.overall_status`.
+Re-run with `inputs` for `art-569-muni-arbitrage-spending-exception-checker`, reusing the values that result echoed, with `as_of_date` set to "2026-07-01". Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/muni-spending-exception-tracker-pack.html
