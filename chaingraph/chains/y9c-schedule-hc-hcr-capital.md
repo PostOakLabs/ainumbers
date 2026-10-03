@@ -23,3 +23,13 @@ Domain: Bank Capital & Credit Risk
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: The holding company Y-9C is due at the supervisor. Does the capital it reports still clear the CET1 minimum?
+Run the AINumbers MCP tool `run_chain` with {"chain":"y9c-schedule-hc-hcr-capital"} and read `art-436-bhc-schedule-hcr-capital.ratios.cet1_pass`.
+Re-run with `inputs` for `art-436-bhc-schedule-hcr-capital`, reusing the values that result echoed, with `cet1_capital_usd` set to 50000000. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/y9c-schedule-hc-hcr-capital.html
