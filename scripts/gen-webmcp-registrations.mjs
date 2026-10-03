@@ -398,11 +398,14 @@ export const propertyIdMap = {
     cart_items: { element_id: 'cartItems', via: 'json' },
     claimed_links: { element_id: 'claimedLinks', via: 'json' },
   },
-  // art-596 pp assembly (cartRoot/cartItems/x402Evidence; merchant matches literally):
-  //   chaingraph/art-596-ap2-x402-cart-correlation.html:814-819
+  // art-596 pp assembly (cartRoot/cartItems/tokenDecimals/x402Evidence; merchant matches
+  // literally). token_decimals was added by X402-UNITS-FIXTURE-1 and its control is the
+  // number input #tokenDecimals that runCheck parses into pp.token_decimals:
+  //   chaingraph/art-596-ap2-x402-cart-correlation.html:1035-1043
   'art-596-ap2-x402-cart-correlation': {
     cart_root: { element_id: 'cartRoot', via: 'string' },
     cart_items: { element_id: 'cartItems', via: 'json' },
+    token_decimals: { element_id: 'tokenDecimals', via: 'string' },
     x402_spend_evidence: { element_id: 'x402Evidence', via: 'json' },
   },
   // art-605 pp assembly (encoding select, pair_sort checkbox, claimed path JSON):
