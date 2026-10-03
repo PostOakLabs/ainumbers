@@ -1,0 +1,276 @@
+{
+  "tool_id": "art-702-runway-goal-path",
+  "version": "1.0.0",
+  "title": "Runway Goal Path",
+  "description": "Goal-seek over a fixed monthly startup cash model: the smallest change in price, in month-over-month revenue growth, or in burn that reaches a declared goal, ranked by least effort. The model walks a finite horizon of integer months with revenue growing from month 2 and burn held constant; the first month where cash goes below zero is the cash-out month, interpolated in basis points of a month. Four goal types (runway months, solvency through the horizon, breakeven by a month, ending cash) are met by a full grid search over three declared lever grids, ranked by half-up effort with ties by burn_cut, then price_uplift, then growth_add; the all-zero lever scenario is always reported as the baseline. Integer minor units and integer basis points only; scope limits: one revenue line, constant burn, no financing events, no churn model, and no tax.",
+  "category": "chaingraph",
+  "tags": [
+    "compliance_mandate",
+    "runway",
+    "cash-flow",
+    "goal-seek",
+    "breakeven",
+    "burn",
+    "startup-finance",
+    "integer-minor-units",
+    "mcp:find_runway_goal_path"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "cash_minor",
+      "monthly_revenue_minor",
+      "monthly_burn_minor",
+      "revenue_growth_bp",
+      "horizon_months",
+      "goal",
+      "levers",
+      "effort_weights",
+      "max_candidates"
+    ],
+    "properties": {
+      "cash_minor": {
+        "type": "integer",
+        "description": "Starting cash in integer minor units; >= 0."
+      },
+      "monthly_revenue_minor": {
+        "type": "integer",
+        "description": "Monthly revenue in month 1, integer minor units; >= 0."
+      },
+      "monthly_burn_minor": {
+        "type": "integer",
+        "description": "Monthly burn before any burn cut, integer minor units; >= 0."
+      },
+      "revenue_growth_bp": {
+        "type": "integer",
+        "description": "Month-over-month revenue growth in bp; integer, >= -10000."
+      },
+      "horizon_months": {
+        "type": "integer",
+        "description": "Simulated months; integer from 1 to 60."
+      },
+      "goal": {
+        "type": "object",
+        "description": "Goal: type runway_months | solvent_through_horizon | breakeven_by_month | ending_cash_at_least, plus integer value."
+      },
+      "levers": {
+        "type": "object",
+        "description": "Three sorted non-negative integer bp grids of at most 12 values: price_uplift_bp, growth_add_bp, burn_cut_bp."
+      },
+      "effort_weights": {
+        "type": "object",
+        "description": "Integer weight per lever; effort is the half-up sum of weight times lever over 100."
+      },
+      "max_candidates": {
+        "type": "integer",
+        "description": "Maximum number of ranked candidates returned; integer >= 1."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "find_runway_goal_path",
+    "description": "Goal-seek over a monthly cash model: the smallest change in price, growth or burn that reaches a runway, solvency, breakeven or ending-cash goal, ranked by least effort with ties by burn cut, then price uplift, then growth. Integer minor units and basis points, half-up rounding once per month; cash-out interpolated in basis points of a month. Refuses non-integer or negative money, growth below -10000 bp, horizons outside 1-60, unknown goal types and bad lever grids with named reasons.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "cash_minor",
+        "monthly_revenue_minor",
+        "monthly_burn_minor",
+        "revenue_growth_bp",
+        "horizon_months",
+        "goal",
+        "levers",
+        "effort_weights",
+        "max_candidates"
+      ],
+      "properties": {
+        "cash_minor": {
+          "type": "integer"
+        },
+        "monthly_revenue_minor": {
+          "type": "integer"
+        },
+        "monthly_burn_minor": {
+          "type": "integer"
+        },
+        "revenue_growth_bp": {
+          "type": "integer"
+        },
+        "horizon_months": {
+          "type": "integer"
+        },
+        "goal": {
+          "type": "object"
+        },
+        "levers": {
+          "type": "object"
+        },
+        "effort_weights": {
+          "type": "object"
+        },
+        "max_candidates": {
+          "type": "integer"
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-702-runway-goal-path.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "baseline": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "baseline_meets_goal": {
+        "type": "boolean"
+      },
+      "candidates": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "scenarios_evaluated": {
+        "type": "integer"
+      },
+      "none_found_reason": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "refusal_reason": {
+        "type": "string"
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "scope_note": {
+        "type": "string"
+      }
+    }
+  },
+  "source": "chaingraph/kernels/art-702-runway-goal-path.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: cash_minor, monthly_revenue_minor, monthly_burn_minor, revenue_growth_bp, horizon_months, goal, levers, effort_weights, max_candidates.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "cash_minor": 100000000,
+    "monthly_revenue_minor": 2000000,
+    "monthly_burn_minor": 6000000,
+    "revenue_growth_bp": 800,
+    "horizon_months": 36,
+    "goal": {
+      "type": "runway_months",
+      "value": 18
+    },
+    "levers": {
+      "price_uplift_bp": [
+        0,
+        500,
+        1000,
+        1500,
+        2000,
+        3000
+      ],
+      "growth_add_bp": [
+        0,
+        100,
+        200,
+        300,
+        500
+      ],
+      "burn_cut_bp": [
+        0,
+        500,
+        1000,
+        1500,
+        2000,
+        3000
+      ]
+    },
+    "effort_weights": {
+      "price_uplift_bp": 1,
+      "growth_add_bp": 2,
+      "burn_cut_bp": 1
+    },
+    "max_candidates": 4
+  },
+  "output_example": {
+    "baseline": {
+      "runway_bp_of_month": null,
+      "solvent_through_horizon": true,
+      "breakeven_month": 16,
+      "ending_cash_minor": 258204267
+    },
+    "baseline_meets_goal": true,
+    "candidates": [
+      {
+        "levers": {
+          "price_uplift_bp": 0,
+          "growth_add_bp": 0,
+          "burn_cut_bp": 0
+        },
+        "effort": 0,
+        "runway_bp_of_month": null,
+        "breakeven_month": 16,
+        "ending_cash_minor": 258204267
+      },
+      {
+        "levers": {
+          "price_uplift_bp": 0,
+          "growth_add_bp": 100,
+          "burn_cut_bp": 0
+        },
+        "effort": 2,
+        "runway_bp_of_month": null,
+        "breakeven_month": 14,
+        "ending_cash_minor": 356249430
+      },
+      {
+        "levers": {
+          "price_uplift_bp": 0,
+          "growth_add_bp": 200,
+          "burn_cut_bp": 0
+        },
+        "effort": 4,
+        "runway_bp_of_month": null,
+        "breakeven_month": 13,
+        "ending_cash_minor": 482253693
+      },
+      {
+        "levers": {
+          "price_uplift_bp": 500,
+          "growth_add_bp": 0,
+          "burn_cut_bp": 0
+        },
+        "effort": 5,
+        "runway_bp_of_month": null,
+        "breakeven_month": 15,
+        "ending_cash_minor": 276914435
+      }
+    ],
+    "scenarios_evaluated": 180,
+    "none_found_reason": null,
+    "scope_note": "One revenue line, constant burn, no financing events, no churn model, and no tax. Integer minor units and integer basis points only; rounding is half-up, applied once per month step."
+  },
+  "example_execution_hash": "218fc3fa7e28c79b9397f3984f49fa9cb4bc03df047e2091fe983774f3c93987"
+}
