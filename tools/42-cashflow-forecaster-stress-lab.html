@@ -584,6 +584,11 @@ footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-to
           </table>
         </div>
       </div>
+
+      <!-- ART-702 hand-off: one static link; its href is upgraded at runtime with
+           the node page's OCG-DEEPLINK v1 fragment (prefill only, no run=1).
+           Built from this page's current inputs in the script at the end of body. -->
+      <p style="font-size:.72rem;color:var(--body);line-height:1.6;margin:.75rem 0 0">This lab answers how long the cash lasts under stress. It does not search for the smallest change that reaches a goal. For that, hand the same position to the <a id="art702HandoffLink" href="../chaingraph/art-702-runway-goal-path.html" style="color:var(--teal);text-decoration:underline">Runway Goal Path node (ART-702)</a>, which goal-seeks price, growth and burn levers toward a stated goal such as an 18-month runway. The link carries your opening balance and weekly inflows and outflows, converted to monthly minor units (this page models a flat inflow, so growth passes as 0 basis points).</p>
     </div>
   </div>
 </div>
@@ -1645,6 +1650,79 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     }
   }
 
+})();
+</script>
+<!-- ART-702 hand-off prefill builder: encodes this page's current inputs into the
+     Runway Goal Path node's OCG-DEEPLINK v1 fragment (#p=v1.<b64url(gzip(JSON))>,
+     AGENT-REACH-BUILD-SPEC section 3.1). Fragment only, so nothing leaves the
+     browser. Prefill only, no run=1. Codec copied from ledger/index.html
+     (gzip + b64uEnc), the same codec the node page's reader uses. This page
+     models weekly flows, so inflow and outflow are scaled to a monthly figure
+     (x52/12) before conversion to minor units, and growth passes as 0 basis
+     points because the page models a flat inflow. The remaining required
+     parameters carry the node page's own defaults (36-month horizon, 18-month
+     runway goal, the node's sample lever grid and effort weights, 4 candidates)
+     so the link passes the node's inputSchema required check. If any live value
+     is missing or invalid for the node's rules, the anchor falls back to the
+     plain node URL. -->
+<script>
+(function(){
+'use strict';
+var NODE_URL='../chaingraph/art-702-runway-goal-path.html';
+var PAYLOAD_CAP=30000; /* the node's compressed-payload budget */
+var WEEKS_PER_MONTH=52/12;
+function payloadFromInputs(){
+  var opening=parseFloat(document.getElementById('openingBalance').value);
+  var inflow=parseFloat(document.getElementById('weeklyInflow').value);
+  var outflow=parseFloat(document.getElementById('weeklyOutflow').value);
+  if(!isFinite(opening)||!isFinite(inflow)||!isFinite(outflow))return null;
+  var p={
+    cash_minor:Math.round(opening*100),
+    monthly_revenue_minor:Math.round(inflow*WEEKS_PER_MONTH*100),
+    monthly_burn_minor:Math.round(outflow*WEEKS_PER_MONTH*100),
+    revenue_growth_bp:0, /* the page models a flat weekly inflow */
+    horizon_months:36,
+    goal:{type:'runway_months',value:18},
+    levers:{price_uplift_bp:[0,500,1000,1500,2000,3000],growth_add_bp:[0,100,200,300,500],burn_cut_bp:[0,500,1000,1500,2000,3000]},
+    effort_weights:{price_uplift_bp:1,growth_add_bp:2,burn_cut_bp:1},
+    max_candidates:4
+  };
+  /* the node refuses negative money */
+  if(p.cash_minor<0||p.monthly_revenue_minor<0||p.monthly_burn_minor<0)return null;
+  return p;
+}
+function b64uEnc(bytes){
+  var s='';
+  for(var i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+function gzip(str){
+  var bytes=new TextEncoder().encode(str);
+  var cs=new CompressionStream('gzip');
+  var w=cs.writable.getWriter();
+  w.write(bytes);w.close();
+  var reader=cs.readable.getReader(),chunks=[];
+  function read(r){return r.done?Promise.resolve():(chunks.push(r.value),reader.read().then(read));}
+  return reader.read().then(read).then(function(){
+    var total=chunks.reduce(function(a,c){return a+c.length;},0);
+    var out=new Uint8Array(total),off=0;
+    chunks.forEach(function(c){out.set(c,off);off+=c.length;});
+    return out;
+  });
+}
+function updateHandoff(){
+  var a=document.getElementById('art702HandoffLink');
+  if(!a)return;
+  var p=payloadFromInputs();
+  if(!p||typeof CompressionStream!=='function'){a.href=NODE_URL;return;}
+  gzip(JSON.stringify(p)).then(function(bytes){
+    if(bytes.length>PAYLOAD_CAP)return;
+    a.href=NODE_URL+'#p=v1.'+b64uEnc(bytes);
+  }).catch(function(){a.href=NODE_URL;});
+}
+var orig=window.recalculate;
+if(typeof orig==='function'){window.recalculate=function(){orig();updateHandoff();};}
+updateHandoff();
 })();
 </script>
 </body>
