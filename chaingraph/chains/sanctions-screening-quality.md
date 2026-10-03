@@ -23,3 +23,13 @@ Domain: Sanctions
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: The quarterly examination form asks for our screening program grade. What does a defined escalation workflow add to the score?
+Run the AINumbers MCP tool `run_chain` with {"chain":"sanctions-screening-quality"} and read `art-97-sanctions-screening-quality-scorer.component_scores.escalation_workflow`.
+Re-run with `inputs` for `art-97-sanctions-screening-quality-scorer`, reusing the values that result echoed, with `inputs` changed so the escalation workflow field goes from none to defined. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/sanctions-screening-quality.html
