@@ -1820,6 +1820,9 @@ export function compute(pp) {
     if (extNonce === null) extErrors.push('eip2612GasSponsoring.nonce must be a non-negative uint256');
     if (extDeadline === null) extErrors.push('eip2612GasSponsoring.deadline must be a non-negative uint256');
     if (extSignature === null) extErrors.push('eip2612GasSponsoring.signature must be supplied');
+    const extVersion = _str(ext.version);
+    if (extVersion === null) extErrors.push('eip2612GasSponsoring.version must be supplied');
+    if (extSignature !== null && _signatureForm(extSignature).signature_length_class !== '65') extErrors.push('eip2612GasSponsoring.signature must be the 65-byte concatenated form');
 
     const spenderIsCanonicalPermit2 = extSpender === null ? null : (extSpender === CANONICAL_PERMIT2);
     const ownerMatchesFrom = (extFrom === null || from === null) ? null : (extFrom === from);
@@ -1865,7 +1868,7 @@ export function compute(pp) {
       amount: extAmount !== null ? extAmount.toString() : null,
       deadline: extDeadline !== null ? extDeadline.toString() : null,
       deadline_status: extDeadlineStatus,
-      extension_schema_version: _str(ext.version),
+      extension_schema_version: extVersion,
     };
 
     handoff_612 = {
