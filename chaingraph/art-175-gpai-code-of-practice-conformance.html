@@ -7,6 +7,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-175-gpai-code-of-practice-conformance.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:2d637077ba70bc4b83f6fac794cc8969d09aefb67b7e5db694afbe5d9ffe8907">
 <title>GPAI Code of Practice Conformance · ART-175 · OpenChainGraph · AINumbers.co</title>
 <meta name="description" content="Checks GPAI provider obligations under EU AI Act Art. 53 (technical docs, training-data summary, copyright policy, model card) and Art. 55 systemic-risk obligations (risk eval, adversarial testing, incident reporting, cybersecurity). Also checks voluntary Code of Practice sign-up. Middle node of the ai-governance-framework-crosswalk chain. Zero network.">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-175-gpai-code-of-practice-conformance.html">
@@ -499,94 +501,109 @@ const MANIFEST = {
 // State
 let _lastArtifact = null, _lastPP = null, _lastOP = null, _lastFlags = null;
 
-// Kernel compute() — faithful client-side copy matching server kernel logic
+// Inline copy of chaingraph/kernels/art-175-gpai-code-of-practice-conformance.kernel.mjs compute():
+// keep byte-equivalent with the kernel (the Art. 53 BASE_CHECKS / Art. 55 SYSTEMIC_CHECKS tables,
+// the score arithmetic and every output_payload member are hash-bearing; they enter the
+// execution_hash preimage via output_payload). Healed by WEBMCP-CPARITY-ART175-1 — the page leg
+// was the divergent one (P=c406876a33b7 vs M==E==kernel a1f3ff7001c8): the drifted copy read flat
+// policy_parameters, so it took its not-applicable branch on the kernel's {provider:{...}} input
+// and carried none of the kernel payload's score/conformance members.
 function compute(pp) {
-  const b = (v) => v === true;
+  const { provider = {} } = pp;
 
-  // Not a GPAI provider — nothing to check
-  if (!b(pp.is_gpai_provider)) {
+  const is_gpai_provider = provider.is_gpai_provider === true;
+
+  // Short-circuit: obligations only apply to GPAI providers
+  if (!is_gpai_provider) {
     return {
       output_payload: {
-        overall_conformant: null,
         not_applicable: true,
-        reason: 'Entity is not a GPAI model provider — Art. 53/55 obligations do not apply.',
-        base_obligations_met: null,
-        systemic_obligations_met: null,
-        base_gaps: [],
-        systemic_gaps: [],
-        code_of_practice_signed: b(pp.code_of_practice_signed),
-        systemic_risk: false,
+        reason: 'not_a_gpai_provider',
       },
-      compliance_flags: ['GPAI_ART53_NOT_APPLICABLE', 'GPAI_ART55_NOT_APPLICABLE']
+      compliance_flags: ['GPAI_ASSESSED', 'GPAI_NOT_APPLICABLE'],
     };
   }
 
-  // Art. 53 base obligations (all GPAI providers)
-  const baseChecks = {
-    technical_documentation: b(pp.technical_documentation),
-    training_data_summary: b(pp.training_data_summary),
-    copyright_policy: b(pp.copyright_policy),
-    model_card_published: b(pp.model_card_published),
-  };
-  const base_gaps = Object.entries(baseChecks).filter(([, ok]) => !ok).map(([k]) => k);
-  const base_obligations_met = base_gaps.length === 0;
+  const is_systemic_risk = provider.is_systemic_risk === true;
+  const code_of_practice_signed = provider.code_of_practice_signed === true;
 
-  // Art. 55 systemic-risk obligations (conditional)
-  const is_systemic_risk = b(pp.is_systemic_risk);
-  let systemic_obligations_met = null;
+  // Art. 53 base obligations
+  const BASE_CHECKS = [
+    'technical_documentation',
+    'training_data_summary',
+    'copyright_policy',
+    'model_card_published',
+  ];
+
+  // Art. 55 systemic-risk additional obligations
+  const SYSTEMIC_CHECKS = [
+    'systemic_risk_eval_conducted',
+    'adversarial_testing_done',
+    'incident_reporting_active',
+    'cybersecurity_measures',
+  ];
+
+  const base_results = BASE_CHECKS.map((k) => provider[k] === true);
+  const base_passed = base_results.filter(Boolean).length;
+  const base_gaps = BASE_CHECKS.filter((_, i) => !base_results[i]);
+  const base_conformant = base_passed === BASE_CHECKS.length;
+  const base_score = Number.isFinite(base_passed / BASE_CHECKS.length)
+    ? Math.round((base_passed / BASE_CHECKS.length) * 100)
+    : 0;
+
+  let systemic_risk_conformant = null;
+  let systemic_score = null;
   let systemic_gaps = [];
 
   if (is_systemic_risk) {
-    const systemicChecks = {
-      systemic_risk_eval_conducted: b(pp.systemic_risk_eval_conducted),
-      adversarial_testing_done: b(pp.adversarial_testing_done),
-      incident_reporting_active: b(pp.incident_reporting_active),
-      cybersecurity_measures: b(pp.cybersecurity_measures),
-    };
-    systemic_gaps = Object.entries(systemicChecks).filter(([, ok]) => !ok).map(([k]) => k);
-    systemic_obligations_met = systemic_gaps.length === 0;
+    const systemic_results = SYSTEMIC_CHECKS.map((k) => provider[k] === true);
+    const systemic_passed = systemic_results.filter(Boolean).length;
+    systemic_gaps = SYSTEMIC_CHECKS.filter((_, i) => !systemic_results[i]);
+    systemic_risk_conformant = systemic_passed === SYSTEMIC_CHECKS.length;
+    systemic_score = Number.isFinite(systemic_passed / SYSTEMIC_CHECKS.length)
+      ? Math.round((systemic_passed / SYSTEMIC_CHECKS.length) * 100)
+      : 0;
   }
 
-  const code_signed = b(pp.code_of_practice_signed);
+  const overall_score = is_systemic_risk
+    ? (Number.isFinite((base_score + systemic_score) / 2)
+        ? Math.round((base_score + systemic_score) / 2)
+        : 0)
+    : base_score;
 
-  // Overall conformant: base met AND (if systemic) systemic met
-  const overall_conformant = base_obligations_met && (is_systemic_risk ? systemic_obligations_met : true);
+  // Note: base_score is numeric (%) and already exposed via output_payload below;
+  // compliance_flags is schema-typed as string[].
+  const compliance_flags = ['GPAI_ASSESSED'];
 
-  const total_gaps = base_gaps.length + systemic_gaps.length;
-  const base_passed = Object.values(baseChecks).filter(Boolean).length;
-  const base_total = Object.keys(baseChecks).length;
-  const systemic_passed = is_systemic_risk
-    ? 4 - systemic_gaps.length
-    : null;
-  const systemic_total = is_systemic_risk ? 4 : null;
-
-  const compliance_flags = ['GPAI_ART53_ASSESSED'];
-  if (base_obligations_met) compliance_flags.push('GPAI_ART53_CONFORMANT');
-  else compliance_flags.push('GPAI_ART53_GAPS');
-  if (is_systemic_risk) {
-    compliance_flags.push('GPAI_ART55_ASSESSED');
-    if (systemic_obligations_met) compliance_flags.push('GPAI_ART55_CONFORMANT');
-    else compliance_flags.push('GPAI_ART55_GAPS');
+  if (base_conformant) {
+    compliance_flags.push('GPAI_BASE_OBLIGATIONS_MET');
+  } else {
+    compliance_flags.push('GPAI_BASE_OBLIGATIONS_GAP');
   }
-  if (code_signed) compliance_flags.push('GPAI_CODE_OF_PRACTICE_SIGNED');
-  if (overall_conformant) compliance_flags.push('GPAI_OVERALL_CONFORMANT');
-  else compliance_flags.push('GPAI_OVERALL_NON_CONFORMANT');
+
+  if (is_systemic_risk && systemic_risk_conformant) {
+    compliance_flags.push('GPAI_SYSTEMIC_RISK_OBLIGATIONS_MET');
+  }
+  if (is_systemic_risk && !systemic_risk_conformant) {
+    compliance_flags.push('GPAI_SYSTEMIC_RISK_OBLIGATIONS_GAP');
+  }
+
+  if (code_of_practice_signed) {
+    compliance_flags.push('GPAI_CODE_SIGNED');
+  }
 
   return {
     output_payload: {
-      overall_conformant,
-      not_applicable: false,
-      base_obligations_met,
-      systemic_obligations_met,
-      systemic_risk: is_systemic_risk,
+      is_gpai_provider,
+      is_systemic_risk,
+      base_conformant,
+      base_score,
+      systemic_risk_conformant,
+      systemic_score,
+      overall_score,
+      code_of_practice_signed,
       base_gaps,
       systemic_gaps,
-      total_gaps,
-      base_passed,
-      base_total,
-      systemic_passed,
-      systemic_total,
-      code_of_practice_signed: code_signed,
     },
     compliance_flags,
   };
@@ -603,17 +620,19 @@ function cgCanon(v) { if (v===null||typeof v!=='object') return v; if (Array.isA
 
 function getParams() {
   return {
-    is_gpai_provider: document.getElementById('is_gpai_provider').checked,
-    technical_documentation: document.getElementById('technical_documentation').checked,
-    training_data_summary: document.getElementById('training_data_summary').checked,
-    copyright_policy: document.getElementById('copyright_policy').checked,
-    model_card_published: document.getElementById('model_card_published').checked,
-    is_systemic_risk: document.getElementById('is_systemic_risk').checked,
-    systemic_risk_eval_conducted: document.getElementById('systemic_risk_eval_conducted').checked,
-    adversarial_testing_done: document.getElementById('adversarial_testing_done').checked,
-    incident_reporting_active: document.getElementById('incident_reporting_active').checked,
-    cybersecurity_measures: document.getElementById('cybersecurity_measures').checked,
-    code_of_practice_signed: document.getElementById('code_of_practice_signed').checked,
+    provider: {
+      is_gpai_provider: document.getElementById('is_gpai_provider').checked,
+      technical_documentation: document.getElementById('technical_documentation').checked,
+      training_data_summary: document.getElementById('training_data_summary').checked,
+      copyright_policy: document.getElementById('copyright_policy').checked,
+      model_card_published: document.getElementById('model_card_published').checked,
+      is_systemic_risk: document.getElementById('is_systemic_risk').checked,
+      systemic_risk_eval_conducted: document.getElementById('systemic_risk_eval_conducted').checked,
+      adversarial_testing_done: document.getElementById('adversarial_testing_done').checked,
+      incident_reporting_active: document.getElementById('incident_reporting_active').checked,
+      cybersecurity_measures: document.getElementById('cybersecurity_measures').checked,
+      code_of_practice_signed: document.getElementById('code_of_practice_signed').checked,
+    }
   };
 }
 
@@ -679,6 +698,10 @@ async function runCheck() {
 }
 
 function renderResults(op, flags, rawHash, artifact) {
+  // Derived display booleans (kernel payload carries scores/conformance members, not an
+  // overall_conformant flag): overall = base met AND (if systemic) systemic met.
+  const overallConformant = op.base_conformant === true && (!op.is_systemic_risk || op.systemic_risk_conformant === true);
+  const totalGaps = (op.base_gaps || []).length + (op.systemic_gaps || []).length;
   // Hero stats
   let heroHTML = '';
   if (op.not_applicable) {
@@ -690,30 +713,30 @@ function renderResults(op, flags, rawHash, artifact) {
   } else {
     heroHTML = `
       <div class="hero-stat">
-        <div class="hero-val" style="color:${op.overall_conformant?'var(--green)':'var(--red)'}">
-          ${op.overall_conformant ? 'PASS' : 'FAIL'}
+        <div class="hero-val" style="color:${overallConformant?'var(--green)':'var(--red)'}">
+          ${overallConformant ? 'PASS' : 'FAIL'}
         </div>
         <div class="hero-lbl">Overall</div>
       </div>
       <div class="hero-stat">
-        <div class="hero-val" style="color:${op.base_obligations_met?'var(--green)':'var(--red)'}">
-          ${op.base_passed}/${op.base_total}
+        <div class="hero-val" style="color:${op.base_conformant?'var(--green)':'var(--red)'}">
+          ${op.base_score}%
         </div>
         <div class="hero-lbl">Art.53 Base</div>
       </div>`;
-    if (op.systemic_risk) {
+    if (op.is_systemic_risk) {
       heroHTML += `
       <div class="hero-stat">
-        <div class="hero-val" style="color:${op.systemic_obligations_met?'var(--green)':'var(--red)'}">
-          ${op.systemic_passed}/${op.systemic_total}
+        <div class="hero-val" style="color:${op.systemic_risk_conformant?'var(--green)':'var(--red)'}">
+          ${op.systemic_score}%
         </div>
         <div class="hero-lbl">Art.55 Systemic</div>
       </div>`;
     }
     heroHTML += `
       <div class="hero-stat">
-        <div class="hero-val" style="color:${op.total_gaps===0?'var(--green)':'var(--red)'}">
-          ${op.total_gaps}
+        <div class="hero-val" style="color:${totalGaps===0?'var(--green)':'var(--red)'}">
+          ${totalGaps}
         </div>
         <div class="hero-lbl">Total Gaps</div>
       </div>
@@ -730,13 +753,13 @@ function renderResults(op, flags, rawHash, artifact) {
   let verdictHTML = '';
   if (op.not_applicable) {
     verdictHTML = `<div class="verdict warn">— Entity is not a GPAI model provider. EU AI Act Art. 53/55 obligations do not apply.</div>`;
-  } else if (op.overall_conformant) {
+  } else if (overallConformant) {
     const coP = op.code_of_practice_signed ? ' Code of Practice signed — presumption of conformity applies.' : '';
-    verdictHTML = `<div class="verdict pass">✓ GPAI provider meets all applicable obligations (Art. 53 base${op.systemic_risk ? ' + Art. 55 systemic-risk' : ''}).${coP}</div>`;
+    verdictHTML = `<div class="verdict pass">✓ GPAI provider meets all applicable obligations (Art. 53 base${op.is_systemic_risk ? ' + Art. 55 systemic-risk' : ''}).${coP}</div>`;
   } else {
     const parts = [];
-    if (!op.base_obligations_met) parts.push(`Art. 53 base: ${op.base_gaps.length} gap(s)`);
-    if (op.systemic_risk && !op.systemic_obligations_met) parts.push(`Art. 55 systemic: ${op.systemic_gaps.length} gap(s)`);
+    if (!op.base_conformant) parts.push(`Art. 53 base: ${(op.base_gaps || []).length} gap(s)`);
+    if (op.is_systemic_risk && op.systemic_risk_conformant === false) parts.push(`Art. 55 systemic: ${(op.systemic_gaps || []).length} gap(s)`);
     verdictHTML = `<div class="verdict fail">✗ GPAI conformance incomplete — ${parts.join('; ')}. Resolve gaps before Aug 2 2026 enforcement deadline.</div>`;
   }
   document.getElementById('verdictBox').innerHTML = verdictHTML;
