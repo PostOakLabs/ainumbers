@@ -95,6 +95,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <meta name="ai-tool" content="compute_cdd_ownership_25pct">
+<meta name="kernel-digest" content="sha256:642fc536fb114413087309fee7485f146927deeabb3ad8e9eac8e3bf98f5d36a">
 </head>
 <body>
 <nav>
@@ -408,67 +409,104 @@ const TOOL_VERSION = '1.0.0';
 const THRESHOLD    = 25;
 let _lastArtifact  = null;
 
-function compute(p) {
-  p = p || {};
-  const tiers = Array.isArray(p.ownership_tiers) ? p.ownership_tiers : [];
-  const natural_persons = Array.isArray(p.natural_persons) ? p.natural_persons : [];
-  const target_entity_id = p.target_entity_id || '';
+function computeIndirectOwnership(entityId, naturalPersons, ownershipMap, memo, path) {
+  if (memo[entityId] !== undefined) return memo[entityId];
+  if (path.has(entityId)) {
+    // Circular reference: return 0 to break cycle
+    return 0;
+  }
+  path.add(entityId);
 
-  // Build adjacency: children[parent_id] = [{entity_id, ownership_pct}]
-  var children = {};
-  for (var i = 0; i < tiers.length; i++) {
-    var t = tiers[i];
-    var pid = t.parent_id || '__ROOT__';
-    if (!children[pid]) children[pid] = [];
-    children[pid].push({entity_id: t.entity_id, ownership_pct: t.ownership_pct});
+  const parents = ownershipMap[entityId] || [];
+  if (parents.length === 0) {
+    // Root entity: if it's a natural person, ownership stake = the proportion held
+    memo[entityId] = {};
+    path.delete(entityId);
+    return {};
   }
 
-  // Recursive function: compute indirect ownership of np through entity e
-  // at top level e = target_entity_id, accumulator = 100%
-  function indirectOwnership(np, entityId, accumulated) {
-    if (np === entityId) return accumulated;
-    var ch = children[entityId] || [];
-    var total = 0;
-    for (var j = 0; j < ch.length; j++) {
-      var child = ch[j];
-      var childShare = (child.ownership_pct / 100) * accumulated;
-      total += indirectOwnership(np, child.entity_id, childShare);
+  const result = {};
+  for (const { parent_id, ownership_pct } of parents) {
+    const fraction = ownership_pct / 100;
+    if (naturalPersons.includes(parent_id)) {
+      result[parent_id] = (result[parent_id] || 0) + fraction;
+    } else {
+      const upstream = computeIndirectOwnership(parent_id, naturalPersons, ownershipMap, memo, path);
+      for (const [np, npFrac] of Object.entries(upstream)) {
+        result[np] = (result[np] || 0) + npFrac * fraction;
+      }
     }
-    return total;
+  }
+  memo[entityId] = result;
+  path.delete(entityId);
+  return result;
+}
+
+function compute(pp) {
+  const {
+    ownership_tiers = [],
+    natural_persons = [],
+    target_entity_id = null,
+  } = pp;
+
+  const THRESHOLD = 25; // FinCEN CDD Rule 31 CFR 1010.230
+
+  // Build ownership map: entityId -> [{parent_id, ownership_pct}]
+  // ownership_tiers: [{entity_id, parent_id, ownership_pct}]
+  // entity_id is the OWNED entity, parent_id is the OWNER
+  const ownershipMap = {};
+  for (const tier of ownership_tiers) {
+    if (!ownershipMap[tier.entity_id]) ownershipMap[tier.entity_id] = [];
+    ownershipMap[tier.entity_id].push({ parent_id: tier.parent_id, ownership_pct: tier.ownership_pct });
   }
 
-  var naturalPersonAttributions = [];
-  var beneficial_owners = [];
-  var np_set = {};
-  for (var k = 0; k < natural_persons.length; k++) np_set[natural_persons[k]] = true;
+  // Determine which entities to evaluate
+  const allEntityIds = [...new Set(ownership_tiers.map(t => t.entity_id))];
+  const entitiesToEval = target_entity_id ? [target_entity_id] : allEntityIds;
 
-  // Find all entities that are natural persons and compute their indirect ownership
-  var allEntityIds = {};
-  for (var m = 0; m < tiers.length; m++) allEntityIds[tiers[m].entity_id] = true;
+  const beneficial_owners = [];
+  const below_threshold = [];
 
-  for (var npId in np_set) {
-    var pct = indirectOwnership(npId, target_entity_id, 100);
-    pct = Math.round(pct * 1e6) / 1e6;
-    var is_bo = pct >= THRESHOLD;
-    naturalPersonAttributions.push({natural_person_id: npId, indirect_ownership_pct: pct, is_beneficial_owner: is_bo, threshold_pct: THRESHOLD});
-    if (is_bo) beneficial_owners.push(npId);
+  for (const entityId of entitiesToEval) {
+    const memo = {};
+    const result = computeIndirectOwnership(entityId, natural_persons, ownershipMap, memo, new Set());
+
+    for (const [np, frac] of Object.entries(result)) {
+      const pct = Math.round(frac * 10000) / 100;
+      if (pct >= THRESHOLD) {
+        beneficial_owners.push({
+          entity_id: entityId,
+          natural_person_id: np,
+          indirect_ownership_pct: pct,
+          direct: (ownershipMap[entityId] || []).some(t => t.parent_id === np),
+        });
+      } else if (pct > 0) {
+        below_threshold.push({
+          entity_id: entityId,
+          natural_person_id: np,
+          indirect_ownership_pct: pct,
+        });
+      }
+    }
   }
 
-  var is_beneficial_owner = beneficial_owners.length > 0;
+  const is_beneficial_owner = beneficial_owners.length > 0;
 
   return {
-    target_entity_id: target_entity_id,
+    is_beneficial_owner,
     threshold_pct: THRESHOLD,
-    is_beneficial_owner: is_beneficial_owner,
     beneficial_owner_count: beneficial_owners.length,
-    beneficial_owners: beneficial_owners,
-    natural_person_attributions: naturalPersonAttributions,
+    beneficial_owners,
+    below_threshold_count: below_threshold.length,
+    below_threshold,
+    entities_evaluated: entitiesToEval.length,
+    methodology: 'FinCEN CDD Rule 31 CFR 1010.230: indirect ownership multiplication through tiers; sum of fractional stakes >= 25% = beneficial owner determination for legal-entity KYB customer due diligence',
     regime_note: 'FinCEN CDD Rule bank KYB (31 CFR 1010.230) -- NOT the CTA/BOI (31 USC 5336) domestic reporting rule. 25% threshold for legal-entity beneficial ownership certification. Domestic CTA beneficial-ownership reporting removed by FinCEN interim final rule effective 2025-03-21 (published 26 Mar 2025); CTA now applies to foreign reporting companies only. This kernel is the 25% bank KYB threshold for legal-entity customer CDD -- distinct from aggregate_ownership_50pct (OFAC/BIS Affiliates Rule 50% sanctions ownership aggregation, different threshold and regime); see ART-91.',
     table_version: 'FINCEN-CDD-RULE-31CFR1010.230-2024',
     table_source: 'FinCEN Customer Due Diligence (CDD) Rule, 31 CFR 1010.230 (final rule published 11 May 2016; applicability date 2018-05-11): 25% beneficial-ownership threshold for legal-entity customers. FinCEN FAQ on CDD Rule (2016). FinCEN Interim Final Rule effective 2025-03-21 (published 26 Mar 2025) narrowing CTA to foreign reporting companies. FFIEC BSA/AML Examination Procedures 2024. Recursive indirect multiplication per FinCEN guidance on ownership attribution through tiered structures. ZERO PII: synthetic entity graphs only.',
-    regulatory_basis: 'FinCEN CDD Rule 31 CFR 1010.230(d): covered financial institutions must identify and verify each natural person who owns 25% or more of an equity interest in a legal entity customer. Indirect ownership = product of direct ownership percentages along each ownership path.',
-    pii_note: 'ZERO PII: synthetic entity IDs and ownership percentages only. No SSN, TIN, EIN, name, address, date of birth, or real beneficial-owner data enters this kernel. Production CDD programs require independent identity verification per 31 CFR 1010.230(b).',
-    not_legal_advice: 'Not legal advice. CDD beneficial-ownership determination requires review by qualified BSA/AML counsel. Coverage rules, thresholds, and entity-type exemptions change; verify with your compliance officer and current FinCEN guidance before any bank KYB filing.'
+    regulatory_basis: 'FinCEN CDD Rule 31 CFR 1010.230: covered financial institutions must identify beneficial owners of legal entity customers (25% threshold for equity owners). Ownership multiplication through tiers: indirect ownership stake = product of fractional ownership pcts along ownership chain. ZERO PII.',
+    pii_note: 'ZERO PII: synthetic entity identifiers and ownership percentages only. No actual beneficial-owner name, SSN, EIN, address, or personal data enters this kernel. Use FINCEN system or your KYB provider for live beneficial-owner verification.',
+    not_legal_advice: 'Not legal or compliance advice. FinCEN CDD Rule determinations must be made by qualified BSA officers in conjunction with your institution\'s CDD program policies and procedures.',
   };
 }
 
@@ -494,8 +532,9 @@ async function runCompute() {
     vb.textContent = 'NO BENEFICIAL OWNER at or above '+THRESHOLD+'% threshold';
     vb.style.color = 'var(--green)';
   }
-  document.getElementById('statRow').innerHTML = [stat('Is Beneficial Owner',op.is_beneficial_owner?'YES':'NO'),stat('BO Count',op.beneficial_owner_count),stat('Threshold',THRESHOLD+'%'),stat('NPs Analyzed',op.natural_person_attributions.length)].join('');
-  document.getElementById('personsDiv').innerHTML = op.natural_person_attributions.map(function(a){
+  document.getElementById('statRow').innerHTML = [stat('Is Beneficial Owner',op.is_beneficial_owner?'YES':'NO'),stat('BO Count',op.beneficial_owner_count),stat('Threshold',THRESHOLD+'%'),stat('NP Attributions',persons.length)].join('');
+  var persons = op.beneficial_owners.map(function(a){return {natural_person_id:a.natural_person_id,indirect_ownership_pct:a.indirect_ownership_pct,is_beneficial_owner:true};}).concat(op.below_threshold.map(function(a){return {natural_person_id:a.natural_person_id,indirect_ownership_pct:a.indirect_ownership_pct,is_beneficial_owner:false};}));
+  document.getElementById('personsDiv').innerHTML = persons.map(function(a){
     var cls = a.is_beneficial_owner ? 'person-card person-bo' : 'person-card person-below';
     return '<div class="'+cls+'"><strong style="color:var(--bright)">'+a.natural_person_id+'</strong> | Indirect: <strong>'+a.indirect_ownership_pct.toFixed(4)+'%</strong> | '+(a.is_beneficial_owner?'<span style="color:var(--red)">BENEFICIAL OWNER (&ge;25%)</span>':'<span style="color:var(--green)">Below threshold</span>')+'</div>';
   }).join('');

@@ -25,3 +25,13 @@ Domain: Digital-Asset Rails
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Before we tokenize this Treasury CUSIP class, is the DTC custody and Fed eligibility pack ready for issuance, or are there gaps?
+Run the AINumbers MCP tool `run_chain` with {"chain":"canton-dtc-treasury"} and read `art-109-dtc-tokenized-treasury.verdict`.
+Re-run with `inputs` for `art-109-dtc-tokenized-treasury`, reusing the values that result echoed, with `tokenized_ust_config` changed so fed_eligible is false. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/canton-dtc-treasury.html

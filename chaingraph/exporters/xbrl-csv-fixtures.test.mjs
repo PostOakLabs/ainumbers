@@ -17,7 +17,7 @@
 // XBRLCSV-EXPORTER-1 (2026-07-26) added a live exporter (exporters/xbrl-csv.mjs) — the block
 // below the fixture checks now runs the SAME §13.14.6 properties against its actual output,
 // not just the committed fixtures, plus a ZIP-structural check and the Annex 2 pending guard
-// via the real exporter (not a simulation). See research/XBRLCSV-EXPORTER-1-2026-07-26.md for
+// via the real exporter (not a simulation). See the exporter work-unit record for
 // what remains unverified (no offline OIM/xBRL-CSV certified validator — §13.14.4 is EXTERNAL by
 // design; this repo is zero-dep and does not vendor one).
 import { readFileSync } from 'node:fs';
@@ -189,7 +189,7 @@ console.log('\nlive exporter (exporters/xbrl-csv.mjs) — §13.14.6 properties o
 
   // RED before / GREEN after (JOB 3a/3b): before XBRLCSV-EXPORTER-1, exporters/xbrl-csv.mjs did
   // not exist at all — importing it threw ERR_MODULE_NOT_FOUND (verified by hand pre-change,
-  // recorded in research/XBRLCSV-EXPORTER-1-2026-07-26.md). The imports above succeeding, and
+  // recorded in the exporter work-unit record). The imports above succeeding, and
   // every assertion in this block passing, is the GREEN half of that pair.
 
   // Annex 2 pending guard via the REAL exporter, not a simulation (§13.14.5).

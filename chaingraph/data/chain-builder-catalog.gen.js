@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (669 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (670 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7292,6 +7292,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-701-three-way-invoice-match.html",
     "description": "Matches one invoice against its purchase order and its goods receipt and decides whether the invoice can be paid: every invoice line is pair",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-702-runway-goal-path",
+    "display_name": "Runway Goal Path",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-702-runway-goal-path.html",
+    "description": "Goal-seek over a fixed monthly startup cash model: the smallest change in price, in month-over-month revenue growth, or in burn that reaches",
     "consumes": [],
     "feeds": [],
     "status": "live"

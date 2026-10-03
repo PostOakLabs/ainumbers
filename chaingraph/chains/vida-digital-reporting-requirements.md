@@ -23,3 +23,12 @@ Domain: ViDA / E-Invoicing
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Digital reporting of e-invoices arrives in 2030. Is the transaction data we exchange today already fit to report under it?
+Run the AINumbers MCP tool `run_chain` with {"chain":"vida-digital-reporting-requirements"} and read `art-161-vida-recapitulative-statement-migration-assessor.migration_ready`.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/vida-digital-reporting-requirements.html

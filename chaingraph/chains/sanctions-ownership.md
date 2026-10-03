@@ -23,3 +23,13 @@ Domain: Sanctions
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: A listed parent holds 60 percent of a holdco which owns our counterparty. Is the counterparty constructively blocked?
+Run the AINumbers MCP tool `run_chain` with {"chain":"sanctions-ownership"} and read `art-91-ownership-50pct-aggregator.blocked_count`.
+Re-run with `inputs` for `art-91-ownership-50pct-aggregator`, reusing the values that result echoed, with `ownership_graph` changed so one OFAC-listed parent holding 60 percent of a holdco. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/sanctions-ownership.html

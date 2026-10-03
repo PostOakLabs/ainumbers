@@ -152,17 +152,11 @@ export const ATTR_RULES = [
   { file: 'mcp.html', key: 'manifests', label: 'JSON-LD description (catalog)',
     regex: /(MCP developer tooling\) plus catalog search across )(\d+)( deterministic, client-side tools)/,
   },
-  { file: 'mcp.html', key: 'manifests', label: 'hero-desc catalog count',
-    regex: /(class="hero-desc">Connect the AINumbers MCP server[^<]*?catalog-search tool covers all )(\d+)( tools with one-click prefill)/,
-  },
   { file: 'mcp.html', key: 'mcp.live', label: 'hero-badge tool count',
     regex: /(<span class="hero-badge badge-teal">)(\d+)( Tools · \d+ Widgets<\/span>)/,
   },
   { file: 'mcp.html', key: 'mcp.widgets', label: 'hero-badge widget count',
     regex: /(<span class="hero-badge badge-teal">\d+ Tools · )(\d+)( Widgets<\/span>)/,
-  },
-  { file: 'mcp.html', key: 'manifests', label: 'hero-desc catalog count',
-    regex: /(<p class="hero-desc">[^<]*?catalog-search tool covers all )(\d+)( tools with one-click)/,
   },
 
   // ── about.html (og/twitter descriptions — hardcoded, not comment-sentinel) ─
