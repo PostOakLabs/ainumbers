@@ -23,3 +23,13 @@ Domain: Supply-Chain Traceability
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: A buyer wants assurance this resale unit was not diverted mid-chain. Does every ownership transfer on the passport hand off to the party the previous one named?
+Run the AINumbers MCP tool `run_chain` with {"chain":"digital-product-passport-lineage"} and read `art-117-product-authenticity-verifier.ownership_continuous`.
+Re-run with `inputs` for `art-117-product-authenticity-verifier`, reusing the values that result echoed, with `ownership_transfers` changed so the second transfer starts from an address no earlier transfer reached. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/digital-product-passport-lineage.html

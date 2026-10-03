@@ -350,6 +350,9 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── WEBMCP-META-LINT-CEILING-1 (2026-10-01) ─────────────────────────────────
+  ["check-webmcp-meta-budgets.test.mjs", SELF_TEST],
+  ["check-webmcp-meta-neardupes.test.mjs", SELF_TEST],
   // ── KERNEL-IMPORT-SPECIFIER-LINT-1 (2026-10-01) ───────────────────────────
   ["check-kernel-determinism.test.mjs", SELF_TEST],
   // ── BRIDGE-MCP-APPS-ALIGN-1 (2026-09-28) ────────────────────────────────────
@@ -383,6 +386,23 @@ const PREFLIGHT_ONLY = new Map([
   ["check-source-currency.test.mjs",
     "Paired RED/GREEN fixture proof of check-source-currency.mjs (GATE-SELFTEST-META-1 / SO #34c) " +
     "— same preflight-only route and post-triage CI plan as its gate above."],
+  // ── CHAIN-PROMPT-INFRA-1 (2026-09-27) ───────────────────────────────────────
+  ["check-chain-prompts.mjs",
+    "Chain example prompt gate (CHAIN-PROMPT-INFRA-1, CONTRACT §A3.1): validates every " +
+    "chaingraph/chain-prompts/<chain>.json against the assembled graph and the step manifests, holds the " +
+    "rendered prompt to 110 words and the copy-hallmark battery, and asserts completeness against " +
+    "scripts/chain-prompts-baseline.json. Hard in preflight, both contexts. It reads only tracked repo " +
+    "files plus `git show origin/main` for the shrink-only leg (no network, no CI-only input), so its CI " +
+    "route is scripts-verify.yml's full preflight — a named workflow step would re-run the same scan " +
+    "byte-for-byte. Self-test: --self-test, its paired RED/GREEN battery (SO #34c)."],
+  ["gen-chain-ask-agent.mjs",
+    "Chain ask-agent region freshness (CHAIN-PROMPT-INFRA-1): re-renders each chain page's region from " +
+    "its prompt file in memory and compares. Hard in preflight; its CI route is scripts-verify.yml's " +
+    "full preflight (the workflow runs `node scripts/preflight.mjs`), so a named workflow step would only " +
+    "duplicate the same suite. It is also the COVERED gate of derived-artifacts.mjs id 'chain-ask-agent' " +
+    "(advisory on a PR, blocking on main via the generic downgrade; main-side freshness is owned by " +
+    "derived-artifacts-regen.yml). The write half is the regen command, never a PR step. Reads only " +
+    "tracked repo files, no CI-only input. Self-test: --selftest."],
   // ── FOOTER-INFRA-COLUMN-1 (2026-09-27) ──────────────────────────────────────
   ["gen-node-footers.mjs",
     "Node-page footer freshness (FOOTER-INFRA-COLUMN-1, footer plan v2 D1(b)): re-renders the " +
@@ -1211,6 +1231,18 @@ const DECLARED_DIVERGENCES = new Map([
 // would treat them as unrelated commands and an argument-drift typo on an
 // advisory gate would read as "consistent" because it matched nothing (hole (d)).
 const DISTINCT_LEGS = new Map([
+  ["node scripts/gen-chain-ask-agent.mjs --selftest", {
+    sibling: "node scripts/gen-chain-ask-agent.mjs --check",
+    decided: "2026-09-27 (CHAIN-PROMPT-INFRA-1)",
+    why:
+      "The --selftest leg copies one real chain page into a scratch directory and proves the writer " +
+      "inserts its region and nothing else, that a freshly written page reads GREEN, that a hand-edited " +
+      "region reads RED, that a page with no anchor is reported as a skip rather than a pass, and that a " +
+      "second write is byte-identical: it can only be reddened by a change to the writer or the template " +
+      "it renders, never by a content PR, so it is the SELF_TEST shape, preflight-only by design. The " +
+      "--check sibling is the COVERED id 'chain-ask-agent' freshness gate, advisory on a PR and blocking " +
+      "on main. Separate legs of one script, not argument drift.",
+  }],
   ["node scripts/gen-node-footers.mjs --selftest", {
     sibling: "node scripts/gen-node-footers.mjs --check",
     decided: "2026-09-27 (FOOTER-INFRA-COLUMN-1)",

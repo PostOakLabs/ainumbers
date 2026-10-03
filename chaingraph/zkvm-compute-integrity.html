@@ -406,7 +406,7 @@ const ok = await verifySeal(
 <section id="s03">
   <div class="wrap">
     <div class="sec-eyebrow">03 · What we learned building it</div>
-    <h2>What worked, and what did not</h2>
+    <h2>What worked and what did not</h2>
     <p>We took the AINumbers suite from zero §18 coverage to a real proof on every clean kernel. None of it was faked (more on that below). Here is the candid account, so your team can plan around the same problems instead of discovering them.</p>
 
     <div class="lesson">
@@ -459,12 +459,12 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
     </div>
 
     <div class="lesson">
-      <h3>Segment size, not a broken proof</h3>
+      <h3>Segment size rather than a broken proof</h3>
       <p>On a consumer GPU, proving can fail in a way that looks like a broken proof and is not. At the default segment size (<code>segment_limit_po2 = 20</code>), the succinct prove failed on a 10 GB card under sustained load with a segment-verification error. It was not out of memory and not a session limit; the executor ran the full computation fine. Lowering the segment size by one, to 19, produced smaller segments and the error went away. The segment size is a prover parameter, not part of the guest, so lowering it does not change the ImageID or invalidate any existing proof, and it changes the number of segments, not peak memory. If a large job fails to prove on a consumer card, lower the segment size before assuming the receipt is wrong.</p>
     </div>
 
     <div class="lesson">
-      <h3>A large job needs time, not a large GPU</h3>
+      <h3>A large job needs time rather than a large GPU</h3>
       <p>A large computation does not need a large GPU. The prover breaks execution into fixed-size segments, proves each at the same peak memory, then recursively joins them, and the join is cheaper than proving a segment. The most expensive node in the suite ran a Monte Carlo loop of over a billion cycles and proved on the same 10 GB card as everything else, over a longer run. The right question about a heavy job is how much time it needs, not whether it fits in memory.</p>
     </div>
 
@@ -537,7 +537,7 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
     <div class="note"><strong>Stage 4, exercised for real:</strong> when a kernel stayed too expensive even after the chunk ladder, the next lever was a second, native-Rust-compiled guest image built for that kernel specifically, trading the "one universal guest" simplicity for raw speed on that one hot path. The content-identification kernel (<code>art-201</code>) is the case that needed it: its in-guest hashing ran to over a billion cycles under the universal QuickJS guest, and a purpose-built native image brought it to a real proof. It carries a second entry in <code>compute_images[]</code> alongside the universal ImageID, not a replacement for it; <code>verifySeal</code> checks whichever image the artifact declares.</div>
 
     <h3 id="full-coverage">Reaching full coverage: how every deferral fell</h3>
-    <p><strong><!--COUNT:zk.provenPct-->99<!--/COUNT-->% of live deterministic nodes are ZK-proven</strong> (<!--COUNT:zk.provenNodes-->664<!--/COUNT--> of <!--COUNT:zk.provenTotal-->667<!--/COUNT--> live nodes, re-derived from <code>chaingraph.json</code> on every build, never a hardcoded figure). Scope, precisely: "live" means shipped and callable today, not a target; "deterministic node" means a kernel with no clock, randomness, or I/O; "ZK-proven" means a real risc0 groth16-bn254 receipt whose journal is byte-identical to the kernel's own <code>compute()</code> output, independently replayable and verifiable offline by anyone, with development mode off for every one of them.</p>
+    <p><strong><!--COUNT:zk.provenPct-->99<!--/COUNT-->% of live deterministic nodes are ZK-proven</strong> (<!--COUNT:zk.provenNodes-->665<!--/COUNT--> of <!--COUNT:zk.provenTotal-->667<!--/COUNT--> live nodes, re-derived from <code>chaingraph.json</code> on every build, never a hardcoded figure). Scope, precisely: "live" means shipped and callable today, not a target; "deterministic node" means a kernel with no clock, randomness, or I/O; "ZK-proven" means a real risc0 groth16-bn254 receipt whose journal is byte-identical to the kernel's own <code>compute()</code> output, independently replayable and verifiable offline by anyone, with development mode off for every one of them.</p>
     <p>Coverage started partial and candid. Nodes that could not yet be proven carried an explicit <code>compute_proof_ready:"deferred"</code> flag; no placeholder or fake proof ever shipped. A downward-only ratchet gate (<code>check-compute-proof-coverage.mjs</code>) ensured the deferred count could only ever go down, never up, and it now reads zero. Getting there meant working through five distinct failure classes, plus one final holdout: the content-identification kernel whose in-guest hashing interpreted to over a billion cycles was carried to a working proof via a second, native-compiled guest image (see the note below), and a 35,000-segment Monte Carlo node followed the same route. Nothing was proven by relaxing what "proven" means; the holdouts took longer compute, not a lower bar.</p>
 
     <div class="cap">coverage, by class</div>
@@ -641,7 +641,7 @@ deterministic isHttpsUrl, used everywhere   ~ 6.9 x 10^6 cycles   (~800x cheaper
 <section id="s05">
   <div class="wrap">
     <div class="sec-eyebrow">05 · Do it yourself</div>
-    <h2>Verify a proof, or reproduce one</h2>
+    <h2>Verify a proof or reproduce one</h2>
     <h3>Verifying (no toolchain)</h3>
     <p>You need only the artifact, the published ImageID, and the verifier. Take any OCG artifact that carries a <code>compute_proof</code>, look up that tool's ImageID in <code>chaingraph.json</code>, and run the self-contained verifier. It does one pairing check and returns true only for a real proof of that exact output.</p>
     <div class="code">import { verifySeal } from "./kernels/_computeproof.mjs";   // @noble/curves bn254, zero deps
@@ -651,7 +651,7 @@ const ok    = await verifySeal(proof, PUBLISHED_IMAGE_ID);
 //  ok === true        real proof of this exact output
 //  ok === false       tampered output, wrong journal, or wrong image</div>
     <p>To check a proof and its transparency-log record together in one place, open the <a href="receipt-bundle-verify.html">Receipt Bundle Verifier</a>, which runs both halves in the browser and reports each verdict separately.</p>
-    <h3>Proving, or confirming the ImageID (full toolchain)</h3>
+    <h3>Proving or confirming the ImageID (full toolchain)</h3>
     <p>If you want to generate proofs, or independently confirm that the published ImageID matches the published guest source, you run the prover. Rebuild the guest and confirm you get the same ImageID we published, then prove with development mode off.</p>
     <div class="cap">prove it yourself (Linux or WSL, ideally a GPU)</div>
     <pre class="code">curl -L https://risczero.com/install | bash &amp;&amp; rzup install   # Rust + cargo-risczero + r0vm

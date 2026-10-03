@@ -82,7 +82,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem}
 
 <section class="hero"><div class="container">
   <div class="hero-eyebrow">Worked Example</div>
-  <h1 class="doc-title">Two Helms, one cosigned head</h1>
+  <h1 class="doc-title">Two Helms with one cosigned head</h1>
   <p class="audience">For engineers wiring a bilateral relationship between two organizations that each run their own Helm and want portable, offline-checkable evidence that a specific head-commit was seen and signed by a named counterparty, with no shared service and no registry in between.</p>
   <div class="disclaimer"><span class="lead-gold">Scope.</span> This walks the <code>ocg-head-bilateral-cosign@1</code> backing-ladder type defined in <a href="../chaingraph/openchain-graph-spec.html">SPEC.md §HEAD-1.3</a> against the real reference verifier shipped in this repository, <code>chaingraph/kernels/_bilateral-cosign.mjs</code>. Every function name below is the actual exported name. The <code>did:key</code> values and signatures in the walkthrough are illustrative, not real key material; generate your own before using this in production.</div>
   <div class="tool-links">
@@ -93,7 +93,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem}
 
 <article><div class="container">
 
-  <h2>1. What is being cosigned, and by whom</h2>
+  <h2>1. What is being cosigned and by whom</h2>
   <p>Org A runs a Helm. It produces a stream of head-commits: each one a small signed object naming a <code>stream</code>, a <code>seq</code>, and a <code>head_hash</code> over its own content, per SPEC.md §HEAD-1.1. Org B is a counterparty org A already has a relationship with, a partner, a customer, an auditor. Org A wants a specific head-commit to carry evidence that org B has seen it and agrees it is the head org A claims it is, at that point in time.</p>
   <p>That evidence is a <code>ocg-head-bilateral-cosign@1</code> entry in the head's <code>anchor_bindings[]</code> array, one more member of the same backing-ladder list §HEAD-1.3 already defines alongside <code>ocg-head-file@1</code> and <code>ocg-head-tlog@1</code>. Nothing about how org A's Helm stores or serves its own heads changes. The binding is additive, computed after the head's own hash, and never enters the hash preimage.</p>
   <p>Two Helms are involved, and nothing else is. There is no third Helm, no shared server, no lookup a verifier performs at check time beyond the JSON it already has in hand.</p>
@@ -109,7 +109,7 @@ const noteText = buildNoteText('orgA&lt;-&gt;orgB/settlement-stream', anchoredHa
 // noteText is two lines: the origin, then the head_hash. Send exactly this to org B.</code></pre>
   <p>Org A does not sign anything yet. The note is a claim about a specific hash, nothing more, until a counterparty countersigns it.</p>
 
-  <h2>3. Org B's Helm cosigns, independently</h2>
+  <h2>3. Org B's Helm cosigns independently</h2>
   <p>Org B receives the note text, decides for itself whether to cosign it (this is a business decision made entirely on org B's side, off-spec), and if it agrees, signs a cosignature line with its own key using <code>signCosignLine()</code>. Org B never touches org A's Helm, database, or state to do this.</p>
   <pre><code>import { signCosignLine } from './_bilateral-cosign.mjs';
 
@@ -137,7 +137,7 @@ orgAHead.anchor_bindings ??= [];
 orgAHead.anchor_bindings.push(binding);</code></pre>
   <div class="rule-note"><span class="lead-teal">What the binding actually is.</span> A JSON object naming a <code>type</code>, the <code>anchored_hash</code> it covers, the <code>proof</code> text (the note plus every cosignature line collected), and <code>cosigner_keys</code>: the specific counterparty keys org A agreed to be cosigned by for this relationship. There is no shared registry mapping org identity to key; <code>cosigner_keys</code> travels with the binding precisely so a verifier never needs one.</div>
 
-  <h2>5. Anyone verifies, offline</h2>
+  <h2>5. Anyone verifies offline</h2>
   <p>A third party, an auditor, org B checking its own cosignature landed correctly, or org A itself before publishing, calls <code>verifyBilateralCosignBinding()</code> with only the head and its binding. No network call, no live counterparty, no service anywhere in the loop.</p>
   <pre><code>import { verifyBilateralCosignBinding } from './_bilateral-cosign.mjs';
 
@@ -146,7 +146,7 @@ const result = await verifyBilateralCosignBinding(binding, orgAHead);
 //   valid_witness_count: 1, threshold: 1, cosignatures: [...], errors: [] }</code></pre>
   <p>Three things this check actually proves: the note's <code>anchored_hash</code> matches the head's own recomputed <code>head_hash</code> (so the note cannot be reattached to a mutated head), every claimed cosignature line verifies against the specific key named in <code>cosigner_keys</code> (a line signed by an unlisted key is never counted, even if it is a valid signature from somewhere), and the count of valid cosignatures meets the stated threshold. A verifier that has never heard of <code>ocg-head-bilateral-cosign@1</code> simply skips the binding (<code>{ skipped: true }</code>) without failing the rest of the head chain.</p>
 
-  <h2>6. What this evidence is, and is not</h2>
+  <h2>6. What this evidence is and is not</h2>
   <p>A cosigned head-commit is evidence that org B, using its own key, agreed a specific <code>head_hash</code> existed at the time it signed. That is what <code>valid: true</code> means, and it is all it means. Per SPEC.md's own equivocation-corollary text, a cosignature attests: it does not settle a dispute between org A and org B, and it does not pick a winner if org A later publishes a conflicting head at the same stream and sequence.</p>
   <p>If that happens, <code>detectEquivocation()</code> in <code>_head.mjs</code> flags the conflict, unmodified by anything in this profile, and if the SAME counterparty key cosigned both conflicting heads, that is portable evidence a verifier can hand to a third party. Deciding which head is the real one, or what happens next, is a question this profile deliberately refuses to answer; that decision belongs to org A and org B's own business process, never to a piece of software either of them runs.</p>
 

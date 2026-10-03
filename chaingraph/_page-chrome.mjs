@@ -1099,3 +1099,91 @@ export function buildAskAgentBlock({ manifestPath, toolName, description, sample
 </section>
 ${ASK_AGENT_END}`;
 }
+
+/* ==========================================================================
+ * OCG-CHAIN-ASK-AGENT v1 — the "Ask your agent" copyable block on CHAIN pages.
+ * Contract: CONTRACT.md §A3.1 (row CHAIN-PROMPT-INFRA-1). The authored fields
+ * live in chaingraph/chain-prompts/<chain>.json; every other word here is
+ * fixed template text, so a kernel change can never make a prompt false.
+ * Format decisions F1, F3 and F7 of research/chain-prompts-2026-09/PLAN.md:
+ *   F1 one Question line, a merged run-and-read line, a one-line variant, a
+ *      compressed verify line, a bare ledger line, the PII line, the page link;
+ *      budget 110 rendered words (check-chain-prompts.mjs enforces it).
+ *   F3 the chain PII line differs from the node one on purpose: run_chain
+ *      executes these kernels on the server, so "processed locally in your
+ *      browser" is false in this context.
+ *   F7 the variant instruction says to reuse the values the first result
+ *      echoed and never claims the second run reproduces the first hash: the
+ *      pilot's echo control came back answer-faithful and hash-divergent.
+ * Pure: same prompt object, same bytes.
+ * ========================================================================== */
+
+/** End marker of the emitted chain ask-agent region. */
+export const CHAIN_ASK_AGENT_END = '<!-- CHAIN-ASK-AGENT:END -->';
+
+/** Begin marker line for one chain page (prompt-file-pathed for provenance). */
+export function chainAskAgentBeginLine(chain) {
+  return `<!-- CHAIN-ASK-AGENT:BEGIN generator=scripts/gen-chain-ask-agent.mjs prompt=chaingraph/chain-prompts/${chain}.json -->`;
+}
+
+/** The chain PII line (F3). Server-side run, so no browser-local claim. */
+export const CHAIN_ASK_AGENT_PII_SENTENCE = 'send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.';
+
+/** Canonical chain page URL for a chain name. */
+export function chainAskAgentPageUrl(chain) {
+  return `https://ainumbers.co/chaingraph/chains/${chain}.html`;
+}
+
+/**
+ * The copy text of one chain prompt. PURE. Exported on its own because three
+ * surfaces render the SAME words: this file's HTML block, the markdown twin
+ * (scripts/gen-page-md-twins.mjs) and the word-budget leg of the gate.
+ *   prompt.chain        chain name (equals the prompt file's basename, gated)
+ *   prompt.question     the authored decision line, at most 30 words
+ *   prompt.look_at      `<step tool_id>.<path>` into that step's output_payload
+ *   prompt.try_changing optional { step, field, value } or { step, field, value_note }
+ */
+export function buildChainAskAgentCopyText(prompt) {
+  const { chain, question, look_at: lookAt, try_changing: tc } = prompt;
+  const lines = [
+    `Question: ${question}`,
+    `Run the AINumbers MCP tool \`run_chain\` with {"chain":"${chain}"} and read \`${lookAt}\`.`,
+  ];
+  if (tc) {
+    const edit = Object.prototype.hasOwnProperty.call(tc, 'value')
+      ? `\`${tc.field}\` set to ${JSON.stringify(tc.value)}`
+      : `\`${tc.field}\` changed so ${tc.value_note}`;
+    lines.push(`Re-run with \`inputs\` for \`${tc.step}\`, reusing the values that result echoed, with ${edit}. Compare the same field.`);
+  }
+  lines.push(
+    `Verify: call \`verify_execution_hash\` (${ASK_AGENT_MCP_URL}) with \`claimed_hash\` set to \`composite_execution_hash\` and the full \`composite_artifact\`.`,
+    `Ledger, for a human re-check: ${ASK_AGENT_LEDGER_URL}`,
+    `PII rule: ${CHAIN_ASK_AGENT_PII_SENTENCE}`,
+    `Chain page: ${chainAskAgentPageUrl(chain)}`,
+  );
+  return lines.join('\n');
+}
+
+/** Rendered word count of one prompt, the gate's 110-word budget metric. */
+export function chainAskAgentWordCount(prompt) {
+  return buildChainAskAgentCopyText(prompt).split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * Build the ask-your-agent block for one chain page. PURE: same prompt, same
+ * bytes. The visual shape is the node block's, with the chain heading copy.
+ */
+export function buildChainAskAgentBlock(prompt) {
+  const copyText = buildChainAskAgentCopyText(prompt);
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `${chainAskAgentBeginLine(prompt.chain)}
+<section id="chain-ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('chain-ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('chain-ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this whole workflow on the server and check one field that answers a real question.</p>
+  <pre id="chain-ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">${esc(copyText)}</pre>
+</section>
+${CHAIN_ASK_AGENT_END}`;
+}

@@ -2,12 +2,12 @@
 // (cosignVocabHits): scoped, zero-tolerance ban on accept/final/settled on
 // pages that name counter_signed_receipt, and a no-op everywhere else.
 // Run:  node scripts/check-copy-hallmarks.test.mjs
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cosignVocabHits, insiderHits, aiVocabHits, absolutesHits, notXCount, visibleText, panelHits, fragHeadHits } from './check-copy-hallmarks.mjs';
+import { cosignVocabHits, insiderHits, aiVocabHits, absolutesHits, notXCount, visibleText, panelHits, fragHeadHits, pairHeadHits } from './check-copy-hallmarks.mjs';
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.error('  ✗ ' + m); } else console.log('  ✓ ' + m); };
@@ -177,6 +177,67 @@ ok(fragHeadHits('<h2>PD, LGD, EAD to Covenant Compliance</h2>').length === 0, 'F
 ok(fragHeadHits('<h2>Chains cross vendor boundaries; the graph is the product</h2>').length === 0, 'FRAGHEAD does not fire on a semicolon-joined heading');
 ok(fragHeadHits('<h2>Anchors prove time, not truth</h2>').length === 0, 'FRAGHEAD defers ", not X" headings to the notX category');
 ok(fragHeadHits('<h2>Ed25519 key lifecycle: generate, publish, sign, verify, and rotate</h2>').length === 0, 'FRAGHEAD accepts the swept serial-verb heading form');
+
+// --- PAIRHEAD (COPY-HEADCOMMA-GATE-1) ---
+// RED control (SO #34c): the audit's class (b) specimen — this exact heading
+// ships live on guides/collections-compliance-pack.html (and 6 more pages)
+// and the unextended gate waves it through — must fire the detector AND, as
+// a fixture page under a path absent from the baseline, must fail the gate
+// itself (exit 1) with the heading named in the failure output.
+const pairTell = 'Words we use precisely, and words we never use bare';
+const pairTellHits = pairHeadHits(`<h2>${pairTell}</h2>`);
+ok(pairTellHits.length === 1 && pairTellHits[0].includes(pairTell), `PAIRHEAD fires on the balanced-pair heading and names it — got ${JSON.stringify(pairTellHits)}`);
+ok(fragHeadHits(`<h2>${pairTell}</h2>`).length === 0, 'PAIRHEAD is the bucket that catches class (b): fragHead still defers the conjunction form (FROZEN rule untouched)');
+{
+  const fixtureRel = 'pairhead-red-control.tmp.html';
+  const fixtureAbs = resolve(REPO, fixtureRel);
+  writeFileSync(fixtureAbs, '<!doctype html>\n<html><body><h2>Words we use precisely, and words we never use bare</h2><p>Ordinary body copy.</p></body></html>\n');
+  try {
+    const run = spawnSync(process.execPath, ['scripts/check-copy-hallmarks.mjs'], { cwd: REPO, encoding: 'utf8' });
+    const out = `${run.stdout}\n${run.stderr}`;
+    ok(run.status === 1, `RED control: gate exits 1 on a fixture page absent from the baseline — got exit ${run.status}`);
+    ok(out.includes(fixtureRel) && out.includes(pairTell), 'RED control: failure output names the fixture path and the offending heading');
+  } finally {
+    rmSync(fixtureAbs, { force: true });
+  }
+}
+
+// GREEN control (SO #34c): the four protected shapes from the spec must
+// produce zero pairHead hits and a clean gate run on a baseline-absent page —
+//   "Basel IV, FRTB & Model Risk Hub"      (every comma segment a NAME segment)
+//   "x402 Header Decoder, Payload Linter & 402 Flow Simulator" (allowlist case;
+//     the live art-26/tools-277 heading form)
+//   "1,020 receipts checked"               (numeric comma, collapsed upstream)
+//   "Anchors prove time, not truth"        (class (c), owned by the notX cap)
+const pairGreen = [
+  'Basel IV, FRTB & Model Risk Hub',
+  'x402 Header Decoder, Payload Linter & 402 Flow Simulator',
+  '1,020 receipts checked',
+  'Anchors prove time, not truth',
+];
+for (const h of pairGreen) {
+  ok(pairHeadHits(`<h2>${h}</h2>`).length === 0, `PAIRHEAD does not fire on "${h}"`);
+}
+{
+  const fixtureRel = 'pairhead-green-control.tmp.html';
+  const fixtureAbs = resolve(REPO, fixtureRel);
+  const heads = pairGreen.map((h) => `<h2>${h.replace(/&/g, '&amp;')}</h2>`).join('\n');
+  writeFileSync(fixtureAbs, `<!doctype html>\n<html><body>\n${heads}\n<p>Ordinary body copy.</p>\n</body></html>\n`);
+  try {
+    const run = spawnSync(process.execPath, ['scripts/check-copy-hallmarks.mjs'], { cwd: REPO, encoding: 'utf8' });
+    const out = `${run.stdout}\n${run.stderr}`;
+    ok(run.status === 0, `GREEN control: gate exits 0 with all four protected heading shapes on a page absent from the baseline — got exit ${run.status}${run.status === 0 ? '' : ':\n' + `${run.stdout}\n${run.stderr}`.slice(0, 1500)}`);
+    ok(!out.includes('balanced-pair heading'), 'GREEN control: no pairHead hit anywhere in gate output');
+  } finally {
+    rmSync(fixtureAbs, { force: true });
+  }
+}
+// Allowlist bite, detector-level: the measured one-heading need is the comma-
+// and form of the x402 product list; the literal allowlist (x402, zkVM,
+// helmd, in-toto, mcp) keeps it legal while an unknown lowercase-initial
+// product name still fires.
+ok(pairHeadHits('<h2>x402 Header Decoder, and Payload Linter</h2>').length === 0, 'PAIRHEAD allowlist: the comma-and x402 product-list form stays legal (measured one-heading need)');
+ok(pairHeadHits('<h2>widget Header Decoder, and Payload Linter</h2>').length === 1, 'PAIRHEAD: a lowercase-initial name outside the literal allowlist still fires');
 
 if (fail) {
   console.error(`\ncheck-copy-hallmarks.test.mjs: ${fail} FAILURE(s)`);

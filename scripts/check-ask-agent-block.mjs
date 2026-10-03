@@ -26,17 +26,29 @@
  * One copy button, inline clipboard API, no library.
  *
  * Modes:
- *   node scripts/check-ask-agent-block.mjs           (freshness gate; default)
- *   node scripts/check-ask-agent-block.mjs --write   (regenerate blocks)
+ *   node scripts/check-ask-agent-block.mjs           (freshness gate; default —
+ *                                                     ALWAYS whole-tree)
+ *   node scripts/check-ask-agent-block.mjs --write   (regenerate blocks, whole tree)
+ *   node scripts/check-ask-agent-block.mjs --write --only <node id>
+ *       (WRITER-SCOPE-1, row-scoped regeneration: the write pass regenerates
+ *        exactly the named node's page and touches nothing else — the
+ *        sanctioned route for a row-scoped writer run or ask-agent heal,
+ *        replacing the old "git checkout -- every other page" hand-revert
+ *        workaround. --only without --write exits 2 with usage; the CHECK
+ *        pass (no --write) stays whole-tree — the gate semantics do not
+ *        change. Row-scoped recipe:
+ *          node scripts/check-ask-agent-block.mjs --write --only art-699-x402-permit2-evidence-recomposer )
  *   node scripts/check-ask-agent-block.mjs --red-green
  *       (SO #34c proof: the gate is run against the pristine tree (GREEN),
  *        one byte inside one page's emitted region is mutated and the gate is
  *        re-run in-process expecting problems (RED), the page is restored and
  *        the gate is re-run expecting clean (GREEN). Never exits non-zero.)
  *
- * Exit: 0 clean; 1 on any drift, duplication, or coverage regression.
+ * Exit: 0 clean; 1 on any drift, duplication, or coverage regression; 2 on a
+ *       --only usage error.
  */
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gunzipSync } from 'node:zlib';
@@ -49,6 +61,28 @@ const REPO = resolve(HERE, '..');
 
 const WRITE = process.argv.includes('--write');
 const RED_GREEN = process.argv.includes('--red-green');
+// WRITER-SCOPE-1: --only <node id> scopes the WRITE pass to exactly the named
+// node's page. The CHECK pass (no --write) is ALWAYS whole-tree — the gate
+// semantics do not change — so --only without --write is a usage error (exit 2).
+const onlyAt = process.argv.indexOf('--only');
+const ONLY = onlyAt !== -1 ? process.argv[onlyAt + 1] : null;
+
+function usageError(msg) {
+  console.error([
+    'USAGE-ERROR: ' + msg,
+    '',
+    '  node scripts/check-ask-agent-block.mjs                          whole-tree freshness gate',
+    "  node scripts/check-ask-agent-block.mjs --write                  regenerate every page's block",
+    "  node scripts/check-ask-agent-block.mjs --write --only <node id> write exactly the named node's page",
+    '  node scripts/check-ask-agent-block.mjs --red-green | --self-test',
+    '',
+    '--only scopes the WRITE pass only: without --write it exits 2; the CHECK',
+    'pass (no --write) is always whole-tree.',
+  ].join('\n'));
+  process.exit(2);
+}
+if (onlyAt !== -1 && (!ONLY || ONLY.startsWith('--'))) usageError('--only requires a <node id> argument');
+if (ONLY && !WRITE) usageError('--only scopes the WRITE pass; re-run with --write');
 
 function assert(cond, what) {
   if (!cond) fail('self-test assertion failed: ' + what);
@@ -84,12 +118,70 @@ function fail(msg) {
   process.exit(1);
 }
 
+/** WRITER-SCOPE-1 red-then-green proof on a hermetic fixture tree (temp dir,
+ *  never touches the live tree): (red) an unscoped --write repaints 2+ fixture
+ *  pages — one page missing its block (inserted) and one page carrying
+ *  byte-exact block content at the wrong anchor (placement-moved, the measured
+ *  art-701 repaint shape the CHECK pass cannot see); (green) --write --only
+ *  <fixture node> modifies exactly 1 page, leaves the sibling byte-identical,
+ *  and the whole-tree CHECK pass is clean afterwards. */
+async function writerScopeProof() {
+  const root = mkdtempSync(join(tmpdir(), 'ask-agent-writer-scope-'));
+  const idA = 'scope-art-a';
+  const idB = 'scope-art-b';
+  const description = 'Validates the writer-scope fixture. Twice.';
+  const nodes = [
+    { tool_id: idA, status: 'live', mcp_name: 'scope_tool_a', url: `https://ainumbers.co/chaingraph/${idA}.html` },
+    { tool_id: idB, status: 'live', mcp_name: 'scope_tool_b', url: `https://ainumbers.co/chaingraph/${idB}.html` },
+  ];
+  mkdirSync(join(root, 'chaingraph', 'kernels'), { recursive: true });
+  mkdirSync(join(root, 'manifests'), { recursive: true });
+  writeFileSync(join(root, 'chaingraph', 'chaingraph.json'), JSON.stringify({ nodes }, null, 2), 'utf8');
+  for (const n of nodes) {
+    writeFileSync(join(root, 'manifests', `${n.tool_id}.manifest.json`), JSON.stringify({
+      mcp_tool_definition: { name: n.mcp_name, description },
+      example: { policy_parameters: { k: n.tool_id } },
+    }, null, 2), 'utf8');
+    writeFileSync(join(root, 'chaingraph', 'kernels', `${n.tool_id}.kernel.mjs`),
+      `export async function buildArtifact(sample){ if (!sample || sample.k !== ${JSON.stringify(n.tool_id)}) throw new Error('bad sample'); return { execution_hash: 'k'.repeat(64) }; }\n`, 'utf8');
+  }
+  const pageA = '<!doctype html><html><body><h1>scope-a</h1><footer>site footer</footer></body></html>';
+  // Content byte-exact but at the WRONG anchor (before </body> instead of the
+  // footer) — the measured placement-drift shape: an unscoped --write moves it
+  // even though the CHECK pass stays green either way.
+  const blockB = buildAskAgentBlock({
+    manifestPath: `manifests/${idB}.manifest.json`, toolName: 'scope_tool_b',
+    description, sample: { k: idB }, pageUrl: nodes[1].url, webmcpRegistered: false,
+  });
+  const pageB = `<!doctype html><html><body><h1>scope-b</h1><footer>site footer</footer>\n\n${blockB}\n\n</body></html>`;
+  const pageAAbs = join(root, 'chaingraph', `${idA}.html`);
+  const pageBAbs = join(root, 'chaingraph', `${idB}.html`);
+  writeFileSync(pageAAbs, pageA, 'utf8');
+  writeFileSync(pageBAbs, pageB, 'utf8');
+  const red = await writePass(root); // unscoped --write
+  if (red.error || red.problems.length) fail('fixture write pass unexpectedly errored: ' + (red.error || red.problems[0]));
+  const redTouched = [idA, idB].filter((id) => readFileSync(join(root, 'chaingraph', `${id}.html`), 'utf8') !== (id === idA ? pageA : pageB));
+  assert(redTouched.length >= 2, `unscoped --write must repaint 2+ fixture pages, repainted ${redTouched.length}`);
+  console.log(`WRITER-SCOPE RED: unscoped --write on the fixture tree repainted ${redTouched.length} page(s) (${redTouched.join(', ')}) — every drifted sibling, exactly the measured repaint.`);
+  writeFileSync(pageAAbs, pageA, 'utf8'); // restore fixture bytes
+  writeFileSync(pageBAbs, pageB, 'utf8');
+  const green = await writePass(root, idA); // --write --only <fixture node>
+  if (green.error || green.problems.length) fail('scoped write pass unexpectedly errored: ' + (green.error || green.problems[0]));
+  assert(green.written === 1, `--only must write exactly 1 page, wrote ${green.written}`);
+  assert(readFileSync(pageAAbs, 'utf8') !== pageA, '--only did not write the named page');
+  assert(readFileSync(pageBAbs, 'utf8') === pageB, '--only repainted the sibling page — scoping is broken');
+  const after = await collect(root); // whole-tree CHECK pass on the fixture tree
+  assert(after.problems.length === 0, 'whole-tree check red after the scoped write: ' + after.problems[0]);
+  console.log(`WRITER-SCOPE GREEN: --write --only ${idA} wrote exactly ${green.written} page (${green.scopedCount} scoped emittable of ${green.liveCount} live), sibling byte-identical; whole-tree check on the fixture tree afterwards: clean.`);
+  rmSync(root, { recursive: true, force: true });
+}
+
 function loadJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
-function liveNodes() {
-  const cg = loadJson(resolve(REPO, 'chaingraph', 'chaingraph.json'));
+function liveNodes(repoRoot = REPO) {
+  const cg = loadJson(resolve(repoRoot, 'chaingraph', 'chaingraph.json'));
   return (cg.nodes || []).filter((n) => n.status === 'live' && n.tool_id);
 }
 
@@ -196,14 +288,18 @@ function verifyFragment(expected, sample) {
   return JSON.stringify(params) === JSON.stringify(sample) ? null : 'deep link payload does not equal the declared sample';
 }
 
-/** Collect gate results. problems[] non-empty means RED. */
-async function collect() {
-  const live = liveNodes();
+/** Collect gate results. problems[] non-empty means RED. `repoRoot` defaults
+ *  to the live tree; the self-test's writer-scope proof runs it against a
+ *  hermetic fixture tree. `writeMode` forces the WRITE-pass posture (skip the
+ *  region checks — a missing block is what the pass is for); defaults to the
+ *  global WRITE so the CHECK pass semantics are untouched. */
+async function collect(repoRoot = REPO, writeMode = WRITE) {
+  const live = liveNodes(repoRoot);
   const problems = [];
   const excluded = [];
   const adjudicated = [];
   for (const node of live) {
-    const d = await adjudicateNode(node, REPO);
+    const d = await adjudicateNode(node, repoRoot);
     if (d.exclude) { excluded.push(d); continue; }
     if (d.sampleError) { problems.push(`${d.pageRel}: ${d.sampleError}`); continue; }
     if (d.mcpName && d.mcpName !== d.toolName) {
@@ -214,7 +310,7 @@ async function collect() {
     if (fragErr) problems.push(`${d.pageRel}: ${fragErr}`);
     adjudicated.push(d);
   }
-  if (!WRITE) {
+  if (!writeMode) {
     for (const d of adjudicated) {
       const regions = regionsOf(d.pageSrc);
       if (regions.length === 0) { problems.push(`${d.pageRel}: no ask-agent block (coverage regression) — run node scripts/check-ask-agent-block.mjs --write`); continue; }
@@ -232,55 +328,78 @@ function printExcluded(excluded) {
   excluded.forEach((e) => console.log(`  EXCLUDED ${e.id}: ${e.exclude}`));
 }
 
-async function run() {
-  const { live, problems, excluded, adjudicated } = await collect();
-  if (WRITE) {
-    let written = 0;
-    let exact = 0;
-    for (const d of adjudicated) {
-      // Strip any existing region, then re-insert at the preferred anchor, so a
-      // placement-policy change moves existing blocks instead of freezing them.
-      let base = d.pageSrc;
-      for (const r of regionsOf(base).reverse()) {
-        base = base.slice(0, r.start) + base.slice(r.end);
-      }
-      let next;
-      // Visible block: insert BEFORE the first <footer> that is NOT inside a
-      // <script> span (reader-facing content belongs above the footer). Some
-      // pages build their whole body inside a template literal in a script
-      // that itself contains '<footer>' (measured: art-139/140/142/143) —
-      // injecting there breaks page parsing. Fallback: before the LAST
-      // </body> (never a first-match replace — several pages embed the
-      // literal '</body>' inside script strings, measured: art-373 etc.).
-      const scriptSpans = [];
-      {
-        const re = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
-        let m;
-        while ((m = re.exec(base)) !== null) scriptSpans.push([m.index, m.index + m[0].length]);
-      }
-      const inScript = (i) => scriptSpans.some(([a, b]) => i >= a && i < b);
-      let close = -1;
-      let f = base.indexOf('<footer>');
-      while (f !== -1) {
-        if (!inScript(f)) { close = f; break; }
-        f = base.indexOf('<footer>', f + 1);
-      }
-      if (close === -1) close = base.lastIndexOf('</body>');
-      if (close === -1) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert before`); continue; }
-      const head = base.slice(0, close).replace(/\s+$/, '');
-      next = head + '\n\n' + d.expected + '\n\n' + base.slice(close);
-      if (next !== d.pageSrc) { writeFileSync(d.pageAbs, next, 'utf8'); written++; }
-      else exact++;
+/** The WRITE pass: regenerate blocks. With `onlyId` set (the --only flag) the
+ *  pass regenerates exactly the named node's page and touches nothing else —
+ *  the sanctioned row-scoped route (WRITER-SCOPE-1), replacing the old
+ *  "git checkout -- every other page" hand-revert workaround. Returns the
+ *  counters plus `.error` for scoped-selection failures. */
+async function writePass(repoRoot, onlyId = null) {
+  const { live, problems, excluded, adjudicated } = await collect(repoRoot, true);
+  let scoped = adjudicated;
+  if (onlyId) {
+    if (!live.some((n) => n.tool_id === onlyId)) {
+      return { error: `--only ${onlyId}: not a live node id in chaingraph.json`, problems, excluded };
     }
-    if (problems.length) {
+    scoped = adjudicated.filter((d) => d.id === onlyId);
+    if (scoped.length === 0) {
+      const why = excluded.find((e) => e.id === onlyId);
+      return { error: `--only ${onlyId}: no emittable ask-agent block today${why ? ' — ' + why.exclude : ''}`, problems, excluded };
+    }
+  }
+  let written = 0;
+  let exact = 0;
+  for (const d of scoped) {
+    // Strip any existing region, then re-insert at the preferred anchor, so a
+    // placement-policy change moves existing blocks instead of freezing them.
+    let base = d.pageSrc;
+    for (const r of regionsOf(base).reverse()) {
+      base = base.slice(0, r.start) + base.slice(r.end);
+    }
+    let next;
+    // Visible block: insert BEFORE the first <footer> that is NOT inside a
+    // <script> span (reader-facing content belongs above the footer). Some
+    // pages build their whole body inside a template literal in a script
+    // that itself contains '<footer>' (measured: art-139/140/142/143) —
+    // injecting there breaks page parsing. Fallback: before the LAST
+    // </body> (never a first-match replace — several pages embed the
+    // literal '</body>' inside script strings, measured: art-373 etc.).
+    const scriptSpans = [];
+    {
+      const re = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
+      let m;
+      while ((m = re.exec(base)) !== null) scriptSpans.push([m.index, m.index + m[0].length]);
+    }
+    const inScript = (i) => scriptSpans.some(([a, b]) => i >= a && i < b);
+    let close = -1;
+    let f = base.indexOf('<footer>');
+    while (f !== -1) {
+      if (!inScript(f)) { close = f; break; }
+      f = base.indexOf('<footer>', f + 1);
+    }
+    if (close === -1) close = base.lastIndexOf('</body>');
+    if (close === -1) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert before`); continue; }
+    const head = base.slice(0, close).replace(/\s+$/, '');
+    next = head + '\n\n' + d.expected + '\n\n' + base.slice(close);
+    if (next !== d.pageSrc) { writeFileSync(d.pageAbs, next, 'utf8'); written++; }
+    else exact++;
+  }
+  return { written, exact, scoped, scopedCount: scoped.length, onlyId, liveCount: live.length, excludedCount: excluded.length, excluded, problems };
+}
+
+async function run() {
+  if (WRITE) {
+    const r = await writePass(REPO, ONLY);
+    if (r.error) fail(r.error);
+    if (r.problems.length) {
       console.error('✗ write pass hit problems:');
-      problems.forEach((p) => console.error('    ' + p));
+      r.problems.forEach((p) => console.error('    ' + p));
       process.exit(1);
     }
-    console.log(`✓ ${written} page(s) written, ${exact} already byte-exact; ${adjudicated.length} emittable of ${live.length} live node(s), ${excluded.length} excluded with reasons (shrinks as manifest/page rows land):`);
-    printExcluded(excluded);
+    console.log(`✓ ${r.written} page(s) written, ${r.exact} already byte-exact; ${r.scopedCount} emittable of ${r.liveCount} live node(s)${r.onlyId ? ` (--only ${r.onlyId} scoped)` : ''}, ${r.excludedCount} excluded with reasons (shrinks as manifest/page rows land):`);
+    printExcluded(r.excluded);
     return;
   }
+  const { live, problems, excluded, adjudicated } = await collect();
   if (problems.length) {
     console.error(`✗ ask-agent block freshness FAILED (${problems.length}):`);
     problems.forEach((p) => console.error('    ' + p));
@@ -323,7 +442,8 @@ if (RED_GREEN) {
   assert(gpuBlock.includes('Policy Mandate artifact'), 'gpu block names the page-produced artifact to verify');
   assert(!gpuBlock.includes('with the parameter `claimed_hash`'), 'gpu block never promises a server-side hash');
   await redGreen();
-  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, gpu sentence, sample execution, mutation red-green).');
+  await writerScopeProof();
+  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, gpu sentence, sample execution, mutation red-green, writer --only scoping red-then-green).');
 } else {
   await run();
 }

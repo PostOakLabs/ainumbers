@@ -21,3 +21,13 @@ Domain: Digital-Asset Rails
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: A payer sent me a Permit2 authorization for an x402 charge. Did the key I think owns that wallet actually sign these exact terms?
+Run the AINumbers MCP tool `run_chain` with {"chain":"x402-permit2-spend-evidence"} and read `art-591-x402-signer-recovery-verifier.recovered_signer_matches_claimed_from`.
+Re-run with `inputs` for `art-591-x402-signer-recovery-verifier`, reusing the values that result echoed, with `claimedFrom` changed so any other twenty byte address, which breaks the claimed payer match. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/x402-permit2-spend-evidence.html

@@ -94,6 +94,7 @@ import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { nodeFooterPages } from './gen-node-footers.mjs';
+import { chainAskAgentPages } from './gen-chain-ask-agent.mjs';
 import { WRITES_REPORT_PATH } from './gen-manifest-examples.mjs';
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -167,6 +168,33 @@ export const COVERED = [
     writes: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     share: '8%',
+  },
+  {
+    // CHAIN-PROMPT-INFRA-1 (Tim 2026-09-27, "every new chain ships a genuinely
+    // useful example prompt"): the ask-your-agent region of every chain page that
+    // has an authored prompt at chaingraph/chain-prompts/<chain>.json, rendered
+    // from chaingraph/_page-chrome.mjs buildChainAskAgentBlock() by the ONE
+    // main-side writer scripts/gen-chain-ask-agent.mjs. A row commits the JSON
+    // only; the page region lands in main's regen pass, so two branches can add
+    // prompts for different chains without ever touching the same page bytes.
+    // Scope = the prompt directory intersected with chaingraph/chains/<chain>.html,
+    // minus the protected hand-built agentic-policy runner. A chain whose page is
+    // a node page renders nothing by design (decision F4) and shows up in
+    // `--skips`. The page list is computed from those two directories and never
+    // from chaingraph.json, so importing this entry cannot make a malformed graph
+    // crash the assembler. Writes happen on a runtime path, so `writes` is
+    // declared explicitly. Idempotent: a second pass is byte-identical
+    // (gen-chain-ask-agent --selftest proves it).
+    // Ordered after 'chaingraph-assemble' because the prompts are validated
+    // against the assembled graph by scripts/check-chain-prompts.mjs, which
+    // preflight runs in the same pass.
+    id: 'chain-ask-agent',
+    regen: 'node scripts/gen-chain-ask-agent.mjs',
+    gate: 'node scripts/gen-chain-ask-agent.mjs --check',
+    writes: chainAskAgentPages(),
+    artifacts: chainAskAgentPages(),
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-09-27, CHAIN-PROMPT-INFRA-1)',
   },
   {
     // FOOTER-INFRA-COLUMN-1 (Tim 2026-09-27, footer plan v2 decision D1(b)): the
