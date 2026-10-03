@@ -6,6 +6,52 @@ Recomputes the Permit2 typed-data digest a payer's wallet signs for an x402 paym
 - Markdown twin: https://ainumbers.co/chaingraph/art-699-x402-permit2-evidence-recomputer.md
 - MCP tool: recompute_x402_permit2_digest (endpoint https://mcp.ainumbers.co/mcp)
 
+## Inputs
+
+- chainId (any, required): type not evidenced by kernel source
+- deadline (any, required): type not evidenced by kernel source
+- details (any, required): type not evidenced by kernel source
+- domain (any, required): type not evidenced by kernel source
+- eip2612GasSponsoring (any, required): type not evidenced by kernel source
+- from (any, required): type not evidenced by kernel source
+- nonce (any, required): type not evidenced by kernel source
+- nonce_already_used (any, required): type not evidenced by kernel source
+- now_unix (any, required): type not evidenced by kernel source
+- permitted (any, required): type not evidenced by kernel source
+- requirement (any, required): type not evidenced by kernel source
+- sigDeadline (any, required): type not evidenced by kernel source
+- signature (any, required): type not evidenced by kernel source
+- spender (any, required): type not evidenced by kernel source
+- variant (any, required): type not evidenced by kernel source
+- verifyingContract (any, required): type not evidenced by kernel source
+- version (any, required): type not evidenced by kernel source
+- witness (any, required): type not evidenced by kernel source
+
+## Outputs
+
+- allowance_expiry (null,object, required)
+- digest (string,null, required)
+- domain (object, required)
+- domain_separator (string,null, required)
+- domain_typehash (string, required)
+- errors (array, required)
+- handoff_591 (object,null, required)
+- handoff_612 (null,object, required)
+- message (object,null, required)
+- nonce_facts (object,null, required)
+- reasons (array, required)
+- scope_note (string, required)
+- signature_form (object, required)
+- sponsored_approval (null,object, required)
+- struct_hash (string,null, required)
+- type_string (string,null, required)
+- typehash (string,null, required)
+- variant (string,null, required)
+- verdict (string, required)
+- warnings (array, required)
+- window (object,null, required)
+- x402_binding (object,null, required)
+
 ## Sample
 
 ```json
