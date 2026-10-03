@@ -466,7 +466,8 @@ function checkSponsoredApprovalLeg() {
 
   const empty = compute({ ...base, eip2612GasSponsoring: {} });
   checked++;
-  if (empty.output_payload.sponsored_approval.errors.length !== 7) violations++;
+  if (empty.output_payload.sponsored_approval.errors.length !== 8) violations++;
+  if (!hasStr(empty.output_payload.sponsored_approval.errors, 'eip2612GasSponsoring.version must be supplied')) violations++;
   if (!hasStr(empty.output_payload.sponsored_approval.errors, 'eip2612GasSponsoring.from must be a 20-byte hex address')) violations++;
   if (!hasStr(empty.output_payload.sponsored_approval.errors, 'eip2612GasSponsoring.amount must be a non-negative uint256')) violations++;
   if (!hasStr(empty.output_payload.sponsored_approval.errors, 'eip2612GasSponsoring.deadline must be a non-negative uint256')) violations++;
