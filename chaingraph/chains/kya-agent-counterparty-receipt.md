@@ -27,3 +27,13 @@ Domain: AI & Agent Governance
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: An agent is asking for checkout rights. Does its credential carry a revocation status at all, and is it revoked?
+Run the AINumbers MCP tool `run_chain` with {"chain":"kya-agent-counterparty-receipt"} and read `art-287-revocation-status-verifier.status`.
+Re-run with `inputs` for `art-287-revocation-status-verifier`, reusing the values that result echoed, with `credential_status` changed so it points at index 5 of the supplied status list. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/kya-agent-counterparty-receipt.html

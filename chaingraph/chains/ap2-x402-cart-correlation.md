@@ -21,3 +21,13 @@ Domain: Agent Economy
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: A settlement payload arrived with the cart mandate attached. Do the authorized amount and the payee line up with what the cart says?
+Run the AINumbers MCP tool `run_chain` with {"chain":"ap2-x402-cart-correlation"} and read `art-596-ap2-x402-cart-correlation.correlation_status`.
+Re-run with `inputs` for `art-596-ap2-x402-cart-correlation`, reusing the values that result echoed, with `merchant` set to "0x9999000000000000000000000000000000000001". Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/ap2-x402-cart-correlation.html

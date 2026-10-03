@@ -23,3 +23,13 @@ Domain: Insurance & Reinsurance
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Is this direct participation contract eligible for the simplified PAA model, or must we set up a full GMM CSM rollforward?
+Run the AINumbers MCP tool `run_chain` with {"chain":"ifrs17-measurement-conformance"} and read `art-177-ifrs17-measurement-model-classifier.measurement_model`.
+Re-run with `inputs` for `art-177-ifrs17-measurement-model-classifier`, reusing the values that result echoed, with `contract` changed so direct_participating_features is true in the contract. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/ifrs17-measurement-conformance.html

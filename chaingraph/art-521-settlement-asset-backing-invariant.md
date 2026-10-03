@@ -138,3 +138,13 @@ Domain: Public Finance & Government Payments
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Before this disbursement run is certified, does any user hold both the entry right and the approval right?
+Run the AINumbers MCP tool `run_chain` with {"chain":"government-payment-lifecycle"} and read `art-459-sod-matrix-check.clean`.
+Re-run with `inputs` for `art-459-sod-matrix-check`, reusing the values that result echoed, with `assignments` changed so user u1 holds AP_ENTRY and AP_APPROVE. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/government-payment-lifecycle.html

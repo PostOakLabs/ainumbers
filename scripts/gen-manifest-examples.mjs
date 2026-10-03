@@ -77,6 +77,15 @@
  * pending_ids (the newly-missing class) is still written: --check counts that as real drift.
  * The batch flow stays bare --write (batch PRs own the frontier via --limit + --update-baseline).
  *
+ * PENDING-ASSEMBLE-KEYS-CARVEOUT-1 (2026-10-02): the ceiling counts ASSEMBLED-node pending
+ * only. A pending manifest whose node is absent from the COMMITTED chaingraph.json graph is a
+ * PENDING-ASSEMBLE shard — in-PR re-derivation is impossible (this writer reads the committed
+ * graph; REGEN-MANIFEST-ATTEST-1: "the generator cannot see a PENDING-ASSEMBLE shard") and the
+ * keys are bot-owned main-side post-merge, so such pending is reported on its own line and
+ * never blocks, never enters pending_count, never enters the baseline. It is a read-side
+ * classification, not a ceiling raise: assembled-node pending still reds at ceiling 0 (#2179),
+ * and a carried-but-drifted key reds as drift regardless of class.
+ *
  * ⛔ Fence: manifests' additive keys + this file + its preflight wiring. Zero kernel bytes,
  *   chaingraph.json is READ and never written, no page edits, no derived artifacts (SO #35).
  */
@@ -293,7 +302,10 @@ export function walk(repoRoot = REPO) {
     }
     const node = ctx.nodes.get(m.tool_id) || ctx.nodes.get(fileId) || null;
     const plan = planManifest(fileId, m, { ...io, node });
-    rows.push({ file: f, fileId, manifest: m, plan });
+    // nodeInGraph is the PENDING-ASSEMBLE-KEYS-CARVEOUT-1 classifier: was this manifest's
+    // node found in the COMMITTED chaingraph.json? Absent => the manifest is a
+    // PENDING-ASSEMBLE shard whose keys are bot-owned main-side post-merge.
+    rows.push({ file: f, fileId, manifest: m, plan, nodeInGraph: node !== null });
   }
   return rows;
 }
@@ -319,9 +331,20 @@ function census(rows) {
 }
 
 // ── --check ──────────────────────────────────────────────────────────────────
+// PENDING-ASSEMBLE-KEYS-CARVEOUT-1: `pending` splits by nodeInGraph. A pending manifest
+// whose node is absent from the committed chaingraph.json graph is a PENDING-ASSEMBLE
+// shard — in-PR re-derivation is measured-impossible (the writer reads the committed
+// chaingraph.json; "the generator cannot see a PENDING-ASSEMBLE shard",
+// REGEN-MANIFEST-ATTEST-1) and the keys are bot-owned main-side post-merge, so it is
+// returned apart as `pendingAssembly`: never counted against the ceiling, never pinned
+// into the baseline, never a `newPending` red. Assembled-node pending keeps the exact
+// pre-carve-out treatment — the ceiling stays 0 (the #2179 tightening is untouched) —
+// and a PENDING-ASSEMBLE manifest that CARRIES a generated key still drifts like any
+// other: the carve-out classifies absence, it never excuses wrongness.
 export function checkCorpus(rows, baseline) {
   const drift = [];
-  const pending = [];
+  const pending = [];          // assembled-node pending — the ratchet's input
+  const pendingAssembly = [];  // node absent from committed chaingraph.json — reported, never blocks
   for (const r of rows) {
     if (r.error) { drift.push(`${r.file}: ${r.error}`); continue; }
     const { manifest, plan } = r;
@@ -344,10 +367,10 @@ export function checkCorpus(rows, baseline) {
     if (isOwnedSchema(manifest.output_schema) && plan.outputSchema && !deepEqual(manifest.output_schema, plan.outputSchema)) {
       drift.push(`${r.file}: derived output_schema drifted from a fresh fixture derivation`);
     }
-    if (plan.changed) pending.push(r.fileId);
+    if (plan.changed) (r.nodeInGraph === false ? pendingAssembly : pending).push(r.fileId);
   }
   const newPending = pending.filter((id) => !baseline.pending_ids.includes(id));
-  return { drift, pending, newPending };
+  return { drift, pending, newPending, pendingAssembly };
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
@@ -378,7 +401,12 @@ function main() {
 
   if (args.includes('--update-baseline')) {
     const prev = readBaselineForUpdate(BASELINE_PATH, BASELINE_REQUIRED_KEYS, { label: 'manifest-examples-baseline', repinCommand: REPIN_COMMAND });
-    const pending = rows.filter((r) => r.plan?.changed).map((r) => r.fileId).sort();
+    // PENDING-ASSEMBLE-KEYS-CARVEOUT-1: absent-node pending never enters the baseline —
+    // pinning it would both raise the ceiling and pin an id whose keys land bot-side
+    // post-merge (--landed-only must stay free to write it after assembly).
+    const changed = rows.filter((r) => r.plan?.changed);
+    const pending = changed.filter((r) => r.nodeInGraph !== false).map((r) => r.fileId).sort();
+    const pendingAssembly = changed.filter((r) => r.nodeInGraph === false).map((r) => r.fileId).sort();
     if (prev && pending.length > prev.pending_count) {
       console.error(`✗ refusing to raise the manifest-examples baseline: pending ${prev.pending_count} → ${pending.length}. The ratchet only goes down.`);
       process.exit(1);
@@ -389,6 +417,9 @@ function main() {
       pending_ids: pending,
     }, null, 2) + '\n');
     console.log(`✓ manifest-examples baseline updated — ${pending.length} manifest(s) still pending.`);
+    if (pendingAssembly.length) {
+      console.log(`ℹ ${pendingAssembly.length} pending-assembly, bot-owned post-merge: ${pendingAssembly.join(', ')} — excluded from the baseline (PENDING-ASSEMBLE-KEYS-CARVEOUT-1).`);
+    }
     return;
   }
 
@@ -396,7 +427,7 @@ function main() {
     const baseline = loadRatchetBaselineOrExit(BASELINE_PATH, BASELINE_REQUIRED_KEYS, {
       label: 'manifest-examples-baseline', repinCommand: REPIN_COMMAND,
     });
-    const { drift, pending, newPending } = checkCorpus(rows, baseline);
+    const { drift, pending, newPending, pendingAssembly } = checkCorpus(rows, baseline);
     const lines = [];
     if (drift.length) {
       lines.push(`✗ ${drift.length} generated-key drift(s):`);
@@ -409,12 +440,20 @@ function main() {
     if (newPending.length) {
       lines.push(`✗ ${newPending.length} manifest(s) newly missing the generated keys (not in the baseline): ${newPending.slice(0, 15).join(', ')}${newPending.length > 15 ? ', …' : ''}`);
     }
+    // PENDING-ASSEMBLE-KEYS-CARVEOUT-1: the report line is UNCONDITIONAL — red or green,
+    // a builder reading this leg's output must see why a PENDING-ASSEMBLE manifest is not
+    // counted against the ceiling. It is never part of `lines`, so it never blocks.
+    const paLine = pendingAssembly.length
+      ? `ℹ ${pendingAssembly.length} pending-assembly, bot-owned post-merge: ${pendingAssembly.slice(0, 15).join(', ')}${pendingAssembly.length > 15 ? `, … +${pendingAssembly.length - 15} more` : ''}`
+      : null;
     if (lines.length) {
+      if (paLine) console.error(paLine);
       console.error(lines.join('\n'));
       console.error(`\nRun: node scripts/gen-manifest-examples.mjs --write --limit 125   (then ${REPIN_COMMAND})`);
       process.exit(1);
     }
     const c = census(rows);
+    if (paLine) console.log(paLine);
     console.log(`✓ manifest examples/annotations clean — ${c.manifests} manifests, ${c.withExamples} carry fixture-backed input/output examples + example_execution_hash, ${c.withoutExamples} have no fixture (absent, not invented), ${c.withAnnotations} carry MCP annotations, ${pending.length} pending (ceiling ${baseline.pending_count}), 0 drift.`);
     return;
   }
@@ -540,6 +579,40 @@ function selfTest() {
   ok('GREEN: clean corpus has no drift', dClean.drift.length === 0, JSON.stringify(dClean.drift));
   ok('GREEN: clean corpus has no pending', dClean.pending.length === 0);
 
+  // PENDING-ASSEMBLE-KEYS-CARVEOUT-1 — the pending partition. A pending manifest whose node
+  // is ABSENT from the committed chaingraph.json graph cannot be re-derived in-PR ("the
+  // generator cannot see a PENDING-ASSEMBLE shard", REGEN-MANIFEST-ATTEST-1): the writer
+  // reads the committed chaingraph.json, so the keys are bot-owned main-side post-merge
+  // (art-701 / #2184 class). Such pending is carved out of the pending_count ceiling and
+  // reported on its own line — it never blocks. The control proves the carve-out cannot
+  // mask a real regression: an ASSEMBLED node's pending at ceiling 0 stays hard RED (#2179).
+  const pendAsmManifest = { ...base(), tool_id: 'art-pending-assembly' };
+  const pendAsmRow = [{
+    file: 'art-pending-assembly.manifest.json', fileId: 'art-pending-assembly',
+    manifest: pendAsmManifest,
+    plan: planManifest('art-pending-assembly', pendAsmManifest, { ...io, node: null }),
+    nodeInGraph: false,
+  }];
+  const dPendAsm = checkCorpus(pendAsmRow, { pending_count: 0, pending_ids: [] });
+  ok('pending-assembly: absent-node pending never enters the ceiling',
+    dPendAsm.pending.length === 0 && dPendAsm.pendingAssembly.length === 1 && dPendAsm.newPending.length === 0,
+    JSON.stringify({ pending: dPendAsm.pending, pendingAssembly: dPendAsm.pendingAssembly, newPending: dPendAsm.newPending }));
+
+  const asmPendManifest = base();
+  const asmPendRow = [{
+    file: 'art-test.manifest.json', fileId: 'art-test',
+    manifest: asmPendManifest,
+    plan: planManifest('art-test', asmPendManifest, io),
+    nodeInGraph: true,
+  }];
+  const dAsmPend = checkCorpus(asmPendRow, { pending_count: 0, pending_ids: [] });
+  ok('RED control: assembled-node pending stays in the ratchet (ceiling 0 reds)',
+    dAsmPend.pending.length === 1,
+    JSON.stringify({ pending: dAsmPend.pending, pendingAssembly: dAsmPend.pendingAssembly }));
+  ok('assembled node is never classified pending-assembly',
+    (dAsmPend.pendingAssembly || []).length === 0,
+    JSON.stringify(dAsmPend.pendingAssembly));
+
   // Annotation derivation, every branch.
   ok('gpu:true does not qualify', annotationVerdict('t', { status: 'live', gpu: true }, () => true).qualifies === false);
   ok('non-live does not qualify', annotationVerdict('t', { status: 'draft', gpu: false }, () => true).qualifies === false);
@@ -579,7 +652,7 @@ function selfTest() {
     failures.forEach((f) => console.error('  • ' + f));
     process.exit(1);
   }
-  console.log(`✓ gen-manifest-examples self-test clean — ${controls} controls (fixture-copy, hash pin, idempotence, annotation branches, hand-schema immunity, landed-only write selection) incl. 5 RED mutation controls.`);
+  console.log(`✓ gen-manifest-examples self-test clean — ${controls} controls (fixture-copy, hash pin, idempotence, annotation branches, hand-schema immunity, landed-only write selection, pending-assembly carve-out + assembled-node control) incl. 5 RED mutation controls.`);
 }
 
 if (process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('gen-manifest-examples.mjs')) main();

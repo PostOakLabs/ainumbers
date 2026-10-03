@@ -23,3 +23,13 @@ Domain: Document & Content Provenance
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Legal sent a markdown memo for publication as HTML. How many words does the conversion count, and does any later edit change the digest?
+Run the AINumbers MCP tool `run_chain` with {"chain":"document-conversion-verification"} and read `art-189-markdown-document-converter.stats.words`.
+Re-run with `inputs` for `art-189-markdown-document-converter`, reusing the values that result echoed, with `markdown` set to "# Memo\n\nOne short paragraph.". Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/document-conversion-verification.html

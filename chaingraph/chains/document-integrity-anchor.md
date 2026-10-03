@@ -21,3 +21,12 @@ Domain: Document & Content Provenance
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: We notarise the executed agreement hash before filing. Is the document anchor in place, and what timestamp does the claim carry?
+Run the AINumbers MCP tool `run_chain` with {"chain":"document-integrity-anchor"} and read `art-121-document-integrity-anchor.anchored`.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/document-integrity-anchor.html

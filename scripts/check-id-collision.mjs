@@ -130,6 +130,24 @@ export function checkId({ id, kind, path, mainPaths, reservations, openPrs, prNu
   return refusals
 }
 
+/**
+ * Pure core for one NEW changed file (absent from origin/main; the caller
+ * precomputes that with `git cat-file -e` and only NEW files reach here).
+ * Also driven by --self-test (ID-COLLISION-BACKFILL-1).
+ *
+ * BACKFILL, not a mint: a NEW file whose id already owns another surface on
+ * main (its node shard, page or tool page, per mainPaths) completes an existing
+ * id — e.g. the manifest a node landed without (CONTRACT §2.7). It is counted
+ * and NOT refused; legs (a)/(b)/(c) are not consulted. A NEW file for an id
+ * with NO surface on main stays a mint and goes through checkId exactly as
+ * before.
+ */
+export function checkNewPath({ id, path, mainPaths, reservations, openPrs, prNumber }) {
+  if ((mainPaths?.get(id) ?? []).length > 0) return { backfill: true, refusals: [] }
+  const kind = NODE_RE.test(path) ? 'node' : MANIFEST_RE.test(path) ? 'manifest' : 'tool'
+  return { backfill: false, refusals: checkId({ id, kind, path, mainPaths, reservations, openPrs, prNumber }) }
+}
+
 /** Which open PRs claim `id` (exact token match, not substring). null = leg unavailable. */
 function openPrsClaiming(id) {
   const tokenRe = new RegExp(`\\b${id}\\b`)
@@ -209,6 +227,24 @@ export function selfTest() {
   expectGreen('GREEN modification of own main shard',
     checkId({ id: 'art-687', kind: 'node', path: 'chaingraph/graph/nodes/art-687-wash-sale-window-guard.json', mainPaths, reservations, openPrs: [], prNumber: 1758 }))
 
+  // BACKFILL vs MINT (ID-COLLISION-BACKFILL-1): a manifest ADDED for an id whose
+  // node shard is already on main (the #2133/#2197 shape: the node landed
+  // without its manifest) is a backfill of an existing id — OK, counted — not a
+  // mint refused as "minting a used id" (the REFUSAL that parked #2197).
+  const bf = checkNewPath({ id: 'art-686', path: 'manifests/art-686-ltc-funding-comparator.manifest.json',
+    mainPaths, reservations, openPrs: [], prNumber: 2197 })
+  results.push({ name: 'GREEN backfill: manifest added for an id whose node shard is on main',
+    ok: bf.backfill === true && bf.refusals.length === 0,
+    quote: bf.refusals[0] || 'GREEN: backfill of existing id art-686, no refusal' })
+
+  // The mint path is unchanged: a manifest ADDED for an id with NO surface on
+  // main and a reservation held by ANOTHER PR is still a mint — refused (b).
+  const mint = checkNewPath({ id: 'art-688', path: 'manifests/art-688-harvest-guard.manifest.json',
+    mainPaths, reservations, openPrs: null, prNumber: 1762 })
+  results.push({ name: 'RED(b) manifest mint: no surface on main, foreign reservation',
+    ok: mint.backfill === false && mint.refusals.some(r => r.includes('REFUSAL(b)')),
+    quote: mint.refusals.find(r => r.includes('REFUSAL(b)')) || '(no refusal — UNEXPECTED GREEN)' })
+
   let failed = 0
   for (const r of results) {
     console.error(`  ${r.ok ? 'ok' : 'FAIL'} — ${r.name}`)
@@ -248,7 +284,10 @@ function runDiff() {
   const needIds = new Set()
   for (const p of changed) {
     const m = NODE_RE.exec(p) || MANIFEST_RE.exec(p) || TOOL_RE.exec(p)
-    if (m && !gitOk(['cat-file', '-e', `origin/main:${p}`])) needIds.add(`art-${m[1]}`)
+    if (!m || gitOk(['cat-file', '-e', `origin/main:${p}`])) continue
+    const id = `art-${m[1]}`
+    if ((mainPaths.get(id) ?? []).length > 0) continue // backfill of an existing id — leg (c) scans newly minted ids only
+    needIds.add(id)
   }
   const openByid = new Map()
   let ghSkipped = false
@@ -270,15 +309,17 @@ function runDiff() {
   }
 
   const refusals = []
+  let backfills = 0
   for (const p of changed) {
     const m = NODE_RE.exec(p) || MANIFEST_RE.exec(p) || TOOL_RE.exec(p)
     if (!m) continue
     const isNew = !gitOk(['cat-file', '-e', `origin/main:${p}`])
     if (!isNew) continue // modification of an existing main file: not a mint
     const id = `art-${m[1]}`
-    const kind = NODE_RE.test(p) ? 'node' : MANIFEST_RE.test(p) ? 'manifest' : 'tool'
-    refusals.push(...checkId({ id, kind, path: p, mainPaths, reservations,
-      openPrs: openByid.get(id) ?? (MERGE_GROUP ? null : (ghSkipped ? null : [])), prNumber }))
+    const out = checkNewPath({ id, path: p, mainPaths, reservations,
+      openPrs: openByid.get(id) ?? (MERGE_GROUP ? null : (ghSkipped ? null : [])), prNumber })
+    if (out.backfill) backfills++ // backfill of an existing id: not a mint, no refusal
+    refusals.push(...out.refusals)
   }
 
   if (ghSkipped && needIds.size > 0) {
@@ -292,7 +333,7 @@ function runDiff() {
     process.exit(1)
   }
   console.error(`check-id-collision: OK — ${changed.length} node/manifest/tool file(s) in diff, ` +
-    `${needIds.size} newly minted id(s), no collision` +
+    `${needIds.size} newly minted id(s), ${backfills} backfill(s) of existing id(s), no collision` +
     (MERGE_GROUP ? ' (merge_group: leg (c) skipped, serial queue)' : ''))
 }
 

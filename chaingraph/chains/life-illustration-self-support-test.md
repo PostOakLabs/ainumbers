@@ -21,3 +21,13 @@ Domain: Insurance & Reinsurance
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Before the illustration goes to the applicant, does the policy stay self-supporting through year 20?
+Run the AINumbers MCP tool `run_chain` with {"chain":"life-illustration-self-support-test"} and read `art-253-run-illustration-selfsupport-test.self_support_pass`.
+Re-run with `inputs` for `art-253-run-illustration-selfsupport-test`, reusing the values that result echoed, with `account_values` changed so the year-20 account value is below zero. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/life-illustration-self-support-test.html
