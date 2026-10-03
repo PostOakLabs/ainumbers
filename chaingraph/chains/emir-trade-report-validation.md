@@ -23,3 +23,12 @@ Domain: EMIR
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Our EMIR report keeps bouncing at the trade repository. Does the UPI itself clear ISO 4914 format rules before we escalate to the counterparty?
+Run the AINumbers MCP tool `run_chain` with {"chain":"emir-trade-report-validation"} and read `art-155-emir-upi-validator.upi_valid`.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/emir-trade-report-validation.html

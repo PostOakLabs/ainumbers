@@ -23,3 +23,13 @@ Domain: Digital Trade
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: We tokenise the bill of lading so title moves on a DLT rail. Which regulatory regimes pick up that asset, and where does the corridor grade stand?
+Run the AINumbers MCP tool `run_chain` with {"chain":"digital-trade-ebl-enforceability"} and read `510-digital-asset-regulatory-classifier.classification_results`.
+Re-run with `inputs` for `510-digital-asset-regulatory-classifier`, reusing the values that result echoed, with `asset_type` set to "cbdc". Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/digital-trade-ebl-enforceability.html

@@ -23,3 +23,13 @@ Domain: Corporate Treasury & FX
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Parallel run week: does the migrated camt.053 statement reconcile against our ledger closing balance, or is there a variance to chase?
+Run the AINumbers MCP tool `run_chain` with {"chain":"camt053-parallel-run-recon-pack"} and read `art-258-parse-camt053-reconciliation.reconciliation_status`.
+Re-run with `inputs` for `art-258-parse-camt053-reconciliation`, reusing the values that result echoed, with `closing_balance` set to 10600. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/camt053-parallel-run-recon-pack.html

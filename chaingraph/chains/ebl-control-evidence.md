@@ -21,3 +21,13 @@ Domain: Digital Trade
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: The eBL changed hands twice before presentation. Does the possession chain show one unbroken line of control, and who holds it now?
+Run the AINumbers MCP tool `run_chain` with {"chain":"ebl-control-evidence"} and read `art-353-etr-possession-chain-builder.chain_continuous`.
+Re-run with `inputs` for `art-353-etr-possession-chain-builder`, reusing the values that result echoed, with `control_transfer_events` changed so the second transfer starts from a party that never held the record. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/ebl-control-evidence.html

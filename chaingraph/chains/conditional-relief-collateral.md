@@ -29,3 +29,13 @@ Domain: Digital-Asset Rails
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: We hold tokenized collateral under a conditional no-action relief. What extra capital would a revocation of that relief add?
+Run the AINumbers MCP tool `run_chain` with {"chain":"conditional-relief-collateral"} and read `art-514-conditional-relief-collateral-receipt.revocation_capital_delta`.
+Re-run with `inputs` for `art-514-conditional-relief-collateral-receipt`, reusing the values that result echoed, with `position_size` changed so position_size is 20000000, four times the fixture book. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/conditional-relief-collateral.html

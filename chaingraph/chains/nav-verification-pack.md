@@ -23,3 +23,13 @@ Domain: Securities Settlement
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: A fund's stated NAV is a tenth of a cent high. Does the materiality test oblige a restatement?
+Run the AINumbers MCP tool `run_chain` with {"chain":"nav-verification-pack"} and read `art-374-test-nav-error-materiality.industry_convention.material`.
+Re-run with `inputs` for `art-374-test-nav-error-materiality`, reusing the values that result echoed, with `corrected_nav_per_share` changed so the corrected NAV is 9.90. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/nav-verification-pack.html

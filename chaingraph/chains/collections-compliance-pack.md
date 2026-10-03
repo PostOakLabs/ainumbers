@@ -21,3 +21,13 @@ Domain: Consumer Lending & Fair Lending
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Our dialer placed a call each day for a week on one debt. Does the log trip the seven-in-seven frequency presumption?
+Run the AINumbers MCP tool `run_chain` with {"chain":"collections-compliance-pack"} and read `art-402-validate-regf-call-frequency.debts_with_seven_in_seven_presumption`.
+Re-run with `inputs` for `art-402-validate-regf-call-frequency`, reusing the values that result echoed, with `inputs` changed so an eighth call lands on 2026-07-07. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/collections-compliance-pack.html
