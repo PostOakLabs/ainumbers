@@ -31,7 +31,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildMarkdownAlternateLink, MD_TWIN_LINK_REL } from '../chaingraph/_page-chrome.mjs';
+import { buildMarkdownAlternateLink, MD_TWIN_LINK_REL, buildChainAskAgentCopyText } from '../chaingraph/_page-chrome.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -67,6 +67,13 @@ function isTwinScope(pageRel) {
 }
 
 function relToAbs(rel) { return resolve(REPO, rel); }
+
+/** The authored chain prompt object, or null when the chain ships none yet. */
+function chainPrompt(repo, chainName) {
+  const p = resolve(repo, 'chaingraph', 'chain-prompts', `${chainName}.json`);
+  if (!existsRaw(p)) return null;
+  try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; }
+}
 
 function typeLabel(schemaType) {
   return schemaType || 'any';
@@ -146,6 +153,11 @@ export function collectTwinTargets(repo) {
         toolId: s.tool_id,
         handoff: humanize(s.handoff || ''),
       })),
+      // CHAIN-PROMPT-INFRA-1: the authored example prompt, when the chain ships
+      // one. Rendered from the SAME template the page region uses, so the twin
+      // and the page can never say different things. Read verbatim, never
+      // humanized: the gate already forbids an em-dash in the authored fields.
+      prompt: chainPrompt(repo, c.name),
     };
     if (!chainsByPage.has(pageRel)) chainsByPage.set(pageRel, []);
     chainsByPage.get(pageRel).push(rec);
@@ -255,6 +267,12 @@ export function renderTwinMd(t) {
     L.push('### Chain verify');
     L.push('');
     L.push('Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt\'s execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.');
+    if (c.prompt) {
+      L.push('');
+      L.push('### Ask your agent');
+      L.push('');
+      L.push(buildChainAskAgentCopyText(c.prompt));
+    }
   }
   return L.join('\n') + '\n';
 }
