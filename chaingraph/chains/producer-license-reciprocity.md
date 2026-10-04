@@ -19,3 +19,13 @@ Domain: Financial Crime & KYC
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Our agent is licensed in Oregon. Can she add non-resident lines in her target states without sitting new exams?
+Run the AINumbers MCP tool `run_chain` with {"chain":"producer-license-reciprocity"} and read `art-267-check-producer-license-reciprocity.all_reciprocal`.
+Re-run with `inputs` for `art-267-check-producer-license-reciprocity`, reusing the values that result echoed, with `resident_state` set to "NY". Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/producer-license-reciprocity.html
