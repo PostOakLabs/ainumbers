@@ -135,6 +135,7 @@ const CLUSTERS = [
     paths: [
       'guides/basel-iv-frtb-model-risk-hub.html',
       'guides/counterparty-credit-risk-hub.html',
+      'guides/crypto-prudential-tax-hub.html',
       'guides/fraud-risk-hub.html',
       'guides/basel-take2-impact-assessment-guide.html',
       'guides/sr262-model-risk-monitoring-hub.html',
