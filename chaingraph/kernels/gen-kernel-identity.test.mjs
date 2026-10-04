@@ -55,11 +55,12 @@
 // exactly as the Lander invokes it. Never run against the live tree to test
 // (board/STANDING-ORDERS.md; this row's own fence).
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sourceDigest } from './_buildid.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -249,6 +250,99 @@ function makeSandbox() {
     check('refusal names the anchor problem, not a generic crash', /no compute_capability anchor/.test(detail), detail);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ── CASES 3–5: KERNELID-PENDING-ASSEMBLY-1 — the monolith --check mismatch split ──
+// A kernel-editing WU stamps its node SHARD (SO #6); chaingraph.json has one writer, the
+// main-side assembler, which folds shards in AFTER merge. So the monolith --check must
+// split a digest mismatch in two (Tim ruling 2026-10-03, option 1 of the decision doc):
+//   T1  stamped shard + stale monolith  → PASSES, reported as PENDING-ASSEMBLY
+//   T2  unstamped shard + stale monolith → still RED (PR #429 class)
+//   T3  missing shard + stale monolith   → still RED
+// kernel-vs-shard drift stays red (shard mode untouched); shard-vs-monolith freshness is
+// owned by assemble-chaingraph.mjs --check. Each case pins exit code AND the class word,
+// so a future edit that collapses the split (either direction) fails here.
+{
+  const recomputed = await sourceDigest(STUB_KERNEL_SRC);
+  const norm = (d) => (typeof d === 'string' && d.startsWith('sha256:')) ? d : 'sha256:' + d;
+
+  // Minimal one-node monolith holding art-18's REAL pre-edit digest (stale vs the stub
+  // kernel) — the exact edited-existing-kernel shape the split exists for.
+  const staleMonolithDoc = '{\n  "nodes": [\n' + ART18 + '\n  ]\n}\n';
+  const staleDigest = norm(JSON.parse(ART18).compute_images.find((i) => i.system === 'sha256-source').image_id);
+  check('fixture sanity: monolith digest is genuinely stale vs stub kernel', staleDigest !== recomputed, `${staleDigest} vs ${recomputed}`);
+
+  // Minimal realistic shard text; only compute_images matters to the classifier.
+  const shardTxt = (digest) => `{
+  "tool_id": "${IDS[0]}",
+  "status": "live",
+  "gpu": false,
+  "compute_capability": "server",
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "${digest}",
+      "valid_from": "${new Date().toISOString().slice(0, 10)}"
+    }
+  ]
+}`;
+
+  // Runs the REAL CLI's --check in a sandbox and returns { status, out } (stdout+stderr).
+  const runCheck = (dir, kdir) => {
+    const r = spawnSync('node', ['gen-kernel-identity.mjs', '--check'], { cwd: kdir, encoding: 'utf8' });
+    return { status: r.status, out: (r.stdout || '') + (r.stderr || '') };
+  };
+
+  // ── T1: stamped shard + stale monolith → passes as PENDING-ASSEMBLY ──
+  {
+    const { dir, kdir } = makeSandbox();
+    try {
+      writeFileSync(join(dir, 'chaingraph', 'chaingraph.json'), staleMonolithDoc);
+      mkdirSync(join(dir, 'chaingraph', 'graph', 'nodes'), { recursive: true });
+      writeFileSync(join(dir, 'chaingraph', 'graph', 'nodes', IDS[0] + '.json'), shardTxt(recomputed));
+
+      const { status, out } = runCheck(dir, kdir);
+      check('T1: stamped shard + stale monolith exits 0 (PENDING-ASSEMBLY, not red)', status === 0, out);
+      check('T1: mismatch reported loudly as PENDING-ASSEMBLY', /PENDING-ASSEMBLY/.test(out), out);
+      check('T1: check does NOT report FAILED', !/coverage FAILED/.test(out), out);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  // ── T2: unstamped shard + stale monolith → still red ──
+  {
+    const { dir, kdir } = makeSandbox();
+    try {
+      writeFileSync(join(dir, 'chaingraph', 'chaingraph.json'), staleMonolithDoc);
+      mkdirSync(join(dir, 'chaingraph', 'graph', 'nodes'), { recursive: true });
+      // Shard EXISTS but carries the same stale digest — kernel edited, identity never stamped.
+      writeFileSync(join(dir, 'chaingraph', 'graph', 'nodes', IDS[0] + '.json'), shardTxt(staleDigest));
+
+      const { status, out } = runCheck(dir, kdir);
+      check('T2: unstamped shard + stale monolith exits non-zero', status === 1, `status=${status}\n${out}`);
+      check('T2: red names the FAILED coverage class', /coverage FAILED/.test(out), out);
+      check('T2: red says the shard does NOT carry the recomputed digest', /does NOT carry the recomputed digest/.test(out), out);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  // ── T3: missing shard + stale monolith → still red ──
+  {
+    const { dir, kdir } = makeSandbox();
+    try {
+      writeFileSync(join(dir, 'chaingraph', 'chaingraph.json'), staleMonolithDoc);
+      // No graph/nodes dir at all — the shard file does not exist.
+
+      const { status, out } = runCheck(dir, kdir);
+      check('T3: missing shard + stale monolith exits non-zero', status === 1, `status=${status}\n${out}`);
+      check('T3: red names the FAILED coverage class', /coverage FAILED/.test(out), out);
+      check('T3: red says the shard is MISSING or unreadable', /MISSING or unreadable/.test(out), out);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   }
 }
 
