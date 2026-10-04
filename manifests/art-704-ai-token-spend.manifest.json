@@ -1,0 +1,428 @@
+{
+  "tool_id": "art-704-ai-token-spend",
+  "version": "1.0.0",
+  "title": "AI Token Spend",
+  "description": "Monthly AI token spend estimator and cross-model comparator: per-model monthly cost, cost per request, the component breakdown, and a cheapest-first ranking, priced from a dated price table by an as_of date. Integer USD micros per million tokens with an overflow-safe floor-split cost formula. Refuses ambiguous price entries, missing component prices and cap overruns with named reasons. Prices are an input, never kernel constants: the default is the dated 2026-10-04 provider-page snapshot.",
+  "category": "chaingraph",
+  "tags": [
+    "compliance_mandate",
+    "ai-spend",
+    "token-pricing",
+    "llm-cost",
+    "budgeting",
+    "price-table",
+    "dated-snapshot",
+    "integer-minor-units",
+    "mcp:estimate_ai_token_spend"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "as_of",
+      "usage",
+      "price_table",
+      "compare"
+    ],
+    "properties": {
+      "as_of": {
+        "type": "string",
+        "description": "Pricing date, a real calendar date as YYYY-MM-DD. The node reads no clock; an entry applies when effective_from <= as_of <= effective_through."
+      },
+      "usage": {
+        "type": "object",
+        "description": "Requests per month, input and output tokens per request, cached-input and batch/long-context shares in bp, cache-write tokens with a 5m or 1h TTL."
+      },
+      "price_table": {
+        "type": "object",
+        "description": "Dated snapshot: snapshot_verified_on, currency USD, unit usd_micros_per_million_tokens, and models[] with tier, effective dates and micros prices."
+      },
+      "compare": {
+        "type": "array",
+        "description": "Model names to price and rank, cheapest first; ties break by the model string."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "estimate_ai_token_spend",
+    "description": "Monthly AI token spend estimator and cross-model comparator: per-model monthly cost, cost per request, the component breakdown, and a cheapest-first ranking, priced from a dated price table by an as_of date. Integer USD micros per million tokens with an overflow-safe floor-split cost formula. Refuses ambiguous price entries, missing component prices and cap overruns with named reasons. Prices are an input, never kernel constants: the default is the dated 2026-10-04 provider-page snapshot.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "as_of",
+        "usage",
+        "price_table",
+        "compare"
+      ],
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "description": "Pricing date, a real calendar date as YYYY-MM-DD. The node reads no clock; an entry applies when effective_from <= as_of <= effective_through."
+        },
+        "usage": {
+          "type": "object",
+          "description": "Requests per month, input and output tokens per request, cached-input and batch/long-context shares in bp, cache-write tokens with a 5m or 1h TTL."
+        },
+        "price_table": {
+          "type": "object",
+          "description": "Dated snapshot: snapshot_verified_on, currency USD, unit usd_micros_per_million_tokens, and models[] with tier, effective dates and micros prices."
+        },
+        "compare": {
+          "type": "array",
+          "description": "Model names to price and rank, cheapest first; ties break by the model string."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-704-ai-token-spend.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "description": "output_payload: as_of, snapshot_verified_on, snapshot_age_days, results[]{provider, model, tier, monthly_micros, per_request_micros, components{input, cached_input, cache_write, output}, price_entry_source_sha256}, ranking[model...], cheapest, refusals[]{provider, model, code, text}, refusal_reason, domain_errors[], scope_note."
+  },
+  "source": "chaingraph/kernels/art-704-ai-token-spend.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: as_of, usage, price_table, compare.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "as_of": "2026-10-04",
+    "usage": {
+      "requests_per_month": 100000,
+      "input_tokens_per_request": 3000,
+      "cached_input_share_bp": 6000,
+      "cache_write_tokens_per_request": 0,
+      "cache_write_ttl": "5m",
+      "output_tokens_per_request": 600,
+      "batch_share_bp": 0,
+      "long_context_share_bp": 0
+    },
+    "price_table": {
+      "snapshot_verified_on": "2026-10-04",
+      "currency": "USD",
+      "unit": "usd_micros_per_million_tokens",
+      "models": [
+        {
+          "provider": "anthropic",
+          "model": "claude-fable-5-1",
+          "tier": "standard",
+          "effective_from": null,
+          "effective_through": null,
+          "input": 10000000,
+          "output": 50000000,
+          "cache_write_5m": 12500000,
+          "cache_write_1h": 20000000,
+          "cached_input": 250000,
+          "long_context": null,
+          "batch": {
+            "input": 5000000,
+            "output": 25000000
+          },
+          "source_url": "https://docs.claude.com/en/docs/about-claude/pricing",
+          "source_sha256": "5cdb915ee1754b0d7349e9769de89d83937b9c1114c0aa25f38df448534d61d2",
+          "verified_on": "2026-10-04"
+        },
+        {
+          "provider": "anthropic",
+          "model": "claude-opus-5-5",
+          "tier": "standard",
+          "effective_from": null,
+          "effective_through": null,
+          "input": 4000000,
+          "output": 20000000,
+          "cache_write_5m": 5000000,
+          "cache_write_1h": 8000000,
+          "cached_input": 200000,
+          "long_context": null,
+          "batch": {
+            "input": 2000000,
+            "output": 10000000
+          },
+          "source_url": "https://docs.claude.com/en/docs/about-claude/pricing",
+          "source_sha256": "5cdb915ee1754b0d7349e9769de89d83937b9c1114c0aa25f38df448534d61d2",
+          "verified_on": "2026-10-04"
+        },
+        {
+          "provider": "anthropic",
+          "model": "claude-sonnet-5-5",
+          "tier": "standard",
+          "effective_from": null,
+          "effective_through": null,
+          "input": 2000000,
+          "output": 10000000,
+          "cache_write_5m": 2500000,
+          "cache_write_1h": 4000000,
+          "cached_input": 200000,
+          "long_context": null,
+          "batch": {
+            "input": 1000000,
+            "output": 5000000
+          },
+          "source_url": "https://docs.claude.com/en/docs/about-claude/pricing",
+          "source_sha256": "5cdb915ee1754b0d7349e9769de89d83937b9c1114c0aa25f38df448534d61d2",
+          "verified_on": "2026-10-04"
+        },
+        {
+          "provider": "anthropic",
+          "model": "claude-haiku-4-5",
+          "tier": "standard",
+          "effective_from": null,
+          "effective_through": null,
+          "input": 1000000,
+          "output": 5000000,
+          "cache_write_5m": 1250000,
+          "cache_write_1h": 2000000,
+          "cached_input": 100000,
+          "long_context": null,
+          "batch": {
+            "input": 500000,
+            "output": 2500000
+          },
+          "source_url": "https://docs.claude.com/en/docs/about-claude/pricing",
+          "source_sha256": "5cdb915ee1754b0d7349e9769de89d83937b9c1114c0aa25f38df448534d61d2",
+          "verified_on": "2026-10-04"
+        },
+        {
+          "provider": "openai",
+          "model": "gpt-6-astra",
+          "tier": "standard",
+          "effective_from": null,
+          "effective_through": null,
+          "input": 10000000,
+          "cached_input": 1000000,
+          "cache_write_5m": 12500000,
+          "cache_write_1h": null,
+          "output": 50000000,
+          "long_context": {
+            "input": 20000000,
+            "cached_input": 2000000,
+            "cache_write_5m": 25000000,
+            "output": 75000000
+          },
+          "batch": {
+            "input": 5000000,
+            "output": 25000000,
+            "long_context": {
+              "input": 10000000,
+              "output": 37500000
+            }
+          },
+          "source_url": "https://platform.openai.com/docs/pricing",
+          "source_sha256": "cbbb43d0f7efb63b4ab9010d3b9040eb21ba5e83fedb91618e4336815693d66c",
+          "verified_on": "2026-10-04"
+        },
+        {
+          "provider": "openai",
+          "model": "gpt-6-1-sol",
+          "tier": "standard",
+          "effective_from": null,
+          "effective_through": null,
+          "input": 2000000,
+          "cached_input": 100000,
+          "cache_write_5m": 2500000,
+          "cache_write_1h": null,
+          "output": 10000000,
+          "long_context": {
+            "input": 4000000,
+            "cached_input": 200000,
+            "cache_write_5m": 5000000,
+            "output": 15000000
+          },
+          "batch": {
+            "input": 1000000,
+            "output": 5000000,
+            "long_context": {
+              "input": 2000000,
+              "output": 7500000
+            }
+          },
+          "source_url": "https://platform.openai.com/docs/pricing",
+          "source_sha256": "cbbb43d0f7efb63b4ab9010d3b9040eb21ba5e83fedb91618e4336815693d66c",
+          "verified_on": "2026-10-04"
+        },
+        {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "tier": "standard",
+          "effective_from": null,
+          "effective_through": null,
+          "input": 100000,
+          "cached_input": 10000,
+          "cache_write_5m": 125000,
+          "cache_write_1h": null,
+          "output": 500000,
+          "long_context": {
+            "input": 200000,
+            "cached_input": 20000,
+            "cache_write_5m": 250000,
+            "output": 750000
+          },
+          "batch": {
+            "input": 50000,
+            "output": 250000,
+            "long_context": {
+              "input": 100000,
+              "output": 375000
+            }
+          },
+          "source_url": "https://platform.openai.com/docs/pricing",
+          "source_sha256": "cbbb43d0f7efb63b4ab9010d3b9040eb21ba5e83fedb91618e4336815693d66c",
+          "verified_on": "2026-10-04"
+        },
+        {
+          "provider": "google",
+          "model": "gemini-3-1-pro-preview",
+          "tier": "standard",
+          "effective_from": null,
+          "effective_through": null,
+          "input": 2000000,
+          "cached_input": 200000,
+          "cache_write_5m": null,
+          "cache_write_1h": null,
+          "output": 12000000,
+          "long_context": {
+            "input": 4000000,
+            "cached_input": 400000,
+            "cache_write_5m": null,
+            "output": 18000000
+          },
+          "batch": {
+            "input": 1000000,
+            "output": 6000000
+          },
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+          "source_sha256": "d914239415c6310d080db2a6950f75022242dff9ec791eed9fcff68b555804de",
+          "verified_on": "2026-10-04"
+        },
+        {
+          "provider": "google",
+          "model": "gemini-3-8-flash",
+          "tier": "standard",
+          "effective_from": null,
+          "effective_through": "2026-12-31",
+          "input": 750000,
+          "cached_input": 75000,
+          "cache_write_5m": null,
+          "cache_write_1h": null,
+          "output": 3750000,
+          "long_context": null,
+          "batch": {
+            "input": 375000,
+            "output": 1875000
+          },
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+          "source_sha256": "d914239415c6310d080db2a6950f75022242dff9ec791eed9fcff68b555804de",
+          "verified_on": "2026-10-04"
+        },
+        {
+          "provider": "google",
+          "model": "gemini-3-8-flash",
+          "tier": "standard",
+          "effective_from": "2027-01-01",
+          "effective_through": null,
+          "input": 1500000,
+          "cached_input": 150000,
+          "cache_write_5m": null,
+          "cache_write_1h": null,
+          "output": 7500000,
+          "long_context": null,
+          "batch": {
+            "input": 750000,
+            "output": 3750000
+          },
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+          "source_sha256": "d914239415c6310d080db2a6950f75022242dff9ec791eed9fcff68b555804de",
+          "verified_on": "2026-10-04"
+        },
+        {
+          "provider": "google",
+          "model": "gemini-3-1-flash-lite",
+          "tier": "standard",
+          "effective_from": null,
+          "effective_through": null,
+          "input": 250000,
+          "cached_input": 25000,
+          "cache_write_5m": null,
+          "cache_write_1h": null,
+          "output": 1500000,
+          "long_context": null,
+          "batch": {
+            "input": 125000,
+            "output": 750000
+          },
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+          "source_sha256": "d914239415c6310d080db2a6950f75022242dff9ec791eed9fcff68b555804de",
+          "verified_on": "2026-10-04"
+        }
+      ]
+    },
+    "compare": [
+      "claude-haiku-4-5",
+      "gpt-6-luna",
+      "gemini-3-8-flash"
+    ]
+  },
+  "output_example": {
+    "as_of": "2026-10-04",
+    "snapshot_verified_on": "2026-10-04",
+    "snapshot_age_days": 0,
+    "results": [
+      {
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "tier": "standard",
+        "monthly_micros": 438000000,
+        "per_request_micros": 4380,
+        "components": {
+          "input": 120000000,
+          "cached_input": 18000000,
+          "cache_write": 0,
+          "output": 300000000
+        },
+        "price_entry_source_sha256": "5cdb915ee1754b0d7349e9769de89d83937b9c1114c0aa25f38df448534d61d2"
+      },
+      {
+        "provider": "openai",
+        "model": "gpt-6-luna",
+        "tier": "standard",
+        "monthly_micros": 43800000,
+        "per_request_micros": 438,
+        "components": {
+          "input": 12000000,
+          "cached_input": 1800000,
+          "cache_write": 0,
+          "output": 30000000
+        },
+        "price_entry_source_sha256": "cbbb43d0f7efb63b4ab9010d3b9040eb21ba5e83fedb91618e4336815693d66c"
+      },
+      {
+        "provider": "google",
+        "model": "gemini-3-8-flash",
+        "tier": "standard",
+        "monthly_micros": 328500000,
+        "per_request_micros": 3285,
+        "components": {
+          "input": 90000000,
+          "cached_input": 13500000,
+          "cache_write": 0,
+          "output": 225000000
+        },
+        "price_entry_source_sha256": "d914239415c6310d080db2a6950f75022242dff9ec791eed9fcff68b555804de"
+      }
+    ],
+    "ranking": [
+      "gpt-6-luna",
+      "gemini-3-8-flash",
+      "claude-haiku-4-5"
+    ],
+    "cheapest": "gpt-6-luna",
+    "refusals": [],
+    "refusal_reason": null,
+    "domain_errors": [],
+    "scope_note": "No taxes or regional uplift; no image, audio or video tokens; no tool-use surcharges; no tiered volume discounts; and no subscription or committed-spend deals. Prices come from the dated price_table input — the default snapshot is a capture of the official provider price pages verified on its own snapshot_verified_on date, never a live quote."
+  },
+  "example_execution_hash": "184a1af2028dd074289dfbfbf7cda50b59fc43abbcf240b4ad96f4537ab05dc1"
+}
