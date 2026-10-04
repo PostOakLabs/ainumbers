@@ -287,27 +287,63 @@ for (const n of inScope) {
 }
 
 // --- CHECK -----------------------------------------------------------------
+// KERNELID-PENDING-ASSEMBLY-1 (2026-10-03, Tim ruling on the 7F decision doc): a kernel-editing
+// WU stamps its node SHARD (SO #6 — a kernel WU never touches chaingraph.json), and chaingraph.json
+// has exactly one writer: the main-side assembler (scripts/assemble-chaingraph.mjs), which folds the
+// stamped shards in AFTER merge. So a PR that legitimately stamped its shard still showed a red
+// monolith digest until merge — a red it could not clear in its own branch, which deadlocked every
+// edited-kernel PR (no kernel-modifying PR merged since the shard split; measured in the decision doc).
+// Split the mismatch in two:
+//   - PENDING-ASSEMBLY: the node's own shard ALREADY carries the recomputed digest — report loudly,
+//     PASS. The assembler folds the shard into chaingraph.json after merge.
+//   - PROBLEM (still red): the shard is missing, or it does not carry the recomputed digest — the
+//     original PR #429 class, a kernel edited with its identity never stamped.
+// No coverage is lost: kernel-versus-shard drift stays red here (nothing to classify against) and in
+// shard mode (unchanged, hard in every context); shard-versus-monolith freshness stays owned by the
+// shard-freshness gate (assemble-chaingraph.mjs --check), which is blocking on main.
 if (mode === 'check') {
   const problems = [];
+  const pending = [];
+  const norm = (d) => (typeof d === 'string' && d.startsWith('sha256:')) ? d : 'sha256:' + d;
   for (const n of inScope) {
     const imgs = Array.isArray(n.compute_images) ? n.compute_images : [];
     const src = imgs.find((i) => i.system === 'sha256-source');
     if (!src) { problems.push(`${n.tool_id}: missing sha256-source compute_images entry`); continue; }
-    const norm = (d) => (typeof d === 'string' && d.startsWith('sha256:')) ? d : 'sha256:' + d;
     if (norm(src.image_id) !== want.get(n.tool_id)) {
-      problems.push(`${n.tool_id}: sha256-source digest ${src.image_id} != recomputed ${want.get(n.tool_id)}`);
+      // Mismatch. Classify it by reading the node's own shard (read-only; the monolith is never written here).
+      const shardPath = resolve(NODES_DIR, n.tool_id + '.json');
+      let shard = null;
+      try { shard = JSON.parse(readFileSync(shardPath, 'utf8')); } catch { shard = null; }
+      const shardImgs = shard && Array.isArray(shard.compute_images) ? shard.compute_images : [];
+      const shardSrc = shardImgs.find((i) => i.system === 'sha256-source');
+      if (shardSrc && norm(shardSrc.image_id) === want.get(n.tool_id)) {
+        pending.push(`${n.tool_id}: monolith sha256-source ${src.image_id} != recomputed ${want.get(n.tool_id)} — shard ${n.tool_id}.json IS stamped (PENDING-ASSEMBLY)`);
+      } else {
+        problems.push(`${n.tool_id}: sha256-source digest ${src.image_id} != recomputed ${want.get(n.tool_id)}`
+          + (shard ? ` — shard ${n.tool_id}.json exists but does NOT carry the recomputed digest (identity never stamped)`
+                   : ` — shard ${n.tool_id}.json is MISSING or unreadable (identity never stamped)`));
+      }
     }
+  }
+  if (pending.length) {
+    console.error(`⏳ PENDING-ASSEMBLY — ${pending.length} node(s): the committed chaingraph.json is stale, but the node's own shard already carries the recomputed digest. NOT a failure: the main-side assembler (scripts/assemble-chaingraph.mjs) folds the stamped shard into chaingraph.json after merge.`);
+    for (const p of pending.slice(0, 25)) console.error('  • ' + p);
+    if (pending.length > 25) console.error(`  … and ${pending.length - 25} more`);
   }
   if (problems.length) {
     console.error(`✗ §17 kernel-identity coverage FAILED — ${problems.length} node(s):`);
     for (const p of problems.slice(0, 25)) console.error('  • ' + p);
     if (problems.length > 25) console.error(`  … and ${problems.length - 25} more`);
-    console.error('\nDIAGNOSIS (monolith mode — this is the PR-time brake, KERNELCI-1): if you just edited one of the listed kernels and stamped ONLY its shard via `--write --shard=<tool_id>` (SO #6 — a kernel WU never touches chaingraph.json directly), this red is EXPECTED shard/monolith drift: chaingraph.json will not reflect your change until the next ASSEMBLE-LAND regenerates it from shards. That is correct — RIDE THE NEXT ASSEMBLE-LAND, do not try to clear this red yourself, and do NOT run `--write` below (it writes chaingraph.json directly, which SO #6 forbids for a kernel-editing WU).');
+    console.error('\nDIAGNOSIS (monolith mode — the PR-time brake, KERNELCI-1 as split by KERNELID-PENDING-ASSEMBLY-1): every node listed above has a shard that is MISSING or does NOT carry the recomputed digest — the original PR #429 class, a kernel edited with its identity never stamped. This is NOT shard/monolith drift: a stamped shard with a stale monolith passes as PENDING-ASSEMBLY (see above). Fix in your own PR: node chaingraph/kernels/gen-kernel-identity.mjs --write --shard=<tool_id>, then commit the shard file(s) (SO #6 — a kernel WU never touches chaingraph.json directly).');
     console.error('If you did NOT edit any of the listed kernels this session, this is a genuine identity mismatch (or main is carrying a stale/un-assembled chaingraph.json) — investigate before landing; do not assume drift.');
-    console.error('(`--write` here is the assembler-side/full-coverage path — chaingraph.json — for the ORCH\'s ASSEMBLE-LAND step only: node chaingraph/kernels/gen-kernel-identity.mjs --write)');
+    console.error('(`--write` here is the assembler-side/full-coverage path — chaingraph.json — for the main-side assembler only: node chaingraph/kernels/gen-kernel-identity.mjs --write)');
     process.exit(1);
   }
-  console.log(`✓ §17 kernel-identity coverage clean (monolith mode) — all ${inScope.length} in-scope gpu:false live nodes carry a current sha256-source compute_images digest.`);
+  if (pending.length) {
+    console.log(`✓ §17 kernel-identity coverage ACCEPTED (monolith mode) — ${pending.length} of ${inScope.length} in-scope gpu:false live node(s) PENDING-ASSEMBLY (shard stamped, monolith folds after merge); the rest carry a current sha256-source compute_images digest.`);
+  } else {
+    console.log(`✓ §17 kernel-identity coverage clean (monolith mode) — all ${inScope.length} in-scope gpu:false live nodes carry a current sha256-source compute_images digest.`);
+  }
   process.exit(0);
 }
 
