@@ -21,3 +21,13 @@ Domain: AI & Agent Governance
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: An agent presents a chained delegation for a payment scope. Does every hop verify, and does the chain root at the controller we issued?
+Run the AINumbers MCP tool `run_chain` with {"chain":"verify-agent-delegation"} and read `art-285-acdc-delegation-chain-verifier.valid`.
+Re-run with `inputs` for `art-285-acdc-delegation-chain-verifier`, reusing the values that result echoed, with `expected_root_aid` set to "EAlt-controller-AID-0000000000000000000000000". Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/verify-agent-delegation.html

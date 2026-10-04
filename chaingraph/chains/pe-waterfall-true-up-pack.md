@@ -19,3 +19,13 @@ Domain: Audit & Assurance
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: The GP sent its annual allocation report. Does our own recompute of the distribution waterfall tie to it before we book it?
+Run the AINumbers MCP tool `run_chain` with {"chain":"pe-waterfall-true-up-pack"} and read `art-567-pe-waterfall-lp-recompute.verdict`.
+Re-run with `inputs` for `art-567-pe-waterfall-lp-recompute`, reusing the values that result echoed, with `gp_reported_allocation` changed so the carry_residual tier reports gp_amount 60000, above the recomputed 40000. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/pe-waterfall-true-up-pack.html

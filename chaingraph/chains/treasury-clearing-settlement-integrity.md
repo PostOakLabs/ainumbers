@@ -23,3 +23,13 @@ Domain: Treasury Clearing
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: A Canton settlement drill failed because the network kept no unwind procedure on record. What verdict does the DvP check hand back?
+Run the AINumbers MCP tool `run_chain` with {"chain":"treasury-clearing-settlement-integrity"} and read `507-canton-dvp-atomicity-validator.verdict`.
+Re-run with `inputs` for `507-canton-dvp-atomicity-validator`, reusing the values that result echoed, with `unwind_procedure` set to false. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/treasury-clearing-settlement-integrity.html

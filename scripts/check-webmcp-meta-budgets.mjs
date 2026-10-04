@@ -236,12 +236,15 @@ if (CEILING) {
   } else {
     console.log(`webmcp-meta-budgets: at ceiling (${ratchet.count} = ${ratchet.ceiling})`);
   }
-  process.exit(0);
-}
-
-if (strict && scan.findings.length > 0) {
+  // WEBMCP-META-BUDGETS-EXIT-FLUSH-1: end naturally with exit code 0. An explicit
+  // process.exit(0) here can discard the pending piped-stdout writes (the summary +
+  // verdict lines above) before they flush — run 37181833046 truncated exactly those
+  // lines on CI and failed the self-test's GREEN (e2e) verdict match.
+  process.exitCode = 0;
+} else if (strict && scan.findings.length > 0) {
   console.error('webmcp-meta-budgets: FAIL (--strict, violations above)');
   process.exit(1);
+} else {
+  console.log('webmcp-meta-budgets: done (' + (strict ? 'strict' : 'report') + ' mode)');
 }
-console.log('webmcp-meta-budgets: done (' + (strict ? 'strict' : 'report') + ' mode)');
 }
