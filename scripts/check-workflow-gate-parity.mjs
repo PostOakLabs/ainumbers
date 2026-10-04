@@ -1398,7 +1398,10 @@ const DECLARED_SOFTENERS = new Map([
   // sentinel-region gate (one step: a `#`-commented `node
   // scripts/gen-fact-stamps.mjs --check`) landed as a new step in the preflight
   // job above the attest step; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:922",
+  // MAIN-REGEN-SERVED-EGRESS-MANIFESTFIX-1 (2026-10-04) moved it :922 → :923 —
+  // the deploy manifest find gained a `! -path '*/scripts/*'` exclusion line
+  // above the attest step; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:923",
    "attest step is advisory-first by design; promotion criterion on the step"],
   ["unwired-gates.yml:continue-on-error:109",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
