@@ -157,6 +157,7 @@ const CLUSTERS = [
       'guides/ledger-consensus-finality-hub.html',
       'guides/swift-ledger-hub.html',
       'guides/reserve-watch-continuous-verification.html',
+      'guides/stablecoin-reserve-hub.html',
       'chaingraph/guide-avalanche.html',
       'chaingraph/guide-arc.html',
       'chaingraph/guide-tempo.html',
