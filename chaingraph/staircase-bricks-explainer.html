@@ -90,6 +90,18 @@ button:disabled{opacity:.4;cursor:default}
 .sep{width:1px;height:1.4rem;background:var(--line);margin:0 .2rem}
 .trace{display:none;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.6rem;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--dim)}
 .trace.on{display:flex}
+.tl{display:flex;align-items:flex-start;gap:.6rem;margin:.7rem 0 .2rem}
+.tl button{padding:.35rem .6rem;margin-top:-.15rem}
+.tlwrap{flex:1;min-width:0}
+.tltrack{position:relative;height:16px;background:var(--line);border-radius:8px;cursor:pointer;touch-action:none}
+.tltrack:focus-visible{outline:2px solid #D4A847;outline-offset:3px}
+.tlfill{position:absolute;left:0;top:0;bottom:0;background:#D4A847;opacity:.5;border-radius:8px 0 0 8px;pointer-events:none}
+.tlhead{position:absolute;top:-3px;width:4px;height:22px;background:#fff;border-radius:2px;margin-left:-2px;box-shadow:0 0 6px rgba(0,0,0,.45);pointer-events:none}
+.tltick{position:absolute;top:0;bottom:0;width:3px;margin-left:-1px;border-radius:1px;pointer-events:none}
+.tltip{position:absolute;bottom:24px;transform:translateX(-50%);background:#0D1627;color:#E6F1FB;font:11px 'JetBrains Mono',monospace;padding:3px 8px;border-radius:4px;white-space:nowrap;display:none;pointer-events:none;border:1px solid #2B4265;z-index:3}
+.tlinfo{margin-top:.35rem;font:.72rem 'JetBrains Mono',monospace;color:var(--dim);display:flex;flex-wrap:wrap;gap:.2rem .8rem;align-items:baseline}
+.tlinfo b,.tlinfo #tlch{color:var(--text);font-weight:500}
+.tlinfo i{display:inline-block;width:.55rem;height:.55rem;border-radius:2px;margin-right:.25rem}
 .doclinks{margin:1.4rem 0 0;padding:.9rem 1rem;background:var(--panel);border:1px solid var(--line);border-radius:8px}
 .doclinks h2{font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:1.15rem;margin-bottom:.5rem}
 .doclinks ul{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:.35rem 1.4rem;font-size:.8rem}
@@ -196,7 +208,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="ctl">
 <button class="pri" id="next">Build next brick</button>
 <button id="prev">Undo</button>
-<button id="auto" aria-pressed="false">Pause</button>
+<button type="button" id="play" aria-pressed="false">Play</button>
 <button id="reset">Reset</button>
 <span id="count" style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--dim)">0 / 14</span>
 </div>
@@ -206,6 +218,16 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <button id="expl" aria-pressed="false">Explode</button>
 <span class="sep"></span>
 <button data-v="front">Front</button><button data-v="side">Side</button><button data-v="top">Top</button><button data-v="iso">3D</button>
+</div>
+
+<div class="tl" id="tl">
+<button type="button" id="tlPrev" aria-label="Previous chapter" title="Previous chapter">⏮</button>
+<div class="tlwrap">
+<div class="tltrack" id="tltrack" role="slider" tabindex="0" aria-label="Demo timeline" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><div class="tlfill" id="tlfill"></div><div class="tlhead" id="tlhead"></div><div class="tltip" id="tltip"></div></div>
+<div class="tlinfo"><span><span id="tlnow">0:00</span> / <span id="tltot">0:00</span></span><span id="tlch">Starting</span>
+<span><i style="background:#14B8A6"></i>Build</span><span><i style="background:#60A5FA"></i>Entry trace</span><span><i style="background:#22C55E"></i>Worked example</span></div>
+</div>
+<button type="button" id="tlNext" aria-label="Next chapter" title="Next chapter">⏭</button>
 </div>
 
 <div class="trace" id="trace">
@@ -456,13 +478,19 @@ function update(){
   document.getElementById('prev').disabled=placed<=0;
   document.getElementById('trace').classList.toggle('on',placed>=B.length);
 }
+function stepCaption(i){var b=B[i],pn=plugNames(i);
+  return '<span class="lead">'+layerLine(b)+'</span>'+b.t+' <span style="color:var(--dim)">Who asks at this step: '+b.who+'.</span>'+(b.needs.length?' <span style="color:var(--dim)">It stands on '+andList(b.needs.map(function(j){return B[j].n}))+'.</span>':'')+(pn.length?' <span style="color:var(--c1)">It plugs into '+andList(pn)+'.</span>':'')+explainerLink(i)}
 function next(){
   if(placed>=B.length)return;var i=placed;if(i===0)homeCam();build(i);var b=B[i];setHud('Step '+(i+1)+' of '+B.length+' · '+b.n,(i+1)/B.length);curPlug=[i];showPlugsFor([i]);
-  var pn=plugNames(i);
-  caption('Step '+(i+1)+' · '+b.n,b.h,'<span class="lead">'+layerLine(b)+'</span>'+b.t+' <span style="color:var(--dim)">Who asks at this step: '+b.who+'.</span>'+(b.needs.length?' <span style="color:var(--dim)">It stands on '+andList(b.needs.map(function(j){return B[j].n}))+'.</span>':'')+(pn.length?' <span style="color:var(--c1)">It plugs into '+andList(pn)+'.</span>':'')+explainerLink(i));
+  caption('Step '+(i+1)+' · '+b.n,b.h,stepCaption(i));
   placed++;update();markRail(i);
   var mine=els[i];setTimeout(function(){if(els[i]===mine)plug(i)},reduce?0:850);
   setTimeout(function(){pulse([i].concat(b.needs))},reduce?0:700);
+}
+/* Plan-event body for one brick placement: the same calls as next(), with the delayed plug and layer light done inline so a seek can rebuild the exact state. */
+function buildStep(i){var b=B[i];if(i===0)homeCam();build(i);setHud('Step '+(i+1)+' of '+B.length+' · '+b.n,(i+1)/B.length);curPlug=[i];showPlugsFor([i]);
+  caption('Step '+(i+1)+' · '+b.n,b.h,stepCaption(i));
+  placed++;update();markRail(i);plug(i);litL([i].concat(b.needs));
 }
 function prev(){if(placed<=0)return;placed--;els[placed].remove();els[placed]=null;unplug(placed);clearHot();setHud(placed?'Step '+placed+' of '+B.length+' · '+B[placed-1].n:'The baseplate is empty',placed/B.length);showPlugsFor(placed?[placed-1]:[]);markRail(placed-1);
   caption(placed?'Step '+placed+' · '+B[placed-1].n:'Ready',placed?B[placed-1].h:'The baseplate is empty',placed?B[placed-1].t:'Build them in order, or click any placed brick to see what it stands on.');update()}
@@ -471,20 +499,10 @@ function focusBrick(i){clearHot();var b=B[i];litL([i].concat(b.needs));setHud('R
   els[i].classList.add('hot');b.needs.forEach(function(j){if(els[j])els[j].classList.add('hot')});
   caption('Step '+(i+1)+' · '+b.n,b.h,'<span class="lead">'+layerLine(b)+'</span>'+b.t+' <span style="color:var(--dim)">Who asks at this step: '+b.who+'.</span>'+(b.needs.length?' <span style="color:var(--dim)">The highlighted bricks are what it stands on.</span>':' <span style="color:var(--dim)">Nothing sits beneath it.</span>')+explainerLink(i))}
 function resetQuiet(){while(placed>0)prev();homeCam();setHud('The baseplate is empty',0);caption('Ready','The baseplate is empty','Every brick is one step from the Agent Staircase explainer. Build them in order.')}
-/* Autoplay: build the wall once, run one trace, then rest at the finished wall. Any manual control stops it, and the Autoplay button starts it again. */
-var loopOn=false,autoBtn=document.getElementById('auto');
-function stopAuto(){loopOn=false;autoBtn.textContent='Autoplay';autoBtn.setAttribute('aria-pressed','false')}
-function tick(){
-  if(!loopOn)return;
-  if(placed<B.length){next();setTimeout(tick,reduce?900:4400);return}
-  setTimeout(function(){if(!loopOn)return;runTrace(6);
-    setTimeout(function(){if(!loopOn)return;stopAuto()},(reduce?0:10*1100)+6000)},3000);
-}
-function startAuto(){if(loopOn)return;loopOn=true;autoBtn.textContent='Pause';autoBtn.setAttribute('aria-pressed','true');if(placed>=B.length)resetQuiet();setTimeout(tick,500)}
-document.getElementById('next').onclick=function(){stopAuto();next()};
-document.getElementById('prev').onclick=function(){stopAuto();prev()};
-document.getElementById('reset').onclick=function(){stopAuto();resetQuiet()};
-autoBtn.onclick=function(){loopOn?stopAuto():startAuto()};
+/* Autoplay is replaced by the timeline's Play, which runs one recorded cycle and rests. Manual controls pause the plan and keep their behaviour. */
+document.getElementById('next').onclick=function(){pause();next()};
+document.getElementById('prev').onclick=function(){pause();prev()};
+document.getElementById('reset').onclick=function(){pause();resetQuiet()};
 
 /* Camera: eased toward target angles each frame; drag edits the targets, auto-rotate nudges the yaw target. */
 var rx=-24,ry=-32,tx=-24,ty=-32,auto=!reduce,dragging=false,moved=0,lx=0,ly=0,sc=1;
@@ -496,6 +514,7 @@ function render(){
   rx+=(tx-rx)*.1;ry+=(ty+sw-ry)*.1;
   plugLayer.style.setProperty('--by',(-ry)+'deg');plugLayer.style.setProperty('--bx',(-rx)+'deg');
   world.style.transform='scale('+sc+') rotateX('+rx+'deg) rotateY('+ry+'deg)';
+  updateTl();
   requestAnimationFrame(render);
 }
 window.addEventListener('resize',fit);fit();
@@ -515,16 +534,20 @@ document.querySelectorAll('[data-v]').forEach(function(btn){btn.onclick=function
   tx=v[0];ty=Math.round(ry/360)*360+v[1]}});
 
 document.getElementById('plugs').onclick=function(){allPlugs=!allPlugs;this.setAttribute('aria-pressed',allPlugs);showPlugsFor(curPlug)};
-document.querySelectorAll('.lyitem').forEach(function(d){d.onclick=function(){stopAuto();if(placed<B.length)while(placed<B.length)next();clearHot();var L=+d.dataset.l,keys=[];
+document.querySelectorAll('.lyitem').forEach(function(d){d.onclick=function(){pause();if(placed<B.length)while(placed<B.length)next();clearHot();var L=+d.dataset.l,keys=[];
   els.forEach(function(e,j){if(e)e.classList.add(B[j].L===L?'hot':'dim')});litL(B.map(function(b,j){return b.L===L?j:-1}));setHud('Layer · '+LD[L][0],null);
   caption('Layer · '+LD[L][0],LD[L][0]+' layer','This layer '+LD[L][1]+'. Its bricks: '+andList(B.filter(function(b){return b.L===L}).map(function(b){return b.n}))+'.')}});
-document.querySelectorAll('#rail button').forEach(function(bt){bt.onclick=function(){stopAuto();var i=+bt.dataset.i;while(placed<=i)next();focusBrick(i)}});
-/* Trace: a hash packet climbs the finished wall. Entry traces follow the staircase, example traces follow the worked examples on the live page. */
+document.querySelectorAll('#rail button').forEach(function(bt){bt.onclick=function(){pause();var i=+bt.dataset.i;while(placed<=i)next();focusBrick(i)}});
+/* Trace: a hash packet climbs the finished wall. Entry traces follow the staircase, example traces follow the worked examples on the live page. The start, one hop and the end are separate functions so the recorded plan replays exactly these bodies. */
+function startTrace(){clearHot();homeCam();tracing=true;els.forEach(function(e){if(e)e.classList.add('dim')})}
+function hop(path,texts,label,j,k){
+  els[j].classList.remove('dim');els[j].classList.add('hot');litL([j]);showPlugsFor([j]);markRail(j);setHud(label+' · hop '+(k+1)+' of '+path.length,(k+1)/path.length);
+  caption(label+' · hop '+(k+1)+' of '+path.length,B[j].n,texts?texts[k]:'The run passes through the '+B[j].n+' brick ('+B[j].s+').')}
+function endTrace(doneH,doneT){tracing=false;caption('Trace complete',doneH,doneT)}
 function runPath(path,texts,label,doneH,doneT){
-  clearHot();homeCam();tracing=true;els.forEach(function(e){e.classList.add('dim')});var t=token;
-  path.forEach(function(j,k){setTimeout(function(){if(t!==token)return;els[j].classList.remove('dim');els[j].classList.add('hot');litL([j]);showPlugsFor([j]);markRail(j);setHud(label+' · hop '+(k+1)+' of '+path.length,(k+1)/path.length);
-    caption(label+' · hop '+(k+1)+' of '+path.length,B[j].n,texts?texts[k]:'The run passes through the '+B[j].n+' brick ('+B[j].s+').');
-    if(k===path.length-1)setTimeout(function(){if(t===token){tracing=false;caption('Trace complete',doneH,doneT)}},700)},reduce?0:k*(texts?2600:1100))})}
+  startTrace();var t=token;
+  path.forEach(function(j,k){setTimeout(function(){if(t!==token)return;hop(path,texts,label,j,k);
+    if(k===path.length-1)setTimeout(function(){if(t===token)endTrace(doneH,doneT)},700)},reduce?0:k*(texts?2600:1100))})}
 function runTrace(entry){runPath([entry,2,1,3,7,9,10,11,12,13],null,'Trace','The run is complete','The request entered as a link, browser call or network call, ran the same kernel, chained by hash, was signed and proven, and ended in a root that outside authorities timestamped.')}
 var EX=[
 {n:'Example 1 · x402 on two chains',lk:'ex-x402',path:[6,7,3,13],tx:[
@@ -546,17 +569,83 @@ var EX=[
  'The four hashes are bound into a receipt and timestamped.'],
  dh:'A regulatory check where only hashes cross the boundary',dt:'The trade fields never leave the tab. Only the hashes are bound into a receipt and timestamped.'}
 ];
-document.querySelectorAll('#trace button[data-e]').forEach(function(btn){btn.onclick=function(){stopAuto();runTrace(+btn.getAttribute('data-e'))}});
-document.querySelectorAll('#trace button[data-x]').forEach(function(btn){btn.onclick=function(){stopAuto();var e=EX[+btn.getAttribute('data-x')];runPath(e.path,e.tx,e.n,e.dh,e.dt+' <a href="'+EXPLAINER+'#'+e.lk+'">Read the worked example</a>.')}});
+document.querySelectorAll('#trace button[data-e]').forEach(function(btn){btn.onclick=function(){pause();runTrace(+btn.getAttribute('data-e'))}});
+document.querySelectorAll('#trace button[data-x]').forEach(function(btn){btn.onclick=function(){pause();var e=EX[+btn.getAttribute('data-x')];runPath(e.path,e.tx,e.n,e.dh,e.dt+' <a href="'+EXPLAINER+'#'+e.lk+'">Read the worked example</a>.')}});
+/* The demo is recorded as a plan of timed events, so any moment can be rebuilt instantly and playback can resume from it. */
+var rec=null,chapters=[],plan=null,tlStart=0,pausedAt=0,tlRun=false,scrubbing=false,scrubT=0,handles=[];
+function at(ms,fn){if(rec)rec.push({t:ms,fn:fn});else handles.push(setTimeout(fn,ms))}
+function chap(t,type,label){if(rec)chapters.push({t:t,type:type,label:label})}
+function stopAll(){handles.forEach(clearTimeout);handles=[]}
+/* Plan times, in milliseconds: build steps on the published autoplay cadence, then the MCP entry trace, then the three worked examples, then the demo rests. */
+var T0=300,BSTEP=4400,GAP=3000,HOPGAP=300,HOPMS=1100,XHOP=2600,TAIL=700,SEG=1500,ENDPAD=2000,ENTRY=[6,2,1,3,7,9,10,11,12,13];
+function buildPlan(){
+  rec=[];chapters=[];var T=T0,i,k;
+  chap(T,'build','Build');
+  for(i=0;i<B.length;i++){(function(i){at(T,function(){buildStep(i)})})(i);T+=BSTEP}
+  T+=GAP;chap(T,'entry','Entry trace');at(T,function(){startTrace()});
+  for(k=0;k<ENTRY.length;k++){(function(k){at(T+HOPGAP+k*HOPMS,function(){hop(ENTRY,null,'Trace',ENTRY[k],k)})})(k)}
+  T=T+HOPGAP+(ENTRY.length-1)*HOPMS+TAIL;
+  at(T,function(){endTrace('The run is complete','The request entered as a link, browser call or network call, ran the same kernel, chained by hash, was signed and proven, and ended in a root that outside authorities timestamped.')});
+  EX.forEach(function(e){
+    T+=SEG;chap(T,'ex',e.n);at(T,function(){startTrace()});
+    for(k=0;k<e.path.length;k++){(function(e,k){at(T+HOPGAP+k*XHOP,function(){hop(e.path,e.tx,e.n,e.path[k],k)})})(e,k)}
+    T=T+HOPGAP+(e.path.length-1)*XHOP+TAIL;
+    at(T,function(){endTrace(e.dh,e.dt+' <a href="'+EXPLAINER+'#'+e.lk+'">Read the worked example</a>.')})});
+  T+=ENDPAD;at(T,function(){pause()});
+  plan={events:rec,total:T,chapters:chapters};rec=null;
+}
+/* Wipe the wall back to the empty baseplate, then a seek replays recorded events up to time t with motion off. */
+function resetAll(){
+  els.forEach(function(e){if(e)e.remove()});els=[];
+  Object.keys(plugEls).forEach(function(i){(plugEls[i]||[]).forEach(function(g){g.remove()})});
+  for(var k in plugEls)plugEls[k]=[];curPlug=[];placed=0;clearHot();markRail(-1);update();
+  setHud('Getting ready',0);
+  caption('Ready','The baseplate is empty','Every brick is one step from the Agent Staircase explainer. The wall builds itself. Pause any time to place bricks by hand or click one to see what it stands on.')}
+function seek(t,play){stopAll();t=Math.max(0,Math.min(plan.total-1,t));
+  var saved=reduce;reduce=true;resetAll();
+  plan.events.filter(function(e){return e.t<=t}).sort(function(a,b){return a.t-b.t}).forEach(function(e){try{e.fn()}catch(x){}});
+  reduce=saved;
+  if(play){plan.events.filter(function(e){return e.t>t}).forEach(function(e){handles.push(setTimeout(e.fn,e.t-t))});tlStart=performance.now()-t;tlRun=true;setPlaying(true)}
+  else{pausedAt=t;tlRun=false;setPlaying(false)}
+  lastTl='';updateTl()}
+/* Timeline bar */
+var TLC={build:'#14B8A6',entry:'#60A5FA',ex:'#22C55E'},lastTl='';
+function fmt(ms){var n=Math.round(ms/1000);return Math.floor(n/60)+':'+('0'+(n%60)).slice(-2)}
+function tlNow(){return tlRun?performance.now()-tlStart:pausedAt}
+function chapAt(t){var c=null;plan.chapters.forEach(function(x){if(x.t<=t+1)c=x});return c}
+function buildTicks(){var tr=document.getElementById('tltrack');tr.querySelectorAll('.tltick').forEach(function(n){n.remove()});
+  plan.chapters.forEach(function(c){var d=document.createElement('i');d.className='tltick';d.style.left=(c.t/plan.total*100)+'%';d.style.background=TLC[c.type];tr.appendChild(d)});
+  document.getElementById('tltot').textContent=fmt(plan.total);tr.setAttribute('aria-valuemax',Math.round(plan.total/1000))}
+function updateTl(){if(!plan)return;var t=scrubbing?scrubT:Math.min(tlNow(),plan.total),c=chapAt(t),k=fmt(t)+'|'+(c?c.label:'');if(!scrubbing&&k===lastTl)return;lastTl=k;
+  var f=t/plan.total*100;document.getElementById('tlfill').style.width=f+'%';document.getElementById('tlhead').style.left=f+'%';document.getElementById('tlnow').textContent=fmt(t);document.getElementById('tlch').textContent=c?c.label:'';
+  var tr=document.getElementById('tltrack');tr.setAttribute('aria-valuenow',Math.round(t/1000));tr.setAttribute('aria-valuetext',k.replace('|',' · '))}
+var trk=document.getElementById('tltrack');
+function fracAt(e){var r=trk.getBoundingClientRect();return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))}
+function showTip(e){var f=fracAt(e),c=chapAt(f*plan.total),tip=document.getElementById('tltip');tip.style.display='block';tip.style.left=(f*100)+'%';tip.textContent=fmt(f*plan.total)+(c?' · '+c.label:'')}
+trk.addEventListener('pointerdown',function(e){if(!plan)return;scrubbing=true;if(trk.setPointerCapture)try{trk.setPointerCapture(e.pointerId)}catch(x){}scrubT=fracAt(e)*plan.total;showTip(e)});
+trk.addEventListener('pointermove',function(e){if(!plan)return;showTip(e);if(scrubbing)scrubT=fracAt(e)*plan.total});
+trk.addEventListener('pointerup',function(e){if(!scrubbing)return;scrubbing=false;seek(fracAt(e)*plan.total,tlRun)});
+trk.addEventListener('pointercancel',function(){scrubbing=false});
+trk.addEventListener('pointerleave',function(){document.getElementById('tltip').style.display='none'});
+trk.addEventListener('keydown',function(e){if(!plan)return;var d={ArrowLeft:-5000,ArrowRight:5000,PageDown:-30000,PageUp:30000}[e.key];
+  if(d!=null){e.preventDefault();seek(tlNow()+d,tlRun)}else if(e.key==='Home'){e.preventDefault();seek(0,tlRun)}else if(e.key==='End'){e.preventDefault();seek(plan.total-2000,tlRun)}});
+function jumpChapter(dir){if(!plan)return;var t=tlNow(),cs=plan.chapters,target=null;
+  if(dir>0){for(var i=0;i<cs.length;i++)if(cs[i].t>t+300){target=cs[i];break}}else{for(var j=cs.length-1;j>=0;j--)if(cs[j].t<t-1500){target=cs[j];break}if(!target)target={t:0}}
+  if(target)seek(target.t,tlRun)}
+document.getElementById('tlPrev').onclick=function(){jumpChapter(-1)};
+document.getElementById('tlNext').onclick=function(){jumpChapter(1)};
+function setPlaying(p){document.getElementById('play').textContent=p?'Pause':'Play';document.getElementById('play').setAttribute('aria-pressed',p?'true':'false')}
+function pause(){if(tlRun)pausedAt=performance.now()-tlStart;tlRun=false;stopAll();setPlaying(false)}
+document.getElementById('play').onclick=function(){if(tlRun)pause();else if(plan)seek(pausedAt>=plan.total-2000?0:pausedAt,true)};
 update();render();
+buildPlan();buildTicks();
 if(reduce){
-  /* prefers-reduced-motion: nothing autoplays and the wall shows complete */
-  stopAuto();
-  while(placed<B.length)next();
+  /* prefers-reduced-motion: nothing autoplays, the finished plan stands, and a seek jumps without animation */
+  seek(plan.total-1,false);
   setHud('The wall is complete · '+B.length+' of '+B.length,1);
   caption('Complete','The wall stands finished','Every brick is one step from the Agent Staircase explainer. Use Undo and Reset to rebuild it by hand, or trace a run through the finished wall.');
 }else{
-  setTimeout(startAuto,700);
+  setTimeout(function(){seek(0,true)},700);
 }
 </script>
 </body>
