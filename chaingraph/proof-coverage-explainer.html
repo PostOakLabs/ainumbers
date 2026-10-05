@@ -287,7 +287,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <div class="stair-map" role="navigation" aria-label="Map of every step on this page">
     <svg id="stairMap" viewBox="0 0 1000 260" aria-hidden="false" role="list"></svg>
   </div>
-  <div class="thesis">Of 669 live nodes, 665 carry a verifying receipt and 4 declare a stated deferral. A deferral is a published, reasoned parking space with a gate that only ever tightens, so the number you check tomorrow is the same number or a smaller one.</div>
+  <div class="thesis">Of 669 live nodes, 665 carry a verifying receipt. On 5 October 2026, 4 declared a stated deferral. A deferral is a published, reasoned parking space. The count rises only when a brand-new node lands with its deferral declared, and it never rises for a node that was already proven.</div>
 </div></header>
 
 <div class="part-head"><div class="wrap">
@@ -341,7 +341,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <g class="sk-pop" style="--d:2.4s"><rect x="60" y="150" width="60" height="34" rx="6" fill="var(--purple-dim)" stroke="var(--purple)" stroke-width="1.4"/><text x="132" y="172" text-anchor="start" class="s xs">15 heavy nodes, receipts attached</text></g>
     <g class="sk-fade" style="--d:3.2s"><text x="480" y="204" text-anchor="middle" class="mu xs">665 of 669 proven: no node sits in neither state</text></g>
   </svg></div></div>
-  <p class="detail">Re-derive the split yourself from the published catalog; the gate prints one line and exits green when the profile holds:</p>
+  <p class="detail">Re-derive the split yourself from the published catalog; the gate prints one line and exits green when the profile holds (output read at commit <code>2ab9097fcf3c</code> on 5 October 2026):</p>
   <div class="prompt"><div class="prompt-head"><span>The command behind the numbers</span><span class="lvl">read-only</span></div><pre>$ node scripts/check-compute-proof-coverage.mjs --summary
 §18 compute-proof coverage — gpu:false live: 654 | proven: 650 | deferred: 4 | missing: 0   (gpu:true out-of-scope: 15)</pre></div>
   <div class="cites"><span class="cite">chaingraph.json read at 2ab9097fcf3c, 5 Oct 2026</span><span class="cite">check-compute-proof-coverage.mjs summary</span><span class="cite">zkvm-compute-integrity.html carries the live figure</span></div>
@@ -351,7 +351,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="part-head"><div class="wrap">
   <div class="kicker">Part two &middot; Reading the deferred column</div>
   <h2>How a deferral stays honest</h2>
-  <p>Three steps: the two members a deferral publishes, the four nodes currently in that state, and the downward-only ratchet plus the commands that let you check all of it.</p>
+  <p>Three steps: the two members a deferral publishes, the four nodes currently in that state, and the ratchet that blocks silent regressions plus the commands that let you check all of it.</p>
 </div></div>
 
 <!-- STEP 4: DEFERRED -->
@@ -380,19 +380,19 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 <!-- STEP 5: THE RATCHET -->
 <section class="panel" id="s-ratchet" data-stair="The ratchet" data-part="2"><div class="wrap">
-  <div class="panel-head"><span class="stage-n">5</span><div><div class="kicker">Step 5 &middot; The ratchet</div><h2>The ceiling only moves one way</h2></div></div>
-  <p class="lede">A ceiling that can drift upward silently protects nothing, so the deferred count is held by a ratchet: <code>scripts/compute-proof-baseline.json</code> pins the allowed maximum (4 as of the same 5 October 2026 read), and the gate fails if the live count ever rises above the pin. Two further checks close the quiet routes back. The provenance discriminator keeps a baseline rewrite from absorbing a regression: a node newly appearing in the deferred set that was already known at the last pin is named as a proof regression and blocks the rewrite. And the whole gate is wired into preflight and deploy CI, so the split is re-checked on the path to production rather than on demand.</p>
+  <div class="panel-head"><span class="stage-n">5</span><div><div class="kicker">Step 5 &middot; The ratchet</div><h2>The ceiling cannot rise silently</h2></div></div>
+  <p class="lede">A ceiling that can drift upward silently protects nothing, so the deferred count is held by a ratchet: <code>scripts/compute-proof-baseline.json</code> pins the allowed maximum (4 as of the same 5 October 2026 read), and the gate fails if the live count ever rises above the pin. A pull request that adds a new node may raise the pin by that node alone, in the open, and no other way exists to raise it. Two further checks close the quiet routes back. The provenance discriminator keeps a baseline rewrite from absorbing a regression: a node newly appearing in the deferred set that was already known at the last pin is named as a proof regression and blocks the rewrite. And the whole gate is wired into preflight and deploy CI, so the split is re-checked on the path to production rather than on demand.</p>
   <div class="scene-wrap"><button type="button" class="replay" data-replay>Replay</button><div class="scene-scroll"><svg class="sk-scene" viewBox="0 0 960 210" role="img" aria-label="A bar chart of the deferred count over time: a tall bar at 52 in mid-July, a flat bar at zero on 18 September, and a small bar at 4 today under a ceiling line pinned at 4, with a note that the endgame is zero.">
     <g class="sk-fade" style="--d:.1s"><text x="60" y="34" text-anchor="start" class="h sm">deferred deterministic nodes over time</text></g>
     <g class="sk-pop" style="--d:.5s"><rect x="80" y="60" width="150" height="104" rx="6" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.2"/><text x="155" y="116" text-anchor="middle" class="s xs">52</text><text x="155" y="182" text-anchor="middle" class="mu xs">mid-July peak</text></g>
     <g class="sk-pop" style="--d:1.2s"><rect x="280" y="160" width="150" height="4" rx="2" fill="var(--green)" stroke="var(--green)" stroke-width="1"/><text x="355" y="148" text-anchor="middle" class="ok xs">0</text><text x="355" y="182" text-anchor="middle" class="mu xs">18 September</text></g>
     <g class="sk-pop" style="--d:1.9s"><rect x="480" y="144" width="150" height="20" rx="6" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.4"/><text x="555" y="138" text-anchor="middle" class="g xs">4 today</text></g>
-    <g class="sk-slide" style="--d:2.6s"><rect x="480" y="136" width="380" height="3" fill="var(--gold)"/><text x="860" y="128" text-anchor="end" class="g xs">baseline ceiling: 4, counts only go down</text></g>
+    <g class="sk-slide" style="--d:2.6s"><rect x="480" y="136" width="380" height="3" fill="var(--gold)"/><text x="860" y="128" text-anchor="end" class="g xs">baseline ceiling: 4 on 5 October 2026</text></g>
     <g class="sk-fade" style="--d:3.4s"><text x="480" y="206" text-anchor="middle" class="mu xs">new nodes enter the column and the proving queue clears them; endgame: ceiling at zero</text></g>
   </svg></div></div>
   <p class="detail">The count has already made the full walk once: the pinned ceiling peaked at 52 deferred nodes in mid-July 2026, and the proving queue took it to zero on 18 September 2026. The four today are the October arrivals described in step 4, each a brand-new node landing with its deferral declared. The profile's own endgame, written into SPEC.md &sect;18.6, is a ceiling of zero.</p>
   <div class="cites"><span class="cite">scripts/compute-proof-baseline.json</span><span class="cite">SPEC.md &sect;18.6 ratchet + provenance discriminator</span><span class="cite">preflight + deploy CI wiring</span></div>
-  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>Explain the three controls that keep the §18 deferred count from rising: the downward-only ceiling, the provenance discriminator on baseline rewrites, and the CI wiring.</pre></div>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>Explain the three controls that keep the §18 deferred count from rising: the pinned ceiling, the provenance discriminator on baseline rewrites, and the CI wiring.</pre></div>
 </div></section>
 
 <!-- STEP 6: CHECK IT -->
