@@ -55,7 +55,14 @@ import { generateWorker, loadTemplate, TEMPLATE_PATH } from './gen-farm-worker.m
 // task defers; it never falls to another model. Fail-forward logic unchanged — in a single-entry
 // list it re-tries the same id up to $maxAttempts.
 // Previous golden: 40469 bytes, 3c033b252230adda8d9b75eb61d54006912813202d65287c0efec81328b14b8f.
-const GOLDEN = { bus: 'aspire', bytes: 40051, sha256: '55abf63a45be27ce5347c075aee454de1d84b83b3c061f73852091e414937ebe' };  // 2026-10-04 workbuddy single-id rotation (DeepSeek v4.1 Flash only)
+// Re-pinned 2026-10-05 (FARM-WORKER-HP-OMEN-RECONCILE-1): hp's three 2026-10-03 sync-deadlock
+// fixes folded into the template (Invoke-Git TrimEnd not Trim; Sync-Repo self-heal on
+// `git status --porcelain -z` with NUL-or-newline split + add -A; RUNNING marker kept when the
+// commit landed but the push was rejected) and omen's 2026-09-30 heartbeat sync-before-push
+// block folded (FARM-HERMES-SWAP-1 memorial open item 1, commit 41f070c5f: fetch + rev-list
+// --count + pull --rebase before the heartbeat push; advisory only, never blocks a report).
+// Previous golden: 40051 bytes, 55abf63a45be27ce5347c075aee454de1d84b83b3c061f73852091e414937ebe.
+const GOLDEN = { bus: 'aspire', bytes: 43587, sha256: 'f35527d7dbc46d7229727fc596ec7892efb70f509a063fc7d9d5b174026d2dc5' };  // 2026-10-05 hp sync-deadlock fixes + omen heartbeat sync-before-push folded (FARM-WORKER-HP-OMEN-RECONCILE-1)
 const BUSES = ['hp', 'ps', 'nitro', 'aspire', 'omen', 'msi'];   // MSI-BUS-1 (2026-09-20): sixth bus
 const TOKEN_VALUES = {
   hp: { '@@MACHINE@@': 'hp', '@@BUS@@': 'hp', '@@NPMROOT@@': '$env:APPDATA\\npm' },

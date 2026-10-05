@@ -138,7 +138,12 @@ function Invoke-Git {
   $ErrorActionPreference = 'Continue'
   try {
     $out = & git @GitArgs 2>&1
-    [pscustomobject]@{ Code = $LASTEXITCODE; Output = (($out | Out-String)).Trim() }
+    # 2026-10-03 hp fix, folded into this template by FARM-WORKER-HP-OMEN-RECONCILE-1: TrimEnd, not Trim.
+    # 2026-10-03: was `.Trim()`. A GLOBAL trim also strips the LEADING porcelain status column of
+    # the first line, so a caller doing `Substring(3)` to skip `XY ` is silently off by one on that
+    # line (` D outbox/x` -> `D outbox/x` -> `utbox/x`). Only trailing whitespace is padding from
+    # Out-String; leading whitespace is data. TrimEnd keeps it.
+    [pscustomobject]@{ Code = $LASTEXITCODE; Output = (($out | Out-String)).TrimEnd() }
   } finally { $ErrorActionPreference = $prev }
 }
 
@@ -161,13 +166,25 @@ function Assert-Repo {
 
 function Sync-Repo {
   # Self-heal: commit staged AND unstaged changes under outbox\ before pulling (incident 6).
-  $st = Invoke-Git @('status', '--porcelain')
+  # 2026-10-03 hp fix, folded into this template by FARM-WORKER-HP-OMEN-RECONCILE-1: -z porcelain self-heal.
+  # 2026-10-03 (sync-deadlock): this used `git status --porcelain` and sliced paths with
+  # `Substring(3)`. Two faults made it blind to exactly the state it exists to repair:
+  #   1. `Invoke-Git` trimmed the whole output, stripping the first line's leading status column,
+  #      so ` D outbox/x` (an UNSTAGED DELETION) became `D outbox/x` -> Substring(3) = `utbox/x`.
+  #      Untracked `?? outbox/x` was unaffected, which is why only additions ever self-healed.
+  #   2. `Substring(3)` threw on any line shorter than 3 chars.
+  # A push-rejected landing leaves an uncommitted outbox deletion behind, so this blindness was
+  # what let one failed push wedge `git pull --rebase` ("cannot pull with rebase: You have
+  # unstaged changes") for hours while the worker kept committing heartbeats.
+  # Now NUL-delimited (-z: no quoting/escaping, no leading-space ambiguity), split defensively on
+  # NULs OR newlines, length-guarded, and quote-tolerant.
+  $st = Invoke-Git @('status', '--porcelain', '-z')
   if ($st.Code -ne 0) { Write-Log "git status failed: $($st.Output)"; return $false }
-  $outboxDirt = @($st.Output -split "`r?`n" |
-    Where-Object { $_.Trim() -and ($_.Substring(3) -like 'outbox*') })
+  $outboxDirt = @($st.Output -split "[`0`r`n]+" |
+    Where-Object { $_.Length -ge 4 -and $_.Substring(3).Trim('"') -like 'outbox/*' })
   foreach ($line in $outboxDirt) { Write-Log ('self-heal: ' + $line.Trim()) }
   if ($outboxDirt.Count -gt 0) {
-    $add = Invoke-Git @('add', '--', 'outbox')
+    $add = Invoke-Git @('add', '-A', '--', 'outbox')
     $ci  = Invoke-Git @('commit', '-m', "farm: self-heal outbox before pull [$Machine]")
     Write-Log "self-heal commit code=$($ci.Code)"
   }
@@ -475,7 +492,22 @@ function Write-Heartbeat {
     if ($add.Code -ne 0) { Write-Log ('heartbeat add failed: ' + $add.Output); return }
     $ci = Invoke-Git @('commit', '-m', 'farm: @@BUS@@ heartbeat')
     if ($ci.Code -ne 0) { Write-Log ('heartbeat commit failed: ' + $ci.Output); return }
-    if (Test-HasRemote) { $push = Invoke-Git @('push'); if ($push.Code -ne 0) { Write-Log ('heartbeat push failed: ' + $push.Output) } }
+    if (Test-HasRemote) {
+      # 2026-09-30 omen fix, folded into this template by FARM-WORKER-HP-OMEN-RECONCILE-1 (FARM-HERMES-SWAP-1 open item 1).
+      # sync before push: a bare push rejects whenever origin moved after Sync-Repo ran (bus heartbeat divergence 2026-09-30);
+      # heartbeat stays advisory - a failed rebase skips this tick's push, it never blocks a report
+      $null = Invoke-Git @('fetch', 'origin')
+      $behind = Invoke-Git @('rev-list', '--count', 'HEAD..origin/main')
+      $needRebase = ($behind.Code -eq 0 -and $behind.Output -match '^(\d+)$' -and [int]$Matches[1] -gt 0)
+      if ($needRebase) {
+        $rb = Invoke-Git @('pull', '--rebase', 'origin', 'main')
+        Write-Log ('heartbeat rebase code=' + $rb.Code)
+      }
+      if (-not $needRebase -or $rb.Code -eq 0) {
+        $push = Invoke-Git @('push')
+        if ($push.Code -ne 0) { Write-Log ('heartbeat push failed: ' + $push.Output) }
+      }
+    }
     Write-Log ('heartbeat: ' + $line)
   } catch {
     # a heartbeat is diagnostics: it must never be the reason a report fails to land
@@ -555,8 +587,22 @@ try {
   $marker = Join-Path $Outbox ($id + '.RUNNING')
   Set-Content -Path $marker -Value ("{0} started {1}" -f $Machine, (Get-Date).ToUniversalTime().ToString('s'))
   if (-not (Git-Land ("farm: {0} RUNNING [{1}/{2}]" -f $id, $Machine, $laneName))) {
-    Remove-Item $marker -Force -ErrorAction SilentlyContinue
-    Write-Log "abort: could not land RUNNING marker for $id"
+    # 2026-10-03 hp fix, folded into this template by FARM-WORKER-HP-OMEN-RECONCILE-1: keep a committed-but-unpushed RUNNING marker.
+    # 2026-10-03 (sync-deadlock): Git-Land returns $false when the PUSH is rejected even though the
+    # COMMIT already landed. Blindly removing the marker then deleted a committed file, leaving an
+    # uncommitted deletion (` D outbox/<id>.RUNNING`) that blocked every later `git pull --rebase`
+    # with "cannot pull with rebase: You have unstaged changes" - and, because the old self-heal
+    # could not see deletions, it never recovered. Observed live: T1-CON-8C9B2278 wedged the tree
+    # from 06:27Z and diverged the branch to 65 remote / 12 local commits.
+    # Only remove the working file when the commit did NOT land; if the marker is tracked at HEAD
+    # the landing is already durable, so leave the tree clean and let the push retry next tick.
+    $tracked = Invoke-Git @('ls-files', '--error-unmatch', '--', ('outbox/' + $id + '.RUNNING'))
+    if ($tracked.Code -eq 0) {
+      Write-Log "abort: RUNNING marker for $id committed locally but NOT pushed (tree left clean; push retries next tick)"
+    } else {
+      Remove-Item $marker -Force -ErrorAction SilentlyContinue
+      Write-Log "abort: could not land RUNNING marker for $id"
+    }
     exit 1
   }
 
