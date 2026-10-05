@@ -67,17 +67,21 @@ $script:Lanes = [ordered]@{
     FallbackExe  = @("@@NPMROOT@@\opencode.cmd")
     # Patterns, not ids: each is resolved against THIS machine's `opencode models` listing, so a
     # renamed id or a model a box's catalog does not carry yet (union-alpha, 2026-09-18) is skipped.
-    # Refreshed 2026-10-05 (nitro rotation, Tim-directed): the catalog had moved on — only
-    # muse-spark-1.3 and ling-3.0-flash-fin still resolved, so a ling endpoint outage
-    # (T5-WMC-3FFC0AD5, "Upstream request failed: Endpoint is unavailable") halved the lane to one
-    # healthy id. muse-spark-1.2, deepseek-v4-flash, mimo-v2.5, jev-1.13 and union-alpha dropped
-    # (absent from every catalog since ~09-20, zero resolves). Five replacements probed READY on
-    # nitro the same hour ("Reply with exactly: OK", rc=0: mimo-v2.6 4 s, fledge-alpha 5 s,
-    # space-bunny 5 s, ling-3.1 6 s, longcat-2.5-preview 11 s), ordered by probe time after the
-    # production-proven muse-spark; ling-3.0-flash-fin kept LAST — its endpoint may recover and a
-    # dead pattern costs one fast failed run per cycle. Nemotron ultra/lightning stay OUT
-    # (2026-09-20, Tim: not recommended on this estate).
-    RotateModels = @('^opencode/muse-spark-1\.3.*free$', '^opencode/mimo-v2\.6.*free$', '^opencode/fledge-alpha.*free$', '^opencode/space-bunny.*free$', '^opencode/ling-3\.1-flash.*free$', '^opencode/longcat-2\.5-preview.*free$', '^opencode/ling-3\.0-flash-fin.*free$')
+    # Refreshed 2026-10-05 (fleet sweep, Tim-directed, extends the nitro rotation of the same
+    # day): the catalog had moved on — only muse-spark-1.3 and ling-3.0-flash-fin still resolved
+    # of the 09-20 pool, so a ling endpoint outage (T5-WMC-3FFC0AD5, "Upstream request failed:
+    # Endpoint is unavailable") halved the lane to one healthy id. muse-spark-1.2,
+    # deepseek-v4-flash, mimo-v2.5, jev-1.13 and union-alpha dropped (absent from every catalog
+    # since ~09-20, zero resolves). Five replacements probed READY on EVERY machine the same hour
+    # ("Reply with exactly: OK", rc=0 — nitro/hp/ps/aspire/omen all 3-17 s, msi 5-65 s), ordered
+    # by probe time after the production-proven muse-spark. ling-3.0-flash-fin is OUT, not kept:
+    # probed rc=1 after ~73 s on hp/ps/aspire/nitro and a >75 s HANG on msi — on msi each hit
+    # would burn the full lane timeout before the retry advances, so a recovery re-add is a
+    # future sweep's call, not a standing cost. Nemotron ultra/lightning stay OUT (2026-09-20,
+    # Tim: not recommended on this estate). msi's catalog is older (no fledge/ling-3.1/
+    # longcat-2.5-preview): those patterns skip at resolve time there, pool = 4 ids on msi,
+    # 6 everywhere else.
+    RotateModels = @('^opencode/muse-spark-1\.3.*free$', '^opencode/mimo-v2\.6.*free$', '^opencode/fledge-alpha.*free$', '^opencode/space-bunny.*free$', '^opencode/ling-3\.1-flash.*free$', '^opencode/longcat-2\.5-preview.*free$')
     DefaultModel = 'opencode/muse-spark-1.3-contributor-free'
     ArgFormat    = 'run -m {4} "{0}"'
     # `opencode run` reads stdin when stdin is not a terminal and waits for EOF. Under Task
