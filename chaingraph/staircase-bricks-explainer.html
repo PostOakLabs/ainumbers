@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Agent Staircase as 3D bricks · AINumbers.co</title>
+<meta name="description" content="An interactive brick model of the Agent Staircase. Fourteen bricks stack into five layers, from the tool page to the timestamped receipt, and every brick opens the explainer step behind it. Drag to spin the wall, then trace a run through the finished stack.">
+<meta name="ain:category" content="learn">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/staircase-bricks-explainer.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F4F7FB;--panel:#FFFFFF;--line:#B9C9DB;--text:#1B2B40;--dim:#5B7189;--plate:#C9D6E4;
+--c1:#14B8A6;--c2:#60A5FA;--c3:#D4A847;--c4:#9B72F5;--c5:#22C55E;--ink:#08111F;--lk:#0C7365;
+--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--bright:#D4E8F8;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--radius:6px;--radius-lg:10px;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#080E1A;--panel:#0D1627;--line:#263855;--text:#A8C4DE;--dim:#6888A8;--plate:#16233D;--lk:#2DD4BF}}
+:root[data-theme="dark"]{--bg:#080E1A;--panel:#0D1627;--line:#263855;--text:#A8C4DE;--dim:#6888A8;--plate:#16233D;--lk:#2DD4BF}
+*{box-sizing:border-box;margin:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg);color:var(--text);font-family:Sora,system-ui,sans-serif;font-weight:300;line-height:1.6;padding:0}
+a{color:var(--lk);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible{outline:2px solid var(--lk);outline-offset:2px}
+.wrap{max-width:920px;margin:0 auto;padding:1.2rem 1rem 2rem}
+h1{font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:clamp(1.5rem,4vw,2.2rem);line-height:1.2}
+.sub{color:var(--dim);font-size:.9rem;margin:.4rem 0 1rem;max-width:700px}
+.scene{position:relative;height:min(68vh,540px);min-height:380px;perspective:1900px;perspective-origin:50% 42%;overflow:hidden;--plate:#15233B;--line:#2B4265;border:1px solid #1E2F4A;border-radius:10px;cursor:grab;
+background:radial-gradient(ellipse 70% 55% at 50% 28%,rgba(20,184,166,.20),transparent 70%),radial-gradient(ellipse 80% 40% at 50% 105%,rgba(155,114,245,.18),transparent 70%),url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><g fill='none' stroke='%2314B8A6' stroke-opacity='.16' stroke-width='1.2'><path d='M0 40H60L80 60H140'/><path d='M200 120H150L130 140V200'/><path d='M40 0V50'/><path d='M100 200V160L120 140'/><path d='M0 160H30L50 180'/><path d='M160 0V30L180 50H200'/></g><g fill='%2314B8A6' fill-opacity='.28'><circle cx='140' cy='60' r='3'/><circle cx='130' cy='140' r='3'/><circle cx='60' cy='40' r='2.5'/><circle cx='50' cy='180' r='3'/><circle cx='180' cy='50' r='2.5'/></g></svg>"),linear-gradient(rgba(20,184,166,.05) 1px,transparent 1px) 0 0/48px 48px,linear-gradient(90deg,rgba(20,184,166,.05) 1px,transparent 1px) 0 0/48px 48px,linear-gradient(#050A14,#0B1526);touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.scene.drag{cursor:grabbing}
+.hint{position:absolute;left:10px;bottom:8px;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--dim);pointer-events:none}
+.world{position:absolute;left:50%;top:50%;width:0;height:0;transform-style:preserve-3d;--ex:0px}
+.brick,.box{position:absolute;transform-style:preserve-3d}
+.brick{transition:transform .7s cubic-bezier(.3,.7,.3,1)}
+.f{position:absolute;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:1px solid rgba(0,0,0,.35);background:linear-gradient(var(--ov),var(--ov)),var(--col);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden}
+.f.top{overflow:visible;transform-style:preserve-3d;display:block}
+.fr{--ov:rgba(0,0,0,0)}.bk{--ov:rgba(0,0,0,.2)}.lf{--ov:rgba(0,0,0,.28)}.rt{--ov:rgba(0,0,0,.16)}.top{--ov:rgba(255,255,255,.14)}.bt{--ov:rgba(0,0,0,.42)}
+.nm{font-family:'JetBrains Mono',monospace;font-size:calc(16px * var(--lf,1));font-weight:500;color:var(--ink);white-space:nowrap}
+.sb{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink);opacity:.75;white-space:nowrap}
+.hot .f{box-shadow:inset 0 0 0 4px #fff}
+.dim .f{opacity:.25}
+.plate .top{background-image:radial-gradient(circle,var(--line) 5px,transparent 6px);background-size:50px 50px;background-color:var(--plate)}
+.plate .f{--col:var(--plate)}
+.bgterms span{position:absolute;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:rgba(130,190,210,.20);pointer-events:none;white-space:nowrap}
+.plugs{position:absolute;left:0;top:0;transform-style:preserve-3d}
+.pg{position:absolute;left:0;top:0;transform-style:preserve-3d;transition:transform .7s cubic-bezier(.3,.7,.3,1)}
+.cable{position:absolute;width:0;height:0;transform-style:preserve-3d}
+.cs{position:absolute;left:0;top:-2px;height:4px;transform-origin:0 50%;transform-style:preserve-3d}
+.pl{position:absolute;inset:0;background:repeating-linear-gradient(90deg,var(--cc) 0 9px,rgba(255,255,255,.08) 9px 18px);box-shadow:0 0 8px var(--cc)}
+.pl+.pl{transform:rotateX(90deg)}
+.card{position:absolute;left:0;top:0;transform-style:preserve-3d;transform:translateZ(var(--cz)) rotateY(var(--by,0deg)) rotateX(var(--bx,0deg))}
+.ci{position:absolute;left:-88px;top:-19px;width:176px;height:38px;padding:4px 8px 4px 10px;background:rgba(9,16,30,.94);border:1px solid rgba(255,255,255,.14);border-left:4px solid var(--cc);border-radius:5px;box-shadow:0 0 14px rgba(0,0,0,.5),0 0 10px -2px var(--cc);font-family:'JetBrains Mono',monospace}
+.ci b{display:block;font-weight:500;font-size:11px;color:#E6F1FB;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci span{display:block;font-size:8.5px;color:#7F9AB5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plugleg{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin:.2rem 0 .7rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--dim)}
+.plugleg i{display:inline-block;width:.15rem;height:.8rem;margin-right:.4rem;vertical-align:-1px;border-radius:1px}
+.world.sm .sb{display:none}
+.pg.off{display:none}
+.hud{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:5;pointer-events:none;background:rgba(9,16,30,.88);border:1px solid #2B4265;border-radius:14px;padding:5px 14px 7px;font:500 11px 'JetBrains Mono',monospace;color:#E6F1FB;text-align:center;min-width:230px;max-width:70%}
+.hud i{display:block;height:3px;background:#1E2F4A;border-radius:2px;margin-top:5px;overflow:hidden}
+.hud b{display:block;height:100%;width:0;background:#D4A847;transition:width .5s}
+.lyr{position:absolute;left:10px;top:10px;z-index:5;display:flex;flex-direction:column;gap:4px}
+.lyitem{display:flex;align-items:center;gap:6px;font:400 10px 'JetBrains Mono',monospace;color:#9FB4C9;background:rgba(9,16,30,.72);border:1px solid transparent;border-radius:4px;padding:2px 7px;cursor:pointer;opacity:.7}
+.lyitem i{width:10px;height:10px;border-radius:2px;background:var(--lc)}
+.lyitem.lit{opacity:1;border-color:var(--lc);color:#fff}
+.rail{position:absolute;right:10px;top:50%;transform:translateY(-50%);z-index:5;display:flex;flex-direction:column;gap:3px;align-items:flex-end}
+.rail button{display:flex;align-items:center;gap:6px;background:rgba(9,16,30,.72);border:1px solid transparent;border-radius:4px;padding:1px 7px;font:400 9.5px 'JetBrains Mono',monospace;color:#7F9AB5;cursor:pointer}
+.rail button .dot{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--rc);background:transparent}
+.rail button.built .dot{background:var(--rc);opacity:.5}
+.rail button.cur{color:#fff;border-color:var(--rc)}
+.rail button.cur .dot{background:var(--rc);opacity:1;box-shadow:0 0 8px var(--rc)}
+@media (max-width:560px){.rail button span{display:none}.lyitem span{display:none}.hud{font-size:10px;min-width:170px}}
+.layers{display:flex;flex-wrap:wrap;gap:.4rem .9rem;margin:.7rem 0;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--dim)}
+.layers i{display:inline-block;width:.8rem;height:.8rem;border-radius:2px;margin-right:.35rem;vertical-align:-1px}
+.cap{margin:.6rem 0;padding:.8rem 1rem;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--c3);border-radius:0 8px 8px 0;min-height:7.6rem}
+.cap .k{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--c3)}
+.cap h2{font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:1.35rem;margin:.1rem 0}
+.cap p{font-size:.95rem;color:var(--dim)}
+.cap .lead{display:block;color:var(--text);font-weight:400;margin-bottom:.25rem}
+.cap a{color:var(--lk)}
+.ctl{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.5rem}
+button{font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.5rem .85rem;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer}
+button:hover{border-color:var(--c1)}
+button.pri{background:#D4A847;border-color:#D4A847;color:#08111F;font-weight:500}
+button[aria-pressed="true"]{border-color:var(--c1);color:var(--c1)}
+button:disabled{opacity:.4;cursor:default}
+.sep{width:1px;height:1.4rem;background:var(--line);margin:0 .2rem}
+.trace{display:none;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.6rem;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--dim)}
+.trace.on{display:flex}
+.doclinks{margin:1.4rem 0 0;padding:.9rem 1rem;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.doclinks h2{font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:1.15rem;margin-bottom:.5rem}
+.doclinks ul{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:.35rem 1.4rem;font-size:.8rem}
+.doclinks li{color:var(--dim)}
+.doclinks a{color:var(--lk)}
+.pii{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;font-size:.78rem;color:var(--muted);margin:1.4rem 0 0;font-family:'JetBrains Mono',monospace}
+.foot{margin-top:1.2rem;font-size:.72rem;color:var(--dim);font-family:'JetBrains Mono',monospace}
+@media(max-width:760px){.nav-breadcrumb span:last-child,.nav-breadcrumb span:nth-last-child(2){display:none}}
+@media(max-width:480px){nav .nav-breadcrumb{display:none}}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">The Agent Staircase as 3D bricks</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap">
+<h1>The Agent Staircase as 3D bricks</h1>
+<p class="sub">Start here: the wall is a stack of proofs. Each brick adds one kind of trust and only snaps on where the bricks beneath it already exist. Drag to spin the wall, use Explode to pull the layers apart, or click a brick or a layer name to see what it does.</p>
+
+<div class="scene" id="scene" role="group" aria-label="Rotatable 3D wall of 14 bricks representing the Agent Staircase steps">
+<div class="bgterms" id="bgterms"></div>
+<div class="world" id="world"></div>
+<div class="hud" id="hud"><span id="hudT">Getting ready</span><i><b id="hudB"></b></i></div>
+<div class="lyr" id="lyr"></div>
+<div class="rail" id="rail"></div>
+<div class="hint">drag to rotate · cards are what plugs into each brick</div>
+</div>
+
+
+<div class="plugleg">
+<span>Plugs in:</span>
+<span><i style="background:#14B8A6"></i>Inputs</span><span><i style="background:#60A5FA"></i>Agents</span><span><i style="background:#D4A847"></i>Where it runs</span>
+<span><i style="background:#9B72F5"></i>Identity &amp; verification</span><span><i style="background:#22C55E"></i>Timestamps</span><span><i style="background:#F87171"></i>Oversight</span>
+</div>
+<div class="cap" id="cap" aria-live="polite"><div class="k">Ready</div><h2>The baseplate is empty</h2><p>Every brick is one step from the Agent Staircase explainer. The wall builds itself. Pause any time to place bricks by hand or click one to see what it stands on.</p></div>
+
+<div class="ctl">
+<button class="pri" id="next">Build next brick</button>
+<button id="prev">Undo</button>
+<button id="auto" aria-pressed="false">Pause</button>
+<button id="reset">Reset</button>
+<span id="count" style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--dim)">0 / 14</span>
+</div>
+<div class="ctl">
+<button id="spin" aria-pressed="true">Auto-rotate</button>
+<button id="plugs" aria-pressed="false">Show all plug-ins</button>
+<button id="expl" aria-pressed="false">Explode</button>
+<span class="sep"></span>
+<button data-v="front">Front</button><button data-v="side">Side</button><button data-v="top">Top</button><button data-v="iso">3D</button>
+</div>
+
+<div class="trace" id="trace">
+<span>Trace a run through the finished wall, entering by:</span>
+<button data-e="4">Link</button><button data-e="5">WebMCP</button><button data-e="6">MCP</button>
+<span class="sep"></span><span>Worked examples:</span>
+<button data-x="0">x402 on two chains</button><button data-x="1">Work Mandate</button><button data-x="2">Data stays in the tab</button>
+</div>
+
+<div class="doclinks">
+<h2>Where the wall comes from</h2>
+<ul>
+<li>The Agent Staircase · <a href="agent-staircase-explainer.html">the explainer that defines the fourteen steps</a></li>
+<li>The estate at full scale · <a href="estate-bricks-explainer.html">the brick neighborhood of the whole AINumbers estate</a></li>
+<li>Where it runs · <a href="../infrastructure.html">the infrastructure map</a></li>
+</ul>
+</div>
+
+<p class="pii">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</p>
+
+<p class="foot">Built from the Agent Staircase explainer · checked against the live page on 4 October 2026 · Pure CSS 3D, no libraries · Client-side · Zero PII · CC BY 4.0 · Post Oak Labs</p>
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* Brick model. r = row from bottom, x/w in 50px units on a 12-unit grid. needs = bricks it stands on or takes input from. a = its step panel in the Agent Staircase explainer. */
+var U=50,H=38,D=100,ROWS=8;
+var B=[
+{n:'Tool',s:'page + math',r:1,x:0,w:12,L:1,needs:[],a:'s-tool',who:'You, at the keyboard',h:'The tool is a page a person uses',t:'A tool is one HTML page with a form, its math written inline and a result panel. Once loaded it computes in the tab without calling a server or storing anything. A tool that sets policy exports a Policy Mandate, the JSON file that carries one result into the next tool.'},
+{n:'Kernel',s:'compute() is pure',r:2,x:0,w:12,L:1,needs:[0],a:'s-kernel',who:'A developer',h:'The rule moves into a pure function',t:'compute(policy_parameters) returns output_payload and reads only its inputs. That purity lets the same file run in a browser tab, on a Cloudflare Worker and inside a zkVM with identical results. Each kernel exports compute, buildArtifact and meta (SPEC section 12).'},
+{n:'Node',s:'public identity in the Graph Index',r:3,x:0,w:12,L:1,needs:[1],a:'s-node',who:'An agent calling find_tool',h:'The kernel is registered in the Graph Index',t:'A node is a kernel registered in chaingraph.json (SPEC section 7) with a tool_id, an agent-facing name, declared inputs, a page and digests that pin its code. The index is a DCAT catalog, and nodes declare consumes and feeds edges so an agent can plan before it runs anything. art-591 was one of 663 live nodes on 26 September 2026.'},
+{n:'Execution hash',s:'SHA-256 over inputs + output',r:4,x:0,w:12,L:1,needs:[2],a:'s-hash',who:'An agent that calls a tool and checks the hash',h:'Bind the answer to its exact inputs',t:'Every run emits an execution_hash: SHA-256 over the canonical JSON (RFC 8785) of exactly {policy_parameters, output_payload}. Anyone holding the inputs can recompute it, and changing the last character of an input changes the hash completely. verify_execution_hash on the MCP server does the recomputation for any caller.'},
+{n:'AIN Bridge',s:'#in= links',r:5,x:0,w:4,L:2,needs:[2],a:'s-bridge',who:'An agent handing you a link',h:'Links and frames can fill in a page',t:'Nearly every tool page includes the AIN Bridge script. It accepts inputs from a #in= URL fragment, which the browser keeps to itself, from a dropped Policy Mandate file, or from postMessage sent by a same-origin parent frame. Node pages also carry a #p=v1 deep link that gzips the inputs, and adding &run=1 computes on load.'},
+{n:'WebMCP',s:'in-browser agent',r:5,x:4,w:4,L:2,needs:[2],a:'s-webmcp',who:'An agent inside your browser tab',h:'The page tells the browser agent what it can do',t:'With WebMCP the page registers its own tool with the browser. A browser-resident agent calls it and the page computes in the tab, and in the recorded run the call made 0 network requests. Chrome tests WebMCP through an origin trial in versions 149 to 156, and version 157 is the tentative milestone for turning it on by default.'},
+{n:'MCP',s:'mcp.ainumbers.co',r:5,x:8,w:4,L:2,needs:[2,3],a:'s-mcp',who:'An agent over the network',h:'The same tool runs one network hop away',t:'The MCP server at mcp.ainumbers.co runs the same kernel on a Cloudflare Worker. Send it the parameters the page used and it returns the same hash together with the digest of the kernel it ran. Whether an agent arrives by link, through the browser or over the network, the kernel and the hash are the same.'},
+{n:'Workflow',s:'run_chain links nodes by hash',r:6,x:0,w:8,L:3,needs:[3,6],a:'s-workflow',who:'An agent calling run_chain',h:'Nodes run in order and link by hash',t:'A workflow is an ordered list of nodes in the Graph Index. The standard calls it a chain (SPEC section 21), which is why the tool that runs one is run_chain. run_chain threads each step execution hash into the next step parent_hashes and returns one composite hash. On 26 September 2026 the index held 370 workflows, 67 of them with gates.'},
+{n:'Helm pack',s:'runs on your machine',r:6,x:8,w:4,L:3,needs:[7],a:'s-pack',who:'An agent on your local Helm daemon',h:'A workflow can be compiled for your own machine',t:'A Helm pack is a control-plane manifest (SPEC section 26) listing a workflow trigger, its nodes with their kernel digests, its gates and its actions. helmd, a daemon on your own machine, runs it. helmd listens on 127.0.0.1, Helm is in beta, and its packs run on bundled sample data.'},
+{n:'Signature',s:'did:key vouches',r:7,x:0,w:3,L:4,needs:[3],a:'s-signature',who:'A verifier checking who signed',h:'A key vouches for the artifact',t:'A signature adds who stands behind an artifact, using W3C Data Integrity eddsa-jcs-2022 over the whole artifact keyed by a did:key (SPEC section 16). Signing is optional. A copy edited after signing is refused with mandate_bad_signature, and several parties can sign one artifact as a proof set.'},
+{n:'Kernel ID',s:'digest of the source',r:7,x:3,w:3,L:4,needs:[2,3],a:'s-identity',who:'Anyone asking which code ran',h:'The artifact names the code that ran',t:'build_identity.kernel_digest is SHA-256 over the kernel source (SPEC section 17). A verifier checks that three values agree: the digest in the artifact, the compute_images entry published for the node, and a digest recomputed from the source. On its own this is an advisory claim, because a server could name one kernel and run another, which the zkVM receipt rules out.'},
+{n:'RISC Zero',s:'kernel in a zkVM',r:7,x:6,w:3,L:4,needs:[1,10],a:'s-risc0',who:'Anyone asking to see the zkVM receipt',h:'Run the kernel inside a zkVM',t:'The same kernel source runs inside RISC Zero as data for a QuickJS engine compiled into a RISC-V guest. The guest commits a journal holding the kernel digest and the output, and the receipt is bound to the ImageID of one universal guest shared by nearly every node. Proving is heavy, so it runs offline on a GPU.'},
+{n:'Groth16',s:'256-byte seal',r:7,x:9,w:3,L:4,needs:[11],a:'s-groth16',who:'Anyone verifying the seal',h:'The proof shrinks and can be checked anywhere',t:'RISC Zero wraps its STARK into a Groth16 SNARK over BN254, a 256-byte seal. verifySeal rebuilds the claim from the ImageID and journal and runs the pairing check in about a tenth of a second in a browser or a Worker. On 26 September 2026 every live node carried one (663 of 663), but a new run reads compute_proof_ready: deferred until someone proves it offline.'},
+{n:'Anchor',s:'Merkle root + outside timestamps',r:8,x:0,w:12,L:5,needs:[3],a:'s-anchor',who:'An agent binding and timestamping a session',h:'The session ends in a receipt and anchors',t:'build_session_receipt folds any number of execution hashes into one Merkle root. anchor.ainumbers.co then asks independent timestamp authorities (Sigstore, DigiCert and FreeTSA) to sign that root as RFC 3161 tokens, and OpenTimestamps and a witness-cosigned Sigsum log are supported too (SPEC section 20). The tokens verify offline against pinned roots.'}
+];
+var COL={1:'var(--c1)',2:'var(--c2)',3:'var(--c3)',4:'var(--c4)',5:'var(--c5)'};
+var LD={1:['Foundation','turns a page into a result anyone can recompute'],2:['Ways in','three doors to the same kernel'],3:['Composition','chains nodes together and decides where they run'],4:['Evidence','shows who vouches and which code ran'],5:['Timestamp','fixes when it existed']};
+var EXPLAINER='agent-staircase-explainer.html';
+function explainerLink(i){return ' <a href="'+EXPLAINER+'#'+B[i].a+'">Read step '+(i+1)+' in the explainer</a>.'}
+function layerLine(b){return 'Layer · '+LD[b.L][0]+': '+LD[b.L][1]+'.'}
+var world=document.getElementById('world'),scene=document.getElementById('scene');
+var placed=0,timer=null,els=[],token=0,tracing=false,allPlugs=false,curPlug=[];
+var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function el(cls,parent,css){var e=document.createElement('div');e.className=cls;if(css)e.style.cssText=css;if(parent)parent.appendChild(e);return e}
+/* Six-faced box, centred on its own x/z. w=width h=height d=depth (px). Returns {faces}. */
+function faces(p,w,h,d){
+  var f={};
+  f.fr=el('f fr',p,'inset:0;transform:translateZ('+d/2+'px)');
+  f.bk=el('f bk',p,'inset:0;transform:rotateY(180deg) translateZ('+d/2+'px)');
+  f.rt=el('f rt',p,'width:'+d+'px;height:'+h+'px;left:'+(w/2-d/2)+'px;top:0;transform:rotateY(90deg) translateZ('+w/2+'px)');
+  f.lf=el('f lf',p,'width:'+d+'px;height:'+h+'px;left:'+(w/2-d/2)+'px;top:0;transform:rotateY(-90deg) translateZ('+w/2+'px)');
+  f.top=el('f top',p,'width:'+w+'px;height:'+d+'px;left:0;top:'+(h/2-d/2)+'px;transform:rotateX(90deg) translateZ('+h/2+'px)');
+  f.bt=el('f bt',p,'width:'+w+'px;height:'+d+'px;left:0;top:'+(h/2-d/2)+'px;transform:rotateX(-90deg) translateZ('+h/2+'px)');
+  return f;
+}
+/* wall origin is the centre of the wall; row 1 sits on y = +ROWS*H/2 */
+var BY=ROWS*H/2;
+var plate=el('box plate',world,'width:1000px;height:18px;left:-500px;top:'+BY+'px');
+faces(plate,1000,18,640);
+var plugLayer=el('plugs',world);
+/* Regtech backdrop: standards and regimes the wall touches */
+var TERMS=['ISO 20022','RFC 3161','EMIR Refit','FATF R.16','PSD3','did:key','SHA-256','Groth16','FedNow','SEPA Inst','UETR','DORA','EIP-712','CBPR+'];
+TERMS.forEach(function(t,i){var sp=document.createElement('span');sp.textContent=t;
+  sp.style.left=(4+((i*37)%88))+'%';sp.style.top=(6+((i*53)%82))+'%';document.getElementById('bgterms').appendChild(sp)});
+
+function setHud(t,f){document.getElementById('hudT').textContent=t;document.getElementById('hudB').style.width=(f==null?0:Math.round(f*100))+'%'}
+[1,2,3,4,5].forEach(function(L){var d=document.createElement('button');d.type='button';d.className='lyitem';d.style.setProperty('--lc',COL[L]);d.dataset.l=L;d.innerHTML='<i></i><span>'+LD[L][0]+'</span>';d.title=LD[L][0];document.getElementById('lyr').appendChild(d)});
+B.forEach(function(b,i){var bt=document.createElement('button');bt.dataset.i=i;bt.style.setProperty('--rc',COL[b.L]);bt.innerHTML='<span>'+(i+1)+' · '+b.n+'</span><i class="dot"></i>';document.getElementById('rail').appendChild(bt)});
+function markRail(cur){document.querySelectorAll('#rail button').forEach(function(bt){var i=+bt.dataset.i;bt.classList.toggle('built',i<placed);bt.classList.toggle('cur',i===cur)})}
+function litL(list){var on={};list.forEach(function(j){if(B[j])on[B[j].L]=1});document.querySelectorAll('.lyitem').forEach(function(d){d.classList.toggle('lit',!!on[d.dataset.l])})}
+function homeCam(){tx=-24;ty=Math.round(ry/360)*360-32}
+function showPlugsFor(list){curPlug=list;Object.keys(plugEls).forEach(function(i){(plugEls[i]||[]).forEach(function(g){g.classList.toggle('off',!(allPlugs||list.indexOf(+i)>=0))})})}
+function build(i){
+  var b=B[i],w=b.w*U,x=b.x*U-6*U,y=BY-b.r*H;
+  var e=el('brick',world,'width:'+w+'px;height:'+H+'px;left:'+x+'px;top:'+y+'px;--col:'+COL[b.L]+';transform:translateY(calc(var(--ex,0px) * '+(-b.r)+'))');
+  e.dataset.i=i;
+  var f=faces(e,w,H,D);
+  /* labels on front and back so the wall reads from both sides */
+  [f.fr,f.bk].forEach(function(face){
+    el('nm',face).textContent=(i+1)+' · '+b.n;
+    if(b.w>=3)el('sb',face).textContent=b.s;
+  });
+  els[i]=e;
+  if(!reduce&&e.animate)e.animate([{translate:'0 -420px 0'},{translate:'0 5px 0',offset:.72},{translate:'0 0 0'}],{duration:850,easing:'cubic-bezier(.3,.6,.4,1)'});
+  return e;
+}
+/* What plugs into each brick. b = brick index, a = attach face, at = card position [x,z] in world px. t = colour class. */
+var TC={in:'#14B8A6',ag:'#60A5FA',run:'#D4A847',id:'#9B72F5',ts:'#22C55E',reg:'#F87171'};
+var PL=[
+{b:0,a:'L',at:[-440,0],c:'in',n:'A person at the keyboard',t:'fills the form · presses Run'},
+{b:2,a:'L',at:[-440,0],c:'in',n:'Graph Index',t:'chaingraph.json · DCAT catalog'},
+{b:4,a:'L',at:[-440,0],c:'in',n:'Links & mandate files',t:'#in= · #p=v1 · Policy Mandate'},
+{b:7,a:'L',at:[-440,0],c:'in',n:'Caller inputs or fixtures',t:'x402 · EMIR Refit · mandates'},
+{b:9,a:'L',at:[-440,0],c:'id',n:'did:key principals',t:'eddsa-jcs-2022 · SPEC 16'},
+{b:13,a:'L',at:[-440,0],c:'ts',n:'Timestamp authorities',t:'Sigstore · DigiCert · FreeTSA'},
+{b:1,a:'R',at:[440,0],c:'run',n:'Cloudflare Worker',t:'same kernel, same hash'},
+{b:6,a:'R',at:[440,0],c:'ag',n:'Agents over MCP',t:'Claude · ChatGPT · any host'},
+{b:8,a:'R',at:[440,0],c:'run',n:'Your own machine',t:'helmd · 127.0.0.1'},
+{b:5,a:'F',at:[-330,250],c:'ag',n:'Browser agent',t:'tool call · 0 network requests'},
+{b:11,a:'F',at:[330,250],c:'run',n:'RISC Zero zkVM',t:'one universal QuickJS guest'},
+{b:9,a:'B',at:[-380,-250],c:'id',n:'Work Mandate principal',t:'signs what an agent may run'},
+{b:10,a:'B',at:[0,-250],c:'reg',n:'Any verifier',t:'recomputes the source digest'},
+{b:13,a:'B',at:[-190,-320],c:'ts',n:'OpenTimestamps · Sigsum',t:'witness-cosigned log'},
+{b:13,a:'B',at:[200,-320],c:'in',n:'Ledger',t:'ledger.ainumbers.co · replays hashes'},
+{b:13,a:'B',at:[420,-250],c:'reg',n:'Auditor or third party',t:'verifies offline · openssl ts'}
+];
+var plugEls={};
+function andList(a){return a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1]}
+function plugNames(i){return PL.filter(function(q){return q.b===i}).map(function(q){return q.n})}
+/* A plug = gold cable from the brick face to a billboard card. Cable extends first, then the card powers on. */
+function plug(i){
+  var bk=B[i];PL.forEach(function(q){
+    if(q.b!==i)return;
+    var cy=BY-bk.r*H+H/2,w=bk.w*U,x0=bk.x*U-6*U;
+    var px=q.a==='L'?x0:q.a==='R'?x0+w:x0+w/2,pz=q.a==='F'?D/2:q.a==='B'?-D/2:0;
+    var dx=q.at[0]-px,dz=q.at[1]-pz,len=Math.sqrt(dx*dx+dz*dz),ang=Math.atan2(-dz,dx)*180/Math.PI;
+    var g=el('pg',plugLayer,'transform:translateY(calc(var(--ex,0px) * '+(-bk.r)+'));--cc:'+TC[q.c]);
+    var cab=el('cable',g,'left:'+px+'px;top:'+cy+'px;transform:translateZ('+pz+'px) rotateY('+ang+'deg)');
+    var cs=el('cs',cab,'width:'+len+'px');el('pl',cs);el('pl',cs);
+    var cd=el('card',g,'left:'+q.at[0]+'px;top:'+cy+'px;--cz:'+q.at[1]+'px');
+    var ci=el('ci',cd);ci.appendChild(document.createElement('b')).textContent=q.n;ci.appendChild(document.createElement('span')).textContent=q.t;
+    if(!reduce&&cs.animate){
+      cs.animate([{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:600,easing:'ease-out'});
+      ci.animate([{opacity:0,transform:'scale(.5)'},{opacity:1,transform:'scale(1.06)',offset:.7},{opacity:1,transform:'scale(1)'}],{duration:500,delay:550,fill:'backwards'});
+    }
+    g.classList.toggle('off',!(allPlugs||curPlug.indexOf(i)>=0));
+    (plugEls[i]=plugEls[i]||[]).push(g);
+  });
+}
+function unplug(i){(plugEls[i]||[]).forEach(function(g){g.remove()});plugEls[i]=[]}
+function clearHot(){token++;tracing=false;litL([]);els.forEach(function(e){if(e)e.classList.remove('hot','dim')})}
+function pulse(list){litL(list);var t=++token;els.forEach(function(e){if(e)e.classList.remove('hot','dim')});
+  list.forEach(function(j){if(els[j])els[j].classList.add('hot')});
+  setTimeout(function(){if(t===token)els.forEach(function(e){if(e)e.classList.remove('hot')})},1800)}
+function caption(k,h,t){document.getElementById('cap').innerHTML='<div class="k">'+k+'</div><h2>'+h+'</h2><p>'+t+'</p>'}
+function update(){
+  document.getElementById('count').textContent=placed+' / '+B.length;
+  document.getElementById('next').disabled=placed>=B.length;
+  document.getElementById('prev').disabled=placed<=0;
+  document.getElementById('trace').classList.toggle('on',placed>=B.length);
+}
+function next(){
+  if(placed>=B.length)return;var i=placed;if(i===0)homeCam();build(i);var b=B[i];setHud('Step '+(i+1)+' of '+B.length+' · '+b.n,(i+1)/B.length);curPlug=[i];showPlugsFor([i]);
+  var pn=plugNames(i);
+  caption('Step '+(i+1)+' · '+b.n,b.h,'<span class="lead">'+layerLine(b)+'</span>'+b.t+' <span style="color:var(--dim)">Who asks at this step: '+b.who+'.</span>'+(b.needs.length?' <span style="color:var(--dim)">It stands on '+andList(b.needs.map(function(j){return B[j].n}))+'.</span>':'')+(pn.length?' <span style="color:var(--c1)">It plugs into '+andList(pn)+'.</span>':'')+explainerLink(i));
+  placed++;update();markRail(i);
+  var mine=els[i];setTimeout(function(){if(els[i]===mine)plug(i)},reduce?0:850);
+  setTimeout(function(){pulse([i].concat(b.needs))},reduce?0:700);
+}
+function prev(){if(placed<=0)return;placed--;els[placed].remove();els[placed]=null;unplug(placed);clearHot();setHud(placed?'Step '+placed+' of '+B.length+' · '+B[placed-1].n:'The baseplate is empty',placed/B.length);showPlugsFor(placed?[placed-1]:[]);markRail(placed-1);
+  caption(placed?'Step '+placed+' · '+B[placed-1].n:'Ready',placed?B[placed-1].h:'The baseplate is empty',placed?B[placed-1].t:'Build them in order, or click any placed brick to see what it stands on.');update()}
+function focusBrick(i){clearHot();var b=B[i];litL([i].concat(b.needs));setHud('Reading · step '+(i+1)+' of '+B.length+' · '+b.n,null);showPlugsFor([i]);markRail(i);
+  els.forEach(function(e,j){if(e&&j!==i&&b.needs.indexOf(j)<0)e.classList.add('dim')});
+  els[i].classList.add('hot');b.needs.forEach(function(j){if(els[j])els[j].classList.add('hot')});
+  caption('Step '+(i+1)+' · '+b.n,b.h,'<span class="lead">'+layerLine(b)+'</span>'+b.t+' <span style="color:var(--dim)">Who asks at this step: '+b.who+'.</span>'+(b.needs.length?' <span style="color:var(--dim)">The highlighted bricks are what it stands on.</span>':' <span style="color:var(--dim)">Nothing sits beneath it.</span>')+explainerLink(i))}
+function resetQuiet(){while(placed>0)prev();homeCam();setHud('The baseplate is empty',0);caption('Ready','The baseplate is empty','Every brick is one step from the Agent Staircase explainer. Build them in order.')}
+/* Autoplay: build the wall once, run one trace, then rest at the finished wall. Any manual control stops it, and the Autoplay button starts it again. */
+var loopOn=false,autoBtn=document.getElementById('auto');
+function stopAuto(){loopOn=false;autoBtn.textContent='Autoplay';autoBtn.setAttribute('aria-pressed','false')}
+function tick(){
+  if(!loopOn)return;
+  if(placed<B.length){next();setTimeout(tick,reduce?900:4400);return}
+  setTimeout(function(){if(!loopOn)return;runTrace(6);
+    setTimeout(function(){if(!loopOn)return;stopAuto()},(reduce?0:10*1100)+6000)},3000);
+}
+function startAuto(){if(loopOn)return;loopOn=true;autoBtn.textContent='Pause';autoBtn.setAttribute('aria-pressed','true');if(placed>=B.length)resetQuiet();setTimeout(tick,500)}
+document.getElementById('next').onclick=function(){stopAuto();next()};
+document.getElementById('prev').onclick=function(){stopAuto();prev()};
+document.getElementById('reset').onclick=function(){stopAuto();resetQuiet()};
+autoBtn.onclick=function(){loopOn?stopAuto():startAuto()};
+
+/* Camera: eased toward target angles each frame; drag edits the targets, auto-rotate nudges the yaw target. */
+var rx=-24,ry=-32,tx=-24,ty=-32,auto=!reduce,dragging=false,moved=0,lx=0,ly=0,sc=1;
+function fit(){sc=Math.min(1,scene.clientWidth/1100);world.classList.toggle('sm',sc<.55);world.style.setProperty('--lf',sc<.7?Math.min(1.25,.7/sc):1)}
+function render(){
+  /* while bricks are landing or a trace is running the camera only sways, so the brick being read stays in view */
+  var hold=placed<B.length||tracing,sw=(hold&&auto&&!dragging)?8*Math.sin(performance.now()/3000):0;
+  if(auto&&!dragging&&!hold)ty+=0.22;
+  rx+=(tx-rx)*.1;ry+=(ty+sw-ry)*.1;
+  plugLayer.style.setProperty('--by',(-ry)+'deg');plugLayer.style.setProperty('--bx',(-rx)+'deg');
+  world.style.transform='scale('+sc+') rotateX('+rx+'deg) rotateY('+ry+'deg)';
+  requestAnimationFrame(render);
+}
+window.addEventListener('resize',fit);fit();
+scene.addEventListener('pointerdown',function(e){dragging=true;moved=0;lx=e.clientX;ly=e.clientY;scene.classList.add('drag')});
+window.addEventListener('pointermove',function(e){if(!dragging)return;var dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;moved+=Math.abs(dx)+Math.abs(dy);ty+=dx*.45;tx=Math.max(-88,Math.min(6,tx-dy*.3))});
+window.addEventListener('pointerup',function(){dragging=false;scene.classList.remove('drag')});
+window.addEventListener('pointercancel',function(){dragging=false;scene.classList.remove('drag')});
+scene.addEventListener('click',function(e){if(moved>6)return;var b=e.target.closest&&e.target.closest('.brick');if(b)focusBrick(+b.dataset.i)});
+var spinBtn=document.getElementById('spin');
+spinBtn.onclick=function(){auto=!auto;spinBtn.setAttribute('aria-pressed',auto)};
+var explBtn=document.getElementById('expl');
+explBtn.onclick=function(){var on=explBtn.getAttribute('aria-pressed')!=='true';explBtn.setAttribute('aria-pressed',on);world.style.setProperty('--ex',on?'34px':'0px')};
+/* view presets: snap yaw to the nearest full turn so the camera never spins the long way round */
+var VIEWS={front:[0,0],side:[0,-90],top:[-86,0],iso:[-24,-32]};
+document.querySelectorAll('[data-v]').forEach(function(btn){btn.onclick=function(){
+  var v=VIEWS[btn.getAttribute('data-v')];auto=false;spinBtn.setAttribute('aria-pressed',false);
+  tx=v[0];ty=Math.round(ry/360)*360+v[1]}});
+
+document.getElementById('plugs').onclick=function(){allPlugs=!allPlugs;this.setAttribute('aria-pressed',allPlugs);showPlugsFor(curPlug)};
+document.querySelectorAll('.lyitem').forEach(function(d){d.onclick=function(){stopAuto();if(placed<B.length)while(placed<B.length)next();clearHot();var L=+d.dataset.l,keys=[];
+  els.forEach(function(e,j){if(e)e.classList.add(B[j].L===L?'hot':'dim')});litL(B.map(function(b,j){return b.L===L?j:-1}));setHud('Layer · '+LD[L][0],null);
+  caption('Layer · '+LD[L][0],LD[L][0]+' layer','This layer '+LD[L][1]+'. Its bricks: '+andList(B.filter(function(b){return b.L===L}).map(function(b){return b.n}))+'.')}});
+document.querySelectorAll('#rail button').forEach(function(bt){bt.onclick=function(){stopAuto();var i=+bt.dataset.i;while(placed<=i)next();focusBrick(i)}});
+/* Trace: a hash packet climbs the finished wall. Entry traces follow the staircase, example traces follow the worked examples on the live page. */
+function runPath(path,texts,label,doneH,doneT){
+  clearHot();homeCam();tracing=true;els.forEach(function(e){e.classList.add('dim')});var t=token;
+  path.forEach(function(j,k){setTimeout(function(){if(t!==token)return;els[j].classList.remove('dim');els[j].classList.add('hot');litL([j]);showPlugsFor([j]);markRail(j);setHud(label+' · hop '+(k+1)+' of '+path.length,(k+1)/path.length);
+    caption(label+' · hop '+(k+1)+' of '+path.length,B[j].n,texts?texts[k]:'The run passes through the '+B[j].n+' brick ('+B[j].s+').');
+    if(k===path.length-1)setTimeout(function(){if(t===token){tracing=false;caption('Trace complete',doneH,doneT)}},700)},reduce?0:k*(texts?2600:1100))})}
+function runTrace(entry){runPath([entry,2,1,3,7,9,10,11,12,13],null,'Trace','The run is complete','The request entered as a link, browser call or network call, ran the same kernel, chained by hash, was signed and proven, and ended in a root that outside authorities timestamped.')}
+var EX=[
+{n:'Example 1 · x402 on two chains',lk:'ex-x402',path:[6,7,3,13],tx:[
+ 'An agent calls run_chain on the public server with the x402-spend-evidence workflow.',
+ 'The workflow recomputes the EIP-712 digest, recovers the signer and checks the domain, nonce and validity window. A signature made for USDC on Base passes on Base, and the same signature replayed on Ethereum is refused because the chain and contract do not match.',
+ 'Each step emits an execution hash, and run_chain returns one composite hash over the steps that ran.',
+ 'The ten runs across the three examples were bound into one session receipt, and Sigstore, DigiCert and FreeTSA timestamped its root within one second of each other.'],
+ dh:'An authorization valid on exactly one chain',dt:'EIP-712 folds the chain id and the token contract into the digest the agent signs, so the receipt shows the authorization holds on one chain only.'},
+{n:'Example 2 · Work Mandate',lk:'ex-mandate',path:[9,7,3,7],tx:[
+ 'A principal key signs a Work Mandate that scopes what an agent may run.',
+ 'run_chain verifies the signature, then folds the mandate hash into every step. A mandate edited after signing stops the run before step 1 with mandate_bad_signature.',
+ 'Every step hash changes under the mandate, so the receipt proves which policy was in force.',
+ 'When a gate trips, the run halts and opens a record that a person must close.'],
+ dh:'A receipt that proves which policy was in force',dt:'The mandate states what the agent was allowed to do, and the execution receipt proves what it did. Both verify offline.'},
+{n:'Example 3 · Data stays in the tab',lk:'ex-emir',path:[4,0,3,13],tx:[
+ 'Four EMIR Refit checks open from fragment links, which the browser never sends to a server.',
+ 'Each check runs inside its own page, so the trade fields stay in the browser tab.',
+ 'Only four execution hashes leave, and each page hash equals the kernel hash for the same inputs.',
+ 'The four hashes are bound into a receipt and timestamped.'],
+ dh:'A regulatory check where only hashes cross the boundary',dt:'The trade fields never leave the tab. Only the hashes are bound into a receipt and timestamped.'}
+];
+document.querySelectorAll('#trace button[data-e]').forEach(function(btn){btn.onclick=function(){stopAuto();runTrace(+btn.getAttribute('data-e'))}});
+document.querySelectorAll('#trace button[data-x]').forEach(function(btn){btn.onclick=function(){stopAuto();var e=EX[+btn.getAttribute('data-x')];runPath(e.path,e.tx,e.n,e.dh,e.dt+' <a href="'+EXPLAINER+'#'+e.lk+'">Read the worked example</a>.')}});
+update();render();
+if(reduce){
+  /* prefers-reduced-motion: nothing autoplays and the wall shows complete */
+  stopAuto();
+  while(placed<B.length)next();
+  setHud('The wall is complete · '+B.length+' of '+B.length,1);
+  caption('Complete','The wall stands finished','Every brick is one step from the Agent Staircase explainer. Use Undo and Reset to rebuild it by hand, or trace a run through the finished wall.');
+}else{
+  setTimeout(startAuto,700);
+}
+</script>
+</body>
+</html>

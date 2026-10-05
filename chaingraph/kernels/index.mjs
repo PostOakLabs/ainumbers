@@ -627,6 +627,7 @@ import * as art70     from './art-70-cbam-default-value-resolver.kernel.mjs';
 import * as art700    from './art-700-authorization-payload-linter.kernel.mjs';
 import * as art701    from './art-701-three-way-invoice-match.kernel.mjs';
 import * as art702    from './art-702-runway-goal-path.kernel.mjs';
+import * as art704    from './art-704-ai-token-spend.kernel.mjs';
 import * as art71     from './art-71-cbam-certificate-cost-engine.kernel.mjs';
 import * as art72     from './art-72-cbam-precursor-emissions-aggregator.kernel.mjs';
 import * as art73     from './art-73-taxonomy-alignment-scorer.kernel.mjs';
@@ -1299,6 +1300,7 @@ export const KERNELS = {
   'art-700-authorization-payload-linter':                       art700,
   'art-701-three-way-invoice-match':                            art701,
   'art-702-runway-goal-path':                                   art702,
+  'art-704-ai-token-spend':                                     art704,
   'art-71-cbam-certificate-cost-engine':                        art71,
   'art-72-cbam-precursor-emissions-aggregator':                 art72,
   'art-73-taxonomy-alignment-scorer':                           art73,

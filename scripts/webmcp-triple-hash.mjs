@@ -96,13 +96,29 @@ export function sampleToFragment(sample) {
  *  executionHash preimage ({policy_parameters, output_payload}; the execHash /
  *  cgHash / executionHashLocal / ... names). BOTH must be present — the P leg
  *  hashes the page-computed payload through the PAGE's own hash, never a second
- *  canonicalization. Null = no discoverable pair: the P leg falls back to the
+ *  canonicalization. A compute that returns its payload BARE (no output_payload
+ *  wrapper — the art-376 family) is accepted as the payload itself, so the
+ *  legacy fallback never fires for that family (WEBMCP-TRIPLEHASH-BARE-PAYLOAD-1).
+ *  Null = no discoverable pair: the P leg falls back to the
  *  deep-link prefill path. Pure. */
 export function discoverDirectCompute(src) {
   const s = String(src);
   const c = /function\s+(compute[A-Za-z0-9_$]*)\s*\(\s*pp\s*\)\s*\{/.exec(s);
   const h = /(?:async\s+)?function\s+([A-Za-z0-9_$]+)\s*\(\s*pp\s*,\s*op\s*\)/.exec(s);
   return c && h ? { compute: c[1], hash: h[1] } : null;
+}
+
+/** The direct-compute Runtime.evaluate expression (7F-V344 item 3): the page's own
+ *  inline compute + hash pair over the raw sample. The compute's return carries the
+ *  output_payload either WRAPPED ({output_payload: …}) or BARE — the return IS the
+ *  payload, the art-376 family (WEBMCP-TRIPLEHASH-BARE-PAYLOAD-1): the bare return
+ *  is accepted as the payload itself so the legacy deep-link fallback never fires
+ *  for that family and all three legs hash identical preimages. A non-object return,
+ *  or a wrapped member that is not itself an object, still yields {why} -> the
+ *  caller retries legacy. Exported pure so --self-test can exercise both families
+ *  offline under node:vm. */
+export function directComputeExpression(sampleJson, computeName, hashName) {
+  return `(async (sampleJson, computeName, hashName) => { try { const pp = JSON.parse(sampleJson); const cf = window[computeName], hf = window[hashName]; if (typeof cf !== 'function' || typeof hf !== 'function') return { why: 'direct-compute entry not found on page' }; const out = cf(pp); const res = (out && typeof out.then === 'function') ? await out : out; const op = (res && typeof res === 'object' && 'output_payload' in res) ? res.output_payload : (res && typeof res === 'object' ? res : null); if (!op || typeof op !== 'object') return { why: 'direct compute returned no output_payload' }; const h = await hf(pp, op); return (typeof h === 'string' && h) ? { hash: h } : { why: 'direct hash returned no execution_hash' }; } catch (e) { return { why: String((e && e.message) || e) }; } })(${JSON.stringify(sampleJson)}, ${JSON.stringify(computeName)}, ${JSON.stringify(hashName)})`;
 }
 
 /** Walk a paginated tools/list to exhaustion, honouring result.nextCursor. The
@@ -168,6 +184,32 @@ if (SELF) {
   t('direct discovery carries the suffixed families', !!dp2 && dp2.compute === 'computeCC' && dp2.hash === 'cgHash');
   t('direct discovery needs the hash family too', discoverDirectCompute('<script>function compute(pp){return pp}</script>') === null);
   t('direct discovery needs the compute family too', discoverDirectCompute('<script>async function execHash(pp,op){return "h"}</script>') === null);
+  // 1c) the direct-compute expression itself (the route the P leg evaluates on the
+  //     page), offline under node:vm — the WRAPPED family hashes res.output_payload;
+  //     the BARE-payload family (inline compute returns the payload itself, the
+  //     art-376 class) is accepted as the payload — no fallback {why} — and hashes
+  //     the identical {policy_parameters, output_payload} preimage, so P == M == E
+  //     (WEBMCP-TRIPLEHASH-BARE-PAYLOAD-1). LEG-ERROR shapes (throwing compute,
+  //     non-object payload) still yield {why} and still fall back.
+  const vm = await import('node:vm');
+  const { createHash } = await import('node:crypto');
+  const contractHash = (pp, op) => createHash('sha256').update(JSON.stringify({ policy_parameters: pp, output_payload: op })).digest('hex'); // the M/E preimage shape
+  const runDirect = (sample, computeFn, hashFn) => vm.runInNewContext(
+    directComputeExpression(JSON.stringify(sample), 'compute', 'hash'),
+    { window: { compute: computeFn, hash: hashFn } },
+  );
+  const S376 = { account_name: 'John Smith', reference_name: 'John Smith' };
+  const payload376 = { score: 100, match_band: 'MATCH', algorithm_version: '1.0.0', compliance_flags: ['VOP_NAME_MATCH'] };
+  const eHash376 = await contractHash(S376, payload376);
+  const bareP = await runDirect(S376, (pp) => ({ ...payload376 }), async (pp, op) => contractHash(pp, op));
+  t('bare-payload family computes direct (no fallback fires)', !!bareP && !bareP.why && typeof bareP.hash === 'string' && bareP.hash.length > 0);
+  t('bare-payload P == M == E over the identical preimage', !!bareP && bareP.hash === eHash376);
+  const wrappedP = await runDirect(S376, (pp) => ({ output_payload: { ...payload376 } }), async (pp, op) => contractHash(pp, op));
+  t('wrapped family still hashes res.output_payload', !!wrappedP && !wrappedP.why && wrappedP.hash === eHash376);
+  const throwP = await runDirect(S376, (pp) => { throw new Error('form exploded'); }, async () => 'x');
+  t('a throwing compute still yields why (fallback path intact)', !!throwP && !throwP.hash && !!throwP.why);
+  const nonObjP = await runDirect(S376, () => ({ output_payload: 'junk' }), async () => 'x');
+  t('a non-object wrapped payload still yields why', !!nonObjP && !nonObjP.hash && !!nonObjP.why);
   // 2) cursor walker: a paginated transport is walked to exhaustion, cursor honoured.
   const page1 = JSON.parse(readFileSync(join(FIXTURES, 'tools-list-page1.json'), 'utf8'));
   const page2 = JSON.parse(readFileSync(join(FIXTURES, 'tools-list-page2.json'), 'utf8'));
@@ -285,7 +327,10 @@ function cdpClose({ child, profile }) {
  *    no fragment, no prefill, no run(); the form is untouched and the visible
  *    page stays on its form-driven defaults. The sample goes through the PAGE's
  *    own inline compute + hash pair, i.e. the exact preimage bytes M/E hash.
- *    A result carrying `fallback: true` asks the caller to retry legacy. */
+ *    A compute that returns its payload bare (no output_payload wrapper — the
+ *    art-376 family, WEBMCP-TRIPLEHASH-BARE-PAYLOAD-1) is accepted, so the
+ *    fallback never fires for that family. A result carrying `fallback: true`
+ *    asks the caller to retry legacy. */
 async function cdpPageHash(port, fileUrl, direct = null) {
   let target = null;
   for (let i = 0; i < 20 && !target; i++) {
@@ -322,7 +367,7 @@ async function cdpPageHash(port, fileUrl, direct = null) {
     await Promise.race([loaded, sleep(LOAD_BUDGET_MS)]);
     await sleep(1000); // the reader runs on DOMContentLoaded; settle like page-smoke
     const expression = direct
-      ? `(async (sampleJson, computeName, hashName) => { try { const pp = JSON.parse(sampleJson); const cf = window[computeName], hf = window[hashName]; if (typeof cf !== 'function' || typeof hf !== 'function') return { why: 'direct-compute entry not found on page' }; const out = cf(pp); const res = (out && typeof out.then === 'function') ? await out : out; const op = res && res.output_payload; if (!op || typeof op !== 'object') return { why: 'direct compute returned no output_payload' }; const h = await hf(pp, op); return (typeof h === 'string' && h) ? { hash: h } : { why: 'direct hash returned no execution_hash' }; } catch (e) { return { why: String((e && e.message) || e) }; } })(${JSON.stringify(direct.sampleJson)}, ${JSON.stringify(direct.compute)}, ${JSON.stringify(direct.hash)})`
+      ? directComputeExpression(direct.sampleJson, direct.compute, direct.hash)
       : `(async () => { if (typeof window.__ocgDeeplinkDone === 'object' && window.__ocgDeeplinkDone && typeof window.__ocgDeeplinkDone.then === 'function') { try { await window.__ocgDeeplinkDone; } catch {} } const a = window.__ocgDeeplinkArtifact; return a && a.execution_hash ? String(a.execution_hash) : null; })()`;
     const evalRes = await Promise.race([
       send('Runtime.evaluate', {
