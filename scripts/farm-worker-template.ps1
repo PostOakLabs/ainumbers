@@ -67,11 +67,17 @@ $script:Lanes = [ordered]@{
     FallbackExe  = @("@@NPMROOT@@\opencode.cmd")
     # Patterns, not ids: each is resolved against THIS machine's `opencode models` listing, so a
     # renamed id or a model a box's catalog does not carry yet (union-alpha, 2026-09-18) is skipped.
-    # Extended 2026-09-20 (lane-maximization pass): the opencode-free provider cache harvests eight
-    # free ids — each carries its own daily cap, so the rotation multiplies the lane's effective
-    # capacity; patterns absent from a machine's catalog cost nothing (skipped at resolve time).
-    # Nemotron ultra/lightning REMOVED 2026-09-20 at Tim's call: not recommended on this estate.
-    RotateModels = @('^opencode/muse-spark-1\.3.*free$', '^opencode/muse-spark-1\.2.*free$', '^opencode/deepseek-v4-flash.*free$', '^opencode/mimo-v2\.5.*free$', '^opencode/ling-3\.0-flash-fin.*free$', '^opencode/jev-1\.13.*free$', '^opencode/union-alpha.*free$')
+    # Refreshed 2026-10-05 (nitro rotation, Tim-directed): the catalog had moved on — only
+    # muse-spark-1.3 and ling-3.0-flash-fin still resolved, so a ling endpoint outage
+    # (T5-WMC-3FFC0AD5, "Upstream request failed: Endpoint is unavailable") halved the lane to one
+    # healthy id. muse-spark-1.2, deepseek-v4-flash, mimo-v2.5, jev-1.13 and union-alpha dropped
+    # (absent from every catalog since ~09-20, zero resolves). Five replacements probed READY on
+    # nitro the same hour ("Reply with exactly: OK", rc=0: mimo-v2.6 4 s, fledge-alpha 5 s,
+    # space-bunny 5 s, ling-3.1 6 s, longcat-2.5-preview 11 s), ordered by probe time after the
+    # production-proven muse-spark; ling-3.0-flash-fin kept LAST — its endpoint may recover and a
+    # dead pattern costs one fast failed run per cycle. Nemotron ultra/lightning stay OUT
+    # (2026-09-20, Tim: not recommended on this estate).
+    RotateModels = @('^opencode/muse-spark-1\.3.*free$', '^opencode/mimo-v2\.6.*free$', '^opencode/fledge-alpha.*free$', '^opencode/space-bunny.*free$', '^opencode/ling-3\.1-flash.*free$', '^opencode/longcat-2\.5-preview.*free$', '^opencode/ling-3\.0-flash-fin.*free$')
     DefaultModel = 'opencode/muse-spark-1.3-contributor-free'
     ArgFormat    = 'run -m {4} "{0}"'
     # `opencode run` reads stdin when stdin is not a terminal and waits for EOF. Under Task
