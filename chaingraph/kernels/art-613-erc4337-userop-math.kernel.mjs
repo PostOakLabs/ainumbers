@@ -1506,7 +1506,11 @@ export function compute(pp) {
     max_fee_per_gas: maxFeePerGas !== null ? maxFeePerGas.toString() : null,
     max_priority_fee_per_gas: maxPriorityFeePerGas !== null ? maxPriorityFeePerGas.toString() : null,
   };
-  const canonicalForVersion = version !== null ? CANONICAL_ENTRYPOINT[version] : null;
+  // ⛔ null, never undefined: an advisory-table miss (v0.8/v0.9 have no registered canonical
+  // address) must serialize as an explicit JSON null -- a bare undefined survives into the
+  // guest's journal encoding as a literal `undefined` token, which is not valid JSON and makes
+  // the committed receipt unparseable (measured on the a613p1 receipt, 2026-10-06).
+  const canonicalForVersion = version !== null ? (CANONICAL_ENTRYPOINT[version] ?? null) : null;
   const entry_point_echo = {
     declared_version: version,
     address: entryPoint,

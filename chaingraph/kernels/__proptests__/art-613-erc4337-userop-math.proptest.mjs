@@ -1,5 +1,5 @@
 // art-613-erc4337-userop-math property-test floor (ETHMATH-USEROP-1; amended by ZZ-EIP7702-USEROP-CHAIN-1).
-// kernel_digest_at_authoring: sha256:20a75b55a56107be6125e18d224efc78e95e3de8fa3aff404dad07655d8726ec
+// kernel_digest_at_authoring: sha256:f9f81bb9ed732da90bba7f2150eee8203a2994eeb6cd701c4b896520122049fe
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- a cheap invariant subset over the DECLARED
@@ -31,7 +31,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const results = { fixture_oracle: null, properties: [] };
 
 const KERNEL_PATH = path.join(__dirname, '..', 'art-613-erc4337-userop-math.kernel.mjs');
-const DIGEST_AT_AUTHORING = 'sha256:20a75b55a56107be6125e18d224efc78e95e3de8fa3aff404dad07655d8726ec';
+const DIGEST_AT_AUTHORING = 'sha256:f9f81bb9ed732da90bba7f2150eee8203a2994eeb6cd701c4b896520122049fe';
 
 const BASE06 = {
   entryPointVersion: '0.6',
@@ -291,6 +291,10 @@ function checkP9_outputShapeInvariant() {
     if (!Array.isArray(output_payload.reasons)) violations++;
     if (typeof output_payload.scope_note !== 'string' || output_payload.scope_note.length === 0) violations++;
     if (JSON.stringify(output_payload).includes('undefined')) violations++;
+    (function walk(v, path) {
+      if (v === undefined) { violations++; return; }
+      if (v && typeof v === 'object') for (const k of Object.keys(v)) walk(v[k], path + '.' + k);
+    })(output_payload, 'op');
     if (JSON.stringify(output_payload).includes('NaN')) violations++;
   }
   return { name: 'P9_output_shape_no_nan_undefined', trials: checked, violations };
