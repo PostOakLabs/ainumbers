@@ -205,6 +205,7 @@ for (const rel of [
   'mcp.html',
   'chaingraph/chaingraph-hub.html',
   'chaingraph/zkvm-compute-integrity.html',
+  'chaingraph/proof-coverage-explainer.html',
   'chaingraph/why-openchain-graph.html',
   'fv-explainer.html',
   // INFRA-PAGE-1: the generated infrastructure page's data-count="infra_pages"
