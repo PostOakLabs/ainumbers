@@ -183,6 +183,7 @@ const CLUSTERS = [
       'guides/agent-observability-hub.html',
       'guides/agent-payment-dispute-evidence-hub.html',
       'chaingraph/agentcore-x402-hub.html',
+      'chaingraph/guide-x402.html',
       'chaingraph/guide-agent-economy-runtime.html',
       'guides/agentic-rail-scenario.html',
       'guides/hypermap-catalog-projection.html',

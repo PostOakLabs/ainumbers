@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>x402 Protocol Workflow Guide · AINumbers.co</title>
+<meta name="description" content="Free browser-based workflows for teams building agent payments on x402: HTTP 402 flow linting, EIP-3009 and Permit2 signature evidence, A2A and AP2 mandate validation, batch-settlement reconciliation, and agentic checkout conformance. Everything runs locally in your browser; every result carries a hash.">
+<meta name="ain:category" content="guide">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/guide-x402.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","name":"x402 Protocol Workflow Guide","url":"https://ainumbers.co/chaingraph/guide-x402.html","description":"Guide hub for the browser-based OpenChainGraph workflows that cover the x402 agentic payment protocol. HTTP 402 flow linting, EIP-3009 and Permit2 spend evidence, A2A and AP2 mandate validation, batch-settlement reconciliation, rail selection, cross-protocol conformance.","provider":{"@type":"Organization","name":"Post Oak Labs"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --orange:#F97316;--orange-dim:rgba(249,115,22,.12);
+  --acc:var(--teal);--radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.875rem;line-height:1.6;min-height:100vh}
+a{color:var(--teal);text-decoration:none}a:hover{color:var(--teal-lt)}
+.container{max-width:1040px;margin:0 auto;padding:0 1.5rem}
+nav{border-bottom:1px solid var(--border);padding:.75rem 0}
+.nav-inner{max-width:1040px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal)}
+.nav-links{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase}
+.nav-links a{color:var(--muted)}.nav-links a:hover{color:var(--teal)}
+.chaingraph-bar{background:rgba(20,184,166,.06);border-bottom:1px solid rgba(20,184,166,.2);padding:.4rem 0;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal)}
+.chaingraph-bar-inner{max-width:1040px;margin:0 auto;padding:0 1.5rem}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:.65rem}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(1.7rem,3.5vw,2.6rem);color:var(--white);line-height:1.15;margin-bottom:.75rem}
+.hero-desc{font-size:.9rem;color:var(--body);max-width:760px;line-height:1.75}
+.hero-desc a{color:var(--teal-lt);border-bottom:1px solid rgba(45,212,191,.3)}
+.hero-badges{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .6rem;border-radius:4px;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-orange{color:var(--orange);border-color:rgba(249,115,22,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.start-callout{background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.3);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin:1.75rem 0;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.start-callout-text{font-size:.82rem;color:var(--text);flex:1}
+.start-callout-text strong{color:var(--bright)}
+.start-btn{display:inline-flex;align-items:center;gap:.4rem;background:var(--teal);color:#080E1A;border-radius:var(--radius);padding:.5rem 1.1rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;text-decoration:none;transition:opacity .2s;white-space:nowrap}
+.start-btn:hover{opacity:.85;color:#080E1A}
+.section{padding:2.5rem 0;border-bottom:1px solid var(--border)}
+.section:last-of-type{border-bottom:none}
+.section-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.section-title{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--white);margin-bottom:.9rem;line-height:1.3}
+.section-body{font-size:.85rem;color:var(--body);line-height:1.75;max-width:760px}
+.section-body p+p{margin-top:.75rem}
+.section-body a{color:var(--teal-lt)}
+.facts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;margin-top:1.25rem}
+.fact-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.9rem 1rem}
+.fact-card-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.fact-card-value{font-size:.8rem;color:var(--bright);font-weight:500;line-height:1.4}
+.chain-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.75rem;margin-top:1.25rem}
+.chain-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.15rem 1.25rem;transition:border-color .2s;display:flex;flex-direction:column;gap:.5rem}
+.chain-card:hover{border-color:rgba(20,184,166,.35)}
+.chain-card-badge{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal)}
+.chain-card-title{font-size:.9rem;font-weight:600;color:var(--bright);line-height:1.3}
+.chain-card-desc{font-size:.75rem;color:var(--body);line-height:1.5;flex:1}
+.chain-card-nodes{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.chain-card-link{margin-top:.5rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);display:inline-flex;align-items:center;gap:.3rem}
+.chain-card-link:hover{color:var(--teal-lt)}
+.node-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.75rem;margin-top:1.25rem}
+.node-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.95rem 1.05rem;transition:border-color .2s}
+.node-card:hover{border-color:rgba(20,184,166,.35)}
+.node-card-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.04em;color:var(--teal-lt);margin-bottom:.4rem}
+.node-card-role{font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:.45rem}
+.node-card p{font-size:.75rem;color:var(--body);line-height:1.55}
+.ocg-box{background:rgba(20,184,166,.04);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius-lg);padding:1.25rem 1.5rem;margin-top:1.25rem}
+.ocg-feature-list{list-style:none;padding:0;margin-top:.5rem}
+.ocg-feature-list li{font-size:.8rem;color:var(--body);line-height:1.6;padding:.3rem 0;border-bottom:1px solid var(--border);display:flex;gap:.75rem}
+.ocg-feature-list li:last-child{border-bottom:none}
+.ocg-feature-list li .feat-key{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);white-space:nowrap;padding-top:.15rem;min-width:120px}
+.related-topics{margin-top:.9rem}
+.related-grid{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.related-pill{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;padding:.3rem .7rem;border:1px solid var(--border);border-radius:var(--radius);color:var(--body)}
+.related-pill:hover{color:var(--teal);border-color:rgba(20,184,166,.35)}
+.related-pill.teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:3rem}
+.foot-inner{max-width:1040px;margin:0 auto;padding:0 1.5rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot-inner a{color:var(--muted)}.foot-inner a:hover{color:var(--teal)}
+@media(max-width:640px){.hero h1{font-size:1.7rem}.chain-grid{grid-template-columns:1fr}.facts-grid{grid-template-columns:1fr 1fr}.node-card-grid{grid-template-columns:1fr}}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">x402 Protocol Workflow Guide</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="chaingraph-bar"><div class="chaingraph-bar-inner">⬡ OpenChainGraph · x402 Protocol · Workflows and verification nodes listed below</div></div>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-eyebrow">OpenChainGraph · x402 Protocol</div>
+    <h1>x402 · Verifiable Workflow Guide</h1>
+    <p class="hero-desc">Free, browser-based workflows for teams building agent payments on x402, the protocol that turns HTTP 402 Payment Required into a machine-native rail. Each one handles a specific job: decoding and linting an x402 payment payload, recomputing the EIP-3009 or Permit2 signature evidence behind a payment, validating an A2A or AP2 payment mandate, reconciling a batch of agent micropayments, or picking the settlement rail for an agentic checkout. Everything runs locally in your browser. There is no backend, no signup, and no data leaves your machine. Every result carries a hash, so a counterparty can rerun the same workflow on the same inputs and confirm they get the same answer.</p>
+    <p class="hero-desc" style="margin-top:.75rem">Written for engineers wiring agents to pay and be paid, and for the platform, payments, and risk reviewers on the other side of their integrations: facilitator and merchant teams accepting agent traffic, agent-framework builders, and settlement-ops desks that have to answer for the batches. This is an independent project by Post Oak Labs, not an x402 product.</p>
+    <div class="hero-badges">
+      <span class="badge badge-orange">HTTP 402 · x402 v2</span>
+      <span class="badge badge-gold">EIP-3009 · Permit2 · EIP-712</span>
+      <span class="badge badge-purple">AP2 · A2A · ACP · MCP</span>
+      <span class="badge badge-muted">Client-side · Zero PII</span>
+    </div>
+  </div>
+
+  <div class="start-callout">
+    <div class="start-callout-text">Not sure where to start? The spend-evidence pipeline is the protocol's core proof: it takes an x402 payment signed with EIP-3009 and recomputes every trust signal behind it, offline. The other workflows build on the same verification posture.</div>
+    <a href="chains/x402-spend-evidence.html" class="start-btn">⬡ Run the spend-evidence pipeline →</a>
+  </div>
+
+  <!-- Section 1: What is x402 -->
+  <div class="section">
+    <div class="section-eyebrow">Background</div>
+    <div class="section-title">What is x402?</div>
+    <div class="section-body">
+      <p>x402 is a protocol for native payments over HTTP, built around the long-unassigned 402 Payment Required status code. A server that wants payment answers with a 402 carrying payment details; the paying agent returns with signed payment credentials in the PAYMENT-SIGNATURE header; the server (or its facilitator) verifies and settles, then serves the response with a PAYMENT-RESPONSE receipt. Version 2 of the spec defines the settlement field shapes this page's workflows check.</p>
+      <p>Two authorization primitives carry the crypto. EIP-3009 TransferWithAuthorization lets a payer sign an EIP-712 typed-data authorization that a token contract executes, which is the rail underneath the exact scheme. Permit2 is the sibling path: the payer signs a Permit2 typed-data message (witnessed or unwitnessed) that binds the destination, and a spender contract moves the funds. Permit2 carries both the exact and the upto scheme, because its signed amount is a ceiling the settlement can stay under. Both produce signatures an independent party can verify by recomputation, which is exactly what the evidence workflows on this page do: recompute the digest, recover the signer, and check the domain, nonce, and validity window against expectations, entirely offline.</p>
+      <p>Settlement evidence is the third leg. An onchain event proves occurrence; the workflows here produce the hash-bound artifacts (a spend-evidence pack, a reconciled batch, a Merkle-root receipt) that let a reviewer say what occurred, by which rail, with which finality expectation.</p>
+    </div>
+    <div class="facts-grid">
+      <div class="fact-card">
+        <div class="fact-card-label">Wire format</div>
+        <div class="fact-card-value">HTTP 402 · PAYMENT-REQUIRED / SIGNATURE / RESPONSE headers · x402 v2</div>
+      </div>
+      <div class="fact-card">
+        <div class="fact-card-label">Authorization: exact</div>
+        <div class="fact-card-value">EIP-3009 TransferWithAuthorization · EIP-712 typed data</div>
+      </div>
+      <div class="fact-card">
+        <div class="fact-card-label">Authorization: exact or upto</div>
+        <div class="fact-card-value">Witnessed and unwitnessed Permit2 signatures · gas-sponsor extension</div>
+      </div>
+      <div class="fact-card">
+        <div class="fact-card-label">Signature check</div>
+        <div class="fact-card-value">ECDSA signer recovery · domain, nonce, and validity-window checks</div>
+      </div>
+      <div class="fact-card">
+        <div class="fact-card-label">Deferred scheme</div>
+        <div class="fact-card-value">Cloudflare deferred handshake · RFC 9421 HTTP Message Signatures</div>
+      </div>
+      <div class="fact-card">
+        <div class="fact-card-label">Mandate layer</div>
+        <div class="fact-card-value">AP2 x402 extension inside an A2A agent card · ACP checkout · MCP</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Crypto-core verification nodes -->
+  <div class="section">
+    <div class="section-eyebrow">OpenChainGraph</div>
+    <div class="section-title">The crypto-core verification nodes</div>
+    <div class="section-body">
+      <p>Four nodes recompute, from caller-supplied fields only, the cryptography an x402 payment stands on. Each one runs offline: no chain contact, no facilitator, no network. What each recomputes:</p>
+    </div>
+    <div class="node-card-grid">
+      <div class="node-card">
+        <a href="art-590-x402-eip712-digest-recomputer.html"><div class="node-card-title">art-590-x402-eip712-digest-recomputer</div></a>
+        <div class="node-card-role">EIP-712 digest</div>
+        <p>Recomputes the EIP-712 typed-data digest for an EIP-3009 TransferWithAuthorization struct from the caller's domain and struct fields: the domain separator, the struct hash, and the resulting digest to compare against the payment payload.</p>
+      </div>
+      <div class="node-card">
+        <a href="art-591-x402-signer-recovery-verifier.html"><div class="node-card-title">art-591-x402-signer-recovery-verifier</div></a>
+        <div class="node-card-role">Signer recovery</div>
+        <p>Recovers the ECDSA signer address from an EIP-712 digest and a signature supplied in (r,s,v) or (r,s,yParity) form, normalizing the recovery id across signature forms, so a reviewer can confirm which address authorized the payment.</p>
+      </div>
+      <div class="node-card">
+        <a href="art-592-x402-domain-nonce-window-checker.html"><div class="node-card-title">art-592-x402-domain-nonce-window-checker</div></a>
+        <div class="node-card-role">Domain and window</div>
+        <p>Checks an EIP-3009 authorization's domain separation and replay-defense fields against caller-supplied expectations: the expected chain id and verifying contract as separate mandatory policy parameters, plus the nonce and the validity window.</p>
+      </div>
+      <div class="node-card">
+        <a href="art-699-x402-permit2-evidence-recomputer.html"><div class="node-card-title">art-699-x402-permit2-evidence-recomputer</div></a>
+        <div class="node-card-role">Permit2 digest</div>
+        <p>Recomputes the Permit2 typed-data digest a payer's wallet signs for an x402 payment, across the single-item message shapes the exact and upto schemes use, including the witnessed transfer that binds the destination.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3: Protocol and mandate nodes -->
+  <div class="section">
+    <div class="section-eyebrow">OpenChainGraph</div>
+    <div class="section-title">The protocol and mandate nodes</div>
+    <div class="section-body">
+      <p>Six nodes cover the protocol surface around the signatures: the wire payloads, the mandates that authorize an agent to pay, the settlement economics, and the batch arithmetic.</p>
+    </div>
+    <div class="node-card-grid">
+      <div class="node-card">
+        <a href="art-26-x402-payload-decoder-flow-simulator.html"><div class="node-card-title">art-26-x402-payload-decoder-flow-simulator</div></a>
+        <div class="node-card-role">Payload and flow</div>
+        <p>Decodes base64 PAYMENT-REQUIRED, PAYMENT-SIGNATURE, and PAYMENT-RESPONSE headers, lints an exact-scheme PaymentPayload with EIP-3009-style authorization fields, and walks the HTTP 402 request, verify, and settle flow across the scheme and network matrix.</p>
+      </div>
+      <div class="node-card">
+        <a href="art-31-a2a-x402-extension-mandate-validator.html"><div class="node-card-title">art-31-a2a-x402-extension-mandate-validator</div></a>
+        <div class="node-card-role">Mandate validation</div>
+        <p>Validates the A2A x402 extension that carries crypto-payment authority inside an AP2 mandate: the extension declaration in the A2A agent card, the payment-authority scope, the settlement-rail binding, and the exact-scheme fields.</p>
+      </div>
+      <div class="node-card">
+        <a href="art-394-x402-deferred-handshake-validator.html"><div class="node-card-title">art-394-x402-deferred-handshake-validator</div></a>
+        <div class="node-card-role">Deferred handshake</div>
+        <p>Validates the shape of a Cloudflare deferred x402 scheme handshake: the 402 offer fields (scheme, id, termsUrl), the RFC 9421 HTTP Message Signature covered-component coverage, and the settlement-reference id.</p>
+      </div>
+      <div class="node-card">
+        <a href="art-596-ap2-x402-cart-correlation.html"><div class="node-card-title">art-596-ap2-x402-cart-correlation</div></a>
+        <div class="node-card-role">Cart correlation</div>
+        <p>Correlates a built AP2 CartMandate against an x402_spend_evidence pack: whether the cart total matches the x402 authorization's value, and whether the cart's merchant matches the evidence.</p>
+      </div>
+      <div class="node-card">
+        <a href="art-03-x402-settlement-modeler.html"><div class="node-card-title">art-03-x402-settlement-modeler</div></a>
+        <div class="node-card-role">Rail selection</div>
+        <p>Recommends a settlement rail and finality expectation across x402 (HTTP 402), Stripe USDC, card, ACH, and SWIFT, with per-transaction cost, eligibility scoring, and micropayment support.</p>
+      </div>
+      <div class="node-card">
+        <a href="art-61-x402-batch-settlement-reconciler.html"><div class="node-card-title">art-61-x402-batch-settlement-reconciler</div></a>
+        <div class="node-card-role">Batch reconciliation</div>
+        <p>Reconciles an x402 V2 batch settlement of off-chain payment vouchers against the onchain batch total: the recon verdict, per-voucher amounts, the settlement-risk window of unredeemed vouchers, and an educational Merkle root.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 4: Workflows -->
+  <div class="section">
+    <div class="section-eyebrow">OpenChainGraph</div>
+    <div class="section-title">The workflows across the x402 rail</div>
+    <div class="section-body">
+      <p>Each workflow composes the nodes above into one decision. Seven of them had no hub page before this one; they are listed in full here. Four more touch x402 on their way somewhere else and are cross-linked to the hubs that own them, so nothing moved.</p>
+    </div>
+    <div class="chain-grid">
+
+      <div class="chain-card">
+        <div class="chain-card-badge">Start here · Evidence</div>
+        <div class="chain-card-title">x402 Spend Evidence Pack</div>
+        <div class="chain-card-desc">Recomputes the trust signals behind an x402 payment signed with EIP-3009 TransferWithAuthorization: the EIP-712 digest, the ECDSA signer recovery, and the domain, nonce, and validity-window checks. Each step's fields compose into an x402_spend_evidence pack a downstream agent or human reviewer can check. Also lives on the Arc hub.</div>
+        <div class="chain-card-nodes">ART-590 + ART-591 + ART-592</div>
+        <a href="chains/x402-spend-evidence.html" class="chain-card-link">→ Open this workflow</a>
+      </div>
+
+      <div class="chain-card">
+        <div class="chain-card-badge">Settlement ops</div>
+        <div class="chain-card-title">x402 V2 Batch-Settlement Reconciliation</div>
+        <div class="chain-card-desc">Reconciles a batch of x402 V2 payment vouchers against the onchain batch total, reports the settlement-risk window of unredeemed vouchers, re-verifies the Merkle root independently, and closes with one Merkle-root settlement receipt. The runtime question it answers: did this batch of agent micropayments settle correctly?</div>
+        <div class="chain-card-nodes">ART-61 + CRY-04 + CRY-05</div>
+        <a href="chains/agent-economy-batch-settlement.html" class="chain-card-link">→ Open this workflow</a>
+      </div>
+
+      <div class="chain-card">
+        <div class="chain-card-badge">Mandates</div>
+        <div class="chain-card-title">Agentic Payment Mandate Lint</div>
+        <div class="chain-card-desc">A verify-then-build lint for caller-supplied agentic payment mandates: validates the calling agent's A2A card, checks its x402 payment-extension mandate, then builds the AP2 verifiable credential form of the mandate.</div>
+        <div class="chain-card-nodes">ART-25 + ART-31 + ART-16</div>
+        <a href="chains/agentic-payment-mandate-lint.html" class="chain-card-link">→ Open this workflow</a>
+      </div>
+
+      <div class="chain-card">
+        <div class="chain-card-badge">Cart correlation</div>
+        <div class="chain-card-title">AP2 x402 Cart Correlation</div>
+        <div class="chain-card-desc">Builds an illustrative AP2 CartMandate with a deterministic hash-chain over its cart line items, then checks whether that mandate's total and merchant plausibly correlate with a caller-supplied x402_spend_evidence pack from the spend-evidence pipeline. Output is a correlation verdict.</div>
+        <div class="chain-card-nodes">ART-595 + ART-596</div>
+        <a href="chains/ap2-x402-cart-correlation.html" class="chain-card-link">→ Open this workflow</a>
+      </div>
+
+      <div class="chain-card">
+        <div class="chain-card-badge">Economics</div>
+        <div class="chain-card-title">Agent-Service Metering and Marketplace Economics</div>
+        <div class="chain-card-desc">Meters agent-service usage, runs the marketplace unit economics, models x402 settlement cost and finality, and screens the usage stream for billing anomalies. An educational estimator for pricing an agent-service micropayment marketplace.</div>
+        <div class="chain-card-nodes">ART-63 + ART-03 + ML-03</div>
+        <a href="chains/agent-economy-metering.html" class="chain-card-link">→ Open this workflow</a>
+      </div>
+
+      <div class="chain-card">
+        <div class="chain-card-badge">Protocol selection</div>
+        <div class="chain-card-title">Agentic Rail Chain</div>
+        <div class="chain-card-desc">Compares the agentic payment protocols, then routes: an AP2 mandate with Visa TAP signature inspection and Mastercard agentic token scope on the card branch, an A2A agent card validation with x402 payload decode and settlement modeling on the A2A branch, closing on an MCP developer readiness scorecard.</div>
+        <div class="chain-card-nodes">x402 legs ART-26 + ART-03</div>
+        <a href="chains/agentic-rail.html" class="chain-card-link">→ Open this workflow</a>
+      </div>
+
+      <div class="chain-card">
+        <div class="chain-card-badge">Conformance</div>
+        <div class="chain-card-title">Agent Commerce Cross-Protocol Conformance</div>
+        <div class="chain-card-desc">Validates the AP2 v0.2 mandate chain, checks ACP checkout conformance, models x402 settlement, and returns one unified cross-protocol conformance verdict for an agent commerce integration.</div>
+        <div class="chain-card-nodes">ART-01 + ART-12 + ART-03 + ART-30</div>
+        <a href="chains/agent-commerce-conformance.html" class="chain-card-link">→ Open this workflow</a>
+      </div>
+
+      <div class="chain-card">
+        <div class="chain-card-badge">End to end</div>
+        <div class="chain-card-title">Agentic Commerce Checkout Chain</div>
+        <div class="chain-card-desc">The full agentic checkout sequence: protocol selection, ACP conformance and fraud risk, agent identity attestation and A2A trust, spend-policy simulation and traffic acceptance, then x402 settlement modeling, batch reconciliation, receipt verification, and a cross-protocol conformance verdict.</div>
+        <div class="chain-card-nodes">x402 legs ART-03 + ART-61</div>
+        <a href="chains/agentic-commerce-checkout.html" class="chain-card-link">→ Open this workflow</a>
+      </div>
+
+      <div class="chain-card">
+        <div class="chain-card-badge">Cross-linked · Permit2</div>
+        <div class="chain-card-title">x402 Permit2 Spend Evidence Pack</div>
+        <div class="chain-card-desc">The Permit2 sibling of the spend-evidence pipeline: recomputes the Permit2 typed-data digest the payer signed for an exact or upto x402 payment, then recovers the signer. The Token Standards hub owns this workflow; it is cross-linked here because it verifies the same payment rail.</div>
+        <div class="chain-card-nodes">ART-699 + ART-591</div>
+        <a href="chains/x402-permit2-spend-evidence.html" class="chain-card-link">→ Open this workflow</a>
+      </div>
+
+      <div class="chain-card">
+        <div class="chain-card-badge">Cross-linked · Permit2 · Sponsored</div>
+        <div class="chain-card-title">x402 Permit2 Sponsored Spend Evidence Pack</div>
+        <div class="chain-card-desc">Extends the Permit2 evidence pipeline to the gas-sponsoring approval extension, where the payer signs a second message approving the transfer contract and a facilitator pays the gas to submit it. Also owned by the Token Standards hub.</div>
+        <div class="chain-card-nodes">ART-699 + ART-591 + ART-612</div>
+        <a href="chains/x402-permit2-sponsored-spend-evidence.html" class="chain-card-link">→ Open this workflow</a>
+      </div>
+
+      <div class="chain-card">
+        <div class="chain-card-badge">Cross-linked · Tempo</div>
+        <div class="chain-card-title">Tempo Agentic Checkout</div>
+        <div class="chain-card-desc">Decodes an x402 or MPP payment, then maps the settlement onto Tempo's TIP-20 token standard. The Tempo hub owns this workflow; it is cross-linked here because its first leg is the x402 decoder.</div>
+        <div class="chain-card-nodes">ART-26 + ART-40</div>
+        <a href="chains/tempo-agentic-checkout.html" class="chain-card-link">→ Open this workflow</a>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Section 5: How verification works -->
+  <div class="section">
+    <div class="section-eyebrow">OpenChainGraph</div>
+    <div class="section-title">How verification works on this page</div>
+    <div class="section-body">
+      <p>Every workflow above composes nodes that emit OpenChainGraph artifacts with the following properties.</p>
+    </div>
+    <div class="ocg-box">
+      <ul class="ocg-feature-list">
+        <li>
+          <span class="feat-key">Offline recompute</span>
+          <span>The crypto-core nodes take caller-supplied domain and struct fields only and recompute the EIP-712 and Permit2 digests, the signer recovery, and the domain and window checks in the browser. Nothing on this page contacts a chain, a facilitator, or any network endpoint.</span>
+        </li>
+        <li>
+          <span class="feat-key">execution_hash</span>
+          <span>Every promoted node emits an <code>execution_hash</code> over its inputs, processing parameters, and outputs. Either party in a bilateral workflow can rerun <code>verify_execution_hash</code> to confirm the node was run as claimed, without sharing internal policy or configuration.</span>
+        </li>
+        <li>
+          <span class="feat-key">Evidence packs</span>
+          <span>The evidence pipelines compose their step outputs into a named pack (<code>x402_spend_evidence</code> for the EIP-3009 rail and its Permit2 siblings) that a downstream agent or human reviewer can check step by step.</span>
+        </li>
+        <li>
+          <span class="feat-key">Conformance fixtures</span>
+          <span>The nodes carry conformance fixtures with published digests, so the recomputation you run in the browser is the same computation the estate tests in CI.</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section 6: Related hubs -->
+  <div class="section">
+    <div class="section-eyebrow">Estate</div>
+    <div class="section-title">Where x402 sits in the wider estate</div>
+    <div class="section-body">
+      <p>For the vendor side of this protocol, the <a href="agentcore-x402-hub.html">AgentCore x402 page</a> maps the field names of the OpenAI Cookbook example for AWS AgentCore Payments onto these same verifiers, field by field; this page stays protocol-level and links that mapping rather than repeating it. The Arc hub carries the x402-native evidence workflow alongside Arc's own rails, the Token Standards hub owns both Permit2 evidence pipelines, and the Tempo hub owns the Tempo checkout.</p>
+    </div>
+    <div class="related-topics">
+      <div class="related-grid">
+        <a href="agentcore-x402-hub.html" class="related-pill teal">AgentCore x402: the cookbook map →</a>
+        <a href="guide-arc.html" class="related-pill">Arc Hub</a>
+        <a href="../guides/token-standards-hub.html" class="related-pill">Token Standards Hub</a>
+        <a href="guide-tempo.html" class="related-pill">Tempo Hub</a>
+        <a href="../guides/agentic-commerce-mcp-hub.html" class="related-pill">Agentic Commerce &amp; MCP Hub</a>
+        <a href="chaingraph-hub.html" class="related-pill teal">ChainGraph Hub →</a>
+        <a href="../hub-for-hubs.html" class="related-pill">Hubs and Guides</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+'use strict';
+/* OpenChainGraph guide pages do not write ain_lang to sessionStorage */
+</script>
+</body>
+</html>

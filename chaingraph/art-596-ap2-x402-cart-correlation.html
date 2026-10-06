@@ -136,7 +136,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap" role="main" aria-description="Correlates a built AP2 CartMandate against an x402_spend_evidence pack: cart total vs authorization value, merchant vs authorization recipient, and an independently re-derived cart hash-chain check. CORRELATION_STATUS vocabulary only (CORRELATED/NOT_CORRELATED/INDETERMINATE) -- never implies cryptographic binding.">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-596 &middot; AP2 / x402 Agent Commerce Correlation</div>
   <h1>AP2 x402 Cart Correlation</h1>
-  <p class="sub">Correlates a built AP2 CartMandate (<a href="art-595-ap2-cartmandate-hashchain-builder.html">ART-595</a>: <code>cart_root</code>, <code>cart_items</code>, <code>merchant</code>) against an <code>x402_spend_evidence</code> pack (assembled from the <a href="chains/x402-spend-evidence.html">x402-spend-evidence chain</a>): does the cart total (<code>sum(quantity&times;unit_price)</code> per currency) match <code>authorization.value</code>; does <code>merchant</code> map to <code>authorization.to</code>. The cart hash-chain is independently re-verified here, never trusted from the CartMandate's own self-reported flag.</p>
+  <p class="sub">Correlates a built AP2 CartMandate (<a href="art-595-ap2-cartmandate-hashchain-builder.html">ART-595</a>: <code>cart_root</code>, <code>cart_items</code>, <code>merchant</code>) against an <code>x402_spend_evidence</code> pack (assembled from the <a href="chains/x402-spend-evidence.html">x402-spend-evidence chain</a>): does the cart total (<code>sum(quantity&times;unit_price)</code> per currency), converted to the token's atomic units with the required <code>token_decimals</code>, equal <code>authorization.value</code> exactly; does <code>merchant</code> map to <code>authorization.to</code>. The cart hash-chain is independently re-verified here, never trusted from the CartMandate's own self-reported flag.</p>
   <div style="margin-bottom:6px">
     <span class="flag info">AP2 &harr; x402</span><span class="flag info">keccak256 + RFC 8785 canon (vendored, no hand-rolled crypto)</span><span class="flag warn">Correlation, not verification</span>
   </div>
@@ -162,6 +162,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 ]</textarea>
       <div class="q-hint">Non-empty ordered array. Each item needs sku, description, quantity (positive number), unit_price (non-negative number), currency.</div>
     </div>
+    <div class="q">
+      <label class="q-label" for="tokenDecimals">token_decimals (the payment token's decimals; USDC = 6)</label>
+      <input type="number" id="tokenDecimals" min="0" max="18" step="1" value="6" aria-label="token_decimals">
+      <div class="q-hint">Required, 0&ndash;18. An EIP-3009 <code>value</code> is denominated in the token's atomic base units, so the cart total is converted with this exponent and the two sides are compared as exact integers. Without it a correct 1 USDC payment (<code>value</code> <code>"1000000"</code>) against a 1.00 cart reads as a mismatch.</div>
+    </div>
   </div>
 
   <div class="card">
@@ -172,7 +177,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   "authorization": {
     "from": "0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667",
     "to": "0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667",
-    "value": "44.48",
+    "value": "44480000",
     "validAfter": "0",
     "validBefore": "2000000000",
     "nonce": "0x0000000000000000000000000000000000000000000000000000000000000001"
@@ -180,7 +185,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   "verdict": "AUTHORIZATION_VALID",
   "disclosure": "..."
 }</textarea>
-      <div class="q-hint">Only <code>authorization.to</code> and <code>authorization.value</code> are read by this correlation check. The rest of the pack (digest, domain checks, signer recovery) is the x402-spend-evidence chain's own concern, echoed here for reference only.</div>
+      <div class="q-hint">Only <code>authorization.to</code> and <code>authorization.value</code> are read by this correlation check, and <code>value</code> must be a non-negative integer in the token's atomic units (a decimal figure is reported as indeterminate, never rounded). The rest of the pack (digest, domain checks, signer recovery) is the x402-spend-evidence chain's own concern, echoed here for reference only.</div>
     </div>
     <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
       <button onclick="runCheck()">&#9654; Correlate</button>
@@ -196,6 +201,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="subsection">Checks</div>
       <div class="kv"><span class="kv-k">cart_chain_intact (independently re-derived)</span><span class="kv-v" id="chainIntactBox"></span></div>
       <div class="kv"><span class="kv-k">cart_total_matches_authorization_value</span><span class="kv-v" id="totalMatchBox"></span></div>
+      <div class="kv"><span class="kv-k">cart_total_atomic</span><span class="kv-v" id="cartAtomicBox"></span></div>
+      <div class="kv"><span class="kv-k">authorization_value_atomic</span><span class="kv-v" id="authAtomicBox"></span></div>
       <div class="kv"><span class="kv-k">merchant_matches_authorization_to</span><span class="kv-v" id="merchantMatchBox"></span></div>
       <div class="subsection" style="margin-top:12px">Disclosure</div>
       <p class="sub" id="disclosureBox" style="font-size:.68rem"></p>
@@ -220,21 +227,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 
 
-<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-596-ap2-x402-cart-correlation.manifest.json -->
-<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
-  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
-    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
-  </div>
-  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
-  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `correlate_ap2_cartmandate_x402`. Task: Correlate a built AP2 CartMandate against an x402_spend_evidence pack: cart total vs authorization value, merchant vs authorization recipient, and an independently re-derived cart hash-chain check.
-Call it with arguments: {"policy_parameters":{"cart_root":"0x2eeb01a35e5facd325ab3b60ba97fe4d26222584419fdf93106d3ca3575729fb","cart_items":[{"sku":"SKU-100","description":"Widget","quantity":2,"unit_price":9.99,"currency":"USD"},{"sku":"SKU-200","description":"Gadget","quantity":1,"unit_price":24.5,"currency":"USD"}],"merchant":"0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667","x402_spend_evidence":{"authorization":{"from":"0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667","to":"0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667","value":"44.480000000000004","validAfter":"0","validBefore":"2000000000","nonce":"0x0000000000000000000000000000000000000000000000000000000000000001"},"digest":"0xb68e5d60d6169bad9739d30399af8f8c7378d464d25f4d971911ab65ef0b014b","verdict":"AUTHORIZATION_VALID","disclosure":"ev"}}}
-Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string, or re-run the in-page WebMCP tool `correlate_ap2_cartmandate_x402`.
-Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
-PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
-Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-596-ap2-x402-cart-correlation.html#p=v1.H4sIAAAAAAAA_wHxAg79eyJjYXJ0X3Jvb3QiOiIweDJlZWIwMWEzNWU1ZmFjZDMyNWFiM2I2MGJhOTdmZTRkMjYyMjI1ODQ0MTlmZGY5MzEwNmQzY2EzNTc1NzI5ZmIiLCJjYXJ0X2l0ZW1zIjpbeyJza3UiOiJTS1UtMTAwIiwiZGVzY3JpcHRpb24iOiJXaWRnZXQiLCJxdWFudGl0eSI6MiwidW5pdF9wcmljZSI6OS45OSwiY3VycmVuY3kiOiJVU0QifSx7InNrdSI6IlNLVS0yMDAiLCJkZXNjcmlwdGlvbiI6IkdhZGdldCIsInF1YW50aXR5IjoxLCJ1bml0X3ByaWNlIjoyNC41LCJjdXJyZW5jeSI6IlVTRCJ9XSwibWVyY2hhbnQiOiIweDJhMTUzMGM0YzQxZGIwYjBiMmJiNjQ2Y2I1ZWIxYTY3YjcxNTg2NjciLCJ4NDAyX3NwZW5kX2V2aWRlbmNlIjp7ImF1dGhvcml6YXRpb24iOnsiZnJvbSI6IjB4MmExNTMwYzRjNDFkYjBiMGIyYmI2NDZjYjVlYjFhNjdiNzE1ODY2NyIsInRvIjoiMHgyYTE1MzBjNGM0MWRiMGIwYjJiYjY0NmNiNWViMWE2N2I3MTU4NjY3IiwidmFsdWUiOiI0NC40ODAwMDAwMDAwMDAwMDQiLCJ2YWxpZEFmdGVyIjoiMCIsInZhbGlkQmVmb3JlIjoiMjAwMDAwMDAwMCIsIm5vbmNlIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIn0sImRpZ2VzdCI6IjB4YjY4ZTVkNjBkNjE2OWJhZDk3MzlkMzAzOTlhZjhmOGM3Mzc4ZDQ2NGQyNWY0ZDk3MTkxMWFiNjVlZjBiMDE0YiIsInZlcmRpY3QiOiJBVVRIT1JJWkFUSU9OX1ZBTElEIiwiZGlzY2xvc3VyZSI6ImV2In19aRsKvPECAAA</pre>
-</section>
-<!-- ASK-AGENT:END -->
+
 
 <!-- A11Y-TREE:BEGIN generator=scripts/check-a11y-tree.mjs manifest=manifests/art-596-ap2-x402-cart-correlation.manifest.json -->
 <script>
@@ -247,7 +240,7 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-596
 (function () {
   'use strict';
   var RUN_TARGET = "runCheck";
-  var TABLE = {"cart_root":["cartRoot",null],"cart_items":["cartItems",null],"merchant":["merchant",null],"x402_spend_evidence":["x402Evidence",null]};
+  var TABLE = {"cart_root":["cartRoot",null],"cart_items":["cartItems",null],"merchant":["merchant",null],"token_decimals":["tokenDecimals",null],"x402_spend_evidence":["x402Evidence",null]};
   var VERDICT_KEYS = ["verdict","final_verdict","overall_verdict","significance_verdict","classification","entity_classification","conclusion","outcome","decision","grade","overall_status","status"];
   var st = null;
   function ensureRegion() {
@@ -310,6 +303,22 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-596
 })();
 </script>
 <!-- A11Y-TREE:END -->
+
+<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-596-ap2-x402-cart-correlation.manifest.json -->
+<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `correlate_ap2_cartmandate_x402`. Task: Correlate a built AP2 CartMandate against an x402_spend_evidence pack: cart total vs authorization value, merchant vs authorization recipient, and an independently re-derived cart hash-chain check.
+Call it with arguments: {"policy_parameters":{"cart_root":"0x4e1a3b0922583d53d2c4090386f3438fd367bb08d5e12716bdf4a790eeb1dd92","cart_items":[{"sku":"SKU-100","description":"Widget","quantity":2,"unit_price":0.25,"currency":"USD"},{"sku":"SKU-200","description":"Gadget","quantity":1,"unit_price":0.5,"currency":"USD"}],"merchant":"0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667","token_decimals":6,"x402_spend_evidence":{"authorization":{"from":"0x7e5f4552091a69125d5dfcb7b8c2659029395bdf","to":"0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667","value":"1000000","validAfter":"0","validBefore":"2000000000","nonce":"0x0000000000000000000000000000000000000000000000000000000000000001"},"digest":"0xb5edd5c45c7ad92459eb789ae4449a9e2a79ce09a9a4122388ae91d7b938d972","recovered_signer":"0x7e5f4552091a69125d5dfcb7b8c2659029395bdf","verdict":"AUTHORIZATION_VALID","disclosure":"ev"}}}
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string, or re-run the in-page WebMCP tool `correlate_ap2_cartmandate_x402`.
+Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
+PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
+Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-596-ap2-x402-cart-correlation.html#p=v1.H4sIAAAAAAAA_wE4A8f8eyJjYXJ0X3Jvb3QiOiIweDRlMWEzYjA5MjI1ODNkNTNkMmM0MDkwMzg2ZjM0MzhmZDM2N2JiMDhkNWUxMjcxNmJkZjRhNzkwZWViMWRkOTIiLCJjYXJ0X2l0ZW1zIjpbeyJza3UiOiJTS1UtMTAwIiwiZGVzY3JpcHRpb24iOiJXaWRnZXQiLCJxdWFudGl0eSI6MiwidW5pdF9wcmljZSI6MC4yNSwiY3VycmVuY3kiOiJVU0QifSx7InNrdSI6IlNLVS0yMDAiLCJkZXNjcmlwdGlvbiI6IkdhZGdldCIsInF1YW50aXR5IjoxLCJ1bml0X3ByaWNlIjowLjUsImN1cnJlbmN5IjoiVVNEIn1dLCJtZXJjaGFudCI6IjB4MmExNTMwYzRjNDFkYjBiMGIyYmI2NDZjYjVlYjFhNjdiNzE1ODY2NyIsInRva2VuX2RlY2ltYWxzIjo2LCJ4NDAyX3NwZW5kX2V2aWRlbmNlIjp7ImF1dGhvcml6YXRpb24iOnsiZnJvbSI6IjB4N2U1ZjQ1NTIwOTFhNjkxMjVkNWRmY2I3YjhjMjY1OTAyOTM5NWJkZiIsInRvIjoiMHgyYTE1MzBjNGM0MWRiMGIwYjJiYjY0NmNiNWViMWE2N2I3MTU4NjY3IiwidmFsdWUiOiIxMDAwMDAwIiwidmFsaWRBZnRlciI6IjAiLCJ2YWxpZEJlZm9yZSI6IjIwMDAwMDAwMDAiLCJub25jZSI6IjB4MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMSJ9LCJkaWdlc3QiOiIweGI1ZWRkNWM0NWM3YWQ5MjQ1OWViNzg5YWU0NDQ5YTllMmE3OWNlMDlhOWE0MTIyMzg4YWU5MWQ3YjkzOGQ5NzIiLCJyZWNvdmVyZWRfc2lnbmVyIjoiMHg3ZTVmNDU1MjA5MWE2OTEyNWQ1ZGZjYjdiOGMyNjU5MDI5Mzk1YmRmIiwidmVyZGljdCI6IkFVVEhPUklaQVRJT05fVkFMSUQiLCJkaXNjbG9zdXJlIjoiZXYifX1DjkYqOAMAAA</pre>
+</section>
+<!-- ASK-AGENT:END -->
 
 <footer>
   <div class="footer-inner">
@@ -430,6 +439,7 @@ var MANIFEST = {
         cart_root: { type: 'string' },
         cart_items: { type: 'array' },
         merchant: { type: 'string' },
+        token_decimals: { type: 'integer', minimum: 0, maximum: 18 },
         x402_spend_evidence: { type: 'object' }
       }
     }
@@ -813,15 +823,66 @@ function _normalizeAddress(v) {
   return '0x' + s.toLowerCase();
 }
 
-function _cartTotalsByCurrency(cart_items) {
+// ── ATOMIC-UNIT CONTRACT ────────────────────────────────────────────────────────────────
+// An EIP-3009 authorization's value is in the token's BASE (atomic) units: 1 USDC is
+// "1000000", not "1". A cart priced in currency units is not comparable to it without the
+// token's decimals, so token_decimals is required and both sides are compared as exact
+// integers. The earlier float comparison read a correct 1 USDC payment for a 1.00 cart as
+// CART_TOTAL_MISMATCH.
+var _10n = BigInt(10), _0nA = BigInt(0), _1nA = BigInt(1), _2nA = BigInt(2);
+
+function _pow10(k) {
+  var r = _1nA;
+  for (var i = 0; i < k; i++) r = r * _10n;
+  return r;
+}
+
+function _decParts(n) {
+  var m = /^(-?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$/.exec(String(n));
+  if (!m) return null;
+  var sign = m[1] === '-' ? -_1nA : _1nA;
+  var intPart = m[2] === '' ? '0' : m[2];
+  var fracPart = m[3] === undefined ? '' : m[3];
+  var exp = m[4] === undefined ? 0 : parseInt(m[4], 10);
+  return { m: BigInt(intPart + fracPart) * sign, e: fracPart.length - exp };
+}
+
+function _toAtomic(m, e, decimals) {
+  if (decimals >= e) return m * _pow10(decimals - e);
+  var div = _pow10(e - decimals);
+  var neg = m < _0nA;
+  var a = neg ? -m : m;
+  var q = a / div;
+  var rem = a % div;
+  var rounded = rem * _2nA >= div ? q + _1nA : q;
+  return neg ? -rounded : rounded;
+}
+
+function _cartAtomicByCurrency(cart_items, decimals) {
   var currencies = {};
   for (var i = 0; i < cart_items.length; i++) currencies[cart_items[i].currency] = true;
-  var keys = Object.keys(currencies);
-  if (keys.length !== 1) return { total: null };
-  var total = 0;
-  for (var j = 0; j < cart_items.length; j++) total += cart_items[j].quantity * cart_items[j].unit_price;
-  total = Math.round(total * 1e8) / 1e8;
-  return { total: total };
+  if (Object.keys(currencies).length !== 1) return { atomic: null };
+  var atomic = _0nA;
+  for (var j = 0; j < cart_items.length; j++) {
+    var q = _decParts(cart_items[j].quantity);
+    var p = _decParts(cart_items[j].unit_price);
+    if (q === null || p === null) return { atomic: null };
+    atomic = atomic + _toAtomic(q.m * p.m, q.e + p.e, decimals);
+  }
+  return { atomic: atomic };
+}
+
+function _authorizationAtomic(v) {
+  if (typeof v === 'number') {
+    if (!Number.isSafeInteger(v) || v < 0) return null;
+    return BigInt(v);
+  }
+  if (typeof v === 'string') {
+    var s = v.trim();
+    if (!/^[0-9]+$/.test(s)) return null;
+    return BigInt(s);
+  }
+  return null;
 }
 
 function compute(pp) {
@@ -836,6 +897,9 @@ function compute(pp) {
 
   var rawItems = Array.isArray(pp.cart_items) ? pp.cart_items : null;
   if (!rawItems || rawItems.length === 0) reasons.push('cart_items is required and must be a non-empty array');
+
+  var token_decimals = Number.isInteger(pp.token_decimals) && pp.token_decimals >= 0 && pp.token_decimals <= 18 ? pp.token_decimals : null;
+  if (token_decimals === null) reasons.push("token_decimals is required and must be an integer 0-18 (the payment token's decimals; USDC = 6) -- authorization.value is denominated in atomic units and cannot be compared to a currency-unit cart without it");
 
   var cart_items = [];
   if (rawItems) {
@@ -855,6 +919,8 @@ function compute(pp) {
       output_payload: {
         correlation_status: 'INDETERMINATE',
         cart_total_matches_authorization_value: null,
+        cart_total_atomic: null,
+        authorization_value_atomic: null,
         merchant_matches_authorization_to: null,
         cart_chain_intact: false,
         disclosure: DISCLOSURE,
@@ -868,11 +934,16 @@ function compute(pp) {
   var recomputedCartRoot = recomputedLinks.length ? recomputedLinks[recomputedLinks.length - 1] : null;
   var cart_chain_intact = recomputedCartRoot !== null && recomputedCartRoot === cart_root;
 
-  var totals = _cartTotalsByCurrency(cart_items);
-  var authValue = authorization && (typeof authorization.value === 'string' || typeof authorization.value === 'number') ? Number(authorization.value) : null;
+  var cartAtomic = _cartAtomicByCurrency(cart_items, token_decimals).atomic;
+  var authAtomic = authorization ? _authorizationAtomic(authorization.value) : null;
+  if (authAtomic === null && authorization && authorization.value !== undefined && authorization.value !== null) {
+    reasons.push("x402_spend_evidence.authorization.value must be a non-negative integer in the token's atomic units (EIP-3009 denominates `value` in base units); a decimal figure cannot be compared without guessing its scale");
+  }
+  var cart_total_atomic = cartAtomic === null ? null : cartAtomic.toString();
+  var authorization_value_atomic = authAtomic === null ? null : authAtomic.toString();
   var cart_total_matches_authorization_value = null;
-  if (totals.total !== null && authValue !== null && Number.isFinite(authValue)) {
-    cart_total_matches_authorization_value = Math.abs(totals.total - authValue) < 1e-6;
+  if (cartAtomic !== null && authAtomic !== null) {
+    cart_total_matches_authorization_value = cartAtomic === authAtomic;
   }
 
   var merchantAddr = _normalizeAddress(merchant);
@@ -888,10 +959,12 @@ function compute(pp) {
   var output_payload = {
     correlation_status: correlation_status,
     cart_total_matches_authorization_value: cart_total_matches_authorization_value,
+    cart_total_atomic: cart_total_atomic,
+    authorization_value_atomic: authorization_value_atomic,
     merchant_matches_authorization_to: merchant_matches_authorization_to,
     cart_chain_intact: cart_chain_intact,
     disclosure: DISCLOSURE,
-    reasons: []
+    reasons: reasons
   };
 
   var compliance_flags = [
@@ -905,24 +978,29 @@ function compute(pp) {
 }
 
 function fillWorkedExample() {
+  // The 1 USDC fact pattern this node's own conformance vector[0] carries: a 1.00 USD cart
+  // paid by an EIP-3009 authorization for value "1000000" (USDC, 6 decimals), whose `from`
+  // is the address of the well-known test key that signed it in the x402-spend-evidence chain.
   var items = [
-    { sku: 'SKU-100', description: 'Widget', quantity: 2, unit_price: 9.99, currency: 'USD' },
-    { sku: 'SKU-200', description: 'Gadget', quantity: 1, unit_price: 24.5, currency: 'USD' }
+    { sku: 'SKU-100', description: 'Widget', quantity: 2, unit_price: 0.25, currency: 'USD' },
+    { sku: 'SKU-200', description: 'Gadget', quantity: 1, unit_price: 0.5, currency: 'USD' }
   ];
   var links = _recomputeCartChain(items);
   var cart_root = links[links.length - 1];
   document.getElementById('cartRoot').value = cart_root;
   document.getElementById('merchant').value = '0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667';
   document.getElementById('cartItems').value = JSON.stringify(items, null, 2);
-  var total = 2 * 9.99 + 1 * 24.5;
+  document.getElementById('tokenDecimals').value = '6';
   document.getElementById('x402Evidence').value = JSON.stringify({
     authorization: {
-      from: '0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667',
+      from: '0x7e5f4552091a69125d5dfcb7b8c2659029395bdf',
       to: '0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667',
-      value: String(total),
+      value: '1000000',
       validAfter: '0', validBefore: '2000000000',
       nonce: '0x0000000000000000000000000000000000000000000000000000000000000001'
     },
+    digest: '0xb5edd5c45c7ad92459eb789ae4449a9e2a79ce09a9a4122388ae91d7b938d972',
+    recovered_signer: '0x7e5f4552091a69125d5dfcb7b8c2659029395bdf',
     verdict: 'AUTHORIZATION_VALID',
     disclosure: '...'
   }, null, 2);
@@ -934,10 +1012,12 @@ function runCheck() {
   try { cartItemsRaw = JSON.parse(document.getElementById('cartItems').value); } catch (e) { cartItemsRaw = null; }
   try { evidenceRaw = JSON.parse(document.getElementById('x402Evidence').value); } catch (e) { evidenceRaw = null; }
 
+  var decRaw = document.getElementById('tokenDecimals').value.trim();
   var pp = {
     cart_root: document.getElementById('cartRoot').value.trim(),
     merchant: document.getElementById('merchant').value.trim(),
     cart_items: cartItemsRaw,
+    token_decimals: /^\d+$/.test(decRaw) ? parseInt(decRaw, 10) : decRaw,
     x402_spend_evidence: evidenceRaw
   };
 
@@ -959,6 +1039,8 @@ function runCheck() {
   function fmt(v) { return v === null ? 'INDETERMINATE (null)' : v === true ? 'true' : 'false'; }
   document.getElementById('chainIntactBox').textContent = op.cart_chain_intact ? 'true' : 'false';
   document.getElementById('totalMatchBox').textContent = fmt(op.cart_total_matches_authorization_value);
+  document.getElementById('cartAtomicBox').textContent = op.cart_total_atomic === null ? 'INDETERMINATE (null)' : op.cart_total_atomic;
+  document.getElementById('authAtomicBox').textContent = op.authorization_value_atomic === null ? 'INDETERMINATE (null)' : op.authorization_value_atomic;
   document.getElementById('merchantMatchBox').textContent = fmt(op.merchant_matches_authorization_to);
   document.getElementById('disclosureBox').textContent = op.disclosure;
   document.getElementById('reasonsRow').innerHTML = (op.reasons || []).map(function(r) { return '<span class="badge fail">' + r + '</span>'; }).join('');
@@ -1047,6 +1129,11 @@ if (mc) {
         "merchant": {
           "type": "string"
         },
+        "token_decimals": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18
+        },
         "x402_spend_evidence": {
           "type": "object"
         }
@@ -1058,6 +1145,7 @@ if (mc) {
       if (params.cart_root !== undefined && params.cart_root !== null) document.getElementById('cartRoot').value = String(params.cart_root);
       if (params.cart_items !== undefined && params.cart_items !== null) document.getElementById('cartItems').value = JSON.stringify(params.cart_items);
       if (params.merchant !== undefined && params.merchant !== null) document.getElementById('merchant').value = String(params.merchant);
+      if (params.token_decimals !== undefined && params.token_decimals !== null) document.getElementById('tokenDecimals').value = String(params.token_decimals);
       if (params.x402_spend_evidence !== undefined && params.x402_spend_evidence !== null) document.getElementById('x402Evidence').value = JSON.stringify(params.x402_spend_evidence);
       await runCheck();
       return _lastResult;
@@ -1080,7 +1168,7 @@ if (mc) {
   'use strict';
   var BUDGET = 30000;
   var RUN_TARGET = "runCheck";
-  var PREFILL = {"cart_root":["cartRoot","string"],"cart_items":["cartItems","json"],"merchant":["merchant","string"],"x402_spend_evidence":["x402Evidence","json"]};
+  var PREFILL = {"cart_root":["cartRoot","string"],"cart_items":["cartItems","json"],"merchant":["merchant","string"],"token_decimals":["tokenDecimals","string"],"x402_spend_evidence":["x402Evidence","json"]};
   var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
 
   function b64uDec(s) {
@@ -1226,7 +1314,7 @@ if (mc) {
   'use strict';
   var MAX = 1000000;
   var RUN_TARGET = "runCheck";
-  var PREFILL = {"cart_root":["cartRoot","string"],"cart_items":["cartItems","json"],"merchant":["merchant","string"],"x402_spend_evidence":["x402Evidence","json"]};
+  var PREFILL = {"cart_root":["cartRoot","string"],"cart_items":["cartItems","json"],"merchant":["merchant","string"],"token_decimals":["tokenDecimals","string"],"x402_spend_evidence":["x402Evidence","json"]};
   var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
 
   function fail(msg) {
