@@ -62,7 +62,7 @@ import { generateWorker, loadTemplate, TEMPLATE_PATH } from './gen-farm-worker.m
 // block folded (FARM-HERMES-SWAP-1 memorial open item 1, commit 41f070c5f: fetch + rev-list
 // --count + pull --rebase before the heartbeat push; advisory only, never blocks a report).
 // Previous golden: 40051 bytes, 55abf63a45be27ce5347c075aee454de1d84b83b3c061f73852091e414937ebe.
-const GOLDEN = { bus: 'aspire', bytes: 44673, sha256: 'a7b75f8ca313b0c5504fd0a75b7f70984f8519e90258cfb5b036e631b535e77b' };  // 2026-10-06 auto-rotate (Part 5): hermes pool space-bunny-alpha -> solar-mini4 (folds PS-HERMES-ROTATE-2; previous golden 44405/777f7a5ad3e2)
+const GOLDEN = { bus: 'aspire', bytes: 44746, sha256: '3bd2af27583dd09e0e1f07e5b15c0cf73b6f45f23465b4c42731c620a73e1a6a' };  // 2026-10-06 auto-rotate (Part 5): hermes pool space-bunny-alpha -> solar-mini4 (folds PS-HERMES-ROTATE-2; omen hermes dormant by design per Tim — previous golden 44405/777f7a5ad3e2)
 const BUSES = ['hp', 'ps', 'nitro', 'aspire', 'omen', 'msi'];   // MSI-BUS-1 (2026-09-20): sixth bus
 const TOKEN_VALUES = {
   hp: { '@@MACHINE@@': 'hp', '@@BUS@@': 'hp', '@@NPMROOT@@': '$env:APPDATA\\npm' },

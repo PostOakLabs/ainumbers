@@ -48,9 +48,10 @@ $script:Lanes = [ordered]@{
     # a transient. Replacement upstage/solar-mini4:free (first added on ps by PS-HERMES-ROTATE-2,
     # Nous's Solar line — Tim: "Nous has Solar") probed READY ("Reply with exactly: OK",
     # --provider nous, rc=0) on ps (PS-HERMES-ROTATE-2), then re-probed by this rotation on
-    # nitro, aspire and msi — omen UNREACHABLE by ssh from the watcher host (open item: probe
-    # there next time a session is on the box; a catalog miss costs omen one fast failed run
-    # and steps past). The five 2026-10-02 ids all re-probed rc=0 "OK" on ps in the same pass.
+    # nitro, aspire and msi. omen NOT probed, by design (Tim 2026-10-06: omen IS the watcher
+    # host, and hermes is deliberately not kept running/logged-in there — CPU/ram hog — so
+    # its hermes lane is dormant; if it is ever reactivated, re-probe the whole list first).
+    # The five 2026-10-02 ids all re-probed rc=0 "OK" on ps in the same pass.
     # longcat-2.5 leads as successor of the production-proven longcat line (SHADOW-WATCH-BRIEF-1);
     # solar-mini4 trails as newest. A promotion-ended id costs one fast failed run and is
     # stepped past; models.dev no longer carries a nous provider entry — the portal's own
