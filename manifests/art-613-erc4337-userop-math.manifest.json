@@ -2,7 +2,7 @@
   "tool_id": "art-613-erc4337-userop-math",
   "version": "1.0.0",
   "title": "ERC-4337 UserOperation Math",
-  "description": "Recomputes the ERC-4337 account-abstraction userOpHash from a caller-supplied UserOperation, computes the EntryPoint's required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. The EntryPoint version is a mandatory declared parameter, never inferred: v0.6 hashes a 10-word UserOperation pack, v0.7 hashes an 8-word PackedUserOperation in which verificationGasLimit and callGasLimit pack into accountGasLimits and maxPriorityFeePerGas and maxFeePerGas pack into gasFees. The prefund formulas differ too: v0.6 multiplies verificationGasLimit by three when a paymaster is present because that limit also caps postOp, while v0.7 adds the paymaster's own verification and postOp gas limits parsed from fixed offsets inside paymasterAndData. Both versions are supported; an unrecognised version is refused, never approximated. L1 data and blob fees are never derived, since after EIP-4844 they depend on the inclusion-time L1 basefee and blob basefee: an L1 data fee enters reconciliation only when declared, and its absence is reported as a named gap. block.basefee is never fetched either, so with differing fee caps the effective gas price is null with the reason unless a basefee is declared. keccak256 comes from the already-vendored, pinned noble-hashes bundle; the ABI encoding scheme is public-spec arithmetic on top of it, not hand-rolled crypto. Zero network calls and zero chain reads. Makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity, which the ERC-4337 spec excludes from the hashed struct.",
+  "description": "Recomputes the ERC-4337 account-abstraction userOpHash from a caller-supplied UserOperation, computes the EntryPoint's required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. The EntryPoint version is a mandatory declared parameter, never inferred: v0.6 hashes a 10-word UserOperation pack, v0.7 hashes an 8-word PackedUserOperation in which verificationGasLimit and callGasLimit pack into accountGasLimits and maxPriorityFeePerGas and maxFeePerGas pack into gasFees, and v0.8 and v0.9 hash that same packed struct as an EIP-712 typed hash over the ERC4337 domain. Under v0.8 and v0.9 an initCode carrying the EIP-7702 marker folds the declared eip7702Delegate into the hash through the Eip7702Support override, and v0.9 excludes an appended paymaster signature from the hashed paymasterAndData bytes. The prefund formulas differ too: v0.6 multiplies verificationGasLimit by three when a paymaster is present because that limit also caps postOp, while the packed layouts add the paymaster's own verification and postOp gas limits parsed from fixed offsets inside paymasterAndData. All four versions are supported; an unrecognised version is refused, never approximated. L1 data and blob fees are never derived, since after EIP-4844 they depend on the inclusion-time L1 basefee and blob basefee: an L1 data fee enters reconciliation only when declared, and its absence is reported as a named gap. block.basefee is never fetched either, so with differing fee caps the effective gas price is null with the reason unless a basefee is declared. keccak256 comes from the already-vendored, pinned noble-hashes bundle; the ABI encoding scheme is public-spec arithmetic on top of it, not hand-rolled crypto. Zero network calls and zero chain reads. Makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity, which the ERC-4337 spec excludes from the hashed struct.",
   "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
   "tags": [
     "payment_policy",
@@ -19,7 +19,7 @@
     "properties": {
       "entryPointVersion": {
         "type": "string",
-        "description": "EntryPoint version the UserOperation targets: \"0.6\" or \"0.7\". Mandatory, never inferred -- the two versions hash different structs."
+        "description": "EntryPoint version the UserOperation targets: \"0.6\", \"0.7\", \"0.8\" or \"0.9\". Mandatory, never inferred -- the versions hash different structs."
       },
       "entryPoint": {
         "type": "string",
@@ -69,6 +69,14 @@
         "type": "number",
         "description": "Caller-supplied maxPriorityFeePerGas -- uint256. Packed into gasFees under v0.7."
       },
+      "eip7702Delegate": {
+        "type": "string",
+        "description": "Optional. The EIP-7702 delegate address folded into the v0.8/v0.9 hash when initCode carries the 0x7702 marker. Declared, never fetched."
+      },
+      "eip7702Authority": {
+        "type": "string",
+        "description": "Optional. The address that signed the EIP-7702 authorization, compared against sender and reported as a fact. Declared, never fetched."
+      },
       "declaredBaseFeePerGas": {
         "type": "number",
         "description": "Optional. Caller-DECLARED block basefee used to derive the effective gas price when the fee caps differ. Never fetched; absent it the price is reported as null with the reason."
@@ -93,7 +101,7 @@
   },
   "mcp_tool_definition": {
     "name": "recompute_erc4337_userop_math",
-    "description": "Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (0.6 or 0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. Never derives L1 data or blob fees and never fetches block.basefee. Zero network calls, no settlement claim.",
+    "description": "Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (0.6, 0.7, 0.8 or 0.9), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. v0.8 and v0.9 hash the PackedUserOperation as an EIP-712 typed hash, fold the declared EIP-7702 delegate into the hash when initCode carries the marker, and v0.9 excludes an appended paymaster signature from the hashed bytes. Never derives L1 data or blob fees and never fetches block.basefee. Zero network calls, no settlement claim.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -135,6 +143,12 @@
         },
         "maxPriorityFeePerGas": {
           "type": "number"
+        },
+        "eip7702Delegate": {
+          "type": "string"
+        },
+        "eip7702Authority": {
+          "type": "string"
         },
         "declaredBaseFeePerGas": {
           "type": "number"
@@ -334,6 +348,18 @@
           "null"
         ]
       },
+      "eip7702_delegate_bound": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "sender_matches_declared_authority": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
       "gas_accounting": {
         "type": [
           "object",
@@ -475,7 +501,7 @@
       }
     }
   },
-  "source": "authored by ETHMATH-USEROP-1 per ETHMATH-WAVE-BUILD-SPEC.md section 3; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-613-erc4337-userop-math.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest siblings: art-590-x402-eip712-digest-recomputer, art-611-erc7540-async-vault-request-accounting).",
+  "source": "authored by ETHMATH-USEROP-1 per ETHMATH-WAVE-BUILD-SPEC.md section 3; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-613-erc4337-userop-math.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest siblings: art-590-x402-eip712-digest-recomputer, art-611-erc7540-async-vault-request-accounting). Amended by ZZ-EIP7702-USEROP-CHAIN-1 (2026-10-06): entryPointVersion 0.8 and 0.9 added with the shared EIP-712 hash path, the Eip7702Support initCodeHash override over the declared eip7702Delegate, the v0.9 paymasterDataKeccak rule, and the additive outputs eip7702_delegate_bound and sender_matches_declared_authority; output_schema and output_example re-derived from the amended kernel.",
   "author": "PostOakLabs",
   "license": "CC-BY-4.0",
   "input_example": {
@@ -528,6 +554,8 @@
     },
     "packed_user_op_hash": "0x5e08d083a1feb79bd51258315a754492fe4c2940aef0915261e4e03cf225830c",
     "user_op_hash": "0x539c1b3b19f9bf3007fcede2a7b52ce1fc02d03b18673046e80a0c902d2ca1b2",
+    "eip7702_delegate_bound": null,
+    "sender_matches_declared_authority": null,
     "gas_accounting": {
       "entry_point_version": "0.6",
       "required_gas": "271000",
@@ -567,7 +595,7 @@
       "EntryPoint contract state: never read. Deposits, stakes, nonce-sequence validity, and prior spend are not consulted.",
       "Chain state of any kind: no RPC, no indexer, no receipt lookup. actualGasUsed and actualGasCost are reconciled only as caller-declared values."
     ],
-    "scope_note": "Recomputes the ERC-4337 userOpHash from a caller-supplied UserOperation under a DECLARED EntryPoint version (v0.6 or v0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. Zero network calls and zero chain reads: every field is caller-declared and echoed back, never independently resolved. L1 data and blob fees are NEVER derived -- post-EIP-4844 they depend on the inclusion-time L1 basefee, which is not offline-derivable, so they participate only when the caller declares them and their absence is reported as a named gap. block.basefee is likewise never fetched: absent a declared value the effective gas price is reported as null with the reason. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity (the signature field is excluded from the hashed struct by the ERC-4337 spec itself)."
+    "scope_note": "Recomputes the ERC-4337 userOpHash from a caller-supplied UserOperation under a DECLARED EntryPoint version (v0.6, v0.7, v0.8 or v0.9), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. v0.8 and v0.9 hash the PackedUserOperation as an EIP-712 typed hash over the ERC4337 domain; when initCode carries the EIP-7702 marker the initCode hash is replaced by the Eip7702Support override built from the DECLARED eip7702Delegate, and v0.9 excludes an appended paymaster signature from the hashed paymasterAndData bytes. The delegate and the signing authority are DECLARED inputs, never fetched: supply eip7702Delegate and eip7702Authority. Zero network calls and zero chain reads: every field is caller-declared and echoed back, never independently resolved. L1 data and blob fees are NEVER derived -- post-EIP-4844 they depend on the inclusion-time L1 basefee, which is not offline-derivable, so they participate only when the caller declares them and their absence is reported as a named gap. block.basefee is likewise never fetched: absent a declared value the effective gas price is reported as null with the reason. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity (the signature field is excluded from the hashed struct by the ERC-4337 spec itself)."
   },
-  "example_execution_hash": "5a74a2c1583b86b0330bfd1f873445db1ef0bab9c4196d740f0ca757d249b2a3"
+  "example_execution_hash": "7dda88df660fb7e73d2f8b781a8293130fc1345bb8cba4729cbfba534d210787"
 }

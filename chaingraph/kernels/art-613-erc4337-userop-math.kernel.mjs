@@ -1120,15 +1120,34 @@ const keccak_512 = /* @__PURE__ */ genKeccak(0x01, 72, 64);
 // reported as null with the reason, never guessed. Both facts are stated in output copy
 // (`never_fetched`) on every single run, including INDETERMINATE ones.
 //
-// ENTRYPOINT VERSION IS A DECLARED PARAMETER, never inferred. v0.6 and v0.7 differ in the struct
-// that gets hashed AND in the prefund formula, so guessing would silently produce a wrong hash:
+// ENTRYPOINT VERSION IS A DECLARED PARAMETER, never inferred. The supported versions differ in the
+// struct that gets hashed AND (for v0.6 vs the packed layouts) in the prefund formula, so guessing
+// would silently produce a wrong hash:
 //   v0.6 UserOperation      -- 10 abi.encode words; prefund multiplies verificationGasLimit by 3
 //                              when a paymaster is present (postOp may be called twice).
 //   v0.7 PackedUserOperation -- 8 abi.encode words; verificationGasLimit/callGasLimit pack into
 //                              accountGasLimits, maxPriorityFeePerGas/maxFeePerGas pack into
 //                              gasFees, and the prefund adds the paymaster's own two gas limits
 //                              (parsed out of paymasterAndData) instead of using a multiplier.
-// Both are supported. An unrecognised version is INDETERMINATE, never a fallback to either one.
+//   v0.8 PackedUserOperation -- the userOpHash becomes an EIP-712 typed hash over the domain
+//                              {name "ERC4337", version "1", chainId, verifyingContract entryPoint}.
+//                              The struct hash encodes the pinned PACKED_USEROP_TYPEHASH literal
+//                              plus the eight packed fields; when initCode carries the EIP-7702
+//                              marker (first 20 bytes = 0x7702 zero-padded), the initCode hash is
+//                              replaced by the pinned Eip7702Support override built from the
+//                              CALLER-DECLARED eip7702Delegate (the real EntryPoint reads the
+//                              delegate from the sender's code; this kernel never fetches it).
+//                              Final hash: keccak256(0x1901 ++ domainSeparator ++ structHash).
+//   v0.9 PackedUserOperation -- identical to v0.8 with ONE pinned delta: the paymasterAndData
+//                              hash comes from paymasterDataKeccak, which excludes an appended
+//                              paymaster signature (8-byte magic + uint16 big-endian length)
+//                              from the hashed bytes. An appended signature that the caller can
+//                              change therefore does NOT move the v0.9 userOpHash (it does move
+//                              the v0.8 hash, where the whole field is hashed).
+// All four are supported. An unrecognised version is INDETERMINATE, never a fallback to any one.
+//
+// The v0.8/v0.9 type hashes are derived at runtime from the pinned ASCII type strings below
+// (never hand-typed hex), computed inside compute() -- no keccak at module top level.
 //
 // Self-checks run inside compute() (art-607's lazy-init pattern, ART607-EAGER-INIT-FIX-1
 // -- never at module top level, which would call utf8ToBytes before compute() and reproduce
@@ -1149,6 +1168,30 @@ const CANONICAL_ENTRYPOINT = {
 const PM_VALIDATION_GAS_OFFSET = 20;
 const PM_POSTOP_GAS_OFFSET = 36;
 const PM_DATA_OFFSET = 52;
+
+// v0.8/v0.9 EIP-712 typed-hash inputs, pinned verbatim. The type hashes are derived at runtime
+// from these ASCII strings inside compute() -- never hand-typed hex constants.
+const PACKED_USEROP_TYPESTRING = 'PackedUserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData)';
+const EIP712_DOMAIN_TYPESTRING = 'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)';
+const EIP712_DOMAIN_NAME = 'ERC4337';
+const EIP712_DOMAIN_VERSION = '1';
+
+// v0.8 Eip7702Support initCode marker: initCode "is EIP-7702" when its first 20 bytes equal
+// 0x7702 zero-padded to 20 bytes (calldata zero-padding means a declared length >= 2 whose
+// bytes 2..min(len,20)-1 are all zero also matches). The override then folds the delegate
+// (a CALLER-DECLARED address, never fetched) into the initCode hash:
+//   initCode length <= 20: keccak256(delegate) ; else keccak256(delegate ++ initCode[20:]).
+const EIP7702_MARKER_BYTE0 = 0x77;
+const EIP7702_MARKER_BYTE1 = 0x02;
+
+// v0.9 paymasterDataKeccak: an appended paymaster signature (8-byte magic + uint16 big-endian
+// length immediately before it) is excluded from the hashed bytes. Hashed form:
+// keccak256(paymasterAndData[0 : len - (sigLen + 10)] ++ magic8). No magic (or zero length)
+// means the whole field is hashed, exactly like v0.8. A length field that would reach before
+// the 52-byte header is reverted by the pinned source, reported here as INDETERMINATE.
+const PAYMASTER_SIG_MAGIC_HEX = '22e325a297439656';
+const PM_SIG_SUFFIX_LEN = 10; // 2-byte length + 8-byte magic
+const PM_MIN_WITH_SUFFIX_LEN = PM_DATA_OFFSET + PM_SIG_SUFFIX_LEN;
 
 const KECCAK_EMPTY_EXPECT = 'c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470';
 const KECCAK_ABC_EXPECT = '4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45';
@@ -1235,19 +1278,79 @@ function _bytesOf(byteStringHex) {
   return s === '' ? new Uint8Array(0) : hexToBytes_(s);
 }
 
-// Normalizes the declared EntryPoint version to '0.6' or '0.7'. ⛔ Never infers a default:
-// an unrecognised value returns null and the run is INDETERMINATE.
+// Normalizes the declared EntryPoint version to '0.6', '0.7', '0.8' or '0.9'. ⛔ Never infers a
+// default: an unrecognised value returns null and the run is INDETERMINATE.
 function _normalizeEntryPointVersion(v) {
   if (typeof v === 'number') {
     if (v === 0.6) return '0.6';
     if (v === 0.7) return '0.7';
+    if (v === 0.8) return '0.8';
+    if (v === 0.9) return '0.9';
     return null;
   }
   if (typeof v !== 'string') return null;
   const s = v.trim().toLowerCase().replace(/^v/, '');
   if (s === '0.6' || s === '0.6.0') return '0.6';
   if (s === '0.7' || s === '0.7.0') return '0.7';
+  if (s === '0.8' || s === '0.8.0') return '0.8';
+  if (s === '0.9' || s === '0.9.0') return '0.9';
   return null;
+}
+
+// v0.8 Eip7702Support marker test over the normalized initCode bytes: first 20 bytes equal
+// 0x7702 zero-padded to 20 bytes. A declared length below 20 matches only if every declared
+// byte after the marker prefix is zero (the rest is calldata zero-padding in the pinned test).
+function _isEip7702InitCode(bytes) {
+  if (bytes.length < 2) return false;
+  if (bytes[0] !== EIP7702_MARKER_BYTE0 || bytes[1] !== EIP7702_MARKER_BYTE1) return false;
+  const stop = Math.min(bytes.length, 20);
+  for (let i = 2; i < stop; i++) {
+    if (bytes[i] !== 0x00) return false;
+  }
+  return true;
+}
+
+// v0.8 Eip7702Support initCodeHash override: keccak256(delegate) when initCode is at most 20
+// bytes, else keccak256(delegate ++ initCode[20:]). The delegate comes from the caller (20-byte
+// address already normalized); the EntryPoint reads it from the sender's deployed code, which
+// this kernel never fetches.
+function _eip7702InitCodeHashOverride(initCodeBytes, delegateAddress) {
+  const delegateBytes = _addressWord(delegateAddress).slice(12);
+  if (initCodeBytes.length <= 20) {
+    return keccak_256(delegateBytes);
+  }
+  return keccak_256(concatBytes_(delegateBytes, initCodeBytes.slice(20)));
+}
+
+// v0.9 paymasterDataKeccak over the paymasterAndData bytes. Returns { hash } or { error } for
+// the malformed-length case the pinned source reverts on.
+function _paymasterDataKeccak09(pmBytes) {
+  const n = pmBytes.length;
+  if (n >= PM_MIN_WITH_SUFFIX_LEN) {
+    const tail = bytesToHex_(pmBytes.slice(n - 8));
+    if (tail === PAYMASTER_SIG_MAGIC_HEX) {
+      const sigLen = (pmBytes[n - 10] << 8) | pmBytes[n - 9];
+      if (sigLen > n - PM_MIN_WITH_SUFFIX_LEN) {
+        return { error: 'paymasterAndData carries the v0.9 paymaster-signature magic with a uint16 length field that would reach before the 52-byte paymasterAndData header; the pinned paymasterDataKeccak reverts on this shape, so no hash is produced' };
+      }
+      if (sigLen > 0) {
+        const head = pmBytes.slice(0, n - (sigLen + PM_SIG_SUFFIX_LEN));
+        return { hash: keccak_256(concatBytes_(head, hexToBytes_(PAYMASTER_SIG_MAGIC_HEX))) };
+      }
+    }
+  }
+  return { hash: keccak_256(pmBytes) };
+}
+
+// v0.8/v0.9 typed hashes, derived from the pinned ASCII strings on every compute() call (never
+// at module top level -- the art-607 eager-init rule).
+function _deriveTypedHashes08() {
+  return {
+    packedUserOpTypeHash: keccak_256(utf8ToBytes(PACKED_USEROP_TYPESTRING)),
+    domainTypeHash: keccak_256(utf8ToBytes(EIP712_DOMAIN_TYPESTRING)),
+    domainNameHash: keccak_256(utf8ToBytes(EIP712_DOMAIN_NAME)),
+    domainVersionHash: keccak_256(utf8ToBytes(EIP712_DOMAIN_VERSION)),
+  };
 }
 
 // Packs two uint128 values into one 32-byte word: `high` in the top 16 bytes, `low` in the
@@ -1259,7 +1362,7 @@ function _packTwoUint128(high, low) {
 
 const UINT128_MAX = (1n << 128n) - 1n;
 
-const SCOPE_NOTE = 'Recomputes the ERC-4337 userOpHash from a caller-supplied UserOperation under a DECLARED EntryPoint version (v0.6 or v0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. Zero network calls and zero chain reads: every field is caller-declared and echoed back, never independently resolved. L1 data and blob fees are NEVER derived -- post-EIP-4844 they depend on the inclusion-time L1 basefee, which is not offline-derivable, so they participate only when the caller declares them and their absence is reported as a named gap. block.basefee is likewise never fetched: absent a declared value the effective gas price is reported as null with the reason. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity (the signature field is excluded from the hashed struct by the ERC-4337 spec itself).';
+const SCOPE_NOTE = 'Recomputes the ERC-4337 userOpHash from a caller-supplied UserOperation under a DECLARED EntryPoint version (v0.6, v0.7, v0.8 or v0.9), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. v0.8 and v0.9 hash the PackedUserOperation as an EIP-712 typed hash over the ERC4337 domain; when initCode carries the EIP-7702 marker the initCode hash is replaced by the Eip7702Support override built from the DECLARED eip7702Delegate, and v0.9 excludes an appended paymaster signature from the hashed paymasterAndData bytes. The delegate and the signing authority are DECLARED inputs, never fetched: supply eip7702Delegate and eip7702Authority. Zero network calls and zero chain reads: every field is caller-declared and echoed back, never independently resolved. L1 data and blob fees are NEVER derived -- post-EIP-4844 they depend on the inclusion-time L1 basefee, which is not offline-derivable, so they participate only when the caller declares them and their absence is reported as a named gap. block.basefee is likewise never fetched: absent a declared value the effective gas price is reported as null with the reason. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity (the signature field is excluded from the hashed struct by the ERC-4337 spec itself).';
 
 const TOOL_ID = 'art-613-erc4337-userop-math';
 const TOOL_VERSION = '1.0.0';
@@ -1286,6 +1389,7 @@ const NEVER_FETCHED = [
  *   sender, nonce, initCode, callData, paymasterAndData,                 -- UserOp fields
  *   callGasLimit, verificationGasLimit, preVerificationGas,              -- caller-supplied limits
  *   maxFeePerGas, maxPriorityFeePerGas,
+ *   eip7702Delegate?, eip7702Authority?,                                 -- declared, never fetched
  *   declaredBaseFeePerGas?,                                              -- optional, never fetched
  *   declaredActualGasUsed?, declaredActualGasCostWei?,                   -- optional reconciliation
  *   declaredL1DataFeeWei?, reconciliationToleranceWei?,
@@ -1298,7 +1402,7 @@ export function compute(pp) {
 
   const version = _normalizeEntryPointVersion(pp.entryPointVersion);
   if (version === null) {
-    reasons.push('entryPointVersion is required and must be one of "0.6" or "0.7" (declared, never inferred -- the two versions hash different structs and use different prefund formulas, so a guess silently produces a wrong userOpHash)');
+    reasons.push('entryPointVersion is required and must be one of "0.6", "0.7", "0.8" or "0.9" (declared, never inferred -- the supported versions hash different structs and, for v0.6 versus the packed layouts, use different prefund formulas, so a guess silently produces a wrong userOpHash)');
   }
 
   const entryPoint = _normalizeAddress(pp.entryPoint);
@@ -1327,9 +1431,36 @@ export function compute(pp) {
   if (maxFeePerGas === null) reasons.push('maxFeePerGas is required and must be a non-negative uint256');
   if (maxPriorityFeePerGas === null) reasons.push('maxPriorityFeePerGas is required and must be a non-negative uint256');
 
-  // v0.7 packs these into uint128 halves; a value that does not fit is a genuine input error,
-  // not something to truncate silently.
-  if (version === '0.7') {
+  // Optional EIP-7702 declared inputs. Present-but-malformed is an error; absent is a named gap.
+  // The delegate participates in the v0.8/v0.9 Eip7702Support initCodeHash override and the
+  // authority drives sender_matches_declared_authority; neither is ever fetched.
+  const eip7702Delegate = _normalizeAddress(pp.eip7702Delegate);
+  if (pp.eip7702Delegate !== undefined && pp.eip7702Delegate !== null && eip7702Delegate === null) {
+    reasons.push('eip7702Delegate was supplied but is not a 20-byte hex address');
+  }
+  const eip7702Authority = _normalizeAddress(pp.eip7702Authority);
+  if (pp.eip7702Authority !== undefined && pp.eip7702Authority !== null && eip7702Authority === null) {
+    reasons.push('eip7702Authority was supplied but is not a 20-byte hex address');
+  }
+  const initCodeIsEip7702 = initCode !== null && _isEip7702InitCode(_bytesOf(initCode));
+  const appliesEip7702Override = (version === '0.8' || version === '0.9') && initCodeIsEip7702;
+  if (appliesEip7702Override && eip7702Delegate === null) {
+    reasons.push('initCode carries the EIP-7702 marker under a declared v0.8/v0.9 EntryPoint, so the Eip7702Support initCodeHash override applies and eip7702Delegate is required: the EntryPoint reads the delegate from the sender code, which this kernel never fetches, so it must be declared');
+  }
+  // v0.9 hashes paymasterAndData through paymasterDataKeccak; a malformed appended-signature
+  // length is the one shape the pinned source reverts on, so it is a named input error here.
+  let v09PaymasterHash = null;
+  let v09PaymasterHashError = null;
+  if (version === '0.9' && paymasterAndData !== null) {
+    const pmr = _paymasterDataKeccak09(_bytesOf(paymasterAndData));
+    if (pmr.error) v09PaymasterHashError = pmr.error;
+    else v09PaymasterHash = pmr.hash;
+  }
+  if (v09PaymasterHashError !== null) reasons.push(v09PaymasterHashError);
+
+  // v0.7/v0.8/v0.9 pack these into uint128 halves; a value that does not fit is a genuine input
+  // error, not something to truncate silently.
+  if (version === '0.7' || version === '0.8' || version === '0.9') {
     if (verificationGasLimit !== null && verificationGasLimit > UINT128_MAX) reasons.push('verificationGasLimit exceeds uint128 and cannot be packed into the v0.7 accountGasLimits word');
     if (callGasLimit !== null && callGasLimit > UINT128_MAX) reasons.push('callGasLimit exceeds uint128 and cannot be packed into the v0.7 accountGasLimits word');
     if (maxFeePerGas !== null && maxFeePerGas > UINT128_MAX) reasons.push('maxFeePerGas exceeds uint128 and cannot be packed into the v0.7 gasFees word');
@@ -1396,6 +1527,8 @@ export function compute(pp) {
         field_hashes: null,
         packed_user_op_hash: null,
         user_op_hash: null,
+        eip7702_delegate_bound: null,
+        sender_matches_declared_authority: null,
         gas_accounting: null,
         paymaster_reconciliation: null,
         never_fetched: NEVER_FETCHED,
@@ -1406,17 +1539,32 @@ export function compute(pp) {
   }
 
   // ── Leg 1: userOpHash recompute ───────────────────────────────────────────────────────
-  // Both versions finish identically:
+  // v0.6 and v0.7 finish identically:
   //   userOpHash = keccak256(abi.encode(keccak256(packed), entryPoint, chainId))
-  // They differ only in `packed`. Every abi.encode member below is a static 32-byte type
-  // (address / uint256 / bytes32), so abi.encode is exactly the concatenation of the words --
-  // no dynamic head/tail offsets are involved, which is why direct word-packing is faithful here.
+  // v0.8 and v0.9 share one EIP-712 path instead:
+  //   structHash = keccak256(abi.encode(PACKED_USEROP_TYPEHASH, sender, nonce, initCodeHash,
+  //       callDataHash, accountGasLimits, preVerificationGas, gasFees, pmAndDataHash))
+  //   userOpHash = keccak256(0x1901 ++ domainSeparator ++ structHash)
+  // with the domain {name "ERC4337", version "1", chainId, verifyingContract entryPoint}.
+  // They differ only in pmAndDataHash: plain keccak256(paymasterAndData) for v0.8, the pinned
+  // paymasterDataKeccak (excludes an appended paymaster signature) for v0.9. Every abi.encode
+  // member is a static 32-byte type (address / uint256 / bytes32), so abi.encode is exactly the
+  // concatenation of the words -- no dynamic head/tail offsets are involved, which is why direct
+  // word-packing is faithful here.
   const initCodeHash = keccak_256(_bytesOf(initCode));
   const callDataHash = keccak_256(_bytesOf(callData));
   const paymasterAndDataHash = keccak_256(_bytesOf(paymasterAndData));
+  // The initCode hash actually encoded: the Eip7702Support override under v0.8/v0.9 when the
+  // marker applies, the plain field hash otherwise.
+  const effectiveInitCodeHash = appliesEip7702Override
+    ? _eip7702InitCodeHashOverride(_bytesOf(initCode), eip7702Delegate)
+    : initCodeHash;
+  // The paymasterAndData hash actually encoded: the pinned v0.9 rule under 0.9, plain otherwise.
+  const effectivePaymasterAndDataHash = version === '0.9' ? v09PaymasterHash : paymasterAndDataHash;
 
   let packedBytes;
   let packed_words;
+  let domainSeparatorBytes = null;
   if (version === '0.6') {
     packedBytes = concatBytes_(
       _addressWord(sender),
@@ -1436,7 +1584,7 @@ export function compute(pp) {
       account_gas_limits: null,
       gas_fees: null,
     };
-  } else {
+  } else if (version === '0.7') {
     // v0.7 PackedUserOperation: the two packed words replace four separate uint256 fields.
     const accountGasLimits = _packTwoUint128(verificationGasLimit, callGasLimit);
     const gasFees = _packTwoUint128(maxPriorityFeePerGas, maxFeePerGas);
@@ -1456,14 +1604,57 @@ export function compute(pp) {
       account_gas_limits: accountGasLimits,
       gas_fees: gasFees,
     };
+  } else {
+    // v0.8/v0.9 PackedUserOperation, EIP-712 typed-hash path (one shared shape; only the
+    // paymasterAndData hash differs, and it was already computed above).
+    const th = _deriveTypedHashes08();
+    const accountGasLimits = _packTwoUint128(verificationGasLimit, callGasLimit);
+    const gasFees = _packTwoUint128(maxPriorityFeePerGas, maxFeePerGas);
+    domainSeparatorBytes = keccak_256(concatBytes_(
+      th.domainTypeHash,
+      th.domainNameHash,
+      th.domainVersionHash,
+      _uint256Word(chainId),
+      _addressWord(entryPoint),
+    ));
+    packedBytes = concatBytes_(
+      th.packedUserOpTypeHash,
+      _addressWord(sender),
+      _uint256Word(nonce),
+      effectiveInitCodeHash,
+      callDataHash,
+      hexToBytes_(_stripHexPrefix(accountGasLimits)),
+      _uint256Word(preVerificationGas),
+      hexToBytes_(_stripHexPrefix(gasFees)),
+      effectivePaymasterAndDataHash,
+    );
+    const overrideNote = ' (the Eip7702Support override when initCode carries the 0x7702 marker)';
+    const pmNote = version === '0.9'
+      ? 'bytes32 paymasterDataKeccak(paymasterAndData), which excludes an appended paymaster signature from the hashed bytes'
+      : 'bytes32 keccak(paymasterAndData)';
+    packed_words = {
+      layout: 'v' + version + ' PackedUserOperation -- EIP-712 struct abi.encode(PACKED_USEROP_TYPEHASH, address sender, uint256 nonce, bytes32 initCodeHash' + overrideNote + ', bytes32 keccak(callData), bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, ' + pmNote + '); userOpHash = keccak256(0x1901 ++ keccak256(EIP712Domain(string name,string version,uint256 chainId,address verifyingContract) with name "ERC4337" version "1" chainId verifyingContract entryPoint) ++ structHash)',
+      word_count: 9,
+      account_gas_limits: accountGasLimits,
+      gas_fees: gasFees,
+    };
   }
 
   const packedUserOpHashBytes = keccak_256(packedBytes);
-  const userOpHashBytes = keccak_256(concatBytes_(
-    packedUserOpHashBytes,
-    _addressWord(entryPoint),
-    _uint256Word(chainId),
-  ));
+  let userOpHashBytes;
+  if (version === '0.6' || version === '0.7') {
+    userOpHashBytes = keccak_256(concatBytes_(
+      packedUserOpHashBytes,
+      _addressWord(entryPoint),
+      _uint256Word(chainId),
+    ));
+  } else {
+    userOpHashBytes = keccak_256(concatBytes_(
+      Uint8Array.from([0x19, 0x01]),
+      domainSeparatorBytes,
+      packedUserOpHashBytes,
+    ));
+  }
 
   // ── Leg 2: prefund / gas arithmetic over caller-supplied limits ────────────────────────
   const pmBytes = _bytesOf(paymasterAndData);
@@ -1523,7 +1714,7 @@ export function compute(pp) {
     required_prefund_wei: requiredPrefund.toString(),
     prefund_formula: version === '0.6'
       ? 'v0.6: (callGasLimit + verificationGasLimit * paymasterMultiplier + preVerificationGas) * maxFeePerGas'
-      : 'v0.7: (verificationGasLimit + callGasLimit + preVerificationGas + paymasterVerificationGasLimit + paymasterPostOpGasLimit) * maxFeePerGas',
+      : 'v' + version + ': (verificationGasLimit + callGasLimit + preVerificationGas + paymasterVerificationGasLimit + paymasterPostOpGasLimit) * maxFeePerGas',
     paymaster_present: paymasterPresent,
     paymaster_address: paymasterAddress,
     paymaster_multiplier_applied: paymasterMultiplierApplied,
@@ -1594,12 +1785,14 @@ export function compute(pp) {
     user_op: user_op_echo,
     packed_words,
     field_hashes: {
-      init_code_hash: '0x' + bytesToHex_(initCodeHash),
+      init_code_hash: '0x' + bytesToHex_(effectiveInitCodeHash),
       call_data_hash: '0x' + bytesToHex_(callDataHash),
-      paymaster_and_data_hash: '0x' + bytesToHex_(paymasterAndDataHash),
+      paymaster_and_data_hash: '0x' + bytesToHex_(effectivePaymasterAndDataHash),
     },
     packed_user_op_hash: '0x' + bytesToHex_(packedUserOpHashBytes),
     user_op_hash: '0x' + bytesToHex_(userOpHashBytes),
+    eip7702_delegate_bound: appliesEip7702Override ? eip7702Delegate : null,
+    sender_matches_declared_authority: eip7702Authority !== null ? (sender === eip7702Authority) : null,
     gas_accounting,
     paymaster_reconciliation,
     never_fetched: NEVER_FETCHED,
@@ -1609,6 +1802,19 @@ export function compute(pp) {
   const compliance_flags = ['ERC4337_USEROP_RECOMPUTED', 'ERC4337_ENTRYPOINT_V' + version.replace('.', '_')];
   if (entry_point_echo.address_matches_canonical === false) {
     compliance_flags.push('ERC4337_ENTRYPOINT_ADDRESS_NON_CANONICAL');
+  }
+  if (appliesEip7702Override) {
+    compliance_flags.push('ERC4337_EIP7702_INITCODE_OVERRIDE_APPLIED');
+  } else if ((version === '0.8' || version === '0.9') && !initCodeIsEip7702) {
+    compliance_flags.push('ERC4337_EIP7702_INITCODE_OVERRIDE_NOT_APPLIED');
+  }
+  if (version === '0.9' && v09PaymasterHashError === null) {
+    const pmBytesFull = _bytesOf(paymasterAndData);
+    if (pmBytesFull.length >= PM_MIN_WITH_SUFFIX_LEN
+      && bytesToHex_(pmBytesFull.slice(pmBytesFull.length - 8)) === PAYMASTER_SIG_MAGIC_HEX
+      && ((pmBytesFull[pmBytesFull.length - 10] << 8) | pmBytesFull[pmBytesFull.length - 9]) > 0) {
+      compliance_flags.push('ERC4337_V09_PAYMASTER_SIGNATURE_EXCLUDED_FROM_HASH');
+    }
   }
   if (paymaster_reconciliation.status === 'RESIDUAL_UNEXPLAINED') {
     compliance_flags.push('ERC4337_PAYMASTER_RESIDUAL_UNEXPLAINED');

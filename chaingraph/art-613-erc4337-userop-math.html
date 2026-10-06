@@ -8,7 +8,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>ERC-4337 UserOperation Math &middot; ART-613 &middot; OpenChainGraph &middot; AINumbers.co</title>
-<meta name="description" content="Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (v0.6 or v0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. Never derives L1 data or blob fees. Zero network. Provable ChainGraph node.">
+<meta name="description" content="Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (v0.6, v0.7, v0.8 or v0.9), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. v0.8 and v0.9 hash the EIP-712 typed struct and fold the declared EIP-7702 delegate in when initCode carries the marker. Never derives L1 data or blob fees. Zero network. Provable ChainGraph node.">
+<meta name="kernel-digest" content="sha256:20a75b55a56107be6125e18d224efc78e95e3de8fa3aff404dad07655d8726ec">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-613-erc4337-userop-math.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-613-erc4337-userop-math.md">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
@@ -134,19 +135,20 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </div>
 </nav>
 
-<div class="wrap" role="main" aria-description="Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (0.6 or 0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. Never derives L1 data or blob fees and never fetches block.basefee. Zero network calls, no settlement claim.">
+<div class="wrap" role="main" aria-description="Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (0.6, 0.7, 0.8 or 0.9), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. v0.8 and v0.9 hash the PackedUserOperation as an EIP-712 typed hash, fold the declared EIP-7702 delegate into the hash when initCode carries the marker, and v0.9 excludes an appended paymaster signature from the hashed bytes. Never derives L1 data or blob fees and never fetches block.basefee. Zero network calls, no settlement claim.">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-613 &middot; ERC-4337 Account Abstraction</div>
   <h1>ERC-4337 UserOperation Math</h1>
   <p class="sub">Three deterministic legs over bytes you already hold. First, the <code>userOpHash</code> recompute: <code>keccak256(abi.encode(keccak256(packedUserOp), entryPoint, chainId))</code>. Second, the EntryPoint's required prefund, computed from the gas limits you supply. Third, a reconciliation of a paymaster charge you declare against one recomputed from your own declared inputs. Nothing here is fetched: no RPC, no indexer, no receipt lookup, no contract state.</p>
   <div style="margin-bottom:6px">
-    <span class="flag info">ERC-4337 v0.6 and v0.7</span><span class="flag info">keccak256 (vendored, no hand-rolled crypto)</span><span class="flag info">Recompute and reconcile only, no settlement claim</span>
+    <span class="flag info">ERC-4337 v0.6, v0.7, v0.8 and v0.9</span><span class="flag info">EIP-7702 delegate folded in when declared</span><span class="flag info">keccak256 (vendored, no hand-rolled crypto)</span><span class="flag info">Recompute and reconcile only, no settlement claim</span>
   </div>
   <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
 
   <div class="card">
     <div class="section-head">What This Does and Does Not Prove</div>
     <p class="sub" style="margin-bottom:8px">This node recomputes the exact 32 bytes an ERC-4337 account signs, from the UserOperation fields you supply. It does not verify a signature or recover a signer address, and the ERC-4337 specification itself excludes the signature from the hashed struct, so supplying one changes nothing. A recomputed hash is not an inclusion, and a reconciled charge is not a settlement. This node never reads chain state: it cannot tell you whether the account exists, whether the EntryPoint holds a deposit, whether the nonce is still valid, or whether the operation was ever mined.</p>
-    <p class="sub" style="margin-bottom:0">The EntryPoint version is yours to declare, and it changes what gets hashed. v0.6 hashes a ten-word <code>UserOperation</code> pack. v0.7 hashes an eight-word <code>PackedUserOperation</code>, in which <code>verificationGasLimit</code> and <code>callGasLimit</code> pack into a single <code>accountGasLimits</code> word and <code>maxPriorityFeePerGas</code> and <code>maxFeePerGas</code> pack into <code>gasFees</code>. The prefund formulas differ as well. Guessing the version would silently produce a wrong hash that still looks perfectly well formed, so this node refuses to guess: an unrecognised version returns INDETERMINATE rather than falling back to either layout.</p>
+    <p class="sub" style="margin-bottom:0">The EntryPoint version is yours to declare, and it changes what gets hashed. v0.6 hashes a ten-word <code>UserOperation</code> pack. v0.7 hashes an eight-word <code>PackedUserOperation</code>, in which <code>verificationGasLimit</code> and <code>callGasLimit</code> pack into a single <code>accountGasLimits</code> word and <code>maxPriorityFeePerGas</code> and <code>maxFeePerGas</code> pack into <code>gasFees</code>. v0.8 and v0.9 hash that same packed struct as an EIP-712 typed hash over the ERC4337 domain, and both fold the EIP-7702 delegate into the hash when the initCode carries the 0x7702 marker. v0.9 differs from v0.8 in exactly one rule: an appended paymaster signature at the end of paymasterAndData is excluded from the hashed bytes. The prefund formulas differ as well. Guessing the version would silently produce a wrong hash that still looks perfectly well formed, so this node refuses to guess: an unrecognised version returns INDETERMINATE rather than falling back to any layout.</p>
+    <p class="sub" style="margin-bottom:0">The EIP-7702 delegate and the signing authority are declared inputs, and this page gives them fields of their own. The real EntryPoint reads the delegate from the sender's deployed code; this node never fetches anything, so you declare the delegate and it is folded into the hash exactly as declared, then echoed back as <code>eip7702_delegate_bound</code>. The authority is compared against the declared sender and reported as <code>sender_matches_declared_authority</code>, a fact about the values you supplied.</p>
   </div>
 
   <div class="card" style="border-color:var(--gold)">
@@ -163,6 +165,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         <select id="epVersion" aria-label="entryPointVersion">
           <option value="0.6">0.6 (UserOperation, 10-word pack)</option>
           <option value="0.7" selected>0.7 (PackedUserOperation, 8-word pack)</option>
+          <option value="0.8">0.8 (PackedUserOperation, EIP-712 hash)</option>
+          <option value="0.9">0.9 (PackedUserOperation, EIP-712 hash, paymaster signature excluded)</option>
         </select>
       </div>
       <div class="q"><label class="q-label" for="epAddress">entryPoint (address)</label><input type="text" id="epAddress" value="0x0000000071727De22E5E9d8BAf0edAc6f37da032" aria-label="entryPoint"></div>
@@ -180,7 +184,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="q"><label class="q-label" for="opInitCode">initCode (bytes)</label><input type="text" id="opInitCode" value="0x" aria-label="initCode"></div>
     <div class="q"><label class="q-label" for="opCallData">callData (bytes)</label><input type="text" id="opCallData" value="0xb61d27f60000000000000000000000005ff137d4b0fdcd49dca30c7cf57e578a026d2789" aria-label="callData"></div>
     <div class="q"><label class="q-label" for="opPaymasterAndData">paymasterAndData (bytes)</label><input type="text" id="opPaymasterAndData" value="0x1234567890abcdef1234567890abcdef12345678000000000000000000000000000138800000000000000000000000000000c350deadbeef" aria-label="paymasterAndData"></div>
-    <div class="q-hint">Use <code>0x</code> for an empty field. Under v0.7 the first 52 bytes of paymasterAndData carry the paymaster address, its verification gas limit, and its postOp gas limit; a shorter value is reported as not carrying them rather than back-filled with zeros.</div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="opEip7702Delegate">eip7702Delegate (address, optional)</label><input type="text" id="opEip7702Delegate" value="" aria-label="eip7702Delegate"></div>
+      <div class="q"><label class="q-label" for="opEip7702Authority">eip7702Authority (address, optional)</label><input type="text" id="opEip7702Authority" value="" aria-label="eip7702Authority"></div>
+    </div>
+    <div class="q-hint">Use <code>0x</code> for an empty field. Under v0.7 the first 52 bytes of paymasterAndData carry the paymaster address, its verification gas limit, and its postOp gas limit; a shorter value is reported as not carrying them rather than back-filled with zeros. Under v0.8 and v0.9, an initCode starting with <code>0x7702</code> zero-padded to 20 bytes is the EIP-7702 marker, and the declared delegate is folded into the hash in place of the plain initCode hash. Both new fields are declared inputs; neither is ever fetched.</div>
   </div>
 
   <div class="card">
@@ -231,6 +239,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="kv"><span class="kv-k">accountGasLimits</span><span class="kv-v" id="accountGasLimitsBox"></span></div>
       <div class="kv"><span class="kv-k">gasFees</span><span class="kv-v" id="gasFeesBox"></span></div>
       <div class="kv"><span class="kv-k">EntryPoint matches canonical</span><span class="kv-v" id="epCanonicalBox"></span></div>
+      <div class="kv"><span class="kv-k">EIP-7702 delegate bound into the hash</span><span class="kv-v" id="eip7702BoundBox"></span></div>
+      <div class="kv"><span class="kv-k">Sender matches declared authority</span><span class="kv-v" id="authorityMatchBox"></span></div>
       <div class="subsection">Gas Accounting</div>
       <div id="gasTable"></div>
       <div class="subsection">Paymaster Reconciliation</div>
@@ -257,21 +267,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 
 
-<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-613-erc4337-userop-math.manifest.json -->
-<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
-  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
-    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
-  </div>
-  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
-  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `recompute_erc4337_userop_math`. Task: Recompute the ERC-4337 userOpHash under a declared EntryPoint version (0.6 or 0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs.
-Call it with arguments: {"policy_parameters":{"entryPointVersion":"0.6","entryPoint":"0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789","chainId":1,"sender":"0x2A1530C4C41db0B0b2bB646CB5Eb1A67b7158667","nonce":0,"initCode":"0x","callData":"0xb61d27f60000000000000000000000005ff137d4b0fdcd49dca30c7cf57e578a026d2789","paymasterAndData":"0x","callGasLimit":100000,"verificationGasLimit":150000,"preVerificationGas":21000,"maxFeePerGas":2000000000,"maxPriorityFeePerGas":1000000000}}
-Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string, or re-run the in-page WebMCP tool `recompute_erc4337_userop_math`.
-Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
-PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
-Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-613-erc4337-userop-math.html#p=v1.H4sIAAAAAAAA_wGsAVP-eyJlbnRyeVBvaW50VmVyc2lvbiI6IjAuNiIsImVudHJ5UG9pbnQiOiIweDVGRjEzN0Q0YjBGRENENDlEY0EzMGM3Q0Y1N0U1NzhhMDI2ZDI3ODkiLCJjaGFpbklkIjoxLCJzZW5kZXIiOiIweDJBMTUzMEM0QzQxZGIwQjBiMmJCNjQ2Q0I1RWIxQTY3YjcxNTg2NjciLCJub25jZSI6MCwiaW5pdENvZGUiOiIweCIsImNhbGxEYXRhIjoiMHhiNjFkMjdmNjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDVmZjEzN2Q0YjBmZGNkNDlkY2EzMGM3Y2Y1N2U1NzhhMDI2ZDI3ODkiLCJwYXltYXN0ZXJBbmREYXRhIjoiMHgiLCJjYWxsR2FzTGltaXQiOjEwMDAwMCwidmVyaWZpY2F0aW9uR2FzTGltaXQiOjE1MDAwMCwicHJlVmVyaWZpY2F0aW9uR2FzIjoyMTAwMCwibWF4RmVlUGVyR2FzIjoyMDAwMDAwMDAwLCJtYXhQcmlvcml0eUZlZVBlckdhcyI6MTAwMDAwMDAwMH3QN3LerAEAAA</pre>
-</section>
-<!-- ASK-AGENT:END -->
+
+
+
+
+
 
 <!-- A11Y-TREE:BEGIN generator=scripts/check-a11y-tree.mjs manifest=manifests/art-613-erc4337-userop-math.manifest.json -->
 <script>
@@ -284,7 +284,7 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-613
 (function () {
   'use strict';
   var RUN_TARGET = "runCheck";
-  var TABLE = {"entryPointVersion":["epVersion",null],"entryPoint":["epAddress",null],"chainId":["opChainId",null],"sender":["opSender",null],"nonce":["opNonce",null],"initCode":["opInitCode",null],"callData":["opCallData",null],"paymasterAndData":["opPaymasterAndData",null],"callGasLimit":["opCallGasLimit",null],"verificationGasLimit":["opVerificationGasLimit",null],"preVerificationGas":["opPreVerificationGas",null],"maxFeePerGas":["opMaxFeePerGas",null],"maxPriorityFeePerGas":["opMaxPriorityFeePerGas",null],"declaredBaseFeePerGas":["opDeclaredBaseFee",null],"declaredActualGasUsed":["recGasUsed",null],"declaredActualGasCostWei":["recGasCost",null],"declaredL1DataFeeWei":["recL1Fee",null],"reconciliationToleranceWei":["recTolerance",null]};
+  var TABLE = {"entryPointVersion":["epVersion",null],"entryPoint":["epAddress",null],"chainId":["opChainId",null],"sender":["opSender",null],"nonce":["opNonce",null],"initCode":["opInitCode",null],"callData":["opCallData",null],"paymasterAndData":["opPaymasterAndData",null],"callGasLimit":["opCallGasLimit",null],"verificationGasLimit":["opVerificationGasLimit",null],"preVerificationGas":["opPreVerificationGas",null],"maxFeePerGas":["opMaxFeePerGas",null],"maxPriorityFeePerGas":["opMaxPriorityFeePerGas",null],"eip7702Delegate":["opEip7702Delegate",null],"eip7702Authority":["opEip7702Authority",null],"declaredBaseFeePerGas":["opDeclaredBaseFee",null],"declaredActualGasUsed":["recGasUsed",null],"declaredActualGasCostWei":["recGasCost",null],"declaredL1DataFeeWei":["recL1Fee",null],"reconciliationToleranceWei":["recTolerance",null]};
   var VERDICT_KEYS = ["verdict","final_verdict","overall_verdict","significance_verdict","classification","entity_classification","conclusion","outcome","decision","grade","overall_status","status"];
   var st = null;
   function ensureRegion() {
@@ -347,6 +347,22 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-613
 })();
 </script>
 <!-- A11Y-TREE:END -->
+
+<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-613-erc4337-userop-math.manifest.json -->
+<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `recompute_erc4337_userop_math`. Task: Recompute the ERC-4337 userOpHash under a declared EntryPoint version (0.6, 0.7, 0.8 or 0.9), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs.
+Call it with arguments: {"policy_parameters":{"entryPointVersion":"0.6","entryPoint":"0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789","chainId":1,"sender":"0x2A1530C4C41db0B0b2bB646CB5Eb1A67b7158667","nonce":0,"initCode":"0x","callData":"0xb61d27f60000000000000000000000005ff137d4b0fdcd49dca30c7cf57e578a026d2789","paymasterAndData":"0x","callGasLimit":100000,"verificationGasLimit":150000,"preVerificationGas":21000,"maxFeePerGas":2000000000,"maxPriorityFeePerGas":1000000000}}
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string, or re-run the in-page WebMCP tool `recompute_erc4337_userop_math`.
+Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
+PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
+Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-613-erc4337-userop-math.html#p=v1.H4sIAAAAAAAA_wGsAVP-eyJlbnRyeVBvaW50VmVyc2lvbiI6IjAuNiIsImVudHJ5UG9pbnQiOiIweDVGRjEzN0Q0YjBGRENENDlEY0EzMGM3Q0Y1N0U1NzhhMDI2ZDI3ODkiLCJjaGFpbklkIjoxLCJzZW5kZXIiOiIweDJBMTUzMEM0QzQxZGIwQjBiMmJCNjQ2Q0I1RWIxQTY3YjcxNTg2NjciLCJub25jZSI6MCwiaW5pdENvZGUiOiIweCIsImNhbGxEYXRhIjoiMHhiNjFkMjdmNjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDVmZjEzN2Q0YjBmZGNkNDlkY2EzMGM3Y2Y1N2U1NzhhMDI2ZDI3ODkiLCJwYXltYXN0ZXJBbmREYXRhIjoiMHgiLCJjYWxsR2FzTGltaXQiOjEwMDAwMCwidmVyaWZpY2F0aW9uR2FzTGltaXQiOjE1MDAwMCwicHJlVmVyaWZpY2F0aW9uR2FzIjoyMTAwMCwibWF4RmVlUGVyR2FzIjoyMDAwMDAwMDAwLCJtYXhQcmlvcml0eUZlZVBlckdhcyI6MTAwMDAwMDAwMH3QN3LerAEAAA</pre>
+</section>
+<!-- ASK-AGENT:END -->
 
 <footer>
   <div class="footer-inner">
@@ -455,12 +471,12 @@ var MANIFEST = {
   version: '1.0.0',
   mcp_name: 'recompute_erc4337_userop_math',
   title: 'ERC-4337 UserOperation Math',
-  description: 'Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (0.6 or 0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. Never derives L1 data or blob fees and never fetches block.basefee. Zero network calls, no settlement claim.',
+  description: 'Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (0.6, 0.7, 0.8 or 0.9), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. v0.8 and v0.9 hash the PackedUserOperation as an EIP-712 typed hash, fold the declared EIP-7702 delegate into the hash when initCode carries the marker, and v0.9 excludes an appended paymaster signature from the hashed bytes. Never derives L1 data or blob fees and never fetches block.basefee. Zero network calls, no settlement claim.',
   spec_version: '0.8.0',
   chaingraph_version: '0.4.0',
   mcp_tool_definition: {
     name: 'recompute_erc4337_userop_math',
-    description: 'Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (0.6 or 0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. Never derives L1 data or blob fees and never fetches block.basefee. Zero network calls, no settlement claim.',
+    description: 'Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (0.6, 0.7, 0.8 or 0.9), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. v0.8 and v0.9 hash the PackedUserOperation as an EIP-712 typed hash, fold the declared EIP-7702 delegate into the hash when initCode carries the marker, and v0.9 excludes an appended paymaster signature from the hashed bytes. Never derives L1 data or blob fees and never fetches block.basefee. Zero network calls, no settlement claim.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -477,6 +493,8 @@ var MANIFEST = {
         preVerificationGas: { type: ['string', 'number'] },
         maxFeePerGas: { type: ['string', 'number'] },
         maxPriorityFeePerGas: { type: ['string', 'number'] },
+        eip7702Delegate: { type: 'string' },
+        eip7702Authority: { type: 'string' },
         declaredBaseFeePerGas: { type: ['string', 'number'] },
         declaredActualGasUsed: { type: ['string', 'number'] },
         declaredActualGasCostWei: { type: ['string', 'number'] },
@@ -1592,16 +1610,66 @@ function _uint256Word(bi) { var hex = bi.toString(16); if (hex.length % 2) hex =
 function _addressWord(addrHex) { return _pad32Left(hexToBytes_(_stripHexPrefix(addrHex))); }
 function _bytesOf(byteStringHex) { var s = _stripHexPrefix(byteStringHex); return s === '' ? new Uint8Array(0) : hexToBytes_(s); }
 function _normalizeEntryPointVersion(v) {
-  if (typeof v === 'number') { if (v === 0.6) return '0.6'; if (v === 0.7) return '0.7'; return null; }
+  if (typeof v === 'number') { if (v === 0.6) return '0.6'; if (v === 0.7) return '0.7'; if (v === 0.8) return '0.8'; if (v === 0.9) return '0.9'; return null; }
   if (typeof v !== 'string') return null;
   var s = v.trim().toLowerCase().replace(/^v/, '');
   if (s === '0.6' || s === '0.6.0') return '0.6';
   if (s === '0.7' || s === '0.7.0') return '0.7';
+  if (s === '0.8' || s === '0.8.0') return '0.8';
+  if (s === '0.9' || s === '0.9.0') return '0.9';
   return null;
 }
 function _packTwoUint128(high, low) { return '0x' + bytesToHex_(_uint256Word((high << 128n) | low)); }
 
-var SCOPE_NOTE = 'Recomputes the ERC-4337 userOpHash from a caller-supplied UserOperation under a DECLARED EntryPoint version (v0.6 or v0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. Zero network calls and zero chain reads: every field is caller-declared and echoed back, never independently resolved. L1 data and blob fees are NEVER derived -- post-EIP-4844 they depend on the inclusion-time L1 basefee, which is not offline-derivable, so they participate only when the caller declares them and their absence is reported as a named gap. block.basefee is likewise never fetched: absent a declared value the effective gas price is reported as null with the reason. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity (the signature field is excluded from the hashed struct by the ERC-4337 spec itself).';
+// v0.8/v0.9 EIP-712 typed-hash inputs, pinned verbatim; type hashes derived at runtime from these
+// ASCII strings inside compute() (never hand-typed hex).
+var PACKED_USEROP_TYPESTRING = 'PackedUserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData)';
+var EIP712_DOMAIN_TYPESTRING = 'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)';
+var EIP712_DOMAIN_NAME = 'ERC4337';
+var EIP712_DOMAIN_VERSION = '1';
+var PAYMASTER_SIG_MAGIC_HEX = '22e325a297439656';
+var PM_SIG_SUFFIX_LEN = 10;
+var PM_MIN_WITH_SUFFIX_LEN = PM_DATA_OFFSET + PM_SIG_SUFFIX_LEN;
+
+function _isEip7702InitCode(bytes) {
+  if (bytes.length < 2) return false;
+  if (bytes[0] !== 0x77 || bytes[1] !== 0x02) return false;
+  var stop = Math.min(bytes.length, 20);
+  for (var i = 2; i < stop; i++) { if (bytes[i] !== 0x00) return false; }
+  return true;
+}
+function _eip7702InitCodeHashOverride(initCodeBytes, delegateAddress) {
+  var delegateBytes = _addressWord(delegateAddress).slice(12);
+  if (initCodeBytes.length <= 20) return keccak_256(delegateBytes);
+  return keccak_256(concatBytes_(delegateBytes, initCodeBytes.slice(20)));
+}
+function _paymasterDataKeccak09(pmBytes) {
+  var n = pmBytes.length;
+  if (n >= PM_MIN_WITH_SUFFIX_LEN) {
+    var tail = bytesToHex_(pmBytes.slice(n - 8));
+    if (tail === PAYMASTER_SIG_MAGIC_HEX) {
+      var sigLen = (pmBytes[n - 10] << 8) | pmBytes[n - 9];
+      if (sigLen > n - PM_MIN_WITH_SUFFIX_LEN) {
+        return { error: 'paymasterAndData carries the v0.9 paymaster-signature magic with a uint16 length field that would reach before the 52-byte paymasterAndData header; the pinned paymasterDataKeccak reverts on this shape, so no hash is produced' };
+      }
+      if (sigLen > 0) {
+        var head = pmBytes.slice(0, n - (sigLen + PM_SIG_SUFFIX_LEN));
+        return { hash: keccak_256(concatBytes_(head, hexToBytes_(PAYMASTER_SIG_MAGIC_HEX))) };
+      }
+    }
+  }
+  return { hash: keccak_256(pmBytes) };
+}
+function _deriveTypedHashes08() {
+  return {
+    packedUserOpTypeHash: keccak_256(utf8ToBytes(PACKED_USEROP_TYPESTRING)),
+    domainTypeHash: keccak_256(utf8ToBytes(EIP712_DOMAIN_TYPESTRING)),
+    domainNameHash: keccak_256(utf8ToBytes(EIP712_DOMAIN_NAME)),
+    domainVersionHash: keccak_256(utf8ToBytes(EIP712_DOMAIN_VERSION))
+  };
+}
+
+var SCOPE_NOTE = 'Recomputes the ERC-4337 userOpHash from a caller-supplied UserOperation under a DECLARED EntryPoint version (v0.6, v0.7, v0.8 or v0.9), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. v0.8 and v0.9 hash the PackedUserOperation as an EIP-712 typed hash over the ERC4337 domain; when initCode carries the EIP-7702 marker the initCode hash is replaced by the Eip7702Support override built from the DECLARED eip7702Delegate, and v0.9 excludes an appended paymaster signature from the hashed paymasterAndData bytes. The delegate and the signing authority are DECLARED inputs, never fetched: supply eip7702Delegate and eip7702Authority. Zero network calls and zero chain reads: every field is caller-declared and echoed back, never independently resolved. L1 data and blob fees are NEVER derived -- post-EIP-4844 they depend on the inclusion-time L1 basefee, which is not offline-derivable, so they participate only when the caller declares them and their absence is reported as a named gap. block.basefee is likewise never fetched: absent a declared value the effective gas price is reported as null with the reason. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity (the signature field is excluded from the hashed struct by the ERC-4337 spec itself).';
 
 var NEVER_FETCHED = [
   'L1 data fee / blob fee: never derived. Post-EIP-4844 it depends on the inclusion-time L1 basefee and blob basefee, neither of which is offline-derivable. Supply declaredL1DataFeeWei to include it in reconciliation.',
@@ -1616,7 +1684,7 @@ function compute(pp) {
   var reasons = [];
 
   var version = _normalizeEntryPointVersion(pp.entryPointVersion);
-  if (version === null) reasons.push('entryPointVersion is required and must be one of "0.6" or "0.7" (declared, never inferred -- the two versions hash different structs and use different prefund formulas, so a guess silently produces a wrong userOpHash)');
+  if (version === null) reasons.push('entryPointVersion is required and must be one of "0.6", "0.7", "0.8" or "0.9" (declared, never inferred -- the supported versions hash different structs and, for v0.6 versus the packed layouts, use different prefund formulas, so a guess silently produces a wrong userOpHash)');
 
   var entryPoint = _normalizeAddress(pp.entryPoint);
   var chainId = _toUint256BigInt(pp.chainId);
@@ -1644,7 +1712,24 @@ function compute(pp) {
   if (maxFeePerGas === null) reasons.push('maxFeePerGas is required and must be a non-negative uint256');
   if (maxPriorityFeePerGas === null) reasons.push('maxPriorityFeePerGas is required and must be a non-negative uint256');
 
-  if (version === '0.7') {
+  var eip7702Delegate = _normalizeAddress(pp.eip7702Delegate);
+  if (pp.eip7702Delegate !== undefined && pp.eip7702Delegate !== null && eip7702Delegate === null) reasons.push('eip7702Delegate was supplied but is not a 20-byte hex address');
+  var eip7702Authority = _normalizeAddress(pp.eip7702Authority);
+  if (pp.eip7702Authority !== undefined && pp.eip7702Authority !== null && eip7702Authority === null) reasons.push('eip7702Authority was supplied but is not a 20-byte hex address');
+  var initCodeIsEip7702 = initCode !== null && _isEip7702InitCode(_bytesOf(initCode));
+  var appliesEip7702Override = (version === '0.8' || version === '0.9') && initCodeIsEip7702;
+  if (appliesEip7702Override && eip7702Delegate === null) {
+    reasons.push('initCode carries the EIP-7702 marker under a declared v0.8/v0.9 EntryPoint, so the Eip7702Support initCodeHash override applies and eip7702Delegate is required: the EntryPoint reads the delegate from the sender code, which this kernel never fetches, so it must be declared');
+  }
+  var v09PaymasterHash = null, v09PaymasterHashError = null;
+  if (version === '0.9' && paymasterAndData !== null) {
+    var pmr = _paymasterDataKeccak09(_bytesOf(paymasterAndData));
+    if (pmr.error) v09PaymasterHashError = pmr.error;
+    else v09PaymasterHash = pmr.hash;
+  }
+  if (v09PaymasterHashError !== null) reasons.push(v09PaymasterHashError);
+
+  if (version === '0.7' || version === '0.8' || version === '0.9') {
     if (verificationGasLimit !== null && verificationGasLimit > UINT128_MAX) reasons.push('verificationGasLimit exceeds uint128 and cannot be packed into the v0.7 accountGasLimits word');
     if (callGasLimit !== null && callGasLimit > UINT128_MAX) reasons.push('callGasLimit exceeds uint128 and cannot be packed into the v0.7 accountGasLimits word');
     if (maxFeePerGas !== null && maxFeePerGas > UINT128_MAX) reasons.push('maxFeePerGas exceeds uint128 and cannot be packed into the v0.7 gasFees word');
@@ -1694,6 +1779,8 @@ function compute(pp) {
         field_hashes: null,
         packed_user_op_hash: null,
         user_op_hash: null,
+        eip7702_delegate_bound: null,
+        sender_matches_declared_authority: null,
         gas_accounting: null,
         paymaster_reconciliation: null,
         never_fetched: NEVER_FETCHED,
@@ -1706,8 +1793,12 @@ function compute(pp) {
   var initCodeHash = keccak_256(_bytesOf(initCode));
   var callDataHash = keccak_256(_bytesOf(callData));
   var paymasterAndDataHash = keccak_256(_bytesOf(paymasterAndData));
+  var effectiveInitCodeHash = appliesEip7702Override
+    ? _eip7702InitCodeHashOverride(_bytesOf(initCode), eip7702Delegate)
+    : initCodeHash;
+  var effectivePaymasterAndDataHash = version === '0.9' ? v09PaymasterHash : paymasterAndDataHash;
 
-  var packedBytes, packed_words;
+  var packedBytes, packed_words, domainSeparatorBytes = null;
   if (version === '0.6') {
     packedBytes = concatBytes_(
       _addressWord(sender), _uint256Word(nonce), initCodeHash, callDataHash,
@@ -1718,7 +1809,7 @@ function compute(pp) {
       layout: 'v0.6 UserOperation -- abi.encode(address sender, uint256 nonce, bytes32 keccak(initCode), bytes32 keccak(callData), uint256 callGasLimit, uint256 verificationGasLimit, uint256 preVerificationGas, uint256 maxFeePerGas, uint256 maxPriorityFeePerGas, bytes32 keccak(paymasterAndData))',
       word_count: 10, account_gas_limits: null, gas_fees: null
     };
-  } else {
+  } else if (version === '0.7') {
     var accountGasLimits = _packTwoUint128(verificationGasLimit, callGasLimit);
     var gasFees = _packTwoUint128(maxPriorityFeePerGas, maxFeePerGas);
     packedBytes = concatBytes_(
@@ -1730,10 +1821,37 @@ function compute(pp) {
       layout: 'v0.7 PackedUserOperation -- abi.encode(address sender, uint256 nonce, bytes32 keccak(initCode), bytes32 keccak(callData), bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, bytes32 keccak(paymasterAndData))',
       word_count: 8, account_gas_limits: accountGasLimits, gas_fees: gasFees
     };
+  } else {
+    var th = _deriveTypedHashes08();
+    var accountGasLimits08 = _packTwoUint128(verificationGasLimit, callGasLimit);
+    var gasFees08 = _packTwoUint128(maxPriorityFeePerGas, maxFeePerGas);
+    domainSeparatorBytes = keccak_256(concatBytes_(
+      th.domainTypeHash, th.domainNameHash, th.domainVersionHash,
+      _uint256Word(chainId), _addressWord(entryPoint)
+    ));
+    packedBytes = concatBytes_(
+      th.packedUserOpTypeHash, _addressWord(sender), _uint256Word(nonce),
+      effectiveInitCodeHash, callDataHash,
+      hexToBytes_(_stripHexPrefix(accountGasLimits08)), _uint256Word(preVerificationGas),
+      hexToBytes_(_stripHexPrefix(gasFees08)), effectivePaymasterAndDataHash
+    );
+    var overrideNote = ' (the Eip7702Support override when initCode carries the 0x7702 marker)';
+    var pmNote = version === '0.9'
+      ? 'bytes32 paymasterDataKeccak(paymasterAndData), which excludes an appended paymaster signature from the hashed bytes'
+      : 'bytes32 keccak(paymasterAndData)';
+    packed_words = {
+      layout: 'v' + version + ' PackedUserOperation -- EIP-712 struct abi.encode(PACKED_USEROP_TYPEHASH, address sender, uint256 nonce, bytes32 initCodeHash' + overrideNote + ', bytes32 keccak(callData), bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, ' + pmNote + '); userOpHash = keccak256(0x1901 ++ keccak256(EIP712Domain(string name,string version,uint256 chainId,address verifyingContract) with name "ERC4337" version "1" chainId verifyingContract entryPoint) ++ structHash)',
+      word_count: 9, account_gas_limits: accountGasLimits08, gas_fees: gasFees08
+    };
   }
 
   var packedUserOpHashBytes = keccak_256(packedBytes);
-  var userOpHashBytes = keccak_256(concatBytes_(packedUserOpHashBytes, _addressWord(entryPoint), _uint256Word(chainId)));
+  var userOpHashBytes;
+  if (version === '0.6' || version === '0.7') {
+    userOpHashBytes = keccak_256(concatBytes_(packedUserOpHashBytes, _addressWord(entryPoint), _uint256Word(chainId)));
+  } else {
+    userOpHashBytes = keccak_256(concatBytes_(Uint8Array.from([0x19, 0x01]), domainSeparatorBytes, packedUserOpHashBytes));
+  }
 
   var pmBytes = _bytesOf(paymasterAndData);
   var paymasterAddress = pmBytes.length >= 20 ? '0x' + bytesToHex_(pmBytes.slice(0, 20)) : null;
@@ -1779,7 +1897,7 @@ function compute(pp) {
     required_prefund_wei: requiredPrefund.toString(),
     prefund_formula: version === '0.6'
       ? 'v0.6: (callGasLimit + verificationGasLimit * paymasterMultiplier + preVerificationGas) * maxFeePerGas'
-      : 'v0.7: (verificationGasLimit + callGasLimit + preVerificationGas + paymasterVerificationGasLimit + paymasterPostOpGasLimit) * maxFeePerGas',
+      : 'v' + version + ': (verificationGasLimit + callGasLimit + preVerificationGas + paymasterVerificationGasLimit + paymasterPostOpGasLimit) * maxFeePerGas',
     paymaster_present: paymasterPresent,
     paymaster_address: paymasterAddress,
     paymaster_multiplier_applied: paymasterMultiplierApplied,
@@ -1841,12 +1959,14 @@ function compute(pp) {
     user_op: user_op_echo,
     packed_words: packed_words,
     field_hashes: {
-      init_code_hash: '0x' + bytesToHex_(initCodeHash),
+      init_code_hash: '0x' + bytesToHex_(effectiveInitCodeHash),
       call_data_hash: '0x' + bytesToHex_(callDataHash),
-      paymaster_and_data_hash: '0x' + bytesToHex_(paymasterAndDataHash)
+      paymaster_and_data_hash: '0x' + bytesToHex_(effectivePaymasterAndDataHash)
     },
     packed_user_op_hash: '0x' + bytesToHex_(packedUserOpHashBytes),
     user_op_hash: '0x' + bytesToHex_(userOpHashBytes),
+    eip7702_delegate_bound: appliesEip7702Override ? eip7702Delegate : null,
+    sender_matches_declared_authority: eip7702Authority !== null ? (sender === eip7702Authority) : null,
     gas_accounting: gas_accounting,
     paymaster_reconciliation: paymaster_reconciliation,
     never_fetched: NEVER_FETCHED,
@@ -1855,6 +1975,16 @@ function compute(pp) {
 
   var compliance_flags = ['ERC4337_USEROP_RECOMPUTED', 'ERC4337_ENTRYPOINT_V' + version.replace('.', '_')];
   if (entry_point_echo.address_matches_canonical === false) compliance_flags.push('ERC4337_ENTRYPOINT_ADDRESS_NON_CANONICAL');
+  if (appliesEip7702Override) compliance_flags.push('ERC4337_EIP7702_INITCODE_OVERRIDE_APPLIED');
+  else if ((version === '0.8' || version === '0.9') && !initCodeIsEip7702) compliance_flags.push('ERC4337_EIP7702_INITCODE_OVERRIDE_NOT_APPLIED');
+  if (version === '0.9' && v09PaymasterHashError === null) {
+    var pmBytesFull = _bytesOf(paymasterAndData);
+    if (pmBytesFull.length >= PM_MIN_WITH_SUFFIX_LEN
+      && bytesToHex_(pmBytesFull.slice(pmBytesFull.length - 8)) === PAYMASTER_SIG_MAGIC_HEX
+      && ((pmBytesFull[pmBytesFull.length - 10] << 8) | pmBytesFull[pmBytesFull.length - 9]) > 0) {
+      compliance_flags.push('ERC4337_V09_PAYMASTER_SIGNATURE_EXCLUDED_FROM_HASH');
+    }
+  }
   if (paymaster_reconciliation.status === 'RESIDUAL_UNEXPLAINED') compliance_flags.push('ERC4337_PAYMASTER_RESIDUAL_UNEXPLAINED');
   if (paymaster_reconciliation.status === 'RECONCILED') compliance_flags.push('ERC4337_PAYMASTER_RECONCILED');
 
@@ -1885,6 +2015,8 @@ function runCheck() {
     maxFeePerGas: _val('opMaxFeePerGas'),
     maxPriorityFeePerGas: _val('opMaxPriorityFeePerGas')
   };
+  _optVal(pp, 'eip7702Delegate', 'opEip7702Delegate');
+  _optVal(pp, 'eip7702Authority', 'opEip7702Authority');
   _optVal(pp, 'declaredBaseFeePerGas', 'opDeclaredBaseFee');
   _optVal(pp, 'declaredActualGasUsed', 'recGasUsed');
   _optVal(pp, 'declaredActualGasCostWei', 'recGasCost');
@@ -1912,6 +2044,10 @@ function runCheck() {
   document.getElementById('gasFeesBox').textContent = (op.packed_words && op.packed_words.gas_fees) || 'n/a (v0.6 has no packed word)';
   var mc = op.entry_point.address_matches_canonical;
   document.getElementById('epCanonicalBox').textContent = mc === null ? '—' : (mc ? 'yes' : 'no (declared address is hashed as given)');
+  var boundRow = document.getElementById('eip7702BoundBox');
+  var authRow = document.getElementById('authorityMatchBox');
+  if (boundRow) boundRow.textContent = op.eip7702_delegate_bound || 'not folded in (no 0x7702 initCode marker, or version below 0.8)';
+  if (authRow) authRow.textContent = op.sender_matches_declared_authority === null ? 'not evaluated (no eip7702Authority declared)' : (op.sender_matches_declared_authority ? 'true (authority equals sender)' : 'false (authority differs from sender)');
 
   var ga = op.gas_accounting;
   document.getElementById('gasTable').innerHTML = !ga ? '<div class="q-hint">Not computed: the inputs were indeterminate.</div>' : [
@@ -2016,7 +2152,7 @@ const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.m
 if (mc) {
   mc.registerTool({
     name: 'recompute_erc4337_userop_math',
-    description: 'Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (0.6 or 0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. Never derives L1 data or blob fees and never fetches block.basefee. Zero network calls, no settlement claim.',
+    description: 'Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (0.6, 0.7, 0.8 or 0.9), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. v0.8 and v0.9 hash the PackedUserOperation as an EIP-712 typed hash, fold the declared EIP-7702 delegate into the hash when initCode carries the marker, and v0.9 excludes an appended paymaster signature from the hashed bytes. Never derives L1 data or blob fees and never fetches block.basefee. Zero network calls, no settlement claim.',
     inputSchema: {
       "type": "object",
       "properties": {
@@ -2059,6 +2195,12 @@ if (mc) {
         "maxPriorityFeePerGas": {
           "type": "number"
         },
+        "eip7702Delegate": {
+          "type": "string"
+        },
+        "eip7702Authority": {
+          "type": "string"
+        },
         "declaredBaseFeePerGas": {
           "type": "number"
         },
@@ -2092,6 +2234,8 @@ if (mc) {
       if (params.preVerificationGas !== undefined && params.preVerificationGas !== null) document.getElementById('opPreVerificationGas').value = String(params.preVerificationGas);
       if (params.maxFeePerGas !== undefined && params.maxFeePerGas !== null) document.getElementById('opMaxFeePerGas').value = String(params.maxFeePerGas);
       if (params.maxPriorityFeePerGas !== undefined && params.maxPriorityFeePerGas !== null) document.getElementById('opMaxPriorityFeePerGas').value = String(params.maxPriorityFeePerGas);
+      if (params.eip7702Delegate !== undefined && params.eip7702Delegate !== null) document.getElementById('opEip7702Delegate').value = String(params.eip7702Delegate);
+      if (params.eip7702Authority !== undefined && params.eip7702Authority !== null) document.getElementById('opEip7702Authority').value = String(params.eip7702Authority);
       if (params.declaredBaseFeePerGas !== undefined && params.declaredBaseFeePerGas !== null) document.getElementById('opDeclaredBaseFee').value = String(params.declaredBaseFeePerGas);
       if (params.declaredActualGasUsed !== undefined && params.declaredActualGasUsed !== null) document.getElementById('recGasUsed').value = String(params.declaredActualGasUsed);
       if (params.declaredActualGasCostWei !== undefined && params.declaredActualGasCostWei !== null) document.getElementById('recGasCost').value = String(params.declaredActualGasCostWei);
@@ -2118,7 +2262,7 @@ if (mc) {
   'use strict';
   var BUDGET = 30000;
   var RUN_TARGET = "runCheck";
-  var PREFILL = {"entryPointVersion":["epVersion","string"],"entryPoint":["epAddress","string"],"chainId":["opChainId","string"],"sender":["opSender","string"],"nonce":["opNonce","string"],"initCode":["opInitCode","string"],"callData":["opCallData","string"],"paymasterAndData":["opPaymasterAndData","string"],"callGasLimit":["opCallGasLimit","string"],"verificationGasLimit":["opVerificationGasLimit","string"],"preVerificationGas":["opPreVerificationGas","string"],"maxFeePerGas":["opMaxFeePerGas","string"],"maxPriorityFeePerGas":["opMaxPriorityFeePerGas","string"],"declaredBaseFeePerGas":["opDeclaredBaseFee","string"],"declaredActualGasUsed":["recGasUsed","string"],"declaredActualGasCostWei":["recGasCost","string"],"declaredL1DataFeeWei":["recL1Fee","string"],"reconciliationToleranceWei":["recTolerance","string"]};
+  var PREFILL = {"entryPointVersion":["epVersion","string"],"entryPoint":["epAddress","string"],"chainId":["opChainId","string"],"sender":["opSender","string"],"nonce":["opNonce","string"],"initCode":["opInitCode","string"],"callData":["opCallData","string"],"paymasterAndData":["opPaymasterAndData","string"],"callGasLimit":["opCallGasLimit","string"],"verificationGasLimit":["opVerificationGasLimit","string"],"preVerificationGas":["opPreVerificationGas","string"],"maxFeePerGas":["opMaxFeePerGas","string"],"maxPriorityFeePerGas":["opMaxPriorityFeePerGas","string"],"eip7702Delegate":["opEip7702Delegate","string"],"eip7702Authority":["opEip7702Authority","string"],"declaredBaseFeePerGas":["opDeclaredBaseFee","string"],"declaredActualGasUsed":["recGasUsed","string"],"declaredActualGasCostWei":["recGasCost","string"],"declaredL1DataFeeWei":["recL1Fee","string"],"reconciliationToleranceWei":["recTolerance","string"]};
   var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
 
   function b64uDec(s) {
@@ -2264,7 +2408,7 @@ if (mc) {
   'use strict';
   var MAX = 1000000;
   var RUN_TARGET = "runCheck";
-  var PREFILL = {"entryPointVersion":["epVersion","string"],"entryPoint":["epAddress","string"],"chainId":["opChainId","string"],"sender":["opSender","string"],"nonce":["opNonce","string"],"initCode":["opInitCode","string"],"callData":["opCallData","string"],"paymasterAndData":["opPaymasterAndData","string"],"callGasLimit":["opCallGasLimit","string"],"verificationGasLimit":["opVerificationGasLimit","string"],"preVerificationGas":["opPreVerificationGas","string"],"maxFeePerGas":["opMaxFeePerGas","string"],"maxPriorityFeePerGas":["opMaxPriorityFeePerGas","string"],"declaredBaseFeePerGas":["opDeclaredBaseFee","string"],"declaredActualGasUsed":["recGasUsed","string"],"declaredActualGasCostWei":["recGasCost","string"],"declaredL1DataFeeWei":["recL1Fee","string"],"reconciliationToleranceWei":["recTolerance","string"]};
+  var PREFILL = {"entryPointVersion":["epVersion","string"],"entryPoint":["epAddress","string"],"chainId":["opChainId","string"],"sender":["opSender","string"],"nonce":["opNonce","string"],"initCode":["opInitCode","string"],"callData":["opCallData","string"],"paymasterAndData":["opPaymasterAndData","string"],"callGasLimit":["opCallGasLimit","string"],"verificationGasLimit":["opVerificationGasLimit","string"],"preVerificationGas":["opPreVerificationGas","string"],"maxFeePerGas":["opMaxFeePerGas","string"],"maxPriorityFeePerGas":["opMaxPriorityFeePerGas","string"],"eip7702Delegate":["opEip7702Delegate","string"],"eip7702Authority":["opEip7702Authority","string"],"declaredBaseFeePerGas":["opDeclaredBaseFee","string"],"declaredActualGasUsed":["recGasUsed","string"],"declaredActualGasCostWei":["recGasCost","string"],"declaredL1DataFeeWei":["recL1Fee","string"],"reconciliationToleranceWei":["recTolerance","string"]};
   var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
 
   function fail(msg) {

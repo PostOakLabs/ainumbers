@@ -7,9 +7,54 @@
   "wave": 99,
   "gpu": false,
   "url": "https://ainumbers.co/chaingraph/art-613-erc4337-userop-math.html",
-  "description": "Recomputes the ERC-4337 account-abstraction userOpHash from a caller-supplied UserOperation, computes the EntryPoint's required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. The EntryPoint version is a mandatory declared parameter and is never inferred: v0.6 hashes a 10-word UserOperation pack while v0.7 hashes an 8-word PackedUserOperation in which verificationGasLimit and callGasLimit pack into accountGasLimits and maxPriorityFeePerGas and maxFeePerGas pack into gasFees, so guessing the version would silently produce a wrong hash. The two versions also differ in the prefund formula: v0.6 multiplies verificationGasLimit by three when a paymaster is present, because that same limit also caps postOp, while v0.7 instead adds the paymaster's own verification and postOp gas limits, parsed from the fixed offsets inside paymasterAndData. Both are supported and an unrecognised version is refused rather than approximated. L1 data and blob fees are never derived: after EIP-4844 they depend on the inclusion-time L1 basefee and blob basefee, which are not derivable offline, so an L1 data fee enters reconciliation only when the caller declares it and its absence is reported as a named gap rather than absorbed into a residual. block.basefee is likewise never fetched, so when the two fee caps differ the effective gas price is reported as null with the reason unless a basefee is declared; when the caps are equal the EntryPoint's own legacy shortcut makes the price derivable with no basefee at all. keccak256 comes from the already-vendored, pinned noble-hashes bundle, copied byte-identically from the sibling x402 digest node, and the ABI encoding scheme is implemented directly as public-spec arithmetic on top of it. Zero network calls and zero chain reads: deposits, stakes, nonce-sequence validity and prior spend are never consulted, and every field is caller-declared and echoed back. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity, since the ERC-4337 spec excludes the signature from the hashed struct. Golden vectors are cross-checked against an independent from-spec Keccak-256 and ABI encoder, itself anchored on externally published Keccak-256 constants, not round-trip self-tests alone.",
+  "description": "Recomputes the ERC-4337 account-abstraction userOpHash from a caller-supplied UserOperation, computes the EntryPoint's required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. The EntryPoint version is a mandatory declared parameter and is never inferred: v0.6 hashes a 10-word UserOperation pack, v0.7 hashes an 8-word PackedUserOperation in which verificationGasLimit and callGasLimit pack into accountGasLimits and maxPriorityFeePerGas and maxFeePerGas pack into gasFees, and v0.8 and v0.9 hash that same packed struct as an EIP-712 typed hash over the ERC4337 domain (name ERC4337, version 1, the declared chainId and entryPoint), so guessing the version would silently produce a wrong hash. Under v0.8 and v0.9 an initCode that carries the EIP-7702 marker (first 20 bytes of 0x7702 zero-padded) applies the Eip7702Support initCodeHash override: the delegate address is folded into the hash from the DECLARED eip7702Delegate input, because the real EntryPoint reads it from the sender's deployed code and this node never fetches. v0.9 differs from v0.8 in exactly one pinned rule: an appended paymaster signature at the end of paymasterAndData is excluded from the hashed bytes, so changing that signature moves the v0.8 hash but not the v0.9 hash. The signing authority can be declared as eip7702Authority and is compared against sender, reported as a fact and never fetched. The prefund formulas differ between v0.6 and the packed layouts: v0.6 multiplies verificationGasLimit by three when a paymaster is present, because that same limit also caps postOp, while the packed layouts add the paymaster's own verification and postOp gas limits, parsed from the fixed offsets inside paymasterAndData. All four versions are supported and an unrecognised version is refused rather than approximated. L1 data and blob fees are never derived: after EIP-4844 they depend on the inclusion-time L1 basefee and blob basefee, which are not derivable offline, so an L1 data fee enters reconciliation only when the caller declares it and its absence is reported as a named gap rather than absorbed into a residual. block.basefee is likewise never fetched, so when the two fee caps differ the effective gas price is reported as null with the reason unless a basefee is declared; when the caps are equal the EntryPoint's own legacy shortcut makes the price derivable with no basefee at all. keccak256 comes from the already-vendored, pinned noble-hashes bundle, copied byte-identically from the sibling x402 digest node, and the ABI encoding scheme is implemented directly as public-spec arithmetic on top of it. Zero network calls and zero chain reads: deposits, stakes, nonce-sequence validity and prior spend are never consulted, and every field is caller-declared and echoed back. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity, since the ERC-4337 spec excludes the signature from the hashed struct. Golden vectors are cross-checked against an independent from-spec Keccak-256 and ABI encoder, itself anchored on externally published Keccak-256 constants, not round-trip self-tests alone.",
+  "standards_basis": "implements_standard",
+  "cited_clause_digest": [
+    {
+      "digest": "sha256:58c99ca17380a5ad4fbaeb4e8b8f7f4e925dc4ac82342057965c768ef50d1661",
+      "source_url": "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.8.0/contracts/core/EntryPoint.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "DOMAIN_NAME/VERSION constants; getUserOpHash; getDomainSeparatorV4",
+      "scheme": "solidity-source",
+      "id": "ERC-4337 EntryPoint v0.8 getUserOpHash and ERC4337 domain"
+    },
+    {
+      "digest": "sha256:23fc7c8de68d29ff973abf76bcc7f58c2ff4822c780b22dd235cf17e9ddfc696",
+      "source_url": "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.8.0/contracts/core/UserOperationLib.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "PACKED_USEROP_TYPEHASH constant; encode(); hash()",
+      "scheme": "solidity-source",
+      "id": "ERC-4337 EntryPoint v0.8 PACKED_USEROP_TYPEHASH"
+    },
+    {
+      "digest": "sha256:aa7cdb6202d9ddea7636d73065ffdde62c1eeeab4d5f7b1b3671776241da7368",
+      "source_url": "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.8.0/contracts/core/Eip7702Support.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "library Eip7702Support (marker 0x7702, delegate from 0xef0100 code prefix, initCodeHash override)",
+      "scheme": "solidity-source",
+      "id": "ERC-4337 EntryPoint v0.8 Eip7702Support"
+    },
+    {
+      "digest": "sha256:d69e2cceb59cb8597c765a32729af881a550fbbfdba161d40c7685f332cfebef",
+      "source_url": "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.9.0/contracts/core/UserOperationLib.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "PACKED_USEROP_TYPEHASH (identical); encode() via paymasterDataKeccak; hash()",
+      "scheme": "solidity-source",
+      "id": "ERC-4337 EntryPoint v0.9 encode delta"
+    },
+    {
+      "digest": "sha256:c2baa199466aaebe5998162638bcb5a6030d60b7eb93354e07a16c54cefdd125",
+      "source_url": "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.9.0/contracts/core/Helpers.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "paymasterDataKeccak (excludes appended paymaster signature from the hash)",
+      "scheme": "solidity-source",
+      "id": "ERC-4337 EntryPoint v0.9 paymasterDataKeccak"
+    }
+  ],
   "input_schema_ref": "chaingraph/art-613-erc4337-userop-math.html#manifest",
-  "consumes": [],
+  "consumes": [
+    "art-614-eip7702-authorization-tuple-decoder"
+  ],
   "feeds": [],
   "status": "live",
   "conformance_fixtures": true,
@@ -17,8 +62,8 @@
   "compute_images": [
     {
       "system": "sha256-source",
-      "image_id": "sha256:5590e940c1c036d108e0bfb8662b88bdfec6c275cc55843ac2a9f14cd0c78ba9",
-      "valid_from": "2026-08-13"
+      "image_id": "sha256:20a75b55a56107be6125e18d224efc78e95e3de8fa3aff404dad07655d8726ec",
+      "valid_from": "2026-10-06"
     },
     {
       "system": "risc0",
