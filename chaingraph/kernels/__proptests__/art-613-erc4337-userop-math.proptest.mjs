@@ -15,23 +15,24 @@
 // ZERO external dependencies beyond the kernel's own vendored keccak_256 -- pure Node built-ins
 // otherwise. READ-ONLY w.r.t. the kernel it imports.
 //
-// The digest above is recomputed and asserted at run time against the kernel's own bytes, so this
-// floor cannot silently drift off the kernel it claims to cover (SO #34: a gate must recompute the
-// value it validates from the primary source, never read it back from the artifact under test).
+// The digest above is a header RECORD, not a run-time assertion: byte-hashing the kernel from
+// disk inside this floor can never pass under the mutation tier (MUTATION-TIERED-ROLLOUT-1),
+// whose sandbox instrumented copy differs from the landed bytes by construction, and a floor
+// that hard-fails the stryker dry run produces no report.json (absence is not a pass, SO #34c).
+// The estate-wide sibling floors (503..513, art-02, art-03) carry the same header-only shape.
+// The kernel<->floor binding for the LANDED bytes is enforced outside this file by the gates
+// that hash the real kernel: check-compute-proof-coverage, the digest-freshness ratchet and
+// the page-kernel digest sentinel, all of which pin sha256:f9f81bb9...2049fe.
 //
 // Run: node chaingraph/kernels/__proptests__/art-613-erc4337-userop-math.proptest.mjs
 
-import { compute } from '../art-613-erc4337-userop-math.kernel.mjs';
+import { compute, meta } from '../art-613-erc4337-userop-math.kernel.mjs';
 import { readFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const results = { fixture_oracle: null, properties: [] };
-
-const KERNEL_PATH = path.join(__dirname, '..', 'art-613-erc4337-userop-math.kernel.mjs');
-const DIGEST_AT_AUTHORING = 'sha256:f9f81bb9ed732da90bba7f2150eee8203a2994eeb6cd701c4b896520122049fe';
 
 const BASE06 = {
   entryPointVersion: '0.6',
@@ -59,12 +60,6 @@ const BASE08P = {
 const REQUIRED_FIELDS = ['entryPointVersion', 'entryPoint', 'chainId', 'sender', 'nonce', 'initCode',
   'callData', 'paymasterAndData', 'callGasLimit', 'verificationGasLimit', 'preVerificationGas',
   'maxFeePerGas', 'maxPriorityFeePerGas'];
-
-// ---------- kernel-digest freshness (recomputed from the kernel bytes, never read back) ----------
-function checkDigestFreshness() {
-  const actual = 'sha256:' + createHash('sha256').update(readFileSync(KERNEL_PATH)).digest('hex');
-  return { matches: actual === DIGEST_AT_AUTHORING, actual, declared: DIGEST_AT_AUTHORING };
-}
 
 // ---------- fixture-oracle gate (MANDATORY before any property is trusted) ----------
 function runFixtureOracle() {
@@ -101,7 +96,24 @@ function checkP1_determinism() {
   return { name: 'P1_determinism_repeat_call', trials: checked, violations };
 }
 
-// P2: every REQUIRED field missing individually -> INDETERMINATE with a null userOpHash.
+// P2: every REQUIRED field missing individually -> INDETERMINATE with a null userOpHash and the
+// exact contractual reason string (pinned here because the echoed reason surface rides into
+// fixtures, the page and the WebMCP registration; the assertions ride on computes P2 already
+// pays for).
+const REQUIRED_FIELD_REASONS = {
+  entryPoint: 'entryPoint is required and must be a 20-byte hex address (it is hashed into the userOpHash, so it is never defaulted)',
+  sender: 'sender is required and must be a 20-byte hex address',
+  chainId: 'chainId is required and must be a non-negative uint256 (declared input, never a chain selector and never resolved)',
+  nonce: 'nonce is required and must be a non-negative uint256',
+  initCode: 'initCode is required and must be an even-length hex byte string ("0x" for none)',
+  callData: 'callData is required and must be an even-length hex byte string ("0x" for none)',
+  paymasterAndData: 'paymasterAndData is required and must be an even-length hex byte string ("0x" for none)',
+  callGasLimit: 'callGasLimit is required and must be a non-negative uint256',
+  verificationGasLimit: 'verificationGasLimit is required and must be a non-negative uint256',
+  preVerificationGas: 'preVerificationGas is required and must be a non-negative uint256',
+  maxFeePerGas: 'maxFeePerGas is required and must be a non-negative uint256',
+  maxPriorityFeePerGas: 'maxPriorityFeePerGas is required and must be a non-negative uint256',
+};
 function checkP2_requiredFieldMissingForcesIndeterminate() {
   let violations = 0, checked = 0;
   for (const base of [BASE06, BASE07]) {
@@ -111,6 +123,8 @@ function checkP2_requiredFieldMissingForcesIndeterminate() {
       const { output_payload } = compute(pp);
       checked++;
       if (output_payload.verdict !== 'INDETERMINATE' || output_payload.user_op_hash !== null) violations++;
+      const exact = REQUIRED_FIELD_REASONS[field];
+      if (exact && (output_payload.reasons === null || output_payload.reasons[0] !== exact)) violations++;
     }
   }
   return { name: 'P2_required_field_missing_forces_indeterminate', trials: checked, violations };
@@ -377,18 +391,24 @@ function checkP12_declaredAuthorityFact() {
   checked++; if (mismatch.sender_matches_declared_authority !== false) violations++;
   const malformed = compute({ ...BASE08P, eip7702Authority: '0x1234' });
   checked++; if (malformed.output_payload.verdict !== 'INDETERMINATE') violations++;
+  // the refusal surface is contractual; this assertion rides on the compute above (zero added
+  // tier cost) and pins the exact echoed reason string.
+  checked++; if (malformed.output_payload.reasons === null || malformed.output_payload.reasons[0] !== 'eip7702Authority was supplied but is not a 20-byte hex address') violations++;
   return { name: 'P12_declared_authority_fact', trials: checked, violations };
 }
 
-// ---------- run ----------
-const digest = checkDigestFreshness();
-if (!digest.matches) {
-  console.error('KERNEL DIGEST DRIFT -- this floor was authored against ' + digest.declared
-    + ' but the kernel now hashes to ' + digest.actual
-    + '. Re-verify the floor against the changed kernel and update the header, or revert the kernel.');
-  process.exit(1);
+// P14: the meta identity block is contractual -- it is mirrored by the manifest, the page's
+// MANIFEST block and the WebMCP registration, so every pinned literal is asserted.
+function checkP14_metaIdentityContract() {
+  let violations = 0, checked = 0;
+  checked++; if (meta.tool_id !== 'art-613-erc4337-userop-math') violations++;
+  checked++; if (meta.mcp_name !== 'recompute_erc4337_userop_math') violations++;
+  checked++; if (meta.mandate_type !== 'compliance_control') violations++;
+  checked++; if (meta.gpu !== false) violations++;
+  return { name: 'P14_meta_identity_contract', trials: checked, violations };
 }
 
+// ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED -- spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
@@ -413,12 +433,12 @@ results.properties.push(checkP9_outputShapeInvariant());
 results.properties.push(checkP10_eip7702OverrideBehaviour());
 results.properties.push(checkP11_v09PaymasterSignatureExcluded());
 results.properties.push(checkP12_declaredAuthorityFact());
+results.properties.push(checkP14_metaIdentityContract());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
 console.log(JSON.stringify({
   kernel_id: 'art-613-erc4337-userop-math',
-  kernel_digest_verified: digest.actual,
   fixture_oracle_passed: oracleOk,
   fixture_oracle_total: results.fixture_oracle.total,
   negative_control: negControl,
