@@ -62,7 +62,7 @@ import { generateWorker, loadTemplate, TEMPLATE_PATH } from './gen-farm-worker.m
 // block folded (FARM-HERMES-SWAP-1 memorial open item 1, commit 41f070c5f: fetch + rev-list
 // --count + pull --rebase before the heartbeat push; advisory only, never blocks a report).
 // Previous golden: 40051 bytes, 55abf63a45be27ce5347c075aee454de1d84b83b3c061f73852091e414937ebe.
-const GOLDEN = { bus: 'aspire', bytes: 44746, sha256: '3bd2af27583dd09e0e1f07e5b15c0cf73b6f45f23465b4c42731c620a73e1a6a' };  // 2026-10-06 auto-rotate (Part 5): hermes pool space-bunny-alpha -> solar-mini4 (folds PS-HERMES-ROTATE-2; omen hermes dormant by design per Tim — previous golden 44405/777f7a5ad3e2)
+const GOLDEN = { bus: 'aspire', bytes: 45160, sha256: '2a3116ef92db466617b5a5f05ba6c24f67df8b84b9b00430c7797b9b40cab56c' };  // 2026-10-06 auto-rotate #2 (Part 5): opencode pool mimo-v2.6 pattern dropped (probed DEAD UnknownError x3 on ps); previous golden 44746/3bd2af27583d
 const BUSES = ['hp', 'ps', 'nitro', 'aspire', 'omen', 'msi'];   // MSI-BUS-1 (2026-09-20): sixth bus
 const TOKEN_VALUES = {
   hp: { '@@MACHINE@@': 'hp', '@@BUS@@': 'hp', '@@NPMROOT@@': '$env:APPDATA\\npm' },
@@ -114,9 +114,9 @@ assert(hp.includes(`DefaultModel = 'meituan/longcat-2.5-preview:free'`) && /ArgF
   'step lane keeps --provider nous beside the rotated model slot (longcat-2.5-preview default)');
 assert(hp.includes(`DefaultModel = 'opencode/muse-spark-1.3-contributor-free'`) && hp.includes(`ArgFormat    = 'run -m {4} "{0}"'`),
   'opencode lane keeps opencode/muse-spark-1.3-contributor-free as its default and takes the rotated model as {4}');
-assert(/RotateModels = @\('\^opencode\/muse-spark-1\\.3\.\*free\$', '\^opencode\/mimo-v2\\.6\.\*free\$', '\^opencode\/fledge-alpha\.\*free\$'.*\)/.test(hp)
+assert(/RotateModels = @\('\^opencode\/muse-spark-1\\.3\.\*free\$', '\^opencode\/fledge-alpha\.\*free\$'.*\)/.test(hp)
   && !hp.includes('ling-3\\.0-flash-fin'),
-  'opencode lane rotates the 2026-10-05 fleet-sweep pool: muse-spark-1.3 -> mimo-v2.6 -> fledge-alpha -> space-bunny -> ling-3.1 -> longcat-2.5-preview (stale 09-20 patterns and the dead ling-3.0-flash-fin dropped)');
+  'opencode lane rotates the 2026-10-06 post-rotation pool: muse-spark-1.3 -> fledge-alpha -> space-bunny -> ling-3.1 -> longcat-2.5-preview (mimo-v2.6 dropped 2026-10-06: probed DEAD UnknownError x3 on ps; ling-3.0-flash-fin still out)');
 assert(hp.includes('CloseStdin   = $true') && hp.includes('$proc.StandardInput.Close()'), 'opencode lane closes stdin (the Task Scheduler hang)');
 assert(hp.includes('taskkill /PID {0} /T /F'), 'timeout kills the process TREE, not the shim');
 assert(hp.includes('$MaxDeferrals = 3'), 'a tasking is failed after 3 deferrals so it cannot hold a lane shut');
@@ -140,7 +140,7 @@ assert(hp.includes(`RotateModelsLiteral = @('meituan/longcat-2.5-preview:free', 
   'hermes lane rotates longcat-2.5-preview -> ling -> laguna-s -> step-3.7 -> laguna-xs -> solar-mini4 (literal, {4} slot)');
 assert(!!/^[ ]*RotateModelsLiteral = @\('deepseek-v4\.1-flash'\)$/m.test(hp) && hp.includes('--model {4} --settings'),
   'workbuddy runs DeepSeek v4.1 Flash only (single-id rotation line, {4} slot kept; hy4/hy3/tier aliases dropped — WORKBUDDY-DEEPSEEK-ONLY-1)');
-assert((hp.match(/'\^opencode\//g) || []).length === 6, 'opencode lane rotates a 6-pattern catalog pool (2026-10-05 fleet sweep: 5 stale + the dead ling-3.0-flash-fin dropped, 5 probed ids added; nemotrons stay out)');
+assert((hp.match(/'\^opencode\//g) || []).length === 5, 'opencode lane rotates a 5-pattern catalog pool (2026-10-06 auto-rotate #2: mimo-v2.6 dropped probed-DEAD on ps; pool muse-spark/fledge/space-bunny/ling-3.1/longcat-2.5)');
 assert(hp.includes("if ($harness -eq 'step') { $harness = 'hermes' }"), 'legacy step/muse harness names alias to hermes/opencode at claim time');
 assert(hp.includes('RequireFile = "$env:LOCALAPPDATA\\Programs\\WorkBuddyAI'), 'workbuddy RequireFile kept (family property)');
 assert(hp.includes('FallbackExe'), 'FallbackExe kept (family property hp lacked)');

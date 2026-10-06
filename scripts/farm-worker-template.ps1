@@ -84,8 +84,12 @@ $script:Lanes = [ordered]@{
     # future sweep's call, not a standing cost. Nemotron ultra/lightning stay OUT (2026-09-20,
     # Tim: not recommended on this estate). msi's catalog is older (no fledge/ling-3.1/
     # longcat-2.5-preview): those patterns skip at resolve time there, pool = 4 ids on msi,
-    # 6 everywhere else.
-    RotateModels = @('^opencode/muse-spark-1\.3.*free$', '^opencode/mimo-v2\.6.*free$', '^opencode/fledge-alpha.*free$', '^opencode/space-bunny.*free$', '^opencode/ling-3\.1-flash.*free$', '^opencode/longcat-2\.5-preview.*free$')
+    # 6 everywhere else. 2026-10-06 (second rotation same day, Part 5 auto): the mimo-v2.6
+    # pattern DROPPED — T5-WMC-D9F4F8E0 harness-timeout on ps 09:46Z, then probed DEAD on ps
+    # (rc=1 UnknownError "Unexpected server error" x3, zero "OK", 14:2xZ); ps catalog holds no
+    # new free candidates (ling-3.0-flash-fin stays OUT per 10-05, nemotron ids stay OUT per
+    # Tim 09-20), pool 6 -> 5 (muse-spark / fledge-alpha / space-bunny / ling-3.1 / longcat-2.5).
+    RotateModels = @('^opencode/muse-spark-1\.3.*free$', '^opencode/fledge-alpha.*free$', '^opencode/space-bunny.*free$', '^opencode/ling-3\.1-flash.*free$', '^opencode/longcat-2\.5-preview.*free$')
     DefaultModel = 'opencode/muse-spark-1.3-contributor-free'
     ArgFormat    = 'run -m {4} "{0}"'
     # `opencode run` reads stdin when stdin is not a terminal and waits for EOF. Under Task
