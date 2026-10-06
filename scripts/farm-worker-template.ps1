@@ -41,18 +41,21 @@ $script:Lanes = [ordered]@{
     ExeNames    = @('hermes')
     EnvAllow    = @()   # per-lane additions to the scrubbed child environment; add ONLY when a smoke fails without one
     FallbackExe = @("$env:LOCALAPPDATA\hermes\bin\hermes.exe")
-    # RotateModelsLiteral (2026-10-02, hermes/step restore after the 2026-10-01 lane-off): both
-    # 2026-09-20 ids died with the Nous free period — HTTP 404 "This model's free period has
-    # ended" (upstage/solar-pro4:free, ps T1-CON-4BB31039) and "This model is no longer free"
-    # (meituan/longcat-2.0:free, Omen smoke). The replacement six are the Nous portal's own
-    # freeRecommendedModels list (hermes cache/nous_recommended_cache.json, refreshed 2026-10-01),
-    # each probed READY on the Omen the same hour ("Reply with exactly: OK", --provider nous:
-    # rc=0 — ling 18 s, laguna-s 18 s, longcat-2.5 20 s, step-3.7 21 s, laguna-xs 21 s,
-    # space-bunny 28 s). longcat-2.5 leads as successor of the production-proven longcat line
-    # (SHADOW-WATCH-BRIEF-1); the rest ordered by probe time. A promotion-ended id costs one fast
-    # failed run and is stepped past; models.dev no longer carries a nous provider entry — the
-    # portal cache is the enumeration source now.
-    RotateModelsLiteral = @('meituan/longcat-2.5-preview:free', 'inclusionai/ling-3.0-flash-sante:free', 'poolside/laguna-s-2.1:free', 'stepfun/step-3.7-flash:free', 'poolside/laguna-xs-2.1:free', 'stealth/space-bunny-alpha')
+    # RotateModelsLiteral (2026-10-06 auto-rotation, FARM-WATCH-PROMPT Part 5; folds the hand
+    # edit PS-HERMES-ROTATE-2 found live on ps): stealth/space-bunny-alpha DROPPED — probed
+    # HTTP 404 "not found in our configuration or OpenRouter catalog" on ps, nitro AND aspire
+    # the same hour (T5-WMC-B7E0D883 on ps), i.e. promoted off the free catalog fleet-wide, not
+    # a transient. Replacement upstage/solar-mini4:free (first added on ps by PS-HERMES-ROTATE-2,
+    # Nous's Solar line — Tim: "Nous has Solar") probed READY ("Reply with exactly: OK",
+    # --provider nous, rc=0) on ps (PS-HERMES-ROTATE-2), then re-probed by this rotation on
+    # nitro, aspire and msi — omen UNREACHABLE by ssh from the watcher host (open item: probe
+    # there next time a session is on the box; a catalog miss costs omen one fast failed run
+    # and steps past). The five 2026-10-02 ids all re-probed rc=0 "OK" on ps in the same pass.
+    # longcat-2.5 leads as successor of the production-proven longcat line (SHADOW-WATCH-BRIEF-1);
+    # solar-mini4 trails as newest. A promotion-ended id costs one fast failed run and is
+    # stepped past; models.dev no longer carries a nous provider entry — the portal's own
+    # enumeration stays the candidate source.
+    RotateModelsLiteral = @('meituan/longcat-2.5-preview:free', 'inclusionai/ling-3.0-flash-sante:free', 'poolside/laguna-s-2.1:free', 'stepfun/step-3.7-flash:free', 'poolside/laguna-xs-2.1:free', 'upstage/solar-mini4:free')
     DefaultModel = 'meituan/longcat-2.5-preview:free'
     ArgFormat   = '-z "{0}" --provider nous -m {4}'
   }

@@ -62,7 +62,7 @@ import { generateWorker, loadTemplate, TEMPLATE_PATH } from './gen-farm-worker.m
 // block folded (FARM-HERMES-SWAP-1 memorial open item 1, commit 41f070c5f: fetch + rev-list
 // --count + pull --rebase before the heartbeat push; advisory only, never blocks a report).
 // Previous golden: 40051 bytes, 55abf63a45be27ce5347c075aee454de1d84b83b3c061f73852091e414937ebe.
-const GOLDEN = { bus: 'aspire', bytes: 44405, sha256: '777f7a5ad3e2b71837b43bd7ae8994d24baa9289bf797ad215aa888051f98794' };  // 2026-10-05 fleet sweep: 6-id opencode pool (5 probed-READY ids added, 5 stale + dead ling-3.0-flash-fin dropped; previous golden 44105/09a3bea9db18)
+const GOLDEN = { bus: 'aspire', bytes: 44673, sha256: 'a7b75f8ca313b0c5504fd0a75b7f70984f8519e90258cfb5b036e631b535e77b' };  // 2026-10-06 auto-rotate (Part 5): hermes pool space-bunny-alpha -> solar-mini4 (folds PS-HERMES-ROTATE-2; previous golden 44405/777f7a5ad3e2)
 const BUSES = ['hp', 'ps', 'nitro', 'aspire', 'omen', 'msi'];   // MSI-BUS-1 (2026-09-20): sixth bus
 const TOKEN_VALUES = {
   hp: { '@@MACHINE@@': 'hp', '@@BUS@@': 'hp', '@@NPMROOT@@': '$env:APPDATA\\npm' },
@@ -133,9 +133,11 @@ assert(hp.includes(`DefaultModel = 'cline-free/muse-spark-1.3-contributor'`) && 
 assert(hp.includes('if (-not $Lane.RotateModels -and -not $Lane.RotateModelsLiteral)'), 'the rotation resolver opts in literal-list lanes');
 // Lane-maximization pass (2026-09-20): every lane rotates — no single pinned model anywhere.
 // 2026-10-02 hermes/step restore: the 2026-09-20 pair died with the Nous free period; the six
-// replacements are the portal's freeRecommendedModels, each probed READY on the Omen that day.
-assert(hp.includes(`RotateModelsLiteral = @('meituan/longcat-2.5-preview:free', 'inclusionai/ling-3.0-flash-sante:free', 'poolside/laguna-s-2.1:free', 'stepfun/step-3.7-flash:free', 'poolside/laguna-xs-2.1:free', 'stealth/space-bunny-alpha')`) && /ArgFormat\s+= '-z "\{0\}" --provider nous -m \{4\}'/.test(hp),
-  'hermes lane rotates longcat-2.5-preview -> ling -> laguna-s -> step-3.7 -> laguna-xs -> space-bunny (literal, {4} slot)');
+// replacements are the portal's freeRecommendedModels, each probed READY on the Omen that day;
+// 2026-10-06 auto-rotate (Part 5) dropped the fleet-wide-404 space-bunny-alpha and trails
+// upstage/solar-mini4:free (PS-HERMES-ROTATE-2's Solar add, re-probed READY on ps/nitro/aspire/msi).
+assert(hp.includes(`RotateModelsLiteral = @('meituan/longcat-2.5-preview:free', 'inclusionai/ling-3.0-flash-sante:free', 'poolside/laguna-s-2.1:free', 'stepfun/step-3.7-flash:free', 'poolside/laguna-xs-2.1:free', 'upstage/solar-mini4:free')`) && /ArgFormat\s+= '-z "\{0\}" --provider nous -m \{4\}'/.test(hp),
+  'hermes lane rotates longcat-2.5-preview -> ling -> laguna-s -> step-3.7 -> laguna-xs -> solar-mini4 (literal, {4} slot)');
 assert(!!/^[ ]*RotateModelsLiteral = @\('deepseek-v4\.1-flash'\)$/m.test(hp) && hp.includes('--model {4} --settings'),
   'workbuddy runs DeepSeek v4.1 Flash only (single-id rotation line, {4} slot kept; hy4/hy3/tier aliases dropped — WORKBUDDY-DEEPSEEK-ONLY-1)');
 assert((hp.match(/'\^opencode\//g) || []).length === 6, 'opencode lane rotates a 6-pattern catalog pool (2026-10-05 fleet sweep: 5 stale + the dead ling-3.0-flash-fin dropped, 5 probed ids added; nemotrons stay out)');
