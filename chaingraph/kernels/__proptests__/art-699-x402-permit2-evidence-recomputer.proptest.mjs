@@ -1,5 +1,5 @@
 // art-699-x402-permit2-evidence-recomputer — class-K property-test FLOOR (X402-PERMIT2-EVIDENCE-1).
-// kernel_digest_at_authoring: sha256:610d0247168f9ed0ac30b0c745503f178fb840da35d67b3fb9f3342801021ba5
+// kernel_digest_at_authoring: sha256:0c36a136f75d75a9dbc83a6d6230e082a4d33eb3fb43c2c52de58b9dcc2b39f9
 // spec: GASLESS-AUTH-EVIDENCE-BUILD-SPEC.md §2
 // human_sign_off: PENDING
 //
@@ -466,7 +466,8 @@ function checkSponsoredApprovalLeg() {
 
   const empty = compute({ ...base, eip2612GasSponsoring: {} });
   checked++;
-  if (empty.output_payload.sponsored_approval.errors.length !== 7) violations++;
+  if (empty.output_payload.sponsored_approval.errors.length !== 8) violations++;
+  if (!hasStr(empty.output_payload.sponsored_approval.errors, 'eip2612GasSponsoring.version must be supplied')) violations++;
   if (!hasStr(empty.output_payload.sponsored_approval.errors, 'eip2612GasSponsoring.from must be a 20-byte hex address')) violations++;
   if (!hasStr(empty.output_payload.sponsored_approval.errors, 'eip2612GasSponsoring.amount must be a non-negative uint256')) violations++;
   if (!hasStr(empty.output_payload.sponsored_approval.errors, 'eip2612GasSponsoring.deadline must be a non-negative uint256')) violations++;

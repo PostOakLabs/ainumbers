@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1214 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1215 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -1821,6 +1821,9 @@
       "name": "ai-provenance"
     },
     {
+      "name": "ai-spend"
+    },
+    {
       "name": "ai-training"
     },
     {
@@ -2212,6 +2215,9 @@
     },
     {
       "name": "broker-reporting"
+    },
+    {
+      "name": "budgeting"
     },
     {
       "name": "builder"
@@ -2860,6 +2866,9 @@
     },
     {
       "name": "date arithmetic"
+    },
+    {
+      "name": "dated-snapshot"
     },
     {
       "name": "day count convention"
@@ -3954,6 +3963,9 @@
       "name": "liquidity plan"
     },
     {
+      "name": "llm-cost"
+    },
+    {
       "name": "loan-servicing"
     },
     {
@@ -4105,6 +4117,9 @@
     },
     {
       "name": "mcp:decode_eip7702_authorization_tuple"
+    },
+    {
+      "name": "mcp:estimate_ai_token_spend"
     },
     {
       "name": "mcp:evaluate_decision_tree"
@@ -4744,6 +4759,9 @@
     },
     {
       "name": "price-aggregation"
+    },
+    {
+      "name": "price-table"
     },
     {
       "name": "pricing"
@@ -5773,6 +5791,9 @@
     },
     {
       "name": "token bucket"
+    },
+    {
+      "name": "token-pricing"
     },
     {
       "name": "tokenization"
@@ -122110,6 +122131,75 @@
         },
         "x-mcp-tool-name": "find_runway_goal_path",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-702-runway-goal-path.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/estimate_ai_token_spend": {
+      "post": {
+        "operationId": "estimate_ai_token_spend",
+        "summary": "AI Token Spend",
+        "description": "Monthly AI token spend estimator and cross-model comparator: per-model monthly cost, cost per request, the component breakdown, and a cheapest-first ranking, priced from a dated price table by an as_of date. Integer USD micros per million tokens with an overflow-safe floor-split cost formula. Refuses ambiguous price entries, missing component prices and cap overruns with named reasons. Prices are an input, never kernel constants: the default is the dated 2026-10-04 provider-page snapshot.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-704-ai-token-spend.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_mandate",
+          "ai-spend",
+          "token-pricing",
+          "llm-cost",
+          "budgeting",
+          "price-table",
+          "dated-snapshot",
+          "integer-minor-units",
+          "mcp:estimate_ai_token_spend"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "as_of",
+                  "usage",
+                  "price_table",
+                  "compare"
+                ],
+                "properties": {
+                  "as_of": {
+                    "type": "string",
+                    "description": "Pricing date, a real calendar date as YYYY-MM-DD. The node reads no clock; an entry applies when effective_from <= as_of <= effective_through."
+                  },
+                  "usage": {
+                    "type": "object",
+                    "description": "Requests per month, input and output tokens per request, cached-input and batch/long-context shares in bp, cache-write tokens with a 5m or 1h TTL."
+                  },
+                  "price_table": {
+                    "type": "object",
+                    "description": "Dated snapshot: snapshot_verified_on, currency USD, unit usd_micros_per_million_tokens, and models[] with tier, effective dates and micros prices."
+                  },
+                  "compare": {
+                    "type": "array",
+                    "description": "Model names to price and rank, cheapest first; ties break by the model string."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "output_payload: as_of, snapshot_verified_on, snapshot_age_days, results[]{provider, model, tier, monthly_micros, per_request_micros, components{input, cached_input, cache_write, output}, price_entry_source_sha256}, ranking[model...], cheapest, refusals[]{provider, model, code, text}, refusal_reason, domain_errors[], scope_note."
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "estimate_ai_token_spend",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-704-ai-token-spend.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }

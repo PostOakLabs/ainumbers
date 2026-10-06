@@ -534,8 +534,14 @@ async function runCompute() {
     vb.textContent = 'NO BENEFICIAL OWNER at or above '+THRESHOLD+'% threshold';
     vb.style.color = 'var(--green)';
   }
-  document.getElementById('statRow').innerHTML = [stat('Is Beneficial Owner',op.is_beneficial_owner?'YES':'NO'),stat('BO Count',op.beneficial_owner_count),stat('Threshold',THRESHOLD+'%'),stat('NP Attributions',persons.length)].join('');
+  /* Render-only attribution list is built BEFORE the stat row reads it: this
+     statement must stay above the statRow innerHTML assignment below (a former
+     use-before-assignment crashed every runCompute path — deeplink, WebMCP
+     execute, file import — with "Cannot read properties of undefined (reading
+     'length')" while compute itself was already kernel-faithful). persons never
+     enters output_payload/compliance_flags; it feeds stat + person cards only. */
   var persons = op.beneficial_owners.map(function(a){return {natural_person_id:a.natural_person_id,indirect_ownership_pct:a.indirect_ownership_pct,is_beneficial_owner:true};}).concat(op.below_threshold.map(function(a){return {natural_person_id:a.natural_person_id,indirect_ownership_pct:a.indirect_ownership_pct,is_beneficial_owner:false};}));
+  document.getElementById('statRow').innerHTML = [stat('Is Beneficial Owner',op.is_beneficial_owner?'YES':'NO'),stat('BO Count',op.beneficial_owner_count),stat('Threshold',THRESHOLD+'%'),stat('NP Attributions',persons.length)].join('');
   document.getElementById('personsDiv').innerHTML = persons.map(function(a){
     var cls = a.is_beneficial_owner ? 'person-card person-bo' : 'person-card person-below';
     return '<div class="'+cls+'"><strong style="color:var(--bright)">'+a.natural_person_id+'</strong> | Indirect: <strong>'+a.indirect_ownership_pct.toFixed(4)+'%</strong> | '+(a.is_beneficial_owner?'<span style="color:var(--red)">BENEFICIAL OWNER (&ge;25%)</span>':'<span style="color:var(--green)">Below threshold</span>')+'</div>';

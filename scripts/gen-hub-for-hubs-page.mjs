@@ -135,6 +135,7 @@ const CLUSTERS = [
     paths: [
       'guides/basel-iv-frtb-model-risk-hub.html',
       'guides/counterparty-credit-risk-hub.html',
+      'guides/crypto-prudential-tax-hub.html',
       'guides/fraud-risk-hub.html',
       'guides/basel-take2-impact-assessment-guide.html',
       'guides/sr262-model-risk-monitoring-hub.html',
@@ -156,6 +157,7 @@ const CLUSTERS = [
       'guides/ledger-consensus-finality-hub.html',
       'guides/swift-ledger-hub.html',
       'guides/reserve-watch-continuous-verification.html',
+      'guides/stablecoin-reserve-hub.html',
       'chaingraph/guide-avalanche.html',
       'chaingraph/guide-arc.html',
       'chaingraph/guide-tempo.html',
@@ -181,6 +183,7 @@ const CLUSTERS = [
       'guides/agent-observability-hub.html',
       'guides/agent-payment-dispute-evidence-hub.html',
       'chaingraph/agentcore-x402-hub.html',
+      'chaingraph/guide-x402.html',
       'chaingraph/guide-agent-economy-runtime.html',
       'guides/agentic-rail-scenario.html',
       'guides/hypermap-catalog-projection.html',
