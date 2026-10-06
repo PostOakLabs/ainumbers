@@ -1221,6 +1221,22 @@ export const COVERED = [
  */
 export const EXCLUDED = [
   {
+    what: 'scripts/sync-scene-kit.mjs (scene-kit gate — SCENE-REQUIRED-GATE-1 + SCENE-PACKET-ARROW-LINT-1)',
+    script: 'scripts/sync-scene-kit.mjs',
+    share: 'n/a — a gate, not a generator',
+    why: 'NOT A GENERATOR. It reads the node graph only to scope its advisories to the PR '
+       + 'changed-set (resolveChangedScope, exactly as the copy gate consumes it): which pages '
+       + 'are new or grew past the scene threshold, and which scenes are new or byte-differ '
+       + 'from the base ref. The scene-kit regions it verifies are HAND-AUTHORED page content '
+       + 'marked SCENE-KIT:v1 — they derive from scripts/lib/scene-kit.mjs (a static lib), '
+       + 'not from chaingraph.json, so no node registration can make them stale and no regen '
+       + 'closes on one. Its writes are the explicit --write lane (the same hand-authored '
+       + 'regions) and temp-dir self-test fixtures. Listed so the fan-out coverage gate reads '
+       + 'a decision, not a gap. Seat-ruled fence extension (ORCH-389, 2026-10-03): the '
+       + 'classification rides the row whose preflight amendment surfaced the script — '
+       + 'gate-named remedy, disclosed in the PR body and on the channel.',
+  },
+  {
     what: 'scripts/check-infra-registry.mjs (INFRA-PAGE-1 gate)',
     script: 'scripts/check-infra-registry.mjs',
     share: 'n/a — a gate, not a generator',

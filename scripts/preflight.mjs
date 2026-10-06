@@ -2369,6 +2369,7 @@ const QUICK_GATES = [
   //    monolith against ALL shards — the changed-shard subset is implied by it,
   //    at the same ≈0.1 s cost.
   ['chaingraph.json shard freshness (CGSHARD-1, quick)', 'node scripts/assemble-chaingraph.mjs --check'],
+  ['Scene-required advisory (CHANGED scope, SCENE-REQUIRED-GATE-1)', `node scripts/sync-scene-kit.mjs --scene-required --changed ${QUICK_REF}`],
 ];
 
 async function runQuickSuite(selfTest) {

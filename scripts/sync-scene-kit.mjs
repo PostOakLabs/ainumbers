@@ -42,11 +42,23 @@
  * can fail — every other defective scene is counted in one advisory summary
  * line and never fails.
  *
+ * SCENE REQUIREMENT (SCENE-REQUIRED-GATE-1, advisory). A prose-heavy page a
+ * PR ADDS, or one whose visible word count crosses 1000 in the PR, needs at
+ * least one kit scene: an <svg class="sk-scene"> with a non-empty <title> and
+ * a non-empty <desc>. Legacy pages over the threshold are an advisory count
+ * only, never blocked; `scripts/scene-exemptions.json` carries the standing
+ * exemptions, each with a reason from the fixed set. The gate ships
+ * advisory-only (SCENE_REQUIRED_BLOCKING = false); a separate one-line row
+ * flips it, on Tim's word. The changed set comes from
+ * scripts/_changed-files-lib.js's resolveChangedScope, exactly as
+ * check-copy-hallmarks consumes it — no second resolver.
+ *
  * Usage:
  *   node scripts/sync-scene-kit.mjs --check     — verify copies + motion timing + the SCENE-PACKET
  *                                                 arrowhead rule (exit 1 on drift)
  *   node scripts/sync-scene-kit.mjs --write     — rewrite every marked page's regions from the lib
  *   node scripts/sync-scene-kit.mjs --selftest  — RED/GREEN mutation control over in-memory fixtures
+ *   node scripts/sync-scene-kit.mjs --scene-required [--changed <ref>] — the scene requirement, scoped to the diff vs <ref> (default origin/main)
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -71,6 +83,19 @@ const MAX_END_MS = 5000;
 // travel class it watches.
 const PACKET_BASE_REF = 'origin/main';
 const TRAVEL_CLS = 'sk-travel';
+
+// ── Scene requirement (SCENE-REQUIRED-GATE-1) ──────────────────────────────
+
+// Ships ADVISORY on purpose: blocking is a separate one-line row on Tim's
+// word. Never set this true from a build row.
+export const SCENE_REQUIRED_BLOCKING = false;
+export const SCENE_REQUIRED_THRESHOLD = 1000;
+
+// The only reasons an exemption entry may carry. A value may append free
+// prose after ": " (the LEGACY-ANIMATED entries note their convert-to-kit
+// debt); the token before the colon is the reason and must be exact.
+export const EXEMPTION_REASONS = ['INDEX', 'NORMATIVE-SPEC', 'LEGACY-ANIMATED', 'FUNCTIONAL-TOOL', 'GENERATED', 'LEGAL-OPS'];
+const EXEMPTION_FILE = resolve(REPO, 'scripts', 'scene-exemptions.json');
 
 const cssRegion = () => `${CSS_START}\n${SCENE_KIT_CSS}\n${CSS_END}`;
 const jsRegion = () => `${JS_START}\n<script>${SCENE_KIT_HEAD_JS}</script>\n${JS_END}`;
@@ -420,6 +445,187 @@ function runWrite() {
   }
 }
 
+// ── Scene requirement: the check (SCENE-REQUIRED-GATE-1) ───────────────────
+
+const WORD_SKIP_TAGS = new Set(['script', 'style', 'svg', 'pre', 'nav', 'footer', 'table', 'button', 'select', 'textarea']);
+const stripEntities = (s) => s.replace(/&[a-zA-Z][a-zA-Z0-9]*;|&#[0-9]+;/g, ' ');
+
+/**
+ * Visible words (rule 2): the words of text outside <head>, comments,
+ * script, style, SVG, pre, nav, footer, table, button, select and textarea.
+ * Written ONCE, here — the copy gate's counters are not this.
+ */
+export function visibleWords(html) {
+  let s = String(html).replace(/<!--[\s\S]*?-->/g, ' ').replace(/<![^>]*>/g, ' ');
+  const head = /<head\b[^>]*>/i.exec(s);
+  if (head) {
+    const close = s.toLowerCase().indexOf('</head>', head.index);
+    s = close === -1 ? s.slice(0, head.index) : s.slice(0, head.index) + s.slice(close + '</head>'.length);
+  }
+  const stack = [];
+  let text = '';
+  let last = 0;
+  const tagRe = /<(\/?)([a-zA-Z][\w:-]*)((?:"[^"]*"|'[^']*'|[^>])*?)>/g;
+  let m;
+  while ((m = tagRe.exec(s)) !== null) {
+    if (!stack.length) text += s.slice(last, m.index);
+    last = tagRe.lastIndex;
+    const name = m[2].toLowerCase();
+    if (!WORD_SKIP_TAGS.has(name) || m[0].endsWith('/>')) continue;
+    if (m[1]) {
+      const open = stack.lastIndexOf(name);
+      if (open !== -1) stack.length = open;
+    } else {
+      stack.push(name);
+    }
+  }
+  if (!stack.length) text += s.slice(last);
+  return (stripEntities(text).match(/\S+/g) ?? []).filter((w) => /[a-zA-Z0-9]/.test(w)).length;
+}
+
+/** True when at least one <svg class="sk-scene"> carries a non-empty <title> AND <desc>. */
+export function pageHasKitScene(html) {
+  let from = 0;
+  for (;;) {
+    const start = html.indexOf(SCENE_TAG, from);
+    if (start === -1) return false;
+    const end = html.indexOf('</svg>', start);
+    const block = html.slice(start, end === -1 ? html.length : end).replace(/<!--[\s\S]*?-->/g, '');
+    from = end === -1 ? html.length : end + 6;
+    const textOf = (tag) => {
+      const hit = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)</${tag}>`, 'i').exec(block);
+      return hit ? stripEntities(hit[1]).replace(/<[^>]+>/g, ' ').trim() : '';
+    };
+    if (textOf('title') && textOf('desc')) return true;
+  }
+}
+
+/**
+ * Eligible page (rule 3): guides/, a root page, or chaingraph/ minus the
+ * generated sets — node pages derived from the node files (each names its
+ * page), chain pages from the chains directory, exporters from the exporters
+ * directory. Derived, never hand-listed.
+ */
+export function isEligiblePage(path, generated) {
+  if (path.startsWith('guides/')) return true;
+  if (/^[^/]+\.html$/.test(path)) return true;
+  if (path.startsWith('chaingraph/')) {
+    return !(generated.nodePages.has(path) || generated.chainPages.has(path) || generated.exporters.has(path));
+  }
+  return false;
+}
+
+export function derivedGeneratedSets(tracked) {
+  const nodePages = new Set();
+  const chainPages = new Set();
+  const exporters = new Set();
+  for (const rel of tracked) {
+    if (rel.startsWith('chaingraph/graph/nodes/') && rel.endsWith('.json')) {
+      nodePages.add(`chaingraph/${rel.slice('chaingraph/graph/nodes/'.length, -'.json'.length)}.html`);
+    } else if (/^chaingraph\/chains\/[^/]+\.html$/.test(rel)) {
+      chainPages.add(rel);
+    } else if (rel.startsWith('chaingraph/exporters/')) {
+      exporters.add(rel);
+    }
+  }
+  return { nodePages, chainPages, exporters };
+}
+
+/** Exemption-file validation. Errors FAIL THE GATE in both modes. */
+export function validateExemptions(exemptions, trackedSet) {
+  const errors = [];
+  const reasonToken = (value) => {
+    if (typeof value !== 'string' || !value.trim()) return null;
+    const token = value.trim().split(':')[0].trim();
+    return EXEMPTION_REASONS.includes(token) ? token : null;
+  };
+  for (const [dir, reason] of Object.entries(exemptions.dirs ?? {})) {
+    if (!reasonToken(reason)) { errors.push(`dirs "${dir}": reason must be one of ${EXEMPTION_REASONS.join(', ')} (optionally ": " + prose); got ${JSON.stringify(reason) ?? 'nothing'}`); continue; }
+    const prefix = dir.endsWith('/') ? dir : `${dir}/`;
+    if (![...trackedSet].some((rel) => rel.startsWith(prefix))) errors.push(`dirs "${dir}": no tracked file under this directory at HEAD`);
+  }
+  for (const [page, reason] of Object.entries(exemptions.pages ?? {})) {
+    if (!reasonToken(reason)) { errors.push(`pages "${page}": reason must be one of ${EXEMPTION_REASONS.join(', ')} (optionally ": " + prose); got ${JSON.stringify(reason) ?? 'nothing'}`); continue; }
+    if (!trackedSet.has(page)) errors.push(`pages "${page}": path does not exist at HEAD`);
+  }
+  return errors;
+}
+
+/**
+ * One page's verdict (rules 1-4). Pure and in-memory so --selftest drives it
+ * directly; `hasSceneFn` stands in for the shipped detector only so the
+ * mutation control can remove the check and watch the RED controls flip.
+ *   flagged   — the page owes a kit scene it does not have (new, or crossed
+ *               the threshold in this PR, over the threshold, eligible, not
+ *               exempt)
+ *   violation — flagged AND blocking (SCENE_REQUIRED_BLOCKING)
+ *   legacy    — over the threshold with no scene, unchanged legacy stock
+ */
+export function sceneRequiredVerdict({ path, html, baseHtml, exemptions = { dirs: {}, pages: {} }, generated = { nodePages: new Set(), chainPages: new Set(), exporters: new Set() }, hasSceneFn }) {
+  const words = visibleWords(html);
+  const eligible = isEligiblePage(path, generated);
+  const exempt = Object.keys(exemptions.dirs ?? {}).some((d) => path === d || path.startsWith(d.endsWith('/') ? d : `${d}/`))
+    || Object.prototype.hasOwnProperty.call(exemptions.pages ?? {}, path);
+  const hasScene = hasSceneFn ? hasSceneFn(html) : pageHasKitScene(html);
+  const isNew = baseHtml === null || baseHtml === undefined;
+  const baseWords = isNew ? null : visibleWords(baseHtml);
+  const over = words >= SCENE_REQUIRED_THRESHOLD;
+  const crossed = !isNew && over && baseWords < SCENE_REQUIRED_THRESHOLD;
+  const owed = eligible && !exempt && over && !hasScene;
+  const flagged = owed && (isNew || crossed);
+  return { words, baseWords, eligible, exempt, hasScene, isNew, crossed, over, flagged, legacy: owed && !isNew && !crossed, violation: flagged && SCENE_REQUIRED_BLOCKING };
+}
+
+function gitShowOrNull(ref, rel) {
+  try { return gitSync(['show', `${ref}:${rel}`], { cwd: REPO }); } catch { return null; }
+}
+
+function runSceneRequired() {
+  const changedArg = process.argv.indexOf('--changed');
+  const changedRef = changedArg !== -1 ? process.argv[changedArg + 1] : 'origin/main';
+  const changed = resolveChangedScope(changedRef, { gate: 'sync-scene-kit.mjs (scene-required)', failClosed: true });
+  const tracked = trackedHtml();
+  const trackedSet = new Set(tracked);
+  let exemptions;
+  try {
+    exemptions = JSON.parse(readFileSync(EXEMPTION_FILE, 'utf8'));
+  } catch (e) {
+    console.error(`SCENE-REQUIRED: cannot read ${EXEMPTION_FILE}: ${e.message}`);
+    process.exit(1);
+  }
+  const exemptionErrors = validateExemptions(exemptions, trackedSet);
+  if (exemptionErrors.length) {
+    console.error('SCENE-REQUIRED: exemption file errors (fail in both modes):');
+    for (const e of exemptionErrors) console.error(`  ${e}`);
+    process.exit(1);
+  }
+  const generated = derivedGeneratedSets(tracked);
+  const flagged = [];
+  const legacy = [];
+  for (const rel of tracked) {
+    if (!isEligiblePage(rel, generated)) continue;
+    const src = readFileSync(resolve(REPO, rel), 'utf8');
+    // A page outside the changed set is, by definition, unchanged: its base
+    // bytes are these bytes. Only changed pages pay for a `git show`.
+    const baseHtml = changed !== null && changed.has(rel) ? gitShowOrNull(changedRef, rel) : src;
+    const v = sceneRequiredVerdict({ path: rel, html: src, baseHtml, exemptions, generated });
+    if (v.flagged) flagged.push({ rel, ...v });
+    else if (v.legacy) legacy.push({ rel, words: v.words });
+  }
+  legacy.sort((a, b) => b.words - a.words || (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+  if (SCENE_REQUIRED_BLOCKING && flagged.length) {
+    console.error(`SCENE-REQUIRED (blocking): ${flagged.length} new or crossing page(s) over ${SCENE_REQUIRED_THRESHOLD} words lack a kit scene:`);
+    for (const f of flagged) {
+      console.error(`  ${f.rel}: ${f.isNew ? 'new page' : `grew ${f.baseWords} to ${f.words} words`} — add an <svg class="sk-scene"> with a non-empty <title> and <desc>, or exempt it in scripts/scene-exemptions.json`);
+    }
+    process.exit(1);
+  }
+  console.log(`SCENE-REQUIRED (advisory): ${flagged.length} new or crossing pages lack a scene; ${legacy.length} legacy pages over ${SCENE_REQUIRED_THRESHOLD} words have none`);
+  for (const f of flagged) console.log(`  flagged: ${f.rel} (${f.isNew ? 'new' : `${f.baseWords} -> ${f.words} words`})`);
+  for (const l of legacy.slice(0, 10)) console.log(`  ${l.rel} (${l.words} words)`);
+  process.exit(0);
+}
+
 // ── Self-test: the checker proved RED before it is trusted GREEN (SO #34c) ──
 
 function runSelftest() {
@@ -527,6 +733,59 @@ ${JS_END}
   assert('runCheck still invokes the packet check (mutation control)', runCheckSrc.includes('packetArrowFindings('));
   assert('runCheck still resolves the changed scope (mutation control)', runCheckSrc.includes('resolveChangedScope('));
 
+  // ── Scene-required controls (SCENE-REQUIRED-GATE-1). In-memory verdicts, so
+  // they hold with SCENE_REQUIRED_BLOCKING false: `flagged` is the owes-a-
+  // scene verdict, `violation` only fires when the constant is true. ───
+  assert('scene-required ships advisory (SCENE_REQUIRED_BLOCKING === false)', SCENE_REQUIRED_BLOCKING === false);
+  const wordsBody = (n, extra = '') => `<!DOCTYPE html><html><head><title>t</title></head><body>${extra}<p>${Array.from({ length: n }, (_, i) => `w${i}`).join(' ')}</p></body></html>`;
+  const titledScene = '<svg class="sk-scene" viewBox="0 0 10 10"><title>A scene title</title><desc>A scene description</desc></svg>';
+  const noDescScene = '<svg class="sk-scene" viewBox="0 0 10 10"><title>A scene title</title></svg>';
+  const fixtureExemptions = { dirs: { 'tools/': 'FUNCTIONAL-TOOL' }, pages: { 'exempt-page.html': 'INDEX' } };
+  // The word counter skips script/svg/table/nav/footer text.
+  assert('scene-required: the word counter skips script and scene text', visibleWords(wordsBody(20, `<script>skipme skipme skipme</script>${titledScene}`)) === 20);
+  const runSceneControls = (detect) => {
+    const out = [];
+    const a = (name, cond) => out.push([name, !!cond]);
+    const v = (path, html, baseHtml) => sceneRequiredVerdict({ path, html, baseHtml, exemptions: fixtureExemptions, hasSceneFn: detect });
+    // RED: a new 1500-word guide with no scene owes one (advisory: not a violation).
+    const fresh = v('guides/new-guide.html', wordsBody(1500), null);
+    a('scene-required: a new 1500-word guide with no scene is flagged', fresh.flagged && !fresh.violation);
+    // GREEN: the same page with a scene that has title and desc.
+    a('scene-required: the same guide with a titled+described scene is GREEN', !v('guides/new-guide.html', wordsBody(1500, titledScene), null).flagged);
+    // RED: a scene with no desc is no scene at all.
+    a('scene-required: a scene with no <desc> does not satisfy the gate', v('guides/new-guide.html', wordsBody(1500, noDescScene), null).flagged);
+    // Advisory-only: an unchanged legacy 1500-word page is counted, never flagged.
+    const stock = v('guides/old-guide.html', wordsBody(1500), wordsBody(1500));
+    a('scene-required: an unchanged legacy page is advisory stock, not a flag', !stock.flagged && !stock.violation && stock.legacy);
+    // RED: a page that grows from 900 to 1100 words in this PR with no scene.
+    a('scene-required: a page grown 900 -> 1100 words in this PR is flagged', v('guides/grown.html', wordsBody(1100), wordsBody(900)).flagged);
+    // GREEN: an exempt page, and anything under tools/.
+    const exempted = v('exempt-page.html', wordsBody(1500), null);
+    a('scene-required: an exempt page is GREEN', exempted.exempt && !exempted.flagged);
+    const tool = v('tools/some-calculator.html', wordsBody(1500), null);
+    a('scene-required: a page under tools/ is exempt and GREEN', tool.exempt && !tool.flagged);
+    return out;
+  };
+  for (const [name, ok] of runSceneControls(pageHasKitScene)) assert(name, ok);
+  // Mutation control: with scene detection removed (every page "has a scene")
+  // the three flagged-controls above flip GREEN — i.e. deleting the check
+  // turns this selftest RED, which is the proof the controls bind the check.
+  const neutered = runSceneControls(() => true).filter(([name]) => name.includes('is flagged') || name.includes('does not satisfy'));
+  assert('scene-required mutation control: removing the check turns the selftest RED', neutered.length === 3 && neutered.every(([, ok]) => !ok));
+  // Rule 3 eligibility: generated sets derived, never hand-listed.
+  const gen = { nodePages: new Set(['chaingraph/art-01-x.html']), chainPages: new Set(['chaingraph/chains/a-chain.html']), exporters: new Set(['chaingraph/exporters/pdf.html']) };
+  assert('scene-required: a derived node page is ineligible', !isEligiblePage('chaingraph/art-01-x.html', gen));
+  assert('scene-required: a derived chain page is ineligible', !isEligiblePage('chaingraph/chains/a-chain.html', gen));
+  assert('scene-required: an exporter page is ineligible', !isEligiblePage('chaingraph/exporters/pdf.html', gen));
+  assert('scene-required: a chaingraph guide page is eligible', isEligiblePage('chaingraph/guide-something.html', gen));
+  assert('scene-required: a guides/ page is eligible', isEligiblePage('guides/anything.html', gen));
+  assert('scene-required: a root page is eligible', isEligiblePage('some-page.html', gen));
+  // Exemption-file validation fails on a path that does not exist at HEAD,
+  // and on an unknown reason — in both modes.
+  assert('scene-required: an exemption entry whose path does not exist is an error', validateExemptions({ dirs: {}, pages: { 'no-such-page.html': 'INDEX' } }, new Set(['index.html'])).length === 1);
+  assert('scene-required: an unknown exemption reason is an error', validateExemptions({ dirs: {}, pages: { 'index.html': 'WHY-NOT' } }, new Set(['index.html'])).length === 1);
+  assert('scene-required: valid exemptions with ": " prose validate clean', validateExemptions({ dirs: { 'tools/': 'FUNCTIONAL-TOOL' }, pages: { 'index.html': 'LEGACY-ANIMATED: convert to the kit when next touched' } }, new Set(['index.html', 'tools/calc.html'])).length === 0);
+
   let failed = 0;
   for (const [name, ok] of results) {
     console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}`);
@@ -542,7 +801,8 @@ const argv = process.argv.slice(2);
 if (argv.includes('--selftest')) runSelftest();
 else if (argv.includes('--write')) runWrite();
 else if (argv.includes('--check')) runCheck();
+else if (argv.includes('--scene-required')) runSceneRequired();
 else {
-  console.error('usage: node scripts/sync-scene-kit.mjs [--check | --write | --selftest]');
+  console.error('usage: node scripts/sync-scene-kit.mjs [--check | --write | --selftest | --scene-required [--changed <ref>]]');
   process.exit(2);
 }
