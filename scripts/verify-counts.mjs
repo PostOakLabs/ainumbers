@@ -205,6 +205,11 @@ for (const rel of [
   'mcp.html',
   'chaingraph/chaingraph-hub.html',
   'chaingraph/zkvm-compute-integrity.html',
+  'chaingraph/proof-coverage-explainer.html',
+  // WEBMCP-ESTATE-SENTENCE-1 (R-B ruling 2026-10-07, board/RULINGS.md): the
+  // doorways explainer's estate-size sentence carries the nodes.live sentinel;
+  // without this entry the page's sentinel would render unscanned.
+  'chaingraph/webmcp-doorways-explainer.html',
   'chaingraph/why-openchain-graph.html',
   'fv-explainer.html',
   // INFRA-PAGE-1: the generated infrastructure page's data-count="infra_pages"
