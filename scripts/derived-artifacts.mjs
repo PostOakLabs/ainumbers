@@ -95,6 +95,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { nodeFooterPages } from './gen-node-footers.mjs';
 import { chainAskAgentPages } from './gen-chain-ask-agent.mjs';
+import { hubScenePages } from './gen-hub-scenes.mjs';
 import { WRITES_REPORT_PATH } from './gen-manifest-examples.mjs';
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -195,6 +196,29 @@ export const COVERED = [
     artifacts: chainAskAgentPages(),
     after: 'chaingraph-assemble',
     share: 'n/a (new 2026-09-27, CHAIN-PROMPT-INFRA-1)',
+  },
+  {
+    // HUBSCENE-BUILD-1 (Tim 2026-10-06, spec research/HUBSCENES-BUILD-SPEC.md):
+    // the generated animated chain-flow scene region of every hub guide page
+    // (guides/*-hub.html ∪ chaingraph/guide-*.html, derived never hand-listed),
+    // rendered from the assembled catalog by the ONE main-side writer
+    // scripts/gen-hub-scenes.mjs. Regions land main-side post-merge (SO #35) —
+    // a PR is forbidden to hand-write scene bytes, which is exactly why
+    // sync-scene-kit.mjs's scene-required gate ACCEPTS this derived set
+    // (generator-scope acceptance). The first insert also lays the SCENE-KIT
+    // inline copies byte-identically to sync-scene-kit's own builders, so
+    // sync-scene-kit --check keeps policing them. Writes happen on a runtime
+    // path (one region per derived page), so `writes` is declared explicitly —
+    // the full in-scope page list (SO #47a). Idempotent: a second pass is
+    // byte-identical (gen-hub-scenes --selftest proves it). Ordered after
+    // 'chaingraph-assemble' (it renders from chaingraph.json, loaded lazily).
+    id: 'hub-scenes',
+    regen: 'node scripts/gen-hub-scenes.mjs',
+    gate: 'node scripts/gen-hub-scenes.mjs --check',
+    writes: hubScenePages(),
+    artifacts: hubScenePages(),
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-10-07, HUBSCENE-BUILD-1)',
   },
   {
     // FOOTER-INFRA-COLUMN-1 (Tim 2026-09-27, footer plan v2 decision D1(b)): the
