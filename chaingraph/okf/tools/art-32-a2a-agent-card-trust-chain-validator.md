@@ -18,7 +18,7 @@ sources:
 
 > Exports a decision via MCP `validate_a2a_trust_chain` — mandate type `compliance_mandate`.
 
-**Deadline:** 2026-08 — A2A at Linux Foundation (150+ orgs); EU AI Act Aug 2026 pushes agent KYA toward requirement.
+**Deadline:** 2026-08 — A2A at Linux Foundation (150+ orgs); EU AI Act dates re-set by the Digital Omnibus on AI, Regulation (EU) 2026/1744 (in force 27 Jul 2026): Chapter III high-risk regime (Sections 1-3) applies 2 Dec 2027 for Art. 6(2)/Annex III systems and 2 Aug 2028 for Art. 6(1)/Annex I systems; Art. 50(2) synthetic-content marking for systems placed on the market before 2 Aug 2026 applies by 2 Dec 2026 (amended Art. 111(4)); new Art. 5(1) points (ba)/(bb) prohibitions likewise apply from 2 Dec 2026. These push agent KYA toward requirement.
 
 ## Inputs
 

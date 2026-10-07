@@ -2295,7 +2295,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "CBPR+ Structured Address Linter",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-241-cbpr-structured-address-linter.html",
-    "description": "Lints a single pacs.008 PostalAddress24 block against the SWIFT CBPR+ November 2026 mandate. Detects unstructured AdrLine-only addresses (pr",
+    "description": "Lints a single pacs.008 PostalAddress24 block against the SWIFT CBPR+ structured-address rule set (formerly a 14 Nov 2026 mandate; deferred ",
     "consumes": [],
     "feeds": [
       "art-242-pacs008-party-completeness-validator"
@@ -3588,7 +3588,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Fedwire Structured Address Linter",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-349-fedwire-structured-address-linter.html",
-    "description": "Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the November 2026 structured-address mandate (network param selects fedwire",
+    "description": "Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the Fedwire structured-address rules (network param selects fedwire or chip",
     "consumes": [],
     "feeds": [
       "art-350-fedwire-address-sweep"
@@ -3615,7 +3615,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Fedwire Payment-File Address Sweep",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-350-fedwire-address-sweep.html",
-    "description": "Batch-sweeps a Fedwire or CHIPS payment file (CSV, one record per row) through the November 2026 structured-address mandate lint (lint_fedwi",
+    "description": "Batch-sweeps a Fedwire or CHIPS payment file (CSV, one record per row) through the Fedwire structured-address rule lint (lint_fedwire_struct",
     "consumes": [
       "art-349-fedwire-structured-address-linter"
     ],
