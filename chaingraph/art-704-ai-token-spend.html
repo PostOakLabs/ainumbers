@@ -391,7 +391,7 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-704
 </footer>
 
 <script>
-const MANIFEST={"tool_id":"art-704-ai-token-spend","version":"1.0.0","title":"AI Token Spend","mcp_tool_definition":{"name":"estimate_ai_token_spend","description":"Monthly AI token spend estimator and cross-model comparator: per-model monthly cost, cost per request, the component breakdown, and a cheapest-first ranking, priced from a dated price table by an as_of date. Integer USD micros per million tokens with an overflow-safe floor-split cost formula. Refuses ambiguous price entries, missing component prices and cap overruns with named reasons. Prices are an input, never kernel constants: the default is the dated 2026-10-04 provider-page snapshot.","inputSchema":{"type":"object","required":["as_of","usage","price_table","compare"],"properties":{"as_of":{"type":"string","description":"Pricing date, a real calendar date as YYYY-MM-DD. The node reads no clock; an entry applies when effective_from <= as_of <= effective_through."},"usage":{"type":"object","description":"Requests per month, input and output tokens per request, cached-input and batch/long-context shares in bp, cache-write tokens with a 5m or 1h TTL."},"price_table":{"type":"object","description":"Dated snapshot: snapshot_verified_on, currency USD, unit usd_micros_per_million_tokens, and models[] with tier, effective dates and micros prices."},"compare":{"type":"array","description":"Model names to price and rank, cheapest first; ties break by the model string."}}}},"ap2_export":true,"chaingraph":true};
+const MANIFEST={"tool_id":"art-704-ai-token-spend","version":"1.0.0","title":"AI Token Spend","mcp_tool_definition":{"name":"estimate_ai_token_spend","description":"Monthly AI token spend estimator and cross-model comparator: per-model monthly cost, cost per request, the component breakdown, and a cheapest-first ranking, priced from a dated price table by an as_of date. Integer USD micros per million tokens with an overflow-safe floor-split cost formula. Refuses ambiguous price entries, missing component prices and cap overruns with named reasons. Prices are an input, never kernel constants: the default is the dated 2026-10-04 provider-page snapshot.","inputSchema":{"type":"object","required":["as_of","usage","price_table","compare"],"properties":{"as_of":{"type":"string","description":"Pricing date, a real calendar date as YYYY-MM-DD. The node reads no clock; an entry applies when effective_from <= as_of <= effective_through."},"usage":{"type":"object","description":"Requests per month, input and output tokens per request, cached-input and batch/long-context shares in bp, cache-write tokens with a 5m or 1h TTL.","properties":{"requests_per_month":{"type":"integer","description":"Non-negative integer at most 1e12: billable requests per month."},"input_tokens_per_request":{"type":"integer","description":"Non-negative integer input tokens per request; input tokens per month (times requests_per_month) must not exceed the 1e12 per-component cap."},"cached_input_share_bp":{"type":"integer","description":"Integer basis-point share of input tokens served from cache, 0..10000."},"cache_write_tokens_per_request":{"type":"integer","description":"Non-negative integer cache-write tokens per request; monthly cache-write tokens (times requests_per_month) must not exceed the 1e12 per-component cap."},"cache_write_ttl":{"type":"string","enum":["5m","1h"],"description":"Cache-write TTL class: '5m' or '1h'."},"output_tokens_per_request":{"type":"integer","description":"Non-negative integer output tokens per request; output tokens per month (times requests_per_month) must not exceed the 1e12 per-component cap."},"batch_share_bp":{"type":"integer","description":"Integer basis-point share priced at batch rates, 0..10000; batch_share_bp plus long_context_share_bp must not exceed 10000."},"long_context_share_bp":{"type":"integer","description":"Integer basis-point share priced at long-context rates, 0..10000; batch_share_bp plus long_context_share_bp must not exceed 10000."}}},"price_table":{"type":"object","description":"Dated snapshot: snapshot_verified_on, currency USD, unit usd_micros_per_million_tokens, and models[] with tier, effective dates and micros prices."},"compare":{"type":"array","description":"Model names to price and rank, cheapest first; ties break by the model string."}}}},"ap2_export":true,"chaingraph":true};
 
 /* ── the dated default snapshot (captured from the official provider price pages,
    verified 2026-10-04; prices are an input, never kernel constants) ── */
@@ -697,7 +697,45 @@ if (mc) {
         },
         "usage": {
           "type": "object",
-          "description": "Requests per month, input and output tokens per request, cached-input and batch/long-context shares in bp, cache-write tokens with a 5m or 1h TTL."
+          "description": "Requests per month, input and output tokens per request, cached-input and batch/long-context shares in bp, cache-write tokens with a 5m or 1h TTL.",
+          "properties": {
+            "requests_per_month": {
+              "type": "integer",
+              "description": "Non-negative integer at most 1e12: billable requests per month."
+            },
+            "input_tokens_per_request": {
+              "type": "integer",
+              "description": "Non-negative integer input tokens per request; input tokens per month (times requests_per_month) must not exceed the 1e12 per-component cap."
+            },
+            "cached_input_share_bp": {
+              "type": "integer",
+              "description": "Integer basis-point share of input tokens served from cache, 0..10000."
+            },
+            "cache_write_tokens_per_request": {
+              "type": "integer",
+              "description": "Non-negative integer cache-write tokens per request; monthly cache-write tokens (times requests_per_month) must not exceed the 1e12 per-component cap."
+            },
+            "cache_write_ttl": {
+              "type": "string",
+              "enum": [
+                "5m",
+                "1h"
+              ],
+              "description": "Cache-write TTL class: '5m' or '1h'."
+            },
+            "output_tokens_per_request": {
+              "type": "integer",
+              "description": "Non-negative integer output tokens per request; output tokens per month (times requests_per_month) must not exceed the 1e12 per-component cap."
+            },
+            "batch_share_bp": {
+              "type": "integer",
+              "description": "Integer basis-point share priced at batch rates, 0..10000; batch_share_bp plus long_context_share_bp must not exceed 10000."
+            },
+            "long_context_share_bp": {
+              "type": "integer",
+              "description": "Integer basis-point share priced at long-context rates, 0..10000; batch_share_bp plus long_context_share_bp must not exceed 10000."
+            }
+          }
         },
         "price_table": {
           "type": "object",
@@ -758,7 +796,7 @@ if (mc) {
         }
         return value;
       };
-      var __computeInput = __normalizeNullMembers(params, "{\"type\":\"object\",\"required\":[\"as_of\",\"usage\",\"price_table\",\"compare\"],\"properties\":{\"as_of\":{\"type\":\"string\",\"description\":\"Pricing date, a real calendar date as YYYY-MM-DD. The node reads no clock; an entry applies when effective_from <= as_of <= effective_through.\"},\"usage\":{\"type\":\"object\",\"description\":\"Requests per month, input and output tokens per request, cached-input and batch/long-context shares in bp, cache-write tokens with a 5m or 1h TTL.\"},\"price_table\":{\"type\":\"object\",\"description\":\"Dated snapshot: snapshot_verified_on, currency USD, unit usd_micros_per_million_tokens, and models[] with tier, effective dates and micros prices.\"},\"compare\":{\"type\":\"array\",\"description\":\"Model names to price and rank, cheapest first; ties break by the model string.\"}}}");
+      var __computeInput = __normalizeNullMembers(params, "{\"type\":\"object\",\"required\":[\"as_of\",\"usage\",\"price_table\",\"compare\"],\"properties\":{\"as_of\":{\"type\":\"string\",\"description\":\"Pricing date, a real calendar date as YYYY-MM-DD. The node reads no clock; an entry applies when effective_from <= as_of <= effective_through.\"},\"usage\":{\"type\":\"object\",\"description\":\"Requests per month, input and output tokens per request, cached-input and batch/long-context shares in bp, cache-write tokens with a 5m or 1h TTL.\",\"properties\":{\"requests_per_month\":{\"type\":\"integer\",\"description\":\"Non-negative integer at most 1e12: billable requests per month.\"},\"input_tokens_per_request\":{\"type\":\"integer\",\"description\":\"Non-negative integer input tokens per request; input tokens per month (times requests_per_month) must not exceed the 1e12 per-component cap.\"},\"cached_input_share_bp\":{\"type\":\"integer\",\"description\":\"Integer basis-point share of input tokens served from cache, 0..10000.\"},\"cache_write_tokens_per_request\":{\"type\":\"integer\",\"description\":\"Non-negative integer cache-write tokens per request; monthly cache-write tokens (times requests_per_month) must not exceed the 1e12 per-component cap.\"},\"cache_write_ttl\":{\"type\":\"string\",\"enum\":[\"5m\",\"1h\"],\"description\":\"Cache-write TTL class: '5m' or '1h'.\"},\"output_tokens_per_request\":{\"type\":\"integer\",\"description\":\"Non-negative integer output tokens per request; output tokens per month (times requests_per_month) must not exceed the 1e12 per-component cap.\"},\"batch_share_bp\":{\"type\":\"integer\",\"description\":\"Integer basis-point share priced at batch rates, 0..10000; batch_share_bp plus long_context_share_bp must not exceed 10000.\"},\"long_context_share_bp\":{\"type\":\"integer\",\"description\":\"Integer basis-point share priced at long-context rates, 0..10000; batch_share_bp plus long_context_share_bp must not exceed 10000.\"}}},\"price_table\":{\"type\":\"object\",\"description\":\"Dated snapshot: snapshot_verified_on, currency USD, unit usd_micros_per_million_tokens, and models[] with tier, effective dates and micros prices.\"},\"compare\":{\"type\":\"array\",\"description\":\"Model names to price and rank, cheapest first; ties break by the model string.\"}}}");
       var __directResult = await compute(__computeInput);
       if (typeof __directResult !== 'undefined') _lastArtifact = __directResult;
       await artifact();
