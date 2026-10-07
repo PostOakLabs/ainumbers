@@ -1,0 +1,229 @@
+{
+  "tool_id": "art-703-mandate-authorization-gate",
+  "version": "1.0.0",
+  "title": "Mandate Authorization Gate",
+  "description": "Automated payment approval gate with no human step: a fixed ten-rule mandate check lists every failing rule with a named reason, issues a one-use authorization bound to the exact request digest with a window clipped to the mandate expiry, and re-verifies the committed request at commit time. Integer minor units, no float anywhere.",
+  "category": "chaingraph",
+  "tags": [
+    "payment_mandate",
+    "authorization-gate",
+    "mandate-coverage",
+    "one-use-authorization",
+    "commit-verification",
+    "rail-nonce",
+    "integer-minor-units",
+    "agent-payments",
+    "mcp:authorize_payment_against_mandate"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "mode",
+      "as_of"
+    ],
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "authorize evaluates the mandate and request; verify_commit re-verifies a presented authorization."
+      },
+      "as_of": {
+        "type": "string",
+        "description": "Decision time as a UTC timestamp, YYYY-MM-DDTHH:MM:SS ending in Z. The node reads no clock."
+      },
+      "ttl_seconds": {
+        "type": "integer",
+        "description": "authorize only: window seconds, clipped into 1 to 900 and to the mandate expiry."
+      },
+      "mandate": {
+        "type": "object",
+        "description": "authorize only: the mandate drawn on; commonly the canonical pivot from art-476."
+      },
+      "extensions": {
+        "type": "object",
+        "description": "authorize only, optional: revoked_at, budget minor integers, allowed_rails, verified_payees."
+      },
+      "request": {
+        "type": "object",
+        "description": "authorize: the proposed payment. verify_commit: the request being committed, as presented."
+      },
+      "authorization": {
+        "type": "object",
+        "description": "verify_commit only: the authorization this node issued, presented back for commit."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "authorize_payment_against_mandate",
+    "description": "Automated payment approval gate with no human step: a fixed ten-rule mandate check lists every failing rule with a named reason, issues a one-use authorization bound to the exact request digest with a window clipped to the mandate expiry, and re-verifies the committed request at commit time. Integer minor units, no float anywhere.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "mode",
+        "as_of"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "description": "authorize evaluates the mandate and request; verify_commit re-verifies a presented authorization."
+        },
+        "as_of": {
+          "type": "string",
+          "description": "Decision time as a UTC timestamp, YYYY-MM-DDTHH:MM:SS ending in Z. The node reads no clock."
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "description": "authorize only: window seconds, clipped into 1 to 900 and to the mandate expiry."
+        },
+        "mandate": {
+          "type": "object",
+          "description": "authorize only: the mandate drawn on; commonly the canonical pivot from art-476."
+        },
+        "extensions": {
+          "type": "object",
+          "description": "authorize only, optional: revoked_at, budget minor integers, allowed_rails, verified_payees."
+        },
+        "request": {
+          "type": "object",
+          "description": "authorize: the proposed payment. verify_commit: the request being committed, as presented."
+        },
+        "authorization": {
+          "type": "object",
+          "description": "verify_commit only: the authorization this node issued, presented back for commit."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-703-mandate-authorization-gate.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-703-mandate-authorization-gate.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: mode, as_of, ttl_seconds, mandate, extensions, request, authorization.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "mode": "authorize",
+    "as_of": "2026-10-01T15:00:00Z",
+    "ttl_seconds": 60,
+    "mandate": {
+      "mandate_id": "m-1",
+      "payer_ref": "acct:alice",
+      "payee_ref": "merchant:42",
+      "currency": "USD",
+      "max_amount": "250.00",
+      "issued_at": "2026-10-01T00:00:00Z",
+      "expires_at": "2026-10-08T00:00:00Z",
+      "purpose": "groceries"
+    },
+    "extensions": {
+      "total_budget_minor": 100000,
+      "spent_minor": 72000,
+      "allowed_rails": [
+        "x402-exact-evm"
+      ],
+      "verified_payees": [
+        "merchant:42"
+      ],
+      "revoked_at": null
+    },
+    "request": {
+      "payer_ref": "acct:alice",
+      "payee_ref": "merchant:42",
+      "amount_minor": 24999,
+      "currency": "USD",
+      "rail": "x402-exact-evm",
+      "purpose": "groceries"
+    }
+  },
+  "output_example": {
+    "mode": "authorize",
+    "decision": "authorize",
+    "primary_reason": null,
+    "reasons": [],
+    "authorization": {
+      "authorization_id": "8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58",
+      "operation": "pay",
+      "request_digest": "2d699e0a83ec1fcb5878a800abb38d0273587b51a3fb035fe29c13186c917970",
+      "mandate_digest": "3af9b6954e75e5b550739808f1b2eabd78de7a85d8b4377c9e9ea0af663d083e",
+      "not_before": "2026-10-01T15:00:00Z",
+      "not_after": "2026-10-01T15:01:00Z",
+      "nonce_hint": "0x8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58"
+    },
+    "remaining_budget_minor": 3001,
+    "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+  },
+  "example_execution_hash": "56cdf7b03e95a9741654c6f9435b5d2eb7815564a04e186babb0fff1b026a0ed",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "authorization": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "authorization_id": {
+        "type": "string"
+      },
+      "decision": {
+        "type": "string",
+        "enum": [
+          "authorize",
+          "commit_ok",
+          "reject"
+        ]
+      },
+      "mode": {
+        "type": "string",
+        "enum": [
+          "authorize",
+          "verify_commit"
+        ]
+      },
+      "primary_reason": {
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "reasons": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "remaining_budget_minor": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "scope_note": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "decision",
+      "mode",
+      "reasons"
+    ],
+    "additionalProperties": false,
+    "x-derived-from": "fixture"
+  }
+}
