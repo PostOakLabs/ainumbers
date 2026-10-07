@@ -151,6 +151,7 @@ const CLUSTERS = [
     id: 'tokenization', label: 'Tokenization and DLT and stablecoins',
     blurb: 'Tokenized assets and the chains they settle on, from Canton and shared ledgers to the payments-first L1s.',
     paths: [
+      'guides/web3-hub.html',
       'guides/dlt-tokenization-hub.html',
       'guides/canton-tmf-hub.html',
       'guides/token-standards-hub.html',
