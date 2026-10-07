@@ -517,12 +517,18 @@ $ claude mcp add ainumbers https://mcp.ainumbers.co/mcp</div>
       chart.setAttribute('aria-label',label);
     }
     if(!raw||!raw.days||!raw.days.length){emptyState(raw&&raw.generated);return;}
-    var weeks={},daysIn={},total=0,wk,d;
-    for(i=0;i<raw.days.length;i++){d=raw.days[i];if(!d||d.length<2||!(+d[1]>=0)){continue;}wk=mondayOf(d[0]);weeks[wk]=(weeks[wk]||0)+(+d[1]);daysIn[wk]=(daysIn[wk]||0)+1;total+=+d[1];}
-    var keys=Object.keys(weeks).sort(),all=keys,show=keys.slice(-16);
+    var weeks={},daysIn={},wk,d;
+    for(i=0;i<raw.days.length;i++){d=raw.days[i];if(!d||d.length<2||!(+d[1]>=0)){continue;}wk=mondayOf(d[0]);weeks[wk]=(weeks[wk]||0)+(+d[1]);daysIn[wk]=(daysIn[wk]||0)+1;}
+    // Complete weeks only: a week with fewer than 7 days on record (the
+    // in-progress week, or early coverage gaps) renders as a stub bar and
+    // skews the weekly average. Those days stay in data/mcp-activity.json
+    // and display once their week completes.
+    var keys=Object.keys(weeks).sort().filter(function(k){return (daysIn[k]||0)>=7;}),all=keys,show=keys.slice(-16),total=0,shownTotal=0,j;
+    for(j=0;j<all.length;j++){total+=weeks[all[j]];}
+    for(j=0;j<show.length;j++){shownTotal+=weeks[show[j]];}
     if(show.length<1||total<=0){emptyState(raw.generated);return;}
     totalEl.textContent=commas(total);
-    avgEl.textContent=commas(Math.floor(total/show.length));
+    avgEl.textContent=commas(Math.floor(shownTotal/show.length));
     weeksEl.textContent=show.length+' weeks';
     sinceEl.textContent='since '+monDay(all[0])+' '+all[0].slice(0,4);
     var lastEnd=new Date(all[all.length-1]+'T00:00:00Z');lastEnd.setUTCDate(lastEnd.getUTCDate()+6);
