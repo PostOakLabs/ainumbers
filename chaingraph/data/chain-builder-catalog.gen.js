@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (671 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (672 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7329,6 +7329,16 @@ window.CHAINBUILDER_CATALOG = [
       "cry-05-agent-action-audit-trail-aggregator",
       "art-76-climate-scenario-applicator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-711-sco60-crypto-asset-exposure-classifier-v2",
+    "display_name": "SCO60 Group 2 Exposure Limit V2",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-711-sco60-crypto-asset-exposure-classifier-v2.html",
+    "description": "Book-level Group 2 exposure-limit assessor for banks' cryptoasset exposures (BCBS d545 Prudential treatment of cryptoasset exposures, SCO60.",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
