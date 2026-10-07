@@ -350,6 +350,16 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── AI-PRICE-REFRESH-1 (2026-10-05) ─────────────────────────────────────────
+  ["check-ai-price-freshness.mjs",
+    "Art-704 snapshot freshness gate (AI-PRICE-REFRESH-1): reads ONE tracked page " +
+    "(chaingraph/art-704-ai-token-spend.html), derives staleness from the snapshot entries' own " +
+    "verified_on stamps, and ships advisory-first (preflight wires --summary) beside its RED/GREEN " +
+    "self-test. No network, no CI-only input, no estate enumeration; the weekly capture step " +
+    "(ai-price-capture.mjs in PostOakLabs/ainumbers-internal) is its refresh route, and promotion " +
+    "to strict plus a named CI step is the deliberate follow-up once that step lands a real " +
+    "refresh PR. scripts/-only, so scripts-verify.yml's path filter already routes any change to " +
+    "the gate or the page through a full preflight."],
   // ── WEBMCP-META-LINT-CEILING-1 (2026-10-01) ─────────────────────────────────
   ["check-webmcp-meta-budgets.test.mjs", SELF_TEST],
   ["check-webmcp-meta-neardupes.test.mjs", SELF_TEST],

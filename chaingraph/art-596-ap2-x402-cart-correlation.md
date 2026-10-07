@@ -11,12 +11,15 @@ Correlates a built AP2 CartMandate (cart_root, cart_items, merchant) against an 
 - cart_root (string, optional)
 - cart_items (array, optional)
 - merchant (string, optional)
+- token_decimals (integer, optional)
 - x402_spend_evidence (object, optional)
 
 ## Outputs
 
 - correlation_status (string, optional)
 - cart_total_matches_authorization_value (boolean,null, optional)
+- cart_total_atomic (string,null, optional)
+- authorization_value_atomic (string,null, optional)
 - merchant_matches_authorization_to (boolean,null, optional)
 - cart_chain_intact (boolean, optional)
 - disclosure (string, optional)
@@ -26,34 +29,36 @@ Correlates a built AP2 CartMandate (cart_root, cart_items, merchant) against an 
 
 ```json
 {
-  "cart_root": "0x2eeb01a35e5facd325ab3b60ba97fe4d26222584419fdf93106d3ca3575729fb",
+  "cart_root": "0x4e1a3b0922583d53d2c4090386f3438fd367bb08d5e12716bdf4a790eeb1dd92",
   "cart_items": [
     {
       "sku": "SKU-100",
       "description": "Widget",
       "quantity": 2,
-      "unit_price": 9.99,
+      "unit_price": 0.25,
       "currency": "USD"
     },
     {
       "sku": "SKU-200",
       "description": "Gadget",
       "quantity": 1,
-      "unit_price": 24.5,
+      "unit_price": 0.5,
       "currency": "USD"
     }
   ],
   "merchant": "0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667",
+  "token_decimals": 6,
   "x402_spend_evidence": {
     "authorization": {
-      "from": "0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667",
+      "from": "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf",
       "to": "0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667",
-      "value": "44.480000000000004",
+      "value": "1000000",
       "validAfter": "0",
       "validBefore": "2000000000",
       "nonce": "0x0000000000000000000000000000000000000000000000000000000000000001"
     },
-    "digest": "0xb68e5d60d6169bad9739d30399af8f8c7378d464d25f4d971911ab65ef0b014b",
+    "digest": "0xb5edd5c45c7ad92459eb789ae4449a9e2a79ce09a9a4122388ae91d7b938d972",
+    "recovered_signer": "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf",
     "verdict": "AUTHORIZATION_VALID",
     "disclosure": "ev"
   }

@@ -1425,6 +1425,15 @@ const GATES = [
   ['MCP protocol-version drift', 'node scripts/verify-mcp-protocol-version.mjs'],
   ['Deadline-wall freshness (SI-DEADLINE-FRESH-1)', 'node scripts/check-deadline-freshness.mjs'],
   ['Bank-fact freshness (REVERIFY-BANK-1)', 'node scripts/check-bank-fact-freshness.mjs'],
+  // AI-PRICE-REFRESH-1: the art-704 snapshot's own verified_on dates (the page is the snapshot's
+  // home; the manifest input_example is regen-owned derived bytes since 9fd3e4c5). Wired advisory
+  // on 2026-10-05: this entry runs `--summary` (counts, exit 0). Re-check staleness any time with
+  // `node scripts/check-ai-price-freshness.mjs` (strict default: exit 1 past 30 days); promote
+  // this entry to the strict default once the weekly capture step (ai-price-capture.mjs in
+  // PostOakLabs/ainumbers-internal) has landed a real refresh PR. The paired controls entry is
+  // the RED/GREEN fixture proof (SO #40b) even while the gate ships advisory.
+  ['AI price snapshot freshness (AI-PRICE-REFRESH-1) — advisory first', 'node scripts/check-ai-price-freshness.mjs --summary'],
+  ['AI price snapshot freshness controls (RED/GREEN fixtures)', 'node scripts/check-ai-price-freshness.mjs --self-test'],
   // FACT-STAMPS-PILOT-1: the visible "Verified YYYY-MM-DD against …" stamps are a
   // pure function of data/bank-fact-freshness.json (the same sidecar the bank-fact
   // gate above watches). A drifted region means the page no longer shows what the
@@ -2360,6 +2369,7 @@ const QUICK_GATES = [
   //    monolith against ALL shards — the changed-shard subset is implied by it,
   //    at the same ≈0.1 s cost.
   ['chaingraph.json shard freshness (CGSHARD-1, quick)', 'node scripts/assemble-chaingraph.mjs --check'],
+  ['Scene-required advisory (CHANGED scope, SCENE-REQUIRED-GATE-1)', `node scripts/sync-scene-kit.mjs --scene-required --changed ${QUICK_REF}`],
 ];
 
 async function runQuickSuite(selfTest) {

@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proof coverage and what deferred means · OpenChainGraph Explainer</title>
+<meta name="description" content="What share of the live OpenChainGraph graph carries a zkVM compute-integrity proof, the profile that requires one of every deterministic node, and what a deferred node is.">
+<meta name="ain:category" content="learn">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/proof-coverage-explainer.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* SCENE-KIT:v1:START */
+/* SCENE-KIT:v1 (scripts/lib/scene-kit.mjs) */
+.sk-fig{margin:1.1rem 0 1.6rem;min-width:0}
+.sk-scroll{max-width:100%;overflow-x:auto;contain:inline-size;background:var(--bg-2,#0D1627);border:1px solid var(--border,#1E2F4A);border-radius:10px}
+.sk-scroll>svg{display:block;width:100%;height:auto}
+.sk-cap{font-size:.78rem;color:var(--body,#6888A8);line-height:1.6;margin-top:.55rem;max-width:780px}
+.sk-cap a{color:var(--teal-lt,#2DD4BF);border-bottom:1px dotted currentColor}
+.sk-scene text{font-family:'Sora',sans-serif;fill:var(--text,#A8C4DE);font-size:13px}
+.sk-scene .m{font-family:'JetBrains Mono',monospace}
+.sk-scene .h{font-family:'DM Serif Display',serif;fill:var(--white,#EEF6FD)}
+.sk-scene .b{fill:var(--bright,#D4E8F8)}.sk-scene .s{fill:var(--body,#6888A8)}.sk-scene .mu{fill:var(--muted,#3A5270)}
+.sk-scene .g{fill:var(--gold,#D4A847)}.sk-scene .t{fill:var(--teal-lt,#2DD4BF)}.sk-scene .p{fill:var(--purple,#9B72F5)}
+.sk-scene .ok{fill:var(--green,#22C55E)}.sk-scene .r{fill:var(--red,#EF4444)}
+.sk-scene .w{fill:var(--warn,#F59E0B)}.sk-scene .bl{fill:var(--blue,#60A5FA)}
+.sk-scene .xs{font-size:10.5px}.sk-scene .sm{font-size:12px}.sk-scene .md{font-size:14px}.sk-scene .lg{font-size:17px}.sk-scene .xl{font-size:21px}
+.sk-scene .u{letter-spacing:.14em;text-transform:uppercase}
+.sk-scene a{cursor:pointer}
+.sk-scene a:focus{outline:none}
+.sk-scene a:hover .sk-hit,.sk-scene a:focus-visible .sk-hit{stroke:var(--teal-lt,#2DD4BF);stroke-width:2}
+.sk-scene .sk-pop{transform-box:fill-box;transform-origin:center}
+.sk-travel{opacity:0}
+.sk-js .sk-scene .sk-draw{stroke-dasharray:var(--len,100);stroke-dashoffset:var(--len,100)}
+.sk-js .sk-scene .sk-fade,.sk-js .sk-scene .sk-pop,.sk-js .sk-scene .sk-slide,.sk-js .sk-scene .sk-strike{opacity:0}
+.sk-js .sk-scene.sk-play .sk-draw{animation:sk-draw .9s ease-out forwards var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-fade{animation:sk-fade .6s ease-out forwards var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-pop{animation:sk-pop .5s cubic-bezier(.2,1.4,.4,1) forwards var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-slide{animation:sk-slide .7s ease-out forwards var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-pulse{animation:sk-pulse 2.2s ease-in-out 2 var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-travel{animation:sk-travel var(--dur,2.6s) linear 1 var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-strike{animation:sk-fade .4s ease-out forwards var(--d,0s)}
+@keyframes sk-draw{to{stroke-dashoffset:0}}
+@keyframes sk-fade{to{opacity:1}}
+@keyframes sk-pop{0%{opacity:0;transform:scale(.55)}100%{opacity:1;transform:scale(1)}}
+@keyframes sk-slide{from{opacity:0;transform:translate(var(--dx,0px),var(--dy,8px))}to{opacity:1;transform:translate(0,0)}}
+@keyframes sk-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes sk-travel{0%{opacity:0;transform:translate(0,0)}8%{opacity:1}88%{opacity:1}100%{opacity:0;transform:translate(var(--tx,0px),var(--ty,0px))}}
+@media print,(prefers-reduced-motion:reduce){
+  .sk-js .sk-scene *{animation:none!important}
+  .sk-js .sk-scene .sk-fade,.sk-js .sk-scene .sk-pop,.sk-js .sk-scene .sk-slide,.sk-js .sk-scene .sk-strike{opacity:1!important;transform:none!important}
+  .sk-js .sk-scene .sk-draw{stroke-dashoffset:0!important}
+  .sk-travel{opacity:0!important}
+}
+/* SCENE-KIT:v1:END */
+/* EXPLAINER-KIT:v1:START */
+/* EXPLAINER-KIT:v1 (scripts/lib/explainer-kit.mjs) */
+:root{
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --blue:#60A5FA; --blue-dim:rgba(96,165,250,.12);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px;word-break:break-word}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--teal-lt);outline-offset:2px}
+.wrap{max-width:1000px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+
+/* hero */
+.hero{padding:3.5rem 0 2.4rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.loop-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(212,168,71,.35);background:var(--gold-dim);border-radius:20px;padding:.15rem .6rem}
+.hero h1{font-size:clamp(1.9rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero p{font-size:1rem;color:var(--body);max-width:760px;line-height:1.9}
+.hero-actions{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin:1.5rem 0 .4rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.06em;border-radius:var(--radius);padding:.5rem .95rem;cursor:pointer;border:1px solid var(--border-2);background:var(--bg-2);color:var(--text)}
+.btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.btn-primary{background:var(--gold);color:#080E1A;border-color:var(--gold);font-weight:600}
+.btn-primary:hover{opacity:.88;color:#080E1A}
+.hint{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body)}
+.stair-map{margin:1.2rem 0 .4rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow-x:auto}
+.stair-map svg{display:block;width:100%;height:auto;min-width:640px}
+.stair-bar{cursor:pointer}
+.stair-bar rect{transition:fill .2s,stroke .2s}
+.stair-bar:hover rect,.stair-bar:focus rect{stroke:var(--white)}
+.thesis{margin-top:1.4rem;padding:1rem 1.3rem;background:var(--teal-dim);border-left:3px solid var(--teal);border-radius:0 var(--radius) var(--radius) 0;font-size:.95rem;color:var(--bright)}
+
+/* parts */
+.part-head{padding:3rem 0 .6rem;border-bottom:1px solid var(--border)}
+.part-head .kicker{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.part-head h2{font-size:clamp(1.4rem,2.8vw,2rem);color:var(--white)}
+.part-head p{color:var(--body);max-width:740px;margin:.6rem 0 1.2rem}
+
+/* panels */
+.panel{padding:2.6rem 0;border-bottom:1px solid var(--border)}
+.panel-head{display:flex;align-items:baseline;gap:.9rem;margin-bottom:.4rem;flex-wrap:wrap}
+.stage-n{font-family:'JetBrains Mono',monospace;font-size:.9rem;color:var(--teal-lt);border:1px solid rgba(20,184,166,.35);border-radius:50%;width:2.2rem;height:2.2rem;display:flex;align-items:center;justify-content:center;flex:none}
+.panel.ex .stage-n{color:var(--gold);border-color:rgba(212,168,71,.4)}
+.panel h2{font-size:clamp(1.25rem,2.4vw,1.7rem);color:var(--white)}
+.panel h3{font-size:1.05rem;color:var(--bright);margin:1.5rem 0 .5rem}
+.panel .kicker{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.panel p{color:var(--body);max-width:760px;margin:.9rem 0}
+.panel .lede{color:var(--text)}
+.scene-wrap{position:relative;margin:1.2rem 0}
+.scene-scroll{max-width:100%;overflow-x:auto;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.scene-scroll svg{display:block;width:100%;height:auto;min-width:640px}
+.replay{position:absolute;top:8px;right:8px;z-index:2;font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);border-radius:20px;padding:.2rem .6rem;cursor:pointer}
+.replay:hover{color:var(--teal-lt);border-color:var(--teal)}
+.cite{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.04em;padding:.15rem .55rem;border-radius:12px;background:var(--bg-3);color:var(--teal-lt);border:1px solid var(--border-2);margin:.15rem .25rem .15rem 0}
+.cites{margin-top:.8rem}
+
+/* prompts */
+.prompt{margin:1.2rem 0;background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:0 var(--radius) var(--radius) 0;max-width:860px}
+.prompt-head{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.5rem .9rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--purple)}
+.prompt-head .lvl{color:var(--body);letter-spacing:.08em}
+.prompt pre{margin:0;padding:.8rem .95rem;font-family:'JetBrains Mono',monospace;font-size:.74rem;line-height:1.7;color:var(--bright);white-space:pre-wrap;word-break:break-word}
+.prompt.long pre{max-height:360px;overflow:auto}
+.copy{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;background:transparent;border:1px solid var(--border-2);color:var(--body);border-radius:20px;padding:.18rem .6rem;cursor:pointer}
+.copy:hover{border-color:var(--purple);color:var(--purple)}
+.answer{padding:.55rem .95rem;border-top:1px dashed var(--border);font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--body);line-height:1.7}
+.answer{overflow-wrap:anywhere}
+.answer .hl{color:var(--gold);word-break:break-all}
+.cite{max-width:100%;overflow-wrap:anywhere}
+.checks{list-style:none;margin:1.2rem 0;padding:0;counter-reset:chk}
+.checks li{position:relative;padding:.8rem 1rem .8rem 3rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;font-size:.88rem;color:var(--text);counter-increment:chk}
+.checks li::before{content:counter(chk);position:absolute;left:.9rem;top:.8rem;width:1.5rem;height:1.5rem;border-radius:50%;border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.72rem;display:flex;align-items:center;justify-content:center}
+
+/* run tables */
+.runs{width:100%;border-collapse:collapse;margin:1.1rem 0;font-size:.8rem}
+.runs th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;color:var(--body);padding:.5rem .6rem;border-bottom:1px solid var(--border)}
+.runs td{padding:.55rem .6rem;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text)}
+.runs td.m{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--gold);word-break:break-all}
+.runs-scroll{overflow-x:auto}
+.v{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.08rem .45rem;border-radius:10px;white-space:nowrap}
+.v-ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.35)}
+.v-no{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.35)}
+.v-esc{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.35)}
+
+/* cards */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:1.4rem 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.2rem}
+.card h3{font-size:1.02rem;color:var(--bright);margin:0 0 .4rem;font-family:'DM Serif Display',serif}
+.card p{font-size:.85rem;color:var(--body);margin:0}
+.claim-card{border-left:3px solid var(--gold)}
+.map{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.82rem}
+.map th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--body);padding:.55rem .7rem;border-bottom:1px solid var(--border-2)}
+.map td{padding:.6rem .7rem;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text)}
+.map td:first-child{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--gold);white-space:nowrap}
+.note{background:var(--green-dim);border-left:3px solid var(--green);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.88rem;color:var(--text)}
+.warn-note{background:var(--gold-dim);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.88rem;color:var(--text)}
+.cross-link{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--body);background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;line-height:1.9;margin:1.4rem auto;max-width:1000px}
+.cross-link a{color:var(--gold)}
+.pii{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;font-size:.78rem;color:var(--body);margin:2rem auto;max-width:1000px;font-family:'JetBrains Mono',monospace}
+.dl-row{display:flex;gap:.6rem;flex-wrap:wrap;margin:.8rem 0}
+
+/* presenter mode */
+.pbar{display:none}
+body.present{overflow:hidden}
+body.present nav,body.present header.hero,body.present .part-head,body.present footer,body.present .pii,body.present .detail,body.present .replay{display:none!important}
+body.present .panel{display:none;border:0;padding:0}
+body.present .panel.current{display:flex;flex-direction:column;height:100vh;padding:1rem 0 5.2rem;overflow-y:auto}
+body.present .panel.current .wrap{max-width:min(1360px,96vw);width:100%;margin:auto}
+body.present .panel h2{font-size:clamp(1.25rem,2.4vw,1.8rem)}
+body.present .panel p.lede{max-width:none;font-size:.95rem;line-height:1.65;margin:.4rem 0}
+body.present .scene-wrap{margin:.6rem 0}
+body.present .scene-scroll svg{max-height:calc(100vh - 23rem);min-width:0}
+body.present .prompt{max-width:none;margin:.6rem 0}
+body.present .prompt pre{max-height:15vh;overflow:auto;font-size:.72rem}
+body.present .prompt.long pre{max-height:15vh}
+body.present .runs-scroll{max-height:24vh;overflow:auto}
+body.present .pbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:300;align-items:center;gap:.7rem;padding:.45rem 1rem;background:rgba(8,14,26,.94);border-top:1px solid var(--border);backdrop-filter:blur(8px)}
+.pbar .rail{flex:1;min-width:0}
+.pbar .rail svg{display:block;width:100%;height:46px}
+.pbar .count{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--body);min-width:4.5rem;text-align:center}
+.pbar .btn{padding:.35rem .7rem}
+.pbar .btn[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+
+@media(max-width:680px){.grid{grid-template-columns:1fr}.wrap{padding:0 1rem}.hero{padding:2.4rem 0 1.8rem}.map td:first-child{white-space:normal}}
+/* Phone widths: keep the shared nav inside the viewport (page-local; the canonical chrome block is untouched). */
+@media(max-width:760px){.nav-breadcrumb span:last-child,.nav-breadcrumb span:nth-last-child(2){display:none}}
+@media(max-width:480px){nav .nav-breadcrumb{display:none}}
+@media print,(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+}
+/* EXPLAINER-KIT:v1:END */
+</style>
+<!-- SCENE-KIT-JS:v1:START -->
+<script>(function(){var d=document.documentElement;try{if(!('IntersectionObserver' in window))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;d.classList.add('sk-js');document.addEventListener('DOMContentLoaded',function(){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('sk-play');io.unobserve(e.target);}});},{threshold:0.2});Array.prototype.forEach.call(document.querySelectorAll('svg.sk-scene'),function(s){io.observe(s);});});}catch(e){d.classList.remove('sk-js');}})();</script>
+<!-- SCENE-KIT-JS:v1:END -->
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">Proof coverage and what deferred means · OpenChainGraph Explainer</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">OpenChainGraph &middot; Explainer <span class="loop-pill">Six steps in two parts</span></div>
+  <h1>Proof coverage and what deferred means</h1>
+  <p>Every workflow in the OpenChainGraph catalog can carry a zkVM receipt that proves its kernel computed the answer it published. This page walks the profile that asks for such a receipt on every deterministic node, the share of the live graph that carries one today, and the flag a node declares while it waits for its proving turn. Every number on this page was read against the repository at commit <code>2ab9097fcf3c</code> on 5 October 2026, and each panel names the command that re-derives it.</p>
+  <div class="hero-actions">
+    <button type="button" class="btn btn-primary" id="btnPresent">Present this page</button>
+    <span class="hint">Presenter mode shows one step per screen. Arrow keys move, A toggles autoplay, Esc exits.</span>
+  </div>
+  <div class="stair-map" role="navigation" aria-label="Map of every step on this page">
+    <svg id="stairMap" viewBox="0 0 1000 260" aria-hidden="false" role="list"></svg>
+  </div>
+  <div class="thesis">Of <!--COUNT:zk.provenTotal-->670<!--/COUNT--> live nodes, <!--COUNT:zk.provenNodes-->667<!--/COUNT--> carry a verifying receipt. On 5 October 2026, 4 declared a stated deferral. A deferral is a published, reasoned parking space. The count rises only when a brand-new node lands with its deferral declared, and it never rises for a node that was already proven.</div>
+</div></header>
+
+<div class="part-head"><div class="wrap">
+  <div class="kicker">Part one &middot; The claim and the count</div>
+  <h2>From an optional proof to a published coverage figure</h2>
+  <p>Three steps: where a compute proof sits among the verification layers, the profile that asks for one across the deterministic estate, and the split the coverage gate prints today.</p>
+</div></div>
+
+<!-- STEP 1: THREE RUNGS -->
+<section class="panel" id="s-rungs" data-stair="The three rungs" data-part="1"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">1</span><div><div class="kicker">Step 1 &middot; The three rungs</div><h2>What the three rungs establish</h2></div></div>
+  <p class="lede">An artifact carries an <code>execution_hash</code>, and anyone holding the inputs can recompute it: that is tamper evidence (SPEC.md &sect;4). A Data Integrity proof from a named key adds authorship, so a verifier knows which publisher stands behind the bytes (&sect;16). A compute-integrity proof adds the third rung: a succinct zkVM receipt that the kernel computed this output, checkable without re-running anything, optionally without seeing the inputs (&sect;18). The receipt is optional at the base-standard level, exactly like the signature beneath it.</p>
+  <div class="scene-wrap"><button type="button" class="replay" data-replay>Replay</button><div class="scene-scroll"><svg class="sk-scene" viewBox="0 0 960 220" role="img" aria-label="An artifact card gains three rungs in turn: a recomputed hash that catches edits, a named key that vouches for the bytes, and a zkVM receipt that proves the kernel computed the output.">
+    <g class="sk-fade" style="--d:.1s"><rect x="40" y="60" width="180" height="96" rx="10" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.4"/><text x="130" y="102" text-anchor="middle" class="b sm">the artifact</text><text x="130" y="128" text-anchor="middle" class="m s xs">execution_hash</text></g>
+    <path class="sk-draw" d="M228 108 H318" stroke="var(--muted)" stroke-width="1.6" fill="none" style="--len:90;--d:.6s"/>
+    <g class="sk-pop" style="--d:1.1s"><rect x="326" y="60" width="180" height="96" rx="10" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.4"/><text x="416" y="96" text-anchor="middle" class="t sm">recompute</text><text x="416" y="118" text-anchor="middle" class="s xs">the bytes agree</text><text x="416" y="140" text-anchor="middle" class="mu xs">SPEC &sect;4</text></g>
+    <path class="sk-draw" d="M514 108 H604" stroke="var(--muted)" stroke-width="1.6" fill="none" style="--len:90;--d:1.7s"/>
+    <g class="sk-pop" style="--d:2.2s"><rect x="612" y="60" width="150" height="96" rx="10" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.4"/><text x="687" y="96" text-anchor="middle" class="g sm">a named key</text><text x="687" y="118" text-anchor="middle" class="s xs">vouches for it</text><text x="687" y="140" text-anchor="middle" class="mu xs">SPEC &sect;16</text></g>
+    <path class="sk-draw" d="M770 108 H838" stroke="var(--muted)" stroke-width="1.6" fill="none" style="--len:68;--d:2.8s"/>
+    <g class="sk-pop" style="--d:3.3s"><rect x="846" y="60" width="92" height="96" rx="10" fill="var(--purple-dim)" stroke="var(--purple)" stroke-width="1.4"/><text x="892" y="96" text-anchor="middle" class="p sm">a</text><text x="892" y="114" text-anchor="middle" class="p sm">receipt</text><text x="892" y="140" text-anchor="middle" class="mu xs">SPEC &sect;18</text></g>
+    <g class="sk-fade" style="--d:3.9s"><text x="480" y="200" text-anchor="middle" class="mu xs">hash: tamper evidence &middot; key: authorship &middot; receipt: computed as claimed</text></g>
+  </svg></div></div>
+  <p class="detail">One recipe binds the three rungs together: the same JCS canonicalization (RFC 8785) feeds the artifact hash, the signature input, and the journal bytes the receipt commits to. The deep dive on this estate, <a href="zkvm-compute-integrity.html">Proving It Ran</a>, follows one real receipt from the kernel that produced it to the pairing check that verifies it.</p>
+  <div class="cites"><span class="cite">SPEC.md &sect;4</span><span class="cite">SPEC.md &sect;16</span><span class="cite">SPEC.md &sect;18</span><span class="cite">zkvm-compute-integrity.html</span></div>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>Name the three verification rungs an OpenChainGraph artifact can carry, what each one establishes, and which of the three is optional in the base standard.</pre></div>
+</div></section>
+
+<!-- STEP 2: THE PROFILE -->
+<section class="panel" id="s-profile" data-stair="The profile" data-part="1"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">2</span><div><div class="kicker">Step 2 &middot; The profile</div><h2>The profile that asks for a receipt on every deterministic node</h2></div></div>
+  <p class="lede">An optional proof is a weak promise: a verifier who needs the receipt never knows whether this particular node carries one. SPEC.md &sect;18.6 closes that with a named conformance profile, <code>ocg-p18-deterministic</code>. Under it, every live node whose kernel is small and deterministic (the catalog's <code>gpu:false</code> flag) MUST do one of two things: attach a well-formed receipt whose journal commits exactly the node's own output, or declare <code>compute_proof_ready:"deferred"</code> alongside a stated <code>deferred_reason</code>. A node doing neither fails the profile. Heavy parallel compute (the 15 <code>gpu:true</code> nodes) sits outside the profile, because proving a Monte-Carlo loop in a zkVM guest costs more than the answer is worth; such a node may still attach a receipt voluntarily, and today every one of them does.</p>
+  <div class="scene-wrap"><button type="button" class="replay" data-replay>Replay</button><div class="scene-scroll"><svg class="sk-scene" viewBox="0 0 960 230" role="img" aria-label="The live graph splits into two groups: 654 deterministic nodes inside the proof profile, each proven or explicitly deferred, and 15 heavy compute nodes outside the profile that carry receipts anyway.">
+    <g class="sk-fade" style="--d:.1s"><text x="60" y="34" text-anchor="start" class="h sm">the live graph</text><rect x="40" y="52" width="880" height="150" rx="12" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.4"/></g>
+    <g class="sk-pop" style="--d:.9s"><rect x="64" y="76" width="600" height="102" rx="10" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.5"/><text x="364" y="108" text-anchor="middle" class="t sm">deterministic nodes: 654</text><text x="364" y="132" text-anchor="middle" class="s xs">inside the profile: carry a receipt or declare deferred</text><text x="364" y="156" text-anchor="middle" class="m s xs">650 proven &middot; 4 deferred</text></g>
+    <g class="sk-pop" style="--d:2.0s"><rect x="688" y="76" width="208" height="102" rx="10" fill="var(--purple-dim)" stroke="var(--purple)" stroke-width="1.5"/><text x="792" y="108" text-anchor="middle" class="p sm">heavy compute: 15</text><text x="792" y="132" text-anchor="middle" class="s xs">outside the profile</text><text x="792" y="156" text-anchor="middle" class="s xs">all 15 carry receipts anyway</text></g>
+    <g class="sk-fade" style="--d:3.0s"><text x="480" y="248" text-anchor="middle" class="mu xs">gpu:false is the profile's determinism and cost boundary (SPEC &sect;18.6)</text></g>
+  </svg></div></div>
+  <p class="detail">The flag the profile keys on already had a job: <code>gpu:false</code> marks a kernel that runs as a small deterministic server compute, the same signal the kernel-coverage gate reads. The profile introduces no new taxonomy; it borrows the boundary the catalog publishes and turns it into a proof obligation with an explicit exit.</p>
+  <div class="cites"><span class="cite">SPEC.md &sect;18.6 profile ocg-p18-deterministic</span><span class="cite">SPEC.md &sect;18.2 proving is off-band</span></div>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>State what the ocg-p18-deterministic profile requires of every live gpu:false node, which nodes fall outside it, and the two states a conforming node can be in.</pre></div>
+</div></section>
+
+<!-- STEP 3: THE COUNT -->
+<section class="panel" id="s-count" data-stair="The count" data-part="1"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">3</span><div><div class="kicker">Step 3 &middot; The count</div><h2>What the graph shows today</h2></div></div>
+  <p class="lede">Read at commit <code>2ab9097fcf3c</code> on 5 October 2026: 669 live nodes, 665 of them ZK-proven, meaning each carries a real zkVM receipt over its own kernel output that anyone can verify offline. The deterministic profile covers 654 of the live nodes: 650 proven and 4 deferred, with 0 nodes in neither state. That puts whole-graph coverage at <!--COUNT:zk.provenPct-->99<!--/COUNT--> percent, and the figure is derived from <code>chaingraph.json</code> on every build, so it moves only when the graph does. The long-form page that carries the live-updating figure is <a href="zkvm-compute-integrity.html">Proving It Ran</a>.</p>
+  <div class="scene-wrap"><button type="button" class="replay" data-replay>Replay</button><div class="scene-scroll"><svg class="sk-scene" viewBox="0 0 960 210" role="img" aria-label="A bar of 669 live nodes fills: 650 teal proven deterministic nodes, then 4 gold deferred nodes at the end of the deterministic block, then 15 purple heavy-compute nodes that also carry receipts.">
+    <g class="sk-fade" style="--d:.1s"><text x="60" y="36" text-anchor="start" class="h sm"><!--COUNT:zk.provenTotal-->670<!--/COUNT--> live nodes</text></g>
+    <g class="sk-slide" style="--d:.5s"><rect x="60" y="56" width="820" height="52" rx="8" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.4"/><text x="470" y="88" text-anchor="middle" class="t sm">650 deterministic nodes with a verifying receipt</text></g>
+    <g class="sk-pop" style="--d:1.6s"><rect x="884" y="56" width="36" height="52" rx="6" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.4"/><text x="902" y="128" text-anchor="middle" class="g xs">4 deferred</text></g>
+    <g class="sk-pop" style="--d:2.4s"><rect x="60" y="150" width="60" height="34" rx="6" fill="var(--purple-dim)" stroke="var(--purple)" stroke-width="1.4"/><text x="132" y="172" text-anchor="start" class="s xs">15 heavy nodes, receipts attached</text></g>
+    <g class="sk-fade" style="--d:3.2s"><text x="480" y="204" text-anchor="middle" class="mu xs"><!--COUNT:zk.provenNodes-->667<!--/COUNT--> of <!--COUNT:zk.provenTotal-->670<!--/COUNT--> proven: no node sits in neither state</text></g>
+  </svg></div></div>
+  <p class="detail">Re-derive the split yourself from the published catalog; the gate prints one line and exits green when the profile holds (output read at commit <code>2ab9097fcf3c</code> on 5 October 2026):</p>
+  <div class="prompt"><div class="prompt-head"><span>The command behind the numbers</span><span class="lvl">read-only</span></div><pre>$ node scripts/check-compute-proof-coverage.mjs --summary
+§18 compute-proof coverage — gpu:false live: 654 | proven: 650 | deferred: 4 | missing: 0   (gpu:true out-of-scope: 15)</pre></div>
+  <div class="cites"><span class="cite">chaingraph.json read at 2ab9097fcf3c, 5 Oct 2026</span><span class="cite">check-compute-proof-coverage.mjs summary</span><span class="cite">zkvm-compute-integrity.html carries the live figure</span></div>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>Run the §18 coverage summary against the current main of PostOakLabs/ainumbers and report the proven, deferred and missing counts for gpu:false live nodes, with today's date.</pre></div>
+</div></section>
+
+<div class="part-head"><div class="wrap">
+  <div class="kicker">Part two &middot; Reading the deferred column</div>
+  <h2>How a deferral stays honest</h2>
+  <p>Three steps: the two members a deferral publishes, the four nodes currently in that state, and the ratchet that blocks silent regressions plus the commands that let you check all of it.</p>
+</div></div>
+
+<!-- STEP 4: DEFERRED -->
+<section class="panel" id="s-deferred" data-stair="What deferred means" data-part="2"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">4</span><div><div class="kicker">Step 4 &middot; What deferred means</div><h2>A deferral is a stated reason on the record</h2></div></div>
+  <p class="lede">Proving a kernel means running it inside a zkVM guest and sealing a receipt, which happens offline with a dedicated toolchain (SPEC.md &sect;18.2). That work is queued rather than instant, so a deferral is the profile's declared parking state: the node sets <code>compute_proof_ready:"deferred"</code> and publishes a <code>deferred_reason</code> that says what is true about this particular node. The gate reads both members, and a reason that is empty or a placeholder (the literal word <code>deferred</code>, <code>todo</code>, a dash) fails the check, because the state is only meaningful while the reason is real.</p>
+  <div class="scene-wrap"><button type="button" class="replay" data-replay>Replay</button><div class="scene-scroll"><svg class="sk-scene" viewBox="0 0 960 220" role="img" aria-label="A node card receives a deferred flag plus a reason line, and the gate accepts it. A second card with a placeholder reason is struck out and rejected by the gate.">
+    <g class="sk-fade" style="--d:.1s"><rect x="40" y="56" width="380" height="128" rx="10" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.4"/><text x="60" y="86" text-anchor="start" class="m b xs">mcp_name: find_runway_goal_path</text><text x="60" y="112" text-anchor="start" class="m g xs">compute_proof_ready: "deferred"</text><text x="60" y="138" text-anchor="start" class="s xs">deferred_reason: "integer-only grid search,</text><text x="60" y="158" text-anchor="start" class="s xs">queued for the proving pipeline"</text></g>
+    <path class="sk-draw" d="M428 120 H538" stroke="var(--muted)" stroke-width="1.6" fill="none" style="--len:110;--d:.8s"/>
+    <g class="sk-pop" style="--d:1.5s"><rect x="546" y="66" width="180" height="108" rx="10" fill="var(--green-dim)" stroke="var(--green)" stroke-width="1.4"/><text x="636" y="112" text-anchor="middle" class="ok sm">accepted</text><text x="636" y="138" text-anchor="middle" class="s xs">reason on the record</text></g>
+    <g class="sk-pop" style="--d:2.4s"><rect x="546" y="66" width="180" height="108" rx="10" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.4" opacity="0"/><text x="636" y="112" text-anchor="middle" class="r sm" opacity="0">rejected</text></g>
+    <g class="sk-strike" style="--d:2.6s"><rect x="546" y="66" width="180" height="108" rx="10" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.4"/><text x="636" y="106" text-anchor="middle" class="r sm">rejected</text><text x="636" y="132" text-anchor="middle" class="s xs">reason: "todo"</text><text x="636" y="156" text-anchor="middle" class="r xs">placeholder fails the gate</text></g>
+    <g class="sk-fade" style="--d:3.4s"><text x="480" y="208" text-anchor="middle" class="mu xs">the state is only as good as the stated reason beside it</text></g>
+  </svg></div></div>
+  <table class="map">
+    <tr><th>Node (all four deferred today)</th><th>What it computes, and why it waits</th></tr>
+    <tr><td>match_invoice_three_way</td><td>three-way invoice match over integer arithmetic; shipped 1 Oct 2026 with its deferral declared and entered the proving queue</td></tr>
+    <tr><td>find_runway_goal_path</td><td>bounded grid search for a cash-runway path; shipped 2 Oct 2026 the same way</td></tr>
+    <tr><td>estimate_ai_token_spend</td><td>token-spend pricing over dated vendor price snapshots; shipped 4 Oct 2026 the same way</td></tr>
+    <tr><td>recompute_x402_permit2_digest</td><td>x402 permit digest recomputation; its measured guest cycle count is on record for the proving run to book against</td></tr>
+  </table>
+  <p class="detail">The pattern behind all four is the estate's stated order of operations for a new deterministic node: build it, land it with the deferral and its reason declared, review it beside the standard, then run the proving job. Nothing on the list is blocked by principle; each entry is queue position. The names come from the gate's own listing, so the table re-levels itself whenever a proof lands: run the command in step 6 and the deferred column shrinks in public.</p>
+  <div class="cites"><span class="cite">SPEC.md &sect;18.6(b)</span><span class="cite">check-compute-proof-coverage.mjs deferred listing</span><span class="cite">deferred_reason fields read at 2ab9097fcf3c</span></div>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>List every live gpu:false node currently marked compute_proof_ready:"deferred" in chaingraph.json, and for each one quote its deferred_reason in one sentence.</pre></div>
+</div></section>
+
+<!-- STEP 5: THE RATCHET -->
+<section class="panel" id="s-ratchet" data-stair="The ratchet" data-part="2"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">5</span><div><div class="kicker">Step 5 &middot; The ratchet</div><h2>The ceiling cannot rise silently</h2></div></div>
+  <p class="lede">A ceiling that can drift upward silently protects nothing, so the deferred count is held by a ratchet: <code>scripts/compute-proof-baseline.json</code> pins the allowed maximum (4 as of the same 5 October 2026 read), and the gate fails if the live count ever rises above the pin. A pull request that adds a new node may raise the pin by that node alone, in the open, and no other way exists to raise it. Two further checks close the quiet routes back. The provenance discriminator keeps a baseline rewrite from absorbing a regression: a node newly appearing in the deferred set that was already known at the last pin is named as a proof regression and blocks the rewrite. And the whole gate is wired into preflight and deploy CI, so the split is re-checked on the path to production rather than on demand.</p>
+  <div class="scene-wrap"><button type="button" class="replay" data-replay>Replay</button><div class="scene-scroll"><svg class="sk-scene" viewBox="0 0 960 210" role="img" aria-label="A bar chart of the deferred count over time: a tall bar at 52 in mid-July, a flat bar at zero on 18 September, and a small bar at 4 today under a ceiling line pinned at 4, with a note that the endgame is zero.">
+    <g class="sk-fade" style="--d:.1s"><text x="60" y="34" text-anchor="start" class="h sm">deferred deterministic nodes over time</text></g>
+    <g class="sk-pop" style="--d:.5s"><rect x="80" y="60" width="150" height="104" rx="6" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.2"/><text x="155" y="116" text-anchor="middle" class="s xs">52</text><text x="155" y="182" text-anchor="middle" class="mu xs">mid-July peak</text></g>
+    <g class="sk-pop" style="--d:1.2s"><rect x="280" y="160" width="150" height="4" rx="2" fill="var(--green)" stroke="var(--green)" stroke-width="1"/><text x="355" y="148" text-anchor="middle" class="ok xs">0</text><text x="355" y="182" text-anchor="middle" class="mu xs">18 September</text></g>
+    <g class="sk-pop" style="--d:1.9s"><rect x="480" y="144" width="150" height="20" rx="6" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.4"/><text x="555" y="138" text-anchor="middle" class="g xs">4 today</text></g>
+    <g class="sk-slide" style="--d:2.6s"><rect x="480" y="136" width="380" height="3" fill="var(--gold)"/><text x="860" y="128" text-anchor="end" class="g xs">baseline ceiling: 4 on 5 October 2026</text></g>
+    <g class="sk-fade" style="--d:3.4s"><text x="480" y="206" text-anchor="middle" class="mu xs">new nodes enter the column and the proving queue clears them; endgame: ceiling at zero</text></g>
+  </svg></div></div>
+  <p class="detail">The count has already made the full walk once: the pinned ceiling peaked at 52 deferred nodes in mid-July 2026, and the proving queue took it to zero on 18 September 2026. The four today are the October arrivals described in step 4, each a brand-new node landing with its deferral declared. The profile's own endgame, written into SPEC.md &sect;18.6, is a ceiling of zero.</p>
+  <div class="cites"><span class="cite">scripts/compute-proof-baseline.json</span><span class="cite">SPEC.md &sect;18.6 ratchet + provenance discriminator</span><span class="cite">preflight + deploy CI wiring</span></div>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>Explain the three controls that keep the §18 deferred count from rising: the pinned ceiling, the provenance discriminator on baseline rewrites, and the CI wiring.</pre></div>
+</div></section>
+
+<!-- STEP 6: CHECK IT -->
+<section class="panel" id="s-check" data-stair="Check it yourself" data-part="2"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">6</span><div><div class="kicker">Step 6 &middot; Check it yourself</div><h2>Three commands that re-check the page</h2></div></div>
+  <p class="lede">Everything this page claims is re-derivable from the public catalog in under a minute. The summary prints the split; the listing names the deferred set; the strict gate checks the profile and its ratchet. All three are read-only over <code>chaingraph.json</code>, which is published at <a href="chaingraph.json">ainumbers.co/chaingraph/chaingraph.json</a>.</p>
+  <div class="prompt"><div class="prompt-head"><span>Run all three</span><span class="lvl">read-only</span></div><pre>$ node scripts/check-compute-proof-coverage.mjs --summary
+$ node scripts/check-compute-proof-coverage.mjs --list-deferred
+$ node scripts/check-compute-proof-coverage.mjs</pre></div>
+  <p class="detail">A green strict run prints one line: every in-scope node proven, the deferred count at or under the pinned ceiling, and the heavy nodes reported informationally. Where the numbers go next is the proving queue's business; the gate's job is to make sure the graph never quietly stops matching the receipt column. For the receipt side itself, from guest program to pairing check, continue with <a href="zkvm-compute-integrity.html">Proving It Ran</a>, and for the signature layer beneath it, <a href="keys-revocation-explainer.html">Signatures and key retirement</a>.</p>
+  <div class="cites"><span class="cite">scripts/check-compute-proof-coverage.mjs</span><span class="cite">ainumbers.co/chaingraph/chaingraph.json</span></div>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>Verify against today's main of PostOakLabs/ainumbers that the deferred set is exactly the four nodes named on the proof coverage page, and report any difference.</pre></div>
+</div></section>
+
+<div class="cross-link">Related on this estate: <a href="zkvm-compute-integrity.html">the compute-integrity deep dive</a> &middot; <a href="../groth16-explainer.html">how a Groth16 receipt is made</a> &middot; <a href="keys-revocation-explainer.html">signatures and key retirement</a> &middot; <a href="kernel-vm-explainer.html">how the kernel VM works</a> &middot; <a href="conformance-explainer.html">what conformance means</a></div>
+
+<div class="pii">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+<div class="pbar" id="pbar" role="toolbar" aria-label="Presenter controls">
+  <button type="button" class="btn" id="pPrev" aria-label="Previous step">&#8592;</button>
+  <span class="count" id="pCount">1 / 1</span>
+  <button type="button" class="btn" id="pNext" aria-label="Next step">&#8594;</button>
+  <div class="rail"><svg id="pRail" viewBox="0 0 1000 60" preserveAspectRatio="none" aria-hidden="true"></svg></div>
+  <button type="button" class="btn" id="pAuto" aria-pressed="false">Autoplay</button>
+  <button type="button" class="btn" id="pExit">Exit</button>
+</div>
+
+<!-- EXPLAINER-KIT-JS:v1:START -->
+<script>
+/* EXPLAINER-KIT:v1 (scripts/lib/explainer-kit.mjs) */
+(function () {
+  'use strict';
+  var reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var body = document.body;
+  var panels = Array.prototype.slice.call(document.querySelectorAll('section.panel[data-stair]'));
+  var HEX = '0123456789abcdef';
+  function byId(id) { return document.getElementById(id); }
+  function on(id, ev, fn) { var n = byId(id); if (n) n.addEventListener(ev, fn); }
+
+  // Scramble a hash label, then settle on its real value (skipped under reduced motion).
+  function rollHashes(scene) {
+    Array.prototype.forEach.call(scene.querySelectorAll('[data-roll]'), function (el) {
+      var fin = el.getAttribute('data-roll');
+      if (reduce) { el.textContent = fin; return; }
+      var delay = parseFloat(el.getAttribute('data-roll-delay') || '0') * 1000;
+      var dur = 900, t0 = null;
+      function frame(t) {
+        if (t0 === null) t0 = t;
+        var e = t - t0 - delay;
+        if (e < 0) { requestAnimationFrame(frame); return; }
+        if (e >= dur) { el.textContent = fin; return; }
+        var keep = Math.floor(fin.length * (e / dur)), out = fin.slice(0, keep);
+        for (var i = keep; i < fin.length; i++) {
+          var c = fin.charAt(i);
+          out += /[0-9a-f]/.test(c) ? HEX.charAt(Math.floor(Math.random() * 16)) : c;
+        }
+        el.textContent = out;
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  // Start a scene that has not run yet. The scene kit's own head script marks
+  // scenes sk-play on scroll, so this only has to cover the hash roll.
+  function reveal(scene) {
+    scene.classList.add('sk-play');
+    rollHashes(scene);
+  }
+
+  // Restart every animation in a scene: drop sk-play, force a reflow so the
+  // start states apply again, then put it back.
+  function play(scene) {
+    scene.classList.remove('sk-play');
+    void scene.getBoundingClientRect();
+    reveal(scene);
+  }
+
+  var scenes = Array.prototype.slice.call(document.querySelectorAll('svg.sk-scene'));
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting && !body.classList.contains('present')) { reveal(e.target); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.25 });
+    scenes.forEach(function (s) { io.observe(s); });
+  } else {
+    scenes.forEach(reveal);
+  }
+
+  // Staircase drawing, shared by the hero map and the presenter rail.
+  var PART_FILL = { '1': 'var(--teal-dim)', '2': 'var(--gold-dim)', '3': 'var(--purple-dim)' };
+  var PART_STROKE = { '1': 'var(--teal)', '2': 'var(--gold)', '3': 'var(--purple)' };
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(name, attrs, text) {
+    var n = document.createElementNS(NS, name);
+    for (var k in attrs) { if (Object.prototype.hasOwnProperty.call(attrs, k)) n.setAttribute(k, attrs[k]); }
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function drawStairs(svg, opts) {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var n = panels.length, W = 1000, H = opts.h, base = H - (opts.pad || 4);
+    var w = W / n, minH = opts.minH, maxH = base - (opts.top || 6);
+    panels.forEach(function (p, i) {
+      var part = p.getAttribute('data-part') || '1';
+      var h = minH + (maxH - minH) * (n > 1 ? i / (n - 1) : 0);
+      var g = el('g', { 'class': 'stair-bar', 'data-i': String(i), tabindex: opts.focusable ? '0' : '-1', role: opts.focusable ? 'listitem' : 'presentation' });
+      if (opts.focusable) g.setAttribute('aria-label', 'Step ' + (i + 1) + ': ' + p.getAttribute('data-stair'));
+      g.appendChild(el('rect', { x: (i * w + 1.5).toFixed(1), y: (base - h).toFixed(1), width: (w - 3).toFixed(1), height: h.toFixed(1), rx: '3', fill: PART_FILL[part], stroke: PART_STROKE[part], 'stroke-width': '1' }));
+      if (opts.labels) {
+        var cx = i * w + w / 2 + 4, ty = base - 8;
+        g.appendChild(el('text', { x: cx.toFixed(1), y: ty.toFixed(1), transform: 'rotate(-90 ' + cx.toFixed(1) + ' ' + ty.toFixed(1) + ')', 'font-family': 'JetBrains Mono, monospace', 'font-size': '11', fill: 'var(--bright)' }, p.getAttribute('data-stair')));
+        g.appendChild(el('text', { x: (i * w + w / 2).toFixed(1), y: (base - h - 6).toFixed(1), 'text-anchor': 'middle', 'font-family': 'JetBrains Mono, monospace', 'font-size': '10', fill: PART_STROKE[part] }, String(i + 1)));
+      }
+      svg.appendChild(g);
+    });
+  }
+  var map = byId('stairMap');
+  var rail = byId('pRail');
+  if (map && panels.length) drawStairs(map, { h: 260, minH: 58, top: 22, pad: 8, labels: true, focusable: true });
+  if (rail && panels.length) drawStairs(rail, { h: 60, minH: 10, top: 4, pad: 2, labels: false, focusable: false });
+
+  // Presenter mode.
+  var cur = 0, auto = null;
+  function paintRail() {
+    Array.prototype.forEach.call(document.querySelectorAll('#pRail .stair-bar rect'), function (r, i) {
+      r.setAttribute('opacity', i === cur ? '1' : (i < cur ? '.75' : '.35'));
+      r.setAttribute('stroke-width', i === cur ? '2.5' : '1');
+    });
+  }
+  function go(i) {
+    if (!panels.length) return;
+    cur = Math.max(0, Math.min(panels.length - 1, i));
+    panels.forEach(function (p, k) { p.classList.toggle('current', k === cur); });
+    var sc = panels[cur].querySelector('svg.sk-scene');
+    if (sc) play(sc);
+    panels[cur].scrollTop = 0;
+    var count = byId('pCount');
+    if (count) count.textContent = (cur + 1) + ' / ' + panels.length;
+    paintRail();
+    try { history.replaceState(null, '', '#' + panels[cur].id); } catch (e) { /* file: URLs */ }
+  }
+  function stopAuto() { if (auto) { clearInterval(auto); auto = null; } var b = byId('pAuto'); if (b) b.setAttribute('aria-pressed', 'false'); }
+  function toggleAuto() {
+    if (auto) { stopAuto(); return; }
+    auto = setInterval(function () { if (cur >= panels.length - 1) { stopAuto(); return; } go(cur + 1); }, 15000);
+    var b = byId('pAuto');
+    if (b) b.setAttribute('aria-pressed', 'true');
+  }
+  function enter(startAt) {
+    if (!panels.length) return;
+    body.classList.add('present');
+    var idx = typeof startAt === 'number' ? startAt : -1;
+    if (idx < 0 && location.hash) { var t = byId(location.hash.slice(1)); idx = panels.indexOf(t); }
+    go(idx >= 0 ? idx : 0);
+    window.scrollTo(0, 0);
+  }
+  function exit() {
+    body.classList.remove('present');
+    stopAuto();
+    panels.forEach(function (p) { p.classList.remove('current'); });
+    if (panels[cur]) panels[cur].scrollIntoView();
+  }
+  on('btnPresent', 'click', function () { enter(); });
+  on('pPrev', 'click', function () { stopAuto(); go(cur - 1); });
+  on('pNext', 'click', function () { stopAuto(); go(cur + 1); });
+  on('pAuto', 'click', toggleAuto);
+  on('pExit', 'click', exit);
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target && e.target.tagName) || '';
+    if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
+    if (!body.classList.contains('present')) {
+      if ((e.key === 'p' || e.key === 'P') && !e.ctrlKey && !e.metaKey && !e.altKey) enter();
+      return;
+    }
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || (e.key === ' ' && !e.shiftKey)) { e.preventDefault(); stopAuto(); go(cur + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp' || (e.key === ' ' && e.shiftKey)) { e.preventDefault(); stopAuto(); go(cur - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(panels.length - 1); }
+    else if (e.key === 'Escape') { exit(); }
+    else if (e.key === 'a' || e.key === 'A') { toggleAuto(); }
+  });
+
+  // Staircase clicks: jump in presenter mode, scroll otherwise.
+  function stairJump(e) {
+    var g = e.target.closest ? e.target.closest('.stair-bar') : null;
+    if (!g) return;
+    var i = parseInt(g.getAttribute('data-i'), 10);
+    if (body.classList.contains('present')) { stopAuto(); go(i); }
+    else if (panels[i]) { panels[i].scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); }
+  }
+  if (map) {
+    map.addEventListener('click', stairJump);
+    map.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stairJump(e); } });
+  }
+  if (rail) rail.addEventListener('click', stairJump);
+
+  // Replay, copy and download buttons.
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var rp = t.closest && t.closest('[data-replay]');
+    if (rp) { var s = rp.parentNode.querySelector('svg.sk-scene'); if (s) play(s); return; }
+    var cp = t.closest && t.closest('[data-copy]');
+    if (cp) {
+      var src = byId(cp.getAttribute('data-copy'));
+      var text = src ? src.textContent : '';
+      var label = cp.textContent;
+      var done = function (ok) { cp.textContent = ok ? 'Copied' : 'Select the text to copy'; setTimeout(function () { cp.textContent = label; }, 1600); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+      else done(false);
+      return;
+    }
+    var dl = t.closest && t.closest('[data-download]');
+    if (dl) {
+      var block = byId(dl.getAttribute('data-download'));
+      if (!block) return;
+      var json = JSON.stringify(JSON.parse(block.textContent), null, 2);
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      a.download = dl.getAttribute('data-filename') || 'download.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    }
+  });
+
+  // Deep link straight into presenter mode: #present or #present-<panel id>, on load or later.
+  function presentFromHash() {
+    if (!/^#present/.test(location.hash) || body.classList.contains('present')) return;
+    var want = location.hash.replace(/^#present-?/, '');
+    var idx = want ? panels.indexOf(byId(want)) : 0;
+    enter(idx >= 0 ? idx : 0);
+  }
+  window.addEventListener('hashchange', presentFromHash);
+  presentFromHash();
+})();
+</script>
+<!-- EXPLAINER-KIT-JS:v1:END -->
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

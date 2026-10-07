@@ -490,6 +490,20 @@ export const COVERED = [
       'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
       'mcp.html', 'chaingraph/chaingraph-hub.html',
       'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
+      // chaingraph/proof-coverage-explainer.html carries zk count sentinels and
+      // is in verify-counts.mjs's own scan list (line ~208), but was missing
+      // here — measured 2026-10-07 (ART281-SUCCESSOR-CONFLICT-MERGE-1):
+      // DERIVED-SET-SELFTEST-1's scratch counts regen (--fix) repaired a real
+      // sentinel drift on the page and the anti-escape guard rejected the run
+      // as a CLASS B escape. SO #47: declared in the same diff as the write.
+      'chaingraph/proof-coverage-explainer.html',
+      // chaingraph/webmcp-doorways-explainer.html: same SO #47 shape, second
+      // instance — WEBMCP-ESTATE-SENTENCE-1 (#2311) added the page to
+      // verify-counts.mjs's scan list (nodes.live estate-size sentinel) without
+      // declaring it here; measured 2026-10-07 on the same ART281 merge round:
+      // the scratch counts regen repaired the page's drifted sentinel and the
+      // anti-escape guard rejected the run as a CLASS B escape.
+      'chaingraph/webmcp-doorways-explainer.html',
       // fv-explainer.html carries count sentinels too (verify-counts.mjs's own
       // list includes it). Omitting it here made the regen bot's anti-escape
       // guard reject the whole run — "a generator wrote outside the declared
@@ -1220,6 +1234,22 @@ export const COVERED = [
  * fails that gate. Prose alone never caught this and never will.
  */
 export const EXCLUDED = [
+  {
+    what: 'scripts/sync-scene-kit.mjs (scene-kit gate — SCENE-REQUIRED-GATE-1 + SCENE-PACKET-ARROW-LINT-1)',
+    script: 'scripts/sync-scene-kit.mjs',
+    share: 'n/a — a gate, not a generator',
+    why: 'NOT A GENERATOR. It reads the node graph only to scope its advisories to the PR '
+       + 'changed-set (resolveChangedScope, exactly as the copy gate consumes it): which pages '
+       + 'are new or grew past the scene threshold, and which scenes are new or byte-differ '
+       + 'from the base ref. The scene-kit regions it verifies are HAND-AUTHORED page content '
+       + 'marked SCENE-KIT:v1 — they derive from scripts/lib/scene-kit.mjs (a static lib), '
+       + 'not from chaingraph.json, so no node registration can make them stale and no regen '
+       + 'closes on one. Its writes are the explicit --write lane (the same hand-authored '
+       + 'regions) and temp-dir self-test fixtures. Listed so the fan-out coverage gate reads '
+       + 'a decision, not a gap. Seat-ruled fence extension (ORCH-389, 2026-10-03): the '
+       + 'classification rides the row whose preflight amendment surfaced the script — '
+       + 'gate-named remedy, disclosed in the PR body and on the channel.',
+  },
   {
     what: 'scripts/check-infra-registry.mjs (INFRA-PAGE-1 gate)',
     script: 'scripts/check-infra-registry.mjs',
