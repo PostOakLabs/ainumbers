@@ -490,6 +490,20 @@ export const COVERED = [
       'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
       'mcp.html', 'chaingraph/chaingraph-hub.html',
       'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
+      // chaingraph/proof-coverage-explainer.html carries zk count sentinels and
+      // is in verify-counts.mjs's own scan list (line ~208), but was missing
+      // here — measured 2026-10-07 (ART281-SUCCESSOR-CONFLICT-MERGE-1):
+      // DERIVED-SET-SELFTEST-1's scratch counts regen (--fix) repaired a real
+      // sentinel drift on the page and the anti-escape guard rejected the run
+      // as a CLASS B escape. SO #47: declared in the same diff as the write.
+      'chaingraph/proof-coverage-explainer.html',
+      // chaingraph/webmcp-doorways-explainer.html: same SO #47 shape, second
+      // instance — WEBMCP-ESTATE-SENTENCE-1 (#2311) added the page to
+      // verify-counts.mjs's scan list (nodes.live estate-size sentinel) without
+      // declaring it here; measured 2026-10-07 on the same ART281 merge round:
+      // the scratch counts regen repaired the page's drifted sentinel and the
+      // anti-escape guard rejected the run as a CLASS B escape.
+      'chaingraph/webmcp-doorways-explainer.html',
       // fv-explainer.html carries count sentinels too (verify-counts.mjs's own
       // list includes it). Omitting it here made the regen bot's anti-escape
       // guard reject the whole run — "a generator wrote outside the declared
