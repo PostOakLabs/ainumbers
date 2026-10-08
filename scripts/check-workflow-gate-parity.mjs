@@ -1438,12 +1438,14 @@ const DECLARED_SOFTENERS = new Map([
   // above the attest step; same pin-move.
   ["deploy-to-dreamhost.yml:continue-on-error:923",
    "attest step is advisory-first by design; promotion criterion on the step"],
-  // MAIN-GATES-AFTER-REGEN-1 (2026-10-08) moved it :109 → :144 — the
+  // MAIN-GATES-AFTER-REGEN-1 (2026-10-08) moved it :109 → :146 — the
   // unwired-gates.yml `on:` block swapped `push: main` for `workflow_run`
-  // (trigger comment) and the workflow gained a workflow-level GATE_SHA env
-  // block plus the gates job's success/currency `if:` above the step; same
-  // pin-move, no gate step below the trigger changed.
-  ["unwired-gates.yml:continue-on-error:144",
+  // (trigger comment), the workflow gained a workflow-level GATE_SHA env
+  // block plus the gates job's success/currency `if:` above the step, and
+  // the trigger comment was reflowed to keep the public file free of
+  // internal-governance row ids (check-internal-lang-leak's bare-wu-id
+  // class); same pin-move, no gate step below the trigger changed.
+  ["unwired-gates.yml:continue-on-error:146",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
    "continue-on-error is deliberate so the job surfaces drift without blocking. " +
    "Promotion to blocking removes this entry together with the continue-on-error."],
