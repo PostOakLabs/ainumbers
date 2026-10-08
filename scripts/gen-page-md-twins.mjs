@@ -163,6 +163,29 @@ export function collectTwinTargets(repo) {
     chainsByPage.get(pageRel).push(rec);
   }
 
+  // CHAIN-MD-TWIN-REMEDY-A-1 (measured as ORPHANS remedy a): also emit a twin
+  // for any chain whose OWN chains/<name>.html page exists, in addition to its
+  // composer page.
+  for (const c of cg.chains ?? []) {
+    const ownRel = `chaingraph/chains/${c.name}.html`;
+    if (!existsRaw(resolve(repo, ownRel))) continue;
+    let composerRel = null;
+    try { composerRel = pageRelFromUrl(c.composer_url); } catch { /* bad url */ }
+    if (composerRel === ownRel) continue;
+    const rec = {
+      chainId: c.name,
+      title: humanize(c.title || c.name),
+      description: humanize(c.description || ''),
+      domain: humanize(c.domain || ''),
+      steps: (c.steps ?? []).map((s) => ({
+        toolId: s.tool_id,
+        handoff: humanize(s.handoff || ''),
+      })),
+    };
+    if (!chainsByPage.has(ownRel)) chainsByPage.set(ownRel, []);
+    chainsByPage.get(ownRel).push(rec);
+  }
+
   // A composer_url can resolve to a NODE page (single-node chains reuse it) or
   // to a page two chains share. Two twins on one path would overwrite each
   // other every run, so every chain is MERGED onto its page's twin: under a
