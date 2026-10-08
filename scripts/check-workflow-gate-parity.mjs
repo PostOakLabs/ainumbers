@@ -1009,6 +1009,17 @@ const PREFLIGHT_ONLY = new Map([
   ["verify-fragment-parity.test.mjs", SELF_TEST],
   ["gate-replay-tamper.test.mjs", SELF_TEST],
   ["escalation-closure-tamper.test.mjs", SELF_TEST],
+  ["ledger-legacy-order.test.mjs",
+    "Ledger §4 legacy-order verdict gate (JCS-PREFIX-ARTIFACT-NOTE-2), same shape as the ledger " +
+    "shipped-source gates around it: it brace-extracts the shipped §4 verifier out of " +
+    "ledger/index.html through lib-extract-shipped.mjs and self-proves by dropping the legacy retry " +
+    "in memory (SO #34c), so it can only be reddened by a change to the shipped page or to itself. " +
+    "Reads only tracked repo files, no network and no CI-only input, so its CI route is " +
+    "scripts-verify.yml's full preflight (`node scripts/preflight.mjs`) and a named workflow step " +
+    "would re-run the same assertions. That route does NOT cover a PR that touches ledger/index.html " +
+    "alone: ledger/** is in no workflow path filter and in scripts/ci-paths.json, the same PRE-EXISTING " +
+    "hole recorded for verify-fragment-parity, gate-replay-tamper and escalation-closure-tamper above; " +
+    "closing it for all of them is one later row, not the row that added this gate."],
   ["ledger-dedup.test.mjs",
     "Ledger live-channel de-dup + envelope gate (LEDGER-BRIDGE-LIVE-1). NOT classified SELF_TEST, " +
     "because that reason claims a gate can only be reddened by a change to its own checker and this " +
