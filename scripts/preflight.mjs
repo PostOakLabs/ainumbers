@@ -2111,6 +2111,7 @@ const GATES = [
   ['Verify/ledger fragment codec parity (VERIFY-FRAGMENT-INTAKE-1)', 'node scripts/verify-fragment-parity.test.mjs'],
   ['Ledger gate-replay tamper (shipped source)', 'node scripts/gate-replay-tamper.test.mjs'],
   ['Ledger escalation-closure tamper (shipped source)', 'node scripts/escalation-closure-tamper.test.mjs'],
+  ['Ledger legacy-order verdict (shipped source)', 'node scripts/ledger-legacy-order.test.mjs'],
   // LEDGER-BRIDGE-LIVE-1: the ledger live channel (B3/B4/B5). Anchored to BOTH
   // shipped sources — ledger/index.html and the master bridge snippet — so the
   // de-dup rule, the path-form origin guard and the JSON-RPC 2.0 envelope cannot
