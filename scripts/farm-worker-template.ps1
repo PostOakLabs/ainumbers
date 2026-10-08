@@ -121,8 +121,10 @@ $script:Lanes = [ordered]@{
     # one step per run - the same counter machinery as muse. Each free model carries its own
     # daily cap, so the rotation also spreads the lane across three quotas instead of dying on
     # one 429 (ps/cline, 09-18/19). A promotion-ended id costs one fast "model not found" run
-    # and is stepped past.
-    RotateModelsLiteral = @('cline-free/muse-spark-1.3-contributor', 'cline-free/deepseek-v4.1-flash', 'cline-free/mimo-v2.6-flash')
+    # and is stepped past. 2026-10-08 (Tim: stepfun step-5-preview free fleet-wide for 7 days):
+    # cline-free/step-5-preview ADDED, probed READY "OK" on all five laptops (5-25 s) — hp too,
+    # whose cline binary was missing on 10-07 and has since been installed.
+    RotateModelsLiteral = @('cline-free/muse-spark-1.3-contributor', 'cline-free/deepseek-v4.1-flash', 'cline-free/mimo-v2.6-flash', 'cline-free/step-5-preview')
     DefaultModel = 'cline-free/muse-spark-1.3-contributor'
     ArgFormat   = '--data-dir "{1}" -c "{2}" -m {4} --json -t {3} --retries 4 "{0}"'
   }
@@ -161,10 +163,13 @@ $script:Lanes = [ordered]@{
     EnvAllow    = @()
     FallbackExe = @("@@NPMROOT@@\kilo.cmd")
     RequireFile = "$env:USERPROFILE\.local\share\kilo\auth.json"
-    # Single-entry literal rotation: fills the {4} slot (Resolve-RotatedModel returns '' without
-    # one, which would leave a bare `-m` in the argv) and lets fail-forward re-try the same id up
-    # to $maxAttempts, exactly like the other single-entry lane, workbuddy.
-    RotateModelsLiteral = @('kilo/kilo-auto/free')
+    # Literal rotation (single-entry until 2026-10-08, Tim: stepfun step-5-preview free for
+    # 7 days — kilo/stepfun/step-5-preview-free ADDED as the second step, probed READY "OK"
+    # via "kilo run --auto" on all five laptops, 12-52 s; pool reverts to solo kilo-auto/free
+    # when the promotion ends): fills the {4} slot (Resolve-RotatedModel returns '' without
+    # one, which would leave a bare `-m` in the argv) and lets fail-forward re-try the same
+    # id up to $maxAttempts within a run, exactly like the other literal lanes.
+    RotateModelsLiteral = @('kilo/kilo-auto/free', 'kilo/stepfun/step-5-preview-free')
     DefaultModel = 'kilo/kilo-auto/free'
     ArgFormat   = 'run --auto -m {4} "{0}"'
     CloseStdin  = $true

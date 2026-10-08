@@ -69,7 +69,7 @@ import { generateWorker, loadTemplate, TEMPLATE_PATH } from './gen-farm-worker.m
 // rotation, RequireFile gated on the gateway credential file so the lane is inert (defer, never
 // fail) until the per-machine login, and an auth-fault tail signature routed to DEFERRED.
 // Previous golden: 45160 bytes, 2a3116ef92db466617b5a5f05ba6c24f67df8b84b9b00430c7797b9b40cab56c.
-const GOLDEN = { bus: 'aspire', bytes: 48192, sha256: 'd42229a2e0f0feb2e400e205e8213b0fa5598e61552ed71ef25cd7fbee85404b' };  // 2026-10-08 Tim-directed: opencode/step-5-preview-free added to the opencode RotateModels pool (free for a week; probed READY rc=0 "OK" on hp/ps/nitro/aspire); previous golden 47780/400a04387938
+const GOLDEN = { bus: 'aspire', bytes: 48769, sha256: 'fc6893d911c09688bc3f9fe0a9a081cfd2dfbb336bc542cb2e7f409ebb7f5ca0' };  // 2026-10-08 Tim: stepfun step-5-preview free fleet-wide 7 days — added to cline (cline-free/step-5-preview) and kilo (kilo/stepfun/step-5-preview-free) pools after the opencode addition (48192/d42229a2e0f0); previous golden 47780/400a04387938
 const BUSES = ['hp', 'ps', 'nitro', 'aspire', 'omen', 'msi'];   // MSI-BUS-1 (2026-09-20): sixth bus
 const TOKEN_VALUES = {
   hp: { '@@MACHINE@@': 'hp', '@@BUS@@': 'hp', '@@NPMROOT@@': '$env:APPDATA\\npm' },
@@ -134,8 +134,8 @@ assert(hp.includes("Write-Heartbeat -Status 'sync-failed'"), 'a failed git pull 
 // template and are re-applied with it when that row's rollout leg runs.
 // Re-pinned 2026-09-20: the cline lane now rotates (RotateModelsLiteral, model in the {4} slot)
 // instead of pinning muse-spark-1.3-contributor inline — the old argv pin would have been wrong.
-assert(hp.includes(`RotateModelsLiteral = @('cline-free/muse-spark-1.3-contributor', 'cline-free/deepseek-v4.1-flash', 'cline-free/mimo-v2.6-flash')`),
-  'cline lane rotates muse-spark-1.3 -> deepseek-v4.1-flash -> mimo-v2.6-flash, literal ids');
+assert(hp.includes(`RotateModelsLiteral = @('cline-free/muse-spark-1.3-contributor', 'cline-free/deepseek-v4.1-flash', 'cline-free/mimo-v2.6-flash', 'cline-free/step-5-preview')`),
+  'cline lane rotates muse-spark-1.3 -> deepseek-v4.1-flash -> mimo-v2.6-flash -> step-5-preview, literal ids (2026-10-08 Tim: stepfun free fleet-wide 7 days)');
 assert(hp.includes(`DefaultModel = 'cline-free/muse-spark-1.3-contributor'`) && /ArgFormat\s+= '--data-dir "\{1\}" -c "\{2\}" -m \{4\} --json -t \{3\} --retries 4 "\{0\}"'/.test(hp),
   'cline lane keeps muse-spark-1.3 as its default and takes the rotated model as {4}');
 assert(hp.includes('if (-not $Lane.RotateModels -and -not $Lane.RotateModelsLiteral)'), 'the rotation resolver opts in literal-list lanes');
@@ -155,9 +155,10 @@ assert(hp.includes("if ($harness -eq 'step') { $harness = 'hermes' }"), 'legacy 
 assert(hp.includes('RequireFile = "$env:LOCALAPPDATA\\Programs\\WorkBuddyAI'), 'workbuddy RequireFile kept (family property)');
 assert(hp.includes('FallbackExe'), 'FallbackExe kept (family property hp lacked)');
 // KILO-FALLBACK-LANE-1 (2026-10-07): the kilo fallback lane — gateway Auto Free router,
-// credential-gated, single-entry literal rotation, auth-fault tails route to DEFERRED.
-assert(hp.includes(`RotateModelsLiteral = @('kilo/kilo-auto/free')`) && /ArgFormat\s+= 'run --auto -m \{4\} "\{0\}"'/.test(hp),
-  'kilo lane runs the gateway Auto Free router through `kilo run --auto` as a single-entry literal rotation ({4} slot)');
+// credential-gated, literal rotation (solo until 2026-10-08: kilo/stepfun/step-5-preview-free
+// added as the second step, Tim free-for-7-days), auth-fault tails route to DEFERRED.
+assert(hp.includes(`RotateModelsLiteral = @('kilo/kilo-auto/free', 'kilo/stepfun/step-5-preview-free')`) && /ArgFormat\s+= 'run --auto -m \{4\} "\{0\}"'/.test(hp),
+  'kilo lane rotates kilo-auto/free -> step-5-preview-free through `kilo run --auto` as a literal rotation ({4} slot)');
 assert(hp.includes('RequireFile = "$env:USERPROFILE\\.local\\share\\kilo\\auth.json"'),
   'kilo RequireFile gates on the gateway credential file: inert (defer, never fail) until the per-machine login');
 assert(template.includes('@@NPMROOT@@\\kilo.cmd'), 'kilo FallbackExe uses the per-bus npmRoot token (opencode/cline family property)');
