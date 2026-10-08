@@ -353,6 +353,53 @@ jobs:
             node scripts/preflight.mjs
           fi
 
+      # ── PR-AUTOFIX-DERIVABLES-1: the four per-PR derivable gates, HARD on pull_request ──
+      # The red census (RED-PATTERNS-4WK-2026-10-08 §1) measured 44 merge_group §18
+      # ratchet/provenance ejects, ~8 manifest-example drift ejects and ~24 missing
+      # ask-agent/a11y writer-stamp reds, all of which passed a PR-side advisory (or
+      # writerless) shape first. pr-autofix.yml now runs the PR's OWN deterministic
+      # writers on the head branch, so a PR is no longer structurally unable to
+      # satisfy these four — and a gate a PR can satisfy must not read advisory at
+      # label time (SO #54). These steps are the removed downgrade, made explicit:
+      #   • §18 compute-proof coverage self-downgrades on pull_request via its
+      #     internal disposition() (isMainContext's GITHUB_EVENT_NAME ===
+      #     'pull_request' arm). The shell-level GITHUB_EVENT_NAME=push prefix
+      #     below drops exactly that arm here — the same presentation plumbing
+      #     this workflow's preflight step uses for merge_group (GITHUB_* names
+      #     are runner-reserved; a step-level env entry would be silently
+      #     ignored — measured 2026-09-11, run 34654251817). merge_group keeps
+      #     its DERIVED_ROOT third state; push:main keeps its hard exit.
+      #   • gen-manifest-examples --check is the COVERED 'manifest-examples' gate:
+      #     preflight downgrades it on a PR (advisoryGates()); this raw invocation
+      #     is BLOCKING in every context. The divergence from preflight is
+      #     DECLARED in check-workflow-gate-parity.mjs DECLARED_DIVERGENCES — same
+      #     shape as land-verify.yml's registry-kernel-resolve entry: the artifact
+      #     is repairable inside the branch (the writer runs in-PR), so SO #35's
+      #     hand-off to the main-side regen does not apply to the PR-side verdict.
+      #   • check-ask-agent-block.mjs and check-a11y-tree.mjs carry NO PR downgrade
+      #     anywhere (not in advisoryGates(), no internal split): preflight already
+      #     runs them blocking in every context, and these named steps restate that
+      #     enforcement as first-class CI lines so the stamp classes red with their
+      #     own name instead of a buried preflight failure.
+      # Everything else keeps its downgrade: count-drift, sitemap, trust-signals
+      # and the other main-side single-writer artifacts are NOT touched here (SO #35).
+      - name: §18 ratchet + provenance (HARD on pull_request — PR-AUTOFIX-DERIVABLES-1)
+        run: |
+          if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
+            GITHUB_EVENT_NAME=push node scripts/check-compute-proof-coverage.mjs
+          else
+            node scripts/check-compute-proof-coverage.mjs
+          fi
+
+      - name: Manifest examples drift (HARD on pull_request — PR-AUTOFIX-DERIVABLES-1)
+        run: node scripts/gen-manifest-examples.mjs --check
+
+      - name: Ask-agent block freshness (HARD on pull_request — PR-AUTOFIX-DERIVABLES-1)
+        run: node scripts/check-ask-agent-block.mjs
+
+      - name: Node page accessibility tree (HARD on pull_request — PR-AUTOFIX-DERIVABLES-1)
+        run: node scripts/check-a11y-tree.mjs
+
       # The single-writer law, proven, not assumed. The
       # ephemeral assembly above must have left the checkout byte-identical —
       # nothing derived is EVER committed from a run that assembled one.
