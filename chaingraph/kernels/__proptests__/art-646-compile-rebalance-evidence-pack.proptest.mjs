@@ -1,7 +1,8 @@
 // art-646-compile-rebalance-evidence-pack — class-K property-test FLOOR.
 // kernel_digest_at_authoring: sha256:06a6f6215cff260bdeadad70817cacf72195aebec6e2d5ac436002c095b70fde
 // spec: INDEX-LINEAGE-BUILD-SPEC.md, rebalance evidence pack section
-// human_sign_off: sonnet-2026-08-17
+// human_sign_off: PENDING
+// sign_off_note: 2026-10-06 — prior value 'sonnet-2026-08-17' was a model identity, void as a human-review claim per FV-PBT-FLOOR-BUILD-SPEC §4; corrected by FV-FLOORSIGN-MISLABEL-1; manifest re-cover under FLOOR-§4 remains open.
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3). NOT a proof, NOT Dafny.
 // float_sensitive: NO -- weight_deltas compares weight VALUES for strict inequality only

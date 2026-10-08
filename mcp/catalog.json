@@ -2,10 +2,10 @@
   "schema_version": "mcp-catalog-v1",
   "server_id": "ainumbers-fintech-suite",
   "name": "AINumbers Fintech Intelligence Suite",
-  "description": "1193 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
+  "description": "1195 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
   "base_url": "https://ainumbers.co",
-  "generated": "2026-10-06",
-  "tool_count": 1193,
+  "generated": "2026-10-08",
+  "tool_count": 1195,
   "tools": [
     {
       "name": "calculate_a2a_fee_route",
@@ -50342,7 +50342,45 @@
           },
           "usage": {
             "type": "object",
-            "description": "Requests per month, input and output tokens per request, cached-input and batch/long-context shares in bp, cache-write tokens with a 5m or 1h TTL."
+            "description": "Requests per month, input and output tokens per request, cached-input and batch/long-context shares in bp, cache-write tokens with a 5m or 1h TTL.",
+            "properties": {
+              "requests_per_month": {
+                "type": "integer",
+                "description": "Non-negative integer at most 1e12: billable requests per month."
+              },
+              "input_tokens_per_request": {
+                "type": "integer",
+                "description": "Non-negative integer input tokens per request; input tokens per month (times requests_per_month) must not exceed the 1e12 per-component cap."
+              },
+              "cached_input_share_bp": {
+                "type": "integer",
+                "description": "Integer basis-point share of input tokens served from cache, 0..10000."
+              },
+              "cache_write_tokens_per_request": {
+                "type": "integer",
+                "description": "Non-negative integer cache-write tokens per request; monthly cache-write tokens (times requests_per_month) must not exceed the 1e12 per-component cap."
+              },
+              "cache_write_ttl": {
+                "type": "string",
+                "enum": [
+                  "5m",
+                  "1h"
+                ],
+                "description": "Cache-write TTL class: '5m' or '1h'."
+              },
+              "output_tokens_per_request": {
+                "type": "integer",
+                "description": "Non-negative integer output tokens per request; output tokens per month (times requests_per_month) must not exceed the 1e12 per-component cap."
+              },
+              "batch_share_bp": {
+                "type": "integer",
+                "description": "Integer basis-point share priced at batch rates, 0..10000; batch_share_bp plus long_context_share_bp must not exceed 10000."
+              },
+              "long_context_share_bp": {
+                "type": "integer",
+                "description": "Integer basis-point share priced at long-context rates, 0..10000; batch_share_bp plus long_context_share_bp must not exceed 10000."
+              }
+            }
           },
           "price_table": {
             "type": "object",
@@ -50369,6 +50407,156 @@
           "mcp:estimate_ai_token_spend"
         ],
         "url": "https://ainumbers.co/chaingraph/art-704-ai-token-spend.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "classify_sco60_exposure_v2",
+      "description": "Book-level Group 2 cryptoasset exposure-limit assessor (BCBS d545 SCO60.116-119): the aggregate of per-asset higher-of measurements is compared with the 1% expectation threshold and the 2% hard limit of Tier 1 capital. Above 1% the supervisor notification fires and only the excess over 1% takes the 1250% Group 2b weight; above 2% the whole book takes it and the Pillar 3 precheck fails. Strict integer comparisons: exactly 1% is not crossed and exactly 2% is not breached.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "bank_tier1_capital",
+          "group2_positions"
+        ],
+        "properties": {
+          "bank_tier1_capital": {
+            "type": "integer",
+            "description": "Tier 1 capital in integer minor units, a positive multiple of 100, at most 1e12. The denominator of both thresholds."
+          },
+          "group2_positions": {
+            "type": "array",
+            "description": "Per-cryptoasset positions with absolute, delta-adjusted long_exposure and short_exposure integers; same-asset entries merge before the count."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-711-sco60-crypto-asset-exposure-classifier-v2",
+        "category": "chaingraph",
+        "tags": [
+          "compliance_mandate",
+          "basel",
+          "sco60",
+          "cryptoasset",
+          "group-2",
+          "exposure-limit",
+          "tier-1",
+          "prudential",
+          "risk-weight",
+          "mcp:classify_sco60_exposure_v2"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-711-sco60-crypto-asset-exposure-classifier-v2.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "workforce_board_roi_report",
+      "description": "Port of ApexLogics Apex #15 (AL-07) Workforce Board ROI Report Generator into the AINumbers chaingraph shape. Computes cost-per-outcome metrics, a 5-indicator WIOA PY 2023 benchmark scorecard, a wage-vs-sector-baseline gain, a fixed-rate taxpayer tax-recapture estimate, a break-even horizon, a 3-year net benefit and return per $1, and an overall ROI grade.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "program_type",
+          "sector",
+          "total_budget",
+          "participants_enrolled"
+        ],
+        "properties": {
+          "program_name": {
+            "type": "string",
+            "description": "Display name of the program; defaults to 'Unnamed Program' when blank."
+          },
+          "program_type": {
+            "type": "string",
+            "enum": [
+              "adult",
+              "dislocated_worker",
+              "youth"
+            ],
+            "description": "WIOA Title I-B program type; selects the WIOA PY 2023 target set. Required."
+          },
+          "program_year": {
+            "type": "string",
+            "enum": [
+              "PY 2023",
+              "PY 2022",
+              "PY 2021"
+            ],
+            "description": "Program year label; echoed only."
+          },
+          "sector": {
+            "type": "string",
+            "enum": [
+              "healthcare",
+              "manufacturing",
+              "construction",
+              "it_tech",
+              "retail",
+              "transportation",
+              "finance",
+              "education",
+              "hospitality",
+              "professional",
+              "public_admin",
+              "other"
+            ],
+            "description": "Target sector key; selects the BLS QCEW Q3 2023 baseline annual wage. Required."
+          },
+          "total_budget": {
+            "type": "number",
+            "description": "Total program budget in USD; must be greater than 0. Required."
+          },
+          "avg_training_weeks": {
+            "type": "number",
+            "description": "Average training duration in weeks; optional, display only."
+          },
+          "participants_enrolled": {
+            "type": "integer",
+            "description": "Participants enrolled; must be >= 1. Required."
+          },
+          "participants_exited": {
+            "type": "integer",
+            "description": "Participants exited; defaults to participants_enrolled when omitted."
+          },
+          "emp_rate_q2": {
+            "type": "number",
+            "description": "Employment rate 2nd quarter after exit, percent (0-100); null when not applicable."
+          },
+          "emp_rate_q4": {
+            "type": "number",
+            "description": "Employment rate 4th quarter after exit, percent (0-100); null when not applicable."
+          },
+          "median_earnings_q2": {
+            "type": "number",
+            "description": "Median earnings 2nd quarter after exit, USD (>= 0); null when not entered."
+          },
+          "credential_rate": {
+            "type": "number",
+            "description": "Credential attainment rate, percent (0-100); null when not applicable."
+          },
+          "skill_gains_rate": {
+            "type": "number",
+            "description": "Measurable skill gains rate, percent (0-100); null when not applicable."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-712-workforce-board-roi",
+        "category": "chaingraph",
+        "tags": [
+          "workforce",
+          "wioa",
+          "roi",
+          "training",
+          "report",
+          "mcp:workforce_board_roi_report"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-712-workforce-board-roi.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",
