@@ -107,6 +107,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <meta name="ai-tool" content="validate_signature_agent_card">
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-131-signature-agent-card-validator.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:5d6f9fd42c6de44f905132f55d36afa25bbe38665916fcbd9130d08308ea05d3">
 </head>
 <body>
 <nav>
@@ -370,18 +372,22 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 const MANIFEST={tool_id:"art-131-signature-agent-card-validator",version:"1.0.0",title:"Signature Agent Card Validator",mcp_tool_definition:{name:"validate_signature_agent_card",description:"Validate the Signature Agent Card (Cloudflare/Bedrock AgentCore schema): required fields present, card keys consistent with validated directory.",inputSchema:{type:"object",properties:{card:{type:"object"},directory_keyids:{type:"array",items:{type:"string"}}},required:["card","directory_keyids"]}},ap2_export:true,chaingraph:true};
 const REQUIRED_FIELDS=['name','operator','expected_request_rate','keys'];
 function compute(pp){
+  // Synced to chaingraph/kernels/art-131-signature-agent-card-validator.kernel.mjs (WEBMCP-CPARITY-ART131-1).
+  // The inline copy had drifted from the kernel: it emitted a different output_payload shape
+  // (fields_ok/keys_in_directory/identity_trust_verdict, object flags), so the page hashed a
+  // different preimage than the kernel/worker on identical inputs (page 1cdcc9161a64… vs
+  // golden 178651f6ce5f…). Below is the kernel's compute() byte-for-byte in logic; the hash
+  // preimage {policy_parameters, output_payload} now matches the kernel and live MCP.
   const{card={},directory_keyids=[]}=pp;
-  const missing_fields=REQUIRED_FIELDS.filter(f=>!(f in card));
-  const fields_ok=missing_fields.length===0;
-  const card_keys=(card.keys||[]).map(k=>k.kid||k.keyid||k.id||k).filter(Boolean);
-  const dir_set=new Set(directory_keyids);
-  const keys_in_directory=card_keys.length>0&&card_keys.every(k=>dir_set.has(k));
-  const identity_trust_verdict=(fields_ok&&keys_in_directory)?'TRUSTED':'UNTRUSTED';
-  const flags={SIGNATURE_AGENT_CARD_ASSESSED:true};
-  flags[identity_trust_verdict==='TRUSTED'?'AGENT_IDENTITY_TRUSTED':'AGENT_IDENTITY_UNTRUSTED']=true;
-  if(!fields_ok)flags.REQUIRED_FIELDS_MISSING=true;
-  if(!keys_in_directory)flags.CARD_KEYS_NOT_IN_DIRECTORY=true;
-  return{output_payload:{fields_ok,missing_fields,keys_in_directory,identity_trust_verdict},compliance_flags:flags};
+  const missing_fields=REQUIRED_FIELDS.filter(f=>card[f]===undefined||card[f]===null||card[f]==='');
+  const card_keyids=Array.isArray(card.keys)?card.keys.map(k=>k&&k.kid).filter(Boolean):[];
+  const keys_consistent=card_keyids.length>0&&card_keyids.every(kid=>directory_keyids.includes(kid));
+  const card_valid=missing_fields.length===0&&keys_consistent;
+  const compliance_flags=[];
+  compliance_flags.push('SIGNATURE_AGENT_CARD_ASSESSED');
+  compliance_flags.push(card_valid?'AGENT_CARD_VALID':'AGENT_CARD_INVALID');
+  if(!keys_consistent)compliance_flags.push('CARD_KEYS_NOT_IN_DIRECTORY');
+  return{output_payload:{card_valid,missing_fields,keys_consistent,card_key_count:card_keyids.length},compliance_flags};
 }
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
 async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
@@ -402,18 +408,21 @@ async function run(){
   document.getElementById('ap2ExportBtn').disabled=false;
 }
 function renderResults(op,flags,execHash,artifact){
-  const vok=op.identity_trust_verdict==='TRUSTED';
+  const vok=op.card_valid===true;
+  const fieldsOk=Array.isArray(op.missing_fields)&&op.missing_fields.length===0;
+  const verdict=(fieldsOk&&op.keys_consistent)?'TRUSTED':'UNTRUSTED';
   document.getElementById('heroRow').innerHTML=
-    '<div class="hero-stat"><div class="hero-val" style="color:'+(vok?'var(--green)':'var(--red)')+'">'+op.identity_trust_verdict+'</div><div class="hero-lbl">Identity Trust</div></div>'+
-    '<div class="hero-stat"><div class="hero-val" style="color:'+(op.fields_ok?'var(--green)':'var(--red)')+'">'+( op.fields_ok?'✓':'✗')+'</div><div class="hero-lbl">Fields OK</div></div>'+
-    '<div class="hero-stat"><div class="hero-val" style="color:'+(op.keys_in_directory?'var(--green)':'var(--red)')+'">'+( op.keys_in_directory?'✓':'✗')+'</div><div class="hero-lbl">Keys in Dir</div></div>';
-  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
-  document.getElementById('verdictDiv').innerHTML='<div class="verdict '+(vok?'pass':'fail')+'">'+( vok?'✓ TRUSTED — Required fields present and card keys consistent with directory.':'✗ UNTRUSTED — Card validation failed. See compliance flags.')+'</div><div style="margin-top:6px">'+flagKeys.map(f=>'<span class="badge '+(f.includes('UNTRUSTED')||f.includes('MISSING')||f.includes('NOT')?'err':'ok')+'">'+f+'</span>').join('')+'</div>';
+    '<div class="hero-stat"><div class="hero-val" style="color:'+(vok?'var(--green)':'var(--red)')+'">'+verdict+'</div><div class="hero-lbl">Identity Trust</div></div>'+
+    '<div class="hero-stat"><div class="hero-val" style="color:'+(fieldsOk?'var(--green)':'var(--red)')+'">'+( fieldsOk?'✓':'✗')+'</div><div class="hero-lbl">Fields OK</div></div>'+
+    '<div class="hero-stat"><div class="hero-val" style="color:'+(op.keys_consistent?'var(--green)':'var(--red)')+'">'+( op.keys_consistent?'✓':'✗')+'</div><div class="hero-lbl">Keys in Dir</div></div>';
+  const flagKeys=Array.isArray(flags)?flags.slice():Object.keys(flags).filter(k=>flags[k]);
+  document.getElementById('verdictDiv').innerHTML='<div class="verdict '+(vok?'pass':'fail')+'">'+( vok?'✓ TRUSTED — Required fields present and card keys consistent with directory.':'✗ UNTRUSTED — Card validation failed. See compliance flags.')+'</div><div style="margin-top:6px">'+flagKeys.map(f=>'<span class="badge '+(f.includes('UNTRUSTED')||f.includes('MISSING')||f.includes('NOT')||f.includes('INVALID')?'err':'ok')+'">'+f+'</span>').join('')+'</div>';
   const mf=op.missing_fields&&op.missing_fields.length?op.missing_fields.join(', '):'none';
   document.getElementById('detailDiv').innerHTML='<table class="tbl" style="margin-top:12px"><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>'+
-    '<tr><td>fields_ok</td><td><span class="badge '+(op.fields_ok?'ok':'err')+'">'+op.fields_ok+'</span></td></tr>'+
+    '<tr><td>fields_ok</td><td><span class="badge '+(fieldsOk?'ok':'err')+'">'+fieldsOk+'</span></td></tr>'+
     '<tr><td>missing_fields</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:.7rem">'+mf+'</td></tr>'+
-    '<tr><td>keys_in_directory</td><td><span class="badge '+(op.keys_in_directory?'ok':'err')+'">'+op.keys_in_directory+'</span></td></tr>'+
+    '<tr><td>keys_consistent</td><td><span class="badge '+(op.keys_consistent?'ok':'err')+'">'+op.keys_consistent+'</span></td></tr>'+
+    '<tr><td>card_key_count</td><td><span class="badge ok">'+op.card_key_count+'</span></td></tr>'+
     '</tbody></table>';
   document.getElementById('execHash').textContent=execHash;
   document.getElementById('artifactPre').textContent=JSON.stringify(artifact,null,2);
