@@ -1481,6 +1481,20 @@ const GATES = [
   // declare no @keyframes and no animation property of its own.
   ['EXPLAINER-KIT inline copies + one animation system (EXPLAINER-KIT-1)', 'node scripts/sync-explainer-kit.mjs --check'],
   ['EXPLAINER-KIT gate controls (RED/GREEN mutations, SO #34c pairing)', 'node scripts/sync-explainer-kit.mjs --selftest'],
+  // HUBSCENE-BUILD-1 (2026-10-07): the generated chain-flow scene region on
+  // every hub guide page. ONE main-side writer (scripts/gen-hub-scenes.mjs,
+  // derived-artifacts COVERED id 'hub-scenes'); this --check entry's command
+  // string is byte-identical to that COVERED gate, so the generic
+  // ADVISORY_ON_PR categorisation downgrades it on a PR (the regions are
+  // written on main after merge, SO #35) and it stays blocking on main.
+  ['Hub scene regions fresh (HUBSCENE-BUILD-1)', 'node scripts/gen-hub-scenes.mjs --check'],
+  ['Hub scene generator controls (RED/GREEN mutations, SO #34c pairing)', 'node scripts/gen-hub-scenes.mjs --selftest'],
+  // The scene requirement, BLOCKING for guide-class pages since HUBSCENE-
+  // BUILD-1 (Tim 2026-10-06 ruling, spec §5/D4): a new or crossing guide-class
+  // page over the threshold must carry a kit scene; generator-scope pages are
+  // accepted (their region is main-side-owned). The QUICK entry above keeps
+  // its --changed scoping; this full-suite run walks every eligible page.
+  ['Scene-required, blocking for guide class (SCENE-REQUIRED-GATE-1 flip)', 'node scripts/sync-scene-kit.mjs --scene-required'],
   ['Homepage MCP-ACTIVITY sentinel matches data/mcp-activity.json (generator --check)', 'node scripts/mcp-activity-embed.mjs --check'],
   // AIN-AGENT-KIT-1: agent-kit artifacts are generator-emitted (gen-agent-kit.mjs from
   // agent-kit/kit.json); this gate regenerates twice into temp, byte-compares determinism
@@ -2369,6 +2383,7 @@ const QUICK_GATES = [
   //    monolith against ALL shards — the changed-shard subset is implied by it,
   //    at the same ≈0.1 s cost.
   ['chaingraph.json shard freshness (CGSHARD-1, quick)', 'node scripts/assemble-chaingraph.mjs --check'],
+  ['Scene-required, blocking for guide class (CHANGED scope, SCENE-REQUIRED-GATE-1)', `node scripts/sync-scene-kit.mjs --scene-required --changed ${QUICK_REF}`],
 ];
 
 async function runQuickSuite(selfTest) {

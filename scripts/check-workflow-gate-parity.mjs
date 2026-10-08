@@ -413,6 +413,17 @@ const PREFLIGHT_ONLY = new Map([
     "(advisory on a PR, blocking on main via the generic downgrade; main-side freshness is owned by " +
     "derived-artifacts-regen.yml). The write half is the regen command, never a PR step. Reads only " +
     "tracked repo files, no CI-only input. Self-test: --selftest."],
+  // ── HUBSCENE-BUILD-1 (2026-10-07) ───────────────────────────────────────────
+  ["gen-hub-scenes.mjs",
+    "Hub scene region freshness (HUBSCENE-BUILD-1): re-renders each hub guide page's <!-- HUB-SCENE --> " +
+    "region (plus the first-insert SCENE-KIT inline copies, byte-identical to sync-scene-kit's own " +
+    "builders) from the assembled catalog in memory and compares. Hard in preflight; its CI route is " +
+    "scripts-verify.yml's full preflight (the workflow runs `node scripts/preflight.mjs`), so a named " +
+    "workflow step would only duplicate the same suite. It is also the COVERED gate of " +
+    "derived-artifacts.mjs id 'hub-scenes' (advisory on a PR, blocking on main via the generic " +
+    "downgrade; main-side freshness is owned by derived-artifacts-regen.yml). The write half is the " +
+    "regen command, never a PR step (SO #35). Reads only tracked repo files + chaingraph.json " +
+    "(loaded lazily inside the render path), no CI-only input. Self-test: --selftest."],
   // ── FOOTER-INFRA-COLUMN-1 (2026-09-27) ──────────────────────────────────────
   ["gen-node-footers.mjs",
     "Node-page footer freshness (FOOTER-INFRA-COLUMN-1, footer plan v2 D1(b)): re-renders the " +
@@ -1241,6 +1252,20 @@ const DECLARED_DIVERGENCES = new Map([
 // would treat them as unrelated commands and an argument-drift typo on an
 // advisory gate would read as "consistent" because it matched nothing (hole (d)).
 const DISTINCT_LEGS = new Map([
+  ["node scripts/gen-hub-scenes.mjs --selftest", {
+    sibling: "node scripts/gen-hub-scenes.mjs --check",
+    decided: "2026-10-07 (HUBSCENE-BUILD-1)",
+    why:
+      "The --selftest leg proves the writer over in-memory fixtures plus the real tree: the first " +
+      "insert lays the region and byte-identical kit copies, a second pass is byte-identical, a " +
+      "hand-edited region byte is RED, an anchorless page is a reported SKIP, half a marker pair is " +
+      "RED, the no-fork guard throws, the real min/median/max scenes plus a 1,000-station clamp proof " +
+      "stay within the WCAG 2.2.2 budget, and all 93 in-scope pages have exactly one insertion point. " +
+      "It can only be reddened by a change to the writer or the kit it renders, never by a content PR, " +
+      "so it is the SELF_TEST shape, preflight-only by design. The --check sibling is the COVERED id " +
+      "'hub-scenes' freshness gate, advisory on a PR and blocking on main. Separate legs of one " +
+      "script, not argument drift.",
+  }],
   ["node scripts/gen-chain-ask-agent.mjs --selftest", {
     sibling: "node scripts/gen-chain-ask-agent.mjs --check",
     decided: "2026-09-27 (CHAIN-PROMPT-INFRA-1)",

@@ -1,7 +1,8 @@
 // art-645-compute-index-weights — class-K property-test FLOOR.
 // kernel_digest_at_authoring: sha256:89e1c42dc3d59ad3566052948cdbe988799613418a705f2fb499bf4c98e981cb
 // spec: INDEX-LINEAGE-BUILD-SPEC.md §2
-// human_sign_off: sonnet-2026-08-17
+// human_sign_off: PENDING
+// sign_off_note: 2026-10-06 — prior value 'sonnet-2026-08-17' was a model identity, void as a human-review claim per FV-PBT-FLOOR-BUILD-SPEC §4; corrected by FV-FLOORSIGN-MISLABEL-1; manifest re-cover under FLOOR-§4 remains open.
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3). NOT a proof, NOT Dafny.
 // float_sensitive: YES -- weight_i = basis_i / sum(basis) is a true division; the sum-to-1
