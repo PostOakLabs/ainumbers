@@ -52,11 +52,15 @@ $script:Lanes = [ordered]@{
     # host, and hermes is deliberately not kept running/logged-in there — CPU/ram hog — so
     # its hermes lane is dormant; if it is ever reactivated, re-probe the whole list first).
     # The five 2026-10-02 ids all re-probed rc=0 "OK" on ps in the same pass.
+    # 2026-10-08 readjustment (Tim, portal free-list): stepfun/step-5-preview:free ADDED —
+    # the portal's free enumeration showed the existing six all still free plus this one new
+    # Step entry; probed READY ("Reply with exactly: OK", --provider nous, rc=0) and all six
+    # incumbents re-probed rc=0 "OK" in the same pass.
     # longcat-2.5 leads as successor of the production-proven longcat line (SHADOW-WATCH-BRIEF-1);
-    # solar-mini4 trails as newest. A promotion-ended id costs one fast failed run and is
+    # step-5-preview trails as newest. A promotion-ended id costs one fast failed run and is
     # stepped past; models.dev no longer carries a nous provider entry — the portal's own
     # enumeration stays the candidate source.
-    RotateModelsLiteral = @('meituan/longcat-2.5-preview:free', 'inclusionai/ling-3.0-flash-sante:free', 'poolside/laguna-s-2.1:free', 'stepfun/step-3.7-flash:free', 'poolside/laguna-xs-2.1:free', 'upstage/solar-mini4:free')
+    RotateModelsLiteral = @('meituan/longcat-2.5-preview:free', 'inclusionai/ling-3.0-flash-sante:free', 'poolside/laguna-s-2.1:free', 'stepfun/step-3.7-flash:free', 'poolside/laguna-xs-2.1:free', 'upstage/solar-mini4:free', 'stepfun/step-5-preview:free')
     DefaultModel = 'meituan/longcat-2.5-preview:free'
     ArgFormat   = '-z "{0}" --provider nous -m {4}'
   }

@@ -69,7 +69,7 @@ import { generateWorker, loadTemplate, TEMPLATE_PATH } from './gen-farm-worker.m
 // rotation, RequireFile gated on the gateway credential file so the lane is inert (defer, never
 // fail) until the per-machine login, and an auth-fault tail signature routed to DEFERRED.
 // Previous golden: 45160 bytes, 2a3116ef92db466617b5a5f05ba6c24f67df8b84b9b00430c7797b9b40cab56c.
-const GOLDEN = { bus: 'aspire', bytes: 47414, sha256: '61c423344742cba9080906033fc4f8accbe67f2434bcb74af00eebdf4e197a36' };  // 2026-10-07 KILO-FALLBACK-LANE-1: kilo lane (gateway Auto Free router, credential-gated) + auth-fault DEFERRED signature; previous golden 45160/2a3116ef92db
+const GOLDEN = { bus: 'aspire', bytes: 47780, sha256: '400a0438793873059c8fd35be04a673010b5b11a501073a4b35466c4646cd612' };  // 2026-10-08 hermes readjustment: stepfun/step-5-preview:free added (probed READY), portal free-list; previous golden 47414/61c423344742
 const BUSES = ['hp', 'ps', 'nitro', 'aspire', 'omen', 'msi'];   // MSI-BUS-1 (2026-09-20): sixth bus
 const TOKEN_VALUES = {
   hp: { '@@MACHINE@@': 'hp', '@@BUS@@': 'hp', '@@NPMROOT@@': '$env:APPDATA\\npm' },
@@ -144,8 +144,10 @@ assert(hp.includes('if (-not $Lane.RotateModels -and -not $Lane.RotateModelsLite
 // replacements are the portal's freeRecommendedModels, each probed READY on the Omen that day;
 // 2026-10-06 auto-rotate (Part 5) dropped the fleet-wide-404 space-bunny-alpha and trails
 // upstage/solar-mini4:free (PS-HERMES-ROTATE-2's Solar add, re-probed READY on ps/nitro/aspire/msi).
-assert(hp.includes(`RotateModelsLiteral = @('meituan/longcat-2.5-preview:free', 'inclusionai/ling-3.0-flash-sante:free', 'poolside/laguna-s-2.1:free', 'stepfun/step-3.7-flash:free', 'poolside/laguna-xs-2.1:free', 'upstage/solar-mini4:free')`) && /ArgFormat\s+= '-z "\{0\}" --provider nous -m \{4\}'/.test(hp),
-  'hermes lane rotates longcat-2.5-preview -> ling -> laguna-s -> step-3.7 -> laguna-xs -> solar-mini4 (literal, {4} slot)');
+// 2026-10-08 readjustment (Tim, portal free-list): stepfun/step-5-preview:free ADDED and all six
+// incumbents re-probed rc=0 "OK" in the same pass.
+assert(hp.includes(`RotateModelsLiteral = @('meituan/longcat-2.5-preview:free', 'inclusionai/ling-3.0-flash-sante:free', 'poolside/laguna-s-2.1:free', 'stepfun/step-3.7-flash:free', 'poolside/laguna-xs-2.1:free', 'upstage/solar-mini4:free', 'stepfun/step-5-preview:free')`) && /ArgFormat\s+= '-z "\{0\}" --provider nous -m \{4\}'/.test(hp),
+  'hermes lane rotates longcat-2.5-preview -> ling -> laguna-s -> step-3.7 -> laguna-xs -> solar-mini4 -> step-5-preview (literal, {4} slot)');
 assert(!!/^[ ]*RotateModelsLiteral = @\('deepseek-v4\.1-flash'\)$/m.test(hp) && hp.includes('--model {4} --settings'),
   'workbuddy runs DeepSeek v4.1 Flash only (single-id rotation line, {4} slot kept; hy4/hy3/tier aliases dropped — WORKBUDDY-DEEPSEEK-ONLY-1)');
 assert((hp.match(/'\^opencode\//g) || []).length === 5, 'opencode lane rotates a 5-pattern catalog pool (2026-10-06 auto-rotate #2: mimo-v2.6 dropped probed-DEAD on ps; pool muse-spark/fledge/space-bunny/ling-3.1/longcat-2.5)');
