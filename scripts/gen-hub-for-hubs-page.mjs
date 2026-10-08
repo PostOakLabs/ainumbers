@@ -221,6 +221,7 @@ const CLUSTERS = [
       'chaingraph/guide-decision-receipt-crosswalk.html',
       'chaingraph/guide-allocation-evidence.html',
       'chaingraph/guide-kya-os-checkpoint-interop.html',
+      'chaingraph/visual-explainers-hub.html',
       'guides/evidence-profile-catalog.html',
       'guides/lei-kyb-worksheet-guide.html',
     ],
