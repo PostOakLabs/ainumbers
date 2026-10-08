@@ -631,7 +631,6 @@ import * as art704    from './art-704-ai-token-spend.kernel.mjs';
 import * as art71     from './art-71-cbam-certificate-cost-engine.kernel.mjs';
 import * as art711    from './art-711-sco60-crypto-asset-exposure-classifier-v2.kernel.mjs';
 import * as art712    from './art-712-workforce-board-roi.kernel.mjs';
-import * as autofixSelftestAlpha from './autofix-selftest-alpha.kernel.mjs';
 import * as art72     from './art-72-cbam-precursor-emissions-aggregator.kernel.mjs';
 import * as art73     from './art-73-taxonomy-alignment-scorer.kernel.mjs';
 import * as art74     from './art-74-taxonomy-kpi-gar-aggregator.kernel.mjs';
@@ -660,6 +659,7 @@ import * as art96     from './art-96-no-russia-clause-pack-builder.kernel.mjs';
 import * as art97     from './art-97-sanctions-screening-quality-scorer.kernel.mjs';
 import * as art98     from './art-98-mica-casp-fit-diagnostic.kernel.mjs';
 import * as art99     from './art-99-mica-transitional-deadline-router.kernel.mjs';
+import * as canary77  from './canary-77-autofix-alpha.kernel.mjs';
 import * as cry01     from './cry-01-zk-compliance-proof-generator.kernel.mjs';
 import * as cry04     from './cry-04-merkle-batch-verifier.kernel.mjs';
 import * as cry05     from './cry-05-agent-action-audit-trail-aggregator.kernel.mjs';
@@ -1307,7 +1307,6 @@ export const KERNELS = {
   'art-71-cbam-certificate-cost-engine':                        art71,
   'art-711-sco60-crypto-asset-exposure-classifier-v2':          art711,
   'art-712-workforce-board-roi':                                art712,
-  'autofix-selftest-alpha':                                     autofixSelftestAlpha,
   'art-72-cbam-precursor-emissions-aggregator':                 art72,
   'art-73-taxonomy-alignment-scorer':                           art73,
   'art-74-taxonomy-kpi-gar-aggregator':                         art74,
@@ -1336,6 +1335,7 @@ export const KERNELS = {
   'art-97-sanctions-screening-quality-scorer':                  art97,
   'art-98-mica-casp-fit-diagnostic':                            art98,
   'art-99-mica-transitional-deadline-router':                   art99,
+  'canary-77-autofix-alpha':                                    canary77,
   'cry-01-zk-compliance-proof-generator':                       cry01,
   'cry-04-merkle-batch-verifier':                               cry04,
   'cry-05-agent-action-audit-trail-aggregator':                 cry05,

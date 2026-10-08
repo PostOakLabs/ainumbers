@@ -1,7 +1,7 @@
-// autofix-selftest-alpha.proptest.mjs — class-K property-test FLOOR
+// canary-77-autofix-alpha.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-WF15 porting
 // payload (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES abc4e16d).
-// kernel_digest_at_authoring: sha256:56366d0e4c2c17333b3883c7183babaac09e05f39fdf98828f06bcdc1ae8c377
+// kernel_digest_at_authoring: sha256:82e756b0399a4db966e311def296656a286b132afc0dfb0bede6e69c451d5b55
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
@@ -30,12 +30,12 @@
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/autofix-selftest-alpha.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/canary-77-autofix-alpha.proptest.mjs
 
-import { compute } from '../autofix-selftest-alpha.kernel.mjs';
+import { compute } from '../canary-77-autofix-alpha.kernel.mjs';
 import { runFixtureOracle, summarize, findShapeViolations, mulberry32, pick } from './_pbt-common.mjs';
 
-const KERNEL_ID = 'autofix-selftest-alpha';
+const KERNEL_ID = 'canary-77-autofix-alpha';
 const PROGRAM_TYPES = ['adult', 'dislocated_worker', 'youth'];
 const SECTORS = ['healthcare', 'manufacturing', 'construction', 'it_tech', 'retail', 'transportation', 'finance', 'education', 'hospitality', 'professional', 'public_admin', 'other'];
 const GRADE_RANK = { 'Below Target': 1, Moderate: 2, Strong: 3, Excellent: 4 };
