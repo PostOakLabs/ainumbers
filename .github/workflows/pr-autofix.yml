@@ -1,18 +1,18 @@
 name: PR Autofix
 
-# PR-AUTOFIX-DERIVABLES-1 (2026-10-08, staged from RED-PATTERNS-4WK-2026-10-08 §4
-# fix 1): the autofix.ci / pre-commit.ci pattern for the per-PR derivables. The
-# red census measured 203 failed push/merge_group runs in four weeks; 44 were
-# the §18 deferred ratchet/provenance ejecting a node PR that lacked its SO #59
-# `--update-baseline` bump, ~24 were node pages shipped without their ask-agent
+# The per-PR derivables autofix (2026-10-08), staged from the four-week census of
+# failed push/merge_group runs (§4 fix 1 there): the autofix.ci / pre-commit.ci
+# pattern for the per-PR derivables. The census measured 203 failed
+# push/merge_group runs in four weeks; 44 were the §18 deferred
+# ratchet/provenance ejecting a node PR that lacked its baseline bump, ~24 were
 # or a11y writer blocks, ~8 were manifest-example drift. Every one of those is
 # deterministic from the PR's own files and has an existing `--write` command —
 # but none was enforced before the label, because the PR-side gate is advisory
-# while the merge_group gate is hard (SO #54 boundary). This workflow runs the
+# while the merge_group gate is hard (a PR-side advisory is not CI-enforcement).
 # PR's OWN deterministic writers on the PR head branch:
 #
 #   1. new/changed node under chaingraph/graph/nodes/
-#        -> the §18 bump rides the node PR (SO #59):
+#        -> the §18 bump rides the node PR:
 #           `node scripts/check-compute-proof-coverage.mjs --update-baseline`
 #           against an EPHEMERALLY ASSEMBLED speculative monolith (the same two
 #           commands the merge_group jobs run: assemble-chaingraph --out scratch
@@ -32,7 +32,7 @@ name: PR Autofix
 #           manifest (id = basename minus .manifest.json).
 #   3. new/changed page under chaingraph/*.html or tools/*.html
 #        -> `node scripts/check-ask-agent-block.mjs --write --only <node id>`
-#           per manifest-backed node page (ASK-AGENT-WRITER-SCOPE-1: --only
+#           per manifest-backed node page (the ask-agent writer scoping rule: --only
 #           scopes the WRITE pass; the CHECK pass stays whole-tree and runs in
 #           scripts-verify.yml, now HARD on pull_request), plus
 #           `node scripts/check-a11y-tree.mjs --write` (no --only flag exists;
@@ -223,7 +223,7 @@ jobs:
           done
           exit 1
 
-      - name: §18 bump rides the node PR (SO #59) — scratch assembly + --update-baseline
+      - name: §18 bump rides the node PR — scratch assembly + --update-baseline
         if: steps.guard.outputs.skip != 'true' && steps.touched.outputs.has_nodes == 'true'
         env:
           NODES_Z: ${{ runner.temp }}/nodes.z
@@ -255,7 +255,7 @@ jobs:
           # (mcp_name form, unchanged emitter).
           DERIVED_ROOT="$SCRATCH" node scripts/check-compute-proof-coverage.mjs --update-baseline
           # The scratch tree must never reach the checkout (the
-          # MERGEGROUP-HARD-GATES-1 assert-clean shape): at this point the
+          # the merge_group jobs' assert-clean shape): at this point the
           # ONLY permitted dirty path is the §18 baseline itself.
           BASELINE_ONLY="$(git status --porcelain | grep -v 'compute-proof-baseline.json' || true)"
           if [ -n "$BASELINE_ONLY" ]; then
@@ -281,7 +281,7 @@ jobs:
             node scripts/gen-manifest-examples.mjs --write --only "$id"
           done
 
-      - name: Ask-agent + a11y writer stamps on the PR's own pages (ASK-AGENT-WRITER-SCOPE-1)
+      - name: Ask-agent + a11y writer stamps on the PR's own pages (scoped writes)
         if: steps.guard.outputs.skip != 'true' && steps.touched.outputs.has_pages == 'true'
         env:
           PAGES_Z: ${{ runner.temp }}/pages.z
@@ -384,7 +384,7 @@ jobs:
           printf '%s\n' "${CHANGED[@]}" | sort -u > "${RUNNER_TEMP}/changed.txt"
           ESCAPED="$(comm -23 "${RUNNER_TEMP}/changed.txt" "${RUNNER_TEMP}/allowed.txt")"
           if [ -n "$ESCAPED" ]; then
-            echo "::error::PR-AUTOFIX-DERIVABLES-1 hard stop — a writer changed files outside the PR's own touched set:"
+            echo "::error::autofix hard stop — a writer changed files outside the PR's own touched set:"
             printf '%s\n' "$ESCAPED"
             echo "The autofix may narrow a PR's red, never widen its diff. Nothing was committed."
             exit 1
@@ -436,7 +436,7 @@ jobs:
           # (measured 2026-08-16: 11 zero-job failure runs across every branch).
           git commit \
             -m "chore(autofix): apply PR derivables (#${PR_NUMBER})" \
-            -m "Automated by .github/workflows/pr-autofix.yml: the per-PR derivables (SO #59 §18 bump, manifest examples, ask-agent + a11y writer stamps) are deterministic from this PR's own files and ride the PR branch."
+            -m "Automated by .github/workflows/pr-autofix.yml: the per-PR derivables (the §18 baseline bump, manifest examples, ask-agent + a11y writer stamps) are deterministic from this PR's own files and ride the PR branch."
 
           # App-authored push: a GITHUB_TOKEN-authored push would not retrigger
           # the PR's checks (the whole reason this row exists); the App's does.
