@@ -93,7 +93,11 @@ $script:Lanes = [ordered]@{
     # (rc=1 UnknownError "Unexpected server error" x3, zero "OK", 14:2xZ); ps catalog holds no
     # new free candidates (ling-3.0-flash-fin stays OUT per 10-05, nemotron ids stay OUT per
     # Tim 09-20), pool 6 -> 5 (muse-spark / fledge-alpha / space-bunny / ling-3.1 / longcat-2.5).
-    RotateModels = @('^opencode/muse-spark-1\.3.*free$', '^opencode/fledge-alpha.*free$', '^opencode/space-bunny.*free$', '^opencode/ling-3\.1-flash.*free$', '^opencode/longcat-2\.5-preview.*free$')
+    # 2026-10-08 (Tim-directed, "in case something is not working on opencode"): step-5-preview
+    # ADDED — free on the opencode catalog for a week (same model HERMES-ROTATE-STEP5-1 added to
+    # the hermes pool this morning); probed READY rc=0 "OK" on hp/prostar/nitro/aspire (5-14 s),
+    # pool 5 -> 6 on those four (msi's catalog is older, still skips at resolve time).
+    RotateModels = @('^opencode/muse-spark-1\.3.*free$', '^opencode/fledge-alpha.*free$', '^opencode/space-bunny.*free$', '^opencode/ling-3\.1-flash.*free$', '^opencode/longcat-2\.5-preview.*free$', '^opencode/step-5-preview.*free$')
     DefaultModel = 'opencode/muse-spark-1.3-contributor-free'
     ArgFormat    = 'run -m {4} "{0}"'
     # `opencode run` reads stdin when stdin is not a terminal and waits for EOF. Under Task

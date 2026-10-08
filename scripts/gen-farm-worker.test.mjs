@@ -69,7 +69,7 @@ import { generateWorker, loadTemplate, TEMPLATE_PATH } from './gen-farm-worker.m
 // rotation, RequireFile gated on the gateway credential file so the lane is inert (defer, never
 // fail) until the per-machine login, and an auth-fault tail signature routed to DEFERRED.
 // Previous golden: 45160 bytes, 2a3116ef92db466617b5a5f05ba6c24f67df8b84b9b00430c7797b9b40cab56c.
-const GOLDEN = { bus: 'aspire', bytes: 47780, sha256: '400a0438793873059c8fd35be04a673010b5b11a501073a4b35466c4646cd612' };  // 2026-10-08 hermes readjustment: stepfun/step-5-preview:free added (probed READY), portal free-list; previous golden 47414/61c423344742
+const GOLDEN = { bus: 'aspire', bytes: 48192, sha256: 'd42229a2e0f0feb2e400e205e8213b0fa5598e61552ed71ef25cd7fbee85404b' };  // 2026-10-08 Tim-directed: opencode/step-5-preview-free added to the opencode RotateModels pool (free for a week; probed READY rc=0 "OK" on hp/ps/nitro/aspire); previous golden 47780/400a04387938
 const BUSES = ['hp', 'ps', 'nitro', 'aspire', 'omen', 'msi'];   // MSI-BUS-1 (2026-09-20): sixth bus
 const TOKEN_VALUES = {
   hp: { '@@MACHINE@@': 'hp', '@@BUS@@': 'hp', '@@NPMROOT@@': '$env:APPDATA\\npm' },
@@ -150,7 +150,7 @@ assert(hp.includes(`RotateModelsLiteral = @('meituan/longcat-2.5-preview:free', 
   'hermes lane rotates longcat-2.5-preview -> ling -> laguna-s -> step-3.7 -> laguna-xs -> solar-mini4 -> step-5-preview (literal, {4} slot)');
 assert(!!/^[ ]*RotateModelsLiteral = @\('deepseek-v4\.1-flash'\)$/m.test(hp) && hp.includes('--model {4} --settings'),
   'workbuddy runs DeepSeek v4.1 Flash only (single-id rotation line, {4} slot kept; hy4/hy3/tier aliases dropped — WORKBUDDY-DEEPSEEK-ONLY-1)');
-assert((hp.match(/'\^opencode\//g) || []).length === 5, 'opencode lane rotates a 5-pattern catalog pool (2026-10-06 auto-rotate #2: mimo-v2.6 dropped probed-DEAD on ps; pool muse-spark/fledge/space-bunny/ling-3.1/longcat-2.5)');
+assert((hp.match(/'\^opencode\//g) || []).length === 6, 'opencode lane rotates a 6-pattern catalog pool (2026-10-08 Tim-directed: step-5-preview added free-for-a-week; prior 5-pool 2026-10-06 after mimo-v2.6 dropped probed-DEAD on ps)');
 assert(hp.includes("if ($harness -eq 'step') { $harness = 'hermes' }"), 'legacy step/muse harness names alias to hermes/opencode at claim time');
 assert(hp.includes('RequireFile = "$env:LOCALAPPDATA\\Programs\\WorkBuddyAI'), 'workbuddy RequireFile kept (family property)');
 assert(hp.includes('FallbackExe'), 'FallbackExe kept (family property hp lacked)');
