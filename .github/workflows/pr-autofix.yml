@@ -289,24 +289,58 @@ jobs:
           set -euo pipefail
           mapfile -d '' -t PAGE_FILES < "$PAGES_Z"
           # --write --only <node id> scopes the WRITE pass to exactly this
-          # node's page; pages without a manifest are hand-authored (no
-          # generated block exists to write) and are reported, not guessed at.
+          # node's page. Two skips, both by design:
+          #   • a page without a manifest is hand-authored (no generated block
+          #     exists to write);
+          #   • a BRAND-NEW node is not a live id in the COMMITTED monolith yet
+          #     (the writer keys on chaingraph.json, which only the main-side
+          #     assembler folds — measured 2026-10-08: `--only <new-id>` exits
+          #     1 "not a live node id in chaingraph.json"). Its block was
+          #     authored in-PR by the builder; the whole-tree CHECK pass (now
+          #     HARD on pull_request in scripts-verify.yml) is what judges it.
           for f in "${PAGE_FILES[@]}"; do
             id="$(basename "$f" .html)"
-            if [ -f "manifests/$id.manifest.json" ]; then
-              echo "▶ check-ask-agent-block --write --only $id"
-              node scripts/check-ask-agent-block.mjs --write --only "$id"
-            else
+            if [ ! -f "manifests/$id.manifest.json" ]; then
               echo "  skip ask-agent write for $f — no manifests/$id.manifest.json (hand-authored page, no generated block)"
+              continue
             fi
+            if ! NODE_ID="$id" node -e "const cg=require('./chaingraph/chaingraph.json'); process.exit((cg.nodes||[]).some((n) => n.tool_id === process.env.NODE_ID && n.status === 'live') ? 0 : 1)"; then
+              echo "  skip ask-agent write for $id — not a live node in the committed monolith (brand-new node; the builder authored its block in-PR)"
+              continue
+            fi
+            echo "▶ check-ask-agent-block --write --only $id"
+            node scripts/check-ask-agent-block.mjs --write --only "$id"
           done
           # No --only flag exists on the a11y writer; it rewrites only pages
-          # whose chrome drifted (byte-exact pages are skipped) and holds
-          # hand-authored/tools pages out of scope by its own fence. The
-          # containment step below fails the run if it touches anything
-          # outside this PR.
-          echo "▶ check-a11y-tree --write (writer is self-scoping: only drifted pages are rewritten)"
-          node scripts/check-a11y-tree.mjs --write
+          # whose chrome drifted — INCLUDING pre-existing check-clean
+          # normalization drift on pages this PR never touched (measured
+          # 2026-10-08: nine main pages carry an older <meta name="ai-tool">
+          # placement the writer normalizes). The row scopes this write to the
+          # PR's own pages, so reverts outside the touched set right here and
+          # names them; the containment step below still hard-fails the run if
+          # anything outside survives the revert.
+          echo "▶ check-a11y-tree --write (restricted to this PR's pages; out-of-scope reverts are discarded)"
+          if ! node scripts/check-a11y-tree.mjs --write; then
+            # Best-effort here BY DESIGN: a non-zero write pass (e.g. a stale
+            # a11y-baseline entry, whose removal is a hand edit — the ratchet
+            # only goes down) must not eat the §18 bump this run exists to
+            # push. The HARD whole-tree CHECK pass in scripts-verify.yml is
+            # the verdict that reds the PR.
+            echo "::warning title=check-a11y-tree --write exited non-zero::a drift the writer cannot fix (e.g. a stale baseline entry) needs a hand edit; the HARD check pass in scripts-verify.yml reds this PR until then."
+          fi
+          mapfile -d '' -t FILES_ALL < <(git diff -z --name-only origin/main...HEAD)
+          mapfile -d '' -t DIRTY < <(git diff -z --name-only)
+          for f in "${DIRTY[@]}"; do
+            keep=0
+            for t in "${FILES_ALL[@]}"; do [ "$f" = "$t" ] && keep=1 && break; done
+            case "$f" in
+              scripts/a11y-baseline.json|scripts/compute-proof-baseline.json|scripts/manifest-examples-baseline.json) keep=1 ;;
+            esac
+            if [ "$keep" = "0" ]; then
+              echo "  discarded a11y-writer rewrite outside this PR's touched set: $f (check-clean on main — not this PR's diff to widen)"
+              git checkout -- "$f"
+            fi
+          done
 
       - name: Containment — the writers changed nothing outside this PR's touched set
         if: steps.guard.outputs.skip != 'true'
