@@ -92,6 +92,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <meta name="ai-tool" content="check_producer_license_reciprocity">
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-267-check-producer-license-reciprocity.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:0120faf130b1725fa559dce448a0de45da7826fbc88e6b8377b94f361601beea">
 </head>
 <body>
 <nav>
@@ -442,9 +444,24 @@ function compute(p) {
 function cgCanon(v){return Array.isArray(v)?v.map(cgCanon):(v&&typeof v==='object'&&v!==null)?Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}):v;}
 async function executionHash(pp,op){const canon=JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op}));const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canon));return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');}
 
+function parseListField(v) {
+  // Declared array parameters (loa_codes, target_states) reach this control as
+  // JSON text: the generated wrapper/deep-link prefill serializes arrays with
+  // JSON.stringify — the faithful binding. Parse that text back into the array
+  // the kernel receives so the page assembles the same policy_parameters
+  // preimage as the kernel; a plain comma list still parses exactly as before.
+  const s = v.trim();
+  if (s.charAt(0) === '[') {
+    try {
+      const a = JSON.parse(s);
+      if (Array.isArray(a)) return a.map(function(x){return String(x).trim();}).filter(Boolean);
+    } catch (e) { /* not JSON — fall through to the comma-split */ }
+  }
+  return s.split(',').map(function(x){return x.trim();}).filter(Boolean);
+}
 async function runCompute() {
-  const loaRaw = document.getElementById('loaCodes').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
-  const tsRaw = document.getElementById('targetStates').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  const loaRaw = parseListField(document.getElementById('loaCodes').value);
+  const tsRaw = parseListField(document.getElementById('targetStates').value);
   const pp = {resident_state: document.getElementById('residentState').value.trim(), loa_codes: loaRaw, target_states: tsRaw};
   const op = compute(pp);
   const hash = await executionHash(pp, op);
