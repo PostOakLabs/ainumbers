@@ -313,12 +313,22 @@ jobs:
         run: |
           set -euo pipefail
           # Status records in `git status --porcelain -z` look like "XY path"
-          # (renames carry the orig path as a SECOND, unprefixed record — kept
-          # whole; the writers here never rename).
+          # where X or Y may itself be a space (an unstaged edit is " M path").
+          # Renames carry the orig path as a SECOND, unprefixed record — the
+          # state flag below keeps it whole (the writers never rename, but the
+          # parser must not corrupt one silently either).
           mapfile -d '' -t RAW < <(git status --porcelain -z)
           CHANGED=()
+          PREV_RENAME=0
           for r in "${RAW[@]}"; do
-            if [[ "$r" =~ ^[A-Z?]{1,2}[[:space:]] ]]; then p="${r:3}"; else p="$r"; fi
+            if [ "$PREV_RENAME" = "1" ]; then
+              p="$r"; PREV_RENAME=0
+            elif [[ "$r" =~ ^.[A-Z?!\ ][[:space:]] ]]; then
+              p="${r:3}"
+              case "${r:0:1}" in R|C) PREV_RENAME=1 ;; esac
+            else
+              p="$r"
+            fi
             [ -n "$p" ] && CHANGED+=("$p")
           done
 
@@ -367,11 +377,20 @@ jobs:
           # the WHOLE command on a pathspec that matches nothing, so a phantom
           # entry would silently stage nothing (the measured
           # derived-artifacts-regen.yml lesson). Status records look like
-          # "XY path"; renames carry the orig path as a second unprefixed
-          # record and are kept whole (the writers never rename).
+          # "XY path" with X/Y possibly a space; renames carry the orig path
+          # as a second unprefixed record and are kept whole (the writers
+          # never rename).
           mapfile -d '' -t RAW < <(git status --porcelain -z)
+          PREV_RENAME=0
           for r in "${RAW[@]}"; do
-            if [[ "$r" =~ ^[A-Z?]{1,2}[[:space:]] ]]; then p="${r:3}"; else p="$r"; fi
+            if [ "$PREV_RENAME" = "1" ]; then
+              p="$r"; PREV_RENAME=0
+            elif [[ "$r" =~ ^.[A-Z?!\ ][[:space:]] ]]; then
+              p="${r:3}"
+              case "${r:0:1}" in R|C) PREV_RENAME=1 ;; esac
+            else
+              p="$r"
+            fi
             [ -n "$p" ] || continue
             git add -- "$p"
           done
