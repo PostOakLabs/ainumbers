@@ -27,8 +27,24 @@
  * Usage:
  *   node scripts/gen-page-md-twins.mjs          # write twins + head links
  *   node scripts/gen-page-md-twins.mjs --check  # freshness gate (exit 1 if stale)
+ *
+ * Writes report (REGEN-ESCAPE-GUARD-BLIND-HEAL-1, mirroring gen-manifest-examples.mjs's
+ * REGEN-MANIFEST-ATTEST-1 mechanism): every write-mode run writes the run's ACTUAL write
+ * list (twin .md files + patched .html pages, empty list included) to a tempdir report
+ * consumed by `scripts/derived-artifacts.mjs --paths`. The COVERED entry declares the
+ * bare-tree prefixes `tools` / `chaingraph` (runtime-named writes, so a static list is
+ * impossible), and staging that bare prefix is exactly what made the regen workflow's
+ * escape check blind: `git add -- chaingraph` stages ANY file an injector drops under
+ * the prefix, and a staged file no longer shows as `??` in the porcelain self-check
+ * (measured on pristine main: dispatch 37834014002, 2026-10-08, went GREEN with
+ * `chaingraph/UNDECLARED-SELFTEST.txt | 1 +` inside the staged diff). With the report
+ * in place, --paths stages only files this generator actually wrote, the injected file
+ * stays untracked, and the escape check trips again. The COVERED entry carries
+ * `writesReportRequired: true`: an absent/unreadable report is a loud refusal, never a
+ * silent fallback to the blind prefix glob.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildMarkdownAlternateLink, MD_TWIN_LINK_REL, buildChainAskAgentCopyText } from '../chaingraph/_page-chrome.mjs';
@@ -37,6 +53,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 
 const CHECK = process.argv.includes('--check');
+
+export const PAGE_MD_TWINS_WRITES_REPORT_FILENAME = 'ainumbers-page-md-twins-writes.json';
+export const PAGE_MD_TWINS_WRITES_REPORT_PATH = resolve(tmpdir(), PAGE_MD_TWINS_WRITES_REPORT_FILENAME);
 
 /** The one prose transform (same semantics as gen-llms-full.mjs's humanize): */
 function humanize(s) {
@@ -322,6 +341,11 @@ function main() {
   const targets = collectTwinTargets(REPO);
   const summary = { twins: 0, twinsWritten: 0, heads: 0, headsWritten: 0, skipped: 0 };
   const reds = [];
+  // REGEN-ESCAPE-GUARD-BLIND-HEAL-1: every path this run actually wrote (twin .md
+  // files AND the patched .html pages whose head link it refreshed) — the report
+  // that narrows `derived-artifacts.mjs --paths` to generator-written files, so a
+  // bare-tree prefix declaration can never stage an injected file again.
+  const written = [];
 
   for (const t of targets) {
     const twinAbs = relToAbs(t.twinRel);
@@ -341,11 +365,26 @@ function main() {
       summary.twins++; summary.heads++;
       continue;
     }
-    if (writeIfChanged(twinAbs, md)) summary.twinsWritten++;
+    if (writeIfChanged(twinAbs, md)) { summary.twinsWritten++; written.push(t.twinRel); }
     summary.twins++;
     const patched = withAlternateLink(pageHtml, t.pageUrl);
-    if (patched !== null) { writeIfChanged(pageAbs, patched); summary.headsWritten++; }
+    if (patched !== null) {
+      writeIfChanged(pageAbs, patched);
+      summary.headsWritten++;
+      written.push(t.pageRel);
+    }
     summary.heads++;
+  }
+
+  if (!CHECK) {
+    // Written on EVERY write-mode run — empty list included — so a report never
+    // outlives the run that produced it (REGEN-MANIFEST-ATTEST-1 precedent).
+    // Silent on success, loud on failure (writeFileSync throws).
+    writeFileSync(PAGE_MD_TWINS_WRITES_REPORT_PATH, JSON.stringify({
+      _comment: 'Actual write list of the last gen-page-md-twins.mjs write run; consumed by scripts/derived-artifacts.mjs --paths (REGEN-ESCAPE-GUARD-BLIND-HEAL-1).',
+      generated_by: 'node scripts/gen-page-md-twins.mjs',
+      written: [...new Set(written)].sort(),
+    }, null, 2) + '\n', 'utf8');
   }
 
   if (reds.length) {
