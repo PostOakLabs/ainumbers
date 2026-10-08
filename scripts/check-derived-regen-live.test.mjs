@@ -460,7 +460,7 @@ test('MUTEX - an ownerless young lock is never stolen on sight, only on age', ()
   const beats = [];
   const startedAt = Date.now();
   const out = withScanLock(lockDir, () => 'ran', {
-    pollMs: 25, stealMs: 300, isAlive: () => true, progress: (line) => beats.push(line),
+    pollMs: 25, orphanStealMs: 300, isAlive: () => true, progress: (line) => beats.push(line),
   });
   const waitedMs = Date.now() - startedAt;
   assert(out === 'ran', `the body must run, got ${JSON.stringify(out)}`);

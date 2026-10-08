@@ -135,11 +135,15 @@
  * single scan pays one mkdir + one rmdir, so the solo baseline is untouched.
  * Stale-lock defense: the owner records its pid in `owner.json`; a waiter
  * that finds a DEAD owner pid (the harness exit-137 kill shape) steals the
- * lock immediately instead of waiting forever, and a lock older than
- * `DERIVED_REGEN_LIVE_LOCK_STEAL_MS` (default 30 min) is stolen even from a
- * nominally-live pid (pid reuse). A lock with no readable owner is assumed
- * to be an acquirer between mkdir and its owner.json write: never stolen on
- * sight, only on age. Release removes the directory only if the pid inside
+ * lock immediately instead of waiting forever; a NAMED-owner lock older than
+ * `DERIVED_REGEN_LIVE_LOCK_STEAL_MS` (default 60 min — liveness is the
+ * primary signal, age only defeats pid recycling) is stolen even from a
+ * nominally-live pid, and an OWNERLESS lock (a crash between mkdir and the
+ * owner.json write) older than 5 min is stolen regardless — the only
+ * legitimate ownerless state is microseconds wide, so a minutes-old
+ * ownerless lock is a dead process and must not wedge every waiter for an
+ * hour. A lock with no readable owner that is YOUNG is assumed to be an
+ * acquirer mid-write: never stolen on sight. Release removes the directory only if the pid inside
  * is still ours, so a stolen-and-reacquired lock is never deleted by its
  * dead hand. The mutex is advisory and fail-open: if the common git dir
  * cannot be resolved the scan runs unlocked with a stderr warning — degraded
@@ -684,7 +688,8 @@ function runLiveScan({ dir, covered, timeoutMs = DEFAULT_ENTRY_TIMEOUT_MS, progr
 // (execSync makes this whole file synchronous; an async sleep cannot exist
 // here), and `process.kill(pid, 0)` liveness.
 
-const DEFAULT_LOCK_STEAL_MS = 30 * 60_000;
+const DEFAULT_LOCK_STEAL_MS = 60 * 60_000;   // named owner: dead pids are detected live, this only covers pid recycling
+const DEFAULT_ORPHAN_STEAL_MS = 5 * 60_000;  // ownerless lock: legit only for the microseconds-wide mkdir→owner.json gap
 function lockStealMs() {
   const raw = process.env.DERIVED_REGEN_LIVE_LOCK_STEAL_MS;
   if (raw === undefined || raw === '') return DEFAULT_LOCK_STEAL_MS;
@@ -747,7 +752,7 @@ function sleepSync(ms) {
  * - `heartbeatMs` — how often the waiting line repeats on `progress`
  * - `isAlive`     — pid-liveness probe (tests substitute a constant)
  */
-function withScanLock(lockDir, fn, { progress = () => {}, stealMs = lockStealMs(), pollMs = 250, heartbeatMs = 30_000, isAlive = isPidAlive, _now = Date.now } = {}) {
+function withScanLock(lockDir, fn, { progress = () => {}, stealMs = lockStealMs(), orphanStealMs = DEFAULT_ORPHAN_STEAL_MS, pollMs = 250, heartbeatMs = 30_000, isAlive = isPidAlive, _now = Date.now } = {}) {
   if (!lockDir) return fn();
   const waitStartedAt = _now();
   let lastHeartbeat = _now();
@@ -763,7 +768,13 @@ function withScanLock(lockDir, fn, { progress = () => {}, stealMs = lockStealMs(
     const owner = readLockOwner(lockDir);
     const age = lockAgeMs(lockDir, _now());
     heldByName = owner && Number.isFinite(owner.pid) ? `pid ${owner.pid}` : 'an owner that died before writing its record';
-    const expired = age !== null && age > stealMs;
+    // Age bound: NAMED owners get the generous bound (liveness is the primary
+    // signal there; age only defeats pid recycling). OWNERLESS locks get the
+    // short bound — the only legitimate ownerless state is the microseconds
+    // between mkdir and the owner.json write, so an ownerless lock that is
+    // minutes old is a dead process, and waiting out the full named bound on
+    // it would wedge every waiter for an hour.
+    const expired = age !== null && age > (owner ? stealMs : orphanStealMs);
     const ownerKnownDead = Boolean(owner) && Number.isFinite(owner.pid) && !isAlive(owner.pid);
     if (!expired && !ownerKnownDead) {
       // WAIT — this includes the no-owner-young case: a lock whose owner
@@ -776,7 +787,7 @@ function withScanLock(lockDir, fn, { progress = () => {}, stealMs = lockStealMs(
       sleepSync(pollMs);
       continue;
     }
-    progress(`scan mutex steal: ${expired ? `lock age ${((age ?? 0) / 60000).toFixed(0)} min exceeds the ${(stealMs / 60000).toFixed(0)} min bound` : `owner is gone (${heldByName})`} — stealing (REGEN-CHECK-CONCURRENCY-HEAL-1)`);
+    progress(`scan mutex steal: ${expired ? `lock age ${((age ?? 0) / 60000).toFixed(0)} min exceeds the ${((owner ? stealMs : orphanStealMs) / 60000).toFixed(0)} min bound${owner ? '' : ' (ownerless)'}` : `owner is gone (${heldByName})`} — stealing (REGEN-CHECK-CONCURRENCY-HEAL-1)`);
     try { rmSync(lockDir, { recursive: true, force: true }); } catch { /* a racer may have stolen first — the loop re-decides */ }
   }
   try { writeFileSync(join(lockDir, 'owner.json'), JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })); } catch { /* best effort — the age bound covers a lost record */ }
