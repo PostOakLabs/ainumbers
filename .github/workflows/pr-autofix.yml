@@ -14,17 +14,19 @@ name: PR Autofix
 #   1. new/changed node under chaingraph/graph/nodes/
 #        -> the §18 bump rides the node PR (SO #59):
 #           `node scripts/check-compute-proof-coverage.mjs --update-baseline`
-#           against an EPHEMERALLY ASSEMBLED speculative monolith
-#           (assemble-chaingraph --out scratch + DERIVED_ROOT) — exactly the
-#           tree merge_group judges. A bare --update-baseline on the PR
-#           checkout would read the stale committed monolith and write a no-op
-#           baseline; the scratch assembly is what makes the bump real
-#           (measured 2026-10-08 on a synthetic enrolled deferred node: only
-#           the DERIVED_ROOT run absorbs it — "new node(s) accepted", deferred
-#           4 -> 5, the exact #2284 bump shape). Refuse-on-regression is
-#           unchanged: a real proof regression (proven at pin, deferred now)
-#           makes the writer exit 1 and NOTHING is auto-edited — a deliberate
-#           re-park of a proven node is a Tim call, not a bot edit.
+#           against an EPHEMERALLY ASSEMBLED speculative monolith (the same two
+#           commands the merge_group jobs run: assemble-chaingraph --out scratch
+#           + derived-artifacts --out, then DERIVED_ROOT) — exactly the tree
+#           merge_group judges. A bare --update-baseline on the PR checkout
+#           would read the stale committed monolith and write a no-op baseline;
+#           the scratch assembly is what makes the bump real (measured
+#           2026-10-08 on a synthetic committed deferred shard: only the
+#           DERIVED_ROOT run over the derived-artifacts --out scratch absorbs
+#           it — "new node(s) accepted", deferred 4 -> 5, the exact #2284 bump
+#           shape). Refuse-on-regression is unchanged: a real proof regression
+#           (proven at pin, deferred now) makes the writer exit 1 and NOTHING
+#           is auto-edited — a deliberate re-park of a proven node is a Tim
+#           call, not a bot edit.
 #   2. new/changed manifests/*.manifest.json
 #        -> `node scripts/gen-manifest-examples.mjs --write --only <id>` per
 #           manifest (id = basename minus .manifest.json).
@@ -230,12 +232,23 @@ jobs:
           mapfile -d '' -t NODE_FILES < "$NODES_Z"
           printf 'Node shard(s) touched — the §18 bump rides this PR:\n'
           printf '  %q\n' "${NODE_FILES[@]}"
-          # EPHEMERAL speculative monolith — the same tree merge_group judges
-          # (assemble-chaingraph --out writes the scratch path unconditionally
-          # and never touches the checkout; asserted below).
+          # EPHEMERAL speculative monolith — the same tree merge_group judges,
+          # via the same two commands the merge_group jobs run (land-verify.yml
+          # / scripts-verify.yml "Ephemeral derived tree"). The second command
+          # is load-bearing, not duplication: derived-artifacts --out runs the
+          # full COVERED regen pass in a throwaway worktree of HEAD, and its
+          # first generator is `assemble-chaingraph.mjs --enroll` — so a
+          # brand-new committed shard is ENROLLED into the scratch monolith
+          # even though the PR never touches chaingraph.meta.json (measured
+          # 2026-10-08: a committed synthetic deferred shard absent from the
+          # bare assemble --out output is present after derived-artifacts --out,
+          # and only the DERIVED_ROOT bump run absorbs it: "new node(s)
+          # accepted", deferred 4 -> 5, the exact #2284 bump shape). Nothing
+          # derived is ever committed from the scratch; asserted below.
           SCRATCH="${RUNNER_TEMP}/derived-tree"
           mkdir -p "${SCRATCH}/chaingraph"
           node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
+          node scripts/derived-artifacts.mjs --out "${SCRATCH}"
           # The writer REFUSES on a real regression (proven at pin, deferred
           # now) — that exit is the row's direction (b): still fails, NOT
           # auto-edited. On success it absorbs only brand-new deferred nodes
