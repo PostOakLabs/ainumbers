@@ -12,14 +12,23 @@ name: HTML Verify
 # kernel setup. Additive only: does not replace or weaken any existing gate.
 
 on:
-  push:
+  # MAIN-GATES-AFTER-REGEN-1: main-side gates fire on the single-writer regen's
+  # COMPLETION, not on the bare PR-merge commit (measured four-week census:
+  # ~95 of 203 failed runs were push-triggered gates red-by-construction on
+  # the merge commit before the regen's chore commit landed — nav-island 16,
+  # sitemap/trust-signals stale among them). Every landing still reaches this
+  # workflow on a fresh tree — the trigger mechanics, the
+  # two-completions-per-drift-repairing-landing shape, the stand-down on the
+  # superseded first completion, and the regen's own exposure of which commit
+  # this is are documented at the top of land-verify.yml, which shares it.
+  # The old push `paths:` filter survives as the ci-paths.json key
+  # "html-verify" (the relevance job below diffs against it on
+  # pull_request / merge_group); on workflow_run there is nothing to scope —
+  # the gates run in full, exactly as they did on every push:main dispatch.
+  workflow_run:
+    workflows: [ "Derived Artifacts Regen" ]
+    types: [ completed ]
     branches: [ main ]
-    paths:
-      - 'tools/**.html'
-      - 'guides/**.html'
-      - 'chaingraph/**.html'
-      - '*.html'
-      - '.github/workflows/html-verify.yml'
   pull_request:
     # ready_for_review added (DRAFTCI-3, 2026-07-20): draft PRs are skipped
     # below, so a readied draft must trigger a fresh run or it could merge
@@ -48,30 +57,45 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   # A newer push/synchronize on the same PR ref supersedes its prior
   # in-progress run (2026-08-30) — letting the stale one
-  # finish is redundant CI time, not lost coverage. Also cancels a stale
-  # push:main run: derived-artifacts-regen.yml commits a regen fix-up on
-  # the same `github.ref` shortly after most human pushes to main, and this
-  # workflow has no push-only downstream job depending on it (unlike
-  # land-verify.yml's attest-fv-artifacts) — so the newer commit's run
-  # fully supersedes the older one. Measured 2026-08-30 run 33315676452:
-  # scripts-verify.yml's own push run stayed red on stale derived
-  # artifacts (debt-ledger) for 9 minutes while the regen bot's own push,
-  # 36s later, produced a clean green run for the same ref; same race
-  # shape hits every workflow gating a COVERED derived artifact on
-  # push:main. NEVER cancel a merge_group run — a cancelled merge_group
-  # run reports nothing back to the queue, which deadlocks it rather than
-  # just leaving a stale red.
+  # finish is redundant CI time, not lost coverage. The same expression also
+  # cancels a superseded workflow_run run (MAIN-GATES-AFTER-REGEN-1): a
+  # drift-repairing landing fires this workflow twice — the first completion
+  # (head_sha = the merge commit, stale-by-construction, stood down by the
+  # substantive job's `if:` below) is cancelled by the second completion
+  # (head_sha = the regen bot's fresh commit) seconds later; the newer run
+  # wins. This workflow has no push-only downstream job (unlike
+  # land-verify.yml's attest-fv-artifacts) to lose. Measured 2026-08-30 run
+  # 33315676452: scripts-verify.yml's own push run stayed red on stale
+  # derived artifacts (debt-ledger) for 9 minutes while the regen bot's own
+  # push, 36s later, produced a clean green run for the same ref; same race
+  # shape hits every workflow gating a COVERED derived artifact on push:main
+  # — which is why the push:main trigger itself is now gone. NEVER cancel a
+  # merge_group run — a cancelled merge_group run reports nothing back to
+  # the queue, which deadlocks it rather than just leaving a stale red.
   cancel-in-progress: ${{ github.event_name != 'merge_group' }}
 
 permissions:
   contents: read
 
+# The commit this run gates. On workflow_run, github.sha is the head of the
+# default branch at event time — it has already moved to the regen's repair
+# commit when one exists, which is exactly the supersede signal the
+# substantive job's `if:` reads — and the tree to gate is the completed
+# regen's head_sha, never the event-time branch head (it can race past what
+# the regen actually validated; same rule as deploy-to-dreamhost.yml's
+# DEPLOY_SHA). On pull_request / merge_group, github.ref is the merge/queue
+# ref — byte-for-byte today's default checkout.
+env:
+  GATE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+
 jobs:
   relevant:
     name: relevant
     # Always-report shape: see scripts-verify.yml's identical job for the
-    # full rationale. Push events report hit=true unconditionally (the push
-    # `paths:` filter above already scoped dispatch).
+    # full rationale. workflow_run / workflow_dispatch events report hit=true
+    # unconditionally (there is no path filter left to scope them; the
+    # workflow_run trigger fires on every completed main regen and the gates
+    # run in full — same as the old push:main dispatch).
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -107,10 +131,27 @@ jobs:
     # GitHub still runs pull_request workflows on drafts, so those PRs
     # showed a red X despite the draft
     # rule — the red carried no information. Skip drafts; the run fires on
-    # ready_for_review and the push-to-main trigger remains the backstop.
+    # ready_for_review and the workflow_run trigger (after the single-writer
+    # regen) is the main-side backstop.
     #
     # Always-report shape: also gated on needs.relevant.outputs.hit.
-    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.relevant.outputs.hit == 'true'
+    #
+    # MAIN-GATES-AFTER-REGEN-1 workflow_run guard: only a SUCCESSFUL main
+    # regen may drive these gates, and only while its commit is still the
+    # default branch's head at event time. The first completion of a
+    # drift-repairing landing fires with head_sha = the merge commit M —
+    # stale-by-construction for every shared derived artifact, and already
+    # superseded by the regen bot's commit R (github.sha has moved past it) —
+    # so this job stands down there and the second completion, head_sha = R,
+    # runs every gate on the fresh tree. Zero red runs on the merge commit is
+    # the point of the move; a stale artifact the regen will NOT repair still
+    # reds here on the surviving completion, because github.sha never moves.
+    if: >-
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false) &&
+      needs.relevant.outputs.hit == 'true' &&
+      (github.event_name != 'workflow_run' ||
+        (github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.head_sha == github.sha))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -118,6 +159,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
+          # The one commit this run gates (workflow-level GATE_SHA — the
+          # completed regen's head_sha on the workflow_run trigger; the
+          # merge/queue ref unchanged on pull_request / merge_group).
+          ref: ${{ env.GATE_SHA }}
           # fetch-depth 0 (was 1, 2026-08-27): the Nav reachability gate
           # below shells to check-shard-assembly.mjs, which needs to resolve
           # origin/main to tell a mid-flight PENDING-ASSEMBLE

@@ -17,12 +17,18 @@ name: Unwired Gates
 # the file pinned to a worker-repo commit SHA.
 
 on:
-  push:
+  # MAIN-GATES-AFTER-REGEN-1: main-side gates fire on the single-writer regen's
+  # COMPLETION, not on the bare PR-merge commit (measured four-week census:
+  # ~95 of 203 failed runs were push-triggered gates red-by-construction on
+  # the merge commit before the regen's chore commit landed). Every landing
+  # still reaches this workflow on a fresh tree — the trigger mechanics, the
+  # two-completions-per-drift-repairing-landing shape, the stand-down on the
+  # superseded first completion, and the regen's own exposure of which commit
+  # this is are documented at the top of land-verify.yml, which shares it.
+  workflow_run:
+    workflows: [ "Derived Artifacts Regen" ]
+    types: [ completed ]
     branches: [ main ]
-    paths:
-      - 'scripts/**'
-      - 'chaingraph/**'
-      - '.github/workflows/unwired-gates.yml'
   pull_request:
     paths:
       - 'scripts/**'
@@ -33,9 +39,34 @@ on:
 permissions:
   contents: read
 
+# The commit this run gates. On workflow_run, github.sha is the head of the
+# default branch at event time — it has already moved to the regen's repair
+# commit when one exists, which is exactly the supersede signal the job's
+# `if:` reads — and the tree to gate is the completed regen's head_sha, never
+# the event-time branch head (it can race past what the regen actually
+# validated; same rule as deploy-to-dreamhost.yml's DEPLOY_SHA). On
+# pull_request / workflow_dispatch, github.ref is the PR merge ref / the
+# dispatched ref — byte-for-byte today's default checkout.
+env:
+  GATE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+
 jobs:
   gates:
     name: 19 measured-green gates + surface-parity report
+    # MAIN-GATES-AFTER-REGEN-1 workflow_run guard: only a SUCCESSFUL main regen
+    # may drive these gates, and only while its commit is still the default
+    # branch's head at event time. The first completion of a drift-repairing
+    # landing fires with head_sha = the merge commit M — stale-by-construction
+    # for every shared derived artifact, and already superseded by the regen
+    # bot's commit R (github.sha has moved past it) — so this job stands down
+    # there and the second completion, head_sha = R, runs every gate on the
+    # fresh tree. Zero red runs on the merge commit is the point of the move;
+    # a stale artifact the regen will NOT repair still reds here on the
+    # surviving completion, because github.sha never moves.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_sha == github.sha)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -44,6 +75,10 @@ jobs:
       - name: Checkout site repo
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
+          # The one commit this run gates (workflow-level GATE_SHA — the
+          # completed regen's head_sha on the workflow_run trigger; the
+          # PR merge ref / dispatched ref unchanged on other events).
+          ref: ${{ env.GATE_SHA }}
           persist-credentials: false
 
       - name: Setup node
