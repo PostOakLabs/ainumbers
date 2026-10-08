@@ -43,3 +43,4 @@ status: stable
 - [settlement_mandate](./settlement_mandate.md) (9)
 - [treasury_mandate](./treasury_mandate.md) (8)
 - [vop_readiness_attestation](./vop_readiness_attestation.md) (1)
+- [workforce_program_roi](./workforce_program_roi.md) (1)

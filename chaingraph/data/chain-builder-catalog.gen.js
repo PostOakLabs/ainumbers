@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (672 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (673 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7337,6 +7337,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-711-sco60-crypto-asset-exposure-classifier-v2.html",
     "description": "Book-level Group 2 exposure-limit assessor for banks' cryptoasset exposures (BCBS d545 Prudential treatment of cryptoasset exposures, SCO60.",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-712-workforce-board-roi",
+    "display_name": "Workforce Board ROI Report",
+    "mandate_type": "workforce_program_roi",
+    "url": "https://ainumbers.co/chaingraph/art-712-workforce-board-roi.html",
+    "description": "Workforce program ROI report generator ported from ApexLogics Apex #15 (AL-07). From a program budget, enrollment and WIOA outcome data the ",
     "consumes": [],
     "feeds": [],
     "status": "live"
