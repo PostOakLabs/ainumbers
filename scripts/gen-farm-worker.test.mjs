@@ -62,7 +62,14 @@ import { generateWorker, loadTemplate, TEMPLATE_PATH } from './gen-farm-worker.m
 // block folded (FARM-HERMES-SWAP-1 memorial open item 1, commit 41f070c5f: fetch + rev-list
 // --count + pull --rebase before the heartbeat push; advisory only, never blocks a report).
 // Previous golden: 40051 bytes, 55abf63a45be27ce5347c075aee454de1d84b83b3c061f73852091e414937ebe.
-const GOLDEN = { bus: 'aspire', bytes: 45160, sha256: '2a3116ef92db466617b5a5f05ba6c24f67df8b84b9b00430c7797b9b40cab56c' };  // 2026-10-06 auto-rotate #2 (Part 5): opencode pool mimo-v2.6 pattern dropped (probed DEAD UnknownError x3 on ps); previous golden 44746/3bd2af27583d
+// Re-pinned 2026-10-07 (KILO-FALLBACK-LANE-1, Tim-directed: "if a specific bus/lane has a problem
+// with a harness, they can try to use kilo auto"): the kilo lane added — headless `kilo run
+// --auto -m kilo/kilo-auto/free` through the Kilo CLI (@kilocode/cli 7.8.8, installed on all five
+// laptops + the Omen that day), the gateway's Auto Free router as a single-entry literal
+// rotation, RequireFile gated on the gateway credential file so the lane is inert (defer, never
+// fail) until the per-machine login, and an auth-fault tail signature routed to DEFERRED.
+// Previous golden: 45160 bytes, 2a3116ef92db466617b5a5f05ba6c24f67df8b84b9b00430c7797b9b40cab56c.
+const GOLDEN = { bus: 'aspire', bytes: 47414, sha256: '61c423344742cba9080906033fc4f8accbe67f2434bcb74af00eebdf4e197a36' };  // 2026-10-07 KILO-FALLBACK-LANE-1: kilo lane (gateway Auto Free router, credential-gated) + auth-fault DEFERRED signature; previous golden 45160/2a3116ef92db
 const BUSES = ['hp', 'ps', 'nitro', 'aspire', 'omen', 'msi'];   // MSI-BUS-1 (2026-09-20): sixth bus
 const TOKEN_VALUES = {
   hp: { '@@MACHINE@@': 'hp', '@@BUS@@': 'hp', '@@NPMROOT@@': '$env:APPDATA\\npm' },
@@ -101,7 +108,8 @@ function unSubstitute(bus, g) {
     .replaceAll(`'farm: ${busName} heartbeat'`, `'farm: @@BUS@@ heartbeat'`)
     .replaceAll('notes/HEARTBEAT-' + busName + '.md`', 'notes/HEARTBEAT-@@BUS@@.md`')
     .replaceAll(`${npmRoot}\\opencode.cmd`, `@@NPMROOT@@\\opencode.cmd`)
-    .replaceAll(`${npmRoot}\\cline.cmd`, `@@NPMROOT@@\\cline.cmd`);
+    .replaceAll(`${npmRoot}\\cline.cmd`, `@@NPMROOT@@\\cline.cmd`)
+    .replaceAll(`${npmRoot}\\kilo.cmd`, `@@NPMROOT@@\\kilo.cmd`);
 }
 for (const bus of BUSES) {
   const back = unSubstitute(bus, generateWorker(bus));
@@ -144,6 +152,14 @@ assert((hp.match(/'\^opencode\//g) || []).length === 5, 'opencode lane rotates a
 assert(hp.includes("if ($harness -eq 'step') { $harness = 'hermes' }"), 'legacy step/muse harness names alias to hermes/opencode at claim time');
 assert(hp.includes('RequireFile = "$env:LOCALAPPDATA\\Programs\\WorkBuddyAI'), 'workbuddy RequireFile kept (family property)');
 assert(hp.includes('FallbackExe'), 'FallbackExe kept (family property hp lacked)');
+// KILO-FALLBACK-LANE-1 (2026-10-07): the kilo fallback lane — gateway Auto Free router,
+// credential-gated, single-entry literal rotation, auth-fault tails route to DEFERRED.
+assert(hp.includes(`RotateModelsLiteral = @('kilo/kilo-auto/free')`) && /ArgFormat\s+= 'run --auto -m \{4\} "\{0\}"'/.test(hp),
+  'kilo lane runs the gateway Auto Free router through `kilo run --auto` as a single-entry literal rotation ({4} slot)');
+assert(hp.includes('RequireFile = "$env:USERPROFILE\\.local\\share\\kilo\\auth.json"'),
+  'kilo RequireFile gates on the gateway credential file: inert (defer, never fail) until the per-machine login');
+assert(template.includes('@@NPMROOT@@\\kilo.cmd'), 'kilo FallbackExe uses the per-bus npmRoot token (opencode/cline family property)');
+assert(/you need to sign in/.test(hp), 'an auth-fault tail is a transient (DEFERRED), never a permanent .FAILED (pre-login kilo reroutes stay harmless)');
 
 // 4. per-bus identity: distinct bytes, own machine/bus/npmRoot, nothing left unsubstituted
 const gen = Object.fromEntries(BUSES.map((b) => [b, generateWorker(b)]));

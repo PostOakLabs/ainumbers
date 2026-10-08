@@ -1,7 +1,7 @@
 <#
 farm-worker.ps1 - ainumbers-farm-aspire worker (Aspire)
 
-Runs ONE tasking from inbox\ with a free-model harness (hermes | opencode | cline | workbuddy) and
+Runs ONE tasking from inbox\ with a free-model harness (hermes | opencode | cline | workbuddy | kilo) and
 lands the report in outbox\.
 Runs every 15 min via Task Scheduler; also runnable manually:
   powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\ainumbers-farm-aspire\farm-worker.ps1 [-TaskId <id>] [-DryRun]
@@ -135,6 +135,31 @@ $script:Lanes = [ordered]@{
     RotateModelsLiteral = @('deepseek-v4.1-flash')
     DefaultModel = 'deepseek-v4.1-flash'
     ArgFormat   = "`"$env:LOCALAPPDATA\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\bin\codebuddy`" `"{0}`" -p --output-format text --model {4} --settings `"$Farm\workbuddy-settings.json`" --add-dir `"$Outbox`""
+  }
+  # Kilo fallback lane (2026-10-07, Tim: "if a specific bus/lane has a problem with a harness,
+  # they can try to use kilo auto"): headless one-shot through the Kilo CLI (an OpenCode fork;
+  # npm @kilocode/cli 7.8.8, installed + verified on all five laptops and the Omen). The model is
+  # the Kilo gateway's Auto Free router (kilo/kilo-auto/free): it picks any free gateway model,
+  # zero-billed, rate-limited at 200 req/h per IP - which the home-NATed fleet shares, so this
+  # lane is a fallback, never a primary. `kilo run --auto` answers non-interactively and EXITS
+  # (0 done / 124 timeout / 1 error), so CloseStdin plus the worker's tree-kill backstop suffice.
+  # RequireFile is the credential file the gateway sign-in writes: until a machine logs in the
+  # lane defers its taskings exactly like a missing exe (nothing failed, no deferral burned) and
+  # goes live the moment the login lands. Measured pre-login on every machine: "Error: You need
+  # to sign in to use this model.", exit 1, in seconds - and the transient-tail signature below
+  # routes that tail to DEFERRED, never a permanent .FAILED.
+  'kilo' = @{
+    ExeNames    = @('kilo')
+    EnvAllow    = @()
+    FallbackExe = @("@@NPMROOT@@\kilo.cmd")
+    RequireFile = "$env:USERPROFILE\.local\share\kilo\auth.json"
+    # Single-entry literal rotation: fills the {4} slot (Resolve-RotatedModel returns '' without
+    # one, which would leave a bare `-m` in the argv) and lets fail-forward re-try the same id up
+    # to $maxAttempts, exactly like the other single-entry lane, workbuddy.
+    RotateModelsLiteral = @('kilo/kilo-auto/free')
+    DefaultModel = 'kilo/kilo-auto/free'
+    ArgFormat   = 'run --auto -m {4} "{0}"'
+    CloseStdin  = $true
   }
 }
 
@@ -744,6 +769,11 @@ try {
   $transient = $false
   if ((-not $res.TimedOut) -and ($res.ExitCode -eq 0)) { $transient = $true }
   if ($lt -match '(?i)\b(429|HTTP 500|rate.?limit|at capacity|quota|temporarily)\b') { $transient = $true }
+  # 2026-10-07 kilo fallback lane: an auth fault ("You need to sign in to use this model.", exit 1)
+  # is a PROVIDER fault like a quota, never a defect in the tasking - and for an inert-until-login
+  # fallback lane it is the NORMAL state. Measured pre-login on all six machines. Routes to
+  # DEFERRED (60-min cooldown, 3-strike cap still applies), never a permanent .FAILED.
+  if ($lt -match '(?i)(you need to sign in|sign in to use|not authenticated|authentication required)') { $transient = $true }
   $kind = 'FAILED'; if ($transient) { $kind = 'DEFERRED' }
   # A daily cap is neither a defect nor an ordinary transient: it is spent budget, and it stays
   # spent until the provider's reset. bus-feed.mjs tells one from the other by the FIRST LINE, so
