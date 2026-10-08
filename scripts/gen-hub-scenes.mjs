@@ -156,12 +156,47 @@ export function pageSceneData(rel, src, cat) {
 }
 
 /** The page's own subject, for <title>/<desc>/caption: its <h1> text, else
- *  its <title> tag. Data, never invented. */
+ *  its <title> tag. Data, never invented. The raw heading is ENTITY-ENCODED
+ *  source text ("… &amp; …"); the subject is returned DECODED plain text so
+ *  the emit path's single escText() escapes each value exactly once —
+ *  re-escaping the encoded heading is what emitted "&amp;amp;" on the 2026-
+ *  10-08 regen (the double-escape class, MAIN-HUBSCENE-REGEN-COPY-HEAL-1). */
 export function pageSubject(src) {
   const h1 = /<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(src);
-  if (h1) return h1[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (h1) return visibleCopy(decodeEntities(h1[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()));
   const t = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(src);
-  return t ? t[1].replace(/\s+/g, ' ').trim() : 'this guide';
+  return t ? visibleCopy(decodeEntities(t[1].replace(/\s+/g, ' ').trim())) : 'this guide';
+}
+
+/** CONTRACT §1.4 enforced AT THE REGION'S EMIT BOUNDARY. Station labels and
+ *  subjects come from DATA (catalog chain titles, node display names, page
+ *  headings) that may carry an em-dash — literal or entity-encoded; visible
+ *  copy may not. The 2026-10-08 main regen emitted a chain title's
+ *  "US Wealth & Advisory — Reg BI Suitability" verbatim into a station
+ *  <text> and went red on 4 hub pages. The rewrite is the CONTRACT's own
+ *  prescription for a `label — value` splice: `label: value`. En-dashes in
+ *  numeric ranges are correct typography and pass through untouched. */
+function visibleCopy(s) {
+  return String(s)
+    .replace(/&mdash;|&#0*8212;|&#x0*2014;/gi, '—')
+    .replace(/\s*—\s*/g, ': ')
+    .replace(/^[:\s]+/, '');
+}
+
+/** Decode the entity set HTML authoring actually uses in headings, `&amp;`
+ *  LAST so a source-encoded ampersand decodes exactly once (never
+ *  `&amp;lt;` → `<`). Pairs with escText(): decode at extraction, escape at
+ *  emit — one escape per rendered value. */
+function decodeEntities(s) {
+  return String(s)
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&#0*39;|&#x0*27;/gi, "'")
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&middot;/gi, '·')
+    .replace(/&amp;/gi, '&');
 }
 
 // ── The no-fork rule, machine-checked (spec §2/D1, §6) ─────────────────────
@@ -282,8 +317,8 @@ export function renderRegion(rel, src, cat, timings) {
   const clamp = delayClamps(timings);
   const subject = pageSubject(src);
   const stations = chains.length >= 1
-    ? chains.map((c) => ({ label: c.title ?? c.name ?? 'chain', kind: 'chain' }))
-    : tools.map((t) => ({ label: t.name, kind: 'tool' }));
+    ? chains.map((c) => ({ label: visibleCopy(c.title ?? c.name ?? 'chain'), kind: 'chain' }))
+    : tools.map((t) => ({ label: visibleCopy(t.name), kind: 'tool' }));
   const rows = Math.max(1, Math.ceil(stations.length / PER_ROW));
   const width = sceneWidth(Math.min(PER_ROW, stations.length));
   const height = TOP + rows * ROW_H;
@@ -307,8 +342,8 @@ export function renderRegion(rel, src, cat, timings) {
     ? `Each station is one named chain on ${subject}; strokes and travelling dots show the hand-off order within each row.`
     : `Each station is one tool this guide builds on, laid out like the chain flow map.`;
   const caption = isChains
-    ? `Flow map of ${escText(subject)} — each station is one named chain; arrows mark the hand-off order within each row.`
-    : `Tool landscape of ${escText(subject)} — each station is one tool this guide builds on.`;
+    ? `Flow map of ${escText(subject)}: each station is one named chain; arrows mark the hand-off order within each row.`
+    : `Tool landscape of ${escText(subject)}: each station is one tool this guide builds on.`;
   return assertNoFork(sceneFigure({
     id,
     viewBox: `0 0 ${width} ${height}`,
