@@ -1,7 +1,7 @@
 // autofix-selftest-alpha.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-WF15 porting
 // payload (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES abc4e16d).
-// kernel_digest_at_authoring: sha256:6657f151d3920546003c4c6eced39e5805a32e7e65d2109a812eda50e8582782
+// kernel_digest_at_authoring: sha256:56366d0e4c2c17333b3883c7183babaac09e05f39fdf98828f06bcdc1ae8c377
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.

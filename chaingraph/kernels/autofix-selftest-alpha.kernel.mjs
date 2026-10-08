@@ -33,7 +33,7 @@ const TOOL_VERSION = '1.0.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'workforce_board_roi_report',
+  mcp_name: 'autofix_selftest_alpha',
   mandate_type: 'workforce_program_roi', gpu: false,
 };
 
