@@ -112,7 +112,10 @@ warning. Full program: `board/reference/SSH-FLEET-PROGRAM.md`. Beware: `ps` is N
    (c) NEVER a hardcoded id in RotateModelsLiteral — the row resolves the model at
    lane-design/pool-refresh time from (a)+(b) and date-stamps the finding, exactly the
    catalog-churn discipline of §5.2. First harness question remains §5.1's: establish the
-   headless argv BEFORE promising the lane.
+   headless argv BEFORE promising the lane. SCOPE (Tim 2026-10-09): the Omen is a TEST BENCH
+   only, not part of the routine farm — the lane row, when it fires, targets the five farm
+   laptops (hp, ps, nitro, aspire, msi) alone; the Omen is where wrapper bumps and surface
+   re-probes happen first precisely because nothing routine runs there.
 
 ## 6. Channel provenance
 
