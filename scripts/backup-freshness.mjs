@@ -13,7 +13,9 @@ const REPOS = [
   ['ainumbers-helm', `${WS}/AINumbers/helm`, 'main'],
   ['ainumbers-mcp-apps', `${WS}/AINumbers/mcp-apps-poc`, 'master'],
   ['ASIC', `${WS}/ASIC`, 'main'],
-  ['ainumbers-evidence (workspace root)', `${WS}/AINumbers`, 'main'],
+  // root pushes its working line to origin/master; origin/main is the separately-seeded
+  // published evidence line with no common ancestor (ROOT-FRESHNESS-MASTERLINE-1, 2026-10-09)
+  ['ainumbers-evidence (workspace root)', `${WS}/AINumbers`, 'master'],
 ];
 const STALE_H = 24;
 const DRY = process.argv.includes('--dry-run');
