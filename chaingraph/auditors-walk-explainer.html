@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>/* Speed hook for the shared controls: this page's timers run 0.5x, 1x or 2x without touching its engine. */
+(function(){var st=window.setTimeout.bind(window),si=window.setInterval.bind(window);window.AIN_SPEED=1;
+window.setTimeout=function(f,ms){var a=[].slice.call(arguments,2);return st.apply(window,[f,(+ms||0)/window.AIN_SPEED].concat(a))};
+window.setInterval=function(f,ms){var a=[].slice.call(arguments,2);return si.apply(window,[f,(+ms||0)/window.AIN_SPEED].concat(a))};})();</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/auditors-walk-explainer.html">
+<meta name="ain:category" content="learn">
+<meta name="description" content="A regulator checks a real evidence bundle layer by layer in the browser: three timestamps, a session root, a Groth16 receipt, kernel identity, a signature and execution hashes, with what each check cannot prove.">
+<title>The Auditor's Walk · AINumbers.co</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--panel:#0D1627;--line:#263855;--text:#A8C4DE;--dim:#6888A8;--ink:#08111F;
+--c1:#14B8A6;--c2:#60A5FA;--c3:#D4A847;--c4:#9B72F5;--c5:#22C55E;--red:#EF4444;--amb:#F59E0B}
+*{box-sizing:border-box;margin:0}
+html,body{background:var(--bg);color:var(--text);overflow-x:hidden}
+body{font-family:Sora,system-ui,sans-serif;font-weight:300;line-height:1.6}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 48px}
+h1{font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:clamp(1.6rem,4.2vw,2.3rem);line-height:1.2;color:#EEF6FD}
+.sub{color:var(--dim);font-size:.95rem;margin:.4rem 0 1rem;max-width:780px}
+.scene{position:relative;height:min(62vh,500px);min-height:360px;perspective:1900px;perspective-origin:50% 42%;overflow:hidden;border:1px solid #1E2F4A;border-radius:10px;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;
+background:radial-gradient(ellipse 70% 55% at 50% 30%,rgba(239,68,68,.12),transparent 70%),radial-gradient(ellipse 70% 50% at 50% 100%,rgba(20,184,166,.16),transparent 70%),linear-gradient(#050A14,#0B1526);--plate:#15233B;--pline:#2B4265}
+.scene.drag{cursor:grabbing}
+.hud{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:5;pointer-events:none;background:rgba(9,16,30,.9);border:1px solid #2B4265;border-radius:14px;padding:5px 14px;font:500 11px 'JetBrains Mono',monospace;color:#E6F1FB;text-align:center;max-width:56%}
+.hint{position:absolute;left:10px;bottom:8px;font:.62rem 'JetBrains Mono',monospace;color:#6888A8;pointer-events:none}
+.key{position:absolute;left:10px;top:10px;z-index:5;display:flex;flex-direction:column;gap:3px;font:10px 'JetBrains Mono',monospace;color:#9FB4C9;background:rgba(9,16,30,.75);border-radius:6px;padding:6px 8px}
+.key .kb{display:inline-block;width:14px;text-align:center;margin-right:6px;font-weight:700}
+.world{position:absolute;left:50%;top:50%;width:0;height:0;transform-style:preserve-3d}
+.brick,.box{position:absolute;transform-style:preserve-3d}
+.f{position:absolute;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:1px solid rgba(0,0,0,.35);background:linear-gradient(var(--ov),var(--ov)),var(--col);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;text-align:center;line-height:1.15;box-shadow:inset 0 0 0 var(--rw,0px) var(--ring,transparent)}
+.f::after{content:'';position:absolute;inset:0;background:var(--tint,transparent);pointer-events:none}
+.f.top{display:block}
+.fr{--ov:rgba(0,0,0,0)}.bk{--ov:rgba(0,0,0,.2)}.lf{--ov:rgba(0,0,0,.28)}.rt{--ov:rgba(0,0,0,.16)}.top{--ov:rgba(255,255,255,.14)}.bt{--ov:rgba(0,0,0,.42)}
+.nm{position:relative;z-index:1;font:500 calc(14px * var(--lf,1)) 'JetBrains Mono',monospace;color:#08111F;white-space:nowrap}
+.sb{position:relative;z-index:1;font:9.5px 'JetBrains Mono',monospace;color:#08111F;opacity:.75;white-space:nowrap}
+.bd{position:absolute;z-index:2;top:3px;right:6px;width:22px;height:22px;border-radius:50%;display:none;align-items:center;justify-content:center;font:700 13px 'JetBrains Mono',monospace;color:#fff;box-shadow:0 0 8px rgba(0,0,0,.5)}
+.caught{--tint:rgba(239,68,68,.62);--ring:#EF4444;--rw:4px}.caught .bd{display:flex;background:#EF4444}
+.pass{--tint:rgba(34,197,94,.30);--ring:#22C55E;--rw:4px}.pass .bd{display:flex;background:#16A34A}
+.cond{--tint:rgba(245,158,11,.30);--ring:#F59E0B;--rw:4px}.cond .bd{display:flex;background:#B45309}
+.chk{--ring:#FFFFFF;--rw:5px}
+.plate .top{background-image:radial-gradient(circle,var(--pline) 4px,transparent 5px);background-size:50px 50px;background-color:var(--plate)}
+.plate .f{--col:var(--plate)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:1rem 1.1rem;margin:.7rem 0}
+.card h2{font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:1.4rem;line-height:1.25;color:#EEF6FD}
+.card p{font-size:.95rem;color:var(--dim);margin:.3rem 0}
+.card .story{color:var(--text)}
+.card a{color:var(--c1)}
+.rx{list-style:none;padding:0;margin:.6rem 0}
+.rx li{display:flex;gap:.6rem;align-items:flex-start;padding:.4rem .55rem;border-radius:6px;font-size:.88rem;margin:.25rem 0;border:1px solid var(--line)}
+.rx li .rb{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:500;white-space:nowrap;color:#EEF6FD}
+.rx .ic{width:1.3rem;height:1.3rem;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font:700 .8rem 'JetBrains Mono',monospace;color:#fff}
+.rx .r-caught{border-color:rgba(239,68,68,.5)}.rx .r-caught .ic{background:#EF4444}
+.rx .r-pass{border-color:rgba(34,197,94,.45)}.rx .r-pass .ic{background:#16A34A}
+.rx .r-cond{border-color:rgba(245,158,11,.5)}.rx .r-cond .ic{background:#B45309}
+.rx a{color:var(--c1);white-space:nowrap;font-size:.78rem}
+.toks{list-style:none;padding:0;margin:.35rem 0 0;font:.74rem 'JetBrains Mono',monospace}
+.toks li{border:0;padding:0;margin:.1rem 0}
+.toks .t-ok{color:#22C55E}.toks .t-bad{color:#EF4444}.toks .t-nr{color:#F59E0B}
+.verdict{border-left:3px solid var(--red);padding:.4rem .8rem;margin-top:.5rem;color:var(--text);font-size:.95rem}
+.ctl{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:.5rem 0}
+button.b{font:.72rem 'JetBrains Mono',monospace;padding:.5rem .85rem;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer}
+button.b:hover{border-color:var(--c1)}
+.vsel{font:.78rem 'JetBrains Mono',monospace;padding:.45rem .6rem;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text);max-width:100%}
+.flbl{font:.72rem 'JetBrains Mono',monospace;color:var(--dim)}
+pre.rc{font:.72rem 'JetBrains Mono',monospace;white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:.6rem .7rem;margin-top:.5rem;max-height:22rem;overflow:auto}
+pre.rc mark{background:rgba(239,68,68,.45);color:var(--text);border-radius:2px}
+.badge2{display:inline-block;font:.66rem 'JetBrains Mono',monospace;border-radius:4px;padding:1px 6px;margin-left:.4rem;border:1px solid var(--line);color:var(--dim)}
+.badge2.live{border-color:#22C55E;color:#22C55E}
+.foot{margin-top:1.2rem;font-size:.72rem;color:var(--dim);font-family:'JetBrains Mono',monospace}
+.net{position:absolute;right:10px;top:10px;z-index:5;pointer-events:none;background:rgba(9,16,30,.9);border:1px solid #166534;border-radius:8px;padding:5px 10px;font:500 11px 'JetBrains Mono',monospace;color:#86EFAC;text-align:right;max-width:40%}
+.net small{display:block;color:#6888A8;font-weight:400;font-size:9.5px}
+.stopcard h2{display:flex;flex-wrap:wrap;gap:.5rem;align-items:baseline}
+.facts{display:grid;gap:.5rem;margin:.6rem 0}
+.fact{border:1px solid var(--line);border-radius:8px;padding:.5rem .7rem;font-size:.88rem}
+.fact .fb{display:block;font:500 .66rem 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:.15rem}
+.fact.cant{border-style:dashed}
+.src{font:.66rem 'JetBrains Mono',monospace;color:var(--dim)}
+.beam{position:absolute;height:6px;background:linear-gradient(90deg,transparent,#fff,transparent);box-shadow:0 0 14px 4px rgba(255,255,255,.55);transform:translateZ(56px);transition:top .9s ease,left .9s ease,width .9s ease,opacity .4s;opacity:0;border-radius:3px}
+.cardlayer{position:absolute;left:0;top:0;transform-style:preserve-3d}
+.card3{position:absolute;transform-style:preserve-3d;transform:translateZ(80px) rotateY(var(--by,0deg)) rotateX(var(--bx,0deg)) scale(var(--cs,1));transition:left .9s ease,top .9s ease}
+.ci3{position:absolute;left:-84px;top:-16px;width:168px;height:32px;padding:5px 10px;background:rgba(9,16,30,.95);border:1px solid #D4A847;border-radius:16px;font:500 11px 'JetBrains Mono',monospace;color:#FDE68A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 0 14px rgba(212,168,71,.5)}
+textarea.memo{width:100%;min-height:15rem;font:.74rem 'JetBrains Mono',monospace;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:.6rem}
+@media (max-width:600px){.key{display:none}.hud{max-width:58%;left:10px;transform:none}.net{max-width:40%}}
+
+/* Shared control bar (same as the 2D explainers) */
+.ainbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0}
+.ainbar .ab{font-family:'JetBrains Mono',monospace;font-size:13px;color:#D4E8F8;background:#111E35;border:1px solid #263855;border-radius:6px;padding:8px 16px;cursor:pointer}
+.ainbar .ab:hover{border-color:#14B8A6;color:#EEF6FD}
+.ainbar .ab.pri{background:#14B8A6;border-color:#14B8A6;color:#04201C;font-weight:600;min-width:100px}
+.ainbar .aseg{display:inline-flex;border:1px solid #263855;border-radius:6px;overflow:hidden}
+.ainbar .aseg button{font-family:'JetBrains Mono',monospace;font-size:12px;background:#0D1627;color:#6888A8;border:0;padding:8px 10px;cursor:pointer}
+.ainbar .aseg button.on{background:#111E35;color:#EEF6FD}
+.ainbar .aopt{font-family:'JetBrains Mono',monospace;font-size:12px;color:#6888A8;display:flex;gap:6px;align-items:center;cursor:pointer}
+.ainbar .ascrub{flex:1 1 220px;display:flex;align-items:center;gap:10px}
+.ainbar .ascrub input{flex:1;accent-color:#14B8A6}
+.ainbar .ascrub span{font-family:'JetBrains Mono',monospace;font-size:12px;color:#6888A8;min-width:92px;text-align:right}
+.ainbar .adots{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+.ainbar .adots button{min-width:28px;height:28px;border-radius:14px;border:1px solid #263855;background:#0D1627;color:#6888A8;font-family:'JetBrains Mono',monospace;font-size:11.5px;cursor:pointer;padding:0 6px}
+.ainbar .adots button.on{background:#14B8A6;border-color:#14B8A6;color:#04201C;font-weight:600}
+.ainbar .adots button.done{border-color:#14B8A6;color:#14B8A6}
+.ainbar .adots button.ok{border-color:#22C55E;color:#22C55E}
+.ainbar .adots button.warn{border-color:#F59E0B;color:#F59E0B}
+.ainbar .adots button.bad{border-color:#EF4444;color:#EF4444}
+.ainbar .adots button.on.ok,.ainbar .adots button.on.bad,.ainbar .adots button.on.warn{color:#04201C}
+
+/* Goal box, trust strip and outcome box (same as the 2D explainers) */
+.goal{border:1px solid #9B72F5;border-radius:10px;background:rgba(155,114,245,.06);padding:12px 16px;margin:14px 0 12px}
+.goal > .gl{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#9B72F5;margin-bottom:4px}
+.goal p{font-size:15px;color:#D4E8F8;line-height:1.5;margin:0}
+.trust{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 12px}
+.trust > div{flex:1 1 300px;border:1px solid #263855;border-radius:9px;background:#0D1627;padding:9px 13px;font-size:13.5px;line-height:1.45;color:#A8C4DE}
+.trust .tl{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin-bottom:2px}
+.trust .tpii .tl{color:#22C55E}.trust .tcf .tl{color:#D4A847}
+.why{border:1px solid #263855;border-radius:10px;background:#0D1627;padding:12px 16px;margin:0 0 12px}
+.why .hd{display:block;font-family:'DM Serif Display',serif;font-weight:400;font-size:19px;color:#EEF6FD;margin-bottom:6px}
+.why .legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-family:'JetBrains Mono',monospace;font-size:11px;margin-bottom:10px}
+.why .lg-g{color:#22C55E}.why .lg-a{color:#F59E0B}.why .lg-r{color:#EF4444}
+.why .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.why .cols > div{font-size:13.5px;line-height:1.5;color:#A8C4DE}
+.why .cols .cl{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.12em;margin-bottom:3px}
+.why .ok{color:#22C55E}.why .warn{color:#F59E0B}.why .no{color:#EF4444}.why .sim{color:#38BDF8}
+nav a,footer a{color:inherit;text-decoration:none}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">The Auditor's Walk</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+<h1>The auditor's walk</h1>
+<p class="sub">A regulator receives an evidence bundle and has no reason to trust AINumbers. The walk checks it from the top of the wall to the bottom, using only the bundle and verifier code running in this page. The evidence is real: the Agent Staircase session of 26 September 2026 with its three timestamps, the signed Work Mandate from that session, and the Groth16 receipt of node art-07.</p>
+<div class="goal" role="note"><span class="gl">Goal of this animation</span><p>Show what a regulator learns at each layer of the wall, and what each layer cannot tell them, by checking one real evidence bundle with open verifier code.</p></div>
+<div class="trust" role="note">
+  <div class="tpii"><span class="tl">🔒 No personal data</span>The Work Mandate is synthetic and the art-07 run uses fixture inputs. Apart from loading its fonts and its own files, the page makes no network requests, and the counter on the wall shows what started while the checks ran.</div>
+  <div class="tcf"><span class="tl">☁ Our server is Cloudflare</span>“AINumbers server” means Cloudflare today: the site's files are delivered through Cloudflare's network. The walk never asks it anything. You do trust this page for the verifier code and the pinned roots, and limit 4 below says how to check without it.</div>
+</div>
+<div class="why" role="note">
+  <span class="hd">What the red, amber and green results mean</span>
+  <div class="legend"><span class="lg-g">● green · the check passed</span><span class="lg-a">● amber · the check could not run here</span><span class="lg-r">● red · a mismatch was caught</span></div>
+  <div class="cols">
+    <div><span class="cl ok">✓ CHECK PASSED</span>That layer verified. The stop card says what the auditor now knows.</div>
+    <div><span class="cl no">✗ CHECK FAILED</span>A corrupted bundle fails at the layer built to notice that change, and often at more than one. Editing a signed mandate breaks its signature and its hash together.</div>
+    <div><span class="cl warn">? COULD NOT RUN</span>The check had something it could not finish here, such as a certificate chain that is not pinned in this page. It never counts as a pass, and the memo records it.</div>
+    <div><span class="cl sim">WHAT A PASS CANNOT TELL</span>Each stop also lists what a pass does not prove, such as who authored a result or whether the computation itself was correct.</div>
+  </div>
+</div>
+
+<div class="ainbar" role="group" aria-label="Playback">
+ <button class="ab" id="aBack">◀ Back</button><button class="ab pri" id="aPlay">Play</button><button class="ab" id="aNext">Next ▶</button><button class="ab" id="aRestart">Restart</button>
+ <div class="aseg" id="aSpeed" role="group" aria-label="Speed"><button data-speed="0.5">0.5×</button><button data-speed="1" class="on">1×</button><button data-speed="2">2×</button></div>
+ <label class="aopt"><input type="checkbox" id="aLoop"> loop</label>
+ <div class="ascrub"><input type="range" id="aScrub" min="0" max="1000" value="0" aria-label="Timeline"><span id="aClock"></span></div>
+ <div class="adots" id="aDots"></div>
+</div>
+<div class="scene" id="scene" aria-label="Rotatable 3D wall that an auditor checks from the top down">
+<div class="hud" id="hud">The auditor receives a bundle</div>
+<div class="net" id="netbox"><span id="netn">–</span> requests while checking<small id="netl">page load: counting…</small></div>
+<div class="key"><span><span class="kb" style="color:#EF4444">✗</span>check failed</span><span><span class="kb" style="color:#22C55E">✓</span>check passed</span><span><span class="kb" style="color:#F59E0B">?</span>could not run</span></div>
+<div class="world" id="world"></div>
+<div class="hint">drag to rotate · the auditor moves down the wall</div>
+</div>
+<div class="card" id="stop" aria-live="polite"></div>
+<div class="card" id="memo" style="display:none"><h2>Verification memo</h2><p>The auditor's record of what was checked. Copy it into a workpaper.</p><textarea class="memo" id="memoText" readonly aria-label="Verification memo"></textarea><div class="ctl"><button class="b" id="copy">Copy the memo</button></div></div>
+<div class="card"><h2>Corrupt the bundle, then walk it</h2>
+<div class="ctl"><label class="flbl" for="corrupt">Before the walk, corrupt:</label><select class="vsel" id="corrupt"></select></div>
+<p id="cnote" class="story"></p>
+<p>To see every kind of tampering and which layer catches each one, try <a href="break-the-wall-explainer.html">Break the wall</a>.</p>
+<pre class="rc" id="rcpt" aria-label="The evidence bundle, with any corrupted characters highlighted"></pre>
+<p style="font-size:.85rem">Not shown because they are long: the 256-byte Groth16 seal, the 6,528-byte kernel source and the three RFC 3161 tokens. All of them are checked.</p></div>
+<div class="card"><h2>Four honest limits</h2>
+<p>1. The bundle joins two pieces of real evidence. The session, its timestamps and the Work Mandate come from the <a href="agent-staircase-explainer.html">Agent Staircase</a> run of 26 September 2026. The Groth16 receipt and kernel belong to node art-07, whose run is not one of the ten session leaves. They sit together so that every layer has something real to check.</p>
+<p>2. The Work Mandate is synthetic. Its signature is real and was made with the key the mandate names as its principal, so stop 5 shows that this key signed these bytes. It says nothing about who holds the key.</p>
+<p>3. Two of the three timestamps chain to roots pinned in this page, DigiCert and FreeTSA. The Sigstore token's imprint and signature check, but its root is not pinned here, so its chain shows as not checked.</p>
+<p>4. This page supplies both the verifier code and the pinned roots. An auditor who trusts nothing here can rerun the same checks with the open verifiers in the public repository, or check each timestamp with <code>openssl ts -verify</code>, because the tokens are stored byte for byte.</p></div>
+
+<p class="foot">Evidence and verifier code from github.com/PostOakLabs/ainumbers · runs in your browser · Zero PII · CC BY 4.0 · Post Oak Labs</p>
+</div>
+
+<script src="proof-walk-kit.js"></script>
+<script>
+var U=50,H=38,D=100,ROWS=8,BY=ROWS*H/2;
+var COL={1:'#14B8A6',2:'#60A5FA',3:'#D4A847',4:'#9B72F5',5:'#22C55E'};
+/* Same wall as the Agent Staircase page: [name, sub, row, x, width, layer] */
+var B=[['Tool','page + math',1,0,12,1],['Kernel','compute() is pure',2,0,12,1],['Node','public identity',3,0,12,1],['Execution hash','SHA-256 over inputs + output',4,0,12,1],
+['Bridge','',5,0,4,2],['WebMCP','',5,4,4,2],['MCP','',5,8,4,2],['Workflow','run_chain links nodes by hash',6,0,8,3],['Helm','',6,8,4,3],
+['Signature','',7,0,3,4],['Kernel ID','',7,3,3,4],['RISC Zero','',7,6,3,4],['Groth16','',7,9,3,4],['Anchor','Merkle root + outside timestamps',8,0,12,5]];
+var STEPID=['s-tool','s-kernel','s-node','s-hash','s-bridge','s-webmcp','s-mcp','s-workflow','s-pack','s-signature','s-identity','s-risc0','s-groth16','s-anchor'];
+var EXPL='agent-staircase-explainer.html';
+var K=window.PWK;
+function $(i){return document.getElementById(i)}
+var world=$('world'),scene=$('scene');
+var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function el(c,p,css){var e=document.createElement('div');e.className=c;if(css)e.style.cssText=css;if(p)p.appendChild(e);return e}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function faces(p,w,h,d){var f={};
+ f.fr=el('f fr',p,'inset:0;transform:translateZ('+d/2+'px)');f.bk=el('f bk',p,'inset:0;transform:rotateY(180deg) translateZ('+d/2+'px)');
+ f.rt=el('f rt',p,'width:'+d+'px;height:'+h+'px;left:'+(w/2-d/2)+'px;top:0;transform:rotateY(90deg) translateZ('+w/2+'px)');
+ f.lf=el('f lf',p,'width:'+d+'px;height:'+h+'px;left:'+(w/2-d/2)+'px;top:0;transform:rotateY(-90deg) translateZ('+w/2+'px)');
+ f.top=el('f top',p,'width:'+w+'px;height:'+d+'px;left:0;top:'+(h/2-d/2)+'px;transform:rotateX(90deg) translateZ('+h/2+'px)');
+ f.bt=el('f bt',p,'width:'+w+'px;height:'+d+'px;left:0;top:'+(h/2-d/2)+'px;transform:rotateX(-90deg) translateZ('+h/2+'px)');return f}
+
+/* The six stops. What each one looks at, what a pass teaches, and what it cannot tell. */
+var VSTEPS=[
+ {n:'Anchor tokens',b:[13],step:14,
+  looks:'Three RFC 3161 tokens, from Sigstore, DigiCert and FreeTSA, each over the session root.',
+  learns:'The session root existed by 26 September 2026 at 02:48:57 UTC, according to authorities that are not AINumbers.',
+  cannot:'A timestamp shows when a value existed. It does not show that any computation behind it was correct, who authored it, or which kernel ran.',csrc:'Source · SPEC section 20.1'},
+ {n:'Session root',b:[13],step:14,
+  looks:'The ten execution hashes of the session and the root they fold into, under the rule the session receipt names: a SHA-256 binary tree with the last leaf repeated.',
+  learns:'None of the ten hashes changed since the root was timestamped, and the Work Mandate\'s hash is one of them (leaf 4).',
+  cannot:'Binding runs into a set says nothing about whether any one of them was computed correctly.',csrc:'Source · build_session_receipt in the MCP worker'},
+ {n:'Groth16 receipt',b:[12,11],step:13,
+  looks:'The 256-byte Groth16 seal, the ImageID of the program and the journal it commits, attached to the art-07 run.',
+  learns:'A valid proof that the published program committed this journal, and that the journal\'s output and kernel digest are this run\'s.',
+  cannot:'The journal records the output and the kernel digest, not the inputs. The execution hash is what ties the output to the inputs, and a stored receipt covers the published fixture run only.',csrc:'Source · SPEC section 18.0 and explainer step 13'},
+ {n:'Kernel identity',b:[10],step:11,
+  looks:'The kernel source, hashed, against the digest in the receipt and the digest the node publishes.',
+  learns:'Which source code the receipt names. The three digests agree.',
+  cannot:'On its own this is an advisory claim, because a server could name one kernel and run another. The receipt from the previous stop is what rules that out.',csrc:'Source · SPEC section 17.2 and explainer step 11'},
+ {n:'Signature',b:[9],step:10,
+  looks:'The eddsa-jcs-2022 proof on the Work Mandate and the did:key it names as its principal.',
+  learns:'The key named in the mandate signed exactly these bytes. Any edit after signing would break it.',
+  cannot:'A signature can state a time, but only the signer vouches for it. It does not show that the mandate\'s terms are sound, and signing is optional.',csrc:'Source · SPEC section 16 and explainer step 10'},
+ {n:'Execution hash',b:[3],step:4,
+  looks:'The recorded inputs and results of the Work Mandate and the art-07 run, hashed under the canonical-JSON rule (RFC 8785).',
+  learns:'Each recorded result is bound to its recorded inputs, and anyone can recompute that binding.',
+  cannot:'The hash does not say who produced the result, when, or whether the inputs were true.',csrc:'Source · explainer step 4'}];
+
+var plate=el('box plate',world,'width:700px;height:16px;left:-350px;top:'+BY+'px');faces(plate,700,16,200);
+var els=[];
+B.forEach(function(b,i){var w=b[4]*U,x=b[3]*U-6*U,y=BY-b[2]*H;
+ var e=el('brick',world,'width:'+w+'px;height:'+H+'px;left:'+x+'px;top:'+y+'px;--col:'+COL[b[5]]);var f=faces(e,w,H,D);
+ [f.fr,f.bk].forEach(function(fc){var n=el('nm',fc);n.textContent=(i+1)+' · '+b[0];if(b[4]>=4&&b[1]){el('sb',fc).textContent=b[1]}el('bd',fc)});
+ els[i]=e;
+ if(!reduce&&e.animate)e.animate([{translate:'0 -380px 0'},{translate:'0 5px 0',offset:.72},{translate:'0 0 0'}],{duration:700,delay:i*70,easing:'cubic-bezier(.3,.6,.4,1)',fill:'backwards'})});
+var ICON={caught:'✗',pass:'✓',cond:'?'};
+function paint(i,st){var e=els[i];e.classList.remove('caught','pass','cond','chk');if(st)e.classList.add(st);e.querySelectorAll('.bd').forEach(function(b){b.textContent=ICON[st]||''})}
+function bx(i){return B[i][3]*U-6*U+B[i][4]*U/2}function by(i){return BY-B[i][2]*H+H/2}
+/* the auditor: a scanning beam and a floating marker that move from stop to stop */
+var beam=el('beam',world,'left:-300px;width:600px;top:'+BY+'px');
+var cl=el('cardlayer',world);var mk=el('card3',cl,'left:0;top:'+(BY-8*H-40)+'px');var mki=el('ci3',mk);mki.textContent='Auditor · ready';
+function moveAuditor(k){if(k<1||k>6){beam.style.opacity=0;mk.style.left='0px';mk.style.top=(BY-8*H-40)+'px';mki.textContent=k===7?'Auditor · verdict':'Auditor · ready';return}
+ var st=VSTEPS[k-1],ys=st.b.map(by),x0=Math.min.apply(null,st.b.map(function(i){return B[i][3]*U-6*U})),x1=Math.max.apply(null,st.b.map(function(i){return B[i][3]*U-6*U+B[i][4]*U}));
+ beam.style.opacity=1;beam.style.left=x0+'px';beam.style.width=(x1-x0)+'px';beam.style.top=(ys[0]-3)+'px';
+ mk.style.left=((x0+x1)/2)+'px';mk.style.top=(ys[0]-H/2-26)+'px';mki.textContent='Auditor · stop '+k+' · '+st.n}
+
+/* Camera */
+var rx=-16,ry=-24,tx=-16,ty=-24,cx=0,cy=0,tcx=0,tcy=0,S=.6,tS=.6,dragging=false,lx=0,ly=0;
+function sOver(){return Math.max(.5,Math.min(1.15,scene.clientWidth/760))}
+function focusStop(k){if(k<1||k>6){tcx=0;tcy=0;tS=sOver();return}var st=VSTEPS[k-1];tcx=st.b.map(bx).reduce(function(a,c){return a+c},0)/st.b.length;tcy=st.b.map(by).reduce(function(a,c){return a+c},0)/st.b.length;tS=Math.min(1.7,sOver()*1.9)}
+function render(){var sw=(!dragging&&!reduce)?7*Math.sin(performance.now()/3300):0;
+ rx+=(tx-rx)*.1;ry+=(ty+sw-ry)*.1;cx+=(tcx-cx)*.08;cy+=(tcy-cy)*.08;S+=(tS-S)*.08;
+ cl.style.setProperty('--by',(-ry)+'deg');cl.style.setProperty('--bx',(-rx)+'deg');cl.style.setProperty('--cs',Math.max(1,Math.min(2,.85/S)));
+ world.style.transform='scale('+S+') rotateX('+rx+'deg) rotateY('+ry+'deg) translate3d('+(-cx)+'px,'+(-cy)+'px,0px)';requestAnimationFrame(render)}
+scene.addEventListener('pointerdown',function(e){dragging=true;lx=e.clientX;ly=e.clientY;scene.classList.add('drag')});
+window.addEventListener('pointermove',function(e){if(!dragging)return;var dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;ty+=dx*.45;tx=Math.max(-70,Math.min(6,tx-dy*.3))});
+window.addEventListener('pointerup',function(){dragging=false;scene.classList.remove('drag')});
+window.addEventListener('pointercancel',function(){dragging=false;scene.classList.remove('drag')});
+
+/* The walk */
+var CHOICES=['none','mandate','session','result'];
+var R=null,kind='none',cur=0,token=0,timers=[],playing=false,NET=null,startedAt='',wallMs=0;
+function later(fn,ms){timers.push(setTimeout(fn,ms))}
+function clearTimers(){timers.forEach(clearTimeout);timers=[]}
+function markDiff(a,b){var o='';for(var i=0;i<b.length;i++){var c=b[i].replace(/&/g,'&amp;').replace(/</g,'&lt;');o+=a[i]!==b[i]?'<mark>'+c+'</mark>':c}return o}
+function hostList(h){return Object.keys(h).map(function(k){return k+' '+h[k]}).join(', ')}
+function prepare(){ /* run every check once, one after another, and record the requests made meanwhile */
+ return new Promise(function(res){var t0=performance.now(),d=K.bundle(kind);
+  K.checks(d).then(function(r){var t1=performance.now();R=r;wallMs=t1-t0;
+   setTimeout(function(){NET=K.netReport(t0,t1);$('netn').textContent=NET.during;
+    $('netl').textContent='page load: '+NET.load+(NET.load?' ('+hostList(NET.hosts)+')':'');res(r)},60);
+   startedAt=new Date().toISOString();$('cnote').textContent=K.CORR[kind].note||'Nothing corrupted. Pick an option to break one thing before the walk.';
+   $('rcpt').innerHTML=markDiff(K.view(K.bundle('none')),K.view(d))})})}
+function stOf(r){return r.ok===null?'cond':(r.ok?'pass':'caught')}
+function word(r){return r.ok===null?'Could not run':(r.ok?'Check passed':'Check failed')}
+function bundleCard(){return '<h2>The evidence bundle arrives</h2><p class="story">A regulator is handed a bundle and has no reason to trust AINumbers. It holds the Agent Staircase session of 26 September 2026 (ten execution hashes, their root and three timestamp tokens), the signed Work Mandate that is leaf 4 of that session, and a recorded run of node art-07 with its Groth16 receipt and kernel source. The walk checks it from the top of the wall to the bottom with code running in this page.</p><p>Press Play, or pick a stop with the numbered dots. You can corrupt one thing in the bundle first and see which stops say so.</p>'}
+function stopCard(k){var v=VSTEPS[k-1];
+ var h='<div class="stopcard"><h2>Stop '+k+' of 6 · '+esc(v.n)+'</h2>';
+ h+='<div class="facts"><div class="fact"><span class="fb">The auditor looks at</span>'+esc(v.looks)+'</div>';
+ h+='<div class="fact"><span class="fb">If it passes, the auditor learns</span>'+esc(v.learns)+'</div>';
+ h+='<div class="fact cant"><span class="fb">It cannot tell the auditor</span>'+esc(v.cannot)+' <span class="src">'+esc(v.csrc)+'</span></div></div>';
+ h+='<div id="stopres"></div></div>';return h}
+function tokenList(r){if(!r.parts)return '';return '<ul class="toks">'+r.parts.map(function(p){var c=p.ok===true?'t-ok':(p.ok===false?'t-bad':'t-nr'),s=p.ok===true?'✓ verified, chain pinned':(p.ok===false?'✗ does not fit the stated root':'? imprint and signature check; chain not pinned here');
+ return '<li class="'+c+'">'+esc(p.label)+' · '+esc(p.genTime||'')+' · serial '+esc(p.serial)+' · '+s+'</li>'}).join('')+'</ul>'}
+function resultRow(k){var v=VSTEPS[k-1],r=R[k-1],st=stOf(r);
+ return '<ul class="rx"><li class="r-'+st+'"><span class="ic">'+ICON[st]+'</span><div><span class="rb">'+word(r)+'</span><span class="badge2 live">'+(r.ok===null?'not run here':'computed here · '+r.ms.toFixed(1)+' ms')+' · '+esc(r.tag)+'</span><br>'+esc(r.say)+' <a href="'+EXPL+'#'+STEPID[v.step-1]+'" target="_blank" rel="noopener">step '+v.step+' ↗</a>'+(k===1?tokenList(r):'')+'</div></li></ul>'}
+function outcome(){var bad=[],nr=[];R.forEach(function(r,i){if(r.ok===false)bad.push(VSTEPS[i].n);else if(r.ok===null)nr.push(VSTEPS[i].n)});return {bad:bad,nr:nr}}
+function verdictCard(){var o=outcome();
+ var head=o.bad.length?'The bundle is rejected':(o.nr.length?'The bundle passes the checks that ran':'The bundle is accepted');
+ var h='<h2>'+head+'</h2><ul class="rx">';
+ R.forEach(function(r,i){var st=stOf(r);h+='<li class="r-'+st+'"><span class="ic">'+ICON[st]+'</span><div><span class="rb">'+(i+1)+'. '+esc(VSTEPS[i].n)+'</span><span class="badge2 live">'+word(r).toLowerCase()+' · '+r.ms.toFixed(1)+' ms · '+esc(r.tag)+'</span></div></li>'});
+ var col=o.bad.length?'#EF4444':(o.nr.length?'#F59E0B':'#22C55E');
+ var txt=o.bad.length?'Failed at: '+o.bad.join(', ')+'. The auditor knows which layers refused, and no server was asked.'
+  :(o.nr.length?'Every check that ran passed, but '+o.nr.join(', ')+' could not run here. That is not a pass, so the memo records the bundle as incomplete.'
+  :'All six checks pass. They ran one after another in '+wallMs.toFixed(0)+' ms, using only the bundle and open verifier code.');
+ h+='</ul><div class="verdict" style="border-color:'+col+'">'+esc(txt)+' Requests started while checking: '+(NET?NET.during:'–')+'.</div>';return h}
+function memoText(){var o=outcome(),res=o.bad.length?'REJECTED (failed: '+o.bad.join(', ')+')':(o.nr.length?'INCOMPLETE (not run: '+o.nr.join(', ')+')':'ACCEPTED');
+ var t='# Verification memo\n\nGenerated: '+startedAt+'\nTool: The auditor\'s walk (ainumbers.co/chaingraph/auditors-walk-explainer.html)\nBundle: Agent Staircase session of 2026-09-26 (10 execution hashes, root sha256:'+K.STAIR.root+', 3 RFC 3161 tokens); signed Work Mandate (leaf 4); node art-07 run with Groth16 receipt and kernel source\nCorruption applied before checking: '+K.CORR[kind].label+'\n\n## Result: '+res+'\n\n| # | Check | Result | Time | Evidence |\n|---|---|---|---|---|\n';
+ R.forEach(function(r,i){t+='| '+(i+1)+' | '+VSTEPS[i].n+' | '+(r.ok===null?'not run':(r.ok?'pass':'FAIL'))+' | '+r.ms.toFixed(1)+' ms | '+r.tag+' |\n'});
+ if(R[0].parts){t+='\nTimestamp tokens:\n';R[0].parts.forEach(function(p){t+='- '+p.label+', '+(p.genTime||'?')+', serial '+p.serial+': '+(p.ok===true?'verified, chain pinned':(p.ok===false?'FAIL':'imprint and signature verified, chain not pinned here'))+'\n'})}
+ t+='\nRequests started while checking: '+(NET?NET.during:'?')+'. Page load: '+(NET?NET.load+(NET.load?' ('+hostList(NET.hosts)+')':''):'?')+' (Resource Timing)\n\n## Limits\n1. The art-07 run is not one of the ten session leaves; the two pieces of evidence are checked side by side.\n2. The Work Mandate is synthetic; its signature is real and shows only that the named key signed these bytes.\n3. The Sigstore token chain is not pinned in the page; DigiCert and FreeTSA are.\n4. The page supplies the verifier code and pinned roots; rerun with the repository verifiers or openssl ts -verify to remove that trust.\n\nSource: github.com/PostOakLabs/ainumbers\n';return t}
+function dotOf(k){if(!R||k<1||k>6||k>cur)return '';var r=R[k-1];return r.ok===false?'bad':(r.ok===null?'warn':'ok')}
+function goto(k){clearTimers();token++;var t=token;cur=k;
+ for(var i=0;i<B.length;i++)paint(i,null);
+ focusStop(k);moveAuditor(k);
+ var card=$('stop');
+ if(k===0){card.innerHTML=bundleCard();$('hud').textContent='The auditor receives a bundle';$('memo').style.display='none';return}
+ if(!R){prepare().then(function(){if(t===token)goto(k)});card.innerHTML='<h2>Preparing the evidence</h2><p>Running the six checks once, one after another, so each stop can show its result.</p>';return}
+ for(var j=1;j<Math.min(k,7);j++){VSTEPS[j-1].b.forEach(function(i){var st=stOf(R[j-1]);if(st==='pass'&&els[i].classList.contains('caught'))return;paint(i,st)})}
+ if(k<=6){var v=VSTEPS[k-1];card.innerHTML=stopCard(k);$('hud').textContent='Stop '+k+' of 6 · '+v.n;$('memo').style.display='none';
+  v.b.forEach(function(i){els[i].classList.add('chk')});
+  later(function(){if(t!==token)return;var r=R[k-1],st=stOf(r);v.b.forEach(function(i){if(st==='pass'&&els[i].classList.contains('caught'))return;paint(i,st);if(st==='caught'&&!reduce&&els[i].animate){els[i].animate([{translate:'0 0 0',rotate:'0deg'},{translate:'7px -2px 0',rotate:'2deg'},{translate:'-6px 1px 0',rotate:'-1.5deg'},{translate:'3px 0 0',rotate:'1deg'}],{duration:520});els[i].style.translate='3px 0';els[i].style.rotate='1deg'}});
+   $('stopres').innerHTML=resultRow(k)},reduce?100:1300)}
+ else{card.innerHTML=verdictCard();var o=outcome();$('hud').textContent=o.bad.length?'Verdict · bundle rejected':(o.nr.length?'Verdict · checks incomplete':'Verdict · bundle accepted');
+  $('memo').style.display='block';$('memoText').value=memoText()}
+ if(playing&&k<7)later(function(){if(playing&&t===token)goto(k+1)},reduce?2500:6200);
+ if(k>=7){if(playing&&window.AIN_LOOP)later(function(){if(playing&&t===token)goto(1)},reduce?2500:6200);else playing=false}}
+function pauseWalk(){playing=false;clearTimers()}
+function startWalk(from){playing=true;if(!R){prepare().then(function(){goto(from)})}else goto(from)}
+var sel=$('corrupt');CHOICES.forEach(function(k){var o=document.createElement('option');o.value=k;o.textContent=K.CORR[k].label;sel.appendChild(o)});
+sel.onchange=function(){kind=sel.value;R=null;NET=null;pauseWalk();startWalk(1)};
+$('copy').onclick=function(){var ta=$('memoText');ta.select();var done=function(){$('copy').textContent='Copied'};try{navigator.clipboard.writeText(ta.value).then(done,function(){document.execCommand&&document.execCommand('copy');done()})}catch(e){try{document.execCommand('copy');done()}catch(x){$('copy').textContent='Press Ctrl+C'}}};
+render();goto(0);
+setTimeout(function(){if(cur===0&&!playing&&!timers.length)startWalk(1)},2200);
+
+/* Adapter for the shared control shell */
+window.AIN3D={mode:'step',steps:function(){return ['Start'].concat(VSTEPS.map(function(v){return v.n})).concat(['Verdict'])},index:function(){return cur},
+ go:function(i){var was=playing;pauseWalk();i=Math.max(0,Math.min(7,i));if(was&&i>=1&&i<7)startWalk(i);else goto(i)},playing:function(){return playing},
+ play:function(){startWalk(cur>=7?1:Math.max(1,cur))},pause:function(){pauseWalk()},restart:function(){pauseWalk();startWalk(1)},
+ dotClass:dotOf};
+</script>
+<script>/* Shared control shell: the same menu as the 2D explainers, driving this page's own engine through window.AIN3D. */
+(function(){
+var A=window.AIN3D;if(!A)return;var $=function(i){return document.getElementById(i)};
+if(window.AIN_SPEED==null)window.AIN_SPEED=1;
+window.AIN_LOOP=$('aLoop').checked;
+$('aLoop').onchange=function(){window.AIN_LOOP=this.checked};
+$('aSpeed').onclick=function(e){var b=e.target.closest('button');if(!b)return;var s=+b.dataset.speed;if(A.setSpeed)A.setSpeed(s);window.AIN_SPEED=s;[].forEach.call(this.children,function(x){x.classList.toggle('on',x===b)})};
+$('aPlay').onclick=function(){if(A.playing())A.pause();else A.play()};
+$('aRestart').onclick=function(){A.restart()};
+$('aNext').onclick=function(){A.go(A.index()+1)};
+$('aBack').onclick=function(){A.go(A.index()-1)};
+var sc=$('aScrub');
+sc.oninput=function(){var n=A.steps().length;if(A.mode==='time')A.seek(this.value/1000*A.total());else if(n)A.go(Math.round(this.value/1000*(n-1)))};
+document.addEventListener('keydown',function(e){var tg=e.target.tagName;if((tg==='INPUT'&&e.target.type!=='range')||tg==='TEXTAREA'||tg==='SELECT')return;
+ if(e.code==='Space'){e.preventDefault();$('aPlay').onclick()}else if(e.key==='r'||e.key==='R')A.restart();else if(e.key==='ArrowRight')$('aNext').onclick();else if(e.key==='ArrowLeft')$('aBack').onclick()});
+var key='';
+function upd(){var st=A.steps()||[],i=A.index(),n=st.length;
+ var lbl=A.playing()?'Pause':'Play';if($('aPlay').textContent!==lbl)$('aPlay').textContent=lbl;
+ var k=st.join('|');
+ if(k!==key){key=k;$('aDots').innerHTML=st.map(function(t,j){return '<button title="'+String(t).replace(/"/g,'&quot;')+'">'+(j+1)+'</button>'}).join('');
+  [].forEach.call($('aDots').children,function(b,j){b.onclick=function(){A.go(j)}})}
+ [].forEach.call($('aDots').children,function(d,j){d.classList.toggle('on',j===i);d.classList.toggle('done',j<i);var c=A.dotClass?A.dotClass(j):'';d.classList.toggle('ok',c==='ok');d.classList.toggle('warn',c==='warn');d.classList.toggle('bad',c==='bad')});
+ if(document.activeElement!==sc){
+  if(A.mode==='time'){var T=A.total()||1,p=A.pos();sc.value=Math.round(p/T*1000);$('aClock').textContent=p.toFixed(1)+'s / '+T.toFixed(0)+'s'}
+  else{sc.value=n>1?Math.round(Math.max(0,i)/(n-1)*1000):0;$('aClock').textContent=i<0?'not started':'step '+(i+1)+' of '+n}}
+}
+setInterval(upd,150);upd();
+})();</script>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../bazantic-walkthrough.html">Bazantic A/B Walkthrough</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
