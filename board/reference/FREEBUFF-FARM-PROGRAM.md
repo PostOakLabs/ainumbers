@@ -73,6 +73,46 @@ warning. Full program: `board/reference/SSH-FLEET-PROGRAM.md`. Beware: `ps` is N
 3. **Version pin**: freebuff 0.2.16 everywhere as of 2026-10-05. The workbuddy lesson applies:
    an npm update that changes the credential storage format can silently break logins —
    re-verify `credentials.json` still validates after any freebuff update.
+4. **CLI-surface re-probe on every version bump (added 2026-10-07)**: 0.2.16 and 0.2.22 both
+   reject `--print`/`--yes`, and piped stdin just starts the fullscreen TUI (opentui on a
+   non-TTY — the Task-Scheduler hang class); the `--print/--json/--quiet/--headless` strings
+   inside the engine binary are embedded third-party tooling (bun flags, ripgrep flags,
+   agent prompts), not wired CLI flags — upstream codebuff's scripting surface is the
+   `@codebuff/sdk`, so a freebuff lane exists only when the rebrand ships a real one-shot
+   mode or that SDK. Re-probe `freebuff --help` (grep for a print/one-shot flag) beside the
+   §5.3 credentials check after any upgrade. AND: the launcher engine-updates the SHARED
+   `~/.config/manicode` dir on ANY invocation, and an older wrapper accepts the newer
+   engine (measured on the Omen 2026-10-07: a sandbox-invoked 0.2.22 launcher bumped the
+   shared engine 0.2.16 → 0.2.22; credentials survived) — add a pure-file
+   version-consistency read (package.json vs freebuff-metadata.json, never a launcher
+   call) to the bump checklist, and never invoke a freebuff launcher casually on a pinned
+   machine. Full mechanics: `KILO-FARM-PROGRAM.md` §5 (same day).
+5. **2026-10-09 re-probe at 0.2.26 + Tim's lane directive (probe-first SOP)**: Tim directed
+   "add freebuff cli to the rotation, but the SOP must first probe what the free model is —
+   sometimes Solar 4, sometimes DeepSeek, sometimes something else." Wrapper updated 0.2.22 →
+   0.2.26 and re-probed on the Omen (the one machine where a bump is allowed): `--help` is
+   UNCHANGED in kind — `login` is still the only subcommand, no `-p`/`--print`/one-shot flag —
+   so §5.4's verdict HOLDS at 0.2.26 and the CLI still CANNOT be a worker lane (every
+   invocation is the fullscreen TUI = the Task-Scheduler hang class). New 10-09 lesson: on the
+   0.2.26 wrapper even `freebuff -v` boots the engine download ("Starting Freebuff...") and
+   bumped the shared Omen engine 0.2.22 → 0.2.26 (metadata read confirms; no lingering
+   process; Omen CLI has no credentials.json — the desktop app is the logged-in surface
+   there). Omen is the ONLY machine touched on 10-09; hp/ps/nitro/aspire/msi remain pinned,
+   untouched. **THE LANE ROW, WHEN IT FIRES** (blocked on upstream shipping a one-shot mode or
+   the SDK — re-probe `freebuff --help` on each version bump): the lane MUST be probe-first
+   about the MODEL, because the free-plan pick churns (Tim: Solar 4 / DeepSeek / other).
+   Probe order for "what is the current free model":
+   (a) pure-file engine read — `grep -aoiE '"(solar|deepseek|glm|kimi|minimax)[a-z0-9. _-]{0,30}"'
+   on `~/.config/manicode/freebuff.exe`; verified 10-09 the 0.2.26 engine embeds the menu:
+   DeepSeek V4 Pro / V4.1 Flash / V4.1 Flash Fast, Solar Mini 4, Solar Pro 4, GLM 5.2,
+   GLM 5.3 Flash, Kimi K3, MiniMax M3 (candidate set, not the active pick);
+   (b) live source — the desktop orchestrator when the app is open
+   (`GET http://127.0.0.1:55469/api/...`, routes re-derived per the lane runbook; probed
+   10-09: unreachable, app closed — quiet exit, expected);
+   (c) NEVER a hardcoded id in RotateModelsLiteral — the row resolves the model at
+   lane-design/pool-refresh time from (a)+(b) and date-stamps the finding, exactly the
+   catalog-churn discipline of §5.2. First harness question remains §5.1's: establish the
+   headless argv BEFORE promising the lane.
 
 ## 6. Channel provenance
 
