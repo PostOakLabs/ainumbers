@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>/* Speed hook for the shared controls: this page's timers run 0.5x, 1x or 2x without touching its engine. */
+(function(){var st=window.setTimeout.bind(window),si=window.setInterval.bind(window);window.AIN_SPEED=1;
+window.setTimeout=function(f,ms){var a=[].slice.call(arguments,2);return st.apply(window,[f,(+ms||0)/window.AIN_SPEED].concat(a))};
+window.setInterval=function(f,ms){var a=[].slice.call(arguments,2);return si.apply(window,[f,(+ms||0)/window.AIN_SPEED].concat(a))};})();</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/break-the-wall-explainer.html">
+<meta name="ain:category" content="learn">
+<meta name="description" content="Tamper with a 3D wall of proof layers and see which layer catches each change, which only warns and which cannot tell, with real checks run in the browser on real evidence.">
+<title>Break the Wall · AINumbers.co</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--panel:#0D1627;--line:#263855;--text:#A8C4DE;--dim:#6888A8;--ink:#08111F;
+--c1:#14B8A6;--c2:#60A5FA;--c3:#D4A847;--c4:#9B72F5;--c5:#22C55E;--red:#EF4444;--amb:#F59E0B}
+*{box-sizing:border-box;margin:0}
+html,body{background:var(--bg);color:var(--text);overflow-x:hidden}
+body{font-family:Sora,system-ui,sans-serif;font-weight:300;line-height:1.6}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 48px}
+h1{font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:clamp(1.6rem,4.2vw,2.3rem);line-height:1.2;color:#EEF6FD}
+.sub{color:var(--dim);font-size:.95rem;margin:.4rem 0 1rem;max-width:780px}
+.scene{position:relative;height:min(62vh,500px);min-height:360px;perspective:1900px;perspective-origin:50% 42%;overflow:hidden;border:1px solid #1E2F4A;border-radius:10px;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;
+background:radial-gradient(ellipse 70% 55% at 50% 30%,rgba(239,68,68,.12),transparent 70%),radial-gradient(ellipse 70% 50% at 50% 100%,rgba(20,184,166,.16),transparent 70%),linear-gradient(#050A14,#0B1526);--plate:#15233B;--pline:#2B4265}
+.scene.drag{cursor:grabbing}
+.hud{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:5;pointer-events:none;background:rgba(9,16,30,.9);border:1px solid #2B4265;border-radius:14px;padding:5px 14px;font:500 11px 'JetBrains Mono',monospace;color:#E6F1FB;text-align:center;max-width:60%}
+.hint{position:absolute;left:10px;bottom:8px;font:.62rem 'JetBrains Mono',monospace;color:#6888A8;pointer-events:none}
+.key{position:absolute;right:10px;top:10px;z-index:5;display:flex;flex-direction:column;gap:3px;font:10px 'JetBrains Mono',monospace;color:#9FB4C9;background:rgba(9,16,30,.75);border-radius:6px;padding:6px 8px}
+.key .kb{display:inline-block;width:14px;text-align:center;margin-right:6px;font-weight:700}
+.world{position:absolute;left:50%;top:50%;width:0;height:0;transform-style:preserve-3d}
+.brick,.box{position:absolute;transform-style:preserve-3d}
+.f{position:absolute;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:1px solid rgba(0,0,0,.35);background:linear-gradient(var(--ov),var(--ov)),var(--col);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;text-align:center;line-height:1.15;box-shadow:inset 0 0 0 var(--rw,0px) var(--ring,transparent)}
+.f::after{content:'';position:absolute;inset:0;background:var(--tint,transparent);pointer-events:none}
+.f.top{display:block}
+.fr{--ov:rgba(0,0,0,0)}.bk{--ov:rgba(0,0,0,.2)}.lf{--ov:rgba(0,0,0,.28)}.rt{--ov:rgba(0,0,0,.16)}.top{--ov:rgba(255,255,255,.14)}.bt{--ov:rgba(0,0,0,.42)}
+.nm{position:relative;z-index:1;font:500 calc(14px * var(--lf,1)) 'JetBrains Mono',monospace;color:#08111F;white-space:nowrap}
+.sb{position:relative;z-index:1;font:9.5px 'JetBrains Mono',monospace;color:#08111F;opacity:.75;white-space:nowrap}
+.bd,.tp{position:absolute;z-index:2;top:3px;width:22px;height:22px;border-radius:50%;display:none;align-items:center;justify-content:center;font:700 13px 'JetBrains Mono',monospace;color:#fff;box-shadow:0 0 8px rgba(0,0,0,.5)}
+.bd{right:6px}.tp{left:6px;background:#FB923C}
+.caught{--tint:rgba(239,68,68,.62);--ring:#EF4444;--rw:4px}.caught .bd{display:flex;background:#EF4444}
+.pass{--tint:rgba(34,197,94,.30);--ring:#22C55E;--rw:4px}.pass .bd{display:flex;background:#16A34A}
+.adv{--tint:rgba(245,158,11,.5);--ring:#F59E0B;--rw:4px}.adv .bd{display:flex;background:#D97706}
+.cond{--tint:rgba(245,158,11,.22);--ring:#F59E0B;--rw:3px}.cond .bd{display:flex;background:#B45309}
+.chk{--ring:#FFFFFF;--rw:5px}
+.hit{--ring:#FB923C;--rw:4px}.hit .tp{display:flex}
+.idle .f{opacity:.28}
+.plate .top{background-image:radial-gradient(circle,var(--pline) 4px,transparent 5px);background-size:50px 50px;background-color:var(--plate)}
+.plate .f{--col:var(--plate)}
+.picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:.55rem;margin:.9rem 0}
+.pick{text-align:left;font:400 .8rem Sora,system-ui,sans-serif;padding:.6rem .75rem;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer;line-height:1.35}
+.pick small{display:block;color:var(--dim);font-size:.7rem;margin-top:.15rem}
+.pick:hover{border-color:var(--c1)}
+.pick[aria-pressed="true"]{border-color:var(--red);box-shadow:0 0 0 1px var(--red)}
+.pick .pn{font:500 .65rem 'JetBrains Mono',monospace;color:var(--dim);display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:1rem 1.1rem;margin:.7rem 0}
+.card h2{font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:1.4rem;line-height:1.25;color:#EEF6FD}
+.card p{font-size:.95rem;color:var(--dim);margin:.3rem 0}
+.card .story{color:var(--text)}
+.card a{color:var(--c1)}
+.rx{list-style:none;padding:0;margin:.6rem 0}
+.rx li{display:flex;gap:.6rem;align-items:flex-start;padding:.4rem .55rem;border-radius:6px;font-size:.88rem;margin:.25rem 0;border:1px solid var(--line)}
+.rx li .rb{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:500;white-space:nowrap;color:#EEF6FD}
+.rx .ic{width:1.3rem;height:1.3rem;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font:700 .8rem 'JetBrains Mono',monospace;color:#fff}
+.rx .r-caught{border-color:rgba(239,68,68,.5)}.rx .r-caught .ic{background:#EF4444}
+.rx .r-pass{border-color:rgba(34,197,94,.45)}.rx .r-pass .ic{background:#16A34A}
+.rx .r-adv,.rx .r-cond{border-color:rgba(245,158,11,.5)}.rx .r-adv .ic{background:#D97706}.rx .r-cond .ic{background:#B45309}
+.rx .r-na .ic{background:#64748B}
+.rx a{color:var(--c1);white-space:nowrap;font-size:.78rem}
+.badge2{display:inline-block;font:.64rem 'JetBrains Mono',monospace;border-radius:4px;padding:1px 6px;margin-left:.4rem;border:1px solid var(--line);color:var(--dim)}
+.badge2.live{border-color:#22C55E;color:#22C55E}
+.badge2.spec{border-color:#60A5FA;color:#60A5FA}
+.drift{color:#F59E0B}
+.verdict{border-left:3px solid var(--red);padding:.4rem .8rem;margin-top:.5rem;color:var(--text);font-size:.95rem}
+.tag{display:inline-block;font:.66rem 'JetBrains Mono',monospace;color:var(--dim);border:1px dashed var(--line);border-radius:4px;padding:1px 6px;margin-top:.3rem}
+.lab textarea{width:100%;font:.8rem 'JetBrains Mono',monospace;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:.5rem .6rem;resize:vertical}
+.hrow{display:flex;flex-wrap:wrap;gap:.2rem .7rem;align-items:baseline;margin:.4rem 0;font-size:.75rem}
+.hrow .hl{color:var(--dim);min-width:11rem}
+.hrow code{font:.74rem 'JetBrains Mono',monospace;word-break:break-all}
+.hrow code mark{background:rgba(239,68,68,.35);color:var(--text);border-radius:2px}
+.bitgrid{display:grid;grid-template-columns:repeat(32,1fr);gap:2px;max-width:420px;margin:.5rem 0}
+.bitgrid span{aspect-ratio:1;background:var(--line);border-radius:2px}
+.bitgrid span.d{background:#EF4444}
+.foot{margin-top:1.2rem;font-size:.72rem;color:var(--dim);font-family:'JetBrains Mono',monospace}
+@media (max-width:600px){.key{display:none}.hud{max-width:86%}}
+
+/* Shared control bar (same as the 2D explainers) */
+.ainbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0}
+.ainbar .ab{font-family:'JetBrains Mono',monospace;font-size:13px;color:#D4E8F8;background:#111E35;border:1px solid #263855;border-radius:6px;padding:8px 16px;cursor:pointer}
+.ainbar .ab:hover{border-color:#14B8A6;color:#EEF6FD}
+.ainbar .ab.pri{background:#14B8A6;border-color:#14B8A6;color:#04201C;font-weight:600;min-width:100px}
+.ainbar .aseg{display:inline-flex;border:1px solid #263855;border-radius:6px;overflow:hidden}
+.ainbar .aseg button{font-family:'JetBrains Mono',monospace;font-size:12px;background:#0D1627;color:#6888A8;border:0;padding:8px 10px;cursor:pointer}
+.ainbar .aseg button.on{background:#111E35;color:#EEF6FD}
+.ainbar .aopt{font-family:'JetBrains Mono',monospace;font-size:12px;color:#6888A8;display:flex;gap:6px;align-items:center;cursor:pointer}
+.ainbar .ascrub{flex:1 1 220px;display:flex;align-items:center;gap:10px}
+.ainbar .ascrub input{flex:1;accent-color:#14B8A6}
+.ainbar .ascrub span{font-family:'JetBrains Mono',monospace;font-size:12px;color:#6888A8;min-width:92px;text-align:right}
+.ainbar .adots{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+.ainbar .adots button{min-width:28px;height:28px;border-radius:14px;border:1px solid #263855;background:#0D1627;color:#6888A8;font-family:'JetBrains Mono',monospace;font-size:11.5px;cursor:pointer;padding:0 6px}
+.ainbar .adots button.on{background:#14B8A6;border-color:#14B8A6;color:#04201C;font-weight:600}
+.ainbar .adots button.done{border-color:#14B8A6;color:#14B8A6}
+
+/* Goal box, trust strip and outcome box (same as the 2D explainers) */
+.goal{border:1px solid #9B72F5;border-radius:10px;background:rgba(155,114,245,.06);padding:12px 16px;margin:14px 0 12px}
+.goal > .gl{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#9B72F5;margin-bottom:4px}
+.goal p{font-size:15px;color:#D4E8F8;line-height:1.5;margin:0}
+.trust{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 12px}
+.trust > div{flex:1 1 300px;border:1px solid #263855;border-radius:9px;background:#0D1627;padding:9px 13px;font-size:13.5px;line-height:1.45;color:#A8C4DE}
+.trust .tl{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin-bottom:2px}
+.trust .tpii .tl{color:#22C55E}.trust .tcf .tl{color:#D4A847}
+.why{border:1px solid #263855;border-radius:10px;background:#0D1627;padding:12px 16px;margin:0 0 12px}
+.why .hd{display:block;font-family:'DM Serif Display',serif;font-weight:400;font-size:19px;color:#EEF6FD;margin-bottom:6px}
+.why .legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-family:'JetBrains Mono',monospace;font-size:11px;margin-bottom:10px}
+.why .lg-g{color:#22C55E}.why .lg-a{color:#F59E0B}.why .lg-r{color:#EF4444}
+.why .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.why .cols > div{font-size:13.5px;line-height:1.5;color:#A8C4DE}
+.why .cols .cl{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.12em;margin-bottom:3px}
+.why .ok{color:#22C55E}.why .warn{color:#F59E0B}.why .no{color:#EF4444}.why .sim{color:#38BDF8}
+nav a,footer a{color:inherit;text-decoration:none}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">Break the Wall</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+<h1>Break the wall</h1>
+<p class="sub">The Agent Staircase stacks proofs, and each layer exists to notice a different kind of tampering. Pick a tamper and watch which bricks turn red, which only warn and which cannot tell at all. Rows marked computed here run the real check in your browser, on real evidence from the public repository. The other rows state what the SPEC says that layer does. Drag the wall to look around.</p>
+<div class="goal" role="note"><span class="gl">Goal of this animation</span><p>Show which proof layer catches which kind of tampering, and which layers are not built to notice it, so a reader knows what each layer is worth on its own.</p></div>
+<div class="trust" role="note">
+  <div class="tpii"><span class="tl">🔒 No personal data</span>The evidence is the synthetic Work Mandate and fixture runs from the public repository. Every computed check runs in this page. Apart from loading its fonts and its own files, the page makes no network requests.</div>
+  <div class="tcf"><span class="tl">☁ Our server is Cloudflare</span>“AINumbers server” means Cloudflare today: the site's files are delivered through Cloudflare's network. This page never asks it anything. The verifiers and the evidence load with the page.</div>
+</div>
+<div class="why" role="note">
+  <span class="hd">What the red and amber results mean</span>
+  <div class="legend"><span class="lg-g">● green · the layer verifies</span><span class="lg-a">● amber · advisory, or only if that evidence is present</span><span class="lg-r">● red · the tamper was caught</span></div>
+  <div class="cols">
+    <div><span class="cl no">✗ CAUGHT</span>The layer detects the tamper. Its brick turns red and shakes, and the result line says why.</div>
+    <div><span class="cl warn">! PASSES BUT ADVISORY</span>The check does not fail, but on its own it can be fooled. Treat it as a reason to look closer rather than proof of anything.</div>
+    <div><span class="cl warn">? ONLY IF PRESENT</span>The layer catches this only when its evidence exists, such as a signature or an anchor. Many artifacts carry neither.</div>
+    <div><span class="cl ok">✓ VERIFIES</span>The layer checks out. During a tamper, a green brick means that layer is not built to notice this kind of change.</div>
+  </div>
+</div>
+
+<div class="ainbar" role="group" aria-label="Playback">
+ <button class="ab" id="aBack">◀ Back</button><button class="ab pri" id="aPlay">Play</button><button class="ab" id="aNext">Next ▶</button><button class="ab" id="aRestart">Restart</button>
+ <div class="aseg" id="aSpeed" role="group" aria-label="Speed"><button data-speed="0.5">0.5×</button><button data-speed="1" class="on">1×</button><button data-speed="2">2×</button></div>
+ <label class="aopt"><input type="checkbox" id="aLoop" checked> loop</label>
+ <div class="ascrub"><input type="range" id="aScrub" min="0" max="1000" value="0" aria-label="Timeline"><span id="aClock"></span></div>
+ <div class="adots" id="aDots"></div>
+</div>
+<div class="scene" id="scene" aria-label="Rotatable wall of 14 bricks showing which proof layers detect each tamper">
+<div class="hud" id="hud">Choose a tamper</div>
+<div class="key"><span><span class="kb" style="color:#EF4444">✗</span>caught</span><span><span class="kb" style="color:#F59E0B">!</span>passes but advisory</span><span><span class="kb" style="color:#F59E0B">?</span>only if present</span><span><span class="kb" style="color:#22C55E">✓</span>verifies</span><span><span class="kb" style="color:#FB923C">✎</span>where it was tampered</span></div>
+<div class="world" id="world"></div>
+<div class="hint">drag to rotate · faded bricks are not involved</div>
+</div>
+
+<div class="picks" id="picks" role="group" aria-label="Choose a tamper"></div>
+<div class="card" id="res" aria-live="polite"><h2>Nothing is broken yet</h2><p>A guided tour starts automatically and runs through seven tampers. Pick one yourself at any time to stop the tour.</p></div>
+
+<div class="card lab" id="lab" style="display:none">
+<h2>Try it yourself</h2>
+<p>These inputs feed a small sample kernel. The hash below is real SHA-256, computed in your browser over the RFC 8785 canonical JSON of the inputs and the output, the rule every execution hash uses. Change any character and watch the hash react.</p>
+<label for="inp" style="font-size:.78rem;color:var(--dim)">policy_parameters (editable)</label>
+<textarea id="inp" rows="4" spellcheck="false"></textarea>
+<div class="hrow"><span class="hl">Hash stored in the artifact</span><code id="h0"></code></div>
+<div class="hrow"><span class="hl">Recomputed from these inputs</span><code id="h1"></code></div>
+<div class="bitgrid" id="grid" aria-hidden="true"></div>
+<div id="hres" class="verdict" style="border-color:var(--c1)"></div>
+<p><span class="tag">Illustrative kernel and inputs. The rule is the real one.</span></p>
+<p style="font-size:.85rem">From the Agent Staircase explainer: changing the last character of the signature value in art-591 moved the hash from 888dd6a8…5859 to 35e66b8f…ffcb, and the match flipped to false.</p>
+</div>
+
+<div class="card"><h2>Check a whole bundle</h2><p>This page shows one tamper at a time. <a href="auditors-walk-explainer.html">The auditor's walk</a> checks the same evidence layer by layer the way a regulator would, says what each pass teaches and what it cannot, and writes a verification memo.</p>
+<p>The evidence: the Agent Staircase session of 26 September 2026 (ten hashes, their root and three timestamp tokens), the signed Work Mandate that is leaf 4 of that session, and node art-07 with its Groth16 receipt and kernel source. Steps link to the <a href="agent-staircase-explainer.html">Agent Staircase explainer</a>.</p></div>
+
+<p class="foot">Outcomes follow Steps 4 to 14 of the Agent Staircase explainer and the SPEC · evidence and verifier code from github.com/PostOakLabs/ainumbers · Zero PII · CC BY 4.0 · Post Oak Labs</p>
+</div>
+
+<script src="proof-walk-kit.js"></script>
+<script>
+var U=50,H=38,D=100,ROWS=8,BY=ROWS*H/2;
+var COL={1:'#14B8A6',2:'#60A5FA',3:'#D4A847',4:'#9B72F5',5:'#22C55E'};
+/* Same wall as the Agent Staircase page: [name, sub, row, x, width, layer] */
+var B=[['Tool','page + math',1,0,12,1],['Kernel','compute() is pure',2,0,12,1],['Node','public identity',3,0,12,1],['Execution hash','SHA-256 over inputs + output',4,0,12,1],
+['Bridge','',5,0,4,2],['WebMCP','',5,4,4,2],['MCP','',5,8,4,2],['Workflow','run_chain links nodes by hash',6,0,8,3],['Helm','',6,8,4,3],
+['Signature','',7,0,3,4],['Kernel ID','',7,3,3,4],['RISC Zero','',7,6,3,4],['Groth16','',7,9,3,4],['Anchor','Merkle root + outside timestamps',8,0,12,5]];
+var STEPID=['s-tool','s-kernel','s-node','s-hash','s-bridge','s-webmcp','s-mcp','s-workflow','s-pack','s-signature','s-identity','s-risc0','s-groth16','s-anchor'];
+var EXPL='agent-staircase-explainer.html';
+var K=window.PWK;
+/* Check indexes in PWK.checks(): 0 anchor tokens, 1 session root, 2 Groth16 receipt, 3 kernel identity, 4 signature, 5 execution hash.
+   Each tamper row is either computed here, {b, c, exp, pass, fail}: its colour comes from running check c on the bundle
+   corrupted the tamper's way (kind), or from the SPEC, {b, st, why, cite}: the layer's documented behaviour, not run here.
+   exp is the outcome the text expects; if the real check ever disagrees, the row says so instead of hiding it. */
+var AT=[
+{t:'Change one character of an input',k:'after a result is published',hit:[0],kind:'input',steps:'Steps 4, 8, 10 and 14',
+ story:'Someone edits an input of the art-07 run after its result was published and hopes nobody recomputes the hash.',
+ rows:[{b:3,c:5,exp:false,fail:'The recomputed hash no longer matches the hash stated for the run.',pass:'The recomputed hash still matches.'},
+  {b:12,c:2,exp:true,pass:'The receipt still verifies and still fits, because its journal records the output and the kernel digest and never the inputs.',fail:'The receipt check failed.'},
+  {b:9,st:'cond',why:'If the artifact was signed, the edited copy fails its signature. This run is not signed, and signing is optional.',cite:'SPEC section 16'},
+  {b:7,st:'cond',why:'If the run was a workflow step, the composite hash over the steps changes as well.',cite:'SPEC section 21.2'},
+  {b:13,st:'cond',why:'If the run was anchored, its edited hash no longer folds into the timestamped root.',cite:'SPEC section 20'}],
+ verdict:'Caught by the hash. Anyone holding the inputs and SHA-256 can recompute it, so the change shows without trusting anyone. The receipt stays green because it never recorded the inputs.',lab:true},
+{t:'Edit a signed Work Mandate',k:'widen it after signing',hit:[7],kind:'mandate',steps:'Step 10 and Example 2',
+ story:'A Work Mandate says what an agent may do. Someone widens its validity in the file after the principal signed it. This is the real mandate from the Agent Staircase session.',
+ rows:[{b:9,c:4,exp:false,fail:'The edited mandate no longer verifies under its principal\'s key.',pass:'The signature still verifies.'},
+  {b:3,c:5,exp:false,fail:'Its recomputed hash no longer equals the stated hash, which is leaf 4 of the timestamped session.',pass:'The hash still matches.'},
+  {b:7,st:'caught',why:'run_chain refuses the mandate with mandate_bad_signature, so the run stops before step 1.',cite:'explainer Example 2'}],
+ verdict:'Refused before anything runs. The signature covers the whole mandate, and its hash is fixed in a timestamped session. The limit of this layer: signing is optional, so an unsigned mandate has no signature to check.'},
+{t:'Swap the kernel code',k:'name one kernel, run another',hit:[1],kind:null,steps:'Steps 11 to 13',
+ story:'A server says it ran the published kernel but actually runs different code.',
+ rows:[{b:10,st:'adv',why:'The digests can all agree when the server reports them honestly, so on its own this check is advisory.',cite:'SPEC section 17.2'},
+  {b:11,st:'cond',why:'If a receipt exists for this run, its journal carries the kernel digest the zkVM guest committed.',cite:'explainer step 12'},
+  {b:12,st:'cond',why:'The binding check refuses a receipt whose journal names a kernel digest the node does not publish.',cite:'SPEC section 18.1'}],
+ verdict:'Kernel identity alone can be fooled, which is why the staircase adds the zkVM receipt. A receipt for the run closes the gap. Stored receipts cover the published fixture runs, not every later run.'},
+{t:'Change a middle step of a chain',k:'edit one link of a session',hit:[7],kind:'session',steps:'Steps 4, 8, 10 and 14',
+ story:'After a workflow ran, someone edits the result of a middle step and leaves the others alone.',
+ rows:[{b:3,st:'caught',why:'The hash of the edited step no longer recomputes.',cite:'SPEC section 4'},
+  {b:7,st:'caught',why:'The next step cites the old hash in parent_hashes, and the workflow\'s composite hash changes.',cite:'SPEC sections 21.1 and 21.2'},
+  {b:9,st:'cond',why:'If the artifact was signed, the signature fails. Signing is optional.',cite:'SPEC section 16'},
+  {b:13,c:1,exp:false,fail:'In the real Staircase session, changing one leaf means the ten hashes no longer fold into the timestamped root 7bc2980b…c26b.',pass:'The session still folds into the timestamped root.'}],
+ verdict:'Caught by the hash links. The next step\'s parent_hashes no longer match, and the composite hash and the anchored root change. Later steps keep their own hashes, because the chain links are not part of the hash.'},
+{t:'Backdate a result',k:'claim it existed earlier',hit:[13],kind:null,steps:'Steps 4, 10 and 14',
+ story:'Someone claims a result existed a month before it really did.',
+ rows:[{b:13,st:'caught',why:'Three authorities put the Staircase root at 26 September 2026, 02:48:56 to 02:48:57 UTC. Only an anchor can back a date: an earlier claim has nothing behind it, and a forged earlier token fails its signature.',cite:'SPEC section 20.1'},
+  {b:9,st:'na',why:'A signature can state a time, but only the signer vouches for it.',cite:'SPEC section 16'},
+  {b:3,st:'na',why:'A hash binds content, not time.',cite:'SPEC section 4'}],
+ verdict:'Only the anchor speaks about time with someone else\'s signature. The hash cannot tell when something existed, and a signature\'s date is the signer\'s word.'},
+{t:'Replay a proof from another kernel',k:'borrow a valid receipt',hit:[12],kind:'borrow',steps:'Steps 11 to 13',
+ story:'Someone attaches the valid art-07 receipt to a different artifact and hopes the proof is taken at face value.',
+ rows:[{b:12,c:2,exp:false,fail:'The seal still verifies, but the binding check fails: the journal\'s output is art-07\'s, not this artifact\'s.',pass:'The receipt fits this artifact.'},
+  {b:11,c:2,exp:false,fail:'The journal names a different output and kernel digest from the ones this artifact carries.',pass:'The journal matches this artifact.'},
+  {b:10,st:'caught',why:'The artifact\'s kernel identity does not match the digest in the journal.',cite:'SPEC section 17.1'}],
+ verdict:'A borrowed receipt is still a valid proof, so the pairing check alone would pass. The binding check refuses it, because the proof speaks about one particular answer.'},
+{t:'Feed it a false input',k:'lie before hashing',hit:[0],kind:'none',steps:'Reading of the design',
+ story:'Someone gives the kernel false data on purpose, such as a wrong balance, and runs it honestly. Here every check runs on the honest bundle.',
+ rows:[{b:3,c:5,exp:true,pass:'The hash binds whatever inputs were supplied, true or not.',fail:'The hash check failed.'},
+  {b:10,c:3,exp:true,pass:'The kernel identity is correct, because the right code ran.',fail:'The kernel check failed.'},
+  {b:11,c:2,exp:true,pass:'The proof says the published kernel produced this output. It does not record which inputs went in.',fail:'The receipt check failed.'},
+  {b:13,c:0,exp:true,pass:'The timestamps say when, not whether the data was true.',fail:'The timestamp check failed.'},
+  {b:9,c:4,exp:true,pass:'The signature verifies for whoever signed.',fail:'The signature check failed.'}],
+ verdict:'Nothing turns red. The wall shows what ran, which output it gave, who vouched and when. It cannot show that the inputs were true, so that check belongs to whoever supplied the data.',reading:true}
+];
+
+var world=document.getElementById('world'),scene=document.getElementById('scene');
+var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function el(c,p,css){var e=document.createElement('div');e.className=c;if(css)e.style.cssText=css;if(p)p.appendChild(e);return e}
+function faces(p,w,h,d){var f={};
+ f.fr=el('f fr',p,'inset:0;transform:translateZ('+d/2+'px)');f.bk=el('f bk',p,'inset:0;transform:rotateY(180deg) translateZ('+d/2+'px)');
+ f.rt=el('f rt',p,'width:'+d+'px;height:'+h+'px;left:'+(w/2-d/2)+'px;top:0;transform:rotateY(90deg) translateZ('+w/2+'px)');
+ f.lf=el('f lf',p,'width:'+d+'px;height:'+h+'px;left:'+(w/2-d/2)+'px;top:0;transform:rotateY(-90deg) translateZ('+w/2+'px)');
+ f.top=el('f top',p,'width:'+w+'px;height:'+d+'px;left:0;top:'+(h/2-d/2)+'px;transform:rotateX(90deg) translateZ('+h/2+'px)');
+ f.bt=el('f bt',p,'width:'+w+'px;height:'+d+'px;left:0;top:'+(h/2-d/2)+'px;transform:rotateX(-90deg) translateZ('+h/2+'px)');return f}
+var plate=el('box plate',world,'width:700px;height:16px;left:-350px;top:'+BY+'px');faces(plate,700,16,200);
+var els=[];
+B.forEach(function(b,i){var w=b[4]*U,x=b[3]*U-6*U,y=BY-b[2]*H;
+ var e=el('brick',world,'width:'+w+'px;height:'+H+'px;left:'+x+'px;top:'+y+'px;--col:'+COL[b[5]]);var f=faces(e,w,H,D);
+ [f.fr,f.bk].forEach(function(fc){var n=el('nm',fc);n.textContent=(i+1)+' · '+b[0];if(b[4]>=4&&b[1]){el('sb',fc).textContent=b[1]}el('bd',fc);el('tp',fc).textContent='✎'});
+ els[i]=e;
+ if(!reduce&&e.animate)e.animate([{translate:'0 -380px 0'},{translate:'0 5px 0',offset:.72},{translate:'0 0 0'}],{duration:700,delay:i*90,easing:'cubic-bezier(.3,.6,.4,1)',fill:'backwards'})});
+var ICON={caught:'✗',pass:'✓',adv:'!',cond:'?',na:'–'};
+function paint(i,st){var e=els[i];e.classList.remove('caught','pass','adv','cond','chk','idle');if(st==='idle'||st==='na'||!st){if(st)e.classList.add('idle')}else e.classList.add(st);
+ e.querySelectorAll('.bd').forEach(function(b){b.textContent=ICON[st]||''})}
+function clearWall(){token++;els.forEach(function(e,i){paint(i,null);e.classList.remove('hit');e.style.translate='';e.style.rotate=''})}
+
+/* Camera: sways around a base angle, drag sets the angle */
+var rx=-24,ry=-28,tx=-24,ty=-28,dragging=false,lx=0,ly=0,sc=1;
+function fit(){sc=Math.max(.5,Math.min(1.15,scene.clientWidth/760));world.style.setProperty('--lf',sc<.8?Math.min(1.25,.8/sc):1)}
+window.addEventListener('resize',fit);fit();
+function render(){var sw=(!dragging&&!reduce)?9*Math.sin(performance.now()/3200):0;rx+=(tx-rx)*.1;ry+=(ty+sw-ry)*.1;
+ world.style.transform='scale('+sc+') rotateX('+rx+'deg) rotateY('+ry+'deg)';requestAnimationFrame(render)}
+scene.addEventListener('pointerdown',function(e){dragging=true;lx=e.clientX;ly=e.clientY;scene.classList.add('drag')});
+window.addEventListener('pointermove',function(e){if(!dragging)return;var dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;ty+=dx*.45;tx=Math.max(-85,Math.min(6,tx-dy*.3))});
+window.addEventListener('pointerup',function(){dragging=false;scene.classList.remove('drag')});
+window.addEventListener('pointercancel',function(){dragging=false;scene.classList.remove('drag')});
+
+/* Real check results, computed once per corruption and kept */
+var CACHE={};
+function resultsFor(kind){if(kind==null)return Promise.resolve(null);if(!CACHE[kind])CACHE[kind]=K.checks(K.bundle(kind));return CACHE[kind]}
+function rowState(row,R){if(row.c==null)return {st:row.st,why:row.why,src:'spec',cite:row.cite};
+ var r=R[row.c],st=r.ok===null?'cond':(r.ok?'pass':'caught'),why=r.ok===false?row.fail:(r.ok?row.pass:r.say);
+ if(r.ok!==row.exp)why+=' (The real check returned '+(r.ok===null?'could not run':(r.ok?'pass':'fail'))+', not what this text expects.)';
+ return {st:st,why:why,src:'live',ms:r.ms,drift:r.ok!==row.exp}}
+
+/* Running a tamper */
+var token=0,cur=-1,timers=[];
+function later(fn,ms){timers.push(setTimeout(fn,ms))}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function runAttack(n){
+ timers.forEach(clearTimeout);timers=[];clearWall();cur=n;var a=AT[n],t=token;
+ document.querySelectorAll('.pick').forEach(function(p,i){p.setAttribute('aria-pressed',i===n)});
+ document.getElementById('hud').textContent='Tamper '+(n+1)+' of '+AT.length+' · '+a.t;
+ var res=document.getElementById('res');
+ res.innerHTML='<h2>'+esc(a.t)+'</h2><p class="story">'+esc(a.story)+'</p><ul class="rx" id="rx"></ul><div id="vd"></div>';
+ /* the lab only belongs to the first tamper */
+ var lab=document.getElementById('lab');lab.style.display=a.lab?'block':'none';if(a.lab)setTampered();
+ els.forEach(function(e,i){if(a.hit.indexOf(i)>=0){e.classList.add('hit');if(!reduce&&e.animate)e.animate([{translate:'0 0 0'},{translate:'0 -12px 0'},{translate:'0 0 0'}],{duration:500,iterations:2})}});
+ resultsFor(a.kind).then(function(R){if(t!==token)return;
+  var rows=a.rows.slice().sort(function(x,y){return B[x.b][2]-B[y.b][2]||B[x.b][3]-B[y.b][3]});
+  var order=rows.map(function(r){return r.b});
+  var T=reduce?200:1300,step=reduce?300:1500;
+  later(function(){if(t!==token)return;els.forEach(function(e,i){if(order.indexOf(i)<0)paint(i,'idle')})},T-200);
+  rows.forEach(function(row,k){var s=rowState(row,R),i=row.b;
+   later(function(){if(t!==token)return;els[i].classList.add('chk');
+    later(function(){if(t!==token)return;paint(i,s.st);
+     if(s.st==='caught'&&!reduce&&els[i].animate){els[i].animate([{translate:'0 0 0',rotate:'0deg'},{translate:'7px -2px 0',rotate:'2deg'},{translate:'-6px 1px 0',rotate:'-1.5deg'},{translate:'3px 0 0',rotate:'1deg'}],{duration:520});els[i].style.translate='3px 0';els[i].style.rotate='1deg'}
+     var badge=s.src==='live'?'<span class="badge2 live">computed here · '+s.ms.toFixed(1)+' ms</span>':'<span class="badge2 spec">from '+esc(s.cite)+'</span>';
+     var li=document.createElement('li');li.className='r-'+s.st;
+     li.innerHTML='<span class="ic">'+ICON[s.st]+'</span><div><span class="rb">'+esc(B[i][0])+'</span>'+badge+'<br><span'+(s.drift?' class="drift"':'')+'>'+esc(s.why)+'</span> <a href="'+EXPL+'#'+STEPID[i]+'" target="_blank" rel="noopener">step '+(i+1)+' ↗</a></div>';
+     document.getElementById('rx').appendChild(li)},reduce?0:420)},T+k*step)});
+  var end=T+rows.length*step+500;
+  later(function(){if(t!==token)return;document.getElementById('vd').innerHTML='<div class="verdict"'+(a.reading?' style="border-color:#F59E0B"':'')+'>'+esc(a.verdict)+'</div><span class="tag">'+(a.reading?'A reading of the design, consistent with SPEC section 20.1':'Source · '+esc(a.steps)+' of the explainer')+'</span>'},end);
+  if(tourOn)later(function(){if(!(tourOn&&t===token))return;if(n+1>=AT.length&&window.AIN_LOOP===false){tourOn=false;return}runAttack((n+1)%AT.length)},end+7000)})}
+
+/* Picker and tour */
+var tourOn=true;
+AT.forEach(function(a,i){var b=document.createElement('button');b.className='pick';b.setAttribute('aria-pressed','false');b.innerHTML='<span class="pn">Tamper '+(i+1)+'</span>'+esc(a.t)+'<small>'+esc(a.k)+'</small>';b.onclick=function(){tourOn=false;runAttack(i)};document.getElementById('picks').appendChild(b)});
+
+/* Hash lab: real SHA-256 over the RFC 8785 canonical JSON of {policy_parameters, output_payload} */
+var P0={amount_usd:1200,cap_usd:1500,payee:'acme-ltd'};
+var OUT={headroom_usd:300,within_cap:true};
+var baseHex='',lastMatch=true;
+function setTampered(){var s=JSON.stringify(P0,null,1).replace('1200','1201');document.getElementById('inp').value=s;recheck(true)}
+function recheck(auto){var txt=document.getElementById('inp').value,res=document.getElementById('hres'),p;
+ try{p=JSON.parse(txt)}catch(x){res.textContent='The inputs are not valid JSON yet, so there is nothing to hash.';return}
+ K.ehash(p,OUT).then(function(hx){var diff=0,i,grid=document.getElementById('grid');
+  document.getElementById('h0').textContent=baseHex;
+  var out='';for(i=0;i<64;i++){out+=hx[i]!==baseHex[i]?'<mark>'+hx[i]+'</mark>':hx[i]}document.getElementById('h1').innerHTML=out;
+  var cells='';for(i=0;i<32;i++){var x=parseInt(hx.substr(i*2,2),16)^parseInt(baseHex.substr(i*2,2),16);for(var q=7;q>=0;q--){var d=(x>>q)&1;diff+=d;cells+='<span class="'+(d?'d':'')+'"></span>'}}
+  grid.innerHTML=cells;
+  var match=hx===baseHex;
+  res.textContent=match?'The hashes match, so nothing has changed.':'Mismatch: '+diff+' of 256 bits changed ('+Math.round(diff/2.56)+'%). One edited character reshuffles about half the hash, so the change cannot be hidden.';
+  if(!auto&&cur===0){if(!match&&lastMatch){later(function(){runAttack(0)},0)}else if(match&&!lastMatch){clearWall();document.getElementById('hud').textContent='Inputs restored · the wall is whole'}}
+  lastMatch=match})}
+var deb=null;
+document.getElementById('inp').addEventListener('input',function(){tourOn=false;clearTimeout(deb);deb=setTimeout(function(){recheck(false)},500)});
+render();
+if(window.crypto&&crypto.subtle){
+ K.ehash(P0,OUT).then(function(h){baseHex=h;document.getElementById('h0').textContent=baseHex;
+  document.getElementById('inp').value=JSON.stringify(P0,null,1);
+  setTimeout(function(){if(cur<0&&tourOn)runAttack(0)},reduce?200:1800)})
+}else{
+ /* without WebCrypto the computed rows cannot run; the tour still shows the SPEC rows */
+ AT[0].lab=false;setTimeout(function(){if(cur<0&&tourOn)runAttack(0)},reduce?200:1800)}
+/* Adapter for the shared control shell */
+window.AIN3D={mode:'step',steps:function(){return AT.map(function(a){return a.t})},index:function(){return cur},
+ go:function(i){i=Math.max(0,Math.min(AT.length-1,i));runAttack(i)},
+ playing:function(){return tourOn},
+ play:function(){tourOn=true;runAttack(cur<0?0:cur)},
+ pause:function(){tourOn=false;timers.forEach(clearTimeout);timers=[]},
+ restart:function(){tourOn=true;runAttack(0)},
+ dotClass:function(){return ''}};
+</script>
+<script>/* Shared control shell: the same menu as the 2D explainers, driving this page's own engine through window.AIN3D. */
+(function(){
+var A=window.AIN3D;if(!A)return;var $=function(i){return document.getElementById(i)};
+if(window.AIN_SPEED==null)window.AIN_SPEED=1;
+window.AIN_LOOP=$('aLoop').checked;
+$('aLoop').onchange=function(){window.AIN_LOOP=this.checked};
+$('aSpeed').onclick=function(e){var b=e.target.closest('button');if(!b)return;var s=+b.dataset.speed;if(A.setSpeed)A.setSpeed(s);window.AIN_SPEED=s;[].forEach.call(this.children,function(x){x.classList.toggle('on',x===b)})};
+$('aPlay').onclick=function(){if(A.playing())A.pause();else A.play()};
+$('aRestart').onclick=function(){A.restart()};
+$('aNext').onclick=function(){A.go(A.index()+1)};
+$('aBack').onclick=function(){A.go(A.index()-1)};
+var sc=$('aScrub');
+sc.oninput=function(){var n=A.steps().length;if(A.mode==='time')A.seek(this.value/1000*A.total());else if(n)A.go(Math.round(this.value/1000*(n-1)))};
+document.addEventListener('keydown',function(e){var tg=e.target.tagName;if((tg==='INPUT'&&e.target.type!=='range')||tg==='TEXTAREA'||tg==='SELECT')return;
+ if(e.code==='Space'){e.preventDefault();$('aPlay').onclick()}else if(e.key==='r'||e.key==='R')A.restart();else if(e.key==='ArrowRight')$('aNext').onclick();else if(e.key==='ArrowLeft')$('aBack').onclick()});
+var key='';
+function upd(){var st=A.steps()||[],i=A.index(),n=st.length;
+ var lbl=A.playing()?'Pause':'Play';if($('aPlay').textContent!==lbl)$('aPlay').textContent=lbl;
+ var k=st.join('|');
+ if(k!==key){key=k;$('aDots').innerHTML=st.map(function(t,j){return '<button title="'+String(t).replace(/"/g,'&quot;')+'">'+(j+1)+'</button>'}).join('');
+  [].forEach.call($('aDots').children,function(b,j){b.onclick=function(){A.go(j)}})}
+ [].forEach.call($('aDots').children,function(d,j){d.classList.toggle('on',j===i);d.classList.toggle('done',j<i)});
+ if(document.activeElement!==sc){
+  if(A.mode==='time'){var T=A.total()||1,p=A.pos();sc.value=Math.round(p/T*1000);$('aClock').textContent=p.toFixed(1)+'s / '+T.toFixed(0)+'s'}
+  else{sc.value=n>1?Math.round(Math.max(0,i)/(n-1)*1000):0;$('aClock').textContent=i<0?'not started':'step '+(i+1)+' of '+n}}
+}
+setInterval(upd,150);upd();
+})();</script>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../bazantic-walkthrough.html">Bazantic A/B Walkthrough</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
