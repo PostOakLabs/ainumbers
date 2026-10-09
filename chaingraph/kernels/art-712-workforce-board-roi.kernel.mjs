@@ -41,11 +41,13 @@ export const meta = {
 
 // ── WIOA performance targets: Apex illustrative defaults (5 indicators x 3 program types) ──
 // Illustrative defaults carried from the Apex page (apex15.html lines 524-555); WIOA levels of
-// performance are negotiated per State (20 CFR 677.190, adjusted by the statistical adjustment
-// model, TEGL 11-19 Change 2) — no national value exists — so supply your State's negotiated
-// levels via policy_parameters.wioa_targets. See the node metadata for the grounded indicator
-// DEFINITIONS (the WIOA statute's five primary indicators and their performance-accountability
-// regulation) and for the porting provenance of these values.
+// performance are negotiated per State under the federal performance-accountability
+// regulation and its TE guidance (adjusted by the statistical adjustment model) — no
+// national value exists — so supply your State's negotiated levels via
+// policy_parameters.wioa_targets. See the node metadata for the grounded indicator
+// DEFINITIONS (the WIOA statute's five primary indicators and their
+// performance-accountability regulation), the cited sources, and the porting provenance
+// of these values.
 const WIOA_TARGETS_APEX_DEFAULTS = {
   adult: {
     label: 'Adult (Title I-B)',
@@ -174,7 +176,7 @@ function refused(reason, text) {
 const PROGRAM_TYPES = Object.keys(WIOA_TARGETS_APEX_DEFAULTS);
 const SECTOR_KEYS = Object.keys(SECTOR_BASELINE_ANNUAL);
 // One illustrative label — a single target table is NOT three program years: WIOA levels are
-// negotiated per State (20 CFR 677.190) and program_year is echoed as a display label only.
+// negotiated per State (see the node's cited sources) and program_year is echoed as a display label only.
 const PROGRAM_YEARS = ['illustrative'];
 
 /** @type {(v: unknown) => boolean} */

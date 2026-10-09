@@ -1,7 +1,7 @@
 // art-712-workforce-board-roi.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-WF15 porting
 // payload (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES abc4e16d).
-// kernel_digest_at_authoring: sha256:6657f151d3920546003c4c6eced39e5805a32e7e65d2109a812eda50e8582782
+// kernel_digest_at_authoring: sha256:ad0b073ca9de4acac2578fa939e9b8086cc3363383fca72988fbecc6d5631c44
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
