@@ -2,7 +2,7 @@
   "tool_id": "art-349-fedwire-structured-address-linter",
   "version": "1.0.0",
   "title": "Fedwire Structured Address Linter",
-  "description": "Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the Fedwire structured-address end state (network param selects fedwire or chips; rules verified byte-identical between the two networks at build time). Federal Reserve Financial Services rescheduled the Fedwire ISO 20022 structured-address release from 16 November 2026 to the November 2027 release on 27 August 2026; the exact date is to be announced, fully-unstructured addresses remain accepted on Fedwire until then, and the hybrid format becomes supported only with that release. CHIPS has no published dated structured-address mandate. At the end state Town Name and Country are always required, with up to 2 supplemental AdrLine elements of 70 chars each. Detects unstructured AdrLine-only addresses (prohibited), hybrid silent-fail duplication (AdrLine echoing structured field values, which causes STP rejection without a visible error code), and address structure type (FULLY_STRUCTURED, HYBRID, UNSTRUCTURED, EMPTY). For the SWIFT CBPR+ cross-border equivalent use lint_cbpr_structured_address (art-241).",
+  "description": "Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the Fedwire structured-address end state (network param selects fedwire or chips; rules verified byte-identical between the two networks at build time). Federal Reserve Financial Services rescheduled the Fedwire ISO 20022 structured-address release from 16 November 2026 to the November 2027 release on 27 August 2026; the exact date is to be announced, fully-unstructured addresses remain accepted on Fedwire until then, and the hybrid format becomes supported only with that release. CHIPS has no published dated structured-address mandate. At the end state Town Name and Country are always required, with up to 2 supplemental AdrLine elements of 70 chars each. Detects unstructured AdrLine-only addresses (WARN-class while no enforcement date is published; ERROR once an as-of date on a published enforcement day is asserted), hybrid silent-fail duplication (AdrLine echoing structured field values, which causes STP rejection without a visible error code), and address structure type (FULLY_STRUCTURED, HYBRID, UNSTRUCTURED, EMPTY). For the SWIFT CBPR+ cross-border equivalent use lint_cbpr_structured_address (art-241).",
   "category": "onchain-derivatives-and-defi-analytics",
   "tags": [
     "TODO_TAGS_REVIEW",
@@ -23,6 +23,10 @@
     "properties": {
       "address_lines": {
         "description": "type not evidenced by kernel source"
+      },
+      "as_of_date": {
+        "type": "string",
+        "description": "Optional caller-supplied ISO 8601 as-of date (never wall-clock); arms the enforcement-severity branch only once a published enforcement date exists"
       },
       "building_number": {
         "description": "type not evidenced by kernel source"
@@ -49,7 +53,7 @@
   },
   "mcp_tool_definition": {
     "name": "lint_fedwire_structured_address",
-    "description": "Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the Fedwire structured-address end state (network param selects fedwire or chips; rules verified byte-identical between the two networks at build time). Federal Reserve Financial Services rescheduled the Fedwire ISO 20022 structured-address release from 16 November 2026 to the November 2027 release on 27 August 2026; the exact date is to be announced, fully-unstructured addresses remain accepted on Fedwire until then, and the hybrid format becomes supported only with that release. CHIPS has no published dated structured-address mandate. At the end state Town Name and Country are always required, with up to 2 supplemental AdrLine elements of 70 chars each. Detects unstructured AdrLine-only addresses (prohibited), hybrid silent-fail duplication (AdrLine echoing structured field values, which causes STP rejection without a visible error code), and address structure type (FULLY_STRUCTURED, HYBRID, UNSTRUCTURED, EMPTY). For the SWIFT CBPR+ cross-border equivalent use lint_cbpr_structured_address (art-241).",
+    "description": "Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the Fedwire structured-address end state (network param selects fedwire or chips; rules verified byte-identical between the two networks at build time). Federal Reserve Financial Services rescheduled the Fedwire ISO 20022 structured-address release from 16 November 2026 to the November 2027 release on 27 August 2026; the exact date is to be announced, fully-unstructured addresses remain accepted on Fedwire until then, and the hybrid format becomes supported only with that release. CHIPS has no published dated structured-address mandate. At the end state Town Name and Country are always required, with up to 2 supplemental AdrLine elements of 70 chars each. Detects unstructured AdrLine-only addresses (WARN-class while no enforcement date is published; ERROR once an as-of date on a published enforcement day is asserted), hybrid silent-fail duplication (AdrLine echoing structured field values, which causes STP rejection without a visible error code), and address structure type (FULLY_STRUCTURED, HYBRID, UNSTRUCTURED, EMPTY). For the SWIFT CBPR+ cross-border equivalent use lint_cbpr_structured_address (art-241).",
     "inputSchema": {
       "type": "object",
       "required": [
@@ -65,6 +69,10 @@
       "properties": {
         "address_lines": {
           "description": "type not evidenced by kernel source"
+        },
+        "as_of_date": {
+          "type": "string",
+          "description": "Optional caller-supplied ISO 8601 as-of date (never wall-clock); arms the enforcement-severity branch only once a published enforcement date exists"
         },
         "building_number": {
           "description": "type not evidenced by kernel source"
@@ -116,6 +124,9 @@
         "type": "integer"
       },
       "fedwire_chips_deadline": {
+        "type": ["string", "null"]
+      },
+      "fedwire_chips_deadline_status": {
         "type": "string"
       },
       "network": {
@@ -165,12 +176,13 @@
     "readiness_pct": 100,
     "error_count": 0,
     "violations": [],
-    "fedwire_chips_deadline": "2026-11-16",
-    "disambiguation": "lint_fedwire_structured_address checks per-message Fedwire/CHIPS Nov-2026 hybrid/fully-structured rule lint (network param selects fedwire or chips; rules are byte-identical on both as of build-time verification, so one kernel covers both networks). For the SWIFT CBPR+ cross-border equivalent use lint_cbpr_structured_address (art-241).",
+    "fedwire_chips_deadline": null,
+    "fedwire_chips_deadline_status": "Fedwire accepts unstructured and fully-structured addresses today; hybrid becomes supported with the November 2027 release (FRFS, 2026-08-27); exact date TBA; CHIPS undated (aligned-to-Fedwire cycle, TBC)",
+    "disambiguation": "lint_fedwire_structured_address checks per-message Fedwire/CHIPS structured-address rule lint under the FRFS 27 August 2026 rescheduling (November 2027 release; exact date TBA; no day-precision deadline is published, so fedwire_chips_deadline is null and the status string carries the rule state; network param selects fedwire or chips; rules are byte-identical on both as of build-time verification, so one kernel covers both networks). For the SWIFT CBPR+ cross-border equivalent use lint_cbpr_structured_address (art-241).",
     "pii_note": "All fields operate on STRUCTURAL address components only. No real party PII enters this kernel -- use synthetic or anonymised address data.",
-    "table_version": "FEDWIRE-CHIPS-STRUCTURED-ADDRESS-NOV2026-V1",
-    "table_source": "Federal Reserve Financial Services, Fedwire Funds Service ISO 20022 November 2026 Release FAQ (frbservices.org/resources/financial-services/wires/iso-20022-implementation-center/november-release-faq); The Clearing House CHIPS ISO 20022 address rules (aligned to Fedwire)",
-    "regulatory_basis": "Federal Reserve Financial Services Fedwire Funds Service ISO 20022 November 2026 Release; The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire address rules)"
+    "table_version": "FEDWIRE-CHIPS-STRUCTURED-ADDRESS-FRFS-2026-08-27-V2",
+    "table_source": "Federal Reserve Financial Services announcement of 27 August 2026: Fedwire Funds Service November 2026 release rescheduled to the November 2027 release, exact date to be announced (unstructured and fully-structured addresses accepted until then); The Clearing House CHIPS ISO 20022 address rules (aligned to Fedwire; CHIPS cycle undated, TBC)",
+    "regulatory_basis": "Federal Reserve Financial Services announcement of 27 August 2026 (Fedwire Funds Service November 2026 release rescheduled to the November 2027 release; unstructured and fully-structured addresses accepted until then, hybrid from the November 2027 release); The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire address rules; CHIPS cycle undated, TBC)"
   },
-  "example_execution_hash": "5ffc3e4b22e19570bd49e007cd20210a469654db2fc2921a034dec25af7bc39f"
+  "example_execution_hash": "1e15a2ca1c6814bda767cee853ebdff56442129486a0390b460ebab8495a8239"
 }
