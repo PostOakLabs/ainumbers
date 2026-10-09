@@ -169,4 +169,13 @@ Notable changes to [AINumbers](https://ainumbers.co) — the OpenChainGraph comp
 
 - 2026-07-26 — Fix stored XSS in the art-545 SD-JWT workbench innerHTML rendering (PR #664) ([`c4610e418`](https://github.com/PostOakLabs/ainumbers/commit/c4610e41831c62b1be3484630728e749915c7fc2))
 
+### Other
+
+- 2026-10-08 — Automated non-PR merge (auto) ([`f0fc86ac9`](https://github.com/PostOakLabs/ainumbers/commit/f0fc86ac920cc77167b649ad5793c16945311d18))
+- 2026-10-08 — Automated non-PR merge (auto) ([`310624404`](https://github.com/PostOakLabs/ainumbers/commit/310624404edc6589df3c80bad40034bacda04ee8))
+- 2026-10-08 — Automated non-PR merge (auto) ([`94ab3440b`](https://github.com/PostOakLabs/ainumbers/commit/94ab3440be6c961b60edf2a126a3620d4a8a362d))
+- 2026-10-08 — Automated non-PR merge (auto) ([`60cab9551`](https://github.com/PostOakLabs/ainumbers/commit/60cab955101250f922625eac227b02ec92a0f6f5))
+- 2026-10-08 — Automated non-PR merge (auto) ([`43f21ada6`](https://github.com/PostOakLabs/ainumbers/commit/43f21ada6f9ae79258a4c00960f123adbd9ac3d0))
+- 2026-10-08 — Automated non-PR merge (auto) ([`2ae0cd3e0`](https://github.com/PostOakLabs/ainumbers/commit/2ae0cd3e0a009bf9658eb6f35e7ec2f663879dfc))
+
 <!-- GENERATED FILE — DO NOT HAND-EDIT. Regenerate: node scripts/gen-changelog.mjs -->
