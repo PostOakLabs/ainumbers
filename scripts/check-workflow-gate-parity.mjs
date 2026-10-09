@@ -924,6 +924,17 @@ const PREFLIGHT_ONLY = new Map([
     "the same script's --self-test mode, wired as its own GATES entry — no separate .test.mjs file, " +
     "so nothing further to declare here.)"],
 
+  // ── WEBMCP-SIGNED-SNAPSHOT-1 (2026-10-09) ──────────────────────────────────
+  ["check-webmcp-signed-snapshot.mjs",
+    "WebMCP signed tool-surface snapshot drift guard: verifies the COMMITTED " +
+    ".well-known/webmcp-signed.json (typ webmcp-snapshot+jws) against /.well-known/jwks.json. " +
+    "Hard in preflight; same shape as check-agent-card-sig.mjs above: the snapshot is signed on " +
+    "the key-holding desk (the private key never touches a runner), the gate reads only tracked " +
+    "repo files, and its CI route is scripts-verify.yml's full preflight (runs " +
+    "`node scripts/preflight.mjs` on scripts/** changes, this gate's own diff shape) plus every " +
+    "push to main. DELIBERATELY not a named CI step. The paired red-proof is the same script's " +
+    "--self-test mode, wired as its own GATES entry."],
+
   // ── VENDOR-DIGEST-GATE-1 (2026-09-03) ──────────────────────────────────────
   ["check-vendored-digests.mjs",
     "Vendored-crypto sha256 pin gate: recomputes the digest of the noble bn254/ed25519/secp256k1 " +
