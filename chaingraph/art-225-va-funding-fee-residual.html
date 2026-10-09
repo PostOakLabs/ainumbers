@@ -270,6 +270,10 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 
 
+
+
+
+
 <!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-225-va-funding-fee-residual.manifest.json -->
 <section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -526,10 +530,12 @@ var EXTRA_PER_MEMBER = 80;
 
 // State-to-region mapping
 var REGION_MAP = {
-  CT:'NE',DE:'NE',MA:'NE',ME:'NE',NH:'NE',NJ:'NE',NY:'NE',PA:'NE',RI:'NE',VT:'NE',
+  CT:'NE',ME:'NE',MA:'NE',NH:'NE',NJ:'NE',NY:'NE',PA:'NE',RI:'NE',VT:'NE',
   IL:'MW',IN:'MW',IA:'MW',KS:'MW',MI:'MW',MN:'MW',MO:'MW',NE:'MW',ND:'MW',OH:'MW',SD:'MW',WI:'MW',
-  AL:'SO',AR:'SO',DC:'SO',FL:'SO',GA:'SO',KY:'SO',LA:'SO',MD:'SO',MS:'SO',NC:'SO',OK:'SO',SC:'SO',TN:'SO',TX:'SO',VA:'SO',WV:'SO',
-  AK:'WE',AZ:'WE',CA:'WE',CO:'WE',GU:'WE',HI:'WE',ID:'WE',MT:'WE',NM:'WE',NV:'WE',OR:'WE',UT:'WE',WA:'WE',WY:'WE'
+  AL:'SO',AR:'SO',DE:'SO',DC:'SO',FL:'SO',GA:'SO',KY:'SO',LA:'SO',MD:'SO',MS:'SO',
+  NC:'SO',OK:'SO',SC:'SO',TN:'SO',TX:'SO',VA:'SO',WV:'SO',
+  AK:'WE',AZ:'WE',CA:'WE',CO:'WE',HI:'WE',ID:'WE',MT:'WE',NV:'WE',NM:'WE',
+  OR:'WE',UT:'WE',WA:'WE',WY:'WE'
 };
 var REGION_COL = { NE: 0, MW: 1, SO: 2, WE: 3 };
 
@@ -544,88 +550,98 @@ function lookupResidual(familySize, regionCode) {
   return RESIDUAL_41A[4][col] + (familySize - 5) * EXTRA_PER_MEMBER;
 }
 
+// Inline compute synced byte-for-byte to chaingraph/kernels/art-225-va-funding-fee-residual.kernel.mjs
+// (C-parity heal WEBMCP-CPARITY-ART225-1: the page leg was the divergent side; kernel is the SSOT).
+function cgSafeNum(v, def) { var n = Number(v); return Number.isFinite(n) ? n : def; }
+function cgR2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0; }
+function cgR4(v) { return Number.isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0; }
+
 function computeVaFee(pp) {
-  var base_loan = pp.base_loan_amount;
-  var dp = pp.down_payment_pct;
-  var purpose = pp.loan_purpose;
-  var use_type = pp.va_use_type;
-  var exempt = pp.funding_fee_exempt;
-  var family_size = Math.max(1, Math.round(pp.family_size));
-  var state = (pp.state || '').toUpperCase().trim();
-  var dti = pp.dti_pct;
-  var gross_income = pp.gross_monthly_income;
-  var shelter = pp.monthly_shelter_expenses;
+  pp = pp || {};
+  var base_loan      = cgSafeNum(pp.base_loan_amount,    0);
+  var down_pct       = cgSafeNum(pp.down_payment_pct,    0);
+  var purpose        = String(pp.loan_purpose || 'purchase').toLowerCase();
+  var use_type       = String(pp.va_use_type  || 'first').toLowerCase(); // first | subsequent
+  var exempt         = Boolean(pp.funding_fee_exempt);
+  var family_size    = Math.max(1, Math.round(cgSafeNum(pp.family_size, 1)));
+  var state          = String(pp.state || '').toUpperCase().trim();
+  var dti_pct        = cgSafeNum(pp.dti_pct,              0);
+  var monthly_income   = cgSafeNum(pp.gross_monthly_income,  0);
+  var monthly_expenses = cgSafeNum(pp.monthly_shelter_expenses, 0); // PITIA + other debts
 
   // Funding fee
   var ff_rate = 0;
   var ff_basis = '';
-  var ff_exempt = exempt;
-
   if (exempt) {
-    ff_rate = 0;
-    ff_basis = 'exempt_service_connected_disability_or_qualifying_status';
-  } else if (purpose === 'irrrl') {
-    ff_rate = FF_IRRRL;
-    ff_basis = 'irrrl_fixed_rate';
-  } else if (purpose === 'cash_out_refi') {
-    ff_rate = FF_CASHOUT[use_type] || FF_CASHOUT.first;
-    ff_basis = 'cash_out_refi_' + use_type + '_use';
+    ff_rate  = 0;
+    ff_basis = 'exempt';
+  } else if (purpose === 'irrrl' || purpose === 'streamline_refi') {
+    ff_rate  = FF_IRRRL;
+    ff_basis = 'irrrl';
+  } else if (purpose === 'cash_out_refi' || purpose === 'cashout') {
+    ff_rate  = use_type === 'subsequent' ? FF_CASHOUT.subsequent : FF_CASHOUT.first;
+    ff_basis = 'cashout_' + use_type;
   } else {
-    // purchase or rate_term_refi
-    var tier = dpTier(dp);
-    ff_rate = (FF_PURCHASE[use_type] || FF_PURCHASE.first)[tier];
-    ff_basis = 'purchase_or_refi_' + use_type + '_use_dp_tier_' + tier;
+    // Purchase or rate-term refi
+    var tier = dpTier(down_pct);
+    ff_rate  = use_type === 'subsequent' ? FF_PURCHASE.subsequent[tier] : FF_PURCHASE.first[tier];
+    ff_basis = 'purchase_' + use_type + '_dp_tier' + tier;
   }
 
-  var ff_amount = Math.round(base_loan * ff_rate * 100) / 100;
-  var financed_loan_amount = Math.round((base_loan + ff_amount) * 100) / 100;
+  var funding_fee_amount = cgR2(base_loan * ff_rate);
 
   // Residual income
-  var region = REGION_MAP[state] || 'SO'; // default South if unknown state
-  var required_monthly = lookupResidual(family_size, region);
-  var actual_monthly = Math.max(0, gross_income - shelter);
-  var margin = Math.round((actual_monthly - required_monthly) * 100) / 100;
-  var meets_requirement = actual_monthly >= required_monthly;
+  var required_residual = lookupResidual(family_size, REGION_MAP[state] || 'SO');
+  var actual_residual = cgR2(monthly_income > 0 ? monthly_income - monthly_expenses : 0);
+  var residual_ok = monthly_income === 0 || actual_residual >= required_residual;
+  var residual_margin = cgR2(actual_residual - required_residual);
 
-  // DTI
-  var dti_ok = dti <= 41;
-  var residual_review_triggered = dti > 41;
+  // DTI benchmark
+  var dti_ok = dti_pct === 0 || dti_pct <= 41.0;
+  var dti_residual_review = dti_pct > 41.0;
 
-  var compliance_flags = [];
-  if (!meets_requirement) compliance_flags.push({ code: 'RESIDUAL_INCOME_SHORTFALL', message: 'Actual residual income ' + fmt$(actual_monthly) + '/mo below required ' + fmt$(required_monthly) + '/mo for ' + region + ' region, family size ' + family_size });
-  if (residual_review_triggered) compliance_flags.push({ code: 'DTI_EXCEEDS_41PCT_BENCHMARK', message: 'DTI ' + dti + '% exceeds 41% benchmark; mandatory residual income review triggered' });
+  var region = REGION_MAP[state] || 'SO';
 
   return {
     funding_fee: {
-      rate_pct: (ff_rate * 100).toFixed(2),
-      amount: ff_amount,
-      exempt: ff_exempt,
+      rate_pct: cgR4(ff_rate * 100),
+      amount: funding_fee_amount,
+      exempt: exempt,
       basis: ff_basis,
-      financed_loan_amount: financed_loan_amount
+      financed_loan_amount: cgR2(base_loan + funding_fee_amount)
     },
     residual_income: {
-      required_monthly: required_monthly,
-      actual_monthly: Math.round(actual_monthly * 100) / 100,
-      margin: margin,
-      meets_requirement: meets_requirement,
-      region: region,
+      required_monthly: required_residual,
+      actual_monthly: actual_residual,
+      margin: residual_margin,
+      meets_requirement: residual_ok,
       family_size: family_size,
-      table: 'VA-PAMPHLET-26-7-CH4-TABLE-41A'
+      region: region,
+      state_code: state || null
     },
     dti: {
-      actual_pct: dti,
-      benchmark_pct: 41,
+      actual_pct: cgR2(dti_pct),
+      benchmark_pct: 41.0,
       ok: dti_ok,
-      residual_review_triggered: residual_review_triggered
+      residual_review_triggered: dti_residual_review
     },
     table_version_funding_fee: 'VA-FF-2025-01-01',
     table_version_residual: 'VA-PAMPHLET-26-7-CH4-2024',
     table_source_funding_fee: '38 USC §3729(a)(2); VA Circular 26-25-3 (effective 2025-01-01)',
     table_source_residual: 'VA Pamphlet 26-7 Ch.4 Tables 41A/41B (2024 edition)',
     regulatory_basis: '38 USC §§3701-3729 (VA Home Loan Program); 38 CFR Part 36; VA Pamphlet 26-7',
-    pii_note: 'All inputs processed locally in your browser. No data is transmitted.',
-    compliance_flags: compliance_flags
+    pii_note: 'All inputs processed locally in your browser. No data is transmitted.'
   };
+}
+
+// Kernel-shaped compliance flags (strings), mirroring the kernel compute exactly.
+function computeFlags(base_loan, op) {
+  var flags = [];
+  if (base_loan === 0) flags.push('LOAN_AMOUNT_MISSING');
+  if (!op.residual_income.meets_requirement) flags.push('RESIDUAL_INCOME_BELOW_MINIMUM');
+  if (op.dti.residual_review_triggered && op.residual_income.meets_requirement) flags.push('DTI_EXCEEDS_41_RESIDUAL_REVIEW_REQUIRED');
+  if (op.dti.residual_review_triggered && !op.residual_income.meets_requirement) flags.push('DTI_EXCEEDS_41_AND_RESIDUAL_INCOME_BELOW_MINIMUM');
+  return flags;
 }
 
 function cgCanon(v) {
@@ -668,7 +684,7 @@ function runCompute() {
   };
 
   var op = computeVaFee(pp);
-  _lastResult = { pp: pp, output_payload: op };
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: computeFlags(base_loan, op) };
 
   // Funding fee card
   var ffHtml = '<div class="rc-title">VA Funding Fee (38 USC &#167;3729)</div>';
@@ -698,7 +714,7 @@ function runCompute() {
   riHtml += '<div class="kv"><span class="kv-k">Margin</span><span class="kv-v" style="color:' + (ri.margin >= 0 ? 'var(--green)' : 'var(--red)') + '">' + fmt$(ri.margin) + '</span></div>';
   riHtml += '<div class="kv"><span class="kv-k">Region</span><span class="kv-v">' + ri.region + '</span></div>';
   riHtml += '<div class="kv"><span class="kv-k">Family size</span><span class="kv-v">' + ri.family_size + '</span></div>';
-  riHtml += '<div class="kv"><span class="kv-k">Table</span><span class="kv-v">' + ri.table + '</span></div>';
+  riHtml += '<div class="kv"><span class="kv-k">Table</span><span class="kv-v">VA-PAMPHLET-26-7-CH4-TABLE-41A</span></div>';
   riHtml += '<div class="kv"><span class="kv-k">Table version</span><span class="kv-v">' + op.table_version_residual + '</span></div>';
   document.getElementById('residualCard').innerHTML = riHtml;
 
@@ -708,9 +724,10 @@ function runCompute() {
   dtiHtml += '<div class="kv"><span class="kv-k">VA benchmark</span><span class="kv-v">41%</span></div>';
   dtiHtml += '<div class="kv"><span class="kv-k">DTI within benchmark</span><span class="kv-v">' + (op.dti.ok ? '<span style="color:var(--green)">Yes</span>' : '<span style="color:var(--warn)">No</span>') + '</span></div>';
   dtiHtml += '<div class="kv"><span class="kv-k">Residual review triggered</span><span class="kv-v">' + (op.dti.residual_review_triggered ? '<span style="color:var(--warn)">Yes</span>' : '<span style="color:var(--green)">No</span>') + '</span></div>';
-  if (op.compliance_flags && op.compliance_flags.length > 0) {
+  var flags = computeFlags(base_loan, op);
+  if (flags.length > 0) {
     dtiHtml += '<div style="margin-top:8px;font-size:.7rem;color:var(--warn)">';
-    op.compliance_flags.forEach(function(f){ dtiHtml += '<div>&#9888; [' + f.code + '] ' + f.message + '</div>'; });
+    flags.forEach(function(f){ dtiHtml += '<div>&#9888; ' + f + '</div>'; });
     dtiHtml += '</div>';
   }
   document.getElementById('dtiCard').innerHTML = dtiHtml;
@@ -751,7 +768,7 @@ function exportArtifact() {
     chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
     policy_parameters: _lastResult.pp,
     output_payload: _lastResult.output_payload,
-    compliance_flags: _lastResult.output_payload.compliance_flags || [],
+    compliance_flags: _lastResult.compliance_flags || [],
     compute_mode: 'browser',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
   };
