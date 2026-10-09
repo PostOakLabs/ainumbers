@@ -9,7 +9,9 @@ import { executionHash } from './_hash.mjs';
 //
 // What it computes, from a program's cost + WIOA outcome data:
 //   * cost-per-participant, cost-per-employed-exit(Q2), cost-per-credential;
-//   * a 5-indicator benchmark scorecard vs WIOA PY 2023 targets (exceeds / meets / below / na);
+//   * a 5-indicator benchmark scorecard vs WIOA targets (exceeds / meets / below / na), the
+//     targets being the caller's negotiated levels via policy_parameters.wioa_targets or the
+//     Apex illustrative defaults when not supplied;
 //   * a wage-vs-sector-baseline gain, an annual taxpayer "tax recapture" estimate at a fixed
 //     effective rate, a break-even horizon, a 3-year net benefit and a 3-year return per $1;
 //   * an overall ROI grade (Excellent / Strong / Moderate / Below Target / Scored / Pending Data).
@@ -37,13 +39,14 @@ export const meta = {
   mandate_type: 'workforce_program_roi', gpu: false,
 };
 
-// ── WIOA PY 2023 national average negotiated performance targets (5 indicators x 3 program types) ──
-// UNGROUNDED: these are the Apex page's embedded values (apex15.html lines 524-555). No official
-// DOL ETA publication of the PY 2023 national average negotiated levels was fetched in the porting
-// run, so the numbers are carried verbatim and flagged. See the node metadata for the grounded
-// indicator DEFINITIONS (the WIOA statute's five primary indicators and their performance-
-// accountability regulation) and for the open adjudication on these values.
-const WIOA_TARGETS = {
+// ── WIOA performance targets: Apex illustrative defaults (5 indicators x 3 program types) ──
+// Illustrative defaults carried from the Apex page (apex15.html lines 524-555); WIOA levels of
+// performance are negotiated per State (20 CFR 677.190, adjusted by the statistical adjustment
+// model, TEGL 11-19 Change 2) — no national value exists — so supply your State's negotiated
+// levels via policy_parameters.wioa_targets. See the node metadata for the grounded indicator
+// DEFINITIONS (the WIOA statute's five primary indicators and their performance-accountability
+// regulation) and for the porting provenance of these values.
+const WIOA_TARGETS_APEX_DEFAULTS = {
   adult: {
     label: 'Adult (Title I-B)',
     empRateQ2: 76.0,          // Employment Rate - Q2 after exit (%)
@@ -135,9 +138,10 @@ const BREAKEVEN_MONTH_YEAR_CUTOFF = 36; // display: <=36 -> ceil months, else ye
 const SCOPE_NOTE =
   'WIOA performance targets and BLS QCEW sector baselines are inputs to this tool; the sector ' +
   'baselines here are the official QCEW Q3 2023 private-sector weekly wage x52, and the WIOA ' +
-  'targets are the Apex page values pending an official DOL ETA source. Tax recapture is a fixed ' +
-  '30% effective-rate assumption, not a statutory rate. No PII; a pure function of the declared ' +
-  'program inputs.';
+  'targets are illustrative defaults carried from the Apex page; WIOA levels are negotiated per ' +
+  'State (20 CFR 677.190) — supply your State\u2019s negotiated levels via policy_parameters' +
+  '.wioa_targets. Tax recapture is a fixed 30% effective-rate assumption, not a statutory rate. ' +
+  'No PII; a pure function of the declared program inputs.';
 
 // ---------- refusal plumbing ----------
 
@@ -159,6 +163,7 @@ function refused(reason, text) {
       annual_tax_recapture: null, breakeven_months: null, three_year_net_benefit: null,
       return_per_dollar_3yr: null, grade: null, grade_sub: null,
       refusal_reason: reason, domain_errors, scope_note: SCOPE_NOTE,
+      targets_source: null,
     },
     compliance_flags: flags,
   };
@@ -166,9 +171,11 @@ function refused(reason, text) {
 
 // ---------- validation ----------
 
-const PROGRAM_TYPES = Object.keys(WIOA_TARGETS);
+const PROGRAM_TYPES = Object.keys(WIOA_TARGETS_APEX_DEFAULTS);
 const SECTOR_KEYS = Object.keys(SECTOR_BASELINE_ANNUAL);
-const PROGRAM_YEARS = ['PY 2023', 'PY 2022', 'PY 2021'];
+// One illustrative label — a single target table is NOT three program years: WIOA levels are
+// negotiated per State (20 CFR 677.190) and program_year is echoed as a display label only.
+const PROGRAM_YEARS = ['illustrative'];
 
 /** @type {(v: unknown) => boolean} */
 function isFiniteNum(v) { return typeof v === 'number' && Number.isFinite(v); }
@@ -205,6 +212,26 @@ function validate(pp) {
   if (isFiniteNum(pp.median_earnings_q2) && pp.median_earnings_q2 < 0) {
     return refused('REFUSED_BAD_EARNINGS', 'median_earnings_q2 must be null or a number >= 0');
   }
+  if (pp.wioa_targets !== null && pp.wioa_targets !== undefined) {
+    const wt = pp.wioa_targets;
+    if (!wt || typeof wt !== 'object' || Array.isArray(wt)) {
+      return refused('REFUSED_BAD_WIOA_TARGETS', 'wioa_targets must be an object keyed by program type');
+    }
+    for (const k of Object.keys(wt)) {
+      if (!PROGRAM_TYPES.includes(k)) {
+        return refused('REFUSED_BAD_WIOA_TARGETS', 'wioa_targets keys must be among ' + PROGRAM_TYPES.join(', '));
+      }
+      const t = wt[k];
+      if (!t || typeof t !== 'object' || Array.isArray(t)) {
+        return refused('REFUSED_BAD_WIOA_TARGETS', 'wioa_targets.' + k + ' must be an object of the five indicators');
+      }
+      for (const ind of ['empRateQ2', 'empRateQ4', 'medianEarningsQ2', 'credentialRate', 'skillGainsRate']) {
+        if (t[ind] !== undefined && !isFiniteNum(t[ind])) {
+          return refused('REFUSED_BAD_WIOA_TARGETS', 'wioa_targets.' + k + '.' + ind + ' must be a finite number');
+        }
+      }
+    }
+  }
   return null;
 }
 
@@ -231,7 +258,11 @@ export function compute(pp) {
 
   const programType = pp.program_type;
   const sectorKey = pp.sector;
-  const targets = WIOA_TARGETS[programType];
+  // Targets: the caller's negotiated levels when supplied, else the Apex illustrative defaults.
+  const defaults = WIOA_TARGETS_APEX_DEFAULTS[programType];
+  const suppliedTargets = (pp.wioa_targets && pp.wioa_targets[programType]) || null;
+  const targets = suppliedTargets ? { ...defaults, ...suppliedTargets } : defaults;
+  const targetsSource = suppliedTargets ? 'caller' : 'apex_defaults';
   const sectorBaselineAnnual = SECTOR_BASELINE_ANNUAL[sectorKey];
 
   const totalBudget = pp.total_budget;
@@ -325,6 +356,7 @@ export function compute(pp) {
       refusal_reason: null,
       domain_errors: [],
       scope_note: SCOPE_NOTE,
+      targets_source: targetsSource,
     },
     compliance_flags: flags,
   };
