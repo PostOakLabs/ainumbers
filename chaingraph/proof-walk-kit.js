@@ -694,7 +694,7 @@ function art07(){var v=EV.vectors[0];return {tool_id:EV.tool_id,policy_parameter
 
 /* What can be corrupted before checking. Each note says exactly what changed. */
 K.CORR={
- none:{label:'nothing (an honest bundle)',note:''},
+ none:{label:'nothing (an untampered bundle)',note:''},
  mandate:{label:'the signed Work Mandate, after signing',note:'Corrupted: the Work Mandate\'s validity was widened after the principal signed it (not_after 2026-10-25 became 2027-10-25).'},
  sigval:{label:'one character of the mandate signature',note:'Corrupted: one character of the proofValue on the Work Mandate. The mandate itself is unchanged.'},
  session:{label:'one character of a session hash',note:'Corrupted: the first character of leaf 2 of the ten session hashes.'},
@@ -765,7 +765,7 @@ function cHash(d){return Promise.all([ehash(d.mandate.policy_parameters,d.mandat
 var CHECKS=[cAnchor,cSession,cGroth,cKernel,cSig,cHash];
 K.checks=function(d){var out=[];return CHECKS.reduce(function(p,fn){return p.then(function(){return timed(function(){return fn(d)}).then(function(r){out.push(r)})})},Promise.resolve()).then(function(){return out})};
 
-/* Network requests, split honestly: what the page loaded (fonts, this file) and what started
+/* Network requests, split in two: what the page loaded (fonts, this file) and what started
    while the checks ran. Resource Timing only; nothing is sent anywhere. */
 K.netReport=function(t0,t1){var E=[];try{E=performance.getEntriesByType('resource')}catch(e){}
  E=E.filter(function(e){return String(e.name).indexOf('data:')!==0});
