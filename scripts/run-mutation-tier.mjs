@@ -123,6 +123,7 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, rmSync, cpSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -536,13 +537,13 @@ export function findDetmathMarkerRange(source) {
  * @param {Array<[number, number]>} excludedRanges
  * @returns {string}
  */
-export function surfaceSplitPatch(source, excludedRanges) {
+export function surfaceSplitPatch(source, excludedRanges, label = 'named detmath surface split (mutation-tiers.config.json mutateSurfaceSplits; RCA01-MUTATION-TIER-COST-1)') {
   const lines = source.split(/\r?\n/);
   for (const [start, end] of excludedRanges) {
     if (!(start >= 1 && end >= start && end <= lines.length)) {
       throw new Error(`surfaceSplitPatch: excluded range [${start}, ${end}] is outside the ${lines.length}-line source`);
     }
-    lines[start - 1] += ' // Stryker disable all: named detmath surface split (mutation-tiers.config.json mutateSurfaceSplits; RCA01-MUTATION-TIER-COST-1) — sandbox copy only, tracked kernel bytes unchanged';
+    lines[start - 1] += ` // Stryker disable all: ${label} — sandbox copy only, tracked kernel bytes unchanged`;
     // Stryker 8.7.1's directive grammar REQUIRES the mutator list on restore too
     // (instrumenter's strykerCommentDirectiveRegex: `Stryker (disable|restore)( (next-line))? ([a-zA-Z, ]+)[:reason]`)
     // — a bare `// Stryker restore` never matches and leaves every later mutant
@@ -561,6 +562,18 @@ export function surfaceSplitPatch(source, excludedRanges) {
  * at all (a named exclusion that names nothing is a config error, not a
  * no-op), or whose recorded ranges do not EXACTLY match the marker-resolved
  * range (stale config; update the config to the marker-resolved numbers).
+ *
+ * ART699-MUTATION-SURFACE-SPLIT-1 adds a second entry kind for kernels that
+ * inline VENDORED third-party code but carry no detmath markers (art-699's
+ * inlined @noble/hashes keccak block). A `{ kind: "vendored", excludedRanges,
+ * sha256 }` entry pins the excluded lines by content: sha256 (hex) of the
+ * 1-indexed inclusive line range, lines joined with LF. The range is NOT
+ * re-resolved from markers (a vendored block has none) — instead the recorded
+ * sha256 must match the live source bytes EXACTLY on every run, so a drifted
+ * or shifted block fails loudly, same contract as the detmath stale-range
+ * check. No kernel bytes are ever written; the directives still go on the
+ * sandbox copy only.
+ *
  * @param {string} kernelId
  * @param {object | null} tierConfig — parsed mutation-tiers.config.json
  * @param {string} source — the kernel's source text
@@ -574,6 +587,23 @@ export function resolveSurfaceSplit(kernelId, tierConfig, source) {
   const rangeOk = (r) => Array.isArray(r) && r.length === 2 && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] >= 1 && r[1] >= r[0];
   if (!Array.isArray(configured) || configured.length === 0 || !configured.every(rangeOk)) {
     throw new Error(`mutation-tiers.config.json mutateSurfaceSplits["${kernelId}"] must carry a non-empty excludedRanges array of [startLine, endLine] integer pairs, got ${JSON.stringify(configured)}`);
+  }
+  if (entry.kind === 'vendored') {
+    const pinned = entry.sha256;
+    if (typeof pinned !== 'string' || !/^[0-9a-f]{64}$/.test(pinned)) {
+      throw new Error(`mutation-tiers.config.json mutateSurfaceSplits["${kernelId}"] kind "vendored" must carry a 64-hex-char sha256 pin of the excluded lines, got ${JSON.stringify(pinned)}`);
+    }
+    const lines = source.split(/\r?\n/);
+    for (const [s, e] of configured) {
+      if (e > lines.length) {
+        throw new Error(`mutation-tiers.config.json mutateSurfaceSplits["${kernelId}"] vendored excludedRange [${s}, ${e}] is outside the ${lines.length}-line source — stale config; re-pin the range and sha256`);
+      }
+      const live = createHash('sha256').update(lines.slice(s - 1, e).join('\n')).digest('hex');
+      if (live !== pinned) {
+        throw new Error(`mutation-tiers.config.json mutateSurfaceSplits["${kernelId}"] vendored excludedRange [${s}, ${e}] sha256 ${live} does not match the pinned ${pinned} — the vendored block drifted; re-pin the range and sha256 from the current kernel source (never guess)`);
+      }
+    }
+    return { excludedRanges: configured.map((r) => [r[0], r[1]]), reason: typeof entry.reason === 'string' ? entry.reason : '', kind: 'vendored' };
   }
   const markers = findDetmathMarkerRange(source);
   if (!markers) {
@@ -675,9 +705,14 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
   // the same instrumented surface as the as-shipped first run.
   if (surfaceSplit) {
     const sandboxKernelPath = path.join(scratchRoot, kernelRelPath);
-    writeFileSync(sandboxKernelPath, surfaceSplitPatch(readFileSync(sandboxKernelPath, 'utf8'), surfaceSplit.excludedRanges));
+    const vendoredLabel = 'named vendored-code surface split (mutation-tiers.config.json mutateSurfaceSplits kind "vendored"; ART699-MUTATION-SURFACE-SPLIT-1)';
+    writeFileSync(sandboxKernelPath, surfaceSplitPatch(readFileSync(sandboxKernelPath, 'utf8'), surfaceSplit.excludedRanges, surfaceSplit.kind === 'vendored' ? vendoredLabel : undefined));
     const rangeText = surfaceSplit.excludedRanges.map(([s, e]) => `${s}-${e}`).join(', ');
-    console.log(`  mutate-surface split (named in mutation-tiers.config.json mutateSurfaceSplits): sandbox copy only — mutation disabled across the deterministic-transcendental-math block, lines ${rangeText}; tracked kernel bytes untouched`);
+    if (surfaceSplit.kind === 'vendored') {
+      console.log(`  mutate-surface split (vendored, named in mutation-tiers.config.json mutateSurfaceSplits): sandbox copy only — mutation disabled across the sha256-pinned vendored block, lines ${rangeText}; tracked kernel bytes untouched`);
+    } else {
+      console.log(`  mutate-surface split (named in mutation-tiers.config.json mutateSurfaceSplits): sandbox copy only — mutation disabled across the deterministic-transcendental-math block, lines ${rangeText}; tracked kernel bytes untouched`);
+    }
   }
 
   // MUTATION-TIER-HANG-MMS03-PNR01-1: one wall-clock deadline for the WHOLE
