@@ -23,6 +23,7 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE_REL = 'scripts/compute-proof-baseline.json';
@@ -77,7 +78,7 @@ let baseText;
 if (opts.baseFile) baseText = readFileSync(opts.baseFile, 'utf8');
 else {
   try {
-    baseText = execFileSync('git', ['-C', REPO, 'show', `${opts.base}:${BASELINE_REL}`], { encoding: 'utf8' });
+    baseText = execFileSync('git', ['-C', REPO, 'show', `${opts.base}:${BASELINE_REL}`], { encoding: 'utf8', env: gitEnv() });
   } catch (e) {
     fail(`cannot read ${BASELINE_REL} at --base ${opts.base}: ${e.message.split('\n')[0]}`);
   }
