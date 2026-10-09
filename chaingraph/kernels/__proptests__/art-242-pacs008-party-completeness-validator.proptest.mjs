@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:a003fc6cc8dfa80d68668f62938102ca8f06da330407616dc9d04f146303706e
+// kernel_digest_at_authoring: sha256:2aac07c9bd6463db4571c1800f17c85d5c09ee00b62151b485113a1ddb02de8a
 //
 // FV-PROPFLOOR-SHARD-B27-1 — property-test floor for art-242-pacs008-party-completeness-validator.
 // Class B (bounded-numeric shape, format/presence validation logic). float:no — cpmi_d218_score is

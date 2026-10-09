@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/workflow-receipts-explainer.html">
+<meta name="ain:category" content="learn">
+<meta name="description" content="One AI shopping agent, one USD 120 purchase, three workflows: who the agent is, both budgets, a caught double order and a session receipt that reconciles it all.">
+<title>One Agent One Purchase Three Workflows · AINumbers.co</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+/* Same palette, controls, trust strip and narration box as every page in this folder. */
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--grey:#7C8DA6;--sky:#38BDF8;--clay:#D97757}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);overflow-x:hidden}
+body{font-family:'Sora',system-ui,sans-serif;font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal)}
+code{font-family:'JetBrains Mono',monospace;font-size:.9em}
+.wrap{max-width:1200px;margin:0 auto;padding:20px 16px 48px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--purple)}
+h1{font-family:'DM Serif Display',serif;font-weight:400;color:var(--white);font-size:clamp(26px,3.6vw,40px);line-height:1.15}
+.lede{max-width:880px;font-size:16.5px;margin:6px 0 14px}
+.lede b{color:var(--white);font-weight:600}
+
+/* Goal box: what the animation is trying to show */
+.goal{border:1px solid var(--purple);border-radius:10px;background:rgba(155,114,245,.06);padding:12px 16px;margin:0 0 12px}
+.goal > b{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--purple);margin-bottom:4px}
+.goal p{font-size:15px;color:var(--bright);line-height:1.5}
+.goal ul{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px 14px;margin-top:8px}
+.goal li{font-size:13.5px;color:var(--text);padding-left:18px;position:relative}
+.goal li::before{content:'✓';position:absolute;left:0;color:var(--purple);font-weight:600}
+
+.trust{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 14px}
+.trust > div{flex:1 1 300px;border:1px solid var(--border-2);border-radius:9px;background:var(--bg-2);padding:9px 13px;font-size:13.5px;line-height:1.45;color:var(--text)}
+.trust b{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin-bottom:2px}
+.trust .pii b{color:var(--green)}
+.trust .cf b{color:var(--gold)}
+
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}
+.btn{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--bright);background:var(--bg-3);border:1px solid var(--border-2);border-radius:6px;padding:8px 16px;cursor:pointer}
+.btn:hover{border-color:var(--teal);color:var(--white)}
+.btn.primary{background:var(--teal);border-color:var(--teal);color:#04201C;font-weight:600;min-width:100px}
+.seg{display:inline-flex;border:1px solid var(--border-2);border-radius:6px;overflow:hidden}
+.seg button{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bg-2);color:var(--body);border:0;padding:8px 10px;cursor:pointer}
+.seg button.on{background:var(--bg-3);color:var(--white)}
+.opt{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--body);display:flex;gap:6px;align-items:center;cursor:pointer}
+.scrub{flex:1 1 220px;display:flex;align-items:center;gap:10px}
+.scrub input{flex:1;accent-color:var(--teal)}
+.scrub span{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--body);min-width:92px;text-align:right}
+.dots{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+.dots button{width:28px;height:28px;border-radius:50%;border:1px solid var(--border-2);background:var(--bg-2);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:11.5px;cursor:pointer}
+.dots button.on{background:var(--teal);border-color:var(--teal);color:#04201C;font-weight:600}
+.dots button.done{border-color:var(--teal);color:var(--teal)}
+
+.stage-box{position:relative;width:100%;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg)}
+.stage{position:absolute;left:0;top:0;width:1200px;height:740px;transform-origin:0 0}
+.stage svg{position:absolute;inset:0;width:1200px;height:740px;overflow:visible}
+
+.zone{position:absolute;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;padding:2px 10px;border-radius:10px;background:var(--bg);white-space:nowrap;transform:translateY(-50%);border:1px solid;z-index:3}
+.zone b{font-weight:600;letter-spacing:.14em;margin-right:6px}
+.zone.dev{color:var(--teal);border-color:rgba(20,184,166,.6)}
+.zone.srv{color:var(--grey);border-color:rgba(124,141,166,.5)}
+
+.lane{position:absolute;left:40px;width:186px;height:150px;border-left:3px solid var(--c);padding:4px 0 0 12px;transition:opacity .3s}
+.lane .when{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--c)}
+.lane h3{font-family:'DM Serif Display',serif;font-weight:400;font-size:18px;line-height:1.15;color:var(--white);margin:2px 0 4px}
+.lane p{font-size:11.5px;color:var(--body);line-height:1.4}
+.lane .id{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-top:3px}
+
+.agent{position:absolute;left:0;top:0;transform:translate(0,-50%);display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--white);background:var(--bg-3);border:1px solid var(--clay);border-radius:14px;padding:3px 10px 3px 4px;box-shadow:0 0 18px -4px var(--clay);z-index:7;white-space:nowrap}
+.agent i{width:20px;height:20px;border-radius:50%;background:var(--clay);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px}
+.agent span{color:var(--body);font-weight:400}
+
+.card{position:absolute;width:205px;height:150px;border:1px solid var(--border);border-radius:9px;background:var(--bg-2);overflow:hidden;opacity:0;transform:translateY(-12px);transition:opacity .5s,transform .5s,border-color .3s,box-shadow .3s}
+.card.here{opacity:.7;transform:none}
+.card.live{opacity:1;border-color:var(--c);box-shadow:0 0 0 1px var(--c),0 0 26px -6px var(--c)}
+.card.done{opacity:1;border-color:var(--border-2)}
+.card.shared{box-shadow:0 0 0 2px var(--gold),0 0 26px -4px var(--gold)}
+.card.held{border-color:var(--warn);box-shadow:0 0 0 1px var(--warn),0 0 26px -6px var(--warn)}
+.card .bar{height:17px;display:flex;align-items:center;gap:4px;padding:0 7px;background:var(--bg-3);border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--muted);white-space:nowrap}
+.card .bar span:first-child{flex:1;overflow:hidden;text-overflow:ellipsis}
+.card .bar .lk{color:var(--teal)}
+.card .body{padding:7px 10px}
+.card .n{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
+.card h4{font-family:'DM Serif Display',serif;font-weight:400;font-size:15px;line-height:1.15;color:var(--white);margin:2px 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row{display:flex;justify-content:space-between;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 0;border-bottom:1px dashed var(--border);white-space:nowrap}
+.row .k{color:var(--body)}.row .v{color:var(--white);transition:filter .6s,opacity .6s;overflow:hidden;text-overflow:ellipsis}
+.row .v:empty::after{content:'· · ·';color:var(--muted)}
+.row .v.warn{color:var(--warn)}
+.card.spent .row .v{filter:blur(3px);opacity:.35}
+.prog{height:2px;background:var(--bg);margin:6px 0 5px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--c)}
+.foot{display:flex;align-items:center;gap:6px}
+.res{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(34,197,94,.14);color:var(--green);opacity:0;transform:scale(.7);transition:all .3s;white-space:nowrap}
+.res.warn{background:rgba(245,158,11,.16);color:var(--warn)}
+.res.on{opacity:1;transform:none}
+.fp{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--gold);white-space:nowrap;overflow:hidden}
+
+.same{position:absolute;width:205px;height:24px;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:4}
+.same span{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);background:var(--bg);border:1px solid rgba(212,168,71,.4);border-radius:10px;padding:1px 10px;transition:all .3s}
+.same.on span{color:#1a1204;background:var(--gold);border-color:var(--gold);box-shadow:0 0 16px var(--gold)}
+
+.folder{position:absolute;left:925px;top:62px;width:250px;height:560px;border:1px solid var(--border);border-radius:10px;background:var(--bg-2);padding:12px;transition:border-color .3s,box-shadow .3s}
+.folder.live{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 0 30px -6px var(--gold)}
+.folder .n{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.folder h4{font-family:'DM Serif Display',serif;font-weight:400;font-size:20px;color:var(--white);margin:2px 0 8px}
+.rc{font-family:'JetBrains Mono',monospace;font-size:10.5px;border:1px solid var(--border);border-left:3px solid var(--c);border-radius:6px;padding:5px 9px;margin-bottom:7px;color:var(--muted);transition:all .3s}
+.rc b{display:block;font-weight:400;font-size:10px;color:var(--body)}
+.rc .verdict{font-size:10px}
+.rc.in{border-color:var(--c);color:var(--gold);background:rgba(212,168,71,.05)}
+.rc.bad{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.07)}
+.plus{text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);margin:2px 0 6px}
+.batch{border:1px solid var(--border-2);border-radius:8px;padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);transition:all .3s;word-break:break-all;line-height:1.5}
+.batch b{display:block;font-weight:400;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--body);margin-bottom:2px}
+.batch.in{border-color:var(--green);color:var(--green);background:rgba(34,197,94,.06)}
+.batch.bad{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.07)}
+.check{margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:1.5;color:var(--text);min-height:46px}
+.check .ok{color:var(--green)}.check .no{color:var(--red)}
+
+.server{position:absolute;left:300px;top:660px;width:600px;height:66px;border:1px dashed rgba(124,141,166,.6);border-radius:10px;padding:8px 14px;display:flex;gap:16px;align-items:center;background:rgba(124,141,166,.03)}
+.server .ic{font-size:24px;opacity:.7}
+.server h5{font-family:'DM Serif Display',serif;font-weight:400;font-size:16px;color:var(--bright)}
+.server p{font-size:12px;color:var(--body);line-height:1.4}
+.server .cnt{margin-left:auto;text-align:right;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--body);text-transform:uppercase;letter-spacing:.08em}
+.server .cnt b{display:block;font-size:22px;color:var(--green);letter-spacing:0}
+
+.chip{position:absolute;left:0;top:0;transform:translate(-50%,-50%);font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:12px;white-space:nowrap;display:none;z-index:6;background:rgba(8,14,26,.94)}
+.chip.inp{border:1px dashed var(--c);color:var(--c)}
+.chip.rcp{border:1px solid var(--c);color:var(--white);box-shadow:0 0 14px -2px var(--c)}
+.chip.file{border:1px solid var(--sky);color:var(--sky)}
+.chip.retry{border:1px dashed var(--warn);color:var(--warn)}
+
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,14,26,.55);backdrop-filter:blur(2px);z-index:10;cursor:pointer;transition:opacity .3s}
+.overlay.gone{opacity:0;pointer-events:none}
+.overlay .play{width:86px;height:86px;border-radius:50%;background:var(--teal);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 40px rgba(20,184,166,.5)}
+.overlay .play::after{content:'';border-left:26px solid #04201C;border-top:16px solid transparent;border-bottom:16px solid transparent;margin-left:8px}
+.overlay p{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--bright);text-align:center}
+
+.caption{margin-top:12px;border-left:3px solid var(--teal);background:var(--bg-2);border-radius:0 8px 8px 0;padding:14px 18px;min-height:96px}
+.caption small{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.caption h2{font-family:'DM Serif Display',serif;font-weight:400;font-size:24px;color:var(--white);line-height:1.2;margin:2px 0 4px}
+.caption p{font-size:16px;color:var(--bright);line-height:1.5}
+
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;margin-top:22px}
+.panel{border:1px solid var(--border);border-radius:10px;background:var(--bg-2);padding:18px 20px}
+.panel h2{font-family:'DM Serif Display',serif;font-weight:400;color:var(--white);font-size:22px;margin-bottom:8px}
+.panel p{font-size:14.5px;margin-bottom:10px}
+.panel label{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--body);margin-top:8px}
+.panel input{width:100%;font-family:'JetBrains Mono',monospace;font-size:14px;background:var(--bg);color:var(--white);border:1px solid var(--border-2);border-radius:6px;padding:8px 10px;margin-top:4px}
+.panel input:focus{outline:none;border-color:var(--teal)}
+.out{margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.7;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;word-break:break-all}
+.out b{font-weight:400;color:var(--body)}
+.out .ok{color:var(--green)}.out .no{color:var(--red)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+th{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:400}
+td:first-child{color:var(--bright)}
+td .gap{color:var(--warn)}
+dl{display:grid;grid-template-columns:max-content 1fr;gap:8px 14px;font-size:14.5px}
+dt{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--teal);padding-top:2px}
+dd{color:var(--text)}
+.fine{font-size:12.5px;color:var(--body);margin-top:12px}
+.keys{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted);margin-top:10px}
+kbd{border:1px solid var(--border-2);border-radius:3px;padding:0 4px;color:var(--text)}
+@media (max-width:820px){.grid2{grid-template-columns:1fr}}
+
+/* Outcome box: same legend and layout on every page */
+.why{border:1px solid var(--border-2);border-radius:10px;background:var(--bg-2);padding:12px 16px;margin:0 0 14px}
+.why .hd{display:block;font-family:'DM Serif Display',serif;font-weight:400;font-size:19px;color:var(--white);margin-bottom:6px}
+.why .legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-family:'JetBrains Mono',monospace;font-size:11px;margin-bottom:10px}
+.why .lg-g{color:var(--green)}.why .lg-a{color:var(--warn)}.why .lg-r{color:var(--red)}
+.why .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.why .cols > div{font-size:13.5px;line-height:1.5;color:var(--text)}
+.why .cols b{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.12em;margin-bottom:3px}
+.why .ok{color:var(--green)}.why .warn{color:var(--warn)}.why .no{color:var(--red)}.why .sim{color:var(--sky)}
+
+/* Labels inside boxes (formerly <b>), styled as before */
+.lbl{font-weight:inherit;color:inherit}
+.hud .lbl{display:block;font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;color:var(--white);line-height:1.2}
+.hud .zero .lbl{color:var(--green)}
+.goal > .lbl,.trust .lbl,.why .cols .lbl,.why .hd{display:block}
+.goal > .lbl{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--purple);margin-bottom:4px}
+.trust .lbl{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:2px}
+.trust .pii .lbl{color:var(--green)}.trust .cf .lbl{color:var(--gold)}.trust .off .lbl{color:var(--teal)}
+.why .hd{font-family:'DM Serif Display',serif;font-weight:400;font-size:19px;color:var(--white);margin-bottom:6px}
+.why .cols .lbl{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;margin-bottom:3px}
+.why .ok{color:var(--green)}.why .warn{color:var(--warn)}.why .no{color:var(--red)}.why .sim{color:var(--sky)}
+</style>
+<style>
+/* site chrome links */
+nav a,footer a{color:inherit;text-decoration:none}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">One Agent One Purchase Three Workflows</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+  <div class="eyebrow">AINumbers.co · level 2 · agent commerce</div>
+  <h1>One agent makes one purchase through three workflows</h1>
+  <p class="lede">You let an AI shopping agent called ShopBot buy a <span class="lbl">USD 120</span> item for you. Before, during and after the payment it runs one workflow each, and every step leaves a receipt.</p>
+
+  <div class="goal" role="note">
+    <span class="lbl">Goal of this animation</span>
+    <p>Show how a chain of receipts lets you prove, after the fact, that the purchase went exactly as you allowed. <span class="lbl">One agent</span> does all the work in order. It spawns no helper agents, so there is one identity to check and one session receipt at the end.</p>
+    <ul>
+      <li>the agent is who it claims to be</li>
+      <li>the price fits your daily money budget</li>
+      <li>the charge fits the payment session's budget</li>
+      <li>you were charged once, even when the agent retried</li>
+      <li>what was paid matches what you approved</li>
+      <li>you can see every workflow the agent ran</li>
+    </ul>
+  </div>
+
+  <div class="trust" role="note">
+    <div class="pii"><span class="lbl">🔒 No personal data</span>Your inputs stay in your browser tab and are never sent or stored. Every value shown is synthetic.</div>
+    <div class="cf"><span class="lbl">☁ Our server is Cloudflare</span>“AINumbers server” means Cloudflare today. It delivers the page files once and takes no part in the workflows.</div>
+  </div>
+
+  <div class="why" role="note">
+    <span class="lbl hd">What the red and amber results mean</span>
+    <div class="legend"><span class="lg-g">● green · the check passed and the step may go ahead</span><span class="lg-a">● amber · held, flagged for review or waiting on something</span><span class="lg-r">● red · refused, or a mismatch was caught</span></div>
+    <div class="cols">
+      <div><span class="lbl ok">GREEN · steps 3, 4 and 6</span>Each green check means that rule held for this purchase: right agent, inside both budgets, paid what you approved.</div>
+      <div><span class="lbl warn">ALREADY PAID · HOLD · step 5</span>The agent timed out and sent the same payment again. art-01 saw cart #4512 already paid once and held the second charge. Amber because the system worked: the duplicate was stopped and recorded, and you were charged once.</div>
+      <div><span class="lbl no">NO MATCH · step 9</span>Someone edited the session charge after the fact. The recomputed fingerprint no longer matches the one in your folder, so the edit is caught.</div>
+    </div>
+  </div>
+  <div class="controls">
+    <button class="btn" id="bBack">◀ Back</button>
+    <button class="btn primary" id="bPlay">Play</button>
+    <button class="btn" id="bNext">Next ▶</button>
+    <button class="btn" id="bRestart">Restart</button>
+    <div class="seg" id="speed" role="group" aria-label="Speed"><button data-s="0.5">0.5×</button><button data-s="1" class="on">1×</button><button data-s="2">2×</button></div>
+    <label class="opt"><input type="checkbox" id="loop"> loop</label>
+    <div class="scrub"><input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Timeline"><span id="clock">0.0s</span></div>
+    <div class="dots" id="dots"></div>
+  </div>
+
+  <div class="stage-box" id="box">
+    <div class="stage" id="stage">
+      <svg id="wires" viewBox="0 0 1200 740"></svg>
+      <div class="overlay" id="overlay"><div><div class="play"></div><p>Start the walkthrough</p></div></div>
+    </div>
+  </div>
+
+  <div class="caption" aria-live="polite"><small id="capStep"></small><h2 id="capTitle"></h2><p id="capText"></p></div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>What each check is for</h2>
+      <table>
+        <thead><tr><th>Question</th><th>Answered by</th></tr></thead>
+        <tbody>
+          <tr><td>Who is the agent?</td><td>art-32 checks its signed agent card and art-04 its delegated authority.</td></tr>
+          <tr><td>Within my money budget?</td><td>art-02 compares the price with your daily limit and what was spent today.</td></tr>
+          <tr><td>Within the session budget?</td><td>art-36 checks the payment session's cap and terms, and art-02 runs again against that cap.</td></tr>
+          <tr><td>Did I double order?</td><td>art-01 checks the approval chain for this cart and flags a second payment against it.</td></tr>
+          <tr><td>Paid what I approved?</td><td>art-62 compares the payment receipt with the signed approvals.</td></tr>
+          <tr><td>What else ran?</td><td>cry-05 folds every receipt from the session into one root, the held retry included.</td></tr>
+          <tr><td>Within my LLM token budget?</td><td><span class="gap">Not covered yet.</span> No AINumbers tool checks model-token spend today. The session budget here is the payment session's cap.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>If more than one agent were involved</h2>
+      <p>This walkthrough keeps to one agent on purpose. When an agent hands work to another, each agent needs its own identity check, and each hand-off must narrow the permission it passes on. art-385 checks that a delegated token never widens its parent's limits.</p>
+      <p>Running the same workflow twice in parallel is the usual way double orders happen: one copy goes stale and retries. A single agent that records every attempt, plus a check that flags a second payment on the same cart, closes that gap.</p>
+      <h2 style="margin-top:14px">Try to change one record</h2>
+      <label for="fCharge">during · charge</label><input id="fCharge" value="USD 120">
+      <div class="out" id="tamperOut"></div>
+      <p class="fine">Workflows agent-identity-trust, tempo-mpp-agent (first three of four steps) and agent-economy-payment-receipt from chaingraph.json. Values are synthetic and the fingerprints are real SHA-256 over the values shown. Inputs and verdict words are illustrative.</p>
+      <div class="keys"><kbd>←</kbd><kbd>→</kbd> back and next · <kbd>Space</kbd> play or pause · <kbd>R</kbd> restart · <a href="workflow-basics-explainer.html">level 1: one workflow</a> · <a href="inverted-database-explainer.html">level 3: seven workflows</a> · <a href="visual-explainers-hub.html">all explainers</a></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ---------- SHA-256 (sync, dependency-free), same as the other pages ---------- */
+const SHA = (() => {
+  const K = [], H0 = [];
+  for (let n = 2, c = 0; c < 64; n++) {
+    let prime = true;
+    for (let d = 2; d * d <= n; d++) if (n % d === 0) { prime = false; break; }
+    if (!prime) continue;
+    if (c < 8) H0[c] = (Math.pow(n, 1 / 2) % 1) * 4294967296 | 0;
+    K[c++] = (Math.pow(n, 1 / 3) % 1) * 4294967296 | 0;
+  }
+  const ror = (x, n) => (x >>> n) | (x << (32 - n));
+  return str => {
+    const msg = new TextEncoder().encode(str), l = msg.length;
+    const len = ((l + 9 + 63) >> 6) << 6, buf = new Uint8Array(len);
+    buf.set(msg); buf[l] = 0x80;
+    const bits = l * 8, dv = new DataView(buf.buffer);
+    dv.setUint32(len - 8, Math.floor(bits / 4294967296)); dv.setUint32(len - 4, bits >>> 0);
+    const H = H0.slice(), W = new Int32Array(64);
+    for (let o = 0; o < len; o += 64) {
+      for (let i = 0; i < 16; i++) W[i] = dv.getInt32(o + i * 4);
+      for (let i = 16; i < 64; i++) {
+        const a = W[i - 15], b = W[i - 2];
+        W[i] = (W[i - 16] + (ror(a, 7) ^ ror(a, 18) ^ (a >>> 3)) + W[i - 7] + (ror(b, 17) ^ ror(b, 19) ^ (b >>> 10))) | 0;
+      }
+      let [a, b, c, d, e, f, g, h] = H;
+      for (let i = 0; i < 64; i++) {
+        const t1 = (h + (ror(e, 6) ^ ror(e, 11) ^ ror(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + W[i]) | 0;
+        const t2 = ((ror(a, 2) ^ ror(a, 13) ^ ror(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+        h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+      }
+      H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + c) | 0; H[3] = (H[3] + d) | 0;
+      H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+    }
+    return H.map(x => (x >>> 0).toString(16).padStart(8, '0')).join('');
+  };
+})();
+
+/* ---------- Three real workflows, run one after another by one agent ---------- */
+const LANES = [
+  { key: 'A', when: 'before the payment', title: 'Who is the agent and may it spend?', chain: 'agent-identity-trust', c: '#14B8A6', note: 'Checks identity and your money budget.', steps: [
+    { id: 'art-32', q: 'Who is this agent?', in: [['agent card', 'ShopBot, signed'], ['vouched by', 'acme.example']], out: 'IDENTITY OK' },
+    { id: 'art-04', q: 'What may it do?', in: [['scope', 'payments ≤ USD 500/day'], ['valid until', '2026-11-30']], out: 'AUTHORIZED' },
+    { id: 'art-02', q: 'Fits your money budget?', in: [['spent today', 'USD 80 of 500'], ['this purchase', 'USD 120']], out: 'WITHIN BUDGET' } ] },
+  { key: 'B', when: 'during the payment', title: 'Is this payment allowed, once?', chain: 'tempo-mpp-agent', c: '#9B72F5', note: 'Checks the session budget and the approval chain.', steps: [
+    { id: 'art-36', q: 'Open the payment session', in: [['session cap', 'USD 200'], ['rail', 'TIP-20']], out: 'SESSION OPEN' },
+    { id: 'art-01', q: 'Approvals linked, unpaid?', in: [['intent→cart→pay', 'linked'], ['paid on cart #4512', '0 times']], out: 'CHAIN VALID' },
+    { id: 'art-02', q: 'Fits the session budget?', in: [['session used', 'USD 0 of 200'], ['charge', 'USD 120']], out: 'WITHIN SESSION' } ] },
+  { key: 'C', when: 'after the payment', title: 'Did it go as approved?', chain: 'agent-economy-payment-receipt', c: '#38BDF8', note: 'Reconciles the receipt and seals the session.', steps: [
+    { id: 'art-62', q: 'Paid what you approved?', in: [['receipt', 'USD 120'], ['approved', 'USD 120']], out: 'MATCHES' },
+    { id: 'art-01', q: 'Approvals still linked?', in: [['mandate', '#4512'], ['payments', '1 settled, 1 held']], out: 'CHAIN VALID' },
+    { id: 'cry-05', q: 'Everything this session', in: [['receipts', '9'], ['includes', 'the held retry']], out: 'SESSION SEALED' } ] },
+];
+const stepHash = (L, s, inputs, out) => SHA(JSON.stringify({ chain: L.chain, tool: s.id, inputs, result: out }));
+LANES.forEach(L => { L.steps.forEach(s => s.hash = stepHash(L, s, Object.fromEntries(s.in), s.out)); L.leaf = SHA(L.steps.map(s => s.hash).join('')); });
+// The stale retry: the agent times out and sends the same payment again. art-01 sees the cart already paid.
+const RETRY = { id: 'art-01', in: [['intent→cart→pay', 'linked'], ['paid on cart #4512', '1 time']], out: 'ALREADY PAID · HOLD' };
+RETRY.hash = stepHash(LANES[1], RETRY, Object.fromEntries(RETRY.in), RETRY.out);
+const BATCH = SHA([LANES[0].leaf, LANES[1].leaf, RETRY.hash, LANES[2].leaf].join(''));
+function chainBWith(charge, out) {
+  const L = LANES[1], s = L.steps[2], ins = Object.fromEntries(s.in); ins.charge = charge;
+  return SHA([L.steps[0].hash, L.steps[1].hash, stepHash(L, s, ins, out)].join(''));
+}
+const TAMPER_B = chainBWith('USD 90', 'WITHIN SESSION');
+const TAMPER_BATCH = SHA([LANES[0].leaf, TAMPER_B, RETRY.hash, LANES[2].leaf].join(''));
+
+/* ---------- Steps ---------- */
+const BEATS = [
+  { d: 8, title: 'One agent and one purchase', text: 'ShopBot is a single agent. It runs the three workflows one after another and spawns no helpers, so there is one identity to check and one record to read at the end.' },
+  { d: 7, title: 'Seven files serve nine steps', text: 'Your browser downloads the pages once. Two pages appear in more than one workflow, so nine steps need only seven files.' },
+  { d: 11, title: 'Before paying: who is it and is there money?', text: 'The agent proves who it is and what it is allowed to do. Then art-02 checks the USD 120 against your daily limit: USD 80 already spent out of USD 500 leaves room.' },
+  { d: 11, title: 'During payment: the session budget', text: 'The payment opens a session capped at USD 200. art-01 confirms your approval chain runs from intent to cart to payment and that cart #4512 is still unpaid. art-02 runs again, this time against the session cap.' },
+  { d: 10, title: 'The agent goes stale and retries', text: 'The merchant is slow, the agent times out and sends the same payment again. art-01 now sees cart #4512 already paid once and holds the second charge. The hold gets its own receipt.' },
+  { d: 11, title: 'After paying: reconcile', text: 'art-62 compares the payment receipt with what you approved: USD 120 against USD 120. art-01 confirms one payment settled and one held. cry-05 folds every receipt from the session into one root.' },
+  { d: 7, title: 'Everything the agent did is in one place', text: 'Your folder holds the three chain receipts and the held retry. Nothing the agent did this session is missing from it.' },
+  { d: 7, title: 'One fingerprint for the whole session', text: 'The receipts are fingerprinted together. That value stands for every check the agent ran, in order, including the double order it was stopped from making.' },
+  { d: 10, title: 'Try to rewrite history', text: 'Someone edits the session charge to USD 90 after the fact. Recomputing gives a different chain receipt and a different session fingerprint, so the edit is caught.' },
+];
+let acc = 0; BEATS.forEach(b => { b.a = acc; acc += b.d; b.b = acc; });
+const END = acc;
+const A = i => BEATS[i].a;
+// One agent works sequentially: lane A in beat 2, lane B in beat 3, the retry in beat 4, lane C in beat 5.
+const LANE_BEAT = [2, 3, 5];
+const RUN = LANES.map((L, li) => L.steps.map((s, k) => {
+  const a = A(LANE_BEAT[li]) + 0.6 + k * 3.3;
+  return { a, inB: a + 0.9, fillB: a + 1.9, compB: a + 2.6, leaveA: a + 3.0 };
+}));
+const RT = { a: A(4) + 1.2, inB: A(4) + 2.4, fillB: A(4) + 3.6, compB: A(4) + 4.6 };
+
+/* ---------- Build the stage ---------- */
+const $ = id => document.getElementById(id);
+const stage = $('stage'), wires = $('wires'), NS = 'http://www.w3.org/2000/svg';
+const el = (tag, cls, html, parent = stage) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; parent.appendChild(e); return e; };
+const sv = (tag, attrs, parent = wires) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+
+sv('rect', { x: 20, y: 30, width: 1160, height: 612, rx: 14, fill: 'rgba(20,184,166,.03)', stroke: '#14B8A6', 'stroke-width': 1.8, 'stroke-dasharray': '8 6' });
+const dz = el('div', 'zone dev', '<b>YOUR DEVICE</b>everything inside this line runs in your browser'); dz.style.left = '40px'; dz.style.top = '30px';
+const sz = el('div', 'zone srv', '<b>AINUMBERS SERVER</b>Cloudflare'); sz.style.left = '316px'; sz.style.top = '660px';
+el('div', 'server', `<div class="ic">🗄</div><div><h5>Hands out the page files</h5><p id="srvTxt">Waiting.</p></div><div class="cnt"><b>0</b>requests while<br>checking</div>`);
+
+const CX = [240, 465, 690], RY = [70, 260, 450], CW = 205, CH = 150;
+LANES.forEach((L, li) => {
+  L.lab = el('div', 'lane', `<div class="when">${L.when}</div><h3>${L.title}</h3><p>${L.note}</p><div class="id">${L.chain}</div>`);
+  L.lab.style.top = RY[li] + 'px'; L.lab.style.setProperty('--c', L.c);
+  L.steps.forEach((s, k) => {
+    const card = el('div', 'card', `<div class="bar"><span>ainumbers.co/chaingraph/${s.id}…</span><span class="lk">🔒 local</span></div>
+      <div class="body"><div class="n">${L.key}${k + 1} · ${s.id}</div><h4>${s.q}</h4>
+      ${s.in.map(([kk]) => `<div class="row"><span class="k">${kk}</span><span class="v"></span></div>`).join('')}
+      <div class="prog"><i></i></div><div class="foot"><span class="res">${s.out}</span><span class="fp"></span></div></div>`);
+    card.style.left = CX[k] + 'px'; card.style.top = RY[li] + 'px'; card.style.setProperty('--c', L.c);
+    Object.assign(s, { card, vals: [...card.querySelectorAll('.v')], keys: [...card.querySelectorAll('.k')], prog: card.querySelector('.prog i'), res: card.querySelector('.res'), fp: card.querySelector('.fp') });
+    if (k < 2) s.wire = sv('line', { x1: CX[k] + CW, y1: RY[li] + CH / 2, x2: CX[k + 1], y2: RY[li] + CH / 2, stroke: L.c, 'stroke-width': 2, 'stroke-dasharray': '5 5', 'stroke-opacity': .15 });
+  });
+  L.toFolder = sv('line', { x1: CX[2] + CW, y1: RY[li] + CH / 2, x2: 925, y2: 140 + li * 60, stroke: L.c, 'stroke-width': 2, 'stroke-dasharray': '5 5', 'stroke-opacity': .15 });
+});
+const SHARED = [{ col: 1, a: 1, b: 2, id: 'art-01' }, { col: 2, a: 0, b: 1, id: 'art-02' }];
+SHARED.forEach(S => { S.el = el('div', 'same', `<span>same page · ${S.id}</span>`); S.el.style.left = CX[S.col] + 'px'; S.el.style.top = (RY[S.a] + CH + 10) + 'px'; });
+
+const folder = el('div', 'folder', `<div class="n">your folder</div><h4>Session receipts</h4>
+  <div class="rc" id="rc0" style="--c:${LANES[0].c}"><b>before · ${LANES[0].chain}</b><span class="h">not yet</span><div class="verdict"></div></div>
+  <div class="rc" id="rc1" style="--c:${LANES[1].c}"><b>during · ${LANES[1].chain}</b><span class="h">not yet</span><div class="verdict"></div></div>
+  <div class="rc" id="rcR" style="--c:#F59E0B"><b>during · retry on cart #4512</b><span class="h">not yet</span><div class="verdict"></div></div>
+  <div class="rc" id="rc2" style="--c:${LANES[2].c}"><b>after · ${LANES[2].chain}</b><span class="h">not yet</span><div class="verdict"></div></div>
+  <div class="plus">all fingerprinted together</div><div class="batch" id="batch"><b>session fingerprint</b><span>not yet</span></div><div class="check" id="check"></div>`);
+
+const agent = el('div', 'agent', '<i>🤖</i>ShopBot <span id="agentDoing">· idle</span>');
+const cFiles = Array.from({ length: 7 }, () => el('div', 'chip file'));
+const cRetry = el('div', 'chip retry');
+LANES.forEach(L => { L.cIn = el('div', 'chip inp'); L.cRc = el('div', 'chip rcp'); L.cIn.style.setProperty('--c', L.c); L.cRc.style.setProperty('--c', L.c); });
+
+const dotsEl = $('dots');
+BEATS.forEach((b, i) => { const d = el('button', '', String(i + 1), dotsEl); d.title = b.title; d.onclick = () => jump(i); });
+const FILES = [];
+LANES.forEach((L, li) => L.steps.forEach((s, k) => { if (!FILES.some(f => f.id === s.id)) FILES.push({ id: s.id, li, k }); }));
+
+/* ---------- Render ---------- */
+const clamp01 = x => x < 0 ? 0 : x > 1 ? 1 : x;
+const ease = p => p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+const setT = (e, v) => { if (e.textContent !== v) e.textContent = v; };
+const setC = (e, c, on) => { if (e.classList.contains(c) !== on) e.classList.toggle(c, on); };
+const typed = (s, p) => s.slice(0, Math.round(s.length * clamp01(p)));
+const lerp = (a, b, p) => [a[0] + (b[0] - a[0]) * p, a[1] + (b[1] - a[1]) * p];
+const show = (c, pos, txt) => { c.style.display = 'block'; c.style.left = pos[0] + 'px'; c.style.top = pos[1] + 'px'; setT(c, txt); };
+const hide = c => { if (c.style.display !== 'none') c.style.display = 'none'; };
+const beatAt = t => { const i = BEATS.findIndex(b => t < b.b); return i < 0 ? BEATS.length - 1 : i; };
+
+function render(t) {
+  const bi = beatAt(t), B = BEATS[bi], k = (t - B.a) / B.d;
+  setT($('capStep'), `step ${bi + 1} of ${BEATS.length}`); setT($('capTitle'), B.title); setT($('capText'), B.text);
+  [...dotsEl.children].forEach((d, i) => { setC(d, 'on', i === bi); setC(d, 'done', i < bi); });
+
+  // page files arrive once
+  const fileA = A(1) + 0.5;
+  FILES.forEach((f, i) => {
+    const a = fileA + i * 0.6, b = a + 1.3;
+    if (t >= a && t < b) show(cFiles[i], lerp([600, 690], [CX[f.k] + CW / 2, RY[f.li] + 10], ease((t - a) / (b - a))), f.id); else hide(cFiles[i]);
+    f.at = b;
+  });
+  setT($('srvTxt'), t < A(1) ? 'Waiting.' : t < fileA + 7 * 0.6 + 0.8 ? 'Sending 7 page files for 9 steps…' : 'Done. It is not used again during the purchase.');
+
+  // the single agent: parked at the left, then beside whichever lane it is working on
+  let lane = -1, doing = '· idle';
+  if (bi >= 2 && bi <= 3) { lane = bi - 2; doing = '· ' + LANES[lane].when; }
+  if (bi === 4) { lane = 1; doing = '· retrying after a timeout'; }
+  if (bi === 5) { lane = 2; doing = '· ' + LANES[2].when; }
+  if (bi >= 6) doing = '· done, one session';
+  const ap = lane < 0 ? [34, 626] : [34, RY[lane] + CH - 6];
+  agent.style.left = ap[0] + 'px'; agent.style.top = ap[1] + 'px';
+  setT($('agentDoing'), doing);
+  LANES.forEach((L, li) => { L.lab.style.opacity = lane < 0 || lane === li ? '1' : '.45'; });
+
+  LANES.forEach((L, li) => {
+    L.steps.forEach((s, kk) => {
+      const R = RUN[li][kk], f = FILES.find(x => x.id === s.id);
+      const isRetryCard = li === 1 && kk === 1;
+      const retryOn = isRetryCard && t >= RT.a && t < A(5);
+      const retryDone = isRetryCard && t >= RT.compB;
+      setC(s.card, 'here', t >= f.at);
+      setC(s.card, 'live', (t >= R.a && t < R.leaveA) || (retryOn && t < RT.compB));
+      setC(s.card, 'done', t >= R.leaveA);
+      setC(s.card, 'held', retryOn && t >= RT.compB);
+      setC(s.card, 'spent', t >= R.leaveA + 1.2 && !retryOn);
+      const src = retryOn ? RETRY : s;
+      const ts = retryOn ? RT : R;
+      s.vals.forEach((v, j) => {
+        setT(v, t < ts.inB ? '' : typed(src.in[j][1], ((t - ts.inB) / (ts.fillB - ts.inB)) * 2 - j));
+        setC(v, 'warn', retryOn && j === 1);
+      });
+      s.prog.style.width = (t >= ts.fillB ? clamp01((t - ts.fillB) / (ts.compB - ts.fillB)) * 100 : 0) + '%';
+      setT(s.res, retryOn ? RETRY.out : s.out);
+      setC(s.res, 'warn', retryOn);
+      setC(s.res, 'on', t >= ts.compB);
+      setT(s.fp, t >= ts.compB ? '# ' + typed(src.hash.slice(0, 8), (t - ts.compB) / 0.5) : '');
+      if (s.wire) s.wire.setAttribute('stroke-opacity', t >= R.leaveA ? .8 : .15);
+    });
+    let inPos = null, rcPos = null, rcTxt = '';
+    L.steps.forEach((s, kk) => {
+      const R = RUN[li][kk];
+      if (t >= R.a && t < R.inB) inPos = lerp([CX[kk] - 30, RY[li] + 20], [CX[kk] + 40, RY[li] + 60], ease((t - R.a) / (R.inB - R.a)));
+      const isLast = kk === 2, tr = 1.0;
+      if (t >= R.leaveA && t < R.leaveA + tr) {
+        const from = [CX[kk] + CW, RY[li] + CH / 2], to = isLast ? [925, 140 + li * 60] : [CX[kk + 1], RY[li] + CH / 2];
+        rcPos = lerp(from, to, ease((t - R.leaveA) / tr)); rcTxt = isLast ? 'chain ' + L.leaf.slice(0, 6) : 'receipt ' + s.hash.slice(0, 6);
+      }
+    });
+    if (inPos) show(L.cIn, inPos, 'inputs'); else hide(L.cIn);
+    if (rcPos) show(L.cRc, rcPos, rcTxt); else hide(L.cRc);
+    L.toFolder.setAttribute('stroke-opacity', t >= RUN[li][2].leaveA ? .8 : .15);
+  });
+  // the retry chip: the same payment, sent again
+  if (t >= RT.a && t < RT.inB) show(cRetry, lerp([118, RY[1] + CH], [CX[1] + 60, RY[1] + 70], ease((t - RT.a) / (RT.inB - RT.a))), 'same payment, again'); else hide(cRetry);
+
+  // shared-page tags
+  SHARED.forEach(S => {
+    const ra = RUN[S.a][S.col], rb = RUN[S.b][S.col];
+    setC(S.el, 'on', (t >= ra.a && t < ra.leaveA) || (t >= rb.a && t < rb.leaveA));
+  });
+
+  // folder: three chain receipts plus the held retry, then one session fingerprint
+  setC(folder, 'live', bi >= 6);
+  const inAt = [RUN[0][2].leaveA + 1, RUN[1][2].leaveA + 1, RUN[2][2].leaveA + 1];
+  const tamper = bi === 8 && k > 0.3;
+  LANES.forEach((L, li) => {
+    const rc = $('rc' + li), bad = tamper && li === 1;
+    setC(rc, 'in', t >= inAt[li] && !bad); setC(rc, 'bad', bad);
+    setT(rc.querySelector('.h'), t >= inAt[li] ? (bad ? TAMPER_B : L.leaf).slice(0, 22) + '…' : 'not yet');
+    setT(rc.querySelector('.verdict'), t >= inAt[li] ? (bad ? 'recomputed after the edit' : L.steps[2].out.toLowerCase()) : '');
+  });
+  const rr = $('rcR'), rIn = t >= RT.compB + 0.6;
+  setC(rr, 'in', rIn);
+  setT(rr.querySelector('.h'), rIn ? RETRY.hash.slice(0, 22) + '…' : 'not yet');
+  setT(rr.querySelector('.verdict'), rIn ? 'already paid · held, not charged' : '');
+  const batchOn = t >= A(7) + 1.5, bx = $('batch');
+  setC(bx, 'in', batchOn && !tamper); setC(bx, 'bad', tamper);
+  setT(bx.querySelector('span'), !batchOn ? 'not yet' : tamper ? TAMPER_BATCH.slice(0, 40) + '…' : typed(BATCH.slice(0, 40) + '…', (t - A(7) - 1.5) / 1.2));
+  $('check').innerHTML = bi === 8
+    ? (k < 0.3 ? 'editing "during": charge USD 120 → USD 90…'
+      : `stored &nbsp;&nbsp;&nbsp;${BATCH.slice(0, 16)}…<br>recomputed ${TAMPER_BATCH.slice(0, 16)}…<br><span class="no">✗ no match. The edit is caught.</span>`)
+    : bi === 7 && batchOn ? '<span class="ok">✓ one value for the whole session, the held retry included</span>' : '';
+}
+
+/* ---------- Playback (same controls as every page in this folder) ---------- */
+let t = 0, playing = false, last = null, speed = 1;
+const overlay = $('overlay'), bPlay = $('bPlay');
+function setPlaying(on) { playing = on; last = null; bPlay.textContent = on ? 'Pause' : 'Play'; overlay.classList.add('gone'); }
+function jump(i) { i = Math.max(0, Math.min(BEATS.length - 1, i)); t = BEATS[i].a; overlay.classList.add('gone'); }
+function frame(ts) {
+  if (playing) {
+    if (last != null) t += Math.min(0.1, (ts - last) / 1000) * speed;
+    last = ts;
+    if (t >= END) { if ($('loop').checked) t = 0; else { t = END - 0.001; setPlaying(false); } }
+  }
+  render(t);
+  $('scrub').value = Math.round(t / END * 1000);
+  setT($('clock'), t.toFixed(1) + 's / ' + END.toFixed(0) + 's');
+  requestAnimationFrame(frame);
+}
+bPlay.onclick = () => { if (t >= END - 0.01) t = 0; setPlaying(!playing); };
+overlay.onclick = () => setPlaying(true);
+$('bRestart').onclick = () => { t = 0; setPlaying(true); };
+$('speed').onclick = e => { const b = e.target.closest('button'); if (!b) return; speed = +b.dataset.s; [...$('speed').children].forEach(x => x.classList.toggle('on', x === b)); };
+$('scrub').oninput = e => { t = Math.min(END - 0.001, e.target.value / 1000 * END); overlay.classList.add('gone'); };
+$('bNext').onclick = () => jump(beatAt(t) + 1);
+$('bBack').onclick = () => jump(beatAt(t) - (t - BEATS[beatAt(t)].a < 1 ? 1 : 0));
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+  if (e.code === 'Space') { e.preventDefault(); setPlaying(!playing); }
+  else if (e.key === 'r' || e.key === 'R') { t = 0; setPlaying(true); }
+  else if (e.key === 'ArrowRight') jump(beatAt(t) + 1);
+  else if (e.key === 'ArrowLeft') jump(beatAt(t) - 1);
+});
+function fit() { const b = $('box'), sc = Math.min(1, b.clientWidth / 1200); stage.style.transform = `scale(${sc})`; b.style.height = (740 * sc) + 'px'; }
+addEventListener('resize', fit); fit();
+
+/* ---------- Tamper playground: edit the session charge, recompute with real SHA-256 ---------- */
+function updateTamper() {
+  const b = chainBWith($('fCharge').value, LANES[1].steps[2].out);
+  const batch = SHA([LANES[0].leaf, b, RETRY.hash, LANES[2].leaf].join(''));
+  $('tamperOut').innerHTML = `<b>during chain receipt</b><br>${b}<br><b>session fingerprint</b><br>${batch}<br>` +
+    (batch === BATCH ? '<span class="ok">✓ matches your folder</span>' : '<span class="no">✗ differs from your folder. Put back "USD 120" and it matches again.</span>');
+}
+$('fCharge').oninput = updateTamper; updateTamper();
+
+const ds = /step=(\d+)/.exec(location.hash), dt = /t=([\d.]+)/.exec(location.hash);
+if (ds) jump(+ds[1] - 1); else if (dt) { t = Math.min(END - 0.01, +dt[1]); overlay.classList.add('gone'); }
+requestAnimationFrame(frame);
+</script>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../bazantic-walkthrough.html">Bazantic A/B Walkthrough</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

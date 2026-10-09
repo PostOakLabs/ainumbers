@@ -194,7 +194,7 @@ export function parseMerges(logText) {
   const merges = [];
   let skippedSynthetic = 0;
   for (const l of logText.split('\n').filter(Boolean)) {
-    const [hash, short, date, ...rest] = l.split('\t');
+    const [hash, , date, ...rest] = l.split('\t');
     const subject = rest.join('\t');
     if (QUEUE_TEST_MERGE_RE.test(subject)) {
       skippedSynthetic++;
@@ -203,7 +203,13 @@ export function parseMerges(logText) {
     const m = subject.match(/^Merge pull request #(\d+) from /);
     merges.push({
       hash,
-      short,
+      // Fixed-length 9-hex anchor, sliced from the FULL hash (CHANGELOG-HASH-FIX-1):
+      // git's adaptive %h — which this field carried before — varies by environment
+      // (9 hex under the CI runner's git, 8 hex under local Windows git), so every
+      // regen rewrote the same ~71 anchor lines and --check was green only in the
+      // last writer's environment. The first 9 characters of %H are identical
+      // everywhere, making the rendered bytes environment-independent again.
+      short: hash.slice(0, 9),
       date,
       subject, // carried for auto-classification (SEED-AUTOFILL); never rendered raw
       pr: m ? Number(m[1]) : null,
