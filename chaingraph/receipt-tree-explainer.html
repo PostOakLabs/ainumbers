@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>/* Speed hook for the shared controls: this page's timers run 0.5x, 1x or 2x without touching its engine. */
+(function(){var st=window.setTimeout.bind(window),si=window.setInterval.bind(window);window.AIN_SPEED=1;
+window.setTimeout=function(f,ms){var a=[].slice.call(arguments,2);return st.apply(window,[f,(+ms||0)/window.AIN_SPEED].concat(a))};
+window.setInterval=function(f,ms){var a=[].slice.call(arguments,2);return si.apply(window,[f,(+ms||0)/window.AIN_SPEED].concat(a))};})();</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/receipt-tree-explainer.html">
+<meta name="ain:category" content="learn">
+<meta name="description" content="Ten real run hashes fold into one timestamped Merkle root. Rebuild the tree in your browser, tamper with one run to see only its path break, and prove a single run with four sibling hashes.">
+<title>The Receipt Tree · AINumbers.co</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--panel:#0D1627;--line:#263855;--text:#A8C4DE;--dim:#6888A8;--ink:#08111F;
+--c1:#14B8A6;--c2:#60A5FA;--c3:#D4A847;--c4:#9B72F5;--c5:#22C55E;--red:#EF4444;--amb:#F59E0B}
+*{box-sizing:border-box;margin:0}
+html,body{background:var(--bg);color:var(--text);overflow-x:hidden}
+body{font-family:Sora,system-ui,sans-serif;font-weight:300;line-height:1.6}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 48px}
+h1{font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:clamp(1.6rem,4.2vw,2.3rem);line-height:1.2;color:#EEF6FD}
+.sub{color:var(--dim);font-size:.95rem;margin:.4rem 0 1rem;max-width:780px}
+.scene{position:relative;height:min(62vh,500px);min-height:360px;perspective:1900px;perspective-origin:50% 42%;overflow:hidden;border:1px solid #1E2F4A;border-radius:10px;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;
+background:radial-gradient(ellipse 70% 55% at 50% 25%,rgba(212,168,71,.13),transparent 70%),radial-gradient(ellipse 70% 50% at 50% 100%,rgba(20,184,166,.16),transparent 70%),linear-gradient(#050A14,#0B1526);--plate:#15233B;--pline:#2B4265}
+.scene.drag{cursor:grabbing}
+.hud{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:5;pointer-events:none;background:rgba(9,16,30,.9);border:1px solid #2B4265;border-radius:14px;padding:5px 14px;font:500 11px 'JetBrains Mono',monospace;color:#E6F1FB;text-align:center;max-width:56%}
+.hint{position:absolute;left:10px;bottom:8px;font:.62rem 'JetBrains Mono',monospace;color:#6888A8;pointer-events:none;max-width:90%}
+.key{position:absolute;left:10px;top:10px;z-index:5;display:flex;flex-direction:column;gap:3px;font:10px 'JetBrains Mono',monospace;color:#9FB4C9;background:rgba(9,16,30,.75);border-radius:6px;padding:6px 8px}
+.key .kb{display:inline-block;width:14px;text-align:center;margin-right:6px;font-weight:700}
+.world{position:absolute;left:50%;top:50%;width:0;height:0;transform-style:preserve-3d}
+.brick,.box{position:absolute;transform-style:preserve-3d;transition:opacity .45s}
+.brick.hid{opacity:0;pointer-events:none}
+.brick.dim{opacity:.2}
+.f{position:absolute;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:1px solid rgba(0,0,0,.35);background:linear-gradient(var(--ov),var(--ov)),var(--col);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;text-align:center;line-height:1.15;box-shadow:inset 0 0 0 var(--rw,0px) var(--ring,transparent)}
+.f::after{content:'';position:absolute;inset:0;background:var(--tint,transparent);pointer-events:none}
+.f.top{display:block}
+.fr{--ov:rgba(0,0,0,0)}.bk{--ov:rgba(0,0,0,.2)}.lf{--ov:rgba(0,0,0,.28)}.rt{--ov:rgba(0,0,0,.16)}.top{--ov:rgba(255,255,255,.14)}.bt{--ov:rgba(0,0,0,.42)}
+.nm{position:relative;z-index:1;font:500 9.5px 'JetBrains Mono',monospace;color:#08111F;white-space:nowrap}
+.sb{position:relative;z-index:1;font:9px 'JetBrains Mono',monospace;color:#08111F;opacity:.8;white-space:nowrap}
+.tower .nm{font-size:11px}.tower .sb{font-size:9px}
+.bd{position:absolute;z-index:2;top:2px;right:3px;width:14px;height:14px;border-radius:50%;display:none;align-items:center;justify-content:center;font:700 9px 'JetBrains Mono',monospace;color:#fff;box-shadow:0 0 6px rgba(0,0,0,.5)}
+.caught{--tint:rgba(239,68,68,.62);--ring:#EF4444;--rw:4px}.caught .bd{display:flex;background:#EF4444}
+.pass{--tint:rgba(34,197,94,.30);--ring:#22C55E;--rw:4px}.pass .bd{display:flex;background:#16A34A}
+.cond{--tint:rgba(245,158,11,.30);--ring:#F59E0B;--rw:4px}.cond .bd{display:flex;background:#B45309}
+.sib{--ring:#60A5FA;--rw:5px;--tint:rgba(96,165,250,.22)}
+.chk{--ring:#FFFFFF;--rw:5px}
+.ghost .f{border:2px dashed #9FB4C9}
+.ghost{opacity:.62}
+.ghost.hid{opacity:0}
+.ghost.dim{opacity:.14}
+.plate .top{background-image:radial-gradient(circle,var(--pline) 4px,transparent 5px);background-size:50px 50px;background-color:var(--plate)}
+.plate .f{--col:var(--plate)}
+.cn{position:absolute;background:#3B5677;border-radius:1px;opacity:0;transition:background .3s,opacity .4s}
+.cn.on{opacity:1}
+.cn.on.dim{opacity:.2}
+.cn.pass{background:#22C55E}.cn.caught{background:#EF4444}.cn.cond{background:#F59E0B}.cn.chk{background:#FFFFFF}.cn.sib{background:#60A5FA}
+.cardlayer{position:absolute;left:0;top:0;transform-style:preserve-3d}
+.card3{position:absolute;transform-style:preserve-3d;transform:translateZ(70px) rotateY(var(--by,0deg)) rotateX(var(--bx,0deg)) scale(var(--cs,1));opacity:0;transition:opacity .4s}
+.card3.on{opacity:1}
+.tg3{position:absolute;left:-60px;top:-10px;width:120px;height:20px;padding:3px 6px;background:rgba(9,16,30,.95);border:1px solid #9FB4C9;border-radius:10px;font:500 9.5px 'JetBrains Mono',monospace;color:#D4E8F8;white-space:nowrap;text-align:center}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:1rem 1.1rem;margin:.7rem 0}
+.card h2{font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:1.4rem;line-height:1.25;color:#EEF6FD}
+.card p{font-size:.95rem;color:var(--dim);margin:.3rem 0}
+.card .story{color:var(--text)}
+.card a{color:var(--c1)}
+.rx{list-style:none;padding:0;margin:.6rem 0}
+.rx li{display:flex;gap:.6rem;align-items:flex-start;padding:.4rem .55rem;border-radius:6px;font-size:.88rem;margin:.25rem 0;border:1px solid var(--line)}
+.rx li .rb{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:500;color:#EEF6FD}
+.rx .ic{width:1.3rem;height:1.3rem;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font:700 .8rem 'JetBrains Mono',monospace;color:#fff}
+.rx .r-caught{border-color:rgba(239,68,68,.5)}.rx .r-caught .ic{background:#EF4444}
+.rx .r-pass{border-color:rgba(34,197,94,.45)}.rx .r-pass .ic{background:#16A34A}
+.rx .r-cond{border-color:rgba(245,158,11,.5)}.rx .r-cond .ic{background:#B45309}
+.runs{list-style:none;padding:0;margin:.6rem 0;display:grid;gap:.25rem;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.runs li{display:flex;gap:.5rem;align-items:baseline;padding:.3rem .55rem;border-radius:6px;font-size:.82rem;border:1px solid var(--line);border-left-width:4px;color:var(--text)}
+.runs .rn{font:500 .74rem 'JetBrains Mono',monospace;color:#EEF6FD;min-width:1.4rem}
+.runs .rh{font:.72rem 'JetBrains Mono',monospace;color:var(--c3);margin-left:auto;white-space:nowrap}
+.runs .rv{font:.66rem 'JetBrains Mono',monospace;color:var(--dim);white-space:nowrap}
+.toks{list-style:none;padding:0;margin:.35rem 0 0;font:.74rem 'JetBrains Mono',monospace}
+.toks li{border:0;padding:0;margin:.25rem 0;word-break:break-word}
+.toks .t-ok{color:#22C55E}.toks .t-bad{color:#EF4444}.toks .t-nr{color:#F59E0B}
+.verdict{border-left:3px solid var(--red);padding:.4rem .8rem;margin-top:.5rem;color:var(--text);font-size:.95rem}
+.ctl{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:.5rem 0}
+button.b{font:.72rem 'JetBrains Mono',monospace;padding:.5rem .7rem;min-width:2.4rem;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer}
+button.b:hover{border-color:var(--c1)}
+button.b.on{background:#111E35;border-color:var(--c3);color:#EEF6FD}
+.flbl{font:.72rem 'JetBrains Mono',monospace;color:var(--dim)}
+pre.rc{font:.72rem 'JetBrains Mono',monospace;white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:.6rem .7rem;margin-top:.5rem}
+pre.rc mark{background:rgba(239,68,68,.45);color:var(--text);border-radius:2px}
+.foot{margin-top:1.2rem;font-size:.72rem;color:var(--dim);font-family:'JetBrains Mono',monospace}
+.facts{display:grid;gap:.5rem;margin:.6rem 0}
+.fact{border:1px solid var(--line);border-radius:8px;padding:.5rem .7rem;font-size:.88rem}
+.fact .fb{display:block;font:500 .66rem 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:.15rem}
+.fact.cant{border-style:dashed}
+.src{font:.66rem 'JetBrains Mono',monospace;color:var(--dim)}
+code{font:.8em 'JetBrains Mono',monospace;color:var(--text);word-break:break-all}
+@media (max-width:600px){.tg3{display:none}.key{display:none}.hud{max-width:58%;left:10px;transform:none}.scene{height:310px;min-height:310px}}
+
+/* Shared control bar (same as the 2D explainers) */
+.ainbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0}
+.ainbar .ab{font-family:'JetBrains Mono',monospace;font-size:13px;color:#D4E8F8;background:#111E35;border:1px solid #263855;border-radius:6px;padding:8px 16px;cursor:pointer}
+.ainbar .ab:hover{border-color:#14B8A6;color:#EEF6FD}
+.ainbar .ab.pri{background:#14B8A6;border-color:#14B8A6;color:#04201C;font-weight:600;min-width:100px}
+.ainbar .aseg{display:inline-flex;border:1px solid #263855;border-radius:6px;overflow:hidden}
+.ainbar .aseg button{font-family:'JetBrains Mono',monospace;font-size:12px;background:#0D1627;color:#6888A8;border:0;padding:8px 10px;cursor:pointer}
+.ainbar .aseg button.on{background:#111E35;color:#EEF6FD}
+.ainbar .aopt{font-family:'JetBrains Mono',monospace;font-size:12px;color:#6888A8;display:flex;gap:6px;align-items:center;cursor:pointer}
+.ainbar .ascrub{flex:1 1 220px;display:flex;align-items:center;gap:10px}
+.ainbar .ascrub input{flex:1;accent-color:#14B8A6}
+.ainbar .ascrub span{font-family:'JetBrains Mono',monospace;font-size:12px;color:#6888A8;min-width:92px;text-align:right}
+.ainbar .adots{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+.ainbar .adots button{min-width:28px;height:28px;border-radius:14px;border:1px solid #263855;background:#0D1627;color:#6888A8;font-family:'JetBrains Mono',monospace;font-size:11.5px;cursor:pointer;padding:0 6px}
+.ainbar .adots button.on{background:#14B8A6;border-color:#14B8A6;color:#04201C;font-weight:600}
+.ainbar .adots button.done{border-color:#14B8A6;color:#14B8A6}
+.ainbar .adots button.ok{border-color:#22C55E;color:#22C55E}
+.ainbar .adots button.warn{border-color:#F59E0B;color:#F59E0B}
+.ainbar .adots button.bad{border-color:#EF4444;color:#EF4444}
+.ainbar .adots button.on.ok,.ainbar .adots button.on.bad,.ainbar .adots button.on.warn{color:#04201C}
+
+/* Goal box, trust strip and outcome box (same as the 2D explainers) */
+.goal{border:1px solid #9B72F5;border-radius:10px;background:rgba(155,114,245,.06);padding:12px 16px;margin:14px 0 12px}
+.goal > .gl{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#9B72F5;margin-bottom:4px}
+.goal p{font-size:15px;color:#D4E8F8;line-height:1.5;margin:0}
+.trust{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 12px}
+.trust > div{flex:1 1 300px;border:1px solid #263855;border-radius:9px;background:#0D1627;padding:9px 13px;font-size:13.5px;line-height:1.45;color:#A8C4DE}
+.trust .tl{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin-bottom:2px}
+.trust .tpii .tl{color:#22C55E}.trust .tcf .tl{color:#D4A847}
+.why{border:1px solid #263855;border-radius:10px;background:#0D1627;padding:12px 16px;margin:0 0 12px}
+.why .hd{display:block;font-family:'DM Serif Display',serif;font-weight:400;font-size:19px;color:#EEF6FD;margin-bottom:6px}
+.why .legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-family:'JetBrains Mono',monospace;font-size:11px;margin-bottom:10px}
+.why .lg-g{color:#22C55E}.why .lg-a{color:#F59E0B}.why .lg-r{color:#EF4444}
+.why .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.why .cols > div{font-size:13.5px;line-height:1.5;color:#A8C4DE}
+.why .cols .cl{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.12em;margin-bottom:3px}
+.why .ok{color:#22C55E}.why .warn{color:#F59E0B}.why .no{color:#EF4444}.why .sim{color:#38BDF8}
+nav a,footer a{color:inherit;text-decoration:none}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">The Receipt Tree</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+<h1>The receipt tree</h1>
+<p class="sub">On 26 September 2026 one agent session produced ten runs. Each run ends in an execution hash, and the ten hashes fold into a single Merkle root that three independent timestamp authorities signed. This page rebuilds that tree in your browser from the real hashes, edits one run to see exactly which hashes break, and proves a single run with four sibling hashes.</p>
+<div class="goal" role="note"><span class="gl">Goal of this animation</span><p>Show how ten real runs fold into one timestamped root, why one edited run is caught, and how one run can be proven without revealing the others.</p></div>
+<div class="trust" role="note">
+  <div class="tpii"><span class="tl">🔒 No personal data</span>The ten runs are synthetic demonstration runs and the page holds only their hashes. Apart from loading its fonts and its own files, the page makes no network requests, and every hash on the bricks is computed in your browser. The page's security policy blocks fetch, XHR and WebSocket connections outright (connect-src 'none'), and nothing is stored.</div>
+  <div class="tcf"><span class="tl">☁ Our server is Cloudflare</span>“AINumbers server” means Cloudflare today: the site's files are delivered through Cloudflare's network. This page never asks it anything after loading. You do trust the page for its verifier code and pinned roots, and limit 3 below says how to check without it.</div>
+</div>
+<div class="why" role="note">
+  <span class="hd">What the red, amber and green bricks mean</span>
+  <div class="legend"><span class="lg-g">● green · recomputed here and it matches</span><span class="lg-a">● amber · could not be fully checked here</span><span class="lg-r">● red · a mismatch was caught</span></div>
+  <div class="cols">
+    <div><span class="cl ok">✓ MATCHES</span>The hash on the brick was recomputed from the bricks below it, and the root equals the root the timestamp authorities signed.</div>
+    <div><span class="cl no">✗ MISMATCH CAUGHT</span>One edited run changes every hash on its path to the root and nothing else. The new root no longer fits the timestamps.</div>
+    <div><span class="cl warn">? NOT FULLY CHECKED</span>The Sigstore token's imprint and signature verify, but its certificate chain is not pinned in this page. That is never counted as a pass.</div>
+    <div><span class="cl sim">WHAT A MATCH CANNOT TELL</span>A root shows which hashes belong together and a timestamp shows when. Neither shows that a run was computed correctly or that its inputs were true.</div>
+  </div>
+</div>
+
+<div class="ainbar" role="group" aria-label="Playback">
+ <button class="ab" id="aBack">◀ Back</button><button class="ab pri" id="aPlay">Play</button><button class="ab" id="aNext">Next ▶</button><button class="ab" id="aRestart">Restart</button>
+ <div class="aseg" id="aSpeed" role="group" aria-label="Speed"><button data-speed="0.5">0.5×</button><button data-speed="1" class="on">1×</button><button data-speed="2">2×</button></div>
+ <label class="aopt"><input type="checkbox" id="aLoop"> loop</label>
+ <div class="ascrub"><input type="range" id="aScrub" min="0" max="1000" value="0" aria-label="Timeline"><span id="aClock"></span></div>
+ <div class="adots" id="aDots"></div>
+</div>
+<div class="scene" id="scene" aria-label="Rotatable 3D tree of ten run hashes folding into one timestamped root">
+<div class="hud" id="hud">Ten runs, ten hashes</div>
+<div class="key"><span><span class="kb" style="color:#22C55E">✓</span>recomputed, matches</span><span><span class="kb" style="color:#F59E0B">?</span>not fully checked</span><span><span class="kb" style="color:#EF4444">✗</span>mismatch caught</span><span><span class="kb" style="color:#9FB4C9">┄</span>dashed brick: paired with itself</span></div>
+<div class="world" id="world"></div>
+<div class="hint" id="hint">drag to rotate</div>
+</div>
+<div class="card" id="stop" aria-live="polite"></div>
+<div class="card"><h2>Limits of this page</h2>
+<p>1. The evidence is the ten execution hashes and three timestamp tokens of the <a href="agent-staircase-explainer.html">Agent Staircase</a> session of 26 September 2026. This page holds the hashes alone. The runs' inputs and outputs are not in it, so it can show how the hashes fold and what a change does, and it cannot re-run any run.</p>
+<p>2. The folding rule is the one <code>build_session_receipt</code> uses in the MCP worker: SHA-256 over the two child hashes written as lowercase hex text and joined, a binary tree, and the last node of an odd level paired with itself. The page applies that rule through the shared verifier kit and reproduces the anchored root from the ten hashes.</p>
+<p>3. Two of the three timestamps chain to roots pinned in this page, DigiCert and FreeTSA. The Sigstore token's imprint and signature check, but its root is not pinned here, so its chain shows as not checked. The timestamp verifier in this page checks one certificate hop and does not look up revocation, so a full audit would also use the <a href="https://anchor.ainumbers.co/verify.html">Anchor Suite verifier</a>. An auditor who trusts nothing here can check each token with <code>openssl ts -verify</code>.</p>
+<p>4. An inclusion proof shows the hashes of neighbouring runs. A hash does not reveal a run's inputs, though anyone who can guess the inputs can test the guess against it. The tamper and proof views run only in this page's memory and nothing is sent or stored.</p></div>
+
+<p class="foot">Evidence from github.com/PostOakLabs/ainumbers · runs in your browser · Zero PII · CC BY 4.0 · Post Oak Labs</p>
+</div>
+
+<script src="proof-walk-kit.js"></script>
+<script id="treecore">
+/* Tree core: the pure functions of this page. They take hex strings and return hex strings, with no DOM access,
+   so a test harness can load this block on its own. The pairing rule is the one build_session_receipt uses in the
+   MCP worker: SHA-256 over the two child hashes joined as lowercase hex text, a binary tree, and the last node of
+   an odd level paired with itself. */
+var TC=(function(){
+ var K=window.PWK;
+ function pair(l,r){return K.sha(l+r).then(K.hex)}
+ function levelUp(level){var jobs=[];for(var i=0;i<level.length;i+=2){jobs.push(pair(level[i],i+1<level.length?level[i+1]:level[i]))}return Promise.all(jobs)}
+ /* levels[0] is the leaves, the last level is the single root */
+ function buildTree(leaves){var levels=[leaves.slice()];
+  function next(){var last=levels[levels.length-1];if(last.length<=1)return Promise.resolve(levels);return levelUp(last).then(function(n){levels.push(n);return next()})}
+  return next()}
+ /* the sibling hashes from leaf idx up to the root; an odd node's sibling is itself */
+ function proofFor(levels,idx){var path=[],i=idx;
+  for(var k=0;k<levels.length-1;k++){var lv=levels[k],sib=i^1,dup=sib>=lv.length;
+   path.push({level:k,index:i,sibIndex:dup?i:sib,hash:lv[dup?i:sib],side:(i%2===0)?'R':'L',dup:dup});i=i>>1}
+  return path}
+ /* recompute the root from one leaf and its sibling hashes only */
+ function foldProof(leaf,path){var h=leaf,steps=[];
+  return path.reduce(function(p,s){return p.then(function(){return s.side==='L'?pair(s.hash,h):pair(h,s.hash)}).then(function(n){h=n;steps.push(n)})},Promise.resolve())
+   .then(function(){return {root:h,steps:steps}})}
+ function flipFirst(h){return (h.charAt(0)==='0'?'1':'0')+h.slice(1)}
+ function tamper(leaves,i){var c=leaves.slice();c[i]=flipFirst(c[i]);return c}
+ /* the nodes whose hash differs between two trees, as "level:index" keys */
+ function diff(a,b){var out={};a.forEach(function(lv,k){lv.forEach(function(h,j){if(b[k][j]!==h)out[k+':'+j]=1})});return out}
+ /* green when digest, signature and a pinned chain all hold; amber when only the chain is unpinned; red otherwise */
+ function tokenState(r){return (r.digestBound&&r.signatureVerified)?(r.chainedToRoot?'pass':'cond'):'caught'}
+ function checkTokens(root,tokens){return Promise.all(tokens.map(function(t){
+  return window.__ocgVerifyRfc3161(t.proof,root,t.authority).then(function(r){return {authority:t.authority,label:t.label,serial:t.serial,genTime:r.genTime||t.gen_time,state:tokenState(r)}})}))}
+ return {pair:pair,buildTree:buildTree,proofFor:proofFor,foldProof:foldProof,flipFirst:flipFirst,tamper:tamper,diff:diff,tokenState:tokenState,checkTokens:checkTokens};
+})();
+</script>
+<script>
+var ST=window.PWK.STAIR,COUNT=[10,5,3,2,1],NAMES=['L','A','B','C','Root'];
+/* The ten runs of the session, as the Agent Staircase page and the timestamped session receipt page record them. */
+var GC=['#38BDF8','#9B72F5','#14B8A6'];
+var RUN=[
+ {s:'x402 Base',t:'Signed for Base, checked on Base',v:'PASS',g:0},
+ {s:'replay',t:'Same signature replayed on Ethereum',v:'REFUSE',g:0},
+ {s:'x402 ETH',t:'Signed for Ethereum, checked on Ethereum',v:'PASS',g:0},
+ {s:'mandate',t:'Signed Work Mandate',v:'SIGNED',g:1},
+ {s:'conform',t:'Conformance run under the mandate',v:'4 OF 4 RAN',g:1},
+ {s:'escalated',t:'Supervised-autonomy run under the mandate',v:'ESCALATED',g:1},
+ {s:'UTI',t:'EMIR UTI completeness',v:'',g:2},
+ {s:'UPI',t:'EMIR UPI validity',v:'',g:2},
+ {s:'lifecycle',t:'EMIR lifecycle event',v:'',g:2},
+ {s:'readiness',t:'EMIR reporting readiness',v:'',g:2}];
+var TW=['Sigstore','DigiCert','FreeTSA'];
+var STEPS=['The ten runs','Pairing up','The root matches','Three timestamps','Tamper one leaf','Prove one leaf','What it cannot tell'];
+var W=72,HB=34,DD=66,PITCH=78,ROW=64,TH=100;
+var ICON={caught:'✗',pass:'✓',cond:'?'};
+function $(i){return document.getElementById(i)}
+var world=$('world'),scene=$('scene');
+var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function el(c,p,css){var e=document.createElement('div');e.className=c;if(css)e.style.cssText=css;if(p)p.appendChild(e);return e}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function h8(h){return h.slice(0,8)}
+function sh(h){return h.slice(0,8)+'…'+h.slice(-4)}
+function faces(p,w,h,d){var f={};
+ f.fr=el('f fr',p,'inset:0;transform:translateZ('+d/2+'px)');f.bk=el('f bk',p,'inset:0;transform:rotateY(180deg) translateZ('+d/2+'px)');
+ f.rt=el('f rt',p,'width:'+d+'px;height:'+h+'px;left:'+(w/2-d/2)+'px;top:0;transform:rotateY(90deg) translateZ('+w/2+'px)');
+ f.lf=el('f lf',p,'width:'+d+'px;height:'+h+'px;left:'+(w/2-d/2)+'px;top:0;transform:rotateY(-90deg) translateZ('+w/2+'px)');
+ f.top=el('f top',p,'width:'+w+'px;height:'+d+'px;left:0;top:'+(h/2-d/2)+'px;transform:rotateX(90deg) translateZ('+h/2+'px)');
+ f.bt=el('f bt',p,'width:'+w+'px;height:'+d+'px;left:0;top:'+(h/2-d/2)+'px;transform:rotateX(-90deg) translateZ('+h/2+'px)');return f}
+
+/* ---- Geometry: where every brick sits. Odd nodes get a dashed copy to their right, and the pair sits between them. ---- */
+var X=[],GX=[[],[],[],[],[]],YL=[];
+for(var k=0;k<5;k++)YL[k]=(2-k)*ROW;
+X[0]=[];for(var i=0;i<10;i++)X[0][i]=(i-4.5)*PITCH;
+for(k=1;k<5;k++){X[k]=[];for(var j=0;j<COUNT[k];j++){var a=2*j,b=2*j+1;
+ if(b<COUNT[k-1])X[k][j]=(X[k-1][a]+X[k-1][b])/2;else{GX[k-1][a]=X[k-1][a]+PITCH;X[k][j]=(X[k-1][a]+GX[k-1][a])/2}}}
+/* the three timestamp towers stand left of the upper tree, clear of brick C1 */
+var TX=[];TX[2]=Math.round(X[3][0]-W/2-14-W/2);TX[1]=TX[2]-(W+8);TX[0]=TX[1]-(W+8);
+var TY=(YL[3]+YL[4])/2;
+var minX=TX[0]-W/2,maxX=-1e9;
+for(k=0;k<5;k++){X[k].forEach(function(x){maxX=Math.max(maxX,x+W/2);minX=Math.min(minX,x-W/2)});GX[k].forEach(function(x){if(x!==undefined)maxX=Math.max(maxX,x+W/2)})}
+var CXM=(minX+maxX)/2,SPAN=maxX-minX;
+
+/* ---- Bricks ---- */
+function mk(x,y,w,h,col,name,sub,cls){var e=el('brick '+(cls||''),world,'width:'+w+'px;height:'+h+'px;left:'+(x-w/2)+'px;top:'+(y-h/2)+'px;--col:'+col),f=faces(e,w,h,DD),nm=[],sb=[];
+ [f.fr,f.bk].forEach(function(fc){var n=el('nm',fc);n.textContent=name;nm.push(n);var s=el('sb',fc);s.textContent=sub||'';sb.push(s);el('bd',fc)});
+ return {e:e,nm:nm,sb:sb,up:[],pv:null,twin:null,x:x,y:y}}
+function setSub(r,t){r.sb.forEach(function(s){s.textContent=t})}
+var plate=el('box plate',world,'width:'+(SPAN+60)+'px;height:16px;left:'+(CXM-(SPAN+60)/2)+'px;top:'+(YL[0]+HB/2+2)+'px');faces(plate,SPAN+60,16,200);
+var N=[];
+function bar(x,y,w,h){return el('cn',world,'left:'+x+'px;top:'+y+'px;width:'+w+'px;height:'+h+'px')}
+for(k=0;k<5;k++){N[k]=[];for(j=0;j<COUNT[k];j++){var col,nm;
+ if(k===0){col=GC[RUN[j].g];nm=(j+1)+' '+RUN[j].s}else if(k===4){col='#D4A847';nm='Root'}else{col='#60A5FA';nm=NAMES[k]+(j+1)}
+ var r=mk(X[k][j],YL[k],W,HB,col,nm,'','hid');r.k=k;r.j=j;r.name=nm;N[k][j]=r}}
+/* dashed copies of the odd nodes, plus connectors from every child (and copy) up to its parent */
+for(k=1;k<5;k++)for(j=0;j<COUNT[k];j++){var P=N[k][j],a2=2*j,b2=2*j+1,kids=[N[k-1][a2]];
+ var topC=YL[k-1]-HB/2,botP=YL[k]+HB/2,mid=(topC+botP)/2;
+ if(b2<COUNT[k-1])kids.push(N[k-1][b2]);else{var o=N[k-1][a2],g=mk(GX[k-1][a2],YL[k-1],W,HB,o.e.style.getPropertyValue('--col'),o.name+' copy','','hid ghost');g.k=k-1;g.j=a2;g.name=o.name+' copy';g.ghostOf=o;o.twin=g;kids.push(g);
+  var tg=el('card3',null);tg.style.left=g.x+'px';tg.style.top=(g.y-HB/2-15)+'px';var tp=el('tg3',tg);tp.textContent='paired with itself';g.pill=tg}
+ P.pv=bar(P.x-1.5,botP,3,mid-botP);
+ kids.forEach(function(c){var v=bar(c.x-1.5,mid,3,topC-mid),hh=null;if(Math.abs(c.x-P.x)>0.5)hh=bar(Math.min(c.x,P.x)-1.5,mid-1.5,Math.abs(c.x-P.x)+3,3);c.up=hh?[v,hh]:[v];c.parent=P});
+ P.kids=kids}
+var tw=[];
+for(i=0;i<3;i++){var t=mk(TX[i],TY,W,TH,'#9B72F5',TW[i],'','hid tower');t.state=null;tw.push(t)}
+var tbar=bar(TX[2]+W/2,YL[4]-2,N[4][0].x-W/2-(TX[2]+W/2),4);
+/* billboard layer for the "paired with itself" pills */
+var cl=el('cardlayer',world);
+N.forEach(function(row){row.forEach(function(r){if(r.twin){cl.appendChild(r.twin.pill)}})});
+var ALL=[];N.forEach(function(row){row.forEach(function(r){ALL.push(r);if(r.twin)ALL.push(r.twin)})});
+
+/* ---- State helpers ---- */
+function pnt(r,st,ex){var c=r.e.classList;c.remove('caught','pass','cond','chk','sib');if(st)c.add(st);if(ex)c.add(ex);
+ r.e.querySelectorAll('.bd').forEach(function(b){b.textContent=ICON[st]||''});
+ r.up.concat(r.pv?[r.pv]:[]).forEach(function(b){b.classList.remove('pass','caught','cond','chk','sib');if(st)b.classList.add(st);else if(ex)b.classList.add(ex)})}
+function paint(r,st,ex){pnt(r,st,ex);if(r.twin)pnt(r.twin,st,ex)}
+function showBrick(r,on){r.e.classList.toggle('hid',!on);if(r.pill)r.pill.classList.toggle('on',on)}
+function showUp(r,on){r.up.forEach(function(b){b.classList.toggle('on',on)})}
+function showPv(r,on){if(r.pv)r.pv.classList.toggle('on',on)}
+function dim(r,on){r.e.classList.toggle('dim',on);r.up.concat(r.pv?[r.pv]:[]).forEach(function(b){b.classList.toggle('dim',on)})}
+function revealLevel(k,on){N[k].forEach(function(r){showBrick(r,on);showPv(r,on);if(r.twin)showBrick(r.twin,on);if(r.kids)r.kids.forEach(function(c){showUp(c,on)})})}
+function resetAll(){ALL.forEach(function(r){paint(r,null);r.e.classList.remove('dim');dim(r,false);showBrick(r,false);showUp(r,false);showPv(r,false)});
+ N[0].forEach(function(r){showBrick(r,true)});
+ tw.forEach(function(t){pnt(t,null);setSub(t,'');showBrick(t,false)});tbar.classList.remove('on','pass','caught','cond');tbar.style.background=''}
+function showHashes(levels){levels.forEach(function(lv,k){lv.forEach(function(h,j){var r=N[k][j];setSub(r,h8(h));if(r.twin)setSub(r.twin,h8(h))})})}
+function clearHashes(){ALL.forEach(function(r){setSub(r,'')})}
+
+/* ---- Camera (same drag model as the other 3D pages) ---- */
+var rx=-16,ry=-22,tx=-16,ty=-22,S=.6,tS=.6,dragging=false,lx=0,ly=0,moved=0;
+function sOver(){var w=scene.clientWidth;return Math.max(.25,Math.min(1.4,w/(SPAN*(w<600?1.55:.98))))}
+function render(){var sw=(!dragging&&!reduce)?6*Math.sin(performance.now()/3300):0;
+ rx+=(tx-rx)*.1;ry+=(ty+sw-ry)*.1;S+=(tS-S)*.08;tS=sOver();
+ cl.style.setProperty('--by',(-ry)+'deg');cl.style.setProperty('--bx',(-rx)+'deg');cl.style.setProperty('--cs',Math.max(1,Math.min(2.2,.85/S)));
+ world.style.transform='scale('+S+') rotateX('+rx+'deg) rotateY('+ry+'deg) translate3d('+(-CXM)+'px,0px,0px)';requestAnimationFrame(render)}
+scene.addEventListener('pointerdown',function(e){dragging=true;moved=0;lx=e.clientX;ly=e.clientY;scene.classList.add('drag')});
+window.addEventListener('pointermove',function(e){if(!dragging)return;var dx=e.clientX-lx,dy=e.clientY-ly;moved+=Math.abs(dx)+Math.abs(dy);lx=e.clientX;ly=e.clientY;ty+=dx*.45;tx=Math.max(-70,Math.min(6,tx-dy*.3))});
+window.addEventListener('pointerup',function(){dragging=false;scene.classList.remove('drag')});
+window.addEventListener('pointercancel',function(){dragging=false;scene.classList.remove('drag')});
+
+/* ---- Data ---- */
+var BASE=null,TOK=null,TCACHE={},TREEALT={};
+var LEAVES=ST.hashes.slice();
+var tIdx=1,pIdx=3;           /* leaf to tamper (default leaf 2) and leaf to prove (default leaf 4, the Work Mandate), 0-based */
+var cur=0,token=0,timers=[],playing=false,ready=false;
+function later(fn,ms){timers.push(setTimeout(fn,ms))}
+function clearTimers(){timers.forEach(clearTimeout);timers=[]}
+function prep(){return TC.buildTree(LEAVES).then(function(lv){BASE=lv;return TC.checkTokens(ST.root,ST.bindings)}).then(function(r){TOK=r;ready=true})}
+function altTree(i){if(!TREEALT[i])TREEALT[i]=TC.buildTree(TC.tamper(LEAVES,i));return TREEALT[i]}
+function altTokens(i){if(!TCACHE[i])TCACHE[i]=altTree(i).then(function(lv){return TC.checkTokens(lv[lv.length-1][0],ST.bindings)});return TCACHE[i]}
+function clock(gt){var s=gt instanceof Date?gt.toISOString():String(gt||'');return s.length>=19?s.slice(11,19)+'Z':s}
+function tokText(t){var ok=t.state==='pass',nr=t.state==='cond';
+ return '<li class="'+(ok?'t-ok':(nr?'t-nr':'t-bad'))+'">'+esc(t.label)+' · '+esc(String(t.genTime instanceof Date?t.genTime.toISOString():t.genTime))+' · serial '+esc(t.serial)+' · '+(ok?'✓ imprint, signature and pinned chain verified':(nr?'? imprint and signature verify; chain not pinned in this page':'✗ the imprint does not match this root'))+'</li>'}
+function showTowers(tk,i0){tk.forEach(function(t,i){later(function(){var T=tw[i];showBrick(T,true);pnt(T,t.state);setSub(T,clock(t.genTime))},reduce?0:(i0||0)+i*500)});
+ later(function(){tbar.classList.add('on');tbar.classList.remove('pass','caught','cond');tbar.classList.add(tk.some(function(t){return t.state==='caught'})?'caught':(tk.some(function(t){return t.state==='cond'})?'cond':'pass'))},reduce?0:(i0||0)+1600)}
+
+/* ---- Cards ---- */
+function head(k,title){return '<div class="stopcard"><h2>Step '+(k+1)+' of 7 · '+esc(title)+'</h2>'}
+function picker(which,sel){var h='<div class="ctl" role="group" aria-label="Choose a leaf"><span class="flbl">'+(which==='t'?'Edit leaf:':'Prove leaf:')+'</span>';
+ for(var i=0;i<10;i++)h+='<button class="b'+(i===sel?' on':'')+'" data-leaf="'+i+'" title="'+esc(RUN[i].t)+'">'+(i+1)+'</button>';return h+'</div>'}
+function runsList(){var h='<ul class="runs">';RUN.forEach(function(r,i){h+='<li style="border-left-color:'+GC[r.g]+'"><span class="rn">'+(i+1)+'</span><span>'+esc(r.t)+(r.v?' <span class="rv">'+esc(r.v)+'</span>':'')+'</span><span class="rh">'+h8(LEAVES[i])+'</span></li>'});return h+'</ul>'}
+function card0(){return head(0,'The ten runs')+'<p class="story">One agent session on 26 September 2026 produced ten runs: three x402 payment authorization checks (one a deliberate replay that the check refused), a signed Work Mandate with two runs under it, and four EMIR checks done in the browser. Every run ends in one execution hash. The ten bricks on the bottom row are those hashes in session order, each labelled with its position, a short name and the first eight hex characters.</p>'+runsList()+'<p class="src">Source · the <a href="agent-staircase-explainer.html">Agent Staircase</a> run and the <a href="timestamped-session-receipt-explainer.html">timestamped session receipt</a> page</p></div>'}
+function card1(){var A1=BASE[1][0];
+ return head(1,'Pairing up')+'<p class="story">The worker folds the ten hashes into one root. It writes two neighbouring hashes side by side as 128 characters of text and takes the SHA-256 of that text. Ten leaves become five nodes, then three, then two, then the root, and every hash on these bricks was just computed in your browser.</p>'
+ +'<pre class="rc">A1 = SHA-256( '+sh(LEAVES[0])+' + '+sh(LEAVES[1])+' )\n   = '+sh(A1)+'\nlevels: 10 → 5 → 3 → 2 → 1</pre>'
+ +'<p class="story">A5 has no partner, so B3 is the hash of A5 joined to a copy of itself. B3 has no partner either, so C2 is the hash of B3 joined to a copy of itself. The two dashed bricks are those copies. Changing the rule at all, for instance by hashing bytes instead of hex text, gives a different root.</p>'
+ +'<p class="src">Source · build_session_receipt in the MCP worker</p></div>'}
+function card2(){var root=BASE[4][0],same=root===ST.root;
+ return head(2,'The root matches')+'<p class="story">'+(same?'The tree folds to the same root that was timestamped. The ten hashes on the bottom row are therefore the ten hashes that the authorities signed.':'The tree folds to a different root from the timestamped one, so these hashes are not the ones that were signed.')+'</p>'
+ +'<pre class="rc">computed here   '+root+'\ntimestamped     '+ST.root+'</pre>'
+ +'<div class="verdict" style="border-color:'+(same?'#22C55E':'#EF4444')+'">'+(same?'Match: the recomputed root equals the timestamped root, character for character.':'Mismatch: the recomputed root differs from the timestamped root.')+'</div></div>'}
+function card3(){return head(3,'Three timestamps')+'<p class="story">Three independent authorities signed this root on 26 September 2026. For each token the page checks that the imprint inside it equals the root, that its signature verifies, and that its certificate chains to a root certificate pinned in this page.</p><ul class="toks">'+TOK.map(tokText).join('')+'</ul>'
+ +'<p>Sigstore shows amber. Its imprint and signature check against the root, but its certificate chain is not pinned in this page, so that chain was not checked here and the result is never counted as a pass.</p></div>'}
+function pathNames(d){var names=[];for(var k=0;k<5;k++)for(var j=0;j<COUNT[k];j++)if(d[k+':'+j])names.push(N[k][j].name);return names}
+function card4(alt,toks,d){var root=alt[4][0],names=pathNames(d),total=21,changed=names.length,i=tIdx,o=LEAVES[i],n=TC.flipFirst(o),allBad=toks.every(function(t){return t.state==='caught'});
+ return head(4,'Tamper one leaf')+'<p class="story">Leaf '+(i+1)+' ('+esc(RUN[i].t)+') is edited by one character: its first hex digit changes from '+o.charAt(0)+' to '+n.charAt(0)+'. Only the hashes above it are recomputed. Click a leaf, or pick one here.</p>'+picker('t',i)
+ +'<ul class="rx"><li class="r-caught"><span class="ic">✗</span><div><span class="rb">'+changed+' of '+total+' hashes changed</span><br>'+esc(names.join(', '))+'. The other '+(total-changed)+' bricks recompute to the same values and stay green.</div></li>'
+ +'<li class="r-caught"><span class="ic">✗</span><div><span class="rb">New root '+sh(root)+'</span><br>The timestamped root is '+sh(ST.root)+'. '+(allBad?'All three timestamp tokens refuse the new root, because each signed the original one.':'The timestamp tokens signed the original root.')+'</div></li></ul>'
+ +'<div class="verdict">An edit to any single run cannot hide. It moves the root, and the root no longer fits the timestamps. The bricks that did not change show an auditor which runs are still intact.</div></div>'}
+function card5(path,fold,ok){var i=pIdx,rows='';
+ path.forEach(function(s,n){var parent=N[s.level+1][s.index>>1].name,sibName=s.dup?N[s.level][s.index].name+' copy':N[s.level][s.sibIndex].name;
+  rows+='<li class="r-pass"><span class="ic">'+(n+1)+'</span><div><span class="rb">'+esc(parent)+' = SHA-256( '+(s.side==='L'?sh(s.hash)+' + running':'running + '+sh(s.hash))+' )</span><br>sibling '+esc(sibName)+' · '+h8(s.hash)+'…'+(s.dup?' · this node is paired with itself':'')+' · result '+h8(fold.steps[n])+'…</div></li>'});
+ return head(5,'Prove one leaf')+'<p class="story">To show that leaf '+(i+1)+' ('+esc(RUN[i].t)+') was part of the timestamped session, an auditor needs its hash, '+path.length+' sibling hashes and the timestamp tokens. Starting from the leaf, the auditor repeats the pairing up one path and compares the end with the signed root. Pick another leaf to see its path.</p>'+picker('p',i)
+ +'<ul class="rx">'+rows+'</ul><div class="verdict" style="border-color:'+(ok?'#22C55E':'#EF4444')+'">'+(ok?'The path ends at '+sh(fold.root)+', which equals the timestamped root.':'The path ends at '+sh(fold.root)+', which does not equal the timestamped root.')+' Only '+path.length+' sibling hashes were used. The other runs stay private: their inputs and outputs never appear, only the hashes that sit beside this path.</div></div>'}
+function card6(){return head(6,'What it cannot tell')+'<div class="facts"><div class="fact"><span class="fb">A root shows</span>Which ten hashes were folded together. If any one of them changes, the root changes.</div>'
+ +'<div class="fact"><span class="fb">A timestamp shows</span>That this root existed by 02:48:57 UTC on 26 September 2026, according to three authorities that are not AINumbers.</div>'
+ +'<div class="fact cant"><span class="fb">Neither shows</span>That any run was computed correctly, that its inputs were true, or who authored it. Those questions belong to other layers: <a href="auditors-walk-explainer.html">The auditor\'s walk</a> checks them layer by layer, and <a href="break-the-wall-explainer.html">Break the wall</a> shows which layer catches which kind of tampering.</div></div></div>'}
+
+/* ---- The walk ---- */
+var HUD=['Ten runs, ten hashes','Pairing up, level by level','The recomputed root matches','Three timestamps over the root','One leaf edited, one path red','One leaf proved from four hashes','What the tree cannot tell'];
+function setHint(){$('hint').textContent=cur===4||cur===5?'drag to rotate · click a leaf to choose it':'drag to rotate'}
+function dotOf(k){if(!ready||k>cur)return '';return k===2?(BASE[4][0]===ST.root?'ok':'bad'):(k===3?(TOK.some(function(t){return t.state==='caught'})?'bad':(TOK.some(function(t){return t.state==='cond'})?'warn':'ok')):(k===4?'bad':(k===5?'ok':'')))}
+function allBuilt(){for(var k=1;k<5;k++)revealLevel(k,true);showHashes(BASE)}
+function goto(k){clearTimers();token++;var t=token;cur=k;resetAll();setHint();$('hud').textContent=HUD[k];
+ var card=$('stop');
+ if(!ready){card.innerHTML='<h2>Computing the tree</h2><p>Hashing the ten leaves and checking the three timestamp tokens in this page.</p>';clearHashes();prep().then(function(){if(t===token)goto(k)});return}
+ var delay=reduce?0:900;
+ if(k===0){clearHashes();N[0].forEach(function(r,i){setSub(r,h8(LEAVES[i]))});card.innerHTML=card0()}
+ else if(k===1){clearHashes();N[0].forEach(function(r,i){setSub(r,h8(LEAVES[i]))});card.innerHTML=card1();
+  for(var L=1;L<5;L++)(function(L){later(function(){if(t!==token)return;revealLevel(L,true);BASE[L].forEach(function(h,j){var r=N[L][j];setSub(r,h8(h));if(r.twin)setSub(r.twin,h8(h))})},(reduce?0:500)+(L-1)*delay)})(L)}
+ else if(k===2){allBuilt();var ok=BASE[4][0]===ST.root;card.innerHTML=card2();paint(N[4][0],ok?'pass':'caught')}
+ else if(k===3){allBuilt();paint(N[4][0],'pass');card.innerHTML=card3();showTowers(TOK,300)}
+ else if(k===4){allBuilt();card.innerHTML='<h2>Recomputing</h2><p>Editing leaf '+(tIdx+1)+' and rebuilding the tree.</p>';var i=tIdx;
+  Promise.all([altTree(i),altTokens(i)]).then(function(res){if(t!==token||tIdx!==i)return;var alt=res[0],toks=res[1],d=TC.diff(BASE,alt);
+   card.innerHTML=card4(alt,toks,d);
+   for(var L=0;L<5;L++)(function(L){later(function(){if(t!==token)return;alt[L].forEach(function(h,j){var r=N[L][j],bad=!!d[L+':'+j];setSub(r,h8(h));if(r.twin)setSub(r.twin,h8(h));paint(r,bad?'caught':'pass')})},(reduce?0:300)+L*(reduce?0:450))})(L);
+   showTowers(toks,reduce?0:300+5*450)})}
+ else if(k===5){allBuilt();var p=pIdx,path=TC.proofFor(BASE,p);card.innerHTML='<h2>Recomputing</h2><p>Folding leaf '+(p+1)+' with its sibling hashes.</p>';
+  TC.foldProof(LEAVES[p],path).then(function(fold){if(t!==token||pIdx!==p)return;var ok=fold.root===ST.root;card.innerHTML=card5(path,fold,ok);
+   var onPath={};path.forEach(function(s){onPath[s.level+':'+s.index]=1});onPath['4:0']=1;
+   var sibKey={};path.forEach(function(s){if(!s.dup)sibKey[s.level+':'+s.sibIndex]=1});
+   ALL.forEach(function(r){var key=r.k+':'+r.j;if(r.ghostOf){if(!(path.some(function(s){return s.dup&&s.level===r.k&&s.index===r.j}))){dim(r,true)}}else if(!onPath[key]&&!sibKey[key])dim(r,true)});
+   path.forEach(function(s){if(s.dup){var g=N[s.level][s.index].twin;if(g)pnt(g,null,'sib')}else paint(N[s.level][s.sibIndex],null,'sib')});
+   paint(N[0][p],null,'chk');path.forEach(function(s){paint(N[s.level+1][s.index>>1],null,'chk')});
+   path.forEach(function(s,n){later(function(){if(t!==token)return;var nd=N[s.level+1][s.index>>1];setSub(nd,h8(fold.steps[n]));if(nd.twin)setSub(nd.twin,h8(fold.steps[n]));
+    var match=fold.steps[n]===BASE[s.level+1][s.index>>1];paint(nd,match?'pass':'caught');if(s.level===0)paint(N[0][p],'pass')},(reduce?0:500)+n*(reduce?0:650))})})}
+ else{allBuilt();paint(N[4][0],'pass');card.innerHTML=card6();showTowers(TOK,0)}
+ if(playing&&k<6)later(function(){if(playing&&t===token)goto(k+1)},reduce?2500:[5200,8400,5600,7200,8200,9400][k]);
+ if(k>=6){if(playing&&window.AIN_LOOP)later(function(){if(playing&&t===token)goto(0)},reduce?2500:7000);else playing=false}}
+function pauseWalk(){playing=false;clearTimers()}
+function startWalk(from){playing=true;goto(from)}
+/* choose a leaf from the card buttons or by clicking a brick */
+function choose(i){playing=false;clearTimers();if(cur===4){tIdx=i;goto(4)}else if(cur===5){pIdx=i;goto(5)}}
+$('stop').addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('button[data-leaf]');if(b)choose(+b.dataset.leaf)});
+N[0].forEach(function(r,i){r.e.addEventListener('click',function(){if(moved<6&&(cur===4||cur===5))choose(i)})});
+render();goto(0);
+setTimeout(function(){if(cur===0&&!playing&&!timers.length)startWalk(1)},2600);
+
+/* Adapter for the shared control shell */
+window.AIN3D={mode:'step',steps:function(){return STEPS},index:function(){return cur},
+ go:function(i){var was=playing;pauseWalk();i=Math.max(0,Math.min(6,i));if(was&&i<6)startWalk(i);else goto(i)},playing:function(){return playing},
+ play:function(){startWalk(cur>=6?0:cur)},pause:function(){pauseWalk()},restart:function(){pauseWalk();startWalk(0)},
+ dotClass:dotOf};
+</script>
+<script>/* Shared control shell: the same menu as the 2D explainers, driving this page's own engine through window.AIN3D. */
+(function(){
+var A=window.AIN3D;if(!A)return;var $=function(i){return document.getElementById(i)};
+if(window.AIN_SPEED==null)window.AIN_SPEED=1;
+window.AIN_LOOP=$('aLoop').checked;
+$('aLoop').onchange=function(){window.AIN_LOOP=this.checked};
+$('aSpeed').onclick=function(e){var b=e.target.closest('button');if(!b)return;var s=+b.dataset.speed;if(A.setSpeed)A.setSpeed(s);window.AIN_SPEED=s;[].forEach.call(this.children,function(x){x.classList.toggle('on',x===b)})};
+$('aPlay').onclick=function(){if(A.playing())A.pause();else A.play()};
+$('aRestart').onclick=function(){A.restart()};
+$('aNext').onclick=function(){A.go(A.index()+1)};
+$('aBack').onclick=function(){A.go(A.index()-1)};
+var sc=$('aScrub');
+sc.oninput=function(){var n=A.steps().length;if(A.mode==='time')A.seek(this.value/1000*A.total());else if(n)A.go(Math.round(this.value/1000*(n-1)))};
+document.addEventListener('keydown',function(e){var tg=e.target.tagName;if((tg==='INPUT'&&e.target.type!=='range')||tg==='TEXTAREA'||tg==='SELECT')return;
+ if(e.code==='Space'){e.preventDefault();$('aPlay').onclick()}else if(e.key==='r'||e.key==='R')A.restart();else if(e.key==='ArrowRight')$('aNext').onclick();else if(e.key==='ArrowLeft')$('aBack').onclick()});
+var key='';
+function upd(){var st=A.steps()||[],i=A.index(),n=st.length;
+ var lbl=A.playing()?'Pause':'Play';if($('aPlay').textContent!==lbl)$('aPlay').textContent=lbl;
+ var k=st.join('|');
+ if(k!==key){key=k;$('aDots').innerHTML=st.map(function(t,j){return '<button title="'+String(t).replace(/"/g,'&quot;')+'">'+(j+1)+'</button>'}).join('');
+  [].forEach.call($('aDots').children,function(b,j){b.onclick=function(){A.go(j)}})}
+ [].forEach.call($('aDots').children,function(d,j){d.classList.toggle('on',j===i);d.classList.toggle('done',j<i);var c=A.dotClass?A.dotClass(j):'';d.classList.toggle('ok',c==='ok');d.classList.toggle('warn',c==='warn');d.classList.toggle('bad',c==='bad')});
+ if(document.activeElement!==sc){
+  if(A.mode==='time'){var T=A.total()||1,p=A.pos();sc.value=Math.round(p/T*1000);$('aClock').textContent=p.toFixed(1)+'s / '+T.toFixed(0)+'s'}
+  else{sc.value=n>1?Math.round(Math.max(0,i)/(n-1)*1000):0;$('aClock').textContent=i<0?'not started':'step '+(i+1)+' of '+n}}
+}
+setInterval(upd,150);upd();
+})();</script>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../bazantic-walkthrough.html">Bazantic A/B Walkthrough</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

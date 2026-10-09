@@ -238,6 +238,16 @@ const NOT_A_GATE = new Map([
     "on commits that exist only after a merge, and the note it reads is written by the very " +
     "hook that would invoke it. Pre-push there is nothing to check, so parity has nothing to " +
     "demand (PREPUSH-ATTEST-CHECK-1)."],
+  ["pr-autofix.yml",
+    "pull_request only (PR-AUTOFIX-DERIVABLES-1) — the autofix.ci-pattern WRITER workflow: " +
+    "it runs the per-PR derivable writers (SO #59 §18 baseline bump via the ephemeral " +
+    "scratch assembly, gen-manifest-examples --write --only, check-ask-agent-block --write, " +
+    "check-a11y-tree --write) on the PR head branch and pushes the diff back as the " +
+    "spec-sync App. It gates no merge: the pushing run's exit 1 is the 're-run pending' " +
+    "signal by design and is not a required status check; the required set is unchanged. " +
+    "Its writer invocations are the --write/--update-baseline legs of gate scripts, not " +
+    "gate verdicts — the HARD-on-pull_request verdicts live in scripts-verify.yml's and " +
+    "land-verify.yml's promoted gate steps, which are classified here as usual."],
   ["scheduled-red-issue.yml",
     "workflow_call only (NIGHTLY-RED-ISSUE-OPENER-1) — the shared reusable tracker the three " +
     "report-only surfaces call as a final job to open/update/close ONE tracking issue per " +
@@ -564,19 +574,13 @@ const PREFLIGHT_ONLY = new Map([
     "the checker's own logic against in-memory fixtures and can only be reddened by a change to " +
     "that checker, which is exactly the PR shape scripts-verify.yml's path filter catches."],
   ["check-art220-table-parity.test.mjs", SELF_TEST],
-  // ── MANIFEST-EXAMPLES-ANNOTATIONS-1 (2026-09-18) ────────────────────────────
-  ["gen-manifest-examples.mjs",
-    "Manifest example/annotation freshness --check + its paired --self-test " +
-    "(MANIFEST-EXAMPLES-ANNOTATIONS-1): re-derives input_example / output_example / " +
-    "example_execution_hash from each tool's committed fixture vector[0], the MCP " +
-    "2026-07-28 annotations from the node's published status/gpu/kernel signals, and " +
-    "author/license, then compares. Hard in preflight; its CI route is scripts-verify.yml " +
-    "full preflight (the workflow runs `node scripts/preflight.mjs`), so a named workflow " +
-    "step would only duplicate the same suite. NOT a derived artifact: manifests are " +
-    "hand-and-generator-authored source under manifests/, never written main-side by " +
-    "derived-artifacts-regen.yml, so there is no writer to race. Reads only tracked repo " +
-    "files (manifests/, chaingraph/kernels/fixtures/, chaingraph.json) — no CI-only input. " +
-    "The --write and --update-baseline halves are builder commands, never workflow steps."],
+  // PR-AUTOFIX-DERIVABLES-1 removed the PREFLIGHT_ONLY entry for
+  // gen-manifest-examples.mjs: scripts-verify.yml now runs the --check gate as a
+  // NAMED, HARD-on-pull_request step (divergence from preflight's advisory
+  // classification DECLARED in DECLARED_DIVERGENCES below), so the old reason —
+  // "its CI route is the full preflight suite; a named workflow step would only
+  // duplicate the same suite" — no longer holds. The --write/--update-baseline
+  // halves run in pr-autofix.yml (NOT_A_GATE above).
   // ── MANIFEST-APPLY-1 (2026-09-22) ───────────────────────────────────────────
   ["apply-manifests.mjs",
     "Manifest desired-state drift --check + its paired --self-test (MANIFEST-APPLY-GATE-1): " +
@@ -804,23 +808,21 @@ const PREFLIGHT_ONLY = new Map([
     "input; the full-corpus pairing run costs ~2 min, the same CI-minutes trade as the other " +
     "VIA_PREFLIGHT verify-path gates."],
   // ── TOOLPAGE-ASK-AGENT-1 (2026-09-05) ────────────────────────────────────
-  ["check-ask-agent-block.mjs",
-    "Ask-your-agent copyable block on every live node page, emitted from the node's " +
-    "manifest (AGENT-REACH-BUILD-SPEC 3.6): freshness + exactly-one + tool-name==mcp_name " +
-    "+ deep-link-decodes-to-sample. Hard in preflight; its CI route is scripts-verify.yml's " +
-    "full preflight, so a named workflow step would only duplicate the same suite. Reads only " +
-    "tracked repo files — no CI-only input."],
+  // PR-AUTOFIX-DERIVABLES-1 removed the PREFLIGHT_ONLY entry for
+  // check-ask-agent-block.mjs: scripts-verify.yml now runs the freshness gate
+  // as a NAMED, HARD-on-pull_request step (it was never advisory anywhere —
+  // preflight ran it blocking in every context — so there is no divergence to
+  // declare; the named step surfaces the stamp class under its own name). The
+  // --write half runs in pr-autofix.yml (NOT_A_GATE above).
 
   // ── TOOLPAGE-A11Y-1 (2026-09-09) ─────────────────────────────────────────
-  ["check-a11y-tree.mjs",
-    "Accessibility-tree gate on every generated node page (AGENT-REACH-BUILD-SPEC §2 wave 2): " +
-    "aria-label === inputSchema property on every static form control, exactly one role=\"status\" " +
-    "live region announcing execution_hash + verdict, no duplicate accessible names, byte-fresh " +
-    "A11Y-TREE region + <meta name=\"ai-tool\"> + role=\"main\" landmark, down-only baseline ratchet. " +
-    "Hard in preflight; its CI route is scripts-verify.yml's full preflight (the workflow literally " +
-    "runs `node scripts/preflight.mjs`), so a named workflow step would only duplicate the same " +
-    "suite. Reads only tracked repo files — no CI-only input. Paired self-test: the same script's " +
-    "--self-test mode as its own GATES entry (GATE-SELFTEST-META-1)."],
+  // PR-AUTOFIX-DERIVABLES-1 removed the PREFLIGHT_ONLY entry for
+  // check-a11y-tree.mjs: scripts-verify.yml now runs the gate as a NAMED,
+  // HARD-on-pull_request step (never advisory anywhere — no divergence to
+  // declare; the named step surfaces the stamp class under its own name). The
+  // --write half runs in pr-autofix.yml (NOT_A_GATE above). Paired self-test
+  // unchanged: the same script's --self-test mode as its own GATES entry
+  // (GATE-SELFTEST-META-1).
 
   // ── TOOLPAGE-DEEPLINK-1 (2026-09-05) ─────────────────────────────────────
   ["check-deeplink-contract.mjs",
@@ -1256,6 +1258,25 @@ const DECLARED_DIVERGENCES = new Map([
       "because SO #35 forbids a shard PR from running the --enroll regen locally. Same shape as the " +
       "entry above: the local surface under-reports.",
   }],
+  ["scripts-verify.yml :: node scripts/gen-manifest-examples.mjs --check", {
+    ci: HARD,
+    preflight: SPLIT,
+    decided: "2026-10-08",
+    by: "PR-AUTOFIX-DERIVABLES-1 — recording the promotion this row wires, not deciding it here.",
+    why:
+      "PR-AUTOFIX-DERIVABLES-1 promotes the manifest-example drift gate to HARD on pull_request " +
+      "(scripts-verify.yml's named step), because the premise of the advisory downgrade is gone on " +
+      "this surface: the manifest examples ARE repairable inside the branch — the writer " +
+      "(gen-manifest-examples --write --only <id>) is deterministic from the PR's own manifests and " +
+      "now runs in-PR via pr-autofix.yml, and builders run the same command by hand — so no PR is " +
+      "structurally unable to satisfy the gate and SO #35's hand-off to the main-side regen does not " +
+      "apply to the PR-side verdict. preflight.mjs keeps the downgrade because the same command is " +
+      "derived-artifacts.mjs COVERED id 'manifest-examples', which exists for the REGEN path (the " +
+      "main-side --landed-only writer). The red census (RED-PATTERNS-4WK-2026-10-08 §1) measured ~8 " +
+      "merge_group ejects on exactly this drift, every one of which passed an advisory PR-side check " +
+      "first. Same shape as the land-verify.yml registry-kernel-resolve entry: the local surface " +
+      "under-reports.",
+  }],
 ]);
 
 // Commands that invoke an advisory gate's SCRIPT but are a DIFFERENT gate leg,
@@ -1449,7 +1470,14 @@ const DECLARED_SOFTENERS = new Map([
   // above the attest step; same pin-move.
   ["deploy-to-dreamhost.yml:continue-on-error:923",
    "attest step is advisory-first by design; promotion criterion on the step"],
-  ["unwired-gates.yml:continue-on-error:109",
+  // MAIN-GATES-AFTER-REGEN-1 (2026-10-08) moved it :109 → :146 — the
+  // unwired-gates.yml `on:` block swapped `push: main` for `workflow_run`
+  // (trigger comment), the workflow gained a workflow-level GATE_SHA env
+  // block plus the gates job's success/currency `if:` above the step, and
+  // the trigger comment was reflowed to keep the public file free of
+  // internal-governance row ids (check-internal-lang-leak's bare-wu-id
+  // class); same pin-move, no gate step below the trigger changed.
+  ["unwired-gates.yml:continue-on-error:146",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
    "continue-on-error is deliberate so the job surfaces drift without blocking. " +
    "Promotion to blocking removes this entry together with the continue-on-error."],

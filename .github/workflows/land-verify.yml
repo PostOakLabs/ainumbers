@@ -35,20 +35,40 @@ name: Land Verify
 # the coverage check has nothing to compare.
 
 on:
-  push:
+  # REGEN-COMPLETION TRIGGER (2026-10-08 move): main-side gates fire on the
+  # single-writer regen's
+  # COMPLETION, not on the bare PR-merge commit. Measured over the four weeks
+  # to 2026-10-08 (failed-run census, §4 fix 2): ~95 of 203 failed runs were
+  # push-triggered gates red-by-construction on the merge commit, BEFORE
+  # derived-artifacts-regen.yml landed its chore commit — shard freshness (36),
+  # nav-island (16), count-drift (14), §18 on push (10), sitemap/trust-signals
+  # stale — burying real reds and skipping Deploy. Every landing still reaches
+  # this workflow, on a tree whose derived artifacts are fresh:
+  #   · a push M to main triggers `Derived Artifacts Regen` (its `push: main`
+  #     trigger is unchanged). If the regen finds drift it commits R and pushes
+  #     it via the spec-sync App, which re-triggers the regen; that follow-up
+  #     no-op run completes successfully and THIS workflow fires on that
+  #     completion with github.event.workflow_run.head_sha = R — the commit
+  #     main ends up with.
+  #   · if the regen finds no drift, its single run completes successfully and
+  #     this fires with head_sha = M.
+  # The regen exposes which commit that is in its own run output: the
+  # commit-and-push step prints the pushed sha, every regen commit carries the
+  # literal message "chore(derived): regenerate shared derived artifacts on
+  # main", and a no-op run prints "nothing to commit". A drift-repairing
+  # landing produces TWO completions; the first fires while head_sha is still
+  # M — stale-by-construction, already superseded on the default branch — and
+  # the substantive job's `if:` below STANDS DOWN on it (github.sha, the
+  # default-branch head at event time, has already moved past head_sha), the
+  # same classification deploy-to-dreamhost.yml's supersede job makes. The
+  # second completion carries head_sha = R and runs every gate. A regen that
+  # did NOT conclude success gates nothing here; it reds its own run and its
+  # own alert channels, and check-orch-status's main_tip reads a tip with no
+  # successful gate run as red — a red main never hides behind a skipped run.
+  workflow_run:
+    workflows: [ "Derived Artifacts Regen" ]
+    types: [ completed ]
     branches: [ main ]
-    paths:
-      - 'chaingraph/chaingraph.json'
-      - 'chaingraph/**.receipt.json'
-      - 'scripts/compute-proof-baseline.json'
-      - 'chaingraph/zkvm-compute-integrity.html'
-      - 'chaingraph/chaingraph-hub.html'
-      - 'chaingraph/kernels/**'
-      - 'chaingraph/graph/nodes/**'
-      - 'scripts/run-proptests.mjs'
-      - 'scripts/check-fv-floor-coverage.mjs'
-      - 'scripts/fv-floor-coverage-baseline.json'
-      - '.github/workflows/land-verify.yml'
   pull_request:
     # ready_for_review added (DRAFTCI-1, 2026-07-20): draft PRs are skipped
     # below, so a readied draft must trigger a fresh run or it could merge
@@ -77,25 +97,40 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   # A newer push/synchronize on the same PR ref supersedes its prior
   # in-progress run (2026-08-30) — letting the stale one
-  # finish is redundant CI time, not lost coverage. NEVER cancel a push:main
-  # run — that run also drives attest-fv-artifacts below, and a cancelled
-  # attestation just means the superseded commit goes unattested, which the
-  # next push's own attest already makes moot; still cheaper to just let it
-  # finish. NEVER cancel a merge_group run — a cancelled merge_group run
-  # reports nothing back to the queue, which deadlocks it rather than just
-  # leaving a stale red. cancel-in-progress fires only for the
-  # pull_request event.
+  # finish is redundant CI time, not lost coverage. A workflow_run run is
+  # never cancelled: the first completion of a drift-repairing landing stands
+  # down via its substantive job's `if:` in seconds, and the second completion
+  # drives attest-fv-artifacts below — a cancelled attestation just means the
+  # superseded commit goes unattested, which the surviving run's own attest
+  # already makes moot; still cheaper to just let it finish. NEVER cancel a
+  # merge_group run — a cancelled merge_group run reports nothing back to the
+  # queue, which deadlocks it rather than just leaving a stale red.
+  # cancel-in-progress fires only for the pull_request event.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
+# The commit this run gates. On workflow_run, github.sha is the head of the
+# default branch at event time — it has already moved to the regen's repair
+# commit when one exists, which is exactly the supersede signal the
+# substantive job's `if:` reads — and the tree to gate is the completed
+# regen's head_sha, never the event-time branch head (it can race past what
+# the regen actually validated; same rule as deploy-to-dreamhost.yml's
+# DEPLOY_SHA). On pull_request / merge_group, github.ref is the merge/queue
+# ref — byte-for-byte today's default checkout. Event values cross via env:,
+# never `${{ }}` inside run: bodies (the rule every step follows).
+env:
+  GATE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+
 jobs:
   relevant:
     name: relevant
     # Always-report shape: see scripts-verify.yml's identical job for the
-    # full rationale. Push events report hit=true unconditionally (the push
-    # `paths:` filter above already scoped dispatch).
+    # full rationale. workflow_run / workflow_dispatch events report hit=true
+    # unconditionally (there is no path filter left to scope them; the
+    # workflow_run trigger fires on every completed main regen and the suite
+    # runs in full — same as the old push:main dispatch).
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -131,10 +166,28 @@ jobs:
     # chaingraph.json before anything merges). GitHub still runs pull_request workflows on
     # drafts, so those PRs showed a red X despite the draft rule — the red
     # carried no information. Skip drafts; the run fires on ready_for_review
-    # and the push-to-main trigger remains the backstop.
+    # and the workflow_run trigger (after the single-writer regen) is the
+    # main-side backstop.
     #
     # Always-report shape: also gated on needs.relevant.outputs.hit.
-    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.relevant.outputs.hit == 'true'
+    #
+    # The regen-completion workflow_run guard (2026-10-08 move): only a
+    # SUCCESSFUL main
+    # regen may drive these gates, and only while its commit is still the
+    # default branch's head at event time. The first completion of a
+    # drift-repairing landing fires with head_sha = the merge commit M —
+    # stale-by-construction for every shared derived artifact, and already
+    # superseded by the regen bot's commit R (github.sha has moved past it) —
+    # so this job stands down there and the second completion, head_sha = R,
+    # runs every gate on the fresh tree. Zero red runs on the merge commit is
+    # the point of the move; a stale artifact the regen will NOT repair still
+    # reds here on the surviving completion, because github.sha never moves.
+    if: >-
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false) &&
+      needs.relevant.outputs.hit == 'true' &&
+      (github.event_name != 'workflow_run' ||
+        (github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.head_sha == github.sha))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -142,6 +195,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
+          # The one commit this run gates (workflow-level GATE_SHA — the
+          # completed regen's head_sha on the workflow_run trigger; the
+          # merge/queue ref unchanged on pull_request / merge_group).
+          ref: ${{ env.GATE_SHA }}
           # fetch-depth 0 (was 1): the touched-floor-files diff step below needs to resolve
           # github.event.before / the PR base sha as a real commit to diff against — the same
           # requirement jsdoc-checkjs.yml already solved this way. depth 1 would leave BASE unresolvable
@@ -204,11 +261,35 @@ jobs:
       # #1759 shape). The .test.mjs beside it is the red/green control proving
       # all three states (PR advisory / merge_group HARD under DERIVED_ROOT /
       # main HARD).
-      - name: §18 compute-proof coverage
+      - name: §18 compute-proof coverage (HARD on pull_request — per-PR derivables promotion)
         env:
           DERIVED_ROOT: ${{ steps.derived.outputs.root }}
         run: |
-          node scripts/check-compute-proof-coverage.mjs
+          # The per-PR derivables row: the §18 ratchet + provenance are now HARD on
+          # pull_request, exactly as on merge_group. The removed downgrade is the
+          # bare invocation below, which inherited the gate's internal PR-advisory
+          # disposition (check-compute-proof-coverage.mjs disposition() via
+          # isMainContext(): GITHUB_EVENT_NAME === 'pull_request' -> warn + exit 0
+          # — the gate's own PR-side relaxation). That relaxation's
+          # premise ("a PR is FORBIDDEN to reassemble chaingraph.json, so a branch
+          # is structurally unable to satisfy the ratchet") no longer holds for the
+          # BASELINE leg: scripts/compute-proof-baseline.json is an ordinary
+          # committed file, and pr-autofix.yml now writes its bump on the PR head
+          # branch (the bump rides the node PR). A gate a PR can satisfy
+          # must not read advisory at label time — the census's 44 merge_group
+          # ejects all passed a green, advisory §18 first. Same plumbing
+          # scripts-verify.yml uses to present merge_group's shape: a shell-level
+          # env prefix (GITHUB_* names are runner-reserved and a step-level env
+          # entry would be silently ignored — measured 2026-09-11, run 34654251817).
+          # merge_group + DERIVED_ROOT keeps its third state (hard, scratch
+          # monolith); push:main keeps its hard exit; only the pull_request arm
+          # changes. The writer-side refusal of a REAL regression (proven at pin,
+          # deferred now) is untouched — that stays red in every context.
+          if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
+            GITHUB_EVENT_NAME=push node scripts/check-compute-proof-coverage.mjs
+          else
+            node scripts/check-compute-proof-coverage.mjs
+          fi
           node scripts/check-compute-proof-coverage.test.mjs
 
       - name: §18 digest-freshness ratchet (receipt digest vs current kernel source)
@@ -544,8 +625,10 @@ jobs:
 
   # GitHub artifact attestations (actions/attest) over the FV artifacts this
   # workflow just gated — chaingraph.json, every *.receipt.json, and the §18
-  # compute-proof baseline. Runs only on push to main (needs: land-verify, so
-  # it only attests a commit that already passed every gate above) — never on
+  # compute-proof baseline. Runs only on the workflow_run trigger (the
+  # regen-completion replacement for the old `push: main` gate —
+  # needs: land-verify, so it only attests a commit that already passed every
+  # gate above, and the superseded first completion skips with it) — never on
   # pull_request, where a fork PR cannot hold id-token/attestations write
   # anyway. Calls actions/attest directly (not the thin attest-build-provenance
   # wrapper), full-commit-SHA pinned, with least-privilege permissions scoped
@@ -559,7 +642,7 @@ jobs:
   attest-fv-artifacts:
     name: actions/attest — FV artifact provenance
     needs: land-verify
-    if: github.event_name == 'push'
+    if: github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -569,6 +652,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
+          # The one commit this run attests (workflow-level GATE_SHA — the
+          # completed regen's head_sha on the workflow_run trigger), never the
+          # bare event-time default-branch head.
+          ref: ${{ env.GATE_SHA }}
           fetch-depth: 1
           persist-credentials: false
 

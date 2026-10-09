@@ -1,0 +1,451 @@
+name: PR Autofix
+
+# The per-PR derivables autofix (2026-10-08), staged from the four-week census of
+# failed push/merge_group runs (§4 fix 1 there): the autofix.ci / pre-commit.ci
+# pattern for the per-PR derivables. The census measured 203 failed
+# push/merge_group runs in four weeks; 44 were the §18 deferred
+# ratchet/provenance ejecting a node PR that lacked its baseline bump, ~24 were
+# or a11y writer blocks, ~8 were manifest-example drift. Every one of those is
+# deterministic from the PR's own files and has an existing `--write` command —
+# but none was enforced before the label, because the PR-side gate is advisory
+# while the merge_group gate is hard (a PR-side advisory is not CI-enforcement).
+# PR's OWN deterministic writers on the PR head branch:
+#
+#   1. new/changed node under chaingraph/graph/nodes/
+#        -> the §18 bump rides the node PR:
+#           `node scripts/check-compute-proof-coverage.mjs --update-baseline`
+#           against an EPHEMERALLY ASSEMBLED speculative monolith (the same two
+#           commands the merge_group jobs run: assemble-chaingraph --out scratch
+#           + derived-artifacts --out, then DERIVED_ROOT) — exactly the tree
+#           merge_group judges. A bare --update-baseline on the PR checkout
+#           would read the stale committed monolith and write a no-op baseline;
+#           the scratch assembly is what makes the bump real (measured
+#           2026-10-08 on a synthetic committed deferred shard: only the
+#           DERIVED_ROOT run over the derived-artifacts --out scratch absorbs
+#           it — "new node(s) accepted", deferred 4 -> 5, the exact #2284 bump
+#           shape). Refuse-on-regression is unchanged: a real proof regression
+#           (proven at pin, deferred now) makes the writer exit 1 and NOTHING
+#           is auto-edited — a deliberate re-park of a proven node is a Tim
+#           call, not a bot edit.
+#   2. new/changed manifests/*.manifest.json
+#        -> `node scripts/gen-manifest-examples.mjs --write --only <id>` per
+#           manifest (id = basename minus .manifest.json).
+#   3. new/changed page under chaingraph/*.html or tools/*.html
+#        -> `node scripts/check-ask-agent-block.mjs --write --only <node id>`
+#           per manifest-backed node page (the ask-agent writer scoping rule: --only
+#           scopes the WRITE pass; the CHECK pass stays whole-tree and runs in
+#           scripts-verify.yml, now HARD on pull_request), plus
+#           `node scripts/check-a11y-tree.mjs --write` (no --only flag exists;
+#           the writer itself rewrites only pages whose chrome drifted —
+#           byte-exact pages are skipped — and holds hand-authored pages and
+#           tools/ pages out of scope by its own fence).
+#   4. a NEW root *.html
+#        -> fail with the exact `gen-sitemap-html` rootPages message. That list
+#           is curated prose (icon/name/href per page); NOT auto-edited.
+#
+# If the tree changed: commit by EXPLICIT pathspec as the spec-sync App (the
+# same token path automerge-label.yml and derived-artifacts-regen.yml mint —
+# never GITHUB_TOKEN, whose pushes do not retrigger PR checks) and push to the
+# PR head branch, then exit 1 with "autofix pushed <sha>, re-run pending". The
+# fresh push re-runs every check; the follow-up run on the bot-authored head
+# is skipped by the loop guards, and the re-tested run reports the PR's real
+# verdicts. If the tree did not change: exit 0.
+#
+# LOOP GUARDS (both required by the row):
+#   - same-repo heads only: a fork's head repo differs from the base repo,
+#     which the App token cannot push to (same guard automerge-label.yml uses).
+#   - skip when the head commit is the App's own: the job-level `if` checks
+#     the event actor, and the guard step below additionally checks the head
+#     commit's author/committer login — a bot-authored head never re-enters
+#     the writers.
+#
+# WRITER-SCOPE CONTAINMENT (row hard stop: "a writer changes files outside the
+# PR's own touched set"): after the writers run, every changed path is checked
+# against the PR's touched set plus the three writers' own baseline outputs
+# (scripts/compute-proof-baseline.json, scripts/a11y-baseline.json,
+# scripts/manifest-examples-baseline.json). Any escape fails the run BEFORE a
+# commit is attempted — the autofix may narrow a PR's red, never widen its
+# diff.
+#
+# NOT_A_GATE in check-workflow-gate-parity.mjs: this workflow gates no merge —
+# its exit 1 on the pushing run is the "re-run pending" signal, not a required
+# check verdict. The required set is unchanged (rulesets are outside this
+# row's fence); scripts-verify.yml and land-verify.yml carry the four promoted
+# PR-side gate steps that re-test the autofixed tree HARD.
+
+on:
+  pull_request:
+    # Default types (opened, synchronize, reopened) are exactly the head-push
+    # lifecycle this workflow needs. Drafts are autofixed too: a bump that
+    # rides the PR branch is already correct at ready_for_review time.
+
+permissions:
+  contents: read
+
+concurrency:
+  # Serialise per PR, never cancel: a cancelled run could die between commit
+  # and push; queueing the next run is strictly safer (the follow-up run on a
+  # bot-authored head is skipped by the loop guards above).
+  group: pr-autofix-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  autofix:
+    name: Run the PR's own deterministic writers
+    # Same-repo heads only (fork heads are unpushable for the App token), and
+    # never a run triggered by the App's own push (the primary loop guard; the
+    # head-commit guard inside the job is the second layer).
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'ainumbers-spec-sync[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint PR push token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-pull-requests: write
+          permission-contents: write
+
+      - name: Checkout PR head branch
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          # The HEAD branch, not the default merge ref: the autofix commits and
+          # pushes THIS tree back to the PR branch, so it must be the PR's own
+          # head tree, byte for byte.
+          ref: ${{ github.event.pull_request.head.ref }}
+          # fetch-depth 0: the touched-set derivation diffs origin/main...HEAD
+          # (a merge-base diff), so origin/main must resolve as a real commit.
+          fetch-depth: 0
+          # Do NOT persist any credential in .git/config (zizmor: artipacked).
+          # The App token is supplied only at push time, exactly as
+          # derived-artifacts-regen.yml does.
+          persist-credentials: false
+
+      # Second loop-guard layer: the head commit this run would autofix must
+      # not be the App's own. grep -F (fixed-string) is load-bearing — the
+      # login contains [bot], which is a regex character class.
+      - name: Guard — skip the App's own commits
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+          BOT_LOGIN: ainumbers-spec-sync[bot]
+        run: |
+          set -euo pipefail
+          WHO="$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq '[.author.login // "", .committer.login // ""] | join(" ")')"
+          echo "head commit author/committer logins: $WHO"
+          if grep -qF "$BOT_LOGIN" <<< "$WHO"; then
+            echo "::notice title=Skipped::head commit $HEAD_SHA is authored/committed by $BOT_LOGIN — autofix already ran; nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node 20
+        if: steps.guard.outputs.skip != 'true'
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: Resolve base and classify the PR's touched set
+        if: steps.guard.outputs.skip != 'true'
+        id: touched
+        run: |
+          set -euo pipefail
+          if ! git rev-parse --verify --quiet origin/main >/dev/null; then
+            git fetch origin main
+          fi
+          git cat-file -e origin/main^{commit} || { echo "::error::origin/main does not resolve; cannot derive the PR's touched set"; exit 1; }
+
+          mapfile -d '' -t FILES < <(git diff -z --name-only origin/main...HEAD)
+          printf 'PR touches %d file(s) vs merge-base(origin/main, HEAD)\n' "${#FILES[@]}"
+
+          NODES=(); MANIFESTS=(); PAGES=(); ROOTHTML=()
+          for f in "${FILES[@]}"; do
+            case "$f" in
+              chaingraph/graph/nodes/*.json) NODES+=("$f") ;;
+              manifests/*.manifest.json) MANIFESTS+=("$f") ;;
+              chaingraph/*.html|tools/*.html) PAGES+=("$f") ;;
+            esac
+          done
+          # NEW root *.html only: added in this PR, no directory component.
+          mapfile -d '' -t ADDEDHTML < <(git diff -z --diff-filter=A --name-only origin/main...HEAD -- '*.html')
+          for f in "${ADDEDHTML[@]}"; do
+            case "$f" in
+              */*) : ;;
+              *) ROOTHTML+=("$f") ;;
+            esac
+          done
+
+          # NUL-safe handoff to the writer steps (filenames are PR-author
+          # controlled — same injection-safe plumbing as land-verify.yml's
+          # touched-floor-files step: NUL-delimited lists on disk, mapfile -d ''
+          # on read, never re-joined into a single unquoted string).
+          : > "${RUNNER_TEMP}/nodes.z"; : > "${RUNNER_TEMP}/manifests.z"; : > "${RUNNER_TEMP}/pages.z"
+          for f in "${NODES[@]}"; do printf '%s\0' "$f" >> "${RUNNER_TEMP}/nodes.z"; done
+          for f in "${MANIFESTS[@]}"; do printf '%s\0' "$f" >> "${RUNNER_TEMP}/manifests.z"; done
+          for f in "${PAGES[@]}"; do printf '%s\0' "$f" >> "${RUNNER_TEMP}/pages.z"; done
+          printf 'nodes=%d manifests=%d pages=%d new_root_html=%d\n' "${#NODES[@]}" "${#MANIFESTS[@]}" "${#PAGES[@]}" "${#ROOTHTML[@]}"
+
+          {
+            echo "has_nodes=$([[ ${#NODES[@]} -gt 0 ]] && echo true || echo false)"
+            echo "has_manifests=$([[ ${#MANIFESTS[@]} -gt 0 ]] && echo true || echo false)"
+            echo "has_pages=$([[ ${#PAGES[@]} -gt 0 ]] && echo true || echo false)"
+            echo "has_root_html=$([[ ${#ROOTHTML[@]} -gt 0 ]] && echo true || echo false)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: New root page — the curated rootPages list is prose, not autofixable
+        if: steps.guard.outputs.skip != 'true' && steps.touched.outputs.has_root_html == 'true'
+        run: |
+          set -euo pipefail
+          # The EXACT failure text gen-sitemap-html.mjs prints for this class
+          # (scripts/gen-sitemap-html.mjs, missingRootPages branch), so the red
+          # reads identically wherever it surfaces. The list is curated prose;
+          # the fix is a hand edit adding icon/name/href for each new page.
+          mapfile -d '' -t ADDEDHTML < <(git diff -z --diff-filter=A --name-only origin/main...HEAD -- '*.html')
+          FIRST=1
+          for f in "${ADDEDHTML[@]}"; do
+            case "$f" in
+              */*) : ;;
+              *)
+                if [ "$FIRST" = "1" ]; then
+                  echo '::error title=gen-sitemap-html: root page(s) missing from the curated rootPages list. Add each one (icon/name/href) so sitemap.html stays complete::'
+                  FIRST=0
+                fi
+                echo "gen-sitemap-html: root page(s) missing from the curated rootPages list. Add each one (icon/name/href) so sitemap.html stays complete:"
+                echo "  $f"
+                ;;
+            esac
+          done
+          exit 1
+
+      - name: §18 bump rides the node PR — scratch assembly + --update-baseline
+        if: steps.guard.outputs.skip != 'true' && steps.touched.outputs.has_nodes == 'true'
+        env:
+          NODES_Z: ${{ runner.temp }}/nodes.z
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t NODE_FILES < "$NODES_Z"
+          printf 'Node shard(s) touched — the §18 bump rides this PR:\n'
+          printf '  %q\n' "${NODE_FILES[@]}"
+          # EPHEMERAL speculative monolith — the same tree merge_group judges,
+          # via the same two commands the merge_group jobs run (land-verify.yml
+          # / scripts-verify.yml "Ephemeral derived tree"). The second command
+          # is load-bearing, not duplication: derived-artifacts --out runs the
+          # full COVERED regen pass in a throwaway worktree of HEAD, and its
+          # first generator is `assemble-chaingraph.mjs --enroll` — so a
+          # brand-new committed shard is ENROLLED into the scratch monolith
+          # even though the PR never touches chaingraph.meta.json (measured
+          # 2026-10-08: a committed synthetic deferred shard absent from the
+          # bare assemble --out output is present after derived-artifacts --out,
+          # and only the DERIVED_ROOT bump run absorbs it: "new node(s)
+          # accepted", deferred 4 -> 5, the exact #2284 bump shape). Nothing
+          # derived is ever committed from the scratch; asserted below.
+          SCRATCH="${RUNNER_TEMP}/derived-tree"
+          mkdir -p "${SCRATCH}/chaingraph"
+          node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
+          node scripts/derived-artifacts.mjs --out "${SCRATCH}"
+          # The writer REFUSES on a real regression (proven at pin, deferred
+          # now) — that exit is the row's direction (b): still fails, NOT
+          # auto-edited. On success it absorbs only brand-new deferred nodes
+          # (mcp_name form, unchanged emitter).
+          DERIVED_ROOT="$SCRATCH" node scripts/check-compute-proof-coverage.mjs --update-baseline
+          # The scratch tree must never reach the checkout (the
+          # the merge_group jobs' assert-clean shape): at this point the
+          # ONLY permitted dirty path is the §18 baseline itself.
+          BASELINE_ONLY="$(git status --porcelain | grep -v 'compute-proof-baseline.json' || true)"
+          if [ -n "$BASELINE_ONLY" ]; then
+            echo "::error::autofix dirtied the checkout beyond the §18 baseline — the ephemeral derived tree must never touch it:"
+            printf '%s\n' "$BASELINE_ONLY"
+            exit 1
+          fi
+          echo "checkout untouched by the scratch assembly — only scripts/compute-proof-baseline.json may differ."
+
+      - name: Manifest examples — gen-manifest-examples --write --only <id> per manifest
+        if: steps.guard.outputs.skip != 'true' && steps.touched.outputs.has_manifests == 'true'
+        env:
+          MANIFESTS_Z: ${{ runner.temp }}/manifests.z
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t MANIFEST_FILES < "$MANIFESTS_Z"
+          for f in "${MANIFEST_FILES[@]}"; do
+            id="$(basename "$f" .manifest.json)"
+            case "$id" in
+              *,*) echo "::error::manifest id '$id' contains a comma; cannot pass through --only safely"; exit 1 ;;
+            esac
+            echo "▶ gen-manifest-examples --write --only $id"
+            node scripts/gen-manifest-examples.mjs --write --only "$id"
+          done
+
+      - name: Ask-agent + a11y writer stamps on the PR's own pages (scoped writes)
+        if: steps.guard.outputs.skip != 'true' && steps.touched.outputs.has_pages == 'true'
+        env:
+          PAGES_Z: ${{ runner.temp }}/pages.z
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t PAGE_FILES < "$PAGES_Z"
+          # --write --only <node id> scopes the WRITE pass to exactly this
+          # node's page. Two skips, both by design:
+          #   • a page without a manifest is hand-authored (no generated block
+          #     exists to write);
+          #   • a BRAND-NEW node is not a live id in the COMMITTED monolith yet
+          #     (the writer keys on chaingraph.json, which only the main-side
+          #     assembler folds — measured 2026-10-08: `--only <new-id>` exits
+          #     1 "not a live node id in chaingraph.json"). Its block was
+          #     authored in-PR by the builder; the whole-tree CHECK pass (now
+          #     HARD on pull_request in scripts-verify.yml) is what judges it.
+          for f in "${PAGE_FILES[@]}"; do
+            id="$(basename "$f" .html)"
+            if [ ! -f "manifests/$id.manifest.json" ]; then
+              echo "  skip ask-agent write for $f — no manifests/$id.manifest.json (hand-authored page, no generated block)"
+              continue
+            fi
+            if ! NODE_ID="$id" node -e "const cg=require('./chaingraph/chaingraph.json'); process.exit((cg.nodes||[]).some((n) => n.tool_id === process.env.NODE_ID && n.status === 'live') ? 0 : 1)"; then
+              echo "  skip ask-agent write for $id — not a live node in the committed monolith (brand-new node; the builder authored its block in-PR)"
+              continue
+            fi
+            echo "▶ check-ask-agent-block --write --only $id"
+            node scripts/check-ask-agent-block.mjs --write --only "$id"
+          done
+          # No --only flag exists on the a11y writer; it rewrites only pages
+          # whose chrome drifted — INCLUDING pre-existing check-clean
+          # normalization drift on pages this PR never touched (measured
+          # 2026-10-08: nine main pages carry an older <meta name="ai-tool">
+          # placement the writer normalizes). The row scopes this write to the
+          # PR's own pages, so reverts outside the touched set right here and
+          # names them; the containment step below still hard-fails the run if
+          # anything outside survives the revert.
+          echo "▶ check-a11y-tree --write (restricted to this PR's pages; out-of-scope reverts are discarded)"
+          if ! node scripts/check-a11y-tree.mjs --write; then
+            # Best-effort here BY DESIGN: a non-zero write pass (e.g. a stale
+            # a11y-baseline entry, whose removal is a hand edit — the ratchet
+            # only goes down) must not eat the §18 bump this run exists to
+            # push. The HARD whole-tree CHECK pass in scripts-verify.yml is
+            # the verdict that reds the PR.
+            echo "::warning title=check-a11y-tree --write exited non-zero::a drift the writer cannot fix (e.g. a stale baseline entry) needs a hand edit; the HARD check pass in scripts-verify.yml reds this PR until then."
+          fi
+          mapfile -d '' -t FILES_ALL < <(git diff -z --name-only origin/main...HEAD)
+          mapfile -d '' -t DIRTY < <(git diff -z --name-only)
+          for f in "${DIRTY[@]}"; do
+            keep=0
+            for t in "${FILES_ALL[@]}"; do [ "$f" = "$t" ] && keep=1 && break; done
+            case "$f" in
+              scripts/a11y-baseline.json|scripts/compute-proof-baseline.json|scripts/manifest-examples-baseline.json) keep=1 ;;
+            esac
+            if [ "$keep" = "0" ]; then
+              echo "  discarded a11y-writer rewrite outside this PR's touched set: $f (check-clean on main — not this PR's diff to widen)"
+              git checkout -- "$f"
+            fi
+          done
+
+      - name: Containment — the writers changed nothing outside this PR's touched set
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          # Status records in `git status --porcelain -z` look like "XY path"
+          # where X or Y may itself be a space (an unstaged edit is " M path").
+          # Renames carry the orig path as a SECOND, unprefixed record — the
+          # state flag below keeps it whole (the writers never rename, but the
+          # parser must not corrupt one silently either).
+          mapfile -d '' -t RAW < <(git status --porcelain -z)
+          CHANGED=()
+          PREV_RENAME=0
+          for r in "${RAW[@]}"; do
+            if [ "$PREV_RENAME" = "1" ]; then
+              p="$r"; PREV_RENAME=0
+            elif [[ "$r" =~ ^.[A-Z?!\ ][[:space:]] ]]; then
+              p="${r:3}"
+              case "${r:0:1}" in R|C) PREV_RENAME=1 ;; esac
+            else
+              p="$r"
+            fi
+            [ -n "$p" ] && CHANGED+=("$p")
+          done
+
+          if [ "${#CHANGED[@]}" -eq 0 ]; then
+            echo "Tree did not change — no derivable drift in this PR."
+            exit 0
+          fi
+          echo "autofix changed:"
+          printf '  %q\n' "${CHANGED[@]}"
+
+          # Allowed = the PR's own touched set (files the writers may rewrite
+          # in place) + the three writers' own baseline outputs.
+          mapfile -d '' -t FILES < <(git diff -z --name-only origin/main...HEAD)
+          : > "${RUNNER_TEMP}/allowed.txt"
+          for f in "${FILES[@]}"; do printf '%s\n' "$f" >> "${RUNNER_TEMP}/allowed.txt"; done
+          printf '%s\n' scripts/compute-proof-baseline.json scripts/a11y-baseline.json scripts/manifest-examples-baseline.json >> "${RUNNER_TEMP}/allowed.txt"
+          sort -u -o "${RUNNER_TEMP}/allowed.txt" "${RUNNER_TEMP}/allowed.txt"
+
+          printf '%s\n' "${CHANGED[@]}" | sort -u > "${RUNNER_TEMP}/changed.txt"
+          ESCAPED="$(comm -23 "${RUNNER_TEMP}/changed.txt" "${RUNNER_TEMP}/allowed.txt")"
+          if [ -n "$ESCAPED" ]; then
+            echo "::error::autofix hard stop — a writer changed files outside the PR's own touched set:"
+            printf '%s\n' "$ESCAPED"
+            echo "The autofix may narrow a PR's red, never widen its diff. Nothing was committed."
+            exit 1
+          fi
+          echo "Containment clean — every changed path is inside the PR's touched set (+ the writers' own baselines)."
+
+      - name: Commit and push the autofix diff (or exit 0 on a no-op)
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          s="$(git status --porcelain)"
+          if [ -z "$s" ]; then
+            echo "autofix: no derivable drift in this PR — nothing to write. Exiting 0."
+            exit 0
+          fi
+          echo "autofix will commit:"
+          printf '%s\n' "$s"
+
+          # Explicit pathspec only, one `git add` per path — `git add` aborts
+          # the WHOLE command on a pathspec that matches nothing, so a phantom
+          # entry would silently stage nothing (the measured
+          # derived-artifacts-regen.yml lesson). Status records look like
+          # "XY path" with X/Y possibly a space; renames carry the orig path
+          # as a second unprefixed record and are kept whole (the writers
+          # never rename).
+          mapfile -d '' -t RAW < <(git status --porcelain -z)
+          PREV_RENAME=0
+          for r in "${RAW[@]}"; do
+            if [ "$PREV_RENAME" = "1" ]; then
+              p="$r"; PREV_RENAME=0
+            elif [[ "$r" =~ ^.[A-Z?!\ ][[:space:]] ]]; then
+              p="${r:3}"
+              case "${r:0:1}" in R|C) PREV_RENAME=1 ;; esac
+            else
+              p="$r"
+            fi
+            [ -n "$p" ] || continue
+            git add -- "$p"
+          done
+
+          git config user.name  "ainumbers-spec-sync[bot]"
+          git config user.email "ainumbers-spec-sync[bot]@users.noreply.github.com"
+          # Two -m flags, not one multi-line literal: an unindented continuation
+          # line inside `run: |` silently invalidates the whole workflow file
+          # (measured 2026-08-16: 11 zero-job failure runs across every branch).
+          git commit \
+            -m "chore(autofix): apply PR derivables (#${PR_NUMBER})" \
+            -m "Automated by .github/workflows/pr-autofix.yml: the per-PR derivables (the §18 baseline bump, manifest examples, ask-agent + a11y writer stamps) are deterministic from this PR's own files and ride the PR branch."
+
+          # App-authored push: a GITHUB_TOKEN-authored push would not retrigger
+          # the PR's checks (the whole reason this row exists); the App's does.
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push origin "HEAD:${HEAD_REF}"
+          SHA="$(git rev-parse HEAD)"
+          echo "autofix pushed ${SHA}, re-run pending"
+          echo "### autofix pushed ${SHA}, re-run pending" >> "$GITHUB_STEP_SUMMARY"
+          # The pushing run FAILS BY DESIGN (the autofix.ci pattern): the red
+          # is the signal that a fix-up commit was pushed and every check is
+          # re-running on it.
+          exit 1

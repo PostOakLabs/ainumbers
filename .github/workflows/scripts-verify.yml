@@ -34,40 +34,23 @@ name: Scripts Verify
 # fails/cancels.
 
 on:
-  push:
+  # REGEN-COMPLETION TRIGGER (2026-10-08 move): main-side gates fire on the
+  # single-writer regen's
+  # COMPLETION, not on the bare PR-merge commit (measured four-week census:
+  # ~95 of 203 failed runs were push-triggered gates red-by-construction on
+  # the merge commit before the regen's chore commit landed). Every landing
+  # still reaches this workflow on a fresh tree — the trigger mechanics, the
+  # two-completions-per-drift-repairing-landing shape, the stand-down on the
+  # superseded first completion, and the regen's own exposure of which commit
+  # this is are documented at the top of land-verify.yml, which shares it.
+  # The old push `paths:` filter survives as the ci-paths.json key
+  # "scripts-verify" (the relevance job below diffs against it on
+  # pull_request / merge_group); on workflow_run there is nothing to scope —
+  # the suite runs in full, exactly as it did on every push:main dispatch.
+  workflow_run:
+    workflows: [ "Derived Artifacts Regen" ]
+    types: [ completed ]
     branches: [ main ]
-    paths:
-      - 'scripts/**'
-      - 'chaingraph/vm/scripts/**'
-      - 'chaingraph/graph/chains/**'
-      # check-clause-digest.mjs (2026-08-16) gates NEW/CHANGED chaingraph/graph/nodes/*.json
-      # shards, but this filter never included that path — PR #1291 added three non-compliant
-      # node shards and Scripts Verify never ran on that diff at all. "Green in CI" there meant
-      # "never dispatched," not "passed."
-      - 'chaingraph/graph/nodes/**'
-      # any workflow edit runs the full preflight so check-workflow-gate-parity
-      # sees a newly-added CI gate and fails if preflight doesn't also run it
-      - '.github/workflows/**'
-      # 2026-08-28: the bot heal commit e0c21019 for
-      # fv-explainer.html touched only that file - outside this filter, so the
-      # staleness red ran unwatched ~13 min until the next watched-path push.
-      # Watch the file. MUST stay byte-identical to the scripts-verify list in
-      # scripts/ci-paths.json (the relevant job consumes the same list).
-      - 'fv-explainer.html'
-      # 2026-09-18: GATE INPUTS, not gate code. This suite runs manifest-derived
-      # generated-block gates — check-ask-agent-block, gen-webmcp-registrations
-      # --check, check-a11y-tree — each of which rebuilds a page block FROM a
-      # manifest (+ fixture 0 for the sample input, + _page-chrome.mjs for the
-      # block bytes). With these paths absent,
-      # a manifest-editing PR skipped the whole job: PR #1942 reported
-      # `Full preflight gate suite | skipped` alongside a green
-      # `scripts-verify / required`, staled the ask-agent block on five node
-      # pages, and — because push:main was filtered identically — main's own runs
-      # stayed green too. The defect became visible only when the NEXT builder's
-      # pre-push preflight refused to push from a clean main.
-      - 'manifests/**'
-      - 'chaingraph/kernels/fixtures/**'
-      - 'chaingraph/_page-chrome.mjs'
   pull_request:
     # ready_for_review added (DRAFTCI-2, 2026-07-20): draft PRs are skipped
     # below, so a readied draft must trigger a fresh run or it could merge
@@ -115,33 +98,45 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   # A newer push/synchronize on the same PR ref supersedes its prior
   # in-progress run (2026-08-30) — letting the stale one
-  # finish is redundant CI time, not lost coverage. Also cancels a stale
-  # push:main run: derived-artifacts-regen.yml commits a regen fix-up on
-  # the same `github.ref` shortly after most human pushes to main, and this
-  # workflow has no push-only downstream job depending on it (unlike
-  # land-verify.yml's attest-fv-artifacts) — so the newer commit's run
-  # fully supersedes the older one. Measured 2026-08-30 run 33315676452: a
-  # push-triggered run genuinely red on stale derived artifacts
-  # (debt-ledger) ran for 9 minutes before reporting red, while the regen
-  # bot's own push, 36s later, produced a clean green run for the same
-  # ref — cancelling the stale one stops that redundant red from ever
-  # completing. NEVER cancel a merge_group run — a cancelled merge_group
-  # run reports nothing back to the queue, which deadlocks it rather than
-  # just leaving a stale red.
+  # finish is redundant CI time, not lost coverage. The same expression also
+  # cancels a superseded workflow_run run (the 2026-10-08 regen-completion
+  # move): a
+  # drift-repairing landing fires this workflow twice — the first completion
+  # (head_sha = the merge commit, stale-by-construction, stood down by the
+  # substantive job's `if:` below) is cancelled by the second completion
+  # (head_sha = the regen bot's fresh commit) seconds later, the newer run
+  # wins exactly as deploy-to-dreamhost.yml's global group enforces. NEVER
+  # cancel a merge_group run — a cancelled merge_group run reports nothing
+  # back to the queue, which deadlocks it rather than just leaving a stale
+  # red.
   cancel-in-progress: ${{ github.event_name != 'merge_group' }}
 
 permissions:
   contents: read
 
+# The commit this run gates. On workflow_run, github.sha is the head of the
+# default branch at event time — it has already moved to the regen's repair
+# commit when one exists, which is exactly the supersede signal the
+# substantive jobs' `if:` reads — and the tree to gate is the completed
+# regen's head_sha, never the event-time branch head (it can race past what
+# the regen actually validated; same rule as deploy-to-dreamhost.yml's
+# DEPLOY_SHA). On pull_request / merge_group, github.ref is the merge/queue
+# ref — byte-for-byte today's default checkout.
+env:
+  GATE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+
 jobs:
   relevant:
     name: relevant
     # Always-report shape: fast path-relevance check, always dispatches (see
-    # pull_request trigger comment above). On push this always reports hit=true — the
-    # workflow's own `paths:` push filter already scoped dispatch, so there's nothing
-    # further to decide. On pull_request it diffs base...head against the SAME path
-    # list (scripts/ci-paths.json key "scripts-verify") used by the push trigger, so
-    # the two can never silently diverge.
+    # pull_request trigger comment above). On workflow_run / workflow_dispatch
+    # this always reports hit=true — there is no `paths:` filter left to scope
+    # dispatch (the workflow_run trigger fires on every completed main regen
+    # and the suite runs in full, same as the old push:main dispatch), so
+    # there's nothing further to decide. On pull_request it diffs base...head
+    # against the SAME path list (scripts/ci-paths.json key "scripts-verify")
+    # that scoped the retired push trigger, so the two can never silently
+    # diverge.
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -177,12 +172,35 @@ jobs:
     # chaingraph.json before anything merges). GitHub still runs pull_request workflows on
     # drafts, so those PRs showed a red X despite the draft rule — the red
     # carried no information. Skip drafts; the run fires on ready_for_review
-    # and the push-to-main trigger remains the backstop.
+    # and the workflow_run trigger (after the single-writer regen) is the
+    # main-side backstop.
     #
     # Always-report shape: also gated on needs.relevant.outputs.hit — an
     # irrelevant PR (no touched path) skips this job entirely; the reporter job
     # below still reports green in seconds via `skipped`.
-    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.relevant.outputs.hit == 'true'
+    #
+    # The regen-completion workflow_run guard (2026-10-08 move): only a
+    # SUCCESSFUL main
+    # regen may drive this suite, and only while its commit is still the
+    # default branch's head at event time. The first completion of a
+    # drift-repairing landing fires with head_sha = the merge commit M —
+    # stale-by-construction for every shared derived artifact, and already
+    # superseded by the regen bot's commit R (github.sha has moved past it) —
+    # so this job stands down there and the second completion, head_sha = R,
+    # runs the full suite on the fresh tree. Zero red runs on the merge
+    # commit is the point of the move; a stale artifact the regen will NOT
+    # repair still reds here on the surviving completion, because github.sha
+    # never moves. On workflow_run the ephemeral-derived-tree step below does
+    # NOT mount (its push/merge_group/dispatch conditions don't match), so
+    # DERIVED_ROOT stays empty and the gates judge the COMMITTED tree — the
+    # same shape as the regen bot's own push today, which is the correct
+    # tree: the surviving completion's head IS the regen's output.
+    if: >-
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false) &&
+      needs.relevant.outputs.hit == 'true' &&
+      (github.event_name != 'workflow_run' ||
+        (github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.head_sha == github.sha))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -195,6 +213,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
+          # The one commit this run gates (workflow-level GATE_SHA — the
+          # completed regen's head_sha on the workflow_run trigger; the
+          # merge/queue ref unchanged on pull_request / merge_group).
+          ref: ${{ env.GATE_SHA }}
           # fetch-depth 0 (was 1, 2026-08-16): check-clause-digest.mjs needs to resolve origin/main
           # and merge-base(origin/main, HEAD) to diff NEW/CHANGED node shards correctly. depth 1
           # leaves origin/main unresolvable on a pull_request checkout (which fetches only the merge
@@ -353,6 +375,53 @@ jobs:
             node scripts/preflight.mjs
           fi
 
+      # ── the per-PR derivables row: the four per-PR derivable gates, HARD on pull_request ──
+      # The four-week red census of failed merge_group runs measured 44 §18
+      # ratchet/provenance ejects, ~8 manifest-example drift ejects and ~24 missing
+      # ask-agent/a11y writer-stamp reds, all of which passed a PR-side advisory (or
+      # writerless) shape first. pr-autofix.yml now runs the PR's OWN deterministic
+      # writers on the head branch, so a PR is no longer structurally unable to
+      # satisfy these four — and a gate a PR can satisfy must not read advisory at
+      # label time — local-advisory is not CI-enforcement. These steps are the removed downgrade, made explicit:
+      #   • §18 compute-proof coverage self-downgrades on pull_request via its
+      #     internal disposition() (isMainContext's GITHUB_EVENT_NAME ===
+      #     'pull_request' arm). The shell-level GITHUB_EVENT_NAME=push prefix
+      #     below drops exactly that arm here — the same presentation plumbing
+      #     this workflow's preflight step uses for merge_group (GITHUB_* names
+      #     are runner-reserved; a step-level env entry would be silently
+      #     ignored — measured 2026-09-11, run 34654251817). merge_group keeps
+      #     its DERIVED_ROOT third state; push:main keeps its hard exit.
+      #   • gen-manifest-examples --check is the COVERED 'manifest-examples' gate:
+      #     preflight downgrades it on a PR (advisoryGates()); this raw invocation
+      #     is BLOCKING in every context. The divergence from preflight is
+      #     DECLARED in check-workflow-gate-parity.mjs DECLARED_DIVERGENCES — same
+      #     shape as land-verify.yml's registry-kernel-resolve entry: the artifact
+      #     is repairable inside the branch (the writer runs in-PR), so the single-writer
+      #     hand-off to the main-side regen does not apply to the PR-side verdict.
+      #   • check-ask-agent-block.mjs and check-a11y-tree.mjs carry NO PR downgrade
+      #     anywhere (not in advisoryGates(), no internal split): preflight already
+      #     runs them blocking in every context, and these named steps restate that
+      #     enforcement as first-class CI lines so the stamp classes red with their
+      #     own name instead of a buried preflight failure.
+      # Everything else keeps its downgrade: count-drift, sitemap, trust-signals
+      # and the other main-side single-writer artifacts keep their downgrade untouched.
+      - name: §18 ratchet + provenance (HARD on pull_request — per-PR derivables promotion)
+        run: |
+          if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
+            GITHUB_EVENT_NAME=push node scripts/check-compute-proof-coverage.mjs
+          else
+            node scripts/check-compute-proof-coverage.mjs
+          fi
+
+      - name: Manifest examples drift (HARD on pull_request — per-PR derivables promotion)
+        run: node scripts/gen-manifest-examples.mjs --check
+
+      - name: Ask-agent block freshness (HARD on pull_request — per-PR derivables promotion)
+        run: node scripts/check-ask-agent-block.mjs
+
+      - name: Node page accessibility tree (HARD on pull_request — per-PR derivables promotion)
+        run: node scripts/check-a11y-tree.mjs
+
       # The single-writer law, proven, not assumed. The
       # ephemeral assembly above must have left the checkout byte-identical —
       # nothing derived is EVER committed from a run that assembled one.
@@ -400,7 +469,15 @@ jobs:
     # zero-touched shape: a notRun no-op pass, same as the unsharded gate.
     name: Mutation tier leg — shard ${{ matrix.shard }}/6
     needs: relevant
-    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.relevant.outputs.hit == 'true'
+    # Same regen-completion workflow_run guard as the main suite job
+    # above: the tier leg stands down on the superseded first completion and
+    # runs, sharded, on the surviving completion's fresh tree.
+    if: >-
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false) &&
+      needs.relevant.outputs.hit == 'true' &&
+      (github.event_name != 'workflow_run' ||
+        (github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.head_sha == github.sha))
     timeout-minutes: 330   # below the 360-min hosted-runner ceiling on purpose: an overrunning shard dies as a VISIBLE timeout on its own job, never as an unexplained 6h cancellation
     runs-on: ubuntu-latest
     permissions:
@@ -417,6 +494,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
+          # The one commit this run gates (workflow-level GATE_SHA — the
+          # completed regen's head_sha on the workflow_run trigger; the
+          # merge/queue ref unchanged on pull_request / merge_group).
+          ref: ${{ env.GATE_SHA }}
           # fetch-depth 0, same requirement as the main job: the tier gate's
           # touched-kernel set is a merge-base(origin/main, HEAD) consumer —
           # depth 1 leaves origin/main unresolvable and the set silently
