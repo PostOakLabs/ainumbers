@@ -85,9 +85,12 @@ permissions:
   contents: read
 
 # Never let two regen runs race a push to the same branch. Do NOT cancel a run
-# in progress — it may already be mid-push; queue instead.
+# in progress — it may already be mid-push; queue instead. Renamed 2026-10-08:
+# group derived-regen-main (was derived-artifacts-regen; semantics unchanged —
+# queue, never cancel). The commit step's rebase-and-retry loop is the second
+# layer, for a PR landing that slips in between the queue and this run's push.
 concurrency:
-  group: derived-artifacts-regen
+  group: derived-regen-main
   cancel-in-progress: false
 
 jobs:
@@ -548,7 +551,62 @@ jobs:
           # no manual dispatch, no `actions: write`. Checkout ran with
           # persist-credentials:false, so supply the token explicitly here only.
           git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push origin HEAD:main
+          # ── rebase-and-retry under landing races (added 2026-10-08) ────────
+          # Up to three attempts of a rebase onto the new main followed by the
+          # push. 21 of 39 regen-workflow failures in four weeks died at the
+          # old unconditional push with `! [rejected] HEAD -> main
+          # (non-fast-forward)`: another PR merged while this run was
+          # computing, the bot's commit was behind, and the run failed instead
+          # of rebasing, leaving main's derived artifacts stale until the next
+          # landing. NEVER --force, NEVER --no-verify, never widen the staging
+          # pathspec: the staging pathspec and the declared derived set come
+          # from the SAME scripts/derived-artifacts.mjs SSOT (the
+          # Derived-artifact declare parity preflight gate holds them equal),
+          # so a rebase can only conflict inside derived files, and re-running
+          # the regen pass on the fresh tip resolves the conflict
+          # deterministically.
+          MAX_ATTEMPTS=3
+          ATTEMPT=1
+          PUSH_OUT=""
+          while [ "$ATTEMPT" -le "$MAX_ATTEMPTS" ]; do
+            echo "== push attempt ${ATTEMPT}/${MAX_ATTEMPTS}: rebase onto origin/main, then push origin HEAD:main"
+            if ! REBASE_OUT="$(git pull --rebase origin main 2>&1)"; then
+              echo "$REBASE_OUT"
+              # A rebase conflict can only be inside the derived set (premise
+              # above). Deterministic cure: abandon the replay, regenerate on
+              # the new tip, re-stage by the SAME explicit pathspec, commit,
+              # and let this attempt push.
+              if git rebase --abort 2>/dev/null; then
+                echo "rebase conflicted inside the derived set; re-running the regen pass once on the new origin/main, then re-staging by the SAME explicit pathspec"
+                git reset --hard origin/main
+                node scripts/derived-artifacts.mjs --regen
+                node scripts/derived-artifacts.mjs --paths > /tmp/paths-retry.txt
+                while IFS= read -r p; do
+                  [ -n "$p" ] || continue
+                  git add -- "$p"
+                done < /tmp/paths-retry.txt
+                git diff --cached --quiet || git commit \
+                  -m "chore(derived): regenerate shared derived artifacts on main" \
+                  -m "Automated by .github/workflows/derived-artifacts-regen.yml. main is the single writer for these artifacts; PR branches must not regenerate them. See scripts/derived-artifacts.mjs for the set and its derivation."
+              else
+                echo "::error title=Regen push failed::the rebase onto origin/main failed and there was no rebase in progress to abort; refusing to force-push. Output follows verbatim."
+                echo "$REBASE_OUT"
+                exit 1
+              fi
+            fi
+            if PUSH_OUT="$(git push origin HEAD:main 2>&1)"; then
+              echo "$PUSH_OUT"
+              echo "== landed on attempt ${ATTEMPT}/${MAX_ATTEMPTS} (rebase-and-retry, no force)"
+              break
+            fi
+            echo "$PUSH_OUT"
+            ATTEMPT=$((ATTEMPT + 1))
+            if [ "$ATTEMPT" -gt "$MAX_ATTEMPTS" ]; then
+              echo "::error title=Regen push rejected::still rejected after ${MAX_ATTEMPTS} rebase-and-retry attempts; refusing to force-push. The reject output follows verbatim."
+              echo "$PUSH_OUT"
+              exit 1
+            fi
+          done
           SHA="$(git rev-parse HEAD)"
           echo "### Regenerated shared derived artifacts" >> "$GITHUB_STEP_SUMMARY"
           echo "Commit \`$SHA\` pushed to main by the App; deploy-to-dreamhost.yml fires on it natively." >> "$GITHUB_STEP_SUMMARY"

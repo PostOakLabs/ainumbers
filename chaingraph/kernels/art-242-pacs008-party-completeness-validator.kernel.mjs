@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-242-pacs008-party-completeness-validator';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.0.1';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -137,7 +137,7 @@ export function compute(pp) {
     pii_note: 'Operates on structural identifiers (UETR, BIC, LEI) and party name length only. No real PII processed -- use synthetic or anonymised party data.',
     table_version: TABLE_VERSION,
     table_source: TABLE_SOURCE,
-    regulatory_basis: 'BIS CPMI d218 "Harmonised ISO 20022 data requirements for cross-border payments"; SWIFT CBPR+ November 2026 mandate; ISO 9362 BIC; ISO 17442 LEI',
+    regulatory_basis: 'BIS CPMI d218 "Harmonised ISO 20022 data requirements for cross-border payments"; SWIFT CBPR+ structured-address requirement (deferred by Swift 27 Aug 2026; SR2025 remains in effect); ISO 9362 BIC; ISO 17442 LEI',
   };
 
   const compliance_flags = [];
