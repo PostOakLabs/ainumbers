@@ -186,7 +186,7 @@ function checkP4_status_not_date_and_asof_propagation() {
   const r4 = compute({ file_content: csv2 });
   checked++;
   if (r4.output_payload.rejection_risk_report.worst_offenders[0].structure_type !== 'HYBRID') violations++;
-  if (r4.output_payload.rejection_risk_report.by_rule.HYBRID_NOT_YET_SUPPORTED !== 1) violations++;
+  if (r4.output_payload.rejection_risk_report.by_rule['HYBRID_NOT_YET_SUPPORTED'] !== 1) violations++;
   // empty-file risk floor (mutant guard on the total>0 ternary)
   const r5 = compute({ file_content: '' });
   checked++;
