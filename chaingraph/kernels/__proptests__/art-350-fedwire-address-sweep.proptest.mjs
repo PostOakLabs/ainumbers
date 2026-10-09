@@ -1,5 +1,5 @@
 // art-350-fedwire-address-sweep.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:64b884c3d7960d52db974c9c447144a64692ab993d434cad556a8b72ee062104
+// kernel_digest_at_authoring: sha256:3ae08c2f86a8a34e3be03ac7e3df38b0d5d2d0ee47fda15364f8d365f6c295d2
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -123,7 +123,9 @@ function checkP3_categorical_boundary_forcing() {
   }
 
   // risk_score compliance-tier boundary: 0 (all compliant), just above 0, ~20, ~60
-  const allCompliant = compute({ records: [{ town_name: 'A', country: 'US' }, { town_name: 'B', country: 'US' }] });
+  // Map section 4: fully-structured is the only default-compliant state (hybrid carries
+  // HYBRID_NOT_YET_SUPPORTED WARN and is non-compliant until an enforcement date is in force).
+  const allCompliant = compute({ records: [{ town_name: 'A', country: 'US', post_code: '12345' }, { town_name: 'B', country: 'US', post_code: '67890' }] });
   checked++;
   if (allCompliant.output_payload.risk_score !== 0) violations++;
   if (!allCompliant.compliance_flags.includes('FEDWIRE_SWEEP_ALL_COMPLIANT')) violations++;

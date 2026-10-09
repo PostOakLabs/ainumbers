@@ -102,7 +102,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-350-fedwire-address-sweep.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:64b884c3d7960d52db974c9c447144a64692ab993d434cad556a8b72ee062104">
+<meta name="kernel-digest" content="sha256:3ae08c2f86a8a34e3be03ac7e3df38b0d5d2d0ee47fda15364f8d365f6c295d2">
 </head>
 <body>
 <nav>
@@ -138,11 +138,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </nav>
 
 <div class="wrap">
-  <div class="eyebrow">OpenChainGraph Suite &middot; ART-350 &middot; ISO 20022 &middot; Fedwire/CHIPS Nov 2026</div>
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-350 &middot; ISO 20022 &middot; Fedwire/CHIPS structured-address (Nov 2027 release)</div>
   <h1>Fedwire Payment-File Address Sweep</h1>
-  <p class="sub">Paste or drop a payment file (CSV, one record per row) and sweep every record through the November 2026 Fedwire/CHIPS structured-address mandate lint (the same rule set as <a href="art-349-fedwire-structured-address-linter.html">lint_fedwire_structured_address (art-349)</a>, applied per record). Returns a rejection-risk report &mdash; violation counts by rule, the worst offenders, and an overall risk score &mdash; plus a remediation-worksheet receipt (file digest, per-record findings digest, risk score) so a migration team can triage a whole payment file before the 2026-11-16 cutover instead of discovering rejections message-by-message in production.</p>
+  <p class="sub">Paste or drop a payment file (CSV, one record per row) and sweep every record through the Fedwire/CHIPS structured-address rule-state lint (FRFS 27 August 2026: November 2027 release, exact date TBA) (the same rule set as <a href="art-349-fedwire-structured-address-linter.html">lint_fedwire_structured_address (art-349)</a>, applied per record). Returns a rejection-risk report &mdash; violation counts by rule, the worst offenders, and an overall risk score &mdash; plus a remediation-worksheet receipt (file digest, per-record findings digest, risk score) so a migration team can triage a whole payment file ahead of the November 2027 release (exact date TBA) instead of discovering rejections message-by-message in production.</p>
   <div style="margin-bottom:6px">
-    <span class="flag info">Fedwire/CHIPS Nov 2026</span>
+    <span class="flag info">Fedwire/CHIPS structured-address (Nov 2027 release)</span>
     <span class="flag info">Batch Sweep</span>
     <span class="flag">Rejection-Risk Report</span>
     <span class="flag">Remediation Worksheet</span>
@@ -339,16 +339,16 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-350
 <script>
 var MANIFEST = {
   tool_id: 'art-350-fedwire-address-sweep',
-  version: '1.0.0',
+  version: '1.0.1',
   mcp_name: 'sweep_fedwire_addresses',
   title: 'Fedwire Payment-File Address Sweep',
   description: 'Batch-sweeps a Fedwire/CHIPS payment file (CSV) through the November 2026 structured-address mandate lint, one record at a time. Returns a rejection-risk report by violation code, worst offenders, and a remediation-worksheet receipt (file digest, per-record findings digest, risk score).',
   spec_version: '0.8.0',
   chaingraph_version: '0.4.0',
-  regulation: 'Federal Reserve Financial Services Fedwire Funds Service ISO 20022 November 2026 Release (deadline 16 Nov 2026); The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire)',
+  regulation: 'Federal Reserve Financial Services announcement of 27 August 2026 (Fedwire Funds Service November 2026 release rescheduled to the November 2027 release; unstructured and fully-structured addresses accepted until then); The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire; CHIPS cycle undated, TBC)',
   mcp_tool_definition: {
     name: 'sweep_fedwire_addresses',
-    description: 'Batch-sweeps a payment file (CSV records) through the Fedwire/CHIPS Nov 2026 structured-address lint per record. Returns a rejection-risk report (violation counts by rule, worst offenders) and a remediation-worksheet receipt (file digest, per-record findings digest, risk score).',
+    description: 'Batch-sweeps a payment file (CSV records) through the Fedwire/CHIPS structured-address rule-state lint per record (FRFS 27 August 2026 rescheduling). Returns a rejection-risk report (violation counts by rule, worst offenders) and a remediation-worksheet receipt (file digest, per-record findings digest, risk score).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -402,10 +402,11 @@ function lintFedwireRecord(rec){
   else if (!hasAdrLine && !hasCtry && structured_field_count === 0 && !hasTwnNm) structure_type = 'EMPTY';
   else structure_type = 'MIXED_INVALID';
 
-  if (structure_type === 'UNSTRUCTURED') violations.push({code:'UNSTRUCTURED_ADDRESS',severity:'ERROR'});
+  if (structure_type === 'UNSTRUCTURED') violations.push({code:'UNSTRUCTURED_ADDRESS',severity:'WARN'});
   if (structure_type === 'MIXED_INVALID') violations.push({code:'INVALID_MIX',severity:'ERROR'});
   if (structure_type === 'EMPTY') violations.push({code:'EMPTY_ADDRESS',severity:'ERROR'});
   if (structure_type === 'HYBRID'){
+    violations.push({code:'HYBRID_NOT_YET_SUPPORTED',severity:'WARN'});
     if (!hasTwnNm) violations.push({code:'MISSING_TOWN_NAME',severity:'ERROR'});
     if (adrLines.length > 2) violations.push({code:'EXCESS_ADR_LINES',severity:'ERROR'});
     adrLines.forEach(function(l,i){ if (safeStr(l).length > 70) violations.push({code:'ADR_LINE_TOO_LONG',severity:'ERROR',field:'AdrLine['+i+']'}); });
@@ -419,8 +420,8 @@ function lintFedwireRecord(rec){
   }
   if (ctry.length > 0 && !/^[A-Z]{2}$/.test(ctry)) violations.push({code:'INVALID_COUNTRY',severity:'ERROR'});
 
-  var error_count = violations.length;
-  var compliant = error_count === 0 && (structure_type==='FULLY_STRUCTURED' || structure_type==='HYBRID');
+  var error_count = violations.filter(function(v){return v.severity === 'ERROR';}).length;
+  var compliant = error_count === 0 && (structure_type==='FULLY_STRUCTURED' || (structure_type==='HYBRID' && false)); // hybrid is non-compliant while no enforcement date is in force (map section 4)
   return { network: network, structure_type: structure_type, compliant: compliant, error_count: error_count, violations: violations };
 }
 
@@ -513,7 +514,8 @@ async function runSweep(){
 
   var pp = { file_content: fileContent };
   var op = {
-    fedwire_chips_deadline: '2026-11-16',
+    fedwire_chips_deadline: null,
+    fedwire_chips_deadline_status: 'Fedwire accepts unstructured and fully-structured addresses today; hybrid becomes supported with the November 2027 release (FRFS, 2026-08-27); exact date TBA; CHIPS undated (aligned-to-Fedwire cycle, TBC)',
     rejection_risk_report: {
       total_records: total, compliant_count: compliant_count, non_compliant_count: total-compliant_count,
       compliant_pct: compliant_pct, by_rule: by_rule_sorted, worst_offenders: worst_offenders,
@@ -523,9 +525,9 @@ async function runSweep(){
     risk_score: risk_score,
     disambiguation: 'sweep_fedwire_addresses batch-sweeps a payment file (CSV or pre-parsed records) through the same rules as lint_fedwire_structured_address (art-349), per record, and rolls the results into a rejection-risk report. For a single-message lint use lint_fedwire_structured_address (art-349) directly.',
     pii_note: 'All fields operate on STRUCTURAL address components only. No real party PII enters this kernel -- use synthetic or anonymised payment-file data.',
-    table_version: 'FEDWIRE-CHIPS-STRUCTURED-ADDRESS-NOV2026-V1',
-    table_source: 'Federal Reserve Financial Services, Fedwire Funds Service ISO 20022 November 2026 Release FAQ (frbservices.org); The Clearing House CHIPS ISO 20022 address rules (aligned to Fedwire)',
-    regulatory_basis: 'Federal Reserve Financial Services Fedwire Funds Service ISO 20022 November 2026 Release; The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire address rules)',
+    table_version: 'FEDWIRE-CHIPS-STRUCTURED-ADDRESS-FRFS-2026-08-27-V2',
+    table_source: 'Federal Reserve Financial Services announcement of 27 August 2026: Fedwire Funds Service November 2026 release rescheduled to the November 2027 release, exact date to be announced (unstructured and fully-structured addresses accepted until then); The Clearing House CHIPS ISO 20022 address rules (aligned to Fedwire; CHIPS cycle undated, TBC)',
+    regulatory_basis: 'Federal Reserve Financial Services announcement of 27 August 2026 (Fedwire Funds Service November 2026 release rescheduled to the November 2027 release; unstructured and fully-structured addresses accepted until then, hybrid from the November 2027 release); The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire address rules; CHIPS cycle undated, TBC)',
   };
 
   var file_digest = await sha256Hex(fileContent);

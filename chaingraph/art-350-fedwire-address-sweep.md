@@ -10,17 +10,19 @@ Batch-sweeps a Fedwire or CHIPS payment file (CSV, one record per row) through t
 
 - file_content (any, required): type not evidenced by kernel source
 - records (array, required)
+- as_of_date (any, required): type not evidenced by kernel source
 
 ## Outputs
 
 - disambiguation (string, optional)
-- fedwire_chips_deadline (string, optional)
+- fedwire_chips_deadline (string,null, optional)
 - pii_note (string, optional)
 - regulatory_basis (string, optional)
 - rejection_risk_report (object, optional)
 - risk_score (integer, optional)
 - table_source (string, optional)
 - table_version (string, optional)
+- fedwire_chips_deadline_status (string, optional)
 
 ## Sample
 
