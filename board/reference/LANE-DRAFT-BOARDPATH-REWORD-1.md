@@ -85,7 +85,13 @@ Pass 2 — downstream / audit trail:
 
 ## Verification
 
-(post-execution: paste the dry-run PLAN lines and post-edit sha256s here)
+Executed 2026-10-06 (Tim-directed session, glm-S shadow seat seat):
+- Pre-edit fingerprints re-verified byte-match before editing (all three sha256 + bytes identical to the table above); `git ls-files research/lane-drafts/` = 0 confirmed.
+- Reword: line 5 only in each draft; `grep -c board/` → 0/0/0. Post-edit: T1-MR-0AB4FB1B-RERUN.md sha256 1d6a3af69d6c67c3… (3906 B) · T1-MR-69EA7083-RERUN.md 4cd150912935469c… (3718 B) · T1-MR-E4D9BB86-RERUN.md c48492d4912d2ef8… (3928 B). Only the two/three `board/reference/…` citations were replaced (with "the shadow-watch log entry (line NN)" etc.); no other bytes changed.
+- Step 2 dry-run `--max 4 --bus auto --lane-order 2`: exactly three PLAN lines — T1-MR-0AB4FB1B-RERUN → hp queue/010, T1-MR-69EA7083-RERUN → nitro queue/011, T1-MR-E4D9BB86-RERUN → aspire queue/010 (harness=hermes) — and ZERO `REFUSED T1-MR-` lines.
+- Step 3+4 live: all three converted and confirmed on the msi bus via `gh api repos/PostOakLabs/ainumbers-farm-msi/contents/queue` → 018-T1-MR-0AB4FB1B-RERUN.md, 028-T1-MR-69EA7083-RERUN.md, 038-T1-MR-E4D9BB86-RERUN.md. Post-conversion auto dry-run: no RERUN ids left in the plan set.
+- mr-claim gate (standing): an mr/hermes worker must claim at least one RERUN within one worker cycle; if none claims, STOP converting further and escalate (do not let the unclaimed trio re-pin LANE-ORDER).
+- Standing Flag follow-up: queue-author re-enable (with tripwire sentence) happens only after one clean conversion tick — see SHADOW-STAGED/LIVE-SMOKE-PUSH-RETRY-TRIPWIRE-1.md.
 
 ## Standing flags
 
