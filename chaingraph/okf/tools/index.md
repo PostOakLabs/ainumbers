@@ -631,6 +631,9 @@ status: stable
 - [Runway Goal Path](./art-702-runway-goal-path.md) — `find_runway_goal_path`
 - [AI Token Spend](./art-704-ai-token-spend.md) — `estimate_ai_token_spend`
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md) — `model_cbam_certificate_cost`
+- [SCO60 Group 2 Exposure Limit V2](./art-711-sco60-crypto-asset-exposure-classifier-v2.md) — `classify_sco60_exposure_v2`
+- [Workforce Board ROI Report](./art-712-workforce-board-roi.md) — `workforce_board_roi_report`
+- [S-Corp Election Break-Even Modeler](./art-713-scorp-election-break-even.md) — `model_scorp_break_even`
 - [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md) — `aggregate_cbam_precursor_emissions`
 - [EU Taxonomy Alignment Scorer](./art-73-taxonomy-alignment-scorer.md) — `score_taxonomy_alignment`
 - [Taxonomy KPI & Green Asset Ratio Aggregator](./art-74-taxonomy-kpi-gar-aggregator.md) — `aggregate_taxonomy_kpi_gar`

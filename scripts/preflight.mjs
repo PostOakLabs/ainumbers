@@ -1425,6 +1425,15 @@ const GATES = [
   ['MCP protocol-version drift', 'node scripts/verify-mcp-protocol-version.mjs'],
   ['Deadline-wall freshness (SI-DEADLINE-FRESH-1)', 'node scripts/check-deadline-freshness.mjs'],
   ['Bank-fact freshness (REVERIFY-BANK-1)', 'node scripts/check-bank-fact-freshness.mjs'],
+  // AI-PRICE-REFRESH-1: the art-704 snapshot's own verified_on dates (the page is the snapshot's
+  // home; the manifest input_example is regen-owned derived bytes since 9fd3e4c5). Wired advisory
+  // on 2026-10-05: this entry runs `--summary` (counts, exit 0). Re-check staleness any time with
+  // `node scripts/check-ai-price-freshness.mjs` (strict default: exit 1 past 30 days); promote
+  // this entry to the strict default once the weekly capture step (ai-price-capture.mjs in
+  // PostOakLabs/ainumbers-internal) has landed a real refresh PR. The paired controls entry is
+  // the RED/GREEN fixture proof (SO #40b) even while the gate ships advisory.
+  ['AI price snapshot freshness (AI-PRICE-REFRESH-1) — advisory first', 'node scripts/check-ai-price-freshness.mjs --summary'],
+  ['AI price snapshot freshness controls (RED/GREEN fixtures)', 'node scripts/check-ai-price-freshness.mjs --self-test'],
   // FACT-STAMPS-PILOT-1: the visible "Verified YYYY-MM-DD against …" stamps are a
   // pure function of data/bank-fact-freshness.json (the same sidecar the bank-fact
   // gate above watches). A drifted region means the page no longer shows what the
@@ -1472,6 +1481,20 @@ const GATES = [
   // declare no @keyframes and no animation property of its own.
   ['EXPLAINER-KIT inline copies + one animation system (EXPLAINER-KIT-1)', 'node scripts/sync-explainer-kit.mjs --check'],
   ['EXPLAINER-KIT gate controls (RED/GREEN mutations, SO #34c pairing)', 'node scripts/sync-explainer-kit.mjs --selftest'],
+  // HUBSCENE-BUILD-1 (2026-10-07): the generated chain-flow scene region on
+  // every hub guide page. ONE main-side writer (scripts/gen-hub-scenes.mjs,
+  // derived-artifacts COVERED id 'hub-scenes'); this --check entry's command
+  // string is byte-identical to that COVERED gate, so the generic
+  // ADVISORY_ON_PR categorisation downgrades it on a PR (the regions are
+  // written on main after merge, SO #35) and it stays blocking on main.
+  ['Hub scene regions fresh (HUBSCENE-BUILD-1)', 'node scripts/gen-hub-scenes.mjs --check'],
+  ['Hub scene generator controls (RED/GREEN mutations, SO #34c pairing)', 'node scripts/gen-hub-scenes.mjs --selftest'],
+  // The scene requirement, BLOCKING for guide-class pages since HUBSCENE-
+  // BUILD-1 (Tim 2026-10-06 ruling, spec §5/D4): a new or crossing guide-class
+  // page over the threshold must carry a kit scene; generator-scope pages are
+  // accepted (their region is main-side-owned). The QUICK entry above keeps
+  // its --changed scoping; this full-suite run walks every eligible page.
+  ['Scene-required, blocking for guide class (SCENE-REQUIRED-GATE-1 flip)', 'node scripts/sync-scene-kit.mjs --scene-required'],
   ['Homepage MCP-ACTIVITY sentinel matches data/mcp-activity.json (generator --check)', 'node scripts/mcp-activity-embed.mjs --check'],
   // AIN-AGENT-KIT-1: agent-kit artifacts are generator-emitted (gen-agent-kit.mjs from
   // agent-kit/kit.json); this gate regenerates twice into temp, byte-compares determinism
@@ -2088,6 +2111,7 @@ const GATES = [
   ['Verify/ledger fragment codec parity (VERIFY-FRAGMENT-INTAKE-1)', 'node scripts/verify-fragment-parity.test.mjs'],
   ['Ledger gate-replay tamper (shipped source)', 'node scripts/gate-replay-tamper.test.mjs'],
   ['Ledger escalation-closure tamper (shipped source)', 'node scripts/escalation-closure-tamper.test.mjs'],
+  ['Ledger legacy-order verdict (shipped source)', 'node scripts/ledger-legacy-order.test.mjs'],
   // LEDGER-BRIDGE-LIVE-1: the ledger live channel (B3/B4/B5). Anchored to BOTH
   // shipped sources — ledger/index.html and the master bridge snippet — so the
   // de-dup rule, the path-form origin guard and the JSON-RPC 2.0 envelope cannot
@@ -2360,6 +2384,7 @@ const QUICK_GATES = [
   //    monolith against ALL shards — the changed-shard subset is implied by it,
   //    at the same ≈0.1 s cost.
   ['chaingraph.json shard freshness (CGSHARD-1, quick)', 'node scripts/assemble-chaingraph.mjs --check'],
+  ['Scene-required, blocking for guide class (CHANGED scope, SCENE-REQUIRED-GATE-1)', `node scripts/sync-scene-kit.mjs --scene-required --changed ${QUICK_REF}`],
 ];
 
 async function runQuickSuite(selfTest) {

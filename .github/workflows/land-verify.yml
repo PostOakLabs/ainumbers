@@ -204,11 +204,35 @@ jobs:
       # #1759 shape). The .test.mjs beside it is the red/green control proving
       # all three states (PR advisory / merge_group HARD under DERIVED_ROOT /
       # main HARD).
-      - name: §18 compute-proof coverage
+      - name: §18 compute-proof coverage (HARD on pull_request — per-PR derivables promotion)
         env:
           DERIVED_ROOT: ${{ steps.derived.outputs.root }}
         run: |
-          node scripts/check-compute-proof-coverage.mjs
+          # The per-PR derivables row: the §18 ratchet + provenance are now HARD on
+          # pull_request, exactly as on merge_group. The removed downgrade is the
+          # bare invocation below, which inherited the gate's internal PR-advisory
+          # disposition (check-compute-proof-coverage.mjs disposition() via
+          # isMainContext(): GITHUB_EVENT_NAME === 'pull_request' -> warn + exit 0
+          # — the gate's own PR-side relaxation). That relaxation's
+          # premise ("a PR is FORBIDDEN to reassemble chaingraph.json, so a branch
+          # is structurally unable to satisfy the ratchet") no longer holds for the
+          # BASELINE leg: scripts/compute-proof-baseline.json is an ordinary
+          # committed file, and pr-autofix.yml now writes its bump on the PR head
+          # branch (the bump rides the node PR). A gate a PR can satisfy
+          # must not read advisory at label time — the census's 44 merge_group
+          # ejects all passed a green, advisory §18 first. Same plumbing
+          # scripts-verify.yml uses to present merge_group's shape: a shell-level
+          # env prefix (GITHUB_* names are runner-reserved and a step-level env
+          # entry would be silently ignored — measured 2026-09-11, run 34654251817).
+          # merge_group + DERIVED_ROOT keeps its third state (hard, scratch
+          # monolith); push:main keeps its hard exit; only the pull_request arm
+          # changes. The writer-side refusal of a REAL regression (proven at pin,
+          # deferred now) is untouched — that stays red in every context.
+          if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
+            GITHUB_EVENT_NAME=push node scripts/check-compute-proof-coverage.mjs
+          else
+            node scripts/check-compute-proof-coverage.mjs
+          fi
           node scripts/check-compute-proof-coverage.test.mjs
 
       - name: §18 digest-freshness ratchet (receipt digest vs current kernel source)

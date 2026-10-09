@@ -238,6 +238,16 @@ const NOT_A_GATE = new Map([
     "on commits that exist only after a merge, and the note it reads is written by the very " +
     "hook that would invoke it. Pre-push there is nothing to check, so parity has nothing to " +
     "demand (PREPUSH-ATTEST-CHECK-1)."],
+  ["pr-autofix.yml",
+    "pull_request only (PR-AUTOFIX-DERIVABLES-1) — the autofix.ci-pattern WRITER workflow: " +
+    "it runs the per-PR derivable writers (SO #59 §18 baseline bump via the ephemeral " +
+    "scratch assembly, gen-manifest-examples --write --only, check-ask-agent-block --write, " +
+    "check-a11y-tree --write) on the PR head branch and pushes the diff back as the " +
+    "spec-sync App. It gates no merge: the pushing run's exit 1 is the 're-run pending' " +
+    "signal by design and is not a required status check; the required set is unchanged. " +
+    "Its writer invocations are the --write/--update-baseline legs of gate scripts, not " +
+    "gate verdicts — the HARD-on-pull_request verdicts live in scripts-verify.yml's and " +
+    "land-verify.yml's promoted gate steps, which are classified here as usual."],
   ["scheduled-red-issue.yml",
     "workflow_call only (NIGHTLY-RED-ISSUE-OPENER-1) — the shared reusable tracker the three " +
     "report-only surfaces call as a final job to open/update/close ONE tracking issue per " +
@@ -350,6 +360,16 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── AI-PRICE-REFRESH-1 (2026-10-05) ─────────────────────────────────────────
+  ["check-ai-price-freshness.mjs",
+    "Art-704 snapshot freshness gate (AI-PRICE-REFRESH-1): reads ONE tracked page " +
+    "(chaingraph/art-704-ai-token-spend.html), derives staleness from the snapshot entries' own " +
+    "verified_on stamps, and ships advisory-first (preflight wires --summary) beside its RED/GREEN " +
+    "self-test. No network, no CI-only input, no estate enumeration; the weekly capture step " +
+    "(ai-price-capture.mjs in PostOakLabs/ainumbers-internal) is its refresh route, and promotion " +
+    "to strict plus a named CI step is the deliberate follow-up once that step lands a real " +
+    "refresh PR. scripts/-only, so scripts-verify.yml's path filter already routes any change to " +
+    "the gate or the page through a full preflight."],
   // ── WEBMCP-META-LINT-CEILING-1 (2026-10-01) ─────────────────────────────────
   ["check-webmcp-meta-budgets.test.mjs", SELF_TEST],
   ["check-webmcp-meta-neardupes.test.mjs", SELF_TEST],
@@ -403,6 +423,17 @@ const PREFLIGHT_ONLY = new Map([
     "(advisory on a PR, blocking on main via the generic downgrade; main-side freshness is owned by " +
     "derived-artifacts-regen.yml). The write half is the regen command, never a PR step. Reads only " +
     "tracked repo files, no CI-only input. Self-test: --selftest."],
+  // ── HUBSCENE-BUILD-1 (2026-10-07) ───────────────────────────────────────────
+  ["gen-hub-scenes.mjs",
+    "Hub scene region freshness (HUBSCENE-BUILD-1): re-renders each hub guide page's <!-- HUB-SCENE --> " +
+    "region (plus the first-insert SCENE-KIT inline copies, byte-identical to sync-scene-kit's own " +
+    "builders) from the assembled catalog in memory and compares. Hard in preflight; its CI route is " +
+    "scripts-verify.yml's full preflight (the workflow runs `node scripts/preflight.mjs`), so a named " +
+    "workflow step would only duplicate the same suite. It is also the COVERED gate of " +
+    "derived-artifacts.mjs id 'hub-scenes' (advisory on a PR, blocking on main via the generic " +
+    "downgrade; main-side freshness is owned by derived-artifacts-regen.yml). The write half is the " +
+    "regen command, never a PR step (SO #35). Reads only tracked repo files + chaingraph.json " +
+    "(loaded lazily inside the render path), no CI-only input. Self-test: --selftest."],
   // ── FOOTER-INFRA-COLUMN-1 (2026-09-27) ──────────────────────────────────────
   ["gen-node-footers.mjs",
     "Node-page footer freshness (FOOTER-INFRA-COLUMN-1, footer plan v2 D1(b)): re-renders the " +
@@ -543,19 +574,13 @@ const PREFLIGHT_ONLY = new Map([
     "the checker's own logic against in-memory fixtures and can only be reddened by a change to " +
     "that checker, which is exactly the PR shape scripts-verify.yml's path filter catches."],
   ["check-art220-table-parity.test.mjs", SELF_TEST],
-  // ── MANIFEST-EXAMPLES-ANNOTATIONS-1 (2026-09-18) ────────────────────────────
-  ["gen-manifest-examples.mjs",
-    "Manifest example/annotation freshness --check + its paired --self-test " +
-    "(MANIFEST-EXAMPLES-ANNOTATIONS-1): re-derives input_example / output_example / " +
-    "example_execution_hash from each tool's committed fixture vector[0], the MCP " +
-    "2026-07-28 annotations from the node's published status/gpu/kernel signals, and " +
-    "author/license, then compares. Hard in preflight; its CI route is scripts-verify.yml " +
-    "full preflight (the workflow runs `node scripts/preflight.mjs`), so a named workflow " +
-    "step would only duplicate the same suite. NOT a derived artifact: manifests are " +
-    "hand-and-generator-authored source under manifests/, never written main-side by " +
-    "derived-artifacts-regen.yml, so there is no writer to race. Reads only tracked repo " +
-    "files (manifests/, chaingraph/kernels/fixtures/, chaingraph.json) — no CI-only input. " +
-    "The --write and --update-baseline halves are builder commands, never workflow steps."],
+  // PR-AUTOFIX-DERIVABLES-1 removed the PREFLIGHT_ONLY entry for
+  // gen-manifest-examples.mjs: scripts-verify.yml now runs the --check gate as a
+  // NAMED, HARD-on-pull_request step (divergence from preflight's advisory
+  // classification DECLARED in DECLARED_DIVERGENCES below), so the old reason —
+  // "its CI route is the full preflight suite; a named workflow step would only
+  // duplicate the same suite" — no longer holds. The --write/--update-baseline
+  // halves run in pr-autofix.yml (NOT_A_GATE above).
   // ── MANIFEST-APPLY-1 (2026-09-22) ───────────────────────────────────────────
   ["apply-manifests.mjs",
     "Manifest desired-state drift --check + its paired --self-test (MANIFEST-APPLY-GATE-1): " +
@@ -783,23 +808,21 @@ const PREFLIGHT_ONLY = new Map([
     "input; the full-corpus pairing run costs ~2 min, the same CI-minutes trade as the other " +
     "VIA_PREFLIGHT verify-path gates."],
   // ── TOOLPAGE-ASK-AGENT-1 (2026-09-05) ────────────────────────────────────
-  ["check-ask-agent-block.mjs",
-    "Ask-your-agent copyable block on every live node page, emitted from the node's " +
-    "manifest (AGENT-REACH-BUILD-SPEC 3.6): freshness + exactly-one + tool-name==mcp_name " +
-    "+ deep-link-decodes-to-sample. Hard in preflight; its CI route is scripts-verify.yml's " +
-    "full preflight, so a named workflow step would only duplicate the same suite. Reads only " +
-    "tracked repo files — no CI-only input."],
+  // PR-AUTOFIX-DERIVABLES-1 removed the PREFLIGHT_ONLY entry for
+  // check-ask-agent-block.mjs: scripts-verify.yml now runs the freshness gate
+  // as a NAMED, HARD-on-pull_request step (it was never advisory anywhere —
+  // preflight ran it blocking in every context — so there is no divergence to
+  // declare; the named step surfaces the stamp class under its own name). The
+  // --write half runs in pr-autofix.yml (NOT_A_GATE above).
 
   // ── TOOLPAGE-A11Y-1 (2026-09-09) ─────────────────────────────────────────
-  ["check-a11y-tree.mjs",
-    "Accessibility-tree gate on every generated node page (AGENT-REACH-BUILD-SPEC §2 wave 2): " +
-    "aria-label === inputSchema property on every static form control, exactly one role=\"status\" " +
-    "live region announcing execution_hash + verdict, no duplicate accessible names, byte-fresh " +
-    "A11Y-TREE region + <meta name=\"ai-tool\"> + role=\"main\" landmark, down-only baseline ratchet. " +
-    "Hard in preflight; its CI route is scripts-verify.yml's full preflight (the workflow literally " +
-    "runs `node scripts/preflight.mjs`), so a named workflow step would only duplicate the same " +
-    "suite. Reads only tracked repo files — no CI-only input. Paired self-test: the same script's " +
-    "--self-test mode as its own GATES entry (GATE-SELFTEST-META-1)."],
+  // PR-AUTOFIX-DERIVABLES-1 removed the PREFLIGHT_ONLY entry for
+  // check-a11y-tree.mjs: scripts-verify.yml now runs the gate as a NAMED,
+  // HARD-on-pull_request step (never advisory anywhere — no divergence to
+  // declare; the named step surfaces the stamp class under its own name). The
+  // --write half runs in pr-autofix.yml (NOT_A_GATE above). Paired self-test
+  // unchanged: the same script's --self-test mode as its own GATES entry
+  // (GATE-SELFTEST-META-1).
 
   // ── TOOLPAGE-DEEPLINK-1 (2026-09-05) ─────────────────────────────────────
   ["check-deeplink-contract.mjs",
@@ -988,6 +1011,17 @@ const PREFLIGHT_ONLY = new Map([
   ["verify-fragment-parity.test.mjs", SELF_TEST],
   ["gate-replay-tamper.test.mjs", SELF_TEST],
   ["escalation-closure-tamper.test.mjs", SELF_TEST],
+  ["ledger-legacy-order.test.mjs",
+    "Ledger §4 legacy-order verdict gate (JCS-PREFIX-ARTIFACT-NOTE-2), same shape as the ledger " +
+    "shipped-source gates around it: it brace-extracts the shipped §4 verifier out of " +
+    "ledger/index.html through lib-extract-shipped.mjs and self-proves by dropping the legacy retry " +
+    "in memory (SO #34c), so it can only be reddened by a change to the shipped page or to itself. " +
+    "Reads only tracked repo files, no network and no CI-only input, so its CI route is " +
+    "scripts-verify.yml's full preflight (`node scripts/preflight.mjs`) and a named workflow step " +
+    "would re-run the same assertions. That route does NOT cover a PR that touches ledger/index.html " +
+    "alone: ledger/** is in no workflow path filter and in scripts/ci-paths.json, the same PRE-EXISTING " +
+    "hole recorded for verify-fragment-parity, gate-replay-tamper and escalation-closure-tamper above; " +
+    "closing it for all of them is one later row, not the row that added this gate."],
   ["ledger-dedup.test.mjs",
     "Ledger live-channel de-dup + envelope gate (LEDGER-BRIDGE-LIVE-1). NOT classified SELF_TEST, " +
     "because that reason claims a gate can only be reddened by a change to its own checker and this " +
@@ -1224,6 +1258,25 @@ const DECLARED_DIVERGENCES = new Map([
       "because SO #35 forbids a shard PR from running the --enroll regen locally. Same shape as the " +
       "entry above: the local surface under-reports.",
   }],
+  ["scripts-verify.yml :: node scripts/gen-manifest-examples.mjs --check", {
+    ci: HARD,
+    preflight: SPLIT,
+    decided: "2026-10-08",
+    by: "PR-AUTOFIX-DERIVABLES-1 — recording the promotion this row wires, not deciding it here.",
+    why:
+      "PR-AUTOFIX-DERIVABLES-1 promotes the manifest-example drift gate to HARD on pull_request " +
+      "(scripts-verify.yml's named step), because the premise of the advisory downgrade is gone on " +
+      "this surface: the manifest examples ARE repairable inside the branch — the writer " +
+      "(gen-manifest-examples --write --only <id>) is deterministic from the PR's own manifests and " +
+      "now runs in-PR via pr-autofix.yml, and builders run the same command by hand — so no PR is " +
+      "structurally unable to satisfy the gate and SO #35's hand-off to the main-side regen does not " +
+      "apply to the PR-side verdict. preflight.mjs keeps the downgrade because the same command is " +
+      "derived-artifacts.mjs COVERED id 'manifest-examples', which exists for the REGEN path (the " +
+      "main-side --landed-only writer). The red census (RED-PATTERNS-4WK-2026-10-08 §1) measured ~8 " +
+      "merge_group ejects on exactly this drift, every one of which passed an advisory PR-side check " +
+      "first. Same shape as the land-verify.yml registry-kernel-resolve entry: the local surface " +
+      "under-reports.",
+  }],
 ]);
 
 // Commands that invoke an advisory gate's SCRIPT but are a DIFFERENT gate leg,
@@ -1231,6 +1284,20 @@ const DECLARED_DIVERGENCES = new Map([
 // would treat them as unrelated commands and an argument-drift typo on an
 // advisory gate would read as "consistent" because it matched nothing (hole (d)).
 const DISTINCT_LEGS = new Map([
+  ["node scripts/gen-hub-scenes.mjs --selftest", {
+    sibling: "node scripts/gen-hub-scenes.mjs --check",
+    decided: "2026-10-07 (HUBSCENE-BUILD-1)",
+    why:
+      "The --selftest leg proves the writer over in-memory fixtures plus the real tree: the first " +
+      "insert lays the region and byte-identical kit copies, a second pass is byte-identical, a " +
+      "hand-edited region byte is RED, an anchorless page is a reported SKIP, half a marker pair is " +
+      "RED, the no-fork guard throws, the real min/median/max scenes plus a 1,000-station clamp proof " +
+      "stay within the WCAG 2.2.2 budget, and all 93 in-scope pages have exactly one insertion point. " +
+      "It can only be reddened by a change to the writer or the kit it renders, never by a content PR, " +
+      "so it is the SELF_TEST shape, preflight-only by design. The --check sibling is the COVERED id " +
+      "'hub-scenes' freshness gate, advisory on a PR and blocking on main. Separate legs of one " +
+      "script, not argument drift.",
+  }],
   ["node scripts/gen-chain-ask-agent.mjs --selftest", {
     sibling: "node scripts/gen-chain-ask-agent.mjs --check",
     decided: "2026-09-27 (CHAIN-PROMPT-INFRA-1)",

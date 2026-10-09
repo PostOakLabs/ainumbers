@@ -373,7 +373,8 @@ const keccak_256 = /* @__PURE__ */ genKeccak(0x01, 136, 32);
 // output_payload/credentialSubject carries) and an x402_spend_evidence object (the caller-
 // assembled pack from the x402-spend-evidence chain, BUILD-X402-SPENDEVIDENCE-CHAIN-1). Checks
 // whether fields that SHOULD agree if the two artifacts describe the same real-world transaction
-// actually agree: does sum(quantity*unit_price) per currency match authorization.value; does
+// actually agree: does sum(quantity*unit_price) per currency, converted to the token's atomic
+// units via the REQUIRED token_decimals parameter, equal authorization.value exactly; does
 // merchant map to authorization.to. cart_chain_intact is INDEPENDENTLY RE-DERIVED here by
 // recomputing the cart hash-chain from cart_items (SAME algorithm as art-595's compute()) and
 // comparing against the caller-supplied cart_root -- never trusted as a self-reported flag from
@@ -455,17 +456,87 @@ function _normalizeAddress(v) {
   return '0x' + s.toLowerCase();
 }
 
-// Sum quantity*unit_price per currency. Returns { singleCurrency: string|null, total: number|null }
-// -- null total when cart_items span more than one currency (no single number to compare against
-// a single authorization.value; ambiguous, not a defect -- reported as indeterminate, never guessed).
-function _cartTotalsByCurrency(cart_items) {
-  const currencies = new Set(cart_items.map((it) => it.currency));
-  if (currencies.size !== 1) return { singleCurrency: null, total: null };
-  const [currency] = currencies;
-  let total = 0;
-  for (const it of cart_items) total += it.quantity * it.unit_price;
-  total = Math.round(total * 1e8) / 1e8; // clear float dust without hiding real mismatches
-  return { singleCurrency: currency, total };
+// ── ATOMIC-UNIT CONTRACT (X402-UNITS-FIXTURE-1) ─────────────────────────────────────────
+// An EIP-3009 authorization's `value` is denominated in the token's BASE (atomic) units --
+// 1 USDC is "1000000", not "1". A cart priced in currency units is therefore not comparable
+// to `value` at all without the token's decimals: the earlier float comparison
+// (Math.abs(total - Number(authorization.value)) < 1e-6) read a CORRECT 1 USDC payment for a
+// 1.00 cart as CART_TOTAL_MISMATCH. The caller must now declare `token_decimals` (USDC = 6),
+// and both sides are compared as exact integers in atomic units -- no epsilon, no float
+// tolerance, no rounding of the authorization side.
+const _10n = BigInt(10);
+const _0nA = BigInt(0);
+const _1nA = BigInt(1);
+const _2nA = BigInt(2);
+
+function _pow10(k) {
+  // Loop rather than `**` on BigInt: the QuickJS guest's supported syntax surface is the
+  // conservative one every other vendored block in this file sticks to.
+  let r = _1nA;
+  for (let i = 0; i < k; i++) r = r * _10n;
+  return r;
+}
+
+// Exact decimal parts of a finite JS number: { m, e } such that the number === m / 10^e.
+// Reads the number's own decimal string, so 0.25 is exactly 25/10^2 -- never a binary
+// float approximation that a later multiply would smear.
+// The regex form is also the CHEAPER form in the zkVM guest: a hand-rolled character scan
+// measured 30.71M user_cycles against this one's 30.51M (six-vector exec preflight,
+// 2026-09-26), so the guest's regex engine beats per-character string work here.
+function _decParts(n) {
+  const m = /^(-?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$/.exec(String(n));
+  if (!m) return null;
+  const sign = m[1] === '-' ? -_1nA : _1nA;
+  const intPart = m[2] === '' ? '0' : m[2];
+  const fracPart = m[3] === undefined ? '' : m[3];
+  const exp = m[4] === undefined ? 0 : parseInt(m[4], 10);
+  return { m: BigInt(intPart + fracPart) * sign, e: fracPart.length - exp };
+}
+
+// Scale m/10^e into 10^decimals units. Exact when decimals >= e; otherwise rounds half away
+// from zero (the only lossy case -- a cart priced finer than the token can express).
+function _toAtomic(m, e, decimals) {
+  if (decimals >= e) return m * _pow10(decimals - e);
+  const div = _pow10(e - decimals);
+  const neg = m < _0nA;
+  const a = neg ? -m : m;
+  const q = a / div;
+  const rem = a % div;
+  const rounded = rem * _2nA >= div ? q + _1nA : q;
+  return neg ? -rounded : rounded;
+}
+
+// Sum quantity*unit_price per currency IN ATOMIC UNITS. Returns
+// { singleCurrency: string|null, atomic: BigInt|null } -- null atomic when cart_items span
+// more than one currency (no single figure to compare against a single authorization.value;
+// ambiguous, not a defect -- reported as indeterminate, never guessed).
+function _cartAtomicByCurrency(cart_items, decimals) {
+  const currencies = [];
+  for (const it of cart_items) if (currencies.indexOf(it.currency) === -1) currencies.push(it.currency);
+  if (currencies.length !== 1) return { singleCurrency: null, atomic: null };
+  let atomic = _0nA;
+  for (const it of cart_items) {
+    const q = _decParts(it.quantity);
+    const p = _decParts(it.unit_price);
+    if (q === null || p === null) return { singleCurrency: currencies[0], atomic: null };
+    atomic = atomic + _toAtomic(q.m * p.m, q.e + p.e, decimals);
+  }
+  return { singleCurrency: currencies[0], atomic };
+}
+
+// authorization.value is an atomic-unit integer (uint256). A decimal figure is NOT a value
+// this kernel may silently round: it is caller error, reported as such.
+function _authorizationAtomic(v) {
+  if (typeof v === 'number') {
+    if (!Number.isSafeInteger(v) || v < 0) return null;
+    return BigInt(v);
+  }
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (!/^[0-9]+$/.test(s)) return null;
+    return BigInt(s);
+  }
+  return null;
 }
 
 export function compute(pp) {
@@ -480,6 +551,13 @@ export function compute(pp) {
 
   const rawItems = Array.isArray(pp.cart_items) ? pp.cart_items : null;
   if (!rawItems || rawItems.length === 0) reasons.push('cart_items is required and must be a non-empty array');
+
+  // token_decimals is REQUIRED: without it the cart total and authorization.value are in
+  // different units and any comparison between them is meaningless (USDC = 6).
+  const token_decimals = Number.isInteger(pp.token_decimals) && pp.token_decimals >= 0 && pp.token_decimals <= 18
+    ? pp.token_decimals
+    : null;
+  if (token_decimals === null) reasons.push('token_decimals is required and must be an integer 0-18 (the payment token\'s decimals; USDC = 6) -- authorization.value is denominated in atomic units and cannot be compared to a currency-unit cart without it');
 
   const cart_items = [];
   if (rawItems) {
@@ -498,6 +576,8 @@ export function compute(pp) {
       output_payload: {
         correlation_status: 'INDETERMINATE',
         cart_total_matches_authorization_value: null,
+        cart_total_atomic: null,
+        authorization_value_atomic: null,
         merchant_matches_authorization_to: null,
         cart_chain_intact: false,
         disclosure: DISCLOSURE,
@@ -513,14 +593,17 @@ export function compute(pp) {
   const recomputedCartRoot = recomputedLinks[recomputedLinks.length - 1] ?? null;
   const cart_chain_intact = recomputedCartRoot !== null && recomputedCartRoot === cart_root;
 
-  // ── cart total vs authorization.value ──
-  const { singleCurrency, total } = _cartTotalsByCurrency(cart_items);
-  const authValue = authorization && (typeof authorization.value === 'string' || typeof authorization.value === 'number')
-    ? Number(authorization.value)
-    : null;
+  // ── cart total vs authorization.value, EXACT, both in atomic units ──
+  const { atomic: cartAtomic } = _cartAtomicByCurrency(cart_items, token_decimals);
+  const authAtomic = authorization ? _authorizationAtomic(authorization.value) : null;
+  if (authAtomic === null && authorization && authorization.value !== undefined && authorization.value !== null) {
+    reasons.push('x402_spend_evidence.authorization.value must be a non-negative integer in the token\'s atomic units (EIP-3009 denominates `value` in base units); a decimal figure cannot be compared without guessing its scale');
+  }
+  const cart_total_atomic = cartAtomic === null ? null : cartAtomic.toString();
+  const authorization_value_atomic = authAtomic === null ? null : authAtomic.toString();
   let cart_total_matches_authorization_value = null;
-  if (total !== null && authValue !== null && Number.isFinite(authValue)) {
-    cart_total_matches_authorization_value = Math.abs(total - authValue) < 1e-6;
+  if (cartAtomic !== null && authAtomic !== null) {
+    cart_total_matches_authorization_value = cartAtomic === authAtomic;
   }
 
   // ── merchant vs authorization.to ──
@@ -548,10 +631,12 @@ export function compute(pp) {
   const output_payload = {
     correlation_status,
     cart_total_matches_authorization_value,
+    cart_total_atomic,
+    authorization_value_atomic,
     merchant_matches_authorization_to,
     cart_chain_intact,
     disclosure: DISCLOSURE,
-    reasons: [],
+    reasons,
   };
 
   const compliance_flags = [

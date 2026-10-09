@@ -398,11 +398,14 @@ export const propertyIdMap = {
     cart_items: { element_id: 'cartItems', via: 'json' },
     claimed_links: { element_id: 'claimedLinks', via: 'json' },
   },
-  // art-596 pp assembly (cartRoot/cartItems/x402Evidence; merchant matches literally):
-  //   chaingraph/art-596-ap2-x402-cart-correlation.html:814-819
+  // art-596 pp assembly (cartRoot/cartItems/tokenDecimals/x402Evidence; merchant matches
+  // literally). token_decimals was added by X402-UNITS-FIXTURE-1 and its control is the
+  // number input #tokenDecimals that runCheck parses into pp.token_decimals:
+  //   chaingraph/art-596-ap2-x402-cart-correlation.html:1035-1043
   'art-596-ap2-x402-cart-correlation': {
     cart_root: { element_id: 'cartRoot', via: 'string' },
     cart_items: { element_id: 'cartItems', via: 'json' },
+    token_decimals: { element_id: 'tokenDecimals', via: 'string' },
     x402_spend_evidence: { element_id: 'x402Evidence', via: 'json' },
   },
   // art-605 pp assembly (encoding select, pair_sort checkbox, claimed path JSON):
@@ -1150,6 +1153,65 @@ export const propertyIdMap = {
   // object prop (7 sub-fields) and the sole #transaction_value number input
   // cannot faithfully carry it (deep-link probe execution_hash mismatch,
   // preflight FULL 2026-09-10). Honest exclusion; PAGE-FIX-NEEDED.
+
+  // ── WEBMCP-PROPERTYIDMAP-BATCH-2 (T5-sourced; board row
+  // WEBMCP-PROPERTYIDMAP-BATCH-2, plan research/webmcp/T5-IDMAP-FIX-PLAN-2026-10-02
+  // §3): ALL 10 first-Tier-1 tools DROP — zero entries authored. Verified by
+  // re-triage + independent page re-read at pin f9bfa85c (2026-10-05): every
+  // tool's ONLY missing inputSchema property is an OBJECT the page's own
+  // param-assembly builds from N distinct controls, so a per-property
+  // single-element map cannot express it by construction — the same shape the
+  // art-160 withdrawal above records. Honest exclusion; the destined emission
+  // path for these AGGREGATE pages is direct-mode (WEBMCP-DIRECT-MODE-1), and
+  // none of the 10 is direct-eligible today either (7 refuse at
+  // TODO_FUNCTION_NAME_REVIEW fn-shape, 3 vida pages' run takes 0 params).
+  // Drops (T5 report + bus · verified assembly at pin · reason):
+  //  · art-106-tempo-subscription-reconciler (T5-WMC-405C21C5, omen): envelope
+  //    is 5 controls assembled at
+  //    chaingraph/art-106-tempo-subscription-reconciler.html:728-734 — no single
+  //    faithful control (#draws_json already authored above); manifest
+  //    execution.function_name is the TODO_FUNCTION_NAME_REVIEW placeholder
+  //    (G3 refusal class, plan §4.8).
+  //  · art-108-canton-selective-disclosure (T5-WMC-954B4AE8, nitro):
+  //    dvp_structure is 5 controls nested 2 levels at
+  //    chaingraph/art-108-canton-selective-disclosure.html:600-618;
+  //    TODO_FUNCTION_NAME_REVIEW manifest.
+  //  · art-149-mcp-registry-entry-conformance (T5-WMC-B66856D1, omen): entry is
+  //    5 controls (entry_packages a per-line JSON.reduce) at
+  //    chaingraph/art-149-mcp-registry-entry-conformance.html:385-398;
+  //    TODO_FUNCTION_NAME_REVIEW manifest.
+  //  · art-160-vida-drr-transaction-reporter (T5-WMC-F34946EE, aspire):
+  //    transaction is 7 controls at
+  //    chaingraph/art-160-vida-drr-transaction-reporter.html:396-398 — the T5
+  //    report re-flags the withdrawn rename above; page unchanged, drop stands.
+  //  · art-161-vida-recapitulative-statement-migration-assessor
+  //    (T5-WMC-5DD834BD, omen): regime is 6 controls at
+  //    chaingraph/art-161-vida-recapitulative-statement-migration-assessor.html:381-383.
+  //  · art-164-vida-compliance-readiness-diagnostic (T5-WMC-2B3C9147, aspire):
+  //    entity is 6 checkboxes at
+  //    chaingraph/art-164-vida-compliance-readiness-diagnostic.html:389-391; the
+  //    derived parsed-from-wrapper entry in the region below never enables
+  //    emission and no authored single-control entry exists.
+  //  · art-165-eudr-dds-field-validator (T5-WMC-2BB3CA9D, omen): dds is 9
+  //    controls at chaingraph/art-165-eudr-dds-field-validator.html:470-484;
+  //    TODO_FUNCTION_NAME_REVIEW manifest.
+  //  · art-177-ifrs17-measurement-model-classifier (T5-WMC-4A7E8241, omen):
+  //    contract is 5 controls at
+  //    chaingraph/art-177-ifrs17-measurement-model-classifier.html:445-452;
+  //    TODO_FUNCTION_NAME_REVIEW manifest.
+  //  · art-186-irrbb-standardised-approach-mapper (T5-WMC-6A02CAB9, nitro):
+  //    positions is 3 controls at
+  //    chaingraph/art-186-irrbb-standardised-approach-mapper.html:410-415;
+  //    TODO_FUNCTION_NAME_REVIEW manifest.
+  //  · art-187-irrbb-csrbb-scope-checker (T5-WMC-69E19C56, hp): governance (2
+  //    controls) + instruments (3 controls) at
+  //    chaingraph/art-187-irrbb-csrbb-scope-checker.html:414-425;
+  //    TODO_FUNCTION_NAME_REVIEW manifest.
+  // Selection lesson for the harvester: these rows passed plan §2's "no
+  // aggregate caveat" filter because the caveat lives in candidate_id
+  // ("aggregate group of N controls"), not in confidence — Tier selection
+  // should also read candidate_id. No queued CPARITY row touches any of the 10
+  // pages (E-8 note, plan §8).
 
 /* WEBMCP:DERIVED-MAP-BEGIN (generated by --derive-map --write, WEBMCP-WRAPPER-PARSE-1; hand-edits are red) */
   'art-153-emir-trade-report-field-validator': {

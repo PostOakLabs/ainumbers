@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (671 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (674 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -2295,7 +2295,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "CBPR+ Structured Address Linter",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-241-cbpr-structured-address-linter.html",
-    "description": "Lints a single pacs.008 PostalAddress24 block against the SWIFT CBPR+ November 2026 mandate. Detects unstructured AdrLine-only addresses (pr",
+    "description": "Lints a single pacs.008 PostalAddress24 block against the SWIFT CBPR+ structured-address rule set (formerly a 14 Nov 2026 mandate; deferred ",
     "consumes": [],
     "feeds": [
       "art-242-pacs008-party-completeness-validator"
@@ -3588,7 +3588,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Fedwire Structured Address Linter",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-349-fedwire-structured-address-linter.html",
-    "description": "Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the November 2026 structured-address mandate (network param selects fedwire",
+    "description": "Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the Fedwire structured-address rules (network param selects fedwire or chip",
     "consumes": [],
     "feeds": [
       "art-350-fedwire-address-sweep"
@@ -3615,7 +3615,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Fedwire Payment-File Address Sweep",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-350-fedwire-address-sweep.html",
-    "description": "Batch-sweeps a Fedwire or CHIPS payment file (CSV, one record per row) through the November 2026 structured-address mandate lint (lint_fedwi",
+    "description": "Batch-sweeps a Fedwire or CHIPS payment file (CSV, one record per row) through the Fedwire structured-address rule lint (lint_fedwire_struct",
     "consumes": [
       "art-349-fedwire-structured-address-linter"
     ],
@@ -7329,6 +7329,36 @@ window.CHAINBUILDER_CATALOG = [
       "cry-05-agent-action-audit-trail-aggregator",
       "art-76-climate-scenario-applicator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-711-sco60-crypto-asset-exposure-classifier-v2",
+    "display_name": "SCO60 Group 2 Exposure Limit V2",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-711-sco60-crypto-asset-exposure-classifier-v2.html",
+    "description": "Book-level Group 2 exposure-limit assessor for banks' cryptoasset exposures (BCBS d545 Prudential treatment of cryptoasset exposures, SCO60.",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-712-workforce-board-roi",
+    "display_name": "Workforce Board ROI Report",
+    "mandate_type": "workforce_program_roi",
+    "url": "https://ainumbers.co/chaingraph/art-712-workforce-board-roi.html",
+    "description": "Workforce program ROI report generator ported from ApexLogics Apex #15 (AL-07). From a program budget, enrollment and WIOA outcome data the ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-713-scorp-election-break-even",
+    "display_name": "S-Corp Election Break-Even Modeler",
+    "mandate_type": "readiness_diagnostic",
+    "url": "https://ainumbers.co/chaingraph/art-713-scorp-election-break-even.html",
+    "description": "S-Corp election break-even modeler: from net self-employment income, a reasonable W-2 salary share and an annual admin cost, compute the sol",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

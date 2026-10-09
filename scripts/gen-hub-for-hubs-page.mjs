@@ -151,6 +151,7 @@ const CLUSTERS = [
     id: 'tokenization', label: 'Tokenization and DLT and stablecoins',
     blurb: 'Tokenized assets and the chains they settle on, from Canton and shared ledgers to the payments-first L1s.',
     paths: [
+      'guides/web3-hub.html',
       'guides/dlt-tokenization-hub.html',
       'guides/canton-tmf-hub.html',
       'guides/token-standards-hub.html',
@@ -180,6 +181,7 @@ const CLUSTERS = [
     blurb: 'Wire an agent or an MCP client into the suite: the protocols, worked demos, and agreements an agent can sign.',
     paths: [
       'guides/agentic-commerce-mcp-hub.html',
+      'guides/paypal-agent-shop-walkthrough.html',
       'guides/agent-observability-hub.html',
       'guides/agent-payment-dispute-evidence-hub.html',
       'chaingraph/agentcore-x402-hub.html',
@@ -219,6 +221,7 @@ const CLUSTERS = [
       'chaingraph/guide-decision-receipt-crosswalk.html',
       'chaingraph/guide-allocation-evidence.html',
       'chaingraph/guide-kya-os-checkpoint-interop.html',
+      'chaingraph/visual-explainers-hub.html',
       'guides/evidence-profile-catalog.html',
       'guides/lei-kyb-worksheet-guide.html',
     ],
