@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (673 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (674 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7347,6 +7347,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "workforce_program_roi",
     "url": "https://ainumbers.co/chaingraph/art-712-workforce-board-roi.html",
     "description": "Workforce program ROI report generator ported from ApexLogics Apex #15 (AL-07). From a program budget, enrollment and WIOA outcome data the ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-713-scorp-election-break-even",
+    "display_name": "S-Corp Election Break-Even Modeler",
+    "mandate_type": "readiness_diagnostic",
+    "url": "https://ainumbers.co/chaingraph/art-713-scorp-election-break-even.html",
+    "description": "S-Corp election break-even modeler: from net self-employment income, a reasonable W-2 salary share and an annual admin cost, compute the sol",
     "consumes": [],
     "feeds": [],
     "status": "live"

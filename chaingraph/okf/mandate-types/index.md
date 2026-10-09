@@ -33,7 +33,7 @@ status: stable
 - [payment_policy](./payment_policy.md) (11)
 - [perp_funding_rate](./perp_funding_rate.md) (1)
 - [prompt_template](./prompt_template.md) (1)
-- [readiness_diagnostic](./readiness_diagnostic.md) (1)
+- [readiness_diagnostic](./readiness_diagnostic.md) (2)
 - [regulatory_reporting](./regulatory_reporting.md) (13)
 - [risk_control](./risk_control.md) (5)
 - [risk_parameter](./risk_parameter.md) (8)
