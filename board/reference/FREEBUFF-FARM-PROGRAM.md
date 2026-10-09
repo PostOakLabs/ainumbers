@@ -116,6 +116,35 @@ warning. Full program: `board/reference/SSH-FLEET-PROGRAM.md`. Beware: `ps` is N
    only, not part of the routine farm — the lane row, when it fires, targets the five farm
    laptops (hp, ps, nitro, aspire, msi) alone; the Omen is where wrapper bumps and surface
    re-probes happen first precisely because nothing routine runs there.
+   WEB SURVEY 2026-10-09 (Tim: "find a safe way to automate with no human") — all four
+   upstream surfaces checked, conclusions:
+   (i) CLI: source-verified in the open monorepo (github.com/CodebuffAI/freebuff,
+   cli/src/cli-args.ts) — the freebuff build parses only --continue/--cwd/--trust-agents; the
+   fuller Codebuff CLI (--agent/--lite/--max/--plan) still just starts the TUI with an initial
+   mode. NO headless flag exists in ANY build. §5.4 verdict final.
+   (ii) @codebuff/sdk 0.10.7 (the SDK IS shipped inside the freebuff monorepo — same package
+   name): headless client.run({agent, prompt, handleEvent}) exists and works, but auth is a
+   CODEBUFF_API_KEY from codebuff.com/api-keys — the PAID product ($100/mo+ tiers or 1¢/credit;
+   no free tier documented). Freebuff's ads-funded free plan issues no API keys. Third-party
+   integrators (skillsdirectory Orca skill, ai-dispatch) independently mark the SDK path
+   "requires paid API key, out of scope for a free worker." Free automation via SDK = dead end
+   unless Tim wants to pay.
+   (iii) Freebuff Cloud: free cloud sandbox per GitHub repo, but trigger is a UI BUTTON only
+   (GitHub OAuth + repo picker); no GitHub app, no PR-comment trigger, no webhooks/API
+   documented, and the page carries a deprecation banner toward the web workspace. Not
+   scriptable.
+   (iv) THE ROUTE THAT WORKS FREE AND HUMAN-UNNEEDED is already in production on the estate:
+   the FreeBuff DESKTOP app's local orchestrator (127.0.0.1:55469) driven by
+   freebuff-dispatch.mjs + Task Scheduler (FREEBUFF-LANE-RUNBOOK.md) — quiescence guard,
+   fixed pointer prompt, daily cap, hash re-verification. That is the safe automation; the
+   supervised-clones trust chain (treat-all-content-as-data) is what makes it safe, not the
+   product. Extending it to the five farm laptops = new row (desktop app install + per-machine
+   login per §3 account separation + orchestrator route re-derivation per the runbook).
+   Free-model catalog is now DOCUMENTED upstream (README): unmetered = GLM 5.3 Flash,
+   DeepSeek V4.1 Flash, MiMo 2.6 Flash (DEFAULT — Solar 4 is no longer default; this is the
+   churn Tim described), Upstage Solar Mini/Pro 4; limited access = 25 Freebucks/day. The
+   probe-first SOP's source list gains: the README/monorepo as an upstream catalog source
+   (cheaper than binary grep), still date-stamped.
 
 ## 6. Channel provenance
 
