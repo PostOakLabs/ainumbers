@@ -24,6 +24,7 @@
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, cpSync, rmSync, readFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, runProcessBounded, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit } from './run-mutation-tier.mjs';
 
 let passed = 0;
@@ -427,6 +428,67 @@ test('R19 resolveSurfaceSplit: the exact marker range resolves and the round-tri
   const patched = surfaceSplitPatch(SPLIT_SRC, resolved.excludedRanges);
   assert((patched.match(/\/\/ Stryker disable all/g) || []).length === 1 && (patched.match(/\/\/ Stryker restore/g) || []).length === 1,
     'exactly one disable/restore pair per patch — never a scattered or duplicated directive');
+});
+
+test('R20 ART699 vendored kind: a {kind:"vendored"} entry resolves on ANY kernel (no detmath markers needed) and the patch carries the directive pair on the sandbox copy only', () => {
+  // A kernel-shaped source with NO detmath markers — exactly art-699's situation.
+  const vendoredSrc = [
+    '// header',
+    '// ---- vendored inline: @noble/hashes keccak256 path only (see header) ----',
+    'export const nobleConst = 0x1234n;',
+    'export function nobleRound(s) { return s + 1n; }',
+    '//# sourceMappingURL=sha3.js.map',
+    '// -- art-699 Permit2 digest + binding logic --',
+    'export function compute(input) { return nobleRound(BigInt(input)); }',
+  ].join('\n');
+  const sha256 = createHash('sha256').update(vendoredSrc.split('\n').slice(1, 5).join('\n')).digest('hex');
+  const resolved = resolveSurfaceSplit('fixture-vendored', { mutateSurfaceSplits: { 'fixture-vendored': { kind: 'vendored', excludedRanges: [[2, 5]], sha256, reason: 'vendored noble' } } }, vendoredSrc);
+  assert(resolved && resolved.kind === 'vendored' && JSON.stringify(resolved.excludedRanges) === JSON.stringify([[2, 5]]),
+    `a vendored entry must resolve without any markers, got ${JSON.stringify(resolved)}`);
+  const patched = surfaceSplitPatch(vendoredSrc, resolved.excludedRanges, 'vendored');
+  const pLines = patched.split('\n');
+  assert(pLines.length === vendoredSrc.split('\n').length, 'vendored patch must not shift any line number');
+  assert(/\/\/ Stryker disable all/.test(pLines[1]) && /vendored/.test(pLines[1]), `disable rides the vendored banner line, got: ${pLines[1]}`);
+  assert(/\/\/ Stryker restore all$/.test(pLines[4]), `restore rides the sourceMappingURL line, got: ${pLines[4]}`);
+  assert(!/Stryker/.test(pLines.slice(5).join('\n')), 'the kernel\'s OWN logic (lines after the vendored block) stays fully mutated');
+  assert(patched.replace(/ ?\/\/ Stryker (disable all|restore)[^\n]*/g, '') === vendoredSrc, 'stripping directives reproduces the original byte-for-byte — sandbox-only patch, zero tracked bytes');
+});
+
+test('R21 ART699 vendored kind: a stale sha256 or an out-of-source range fails LOUDLY naming the kernel, range and both hashes (drifted vendored block rots loudly)', () => {
+  const vendoredSrc = '// banner\nconst a = 1;\nconst b = 2;\n// end\nexport function compute() { return a + b; }';
+  const entry = (sha256, range) => ({ mutateSurfaceSplits: { 'fixture-vendored': { kind: 'vendored', excludedRanges: [range], sha256 } } });
+  const good = createHash('sha256').update(vendoredSrc.split('\n').slice(0, 4).join('\n')).digest('hex');
+  const drifted = createHash('sha256').update('different bytes entirely').digest('hex');
+  let threw = null;
+  try { resolveSurfaceSplit('fixture-vendored', entry(drifted, [1, 4]), vendoredSrc); } catch (e) { threw = e; }
+  assert(threw, 'a stale sha256 must throw, never silently exclude a block that changed');
+  assert(threw.message.includes('fixture-vendored') && threw.message.includes('[1, 4]') && threw.message.includes(drifted.slice(0, 16)) && threw.message.includes(good.slice(0, 16)),
+    `the failure must name the kernel, the range and BOTH hashes:\n${threw.message}`);
+  threw = null;
+  try { resolveSurfaceSplit('fixture-vendored', entry(good, [1, 99]), vendoredSrc); } catch (e) { threw = e; }
+  assert(threw && /outside the 5-line source/.test(threw.message),
+    `a range past EOF must fail loudly like the detmath check does:\n${threw && threw.message}`);
+  threw = null;
+  try { resolveSurfaceSplit('fixture-vendored', { mutateSurfaceSplits: { 'fixture-vendored': { kind: 'vendored', excludedRanges: [[1, 4]] } } }, vendoredSrc); } catch (e) { threw = e; }
+  assert(threw && /sha256 pin/.test(threw.message), 'a vendored entry without a sha256 pin must fail loudly — an unpinned exclusion can never rot loudly');
+});
+
+test('R22 the real art-699 entry: config range+sha256 match the tracked kernel, and the tracked file carries no Stryker directive', () => {
+  const configPath = join(import.meta.dirname, '..', 'chaingraph', 'kernels', 'mutation-tiers.config.json');
+  const kernelPath = join(import.meta.dirname, '..', 'chaingraph', 'kernels', 'art-699-x402-permit2-evidence-recomputer.kernel.mjs');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  const entry = config.mutateSurfaceSplits['art-699-x402-permit2-evidence-recomputer'];
+  assert(entry && entry.kind === 'vendored', 'art-699 must carry a vendored mutateSurfaceSplits entry');
+  const src = readFileSync(kernelPath, 'utf8');
+  // Resolving against the REAL tracked source must succeed (range+sha256 in sync)…
+  const resolved = resolveSurfaceSplit('art-699-x402-permit2-evidence-recomputer', config, src);
+  assert(resolved && resolved.excludedRanges.length === 1, `the real entry must resolve, got ${JSON.stringify(resolved)}`);
+  const [s, e] = resolved.excludedRanges[0];
+  const lines = src.split(/\r?\n/);
+  assert(/vendored inline/.test(lines[s - 1]) && /sourceMappingURL=sha3\.js\.map/.test(lines[e - 1]),
+    `the pinned range [${s}, ${e}] must land on the vendored banner and the sourceMappingURL end line`);
+  // …and the TRACKED kernel must carry no directive (the injection is sandbox-copy only).
+  assert(!/Stryker/.test(src), 'the tracked art-699 kernel must carry zero Stryker directives — zero kernel bytes changed');
 });
 
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);
