@@ -27,6 +27,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { loadSigningKey, signDetached } from './lib/detached-jws.mjs';
+import { gitEnv } from './_git-env-lib.mjs';
 import { buildSnapshotTools, SNAPSHOT_TYP, SNAPSHOT_SCHEMA, SNAPSHOT_REL } from './lib/webmcp-snapshot.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -56,7 +57,7 @@ if (!existsSync(KEY_PATH)) fail(`signing key not found at ${KEY_PATH} (path only
 
 let sourceCommit;
 try {
-  sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
+  sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, env: gitEnv(), encoding: 'utf8' }).trim();
 } catch (e) {
   fail(`cannot resolve source_commit via git rev-parse HEAD (${e.message})`);
 }
