@@ -99,3 +99,30 @@ one account across machines; never un-HALT without independently verifying the h
   concern: avoid synchronized account activity). Un-halt ONE machine at a time after the
   five-way task partition is decided; the dispatcher's own auth check fail-safes each first
   cycle anyway.
+
+## Adversarial review 2026-10-09 (Tim: "make sure it doesn't break the orchestrator, the estate, or GitHub; find real conflicts") — findings + fixes
+1. ORCHESTRATOR API DRIFT (caught live): POST /api/chat is GONE in the current app — first
+   real dispatch 17:41Z HALTed with 404. Re-derived from orchestrator.js per the runbook's
+   own rule: prompts now go POST /api/thread/:id/message {text,attachments:[]} and
+   POST /api/threads takes {projectPath}. Patched, redeployed, hp DISPATCHED 17:57Z
+   (thread 10db90b6, count 1/6). The 09-04 runbook shape is obsolete — future sessions
+   re-derive from orchestrator.js, never from the runbook.
+2. FARM COEXISTENCE (the one real conflict found): farm inboxes are DEEP (hp 50, ps 47,
+   nitro 27, aspire 15, msi 2 queued) — the laptops are NOT starved; FreeBuff is a SECOND
+   workload. Risk = a FreeBuff agent run stacking on an in-flight farm harness run
+   (farm-lane timeouts). Fix: run-dispatch.cmd now yields (`exit 0`) whenever the machine's
+   own bus outbox has a *.RUNNING marker; tick retries in 30 min.
+3. ESTATE SSOT: shipping a _hash.mjs copy would violate WORKER-HASH-SSOT-1 (drift risk).
+   Fix: the dispatcher imports the canonicalizer from the machine's own public clone
+   repos/ainumbers/chaingraph/kernels/_hash.mjs — same file, public main, no local copy.
+   The leg only fires when out/01/vectors exists (i.e., after task 01's clone exists).
+4. FILESYSTEM CONFLICTS: none — C:\dev\Claude\Projects on all five contains ONLY FreeBuff;
+   farm work lives in C:\dev\ainumbers-farm*. Scheduled-task names distinct everywhere
+   (AINumbers-FarmWorker* / freebuff-orch / freebuff-dispatch, all verified per machine).
+   Disk 177-375 GB free.
+5. GITHUB: zero new error surface — the lane never authenticates, never pushes, never opens
+   PRs (00-README rule 3 + task specs); only one-time anonymous public clones (~190 MB
+   ainumbers). The farm workers remain the only credentialed GitHub actors, unchanged.
+6. ORCHESTRATOR STABILITY: the four HALTed machines' orchestrators were already healthy via
+   their own task instances; the GUI is closed and de-registered on hp only. Port pinned
+   55469, launch ids per machine, stdin-EOF bootstrap — all re-verified after today's edits.
