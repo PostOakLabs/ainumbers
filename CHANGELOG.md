@@ -171,6 +171,8 @@ Notable changes to [AINumbers](https://ainumbers.co) — the OpenChainGraph comp
 
 ### Other
 
+- 2026-10-09 — Automated non-PR merge (auto) ([`8cc233af2`](https://github.com/PostOakLabs/ainumbers/commit/8cc233af26fb8924503030a2bec1e0ad41df048e))
+- 2026-10-08 — Automated non-PR merge (auto) ([`adf15c916`](https://github.com/PostOakLabs/ainumbers/commit/adf15c916ccbe4ebae2ddfa7a97aead18cc1919f))
 - 2026-10-08 — Automated non-PR merge (auto) ([`23f4937ba`](https://github.com/PostOakLabs/ainumbers/commit/23f4937ba16f1c7e32f90ef2463e920f17c12f9c))
 - 2026-10-08 — Automated non-PR merge (auto) ([`48351bf8c`](https://github.com/PostOakLabs/ainumbers/commit/48351bf8cbc3a49ababa54b4f9372be5c5d38ca1))
 
