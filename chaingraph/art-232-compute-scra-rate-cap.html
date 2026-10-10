@@ -218,6 +218,10 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 
 
+
+
+
+
 <!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-232-compute-scra-rate-cap.manifest.json -->
 <section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -432,59 +436,91 @@ function safeNum(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
 function r4(v) { return Number.isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0; }
 function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0; }
 
+// Byte-faithful port of chaingraph/kernels/art-232-compute-scra-rate-cap.kernel.mjs compute()
+// (WEBMCP-CPARITY-ART232-1, route (a)): the page leg diverged from the kernel; this inline copy
+// must produce the kernel's exact output_payload + compliance_flags so the page execution_hash
+// equals the served/kernel execution_hash on identical inputs.
 function computeScra(pp) {
   pp = pp || {};
   var original_rate_pct = Math.max(0, safeNum(pp.original_rate_pct, 0));
   var loan_balance = Math.max(0, safeNum(pp.loan_balance, 0));
   var covered_months = Math.max(0, Math.round(safeNum(pp.covered_months, 0)));
-  var is_pre_service_obligation = Boolean(pp.is_pre_service_obligation);
+  var is_pre_service_obligation = Boolean(pp.is_pre_service_obligation !== false);
   var servicemember_notified = Boolean(pp.servicemember_notified);
 
-  if (loan_balance === 0 && original_rate_pct === 0) {
+  // Guard: empty inputs return finite zero-state
+  if (original_rate_pct === 0 && loan_balance === 0) {
     return {
       output_payload: {
-        original_rate_pct: 0, capped_rate_pct: SCRA_CAP_PCT, rate_reduction_pct: 0,
-        scra_applies: false, scra_cap_pct: SCRA_CAP_PCT,
-        original_interest_total: 0, capped_interest_total: 0, excess_interest_forgiven: 0,
-        excess_forgiven: true, loan_balance: 0, covered_months: 0,
-        regulatory_basis: '50 USC §3937 (SCRA); formerly Soldiers and Sailors Civil Relief Act 50 USC §527; DoD Financial Management Regulation 7000.14-R Vol 7A Chapter 40; §3937(a)(1) — cap; §3937(a)(2) — excess forgiven not deferred',
+        original_rate_pct: 0,
+        capped_rate_pct: SCRA_CAP_PCT,
+        excess_rate_pct: 0,
+        exceeds_cap: false,
+        excess_forgiven: true,
+        total_interest_at_original_rate: 0,
+        total_interest_at_cap: 0,
+        interest_delta_forgiven: 0,
+        retroactive_credit: 0,
+        covered_months: 0,
+        loan_balance: 0,
+        is_pre_service_obligation: is_pre_service_obligation,
+        servicemember_notified: servicemember_notified,
+        regulatory_basis: '50 USC §3937 (SCRA); formerly Soldiers and Sailors Civil Relief Act 50 USC §527; DoD Financial Management Regulation 7000.14-R Vol 7A Chapter 40',
         table_version: 'SCRA-50USC3937-2024',
+        table_source: '50 USC §3937 (SCRA, codified 2003); 50 USC §3937(a)(1) 6% rate cap; 50 USC §3937(a)(2) excess forgiven not deferred; Pub. L. 108-189 §108-189 (Dec 19, 2003)',
         pii_note: 'All inputs are processed locally in your browser. No data is transmitted.'
       },
       compliance_flags: []
     };
   }
 
-  var scra_applies = is_pre_service_obligation && servicemember_notified;
-  var capped_rate_pct = scra_applies ? Math.min(original_rate_pct, SCRA_CAP_PCT) : original_rate_pct;
-  var rate_reduction_pct = r4(original_rate_pct - capped_rate_pct);
+  var excess_rate_pct = Math.max(0, r4(original_rate_pct - SCRA_CAP_PCT));
+  var exceeds_cap = original_rate_pct > SCRA_CAP_PCT;
 
-  var original_interest_total = r2((loan_balance * (original_rate_pct / 100)) * (covered_months / 12));
-  var capped_interest_total = r2((loan_balance * (capped_rate_pct / 100)) * (covered_months / 12));
-  var excess = r2(original_interest_total - capped_interest_total);
+  // Interest calculations (simple interest for coverage period)
+  var total_interest_at_original = loan_balance > 0 && covered_months > 0
+    ? r2(loan_balance * (original_rate_pct / 100) * (covered_months / 12))
+    : 0;
+  var total_interest_at_cap = loan_balance > 0 && covered_months > 0
+    ? r2(loan_balance * (SCRA_CAP_PCT / 100) * (covered_months / 12))
+    : 0;
+  var interest_delta_forgiven = r2(total_interest_at_original - total_interest_at_cap);
+
+  // Retroactive credit: same as interest delta if excess was already collected
+  var retroactive_credit = exceeds_cap ? interest_delta_forgiven : 0;
 
   var compliance_flags = [];
-  if (!is_pre_service_obligation) compliance_flags.push('SCRA_OBLIGATION_NOT_PRE_SERVICE');
-  if (!servicemember_notified) compliance_flags.push('SCRA_NOTICE_NOT_PROVIDED');
-  if (scra_applies && rate_reduction_pct > 0) compliance_flags.push('SCRA_RATE_REDUCTION_APPLIES');
+  if (exceeds_cap && is_pre_service_obligation) {
+    compliance_flags.push('SCRA_RATE_EXCEEDS_6PCT_CAP');
+    if (interest_delta_forgiven > 0) compliance_flags.push('SCRA_EXCESS_INTEREST_MUST_BE_FORGIVEN');
+  }
+  if (!servicemember_notified) {
+    compliance_flags.push('SCRA_BORROWER_NOTICE_PENDING');
+  }
+  if (!is_pre_service_obligation) {
+    compliance_flags.push('SCRA_NOT_APPLICABLE_POST_SERVICE_OBLIGATION');
+  }
 
   return {
     output_payload: {
       original_rate_pct: original_rate_pct,
-      capped_rate_pct: r4(capped_rate_pct),
-      rate_reduction_pct: rate_reduction_pct,
-      scra_applies: scra_applies,
-      scra_cap_pct: SCRA_CAP_PCT,
-      original_interest_total: original_interest_total,
-      capped_interest_total: capped_interest_total,
-      excess_interest_forgiven: excess,
-      excess_forgiven: true,
-      loan_balance: r4(loan_balance),
+      capped_rate_pct: SCRA_CAP_PCT,
+      effective_rate_pct: exceeds_cap ? SCRA_CAP_PCT : original_rate_pct,
+      excess_rate_pct: excess_rate_pct,
+      exceeds_cap: exceeds_cap,
+      excess_forgiven: true, // 50 USC §3937(a)(2) -- always forgiven, not deferred
+      total_interest_at_original_rate: total_interest_at_original,
+      total_interest_at_cap: total_interest_at_cap,
+      interest_delta_forgiven: interest_delta_forgiven,
+      retroactive_credit: retroactive_credit,
       covered_months: covered_months,
+      loan_balance: loan_balance,
       is_pre_service_obligation: is_pre_service_obligation,
       servicemember_notified: servicemember_notified,
-      regulatory_basis: '50 USC §3937 (SCRA); formerly Soldiers and Sailors Civil Relief Act 50 USC §527; DoD Financial Management Regulation 7000.14-R Vol 7A Chapter 40; §3937(a)(1) — cap; §3937(a)(2) — excess forgiven not deferred',
+      scra_note: 'Per 50 USC §3937(a)(2), excess interest above 6% must be forgiven -- creditor may not collect deferred excess after active duty ends. This is not a deferral.',
+      regulatory_basis: '50 USC §3937 (SCRA); formerly Soldiers and Sailors Civil Relief Act 50 USC §527; DoD Financial Management Regulation 7000.14-R Vol 7A Chapter 40',
       table_version: 'SCRA-50USC3937-2024',
+      table_source: '50 USC §3937 (SCRA codified 2003, Pub. L. 108-189 Dec 19 2003); 50 USC §3937(a)(1) 6% annual rate cap; 50 USC §3937(a)(2) excess forgiven not deferred; 50 USC §3937(d) 180-day notice requirement',
       pii_note: 'All inputs are processed locally in your browser. No data is transmitted.'
     },
     compliance_flags: compliance_flags
@@ -515,8 +551,9 @@ function runCompute() {
   _lastResult = { pp: pp, output_payload: op, compliance_flags: result.compliance_flags };
 
   var rcHtml = '<div class="rc-title">SCRA Rate Cap Result</div>';
-  if (op.scra_applies) {
-    if (op.rate_reduction_pct > 0) {
+  var scraApplies = op.is_pre_service_obligation && op.servicemember_notified;
+  if (scraApplies) {
+    if (op.exceeds_cap) {
       rcHtml += '<span class="badge badge-green">&#10003; SCRA Applies &mdash; Rate Reduced</span>';
     } else {
       rcHtml += '<span class="badge badge-green">&#10003; SCRA Applies &mdash; Rate Already Within Cap</span>';
@@ -529,18 +566,19 @@ function runCompute() {
     }
   }
   rcHtml += '<div class="kv"><span class="kv-k">Original rate</span><span class="kv-v">' + op.original_rate_pct.toFixed(2) + '%</span></div>';
-  rcHtml += '<div class="kv"><span class="kv-k">SCRA cap rate</span><span class="kv-v">' + op.scra_cap_pct + '%</span></div>';
-  rcHtml += '<div class="kv"><span class="kv-k">Applied rate</span><span class="kv-v">' + op.capped_rate_pct.toFixed(2) + '%</span></div>';
-  rcHtml += '<div class="kv"><span class="kv-k">Rate reduction</span><span class="kv-v">' + op.rate_reduction_pct.toFixed(2) + ' pp</span></div>';
-  rcHtml += '<div class="kv"><span class="kv-k">SCRA applies</span><span class="kv-v">' + (op.scra_applies ? 'Yes' : 'No') + '</span></div>';
+  rcHtml += '<div class="kv"><span class="kv-k">SCRA cap rate</span><span class="kv-v">' + op.capped_rate_pct + '%</span></div>';
+  rcHtml += '<div class="kv"><span class="kv-k">Applied rate</span><span class="kv-v">' + op.effective_rate_pct.toFixed(2) + '%</span></div>';
+  rcHtml += '<div class="kv"><span class="kv-k">Excess rate forgiven</span><span class="kv-v">' + op.excess_rate_pct.toFixed(2) + ' pp</span></div>';
+  rcHtml += '<div class="kv"><span class="kv-k">SCRA applies</span><span class="kv-v">' + (scraApplies ? 'Yes' : 'No') + '</span></div>';
   document.getElementById('rateCapCard').innerHTML = rcHtml;
 
   var fgHtml = '<div class="rc-title">Interest Forgiveness (50 USC &sect;3937(a)(2))</div>';
-  fgHtml += '<div style="font-size:1.4rem;font-family:JetBrains Mono,monospace;color:var(--green);margin:6px 0">' + fmt$(op.excess_interest_forgiven) + ' forgiven</div>';
+  fgHtml += '<div style="font-size:1.4rem;font-family:JetBrains Mono,monospace;color:var(--green);margin:6px 0">' + fmt$(op.interest_delta_forgiven) + ' forgiven</div>';
   fgHtml += '<div class="q-help" style="font-size:.72rem;margin-bottom:8px">Excess interest is FORGIVEN, not deferred &mdash; per 50 USC &sect;3937(a)(2). Servicemember owes no future obligation for this amount.</div>';
-  fgHtml += '<div class="kv"><span class="kv-k">Original interest total</span><span class="kv-v">' + fmt$(op.original_interest_total) + '</span></div>';
-  fgHtml += '<div class="kv"><span class="kv-k">Capped interest total</span><span class="kv-v">' + fmt$(op.capped_interest_total) + '</span></div>';
-  fgHtml += '<div class="kv"><span class="kv-k">Excess forgiven</span><span class="kv-v">' + fmt$(op.excess_interest_forgiven) + '</span></div>';
+  fgHtml += '<div class="kv"><span class="kv-k">Interest at original rate</span><span class="kv-v">' + fmt$(op.total_interest_at_original_rate) + '</span></div>';
+  fgHtml += '<div class="kv"><span class="kv-k">Interest at 6% cap</span><span class="kv-v">' + fmt$(op.total_interest_at_cap) + '</span></div>';
+  fgHtml += '<div class="kv"><span class="kv-k">Excess forgiven</span><span class="kv-v">' + fmt$(op.interest_delta_forgiven) + '</span></div>';
+  fgHtml += '<div class="kv"><span class="kv-k">Retroactive credit</span><span class="kv-v">' + fmt$(op.retroactive_credit) + '</span></div>';
   fgHtml += '<div class="kv"><span class="kv-k">Loan balance</span><span class="kv-v">' + fmt$(op.loan_balance) + '</span></div>';
   fgHtml += '<div class="kv"><span class="kv-k">Covered months</span><span class="kv-v">' + op.covered_months + '</span></div>';
   fgHtml += '<div class="kv"><span class="kv-k">Table version</span><span class="kv-v">' + op.table_version + '</span></div>';

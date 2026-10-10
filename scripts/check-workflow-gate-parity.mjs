@@ -409,7 +409,7 @@ const PREFLIGHT_ONLY = new Map([
   // ── CHAIN-PROMPT-INFRA-1 (2026-09-27) ───────────────────────────────────────
   ["check-chain-prompts.mjs",
     "Chain example prompt gate (CHAIN-PROMPT-INFRA-1, CONTRACT §A3.1): validates every " +
-    "chaingraph/chain-prompts/<chain>.json against the assembled graph and the step manifests, holds the " +
+    "chaingraph/chain-prompts/<chain>.json against the assembler's chain set (meta order.chains intersected with chain shards) and the step manifests, holds the " +
     "rendered prompt to 110 words and the copy-hallmark battery, and asserts completeness against " +
     "scripts/chain-prompts-baseline.json. Hard in preflight, both contexts. It reads only tracked repo " +
     "files plus `git show origin/main` for the shrink-only leg (no network, no CI-only input), so its CI " +
@@ -923,6 +923,17 @@ const PREFLIGHT_ONLY = new Map([
     "without a local re-sign therefore REDs the push before it can land. (The paired red-proof is " +
     "the same script's --self-test mode, wired as its own GATES entry — no separate .test.mjs file, " +
     "so nothing further to declare here.)"],
+
+  // ── WEBMCP-SIGNED-SNAPSHOT-1 (2026-10-09) ──────────────────────────────────
+  ["check-webmcp-signed-snapshot.mjs",
+    "WebMCP signed tool-surface snapshot drift guard: verifies the COMMITTED " +
+    ".well-known/webmcp-signed.json (typ webmcp-snapshot+jws) against /.well-known/jwks.json. " +
+    "Hard in preflight; same shape as check-agent-card-sig.mjs above: the snapshot is signed on " +
+    "the key-holding desk (the private key never touches a runner), the gate reads only tracked " +
+    "repo files, and its CI route is scripts-verify.yml's full preflight (runs " +
+    "`node scripts/preflight.mjs` on scripts/** changes, this gate's own diff shape) plus every " +
+    "push to main. DELIBERATELY not a named CI step. The paired red-proof is the same script's " +
+    "--self-test mode, wired as its own GATES entry."],
 
   // ── VENDOR-DIGEST-GATE-1 (2026-09-03) ──────────────────────────────────────
   ["check-vendored-digests.mjs",
@@ -1470,7 +1481,14 @@ const DECLARED_SOFTENERS = new Map([
   // above the attest step; same pin-move.
   ["deploy-to-dreamhost.yml:continue-on-error:923",
    "attest step is advisory-first by design; promotion criterion on the step"],
-  ["unwired-gates.yml:continue-on-error:109",
+  // MAIN-GATES-AFTER-REGEN-1 (2026-10-08) moved it :109 → :146 — the
+  // unwired-gates.yml `on:` block swapped `push: main` for `workflow_run`
+  // (trigger comment), the workflow gained a workflow-level GATE_SHA env
+  // block plus the gates job's success/currency `if:` above the step, and
+  // the trigger comment was reflowed to keep the public file free of
+  // internal-governance row ids (check-internal-lang-leak's bare-wu-id
+  // class); same pin-move, no gate step below the trigger changed.
+  ["unwired-gates.yml:continue-on-error:146",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
    "continue-on-error is deliberate so the job surfaces drift without blocking. " +
    "Promotion to blocking removes this entry together with the continue-on-error."],

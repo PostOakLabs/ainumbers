@@ -1782,6 +1782,11 @@ const GATES = [
   // one real card byte and asserts the WebCrypto verify FAILS, then re-verifies the
   // untampered card — the gate is proven to read the bytes, not rubber-stamp.
   ['Agent card signature fixture proof (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-agent-card-sig.mjs --self-test'],
+  // WEBMCP-SIGNED-SNAPSHOT-1: the locally signed, dated WebMCP tool-surface snapshot
+  // (.well-known/webmcp-signed.json, typ webmcp-snapshot+jws). RED only on integrity
+  // (bad signature / wrong typ / malformed); absence, age and drift are advisory.
+  ['WebMCP signed snapshot (WEBMCP-SIGNED-SNAPSHOT-1)', 'node scripts/check-webmcp-signed-snapshot.mjs'],
+  ['WebMCP signed snapshot fixture proof (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-webmcp-signed-snapshot.mjs --self-test'],
   // MCPCARD-SCHEMA-1: the hand-maintained MCP server card conforms to the
   // authored schema (chaingraph/standard/mcp-server-card.schema.json), its
   // tool_count equals the counts-engine mcp.live value, and the served schema

@@ -31,9 +31,16 @@
  *      pilot proved an upstream change never moves a downstream step's output
  *      (no output-to-input dataflow, worker.mjs:2843-2848), so a cross-step
  *      pair would ship a variant instruction that moves nothing.
- *   5. The chain is live: present in chaingraph.json `chains[]`. Chain records
- *      carry no `status` field (measured: 370 of 370 absent), so presence in
- *      the assembled graph IS the liveness test for a chain.
+ *   5. The chain is live: present in the assembler's chain set — ids in
+ *      chaingraph.meta.json `order.chains` that also have a shard at
+ *      chaingraph/graph/chains/<name>.json, with `title` and `steps` read from
+ *      the shard (CHAIN-PROMPT-LIVENESS-SHARDS-1). Chain records carry no
+ *      `status` field (measured: 370 of 370 absent), so presence in that set IS
+ *      the liveness test. Reading shards + meta rather than the committed
+ *      monolith is what un-breaks a NEW chain: the monolith is assembled by the
+ *      main-side single writer (SO #35) AFTER the PR lands, so a monolith-only
+ *      liveness test and the single-writer rule were mutually exclusive. On
+ *      origin/main the two sets are proven identical (374 of 374, 2026-10-10).
  *   6. Completeness: every live chain has a prompt file or appears in
  *      scripts/chain-prompts-baseline.json, which is seeded with every live
  *      chain that had no prompt when this row landed and may only SHRINK
@@ -55,7 +62,7 @@
  * Zero-dependency: node builtins plus two first-party modules.
  */
 import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { hallmarkFindings, DEFAULT_NOTX_CAP, OVERUSE_CAP } from './check-copy-hallmarks.mjs';
@@ -80,12 +87,46 @@ function normalizeProse(s) {
   return String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
-/** chain name -> { title, steps: [tool_id] } for every chain in the graph. */
+/**
+ * MERGEGROUP-HARD-GATES-1 shape, mirrored from scripts/check-nav-reachability.mjs:
+ * on merge_group DERIVED_ROOT points at the ephemeral assembled tree, so the
+ * meta + shard reads below (this gate's only DYNAMIC inputs) prefer it and the
+ * gate sees the true speculative graph and stays HARD there. Everywhere else
+ * DERIVED_ROOT is unset — unchanged behaviour.
+ */
+const DERIVED_ROOT = process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim()
+  ? resolve(process.env.DERIVED_ROOT.trim())
+  : null;
+
+/** Prefer the DERIVED_ROOT copy of a derived path when one exists there. */
+function derivedRead(repo, ...segments) {
+  if (DERIVED_ROOT) {
+    const scratch = join(DERIVED_ROOT, ...segments);
+    if (existsSync(scratch)) return scratch;
+  }
+  return resolve(repo, ...segments);
+}
+
+/**
+ * chain name -> { title, steps: [tool_id] } for every LIVE chain — the
+ * assembler's set (CHAIN-PROMPT-LIVENESS-SHARDS-1): ids in
+ * chaingraph/chaingraph.meta.json `order.chains` that also have a shard at
+ * chaingraph/graph/chains/<name>.json. `title` and `steps` come from the SHARD
+ * (the primary source), never the committed monolith: the monolith is
+ * reassembled by the main-side single writer (SO #35) only after the PR lands,
+ * so a monolith-only liveness test made a NEW chain's prompt gate and the
+ * single-writer rule mutually exclusive. Proven equivalent to the monolith's
+ * chains[] on origin/main (374 = 374, zero name/title/steps differences).
+ */
 export function loadChains(repo = REPO) {
-  const cg = JSON.parse(readFileSync(resolve(repo, 'chaingraph', 'chaingraph.json'), 'utf8'));
+  const metaPath = derivedRead(repo, 'chaingraph', 'chaingraph.meta.json');
+  const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
   const out = new Map();
-  for (const c of cg.chains ?? []) {
-    out.set(c.name, { title: c.title || c.name, steps: (c.steps ?? []).map((s) => s.tool_id) });
+  for (const name of meta.order?.chains ?? []) {
+    const shardPath = derivedRead(repo, 'chaingraph', 'graph', 'chains', `${name}.json`);
+    if (!existsSync(shardPath)) continue;
+    const c = JSON.parse(readFileSync(shardPath, 'utf8'));
+    out.set(c.name ?? name, { title: c.title || (c.name ?? name), steps: (c.steps ?? []).map((s) => s.tool_id) });
   }
   return out;
 }
@@ -161,7 +202,7 @@ export function validatePrompt(prompt, { basename, chains, repo = REPO, render }
 
   const chain = chains.get(prompt.chain);
   if (!chain) {
-    errs.push(`${id}: chain \`${prompt.chain}\` is not in chaingraph.json chains[] (not live)`);
+    errs.push(`${id}: chain \`${prompt.chain}\` is not in the assembler's chain set — chaingraph.meta.json order.chains with a chain shard (not live)`);
     return errs;
   }
 
@@ -372,19 +413,21 @@ async function selftest() {
   const base = JSON.parse(readFileSync(resolve(PROMPT_DIR, 'call-report-edit-gate.json'), 'utf8'));
   const noteBase = JSON.parse(readFileSync(resolve(PROMPT_DIR, 'stablecoin-examiner-pack.json'), 'utf8'));
   const misses = [];
-  const check = (p, basename = p.chain) => validatePrompt(p, { basename, chains, render });
+  // CHAIN-PROMPT-LIVENESS-SHARDS-1: liveness is the assembler's set, so the
+  // battery needs to drive it over VARIANT sets, not just the shipped one.
+  const check = (p, basename = p.chain, map = chains) => validatePrompt(p, { basename, chains: map, render });
   const clone = (p) => JSON.parse(JSON.stringify(p));
-  const red = (label, mutate, from = base) => {
+  const red = (label, mutate, from = base, map = chains) => {
     const p = clone(from);
     const basename = mutate(p) ?? p.chain;
-    const errs = check(p, basename);
+    const errs = check(p, basename, map);
     if (!errs.length) misses.push(`RED mutation "${label}" did NOT go red`);
     else console.log(`  selftest RED ok: ${label} -> ${errs[0]}`);
   };
-  const green = (label, mutate, from = base) => {
+  const green = (label, mutate, from = base, map = chains) => {
     const p = clone(from);
     const basename = mutate(p) ?? p.chain;
-    const errs = check(p, basename);
+    const errs = check(p, basename, map);
     if (errs.length) misses.push(`GREEN control "${label}" went red: ${errs[0]}`);
     else console.log(`  selftest GREEN ok: ${label}`);
   };
@@ -419,6 +462,26 @@ async function selftest() {
     p.try_changing.value_note = Array(VALUE_NOTE_WORD_BUDGET + 3).fill('leg').join(' ');
   }, noteBase);
   green('no try_changing at all', (p) => { delete p.try_changing; });
+
+  // ── CHAIN-PROMPT-LIVENESS-SHARDS-1: liveness is meta order.chains ∩ chain
+  // shards, not the committed monolith. A brand-new chain (shard + meta entry,
+  // monolith not yet reassembled by the main-side single writer) must be GREEN;
+  // a chain outside the assembler's set from either half must be RED.
+  const baseChain = chains.get(base.chain);
+  const withNewChain = new Map(chains);
+  withNewChain.set('new-chain-shard-only', { title: baseChain.title, steps: baseChain.steps });
+  green('liveness: shard + meta entry whose committed monolith record does not exist yet (the new-chain deadlock, fixed)', (p) => {
+    p.chain = 'new-chain-shard-only';
+    return 'new-chain-shard-only';
+  }, base, withNewChain);
+  const noMetaEntry = new Map(chains);
+  noMetaEntry.delete(base.chain);
+  red('liveness: chain shard on disk with no meta order.chains entry', () => base.chain, base, noMetaEntry);
+  // Once loadChains returns the intersection, "removed from meta while its
+  // prompt remains" and "shard without a meta entry" converge on the same
+  // not-live set membership; the label pins the scenario anyway.
+  red('liveness: chain removed from meta while its prompt remains', () => base.chain, base, noMetaEntry);
+  // "prompt naming a non-existent chain = RED" is the pre-existing control above.
 
   if (misses.length) {
     console.error('✗ check-chain-prompts selftest FAILED:');

@@ -224,6 +224,7 @@ const rootPages = [
   { icon: '🧮', name: 'FV Process Explainer', href: 'fv-explainer.html' },
   { icon: '🛠', name: 'Errata (public corrections)', href: 'errata.html' },
   { icon: '🔐', name: 'Security', href: 'security.html' },
+  { icon: '🛡️', name: 'Privacy', href: 'privacy.html' },
   { icon: '🧠', name: 'Prompt Library', href: 'prompts.html' },
   { icon: '🧰', name: 'All Tools (directory)', href: 'tools.html' },
   { icon: '🗂', name: 'Workpaper Index (hash-anchored bundles)', href: 'workpaper-index.html' },
