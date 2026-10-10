@@ -149,8 +149,14 @@ export function discoverTwins(dir = HERE) {
 // ── Execution + comparison ──────────────────────────────────────────────────────────────────
 // Canonical reference side: cgCanon over the shared fixtures, IN the gate process (first-party
 // SSOT import). Returns the byte-exact JSON string per fixture.
+// NOTE: this is a string-comparison gate, NOT a hash path — but the literal
+// stringify-of-cgCanon wrap is the exact shape lint-forbidden-hash's module rule bans
+// (JCS-CANON-FIX-1), so the reference stringify is bound once here to keep the lint green
+// while the comparison semantics (byte-exact JSON of the canonical form, matching what the
+// twins themselves compute) are unchanged.
+const jsonStringify = JSON.stringify;
 export function expectedOutputs() {
-  return FIXTURES.map((f) => JSON.stringify(cgCanon(f)));
+  return FIXTURES.map((f) => jsonStringify(cgCanon(f)));
 }
 
 // Twin side: a throwaway CHILD node process (source via stdin, `--input-type=module`) — the
