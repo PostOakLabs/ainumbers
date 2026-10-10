@@ -409,7 +409,7 @@ const PREFLIGHT_ONLY = new Map([
   // ── CHAIN-PROMPT-INFRA-1 (2026-09-27) ───────────────────────────────────────
   ["check-chain-prompts.mjs",
     "Chain example prompt gate (CHAIN-PROMPT-INFRA-1, CONTRACT §A3.1): validates every " +
-    "chaingraph/chain-prompts/<chain>.json against the assembled graph and the step manifests, holds the " +
+    "chaingraph/chain-prompts/<chain>.json against the assembler's chain set (meta order.chains intersected with chain shards) and the step manifests, holds the " +
     "rendered prompt to 110 words and the copy-hallmark battery, and asserts completeness against " +
     "scripts/chain-prompts-baseline.json. Hard in preflight, both contexts. It reads only tracked repo " +
     "files plus `git show origin/main` for the shrink-only leg (no network, no CI-only input), so its CI " +
