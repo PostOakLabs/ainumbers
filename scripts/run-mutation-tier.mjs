@@ -885,6 +885,11 @@ export async function runTier(argv, repoRoot = REPO) {
   }
   const config = loadConfig(repoRoot);
   const excluded = config.excludedKernels || {};
+  // ART699-PROPTEST-STRENGTHEN-1 / 7F-V425(1): a kernel listed in hookSkipKernels is
+  // ADVISORY-skipped in-hook ("deferred to CI shards"); the CI shard matrix still runs and
+  // floors it. Not excludedKernels — the kernel is not exempt from the floor, only from the
+  // in-hook leg whose wall-clock bound it provably cannot fit (cause string in the config).
+  const hookSkip = config.hookSkipKernels || {};
 
   let ids;
   if (opts.all) {
@@ -905,12 +910,14 @@ export async function runTier(argv, repoRoot = REPO) {
   const skipped = [];
   for (const id of ids) {
     if (Object.prototype.hasOwnProperty.call(excluded, id)) skipped.push({ id, reason: excluded[id] });
+    else if (Object.prototype.hasOwnProperty.call(hookSkip, id)) skipped.push({ id, reason: hookSkip[id], advisory: true });
     else toRun.push(id);
   }
 
   if (toRun.length === 0) {
     console.log(`run-mutation-tier: ${skipped.length} id(s) given, all are named exceptions — nothing to run (exit 0).`);
     for (const s of skipped) console.log(`  SKIP (named exception) ${s.id}: ${s.reason}`);
+    for (const s of skipped) if (s.advisory) console.log(`  ADVISORY (hookSkipKernels) deferred to CI shards ${s.id}`);
     process.exit(0);
   }
 
@@ -1009,6 +1016,7 @@ export async function runTier(argv, repoRoot = REPO) {
   console.log(`\n=== SUMMARY ===`);
   console.log(`examined: ${toRun.length}  hard-fail: ${hardFailCount}  floor-fail: ${floorFailCount}  named-exceptions: ${skipped.length}${opts.decomposed ? `  decomposed-null: ${decomposedNullCount}` : ''}`);
   for (const s of skipped) console.log(`  SKIP (named exception) ${s.id}: ${s.reason}`);
+  for (const s of skipped) if (s.advisory) console.log(`  ADVISORY (hookSkipKernels) deferred to CI shards ${s.id}`);
 
   if (opts.jsonOut) {
     writeFileSync(opts.jsonOut, JSON.stringify({ config, results, skipped }, null, 2) + '\n');
