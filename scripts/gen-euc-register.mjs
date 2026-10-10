@@ -61,6 +61,16 @@ const CHAINGRAPH = JSON.parse(readFileSync(join(ROOT, "chaingraph", "chaingraph.
 const OUT_DIR = join(ROOT, "chaingraph", "register");
 const CHECK = process.argv.includes("--check");
 
+// Writes report (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1, mirroring gen-page-md-twins.mjs's
+// REGEN-ESCAPE-GUARD-BLIND-HEAL-1 mechanism): every write run writes the run's ACTUAL
+// write list to a tempdir report consumed by `scripts/derived-artifacts.mjs --paths`, so
+// the COVERED entry's bare-tree `chaingraph/register` prefix can never stage an injected
+// file. The COVERED entry carries `writesReportRequired: true`. Pruned stale entries are
+// deliberately NOT reported — the stage set narrows to extant written files; a prune
+// already passes its own --confirm-prune review. The report path lives in
+// scripts/_gen-writes-reports.mjs (shared-constants module).
+import { EUC_REGISTER_WRITES_REPORT_PATH } from "./_gen-writes-reports.mjs";
+
 /**
  * The per-node filename shape this generator writes, and therefore the only one
  * it may delete. index.json is handled separately and is never pruned.
@@ -361,11 +371,22 @@ function main() {
   const { removed } = pruneStale(OUT_DIR, classified.stale, { confirm: confirmPrune });
 
   let written = 0;
+  const writtenPaths = []; // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1
   for (const entry of entries) {
-    if (writeIfChanged(join(OUT_DIR, `${entry.tool_id}.register.json`), entry)) written++;
+    if (writeIfChanged(join(OUT_DIR, `${entry.tool_id}.register.json`), entry)) {
+      written++;
+      writtenPaths.push(`chaingraph/register/${entry.tool_id}.register.json`);
+    }
   }
   const indexWritten = writeIfChanged(join(OUT_DIR, "index.json"), buildIndex(entries, generatedAt));
+  if (indexWritten) writtenPaths.push("chaingraph/register/index.json");
   console.log(`gen-euc-register: ${entries.length} entries derived; wrote ${written} changed entry file(s)${indexWritten ? " + index.json" : ""}, removed ${removed} stale entr(ies), left ${entries.length - written} unchanged file(s) untouched.`);
+  // Written on EVERY write run — empty list included (REGEN-MANIFEST-ATTEST-1 precedent).
+  writeFileSync(EUC_REGISTER_WRITES_REPORT_PATH, JSON.stringify({
+    _comment: "Actual write list of the last gen-euc-register.mjs write run; consumed by scripts/derived-artifacts.mjs --paths (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1).",
+    generated_by: "node scripts/gen-euc-register.mjs",
+    written: [...new Set(writtenPaths)].sort(),
+  }, null, 2) + "\n", "utf8");
   if (classified.unrecognized.length) {
     console.log(`  note: ${classified.unrecognized.length} file(s) in chaingraph/register/ are not entries this generator owns and were left untouched: ${classified.unrecognized.slice(0, 5).join(", ")}${classified.unrecognized.length > 5 ? ", …" : ""}`);
   }

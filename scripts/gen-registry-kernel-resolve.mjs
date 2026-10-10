@@ -79,6 +79,16 @@ const CGPATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
 const SPEC_PATH = resolve(REPO, 'chaingraph', 'standard', 'SPEC.md');
 const OUT_DIR = resolve(REPO, 'registry', 'kernel');
 
+// Writes report (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1, mirroring gen-page-md-twins.mjs's
+// REGEN-ESCAPE-GUARD-BLIND-HEAL-1 mechanism): every --write run writes the run's ACTUAL
+// write list to a tempdir report consumed by `scripts/derived-artifacts.mjs --paths`, so
+// the COVERED entry's bare-tree `registry/kernel` prefix can never stage an injected
+// file. The COVERED entry carries `writesReportRequired: true`. Pruned orphans are
+// deliberately NOT reported — the stage set narrows to extant written files; an orphan
+// removal already passes its own --confirm-prune review. The report path lives in
+// scripts/_gen-writes-reports.mjs (shared-constants module).
+import { REGISTRY_KERNEL_RESOLVE_WRITES_REPORT_PATH } from './_gen-writes-reports.mjs';
+
 // design note §5.1, carried verbatim (not a paraphrase) into every record's note field.
 export const NEVER_LIVE_DEPENDENCY_NOTE =
   'This file and its Sigsum anchor inform *trust* in a spec version, not the *validity* of any composed FV+zk artifact. A receipt issued against a spec digest verifies cryptographically offline, in full, whether or not this feed is ever fetched, whether or not it is reachable, and regardless of its content. Checking this feed is optional due diligence by the reader, never a verification step.';
@@ -345,13 +355,21 @@ async function main() {
   const { removed } = pruneOrphans(OUT_DIR, orphans, { confirm: confirmPrune });
 
   let written = 0, unchanged = 0;
+  const writtenPaths = []; // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1
   for (const [fname, { record }] of byFile) {
     const path = resolve(OUT_DIR, fname);
     const want = canonicalRecordBytes(record);
     if (existsSync(path) && readFileSync(path, 'utf8') === want) { unchanged++; continue; }
     writeFileSync(path, want);
     written++;
+    writtenPaths.push(`registry/kernel/${fname}`);
   }
+  // Written on EVERY --write run — empty list included (REGEN-MANIFEST-ATTEST-1 precedent).
+  writeFileSync(REGISTRY_KERNEL_RESOLVE_WRITES_REPORT_PATH, JSON.stringify({
+    _comment: 'Actual write list of the last gen-registry-kernel-resolve.mjs --write run; consumed by scripts/derived-artifacts.mjs --paths (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1).',
+    generated_by: 'node scripts/gen-registry-kernel-resolve.mjs --write',
+    written: [...new Set(writtenPaths)].sort(),
+  }, null, 2) + '\n', 'utf8');
   console.log(`✓ REGISTRY-RESOLVE-STATIC-1 wrote ${written} record(s), removed ${removed} orphan(s), ${unchanged} already current, for ${inScope.length} in-scope kernel(s) (${byFile.size} unique file(s)). Run --check to verify.`);
   if (unrecognized.length) {
     console.log(`  note: ${unrecognized.length} file(s) in registry/kernel/ are not records this generator owns and were left untouched: ${unrecognized.slice(0, 5).join(', ')}${unrecognized.length > 5 ? ', …' : ''}`);

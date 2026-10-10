@@ -51,6 +51,15 @@ const INDEX = resolve(HERE, 'chaingraph.json');
 const OUT = resolve(HERE, 'okf');
 const CHECK = process.argv.includes('--check');
 
+// Writes report (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1, mirroring gen-page-md-twins.mjs's
+// REGEN-ESCAPE-GUARD-BLIND-HEAL-1 mechanism): every --write run writes the run's ACTUAL
+// write list to a tempdir report consumed by `scripts/derived-artifacts.mjs --paths`, so
+// the COVERED entry's bare-tree `chaingraph/okf` prefix can never stage an injected
+// file. The COVERED entry carries `writesReportRequired: true`. Removed orphans are
+// deliberately NOT reported — the stage set narrows to extant written files. The report
+// path lives in scripts/_gen-writes-reports.mjs (shared-constants module).
+import { OKF_WRITES_REPORT_PATH } from '../scripts/_gen-writes-reports.mjs';
+
 const idx = JSON.parse(readFileSync(INDEX, 'utf8'));
 const live = idx.nodes.filter((n) => n.status === 'live');
 const byId = new Map(live.map((n) => [n.tool_id, n]));
@@ -417,6 +426,7 @@ if (CHECK) {
     if (!files.has(relPath)) { rmSync(resolve(OUT, relPath), { force: true }); removed++; }
   }
   let written = 0;
+  const writtenPaths = []; // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1, repo-relative posix
   for (const [relPath, content] of files) {
     const path = resolve(OUT, relPath);
     let current = null;
@@ -424,6 +434,13 @@ if (CHECK) {
     if (current === content) continue;
     writeFileSync(path, content);
     written++;
+    writtenPaths.push(`chaingraph/okf/${relPath.split('\\').join('/')}`);
   }
+  // Written on EVERY --write run — empty list included (REGEN-MANIFEST-ATTEST-1 precedent).
+  writeFileSync(OKF_WRITES_REPORT_PATH, JSON.stringify({
+    _comment: 'Actual write list of the last generate-okf.mjs --write run; consumed by scripts/derived-artifacts.mjs --paths (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1).',
+    generated_by: 'node chaingraph/generate-okf.mjs --write',
+    written: [...new Set(writtenPaths)].sort(),
+  }, null, 2) + '\n', 'utf8');
   console.log(`OKF bundle at ${OUT}: ${live.length} tool concepts, ${groups.size} mandate-type groups, ${attested.length} attested computations. Wrote ${written} changed file(s), removed ${removed} orphan(s), left ${files.size - written} unchanged file(s) untouched.`);
 }

@@ -100,6 +100,17 @@ import { chainAskAgentPages } from './gen-chain-ask-agent.mjs';
 import { hubScenePages } from './gen-hub-scenes.mjs';
 import { WRITES_REPORT_PATH } from './gen-manifest-examples.mjs';
 import { PAGE_MD_TWINS_WRITES_REPORT_PATH } from './gen-page-md-twins.mjs';
+// REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: the six new bare-tree entries' report paths come
+// from the shared-constants module — importing the generators themselves would RUN
+// them (several are script-style with module-level write paths / argv dispatch).
+import {
+  AGENT_SKILLS_WRITES_REPORT_PATH,
+  EVIDENCE_REGISTER_WRITES_REPORT_PATH,
+  REGISTRY_KERNEL_RESOLVE_WRITES_REPORT_PATH,
+  EUC_REGISTER_WRITES_REPORT_PATH,
+  FV_STATUS_WRITES_REPORT_PATH,
+  OKF_WRITES_REPORT_PATH,
+} from './_gen-writes-reports.mjs';
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -439,6 +450,11 @@ export const COVERED = [
     gate: 'node scripts/gen-agent-skills.mjs --check',
     writes: ['skills'],
     artifacts: ['skills'],
+    // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): bare-tree prefix → the stage
+    // set is REQUIRED to be the generator's attested write list (see page-md-twins
+    // for the full REGEN-ESCAPE-GUARD-BLIND-HEAL-1 rationale).
+    writesReport: AGENT_SKILLS_WRITES_REPORT_PATH,
+    writesReportRequired: true,
     prAbsentOk: true,
     share: 'n/a (new 2026-09-26, AGENT-SKILLS-EXPORT-1)',
   },
@@ -793,6 +809,10 @@ export const COVERED = [
     gate: 'node scripts/check-evidence-register.mjs',
     writes: ['evidence/claims.json', 'source'],
     artifacts: ['evidence/claims.json', 'source'],
+    // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): the `source` half is a bare-tree
+    // prefix (runtime-named <claim-id>.txt) → writesReportRequired (see page-md-twins).
+    writesReport: EVIDENCE_REGISTER_WRITES_REPORT_PATH,
+    writesReportRequired: true,
     share: 'n/a (new 2026-09-22, EVREG-1 — drifts only when a registered claim page changes, which is exactly when it MUST red)',
   },  {
     id: 'sitemap-html',
@@ -954,6 +974,10 @@ export const COVERED = [
     // <kernel_digest>.json — name determined at runtime, so declared as its root.
     writes: ['registry/kernel'],
     artifacts: ['registry/kernel'],
+    // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): bare-tree prefix →
+    // writesReportRequired (see page-md-twins).
+    writesReport: REGISTRY_KERNEL_RESOLVE_WRITES_REPORT_PATH,
+    writesReportRequired: true,
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
   {
@@ -1008,6 +1032,10 @@ export const COVERED = [
     // <tool_id>.register.json + index.json — names determined at runtime.
     writes: ['chaingraph/register'],
     artifacts: ['chaingraph/register'],
+    // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): bare-tree prefix →
+    // writesReportRequired (see page-md-twins).
+    writesReport: EUC_REGISTER_WRITES_REPORT_PATH,
+    writesReportRequired: true,
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
   {
@@ -1034,6 +1062,10 @@ export const COVERED = [
     // <spec_digest>.json — name determined at runtime.
     writes: ['fv-status'],
     artifacts: ['fv-status'],
+    // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): bare-tree prefix →
+    // writesReportRequired (see page-md-twins).
+    writesReport: FV_STATUS_WRITES_REPORT_PATH,
+    writesReportRequired: true,
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
   {
@@ -1057,6 +1089,10 @@ export const COVERED = [
     // one concept file per node under tools/ and computations/, plus rollups.
     writes: ['chaingraph/okf'],
     artifacts: ['chaingraph/okf'],
+    // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): bare-tree prefix →
+    // writesReportRequired (see page-md-twins).
+    writesReport: OKF_WRITES_REPORT_PATH,
+    writesReportRequired: true,
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
   {
@@ -1968,6 +2004,23 @@ if (isMain) {
       JSON.stringify(stagedG) === JSON.stringify([MAN_A]) || fail(`a report-narrowed entry must stage exactly its generator's write list, got ${JSON.stringify(stagedG)}`);
       !stagedG.includes('manifests/INJECTED-REGEN-ESCAPE.txt') || fail('an injected path under the declared prefix must never be staged');
       console.log('✓ self-test (g): an injected path under the declared prefix is never staged — the stage set is the generator\'s attested write list only');
+
+      // (g2) REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: EVERY entry carrying
+      // `writesReportRequired` must actually narrow. With an EMPTY report (the
+      // truthful attestation of a clean write pass), the stage set must be EMPTY —
+      // the bare prefix glob must be gone for each of them, so any injected file
+      // under any of their prefixes stays unstaged (`??`) and the regen workflow's
+      // porcelain escape check sees it. Iterates the field, not a hand-list, so a
+      // future writesReportRequired entry cannot regress silently.
+      const requiredEntries = COVERED.filter((x) => x.writesReportRequired);
+      requiredEntries.length >= 7 || fail(`expected at least 7 writesReportRequired entries (page-md-twins + the six REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 prefixes), got ${requiredEntries.length}: ${requiredEntries.map((x) => x.id).join(', ')}`);
+      for (const c of requiredEntries) {
+        c.writesReport || fail(`entry "${c.id}" declares writesReportRequired but no writesReport path`);
+        put([]);
+        const narrowed = entryCommitPaths({ ...c, writesReport: rp });
+        JSON.stringify(narrowed) === JSON.stringify([]) || fail(`entry "${c.id}" with an empty writes report must stage NOTHING (never its bare prefix ${JSON.stringify(c.artifacts)}), got ${JSON.stringify(narrowed)}`);
+      }
+      console.log(`✓ self-test (g2): all ${requiredEntries.length} writesReportRequired entries (${requiredEntries.map((x) => x.id).join(', ')}) narrow to their attested write list — an injected file under any declared prefix is never staged`);
 
       // (h) a report-REQUIRED entry with an ABSENT report must REFUSE loudly, never
       // fall back to the bare-tree prefix — the silent fallback would restore the

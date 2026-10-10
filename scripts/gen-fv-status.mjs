@@ -58,6 +58,25 @@ const FV_PILOT_DIR = resolve(REPO, 'chaingraph', 'fv-pilot');
 const ERRATA_PATH = resolve(REPO, 'errata.json');
 const OUT_DIR = resolve(REPO, 'fv-status');
 
+// Writes report (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1, mirroring gen-page-md-twins.mjs's
+// REGEN-ESCAPE-GUARD-BLIND-HEAL-1 mechanism): every --write run writes the run's ACTUAL
+// write list to a tempdir report consumed by `scripts/derived-artifacts.mjs --paths`, so
+// the COVERED entry's bare-tree `fv-status` prefix can never stage an injected file. The
+// COVERED entry carries `writesReportRequired: true`. Removed orphan digests are
+// deliberately NOT reported — the stage set narrows to extant written files. The report
+// path lives in scripts/_gen-writes-reports.mjs so consumers can import it without
+// running this script's module-level argv dispatch.
+import { FV_STATUS_WRITES_REPORT_PATH } from './_gen-writes-reports.mjs';
+
+/** Flush the writes report; called on EVERY --write path, early exit included. */
+function writeFvStatusReport(written) {
+  writeFileSync(FV_STATUS_WRITES_REPORT_PATH, JSON.stringify({
+    _comment: 'Actual write list of the last gen-fv-status.mjs --write run; consumed by scripts/derived-artifacts.mjs --paths (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1).',
+    generated_by: 'node scripts/gen-fv-status.mjs --write',
+    written: [...new Set(written)].sort(),
+  }, null, 2) + '\n', 'utf8');
+}
+
 // Same offline-first / never-a-live-dependency discipline errata.json and
 // registry/kernel/*.json already state — carried verbatim here too (§2 of
 // the design doc: "state twice so drift is visible", not a paraphrase).
@@ -343,6 +362,7 @@ if (existsSync(outPath)) {
     const onDiskArtifact = JSON.parse(readFileSync(outPath, 'utf8'));
     if (canonicalBytes(stripDynamic(onDiskArtifact)) === canonicalBytes(stripDynamic(artifact))) {
       console.log(`✓ FV-AGENTSURFACE-BUILD-1 fv-status/${hex}.json already current (no non-freshness change) — left untouched.`);
+      writeFvStatusReport([]); // empty list included — the report never outlives its run
       process.exit(0);
     }
   } catch {
@@ -351,4 +371,5 @@ if (existsSync(outPath)) {
 }
 
 writeFileSync(outPath, JSON.stringify(artifact, null, 2) + '\n');
+writeFvStatusReport([`fv-status/${hex}.json`]);
 console.log(`✓ FV-AGENTSURFACE-BUILD-1 wrote fv-status/${hex}.json — ${inScope.length} kernel(s), ${Object.keys(artifact.proven.kernels).length} with a recorded claim-tier, ${artifact.proven.unclaimed_count} unassessed.`);
