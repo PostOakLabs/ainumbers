@@ -2228,6 +2228,8 @@ function runReportOrWrite(write, onlyTool) {
 export const MANIFEST_REL = '.well-known/webmcp.json';
 export const SITE_ORIGIN = 'https://ainumbers.co';
 export const OT_TOKEN_REL = 'chaingraph/webmcp-ot-token.txt';
+/** Discovery pointer to the locally signed, dated snapshot (WEBMCP-SIGNED-SNAPSHOT-1). */
+export const SIGNED_SNAPSHOT_URL = `${SITE_ORIGIN}/.well-known/webmcp-signed.json`;
 
 /** Truthful OT-token status: 'first-party token present' | 'absent'. */
 export function otTokenStatus(repoRoot) {
@@ -2255,6 +2257,7 @@ export function buildDirectoryEntries(repoRoot) {
       url: `${SITE_ORIGIN}/chaingraph/${id}.html`,
       name: def.name,
       description: def.description,
+      description_sha256: createHash('sha256').update(def.description, 'utf8').digest('hex'),
       input_schema_sha256: inputSchemaSha256(def.inputSchema),
       annotations: { readOnlyHint: true },
     });
@@ -2268,6 +2271,7 @@ export function buildDirectoryEntries(repoRoot) {
 export function directoryJsonFromEntries(entries, repoRoot) {
   const doc = {
     origin_trial: otTokenStatus(repoRoot),
+    signed_snapshot: SIGNED_SNAPSHOT_URL,
     tools: entries,
   };
   return JSON.stringify(doc, null, 2) + '\n';
