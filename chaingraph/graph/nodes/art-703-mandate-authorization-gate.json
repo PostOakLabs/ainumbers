@@ -1,0 +1,23 @@
+{
+  "tool_id": "art-703-mandate-authorization-gate",
+  "tool_version": "1.0.0",
+  "display_name": "Mandate Authorization Gate",
+  "mcp_name": "authorize_payment_against_mandate",
+  "mandate_type": "payment_mandate",
+  "wave": 123,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-703-mandate-authorization-gate.html",
+  "description": "Automated payment approval gate with no human step, in two modes. In authorize mode a caller-supplied mandate, caller-supplied budget and rail state, and a proposed payment request go through a fixed ten-rule order: amount validity, mandate revocation, not-yet-valid, expired (the exact expiry boundary included), currency mismatch, payer mismatch (when the mandate names a payer), payee coverage (mandate payee and verified-payee list), the per-payment cap, the budget, and the rail allowlist. Every failing rule is listed with a named reason and the first failure is the primary reason. On no failure the node issues a one-use authorization bound to the exact request digest and mandate digest, with a validity window that starts at as_of and closes at as_of plus a ttl of 1 to 900 seconds clipped to the mandate's own expiry; the authorization_id is the digest of the operation, both digests and the window, and doubles as the rail's single-use nonce as 0x-prefixed 32-byte hex. In verify_commit mode the node recomputes the authorization_id from the presented authorization's own fields, re-digests the committed request, and checks the window, refusing with AUTHORIZATION_ID_MISMATCH, DIGEST_MISMATCH, OPERATION_MISMATCH, NOT_YET_VALID or AUTHORIZATION_EXPIRED. Amounts are integers in minor units; the mandate cap is a decimal major-unit string converted by pure integer string arithmetic through a curated minor-unit exponent table, refusing an unknown currency and refusing over-precise caps instead of rounding, with no float anywhere. Timestamps are UTC strings only, parsed to integer epoch seconds, no Date object. Declared exclusions: single use is enforced by the payment rail through the nonce, not by this stateless node; budget state is caller-supplied (spent_minor); the mandate signature is not verified here, that is art-01 or art-31's job; an absent rail allowlist allows no rail (fail closed). Consumes the canonical mandate pivot of art-476, so mandates declared under any of the protocols art-476 translates reach this gate through that one edge.",
+  "input_schema_ref": "chaingraph/art-703-mandate-authorization-gate.html#manifest",
+  "consumes": ["art-476-map-agent-payment-mandate"],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:de1fb32291e04241870bd357ee96bddc43e5c271c831b79b0928246896875475","valid_from":"2026-10-07"}],
+  "export_capability": ["json"],
+  "standards_basis": "not_applicable",
+  "cited_clause_digest": [],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "New gpu:false node, art-703-mandate-authorization-gate, built 2026-10-07 (ART703-MANDATE-AUTH-GATE-1). Integer rule walk over a fixed ten-rule order plus three or four SHA-256 passes over well under 1 KiB via the inlined vendored core (the art-476 inlined-digest lesson); no transcendentals and no policy-parameter-bound iteration. Measured CPU exec preflight on the final kernel bytes (runq-cpu exec, no GPU, no prove): EXEC_OK on every vector tried with the journal binding kernel digest sha256:ae045a3504baa0ea68fd268da44a8819c4cad6fb954e50cd2062bc12e5a6ae02, MAX 71,701,986 user_cycles at f1-clean-authorize-seal (85 segments; 58,720,805 to 71,886,307 across a reject, a currency-refusal and a verify_commit vector measured on the immediately preceding byte-states of the same kernel), so the static build-spec expectation of low millions is superseded by the measured SLOW class (the vendored module's own load-time self-checks dominate); any future prove stages as a ZZ-PROVE-DOWNTIME row per GPU-CYCLE-PREFLIGHT-1's threshold. The row defers the prove: ship deferred now and raise the section 18 deferred ceiling by one in the same PR (the #2133 and #2177 precedent). No GPU prove has been run; proving is async queue work under RIDER-KERNEL.md, not a per-wave gate."
+}

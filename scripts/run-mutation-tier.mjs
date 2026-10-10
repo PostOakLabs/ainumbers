@@ -903,16 +903,28 @@ export async function runTier(argv, repoRoot = REPO) {
 
   const toRun = [];
   const skipped = [];
+  // 7F-V425(1)/(3): `hookSkipKernels` — kernels the pre-push hook's SCOPED
+  // mutation-tier leg defers to the CI mutation shards, with the measured
+  // figures as the cause string. Deliberately ignored under `--all` (the
+  // nightly/CI shard mode, mutation-full-scheduled.yml): the shards still run
+  // and enforce the floor, so a deferral here moves the check, it never drops
+  // it (same class as #2351's config-declared categories — declared, never
+  // inferred, and never a bound raise or an exclusion).
+  const hookSkipKernels = opts.all ? {} : (config.hookSkipKernels || {});
+  const deferred = [];
   for (const id of ids) {
     if (Object.prototype.hasOwnProperty.call(excluded, id)) skipped.push({ id, reason: excluded[id] });
+    else if (Object.prototype.hasOwnProperty.call(hookSkipKernels, id)) deferred.push({ id, reason: hookSkipKernels[id] });
     else toRun.push(id);
   }
 
   if (toRun.length === 0) {
-    console.log(`run-mutation-tier: ${skipped.length} id(s) given, all are named exceptions — nothing to run (exit 0).`);
+    console.log(`run-mutation-tier: ${skipped.length + deferred.length} id(s) given, all are named exceptions or deferred — nothing to run (exit 0).`);
     for (const s of skipped) console.log(`  SKIP (named exception) ${s.id}: ${s.reason}`);
+    for (const d of deferred) console.log(`  ADVISORY (hookSkipKernels) ${d.id}: deferred to CI shards — ${d.reason}`);
     process.exit(0);
   }
+  for (const d of deferred) console.log(`  ADVISORY (hookSkipKernels) ${d.id}: deferred to CI shards — ${d.reason}`);
 
   // MUTATION-TIER-CONFIG-BOUND-1: validate every examined kernel's bound
   // up-front (env > config > default) — an invalid config value fails the run
