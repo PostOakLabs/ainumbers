@@ -1479,7 +1479,10 @@ const DECLARED_SOFTENERS = new Map([
   // MAIN-REGEN-SERVED-EGRESS-MANIFESTFIX-1 (2026-10-04) moved it :922 → :923 —
   // the deploy manifest find gained a `! -path '*/scripts/*'` exclusion line
   // above the attest step; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:923",
+  // AUD-CGCANON-TWIN-GATE-1 (2026-10-10) moved it :923 → :925 — the hash
+  // hard-gate job gained the cgCanon twin-parity lint + its --self-test
+  // (two lines) above the attest step; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:925",
    "attest step is advisory-first by design; promotion criterion on the step"],
   // MAIN-GATES-AFTER-REGEN-1 (2026-10-08) moved it :109 → :146 — the
   // unwired-gates.yml `on:` block swapped `push: main` for `workflow_run`
