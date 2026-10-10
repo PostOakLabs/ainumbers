@@ -763,6 +763,128 @@ function checkWitnessWindowBoundaries() {
   return { name: 'witness_window_boundaries_and_unwitnessed_shape', checked: 6, violations };
 }
 
+// ---- ART699-PROPTEST-STRENGTHEN-1 (2026-10-10) ----
+// Second strengthening wave. The 2h33m bounded run on #2323's head (VENDORED range excluded,
+// 838 kernel-own lines measured) went RED at the tier floor; no Stryker report survives at
+// authoring time, so these vectors target the row's survivor classes directly: struct-hash
+// assembly in the two non-witness variants (field order / width flips), sign flips and
+// off-by-ones on the binding comparisons (proxy / payTo / asset / sponsored deadline), the
+// uint256-max nonce boundary, the width-coded uint160 amount of PermitDetails, and the echo
+// fields of output_payload that no digest check exercises.
+
+// Independent local digests for the two remaining variants: only the x402 witness shape had a
+// local-encoder golden, so a mutant reordering or dropping a field inside the
+// permit_transfer_from struct hash (kernel lines 1573-1589) or the permit_single details hash
+// (kernel lines 1590-1616) — including the uint160-vs-uint256 width flip on details.amount —
+// survived every earlier check. Both are pinned against the same independently written encoder.
+function checkLocalEncoderOtherVariants() {
+  const domainSep = keccak_256(cat(
+    keccak_256(enc('EIP712Domain(string name,uint256 chainId,address verifyingContract)')),
+    keccak_256(enc('Permit2')), w256(84532), wAddr(PERMIT2)));
+  const tpHash = keccak_256(cat(keccak_256(enc(TOKEN_PERMISSIONS)), wAddr(TOKEN), w256('10000')));
+  const ptfType = 'PermitTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline)' + TOKEN_PERMISSIONS;
+  const ptf = hx(keccak_256(cat(Uint8Array.from([0x19, 0x01]), domainSep, keccak_256(cat(
+    keccak_256(enc(ptfType)), tpHash, wAddr(PROXY), w256('4242'), w256('1790000600'))))));
+  const gotPtf = compute({ variant: 'permit_transfer_from', chainId: 84532, verifyingContract: PERMIT2, permitted: { token: TOKEN, amount: '10000' }, spender: PROXY, nonce: '4242', deadline: '1790000600' }).output_payload;
+  const detailsType = 'PermitDetails(address token,uint160 amount,uint48 expiration,uint48 nonce)';
+  const psType = 'PermitSingle(PermitDetails details,address spender,uint256 sigDeadline)' + detailsType;
+  const detHash = keccak_256(cat(keccak_256(enc(detailsType)), wAddr(TOKEN), w256('1000000'), w256('1790001000'), w256('7')));
+  const ps = hx(keccak_256(cat(Uint8Array.from([0x19, 0x01]), domainSep, keccak_256(cat(
+    keccak_256(enc(psType)), detHash, wAddr(PROXY), w256('1790007200'))))));
+  const gotPs = compute({ variant: 'permit_single', chainId: 84532, verifyingContract: PERMIT2, details: { token: TOKEN, amount: '1000000', expiration: '1790001000', nonce: '7' }, spender: PROXY, sigDeadline: '1790007200' }).output_payload;
+  const ok = gotPtf.digest === ptf && gotPtf.typehash === hx(keccak_256(enc(ptfType)))
+    && gotPs.digest === ps && gotPs.typehash === hx(keccak_256(enc(psType)))
+    // the width guard is real: an amount of 2^160 would overflow the uint160 field
+    && gotPs.message.details.amount === '1000000';
+  return { name: 'digests_agree_with_local_encoder_on_transfer_and_single', checked: 2, violations: ok ? 0 : 1 };
+}
+
+// The binding facts' negative arms: a spender other than the pinned x402 proxy raises its
+// warning and flag only on the x402 shape (kernel lines 1641-1645 — the variant guard is an
+// off-by-one magnet), a witness destination unequal to payTo raises PAYTO_MISMATCH
+// (kernel lines 1647-1658), and an asset unequal to the signed token raises ASSET_MISMATCH
+// (kernel lines 1660-1667). Each flag is invisible to the fixture oracle.
+function checkBindingNegativeArms() {
+  let violations = 0;
+  let checked = 0;
+  const stranger = '0x1111111111111111111111111111111111111111';
+  const notProxy = compute({ ...BASE(), spender: stranger });
+  checked++;
+  if (notProxy.output_payload.x402_binding.spender_is_x402_permit2_proxy !== false) violations++;
+  if (notProxy.compliance_flags.indexOf('X402_PERMIT2_SPENDER_NOT_PROXY') < 0) violations++;
+  if (!hasStr(notProxy.output_payload.warnings, 'not the pinned x402 exact proxy')) violations++;
+  // the same non-proxy spender on the plain transfer shape must NOT raise the x402 flag
+  const ptfNotProxy = compute({ ...BASE(), variant: 'permit_transfer_from', spender: stranger });
+  checked++;
+  if (ptfNotProxy.compliance_flags.indexOf('X402_PERMIT2_SPENDER_NOT_PROXY') >= 0) violations++;
+  const payToMiss = compute({ ...BASE(), requirement: { scheme: 'exact', network: 'eip155:84532', asset: TOKEN, payTo: stranger, amount: '10000' } });
+  checked++;
+  if (payToMiss.output_payload.x402_binding.witness_to_matches_pay_to !== false) violations++;
+  if (payToMiss.compliance_flags.indexOf('X402_PERMIT2_PAYTO_MISMATCH') < 0) violations++;
+  if (!hasStr(payToMiss.output_payload.warnings, 'not the payTo address')) violations++;
+  const assetMiss = compute({ ...BASE(), requirement: { scheme: 'exact', network: 'eip155:84532', asset: stranger, payTo: PAY_TO, amount: '10000' } });
+  checked++;
+  if (assetMiss.output_payload.x402_binding.token_matches_asset !== false) violations++;
+  if (assetMiss.compliance_flags.indexOf('X402_PERMIT2_ASSET_MISMATCH') < 0) violations++;
+  return { name: 'binding_facts_negative_arms_raise_flags', checked, violations };
+}
+
+// The bitmap decomposition at the top of the domain: nonce 2^256-1 decomposes to word
+// 2^248-1 and bit 255 (kernel lines 1756-1757 — a sign flip or a mask wider than 0xff
+// cannot survive this).
+function checkNonceBitmapUint256Max() {
+  const f = compute({ ...BASE(), nonce: (2n ** 256n - 1n).toString() }).output_payload.nonce_facts;
+  const ok = f.nonce_word_pos === (2n ** 248n - 1n).toString() && f.nonce_bit_pos === 255;
+  return { name: 'nonce_bitmap_uint256_max_decomposition', checked: 1, violations: ok ? 0 : 1 };
+}
+
+// The sponsored leg's deadline boundary at equality (kernel line 1832: <= is WITHIN, one
+// second later is EXPIRED) and the handoff_612 echo of the extension's own asset
+// (kernel line 1878), which is independent of the requirement's asset.
+function checkSponsoredDeadlineBoundaryAndAssetEcho() {
+  const ext = (over) => ({
+    from: '0x2c7536e3605d9c16a7a3d7b1898e529396a65c23',
+    asset: TOKEN, spender: PERMIT2, amount: '20000', nonce: '9',
+    deadline: '1790007200', signature: '0xbe' + '00'.repeat(31), version: '2',
+    ...over,
+  });
+  const base = { ...BASE(), now_unix: '1790000300', requirement: { scheme: 'exact', network: 'eip155:84532', asset: TOKEN, payTo: PAY_TO, amount: '10000', extra: { name: 'USD Coin', version: '2' } } };
+  let violations = 0;
+  const atEdge = compute({ ...base, eip2612GasSponsoring: ext({ deadline: '1790000300' }) }).output_payload;
+  if (atEdge.sponsored_approval.deadline_status !== 'WITHIN') violations++;
+  const past = compute({ ...base, eip2612GasSponsoring: ext({ deadline: '1790000299' }) });
+  if (past.output_payload.sponsored_approval.deadline_status !== 'EXPIRED') violations++;
+  if (past.compliance_flags.indexOf('X402_PERMIT2_SPONSORED_WINDOW_EXPIRED') < 0) violations++;
+  const alienAsset = compute({ ...base, eip2612GasSponsoring: ext({ asset: '0x2222222222222222222222222222222222222222' }) }).output_payload;
+  if (alienAsset.handoff_612.verifyingContract !== '0x2222222222222222222222222222222222222222') violations++;
+  return { name: 'sponsored_deadline_boundary_and_handoff_asset_echo', checked: 4, violations };
+}
+
+// The echo surface of a successful run that no digest comparison exercises: reasons mirrors
+// errors only on the refused path and is empty on success (kernel lines 1497/1897), the
+// verdict strings, the message hashes and type-string echoes (kernel lines 1568-1570, 1587,
+// 1615), the witness valid_after echo, and a non-empty scope note on both paths.
+function checkPayloadEchoPins() {
+  let violations = 0;
+  const ok = compute(BASE()).output_payload;
+  if (ok.reasons.length !== 0 || ok.verdict !== 'DIGEST_RECOMPUTED') violations++;
+  if (typeof ok.scope_note !== 'string' || ok.scope_note.length < 40) violations++;
+  if (ok.message.witness_type_string !== 'Witness(address to,uint256 validAfter)') violations++;
+  if (ok.message.witness_hash === null || ok.message.witness_hash.length !== 66) violations++;
+  if (ok.message.token_permissions_hash === null || ok.message.token_permissions_hash.length !== 66) violations++;
+  if (ok.message.witness.valid_after !== '1790000000') violations++;
+  const ptf = compute({ ...BASE(), variant: 'permit_transfer_from' }).output_payload;
+  if (ptf.message.witness !== undefined || ptf.window.valid_after !== null) violations++;
+  if (ptf.message.token_permissions_hash === null || ptf.message.token_permissions_hash.length !== 66) violations++;
+  const ps = compute({ variant: 'permit_single', chainId: 84532, verifyingContract: PERMIT2, details: { token: TOKEN, amount: '1000000', expiration: '1790001000', nonce: '7' }, spender: PROXY, sigDeadline: '1790007200' }).output_payload;
+  if (ps.message.sig_deadline !== '1790007200' || ps.message.details_hash === null || ps.message.details_hash.length !== 66) violations++;
+  if (ps.message.details.expiration !== '1790001000' || ps.message.details.nonce !== '7') violations++;
+  const bad = compute({ ...BASE(), deadline: '-1' }).output_payload;
+  if (JSON.stringify(bad.reasons) !== JSON.stringify(bad.errors) || bad.verdict !== 'INDETERMINATE') violations++;
+  if (typeof bad.scope_note !== 'string' || bad.scope_note.length < 40) violations++;
+  return { name: 'payload_echo_fields_are_pinned', checked: 13, violations: violations };
+}
+
 // ---------- run ----------
 const rng = mulberry32(699);
 let oracle;
@@ -797,6 +919,11 @@ const properties = [
   checkTrimmedStringFormsAccepted(),
   checkComplianceFlagPins(),
   checkWitnessWindowBoundaries(),
+  checkLocalEncoderOtherVariants(),
+  checkBindingNegativeArms(),
+  checkNonceBitmapUint256Max(),
+  checkSponsoredDeadlineBoundaryAndAssetEcho(),
+  checkPayloadEchoPins(),
 ];
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
