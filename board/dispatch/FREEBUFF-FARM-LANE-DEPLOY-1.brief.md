@@ -157,3 +157,17 @@ one account across machines; never un-HALT without independently verifying the h
   C:\dev\ainumbers-farm-msi, OCS C:\dev\OCS, runner C:\Users\admin\actions-runner. The
   planned tasks 31/32/33 write only under FreeBuff/out and read only shipped input copies +
   the public repos/ainumbers clone. No OCS interaction possible.
+
+## 2026-10-11 addendum 3 — msi GO-LIVE (Tim: "proceed safely")
+- Specs 31/32/33 authored (operator seat, Tim-directed; committed to ainumbers-freebuff
+  4786687, canonical board claims 68bb7f9): 31 = adversarial re-audit of the 25-27
+  landing-manifest lineage; 32 = ungraded-backlog census (pure enumeration);
+  33 = vector-drift main re-verify (standing batch, every-10th sample). All sandbox-clean
+  (inputs = shipped read-only copies per the task-29 pattern; leak-scanned: UNGRADED.md
+  has 0 credential-shaped strings, 0 outside-sandbox paths).
+- msi seeded: inputs/31 (out/25-30 copies, 2.0M), inputs/32 (UNGRADED.md), inputs/33 (all 666
+  vectors, 12M), out/31-33 created, repos/ainumbers pre-cloned at a1c1f5471 (= origin/main,
+  _hash.mjs verified present), board queued 31/32/33.
+- UN-HALTED 10-11: first guarded cycle ran and correctly EXITED on gate 2 (GitHub Actions
+  job in flight — Runner.Worker.exe present). msi is LIVE: the 30-min tick dispatches task 32
+  in the first quiet gap; 31 then 33 follow under the 6/day cap and both yield gates.
