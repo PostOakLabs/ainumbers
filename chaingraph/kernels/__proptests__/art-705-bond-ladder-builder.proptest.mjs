@@ -13,11 +13,16 @@ import { fileURLToPath } from 'node:url';
 
 const KERNEL_ID = 'art-705-bond-ladder-builder';
 // Mutation-mode trial cap (PROPFLOOR_TRIAL_CAP seam, art-332/pnr-01 shape): under the
-// mutation tier the instrumented kernel runs ~50x slower (heavy myPow loops over
-// multi-rung schedules), so the random-draw trials are capped to keep the per-mutant
-// cost inside the 15s timeoutMS / 600s wall bound. Default cap 30 (a capped pass takes
-// the first 30 draws per property of the SAME seeded mulberry32 stream — still spanning
-// 1-5 rungs, maturities 0.25-30y and periods_per_year 1-12 — at ~2s instrumented).
+// mutation tier the perTest-instrumented kernel runs orders of magnitude slower
+// (measured: 17.7s stryker dry-run vs 0.34s plain — the hooks tax every branch of the
+// heavy myPow loops over multi-rung schedules), so the random-draw cost is cut twice
+// to fit 364 mutants inside the 600s kernel wall bound at concurrency 2:
+//   1. trial cap 10 (a capped pass takes the first 10 draws per property of the SAME
+//      seeded mulberry32 stream), and
+//   2. the random-draw maturity upper bound drops 30y -> 10y (shorter schedules = fewer
+//      instrumented loop iterations per compute(); the FULL-TRIAL distribution is
+//      untouched — outside the tier maturities still span 0.25-30y).
+// periods_per_year 1-12 and 1-5 rungs are unchanged in both modes.
 // Override with documented env PROPFLOOR_TRIAL_CAP, a positive integer, invalid values
 // throw. The fixture oracle and the ULP-boundary forcing cases are NEVER capped
 // (mandatory). Every property is deterministic (seeded mulberry32), so a violation
@@ -25,7 +30,7 @@ const KERNEL_ID = 'art-705-bond-ladder-builder';
 const MUTATION_MODE =
   process.env.__STRYKER_ACTIVE_MUTANT__ !== undefined ||
   fileURLToPath(import.meta.url).split(String.fromCharCode(92)).join("/").includes("/ain-mutation-tier-");
-let mutationTrials = 30;
+let mutationTrials = 10;
 if (process.env.PROPFLOOR_TRIAL_CAP !== undefined) {
   const cap = Number(process.env.PROPFLOOR_TRIAL_CAP);
   if (!Number.isInteger(cap) || cap <= 0) {
@@ -53,7 +58,7 @@ function mkPP(rng) {
     periods_per_year: pick(rng, [1, 2, 4, 12]),
     reinvestment_assumption: pick(rng, ['hold_to_maturity', 'roll_to_longest_rung']),
     rungs: weights.map((w) => ({
-      maturity_years: randRange(rng, 0.25, 30),
+      maturity_years: randRange(rng, 0.25, MUTATION_MODE ? 10 : 30),
       coupon_rate_pct: randRange(rng, 0, 12),
       yield_pct: randRange(rng, 0.5, 15),
       target_weight: w,
