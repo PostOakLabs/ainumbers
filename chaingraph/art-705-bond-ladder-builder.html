@@ -128,7 +128,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-705-bond-ladder-builder.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:c5c7eb6e2be83bb6a8f10946fdf03bd3c19b8d26cd1b63cbdc2fdccc41679f2e">
+<meta name="kernel-digest" content="sha256:48c94e764bcff807d15c3bd0560bf7a1ed70ba2e62a9bf64903298d847558cb3">
 </head>
 <body>
 <nav>
@@ -412,11 +412,17 @@ function priceAndConvexity(cashFlows, periodicYield, periodsPerYear) {
   return convexityPeriods / (periodsPerYear * periodsPerYear);
 }
 const REINVESTMENT_ENUMS = ['hold_to_maturity', 'roll_to_longest_rung'];
+function deNull(o) {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return o;
+  const c = Object.assign({}, o);
+  for (const k of Object.keys(c)) if (c[k] === null) c[k] = undefined;
+  return c;
+}
 function refusal(code, detail) {
   return { output_payload: { error: code.toLowerCase(), detail: detail, domain_errors: [{ code: code, text: detail }], ladder: null, portfolio: null, assumptions: [] }, compliance_flags: ['INPUT_REFUSED'] };
 }
 function compute(pp) {
-  pp = pp || {};
+  pp = deNull(pp || {});
   const notional = safeNum(pp.notional, NaN);
   if (!Number.isFinite(notional) || notional <= 0) return refusal('NOTIONAL_NOT_POSITIVE', 'notional must be a positive finite number; got ' + JSON.stringify(pp.notional === undefined ? null : pp.notional) + '.');
   const rungsIn = pp.rungs;
@@ -426,7 +432,7 @@ function compute(pp) {
   if (!REINVESTMENT_ENUMS.includes(reinvestment)) return refusal('REINVESTMENT_ASSUMPTION_INVALID', "reinvestment_assumption must be one of 'hold_to_maturity' or 'roll_to_longest_rung'; got " + JSON.stringify(reinvestment) + '.');
   const rungs = [];
   for (let i = 0; i < rungsIn.length; i++) {
-    const r = rungsIn[i] || {};
+    const r = deNull(rungsIn[i] || {});
     const maturity = safeNum(r.maturity_years, NaN), coupon = safeNum(r.coupon_rate_pct, NaN), yld = safeNum(r.yield_pct, NaN), weight = safeNum(r.target_weight, NaN);
     if (!Number.isFinite(maturity) || maturity <= 0) return refusal('RUNG_MATURITY_NOT_POSITIVE', 'rungs[' + i + '].maturity_years must be a positive finite number; got ' + JSON.stringify(r.maturity_years === undefined ? null : r.maturity_years) + '.');
     if (!Number.isFinite(coupon) || coupon < 0) return refusal('RUNG_COUPON_INVALID', 'rungs[' + i + '].coupon_rate_pct must be a finite number >= 0; got ' + JSON.stringify(r.coupon_rate_pct === undefined ? null : r.coupon_rate_pct) + '.');

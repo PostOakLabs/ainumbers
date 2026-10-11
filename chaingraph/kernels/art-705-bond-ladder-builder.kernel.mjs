@@ -118,6 +118,16 @@ function priceAndConvexity(cashFlows, periodicYield, periodsPerYear) {
 
 const REINVESTMENT_ENUMS = ['hold_to_maturity', 'roll_to_longest_rung'];
 
+// R4 (MR-R4-NULL-REGRESSION-GATE-1): an explicit null must get exactly the absent
+// form's answer. Strip nulls to undefined at entry so every downstream path —
+// defaults, refusals, Number() coercion — sees the two forms identically.
+function deNull(o) {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return o;
+  const c = { ...o };
+  for (const k of Object.keys(c)) if (c[k] === null) c[k] = undefined;
+  return c;
+}
+
 function refusal(code, detail) {
   return {
     output_payload: {
@@ -140,7 +150,7 @@ function refusal(code, detail) {
  * @returns {{ output_payload: object, compliance_flags: string[] }}
  */
 export function compute(pp) {
-  pp = pp || {};
+  pp = deNull(pp || {});
 
   const notional = safeNum(pp.notional, NaN);
   if (!Number.isFinite(notional) || notional <= 0) {
@@ -158,7 +168,7 @@ export function compute(pp) {
 
   const rungs = [];
   for (let i = 0; i < rungsIn.length; i++) {
-    const r = rungsIn[i] || {};
+    const r = deNull(rungsIn[i] || {});
     const maturity = safeNum(r.maturity_years, NaN);
     const coupon = safeNum(r.coupon_rate_pct, NaN);
     const yld = safeNum(r.yield_pct, NaN);
