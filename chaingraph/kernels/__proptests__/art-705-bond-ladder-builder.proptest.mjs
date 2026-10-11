@@ -205,6 +205,70 @@ function checkP6_refusalContract() {
   return { name: 'P6_refusal_contract_every_named_refusal_fires_with_exact_code', checked, violations };
 }
 
+// ---------- P7: refusal-detail + compliance-flag + assumption-text pins ----------
+// ART705 attempt-3 kill power (7F-V452 option (a)): pins the refusal/series-guard SURVIVORS
+// the attempt-1 tier run measured (report 2026-10-11T12:01Z, money-math 202/344 = 58.7%).
+// Deterministic forced cases only — no random draws, never capped, negligible tier cost.
+// Honest scope note: the remaining myExp/myLn guard-branch survivors (kernel lines 27-46)
+// are structurally unreachable from compute() — every myPow exponent in the live path is a
+// negative integer (t and t+2), so the exp*myLn(base) fallback those helpers serve never
+// runs; they are dead defensive code, the same class as the DETMATH-SWAP batch-B family,
+// and no compute()-level floor can kill them. This property targets the KILLABLE survivors:
+// refusal detail strings (StringLiteral/LogicalOperator mutants), rung-index naming in
+// compliance flags, zero-coupon / non-positive-price flag emission, and the
+// roll_to_longest_rung assumption's longest-rung naming.
+const DETAIL_PIN_CASES = [
+  // [pp, expected error, detail substring pinning the field sentence, detail substring pinning the echoed offending value]
+  [{ notional: 'lots', rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: 5, target_weight: 1 }] }, 'notional_not_positive', 'notional must be a positive finite number', '"lots"'],
+  [{ notional: 100000 }, 'ladder_empty', 'non-empty array', null],
+  [{ notional: 100000, rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: 5, target_weight: 0.5 }, { maturity_years: 'soon', coupon_rate_pct: 4, yield_pct: 5, target_weight: 0.5 }] }, 'rung_maturity_not_positive', 'rungs[1].maturity_years must be a positive finite number', '"soon"'],
+  [{ notional: 100000, rungs: [{ maturity_years: 3, coupon_rate_pct: 'fat', yield_pct: 5, target_weight: 1 }] }, 'rung_coupon_invalid', 'coupon_rate_pct must be a finite number >= 0', '"fat"'],
+  [{ notional: 100000, rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: 'wat', target_weight: 1 }] }, 'rung_yield_invalid', 'yield_pct must be a finite number', '"wat"'],
+  [{ notional: 100000, rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: 5, target_weight: 'none' }] }, 'rung_weight_invalid', 'target_weight must be a finite number >= 0', '"none"'],
+];
+function checkP7_refusalDetailAndFlagPins() {
+  let violations = 0, checked = 0;
+  for (const [pp, wantError, pinSentence, pinValue] of DETAIL_PIN_CASES) {
+    const r = compute(pp);
+    checked++;
+    const out = r.output_payload;
+    if (out.error !== wantError) { violations++; continue; }
+    if (typeof out.detail !== 'string' || !out.detail.includes(pinSentence)) { violations++; continue; }
+    if (pinValue !== null && !out.detail.includes(pinValue)) { violations++; continue; }
+    if (!out.detail.endsWith('.')) { violations++; continue; }
+    const de = (out.domain_errors || [])[0] || {};
+    if (de.code !== wantError.toUpperCase()) violations++;
+  }
+  // compliance-flag pins on SUCCESS outputs (exact arrays — over-firing and mis-indexed
+  // names are violations, not just absence)
+  const clean = compute({ notional: 100000, periods_per_year: 2, reinvestment_assumption: 'hold_to_maturity', rungs: [{ maturity_years: 3, coupon_rate_pct: 5, yield_pct: 4, target_weight: 0.5 }, { maturity_years: 7, coupon_rate_pct: 5, yield_pct: 4, target_weight: 0.5 }] });
+  checked++;
+  if (JSON.stringify(clean.compliance_flags) !== JSON.stringify([])) violations++;
+  const zeroCouponSecond = compute({ notional: 100000, periods_per_year: 2, reinvestment_assumption: 'hold_to_maturity', rungs: [{ maturity_years: 3, coupon_rate_pct: 5, yield_pct: 4, target_weight: 0.5 }, { maturity_years: 7, coupon_rate_pct: 0, yield_pct: 4, target_weight: 0.5 }] });
+  checked++;
+  if (JSON.stringify(zeroCouponSecond.compliance_flags) !== JSON.stringify(['ZERO_COUPON_RUNG_2'])) violations++;
+  // periodic yield -3 (yield_pct -300, periods 1) reprices a 3y 10% coupon rung at a
+  // NEGATIVE price — the one reachable NON_POSITIVE_RUNG_PRICE arm
+  const negPrice = compute({ notional: 100000, periods_per_year: 1, reinvestment_assumption: 'hold_to_maturity', rungs: [{ maturity_years: 3, coupon_rate_pct: 10, yield_pct: -300, target_weight: 1 }] });
+  checked++;
+  if (negPrice.output_payload.ladder[0].price >= 0) violations++;
+  if (JSON.stringify(negPrice.compliance_flags) !== JSON.stringify(['NON_POSITIVE_RUNG_PRICE_1'])) violations++;
+  // a zero-weight rung prices to exactly 0 — the price<=0 arm at its === boundary
+  // (an empty flag array here means the boundary comparison was widened)
+  const zeroWeight = compute({ notional: 100000, periods_per_year: 2, reinvestment_assumption: 'hold_to_maturity', rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: 5, target_weight: 0 }, { maturity_years: 7, coupon_rate_pct: 4, yield_pct: 5, target_weight: 1 }] });
+  checked++;
+  if (zeroWeight.output_payload.ladder[0].price !== 0) violations++;
+  if (JSON.stringify(zeroWeight.compliance_flags) !== JSON.stringify(['NON_POSITIVE_RUNG_PRICE_1'])) violations++;
+  // roll_to_longest_rung must NAME the longest rung's own yield and maturity — with a
+  // later rung TYING the longest maturity at a different yield, only the first-max
+  // tracking gets this right, and the sentence must carry both figures
+  const roll = compute({ notional: 100000, periods_per_year: 2, reinvestment_assumption: 'roll_to_longest_rung', rungs: [{ maturity_years: 30, coupon_rate_pct: 5, yield_pct: 5.5, target_weight: 0.5 }, { maturity_years: 30, coupon_rate_pct: 5, yield_pct: 2, target_weight: 0.25 }, { maturity_years: 3, coupon_rate_pct: 5, yield_pct: 1, target_weight: 0.25 }] });
+  checked++;
+  const rollSentence = (roll.output_payload.assumptions || []).find((a) => typeof a === 'string' && a.startsWith('Reinvestment assumption (roll_to_longest_rung)'));
+  if (!rollSentence || !rollSentence.includes('5.5% nominal, 30 years')) violations++;
+  return { name: 'P7_refusal_detail_and_compliance_flag_pins', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -218,6 +282,7 @@ const properties = [
   checkP3_weightsSumRefusal(),
   checkP4_rungBoundedness(),
   checkP6_refusalContract(),
+  checkP7_refusalDetailAndFlagPins(),
 ];
 const boundary_forced = checkP5_forced();
 const anyBoundaryImplausible = boundary_forced.some((b) => !b.plausible);
