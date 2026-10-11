@@ -62,18 +62,20 @@ const OUT_DIR = resolve(REPO, 'fv-status');
 // REGEN-ESCAPE-GUARD-BLIND-HEAL-1 mechanism): every --write run writes the run's ACTUAL
 // write list to a tempdir report consumed by `scripts/derived-artifacts.mjs --paths`, so
 // the COVERED entry's bare-tree `fv-status` prefix can never stage an injected file. The
-// COVERED entry carries `writesReportRequired: true`. Removed orphan digests are
-// deliberately NOT reported — the stage set narrows to extant written files. The report
-// path lives in scripts/_gen-writes-reports.mjs so consumers can import it without
-// running this script's module-level argv dispatch.
+// COVERED entry carries `writesReportRequired: true`. `removed` is the attested
+// orphan-digest deletion list — the stage step's escape check reds unstaged deletions,
+// so prunes must be staged by pathspec too. The report path lives in
+// scripts/_gen-writes-reports.mjs so consumers can import it without running this
+// script's module-level argv dispatch.
 import { FV_STATUS_WRITES_REPORT_PATH } from './_gen-writes-reports.mjs';
 
 /** Flush the writes report; called on EVERY --write path, early exit included. */
-function writeFvStatusReport(written) {
+function writeFvStatusReport(written, removed = []) {
   writeFileSync(FV_STATUS_WRITES_REPORT_PATH, JSON.stringify({
     _comment: 'Actual write list of the last gen-fv-status.mjs --write run; consumed by scripts/derived-artifacts.mjs --paths (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1).',
     generated_by: 'node scripts/gen-fv-status.mjs --write',
     written: [...new Set(written)].sort(),
+    removed: [...new Set(removed)].sort(),
   }, null, 2) + '\n', 'utf8');
 }
 
@@ -348,13 +350,17 @@ const outPath = resolve(OUT_DIR, `${hex}.json`);
 // is deleted, before the skip-if-unchanged early-exit so a no-op pass still
 // cleans up. Runs BEFORE the write so a fresh digest lands atomically with the
 // removal of its predecessor.
+let removedOrphanPaths = []; // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: attested deletions
 if (existsSync(OUT_DIR)) {
+  const removedOrphans = [];
   for (const fname of readdirSync(OUT_DIR)) {
     if (fname.endsWith('.json') && fname !== `${hex}.json`) {
       unlinkSync(resolve(OUT_DIR, fname));
+      removedOrphans.push(`fv-status/${fname}`);
       console.log(`✓ FV-AGENTSURFACE-BUILD-1 removed orphaned fv-status/${fname} (no longer the current spec_digest).`);
     }
   }
+  if (removedOrphans.length) removedOrphanPaths = removedOrphans;
 }
 
 if (existsSync(outPath)) {
@@ -362,7 +368,7 @@ if (existsSync(outPath)) {
     const onDiskArtifact = JSON.parse(readFileSync(outPath, 'utf8'));
     if (canonicalBytes(stripDynamic(onDiskArtifact)) === canonicalBytes(stripDynamic(artifact))) {
       console.log(`✓ FV-AGENTSURFACE-BUILD-1 fv-status/${hex}.json already current (no non-freshness change) — left untouched.`);
-      writeFvStatusReport([]); // empty list included — the report never outlives its run
+      writeFvStatusReport([], removedOrphanPaths); // empty lists included — the report never outlives its run
       process.exit(0);
     }
   } catch {
@@ -371,5 +377,5 @@ if (existsSync(outPath)) {
 }
 
 writeFileSync(outPath, JSON.stringify(artifact, null, 2) + '\n');
-writeFvStatusReport([`fv-status/${hex}.json`]);
+writeFvStatusReport([`fv-status/${hex}.json`], removedOrphanPaths);
 console.log(`✓ FV-AGENTSURFACE-BUILD-1 wrote fv-status/${hex}.json — ${inScope.length} kernel(s), ${Object.keys(artifact.proven.kernels).length} with a recorded claim-tier, ${artifact.proven.unclaimed_count} unassessed.`);

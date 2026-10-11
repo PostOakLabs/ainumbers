@@ -514,22 +514,24 @@ for (const [rel, text] of files) {
 // Prune anything under skills/ that no prompt owns — the tree is generator-owned
 // in full, so a removed prompt must not leave an orphan skill behind.
 let pruned = 0;
+const removed = []; // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: attested deletion list
 for (const rel of walk(OUT).keys()) {
   if (files.has(rel)) continue;
   rmSync(join(OUT, rel));
   pruned += 1;
+  removed.push(`${OUT_REL}/${rel.split('\\').join('/')}`);
 }
 for (const name of existsSync(OUT) ? readdirSync(OUT) : []) {
   const abs = join(OUT, name);
   if (statSync(abs).isDirectory() && !readdirSync(abs).length) rmdirSync(abs);
 }
-// Written on EVERY write-mode run — empty list included (REGEN-MANIFEST-ATTEST-1
-// precedent). Note: pruned orphans are deliberately NOT in the report — the stage
-// set narrows to extant written files, so an orphan removal lands via its own
-// review, not inside an unattested prefix sweep.
+// Written on EVERY write-mode run — empty lists included (REGEN-MANIFEST-ATTEST-1
+// precedent). `removed` is the attested deletion list: the stage step's escape
+// check reds unstaged deletions, so prunes must be staged by pathspec too.
 writeFileSync(AGENT_SKILLS_WRITES_REPORT_PATH, JSON.stringify({
   _comment: 'Actual write list of the last gen-agent-skills.mjs write run; consumed by scripts/derived-artifacts.mjs --paths (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1).',
   generated_by: 'node scripts/gen-agent-skills.mjs',
   written: [...new Set(written)].sort(),
+  removed: [...new Set(removed)].sort(),
 }, null, 2) + '\n', 'utf8');
 console.log(`gen-agent-skills: ${prompts.length} skills + README in ${OUT_REL}/ (${wrote} file(s) written, ${pruned} pruned, source digest ${version}).`);

@@ -1597,10 +1597,29 @@ function entryCommitPaths(entry) {
   }
   const prefixes = entry.artifacts.map((a) => (a.endsWith('/') ? a : `${a}/`));
   const exact = new Set(entry.artifacts);
+  // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): a required report may also carry
+  // `removed` — the run's attested DELETION list (orphan/stale prunes). The stage
+  // step's escape check reds unstaged deletions (` D`) exactly like untracked files,
+  // and `git add -- <path>` stages a deletion by pathspec — so a reported removal
+  // must be staged or every legitimate prune (the #1479 art-99 shape, the workflow's
+  // okf_pair_deletion GREEN control) would red the regen. An absent-on-disk path NOT
+  // in `removed` is still dropped — a reported write that vanished mid-run is a
+  // dropped path, never a staged phantom.
+  let removedSet = new Set();
+  try {
+    const parsed2 = JSON.parse(readFileSync(entry.writesReport, 'utf8'));
+    if (Array.isArray(parsed2?.removed)) removedSet = new Set(parsed2.removed.filter((p) => typeof p === 'string'));
+  } catch { /* unreachable here — the same file parsed above */ }
   const kept = [], dropped = [];
   for (const p of written) {
     if (!exact.has(p) && !prefixes.some((pre) => p.startsWith(pre))) { dropped.push(`${p} (outside declared artifacts)`); continue; }
-    if (!existsSync(resolve(REPO, p))) { dropped.push(`${p} (absent on disk)`); continue; }
+    if (!existsSync(resolve(REPO, p)) && !removedSet.has(p)) { dropped.push(`${p} (absent on disk)`); continue; }
+    kept.push(p);
+  }
+  for (const p of removedSet) {
+    if (typeof p !== 'string' || written.includes(p)) continue;
+    if (!exact.has(p) && !prefixes.some((pre) => p.startsWith(pre))) { dropped.push(`${p} (outside declared artifacts)`); continue; }
+    if (existsSync(resolve(REPO, p))) { dropped.push(`${p} (reported removed but present on disk)`); continue; }
     kept.push(p);
   }
   if (dropped.length) console.error(`derived-artifacts: entry "${entry.id}" writes-report drops ${dropped.length} path(s): ${dropped.join(', ')}`);
@@ -2021,6 +2040,19 @@ if (isMain) {
         JSON.stringify(narrowed) === JSON.stringify([]) || fail(`entry "${c.id}" with an empty writes report must stage NOTHING (never its bare prefix ${JSON.stringify(c.artifacts)}), got ${JSON.stringify(narrowed)}`);
       }
       console.log(`✓ self-test (g2): all ${requiredEntries.length} writesReportRequired entries (${requiredEntries.map((x) => x.id).join(', ')}) narrow to their attested write list — an injected file under any declared prefix is never staged`);
+
+      // (g3) REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: an ATTESTED removal (the report's
+      // `removed` list — an orphan/stale prune) MUST be staged: the escape check
+      // reds unstaged deletions (` D`) exactly like untracked files, and the
+      // workflow's okf_pair_deletion case is a designed GREEN control (the #1479
+      // art-99 shape). `git add -- <path>` stages a deletion by pathspec. An
+      // injected file is still never staged — it is in neither list.
+      writeFileSync(rp, JSON.stringify({ written: [], removed: ['manifests/GONE-attested.manifest.json'] }, null, 2) + '\n', 'utf8');
+      const stagedRemoval = entryCommitPaths({ id: 'selftest-removal', artifacts: ['manifests/'], writesReport: rp, writesReportRequired: true });
+      JSON.stringify(stagedRemoval) === JSON.stringify(['manifests/GONE-attested.manifest.json']) || fail(`an attested removal must be staged (git add stages deletions by pathspec), got ${JSON.stringify(stagedRemoval)}`);
+      const stagedRemoval2 = entryCommitPaths({ id: 'selftest-removal-inject', artifacts: ['manifests/'], writesReport: rp, writesReportRequired: true, });
+      stagedRemoval2.includes('manifests/INJECTED-REGEN-ESCAPE.txt') && fail('an injected path is in neither report list and must never be staged');
+      console.log('✓ self-test (g3): an attested removal is staged by pathspec; an injected file is in neither list and never staged');
 
       // (h) a report-REQUIRED entry with an ABSENT report must REFUSE loudly, never
       // fall back to the bare-tree prefix — the silent fallback would restore the

@@ -83,9 +83,9 @@ const OUT_DIR = resolve(REPO, 'registry', 'kernel');
 // REGEN-ESCAPE-GUARD-BLIND-HEAL-1 mechanism): every --write run writes the run's ACTUAL
 // write list to a tempdir report consumed by `scripts/derived-artifacts.mjs --paths`, so
 // the COVERED entry's bare-tree `registry/kernel` prefix can never stage an injected
-// file. The COVERED entry carries `writesReportRequired: true`. Pruned orphans are
-// deliberately NOT reported — the stage set narrows to extant written files; an orphan
-// removal already passes its own --confirm-prune review. The report path lives in
+// file. The COVERED entry carries `writesReportRequired: true`. `removed` is the
+// attested orphan-deletion list — the stage step's escape check reds unstaged
+// deletions, so prunes must be staged by pathspec too. The report path lives in
 // scripts/_gen-writes-reports.mjs (shared-constants module).
 import { REGISTRY_KERNEL_RESOLVE_WRITES_REPORT_PATH } from './_gen-writes-reports.mjs';
 
@@ -355,7 +355,8 @@ async function main() {
   const { removed } = pruneOrphans(OUT_DIR, orphans, { confirm: confirmPrune });
 
   let written = 0, unchanged = 0;
-  const writtenPaths = []; // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1
+  const writtenPaths = [], removedPaths = []; // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1
+  if (plan.action === 'PRUNE') removedPaths.push(...orphans.map((f) => `registry/kernel/${f}`));
   for (const [fname, { record }] of byFile) {
     const path = resolve(OUT_DIR, fname);
     const want = canonicalRecordBytes(record);
@@ -364,11 +365,12 @@ async function main() {
     written++;
     writtenPaths.push(`registry/kernel/${fname}`);
   }
-  // Written on EVERY --write run — empty list included (REGEN-MANIFEST-ATTEST-1 precedent).
+  // Written on EVERY --write run — empty lists included (REGEN-MANIFEST-ATTEST-1 precedent).
   writeFileSync(REGISTRY_KERNEL_RESOLVE_WRITES_REPORT_PATH, JSON.stringify({
     _comment: 'Actual write list of the last gen-registry-kernel-resolve.mjs --write run; consumed by scripts/derived-artifacts.mjs --paths (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1).',
     generated_by: 'node scripts/gen-registry-kernel-resolve.mjs --write',
     written: [...new Set(writtenPaths)].sort(),
+    removed: [...new Set(removedPaths)].sort(),
   }, null, 2) + '\n', 'utf8');
   console.log(`✓ REGISTRY-RESOLVE-STATIC-1 wrote ${written} record(s), removed ${removed} orphan(s), ${unchanged} already current, for ${inScope.length} in-scope kernel(s) (${byFile.size} unique file(s)). Run --check to verify.`);
   if (unrecognized.length) {
