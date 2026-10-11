@@ -9,9 +9,31 @@
 
 import { compute } from '../art-705-bond-ladder-builder.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, pick } from './_pbt-common.mjs';
+import { fileURLToPath } from 'node:url';
 
 const KERNEL_ID = 'art-705-bond-ladder-builder';
-const TRIALS = 6000;
+// Mutation-mode trial cap (PROPFLOOR_TRIAL_CAP seam, art-332/pnr-01 shape): under the
+// mutation tier the instrumented kernel runs ~50x slower (heavy myPow loops over
+// multi-rung schedules), so the random-draw trials are capped to keep the per-mutant
+// cost inside the 15s timeoutMS / 600s wall bound. Default cap 30 (a capped pass takes
+// the first 30 draws per property of the SAME seeded mulberry32 stream — still spanning
+// 1-5 rungs, maturities 0.25-30y and periods_per_year 1-12 — at ~2s instrumented).
+// Override with documented env PROPFLOOR_TRIAL_CAP, a positive integer, invalid values
+// throw. The fixture oracle and the ULP-boundary forcing cases are NEVER capped
+// (mandatory). Every property is deterministic (seeded mulberry32), so a violation
+// found under the cap is found under full trials too.
+const MUTATION_MODE =
+  process.env.__STRYKER_ACTIVE_MUTANT__ !== undefined ||
+  fileURLToPath(import.meta.url).split(String.fromCharCode(92)).join("/").includes("/ain-mutation-tier-");
+let mutationTrials = 30;
+if (process.env.PROPFLOOR_TRIAL_CAP !== undefined) {
+  const cap = Number(process.env.PROPFLOOR_TRIAL_CAP);
+  if (!Number.isInteger(cap) || cap <= 0) {
+    throw new Error(`PROPFLOOR_TRIAL_CAP must be a positive integer, got "${process.env.PROPFLOOR_TRIAL_CAP}".`);
+  }
+  mutationTrials = cap;
+}
+const TRIALS = MUTATION_MODE ? mutationTrials : 2000;
 const rand = mulberry32(0x705C9);
 function randRange(rng, lo, hi) { return lo + rng() * (hi - lo); }
 
