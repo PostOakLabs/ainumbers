@@ -431,7 +431,7 @@ export const propertyIdMap = {
     network_label: { element_id: 'networkLabel', via: 'string' },
   },
   // art-613 pp assembly (_val/_optVal name every control explicitly):
-  //   chaingraph/art-613-erc4337-userop-math.html:1753-1771
+  //   chaingraph/art-613-erc4337-userop-math.html (runCheck)
   'art-613-erc4337-userop-math': {
     entryPointVersion: { element_id: 'epVersion', via: 'string' },
     entryPoint: { element_id: 'epAddress', via: 'string' },
@@ -446,6 +446,8 @@ export const propertyIdMap = {
     preVerificationGas: { element_id: 'opPreVerificationGas', via: 'string' },
     maxFeePerGas: { element_id: 'opMaxFeePerGas', via: 'string' },
     maxPriorityFeePerGas: { element_id: 'opMaxPriorityFeePerGas', via: 'string' },
+    eip7702Delegate: { element_id: 'opEip7702Delegate', via: 'string' },
+    eip7702Authority: { element_id: 'opEip7702Authority', via: 'string' },
     declaredBaseFeePerGas: { element_id: 'opDeclaredBaseFee', via: 'string' },
     declaredActualGasUsed: { element_id: 'recGasUsed', via: 'string' },
     declaredActualGasCostWei: { element_id: 'recGasCost', via: 'string' },
