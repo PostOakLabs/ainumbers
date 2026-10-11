@@ -142,3 +142,18 @@ one account across machines; never un-HALT without independently verifying the h
   vectors 666/663). 7F authors the next spec from a graded finding. All five lanes frozen-ready
   (HALT = "awaiting spec"); un-halt is one file deletion per machine. Farm buses likewise
   supply-starved (queue-author NOOP on msi 10-11: served/leak-gated/no-eligible-harness).
+
+## 2026-10-11 addendum 2 — OCS/GitHub-runner coexistence review (Tim: OCS also uses msi)
+- msi co-tenants found by sweep: (1) C:\dev\OCS — EMPTY, created 10/10 18:33 (OCS staged,
+  nothing deployed: no tasks, processes, logs); (2) GH-Runner-msi — GitHub Actions SELF-HOSTED
+  RUNNER at C:\Users\admin\actions-runner, agent name "msi", ACTIVE (Runner.Listener +
+  Runner.Worker running, Worker log written during the sweep). farm + freebuff + runner now
+  share the lightest laptop.
+- RISK: a FreeBuff agent run stacking on an in-flight Actions job could starve the CI job into
+  a red build (Tim: no red github errors). FIX: run-dispatch.cmd gate 2 — tasklist
+  Runner.Worker.exe -> exit 0 (defer to next 30-min tick). Farm gate 1 unchanged. Wrapper
+  bun path fixed to %LOCALAPPDATA% (msi user is admin, not Disco).
+- FILESYSTEM: zero overlap — FreeBuff sandbox C:\dev\Claude\Projects\FreeBuff, farm
+  C:\dev\ainumbers-farm-msi, OCS C:\dev\OCS, runner C:\Users\admin\actions-runner. The
+  planned tasks 31/32/33 write only under FreeBuff/out and read only shipped input copies +
+  the public repos/ainumbers clone. No OCS interaction possible.
