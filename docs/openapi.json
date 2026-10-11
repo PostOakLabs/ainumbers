@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1218 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1219 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -1794,6 +1794,9 @@
       "name": "agent-payment"
     },
     {
+      "name": "agent-payments"
+    },
+    {
       "name": "agent-traffic"
     },
     {
@@ -2050,6 +2053,9 @@
     },
     {
       "name": "authorization-api"
+    },
+    {
+      "name": "authorization-gate"
     },
     {
       "name": "authorization-tuple"
@@ -2512,6 +2518,9 @@
     },
     {
       "name": "commercial-remix"
+    },
+    {
+      "name": "commit-verification"
     },
     {
       "name": "common paper"
@@ -4026,6 +4035,9 @@
       "name": "mandate"
     },
     {
+      "name": "mandate-coverage"
+    },
+    {
       "name": "manifest"
     },
     {
@@ -4084,6 +4096,9 @@
     },
     {
       "name": "maturity"
+    },
+    {
+      "name": "mcp:authorize_payment_against_mandate"
     },
     {
       "name": "mcp:build_ap2_cartmandate_hashchain"
@@ -4443,6 +4458,9 @@
       "name": "onboarding"
     },
     {
+      "name": "one-use-authorization"
+    },
+    {
       "name": "oneSaaS"
     },
     {
@@ -4624,6 +4642,9 @@
     },
     {
       "name": "payment-waterfall"
+    },
+    {
+      "name": "payment_mandate"
     },
     {
       "name": "payment_policy"
@@ -4936,6 +4957,9 @@
     },
     {
       "name": "rail"
+    },
+    {
+      "name": "rail-nonce"
     },
     {
       "name": "range digest"
@@ -122208,6 +122232,171 @@
         },
         "x-mcp-tool-name": "find_runway_goal_path",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-702-runway-goal-path.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/authorize_payment_against_mandate": {
+      "post": {
+        "operationId": "authorize_payment_against_mandate",
+        "summary": "Mandate Authorization Gate",
+        "description": "Automated payment approval gate with no human step: a fixed ten-rule mandate check lists every failing rule with a named reason, issues a one-use authorization bound to the exact request digest with a window clipped to the mandate expiry, and re-verifies the committed request at commit time. Integer minor units, no float anywhere.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-703-mandate-authorization-gate.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "payment_mandate",
+          "authorization-gate",
+          "mandate-coverage",
+          "one-use-authorization",
+          "commit-verification",
+          "rail-nonce",
+          "integer-minor-units",
+          "agent-payments",
+          "mcp:authorize_payment_against_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "mode",
+                  "as_of"
+                ],
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "description": "authorize evaluates the mandate and request; verify_commit re-verifies a presented authorization."
+                  },
+                  "as_of": {
+                    "type": "string",
+                    "description": "Decision time as a UTC timestamp, YYYY-MM-DDTHH:MM:SS ending in Z. The node reads no clock."
+                  },
+                  "ttl_seconds": {
+                    "type": "integer",
+                    "description": "authorize only: window seconds, clipped into 1 to 900 and to the mandate expiry."
+                  },
+                  "mandate": {
+                    "type": "object",
+                    "description": "authorize only: the mandate drawn on; commonly the canonical pivot from art-476."
+                  },
+                  "extensions": {
+                    "type": "object",
+                    "description": "authorize only, optional: revoked_at, budget minor integers, allowed_rails, verified_payees."
+                  },
+                  "request": {
+                    "type": "object",
+                    "description": "authorize: the proposed payment. verify_commit: the request being committed, as presented."
+                  },
+                  "authorization": {
+                    "type": "object",
+                    "description": "verify_commit only: the authorization this node issued, presented back for commit."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "authorization": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "authorization_id": {
+                      "type": "string"
+                    },
+                    "decision": {
+                      "type": "string",
+                      "enum": [
+                        "authorize",
+                        "commit_ok",
+                        "reject"
+                      ]
+                    },
+                    "domain_errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "authorize",
+                        "verify_commit"
+                      ]
+                    },
+                    "primary_reason": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "remaining_budget_minor": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "scope_note": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "decision",
+                    "domain_errors",
+                    "mode",
+                    "reasons"
+                  ],
+                  "additionalProperties": false,
+                  "x-derived-from": "fixture"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "authorize_payment_against_mandate",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-703-mandate-authorization-gate.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }

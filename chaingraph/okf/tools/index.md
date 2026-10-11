@@ -629,6 +629,7 @@ status: stable
 - [Authorization Payload Linter](./art-700-authorization-payload-linter.md) — `lint_authorization_payload`
 - [Three Way Invoice Match](./art-701-three-way-invoice-match.md) — `match_invoice_three_way`
 - [Runway Goal Path](./art-702-runway-goal-path.md) — `find_runway_goal_path`
+- [Mandate Authorization Gate](./art-703-mandate-authorization-gate.md) — `authorize_payment_against_mandate`
 - [AI Token Spend](./art-704-ai-token-spend.md) — `estimate_ai_token_spend`
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md) — `model_cbam_certificate_cost`
 - [SCO60 Group 2 Exposure Limit V2](./art-711-sco60-crypto-asset-exposure-classifier-v2.md) — `classify_sco60_exposure_v2`
