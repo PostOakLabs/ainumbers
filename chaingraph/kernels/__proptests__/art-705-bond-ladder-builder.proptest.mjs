@@ -217,7 +217,7 @@ function checkP6_refusalContract() {
 // refusal detail strings (StringLiteral/LogicalOperator mutants), rung-index naming in
 // compliance flags, zero-coupon / non-positive-price flag emission, and the
 // roll_to_longest_rung assumption's longest-rung naming.
-const DETAIL_PIN_CASES = [
+const DETAIL_PIN_CASES = /** @type {[object, string, string, string | null][]} */ ([
   // [pp, expected error, detail substring pinning the field sentence, detail substring pinning the echoed offending value]
   [{ notional: 'lots', rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: 5, target_weight: 1 }] }, 'notional_not_positive', 'notional must be a positive finite number', '"lots"'],
   [{ notional: 100000 }, 'ladder_empty', 'non-empty array', null],
@@ -225,7 +225,7 @@ const DETAIL_PIN_CASES = [
   [{ notional: 100000, rungs: [{ maturity_years: 3, coupon_rate_pct: 'fat', yield_pct: 5, target_weight: 1 }] }, 'rung_coupon_invalid', 'coupon_rate_pct must be a finite number >= 0', '"fat"'],
   [{ notional: 100000, rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: 'wat', target_weight: 1 }] }, 'rung_yield_invalid', 'yield_pct must be a finite number', '"wat"'],
   [{ notional: 100000, rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: 5, target_weight: 'none' }] }, 'rung_weight_invalid', 'target_weight must be a finite number >= 0', '"none"'],
-];
+]);
 function checkP7_refusalDetailAndFlagPins() {
   let violations = 0, checked = 0;
   for (const [pp, wantError, pinSentence, pinValue] of DETAIL_PIN_CASES) {
