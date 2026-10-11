@@ -167,6 +167,39 @@ function checkP5_forced() {
   return rows;
 }
 
+// ---------- P6: refusal contract — every named refusal fires with its exact code on its trigger ----------
+const REFUSAL_CONTRACT_CASES = [
+  [{ notional: -1, rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: 5, target_weight: 1 }] }, 'notional_not_positive', 'NOTIONAL_NOT_POSITIVE'],
+  [{ notional: 'lots', rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: 5, target_weight: 1 }] }, 'notional_not_positive', 'NOTIONAL_NOT_POSITIVE'],
+  [{ notional: 100000 }, 'ladder_empty', 'LADDER_EMPTY'],
+  [{ notional: 100000, rungs: [] }, 'ladder_empty', 'LADDER_EMPTY'],
+  [{ notional: 100000, rungs: [{ maturity_years: 0, coupon_rate_pct: 4, yield_pct: 5, target_weight: 1 }] }, 'rung_maturity_not_positive', 'RUNG_MATURITY_NOT_POSITIVE'],
+  [{ notional: 100000, rungs: [{ maturity_years: 3, coupon_rate_pct: -0.5, yield_pct: 5, target_weight: 1 }] }, 'rung_coupon_invalid', 'RUNG_COUPON_INVALID'],
+  [{ notional: 100000, rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: NaN, target_weight: 1 }] }, 'rung_yield_invalid', 'RUNG_YIELD_INVALID'],
+  [{ notional: 100000, rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: 5, target_weight: -1 }] }, 'rung_weight_invalid', 'RUNG_WEIGHT_INVALID'],
+  [{ notional: 100000, rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: 5, target_weight: 1 }], reinvestment_assumption: 'never_default' }, 'reinvestment_assumption_invalid', 'REINVESTMENT_ASSUMPTION_INVALID'],
+  [{ rungs: [{ maturity_years: 3, coupon_rate_pct: 4, yield_pct: 5, target_weight: 1 }] }, 'notional_not_positive', 'NOTIONAL_NOT_POSITIVE'],
+];
+function checkP6_refusalContract() {
+  let violations = 0, checked = 0;
+  for (const [pp, wantError, wantCode] of REFUSAL_CONTRACT_CASES) {
+    const r = compute(pp);
+    checked++;
+    const out = r.output_payload;
+    if (out.error !== wantError) { violations++; continue; }
+    if (!r.compliance_flags.includes('INPUT_REFUSED')) violations++;
+    const de = (out.domain_errors || [])[0] || {};
+    if (de.code !== wantCode) violations++;
+    if (typeof out.detail !== 'string' || out.detail.length === 0) violations++;
+    if (out.ladder !== null || out.portfolio !== null) violations++;
+  }
+  // R4: a null input takes exactly the absent form's answer
+  const nullEcho = compute({ notional: 100000, rungs: [{ maturity_years: 3, coupon_rate_pct: null, yield_pct: 5, target_weight: 1 }] });
+  checked++;
+  if (nullEcho.output_payload.error !== 'rung_coupon_invalid') violations++;
+  return { name: 'P6_refusal_contract_every_named_refusal_fires_with_exact_code', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -179,6 +212,7 @@ const properties = [
   checkP2_notionalScalingLinearity(),
   checkP3_weightsSumRefusal(),
   checkP4_rungBoundedness(),
+  checkP6_refusalContract(),
 ];
 const boundary_forced = checkP5_forced();
 const anyBoundaryImplausible = boundary_forced.some((b) => !b.plausible);
