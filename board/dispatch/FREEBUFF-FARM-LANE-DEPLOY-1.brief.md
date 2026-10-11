@@ -126,3 +126,19 @@ one account across machines; never un-HALT without independently verifying the h
 6. ORCHESTRATOR STABILITY: the four HALTed machines' orchestrators were already healthy via
    their own task instances; the GUI is closed and de-registered on hp only. Port pinned
    55469, launch ids per machine, stdin-EOF bootstrap â€” all re-verified after today's edits.
+
+## 2026-10-11 addendum — msi defect fixed; catalog-exhausted status
+- msi 401'd every request despite correct-looking files. ROOT CAUSE: the launch-id file had a
+  trailing blank line -> operator-side PowerShell `Get-Content` returned a 2-element array ->
+  string concat baked a TRAILING SPACE into orch-start.cmd's `set FREEBUFF_LAUNCH_ID=<id> &&`
+  (cmd keeps it; measured byte-level: ...'6',32,'&','&'...). Fix: rewrite launch-id (single
+  line, -Raw + .Trim()) + regenerate orch-start.cmd; restart; healthz ok + authed. LESSON:
+  always byte-inspect generated cmd on the TARGET (ASCII dump), never trust console echo.
+- Fleet re-verified 10-11: hp/ps/nitro/aspire healthy + authed (ps/nitro/aspire pids UNCHANGED
+  since 10-09 — long-lived instances stable). Earlier "all five reject" readings were
+  measurement artifacts (nested-quote curl mangling + mid-boot races) — use PowerShell-over-
+  stdin for fleet probes.
+- TASK SUPPLY: FreeBuff catalog exhausted (board done through 30; NEXT-PASTE NOTHING PENDING;
+  vectors 666/663). 7F authors the next spec from a graded finding. All five lanes frozen-ready
+  (HALT = "awaiting spec"); un-halt is one file deletion per machine. Farm buses likewise
+  supply-starved (queue-author NOOP on msi 10-11: served/leak-gated/no-eligible-harness).
