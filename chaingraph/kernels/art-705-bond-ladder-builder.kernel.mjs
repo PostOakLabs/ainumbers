@@ -138,7 +138,7 @@ function refusal(code, detail) {
       portfolio: null,
       assumptions: [],
     },
-    compliance_flags: ['INPUT_REFUSED'],
+    compliance_flags: code ? ['INPUT_REFUSED'] : [],
   };
 }
 

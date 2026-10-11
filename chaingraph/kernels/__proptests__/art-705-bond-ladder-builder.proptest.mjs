@@ -1,5 +1,5 @@
 // art-705-bond-ladder-builder — class-K property-test floor, authored by ART705-BOND-LADDER-1.
-// kernel_digest_at_authoring: sha256:48c94e764bcff807d15c3bd0560bf7a1ed70ba2e62a9bf64903298d847558cb3
+// kernel_digest_at_authoring: sha256:970caa8ad9d2832a8a9eb606726654fa1529c9669bee6a67cd0042ed88929bdb
 // spec: AIQ capability build spec WU-16 (research/AIQ-CAPABILITY-PRODUCTS-BUILD-SPEC-2026-10-01.html)
 // human_sign_off: PENDING
 //
