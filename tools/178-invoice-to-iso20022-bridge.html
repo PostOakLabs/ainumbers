@@ -614,8 +614,227 @@ function downloadXML() {
   showToast('XML downloaded', 't-ok');
 }
 
-function downloadAP2() {
+/* ── art-703 mandate authorization gate — inlined authorize path (MANDATE-AUTH-PILOT-1) ──
+   Ported from chaingraph/kernels/art-703-mandate-authorization-gate.kernel.mjs compute()
+   mode 'authorize'. Same fixed ten-rule order, same JCS canonicalization and digests;
+   sha256 comes from crypto.subtle per the estate page pattern (the kernel carries its own
+   vendored core for the zkVM guest; the digest outputs are identical). Fully automated:
+   no human step, no confirmation dialog, no network call. */
+var MINOR_EXP_0_703 = ['BIF','CLP','DJF','GNF','ISK','JPY','KMF','KRW','PYG','RWF','UGX','UYI','VND','VUV','XAF','XOF','XPF'];
+var MINOR_EXP_3_703 = ['BHD','IQD','JOD','KWD','LYD','OMR','TND'];
+function minorExponent703(ccy) {
+  if (typeof ccy !== 'string' || !/^[A-Z]{3}$/.test(ccy)) return null;
+  if (MINOR_EXP_0_703.indexOf(ccy) !== -1) return 0;
+  if (MINOR_EXP_3_703.indexOf(ccy) !== -1) return 3;
+  return 2;
+}
+/* decimal major-unit string to integer minor units, no float, no rounding */
+function majorToMinor703(s, exp) {
+  if (typeof s !== 'string' || !/^\d+(\.\d+)?$/.test(s)) return null;
+  var dot = s.indexOf('.');
+  var intPart = dot === -1 ? s : s.slice(0, dot);
+  var fracPart = dot === -1 ? '' : s.slice(dot + 1);
+  if (fracPart.length > exp) return null;
+  while (fracPart.length < exp) fracPart += '0';
+  var digits = intPart + fracPart;
+  if (digits.length > 15) return null;
+  var v = Number(digits);
+  return Number.isSafeInteger(v) ? v : null;
+}
+var ISO_UTC_RE_703 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z$/;
+function daysFromCivil703(y, m, d) {
+  var yy = m <= 2 ? y - 1 : y;
+  var era = Math.floor(yy / 400);
+  var yoe = yy - era * 400;
+  var doy = Math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1;
+  var doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  return era * 146097 + doe - 719468;
+}
+function civilFromDays703(z) {
+  z += 719468;
+  var era = Math.floor(z / 146097);
+  var doe = z - era * 146097;
+  var yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365);
+  var y = yoe + era * 400;
+  var doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));
+  var mp = Math.floor((5 * doy + 2) / 153);
+  var d = doy - Math.floor((153 * mp + 2) / 5) + 1;
+  var m = mp + (mp < 10 ? 3 : -9);
+  y = m <= 2 ? y + 1 : y;
+  return { y: y, m: m, d: d };
+}
+function pad2_703(n) { return (n < 10 ? '0' : '') + n; }
+function parseIsoUtc703(v) {
+  if (typeof v !== 'string') return null;
+  var m = ISO_UTC_RE_703.exec(v);
+  if (!m) return null;
+  var y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]), h = Number(m[4]), mi = Number(m[5]), s = Number(m[6]);
+  if (mo < 1 || mo > 12 || d < 1) return null;
+  var leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  var dim = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1];
+  if (d > dim) return null;
+  if (h > 23 || mi > 59 || s > 59) return null;
+  return daysFromCivil703(y, mo, d) * 86400 + h * 3600 + mi * 60 + s;
+}
+function isoFromEpoch703(epoch) {
+  var days = Math.floor(epoch / 86400);
+  var rem = epoch - days * 86400;
+  var c = civilFromDays703(days);
+  var h = Math.floor(rem / 3600); rem -= h * 3600;
+  var mi = Math.floor(rem / 60);
+  var s = rem - mi * 60;
+  return String(c.y).padStart(4, '0') + '-' + pad2_703(c.m) + '-' + pad2_703(c.d) + 'T' + pad2_703(h) + ':' + pad2_703(mi) + ':' + pad2_703(s) + 'Z';
+}
+function cgCanon703(v) {
+  return Array.isArray(v) ? v.map(cgCanon703)
+    : (v && typeof v === 'object')
+      ? Object.keys(v).sort().reduce(function (o, k) { o[k] = cgCanon703(v[k]); return o; }, {})
+      : v;
+}
+async function sha256Hex703(bytes) {
+  var d = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(d)).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+}
+async function jcsDigest703(value) {
+  return sha256Hex703(new TextEncoder().encode(JSON.stringify(cgCanon703(value))));
+}
+/* the fixed ten-rule walk over the page's current request and mandate; same rule order,
+   same reason sentences as the kernel's authorize mode */
+async function art703Authorize(pp) {
+  var asOfEpoch = parseIsoUtc703(pp.as_of);
+  if (asOfEpoch === null) {
+    return { decision: 'reject', authorization: null, reasons: [{ code: 'TIMESTAMP_INVALID', text: 'as_of must be a UTC timestamp formatted YYYY-MM-DDTHH:MM:SS and ending in Z.' }] };
+  }
+  var mandate = (pp.mandate !== null && typeof pp.mandate === 'object' && !Array.isArray(pp.mandate)) ? pp.mandate : null;
+  if (!mandate) return { decision: 'reject', authorization: null, reasons: [{ code: 'REFUSED_BAD_MANDATE', text: 'mandate must be an object with the mandate fields.' }] };
+  var request = (pp.request !== null && typeof pp.request === 'object' && !Array.isArray(pp.request)) ? pp.request : null;
+  if (!request) return { decision: 'reject', authorization: null, reasons: [{ code: 'REFUSED_BAD_REQUEST', text: 'request must be an object with the proposed payment fields.' }] };
+  var ext = (pp.extensions !== null && typeof pp.extensions === 'object' && !Array.isArray(pp.extensions)) ? pp.extensions : {};
+
+  var issuedEpoch = mandate.issued_at != null ? parseIsoUtc703(mandate.issued_at) : null;
+  if (mandate.issued_at != null && issuedEpoch === null) {
+    return { decision: 'reject', authorization: null, reasons: [{ code: 'TIMESTAMP_INVALID', text: 'mandate.issued_at must be a UTC timestamp formatted YYYY-MM-DDTHH:MM:SS and ending in Z.' }] };
+  }
+  var expiresEpoch = mandate.expires_at != null ? parseIsoUtc703(mandate.expires_at) : null;
+  if (mandate.expires_at != null && expiresEpoch === null) {
+    return { decision: 'reject', authorization: null, reasons: [{ code: 'TIMESTAMP_INVALID', text: 'mandate.expires_at must be a UTC timestamp formatted YYYY-MM-DDTHH:MM:SS and ending in Z.' }] };
+  }
+  var ttl = Math.min(900, Math.max(1, pp.ttl_seconds));
+
+  var reasons = [];
+  var amount = request.amount_minor;
+  var amountOk = typeof amount === 'number' && Number.isInteger(amount) && amount > 0;
+  if (!amountOk) reasons.push({ code: 'AMOUNT_INVALID', text: 'request.amount_minor must be an integer greater than zero.' });
+  if (ext.revoked_at != null && parseIsoUtc703(ext.revoked_at) !== null && parseIsoUtc703(ext.revoked_at) <= asOfEpoch) {
+    reasons.push({ code: 'MANDATE_REVOKED', text: 'the mandate carries a revocation timestamp at or before as_of.' });
+  }
+  if (issuedEpoch !== null && asOfEpoch < issuedEpoch) {
+    reasons.push({ code: 'NOT_YET_VALID', text: 'as_of is before the mandate issue time.' });
+  }
+  if (expiresEpoch !== null && asOfEpoch >= expiresEpoch) {
+    reasons.push({ code: 'EXPIRED', text: 'as_of is at or after the mandate expiry.' });
+  }
+  if (mandate.currency !== request.currency) {
+    reasons.push({ code: 'CURRENCY_MISMATCH', text: 'the mandate currency and the request currency differ.' });
+  }
+  if (typeof mandate.payer_ref === 'string' && mandate.payer_ref !== '' && mandate.payer_ref !== request.payer_ref) {
+    reasons.push({ code: 'PAYER_MISMATCH', text: 'the request payer differs from the payer the mandate names.' });
+  }
+  var mandatePayeeSet = typeof mandate.payee_ref === 'string' && mandate.payee_ref !== '';
+  var verifiedSet = Array.isArray(ext.verified_payees);
+  if ((mandatePayeeSet && mandate.payee_ref !== request.payee_ref)
+    || (verifiedSet && ext.verified_payees.indexOf(request.payee_ref) === -1)) {
+    reasons.push({ code: 'PAYEE_NOT_COVERED', text: 'the request payee is not covered by the mandate payee and the verified payee list.' });
+  }
+  if (mandate.max_amount !== undefined && mandate.max_amount !== null) {
+    var exp = minorExponent703(mandate.currency);
+    if (exp === null) {
+      reasons.push({ code: 'CURRENCY_EXPONENT_UNKNOWN', text: 'the mandate currency ' + JSON.stringify(mandate.currency === undefined ? null : mandate.currency) + ' has no known minor-unit exponent; the per-payment cap cannot be evaluated.' });
+    } else {
+      var cap = majorToMinor703(mandate.max_amount, exp);
+      if (cap === null) {
+        reasons.push({ code: 'MAX_AMOUNT_INVALID', text: 'mandate.max_amount must be a decimal string in major currency units convertible to integer minor units without rounding.' });
+      } else if (amountOk && amount > cap) {
+        reasons.push({ code: 'OVER_PER_PAYMENT_CAP', text: 'the requested amount exceeds the per-payment cap.' });
+      }
+    }
+  }
+  if (typeof ext.total_budget_minor === 'number' && amountOk) {
+    var spent = (typeof ext.spent_minor === 'number') ? ext.spent_minor : 0;
+    if (spent + amount > ext.total_budget_minor) {
+      reasons.push({ code: 'OVER_BUDGET', text: 'spent plus the requested amount exceeds the declared total budget.' });
+    }
+  }
+  if (Array.isArray(ext.allowed_rails)) {
+    if (ext.allowed_rails.indexOf(request.rail) === -1) {
+      reasons.push({ code: 'RAIL_NOT_ALLOWED', text: 'the request rail is not in the allowed rail list.' });
+    }
+  } else {
+    reasons.push({ code: 'RAIL_NOT_ALLOWED', text: 'no allowed rail list is declared, and an absent allowlist allows no rail.' });
+  }
+  if (reasons.length > 0) return { decision: 'reject', authorization: null, reasons: reasons };
+
+  var requestDigest = await jcsDigest703(request);
+  var mandateDigest = await jcsDigest703({ mandate: mandate, extensions: ext });
+  var notBefore = pp.as_of;
+  var notAfterEpoch = Math.min(asOfEpoch + ttl, expiresEpoch !== null ? expiresEpoch : asOfEpoch + ttl);
+  var notAfter = isoFromEpoch703(notAfterEpoch);
+  var authorizationId = await jcsDigest703({ operation: 'pay', request_digest: requestDigest, mandate_digest: mandateDigest, not_before: notBefore, not_after: notAfter });
+  return {
+    decision: 'authorize',
+    reasons: [],
+    authorization: {
+      authorization_id: authorizationId,
+      operation: 'pay',
+      request_digest: requestDigest,
+      mandate_digest: mandateDigest,
+      not_before: notBefore,
+      not_after: notAfter,
+      nonce_hint: '0x' + authorizationId,
+    },
+  };
+}
+/* build the gate input from the page's current fields: the payment request mirrors the
+   pain.001 being exported; the mandate is this page's own payment policy (payee bound to
+   the creditor IBAN, per-payment cap at the entered amount, SCT as the only allowed rail) */
+function buildGateInput703() {
+  var nowS = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  var ccy = getField('currency').toUpperCase();
+  var payee = getField('credIBAN').replace(/\s/g, '').toUpperCase();
+  var amtStr = getField('amount');
+  var exp = minorExponent703(ccy);
+  return {
+    as_of: nowS,
+    ttl_seconds: 900,
+    mandate: {
+      issued_at: nowS,
+      expires_at: isoFromEpoch703(parseIsoUtc703(nowS) + 86400),
+      currency: ccy,
+      payee_ref: payee,
+      max_amount: amtStr,
+    },
+    request: {
+      amount_minor: (exp === null || amtStr === '') ? null : majorToMinor703(amtStr, exp),
+      currency: ccy,
+      payee_ref: payee,
+      payer_ref: getField('debtName'),
+      rail: 'sepa_sct',
+    },
+    extensions: { allowed_rails: ['sepa_sct'] },
+  };
+}
+
+async function downloadAP2() {
   if (!lastAP2) return;
+  /* art-703 gate runs before the export builds the file: authorize attaches the
+     authorization, reject blocks the download and shows the failing rule's sentence */
+  var gate = await art703Authorize(buildGateInput703());
+  if (gate.decision !== 'authorize') {
+    var first = (gate.reasons && gate.reasons[0]) ? gate.reasons[0] : null;
+    showToast(first ? (first.text || first.code) : 'Authorization refused', 't-err');
+    return;
+  }
+  lastAP2.payload.authorization = gate.authorization;
   window.AP2Schema.validate(lastAP2);
   var a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(lastAP2,null,2)],{type:'application/json;charset=utf-8'}));
