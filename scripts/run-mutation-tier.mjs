@@ -885,6 +885,11 @@ export async function runTier(argv, repoRoot = REPO) {
   }
   const config = loadConfig(repoRoot);
   const excluded = config.excludedKernels || {};
+  // ART699-PROPTEST-STRENGTHEN-1 / 7F-V425(1): a kernel listed in hookSkipKernels is
+  // ADVISORY-skipped in-hook ("deferred to CI shards"); the CI shard matrix still runs and
+  // floors it. Not excludedKernels — the kernel is not exempt from the floor, only from the
+  // in-hook leg whose wall-clock bound it provably cannot fit (cause string in the config).
+  const hookSkip = config.hookSkipKernels || {};
 
   let ids;
   if (opts.all) {
@@ -903,28 +908,18 @@ export async function runTier(argv, repoRoot = REPO) {
 
   const toRun = [];
   const skipped = [];
-  // 7F-V425(1)/(3): `hookSkipKernels` — kernels the pre-push hook's SCOPED
-  // mutation-tier leg defers to the CI mutation shards, with the measured
-  // figures as the cause string. Deliberately ignored under `--all` (the
-  // nightly/CI shard mode, mutation-full-scheduled.yml): the shards still run
-  // and enforce the floor, so a deferral here moves the check, it never drops
-  // it (same class as #2351's config-declared categories — declared, never
-  // inferred, and never a bound raise or an exclusion).
-  const hookSkipKernels = opts.all ? {} : (config.hookSkipKernels || {});
-  const deferred = [];
   for (const id of ids) {
     if (Object.prototype.hasOwnProperty.call(excluded, id)) skipped.push({ id, reason: excluded[id] });
-    else if (Object.prototype.hasOwnProperty.call(hookSkipKernels, id)) deferred.push({ id, reason: hookSkipKernels[id] });
+    else if (Object.prototype.hasOwnProperty.call(hookSkip, id)) skipped.push({ id, reason: hookSkip[id], advisory: true });
     else toRun.push(id);
   }
 
   if (toRun.length === 0) {
-    console.log(`run-mutation-tier: ${skipped.length + deferred.length} id(s) given, all are named exceptions or deferred — nothing to run (exit 0).`);
+    console.log(`run-mutation-tier: ${skipped.length} id(s) given, all are named exceptions — nothing to run (exit 0).`);
     for (const s of skipped) console.log(`  SKIP (named exception) ${s.id}: ${s.reason}`);
-    for (const d of deferred) console.log(`  ADVISORY (hookSkipKernels) ${d.id}: deferred to CI shards — ${d.reason}`);
+    for (const s of skipped) if (s.advisory) console.log(`  ADVISORY (hookSkipKernels) deferred to CI shards ${s.id}`);
     process.exit(0);
   }
-  for (const d of deferred) console.log(`  ADVISORY (hookSkipKernels) ${d.id}: deferred to CI shards — ${d.reason}`);
 
   // MUTATION-TIER-CONFIG-BOUND-1: validate every examined kernel's bound
   // up-front (env > config > default) — an invalid config value fails the run
@@ -1021,6 +1016,7 @@ export async function runTier(argv, repoRoot = REPO) {
   console.log(`\n=== SUMMARY ===`);
   console.log(`examined: ${toRun.length}  hard-fail: ${hardFailCount}  floor-fail: ${floorFailCount}  named-exceptions: ${skipped.length}${opts.decomposed ? `  decomposed-null: ${decomposedNullCount}` : ''}`);
   for (const s of skipped) console.log(`  SKIP (named exception) ${s.id}: ${s.reason}`);
+  for (const s of skipped) if (s.advisory) console.log(`  ADVISORY (hookSkipKernels) deferred to CI shards ${s.id}`);
 
   if (opts.jsonOut) {
     writeFileSync(opts.jsonOut, JSON.stringify({ config, results, skipped }, null, 2) + '\n');

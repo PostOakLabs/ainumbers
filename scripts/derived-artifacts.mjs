@@ -1483,6 +1483,17 @@ export const EXCLUDED = [
        + 'card content edit without a local re-sign goes RED. Only PUBLIC material (the signatures[] block '
        + 'and .well-known/jwks.json, COVERED id jwks) ever touches main-side generation.',
   },
+  {
+    what: '.well-known/webmcp-signed.json (via scripts/sign-webmcp-snapshot.mjs, WEBMCP-SIGNED-SNAPSHOT-1)',
+    script: 'scripts/sign-webmcp-snapshot.mjs',
+    share: 'n/a',
+    why: 'SIGNING NEEDS THE PRIVATE KEY. The dated WebMCP tool-surface snapshot is signed (detached EdDSA JWS, '
+       + 'protected typ webmcp-snapshot+jws) with the estate\'s section-16 signer, which exists only on the '
+       + 'key-holding desk and never on the main-regen runner. The single writer is sign-webmcp-snapshot.mjs '
+       + 'run LOCALLY; the signed file is committed by the signing row. Integrity is guarded by '
+       + 'scripts/check-webmcp-signed-snapshot.mjs in preflight (RED only on a bad signature or malformed '
+       + 'snapshot; age and drift vs the regen-on-main webmcp.json are advisory).',
+  },
 ];
 
 /** Every path the regen may write, deduped and sorted — the commit pathspec. */

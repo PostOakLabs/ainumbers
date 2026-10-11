@@ -414,8 +414,8 @@ export async function deriveCounts() {
     import('./check-chain-edge-contracts.mjs'),
     import('./check-chain-l2-contracts.mjs'),
   ])
-  const l1ReportForL2 = buildL1Report(repoRoot)
-  const l2Report = buildL2Report(repoRoot, l1ReportForL2)
+  const l1ReportForL2 = buildL1Report(DERIVED_ROOT ?? repoRoot)
+  const l2Report = buildL2Report(DERIVED_ROOT ?? repoRoot, l1ReportForL2)
   const chainL2GatePass = l2Report.summary.edges_pass
   const chainL2GateFail = l2Report.summary.edges_fail
   const chainL2GateIndeterminate = l2Report.summary.edges_indeterminate
