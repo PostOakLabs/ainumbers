@@ -1143,6 +1143,8 @@ const GATES = [
   ['AIN Bridge MCP Apps View behaviour (handshake, origin pinning, alias, -32601)', 'node scripts/ain-bridge-jsonrpc.test.mjs'],
   ['Kernel exports (meta+compute)','node scripts/check-kernel-exports.mjs'],
   ['Forbidden-hash lint',          'node chaingraph/kernels/lint-forbidden-hash.mjs'],
+  ['cgCanon twin-parity lint (AUD-CGCANON-TWIN-GATE-1)', 'node chaingraph/kernels/lint-cgcanon-twin.mjs'],
+  ['cgCanon twin-parity red-proof (SO #34c, AUD-CGCANON-TWIN-GATE-1)', 'node chaingraph/kernels/lint-cgcanon-twin.mjs --self-test'],
   ['Hash golden-parity',           'node chaingraph/kernels/golden-parity.test.mjs'],
   ['Hash RFC 8785 vectors (JCS-RFC8785-VECTORS-1)', 'node chaingraph/standard/jcs-rfc8785-vectors.test.mjs'],
   // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the self-test entry below.
