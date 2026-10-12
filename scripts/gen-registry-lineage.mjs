@@ -20,7 +20,9 @@
 //    it via verifyConsistency (§2.3, SO #34) — aborts, writes nothing, on
 //    failure.
 // 5. Formats + signs the checkpoint (Ed25519, log-operator key held OUTSIDE
-//    this repo — workspace-root research/registry-lineage-log-key.priv.jwk.json).
+//    this repo — env REGISTRY_LINEAGE_LOG_KEY when set [LINEAGE-PUBLISH-IN-
+//    REGEN-1 route A: the repository Actions secret of the same name], else
+//    the operator desk's workspace-root research/registry-lineage-log-key.priv.jwk.json).
 // 6. Submits the checkpoint bytes to Sigsum via `register-sigsum.mjs register`
 //    (spawned, never duplicated) and stores the returned record. ⛔ If this
 //    step fails, NOTHING is written to disk — an unanchored head is a
@@ -324,6 +326,35 @@ export function canonicalEntryBytes(record) {
 }
 
 // ---------------------------------------------------------------------------
+// Log-operator key SOURCE (LINEAGE-PUBLISH-IN-REGEN-1, route A per Tim's
+// 2026-10-08 ruling "Route A: key into Actions secret"): on CI the key arrives
+// as the repository Actions secret REGISTRY_LINEAGE_LOG_KEY (via env); at the
+// operator desk it stays the on-disk workspace path. The SIGNING path below is
+// byte-identical either way — only the key bytes' ORIGIN changes. Precedence is
+// deliberate: an explicit opts.logPrivateKeyPath (the test harness's scratch
+// keys) still wins over the env var, so an inherited REGISTRY_LINEAGE_LOG_KEY
+// can never make a test sign with the real operator key; env wins over the
+// default file path. An empty/whitespace env var counts as NOT SET (a workflow
+// mapping `env: X: ${{ secrets.X }}` to an unavailable secret resolves to ''),
+// which falls back to the file path and fails loudly there — fail-closed, same
+// as every other missing-input shape.
+// ⛔ The env var's VALUE is secret: the error below names the secret NAME only
+// and never echoes bytes; nothing else in this file may print it either.
+// ---------------------------------------------------------------------------
+export function loadLogPrivateKeyJwk(pathOverride) {
+  if (pathOverride) return JSON.parse(readFileSync(pathOverride, 'utf8'));
+  const envKey = process.env.REGISTRY_LINEAGE_LOG_KEY;
+  if (envKey !== undefined && envKey.trim() !== '') {
+    try {
+      return JSON.parse(envKey);
+    } catch (e) {
+      throw new Error('REGISTRY_LINEAGE_LOG_KEY (env) is set but does not parse as a JWK — refusing to sign. The secret NAME is printed here, never its value.');
+    }
+  }
+  return JSON.parse(readFileSync(LOG_PRIVATE_KEY_PATH, 'utf8'));
+}
+
+// ---------------------------------------------------------------------------
 // Sigsum submission — spawns the EXISTING register-sigsum.mjs `register`
 // command (never duplicated), mirroring scripts/fv-sigsum-upgrade-flip.mjs's
 // invocation shape. Throws on any non-zero exit; the caller must not write
@@ -425,7 +456,7 @@ export async function generate(opts = {}) {
 
   // ── Checkpoint: format, sign, self-parse round-trip BEFORE anchoring ─────
   const checkpointBody = formatCheckpoint(ORIGIN, size, newRoot);
-  const logJwk = JSON.parse(readFileSync(opts.logPrivateKeyPath || LOG_PRIVATE_KEY_PATH, 'utf8'));
+  const logJwk = loadLogPrivateKeyJwk(opts.logPrivateKeyPath); // env REGISTRY_LINEAGE_LOG_KEY first, file path otherwise (LINEAGE-PUBLISH-IN-REGEN-1)
   const logPrivateKey = await subtle.importKey('jwk', logJwk, { name: 'Ed25519' }, true, ['sign']);
   const logPublicKeyBytes = hexToBytes(opts.logPublicKeyHex || LOG_PUBLIC_KEY_HEX);
   const sigLine = await signCheckpointBody(checkpointBody, logPrivateKey, logPublicKeyBytes, LOG_NAME);
