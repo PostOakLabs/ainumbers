@@ -1,0 +1,277 @@
+{
+  "tool_id": "art-709-v4-hook-fee-conformance",
+  "version": "1.0.0",
+  "title": "V4 Hook Fee Conformance",
+  "description": "Recomputes a Uniswap v4 pool’s per-swap fee from v4-core’s own rules at pinned a7cf038cd568801a79a9b4cf92cd5b52c95c8585 (calculateSwapFee composition), validates the packed protocol fee and LP-fee bounds, decodes the 0x400000 override, and checks each emitted fee: CONFORMS, OUT_OF_BOUNDS, FEE_MISMATCH, or INDETERMINATE. Accrues the declared hook charge in integer arithmetic with remainders reported; LP revenue reported separately, never netted. Evidence only; zero network.",
+  "category": "robinhood-chain-tokenized-equity-verification",
+  "tags": [
+    "uniswap",
+    "v4-core",
+    "fees",
+    "calculate-swap-fee",
+    "lp-fee-bounds",
+    "protocol-fee",
+    "override-flag",
+    "hook-charge",
+    "revenue-splits",
+    "compliance-evidence",
+    "mcp:check_v4_hook_fee_conformance"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "protocol_fee",
+      "pool_fee",
+      "declared_lp_fee_bounds",
+      "declared_hook_charge",
+      "swaps"
+    ],
+    "properties": {
+      "protocol_fee": {
+        "type": "integer",
+        "description": "uint24, both directions packed as v4 stores it: low 12 bits zeroForOne, bits 12-23 oneForZero; validated with isValidProtocolFee (each direction <= 1000 pips)."
+      },
+      "pool_fee": {
+        "type": "integer",
+        "description": "uint24: static LP fee in pips, or 0x800000 (8388608) for a dynamic-fee pool."
+      },
+      "declared_lp_fee_bounds": {
+        "type": "object",
+        "description": "{ min_pips, max_pips }: the LP-fee band the declared story permits (0..1000000)."
+      },
+      "declared_total_fee_cap_pips": {
+        "type": "integer",
+        "description": "Optional total cap in pips; the composed swap fee plus the hook-charge rate is checked against it."
+      },
+      "declared_hook_charge": {
+        "type": "object",
+        "description": "{ rate_pips, splits: [{ recipient_label, share_bps }] }: the separately declared hook charge; shares are reported as declared, never coerced."
+      },
+      "swaps": {
+        "type": "array",
+        "description": "Each swap: { index, zero_for_one, amount_in, emitted_fee_pips, lp_fee_override? (raw uint24 incl. the 0x400000 flag), exact_out? }."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "check_v4_hook_fee_conformance",
+    "description": "Recomputes a Uniswap v4 pool’s per-swap fee from v4-core’s own rules at pinned a7cf038cd568801a79a9b4cf92cd5b52c95c8585 (calculateSwapFee composition), validates the packed protocol fee and LP-fee bounds, decodes the 0x400000 override, and checks each emitted fee: CONFORMS, OUT_OF_BOUNDS, FEE_MISMATCH, or INDETERMINATE. Accrues the declared hook charge in integer arithmetic with remainders reported; LP revenue reported separately, never netted. Evidence only; zero network.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "protocol_fee",
+        "pool_fee",
+        "declared_lp_fee_bounds",
+        "declared_hook_charge",
+        "swaps"
+      ],
+      "properties": {
+        "protocol_fee": {
+          "type": "integer",
+          "description": "uint24, both directions packed as v4 stores it: low 12 bits zeroForOne, bits 12-23 oneForZero; each direction <= 1000 pips (isValidProtocolFee)."
+        },
+        "pool_fee": {
+          "type": "integer",
+          "description": "uint24: static LP fee in pips, or 0x800000 (8388608) for a dynamic-fee pool."
+        },
+        "declared_lp_fee_bounds": {
+          "type": "object",
+          "description": "{ min_pips, max_pips }: the LP-fee band the declared story permits (0..1000000)."
+        },
+        "declared_total_fee_cap_pips": {
+          "type": "integer",
+          "description": "Optional total cap in pips; the composed swap fee plus the hook-charge rate is checked against it."
+        },
+        "declared_hook_charge": {
+          "type": "object",
+          "description": "{ rate_pips, splits: [{ recipient_label, share_bps }] }: the separately declared hook charge; shares reported as declared, never coerced."
+        },
+        "swaps": {
+          "type": "array",
+          "description": "Each swap: { index, zero_for_one, amount_in, emitted_fee_pips, lp_fee_override? (raw uint24 incl. the 0x400000 flag), exact_out? }."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-709-v4-hook-fee-conformance.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1/NODECAT-WIRE-1, derivation tier 3); output_schema OMITTED — no compute_proof yet (async proving pending); tags, execution.function_name are TODO markers, no source found; category sourced from hub-categories.json cluster",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: protocol_fee, pool_fee, declared_lp_fee_bounds, declared_total_fee_cap_pips (optional), declared_hook_charge, swaps.",
+  "input_example": {
+    "protocol_fee": 1000,
+    "pool_fee": 3000,
+    "declared_lp_fee_bounds": {
+      "min_pips": 0,
+      "max_pips": 1000000
+    },
+    "declared_hook_charge": {
+      "rate_pips": 500,
+      "splits": [
+        {
+          "recipient_label": "treasury",
+          "share_bps": 10000
+        }
+      ]
+    },
+    "swaps": [
+      {
+        "index": 0,
+        "zero_for_one": true,
+        "amount_in": 1000000,
+        "emitted_fee_pips": 3997
+      }
+    ]
+  },
+  "output_example": {
+    "protocol_fee": 1000,
+    "protocol_fee_zero_for_one_pips": 1000,
+    "protocol_fee_one_for_zero_pips": 0,
+    "protocol_fee_valid": true,
+    "pool_fee": 3000,
+    "pool_fee_is_dynamic": false,
+    "declared_lp_fee_bounds": {
+      "min_pips": 0,
+      "max_pips": 1000000
+    },
+    "declared_total_fee_cap_pips": null,
+    "declared_hook_charge": {
+      "rate_pips": 500,
+      "splits": [
+        {
+          "recipient_label": "treasury",
+          "share_bps": 10000
+        }
+      ]
+    },
+    "splits_sum_bps": 10000,
+    "splits_ok": true,
+    "total_cap_ok": null,
+    "per_swap": [
+      {
+        "index": 0,
+        "zero_for_one": true,
+        "amount_in": 1000000,
+        "lp_fee_pips": 3000,
+        "lp_fee_source": "pool_static",
+        "lp_fee_within_declared_bounds": true,
+        "protocol_fee_direction_pips": 1000,
+        "swap_fee_pips": 3997,
+        "emitted_fee_pips": 3997,
+        "status": "CONFORMS",
+        "hook_charge_amount": 500,
+        "hook_charge_remainder": 0,
+        "hook_charge_per_recipient": {
+          "treasury": {
+            "amount": 500,
+            "remainder": 0
+          }
+        },
+        "lp_revenue_amount": 3000,
+        "protocol_revenue_amount": 1000,
+        "cap_check": null,
+        "indeterminate_reason": null
+      }
+    ],
+    "counts": {
+      "swaps": 1,
+      "conforms": 1,
+      "out_of_bounds": 0,
+      "fee_mismatch": 0,
+      "indeterminate": 0
+    },
+    "fee_story_explained": true,
+    "totals": {
+      "lp_revenue": 3000,
+      "protocol_revenue": 1000,
+      "hook_charge": 500,
+      "hook_charge_remainder": 0,
+      "per_recipient": {
+        "treasury": {
+          "amount": 500,
+          "remainder": 0
+        }
+      }
+    },
+    "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+    "assumptions": [
+      "Fee rules pinned to Uniswap v4-core at commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585: LPFeeLibrary.sol (flags, MAX_LP_FEE), ProtocolFeeLibrary.sol (isValidProtocolFee, calculateSwapFee), Pool.sol L301-320 (fee composition and the emitted Swap fee), SwapMath.sol MAX_SWAP_FEE.",
+      "calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.",
+      "All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.",
+      "LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.",
+      "Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.",
+      "A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.",
+      "Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees."
+    ]
+  },
+  "example_execution_hash": "46c669f8d53f4c34bceda43b06ac946d27c5f6d101b22ce68dec0f42a4c3d609",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "protocol_fee": {
+        "type": "number"
+      },
+      "protocol_fee_zero_for_one_pips": {
+        "type": "number"
+      },
+      "protocol_fee_one_for_zero_pips": {
+        "type": "number"
+      },
+      "protocol_fee_valid": {
+        "type": "boolean"
+      },
+      "pool_fee": {
+        "type": "number"
+      },
+      "pool_fee_is_dynamic": {
+        "type": "boolean"
+      },
+      "declared_lp_fee_bounds": {
+        "type": "object"
+      },
+      "declared_total_fee_cap_pips": {
+        "type": "object"
+      },
+      "declared_hook_charge": {
+        "type": "object"
+      },
+      "splits_sum_bps": {
+        "type": "number"
+      },
+      "splits_ok": {
+        "type": "boolean"
+      },
+      "total_cap_ok": {
+        "type": "object"
+      },
+      "per_swap": {
+        "type": "array"
+      },
+      "counts": {
+        "type": "object"
+      },
+      "fee_story_explained": {
+        "type": "boolean"
+      },
+      "totals": {
+        "type": "object"
+      },
+      "v4_core_commit": {
+        "type": "string"
+      },
+      "assumptions": {
+        "type": "array"
+      }
+    }
+  }
+}
