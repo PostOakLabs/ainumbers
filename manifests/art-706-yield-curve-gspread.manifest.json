@@ -1,0 +1,266 @@
+{
+  "tool_id": "art-706-yield-curve-gspread",
+  "version": "1.0.0",
+  "title": "Yield Curve & G-Spread",
+  "description": "Builds a par yield curve from caller-supplied benchmark points (at least 2, strictly increasing tenors; no live data) under a named, versioned interpolation, linear (linear@1) or monotone cubic Hermite with Fritsch-Carlson 1980 tangents (monotone_cubic_hermite@1), and reports the G-spread of a bond against that curve: the interpolated benchmark yield at the bond’s maturity and (bond yield minus benchmark yield) x 100 in basis points. A bond maturity outside the benchmark tenor range is refused naming the range, never extrapolated. Every assumption is named in plain sentences in the output.",
+  "category": "chaingraph",
+  "tags": [
+    "yield_curve",
+    "g_spread",
+    "fixed-income",
+    "par-curve",
+    "interpolation",
+    "monotone-cubic-hermite",
+    "fritsch-carlson",
+    "benchmark-spread",
+    "tvm-primitive",
+    "mcp:build_yield_curve_gspread"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "benchmark_points",
+      "benchmark_name",
+      "bond"
+    ],
+    "properties": {
+      "benchmark_points": {
+        "type": "array",
+        "description": "The caller-supplied benchmark curve points, [{ tenor_years, yield_pct }] — at least 2, strictly increasing tenors. Used exactly as given: no live data, no bootstrapping.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "tenor_years": {
+              "type": "number"
+            },
+            "yield_pct": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "benchmark_name": {
+        "type": "string",
+        "description": "Non-empty string naming the caller-supplied benchmark, echoed into the output curve."
+      },
+      "interpolation": {
+        "type": "string",
+        "enum": [
+          "linear",
+          "monotone_cubic_hermite"
+        ],
+        "description": "Named, versioned interpolation: 'linear' (linear@1) or 'monotone_cubic_hermite' (monotone_cubic_hermite@1, Fritsch–Carlson 1980). Optional; defaults to linear."
+      },
+      "bond": {
+        "type": "object",
+        "description": "{ maturity_years, yield_pct } of the bond whose G-spread is computed. maturity_years outside the benchmark range is refused naming the range.",
+        "properties": {
+          "maturity_years": {
+            "type": "number"
+          },
+          "yield_pct": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "build_yield_curve_gspread",
+    "description": "Builds a par yield curve from caller-supplied benchmark points under a named, versioned interpolation and reports the G-spread of a bond against it in basis points.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "benchmark_points",
+        "benchmark_name",
+        "bond"
+      ],
+      "properties": {
+        "benchmark_points": {
+          "type": "array",
+          "description": "The caller-supplied benchmark curve points, [{ tenor_years, yield_pct }] — at least 2, strictly increasing tenors. Used exactly as given: no live data, no bootstrapping.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tenor_years": {
+                "type": "number"
+              },
+              "yield_pct": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "benchmark_name": {
+          "type": "string",
+          "description": "Non-empty string naming the caller-supplied benchmark, echoed into the output curve."
+        },
+        "interpolation": {
+          "type": "string",
+          "enum": [
+            "linear",
+            "monotone_cubic_hermite"
+          ],
+          "description": "Named, versioned interpolation: 'linear' (linear@1) or 'monotone_cubic_hermite' (monotone_cubic_hermite@1, Fritsch–Carlson 1980). Optional; defaults to linear."
+        },
+        "bond": {
+          "type": "object",
+          "description": "{ maturity_years, yield_pct } of the bond whose G-spread is computed. maturity_years outside the benchmark range is refused naming the range.",
+          "properties": {
+            "maturity_years": {
+              "type": "number"
+            },
+            "yield_pct": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-706-yield-curve-gspread.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-706-yield-curve-gspread.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: benchmark_points, benchmark_name, interpolation, bond.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "benchmark_points": [
+      {
+        "tenor_years": 2,
+        "yield_pct": 4
+      },
+      {
+        "tenor_years": 5,
+        "yield_pct": 4.5
+      },
+      {
+        "tenor_years": 10,
+        "yield_pct": 4.8
+      }
+    ],
+    "benchmark_name": "UST par, as supplied",
+    "interpolation": "linear",
+    "bond": {
+      "maturity_years": 5,
+      "yield_pct": 5.1
+    }
+  },
+  "output_example": {
+    "curve": {
+      "benchmark_name": "UST par, as supplied",
+      "method": "linear",
+      "method_version": "linear@1",
+      "points": [
+        {
+          "tenor_years": 2,
+          "yield_pct": 4
+        },
+        {
+          "tenor_years": 5,
+          "yield_pct": 4.5
+        },
+        {
+          "tenor_years": 10,
+          "yield_pct": 4.8
+        }
+      ]
+    },
+    "benchmark_yield_at_maturity_pct": 4.5,
+    "g_spread_bp": 60,
+    "assumptions": [
+      "Curve assumption: the benchmark curve is built ONLY from the 3 benchmark point(s) the caller supplied under benchmark_name \"UST par, as supplied\" — there is no live Treasury feed, no market data lookup, and no blending with any other source.",
+      "Interpolation assumption: the benchmark yield at the bond’s maturity is read from the curve by linear interpolation (method_version linear@1) — inside each section the yield is the straight line between that section’s two benchmark points; within a section the curve is smooth and no extrapolation happens outside [2, 10] years.",
+      "Spread assumption: g_spread_bp is (bond.yield_pct − benchmark_yield_at_maturity_pct) × 100 — a yield difference in basis points against the interpolated benchmark yield, not an asset-swap spread and not a Z-spread; the bond’s own cash flows are not repriced.",
+      "Exclusions: no bootstrapping of zero rates from coupon instruments (the supplied points are used exactly as given), no day-count or accrual adjustments (tenors are used as plain year numbers), no interpolation of the bond’s own yield, and no live data of any kind."
+    ],
+    "regulatory_basis": "Standard fixed-income relative-value analytics: the G-spread (a.k.a. yield spread) of a bond against a government benchmark yield curve, computed as the difference between the bond’s yield to maturity and the interpolated benchmark yield at the bond’s maturity (Fabozzi, Bond Markets, Analysis and Strategies). The monotone cubic option implements Fritsch and Carlson (1980).",
+    "note": "The benchmark curve is caller-supplied by design: deterministic arithmetic over the given points only. Exclusions: no bootstrapping of zero rates, no day-count, no live Treasury feed."
+  },
+  "example_execution_hash": "10a05bdd29371ab8c931db43fd90e9ffd0da8c0cb1e1811d7684dfc65aa44e36",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "curve": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "benchmark_yield_at_maturity_pct": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "g_spread_bp": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "note": {
+        "type": "string"
+      },
+      "regulatory_basis": {
+        "type": "string"
+      },
+      "error": {
+        "type": "string",
+        "enum": [
+          "maturity_outside_curve_range",
+          "tenors_not_strictly_increasing",
+          "benchmark_points_too_few"
+        ]
+      },
+      "detail": {
+        "type": "string"
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "MATURITY_OUTSIDE_CURVE_RANGE",
+                "TENORS_NOT_STRICTLY_INCREASING",
+                "BENCHMARK_POINTS_TOO_FEW"
+              ]
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "assumptions",
+      "curve",
+      "benchmark_yield_at_maturity_pct",
+      "g_spread_bp",
+      "regulatory_basis",
+      "note"
+    ],
+    "additionalProperties": false,
+    "x-derived-from": "fixture"
+  }
+}
