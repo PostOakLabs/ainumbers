@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1219 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1220 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -2205,6 +2205,9 @@
       "name": "board-reporting"
     },
     {
+      "name": "bond_ladder"
+    },
+    {
       "name": "books and records"
     },
     {
@@ -2643,6 +2646,9 @@
       "name": "conversion balancing"
     },
     {
+      "name": "convexity"
+    },
+    {
       "name": "core verification"
     },
     {
@@ -3078,7 +3084,13 @@
       "name": "duplicate-detection"
     },
     {
+      "name": "duration"
+    },
+    {
       "name": "duty"
+    },
+    {
+      "name": "dv01"
     },
     {
       "name": "dvp"
@@ -3469,6 +3481,9 @@
     },
     {
       "name": "fixed-amount-method"
+    },
+    {
+      "name": "fixed-income"
     },
     {
       "name": "flow"
@@ -4102,6 +4117,9 @@
     },
     {
       "name": "mcp:build_ap2_cartmandate_hashchain"
+    },
+    {
+      "name": "mcp:build_bond_ladder"
     },
     {
       "name": "mcp:check_iolta_three_way_reconciliation"
@@ -4758,6 +4776,9 @@
       "name": "portfolio"
     },
     {
+      "name": "portfolio-risk"
+    },
+    {
       "name": "post-quantum"
     },
     {
@@ -5116,6 +5137,9 @@
     },
     {
       "name": "reinsurance"
+    },
+    {
+      "name": "reinvestment-assumption"
     },
     {
       "name": "rejection"
@@ -5977,6 +6001,9 @@
     },
     {
       "name": "tsv"
+    },
+    {
+      "name": "tvm-primitive"
     },
     {
       "name": "typology"
@@ -122504,6 +122531,175 @@
         },
         "x-mcp-tool-name": "estimate_ai_token_spend",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-704-ai-token-spend.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/build_bond_ladder": {
+      "post": {
+        "operationId": "build_bond_ladder",
+        "summary": "Bond Ladder Builder",
+        "description": "Builds a target-weight bond ladder from a total notional split across maturity rungs and reports rung-by-rung and portfolio risk analytics: each rung's price, Macaulay and modified duration, DV01 and convexity, plus the target_weight-weighted portfolio aggregates. Every reinvestment assumption is named in plain sentences in the output, and rung target weights must sum to 1 within 1e-9 or the tool refuses, naming the sum.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-705-bond-ladder-builder.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "bond_ladder",
+          "fixed-income",
+          "duration",
+          "dv01",
+          "convexity",
+          "reinvestment-assumption",
+          "portfolio-risk",
+          "tvm-primitive",
+          "mcp:build_bond_ladder"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "notional",
+                  "rungs"
+                ],
+                "properties": {
+                  "notional": {
+                    "type": "number",
+                    "description": "Total ladder notional, split across rungs pro rata to target_weight."
+                  },
+                  "rungs": {
+                    "type": "array",
+                    "description": "One object per rung: { maturity_years, coupon_rate_pct, yield_pct, target_weight }. Target weights must sum to 1 within 1e-9.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "maturity_years": {
+                          "type": "number"
+                        },
+                        "coupon_rate_pct": {
+                          "type": "number"
+                        },
+                        "yield_pct": {
+                          "type": "number"
+                        },
+                        "target_weight": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  },
+                  "periods_per_year": {
+                    "type": "number",
+                    "description": "Coupon periods per year for every rung (default 2)."
+                  },
+                  "reinvestment_assumption": {
+                    "type": "string",
+                    "enum": [
+                      "hold_to_maturity",
+                      "roll_to_longest_rung"
+                    ],
+                    "description": "Named in the output assumptions[]: hold coupons and maturing principal as cash at 0%, or reinvest them at the longest rung's yield."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "assumptions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "domain_errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string",
+                            "enum": [
+                              "REINVESTMENT_ASSUMPTION_INVALID",
+                              "WEIGHTS_SUM_NOT_ONE"
+                            ]
+                          },
+                          "text": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "reinvestment_assumption_invalid",
+                        "weights_sum_not_one"
+                      ]
+                    },
+                    "ladder": {
+                      "type": [
+                        "array",
+                        "null"
+                      ]
+                    },
+                    "note": {
+                      "type": "string"
+                    },
+                    "notional": {
+                      "type": "number"
+                    },
+                    "num_rungs": {
+                      "type": "number"
+                    },
+                    "periods_per_year": {
+                      "type": "number"
+                    },
+                    "portfolio": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "regulatory_basis": {
+                      "type": "string"
+                    },
+                    "reinvestment_assumption": {
+                      "type": "string",
+                      "enum": [
+                        "hold_to_maturity",
+                        "roll_to_longest_rung"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "assumptions",
+                    "ladder",
+                    "portfolio"
+                  ],
+                  "additionalProperties": false,
+                  "x-derived-from": "fixture"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "build_bond_ladder",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-705-bond-ladder-builder.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
