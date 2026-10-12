@@ -355,6 +355,13 @@ export const propertyIdMap = {
     stale_after_seconds: { element_id: 'stale', via: 'string' },
     prev_print_hash: { element_id: 'prev', via: 'string' },
   },
+  // art-715 pp assembly reads the two schedule objects as JSON textareas and the
+  // flat decimal-string fields by their literal ids:
+  //   chaingraph/art-715-token2022-transfer-fee-reconciler.html:186-196 (readInputs)
+  'art-715-token2022-transfer-fee-reconciler': {
+    older_transfer_fee: { element_id: 'older_transfer_fee', via: 'json' },
+    newer_transfer_fee: { element_id: 'newer_transfer_fee', via: 'json' },
+  },
   // art-590 pp assembly reads every EIP-712 domain/auth field:
   //   chaingraph/art-590-x402-eip712-digest-recomputer.html:1497-1506
   'art-590-x402-eip712-digest-recomputer': {
