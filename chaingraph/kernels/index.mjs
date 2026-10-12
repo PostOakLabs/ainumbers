@@ -632,6 +632,7 @@ import * as art704    from './art-704-ai-token-spend.kernel.mjs';
 import * as art705    from './art-705-bond-ladder-builder.kernel.mjs';
 import * as art706    from './art-706-yield-curve-gspread.kernel.mjs';
 import * as art707    from './art-707-tsv-tier-cap-ladder.kernel.mjs';
+import * as art708    from './art-708-v4-hook-permission-reconciler.kernel.mjs';
 import * as art71     from './art-71-cbam-certificate-cost-engine.kernel.mjs';
 import * as art711    from './art-711-sco60-crypto-asset-exposure-classifier-v2.kernel.mjs';
 import * as art712    from './art-712-workforce-board-roi.kernel.mjs';
@@ -1312,6 +1313,7 @@ export const KERNELS = {
   'art-705-bond-ladder-builder':                                art705,
   'art-706-yield-curve-gspread':                                art706,
   'art-707-tsv-tier-cap-ladder':                                art707,
+  'art-708-v4-hook-permission-reconciler':                      art708,
   'art-71-cbam-certificate-cost-engine':                        art71,
   'art-711-sco60-crypto-asset-exposure-classifier-v2':          art711,
   'art-712-workforce-board-roi':                                art712,
