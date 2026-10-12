@@ -1,5 +1,5 @@
 // art-715-token2022-transfer-fee-reconciler property-test floor (SOLANA-B1-TRANSFER-FEE-NODE-1).
-// kernel_digest_at_authoring: sha256:ddb9626e4e6ad6703864726bba41054a8819f6bf6a60a9e6f8af625be3316b6d
+// kernel_digest_at_authoring: sha256:020915c5c02c1d2cb9bcb284db4b533d4828472f3b005e2ad70d94c473ab4578
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3. Shape:
@@ -47,8 +47,9 @@ function refPick(execEpoch, olderEpoch, newerEpoch) {
 }
 function refFee(amount, bps, maxFee) {
   if (bps === 0n || amount === 0n) return 0n;
-  const ceiled = (amount * bps + 9999n) / 10000n; // ceiling via +9,999 then /10,000 (D7's shape)
-  return ceiled > maxFee ? maxFee : ceiled;
+  const raw = BigInt(amount) * BigInt(bps); // BigInt() coercion keeps tsc from inferring number
+  const ceiled = (raw + 9999n) / 10000n; // ceiling via +9,999 then /10,000 (D7's shape)
+  return ceiled > BigInt(maxFee) ? BigInt(maxFee) : ceiled;
 }
 function refBasePP(amount, bps, maxFee, olderEpoch, newerEpoch, execEpoch) {
   return {

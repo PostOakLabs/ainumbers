@@ -16,7 +16,7 @@ import { executionHash } from './_hash.mjs';
 // DETERMINISM: compute() is a PURE function of pp — no Date.now()/Math.random(), no network, no
 // filesystem. It runs unmodified inside the QuickJS-ng zkVM guest (GUEST-BUILTIN-GATE-1). All
 // amounts are BigInt end to end: u64 exceeds 2^53, so JS Number is NEVER used for amounts
-// (spec §5 integer-only discipline; no floating point anywhere).
+// (spec section 5 integer-only discipline; no floating point anywhere).
 
 const TOOL_ID = 'art-715-token2022-transfer-fee-reconciler';
 const TOOL_VERSION = '1.0.0';
@@ -32,7 +32,7 @@ const U16_MAX = (1n << 16n) - 1n;
 const BPS_DENOM = 10000n;
 const U128_MAX = (1n << 128n) - 1n;
 
-// Decimal-string <-> BigInt. Inputs and outputs are decimal strings (spec §5).
+// Decimal-string <-> BigInt. Inputs and outputs are decimal strings (spec section 5).
 function parseU64(s) {
   if (typeof s !== 'string' || !/^[0-9]+$/.test(s)) return null;
   let v = 0n;
@@ -111,7 +111,7 @@ function refusal(code, detail, extra = {}) {
       consumer_view: null,
       ...extra,
     },
-    compliance_flags: ['INPUT_REFUSED'],
+    compliance_flags: code ? ['INPUT_REFUSED'] : [],
   };
 }
 
