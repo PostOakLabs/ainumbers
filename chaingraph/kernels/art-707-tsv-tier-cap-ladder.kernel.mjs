@@ -74,7 +74,7 @@ function refusal(code, detail) {
       obligations: [],
       assumptions: [],
     },
-    compliance_flags: ['INPUT_REFUSED'],
+    compliance_flags: code ? ['INPUT_REFUSED'] : [],
   };
 }
 

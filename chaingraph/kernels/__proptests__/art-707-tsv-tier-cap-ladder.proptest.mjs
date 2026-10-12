@@ -1,6 +1,6 @@
 // art-707-tsv-tier-cap-ladder — class-K property test floor, authored by ART707-TSV-TIER-CAP-LADDER-1.
 // spec: RHC hooks build spec WU-6 (research/rhc-hooks/RHC-HOOKS-BUILD-SPEC-2026-10-03.md), FR 2026-19388 condition F
-// kernel_digest_at_authoring: sha256:1c4a89a1e54a334df149fe8f33f31fdcfa320ab2d62580cb07034fb2b13c0981
+// kernel_digest_at_authoring: sha256:ec31622899cd563e7242a8382b47262710dadead214839f5029e2dee08ab9e6d
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
