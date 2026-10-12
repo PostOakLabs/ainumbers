@@ -46,7 +46,7 @@ export const meta = {
 export const V4_CORE_COMMIT = 'a7cf038cd568801a79a9b4cf92cd5b52c95c8585';
 
 // Pinned flag table: [flag, bit] — bit 13 (0x2000) down to bit 0 (0x1).
-const FLAGS = [
+export const FLAGS = [
   ['beforeInitialize', 13],
   ['afterInitialize', 12],
   ['beforeAddLiquidity', 11],
@@ -62,7 +62,7 @@ const FLAGS = [
   ['afterAddLiquidityReturnDelta', 1],
   ['afterRemoveLiquidityReturnDelta', 0],
 ];
-const FLAG_NAMES = FLAGS.map(([f]) => f);
+export const FLAG_NAMES = FLAGS.map(([f]) => f);
 const ALL_HOOK_MASK = 0x3fffn; // (1 << 14) - 1, v4-core ALL_HOOK_MASK
 const DYNAMIC_FEE_FLAG = 0x800000n; // LPFeeLibrary dynamic-fee flag
 const HEX40 = /^0x[0-9a-fA-F]{40}$/;
@@ -104,7 +104,6 @@ function hasPermission(bits, bit) {
   return (bits & (1n << BigInt(bit))) !== 0n;
 }
 
-export { FLAGS, FLAG_NAMES, hasPermission };
 
 /**
  * compute(pp) — pure decision kernel. Zero network; decodes only caller-supplied values.
