@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (674 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (678 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7307,11 +7307,53 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-703-mandate-authorization-gate",
+    "display_name": "Mandate Authorization Gate",
+    "mandate_type": "payment_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-703-mandate-authorization-gate.html",
+    "description": "Automated payment approval gate with no human step, in two modes. In authorize mode a caller-supplied mandate, caller-supplied budget and ra",
+    "consumes": [
+      "art-476-map-agent-payment-mandate"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-704-ai-token-spend",
     "display_name": "AI Token Spend",
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-704-ai-token-spend.html",
     "description": "Monthly AI token spend estimator and cross-model comparator. The caller supplies an as_of date (the node never reads a clock), a usage profi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-705-bond-ladder-builder",
+    "display_name": "Bond Ladder Builder",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-705-bond-ladder-builder.html",
+    "description": "Builds a target-weight bond ladder from a total notional split across maturity rungs and reports rung-by-rung and portfolio risk analytics: ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-706-yield-curve-gspread",
+    "display_name": "Yield Curve & G-Spread",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-706-yield-curve-gspread.html",
+    "description": "Builds a par yield curve from caller-supplied benchmark points (at least 2, strictly increasing tenors; no live data, the caller's points ar",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-707-tsv-tier-cap-ladder",
+    "display_name": "TSV Tier-Cap Ladder",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-707-tsv-tier-cap-ladder.html",
+    "description": "Replays a tokenized-stock venue's (TSV's) daily per-symbol share volume and distinct-symbol counts, aggregated across the TSV and its caller",
     "consumes": [],
     "feeds": [],
     "status": "live"

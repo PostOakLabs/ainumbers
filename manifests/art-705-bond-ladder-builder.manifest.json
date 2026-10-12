@@ -1,0 +1,264 @@
+{
+  "tool_id": "art-705-bond-ladder-builder",
+  "version": "1.0.0",
+  "title": "Bond Ladder Builder",
+  "description": "Builds a target-weight bond ladder from a total notional split across maturity rungs and reports rung-by-rung and portfolio risk analytics: each rung's price, Macaulay and modified duration, DV01 and convexity, plus the target_weight-weighted portfolio aggregates. Every reinvestment assumption is named in plain sentences in the output, and rung target weights must sum to 1 within 1e-9 or the tool refuses, naming the sum.",
+  "category": "chaingraph",
+  "tags": [
+    "bond_ladder",
+    "fixed-income",
+    "duration",
+    "dv01",
+    "convexity",
+    "reinvestment-assumption",
+    "portfolio-risk",
+    "tvm-primitive",
+    "mcp:build_bond_ladder"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "notional",
+      "rungs"
+    ],
+    "properties": {
+      "notional": {
+        "type": "number",
+        "description": "Total ladder notional, split across rungs pro rata to target_weight."
+      },
+      "rungs": {
+        "type": "array",
+        "description": "One object per rung: { maturity_years, coupon_rate_pct, yield_pct, target_weight }. Target weights must sum to 1 within 1e-9.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "maturity_years": {
+              "type": "number"
+            },
+            "coupon_rate_pct": {
+              "type": "number"
+            },
+            "yield_pct": {
+              "type": "number"
+            },
+            "target_weight": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "periods_per_year": {
+        "type": "number",
+        "description": "Coupon periods per year for every rung (default 2)."
+      },
+      "reinvestment_assumption": {
+        "type": "string",
+        "enum": [
+          "hold_to_maturity",
+          "roll_to_longest_rung"
+        ],
+        "description": "Named in the output assumptions[]: hold coupons and maturing principal as cash at 0%, or reinvest them at the longest rung's yield."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "build_bond_ladder",
+    "description": "Builds a target-weight bond ladder and reports rung-by-rung and portfolio duration, DV01 and convexity, with every reinvestment assumption named in plain sentences.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "notional",
+        "rungs"
+      ],
+      "properties": {
+        "notional": {
+          "type": "number",
+          "description": "Total ladder notional, split across rungs pro rata to target_weight."
+        },
+        "rungs": {
+          "type": "array",
+          "description": "One object per rung: { maturity_years, coupon_rate_pct, yield_pct, target_weight }. Target weights must sum to 1 within 1e-9.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "maturity_years": {
+                "type": "number"
+              },
+              "coupon_rate_pct": {
+                "type": "number"
+              },
+              "yield_pct": {
+                "type": "number"
+              },
+              "target_weight": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "periods_per_year": {
+          "type": "number",
+          "description": "Coupon periods per year for every rung (default 2)."
+        },
+        "reinvestment_assumption": {
+          "type": "string",
+          "enum": [
+            "hold_to_maturity",
+            "roll_to_longest_rung"
+          ],
+          "description": "Named in the output assumptions[]: hold coupons and maturing principal as cash at 0%, or reinvest them at the longest rung's yield."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-705-bond-ladder-builder.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-705-bond-ladder-builder.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: notional, rungs, periods_per_year, reinvestment_assumption.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "notional": 100000,
+    "periods_per_year": 2,
+    "reinvestment_assumption": "hold_to_maturity",
+    "rungs": [
+      {
+        "maturity_years": 5,
+        "coupon_rate_pct": 4.5,
+        "yield_pct": 4.2,
+        "target_weight": 1
+      }
+    ]
+  },
+  "output_example": {
+    "notional": 100000,
+    "periods_per_year": 2,
+    "reinvestment_assumption": "hold_to_maturity",
+    "num_rungs": 1,
+    "ladder": [
+      {
+        "rung": 1,
+        "maturity_years": 5,
+        "weight": 1,
+        "notional": 100000,
+        "price": 101340.37,
+        "duration": 4.536614,
+        "modified_duration": 4.443305,
+        "dv01": 45.028616,
+        "convexity": 23.142858
+      }
+    ],
+    "portfolio": {
+      "weighted_duration": 4.536614,
+      "weighted_modified_duration": 4.443305,
+      "weighted_dv01": 45.028616,
+      "weighted_convexity": 23.142858
+    },
+    "assumptions": [
+      "Schedule assumption: each rung is priced as an even-period bullet bond with 2 coupon period(s) per year — a fixed coupon of coupon_rate_pct/100 of face paid every period and face repaid with the final coupon; no odd first coupon, no stub periods, and no day-count accrual nuances are modeled.",
+      "Yield assumption: each rung's yield_pct is a flat yield to maturity applied to all of that rung's cash flows; there is no credit spread, no forward curve, and no term-structure interpolation across rungs.",
+      "Instrument assumption: all rungs are non-callable bullet bonds held to maturity — no call or put features, no default, no early sale, and no live market data are used.",
+      "Reinvestment assumption (hold_to_maturity): every coupon payment and every maturing rung's principal are held as cash earning 0% after receipt — nothing is reinvested and nothing is rolled into other rungs. The duration, DV01 and convexity reported per rung and for the portfolio are computed on each rung's contractual bond cash flows only and do not depend on this assumption.",
+      "Portfolio aggregation assumption: portfolio weighted_duration, weighted_modified_duration, weighted_dv01 and weighted_convexity are target_weight-weighted averages of the per-rung figures; no diversification or cross-rung offset effects are modeled."
+    ],
+    "regulatory_basis": "Standard fixed-income risk analytics (Macaulay/modified duration, DV01 by central-difference reprice, closed-form convexity) applied rung-by-rung over a target-weight bond ladder (Fabozzi, Bond Markets)",
+    "note": "Per-rung maths are the same formulas as compute_bond_duration (art-329), compute_dv01 (art-330) and compute_convexity (art-331) applied at each rung’s notional = notional * target_weight; parity is asserted by the art-705 parity gate. Exclusions: no credit spread, no call features, flat yield per rung, no live data."
+  },
+  "example_execution_hash": "4876027a1b25ca5bc835e7b17f0c19d1b90b04254b36528779b6f5dadb33aa79",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "detail": {
+        "type": "string"
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "REINVESTMENT_ASSUMPTION_INVALID",
+                "WEIGHTS_SUM_NOT_ONE"
+              ]
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "error": {
+        "type": "string",
+        "enum": [
+          "reinvestment_assumption_invalid",
+          "weights_sum_not_one"
+        ]
+      },
+      "ladder": {
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "note": {
+        "type": "string"
+      },
+      "notional": {
+        "type": "number"
+      },
+      "num_rungs": {
+        "type": "number"
+      },
+      "periods_per_year": {
+        "type": "number"
+      },
+      "portfolio": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "regulatory_basis": {
+        "type": "string"
+      },
+      "reinvestment_assumption": {
+        "type": "string",
+        "enum": [
+          "hold_to_maturity",
+          "roll_to_longest_rung"
+        ]
+      }
+    },
+    "required": [
+      "assumptions",
+      "ladder",
+      "portfolio"
+    ],
+    "additionalProperties": false,
+    "x-derived-from": "fixture"
+  }
+}

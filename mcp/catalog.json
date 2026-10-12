@@ -2,10 +2,10 @@
   "schema_version": "mcp-catalog-v1",
   "server_id": "ainumbers-fintech-suite",
   "name": "AINumbers Fintech Intelligence Suite",
-  "description": "1196 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
+  "description": "1200 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
   "base_url": "https://ainumbers.co",
-  "generated": "2026-10-08",
-  "tool_count": 1196,
+  "generated": "2026-10-12",
+  "tool_count": 1200,
   "tools": [
     {
       "name": "calculate_a2a_fee_route",
@@ -37426,6 +37426,7 @@
       "inputSchema": {
         "type": "object",
         "required": [
+          "as_of_date",
           "file_content",
           "records"
         ],
@@ -37435,6 +37436,9 @@
           },
           "records": {
             "type": "array"
+          },
+          "as_of_date": {
+            "description": "type not evidenced by kernel source"
           }
         }
       },
@@ -50325,6 +50329,67 @@
       }
     },
     {
+      "name": "authorize_payment_against_mandate",
+      "description": "Automated payment approval gate with no human step: a fixed ten-rule mandate check lists every failing rule with a named reason, issues a one-use authorization bound to the exact request digest with a window clipped to the mandate expiry, and re-verifies the committed request at commit time. Integer minor units, no float anywhere.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "mode",
+          "as_of"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "authorize evaluates the mandate and request; verify_commit re-verifies a presented authorization."
+          },
+          "as_of": {
+            "type": "string",
+            "description": "Decision time as a UTC timestamp, YYYY-MM-DDTHH:MM:SS ending in Z. The node reads no clock."
+          },
+          "ttl_seconds": {
+            "type": "integer",
+            "description": "authorize only: window seconds, clipped into 1 to 900 and to the mandate expiry."
+          },
+          "mandate": {
+            "type": "object",
+            "description": "authorize only: the mandate drawn on; commonly the canonical pivot from art-476."
+          },
+          "extensions": {
+            "type": "object",
+            "description": "authorize only, optional: revoked_at, budget minor integers, allowed_rails, verified_payees."
+          },
+          "request": {
+            "type": "object",
+            "description": "authorize: the proposed payment. verify_commit: the request being committed, as presented."
+          },
+          "authorization": {
+            "type": "object",
+            "description": "verify_commit only: the authorization this node issued, presented back for commit."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-703-mandate-authorization-gate",
+        "category": "chaingraph",
+        "tags": [
+          "payment_mandate",
+          "authorization-gate",
+          "mandate-coverage",
+          "one-use-authorization",
+          "commit-verification",
+          "rail-nonce",
+          "integer-minor-units",
+          "agent-payments",
+          "mcp:authorize_payment_against_mandate"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-703-mandate-authorization-gate.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
       "name": "estimate_ai_token_spend",
       "description": "Monthly AI token spend estimator and cross-model comparator: per-model monthly cost, cost per request, the component breakdown, and a cheapest-first ranking, priced from a dated price table by an as_of date. Integer USD micros per million tokens with an overflow-safe floor-split cost formula. Refuses ambiguous price entries, missing component prices and cap overruns with named reasons. Prices are an input, never kernel constants: the default is the dated 2026-10-04 provider-page snapshot.",
       "inputSchema": {
@@ -50407,6 +50472,281 @@
           "mcp:estimate_ai_token_spend"
         ],
         "url": "https://ainumbers.co/chaingraph/art-704-ai-token-spend.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "build_bond_ladder",
+      "description": "Builds a target-weight bond ladder and reports rung-by-rung and portfolio duration, DV01 and convexity, with every reinvestment assumption named in plain sentences.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "notional",
+          "rungs"
+        ],
+        "properties": {
+          "notional": {
+            "type": "number",
+            "description": "Total ladder notional, split across rungs pro rata to target_weight."
+          },
+          "rungs": {
+            "type": "array",
+            "description": "One object per rung: { maturity_years, coupon_rate_pct, yield_pct, target_weight }. Target weights must sum to 1 within 1e-9.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "maturity_years": {
+                  "type": "number"
+                },
+                "coupon_rate_pct": {
+                  "type": "number"
+                },
+                "yield_pct": {
+                  "type": "number"
+                },
+                "target_weight": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "periods_per_year": {
+            "type": "number",
+            "description": "Coupon periods per year for every rung (default 2)."
+          },
+          "reinvestment_assumption": {
+            "type": "string",
+            "enum": [
+              "hold_to_maturity",
+              "roll_to_longest_rung"
+            ],
+            "description": "Named in the output assumptions[]: hold coupons and maturing principal as cash at 0%, or reinvest them at the longest rung's yield."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-705-bond-ladder-builder",
+        "category": "chaingraph",
+        "tags": [
+          "bond_ladder",
+          "fixed-income",
+          "duration",
+          "dv01",
+          "convexity",
+          "reinvestment-assumption",
+          "portfolio-risk",
+          "tvm-primitive",
+          "mcp:build_bond_ladder"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-705-bond-ladder-builder.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "build_yield_curve_gspread",
+      "description": "Builds a par yield curve from caller-supplied benchmark points under a named, versioned interpolation and reports the G-spread of a bond against it in basis points.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "benchmark_points",
+          "benchmark_name",
+          "bond"
+        ],
+        "properties": {
+          "benchmark_points": {
+            "type": "array",
+            "description": "Caller-supplied benchmark points [{ tenor_years, yield_pct }]: at least 2, strictly increasing tenors, used exactly as given (no live data).",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tenor_years": {
+                  "type": "number"
+                },
+                "yield_pct": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "benchmark_name": {
+            "type": "string",
+            "description": "Non-empty string naming the caller-supplied benchmark, echoed into the output curve."
+          },
+          "interpolation": {
+            "type": "string",
+            "enum": [
+              "linear",
+              "monotone_cubic_hermite"
+            ],
+            "description": "Named interpolation: 'linear' (linear@1) or 'monotone_cubic_hermite' (monotone_cubic_hermite@1, Fritsch-Carlson 1980). Defaults to linear."
+          },
+          "bond": {
+            "type": "object",
+            "description": "{ maturity_years, yield_pct } of the bond. A maturity_years outside the benchmark tenor range is refused naming the range, never extrapolated.",
+            "properties": {
+              "maturity_years": {
+                "type": "number"
+              },
+              "yield_pct": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-706-yield-curve-gspread",
+        "category": "chaingraph",
+        "tags": [
+          "yield_curve",
+          "g_spread",
+          "fixed-income",
+          "par-curve",
+          "interpolation",
+          "monotone-cubic-hermite",
+          "fritsch-carlson",
+          "benchmark-spread",
+          "tvm-primitive",
+          "mcp:build_yield_curve_gspread"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-706-yield-curve-gspread.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "check_tsv_tier_cap_ladder",
+      "description": "Replays a TSV's daily volume and symbol counts (affiliates aggregated) against the SEC TSV Exemption tier caps and stepped-compliance ladder; emits pause windows.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "tsv_id",
+          "stocks",
+          "as_of_date"
+        ],
+        "properties": {
+          "tsv_id": {
+            "type": "string",
+            "description": "Non-empty identifier of the venue being replayed; its volume is always included in the aggregate."
+          },
+          "affiliated_tsv_ids": {
+            "type": "array",
+            "description": "Affiliated TSV identifiers whose volume and symbols aggregate with the venue's. Never repeats tsv_id.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stocks": {
+            "type": "array",
+            "description": "Declared universe [{ symbol, tier, prior_month_adv_shares }]; tier is caller-declared, no LULD lookup.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "symbol": {
+                  "type": "string"
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "tier_1",
+                    "tier_2"
+                  ]
+                },
+                "prior_month_adv_shares": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "description": "Positive integer prior-month ADV in shares; null reports the stock INDETERMINATE."
+                }
+              }
+            }
+          },
+          "daily_volume": {
+            "type": "array",
+            "description": "One row per venue per day per symbol; rows for the declared group are summed. Duplicates refused.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string"
+                },
+                "tsv_id": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": "string"
+                },
+                "shares": {
+                  "type": "integer",
+                  "description": "Non-negative integer share count for that venue, day and symbol."
+                }
+              }
+            }
+          },
+          "symbols_traded": {
+            "type": "array",
+            "description": "Optional distinct-symbol record; derived from daily_volume when omitted.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string"
+                },
+                "tsv_id": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "prior_breaches": {
+            "type": "array",
+            "description": "Volume breaches recorded before the window; consumes the stock's one-time first-breach pass.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "symbol": {
+                  "type": "string"
+                },
+                "date": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "as_of_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD date the pause status is evaluated as of."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-707-tsv-tier-cap-ladder",
+        "category": "chaingraph",
+        "tags": [
+          "tsv",
+          "tokenized-stock",
+          "sec",
+          "reg-nms",
+          "tier-caps",
+          "stepped-compliance",
+          "pause-window",
+          "compliance-evidence",
+          "luld-tier",
+          "mcp:check_tsv_tier_cap_ladder"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-707-tsv-tier-cap-ladder.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",

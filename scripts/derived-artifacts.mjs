@@ -76,7 +76,9 @@
  *
  * Usage:
  *   node scripts/derived-artifacts.mjs --list     # the set, with generators + measured skew
- *   node scripts/derived-artifacts.mjs --paths    # NUL-free, newline-separated commit pathspec (exit 1 if any is absent on disk)
+ *   node scripts/derived-artifacts.mjs --paths    # NUL-free, newline-separated commit pathspec (exit 1 if any is absent on disk;
+ *                                                 # report-narrowed per entry — a writesReportRequired entry REFUSES rather
+ *                                                 # than fall back to its bare-tree prefix when its report is absent)
  *   node scripts/derived-artifacts.mjs --check-paths  # preflight gate: every declared artifact exists on disk
  *   node scripts/derived-artifacts.mjs --regen    # run every generator in write mode
  *   node scripts/derived-artifacts.mjs --verify   # prove the regen pass was a FIXPOINT: run every
@@ -97,6 +99,18 @@ import { nodeFooterPages } from './gen-node-footers.mjs';
 import { chainAskAgentPages } from './gen-chain-ask-agent.mjs';
 import { hubScenePages } from './gen-hub-scenes.mjs';
 import { WRITES_REPORT_PATH } from './gen-manifest-examples.mjs';
+import { PAGE_MD_TWINS_WRITES_REPORT_PATH } from './gen-page-md-twins.mjs';
+// REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: the six new bare-tree entries' report paths come
+// from the shared-constants module — importing the generators themselves would RUN
+// them (several are script-style with module-level write paths / argv dispatch).
+import {
+  AGENT_SKILLS_WRITES_REPORT_PATH,
+  EVIDENCE_REGISTER_WRITES_REPORT_PATH,
+  REGISTRY_KERNEL_RESOLVE_WRITES_REPORT_PATH,
+  EUC_REGISTER_WRITES_REPORT_PATH,
+  FV_STATUS_WRITES_REPORT_PATH,
+  OKF_WRITES_REPORT_PATH,
+} from './_gen-writes-reports.mjs';
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -436,6 +450,11 @@ export const COVERED = [
     gate: 'node scripts/gen-agent-skills.mjs --check',
     writes: ['skills'],
     artifacts: ['skills'],
+    // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): bare-tree prefix → the stage
+    // set is REQUIRED to be the generator's attested write list (see page-md-twins
+    // for the full REGEN-ESCAPE-GUARD-BLIND-HEAL-1 rationale).
+    writesReport: AGENT_SKILLS_WRITES_REPORT_PATH,
+    writesReportRequired: true,
     prAbsentOk: true,
     share: 'n/a (new 2026-09-26, AGENT-SKILLS-EXPORT-1)',
   },
@@ -729,6 +748,22 @@ export const COVERED = [
     gate: 'node scripts/gen-page-md-twins.mjs --check',
     writes: ['tools', 'chaingraph'],
     artifacts: ['tools', 'chaingraph'],
+    // REGEN-ESCAPE-GUARD-BLIND-HEAL-1 (2026-10-08): the bare-tree prefixes above
+    // BLINDED the regen workflow's escape check — `git add -- chaingraph` stages
+    // any file an injector drops under the prefix, and a staged file no longer
+    // shows as `??` in the stage step's porcelain self-check (measured on
+    // pristine main: dispatch 37834014002 GREEN with chaingraph/UNDECLARED-SELFTEST.txt
+    // inside the staged diff). Since 2026-09-27 the writer has the narrowing
+    // mechanism (REGEN-MANIFEST-ATTEST-1): the generator writes its ACTUAL write
+    // list to a tempdir report and --paths stages those files instead of the
+    // prefix glob. This entry adopts it, and REQUIRED: a prefix-wide declaration
+    // is only safe when the stage set is the generator's own attested write
+    // list, so an absent/unreadable report is a LOUD refusal (see
+    // entryCommitPaths), never a silent fallback to the blind prefix. The report
+    // can only narrow — every reported path is still filtered against
+    // artifacts[] and disk here, so the declaration stays the boundary.
+    writesReport: PAGE_MD_TWINS_WRITES_REPORT_PATH,
+    writesReportRequired: true,
     after: 'chaingraph-assemble',
     share: 'n/a (new 2026-09-08, PAGE-MD-TWINS-1)',
   },
@@ -774,6 +809,10 @@ export const COVERED = [
     gate: 'node scripts/check-evidence-register.mjs',
     writes: ['evidence/claims.json', 'source'],
     artifacts: ['evidence/claims.json', 'source'],
+    // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): the `source` half is a bare-tree
+    // prefix (runtime-named <claim-id>.txt) → writesReportRequired (see page-md-twins).
+    writesReport: EVIDENCE_REGISTER_WRITES_REPORT_PATH,
+    writesReportRequired: true,
     share: 'n/a (new 2026-09-22, EVREG-1 — drifts only when a registered claim page changes, which is exactly when it MUST red)',
   },  {
     id: 'sitemap-html',
@@ -935,6 +974,10 @@ export const COVERED = [
     // <kernel_digest>.json — name determined at runtime, so declared as its root.
     writes: ['registry/kernel'],
     artifacts: ['registry/kernel'],
+    // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): bare-tree prefix →
+    // writesReportRequired (see page-md-twins).
+    writesReport: REGISTRY_KERNEL_RESOLVE_WRITES_REPORT_PATH,
+    writesReportRequired: true,
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
   {
@@ -989,6 +1032,10 @@ export const COVERED = [
     // <tool_id>.register.json + index.json — names determined at runtime.
     writes: ['chaingraph/register'],
     artifacts: ['chaingraph/register'],
+    // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): bare-tree prefix →
+    // writesReportRequired (see page-md-twins).
+    writesReport: EUC_REGISTER_WRITES_REPORT_PATH,
+    writesReportRequired: true,
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
   {
@@ -1015,6 +1062,10 @@ export const COVERED = [
     // <spec_digest>.json — name determined at runtime.
     writes: ['fv-status'],
     artifacts: ['fv-status'],
+    // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): bare-tree prefix →
+    // writesReportRequired (see page-md-twins).
+    writesReport: FV_STATUS_WRITES_REPORT_PATH,
+    writesReportRequired: true,
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
   {
@@ -1038,6 +1089,10 @@ export const COVERED = [
     // one concept file per node under tools/ and computations/, plus rollups.
     writes: ['chaingraph/okf'],
     artifacts: ['chaingraph/okf'],
+    // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): bare-tree prefix →
+    // writesReportRequired (see page-md-twins).
+    writesReport: OKF_WRITES_REPORT_PATH,
+    writesReportRequired: true,
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
   {
@@ -1483,6 +1538,17 @@ export const EXCLUDED = [
        + 'card content edit without a local re-sign goes RED. Only PUBLIC material (the signatures[] block '
        + 'and .well-known/jwks.json, COVERED id jwks) ever touches main-side generation.',
   },
+  {
+    what: '.well-known/webmcp-signed.json (via scripts/sign-webmcp-snapshot.mjs, WEBMCP-SIGNED-SNAPSHOT-1)',
+    script: 'scripts/sign-webmcp-snapshot.mjs',
+    share: 'n/a',
+    why: 'SIGNING NEEDS THE PRIVATE KEY. The dated WebMCP tool-surface snapshot is signed (detached EdDSA JWS, '
+       + 'protected typ webmcp-snapshot+jws) with the estate\'s section-16 signer, which exists only on the '
+       + 'key-holding desk and never on the main-regen runner. The single writer is sign-webmcp-snapshot.mjs '
+       + 'run LOCALLY; the signed file is committed by the signing row. Integrity is guarded by '
+       + 'scripts/check-webmcp-signed-snapshot.mjs in preflight (RED only on a bad signature or malformed '
+       + 'snapshot; age and drift vs the regen-on-main webmcp.json are advisory).',
+  },
 ];
 
 /** Every path the regen may write, deduped and sorted — the commit pathspec. */
@@ -1498,6 +1564,17 @@ export function coveredPaths() {
  * that attests no specific file. Existence checks (--check-paths, missingPaths) stay
  * on coveredPaths() deliberately: the DECLARED set is the existence contract; the
  * report only NARROWS what this run stages, never widens it.
+ *
+ * REGEN-ESCAPE-GUARD-BLIND-HEAL-1 (2026-10-08): an entry declaring `writesReportRequired`
+ * (page-md-twins, whose `artifacts` are the bare-tree prefixes `tools` / `chaingraph`)
+ * must never take the declared-glob fallback below — a missing report would silently
+ * restore the exact blindness this row heals (the prefix `git add` stages ANY injected
+ * file under it, and the stage step's porcelain self-check cannot see a staged file).
+ * A report-required entry with an absent/unreadable report therefore THROWS: the regen
+ * workflow's stage step fails loudly, nothing is staged, nothing is committed. Every
+ * write-mode run of the generator rewrites the report (empty list included), so the
+ * throw can only fire on a checkout that never ran the regen pass — which is exactly
+ * the state in which a prefix-wide stage would be unattested guesswork.
  */
 function entryCommitPaths(entry) {
   if (!entry.writesReport) return entry.artifacts;
@@ -1505,14 +1582,44 @@ function entryCommitPaths(entry) {
   try {
     const parsed = JSON.parse(readFileSync(entry.writesReport, 'utf8'));
     if (Array.isArray(parsed?.written)) written = parsed.written.filter((p) => typeof p === 'string');
-  } catch { /* report absent or unreadable — declared-glob fallback below */ }
-  if (!written) return entry.artifacts;
+  } catch { /* report absent or unreadable — required vs fallback decided below */ }
+  if (!written) {
+    if (entry.writesReportRequired) {
+      throw new Error(
+        `derived-artifacts: entry "${entry.id}" declares writesReportRequired but its writes report ` +
+        `(${entry.writesReport}) is absent or unreadable. Refusing to fall back to its declared bare-tree ` +
+        `prefix [${entry.artifacts.join(', ')}]: staging the prefix would stage any injected file under it and ` +
+        `blind the regen escape check (REGEN-ESCAPE-GUARD-BLIND-HEAL-1). Run the entry's regen command first ` +
+        `(${entry.regen}) — every write-mode run writes the report, empty list included.`
+      );
+    }
+    return entry.artifacts;
+  }
   const prefixes = entry.artifacts.map((a) => (a.endsWith('/') ? a : `${a}/`));
   const exact = new Set(entry.artifacts);
+  // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 (2026-10-10): a required report may also carry
+  // `removed` — the run's attested DELETION list (orphan/stale prunes). The stage
+  // step's escape check reds unstaged deletions (` D`) exactly like untracked files,
+  // and `git add -- <path>` stages a deletion by pathspec — so a reported removal
+  // must be staged or every legitimate prune (the #1479 art-99 shape, the workflow's
+  // okf_pair_deletion GREEN control) would red the regen. An absent-on-disk path NOT
+  // in `removed` is still dropped — a reported write that vanished mid-run is a
+  // dropped path, never a staged phantom.
+  let removedSet = new Set();
+  try {
+    const parsed2 = JSON.parse(readFileSync(entry.writesReport, 'utf8'));
+    if (Array.isArray(parsed2?.removed)) removedSet = new Set(parsed2.removed.filter((p) => typeof p === 'string'));
+  } catch { /* unreachable here — the same file parsed above */ }
   const kept = [], dropped = [];
   for (const p of written) {
     if (!exact.has(p) && !prefixes.some((pre) => p.startsWith(pre))) { dropped.push(`${p} (outside declared artifacts)`); continue; }
-    if (!existsSync(resolve(REPO, p))) { dropped.push(`${p} (absent on disk)`); continue; }
+    if (!existsSync(resolve(REPO, p)) && !removedSet.has(p)) { dropped.push(`${p} (absent on disk)`); continue; }
+    kept.push(p);
+  }
+  for (const p of removedSet) {
+    if (typeof p !== 'string' || written.includes(p)) continue;
+    if (!exact.has(p) && !prefixes.some((pre) => p.startsWith(pre))) { dropped.push(`${p} (outside declared artifacts)`); continue; }
+    if (existsSync(resolve(REPO, p))) { dropped.push(`${p} (reported removed but present on disk)`); continue; }
     kept.push(p);
   }
   if (dropped.length) console.error(`derived-artifacts: entry "${entry.id}" writes-report drops ${dropped.length} path(s): ${dropped.join(', ')}`);
@@ -1901,6 +2008,69 @@ if (isMain) {
       const stagedF = entryCommitPaths(entry);
       JSON.stringify(stagedF) === JSON.stringify([MAN_A, MAN_B].sort()) || fail(`--paths must stage both passes' writes once each, got ${JSON.stringify(stagedF)}`);
       console.log('✓ self-test (f): writes from both passes are staged, sorted and deduplicated');
+
+      // (g) REGEN-ESCAPE-GUARD-BLIND-HEAL-1: the report NARROWS the stage set to the
+      // generator's own write list. An injected sibling under the SAME declared prefix
+      // — the page-md-twins shape (artifacts ['tools','chaingraph'], the guard was
+      // blind under both) — can never enter the stage set while a report exists: the
+      // prefix glob is gone, so the workflow's porcelain escape check sees the
+      // injected file as `??` and refuses. Pinned against the manifest-examples temp
+      // fixture because the real entry's stage set is only ever exercised on a
+      // runner; this case pins the MECHANISM.
+      put([MAN_A]);
+      const gEntry = { id: 'selftest-escape-narrow', artifacts: ['manifests/'], writesReport: rp, writesReportRequired: true };
+      const stagedG = entryCommitPaths(gEntry);
+      JSON.stringify(stagedG) === JSON.stringify([MAN_A]) || fail(`a report-narrowed entry must stage exactly its generator's write list, got ${JSON.stringify(stagedG)}`);
+      !stagedG.includes('manifests/INJECTED-REGEN-ESCAPE.txt') || fail('an injected path under the declared prefix must never be staged');
+      console.log('✓ self-test (g): an injected path under the declared prefix is never staged — the stage set is the generator\'s attested write list only');
+
+      // (g2) REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: EVERY entry carrying
+      // `writesReportRequired` must actually narrow. With an EMPTY report (the
+      // truthful attestation of a clean write pass), the stage set must be EMPTY —
+      // the bare prefix glob must be gone for each of them, so any injected file
+      // under any of their prefixes stays unstaged (`??`) and the regen workflow's
+      // porcelain escape check sees it. Iterates the field, not a hand-list, so a
+      // future writesReportRequired entry cannot regress silently.
+      const requiredEntries = COVERED.filter((x) => x.writesReportRequired);
+      requiredEntries.length >= 7 || fail(`expected at least 7 writesReportRequired entries (page-md-twins + the six REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 prefixes), got ${requiredEntries.length}: ${requiredEntries.map((x) => x.id).join(', ')}`);
+      for (const c of requiredEntries) {
+        c.writesReport || fail(`entry "${c.id}" declares writesReportRequired but no writesReport path`);
+        put([]);
+        const narrowed = entryCommitPaths({ ...c, writesReport: rp });
+        JSON.stringify(narrowed) === JSON.stringify([]) || fail(`entry "${c.id}" with an empty writes report must stage NOTHING (never its bare prefix ${JSON.stringify(c.artifacts)}), got ${JSON.stringify(narrowed)}`);
+      }
+      console.log(`✓ self-test (g2): all ${requiredEntries.length} writesReportRequired entries (${requiredEntries.map((x) => x.id).join(', ')}) narrow to their attested write list — an injected file under any declared prefix is never staged`);
+
+      // (g3) REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: an ATTESTED removal (the report's
+      // `removed` list — an orphan/stale prune) MUST be staged: the escape check
+      // reds unstaged deletions (` D`) exactly like untracked files, and the
+      // workflow's okf_pair_deletion case is a designed GREEN control (the #1479
+      // art-99 shape). `git add -- <path>` stages a deletion by pathspec. An
+      // injected file is still never staged — it is in neither list.
+      writeFileSync(rp, JSON.stringify({ written: [], removed: ['manifests/GONE-attested.manifest.json'] }, null, 2) + '\n', 'utf8');
+      const stagedRemoval = entryCommitPaths({ id: 'selftest-removal', artifacts: ['manifests/'], writesReport: rp, writesReportRequired: true });
+      JSON.stringify(stagedRemoval) === JSON.stringify(['manifests/GONE-attested.manifest.json']) || fail(`an attested removal must be staged (git add stages deletions by pathspec), got ${JSON.stringify(stagedRemoval)}`);
+      const stagedRemoval2 = entryCommitPaths({ id: 'selftest-removal-inject', artifacts: ['manifests/'], writesReport: rp, writesReportRequired: true, });
+      stagedRemoval2.includes('manifests/INJECTED-REGEN-ESCAPE.txt') && fail('an injected path is in neither report list and must never be staged');
+      console.log('✓ self-test (g3): an attested removal is staged by pathspec; an injected file is in neither list and never staged');
+
+      // (h) a report-REQUIRED entry with an ABSENT report must REFUSE loudly, never
+      // fall back to the bare-tree prefix — the silent fallback would restore the
+      // exact blindness this row heals on every checkout that has not run the regen
+      // pass yet (the throw is what the workflow's stage step surfaces as RED).
+      const hEntry = { id: 'selftest-report-required', artifacts: ['tools', 'chaingraph'], writesReport: join(udir, 'absent-writes.json'), writesReportRequired: true };
+      let threw = null;
+      try { entryCommitPaths(hEntry); } catch (e) { threw = e; }
+      (threw && /writesReportRequired/.test(threw.message)) || fail(`a report-required entry with an absent report must throw, got ${JSON.stringify(threw && threw.message)}`);
+      console.log('✓ self-test (h): a report-required entry refuses to fall back to its bare-tree prefix when the report is absent');
+
+      // (i) the legacy shape is untouched: WITHOUT writesReportRequired, a missing
+      // report still falls back to the declared glob (REGEN-MANIFEST-ATTEST-1's
+      // documented "no --write in this checkout" behavior — manifest-examples
+      // keeps it; this row did not change settled entries).
+      const iEntry = { id: 'selftest-report-optional', artifacts: ['manifests/'], writesReport: join(udir, 'also-absent.json') };
+      JSON.stringify(entryCommitPaths(iEntry)) === JSON.stringify(['manifests/']) || fail('a report-optional entry must keep the declared-glob fallback');
+      console.log('✓ self-test (i): a report-optional entry keeps the documented declared-glob fallback');
     } finally {
       cleanUnionDir();
     }

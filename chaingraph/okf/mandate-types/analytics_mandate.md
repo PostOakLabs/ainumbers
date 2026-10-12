@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "analytics_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"analytics_mandate\"."
-tags: ["analytics_mandate", "count-48"]
+tags: ["analytics_mandate", "count-50"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # analytics_mandate
 
-48 tool(s) in this mandate-type group:
+50 tool(s) in this mandate-type group:
 
 - [Corridor Cost Comparator (World Bank RPW)](../tools/art-249-compare-corridor-cost.md)
 - [Stablecoin Corridor Economics Model](../tools/art-250-model-stablecoin-corridor-economics.md)
@@ -60,3 +60,5 @@ status: stable
 - [Algo Execution Schedule Simulator](../tools/art-669-algo-execution-schedule-simulator.md)
 - [Recordkeeping Completeness Mapper](../tools/art-675-recordkeeping-completeness-mapper.md)
 - [Consultation Response Tracker](../tools/art-678-consultation-response-tracker.md)
+- [Bond Ladder Builder](../tools/art-705-bond-ladder-builder.md)
+- [Yield Curve & G-Spread](../tools/art-706-yield-curve-gspread.md)
