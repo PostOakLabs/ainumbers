@@ -248,6 +248,57 @@ async function mutationTest() {
       console.log(`  shrink correctly rejected: ${e.message}`);
     }
     ok(shrinkRejected, 'shrinking the record set (265 -> 100) is REJECTED (append-only violation)');
+
+    // ── SIGSUM-PENDING tolerance (LINEAGE-SIGSUM-TOLERANCE-2380-1): a fresh
+    // temp log grown with NO submitToSigsum stub at all exercises the real
+    // key-absence branch (the temp workspace has no research/ key files, so
+    // existsSync on the Sigsum submit/token key paths is false exactly as on
+    // CI). generate() must NOT throw, must write tiles + checkpoint + a
+    // PENDING sigsum record, and --check must ACCEPT the pending state.
+    const pendingDir = join(tmpDir, 'lineage-pending');
+    const pendingRecords = Array.from({ length: 3 }, (_, i) => ({ synthetic_pending_index: i, note: 'pending-flow fixture' }));
+    let pendingOk = true;
+    try {
+      await generate({
+        registryDir: pendingDir,
+        records: pendingRecords,
+        logPrivateKeyPath: keyPath, logPublicKeyHex: pubKeyHex,
+        sigsumSubmitKeyPath: join(tmpDir, 'absent', 'sigsum-key.priv.jwk.json'),
+        sigsumTokenKeyPath: join(tmpDir, 'absent', 'sigsum-token-key.priv.jwk.json'),
+      });
+    } catch (e) {
+      pendingOk = false;
+      console.log(`  pending-flow generate() threw: ${e.message}`);
+    }
+    ok(pendingOk, 'SIGSUM-PENDING: generate() with NO submitToSigsum stub and NO Sigsum key files does NOT fail');
+    let pendingRecord = null;
+    try {
+      pendingRecord = JSON.parse(readFileSync(join(pendingDir, 'checkpoint.sigsum-record.json'), 'utf8'));
+    } catch (e) {
+      console.log(`  pending record read failed: ${e.message}`);
+    }
+    ok(pendingRecord !== null && pendingRecord.status === 'pending', 'SIGSUM-PENDING: the written sigsum record carries status "pending"');
+    ok(pendingRecord !== null && typeof pendingRecord.anchored_hash === 'string' && /^sha256:[0-9a-f]{64}$/.test(pendingRecord.anchored_hash), 'SIGSUM-PENDING: the pending record carries the sha256 anchored_hash of the signed checkpoint bytes');
+    const pendingCheck = await check({ registryDir: pendingDir, logPublicKeyHex: pubKeyHex, noExit: true });
+    ok(pendingCheck.ok === true, 'SIGSUM-PENDING: --check ACCEPTS a published log whose sigsum record is pending');
+    // Appending MORE records in pending mode over an already-pending log must
+    // still work (the tolerance is the steady state while keys stay offline).
+    let pendingGrowthOk = true;
+    try {
+      await generate({
+        registryDir: pendingDir,
+        records: [...pendingRecords, { synthetic_pending_index: 3, note: 'appended while pending' }],
+        logPrivateKeyPath: keyPath, logPublicKeyHex: pubKeyHex,
+        sigsumSubmitKeyPath: join(tmpDir, 'absent', 'sigsum-key.priv.jwk.json'),
+        sigsumTokenKeyPath: join(tmpDir, 'absent', 'sigsum-token-key.priv.jwk.json'),
+      });
+    } catch (e) {
+      pendingGrowthOk = false;
+      console.log(`  pending-flow growth threw: ${e.message}`);
+    }
+    ok(pendingGrowthOk, 'SIGSUM-PENDING: append-only growth while keys stay absent is accepted');
+    const pendingGrownCheck = await check({ registryDir: pendingDir, logPublicKeyHex: pubKeyHex, noExit: true });
+    ok(pendingGrownCheck.ok === true, 'SIGSUM-PENDING: --check PASSES on the grown pending log');
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
   }
