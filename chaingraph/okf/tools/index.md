@@ -632,6 +632,8 @@ status: stable
 - [Mandate Authorization Gate](./art-703-mandate-authorization-gate.md) — `authorize_payment_against_mandate`
 - [AI Token Spend](./art-704-ai-token-spend.md) — `estimate_ai_token_spend`
 - [Bond Ladder Builder](./art-705-bond-ladder-builder.md) — `build_bond_ladder`
+- [Yield Curve & G-Spread](./art-706-yield-curve-gspread.md) — `build_yield_curve_gspread`
+- [TSV Tier-Cap Ladder](./art-707-tsv-tier-cap-ladder.md) — `check_tsv_tier_cap_ladder`
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md) — `model_cbam_certificate_cost`
 - [SCO60 Group 2 Exposure Limit V2](./art-711-sco60-crypto-asset-exposure-classifier-v2.md) — `classify_sco60_exposure_v2`
 - [Workforce Board ROI Report](./art-712-workforce-board-roi.md) — `workforce_board_roi_report`
