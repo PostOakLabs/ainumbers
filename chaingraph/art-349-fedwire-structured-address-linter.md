@@ -9,7 +9,7 @@ Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the Fedwire str
 ## Inputs
 
 - address_lines (any, required): type not evidenced by kernel source
-- as_of_date (string, optional): Optional caller-supplied ISO 8601 as-of date (never wall-clock); arms the enforcement-severity branch only once a published enforcement date exists
+- as_of_date (any, required): type not evidenced by kernel source
 - building_number (any, required): type not evidenced by kernel source
 - country (any, required): type not evidenced by kernel source
 - country_subdivision (any, required): type not evidenced by kernel source
