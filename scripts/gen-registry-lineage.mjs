@@ -488,6 +488,7 @@ export async function generate(opts = {}) {
   // --check accepts the pending record. A PRESENT key pair whose submit
   // fails is unchanged fail-closed (§2.1): publish nothing on a failed
   // submit that was actually attempted. ──────────────────────────────────
+  const submitToSigsum = opts.submitToSigsum || submitCheckpointToSigsum;
   let sigsumRecord;
   const sigsumSubmitKeyPath = opts.sigsumSubmitKeyPath || SIGSUM_SUBMIT_KEY_PATH;
   const sigsumTokenKeyPath = opts.sigsumTokenKeyPath || SIGSUM_TOKEN_KEY_PATH;
