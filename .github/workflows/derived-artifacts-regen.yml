@@ -203,19 +203,19 @@ jobs:
           node -e '
             const v = process.env.REGISTRY_LINEAGE_LOG_KEY ?? "";
             const tryParse = (s) => { try { return JSON.parse(s); } catch { return null; } };
+            const count = (re) => (v.match(re) || []).length;
             const facts = {
               len: v.length,
-              hasNewline: /\n/.test(v),
-              hasCR: /\r/.test(v),
-              hasBOM: v.charCodeAt(0) === 0xfeff,
-              firstChar: v[0] === "{" ? "brace" : v[0] === "\"" ? "quote" : (v[0] === " " || v[0] === "\n" || v[0] === "\t") ? "space" : "other",
-              parseRaw: !!tryParse(v),
-              parseTrimmedBOM: !!tryParse(v.replace(/^\uFEFF/, "").trim()),
-              parseNoCR: !!tryParse(v.replace(/\r/g, "")),
-              parseUnquoted: !!tryParse(v.trim().replace(/^"|"$/g, "")),
-              parseSingleLine: !!tryParse(v.replace(/\s*\n\s*/g, " ")),
+              dq: count(/"/g), sq: count(/'"'"'/g), colon: count(/:/g), comma: count(/,/g),
+              ob: count(/\{/g), cb: count(/\}/g), osb: count(/\[/g), csb: count(/\]/g),
+              endsWithBrace: v.trimEnd().endsWith("}"),
+              parseSingleToDouble: !!tryParse(v.replace(/'"'"'/g, String.fromCharCode(34))),
+              parseQuoteKeys: !!tryParse(v.replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)\s*:/g, "$1\"$2\":")),
+              parseBoth: !!tryParse(v.replace(/'"'"'/g, String.fromCharCode(34)).replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)\s*:/g, "$1\"$2\":")),
+              parseLoose: !!tryParse(v.replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*):/g, "$1\"$2\":").replace(/'"'"'/g, String.fromCharCode(34)).replace(/([:,\[]\s*)([A-Za-z][A-Za-z0-9_*-]*)(\s*[,}\]\n])/g, "$1\"$2\"$3")),
             };
-            const p = tryParse(v) || tryParse(v.replace(/^\uFEFF/, "").trim()) || tryParse(v.replace(/\r/g, ""));
+            const p = tryParse(v.replace(/'"'"'/g, String.fromCharCode(34)).replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)\s*:/g, "$1\"$2\":"))
+              || tryParse(v.replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*):/g, "$1\"$2\":").replace(/'"'"'/g, String.fromCharCode(34)).replace(/([:,\[]\s*)([A-Za-z][A-Za-z0-9_*-]*)(\s*[,}\]\n])/g, "$1\"$2\"$3"));
             if (p && typeof p === "object") {
               facts.keys = Object.keys(p).sort();
               facts.kty = p.kty; facts.crv = p.crv; facts.keyOps = p.key_ops;
@@ -224,7 +224,7 @@ jobs:
               facts.hasX = typeof p.x === "string" && p.x.length > 40;
               facts.xLen = typeof p.x === "string" ? p.x.length : 0;
             }
-            console.log("PROBE " + JSON.stringify(facts));
+            console.log("PROBE2 " + JSON.stringify(facts));
           '
 
       # §15 gate suite validates the regenerated tree BEFORE anything is
