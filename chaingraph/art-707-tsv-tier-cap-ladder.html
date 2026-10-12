@@ -702,16 +702,26 @@ function parseJsonField(id, absent) {
 
 function readInputs() {
   const affiliatesRaw = String(document.getElementById('affiliated_tsv_ids').value || '').trim();
-  const affiliated = affiliatesRaw ? affiliatesRaw.split(',').map(function (s) { return s.trim(); }).filter(Boolean) : [];
-  return {
+  let affiliated = [];
+  if (affiliatesRaw) {
+    // The deep-link prefill writes this field as JSON (an array); humans type CSV.
+    if (affiliatesRaw.charAt(0) === '[') { try { affiliated = JSON.parse(affiliatesRaw); } catch (e) { affiliated = []; } }
+    if (!Array.isArray(affiliated)) affiliated = affiliatesRaw.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+  // Optional fields are OMITTED (not sent as empty arrays) when their box is blank,
+  // so a replay over only the declared fields hashes exactly like the kernel does.
+  const pp = {
     tsv_id: document.getElementById('tsv_id').value,
     affiliated_tsv_ids: affiliated,
     stocks: parseJsonField('stocks', null),
     daily_volume: parseJsonField('daily_volume', []),
-    symbols_traded: parseJsonField('symbols_traded', undefined),
-    prior_breaches: parseJsonField('prior_breaches', []),
     as_of_date: document.getElementById('as_of_date').value,
   };
+  const symTraded = parseJsonField('symbols_traded', null);
+  if (symTraded !== null) pp.symbols_traded = symTraded;
+  const prior = parseJsonField('prior_breaches', null);
+  if (prior !== null) pp.prior_breaches = prior;
+  return pp;
 }
 
 async function buildArtifact() {
