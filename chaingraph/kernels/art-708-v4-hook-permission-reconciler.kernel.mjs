@@ -89,7 +89,7 @@ function refusal(code, detail) {
       dynamic_fee_declaration: null,
       assumptions: [],
     },
-    compliance_flags: ['INPUT_REFUSED'],
+    compliance_flags: code ? ['INPUT_REFUSED'] : [],
   };
 }
 

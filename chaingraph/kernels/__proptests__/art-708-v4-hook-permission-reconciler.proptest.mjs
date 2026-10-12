@@ -1,7 +1,7 @@
 // art-708-v4-hook-permission-reconciler — class-K property test floor, authored by ART708-V4HOOK-PERMBIT-RECONCILER-1.
 // spec: RHC hooks build spec WU-1 (research/rhc-hooks/RHC-HOOKS-BUILD-SPEC-2026-10-03.md), Uniswap v4-core
 // Hooks.sol at the pinned commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585
-// kernel_digest_at_authoring: sha256:ae02d0240753503e6177e9bc1027c1f4cdcc4c3c9b68bcc313ba817ecdf48f6a
+// kernel_digest_at_authoring: sha256:c4ac35d4b6691702212424d5c041cf262a05bce086899bf6fe12263ce1a75db4
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
