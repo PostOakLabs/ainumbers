@@ -636,6 +636,7 @@ status: stable
 - [Bond Ladder Builder](./art-705-bond-ladder-builder.md)
 - [Yield Curve & G-Spread](./art-706-yield-curve-gspread.md)
 - [TSV Tier-Cap Ladder](./art-707-tsv-tier-cap-ladder.md)
+- [V4 Hook Permission Reconciler](./art-708-v4-hook-permission-reconciler.md)
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md)
 - [SCO60 Group 2 Exposure Limit V2](./art-711-sco60-crypto-asset-exposure-classifier-v2.md)
 - [Workforce Board ROI Report](./art-712-workforce-board-roi.md)
