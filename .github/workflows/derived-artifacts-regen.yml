@@ -195,11 +195,37 @@ jobs:
       # the generator's skip keeps a no-growth dry run off the network.
       - name: Publish the registry lineage log (sign + Sigsum anchor)
         env:
-          # Secret NAME only in this file; the value never appears in any log,
-          # diff or commit. An unavailable secret resolves to '' and the
-          # generator fails closed at its key source (proof (b) of the row).
           REGISTRY_LINEAGE_LOG_KEY: ${{ secrets.REGISTRY_LINEAGE_LOG_KEY }}
-        run: node scripts/gen-registry-lineage.mjs
+        # PROBE BRANCH ONLY (never merges): byte-safe shape probe of the
+        # REGISTRY_LINEAGE_LOG_KEY secret. Prints ONLY booleans, lengths and
+        # JSON key NAMES — never any byte of the value, never d/x material.
+        run: |
+          node -e '
+            const v = process.env.REGISTRY_LINEAGE_LOG_KEY ?? "";
+            const tryParse = (s) => { try { return JSON.parse(s); } catch { return null; } };
+            const facts = {
+              len: v.length,
+              hasNewline: /\n/.test(v),
+              hasCR: /\r/.test(v),
+              hasBOM: v.charCodeAt(0) === 0xfeff,
+              firstChar: v[0] === "{" ? "brace" : v[0] === "\"" ? "quote" : (v[0] === " " || v[0] === "\n" || v[0] === "\t") ? "space" : "other",
+              parseRaw: !!tryParse(v),
+              parseTrimmedBOM: !!tryParse(v.replace(/^\uFEFF/, "").trim()),
+              parseNoCR: !!tryParse(v.replace(/\r/g, "")),
+              parseUnquoted: !!tryParse(v.trim().replace(/^"|"$/g, "")),
+              parseSingleLine: !!tryParse(v.replace(/\s*\n\s*/g, " ")),
+            };
+            const p = tryParse(v) || tryParse(v.replace(/^\uFEFF/, "").trim()) || tryParse(v.replace(/\r/g, ""));
+            if (p && typeof p === "object") {
+              facts.keys = Object.keys(p).sort();
+              facts.kty = p.kty; facts.crv = p.crv; facts.keyOps = p.key_ops;
+              facts.hasD = typeof p.d === "string" && p.d.length > 40;
+              facts.dLen = typeof p.d === "string" ? p.d.length : 0;
+              facts.hasX = typeof p.x === "string" && p.x.length > 40;
+              facts.xLen = typeof p.x === "string" ? p.x.length : 0;
+            }
+            console.log("PROBE " + JSON.stringify(facts));
+          '
 
       # §15 gate suite validates the regenerated tree BEFORE anything is
       # staged or committed. A red run here stops the job — no commit step
