@@ -1,0 +1,442 @@
+{
+  "tool_id": "art-710-tsv-stoppage-concurrency",
+  "version": "1.0.0",
+  "title": "TSV Stoppage Concurrency",
+  "description": "Checks a tokenized-stock venue (TSV) against condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176): a TSV must stop trading in a Tokenized NMS Stock concurrently with any stoppage of trading in the underlying NMS stock on the listing exchange, and must immediately notify its TSV Participants. Flags trades inside declared stoppage intervals beyond the declared concurrency tolerance, checks the venue's own halt record spans each stoppage, and reports notice latency as a measured value in milliseconds, never graded. Evidence only; zero network.",
+  "category": "robinhood-chain-tokenized-equity-verification",
+  "tags": [
+    "sec",
+    "tsv-exemption",
+    "fr-2026-19388",
+    "condition-h",
+    "trading-halt",
+    "suspension",
+    "mwcb",
+    "stoppage-concurrency",
+    "participant-notice",
+    "notice-latency",
+    "compliance-evidence",
+    "mcp:check_tsv_stoppage_concurrency"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "stoppages",
+      "tsv_trades",
+      "tsv_halt_records",
+      "participant_notices"
+    ],
+    "properties": {
+      "stoppages": {
+        "type": "array",
+        "description": "Caller-declared stoppages of trading in the underlying NMS stock on the listing exchange; each { symbol, start_ts, end_ts|null, kind: halt | suspension | mwcb }."
+      },
+      "tsv_trades": {
+        "type": "array",
+        "description": "The TSV's tokenized-stock trades; each { symbol, ts, trade_id }."
+      },
+      "tsv_halt_records": {
+        "type": "array",
+        "description": "The TSV's own halt records; each { symbol, start_ts, end_ts|null }. Each stoppage must be spanned by one of them."
+      },
+      "participant_notices": {
+        "type": "array",
+        "description": "Participant notices; each { symbol, ts }. Latency is measured from stoppage start to the earliest notice at or after it."
+      },
+      "concurrency_tolerance_ms": {
+        "type": "integer",
+        "description": "Optional non-negative integer (default 0), echoed. Widens the tolerated window around the interval edges."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "check_tsv_stoppage_concurrency",
+    "description": "Checks a tokenized-stock venue (TSV) against condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176): a TSV must stop trading in a Tokenized NMS Stock concurrently with any stoppage of trading in the underlying NMS stock on the listing exchange, and must immediately notify its TSV Participants. Flags trades inside declared stoppage intervals beyond the declared concurrency tolerance, checks the venue's own halt record spans each stoppage, and reports notice latency as a measured value in milliseconds, never graded. Evidence only; zero network.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "stoppages",
+        "tsv_trades",
+        "tsv_halt_records",
+        "participant_notices"
+      ],
+      "properties": {
+        "stoppages": {
+          "type": "array",
+          "description": "Caller-declared stoppages of trading in the underlying NMS stock on the listing exchange; each { symbol, start_ts, end_ts|null, kind: halt | suspension | mwcb }."
+        },
+        "tsv_trades": {
+          "type": "array",
+          "description": "The TSV's tokenized-stock trades; each { symbol, ts, trade_id }."
+        },
+        "tsv_halt_records": {
+          "type": "array",
+          "description": "The TSV's own halt records; each { symbol, start_ts, end_ts|null }. Each stoppage must be spanned by one of them."
+        },
+        "participant_notices": {
+          "type": "array",
+          "description": "Participant notices; each { symbol, ts }. Latency is measured from stoppage start to the earliest notice at or after it."
+        },
+        "concurrency_tolerance_ms": {
+          "type": "integer",
+          "description": "Optional non-negative integer (default 0), echoed. Widens the tolerated window around the interval edges."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-710-tsv-stoppage-concurrency.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "hand-authored (ART710-TSV-STOPPAGE-CONCURRENCY-1); output_schema is fixture-derived over vectors F1-F12; category sourced from hub-categories.json cluster",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: stoppages, tsv_trades, tsv_halt_records, participant_notices, concurrency_tolerance_ms (optional).",
+  "input_example": {
+    "stoppages": [
+      {
+        "symbol": "AAPL",
+        "start_ts": 1000,
+        "end_ts": 2000,
+        "kind": "halt"
+      }
+    ],
+    "tsv_trades": [
+      {
+        "symbol": "AAPL",
+        "ts": 1500,
+        "trade_id": "T-1"
+      }
+    ],
+    "tsv_halt_records": [
+      {
+        "symbol": "AAPL",
+        "start_ts": 1000,
+        "end_ts": 2000
+      }
+    ],
+    "participant_notices": [
+      {
+        "symbol": "AAPL",
+        "ts": 1250
+      }
+    ],
+    "concurrency_tolerance_ms": 0
+  },
+  "output_example": {
+    "concurrency_tolerance_ms": 0,
+    "counts": {
+      "stoppages": 1,
+      "trades": 1,
+      "trades_during_stoppages": 1,
+      "trades_flagged": 1,
+      "halt_records": 1,
+      "participant_notices": 1,
+      "uncovered_stoppages": 0,
+      "stoppages_without_notice": 0,
+      "violations": 1
+    },
+    "violations": [
+      {
+        "type": "TRADE_DURING_STOPPAGE",
+        "symbol": "AAPL",
+        "kind": "halt",
+        "stoppage_start_ts": 1000,
+        "stoppage_end_ts": 2000,
+        "trade_id": "T-1",
+        "trade_ts": 1500
+      }
+    ],
+    "per_stoppage": [
+      {
+        "symbol": "AAPL",
+        "kind": "halt",
+        "start_ts": 1000,
+        "end_ts": 2000,
+        "covered": true,
+        "covering_halt_record": {
+          "start_ts": 1000,
+          "end_ts": 2000
+        },
+        "trades_during": 1,
+        "trades_flagged": 1,
+        "trades_within_tolerance": 0,
+        "notice_latency_ms": 250
+      }
+    ],
+    "assumptions": [
+      "Condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026): a TSV must stop trading in a Tokenized NMS Stock concurrently with any stoppage of trading in the underlying NMS stock on the primary listing exchange, which includes a halt or a suspension, and must immediately notify its TSV Participants of any stoppage.",
+      "Stoppage intervals are HALF-OPEN: start-inclusive, end-exclusive, [start_ts, end_ts). A trade at exactly end_ts is outside the stoppage.",
+      "concurrency_tolerance_ms (caller-declared, echoed) widens the tolerated window around the interval edges: a trade with ts < start_ts + tolerance or ts >= end_ts - tolerance sits inside the interval but inside the declared tolerance and is counted without being flagged.",
+      "The order says \"immediately\" without a number: notice latency is reported as a measured value in milliseconds and is never graded pass/fail.",
+      "Notice latency is measured from the stoppage start to the earliest participant notice for the symbol at or after that start; an open-ended stoppage (end_ts null) is covered only by an open-ended TSV halt record.",
+      "Evidence only: this node states no opinion on whether any latency, gap or trade is lawful; it reports what the caller-supplied records show.",
+      "Zero network: the node never reads a chain and checks only the caller-supplied stoppages, trades, halt records and notices."
+    ]
+  },
+  "example_execution_hash": "eeb1fdfe943fa013f1f8eb25cf168af69558b624dec13647daefd1131506f386",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "concurrency_tolerance_ms": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "counts": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "halt_records": {
+            "type": "number"
+          },
+          "participant_notices": {
+            "type": "number"
+          },
+          "stoppages": {
+            "type": "number"
+          },
+          "stoppages_without_notice": {
+            "type": "number"
+          },
+          "trades": {
+            "type": "number"
+          },
+          "trades_during_stoppages": {
+            "type": "number"
+          },
+          "trades_flagged": {
+            "type": "number"
+          },
+          "uncovered_stoppages": {
+            "type": "number"
+          },
+          "violations": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "halt_records",
+          "participant_notices",
+          "stoppages",
+          "stoppages_without_notice",
+          "trades",
+          "trades_during_stoppages",
+          "trades_flagged",
+          "uncovered_stoppages",
+          "violations"
+        ],
+        "additionalProperties": false
+      },
+      "detail": {
+        "type": "string"
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "HALT_RECORD_ENTRY_INVALID",
+                "HALT_RECORDS_INVALID",
+                "NOTICE_ENTRY_INVALID",
+                "NOTICES_INVALID",
+                "STOPPAGE_ENTRY_INVALID",
+                "STOPPAGES_INVALID",
+                "TRADE_ENTRY_INVALID",
+                "TRADE_ID_DUPLICATE",
+                "TRADES_INVALID",
+                "TOLERANCE_INVALID"
+              ],
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "text"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "error": {
+        "type": "string",
+        "enum": [
+          "halt_record_entry_invalid",
+          "halt_records_invalid",
+          "notice_entry_invalid",
+          "notices_invalid",
+          "stoppage_entry_invalid",
+          "stoppages_invalid",
+          "tolerance_invalid",
+          "trade_entry_invalid",
+          "trade_id_duplicate",
+          "trades_invalid"
+        ]
+      },
+      "per_stoppage": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "covered": {
+              "type": "boolean",
+              "enum": [
+                false,
+                true
+              ]
+            },
+            "covering_halt_record": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "end_ts": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "start_ts": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "end_ts",
+                "start_ts"
+              ],
+              "additionalProperties": false
+            },
+            "end_ts": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "halt",
+                "mwcb",
+                "suspension"
+              ]
+            },
+            "notice_latency_ms": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "start_ts": {
+              "type": "number"
+            },
+            "symbol": {
+              "type": "string"
+            },
+            "trades_during": {
+              "type": "number"
+            },
+            "trades_flagged": {
+              "type": "number"
+            },
+            "trades_within_tolerance": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "covered",
+            "covering_halt_record",
+            "end_ts",
+            "kind",
+            "notice_latency_ms",
+            "start_ts",
+            "symbol",
+            "trades_during",
+            "trades_flagged",
+            "trades_within_tolerance"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "violations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "halt",
+                "mwcb",
+                "suspension"
+              ]
+            },
+            "stoppage_end_ts": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "stoppage_start_ts": {
+              "type": "number"
+            },
+            "symbol": {
+              "type": "string"
+            },
+            "trade_id": {
+              "type": "string"
+            },
+            "trade_ts": {
+              "type": "number"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "HALT_RECORD_NOT_COVERING",
+                "NO_PARTICIPANT_NOTICE",
+                "TRADE_DURING_STOPPAGE"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "stoppage_end_ts",
+            "stoppage_start_ts",
+            "symbol",
+            "type"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "assumptions",
+      "concurrency_tolerance_ms",
+      "per_stoppage",
+      "violations"
+    ],
+    "additionalProperties": false
+  },
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0"
+}
