@@ -1,0 +1,1545 @@
+{
+  "tool_id": "art-709-v4-hook-fee-conformance",
+  "note": "Golden vectors F1-F15. F1 protocol-0 pass-through (3000 pips). F2 the calculateSwapFee composition 1000+3000-3000/1000 = 3997. F3 override-flag LP fee (flag stripped per REMOVE_OVERRIDE_MASK). F4 LP fee over declared bounds. F5 splits summing to 9999. F6 emitted-fee mismatch. F7 exact-out INDETERMINATE. F8 dynamic pool fee without override INDETERMINATE. F9 MAX_SWAP_FEE boundary. F10 total-cap breach. F11 integer hook-charge accrual with remainders. F12 mixed multi-swap statuses. F13-F15 refusal pins. All fee rules pinned to v4-core a7cf038cd568801a79a9b4cf92cd5b52c95c8585; the node reads no chain.",
+  "vectors": [
+    {
+      "name": "F1_protocol_zero_lp_3000_conforms",
+      "note": "Protocol fee 0: per pinned Pool.sol L307 the whole fee is the LP fee (3000 pips); emitted 3000 CONFORMS. Hook charge accrues on top; LP revenue reported separately.",
+      "policy_parameters": {
+        "protocol_fee": 0,
+        "pool_fee": 3000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "emitted_fee_pips": 3000
+          }
+        ]
+      },
+      "output_payload": {
+        "protocol_fee": 0,
+        "protocol_fee_zero_for_one_pips": 0,
+        "protocol_fee_one_for_zero_pips": 0,
+        "protocol_fee_valid": true,
+        "pool_fee": 3000,
+        "pool_fee_is_dynamic": false,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_total_fee_cap_pips": null,
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "splits_sum_bps": 10000,
+        "splits_ok": true,
+        "total_cap_ok": null,
+        "per_swap": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "lp_fee_pips": 3000,
+            "lp_fee_source": "pool_static",
+            "lp_fee_within_declared_bounds": true,
+            "protocol_fee_direction_pips": 0,
+            "swap_fee_pips": 3000,
+            "emitted_fee_pips": 3000,
+            "status": "CONFORMS",
+            "hook_charge_amount": 500,
+            "hook_charge_remainder": 0,
+            "hook_charge_per_recipient": {
+              "treasury": {
+                "amount": 500,
+                "remainder": 0
+              }
+            },
+            "lp_revenue_amount": 3000,
+            "protocol_revenue_amount": 0,
+            "cap_check": null,
+            "indeterminate_reason": null
+          }
+        ],
+        "counts": {
+          "swaps": 1,
+          "conforms": 1,
+          "out_of_bounds": 0,
+          "fee_mismatch": 0,
+          "indeterminate": 0
+        },
+        "fee_story_explained": true,
+        "totals": {
+          "lp_revenue": 3000,
+          "protocol_revenue": 0,
+          "hook_charge": 500,
+          "hook_charge_remainder": 0,
+          "per_recipient": {
+            "treasury": {
+              "amount": 500,
+              "remainder": 0
+            }
+          }
+        },
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": [
+          "Fee rules pinned to Uniswap v4-core at commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585: LPFeeLibrary.sol (flags, MAX_LP_FEE), ProtocolFeeLibrary.sol (isValidProtocolFee, calculateSwapFee), Pool.sol L301-320 (fee composition and the emitted Swap fee), SwapMath.sol MAX_SWAP_FEE.",
+          "calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.",
+          "All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.",
+          "LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.",
+          "Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.",
+          "A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.",
+          "Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees."
+        ]
+      },
+      "golden_hash": "ea6b660099d2da7b1c1acc4b25c5d8e3a96e4937258614fe758f31dcbfe34204"
+    },
+    {
+      "name": "F2_protocol_1000_lp_3000_composition_3997",
+      "note": "calculateSwapFee composition: 1000 + 3000 - floor(1000*3000/1e6) = 3997 pips; emitted 3997 CONFORMS (the row-mandated composition fixture).",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 3000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "emitted_fee_pips": 3997
+          }
+        ]
+      },
+      "output_payload": {
+        "protocol_fee": 1000,
+        "protocol_fee_zero_for_one_pips": 1000,
+        "protocol_fee_one_for_zero_pips": 0,
+        "protocol_fee_valid": true,
+        "pool_fee": 3000,
+        "pool_fee_is_dynamic": false,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_total_fee_cap_pips": null,
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "splits_sum_bps": 10000,
+        "splits_ok": true,
+        "total_cap_ok": null,
+        "per_swap": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "lp_fee_pips": 3000,
+            "lp_fee_source": "pool_static",
+            "lp_fee_within_declared_bounds": true,
+            "protocol_fee_direction_pips": 1000,
+            "swap_fee_pips": 3997,
+            "emitted_fee_pips": 3997,
+            "status": "CONFORMS",
+            "hook_charge_amount": 500,
+            "hook_charge_remainder": 0,
+            "hook_charge_per_recipient": {
+              "treasury": {
+                "amount": 500,
+                "remainder": 0
+              }
+            },
+            "lp_revenue_amount": 3000,
+            "protocol_revenue_amount": 1000,
+            "cap_check": null,
+            "indeterminate_reason": null
+          }
+        ],
+        "counts": {
+          "swaps": 1,
+          "conforms": 1,
+          "out_of_bounds": 0,
+          "fee_mismatch": 0,
+          "indeterminate": 0
+        },
+        "fee_story_explained": true,
+        "totals": {
+          "lp_revenue": 3000,
+          "protocol_revenue": 1000,
+          "hook_charge": 500,
+          "hook_charge_remainder": 0,
+          "per_recipient": {
+            "treasury": {
+              "amount": 500,
+              "remainder": 0
+            }
+          }
+        },
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": [
+          "Fee rules pinned to Uniswap v4-core at commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585: LPFeeLibrary.sol (flags, MAX_LP_FEE), ProtocolFeeLibrary.sol (isValidProtocolFee, calculateSwapFee), Pool.sol L301-320 (fee composition and the emitted Swap fee), SwapMath.sol MAX_SWAP_FEE.",
+          "calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.",
+          "All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.",
+          "LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.",
+          "Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.",
+          "A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.",
+          "Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees."
+        ]
+      },
+      "golden_hash": "46c669f8d53f4c34bceda43b06ac946d27c5f6d101b22ce68dec0f42a4c3d609"
+    },
+    {
+      "name": "F3_override_flag_set",
+      "note": "lp_fee_override 0x400000|4000 carries the override flag: the LP fee for this swap is 4000 (flag stripped per REMOVE_OVERRIDE_MASK 0xBFFFFF); oneForZero protocol fee is 0 so swap fee = 4000.",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 3000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": false,
+            "amount_in": 250000,
+            "emitted_fee_pips": 4000,
+            "lp_fee_override": 4198304
+          }
+        ]
+      },
+      "output_payload": {
+        "protocol_fee": 1000,
+        "protocol_fee_zero_for_one_pips": 1000,
+        "protocol_fee_one_for_zero_pips": 0,
+        "protocol_fee_valid": true,
+        "pool_fee": 3000,
+        "pool_fee_is_dynamic": false,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_total_fee_cap_pips": null,
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "splits_sum_bps": 10000,
+        "splits_ok": true,
+        "total_cap_ok": null,
+        "per_swap": [
+          {
+            "index": 0,
+            "zero_for_one": false,
+            "amount_in": 250000,
+            "lp_fee_pips": 4000,
+            "lp_fee_source": "override",
+            "lp_fee_within_declared_bounds": true,
+            "protocol_fee_direction_pips": 0,
+            "swap_fee_pips": 4000,
+            "emitted_fee_pips": 4000,
+            "status": "CONFORMS",
+            "hook_charge_amount": 125,
+            "hook_charge_remainder": 0,
+            "hook_charge_per_recipient": {
+              "treasury": {
+                "amount": 125,
+                "remainder": 0
+              }
+            },
+            "lp_revenue_amount": 1000,
+            "protocol_revenue_amount": 0,
+            "cap_check": null,
+            "indeterminate_reason": null
+          }
+        ],
+        "counts": {
+          "swaps": 1,
+          "conforms": 1,
+          "out_of_bounds": 0,
+          "fee_mismatch": 0,
+          "indeterminate": 0
+        },
+        "fee_story_explained": true,
+        "totals": {
+          "lp_revenue": 1000,
+          "protocol_revenue": 0,
+          "hook_charge": 125,
+          "hook_charge_remainder": 0,
+          "per_recipient": {
+            "treasury": {
+              "amount": 125,
+              "remainder": 0
+            }
+          }
+        },
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": [
+          "Fee rules pinned to Uniswap v4-core at commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585: LPFeeLibrary.sol (flags, MAX_LP_FEE), ProtocolFeeLibrary.sol (isValidProtocolFee, calculateSwapFee), Pool.sol L301-320 (fee composition and the emitted Swap fee), SwapMath.sol MAX_SWAP_FEE.",
+          "calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.",
+          "All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.",
+          "LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.",
+          "Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.",
+          "A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.",
+          "Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees."
+        ]
+      },
+      "golden_hash": "6560fdf277f831b9b8f929ea639d38b6d2813135284cdf2b19436092797067f1"
+    },
+    {
+      "name": "F4_lp_fee_over_bounds_out_of_bounds",
+      "note": "Declared LP-fee bounds 0..2999 with pool fee 3000: every swap is OUT_OF_BOUNDS (declared story does not permit the fee the pool is set to).",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 3000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 2999
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "emitted_fee_pips": 3997
+          }
+        ]
+      },
+      "output_payload": {
+        "protocol_fee": 1000,
+        "protocol_fee_zero_for_one_pips": 1000,
+        "protocol_fee_one_for_zero_pips": 0,
+        "protocol_fee_valid": true,
+        "pool_fee": 3000,
+        "pool_fee_is_dynamic": false,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 2999
+        },
+        "declared_total_fee_cap_pips": null,
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "splits_sum_bps": 10000,
+        "splits_ok": true,
+        "total_cap_ok": null,
+        "per_swap": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "lp_fee_pips": 3000,
+            "lp_fee_source": "pool_static",
+            "lp_fee_within_declared_bounds": false,
+            "protocol_fee_direction_pips": 1000,
+            "swap_fee_pips": 3997,
+            "emitted_fee_pips": 3997,
+            "status": "OUT_OF_BOUNDS",
+            "hook_charge_amount": 500,
+            "hook_charge_remainder": 0,
+            "hook_charge_per_recipient": {
+              "treasury": {
+                "amount": 500,
+                "remainder": 0
+              }
+            },
+            "lp_revenue_amount": 3000,
+            "protocol_revenue_amount": 1000,
+            "cap_check": null,
+            "indeterminate_reason": null
+          }
+        ],
+        "counts": {
+          "swaps": 1,
+          "conforms": 0,
+          "out_of_bounds": 1,
+          "fee_mismatch": 0,
+          "indeterminate": 0
+        },
+        "fee_story_explained": true,
+        "totals": {
+          "lp_revenue": 3000,
+          "protocol_revenue": 1000,
+          "hook_charge": 500,
+          "hook_charge_remainder": 0,
+          "per_recipient": {
+            "treasury": {
+              "amount": 500,
+              "remainder": 0
+            }
+          }
+        },
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": [
+          "Fee rules pinned to Uniswap v4-core at commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585: LPFeeLibrary.sol (flags, MAX_LP_FEE), ProtocolFeeLibrary.sol (isValidProtocolFee, calculateSwapFee), Pool.sol L301-320 (fee composition and the emitted Swap fee), SwapMath.sol MAX_SWAP_FEE.",
+          "calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.",
+          "All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.",
+          "LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.",
+          "Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.",
+          "A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.",
+          "Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees."
+        ]
+      },
+      "golden_hash": "76b4c2b0ca4a199fd33676da9fd950408ed130dbd256f0d1d44d591886af9e9a"
+    },
+    {
+      "name": "F5_splits_sum_9999",
+      "note": "Declared splits sum to 9999 bps, not 10000: splits_ok false, fee_story_explained false — the declared hook-charge story does not fully allocate.",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 3000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 9999
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "emitted_fee_pips": 3997
+          }
+        ]
+      },
+      "output_payload": {
+        "protocol_fee": 1000,
+        "protocol_fee_zero_for_one_pips": 1000,
+        "protocol_fee_one_for_zero_pips": 0,
+        "protocol_fee_valid": true,
+        "pool_fee": 3000,
+        "pool_fee_is_dynamic": false,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_total_fee_cap_pips": null,
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 9999
+            }
+          ]
+        },
+        "splits_sum_bps": 9999,
+        "splits_ok": false,
+        "total_cap_ok": null,
+        "per_swap": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "lp_fee_pips": 3000,
+            "lp_fee_source": "pool_static",
+            "lp_fee_within_declared_bounds": true,
+            "protocol_fee_direction_pips": 1000,
+            "swap_fee_pips": 3997,
+            "emitted_fee_pips": 3997,
+            "status": "CONFORMS",
+            "hook_charge_amount": 500,
+            "hook_charge_remainder": 1,
+            "hook_charge_per_recipient": {
+              "treasury": {
+                "amount": 499,
+                "remainder": 9500
+              }
+            },
+            "lp_revenue_amount": 3000,
+            "protocol_revenue_amount": 1000,
+            "cap_check": null,
+            "indeterminate_reason": null
+          }
+        ],
+        "counts": {
+          "swaps": 1,
+          "conforms": 1,
+          "out_of_bounds": 0,
+          "fee_mismatch": 0,
+          "indeterminate": 0
+        },
+        "fee_story_explained": false,
+        "totals": {
+          "lp_revenue": 3000,
+          "protocol_revenue": 1000,
+          "hook_charge": 500,
+          "hook_charge_remainder": 1,
+          "per_recipient": {
+            "treasury": {
+              "amount": 499,
+              "remainder": 9500
+            }
+          }
+        },
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": [
+          "Fee rules pinned to Uniswap v4-core at commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585: LPFeeLibrary.sol (flags, MAX_LP_FEE), ProtocolFeeLibrary.sol (isValidProtocolFee, calculateSwapFee), Pool.sol L301-320 (fee composition and the emitted Swap fee), SwapMath.sol MAX_SWAP_FEE.",
+          "calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.",
+          "All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.",
+          "LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.",
+          "Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.",
+          "A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.",
+          "Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees."
+        ]
+      },
+      "golden_hash": "a922b11766c32ac66fce1ff466ce43e2d66b8861470b900f33135508074789b0"
+    },
+    {
+      "name": "F6_emitted_fee_mismatch",
+      "note": "Emitted 3000 against a recomputed 3997: FEE_MISMATCH — the declared fee story does not explain what the pool charged.",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 3000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "emitted_fee_pips": 3000
+          }
+        ]
+      },
+      "output_payload": {
+        "protocol_fee": 1000,
+        "protocol_fee_zero_for_one_pips": 1000,
+        "protocol_fee_one_for_zero_pips": 0,
+        "protocol_fee_valid": true,
+        "pool_fee": 3000,
+        "pool_fee_is_dynamic": false,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_total_fee_cap_pips": null,
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "splits_sum_bps": 10000,
+        "splits_ok": true,
+        "total_cap_ok": null,
+        "per_swap": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "lp_fee_pips": 3000,
+            "lp_fee_source": "pool_static",
+            "lp_fee_within_declared_bounds": true,
+            "protocol_fee_direction_pips": 1000,
+            "swap_fee_pips": 3997,
+            "emitted_fee_pips": 3000,
+            "status": "FEE_MISMATCH",
+            "hook_charge_amount": 500,
+            "hook_charge_remainder": 0,
+            "hook_charge_per_recipient": {
+              "treasury": {
+                "amount": 500,
+                "remainder": 0
+              }
+            },
+            "lp_revenue_amount": 3000,
+            "protocol_revenue_amount": 1000,
+            "cap_check": null,
+            "indeterminate_reason": null
+          }
+        ],
+        "counts": {
+          "swaps": 1,
+          "conforms": 0,
+          "out_of_bounds": 0,
+          "fee_mismatch": 1,
+          "indeterminate": 0
+        },
+        "fee_story_explained": false,
+        "totals": {
+          "lp_revenue": 3000,
+          "protocol_revenue": 1000,
+          "hook_charge": 500,
+          "hook_charge_remainder": 0,
+          "per_recipient": {
+            "treasury": {
+              "amount": 500,
+              "remainder": 0
+            }
+          }
+        },
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": [
+          "Fee rules pinned to Uniswap v4-core at commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585: LPFeeLibrary.sol (flags, MAX_LP_FEE), ProtocolFeeLibrary.sol (isValidProtocolFee, calculateSwapFee), Pool.sol L301-320 (fee composition and the emitted Swap fee), SwapMath.sol MAX_SWAP_FEE.",
+          "calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.",
+          "All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.",
+          "LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.",
+          "Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.",
+          "A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.",
+          "Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees."
+        ]
+      },
+      "golden_hash": "9611cfbaa94e870269f3e86a63879477be28cd52d2f5ad45d1219fb13bd744bd"
+    },
+    {
+      "name": "F7_exact_out_indeterminate",
+      "note": "exact_out swap: v4 reverts an exact-out swap that would pay a 100% fee; the node does not model reverts, so INDETERMINATE.",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 3000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "emitted_fee_pips": 3997,
+            "exact_out": true
+          }
+        ]
+      },
+      "output_payload": {
+        "protocol_fee": 1000,
+        "protocol_fee_zero_for_one_pips": 1000,
+        "protocol_fee_one_for_zero_pips": 0,
+        "protocol_fee_valid": true,
+        "pool_fee": 3000,
+        "pool_fee_is_dynamic": false,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_total_fee_cap_pips": null,
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "splits_sum_bps": 10000,
+        "splits_ok": true,
+        "total_cap_ok": null,
+        "per_swap": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "lp_fee_pips": 3000,
+            "lp_fee_source": "pool_static",
+            "lp_fee_within_declared_bounds": true,
+            "protocol_fee_direction_pips": 1000,
+            "swap_fee_pips": 3997,
+            "emitted_fee_pips": 3997,
+            "status": "INDETERMINATE",
+            "hook_charge_amount": 500,
+            "hook_charge_remainder": 0,
+            "hook_charge_per_recipient": {
+              "treasury": {
+                "amount": 500,
+                "remainder": 0
+              }
+            },
+            "lp_revenue_amount": 3000,
+            "protocol_revenue_amount": 1000,
+            "cap_check": null,
+            "indeterminate_reason": "EXACT_OUT_SWAP: v4 reverts an exact-out swap that would pay a 100% fee; this node does not model reverts"
+          }
+        ],
+        "counts": {
+          "swaps": 1,
+          "conforms": 0,
+          "out_of_bounds": 0,
+          "fee_mismatch": 0,
+          "indeterminate": 1
+        },
+        "fee_story_explained": false,
+        "totals": {
+          "lp_revenue": 3000,
+          "protocol_revenue": 1000,
+          "hook_charge": 500,
+          "hook_charge_remainder": 0,
+          "per_recipient": {
+            "treasury": {
+              "amount": 500,
+              "remainder": 0
+            }
+          }
+        },
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": [
+          "Fee rules pinned to Uniswap v4-core at commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585: LPFeeLibrary.sol (flags, MAX_LP_FEE), ProtocolFeeLibrary.sol (isValidProtocolFee, calculateSwapFee), Pool.sol L301-320 (fee composition and the emitted Swap fee), SwapMath.sol MAX_SWAP_FEE.",
+          "calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.",
+          "All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.",
+          "LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.",
+          "Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.",
+          "A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.",
+          "Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees."
+        ]
+      },
+      "golden_hash": "f5ac6772db5a913aeb8d1287911574a38cbe04730a3ba3a0f61c1905feba3c79"
+    },
+    {
+      "name": "F8_dynamic_pool_fee_no_override_indeterminate",
+      "note": "pool_fee 0x800000 (dynamic) with no override: the LP fee is set per-swap on chain and was not supplied — INDETERMINATE, never guessed.",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 8388608,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "emitted_fee_pips": 3997
+          }
+        ]
+      },
+      "output_payload": {
+        "protocol_fee": 1000,
+        "protocol_fee_zero_for_one_pips": 1000,
+        "protocol_fee_one_for_zero_pips": 0,
+        "protocol_fee_valid": true,
+        "pool_fee": 8388608,
+        "pool_fee_is_dynamic": true,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_total_fee_cap_pips": null,
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "splits_sum_bps": 10000,
+        "splits_ok": true,
+        "total_cap_ok": null,
+        "per_swap": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "lp_fee_pips": null,
+            "lp_fee_source": null,
+            "lp_fee_within_declared_bounds": null,
+            "protocol_fee_direction_pips": 1000,
+            "swap_fee_pips": null,
+            "emitted_fee_pips": 3997,
+            "status": "INDETERMINATE",
+            "hook_charge_amount": 0,
+            "hook_charge_remainder": 0,
+            "hook_charge_per_recipient": {},
+            "lp_revenue_amount": 0,
+            "protocol_revenue_amount": 0,
+            "cap_check": null,
+            "indeterminate_reason": "DYNAMIC_POOL_FEE_WITHOUT_OVERRIDE: the LP fee is set per-swap on chain and was not supplied"
+          }
+        ],
+        "counts": {
+          "swaps": 1,
+          "conforms": 0,
+          "out_of_bounds": 0,
+          "fee_mismatch": 0,
+          "indeterminate": 1
+        },
+        "fee_story_explained": false,
+        "totals": {
+          "lp_revenue": 0,
+          "protocol_revenue": 0,
+          "hook_charge": 0,
+          "hook_charge_remainder": 0,
+          "per_recipient": {
+            "treasury": {
+              "amount": 0,
+              "remainder": 0
+            }
+          }
+        },
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": [
+          "Fee rules pinned to Uniswap v4-core at commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585: LPFeeLibrary.sol (flags, MAX_LP_FEE), ProtocolFeeLibrary.sol (isValidProtocolFee, calculateSwapFee), Pool.sol L301-320 (fee composition and the emitted Swap fee), SwapMath.sol MAX_SWAP_FEE.",
+          "calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.",
+          "All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.",
+          "LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.",
+          "Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.",
+          "A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.",
+          "Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees."
+        ]
+      },
+      "golden_hash": "789ac82f2026b3f485f05eb74810e292aae721c59a6c45fc29a03db94cb90e5c"
+    },
+    {
+      "name": "F9_swap_fee_at_max_indeterminate",
+      "note": "LP fee 1000000 with protocol 1000 composes to exactly MAX_SWAP_FEE (the pinned Pool.sol L311 revert boundary): INDETERMINATE.",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 1000000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000,
+            "emitted_fee_pips": 1000000
+          }
+        ]
+      },
+      "output_payload": {
+        "protocol_fee": 1000,
+        "protocol_fee_zero_for_one_pips": 1000,
+        "protocol_fee_one_for_zero_pips": 0,
+        "protocol_fee_valid": true,
+        "pool_fee": 1000000,
+        "pool_fee_is_dynamic": false,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_total_fee_cap_pips": null,
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "splits_sum_bps": 10000,
+        "splits_ok": true,
+        "total_cap_ok": null,
+        "per_swap": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000,
+            "lp_fee_pips": 1000000,
+            "lp_fee_source": "pool_static",
+            "lp_fee_within_declared_bounds": true,
+            "protocol_fee_direction_pips": 1000,
+            "swap_fee_pips": 1000000,
+            "emitted_fee_pips": 1000000,
+            "status": "INDETERMINATE",
+            "hook_charge_amount": 0,
+            "hook_charge_remainder": 0,
+            "hook_charge_per_recipient": {
+              "treasury": {
+                "amount": 0,
+                "remainder": 0
+              }
+            },
+            "lp_revenue_amount": 1000,
+            "protocol_revenue_amount": 1,
+            "cap_check": null,
+            "indeterminate_reason": "SWAP_FEE_AT_MAX: the composed fee reaches the MAX_SWAP_FEE boundary where v4 reverts"
+          }
+        ],
+        "counts": {
+          "swaps": 1,
+          "conforms": 0,
+          "out_of_bounds": 0,
+          "fee_mismatch": 0,
+          "indeterminate": 1
+        },
+        "fee_story_explained": false,
+        "totals": {
+          "lp_revenue": 1000,
+          "protocol_revenue": 1,
+          "hook_charge": 0,
+          "hook_charge_remainder": 0,
+          "per_recipient": {
+            "treasury": {
+              "amount": 0,
+              "remainder": 0
+            }
+          }
+        },
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": [
+          "Fee rules pinned to Uniswap v4-core at commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585: LPFeeLibrary.sol (flags, MAX_LP_FEE), ProtocolFeeLibrary.sol (isValidProtocolFee, calculateSwapFee), Pool.sol L301-320 (fee composition and the emitted Swap fee), SwapMath.sol MAX_SWAP_FEE.",
+          "calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.",
+          "All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.",
+          "LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.",
+          "Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.",
+          "A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.",
+          "Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees."
+        ]
+      },
+      "golden_hash": "f499afbef8bef2d1bda9971663eb360af9ea6c63c89978d828b84a49a470f275"
+    },
+    {
+      "name": "F10_total_cap_exceeded",
+      "note": "declared_total_fee_cap_pips 4000 against swap fee 3997 + hook rate 500 = 4497: cap exceeded, total_cap_ok false, fee_story_explained false.",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 3000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "emitted_fee_pips": 3997
+          }
+        ],
+        "declared_total_fee_cap_pips": 4000
+      },
+      "output_payload": {
+        "protocol_fee": 1000,
+        "protocol_fee_zero_for_one_pips": 1000,
+        "protocol_fee_one_for_zero_pips": 0,
+        "protocol_fee_valid": true,
+        "pool_fee": 3000,
+        "pool_fee_is_dynamic": false,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_total_fee_cap_pips": 4000,
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "splits_sum_bps": 10000,
+        "splits_ok": true,
+        "total_cap_ok": false,
+        "per_swap": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "lp_fee_pips": 3000,
+            "lp_fee_source": "pool_static",
+            "lp_fee_within_declared_bounds": true,
+            "protocol_fee_direction_pips": 1000,
+            "swap_fee_pips": 3997,
+            "emitted_fee_pips": 3997,
+            "status": "CONFORMS",
+            "hook_charge_amount": 500,
+            "hook_charge_remainder": 0,
+            "hook_charge_per_recipient": {
+              "treasury": {
+                "amount": 500,
+                "remainder": 0
+              }
+            },
+            "lp_revenue_amount": 3000,
+            "protocol_revenue_amount": 1000,
+            "cap_check": {
+              "combined_pips": 4497,
+              "cap_pips": 4000,
+              "ok": false
+            },
+            "indeterminate_reason": null
+          }
+        ],
+        "counts": {
+          "swaps": 1,
+          "conforms": 1,
+          "out_of_bounds": 0,
+          "fee_mismatch": 0,
+          "indeterminate": 0
+        },
+        "fee_story_explained": false,
+        "totals": {
+          "lp_revenue": 3000,
+          "protocol_revenue": 1000,
+          "hook_charge": 500,
+          "hook_charge_remainder": 0,
+          "per_recipient": {
+            "treasury": {
+              "amount": 500,
+              "remainder": 0
+            }
+          }
+        },
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": [
+          "Fee rules pinned to Uniswap v4-core at commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585: LPFeeLibrary.sol (flags, MAX_LP_FEE), ProtocolFeeLibrary.sol (isValidProtocolFee, calculateSwapFee), Pool.sol L301-320 (fee composition and the emitted Swap fee), SwapMath.sol MAX_SWAP_FEE.",
+          "calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.",
+          "All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.",
+          "LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.",
+          "Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.",
+          "A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.",
+          "Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees."
+        ]
+      },
+      "golden_hash": "0d993ffd25e422fe3083022567c7c14392ebe80027913c5845cc11c5a926ce94"
+    },
+    {
+      "name": "F11_hook_charge_remainder_and_split_remainders",
+      "note": "amount_in 1234567 at rate 500 pips: hook charge floors to 617 with remainder 283500; a 6000/4000 split floors per recipient with remainders reported.",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 3000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "lp_side_pool",
+              "share_bps": 6000
+            },
+            {
+              "recipient_label": "treasury",
+              "share_bps": 4000
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1234567,
+            "emitted_fee_pips": 3997
+          }
+        ]
+      },
+      "output_payload": {
+        "protocol_fee": 1000,
+        "protocol_fee_zero_for_one_pips": 1000,
+        "protocol_fee_one_for_zero_pips": 0,
+        "protocol_fee_valid": true,
+        "pool_fee": 3000,
+        "pool_fee_is_dynamic": false,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_total_fee_cap_pips": null,
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "lp_side_pool",
+              "share_bps": 6000
+            },
+            {
+              "recipient_label": "treasury",
+              "share_bps": 4000
+            }
+          ]
+        },
+        "splits_sum_bps": 10000,
+        "splits_ok": true,
+        "total_cap_ok": null,
+        "per_swap": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1234567,
+            "lp_fee_pips": 3000,
+            "lp_fee_source": "pool_static",
+            "lp_fee_within_declared_bounds": true,
+            "protocol_fee_direction_pips": 1000,
+            "swap_fee_pips": 3997,
+            "emitted_fee_pips": 3997,
+            "status": "CONFORMS",
+            "hook_charge_amount": 617,
+            "hook_charge_remainder": 1,
+            "hook_charge_per_recipient": {
+              "lp_side_pool": {
+                "amount": 370,
+                "remainder": 2000
+              },
+              "treasury": {
+                "amount": 246,
+                "remainder": 8000
+              }
+            },
+            "lp_revenue_amount": 3703,
+            "protocol_revenue_amount": 1234,
+            "cap_check": null,
+            "indeterminate_reason": null
+          }
+        ],
+        "counts": {
+          "swaps": 1,
+          "conforms": 1,
+          "out_of_bounds": 0,
+          "fee_mismatch": 0,
+          "indeterminate": 0
+        },
+        "fee_story_explained": true,
+        "totals": {
+          "lp_revenue": 3703,
+          "protocol_revenue": 1234,
+          "hook_charge": 617,
+          "hook_charge_remainder": 1,
+          "per_recipient": {
+            "lp_side_pool": {
+              "amount": 370,
+              "remainder": 2000
+            },
+            "treasury": {
+              "amount": 246,
+              "remainder": 8000
+            }
+          }
+        },
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": [
+          "Fee rules pinned to Uniswap v4-core at commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585: LPFeeLibrary.sol (flags, MAX_LP_FEE), ProtocolFeeLibrary.sol (isValidProtocolFee, calculateSwapFee), Pool.sol L301-320 (fee composition and the emitted Swap fee), SwapMath.sol MAX_SWAP_FEE.",
+          "calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.",
+          "All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.",
+          "LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.",
+          "Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.",
+          "A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.",
+          "Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees."
+        ]
+      },
+      "golden_hash": "abefce85e0c7da07b1ce1e4344ea6674496d9227310b41418ccda3b82d8c212b"
+    },
+    {
+      "name": "F12_multi_swap_mixed_statuses",
+      "note": "Three swaps in one call: swap 0 CONFORMS, swap 1 (override) CONFORMS at 4000, swap 2 carries a wrong emitted fee (FEE_MISMATCH).",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 3000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "emitted_fee_pips": 3997
+          },
+          {
+            "index": 1,
+            "zero_for_one": false,
+            "amount_in": 500000,
+            "emitted_fee_pips": 4000,
+            "lp_fee_override": 4198304
+          },
+          {
+            "index": 2,
+            "zero_for_one": true,
+            "amount_in": 750000,
+            "emitted_fee_pips": 1234
+          }
+        ]
+      },
+      "output_payload": {
+        "protocol_fee": 1000,
+        "protocol_fee_zero_for_one_pips": 1000,
+        "protocol_fee_one_for_zero_pips": 0,
+        "protocol_fee_valid": true,
+        "pool_fee": 3000,
+        "pool_fee_is_dynamic": false,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_total_fee_cap_pips": null,
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "splits_sum_bps": 10000,
+        "splits_ok": true,
+        "total_cap_ok": null,
+        "per_swap": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "lp_fee_pips": 3000,
+            "lp_fee_source": "pool_static",
+            "lp_fee_within_declared_bounds": true,
+            "protocol_fee_direction_pips": 1000,
+            "swap_fee_pips": 3997,
+            "emitted_fee_pips": 3997,
+            "status": "CONFORMS",
+            "hook_charge_amount": 500,
+            "hook_charge_remainder": 0,
+            "hook_charge_per_recipient": {
+              "treasury": {
+                "amount": 500,
+                "remainder": 0
+              }
+            },
+            "lp_revenue_amount": 3000,
+            "protocol_revenue_amount": 1000,
+            "cap_check": null,
+            "indeterminate_reason": null
+          },
+          {
+            "index": 1,
+            "zero_for_one": false,
+            "amount_in": 500000,
+            "lp_fee_pips": 4000,
+            "lp_fee_source": "override",
+            "lp_fee_within_declared_bounds": true,
+            "protocol_fee_direction_pips": 0,
+            "swap_fee_pips": 4000,
+            "emitted_fee_pips": 4000,
+            "status": "CONFORMS",
+            "hook_charge_amount": 250,
+            "hook_charge_remainder": 0,
+            "hook_charge_per_recipient": {
+              "treasury": {
+                "amount": 250,
+                "remainder": 0
+              }
+            },
+            "lp_revenue_amount": 2000,
+            "protocol_revenue_amount": 0,
+            "cap_check": null,
+            "indeterminate_reason": null
+          },
+          {
+            "index": 2,
+            "zero_for_one": true,
+            "amount_in": 750000,
+            "lp_fee_pips": 3000,
+            "lp_fee_source": "pool_static",
+            "lp_fee_within_declared_bounds": true,
+            "protocol_fee_direction_pips": 1000,
+            "swap_fee_pips": 3997,
+            "emitted_fee_pips": 1234,
+            "status": "FEE_MISMATCH",
+            "hook_charge_amount": 375,
+            "hook_charge_remainder": 0,
+            "hook_charge_per_recipient": {
+              "treasury": {
+                "amount": 375,
+                "remainder": 0
+              }
+            },
+            "lp_revenue_amount": 2250,
+            "protocol_revenue_amount": 750,
+            "cap_check": null,
+            "indeterminate_reason": null
+          }
+        ],
+        "counts": {
+          "swaps": 3,
+          "conforms": 2,
+          "out_of_bounds": 0,
+          "fee_mismatch": 1,
+          "indeterminate": 0
+        },
+        "fee_story_explained": false,
+        "totals": {
+          "lp_revenue": 7250,
+          "protocol_revenue": 1750,
+          "hook_charge": 1125,
+          "hook_charge_remainder": 0,
+          "per_recipient": {
+            "treasury": {
+              "amount": 1125,
+              "remainder": 0
+            }
+          }
+        },
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": [
+          "Fee rules pinned to Uniswap v4-core at commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585: LPFeeLibrary.sol (flags, MAX_LP_FEE), ProtocolFeeLibrary.sol (isValidProtocolFee, calculateSwapFee), Pool.sol L301-320 (fee composition and the emitted Swap fee), SwapMath.sol MAX_SWAP_FEE.",
+          "calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.",
+          "All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.",
+          "LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.",
+          "Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.",
+          "A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.",
+          "Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees."
+        ]
+      },
+      "golden_hash": "4fb0c6228d14964ca28546e48aae1eb6c123fd5368b22b7340bcb6e4c489654a"
+    },
+    {
+      "name": "F13_refusal_missing_swaps",
+      "note": "Refusal pin: an empty swaps array is INPUT_REFUSED, never an empty conformance report.",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 3000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "swaps": []
+      },
+      "output_payload": {
+        "error": "swaps_invalid",
+        "detail": "swaps must be a non-empty array of { index, zero_for_one, amount_in, emitted_fee_pips, lp_fee_override?, exact_out? }; got [].",
+        "domain_errors": [
+          {
+            "code": "SWAPS_INVALID",
+            "text": "swaps must be a non-empty array of { index, zero_for_one, amount_in, emitted_fee_pips, lp_fee_override?, exact_out? }; got []."
+          }
+        ],
+        "per_swap": [],
+        "totals": null,
+        "protocol_fee_valid": null,
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": []
+      },
+      "golden_hash": "50b7d232cfaae4aa90c292c088709c39cd5ee78955c0a466c519aab32ff6d2a7"
+    },
+    {
+      "name": "F14_refusal_bad_bounds",
+      "note": "Refusal pin: declared_lp_fee_bounds with min > max is INPUT_REFUSED.",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 3000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 5000,
+          "max_pips": 1000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "treasury",
+              "share_bps": 10000
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "emitted_fee_pips": 3997
+          }
+        ]
+      },
+      "output_payload": {
+        "error": "lp_fee_bounds_invalid",
+        "detail": "declared_lp_fee_bounds must be { min_pips, max_pips } with 0 <= min <= max <= 1000000; got {\"min_pips\":5000,\"max_pips\":1000}.",
+        "domain_errors": [
+          {
+            "code": "LP_FEE_BOUNDS_INVALID",
+            "text": "declared_lp_fee_bounds must be { min_pips, max_pips } with 0 <= min <= max <= 1000000; got {\"min_pips\":5000,\"max_pips\":1000}."
+          }
+        ],
+        "per_swap": [],
+        "totals": null,
+        "protocol_fee_valid": null,
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": []
+      },
+      "golden_hash": "7579feebb3e0b5ae97d70a71c92d92a56a7308ace6f4a6af1b8ed79f1546e3a7"
+    },
+    {
+      "name": "F15_refusal_bad_split_share",
+      "note": "Refusal pin: a split share above 10000 bps is INPUT_REFUSED.",
+      "policy_parameters": {
+        "protocol_fee": 1000,
+        "pool_fee": 3000,
+        "declared_lp_fee_bounds": {
+          "min_pips": 0,
+          "max_pips": 1000000
+        },
+        "declared_hook_charge": {
+          "rate_pips": 500,
+          "splits": [
+            {
+              "recipient_label": "greedy",
+              "share_bps": 10001
+            }
+          ]
+        },
+        "swaps": [
+          {
+            "index": 0,
+            "zero_for_one": true,
+            "amount_in": 1000000,
+            "emitted_fee_pips": 3997
+          }
+        ]
+      },
+      "output_payload": {
+        "error": "hook_charge_splits_invalid",
+        "detail": "each split must be { recipient_label: string, share_bps: integer 0..10000 }; got {\"recipient_label\":\"greedy\",\"share_bps\":10001}.",
+        "domain_errors": [
+          {
+            "code": "HOOK_CHARGE_SPLITS_INVALID",
+            "text": "each split must be { recipient_label: string, share_bps: integer 0..10000 }; got {\"recipient_label\":\"greedy\",\"share_bps\":10001}."
+          }
+        ],
+        "per_swap": [],
+        "totals": null,
+        "protocol_fee_valid": null,
+        "v4_core_commit": "a7cf038cd568801a79a9b4cf92cd5b52c95c8585",
+        "assumptions": []
+      },
+      "golden_hash": "8c286d722a84579ab2900edab59741d338631b1e076893a0a7a8875c5bf296a7"
+    }
+  ]
+}
