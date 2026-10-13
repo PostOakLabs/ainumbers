@@ -1,0 +1,64 @@
+{
+  "tool_id": "art-709-v4-hook-fee-conformance",
+  "tool_version": "1.0.0",
+  "display_name": "V4 Hook Fee Conformance",
+  "mcp_name": "check_v4_hook_fee_conformance",
+  "mandate_type": "compliance_control",
+  "wave": 128,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-709-v4-hook-fee-conformance.html",
+  "description": "Recomputes a Uniswap v4 pool's per-swap fee from v4-core's own fee rules at the pinned commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585 (ProtocolFeeLibrary.sol calculateSwapFee: swapFee = protocolFee + lpFee - protocolFee*lpFee/1e6; Pool.sol L307 the protocol-fee-zero pass-through and L311 the MAX_SWAP_FEE revert boundary; LPFeeLibrary.sol the 0x400000 override flag, the 0x800000 dynamic flag and MAX_LP_FEE 1,000,000) and checks each swap's emitted fee against that recomposition: per-swap CONFORMS, OUT_OF_BOUNDS (LP fee outside the declared bounds or over MAX_LP_FEE) or FEE_MISMATCH (the declared fee story does not explain what the pool charged). Validates the packed two-direction protocol fee with isValidProtocolFee (each direction <= 1000 pips), decodes a per-swap LP-fee override by stripping its flag per REMOVE_OVERRIDE_MASK, enforces the declared total fee cap (swap fee + hook charge), accrues a separately declared hook charge per swap and per recipient in integer floor arithmetic with every remainder reported, and reports LP revenue (amount_in * lpFee / 1e6) side by side, never netted against the hook charge; LP revenue stays LP revenue. Exact-out swaps, composed fees at or above MAX_SWAP_FEE, and a dynamic pool fee (0x800000) without a per-swap override are reported INDETERMINATE rather than guessed. Evidence artifact only: it states no opinion on whether a fee is lawful. Zero network: the node never reads a chain and recomputes only what the caller supplies.",
+  "input_schema_ref": "chaingraph/art-709-v4-hook-fee-conformance.html#manifest",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:979154bd3601f1c0e64186e41b3c0b9adef0df6842013d20fc0daf76145ef46f","valid_from":"2026-10-12"}],
+  "export_capability": ["json"],
+  "standards_basis": "implements_standard",
+  "cited_clause_digest": [
+    {
+      "digest": "sha256:772863f912e017b60867f17f6c249bbef9acdf7459892c9865f71154cec9d383",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/v4-core/a7cf038cd568801a79a9b4cf92cd5b52c95c8585/src/libraries/ProtocolFeeLibrary.sol",
+      "retrieved_at": "2026-10-12",
+      "clause_path": "src/libraries/ProtocolFeeLibrary.sol L5-46 (MAX_PROTOCOL_FEE, isValidProtocolFee, calculateSwapFee)",
+      "scheme": "solidity",
+      "id": "v4-core a7cf038c ProtocolFeeLibrary calculateSwapFee"
+    },
+    {
+      "digest": "sha256:e9a9c606ee72facf2999f4aed5b9e316e789a969e33921cfbfab32eb4634de15",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/v4-core/a7cf038cd568801a79a9b4cf92cd5b52c95c8585/src/libraries/Pool.sol",
+      "retrieved_at": "2026-10-12",
+      "clause_path": "src/libraries/Pool.sol L295-320 (swapFee = protocolFee == 0 ? lpFee : calculateSwapFee(lpFee); MAX_SWAP_FEE boundary; Swap emits the composed fee)",
+      "scheme": "solidity",
+      "id": "v4-core a7cf038c Pool.sol fee composition"
+    },
+    {
+      "digest": "sha256:4cbcfb1c593d57a5d957b561785b134a244236d251d74884ac6e5619787e32e8",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/v4-core/a7cf038cd568801a79a9b4cf92cd5b52c95c8585/src/libraries/LPFeeLibrary.sol",
+      "retrieved_at": "2026-10-12",
+      "clause_path": "src/libraries/LPFeeLibrary.sol L12-70 (DYNAMIC_FEE_FLAG 0x800000, OVERRIDE_FEE_FLAG 0x400000, REMOVE_OVERRIDE_MASK 0xBFFFFF, MAX_LP_FEE, isDynamicFee, isValid, hasOverrideFlag, removeOverrideFlag)",
+      "scheme": "solidity",
+      "id": "v4-core a7cf038c LPFeeLibrary fee constants and override helpers"
+    },
+    {
+      "digest": "sha256:6438d6c7b59cbf623ef60d3f0b4c9e8798bf26b515795b0a1fd30158a92ec76c",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/v4-core/a7cf038cd568801a79a9b4cf92cd5b52c95c8585/src/libraries/SwapMath.sol",
+      "retrieved_at": "2026-10-12",
+      "clause_path": "src/libraries/SwapMath.sol L8-16 (MAX_SWAP_FEE = 1e6)",
+      "scheme": "solidity",
+      "id": "v4-core a7cf038c SwapMath MAX_SWAP_FEE"
+    },
+    {
+      "digest": "sha256:deb04066ef8fe12173e874f7644d192cc5745dc14c4cf665bbeb979facb6ad1b",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/v4-core/a7cf038cd568801a79a9b4cf92cd5b52c95c8585/src/interfaces/IPoolManager.sol",
+      "retrieved_at": "2026-10-12",
+      "clause_path": "src/interfaces/IPoolManager.sol L82-91 (Swap event: fee = the swap fee in hundredths of a bip)",
+      "scheme": "solidity",
+      "id": "v4-core a7cf038c IPoolManager Swap event"
+    }
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "New gpu:false node, art-709-v4-hook-fee-conformance, built 2026-10-12 (ART709-V4HOOK-FEE-CONFORMANCE-1). No GPU prove has been run and none is proposed by this row; deferred per the section 18 steady-state rule (RIDER-KERNEL.md); the section 18 ceiling is raised by one in the same PR (SO #59 in-PR shape) via check-compute-proof-coverage.mjs --update-baseline under a scratch DERIVED_ROOT."
+}

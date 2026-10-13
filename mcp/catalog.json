@@ -2,10 +2,10 @@
   "schema_version": "mcp-catalog-v1",
   "server_id": "ainumbers-fintech-suite",
   "name": "AINumbers Fintech Intelligence Suite",
-  "description": "1198 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
+  "description": "1202 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
   "base_url": "https://ainumbers.co",
-  "generated": "2026-10-11",
-  "tool_count": 1198,
+  "generated": "2026-10-12",
+  "tool_count": 1202,
   "tools": [
     {
       "name": "calculate_a2a_fee_route",
@@ -50542,6 +50542,367 @@
           "mcp:build_bond_ladder"
         ],
         "url": "https://ainumbers.co/chaingraph/art-705-bond-ladder-builder.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "build_yield_curve_gspread",
+      "description": "Builds a par yield curve from caller-supplied benchmark points under a named, versioned interpolation and reports the G-spread of a bond against it in basis points.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "benchmark_points",
+          "benchmark_name",
+          "bond"
+        ],
+        "properties": {
+          "benchmark_points": {
+            "type": "array",
+            "description": "Caller-supplied benchmark points [{ tenor_years, yield_pct }]: at least 2, strictly increasing tenors, used exactly as given (no live data).",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tenor_years": {
+                  "type": "number"
+                },
+                "yield_pct": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "benchmark_name": {
+            "type": "string",
+            "description": "Non-empty string naming the caller-supplied benchmark, echoed into the output curve."
+          },
+          "interpolation": {
+            "type": "string",
+            "enum": [
+              "linear",
+              "monotone_cubic_hermite"
+            ],
+            "description": "Named interpolation: 'linear' (linear@1) or 'monotone_cubic_hermite' (monotone_cubic_hermite@1, Fritsch-Carlson 1980). Defaults to linear."
+          },
+          "bond": {
+            "type": "object",
+            "description": "{ maturity_years, yield_pct } of the bond. A maturity_years outside the benchmark tenor range is refused naming the range, never extrapolated.",
+            "properties": {
+              "maturity_years": {
+                "type": "number"
+              },
+              "yield_pct": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-706-yield-curve-gspread",
+        "category": "chaingraph",
+        "tags": [
+          "yield_curve",
+          "g_spread",
+          "fixed-income",
+          "par-curve",
+          "interpolation",
+          "monotone-cubic-hermite",
+          "fritsch-carlson",
+          "benchmark-spread",
+          "tvm-primitive",
+          "mcp:build_yield_curve_gspread"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-706-yield-curve-gspread.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "check_tsv_tier_cap_ladder",
+      "description": "Replays a TSV's daily volume and symbol counts (affiliates aggregated) against the SEC TSV Exemption tier caps and stepped-compliance ladder; emits pause windows.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "tsv_id",
+          "stocks",
+          "as_of_date"
+        ],
+        "properties": {
+          "tsv_id": {
+            "type": "string",
+            "description": "Non-empty identifier of the venue being replayed; its volume is always included in the aggregate."
+          },
+          "affiliated_tsv_ids": {
+            "type": "array",
+            "description": "Affiliated TSV identifiers whose volume and symbols aggregate with the venue's. Never repeats tsv_id.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stocks": {
+            "type": "array",
+            "description": "Declared universe [{ symbol, tier, prior_month_adv_shares }]; tier is caller-declared, no LULD lookup.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "symbol": {
+                  "type": "string"
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "tier_1",
+                    "tier_2"
+                  ]
+                },
+                "prior_month_adv_shares": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "description": "Positive integer prior-month ADV in shares; null reports the stock INDETERMINATE."
+                }
+              }
+            }
+          },
+          "daily_volume": {
+            "type": "array",
+            "description": "One row per venue per day per symbol; rows for the declared group are summed. Duplicates refused.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string"
+                },
+                "tsv_id": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": "string"
+                },
+                "shares": {
+                  "type": "integer",
+                  "description": "Non-negative integer share count for that venue, day and symbol."
+                }
+              }
+            }
+          },
+          "symbols_traded": {
+            "type": "array",
+            "description": "Optional distinct-symbol record; derived from daily_volume when omitted.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string"
+                },
+                "tsv_id": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "prior_breaches": {
+            "type": "array",
+            "description": "Volume breaches recorded before the window; consumes the stock's one-time first-breach pass.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "symbol": {
+                  "type": "string"
+                },
+                "date": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "as_of_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD date the pause status is evaluated as of."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-707-tsv-tier-cap-ladder",
+        "category": "chaingraph",
+        "tags": [
+          "tsv",
+          "tokenized-stock",
+          "sec",
+          "reg-nms",
+          "tier-caps",
+          "stepped-compliance",
+          "pause-window",
+          "compliance-evidence",
+          "luld-tier",
+          "mcp:check_tsv_tier_cap_ladder"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-707-tsv-tier-cap-ladder.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "reconcile_v4_hook_permissions",
+      "description": "Decodes a Uniswap v4 hook address's 14 permission bits against a caller-declared callback set, replicates v4-core's isValidHookAddress rule (including the dynamic-fee escape), and reconciles a hooklist dynamicFee declaration with the pool fee.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "hook_address",
+          "declared_permissions"
+        ],
+        "properties": {
+          "hook_address": {
+            "type": "string",
+            "description": "0x-prefixed 40-hex-digit Uniswap v4 hook address; checksum not required, normalised to lowercase. Its low 14 bits are the permission bitmap."
+          },
+          "declared_permissions": {
+            "type": "object",
+            "description": "All 14 callback booleans, required, never defaulted; a missing key is refused. A Uniswap hooklist entry { hook, flags, properties } also accepted.",
+            "properties": {
+              "beforeInitialize": {
+                "type": "boolean"
+              },
+              "afterInitialize": {
+                "type": "boolean"
+              },
+              "beforeAddLiquidity": {
+                "type": "boolean"
+              },
+              "afterAddLiquidity": {
+                "type": "boolean"
+              },
+              "beforeRemoveLiquidity": {
+                "type": "boolean"
+              },
+              "afterRemoveLiquidity": {
+                "type": "boolean"
+              },
+              "beforeSwap": {
+                "type": "boolean"
+              },
+              "afterSwap": {
+                "type": "boolean"
+              },
+              "beforeDonate": {
+                "type": "boolean"
+              },
+              "afterDonate": {
+                "type": "boolean"
+              },
+              "beforeSwapReturnDelta": {
+                "type": "boolean"
+              },
+              "afterSwapReturnDelta": {
+                "type": "boolean"
+              },
+              "afterAddLiquidityReturnDelta": {
+                "type": "boolean"
+              },
+              "afterRemoveLiquidityReturnDelta": {
+                "type": "boolean"
+              }
+            }
+          },
+          "pool_fee": {
+            "type": "integer",
+            "description": "Optional uint24 pool fee; the fee is dynamic iff pool_fee & 0x800000 (8388608)."
+          },
+          "declaration_source": {
+            "type": "string",
+            "description": "Optional free text naming where the declaration comes from, e.g. a registry entry or notice item; emitted unchanged in the output."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-708-v4-hook-permission-reconciler",
+        "category": "chaingraph",
+        "tags": [
+          "uniswap",
+          "v4-core",
+          "hooks",
+          "permission-bits",
+          "bitmap-decode",
+          "callback-declaration",
+          "hooklist",
+          "dynamic-fee",
+          "compliance-evidence",
+          "mcp:reconcile_v4_hook_permissions"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-708-v4-hook-permission-reconciler.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "check_v4_hook_fee_conformance",
+      "description": "Recomputes a Uniswap v4 pool\u2019s per-swap fee from v4-core\u2019s own rules at pinned a7cf038cd568801a79a9b4cf92cd5b52c95c8585 (calculateSwapFee composition), validates the packed protocol fee and LP-fee bounds, decodes the 0x400000 override, and checks each emitted fee: CONFORMS, OUT_OF_BOUNDS, FEE_MISMATCH, or INDETERMINATE. Accrues the declared hook charge in integer arithmetic with remainders reported; LP revenue reported separately, never netted. Evidence only; zero network.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "protocol_fee",
+          "pool_fee",
+          "declared_lp_fee_bounds",
+          "declared_hook_charge",
+          "swaps"
+        ],
+        "properties": {
+          "protocol_fee": {
+            "type": "integer",
+            "description": "uint24, both directions packed as v4 stores it: low 12 bits zeroForOne, bits 12-23 oneForZero; each direction <= 1000 pips (isValidProtocolFee)."
+          },
+          "pool_fee": {
+            "type": "integer",
+            "description": "uint24: static LP fee in pips, or 0x800000 (8388608) for a dynamic-fee pool."
+          },
+          "declared_lp_fee_bounds": {
+            "type": "object",
+            "description": "{ min_pips, max_pips }: the LP-fee band the declared story permits (0..1000000)."
+          },
+          "declared_total_fee_cap_pips": {
+            "type": "integer",
+            "description": "Optional total cap in pips; the composed swap fee plus the hook-charge rate is checked against it."
+          },
+          "declared_hook_charge": {
+            "type": "object",
+            "description": "{ rate_pips, splits: [{ recipient_label, share_bps }] }: the separately declared hook charge; shares reported as declared, never coerced."
+          },
+          "swaps": {
+            "type": "array",
+            "description": "Each swap: { index, zero_for_one, amount_in, emitted_fee_pips, lp_fee_override? (raw uint24 incl. the 0x400000 flag), exact_out? }."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-709-v4-hook-fee-conformance",
+        "category": "robinhood-chain-tokenized-equity-verification",
+        "tags": [
+          "uniswap",
+          "v4-core",
+          "fees",
+          "calculate-swap-fee",
+          "lp-fee-bounds",
+          "protocol-fee",
+          "override-flag",
+          "hook-charge",
+          "revenue-splits",
+          "compliance-evidence",
+          "mcp:check_v4_hook_fee_conformance"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-709-v4-hook-fee-conformance.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",
