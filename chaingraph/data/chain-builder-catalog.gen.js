@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (678 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (679 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7354,6 +7354,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-707-tsv-tier-cap-ladder.html",
     "description": "Replays a tokenized-stock venue's (TSV's) daily per-symbol share volume and distinct-symbol counts, aggregated across the TSV and its caller",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-708-v4-hook-permission-reconciler",
+    "display_name": "V4 Hook Permission Reconciler",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-708-v4-hook-permission-reconciler.html",
+    "description": "Decodes a Uniswap v4 hook address's 14 permission bits (the low 14 bits of the address, per v4-core at the pinned commit a7cf038cd568801a79a",
     "consumes": [],
     "feeds": [],
     "status": "live"
