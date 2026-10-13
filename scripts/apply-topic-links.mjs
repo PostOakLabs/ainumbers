@@ -26,7 +26,23 @@ const MARK_END = '<!-- TOPIC-LINKS:end -->'
 function titleOf(path) {
   const html = readFileSync(resolve(root, path), 'utf8')
   const m = html.match(/<title>([^<]*)<\/title>/)
-  if (m) return m[1].split('·')[0].trim()
+  if (m) {
+    // Decode the entity set page titles actually use (&amp; LAST, one pass each),
+    // then split on the real separator. Entity-encoded middots (&middot;) must
+    // split too, or the whole title leaks into the link label (the ART-391/392
+    // node pages shipped exactly that defect).
+    const decoded = m[1]
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#0*39;|&#x0*27;/gi, "'")
+      .replace(/&middot;/gi, '·')
+      .replace(/&amp;/gi, '&')
+    // Split on every separator shape titles actually use: the middot chain
+    // ("Title · ART-391 · OpenChainGraph · AINumbers.co") and the pipe form
+    // ("Title | AINumbers.co").
+    return decoded.split(/[·|]/)[0].trim()
+  }
   return basename(path).replace(/\.html$/, '')
 }
 
