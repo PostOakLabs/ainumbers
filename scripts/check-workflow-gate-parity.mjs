@@ -845,6 +845,18 @@ const PREFLIGHT_ONLY = new Map([
     "a downward ratchet (scripts/webmcp-wrapper-execute-baseline.json)."],
   ["check-webmcp-wrapper-execute.test.mjs", SELF_TEST],
 
+  // ── WEBMCP-DIRECT-EXECUTE-VM-GATE-1 (2026-10-13) ──────────────────────────
+  ["check-webmcp-direct-execute.mjs",
+    "Direct-execute vm gate on the DIRECT-mode registration set (WEBMCP-DIRECT-EXECUTE-VM-GATE-1): " +
+    "the wrapper-execute gate above covers only the PREFILL set (direct pages refuse adjudicateTool by " +
+    "construction), so this sibling derives the direct-mode set live — the generator's own " +
+    "directAdjudication, fallback-only, never hand-listed — and per page runs BOTH legs: the registered " +
+    "tool's execute(fixture-0 policy_parameters) settling with the fixture execution_hash, and the page's " +
+    "own no-arg run wrapper on the same fixture re-hashing to the same golden. Hard in preflight; its CI " +
+    "route is scripts-verify.yml's full preflight, so a named workflow step would only duplicate the same " +
+    "suite. Reads only tracked repo files — no CI-only input; pre-existing direct-path divergences are " +
+    "baselined WARN with a downward ratchet (scripts/webmcp-direct-execute-baseline.json)."],
+
   // ── EXAMPLE-PROMPTS-JSON-1 (2026-09-05) ──────────────────────────────────
   ["check-showcase-prompts.mjs",
     "Showcase-prompts SSOT gate (tools[] liveness, body/tool consistency, enums, " +

@@ -1281,6 +1281,18 @@ const GATES = [
   // wrapper-path divergences are baselined WARN (downward ratchet).
   ['WebMCP wrapper-execute (fixture-0 params through every registered execute body)', 'node scripts/check-webmcp-wrapper-execute.mjs'],
   ['WebMCP wrapper-execute gate controls (art-118 wedge-class RED + live golden GREEN)', 'node scripts/check-webmcp-wrapper-execute.test.mjs'],
+  // WEBMCP-DIRECT-EXECUTE-VM-GATE-1: the direct-mode sibling of the wrapper-
+  // execute gate above. The wrapper gate iterates only the PREFILL set (direct-
+  // mode pages fail adjudicateTool by construction), so no gate ever executed a
+  // direct page's registered execute() body or its human run path. This gate
+  // derives the direct-mode set live (directAdjudication, fallback-only, the
+  // generator's own probe — never hand-listed) and runs BOTH legs per page:
+  // execute(fixture-0 policy_parameters) settling with the fixture
+  // execution_hash, and the page's own no-arg run wrapper on the same fixture
+  // re-hashing to the same golden. Pre-existing direct-path divergences are
+  // baselined WARN with a downward ratchet
+  // (scripts/webmcp-direct-execute-baseline.json).
+  ['WebMCP direct-execute (fixture-0 through every direct-mode execute body + the page run path)', 'node scripts/check-webmcp-direct-execute.mjs'],
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
   // REGISTRY-RESOLVE-STATIC-1: positive-half kernel_digest -> spec_digest resolution
   // records (registry/kernel/<hex>.json). NODE-FANOUT-REGEN-CLOSE-1 (2026-08-21)
