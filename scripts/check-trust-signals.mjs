@@ -3,12 +3,13 @@
 //
 // Validates the PUBLISHED digest .well-known/trust-signals.json against its
 // schema (.well-known/trust-signals.schema.json) and asserts the commit anchor:
-// on main, `commit` must equal HEAD — or HEAD^ when HEAD is the mechanical
-// chore(derived) regen-bot commit (the one state where HEAD is a commit whose
-// only contents are regenerated derived bytes; the digest's facts describe the
-// merge commit the bot regenerated at). The anchor rule itself lives ONCE, in
-// gen-trust-signals.mjs's pickFactCommit(); this gate imports it — a second
-// implementation of the same rule is exactly the drift this project keeps
+// on main, `commit` must equal the newest FACT commit — i.e. HEAD skipping any
+// commit that carries no fact input: the mechanical chore(derived) regen-bot
+// commit, or a commit whose ONLY change is the digest/anchor files themselves
+// (TRUST-SIGNALS-ANCHOR-SELFREF-1: anchoring at the digest's own carrier would
+// re-stale the anchor on every writer→commit→push cycle). The anchor rule lives
+// ONCE, in gen-trust-signals.mjs's pickFactCommit(); this gate imports it — a
+// second implementation of the same rule is exactly the drift this project keeps
 // getting burned by.
 //
 // ── CONTEXT SPLIT (the house derived-artifact shape) ─────────────────────────
@@ -45,10 +46,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
-import { gitEnv } from './_git-env-lib.mjs';
 import { isMainContext } from './derived-artifacts.mjs';
-import { pickFactCommit } from './gen-trust-signals.mjs';
+import { pickFactCommit, gitLog } from './gen-trust-signals.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -140,10 +139,8 @@ if (IS_MAIN) {
     process.exit(1);
   }
 
-  // Commit-anchor leg. Same rule, one implementation (pickFactCommit).
-  const expected = pickFactCommit(execFileSync('git', ['log', '-n', '50', '--format=%H%x01%cI%x01%s'], {
-    cwd: REPO, env: gitEnv(), encoding: 'utf8', maxBuffer: 8 * 1024 * 1024,
-  }));
+  // Commit-anchor leg. Same rule, one implementation (pickFactCommit + gitLog).
+  const expected = pickFactCommit(gitLog());
   const MAIN_CONTEXT = isMainContext();
   const leg = decideCommitLeg({ fileCommit: doc.commit, expectedCommit: expected.commit, mainContext: MAIN_CONTEXT });
   if (!leg.ok && leg.advisory) {
@@ -153,7 +150,7 @@ if (IS_MAIN) {
     process.exit(0);
   }
   if (!leg.ok) {
-    console.error(`✗ check-trust-signals: commit anchor STALE on main — digest anchored at ${doc.commit.slice(0, 12)}, current fact-commit is ${expected.commit.slice(0, 12)} (HEAD, or HEAD^ when HEAD is the chore(derived) bot commit).`);
+    console.error(`✗ check-trust-signals: commit anchor STALE on main — digest anchored at ${doc.commit.slice(0, 12)}, current fact-commit is ${expected.commit.slice(0, 12)} (newest commit that is neither the chore(derived) bot commit nor a digest/anchor-only commit — TRUST-SIGNALS-ANCHOR-SELFREF-1).`);
     console.error('  derived-artifacts-regen.yml owns the rewrite; if main has been red longer than one bot cycle, investigate the regen run.');
     process.exit(1);
   }
