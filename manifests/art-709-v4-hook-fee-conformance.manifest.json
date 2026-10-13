@@ -91,6 +91,12 @@
           "description": "Each swap: { index, zero_for_one, amount_in, emitted_fee_pips, lp_fee_override? (raw uint24 incl. the 0x400000 flag), exact_out? }."
         }
       }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   "execution": {
@@ -212,61 +218,352 @@
   "output_schema": {
     "type": "object",
     "properties": {
-      "protocol_fee": {
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "counts": {
+        "type": "object",
+        "properties": {
+          "conforms": {
+            "type": "number"
+          },
+          "fee_mismatch": {
+            "type": "number"
+          },
+          "indeterminate": {
+            "type": "number"
+          },
+          "out_of_bounds": {
+            "type": "number"
+          },
+          "swaps": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "conforms",
+          "fee_mismatch",
+          "indeterminate",
+          "out_of_bounds",
+          "swaps"
+        ],
+        "additionalProperties": false
+      },
+      "declared_hook_charge": {
+        "type": "object",
+        "properties": {
+          "rate_pips": {
+            "type": "number"
+          },
+          "splits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "recipient_label": {
+                  "type": "string",
+                  "enum": [
+                    "lp_side_pool",
+                    "treasury"
+                  ]
+                },
+                "share_bps": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "recipient_label",
+                "share_bps"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "rate_pips",
+          "splits"
+        ],
+        "additionalProperties": false
+      },
+      "declared_lp_fee_bounds": {
+        "type": "object",
+        "properties": {
+          "max_pips": {
+            "type": "number"
+          },
+          "min_pips": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "max_pips",
+          "min_pips"
+        ],
+        "additionalProperties": false
+      },
+      "declared_total_fee_cap_pips": {
+        "type": [
+          "null",
+          "number"
+        ]
+      },
+      "detail": {
+        "type": "string"
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "HOOK_CHARGE_SPLITS_INVALID",
+                "LP_FEE_BOUNDS_INVALID",
+                "SWAPS_INVALID"
+              ]
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "error": {
+        "type": "string",
+        "enum": [
+          "hook_charge_splits_invalid",
+          "lp_fee_bounds_invalid",
+          "swaps_invalid"
+        ]
+      },
+      "fee_story_explained": {
+        "type": "boolean",
+        "enum": [
+          false,
+          true
+        ]
+      },
+      "per_swap": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "amount_in": {
+              "type": "number"
+            },
+            "cap_check": {
+              "type": [
+                "null",
+                "object"
+              ]
+            },
+            "emitted_fee_pips": {
+              "type": "number"
+            },
+            "hook_charge_amount": {
+              "type": "number"
+            },
+            "hook_charge_per_recipient": {
+              "type": "object",
+              "properties": {
+                "lp_side_pool": {
+                  "type": "object",
+                  "properties": {
+                    "amount": {
+                      "type": "number"
+                    },
+                    "remainder": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "amount",
+                    "remainder"
+                  ],
+                  "additionalProperties": false
+                },
+                "treasury": {
+                  "type": "object",
+                  "properties": {
+                    "amount": {
+                      "type": "number"
+                    },
+                    "remainder": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "amount",
+                    "remainder"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "hook_charge_remainder": {
+              "type": "number"
+            },
+            "indeterminate_reason": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "index": {
+              "type": "number"
+            },
+            "lp_fee_pips": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "lp_fee_source": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "override",
+                "pool_static",
+                null
+              ]
+            },
+            "lp_fee_within_declared_bounds": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "enum": [
+                false,
+                true,
+                null
+              ]
+            },
+            "lp_revenue_amount": {
+              "type": "number"
+            },
+            "protocol_fee_direction_pips": {
+              "type": "number"
+            },
+            "protocol_revenue_amount": {
+              "type": "number"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "CONFORMS",
+                "FEE_MISMATCH",
+                "INDETERMINATE",
+                "OUT_OF_BOUNDS"
+              ]
+            },
+            "swap_fee_pips": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "zero_for_one": {
+              "type": "boolean",
+              "enum": [
+                false,
+                true
+              ]
+            }
+          },
+          "required": [
+            "amount_in",
+            "cap_check",
+            "emitted_fee_pips",
+            "hook_charge_amount",
+            "hook_charge_per_recipient",
+            "hook_charge_remainder",
+            "indeterminate_reason",
+            "index",
+            "lp_fee_pips",
+            "lp_fee_source",
+            "lp_fee_within_declared_bounds",
+            "lp_revenue_amount",
+            "protocol_fee_direction_pips",
+            "protocol_revenue_amount",
+            "status",
+            "swap_fee_pips",
+            "zero_for_one"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "pool_fee": {
         "type": "number"
       },
-      "protocol_fee_zero_for_one_pips": {
+      "pool_fee_is_dynamic": {
+        "type": "boolean",
+        "enum": [
+          false,
+          true
+        ]
+      },
+      "protocol_fee": {
         "type": "number"
       },
       "protocol_fee_one_for_zero_pips": {
         "type": "number"
       },
       "protocol_fee_valid": {
-        "type": "boolean"
+        "type": [
+          "boolean",
+          "null"
+        ]
       },
-      "pool_fee": {
+      "protocol_fee_zero_for_one_pips": {
         "type": "number"
       },
-      "pool_fee_is_dynamic": {
-        "type": "boolean"
-      },
-      "declared_lp_fee_bounds": {
-        "type": "object"
-      },
-      "declared_total_fee_cap_pips": {
-        "type": "object"
-      },
-      "declared_hook_charge": {
-        "type": "object"
+      "splits_ok": {
+        "type": "boolean",
+        "enum": [
+          false,
+          true
+        ]
       },
       "splits_sum_bps": {
         "type": "number"
       },
-      "splits_ok": {
-        "type": "boolean"
-      },
       "total_cap_ok": {
-        "type": "object"
-      },
-      "per_swap": {
-        "type": "array"
-      },
-      "counts": {
-        "type": "object"
-      },
-      "fee_story_explained": {
-        "type": "boolean"
+        "type": [
+          "null",
+          "boolean"
+        ]
       },
       "totals": {
-        "type": "object"
+        "type": [
+          "object",
+          "null"
+        ]
       },
       "v4_core_commit": {
         "type": "string"
-      },
-      "assumptions": {
-        "type": "array"
       }
-    }
+    },
+    "required": [
+      "assumptions",
+      "per_swap",
+      "protocol_fee_valid",
+      "totals",
+      "v4_core_commit"
+    ],
+    "additionalProperties": false
   },
   "author": "PostOakLabs",
   "license": "CC-BY-4.0"
