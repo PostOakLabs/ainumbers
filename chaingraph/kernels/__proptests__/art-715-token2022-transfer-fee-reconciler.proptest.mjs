@@ -240,6 +240,7 @@ function fullPP(amount, bps, maxFee, execEpoch, extra = {}) {
     ...extra,
   };
 }
+/** @type {[string, (pp: any) => void, string, string[]][]} — case name, pp mutation, expected refusal code, detail needles */
 const REFUSAL_CASES = [
   ['older null', (pp) => { pp.older_transfer_fee = null; }, 'FEE_SCHEDULE_MALFORMED', ['older_transfer_fee must be an object']],
   ['older a number', (pp) => { pp.older_transfer_fee = 5; }, 'FEE_SCHEDULE_MALFORMED', ['older_transfer_fee must be an object']],
