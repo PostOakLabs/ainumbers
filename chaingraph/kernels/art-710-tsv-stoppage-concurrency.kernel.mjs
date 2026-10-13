@@ -113,11 +113,13 @@ function inInterval(ts, startTs, endTs) {
 }
 
 // Within tolerance of a boundary: the concurrency tolerance widens the tolerated
-// window around the interval edges. ts < start + tol (the venue's stop lag is still
-// inside the declared tolerance) or ts >= end - tol (the trailing edge).
+// window around the interval edges. Distance from the leading edge under the declared
+// tolerance (strictly), or distance from the trailing edge at or under it — the
+// threshold stays unshifted on one side of each comparator (COMPARATOR-EPSILON-LINT-1:
+// never `ts < start + tol`, the widening-strict shape that fires across the boundary).
 function withinTolerance(ts, startTs, endTs, tol) {
-  if (ts < startTs + tol) return true;
-  if (endTs !== null && ts >= endTs - tol) return true;
+  if (ts - startTs < tol) return true;
+  if (endTs !== null && endTs - ts <= tol) return true;
   return false;
 }
 
