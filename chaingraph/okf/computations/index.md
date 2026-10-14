@@ -639,6 +639,7 @@ status: stable
 - [V4 Hook Permission Reconciler](./art-708-v4-hook-permission-reconciler.md)
 - [V4 Hook Fee Conformance](./art-709-v4-hook-fee-conformance.md)
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md)
+- [TSV Stoppage Concurrency](./art-710-tsv-stoppage-concurrency.md)
 - [SCO60 Group 2 Exposure Limit V2](./art-711-sco60-crypto-asset-exposure-classifier-v2.md)
 - [Workforce Board ROI Report](./art-712-workforce-board-roi.md)
 - [S-Corp Election Break-Even Modeler](./art-713-scorp-election-break-even.md)

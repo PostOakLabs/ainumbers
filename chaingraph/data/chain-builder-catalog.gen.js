@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (681 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (682 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7391,6 +7391,16 @@ window.CHAINBUILDER_CATALOG = [
       "cry-05-agent-action-audit-trail-aggregator",
       "art-76-climate-scenario-applicator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-710-tsv-stoppage-concurrency",
+    "display_name": "TSV Stoppage Concurrency",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-710-tsv-stoppage-concurrency.html",
+    "description": "Checks a tokenized-stock venue (TSV) against condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026): a TSV",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
