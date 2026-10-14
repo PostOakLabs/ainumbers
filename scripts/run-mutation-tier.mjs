@@ -639,7 +639,22 @@ export function resolveSurfaceSplit(kernelId, tierConfig, source) {
 // chaingraph/kernels/*.{kernel,proptest}.mjs and chaingraph/kernels/_*.mjs, chaingraph/kernels/
 // __proptests__/_*.mjs) — so there is no second edge for this harness to miss.
 export function copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath, scratchRoot, repoRoot = REPO) {
-  const files = deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath], repoRoot });
+  // MUTATION-TIER-SANDBOX-FIXTURES-1: deriveSandboxFiles() walks the static IMPORT graph by
+  // construction, so a proptest that runtime-reads a fixtures sibling via fs.readFileSync
+  // (`<id>.reachability.json` — the estate template, art-663-apy-earned-recompute.proptest.mjs:29)
+  // is invisible to it. The caller-side cure: readdir-match every EXISTING `<id>.*` fixtures
+  // sibling beyond `<id>.fixtures.json` into the extras list — future-proof for ANY runtime-read
+  // sibling, not just reachability, and still scoped to this kernel only (no other kernel's
+  // fixtures get swept in). deriveSandboxFiles/lib-sandbox-deps.mjs semantics untouched.
+  const fixturesDir = path.join(repoRoot, 'chaingraph', 'kernels', 'fixtures');
+  const fixturesFile = path.basename(fixturesRelPath);
+  const kernelId = fixturesFile.slice(0, -'.fixtures.json'.length);
+  const runtimeReadSiblings = existsSync(fixturesDir)
+    ? readdirSync(fixturesDir)
+        .filter((f) => f.startsWith(`${kernelId}.`) && f !== fixturesFile)
+        .map((f) => `chaingraph/kernels/fixtures/${f}`)
+    : [];
+  const files = deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath, ...runtimeReadSiblings], repoRoot });
   for (const rel of files) {
     const dest = path.join(scratchRoot, rel);
     if (existsSync(dest)) continue; // already primed by an earlier kernel this process
