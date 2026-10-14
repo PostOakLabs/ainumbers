@@ -1,0 +1,352 @@
+{
+  "tool_id": "art-715-token2022-transfer-fee-reconciler",
+  "version": "1.0.0",
+  "title": "Token-2022 Transfer-Fee Payment Reconciler",
+  "description": "Recomputes the transfer fee a Token-2022 mint with the transfer-fee extension withholds and the net amount the recipient receives, given the fee schedule, the TransferChecked amount, the execution epoch and the amount a payment verifier credited, then reconciles the credited amount against that net: MATCH, OVER_CREDITED (the Kora GHSA-725g defect class, a verifier crediting the pre-fee amount) or UNDER_CREDITED, with credited_minus_net reported. All amounts are decimal strings computed in BigInt (128-bit intermediates, no floats). The output also records a declared-fee FeeMismatch for TransferCheckedWithFee, an epoch-schedule divergence when the verifier used a different schedule than the execution epoch, and an informational consumer view showing where the x402 SVM gross-amount path and the balance-delta net path disagree.",
+  "category": "chaingraph",
+  "tags": [
+    "token2022",
+    "solana",
+    "transfer-fee",
+    "payment-reconciliation",
+    "fee-withholding",
+    "kora",
+    "x402",
+    "svm",
+    "bigint",
+    "mcp:reconcile_token2022_transfer_fee"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "older_transfer_fee",
+      "newer_transfer_fee",
+      "amount",
+      "execution_epoch",
+      "instruction",
+      "credited_amount"
+    ],
+    "properties": {
+      "older_transfer_fee": {
+        "type": "object",
+        "description": "Schedule used before the switch epoch: { epoch, maximum_fee, transfer_fee_basis_points }, all decimal strings (u64; basis points u16).",
+        "properties": {
+          "epoch": {
+            "type": "string"
+          },
+          "maximum_fee": {
+            "type": "string"
+          },
+          "transfer_fee_basis_points": {
+            "type": "string"
+          }
+        }
+      },
+      "newer_transfer_fee": {
+        "type": "object",
+        "description": "Schedule used from its epoch on: { epoch, maximum_fee, transfer_fee_basis_points }, all decimal strings. Applies when execution_epoch >= this epoch.",
+        "properties": {
+          "epoch": {
+            "type": "string"
+          },
+          "maximum_fee": {
+            "type": "string"
+          },
+          "transfer_fee_basis_points": {
+            "type": "string"
+          }
+        }
+      },
+      "amount": {
+        "type": "string",
+        "description": "The TransferChecked amount, i.e. pre-fee, in base units. Decimal string in u64 range."
+      },
+      "execution_epoch": {
+        "type": "string",
+        "description": "The Clock epoch in which the transfer executes. Decimal string in u64 range."
+      },
+      "instruction": {
+        "type": "string",
+        "enum": [
+          "TransferChecked",
+          "TransferCheckedWithFee"
+        ],
+        "description": "The checked transfer instruction. Unchecked transfers are refused: they fail with MintRequiredForTransfer on a mint carrying the fee extension."
+      },
+      "declared_fee": {
+        "type": "string",
+        "description": "TransferCheckedWithFee only: the fee the instruction states. A mismatch is recorded as FeeMismatch."
+      },
+      "credited_amount": {
+        "type": "string",
+        "description": "What the payment verifier credited, in base units. Decimal string in u64 range."
+      },
+      "verifier_epoch": {
+        "type": "string",
+        "description": "Optional: the epoch the verifier used for its fee. A different schedule pick than the execution epoch emits EPOCH_SCHEDULE_DIVERGENCE."
+      },
+      "required_amount": {
+        "type": "string",
+        "description": "Optional: the payee's required amount, for the informational x402 consumer view (gross-accept static path vs net-accept balance-delta path)."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "reconcile_token2022_transfer_fee",
+    "description": "Recomputes the Token-2022 transfer fee withheld and the net amount a payee receives, then reconciles the amount a payment verifier credited against that net, flagging a facilitator that checks the gross amount only.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "older_transfer_fee",
+        "newer_transfer_fee",
+        "amount",
+        "execution_epoch",
+        "instruction",
+        "credited_amount"
+      ],
+      "properties": {
+        "older_transfer_fee": {
+          "type": "object",
+          "description": "Schedule used before the switch epoch: { epoch, maximum_fee, transfer_fee_basis_points }, all decimal strings (u64; basis points u16).",
+          "properties": {
+            "epoch": {
+              "type": "string"
+            },
+            "maximum_fee": {
+              "type": "string"
+            },
+            "transfer_fee_basis_points": {
+              "type": "string"
+            }
+          }
+        },
+        "newer_transfer_fee": {
+          "type": "object",
+          "description": "Schedule used from its epoch on: { epoch, maximum_fee, transfer_fee_basis_points }, all decimal strings. Applies when execution_epoch >= this epoch.",
+          "properties": {
+            "epoch": {
+              "type": "string"
+            },
+            "maximum_fee": {
+              "type": "string"
+            },
+            "transfer_fee_basis_points": {
+              "type": "string"
+            }
+          }
+        },
+        "amount": {
+          "type": "string",
+          "description": "The TransferChecked amount, i.e. pre-fee, in base units. Decimal string in u64 range."
+        },
+        "execution_epoch": {
+          "type": "string",
+          "description": "The Clock epoch in which the transfer executes. Decimal string in u64 range."
+        },
+        "instruction": {
+          "type": "string",
+          "enum": [
+            "TransferChecked",
+            "TransferCheckedWithFee"
+          ],
+          "description": "The checked transfer instruction. Unchecked transfers are refused: they fail with MintRequiredForTransfer on a mint carrying the fee extension."
+        },
+        "declared_fee": {
+          "type": "string",
+          "description": "TransferCheckedWithFee only: the fee the instruction states. A mismatch is recorded as FeeMismatch."
+        },
+        "credited_amount": {
+          "type": "string",
+          "description": "What the payment verifier credited, in base units. Decimal string in u64 range."
+        },
+        "verifier_epoch": {
+          "type": "string",
+          "description": "Optional: the epoch the verifier used for its fee. A different schedule pick than the execution epoch emits EPOCH_SCHEDULE_DIVERGENCE."
+        },
+        "required_amount": {
+          "type": "string",
+          "description": "Optional: the payee's required amount, for the informational x402 consumer view (gross-accept static path vs net-accept balance-delta path)."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-715-token2022-transfer-fee-reconciler.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-715-token2022-transfer-fee-reconciler.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: older_transfer_fee, newer_transfer_fee, amount, execution_epoch, instruction, declared_fee, credited_amount, verifier_epoch, required_amount.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "older_transfer_fee": {
+      "epoch": "0",
+      "maximum_fee": "5000",
+      "transfer_fee_basis_points": "1"
+    },
+    "newer_transfer_fee": {
+      "epoch": "0",
+      "maximum_fee": "5000",
+      "transfer_fee_basis_points": "1"
+    },
+    "amount": "1",
+    "execution_epoch": "0",
+    "instruction": "TransferChecked",
+    "credited_amount": "0"
+  },
+  "output_example": {
+    "schedule": "newer",
+    "fee": "1",
+    "net": "0",
+    "withheld_added": "1",
+    "fee_mismatch": null,
+    "declared_fee": null,
+    "min_pre_fee_for_net": "0",
+    "reconciliation": "MATCH",
+    "credited_amount": "0",
+    "credited_minus_net": "0",
+    "epoch_race": null,
+    "execution_epoch": "0",
+    "verifier_epoch": null,
+    "consumer_view": null,
+    "note": "Fee arithmetic ports the Token-2022 transfer-fee extension: ceiling(amount * bps / 10,000) capped at maximum_fee, computed in 128-bit intermediates, with the newer schedule applying from its epoch on. The Kora GHSA-725g defect class is a verifier crediting the pre-fee amount; OVER_CREDITED with credited_minus_net = fee reproduces it."
+  },
+  "example_execution_hash": "e3e17062aae20c3c7422052a353e71e9f715e7571d9442cb5495de9e96992a9d",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "consumer_view": {
+        "type": [
+          "null",
+          "object"
+        ]
+      },
+      "credited_amount": {
+        "type": "string"
+      },
+      "credited_minus_net": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "declared_fee": {
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "detail": {
+        "type": "string"
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "epoch_race": {
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "error": {
+        "type": "string"
+      },
+      "execution_epoch": {
+        "type": "string"
+      },
+      "fee": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "fee_mismatch": {
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "min_pre_fee_for_net": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "net": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "note": {
+        "type": "string"
+      },
+      "reconciliation": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "MATCH",
+          "OVER_CREDITED",
+          null
+        ]
+      },
+      "schedule": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "newer",
+          "older",
+          null
+        ]
+      },
+      "verifier_epoch": {
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "withheld_added": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "consumer_view",
+      "credited_minus_net",
+      "epoch_race",
+      "fee",
+      "min_pre_fee_for_net",
+      "net",
+      "reconciliation",
+      "schedule",
+      "withheld_added"
+    ],
+    "additionalProperties": false,
+    "x-derived-from": "fixture"
+  }
+}
