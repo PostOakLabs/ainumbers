@@ -2,10 +2,10 @@
   "schema_version": "mcp-catalog-v1",
   "server_id": "ainumbers-fintech-suite",
   "name": "AINumbers Fintech Intelligence Suite",
-  "description": "1202 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
+  "description": "1203 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
   "base_url": "https://ainumbers.co",
-  "generated": "2026-10-12",
-  "tool_count": 1202,
+  "generated": "2026-10-13",
+  "tool_count": 1203,
   "tools": [
     {
       "name": "calculate_a2a_fee_route",
@@ -23643,6 +23643,16 @@
           "core_charged_fees": {
             "type": "array",
             "description": "What the core actually charged, to diff against"
+          },
+          "posting_order_policy": {
+            "type": "string",
+            "enum": [
+              "as_supplied",
+              "high_to_low_amount",
+              "low_to_high_amount",
+              "chronological_by_effective_date"
+            ],
+            "description": "Caller-declared posting order for same-post_date items; never inferred"
           }
         }
       },
@@ -51113,6 +51123,106 @@
           "mcp:model_scorp_break_even"
         ],
         "url": "https://ainumbers.co/chaingraph/art-713-scorp-election-break-even.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "reconcile_token2022_transfer_fee",
+      "description": "Recomputes the Token-2022 transfer fee withheld and the net amount a payee receives, then reconciles the amount a payment verifier credited against that net, flagging a facilitator that checks the gross amount only.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "older_transfer_fee",
+          "newer_transfer_fee",
+          "amount",
+          "execution_epoch",
+          "instruction",
+          "credited_amount"
+        ],
+        "properties": {
+          "older_transfer_fee": {
+            "type": "object",
+            "description": "Schedule used before the switch epoch: { epoch, maximum_fee, transfer_fee_basis_points }, all decimal strings (u64; basis points u16).",
+            "properties": {
+              "epoch": {
+                "type": "string"
+              },
+              "maximum_fee": {
+                "type": "string"
+              },
+              "transfer_fee_basis_points": {
+                "type": "string"
+              }
+            }
+          },
+          "newer_transfer_fee": {
+            "type": "object",
+            "description": "Schedule used from its epoch on: { epoch, maximum_fee, transfer_fee_basis_points }, all decimal strings. Applies when execution_epoch >= this epoch.",
+            "properties": {
+              "epoch": {
+                "type": "string"
+              },
+              "maximum_fee": {
+                "type": "string"
+              },
+              "transfer_fee_basis_points": {
+                "type": "string"
+              }
+            }
+          },
+          "amount": {
+            "type": "string",
+            "description": "The TransferChecked amount, i.e. pre-fee, in base units. Decimal string in u64 range."
+          },
+          "execution_epoch": {
+            "type": "string",
+            "description": "The Clock epoch in which the transfer executes. Decimal string in u64 range."
+          },
+          "instruction": {
+            "type": "string",
+            "enum": [
+              "TransferChecked",
+              "TransferCheckedWithFee"
+            ],
+            "description": "The checked transfer instruction. Unchecked transfers are refused: they fail with MintRequiredForTransfer on a mint carrying the fee extension."
+          },
+          "declared_fee": {
+            "type": "string",
+            "description": "TransferCheckedWithFee only: the fee the instruction states. A mismatch is recorded as FeeMismatch."
+          },
+          "credited_amount": {
+            "type": "string",
+            "description": "What the payment verifier credited, in base units. Decimal string in u64 range."
+          },
+          "verifier_epoch": {
+            "type": "string",
+            "description": "Optional: the epoch the verifier used for its fee. A different schedule pick than the execution epoch emits EPOCH_SCHEDULE_DIVERGENCE."
+          },
+          "required_amount": {
+            "type": "string",
+            "description": "Optional: the payee's required amount, for the informational x402 consumer view (gross-accept static path vs net-accept balance-delta path)."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-715-token2022-transfer-fee-reconciler",
+        "category": "chaingraph",
+        "tags": [
+          "token2022",
+          "solana",
+          "transfer-fee",
+          "payment-reconciliation",
+          "fee-withholding",
+          "kora",
+          "x402",
+          "svm",
+          "bigint",
+          "mcp:reconcile_token2022_transfer_fee"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-715-token2022-transfer-fee-reconciler.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",

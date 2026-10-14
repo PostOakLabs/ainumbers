@@ -360,6 +360,28 @@ export function loadLogPrivateKeyJwk(pathOverride) {
   return JSON.parse(readFileSync(LOG_PRIVATE_KEY_PATH, 'utf8'));
 }
 
+// Reads the existing record at `recordPath` and returns it ONLY when it is a
+// fully-formed Sigsum anchor — the shape gen-trust-signals' sigsumSignal
+// requires (anchor_type c2sp-tlog-proof-v1, integer inclusion_proof.leaf_index,
+// Array witness_cosignatures[]). Any pending record, malformed JSON, or
+// missing file returns null so the caller falls through to the pending flow.
+// This is a shape test only: it never verifies the anchor's hash against the
+// new checkpoint (—check is the verifier; the hold exists to keep a real
+// anchor from being DEMOTED, not to attest a new tree).
+function readFullyFormedAnchor(recordPath) {
+  if (!existsSync(recordPath)) return null;
+  let record = null;
+  try {
+    record = JSON.parse(readFileSync(recordPath, 'utf8'));
+  } catch {
+    return null;
+  }
+  if (!record || record.anchor_type !== 'c2sp-tlog-proof-v1') return null;
+  if (!Number.isInteger(record?.inclusion_proof?.leaf_index)) return null;
+  if (!Array.isArray(record?.witness_cosignatures)) return null;
+  return record;
+}
+
 // ---------------------------------------------------------------------------
 // Sigsum submission — spawns the EXISTING register-sigsum.mjs `register`
 // command (never duplicated), mirroring scripts/fv-sigsum-upgrade-flip.mjs's
@@ -497,14 +519,31 @@ export async function generate(opts = {}) {
   } else if (existsSync(sigsumSubmitKeyPath) && existsSync(sigsumTokenKeyPath)) {
     sigsumRecord = await submitToSigsum(checkpointBytes);
   } else {
-    const anchoredHashHex = bytesToHex(await sha256(checkpointBytes));
-    sigsumRecord = {
-      anchor_type: 'sigsum-pending-v1',
-      status: 'pending',
-      anchored_hash: `sha256:${anchoredHashHex}`,
-      note: 'Sigsum submit/token keys absent (keys stay offline; LINEAGE-SIGSUM-TOLERANCE-2380-1): checkpoint signed by the log key and published with sigsum pending registration. Never re-stamp an already-anchored checkpoint — the pending record is replaced only by a real register-sigsum.mjs record on a run where the keys are present.',
-    };
-    console.log(`⚠ Sigsum keys absent — publishing with sigsum: pending (checkpoint sha256:${anchoredHashHex}); registration deferred, not failed.`);
+    // HOLD THE LAST FULLY-FORMED ANCHOR (MAIN-REGEN-SIGSUM-ANCHOR-HEAL-1).
+    // The keys are ALWAYS absent on the main-side regen runner, so before this
+    // hold, every non-skipped publish overwrote a real c2sp-tlog-proof-v1
+    // anchor (inclusion_proof.leaf_index + witness_cosignatures[]) with a
+    // field-less `sigsum-pending-v1` record — and the same run's
+    // gen-trust-signals pass then threw fail-closed on exactly that shape
+    // (red since run 38491123351). The record's own note already stated the
+    // law ("Never re-stamp an already-anchored checkpoint"); this is that law
+    // enforced in code: if the on-disk record is a fully-formed anchor, keep
+    // it instead of demoting it to pending. Never synthesized data is written
+    // here — the held bytes are the previously published anchor, verbatim.
+    const held = readFullyFormedAnchor(sigsumRecordPath);
+    if (held) {
+      sigsumRecord = held;
+      console.log(`⚠ Sigsum keys absent — HOLDING the last fully-formed anchor (leaf_index=${held.inclusion_proof.leaf_index}, cosigners=${held.witness_cosignatures.length}); not demoting it to pending.`);
+    } else {
+      const anchoredHashHex = bytesToHex(await sha256(checkpointBytes));
+      sigsumRecord = {
+        anchor_type: 'sigsum-pending-v1',
+        status: 'pending',
+        anchored_hash: `sha256:${anchoredHashHex}`,
+        note: 'Sigsum submit/token keys absent (keys stay offline; LINEAGE-SIGSUM-TOLERANCE-2380-1): checkpoint signed by the log key and published with sigsum pending registration. Never re-stamp an already-anchored checkpoint — the pending record is replaced only by a real register-sigsum.mjs record on a run where the keys are present. An existing fully-formed anchor is HELD, never overwritten by this pending state.',
+      };
+      console.log(`⚠ Sigsum keys absent — publishing with sigsum: pending (checkpoint sha256:${anchoredHashHex}); registration deferred, not failed.`);
+    }
   }
 
   // ── Only now: write everything to disk. ──────────────────────────────────

@@ -640,6 +640,7 @@ status: stable
 - [SCO60 Group 2 Exposure Limit V2](./art-711-sco60-crypto-asset-exposure-classifier-v2.md) — `classify_sco60_exposure_v2`
 - [Workforce Board ROI Report](./art-712-workforce-board-roi.md) — `workforce_board_roi_report`
 - [S-Corp Election Break-Even Modeler](./art-713-scorp-election-break-even.md) — `model_scorp_break_even`
+- [Token-2022 Transfer-Fee Payment Reconciler](./art-715-token2022-transfer-fee-reconciler.md) — `reconcile_token2022_transfer_fee`
 - [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md) — `aggregate_cbam_precursor_emissions`
 - [EU Taxonomy Alignment Scorer](./art-73-taxonomy-alignment-scorer.md) — `score_taxonomy_alignment`
 - [Taxonomy KPI & Green Asset Ratio Aggregator](./art-74-taxonomy-kpi-gar-aggregator.md) — `aggregate_taxonomy_kpi_gar`
