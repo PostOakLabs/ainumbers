@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (680 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (681 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7419,6 +7419,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "readiness_diagnostic",
     "url": "https://ainumbers.co/chaingraph/art-713-scorp-election-break-even.html",
     "description": "S-Corp election break-even modeler: from net self-employment income, a reasonable W-2 salary share and an annual admin cost, compute the sol",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-715-token2022-transfer-fee-reconciler",
+    "display_name": "Token-2022 Transfer-Fee Payment Reconciler",
+    "mandate_type": "settlement_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-715-token2022-transfer-fee-reconciler.html",
+    "description": "Recomputes the transfer fee a Token-2022 mint with the transfer-fee extension withholds and the net amount the recipient receives, given the",
     "consumes": [],
     "feeds": [],
     "status": "live"
