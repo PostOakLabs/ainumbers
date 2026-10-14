@@ -157,8 +157,7 @@ export function compute(pp) {
   pp = pp || {};
   const compliance_flags = [];
 
-  const needDate = (name) => {
-    const raw = pp[name];
+  const needDateOf = (raw, name) => {
     const z = parseIso(raw);
     if (z === null) {
       compliance_flags.push('MISSING_OR_INVALID_REQUIRED_DATE_REFUSED');
@@ -172,11 +171,13 @@ export function compute(pp) {
     return { refused: false, z, iso: raw };
   };
 
-  const first = needDate('first_notice_date');
+  // direct property reads (KERNEL-INPUT-USAGE-CHECK-1: declared inputs are read
+  // as named members, never through a dynamic key)
+  const first = needDateOf(pp.first_notice_date, 'first_notice_date');
   if (first.refused) return { output_payload: first.payload, compliance_flags };
-  const reminder = needDate('reminder_notice_date');
+  const reminder = needDateOf(pp.reminder_notice_date, 'reminder_notice_date');
   if (reminder.refused) return { output_payload: reminder.payload, compliance_flags };
-  const charge = needDate('charge_date');
+  const charge = needDateOf(pp.charge_date, 'charge_date');
   if (charge.refused) return { output_payload: charge.payload, compliance_flags };
 
   const charged = numAmount(pp.charged_premium_amount);

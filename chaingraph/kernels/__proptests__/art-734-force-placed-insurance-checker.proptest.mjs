@@ -7,7 +7,7 @@
 // a committed mulberry32 seed (deterministic) plus a fixed corpus of structural
 // cases.
 //
-// kernel_digest_at_authoring: sha256:1d70d20c7b0837901a8d9ee9a16083cd71597f600ea943fdfb388b72e9d9004a
+// kernel_digest_at_authoring: sha256:7577f417eecdbf8bca1781682330a4f8fd645c4692ddd0cbfbdf3974c3db9146
 // spec: VALON reduction map §B2 item 4 (research/VALON-AI-INVENTORY-AND-AINUMBERS-REDUCTION-MAP-2026-10-05.md)
 //   — lender-placed insurance notice-sequence checker built to the pinned
 //   primary text (12 CFR 1024.37(b)-(h); SERVICING-CLAUSE-SNAPSHOT-1). The
