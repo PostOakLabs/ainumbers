@@ -4,7 +4,7 @@ Audits a servicer escrow accounting statement from borrower-supplied VALUES ONLY
 
 - Page: https://ainumbers.co/chaingraph/732-borrower-escrow-auditor.html
 - Markdown twin: https://ainumbers.co/chaingraph/732-borrower-escrow-auditor.md
-- MCP tool: audit_borrower_escrow_statement (endpoint https://mcp.ainumbers.co/mcp)
+- MCP tool: audit_borrower_escrow_stmt (endpoint https://mcp.ainumbers.co/mcp)
 
 ## Inputs
 
@@ -13,7 +13,7 @@ Audits a servicer escrow accounting statement from borrower-supplied VALUES ONLY
 - disbursements (array, required): Stated monthly escrow disbursement values, one per month, at most 12 entries. Values only.
 - stated_balances (array, required): The servicer statement end-of-month balance values, one per month. Compared line by line against the recomputation.
 - stated_cushion (number, optional): Optional: the servicer stated/target cushion amount. Checked against the one-sixth cap when supplied.
-- borrower_current (boolean, optional): Optional: whether the borrower is current at the time of the analysis. Conditions the surplus refund obligation; when a refund-band surplus is present and this is not supplied the audit is held for manual review.
+- borrower_current (boolean, optional): Optional: whether the borrower is current at analysis time. A refund-band surplus without it holds the audit for manual review.
 
 ## Outputs
 
@@ -90,4 +90,4 @@ Audits a servicer escrow accounting statement from borrower-supplied VALUES ONLY
 
 ## Verify
 
-Run the sample policy_parameters through MCP tool `audit_borrower_escrow_statement` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+Run the sample policy_parameters through MCP tool `audit_borrower_escrow_stmt` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.

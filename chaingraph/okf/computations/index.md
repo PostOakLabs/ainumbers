@@ -23,6 +23,7 @@ status: stable
 - [Margin Call Collateral Mobilizer](./513-margin-call-collateral-mobilizer.md)
 - [Tokenized Fund Collateral Validator](./514-tokenized-fund-collateral-validator.md)
 - [Collateral Swap Eligibility Validator](./515-collateral-swap-eligibility-validator.md)
+- [Borrower Escrow Auditor](./732-borrower-escrow-auditor.md)
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md)
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md)
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md)

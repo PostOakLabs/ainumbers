@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1226 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1227 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -4173,6 +4173,9 @@
       "name": "maturity"
     },
     {
+      "name": "mcp:audit_borrower_escrow_stmt"
+    },
+    {
       "name": "mcp:authorize_payment_against_mandate"
     },
     {
@@ -4435,6 +4438,9 @@
     },
     {
       "name": "mortgage"
+    },
+    {
+      "name": "mortgage-servicing"
     },
     {
       "name": "mt101"
@@ -5812,6 +5818,9 @@
     },
     {
       "name": "stateless"
+    },
+    {
+      "name": "statement-audit"
     },
     {
       "name": "status"
@@ -48105,6 +48114,154 @@
         },
         "x-mcp-tool-name": "dlt_decision_lab",
         "x-tool-url": "https://ainumbers.co/tools/73-dlt-decision-lab.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/audit_borrower_escrow_stmt": {
+      "post": {
+        "operationId": "audit_borrower_escrow_stmt",
+        "summary": "Borrower Escrow Statement Auditor",
+        "description": "Audits a servicer escrow accounting statement from borrower-supplied values only: recomputes the aggregate accounting trial running balance month by month, compares the servicer stated end-of-month balances line by line, flags each discrepant line, checks the stated cushion against the one-sixth-of-annual-disbursements cap, and classifies the recomputed account as balanced, shortage, surplus, or deficiency. Identifier-like fields are refused, never echoed; over 12 monthly periods is refused.\n\n**Tool URL:** https://ainumbers.co/chaingraph/732-borrower-escrow-auditor.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "escrow",
+          "mortgage-servicing",
+          "statement-audit",
+          "mcp:audit_borrower_escrow_stmt"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "starting_balance",
+                  "monthly_payments",
+                  "disbursements",
+                  "stated_balances"
+                ],
+                "properties": {
+                  "starting_balance": {
+                    "type": "number",
+                    "description": "Stated opening escrow balance at the start of the computation year, in dollars. Required."
+                  },
+                  "monthly_payments": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "description": "Stated monthly escrow deposit values, one per month, at most 12 entries. Values only - never dates or identifiers."
+                  },
+                  "disbursements": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "description": "Stated monthly escrow disbursement values, one per month, at most 12 entries. Values only."
+                  },
+                  "stated_balances": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "description": "The servicer statement end-of-month balance values, one per month. Compared line by line against the recomputation."
+                  },
+                  "stated_cushion": {
+                    "type": "number",
+                    "description": "Optional: the servicer stated/target cushion amount. Checked against the one-sixth cap when supplied."
+                  },
+                  "borrower_current": {
+                    "type": "boolean",
+                    "description": "Optional: whether the borrower is current at analysis time. A refund-band surplus without it holds the audit for manual review."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verdict": {
+                      "type": "string"
+                    },
+                    "account_status": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "periods_analyzed": {
+                      "type": "integer"
+                    },
+                    "recomputed_balances": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "recomputed_low_point": {
+                      "type": "number"
+                    },
+                    "target_low_point": {
+                      "type": "number"
+                    },
+                    "total_annual_disbursements": {
+                      "type": "number"
+                    },
+                    "cushion_cap_amount": {
+                      "type": "number"
+                    },
+                    "stated_cushion": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "cushion_within_cap": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "shortage_amount": {
+                      "type": "number"
+                    },
+                    "surplus_amount": {
+                      "type": "number"
+                    },
+                    "shortage_spread_required": {
+                      "type": "boolean"
+                    },
+                    "surplus_refund_required": {
+                      "type": "boolean"
+                    },
+                    "surplus_refund_unverified": {
+                      "type": "boolean"
+                    },
+                    "discrepancies": {
+                      "type": "object"
+                    },
+                    "evidence": {
+                      "type": "object"
+                    },
+                    "manual_review_required": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "audit_borrower_escrow_stmt",
+        "x-tool-url": "https://ainumbers.co/chaingraph/732-borrower-escrow-auditor.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }

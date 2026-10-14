@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (682 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (683 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -160,6 +160,16 @@ window.CHAINBUILDER_CATALOG = [
       "505-tokenized-collateral-eligibility-checker",
       "507-canton-dvp-atomicity-validator"
     ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "732-borrower-escrow-auditor",
+    "display_name": "Borrower Escrow Auditor",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/732-borrower-escrow-auditor.html",
+    "description": "Audits a servicer escrow accounting statement from borrower-supplied VALUES ONLY (zero PII by schema): recomputes the aggregate accounting t",
+    "consumes": [],
     "feeds": [],
     "status": "live"
   },
