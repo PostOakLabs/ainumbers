@@ -18,6 +18,7 @@ import * as t512      from './512-tokenized-security-lifecycle-validator.kernel.
 import * as t513      from './513-margin-call-collateral-mobilizer.kernel.mjs';
 import * as t514      from './514-tokenized-fund-collateral-validator.kernel.mjs';
 import * as t515      from './515-collateral-swap-eligibility-validator.kernel.mjs';
+import * as t732      from './732-borrower-escrow-auditor.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
 import * as art03     from './art-03-x402-settlement-modeler.kernel.mjs';
@@ -702,6 +703,7 @@ export const KERNELS = {
   '513-margin-call-collateral-mobilizer':                       t513,
   '514-tokenized-fund-collateral-validator':                    t514,
   '515-collateral-swap-eligibility-validator':                  t515,
+  '732-borrower-escrow-auditor':                                t732,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
   'art-03-x402-settlement-modeler':                             art03,

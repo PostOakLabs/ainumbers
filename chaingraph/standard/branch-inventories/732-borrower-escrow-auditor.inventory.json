@@ -1,0 +1,310 @@
+{
+  "tool_id": "732-borrower-escrow-auditor",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-10-14",
+  "error_direction": "undirected",
+  "error_direction_rationale": "The kernel is an exact recomputation over borrower-supplied values with a symmetric 0.01 rounding tolerance on statement-line comparison; it adds no one-sided approximation of its own and every threshold (cushion cap, $50 refund floor, one-month shortage trigger) is taken verbatim from the cited rule text. The honest direction for an exact recompute with a symmetric tolerance is undirected.",
+  "derived_from": [
+    {
+      "digest": "sha256:17c325ac810516bba0deff4b200dc2d875b85482146da52129917c12fe61596a",
+      "clause_path": "12 CFR 1024.17(c)(1)(i), (c)(4)-(5), (d)(1)-(2) -- escrow account analysis method: aggregate accounting, cushion cap, trial running balance, lowest monthly target balance"
+    },
+    {
+      "digest": "sha256:25b22fc4995904c0d9e49bbd137016ba11d4f8e18129f4a75a3a8fa3c76467fa",
+      "clause_path": "12 CFR 1024.17(f)(1)-(5) -- shortage, surplus, deficiency remedies; $50 surplus refund; 12-month shortage spread"
+    }
+  ],
+  "branches": [
+    {
+      "id": "d2i-a-trial-running-balance",
+      "clause": "12 CFR 1024.17(d)(2)(i)(A)",
+      "branch": "The servicer first projects a trial balance for the account as a whole over the next computation year (a trial running balance), assuming estimated disbursements on their deadline dates and monthly borrower payments.",
+      "disposition": "represented",
+      "evidence": "recomputed_balances",
+      "note": "compute() reproduces exactly this arithmetic from the stated opening balance, stated monthly deposit values, and stated disbursement values; the schedule is emitted month-by-month in output_payload.recomputed_balances."
+    },
+    {
+      "id": "d2i-a-disbursement-deadline-assumption",
+      "clause": "12 CFR 1024.17(d)(2)(i)(A)",
+      "branch": "The trial balance assumes disbursements are made on or before the earlier of the discount deadline or the penalty-avoidance deadline, and that pre-accrual is not used on these disbursement dates.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "monthly disbursement values as stated on the servicer statement",
+        "source": "the borrower-supplied statement values (policy_parameters.disbursements)",
+        "owner": "the caller, who reads the as-stated disbursement schedule off the statement"
+      },
+      "note": "Values-only contract: dates are not accepted as inputs at all, so timing conformance cannot be computed and is not silently assumed."
+    },
+    {
+      "id": "d2i-b-c-bring-low-to-zero-plus-cushion",
+      "clause": "12 CFR 1024.17(d)(2)(i)(B)-(C)",
+      "branch": "The servicer examines the monthly trial balances, adds an amount just sufficient to bring the lowest monthly balance to zero, adjusts all other months, and then adds the permissible cushion (two months of the borrower's escrow payments or a lesser amount under state law or the mortgage document).",
+      "disposition": "represented",
+      "evidence": "target_low_point",
+      "note": "Classification against the target low point is algebraically equivalent to comparing the recomputed schedule against the zero-adjusted-plus-cushion target schedule: spread_vs_target == (low point) - (target low point), emitted as target_low_point plus the shortage_amount/surplus_amount members."
+    },
+    {
+      "id": "d2i-c-cushion-is-two-months-or-state-lesser",
+      "clause": "12 CFR 1024.17(d)(2)(i)(C)",
+      "branch": "The permissible cushion is two months of the borrower's escrow payments, or a lesser amount specified by state law or the mortgage document.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the servicer stated cushion, in dollars",
+        "source": "policy_parameters.stated_cushion, read off the servicer statement",
+        "owner": "the caller, who supplies the governing cushion actually stated; the kernel never assumes a two-month default"
+      },
+      "note": "Values-only contract: the governing document is outside the kernel's inputs by construction."
+    },
+    {
+      "id": "d2ii-lowest-target-at-most-one-sixth",
+      "clause": "12 CFR 1024.17(d)(2)(ii); (c)(1)(i); (c)(5)",
+      "branch": "The lowest monthly target balance must be less than or equal to one-sixth of the estimated total annual escrow account disbursements; the cushion must be no greater than one-sixth.",
+      "disposition": "represented",
+      "evidence": "cushion_cap_amount",
+      "note": "output_payload.cushion_cap_amount carries the one-sixth cap computed from the stated disbursement values; a stated cushion above the cap fires CUSHION_ABOVE_STATUTORY_CAP and sets cushion_within_cap=false. Reachable conformance fixture: stated-cushion-above-cap."
+    },
+    {
+      "id": "c4-aggregate-accounting-mandatory",
+      "clause": "12 CFR 1024.17(c)(4)",
+      "branch": "All servicers must use the aggregate accounting method in conducting escrow account analyses.",
+      "disposition": "represented",
+      "evidence": "account_status",
+      "note": "The kernel IS the aggregate accounting method re-implemented over values (output_payload.evidence.method names it); it cannot detect a servicer who used single-item analysis except insofar as that produces balance values that disagree line-by-line, which the discrepancy detector flags."
+    },
+    {
+      "id": "c1-c2-c3-analysis-timing",
+      "clause": "12 CFR 1024.17(c)(1)(i); (c)(2)-(3)",
+      "branch": "An escrow account analysis must be conducted at account creation and at completion of each computation year, and monthly deposits may not exceed one-twelfth of estimated total annual payments plus permitted amounts.",
+      "disposition": "unrepresented_known",
+      "error_direction": "conservative_toward_no_finding",
+      "note": "The kernel audits one bounded computation year of statement VALUES; it cannot observe when analyses were conducted or whether a filing year boundary was skipped. No runtime path exists on values-only inputs. Declared gap: an audit reported clean says nothing about analysis-timing compliance -- a true timing violation is always missed, never falsely reported."
+    },
+    {
+      "id": "c5-escrowed-msa-and-tax-sale-exclusions",
+      "clause": "12 CFR 1024.17(c)(1)(i) (exclusions carried by cross-reference)",
+      "branch": "The cushion cap and analysis obligations sit inside an escrow regime with carve-outs (e.g. escrowed-MSA states, tax-sale scenarios) that this node's description declares out of scope.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "that the loan sits inside the covered escrow regime (no escrowed-MSA state, no tax-sale scenario)",
+        "source": "the caller regime determination, made before invoking the node",
+        "owner": "the caller; the node refuses free-text regime facts as identifier-like fields and computes nothing for out-of-regime loans"
+      }
+    },
+    {
+      "id": "c8-mortgage-document-lesser-cushion",
+      "clause": "12 CFR 1024.17(c)(8)",
+      "branch": "The servicer must examine the mortgage loan documents; where the documents or state law require a lower cushion or none, the lower amount governs.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the governing cushion from the mortgage documents/state law as stated",
+        "source": "policy_parameters.stated_cushion",
+        "owner": "the caller, who reads the governing document; the kernel only caps the value at one-sixth, never raises it"
+      }
+    },
+    {
+      "id": "f2i-surplus-refund-threshold",
+      "clause": "12 CFR 1024.17(f)(2)(i)",
+      "branch": "If the analysis discloses a surplus, the servicer must refund the surplus within 30 days of the analysis; a surplus of $50 or more is within the mandatory-refund band.",
+      "disposition": "represented",
+      "evidence": "surplus_amount",
+      "note": "surplus_amount carries the disclosed surplus; surplus_refund_required is true when it meets the $50 floor and currency is established. Conformance fixture: worked-example-clean-year (balanced counter-case) and the reachability vector surplus-currency-unverified-reaches-hold for the conditioned branch."
+    },
+    {
+      "id": "f2ii-surplus-refund-currency-condition",
+      "clause": "12 CFR 1024.17(f)(2)(ii)",
+      "branch": "The surplus provisions apply only if the borrower is current at the time of the escrow account analysis.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "SURPLUS_REFUND_CURRENCY_UNVERIFIED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "starting_balance": 0,
+          "monthly_payments": [
+            300,
+            300,
+            300,
+            300,
+            300,
+            300,
+            300,
+            300,
+            300,
+            300,
+            300,
+            300
+          ],
+          "disbursements": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1200
+          ],
+          "stated_balances": [
+            300,
+            600,
+            900,
+            1200,
+            1500,
+            1800,
+            2100,
+            2400,
+            2700,
+            3000,
+            3300,
+            2400
+          ],
+          "stated_cushion": 100
+        },
+        "fixture": "732-borrower-escrow-auditor.reachability.json#surplus-currency-unverified-reaches-hold"
+      }
+    },
+    {
+      "id": "f3-shortage-remedy-election",
+      "clause": "12 CFR 1024.17(f)(3)(i)(A)-(C); (f)(3)(ii)(A)-(B)",
+      "branch": "For a shortage below one month's payment the servicer may keep it, collect within 30 days, or spread over at least 12 months; at one month or more the servicer must either demand payment within 30 days or spread over at least 12 months.",
+      "disposition": "represented",
+      "evidence": "shortage_amount",
+      "note": "shortage_amount and shortage_spread_required carry the amounts and the mandatory-spread trigger (the kernel names the 12-month floor in output_payload.minimum_spread_months); WHICH remedy the servicer elects is the servicer's choice, out of scope for an audit of statement values. Reachable fixture: stated-cushion-above-cap (mandatory-spread case)."
+    },
+    {
+      "id": "f4-deficiency-remedy-election",
+      "clause": "12 CFR 1024.17(f)(4)(i)-(ii)",
+      "branch": "If the analysis confirms a deficiency (negative balance), the servicer may require additional monthly deposits; the remedy election again belongs to the servicer.",
+      "disposition": "represented",
+      "evidence": "shortage_amount",
+      "note": "A negative recomputed low point sets account_status='deficiency', ESCROW_DEFICIENCY, and shortage_amount to the size of the negative low point; the remedy election is out of scope for values. No conformance fixture drives a negative balance in the committed vectors, but the property floor's random corpus covers negative-opening statements."
+    },
+    {
+      "id": "f5-shortage-deficiency-notice",
+      "clause": "12 CFR 1024.17(f)(5)",
+      "branch": "The servicer shall notify the borrower at least once during the computation year if there is a shortage or deficiency.",
+      "disposition": "unrepresented_known",
+      "error_direction": "conservative_toward_no_finding",
+      "note": "Notice conduct is not a statement value and has no runtime path on values-only inputs. Declared gap: the kernel can compute that a shortage exists (which is the notice's content) but can never verify that the notice was sent -- a true notice violation is always missed, never falsely reported."
+    },
+    {
+      "id": "values-only-identifier-refusal",
+      "clause": "AUTHORING-STANDARD section 1 (values-only contract); 12 CFR 1024.17 statement fields",
+      "branch": "Statement fields that carry identifiers or free text (borrower name, loan or account numbers, servicer references) are outside the values-only contract.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "IDENTIFIER_LIKE_FIELD_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "starting_balance": 0,
+          "borrower_name": "Jane Q Borrower",
+          "monthly_payments": [
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "disbursements": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1200
+          ],
+          "stated_balances": [
+            100,
+            200,
+            300,
+            400,
+            500,
+            600,
+            700,
+            800,
+            900,
+            1000,
+            1100,
+            0
+          ]
+        },
+        "fixture": "732-borrower-escrow-auditor.reachability.json#identifier-field-reaches-refusal"
+      }
+    },
+    {
+      "id": "bounded-one-computation-year",
+      "clause": "12 CFR 1024.17(c)(3) (computation year bound)",
+      "branch": "The escrow account computation year bounds the analysis period; this kernel is bounded to 12 monthly periods and refuses more.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "PERIODS_EXCEED_BOUNDED_12_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "starting_balance": 0,
+          "monthly_payments": [
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "disbursements": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "stated_balances": [
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100
+          ]
+        },
+        "fixture": "732-borrower-escrow-auditor.reachability.json#periods-over-bound-reaches-refusal"
+      }
+    }
+  ]
+}
