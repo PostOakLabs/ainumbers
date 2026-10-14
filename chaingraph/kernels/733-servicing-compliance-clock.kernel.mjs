@@ -53,7 +53,8 @@ export const meta = {
 //
 // Pure ECMA-262 arithmetic only -- no Date object, no Date.now, no
 // Math.random. All civil-date arithmetic runs on a pure day-count integer
-// (days since 1970-01-01, civil-from-days / days-from-civil algorithms).
+// over the proleptic Gregorian calendar (the days_from_civil / civil_from_days
+// algorithms; epoch day 0 = 1970-01-01).
 
 const MAX_EVENTS = 32;
 const MAX_STEP_GUARD = 400; // per-deadline day-step guard (longest span 240 days + holiday shifts)
