@@ -22,6 +22,7 @@
  */
 
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, cpSync, rmSync, readFileSync, unlinkSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -490,6 +491,80 @@ test('R22 the real art-699 entry: config range+sha256 match the tracked kernel, 
   // …and the TRACKED kernel must carry no directive (the injection is sandbox-copy only).
   assert(!/Stryker/.test(src), 'the tracked art-699 kernel must carry zero Stryker directives — zero kernel bytes changed');
 });
+
+// ── runtime-read fixture siblings (MUTATION-TIER-SANDBOX-FIXTURES-1) ─────
+// deriveSandboxFiles() walks the static IMPORT graph, so a proptest that runtime-reads a
+// fixtures sibling (fs.readFileSync(path.join(HERE, '..', 'fixtures', KERNEL_ID +
+// '.reachability.json')) — the estate template, art-663-apy-earned-recompute.proptest.mjs:29)
+// is invisible to it: copySandboxDeps passed ONLY <id>.fixtures.json as an extra, the sandbox
+// lacked the sibling, and Stryker's initial test run died with a bare ENOENT — hard-failing the
+// pre-push hook for every reachability-pattern kernel while the nightly silently never measured
+// them (the same bug handled asymmetrically). The cure is caller-side: copySandboxDeps itself
+// readdir-matches every EXISTING `<id>.*.json` fixture sibling beyond <id>.fixtures.json into
+// the extras list — future-proof for any runtime-read sibling, not just reachability.
+
+const SIBLING_FIXTURE_REPO = buildRuntimeReadFixtureRepo();
+
+function buildRuntimeReadFixtureRepo() {
+  const root = mkdtempSync(join(tmpdir(), 'rmt-fixture-reach-'));
+  cleanup.push(root);
+  const kernelsDir = join(root, 'chaingraph', 'kernels');
+  const proptestsDir = join(kernelsDir, '__proptests__');
+  const fixturesDir = join(kernelsDir, 'fixtures');
+  mkdirSync(proptestsDir, { recursive: true });
+  mkdirSync(fixturesDir, { recursive: true });
+  writeFileSync(join(kernelsDir, 'reach-k.kernel.mjs'), "export function buildArtifact() { return 1; }\n");
+  // Mirrors the estate's reachability pattern: the proptest RUNTIME-READS the sibling via
+  // fs.readFileSync — no import edge, invisible to any static-derivation walk.
+  writeFileSync(join(proptestsDir, 'reach-k.proptest.mjs'), [
+    "import { readFileSync } from 'node:fs';",
+    "import { join, dirname } from 'node:path';",
+    "import { fileURLToPath } from 'node:url';",
+    "const HERE = dirname(fileURLToPath(import.meta.url));",
+    "const reach = JSON.parse(readFileSync(join(HERE, '..', 'fixtures', 'reach-k.reachability.json'), 'utf8'));",
+    "console.log(reach.ok);",
+  ].join('\n'));
+  writeFileSync(join(fixturesDir, 'reach-k.fixtures.json'), '{"vectors":[]}\n');
+  writeFileSync(join(fixturesDir, 'reach-k.reachability.json'), '{"ok":true}\n');
+  return {
+    root,
+    kernelRelPath: 'chaingraph/kernels/reach-k.kernel.mjs',
+    proptestRelPath: 'chaingraph/kernels/__proptests__/reach-k.proptest.mjs',
+    fixturesRelPath: 'chaingraph/kernels/fixtures/reach-k.fixtures.json',
+    siblingRelPath: 'chaingraph/kernels/fixtures/reach-k.reachability.json',
+  };
+}
+
+test('R23 copySandboxDeps() carries a runtime-read fixtures sibling (<id>.reachability.json) the import graph cannot see', () => {
+  const fx = SIBLING_FIXTURE_REPO;
+  const scratchRoot = mkdtempSync(join(tmpdir(), 'rmt-scratch-reach-'));
+  cleanup.push(scratchRoot);
+  const files = copySandboxDeps(fx.kernelRelPath, fx.proptestRelPath, fx.fixturesRelPath, scratchRoot, fx.root);
+  assert(existsSync(join(scratchRoot, fx.siblingRelPath)),
+    `the runtime-read sibling reach-k.reachability.json must be IN the sandbox — without it Stryker's initial run dies with ENOENT (the reproduced defect); got files=${JSON.stringify(files)}`);
+  assert(files.includes(fx.siblingRelPath), `the derived file list must name the sibling; got ${JSON.stringify(files)}`);
+  assert(existsSync(join(scratchRoot, fx.fixturesRelPath)), '<id>.fixtures.json must still be copied');
+  // And the sandboxed proptest must actually RUN against the copied sandbox (the ENOENT is gone):
+  const run = runProcessBoundedSync(join(scratchRoot, fx.proptestRelPath), scratchRoot);
+  assert(run.code === 0, `the sandboxed proptest must execute cleanly against the sandbox; got code=${run.code} stderr=${run.stderr.slice(0, 400)}`);
+});
+
+test('R24 the same cure leaves non-sibling fixture files (other kernels\' fixtures) OUT of the sandbox', () => {
+  const fx = SIBLING_FIXTURE_REPO;
+  writeFileSync(join(fx.root, 'chaingraph', 'kernels', 'fixtures', 'other-k.fixtures.json'), '{}\n');
+  const scratchRoot = mkdtempSync(join(tmpdir(), 'rmt-scratch-reach2-'));
+  cleanup.push(scratchRoot);
+  const files = copySandboxDeps(fx.kernelRelPath, fx.proptestRelPath, fx.fixturesRelPath, scratchRoot, fx.root);
+  assert(!existsSync(join(scratchRoot, 'chaingraph/kernels/fixtures/other-k.fixtures.json')),
+    `another kernel's fixture must not be swept in (prefix match on "reach-k." only); got files=${JSON.stringify(files)}`);
+});
+
+// Sync helper: run a scratch file as a child so R23 proves the sandbox is actually loadable,
+// not merely file-complete. Bounded so a hanging proptest can never hang the test file.
+function runProcessBoundedSync(file, cwd) {
+  const r = spawnSync(process.execPath, [file], { cwd, encoding: 'utf8', timeout: 30000 });
+  return { code: r.status ?? -1, stderr: r.stderr || '' };
+}
 
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
