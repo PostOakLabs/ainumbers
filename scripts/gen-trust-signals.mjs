@@ -87,15 +87,47 @@ export const VERIFY_HOW =
 // paired test, which asserts the exact workflow text matches this pattern.
 export const BOT_COMMIT_SUBJECT = 'chore(derived): regenerate shared derived artifacts on main';
 
-/** Pure: pick the fact-commit line out of `git log --format=%H%x01%cI%x01%s` output.
- *  Returns { commit, generatedAt } for the newest commit whose subject is NOT the
- *  regen bot's. Throws when the log is exhausted (all-bot history = wiring bug). */
+// TRUST-SIGNALS-ANCHOR-SELFREF-1: the digest and its schema are the digest's own
+// carrier bytes, never FACT inputs. A commit whose ONLY change is these paths
+// describes no new facts — anchoring the digest at it would make the digest
+// reference the commit that introduced it, so every writer→commit→push cycle
+// re-stales the anchor against itself (the self-reference this row fixes:
+// ART708's green push df3cb00e5 carried anchor a6038f6b ≠ its own fact-commit
+// df3cb00e5 and passed only via the PR-advisory downgrade). Paths as `git log
+// --name-only` prints them (forward slashes, repo-root-relative).
+export const ANCHOR_PATHS = [
+  '.well-known/trust-signals.json',
+  '.well-known/trust-signals.schema.json',
+];
+
+/** Pure: pick the fact-commit record out of
+ *  `git log --format=%x02%H%x01%cI%x01%s --name-only` output. Each record is a
+ *  head line `sha\x01date\x01subject` followed by the commit's changed paths
+ *  (one per line); the leading \x02 separators are tolerated but not required —
+ *  a line starting with a 40-hex sha + \x01 begins a new record either way.
+ *  Returns { commit, generatedAt } for the newest commit that is neither the
+ *  regen bot's nor a digest/anchor-only commit (i.e. the newest commit that
+ *  changed a FACT input). Throws when the log is exhausted (all-bot history =
+ *  wiring bug). */
 export function pickFactCommit(logText) {
+  const records = [];
   for (const line of String(logText).split('\n')) {
-    if (!line.trim()) continue;
-    const [sha, date, subject] = line.split('\x01');
+    const t = line.replace(/\x02/g, '').trim();
+    if (!t) continue;
+    // A head line: 40-hex sha + \x01, or the bare three-field legacy shape
+    // (rejected below with the unparsable error, never mistaken for a path).
+    if (/^[0-9a-f]{40}\x01/.test(t) || t.split('\x01').length >= 3) records.push({ head: t, files: [] });
+    else if (records.length) records[records.length - 1].files.push(t);
+    else if (records.length) records[records.length - 1].files.push(t);
+  }
+  for (const { head, files } of records) {
+    const [sha, date, subject] = head.split('\x01');
     if (subject === BOT_COMMIT_SUBJECT) continue;
-    if (!/^[0-9a-f]{40}$/.test(sha || '')) throw new Error(`gen-trust-signals: unparsable git log line: ${JSON.stringify(line.slice(0, 90))}`);
+    if (!/^[0-9a-f]{40}$/.test(sha || '')) throw new Error(`gen-trust-signals: unparsable git log line: ${JSON.stringify(head.slice(0, 90))}`);
+    // TRUST-SIGNALS-ANCHOR-SELFREF-1 (a): skip commits whose only change is the
+    // digest/anchor files — the anchor is the newest commit that changed a FACT
+    // input, so committing the digest does not re-stale the anchor against itself.
+    if (files.length > 0 && files.every((f) => ANCHOR_PATHS.includes(f))) continue;
     // UTC seconds precision — byte-stable at a fixed commit (derived-artifacts
     // idempotency doctrine (b); wall clock would churn the bot's commit step).
     const generatedAt = new Date(date).toISOString().replace(/\.\d{3}Z$/, 'Z');
@@ -104,8 +136,8 @@ export function pickFactCommit(logText) {
   throw new Error('gen-trust-signals: every commit in the log window is a chore(derived) bot commit — refusing to anchor the digest to nothing');
 }
 
-function gitLog() {
-  return execFileSync('git', ['log', '-n', '50', '--format=%H%x01%cI%x01%s'], {
+export function gitLog() {
+  return execFileSync('git', ['log', '-n', '50', '--format=%x02%H%x01%cI%x01%s', '--name-only'], {
     cwd: REPO, env: gitEnv(), encoding: 'utf8', maxBuffer: 8 * 1024 * 1024,
   });
 }
