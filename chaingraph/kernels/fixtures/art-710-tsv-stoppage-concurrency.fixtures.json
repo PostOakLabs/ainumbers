@@ -1,0 +1,862 @@
+{
+  "tool_id": "art-710-tsv-stoppage-concurrency",
+  "note": "Golden vectors F1-F12. F1 a trade one ms inside a halt flagged; F2 the end boundary is exclusive (half-open interval rule); F3 an open-ended suspension covered by an open-ended halt record; F4 a missing participant notice; F5 the leading-edge concurrency tolerance (echoed); F6 a halt record not covering the stoppage; F7 the trailing-edge tolerance on an MWCB stoppage; F8 mixed multi-stoppage statuses; F9-F12 refusal pins. Evidence only per SEC TSV Exemption condition H (FR 2026-19388, 91 Fed. Reg. 60176); the node reads no chain.",
+  "vectors": [
+    {
+      "name": "F1_trade_one_ms_inside_halt_flagged",
+      "note": "Trade at start_ts + 1 ms inside a halt, tolerance 0: flagged TRADE_DURING_STOPPAGE; the halt record covers and the notice latency is 0 ms.",
+      "policy_parameters": {
+        "stoppages": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "kind": "halt"
+          }
+        ],
+        "tsv_trades": [
+          {
+            "symbol": "AAPL",
+            "ts": 1001,
+            "trade_id": "T-1"
+          }
+        ],
+        "tsv_halt_records": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000
+          }
+        ],
+        "participant_notices": [
+          {
+            "symbol": "AAPL",
+            "ts": 1000
+          }
+        ]
+      },
+      "output_payload": {
+        "concurrency_tolerance_ms": 0,
+        "counts": {
+          "stoppages": 1,
+          "trades": 1,
+          "trades_during_stoppages": 1,
+          "trades_flagged": 1,
+          "halt_records": 1,
+          "participant_notices": 1,
+          "uncovered_stoppages": 0,
+          "stoppages_without_notice": 0,
+          "violations": 1
+        },
+        "violations": [
+          {
+            "type": "TRADE_DURING_STOPPAGE",
+            "symbol": "AAPL",
+            "kind": "halt",
+            "stoppage_start_ts": 1000,
+            "stoppage_end_ts": 2000,
+            "trade_id": "T-1",
+            "trade_ts": 1001
+          }
+        ],
+        "per_stoppage": [
+          {
+            "symbol": "AAPL",
+            "kind": "halt",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "covered": true,
+            "covering_halt_record": {
+              "start_ts": 1000,
+              "end_ts": 2000
+            },
+            "trades_during": 1,
+            "trades_flagged": 1,
+            "trades_within_tolerance": 0,
+            "notice_latency_ms": 0
+          }
+        ],
+        "assumptions": [
+          "Condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026): a TSV must stop trading in a Tokenized NMS Stock concurrently with any stoppage of trading in the underlying NMS stock on the primary listing exchange, which includes a halt or a suspension, and must immediately notify its TSV Participants of any stoppage.",
+          "Stoppage intervals are HALF-OPEN: start-inclusive, end-exclusive, [start_ts, end_ts). A trade at exactly end_ts is outside the stoppage.",
+          "concurrency_tolerance_ms (caller-declared, echoed) widens the tolerated window around the interval edges: a trade with ts < start_ts + tolerance or ts >= end_ts - tolerance sits inside the interval but inside the declared tolerance and is counted without being flagged.",
+          "The order says \"immediately\" without a number: notice latency is reported as a measured value in milliseconds and is never graded pass/fail.",
+          "Notice latency is measured from the stoppage start to the earliest participant notice for the symbol at or after that start; an open-ended stoppage (end_ts null) is covered only by an open-ended TSV halt record.",
+          "Evidence only: this node states no opinion on whether any latency, gap or trade is lawful; it reports what the caller-supplied records show.",
+          "Zero network: the node never reads a chain and checks only the caller-supplied stoppages, trades, halt records and notices."
+        ]
+      },
+      "golden_hash": "1f150c5bfa6d49ada863dd89bfbcbd83bef98ece2fba068daf7fe200730232bc"
+    },
+    {
+      "name": "F2_trade_at_end_boundary_not_flagged",
+      "note": "Trade at exactly end_ts: the interval is half-open, start-inclusive and end-exclusive, so the trade is outside the stoppage and nothing is flagged.",
+      "policy_parameters": {
+        "stoppages": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "kind": "halt"
+          }
+        ],
+        "tsv_trades": [
+          {
+            "symbol": "AAPL",
+            "ts": 2000,
+            "trade_id": "T-2"
+          }
+        ],
+        "tsv_halt_records": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000
+          }
+        ],
+        "participant_notices": [
+          {
+            "symbol": "AAPL",
+            "ts": 1000
+          }
+        ]
+      },
+      "output_payload": {
+        "concurrency_tolerance_ms": 0,
+        "counts": {
+          "stoppages": 1,
+          "trades": 1,
+          "trades_during_stoppages": 0,
+          "trades_flagged": 0,
+          "halt_records": 1,
+          "participant_notices": 1,
+          "uncovered_stoppages": 0,
+          "stoppages_without_notice": 0,
+          "violations": 0
+        },
+        "violations": [],
+        "per_stoppage": [
+          {
+            "symbol": "AAPL",
+            "kind": "halt",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "covered": true,
+            "covering_halt_record": {
+              "start_ts": 1000,
+              "end_ts": 2000
+            },
+            "trades_during": 0,
+            "trades_flagged": 0,
+            "trades_within_tolerance": 0,
+            "notice_latency_ms": 0
+          }
+        ],
+        "assumptions": [
+          "Condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026): a TSV must stop trading in a Tokenized NMS Stock concurrently with any stoppage of trading in the underlying NMS stock on the primary listing exchange, which includes a halt or a suspension, and must immediately notify its TSV Participants of any stoppage.",
+          "Stoppage intervals are HALF-OPEN: start-inclusive, end-exclusive, [start_ts, end_ts). A trade at exactly end_ts is outside the stoppage.",
+          "concurrency_tolerance_ms (caller-declared, echoed) widens the tolerated window around the interval edges: a trade with ts < start_ts + tolerance or ts >= end_ts - tolerance sits inside the interval but inside the declared tolerance and is counted without being flagged.",
+          "The order says \"immediately\" without a number: notice latency is reported as a measured value in milliseconds and is never graded pass/fail.",
+          "Notice latency is measured from the stoppage start to the earliest participant notice for the symbol at or after that start; an open-ended stoppage (end_ts null) is covered only by an open-ended TSV halt record.",
+          "Evidence only: this node states no opinion on whether any latency, gap or trade is lawful; it reports what the caller-supplied records show.",
+          "Zero network: the node never reads a chain and checks only the caller-supplied stoppages, trades, halt records and notices."
+        ]
+      },
+      "golden_hash": "156c142f4455f4e9701ed964a3da86dabed13c1b600293d7fe7f12f82d0c9864"
+    },
+    {
+      "name": "F3_open_ended_suspension_covered",
+      "note": "Open-ended suspension (end_ts null): covered only by an open-ended halt record; notice present with a measured latency.",
+      "policy_parameters": {
+        "stoppages": [
+          {
+            "symbol": "MSFT",
+            "start_ts": 5000,
+            "end_ts": null,
+            "kind": "suspension"
+          }
+        ],
+        "tsv_trades": [],
+        "tsv_halt_records": [
+          {
+            "symbol": "MSFT",
+            "start_ts": 5000,
+            "end_ts": null
+          }
+        ],
+        "participant_notices": [
+          {
+            "symbol": "MSFT",
+            "ts": 5250
+          }
+        ]
+      },
+      "output_payload": {
+        "concurrency_tolerance_ms": 0,
+        "counts": {
+          "stoppages": 1,
+          "trades": 0,
+          "trades_during_stoppages": 0,
+          "trades_flagged": 0,
+          "halt_records": 1,
+          "participant_notices": 1,
+          "uncovered_stoppages": 0,
+          "stoppages_without_notice": 0,
+          "violations": 0
+        },
+        "violations": [],
+        "per_stoppage": [
+          {
+            "symbol": "MSFT",
+            "kind": "suspension",
+            "start_ts": 5000,
+            "end_ts": null,
+            "covered": true,
+            "covering_halt_record": {
+              "start_ts": 5000,
+              "end_ts": null
+            },
+            "trades_during": 0,
+            "trades_flagged": 0,
+            "trades_within_tolerance": 0,
+            "notice_latency_ms": 250
+          }
+        ],
+        "assumptions": [
+          "Condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026): a TSV must stop trading in a Tokenized NMS Stock concurrently with any stoppage of trading in the underlying NMS stock on the primary listing exchange, which includes a halt or a suspension, and must immediately notify its TSV Participants of any stoppage.",
+          "Stoppage intervals are HALF-OPEN: start-inclusive, end-exclusive, [start_ts, end_ts). A trade at exactly end_ts is outside the stoppage.",
+          "concurrency_tolerance_ms (caller-declared, echoed) widens the tolerated window around the interval edges: a trade with ts < start_ts + tolerance or ts >= end_ts - tolerance sits inside the interval but inside the declared tolerance and is counted without being flagged.",
+          "The order says \"immediately\" without a number: notice latency is reported as a measured value in milliseconds and is never graded pass/fail.",
+          "Notice latency is measured from the stoppage start to the earliest participant notice for the symbol at or after that start; an open-ended stoppage (end_ts null) is covered only by an open-ended TSV halt record.",
+          "Evidence only: this node states no opinion on whether any latency, gap or trade is lawful; it reports what the caller-supplied records show.",
+          "Zero network: the node never reads a chain and checks only the caller-supplied stoppages, trades, halt records and notices."
+        ]
+      },
+      "golden_hash": "fb69e5e962c75cac57215e3278cf0ee6b6e85a72cc4d0c198220babe4a924c0c"
+    },
+    {
+      "name": "F4_missing_participant_notice",
+      "note": "No participant notice for the stoppage symbol: NO_PARTICIPANT_NOTICE, notice_latency_ms null. Latency is never graded; absence is reported as absence.",
+      "policy_parameters": {
+        "stoppages": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "kind": "halt"
+          }
+        ],
+        "tsv_trades": [],
+        "tsv_halt_records": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000
+          }
+        ],
+        "participant_notices": []
+      },
+      "output_payload": {
+        "concurrency_tolerance_ms": 0,
+        "counts": {
+          "stoppages": 1,
+          "trades": 0,
+          "trades_during_stoppages": 0,
+          "trades_flagged": 0,
+          "halt_records": 1,
+          "participant_notices": 0,
+          "uncovered_stoppages": 0,
+          "stoppages_without_notice": 1,
+          "violations": 1
+        },
+        "violations": [
+          {
+            "type": "NO_PARTICIPANT_NOTICE",
+            "symbol": "AAPL",
+            "kind": "halt",
+            "stoppage_start_ts": 1000,
+            "stoppage_end_ts": 2000
+          }
+        ],
+        "per_stoppage": [
+          {
+            "symbol": "AAPL",
+            "kind": "halt",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "covered": true,
+            "covering_halt_record": {
+              "start_ts": 1000,
+              "end_ts": 2000
+            },
+            "trades_during": 0,
+            "trades_flagged": 0,
+            "trades_within_tolerance": 0,
+            "notice_latency_ms": null
+          }
+        ],
+        "assumptions": [
+          "Condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026): a TSV must stop trading in a Tokenized NMS Stock concurrently with any stoppage of trading in the underlying NMS stock on the primary listing exchange, which includes a halt or a suspension, and must immediately notify its TSV Participants of any stoppage.",
+          "Stoppage intervals are HALF-OPEN: start-inclusive, end-exclusive, [start_ts, end_ts). A trade at exactly end_ts is outside the stoppage.",
+          "concurrency_tolerance_ms (caller-declared, echoed) widens the tolerated window around the interval edges: a trade with ts < start_ts + tolerance or ts >= end_ts - tolerance sits inside the interval but inside the declared tolerance and is counted without being flagged.",
+          "The order says \"immediately\" without a number: notice latency is reported as a measured value in milliseconds and is never graded pass/fail.",
+          "Notice latency is measured from the stoppage start to the earliest participant notice for the symbol at or after that start; an open-ended stoppage (end_ts null) is covered only by an open-ended TSV halt record.",
+          "Evidence only: this node states no opinion on whether any latency, gap or trade is lawful; it reports what the caller-supplied records show.",
+          "Zero network: the node never reads a chain and checks only the caller-supplied stoppages, trades, halt records and notices."
+        ]
+      },
+      "golden_hash": "aa7653e5a22a2b6e88a1cda8bffcb03bc0e1453f08e48be4d981d70e618fdaef"
+    },
+    {
+      "name": "F5_tolerance_echoed_trade_within_tolerance",
+      "note": "concurrency_tolerance_ms 5000 echoed; a trade 2000 ms after start sits within the declared tolerance at the leading edge: counted in trades_within_tolerance, not flagged.",
+      "policy_parameters": {
+        "stoppages": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "kind": "halt"
+          }
+        ],
+        "tsv_trades": [
+          {
+            "symbol": "AAPL",
+            "ts": 3000,
+            "trade_id": "T-5"
+          }
+        ],
+        "tsv_halt_records": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000
+          }
+        ],
+        "participant_notices": [
+          {
+            "symbol": "AAPL",
+            "ts": 1000
+          }
+        ],
+        "concurrency_tolerance_ms": 5000
+      },
+      "output_payload": {
+        "concurrency_tolerance_ms": 5000,
+        "counts": {
+          "stoppages": 1,
+          "trades": 1,
+          "trades_during_stoppages": 0,
+          "trades_flagged": 0,
+          "halt_records": 1,
+          "participant_notices": 1,
+          "uncovered_stoppages": 0,
+          "stoppages_without_notice": 0,
+          "violations": 0
+        },
+        "violations": [],
+        "per_stoppage": [
+          {
+            "symbol": "AAPL",
+            "kind": "halt",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "covered": true,
+            "covering_halt_record": {
+              "start_ts": 1000,
+              "end_ts": 2000
+            },
+            "trades_during": 0,
+            "trades_flagged": 0,
+            "trades_within_tolerance": 0,
+            "notice_latency_ms": 0
+          }
+        ],
+        "assumptions": [
+          "Condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026): a TSV must stop trading in a Tokenized NMS Stock concurrently with any stoppage of trading in the underlying NMS stock on the primary listing exchange, which includes a halt or a suspension, and must immediately notify its TSV Participants of any stoppage.",
+          "Stoppage intervals are HALF-OPEN: start-inclusive, end-exclusive, [start_ts, end_ts). A trade at exactly end_ts is outside the stoppage.",
+          "concurrency_tolerance_ms (caller-declared, echoed) widens the tolerated window around the interval edges: a trade with ts < start_ts + tolerance or ts >= end_ts - tolerance sits inside the interval but inside the declared tolerance and is counted without being flagged.",
+          "The order says \"immediately\" without a number: notice latency is reported as a measured value in milliseconds and is never graded pass/fail.",
+          "Notice latency is measured from the stoppage start to the earliest participant notice for the symbol at or after that start; an open-ended stoppage (end_ts null) is covered only by an open-ended TSV halt record.",
+          "Evidence only: this node states no opinion on whether any latency, gap or trade is lawful; it reports what the caller-supplied records show.",
+          "Zero network: the node never reads a chain and checks only the caller-supplied stoppages, trades, halt records and notices."
+        ]
+      },
+      "golden_hash": "bf0ceee657e920249bdd29d777ced9ac4869b3338e01f71087d669b9cc33d2b6"
+    },
+    {
+      "name": "F6_halt_record_not_covering",
+      "note": "The TSV halt record ends before the stoppage ends: HALT_RECORD_NOT_COVERING while the notice is present.",
+      "policy_parameters": {
+        "stoppages": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "kind": "halt"
+          }
+        ],
+        "tsv_trades": [],
+        "tsv_halt_records": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 1500
+          }
+        ],
+        "participant_notices": [
+          {
+            "symbol": "AAPL",
+            "ts": 1000
+          }
+        ]
+      },
+      "output_payload": {
+        "concurrency_tolerance_ms": 0,
+        "counts": {
+          "stoppages": 1,
+          "trades": 0,
+          "trades_during_stoppages": 0,
+          "trades_flagged": 0,
+          "halt_records": 1,
+          "participant_notices": 1,
+          "uncovered_stoppages": 1,
+          "stoppages_without_notice": 0,
+          "violations": 1
+        },
+        "violations": [
+          {
+            "type": "HALT_RECORD_NOT_COVERING",
+            "symbol": "AAPL",
+            "kind": "halt",
+            "stoppage_start_ts": 1000,
+            "stoppage_end_ts": 2000
+          }
+        ],
+        "per_stoppage": [
+          {
+            "symbol": "AAPL",
+            "kind": "halt",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "covered": false,
+            "covering_halt_record": null,
+            "trades_during": 0,
+            "trades_flagged": 0,
+            "trades_within_tolerance": 0,
+            "notice_latency_ms": 0
+          }
+        ],
+        "assumptions": [
+          "Condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026): a TSV must stop trading in a Tokenized NMS Stock concurrently with any stoppage of trading in the underlying NMS stock on the primary listing exchange, which includes a halt or a suspension, and must immediately notify its TSV Participants of any stoppage.",
+          "Stoppage intervals are HALF-OPEN: start-inclusive, end-exclusive, [start_ts, end_ts). A trade at exactly end_ts is outside the stoppage.",
+          "concurrency_tolerance_ms (caller-declared, echoed) widens the tolerated window around the interval edges: a trade with ts < start_ts + tolerance or ts >= end_ts - tolerance sits inside the interval but inside the declared tolerance and is counted without being flagged.",
+          "The order says \"immediately\" without a number: notice latency is reported as a measured value in milliseconds and is never graded pass/fail.",
+          "Notice latency is measured from the stoppage start to the earliest participant notice for the symbol at or after that start; an open-ended stoppage (end_ts null) is covered only by an open-ended TSV halt record.",
+          "Evidence only: this node states no opinion on whether any latency, gap or trade is lawful; it reports what the caller-supplied records show.",
+          "Zero network: the node never reads a chain and checks only the caller-supplied stoppages, trades, halt records and notices."
+        ]
+      },
+      "golden_hash": "549b271705b7c584f5908d59478144288d61f70c8b363600e983cfd5f5112eff"
+    },
+    {
+      "name": "F7_trailing_edge_tolerance_mwcb",
+      "note": "MWCB stoppage with tolerance 1000: a trade 500 ms before the end sits within the trailing-edge tolerance and is not flagged.",
+      "policy_parameters": {
+        "stoppages": [
+          {
+            "symbol": "NVDA",
+            "start_ts": 10000,
+            "end_ts": 20000,
+            "kind": "mwcb"
+          }
+        ],
+        "tsv_trades": [
+          {
+            "symbol": "NVDA",
+            "ts": 19500,
+            "trade_id": "T-7"
+          }
+        ],
+        "tsv_halt_records": [
+          {
+            "symbol": "NVDA",
+            "start_ts": 10000,
+            "end_ts": 20000
+          }
+        ],
+        "participant_notices": [
+          {
+            "symbol": "NVDA",
+            "ts": 10300
+          }
+        ],
+        "concurrency_tolerance_ms": 1000
+      },
+      "output_payload": {
+        "concurrency_tolerance_ms": 1000,
+        "counts": {
+          "stoppages": 1,
+          "trades": 1,
+          "trades_during_stoppages": 1,
+          "trades_flagged": 0,
+          "halt_records": 1,
+          "participant_notices": 1,
+          "uncovered_stoppages": 0,
+          "stoppages_without_notice": 0,
+          "violations": 0
+        },
+        "violations": [],
+        "per_stoppage": [
+          {
+            "symbol": "NVDA",
+            "kind": "mwcb",
+            "start_ts": 10000,
+            "end_ts": 20000,
+            "covered": true,
+            "covering_halt_record": {
+              "start_ts": 10000,
+              "end_ts": 20000
+            },
+            "trades_during": 1,
+            "trades_flagged": 0,
+            "trades_within_tolerance": 1,
+            "notice_latency_ms": 300
+          }
+        ],
+        "assumptions": [
+          "Condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026): a TSV must stop trading in a Tokenized NMS Stock concurrently with any stoppage of trading in the underlying NMS stock on the primary listing exchange, which includes a halt or a suspension, and must immediately notify its TSV Participants of any stoppage.",
+          "Stoppage intervals are HALF-OPEN: start-inclusive, end-exclusive, [start_ts, end_ts). A trade at exactly end_ts is outside the stoppage.",
+          "concurrency_tolerance_ms (caller-declared, echoed) widens the tolerated window around the interval edges: a trade with ts < start_ts + tolerance or ts >= end_ts - tolerance sits inside the interval but inside the declared tolerance and is counted without being flagged.",
+          "The order says \"immediately\" without a number: notice latency is reported as a measured value in milliseconds and is never graded pass/fail.",
+          "Notice latency is measured from the stoppage start to the earliest participant notice for the symbol at or after that start; an open-ended stoppage (end_ts null) is covered only by an open-ended TSV halt record.",
+          "Evidence only: this node states no opinion on whether any latency, gap or trade is lawful; it reports what the caller-supplied records show.",
+          "Zero network: the node never reads a chain and checks only the caller-supplied stoppages, trades, halt records and notices."
+        ]
+      },
+      "golden_hash": "a725f125ec851aeb18cd5363a7a5e2ac58621ca3a15d9afe15bc84aeaea2704e"
+    },
+    {
+      "name": "F8_multi_stoppage_mixed",
+      "note": "Three stoppages: one clean, one with a flagged trade beyond tolerance, one uncovered by any halt record.",
+      "policy_parameters": {
+        "stoppages": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "kind": "halt"
+          },
+          {
+            "symbol": "TSLA",
+            "start_ts": 3000,
+            "end_ts": 4000,
+            "kind": "halt"
+          },
+          {
+            "symbol": "GME",
+            "start_ts": 5000,
+            "end_ts": 6000,
+            "kind": "suspension"
+          }
+        ],
+        "tsv_trades": [
+          {
+            "symbol": "TSLA",
+            "ts": 3800,
+            "trade_id": "T-8a"
+          }
+        ],
+        "tsv_halt_records": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000
+          },
+          {
+            "symbol": "TSLA",
+            "start_ts": 3000,
+            "end_ts": 4000
+          }
+        ],
+        "participant_notices": [
+          {
+            "symbol": "AAPL",
+            "ts": 1000
+          },
+          {
+            "symbol": "TSLA",
+            "ts": 3100
+          },
+          {
+            "symbol": "GME",
+            "ts": 5000
+          }
+        ]
+      },
+      "output_payload": {
+        "concurrency_tolerance_ms": 0,
+        "counts": {
+          "stoppages": 3,
+          "trades": 1,
+          "trades_during_stoppages": 1,
+          "trades_flagged": 1,
+          "halt_records": 2,
+          "participant_notices": 3,
+          "uncovered_stoppages": 1,
+          "stoppages_without_notice": 0,
+          "violations": 2
+        },
+        "violations": [
+          {
+            "type": "TRADE_DURING_STOPPAGE",
+            "symbol": "TSLA",
+            "kind": "halt",
+            "stoppage_start_ts": 3000,
+            "stoppage_end_ts": 4000,
+            "trade_id": "T-8a",
+            "trade_ts": 3800
+          },
+          {
+            "type": "HALT_RECORD_NOT_COVERING",
+            "symbol": "GME",
+            "kind": "suspension",
+            "stoppage_start_ts": 5000,
+            "stoppage_end_ts": 6000
+          }
+        ],
+        "per_stoppage": [
+          {
+            "symbol": "AAPL",
+            "kind": "halt",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "covered": true,
+            "covering_halt_record": {
+              "start_ts": 1000,
+              "end_ts": 2000
+            },
+            "trades_during": 0,
+            "trades_flagged": 0,
+            "trades_within_tolerance": 0,
+            "notice_latency_ms": 0
+          },
+          {
+            "symbol": "TSLA",
+            "kind": "halt",
+            "start_ts": 3000,
+            "end_ts": 4000,
+            "covered": true,
+            "covering_halt_record": {
+              "start_ts": 3000,
+              "end_ts": 4000
+            },
+            "trades_during": 1,
+            "trades_flagged": 1,
+            "trades_within_tolerance": 0,
+            "notice_latency_ms": 100
+          },
+          {
+            "symbol": "GME",
+            "kind": "suspension",
+            "start_ts": 5000,
+            "end_ts": 6000,
+            "covered": false,
+            "covering_halt_record": null,
+            "trades_during": 0,
+            "trades_flagged": 0,
+            "trades_within_tolerance": 0,
+            "notice_latency_ms": 0
+          }
+        ],
+        "assumptions": [
+          "Condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026): a TSV must stop trading in a Tokenized NMS Stock concurrently with any stoppage of trading in the underlying NMS stock on the primary listing exchange, which includes a halt or a suspension, and must immediately notify its TSV Participants of any stoppage.",
+          "Stoppage intervals are HALF-OPEN: start-inclusive, end-exclusive, [start_ts, end_ts). A trade at exactly end_ts is outside the stoppage.",
+          "concurrency_tolerance_ms (caller-declared, echoed) widens the tolerated window around the interval edges: a trade with ts < start_ts + tolerance or ts >= end_ts - tolerance sits inside the interval but inside the declared tolerance and is counted without being flagged.",
+          "The order says \"immediately\" without a number: notice latency is reported as a measured value in milliseconds and is never graded pass/fail.",
+          "Notice latency is measured from the stoppage start to the earliest participant notice for the symbol at or after that start; an open-ended stoppage (end_ts null) is covered only by an open-ended TSV halt record.",
+          "Evidence only: this node states no opinion on whether any latency, gap or trade is lawful; it reports what the caller-supplied records show.",
+          "Zero network: the node never reads a chain and checks only the caller-supplied stoppages, trades, halt records and notices."
+        ]
+      },
+      "golden_hash": "a9b5bd802f6dca364d3c2c1a112d32e6ffd03b91c18cd1d0992d9843a21b4d7c"
+    },
+    {
+      "name": "F9_refusal_bad_stoppage_kind",
+      "note": "Refusal pin: a stoppage kind outside halt | suspension | mwcb is refused.",
+      "policy_parameters": {
+        "stoppages": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "kind": "holiday"
+          }
+        ],
+        "tsv_trades": [],
+        "tsv_halt_records": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000
+          }
+        ],
+        "participant_notices": [
+          {
+            "symbol": "AAPL",
+            "ts": 1000
+          }
+        ]
+      },
+      "output_payload": {
+        "error": "stoppage_entry_invalid",
+        "detail": "each stoppage must carry a non-empty symbol string, an integer start_ts >= 0, an end_ts that is null (open-ended) or an integer >= start_ts, and a kind of halt | suspension | mwcb; got {\"symbol\":\"AAPL\",\"start_ts\":1000,\"end_ts\":2000,\"kind\":\"holiday\"}.",
+        "domain_errors": [
+          {
+            "code": "STOPPAGE_ENTRY_INVALID",
+            "text": "each stoppage must carry a non-empty symbol string, an integer start_ts >= 0, an end_ts that is null (open-ended) or an integer >= start_ts, and a kind of halt | suspension | mwcb; got {\"symbol\":\"AAPL\",\"start_ts\":1000,\"end_ts\":2000,\"kind\":\"holiday\"}."
+          }
+        ],
+        "violations": [],
+        "per_stoppage": [],
+        "concurrency_tolerance_ms": null,
+        "assumptions": []
+      },
+      "golden_hash": "fd10df356fd1a52b49ca50ee15df00de589dde16370598b2fe70fc1f2d231b4f"
+    },
+    {
+      "name": "F10_refusal_negative_tolerance",
+      "note": "Refusal pin: a negative concurrency_tolerance_ms is refused.",
+      "policy_parameters": {
+        "stoppages": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "kind": "halt"
+          }
+        ],
+        "tsv_trades": [],
+        "tsv_halt_records": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000
+          }
+        ],
+        "participant_notices": [
+          {
+            "symbol": "AAPL",
+            "ts": 1000
+          }
+        ],
+        "concurrency_tolerance_ms": -1
+      },
+      "output_payload": {
+        "error": "tolerance_invalid",
+        "detail": "concurrency_tolerance_ms must be a non-negative integer number of milliseconds; got -1.",
+        "domain_errors": [
+          {
+            "code": "TOLERANCE_INVALID",
+            "text": "concurrency_tolerance_ms must be a non-negative integer number of milliseconds; got -1."
+          }
+        ],
+        "violations": [],
+        "per_stoppage": [],
+        "concurrency_tolerance_ms": null,
+        "assumptions": []
+      },
+      "golden_hash": "27d73f93958a53ec4ca7aa2909e2f3cf310df5ae85d02677b02734782021f8e4"
+    },
+    {
+      "name": "F11_refusal_duplicate_trade_id",
+      "note": "Refusal pin: a duplicated trade_id is refused.",
+      "policy_parameters": {
+        "stoppages": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000,
+            "kind": "halt"
+          }
+        ],
+        "tsv_trades": [
+          {
+            "symbol": "AAPL",
+            "ts": 1500,
+            "trade_id": "T-11"
+          },
+          {
+            "symbol": "AAPL",
+            "ts": 1600,
+            "trade_id": "T-11"
+          }
+        ],
+        "tsv_halt_records": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000
+          }
+        ],
+        "participant_notices": [
+          {
+            "symbol": "AAPL",
+            "ts": 1000
+          }
+        ]
+      },
+      "output_payload": {
+        "error": "trade_id_duplicate",
+        "detail": "trade_id \"T-11\" appears more than once.",
+        "domain_errors": [
+          {
+            "code": "TRADE_ID_DUPLICATE",
+            "text": "trade_id \"T-11\" appears more than once."
+          }
+        ],
+        "violations": [],
+        "per_stoppage": [],
+        "concurrency_tolerance_ms": null,
+        "assumptions": []
+      },
+      "golden_hash": "576d9682af8e07672a17743193a58d755b1354bafda4cc58edd3d5573a3f7869"
+    },
+    {
+      "name": "F12_refusal_empty_stoppages",
+      "note": "Refusal pin: an empty stoppages array is refused — nothing to check against.",
+      "policy_parameters": {
+        "stoppages": [],
+        "tsv_trades": [],
+        "tsv_halt_records": [
+          {
+            "symbol": "AAPL",
+            "start_ts": 1000,
+            "end_ts": 2000
+          }
+        ],
+        "participant_notices": [
+          {
+            "symbol": "AAPL",
+            "ts": 1000
+          }
+        ]
+      },
+      "output_payload": {
+        "error": "stoppages_invalid",
+        "detail": "stoppages must be a non-empty array of { symbol, start_ts, end_ts|null, kind } where kind is one of halt | suspension | mwcb; got [].",
+        "domain_errors": [
+          {
+            "code": "STOPPAGES_INVALID",
+            "text": "stoppages must be a non-empty array of { symbol, start_ts, end_ts|null, kind } where kind is one of halt | suspension | mwcb; got []."
+          }
+        ],
+        "violations": [],
+        "per_stoppage": [],
+        "concurrency_tolerance_ms": null,
+        "assumptions": []
+      },
+      "golden_hash": "9e5f0f160ed81f7eb38378d8f092d40725ced55f0c6ec95d15a97a3af5bb0bf4"
+    }
+  ]
+}
