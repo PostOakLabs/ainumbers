@@ -679,7 +679,7 @@ export function compute(pp) {
     if (out !== null) obligations.push(out);
   }
 
-  compliance_flags.push('CLOCK_COMPUTED');
+  if (obligations.length > 0) compliance_flags.push('CLOCK_COMPUTED');
 
   const breached = obligations.filter((o) => o.state === 'breached').length;
   const evidence = {
