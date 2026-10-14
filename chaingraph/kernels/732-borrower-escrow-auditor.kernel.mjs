@@ -5,7 +5,7 @@ const TOOL_VERSION = '1.0.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'audit_borrower_escrow_statement',
+  mcp_name: 'audit_borrower_escrow_stmt',
   mandate_type: 'consumer_finance', gpu: false,
 };
 

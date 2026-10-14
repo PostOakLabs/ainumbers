@@ -6,7 +6,7 @@
 // below run over a committed mulberry32 seed (deterministic) plus a fixed
 // corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:c8c28c1b724e9ce245aa3234fa16af07d45ffd9bd25e729e792e1043ff40d893
+// kernel_digest_at_authoring: sha256:c2ffc6bf56930912756f2f462458ee7116baf14561a9df69b657ae80cf876e24
 // spec: VALON reduction map §B2 item 3 (research/VALON-AI-INVENTORY-AND-AINUMBERS-REDUCTION-MAP-2026-10-05.md)
 //   — recompute a servicer's escrow statement from borrower-supplied values only;
 //   built to the pinned primary text (12 CFR 1024.17, aggregate analysis method).
