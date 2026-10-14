@@ -34,9 +34,11 @@ export const meta = {
 //      suitable for anchored-receipt shaping downstream.
 //
 // VALUES-ONLY REFUSALS (closed, each with a reachable path + fixture):
-//   - Any string value anywhere in the input is refused: free-text and
-//     identifier-like fields (names, account numbers, servicer IDs) are outside
-//     the values-only contract and are never echoed.
+//   - Any string value in a declared field is refused: a value-only statement
+//     carries numbers; a string where a number belongs is identifier-like or
+//     free text by construction (names, account numbers, servicer references)
+//     and is never echoed. The declared fields are checked before any numeric
+//     coercion.
 //   - More than 12 monthly periods is refused: the kernel is bounded to one
 //     computation year.
 //   - A surplus at or above the refund floor whose currency status the caller
@@ -68,23 +70,13 @@ function normalizeMonths(arr, max) {
   return out;
 }
 
-// Values-only guard: any string member anywhere in the input is identifier-like
-// by construction -- names, account numbers, servicer references all arrive as
-// strings, and a values-only kernel never echoes one.
-function findIdentifierLike(v, path) {
-  if (typeof v === 'string') return path;
-  if (Array.isArray(v)) {
-    for (let i = 0; i < v.length; i++) {
-      const hit = findIdentifierLike(v[i], path + '[' + i + ']');
-      if (hit) return hit;
-    }
-  } else if (v && typeof v === 'object') {
-    for (const k of Object.keys(v)) {
-      const hit = findIdentifierLike(v[k], path ? path + '.' + k : k);
-      if (hit) return hit;
-    }
+// Values-only guard: locate the first string member of a declared values
+// array. A string where a number belongs is identifier-like by construction.
+function firstStringIndex(arr) {
+  for (let i = 0; i < arr.length; i++) {
+    if (typeof arr[i] === 'string') return i;
   }
-  return null;
+  return -1;
 }
 
 export function compute(pp) {
@@ -92,15 +84,28 @@ export function compute(pp) {
 
   const compliance_flags = [];
 
-  // -- Refusal 1: identifier-like / free-text field present.
-  const identPath = findIdentifierLike(pp, '');
-  if (identPath !== null) {
+  // -- Refusal 1: a string value in a declared field (checked before coercion).
+  const rawPay = Array.isArray(pp.monthly_payments) ? pp.monthly_payments : [];
+  const rawDis = Array.isArray(pp.disbursements) ? pp.disbursements : [];
+  const rawBal = Array.isArray(pp.stated_balances) ? pp.stated_balances : [];
+  let refusedField = null;
+  if (typeof pp.starting_balance === 'string') refusedField = 'starting_balance';
+  else if (typeof pp.stated_cushion === 'string') refusedField = 'stated_cushion';
+  else {
+    const payHit = firstStringIndex(rawPay);
+    const disHit = firstStringIndex(rawDis);
+    const balHit = firstStringIndex(rawBal);
+    if (payHit !== -1) refusedField = 'monthly_payments[' + payHit + ']';
+    else if (disHit !== -1) refusedField = 'disbursements[' + disHit + ']';
+    else if (balHit !== -1) refusedField = 'stated_balances[' + balHit + ']';
+  }
+  if (refusedField !== null) {
     compliance_flags.push('IDENTIFIER_LIKE_FIELD_REFUSED');
     return {
       output_payload: {
         verdict: 'refused',
-        refused_because: 'identifier_or_free_text_field_present',
-        refused_field: identPath,
+        refused_because: 'identifier_or_free_text_value_in_declared_field',
+        refused_field: refusedField,
         periods_analyzed: 0,
         discrepancies: { count: 0, lines: [] },
         evidence: { record_type: 'escrow_statement_audit', tool_id: TOOL_ID, tool_version: TOOL_VERSION, refused: true },
@@ -111,9 +116,9 @@ export function compute(pp) {
   }
 
   // -- Refusal 2: more than the bounded 12 monthly periods.
-  const payLen = Array.isArray(pp.monthly_payments) ? pp.monthly_payments.length : 0;
-  const disLen = Array.isArray(pp.disbursements) ? pp.disbursements.length : 0;
-  const balLen = Array.isArray(pp.stated_balances) ? pp.stated_balances.length : 0;
+  const payLen = rawPay.length;
+  const disLen = rawDis.length;
+  const balLen = rawBal.length;
   const maxLen = Math.max(payLen, disLen, balLen);
   if (maxLen > MAX_PERIODS) {
     compliance_flags.push('PERIODS_EXCEED_BOUNDED_12_REFUSED');

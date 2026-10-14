@@ -318,6 +318,12 @@ export function scanOtRegions(repoRoot, pages) {
  * stays excluded — honest exclusion, never a guess.
  */
 export const propertyIdMap = {
+  // 732 runCompute reads borrower_current from a three-state select whose option
+  // values are "true"/"false"/"" (not-stated), not a checkbox:
+  //   chaingraph/732-borrower-escrow-auditor.html (readInputs, borrower_current select)
+  '732-borrower-escrow-auditor': {
+    borrower_current: { element_id: 'borrower_current', via: 'boolstring' },
+  },
   // art-12 runCheck reads exactly these two controls:
   //   chaingraph/art-12-acp-checkout-conformance-validator.html:645-646
   'art-12-acp-checkout-conformance-validator': {

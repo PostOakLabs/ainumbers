@@ -6,7 +6,7 @@
 // below run over a committed mulberry32 seed (deterministic) plus a fixed
 // corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:7d7ea2d7151a0933a4673d9a4a1045cc1f5c39765e30e0fbe4369558d6213e9b
+// kernel_digest_at_authoring: sha256:c8c28c1b724e9ce245aa3234fa16af07d45ffd9bd25e729e792e1043ff40d893
 // spec: VALON reduction map §B2 item 3 (research/VALON-AI-INVENTORY-AND-AINUMBERS-REDUCTION-MAP-2026-10-05.md)
 //   — recompute a servicer's escrow statement from borrower-supplied values only;
 //   built to the pinned primary text (12 CFR 1024.17, aggregate analysis method).
@@ -213,11 +213,11 @@ function checkRefusalPaths() {
   for (let i = 0; i < N; i++) {
     const pp = randomValidPp(rng);
     const withIdent = JSON.parse(JSON.stringify(pp));
-    withIdent.borrower_name = 'Test Name ' + i;
+    withIdent.stated_balances[0] = 'acct-' + (1000 + i);
     const r1 = compute(withIdent);
     checked += 2;
     if (r1.compliance_flags.indexOf('IDENTIFIER_LIKE_FIELD_REFUSED') === -1 || r1.output_payload.manual_review_required !== true) violations++;
-    if (JSON.stringify(r1.output_payload).indexOf('Test Name') !== -1) violations++;
+    if (r1.output_payload.refused_field !== 'stated_balances[0]') violations++;
     const over = JSON.parse(JSON.stringify(pp));
     while (over.monthly_payments.length < 13) over.monthly_payments.push(1);
     const r2 = compute(over);
