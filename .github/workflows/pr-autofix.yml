@@ -207,20 +207,20 @@ jobs:
           # reads identically wherever it surfaces. The list is curated prose;
           # the fix is a hand edit adding icon/name/href for each new page.
           mapfile -d '' -t ADDEDHTML < <(git diff -z --diff-filter=A --name-only origin/main...HEAD -- '*.html')
-          FIRST=1
+          MISSING=''
           for f in "${ADDEDHTML[@]}"; do
             case "$f" in
               */*) : ;;
               *)
-                if [ "$FIRST" = "1" ]; then
-                  echo '::error title=gen-sitemap-html: root page(s) missing from the curated rootPages list. Add each one (icon/name/href) so sitemap.html stays complete::'
-                  FIRST=0
-                fi
+                MISSING="${MISSING}${MISSING:+, }$f"
                 echo "gen-sitemap-html: root page(s) missing from the curated rootPages list. Add each one (icon/name/href) so sitemap.html stays complete:"
                 echo "  $f"
                 ;;
             esac
           done
+          # The annotation alone is actionable: it names the missing page(s)
+          # instead of saying only "root page(s) missing".
+          echo "::error title=gen-sitemap-html: root page(s) missing from the curated rootPages list: ${MISSING}::Add each one (icon/name/href) to the curated rootPages list so sitemap.html stays complete."
           exit 1
 
       - name: §18 bump rides the node PR — scratch assembly + --update-baseline
@@ -445,6 +445,11 @@ jobs:
           SHA="$(git rev-parse HEAD)"
           echo "autofix pushed ${SHA}, re-run pending"
           echo "### autofix pushed ${SHA}, re-run pending" >> "$GITHUB_STEP_SUMMARY"
+          # The red must name its cause in one annotation: historically this
+          # exit carried no ::error, so every by-design red looked like a
+          # mystery failure.
+          echo "::error title=Autofix pushed a fix-up commit::Commit ${SHA::7} was pushed to this PR. This run is red by design so the PR re-runs its checks on the new commit. No action is needed unless those checks fail."
+          echo "Commit ${SHA::7} was pushed to this PR. This run is red by design so the PR re-runs its checks on the new commit. No action is needed unless those checks fail." >> "$GITHUB_STEP_SUMMARY"
           # The pushing run FAILS BY DESIGN (the autofix.ci pattern): the red
           # is the signal that a fix-up commit was pushed and every check is
           # re-running on it.

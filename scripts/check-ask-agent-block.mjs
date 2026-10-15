@@ -343,6 +343,16 @@ async function writePass(repoRoot, onlyId = null) {
     scoped = adjudicated.filter((d) => d.id === onlyId);
     if (scoped.length === 0) {
       const why = excluded.find((e) => e.id === onlyId);
+      // The absent-page case under --only is a skip, not a hard failure —
+      // same posture as the workflow loop's absent-page pre-filters
+      // (hand-authored page / brand-new node). Only the "(no in-repo page)"
+      // exclusion qualifies:
+      // every other exclusion (manifest absent/unparseable, no sample, bad
+      // kernel) still fails the write, since those mean the page SHOULD
+      // carry a block today.
+      if (why && why.exclude === `chaingraph/${onlyId}.html absent (no in-repo page)`) {
+        return { skipped: `skip ask-agent write for ${onlyId} — chaingraph/${onlyId}.html absent (no in-repo page); nothing to emit the block into`, problems, excluded };
+      }
       return { error: `--only ${onlyId}: no emittable ask-agent block today${why ? ' — ' + why.exclude : ''}`, problems, excluded };
     }
   }
@@ -408,6 +418,10 @@ async function run() {
   if (WRITE) {
     const r = await writePass(REPO, ONLY);
     if (r.error) fail(r.error);
+    if (r.skipped) {
+      console.log(r.skipped);
+      return;
+    }
     if (r.problems.length) {
       console.error('✗ write pass hit problems:');
       r.problems.forEach((p) => console.error('    ' + p));
