@@ -646,6 +646,7 @@ status: stable
 - [Token-2022 Transfer-Fee Payment Reconciler](./art-715-token2022-transfer-fee-reconciler.md) — `reconcile_token2022_transfer_fee`
 - [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md) — `aggregate_cbam_precursor_emissions`
 - [EU Taxonomy Alignment Scorer](./art-73-taxonomy-alignment-scorer.md) — `score_taxonomy_alignment`
+- [Force-Placed Insurance Notice Checker](./art-734-force-placed-insurance-checker.md) — `check_force_placed_notice`
 - [Taxonomy KPI & Green Asset Ratio Aggregator](./art-74-taxonomy-kpi-gar-aggregator.md) — `aggregate_taxonomy_kpi_gar`
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
 - [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md) — `apply_climate_scenario`
