@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (684 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (685 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7492,6 +7492,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-75-eugb-factsheet-validator",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-734-force-placed-insurance-checker",
+    "display_name": "Force-Placed Insurance Notice Checker",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-734-force-placed-insurance-checker.html",
+    "description": "Checks a lender-placed (force-placed) insurance event against the notice sequence required before a servicer may charge the borrower: the 45",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

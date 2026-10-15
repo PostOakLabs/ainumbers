@@ -648,6 +648,7 @@ status: stable
 - [Token-2022 Transfer-Fee Payment Reconciler](./art-715-token2022-transfer-fee-reconciler.md)
 - [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md)
 - [EU Taxonomy Alignment Scorer](./art-73-taxonomy-alignment-scorer.md)
+- [Force-Placed Insurance Notice Checker](./art-734-force-placed-insurance-checker.md)
 - [Taxonomy KPI & Green Asset Ratio Aggregator](./art-74-taxonomy-kpi-gar-aggregator.md)
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md)
 - [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md)
