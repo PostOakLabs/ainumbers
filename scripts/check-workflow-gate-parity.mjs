@@ -221,6 +221,12 @@ const NOT_A_GATE = new Map([
     "schedule + workflow_dispatch only."],
   ["derived-artifacts-regen.yml",
     "push main only — the SO #35 single-writer regen, post-merge."],
+  ["derived-regen-deadman.yml",
+    "workflow_run listener on derived-artifacts-regen.yml (main-only, completed) — the " +
+    "failure alarm: retry-once (10 min backoff) plus ONE tracking issue via the shared " +
+    "scheduled-red-issue tracker. It has no pull_request, merge_group or push trigger of " +
+    "its own, runs no estate gate, and blocks no merge — it reports a main-side red after " +
+    "the fact."],
   ["fullsuite-schedule.yml",
     "schedule (weekly) + workflow_dispatch only; steps are continue-on-error by design " +
     "so the whole suite reports rather than stopping at the first red."],
