@@ -161,6 +161,16 @@ export function catalogToolSlugs(cat) {
   return slugs;
 }
 
+/** A readable label for a tool page that is not a registered node (chain steps
+ *  may name pages the node list does not carry): drop the leading number or
+ *  art- prefix, split on hyphens, capitalise, and upper-case short acronyms. */
+export function humanizeSlug(id) {
+  const small = new Set(['of', 'to', 'and', 'for', 'the', 'in', 'vs', 'on', 'by', 'at', 'as', 'or', 'via', 'per', 'with']);
+  return id.replace(/^(?:[a-z]{2,4}-)?\d+[a-z]?-/, '').split('-').filter(Boolean)
+    .map((w) => (small.has(w) ? w : w.length <= 3 && /^[a-z]+$/.test(w) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)))
+    .join(' ') || id;
+}
+
 /**
  * One page's scene data, from ITS OWN links plus the assembled catalog.
  *   toolIds — the tool-page slugs the page links (class-aware href shapes,
@@ -173,19 +183,6 @@ export function catalogToolSlugs(cat) {
  */
 export function pageSceneData(rel, src, cat) {
   const slugs = catalogToolSlugs(cat);
-  // TIM-PILOT: featured chains — the chains the page ITSELF links via
-  // chaingraph/chains/<name>.html, catalog-resolved, first-appearance order.
-  // A pilot page naming no known chain falls through to the shared derivation.
-  if (PILOT_PAGES.has(rel)) {
-    const known = new Map(cat.chains.map((c) => [c.name, c]));
-    const seen = new Set();
-    for (const m of src.matchAll(/chaingraph\/chains\/([a-z0-9-]+)\.html/g)) {
-      if (known.has(m[1])) seen.add(m[1]);
-    }
-    if (seen.size > 0) {
-      return { toolIds: new Set(), chains: [...seen].map((n) => known.get(n)), tools: [] };
-    }
-  }
   const toolIds = new Set();
   if (rel.startsWith('guides/')) {
     for (const m of src.matchAll(/tools\/([a-z0-9-]+)\.html/g)) toolIds.add(m[1]);
@@ -195,7 +192,7 @@ export function pageSceneData(rel, src, cat) {
   }
   const chains = cat.chains.filter((c) => (c.steps ?? []).some((s) => toolIds.has(s.tool_id)));
   const names = new Map(cat.nodes.map((n) => [n.tool_id, n.display_name]));
-  const tools = [...toolIds].sort().map((id) => ({ id, name: names.get(id) ?? id }));
+  const tools = [...toolIds].sort().map((id) => ({ id, name: names.get(id) ?? humanizeSlug(id) }));
   return { toolIds, chains, tools };
 }
 
@@ -264,44 +261,21 @@ export function assertNoFork(region) {
 const PER_ROW = 6;         // stations per row, maximum
 const PITCH = 160;         // station pitch, viewBox units (spec: 150–174)
 const STATION_W = 132;     // station box width
-const STATION_H = 64;      // chain-station box height
 const TOOL_STATION_H = 70; // tool-station box height (icon + label)
+
+// Chain-use matrix geometry (columns = tools, rows = chain groups).
+const M_LABEL_W = 220;     // row-label gutter
+const M_PITCH = 44;        // column pitch
+const M_CELL_W = 38;       // cell width
+const M_CELL_H = 24;       // cell height
+const M_ROW_H = 30;        // row pitch
+const M_HEAD_H = 140;      // rotated column-label band
+const M_RIGHT = 84;        // room for the last rotated label to run out right
+const M_MAX_COLS = 18;     // columns kept; least-used tools beyond this are dropped
+const M_GROUP_ABOVE = 8;   // more chains than this: rows group by domain
 const ROW_H = 86;          // row height, viewBox units (spec)
 const SIDE = 24;           // viewBox side margin
 const TOP = 30;            // viewBox top margin
-
-// ── TIM-PILOT (2026-10-13): one-page scene pilot ───────────────────────────
-// The featured-chains derivation, the per-row accent rotation and the hash
-// packets render ONLY for pages listed here, so the new scene shape ships as
-// a one-page pilot on guides/canton-tmf-hub.html. Every page outside this set
-// renders byte-for-byte the pre-pilot output. Rollout to the whole hub class
-// is staged as board/queued/HUBSCENE-PILOT-ROLLOUT-1.md, GATED ON TIM's
-// review of the live pilot; until that row lands, this set does not grow.
-const PILOT_PAGES = new Set(['guides/canton-tmf-hub.html']);
-
-/** The pilot rotates four estate accent tokens per row (CONTRACT App. A
- *  palette; the var() fallback hexes mirror the kit's own fallback pattern). */
-const PILOT_ROW_ACCENTS = [
-  'var(--teal-lt,#2DD4BF)',
-  'var(--gold,#D4A847)',
-  'var(--purple,#9B72F5)',
-  'var(--blue,#60A5FA)',
-];
-const pilotAccent = (row) => PILOT_ROW_ACCENTS[row % PILOT_ROW_ACCENTS.length];
-
-export function isPilotPage(rel) { return PILOT_PAGES.has(rel); }
-
-/** Deterministic FNV-1a hex: the packet labels derive from the row's own
- *  station labels (data, never invented — the generator bans randomness), so
- *  identical pages always render identical labels. */
-function fnv1aHex(s, len) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i += 1) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h.toString(16).padStart(8, '0').slice(0, len);
-}
 
 /** Greedy word wrap: deterministic, ≤ maxLines lines, '…' whenever anything
  *  was cut (a too-long word or leftover words). */
@@ -347,30 +321,6 @@ const delayFor = (row, indexInRow) => row * 0.3 + indexInRow * 0.12;
 /** viewBox width for the widest row. */
 const sceneWidth = (firstRowCount) => Math.max(480, SIDE * 2 + (firstRowCount - 1) * PITCH + STATION_W);
 
-/** One chain station: rounded rect + the chain's own catalog title. */
-function chainStation(x, y, title, row, col, clamp) {
-  const delay = Math.min(delayFor(row, col), clamp.get('sk-pop') ?? 4.4);
-  const lines = wrapLabel(title, 17, 3);
-  const baseY = y + STATION_H / 2 - (lines.length - 1) * 8 + 4;
-  const labels = lines.map((ln, i) =>
-    `<text x="${x + STATION_W / 2}" y="${baseY + i * 16}" text-anchor="middle" class="sm b">${escText(ln)}</text>`).join('');
-  return `  <g class="sk-pop" style="--d:${dAttr(delay)}"><rect x="${x}" y="${y}" width="${STATION_W}" height="${STATION_H}" rx="9" fill="var(--bg-3,#111E35)" stroke="var(--border-2,#263855)" stroke-width="1.4"/>${labels}</g>`;
-}
-
-/** One link between consecutive stations in a row: a drawing stroke with a
- *  persistent arrowhead (flow direction — Tim-ruled flow-map depth, not a
- *  step player), plus ONE travelling dot that crosses the span once. */
-function link(x, yMid, row, col, clamp) {
-  const start = x + STATION_W + 3;
-  const end = x + PITCH - 4;
-  const dDraw = Math.min(delayFor(row, col), clamp.get('sk-draw') ?? 4.1);
-  const dTravel = Math.min(delayFor(row, col), clamp.get('sk-travel') ?? 2.2);
-  const span = end - start;
-  return `  <path class="sk-draw" pathLength="100" d="M${start} ${yMid} H${end}" style="--d:${dAttr(dDraw)}" stroke="var(--border-2,#263855)" stroke-width="1.6"/>\n`
-    + `  <polygon points="${end},${yMid} ${end - 6},${yMid - 3.5} ${end - 6},${yMid + 3.5}" fill="var(--muted,#3A5270)"/>\n`
-    + `  <circle class="sk-travel" r="3" cy="${yMid}" style="--d:${dAttr(dTravel)};--tx:${span}px" fill="var(--teal-lt,#2DD4BF)"/>`;
-}
-
 /** One tool station for the zero-chain landscape: rect + the kit's doc()
  *  icon + the tool's own display name. */
 function toolStation(x, y, name, row, col, clamp) {
@@ -381,54 +331,132 @@ function toolStation(x, y, name, row, col, clamp) {
   return `  <g class="sk-pop" style="--d:${dAttr(delay)}"><rect x="${x}" y="${y}" width="${STATION_W}" height="${TOOL_STATION_H}" rx="9" fill="var(--bg-3,#111E35)" stroke="var(--border-2,#263855)" stroke-width="1.4"/>${icon.doc(x + STATION_W / 2 - 15, y + 8, 30, 32)}${labels}</g>`;
 }
 
-/** TIM-PILOT station: the chain station with the row's accent stroke. */
-function pilotStation(x, y, title, row, col, clamp) {
-  const delay = Math.min(delayFor(row, col), clamp.get('sk-pop') ?? 4.4);
-  const lines = wrapLabel(title, 17, 3);
-  const baseY = y + STATION_H / 2 - (lines.length - 1) * 8 + 4;
-  const stroke = pilotAccent(row);
-  const labels = lines.map((ln, i) =>
-    `<text x="${x + STATION_W / 2}" y="${baseY + i * 16}" text-anchor="middle" class="sm b">${escText(ln)}</text>`).join('');
-  return `  <g class="sk-pop" style="--d:${dAttr(delay)}"><rect x="${x}" y="${y}" width="${STATION_W}" height="${STATION_H}" rx="9" fill="var(--bg-3,#111E35)" stroke="${stroke}" stroke-width="1.4"/>${labels}</g>`;
-}
-
-/** TIM-PILOT link: drawing stroke + arrowhead + travelling dot, all in the
- *  row's accent. Same geometry and timing law as link(). */
-function pilotLink(x, yMid, row, col, clamp) {
-  const start = x + STATION_W + 3;
-  const end = x + PITCH - 4;
-  const dDraw = Math.min(delayFor(row, col), clamp.get('sk-draw') ?? 4.1);
-  const dTravel = Math.min(delayFor(row, col), clamp.get('sk-travel') ?? 2.2);
-  const stroke = pilotAccent(row);
-  const span = end - start;
-  return `  <path class="sk-draw" pathLength="100" d="M${start} ${yMid} H${end}" style="--d:${dAttr(dDraw)}" stroke="${stroke}" stroke-width="1.6"/>\n`
-    + `  <polygon points="${end},${yMid} ${end - 6},${yMid - 3.5} ${end - 6},${yMid + 3.5}" fill="${stroke}"/>\n`
-    + `  <circle class="sk-travel" r="3" cy="${yMid}" style="--d:${dAttr(dTravel)};--tx:${span}px" fill="${stroke}"/>`;
-}
-
-/** TIM-PILOT packet: one short hash label gliding the full row width, drawn
- *  before the stations so it passes behind them. The label derives from the
- *  row's own station labels (deterministic, data-derived); the kit's
- *  sk-travel keyframes own all motion (kit-default 2.6s, clamped delay), and
- *  the opacity="0" attribute hides the packet whenever no animation runs
- *  (no-JS, reduced motion, pre-play, after the single run ends). aria-hidden
- *  keeps the decorative mover out of the accessibility tree; the scene's
- *  <title>/<desc> describe the figure. */
-function hashPacket(width, yMid, row, clamp, rowStations) {
-  const seed = rowStations.map((s) => s.label).join('|');
-  const label = escText(`${fnv1aHex(seed, 8)}…${fnv1aHex(`tail:${seed}`, 4)}`);
-  const delay = Math.min(delayFor(row, 0), clamp.get('sk-travel') ?? 2.2);
-  const span = width - SIDE * 2 - STATION_W;
-  return `  <g class="sk-travel" aria-hidden="true" opacity="0" style="--d:${dAttr(delay)};--tx:${span}px"><text x="${SIDE}" y="${yMid - 6}" class="m xs" fill="${pilotAccent(row)}">${label}</text></g>`;
+/** The page's own href for a slug (tool page or chain composer), taken from
+ *  the page source so the scene can never link to a path the page does not
+ *  already use. null when the page carries no such link. */
+function pageHref(src, kind, slug) {
+  const dir = kind === 'chain' ? 'chains/' : '';
+  const re = new RegExp(`href="([^"#?]*${dir}${slug.replace(/[^a-z0-9-]/gi, '')}\\.html)"`);
+  const m = re.exec(src);
+  return m ? m[1] : null;
 }
 
 /**
- * The region body for one page. ≥1 chain → chain-pipeline scene (each chain a
- * station, links + travelling dots between stations in a row); 0 chains →
- * the tool-landscape scene (each tool a station). Same wrap law, same timing
- * budget either way (spec §4). sceneFigure() is the ONLY wrapper (it throws
- * without id/viewBox/title/desc — the accessibility premise, mechanically
- * enforced).
+ * The chain-use matrix data: which of the page's tools each chain row runs
+ * through. Rows are chains when the page has few of them, else chains grouped
+ * by catalog domain (biggest group first). Columns are the page's tools that
+ * at least one chain uses, most-used first (the backbone tool leads), capped
+ * at M_MAX_COLS. PURE; all values come from the assembled catalog.
+ */
+export function matrixData(chains, tools) {
+  const grouped = chains.length > M_GROUP_ABOVE;
+  const toolName = new Map(tools.map((t) => [t.id, t.name]));
+  const usedBy = new Map();
+  for (const c of chains) {
+    for (const id of new Set((c.steps ?? []).map((s) => s.tool_id))) {
+      if (!toolName.has(id)) continue;
+      if (!usedBy.has(id)) usedBy.set(id, []);
+      usedBy.get(id).push(c);
+    }
+  }
+  const cols = [...usedBy.keys()]
+    .sort((x, y) => usedBy.get(y).length - usedBy.get(x).length || (x < y ? -1 : 1))
+    .slice(0, M_MAX_COLS)
+    .map((id) => ({ id, name: toolName.get(id), chains: usedBy.get(id) }));
+  const buckets = new Map();
+  for (const c of chains) {
+    const key = grouped ? (c.domain ?? 'Other') : (c.name ?? c.title ?? 'chain');
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(c);
+  }
+  const rows = [...buckets.entries()]
+    .map(([key, list]) => ({ key, label: grouped ? key : (list[0].title ?? key), chains: list }))
+    .sort((x, y) => grouped
+      ? y.chains.length - x.chains.length || (x.key < y.key ? -1 : 1)
+      : 0);
+  return { grouped, cols, rows };
+}
+
+/** One matrix cell: n chains of this row run through this column's tool. A
+ *  zero cell is a still faint dot (no animation); a hit pops in and carries a
+ *  hover list of the chains. */
+function matrixCell(cx, cy, n, max, grouped, tip, delay) {
+  if (n === 0) return `  <circle cx="${cx}" cy="${cy}" r="2" fill="var(--border-2,#263855)"/>`;
+  const x = cx - M_CELL_W / 2;
+  const y = cy - M_CELL_H / 2;
+  const heat = Number((0.2 + 0.4 * (n / max)).toFixed(2));
+  const mark = grouped
+    ? `<text x="${cx}" y="${cy + 4}" text-anchor="middle" class="m sm b">${n}</text>`
+    : `<circle cx="${cx}" cy="${cy}" r="4.5" fill="var(--teal-lt,#2DD4BF)"/>`;
+  return `  <g class="sk-pop" style="--d:${dAttr(delay)}"><title>${escText(tip)}</title><rect x="${x}" y="${y}" width="${M_CELL_W}" height="${M_CELL_H}" rx="5" fill="var(--teal,#14B8A6)" fill-opacity="${heat}" stroke="var(--teal,#14B8A6)" stroke-opacity="0.6" stroke-width="1"/>${mark}</g>`;
+}
+
+/** The chain-use matrix body: columns are the tools a hub covers, rows are
+ *  chains or chain groups, a cell counts the chains that run through the
+ *  tool. Reads the real coupling (which chains share which tool) instead of
+ *  an invented hand-off order between unrelated chains. */
+function matrixBody(src, chains, tools, clamp) {
+  const { grouped, cols, rows } = matrixData(chains, tools);
+  const popMax = clamp.get('sk-pop') ?? 4.4;
+  const fadeMax = clamp.get('sk-fade') ?? 4.4;
+  const colX = (c) => M_LABEL_W + c * M_PITCH + M_PITCH / 2;
+  let max = 1;
+  const counts = rows.map((r) => cols.map((col) => {
+    const used = new Set(col.chains.map((c) => c.name));
+    const n = r.chains.filter((c) => used.has(c.name)).length;
+    if (n > max) max = n;
+    return n;
+  }));
+  const parts = [];
+  cols.forEach((col, c) => {
+    const x = colX(c);
+    const label = escText(wrapLabel(visibleCopy(col.name), 24, 1)[0] ?? col.id);
+    const href = pageHref(src, 'tool', col.id);
+    const fade = dAttr(Math.min(c * 0.05, fadeMax));
+    const hit = `<rect class="sk-hit" x="${x - M_PITCH / 2 + 1}" y="${M_HEAD_H - 14}" width="${M_PITCH - 2}" height="${rows.length * M_ROW_H + 14}" rx="6" fill="transparent" stroke="none"/>`;
+    const text = `<text x="${x - 2}" y="${M_HEAD_H - 20}" transform="rotate(-55 ${x - 2} ${M_HEAD_H - 20})" class="xs s">${label}</text>`;
+    const inner = `<title>${escText(visibleCopy(col.name))}</title>${hit}${text}`;
+    parts.push(href
+      ? `  <a href="${escText(href)}" class="sk-fade" style="--d:${fade}">${inner}</a>`
+      : `  <g class="sk-fade" style="--d:${fade}">${inner}</g>`);
+  });
+  rows.forEach((r, i) => {
+    const y = M_HEAD_H + i * M_ROW_H + M_ROW_H / 2;
+    const name = escText(wrapLabel(visibleCopy(r.label), grouped ? 26 : 27, 1)[0] ?? r.key);
+    const tail = grouped ? `<tspan class="m xs t" dx="7">${r.chains.length}</tspan>` : '';
+    const chainHref = grouped ? null : pageHref(src, 'chain', r.chains[0].name);
+    const label = `<text x="${M_LABEL_W - 10}" y="${y + 4}" text-anchor="end" class="sm b">${name}${tail}</text>`;
+    parts.push(chainHref
+      ? `  <a href="${escText(chainHref)}"><title>${escText(visibleCopy(r.label))}</title>${label}</a>`
+      : `  ${label}`);
+    cols.forEach((col, c) => {
+      const n = counts[i][c];
+      const used = new Set(col.chains.map((ch) => ch.name));
+      const names = r.chains.filter((ch) => used.has(ch.name)).map((ch) => visibleCopy(ch.title ?? ch.name));
+      const tip = n ? `${grouped ? `${visibleCopy(r.key)}: ` : ''}${names.join('; ')} run through ${visibleCopy(col.name)}` : '';
+      parts.push(matrixCell(colX(c), y, n, max, grouped, tip, Math.min(i * 0.06 + c * 0.05, popMax)));
+    });
+  });
+  const ty = M_HEAD_H + rows.length * M_ROW_H + M_ROW_H / 2;
+  parts.push(`  <text x="${M_LABEL_W - 10}" y="${ty + 4}" text-anchor="end" class="xs s">Chains using the tool</text>`);
+  cols.forEach((col, c) => {
+    parts.push(`  <text x="${colX(c)}" y="${ty + 4}" text-anchor="middle" class="m sm t">${col.chains.length}</text>`);
+  });
+  return {
+    body: parts.join('\n'),
+    width: M_LABEL_W + cols.length * M_PITCH + M_RIGHT,
+    height: M_HEAD_H + (rows.length + 1) * M_ROW_H + 10,
+    grouped,
+  };
+}
+
+/**
+ * The region body for one page. ≥1 chain → chain-use matrix (columns are the
+ * tools the page covers, rows are the chains or chain domains, each cell counts
+ * the chains running through that tool); 0 chains → the tool-landscape scene
+ * (each tool a station). Same timing budget either way (spec §4).
+ * sceneFigure() is the ONLY wrapper (it throws without id/viewBox/title/desc —
+ * the accessibility premise, mechanically enforced).
  *
  * THIRD VERDICT (HUBSCENE-ZEROSTATION-SKIP-1): 0 chains AND 0 tools → this
  * function is never called; applyToPage OMITS the region entirely. A rendered
@@ -440,56 +468,38 @@ export function renderRegion(rel, src, cat, timings) {
   const { chains, tools } = pageSceneData(rel, src, cat);
   const clamp = delayClamps(timings);
   const subject = pageSubject(src);
-  const pilot = PILOT_PAGES.has(rel) && chains.length >= 1;
-  const stations = chains.length >= 1
-    ? chains.map((c) => ({ label: visibleCopy(c.title ?? c.name ?? 'chain'), kind: 'chain' }))
-    : tools.map((t) => ({ label: visibleCopy(t.name), kind: 'tool' }));
-  const rows = Math.max(1, Math.ceil(stations.length / PER_ROW));
-  const width = sceneWidth(Math.min(PER_ROW, stations.length));
-  const height = TOP + rows * ROW_H;
-  const parts = [];
-  const packets = [];
-  stations.forEach((st, i) => {
-    const row = Math.floor(i / PER_ROW);
-    const col = i % PER_ROW;
-    const x = SIDE + col * PITCH;
-    const y = TOP + row * ROW_H;
-    parts.push(
-      pilot ? pilotStation(x, y, st.label, row, col, clamp)
-        : st.kind === 'chain'
-          ? chainStation(x, y, st.label, row, col, clamp)
-          : toolStation(x, y, st.label, row, col, clamp));
-    if (st.kind === 'chain' && col < PER_ROW - 1 && i + 1 < stations.length && Math.floor((i + 1) / PER_ROW) === row) {
-      parts.push(pilot
-        ? pilotLink(x, y + STATION_H / 2, row, col, clamp)
-        : link(x, y + STATION_H / 2, row, col, clamp));
-    }
-    if (pilot && col === 0) {
-      const inRow = Math.min(PER_ROW, stations.length - row * PER_ROW);
-      if (inRow >= 2) packets.push(hashPacket(width, y + STATION_H / 2, row, clamp, stations.slice(row * PER_ROW, row * PER_ROW + inRow)));
-    }
-  });
   const isChains = chains.length >= 1;
   const id = `hub-scene-${rel.split('/').pop().replace(/\.html$/, '')}`;
-  const title = isChains ? `${subject} chain flow map` : `${subject} tool landscape`;
-  const desc = pilot
-    ? `Each station is one named chain on ${subject}; strokes, travelling dots and short hash labels show the hand-off order within each row.`
-    : isChains
-      ? `Each station is one named chain on ${subject}; strokes and travelling dots show the hand-off order within each row.`
-      : `Each station is one tool this guide builds on, laid out like the chain flow map.`;
-  const caption = pilot
-    ? `Flow map of ${escText(subject)}: each station is one named chain; arrows mark the hand-off order within each row, and a short hash label rides each row.`
-    : isChains
-      ? `Flow map of ${escText(subject)}: each station is one named chain; arrows mark the hand-off order within each row.`
-      : `Tool landscape of ${escText(subject)}: each station is one tool this guide builds on.`;
+  let body;
+  let width;
+  let height;
+  let grouped = false;
+  if (isChains) {
+    ({ body, width, height, grouped } = matrixBody(src, chains, tools, clamp));
+  } else {
+    const rows = Math.max(1, Math.ceil(tools.length / PER_ROW));
+    width = sceneWidth(Math.min(PER_ROW, tools.length));
+    height = TOP + rows * ROW_H;
+    body = tools.map((t, i) => toolStation(SIDE + (i % PER_ROW) * PITCH, TOP + Math.floor(i / PER_ROW) * ROW_H,
+      visibleCopy(t.name), Math.floor(i / PER_ROW), i % PER_ROW, clamp)).join('\n');
+  }
+  const title = isChains ? `${subject} chain and tool matrix` : `${subject} tool landscape`;
+  const rowWord = grouped ? 'rows group the chains by domain' : 'each row is one chain';
+  const desc = isChains
+    ? `Matrix for ${subject}: columns are the tools this guide covers, ${rowWord}, and a filled cell marks a chain that runs through the tool.`
+    : `Each station is one tool this guide builds on.`;
+  const caption = isChains
+    ? `Chain and tool matrix for ${escText(subject)}: each column is a tool this guide covers, most used first, ${rowWord}, and a brighter cell means more of that row's chains run through the tool. Hover a cell to list them.`
+    : `Tool landscape of ${escText(subject)}: each station is one tool this guide builds on.`;
   return assertNoFork(sceneFigure({
     id,
     viewBox: `0 0 ${width} ${height}`,
-    minWidth: Math.min(640, width),
+    minWidth: Math.min(isChains ? 720 : 640, width),
     title,
     desc,
     caption,
-    body: (pilot ? [...packets, ...parts] : parts).join('\n'),
+    body,
+    role: isChains ? 'group' : 'img',
   }));
 }
 
@@ -679,7 +689,7 @@ function selftest() {
   a('a second pass is byte-identical', twice.problem === null && twice.html === once.html);
 
   // 3. RED: one hand-edited byte inside the region is drift.
-  const mutant = once.html.replace('chain flow map', 'chain flox map');
+  const mutant = once.html.replace('chain and tool matrix', 'chain and tool matriz');
   if (mutant === once.html) fails.push('RED control: mutation target not found in the region');
   const red = applyToPage(rel, mutant, cat, timings);
   a('RED: a hand-edited region byte is reported as drift', red.problem === null && red.html !== mutant);
@@ -743,37 +753,11 @@ function selftest() {
   // Pathological wrap: 1,000 chains → 167 rows. Every delay clamps per class,
   // so the scene STILL ends inside the five-second budget.
   const monster = {
-    chains: Array.from({ length: 1000 }, (_, i) => ({ name: `fixture-chain-${i}`, title: `Fixture chain number ${i}`, steps: [{ tool_id: 'art-42-example-tool' }] })),
+    chains: Array.from({ length: 1000 }, (_, i) => ({ name: `fixture-chain-${i}`, title: `Fixture chain number ${i}`, domain: `Fixture domain ${i % 40}`, steps: [{ tool_id: realSlug }] })),
     nodes: cat.nodes,
   };
   const monsterOut = applyToPage(rel, src, monster, timings);
   a('a 1,000-station scene still ends within 5s (the clamp law)', monsterOut.problem === null && worstEnd(monsterOut.html) <= MAX_END_MS);
-
-  // 7b. TIM-PILOT: the Canton pilot page renders the featured-chains
-  //     derivation with rotated accents and one hash packet per row; every
-  //     non-pilot page's output carries no packet at all (path unchanged).
-  a('pilot scope is exactly the Canton hub', isPilotPage('guides/canton-tmf-hub.html') && !isPilotPage('guides/dlt-tokenization-hub.html'));
-  const pilotRel = 'guides/canton-tmf-hub.html';
-  const pilotSrc = readFileSync(resolve(REPO, pilotRel), 'utf8');
-  const pilotData = pageSceneData(pilotRel, pilotSrc, cat);
-  const featured = [...new Set([...pilotSrc.matchAll(/chaingraph\/chains\/([a-z0-9-]+)\.html/g)]
-    .map((m) => m[1]).filter((n) => cat.chains.some((c) => c.name === n)))];
-  a('pilot derivation: stations are exactly the catalog-known chain links the page links, in page order',
-    pilotData.tools.length === 0
-    && pilotData.chains.length === featured.length
-    && pilotData.chains.every((c, i) => c.name === featured[i]));
-  const pilotOut = applyToPage(pilotRel, pilotSrc, cat, timings);
-  a('pilot page renders without a problem', pilotOut.problem === null);
-  a('pilot scene carries one labelled sk-travel packet per row (hidden when static)',
-    (pilotOut.html.match(/<g class="sk-travel" aria-hidden="true" opacity="0"/g) || []).length === Math.ceil(featured.length / PER_ROW));
-  a('pilot scene keeps persistent arrowheads (SCENE-PACKET lint)', pilotOut.html.includes('<polygon'));
-  const pilotRegion = pilotOut.html.slice(pilotOut.html.indexOf(HUB_SCENE_BEGIN), pilotOut.html.indexOf(HUB_SCENE_END));
-  a('pilot scene ends within 5s and its REGION stays no-fork clean', worstEnd(pilotOut.html) <= MAX_END_MS && !/@keyframes|animation\s*:/.test(pilotRegion));
-  const plainRel = samples.find((r) => !isPilotPage(r));
-  if (plainRel) {
-    const plainOut = applyToPage(plainRel, readFileSync(resolve(REPO, plainRel), 'utf8'), cat, timings);
-    a(`non-pilot page (${plainRel}) ships zero packets`, plainOut.problem === null && !plainOut.html.includes('aria-hidden="true" opacity="0"'));
-  }
 
   // 8. Every real in-scope page has exactly one insertion point — the
   //    acceptance this row ships against (post-regen --check runs 0 skips).
