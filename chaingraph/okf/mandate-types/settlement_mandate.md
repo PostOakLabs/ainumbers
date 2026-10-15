@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "settlement_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"settlement_mandate\"."
-tags: ["settlement_mandate", "count-9"]
+tags: ["settlement_mandate", "count-10"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # settlement_mandate
 
-9 tool(s) in this mandate-type group:
+10 tool(s) in this mandate-type group:
 
 - [Canton DvP Atomicity Validator](../tools/507-canton-dvp-atomicity-validator.md)
 - [Multi-Currency PvP Validator](../tools/511-multi-currency-pvp-validator.md)
@@ -21,3 +21,4 @@ status: stable
 - [Cross-Network Atomic Settlement Validator](../tools/art-58-cross-network-settlement-validator.md)
 - [x402 V2 Batch-Settlement Reconciler](../tools/art-61-x402-batch-settlement-reconciler.md)
 - [Tempo Subscription & Streaming Settlement Reconciler](../tools/art-106-tempo-subscription-reconciler.md)
+- [Token-2022 Transfer-Fee Payment Reconciler](../tools/art-715-token2022-transfer-fee-reconciler.md)

@@ -378,8 +378,26 @@ async function writePass(repoRoot, onlyId = null) {
     }
     if (close === -1) close = base.lastIndexOf('</body>');
     if (close === -1) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert before`); continue; }
-    const head = base.slice(0, close).replace(/\s+$/, '');
-    next = head + '\n\n' + d.expected + '\n\n' + base.slice(close);
+    // Canonical region order: the ASK-AGENT block precedes the A11Y-TREE
+    // runtime region. Both writers anchor on the first non-script <footer>;
+    // without this, back-to-back whole-tree write passes relocate the block
+    // on every run (each strips only its own region, trims trailing
+    // whitespace, and re-inserts before the footer — ask-agent then a11y
+    // leaves A11Y-then-ASK, the reverse invocation order leaves ASK-then-A11Y),
+    // so the emitted bytes depended on writer order (MAIN-REGEN-SCRIPTS-
+    // VERIFY-HEAL-1). Inserting BEFORE an A11Y-TREE region that directly
+    // abuts the anchor makes both invocation orders converge on the same bytes.
+    let anchor = close;
+    const A11Y_BEGIN = '<!-- A11Y-TREE:BEGIN ';
+    const A11Y_END = '<!-- A11Y-TREE:END -->';
+    const tail = base.slice(0, close);
+    const aAt = tail.lastIndexOf(A11Y_BEGIN);
+    if (aAt !== -1) {
+      const aEnd = tail.indexOf(A11Y_END, aAt);
+      if (aEnd !== -1 && /^\s*$/.test(tail.slice(aEnd + A11Y_END.length))) anchor = aAt;
+    }
+    const head = base.slice(0, anchor).replace(/\s+$/, '');
+    next = head + '\n\n' + d.expected + '\n\n' + base.slice(anchor);
     if (next !== d.pageSrc) { writeFileSync(d.pageAbs, next, 'utf8'); written++; }
     else exact++;
   }

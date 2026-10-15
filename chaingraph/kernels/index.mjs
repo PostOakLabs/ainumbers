@@ -18,6 +18,8 @@ import * as t512      from './512-tokenized-security-lifecycle-validator.kernel.
 import * as t513      from './513-margin-call-collateral-mobilizer.kernel.mjs';
 import * as t514      from './514-tokenized-fund-collateral-validator.kernel.mjs';
 import * as t515      from './515-collateral-swap-eligibility-validator.kernel.mjs';
+import * as t732      from './732-borrower-escrow-auditor.kernel.mjs';
+import * as t733      from './733-servicing-compliance-clock.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
 import * as art03     from './art-03-x402-settlement-modeler.kernel.mjs';
@@ -634,13 +636,15 @@ import * as art706    from './art-706-yield-curve-gspread.kernel.mjs';
 import * as art707    from './art-707-tsv-tier-cap-ladder.kernel.mjs';
 import * as art708    from './art-708-v4-hook-permission-reconciler.kernel.mjs';
 import * as art709    from './art-709-v4-hook-fee-conformance.kernel.mjs';
-import * as art715    from './art-715-token2022-transfer-fee-reconciler.kernel.mjs';
 import * as art71     from './art-71-cbam-certificate-cost-engine.kernel.mjs';
+import * as art710    from './art-710-tsv-stoppage-concurrency.kernel.mjs';
 import * as art711    from './art-711-sco60-crypto-asset-exposure-classifier-v2.kernel.mjs';
 import * as art712    from './art-712-workforce-board-roi.kernel.mjs';
 import * as art713    from './art-713-scorp-election-break-even.kernel.mjs';
+import * as art715    from './art-715-token2022-transfer-fee-reconciler.kernel.mjs';
 import * as art72     from './art-72-cbam-precursor-emissions-aggregator.kernel.mjs';
 import * as art73     from './art-73-taxonomy-alignment-scorer.kernel.mjs';
+import * as art734    from './art-734-force-placed-insurance-checker.kernel.mjs';
 import * as art74     from './art-74-taxonomy-kpi-gar-aggregator.kernel.mjs';
 import * as art75     from './art-75-eugb-factsheet-validator.kernel.mjs';
 import * as art76     from './art-76-climate-scenario-applicator.kernel.mjs';
@@ -701,6 +705,8 @@ export const KERNELS = {
   '513-margin-call-collateral-mobilizer':                       t513,
   '514-tokenized-fund-collateral-validator':                    t514,
   '515-collateral-swap-eligibility-validator':                  t515,
+  '732-borrower-escrow-auditor':                                t732,
+  '733-servicing-compliance-clock':                             t733,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
   'art-03-x402-settlement-modeler':                             art03,
@@ -1317,13 +1323,15 @@ export const KERNELS = {
   'art-707-tsv-tier-cap-ladder':                                art707,
   'art-708-v4-hook-permission-reconciler':                      art708,
   'art-709-v4-hook-fee-conformance':                            art709,
-  'art-715-token2022-transfer-fee-reconciler':                  art715,
   'art-71-cbam-certificate-cost-engine':                        art71,
+  'art-710-tsv-stoppage-concurrency':                           art710,
   'art-711-sco60-crypto-asset-exposure-classifier-v2':          art711,
   'art-712-workforce-board-roi':                                art712,
   'art-713-scorp-election-break-even':                          art713,
+  'art-715-token2022-transfer-fee-reconciler':                  art715,
   'art-72-cbam-precursor-emissions-aggregator':                 art72,
   'art-73-taxonomy-alignment-scorer':                           art73,
+  'art-734-force-placed-insurance-checker':                     art734,
   'art-74-taxonomy-kpi-gar-aggregator':                         art74,
   'art-75-eugb-factsheet-validator':                            art75,
   'art-76-climate-scenario-applicator':                         art76,
