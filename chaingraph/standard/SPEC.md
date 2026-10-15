@@ -1176,7 +1176,25 @@ reproducible. If no step ran, `composite_execution_hash` is `null` and no compos
 The composite artifact carries `chaingraph_version:"0.4.0"`, `compute_mode:"server"`,
 `tool_id:"chaingraph/chains/<name>"`, `chain.parent_hashes = [<each RAN step execution_hash>]`,
 `chain.parent_tool_ids = [<ran tool_ids>]`, `chain.chain_depth = <#ran>`, `policy_parameters =
-composite_policy`, `output_payload = composite_output`. It re-verifies under §4 like any artifact.
+composite_policy`, `output_payload = composite_output`.
+
+**Composite verification (NORMATIVE; text-only clarification, `chaingraph_version` stays `0.4.0`, no
+hash changes).** A served composite is NOT verified by hashing its served `output_payload` as-is. The
+served `output_payload` carries four **hash-excluded adjacent metadata** members that sit inside the served
+object but outside the §21.2/§21.4 preimage: `decision_trail`, `step_compliance_flags`, `non_live_steps`,
+and `escalation_record` (the last as defined in §22.8.2(d) and §22.8.3). A verifier MUST reconstruct the
+preimage from the served artifact and recompute the §4 hash over it, deny-by-default:
+
+- Detection: an artifact is a composite when `output_payload.steps` is an array AND
+  `policy_parameters.step_tool_ids` is an array. Otherwise the ordinary §4/§6 node rule applies.
+- `policy_parameters` for the preimage keeps exactly `compute_mode`, `chain`, `chain_title`, `step_count`,
+  `step_tool_ids`, plus `mandate_hash` and `route_plan_digest` only when present.
+- `output_payload` for the preimage keeps exactly `chain`, `steps`, plus `decisions` and `path_taken` only
+  when present (§21.4).
+- Any member not enumerated above is adjacent metadata by definition and MUST be dropped before hashing,
+  including members a later revision adds to the served payload.
+- The hash is computed with the shared canonicalizer (§4) over `{ policy_parameters, output_payload }`
+  rebuilt as above. A verifier SHOULD report which rule applied (composite or node).
 
 ### §21.4 Decision gates (NORMATIVE — new in v0.8)
 A step MAY carry an OPTIONAL string `id` (defaults to `tool_id`; MUST be unique within a GATED chain) and
@@ -4196,6 +4214,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | every node `url` page + chain page exists (no orphans) | `catalog-parity.mjs` | validate |
 | unique mcp_name (nodes+pilot+utility) | `check-tool-names.mjs` | validate |
 | chain integrity | `validate-chains.mjs` | validate |
+| §21.3 composite verification: preimage rebuilt deny-by-default, adjacent members excluded | `test-verify-composite.mjs` (verifier unit test) + `gate-decision-trail-boundary.mjs` (adjacent-member boundary) | validate |
 | /mcp handshake works | `smoke-mcp.mjs` | post-deploy |
 | §13 export gate honored (incl. §13.11 `vc`: view-only, no new hash/proof, deterministic, base-profile) | `exporters/export.test.mjs` (unit) + `smoke-compute.mjs` (export round-trip) | validate + post-deploy |
 | §16 proof: eddsa-jcs-2022 whole-artifact at `audit_signature.proof`, no new hash, no `chaingraph_version` bump, deterministic, offline-verifiable, default-off | `proof-binding.test.mjs` (unit: sign→verify round-trip + tamper-detect + determinism + backward-compat) | validate |
