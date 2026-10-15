@@ -167,7 +167,7 @@ test('registry covers exactly the surfaces the rows name (three scheduled + the 
 });
 
 test('derived-regen: the workflow_run listener surface is registered, reachable and scoped', () => {
-  // REGEN-FAIL-DEADMAN-1. The listener's event must be accepted by the script
+  // The regen-failure deadman listener surface: registered, reachable and scoped.
   // (a workflow_run conclusion the script refused would alarm nobody), while
   // pull_request/merge_group stay refused.
   assert.equal(ALLOWED_EVENTS.has('workflow_run'), true);
