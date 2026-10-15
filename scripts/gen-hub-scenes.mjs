@@ -173,6 +173,19 @@ export function catalogToolSlugs(cat) {
  */
 export function pageSceneData(rel, src, cat) {
   const slugs = catalogToolSlugs(cat);
+  // TIM-PILOT: featured chains — the chains the page ITSELF links via
+  // chaingraph/chains/<name>.html, catalog-resolved, first-appearance order.
+  // A pilot page naming no known chain falls through to the shared derivation.
+  if (PILOT_PAGES.has(rel)) {
+    const known = new Map(cat.chains.map((c) => [c.name, c]));
+    const seen = new Set();
+    for (const m of src.matchAll(/chaingraph\/chains\/([a-z0-9-]+)\.html/g)) {
+      if (known.has(m[1])) seen.add(m[1]);
+    }
+    if (seen.size > 0) {
+      return { toolIds: new Set(), chains: [...seen].map((n) => known.get(n)), tools: [] };
+    }
+  }
   const toolIds = new Set();
   if (rel.startsWith('guides/')) {
     for (const m of src.matchAll(/tools\/([a-z0-9-]+)\.html/g)) toolIds.add(m[1]);
@@ -257,6 +270,39 @@ const ROW_H = 86;          // row height, viewBox units (spec)
 const SIDE = 24;           // viewBox side margin
 const TOP = 30;            // viewBox top margin
 
+// ── TIM-PILOT (2026-10-13): one-page scene pilot ───────────────────────────
+// The featured-chains derivation, the per-row accent rotation and the hash
+// packets render ONLY for pages listed here, so the new scene shape ships as
+// a one-page pilot on guides/canton-tmf-hub.html. Every page outside this set
+// renders byte-for-byte the pre-pilot output. Rollout to the whole hub class
+// is staged as board/queued/HUBSCENE-PILOT-ROLLOUT-1.md, GATED ON TIM's
+// review of the live pilot; until that row lands, this set does not grow.
+const PILOT_PAGES = new Set(['guides/canton-tmf-hub.html']);
+
+/** The pilot rotates four estate accent tokens per row (CONTRACT App. A
+ *  palette; the var() fallback hexes mirror the kit's own fallback pattern). */
+const PILOT_ROW_ACCENTS = [
+  'var(--teal-lt,#2DD4BF)',
+  'var(--gold,#D4A847)',
+  'var(--purple,#9B72F5)',
+  'var(--blue,#60A5FA)',
+];
+const pilotAccent = (row) => PILOT_ROW_ACCENTS[row % PILOT_ROW_ACCENTS.length];
+
+export function isPilotPage(rel) { return PILOT_PAGES.has(rel); }
+
+/** Deterministic FNV-1a hex: the packet labels derive from the row's own
+ *  station labels (data, never invented — the generator bans randomness), so
+ *  identical pages always render identical labels. */
+function fnv1aHex(s, len) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0').slice(0, len);
+}
+
 /** Greedy word wrap: deterministic, ≤ maxLines lines, '…' whenever anything
  *  was cut (a too-long word or leftover words). */
 function wrapLabel(text, maxChars, maxLines) {
@@ -335,6 +381,47 @@ function toolStation(x, y, name, row, col, clamp) {
   return `  <g class="sk-pop" style="--d:${dAttr(delay)}"><rect x="${x}" y="${y}" width="${STATION_W}" height="${TOOL_STATION_H}" rx="9" fill="var(--bg-3,#111E35)" stroke="var(--border-2,#263855)" stroke-width="1.4"/>${icon.doc(x + STATION_W / 2 - 15, y + 8, 30, 32)}${labels}</g>`;
 }
 
+/** TIM-PILOT station: the chain station with the row's accent stroke. */
+function pilotStation(x, y, title, row, col, clamp) {
+  const delay = Math.min(delayFor(row, col), clamp.get('sk-pop') ?? 4.4);
+  const lines = wrapLabel(title, 17, 3);
+  const baseY = y + STATION_H / 2 - (lines.length - 1) * 8 + 4;
+  const stroke = pilotAccent(row);
+  const labels = lines.map((ln, i) =>
+    `<text x="${x + STATION_W / 2}" y="${baseY + i * 16}" text-anchor="middle" class="sm b">${escText(ln)}</text>`).join('');
+  return `  <g class="sk-pop" style="--d:${dAttr(delay)}"><rect x="${x}" y="${y}" width="${STATION_W}" height="${STATION_H}" rx="9" fill="var(--bg-3,#111E35)" stroke="${stroke}" stroke-width="1.4"/>${labels}</g>`;
+}
+
+/** TIM-PILOT link: drawing stroke + arrowhead + travelling dot, all in the
+ *  row's accent. Same geometry and timing law as link(). */
+function pilotLink(x, yMid, row, col, clamp) {
+  const start = x + STATION_W + 3;
+  const end = x + PITCH - 4;
+  const dDraw = Math.min(delayFor(row, col), clamp.get('sk-draw') ?? 4.1);
+  const dTravel = Math.min(delayFor(row, col), clamp.get('sk-travel') ?? 2.2);
+  const stroke = pilotAccent(row);
+  const span = end - start;
+  return `  <path class="sk-draw" pathLength="100" d="M${start} ${yMid} H${end}" style="--d:${dAttr(dDraw)}" stroke="${stroke}" stroke-width="1.6"/>\n`
+    + `  <polygon points="${end},${yMid} ${end - 6},${yMid - 3.5} ${end - 6},${yMid + 3.5}" fill="${stroke}"/>\n`
+    + `  <circle class="sk-travel" r="3" cy="${yMid}" style="--d:${dAttr(dTravel)};--tx:${span}px" fill="${stroke}"/>`;
+}
+
+/** TIM-PILOT packet: one short hash label gliding the full row width, drawn
+ *  before the stations so it passes behind them. The label derives from the
+ *  row's own station labels (deterministic, data-derived); the kit's
+ *  sk-travel keyframes own all motion (kit-default 2.6s, clamped delay), and
+ *  the opacity="0" attribute hides the packet whenever no animation runs
+ *  (no-JS, reduced motion, pre-play, after the single run ends). aria-hidden
+ *  keeps the decorative mover out of the accessibility tree; the scene's
+ *  <title>/<desc> describe the figure. */
+function hashPacket(width, yMid, row, clamp, rowStations) {
+  const seed = rowStations.map((s) => s.label).join('|');
+  const label = escText(`${fnv1aHex(seed, 8)}…${fnv1aHex(`tail:${seed}`, 4)}`);
+  const delay = Math.min(delayFor(row, 0), clamp.get('sk-travel') ?? 2.2);
+  const span = width - SIDE * 2 - STATION_W;
+  return `  <g class="sk-travel" aria-hidden="true" opacity="0" style="--d:${dAttr(delay)};--tx:${span}px"><text x="${SIDE}" y="${yMid - 6}" class="m xs" fill="${pilotAccent(row)}">${label}</text></g>`;
+}
+
 /**
  * The region body for one page. ≥1 chain → chain-pipeline scene (each chain a
  * station, links + travelling dots between stations in a row); 0 chains →
@@ -353,6 +440,7 @@ export function renderRegion(rel, src, cat, timings) {
   const { chains, tools } = pageSceneData(rel, src, cat);
   const clamp = delayClamps(timings);
   const subject = pageSubject(src);
+  const pilot = PILOT_PAGES.has(rel) && chains.length >= 1;
   const stations = chains.length >= 1
     ? chains.map((c) => ({ label: visibleCopy(c.title ?? c.name ?? 'chain'), kind: 'chain' }))
     : tools.map((t) => ({ label: visibleCopy(t.name), kind: 'tool' }));
@@ -360,27 +448,40 @@ export function renderRegion(rel, src, cat, timings) {
   const width = sceneWidth(Math.min(PER_ROW, stations.length));
   const height = TOP + rows * ROW_H;
   const parts = [];
+  const packets = [];
   stations.forEach((st, i) => {
     const row = Math.floor(i / PER_ROW);
     const col = i % PER_ROW;
     const x = SIDE + col * PITCH;
     const y = TOP + row * ROW_H;
-    parts.push(st.kind === 'chain'
-      ? chainStation(x, y, st.label, row, col, clamp)
-      : toolStation(x, y, st.label, row, col, clamp));
+    parts.push(
+      pilot ? pilotStation(x, y, st.label, row, col, clamp)
+        : st.kind === 'chain'
+          ? chainStation(x, y, st.label, row, col, clamp)
+          : toolStation(x, y, st.label, row, col, clamp));
     if (st.kind === 'chain' && col < PER_ROW - 1 && i + 1 < stations.length && Math.floor((i + 1) / PER_ROW) === row) {
-      parts.push(link(x, y + STATION_H / 2, row, col, clamp));
+      parts.push(pilot
+        ? pilotLink(x, y + STATION_H / 2, row, col, clamp)
+        : link(x, y + STATION_H / 2, row, col, clamp));
+    }
+    if (pilot && col === 0) {
+      const inRow = Math.min(PER_ROW, stations.length - row * PER_ROW);
+      if (inRow >= 2) packets.push(hashPacket(width, y + STATION_H / 2, row, clamp, stations.slice(row * PER_ROW, row * PER_ROW + inRow)));
     }
   });
   const isChains = chains.length >= 1;
   const id = `hub-scene-${rel.split('/').pop().replace(/\.html$/, '')}`;
   const title = isChains ? `${subject} chain flow map` : `${subject} tool landscape`;
-  const desc = isChains
-    ? `Each station is one named chain on ${subject}; strokes and travelling dots show the hand-off order within each row.`
-    : `Each station is one tool this guide builds on, laid out like the chain flow map.`;
-  const caption = isChains
-    ? `Flow map of ${escText(subject)}: each station is one named chain; arrows mark the hand-off order within each row.`
-    : `Tool landscape of ${escText(subject)}: each station is one tool this guide builds on.`;
+  const desc = pilot
+    ? `Each station is one named chain on ${subject}; strokes, travelling dots and short hash labels show the hand-off order within each row.`
+    : isChains
+      ? `Each station is one named chain on ${subject}; strokes and travelling dots show the hand-off order within each row.`
+      : `Each station is one tool this guide builds on, laid out like the chain flow map.`;
+  const caption = pilot
+    ? `Flow map of ${escText(subject)}: each station is one named chain; arrows mark the hand-off order within each row, and a short hash label rides each row.`
+    : isChains
+      ? `Flow map of ${escText(subject)}: each station is one named chain; arrows mark the hand-off order within each row.`
+      : `Tool landscape of ${escText(subject)}: each station is one tool this guide builds on.`;
   return assertNoFork(sceneFigure({
     id,
     viewBox: `0 0 ${width} ${height}`,
@@ -388,7 +489,7 @@ export function renderRegion(rel, src, cat, timings) {
     title,
     desc,
     caption,
-    body: parts.join('\n'),
+    body: (pilot ? [...packets, ...parts] : parts).join('\n'),
   }));
 }
 
@@ -647,6 +748,32 @@ function selftest() {
   };
   const monsterOut = applyToPage(rel, src, monster, timings);
   a('a 1,000-station scene still ends within 5s (the clamp law)', monsterOut.problem === null && worstEnd(monsterOut.html) <= MAX_END_MS);
+
+  // 7b. TIM-PILOT: the Canton pilot page renders the featured-chains
+  //     derivation with rotated accents and one hash packet per row; every
+  //     non-pilot page's output carries no packet at all (path unchanged).
+  a('pilot scope is exactly the Canton hub', isPilotPage('guides/canton-tmf-hub.html') && !isPilotPage('guides/dlt-tokenization-hub.html'));
+  const pilotRel = 'guides/canton-tmf-hub.html';
+  const pilotSrc = readFileSync(resolve(REPO, pilotRel), 'utf8');
+  const pilotData = pageSceneData(pilotRel, pilotSrc, cat);
+  const featured = [...new Set([...pilotSrc.matchAll(/chaingraph\/chains\/([a-z0-9-]+)\.html/g)]
+    .map((m) => m[1]).filter((n) => cat.chains.some((c) => c.name === n)))];
+  a('pilot derivation: stations are exactly the catalog-known chain links the page links, in page order',
+    pilotData.tools.length === 0
+    && pilotData.chains.length === featured.length
+    && pilotData.chains.every((c, i) => c.name === featured[i]));
+  const pilotOut = applyToPage(pilotRel, pilotSrc, cat, timings);
+  a('pilot page renders without a problem', pilotOut.problem === null);
+  a('pilot scene carries one labelled sk-travel packet per row (hidden when static)',
+    (pilotOut.html.match(/<g class="sk-travel" aria-hidden="true" opacity="0"/g) || []).length === Math.ceil(featured.length / PER_ROW));
+  a('pilot scene keeps persistent arrowheads (SCENE-PACKET lint)', pilotOut.html.includes('<polygon'));
+  const pilotRegion = pilotOut.html.slice(pilotOut.html.indexOf(HUB_SCENE_BEGIN), pilotOut.html.indexOf(HUB_SCENE_END));
+  a('pilot scene ends within 5s and its REGION stays no-fork clean', worstEnd(pilotOut.html) <= MAX_END_MS && !/@keyframes|animation\s*:/.test(pilotRegion));
+  const plainRel = samples.find((r) => !isPilotPage(r));
+  if (plainRel) {
+    const plainOut = applyToPage(plainRel, readFileSync(resolve(REPO, plainRel), 'utf8'), cat, timings);
+    a(`non-pilot page (${plainRel}) ships zero packets`, plainOut.problem === null && !plainOut.html.includes('aria-hidden="true" opacity="0"'));
+  }
 
   // 8. Every real in-scope page has exactly one insertion point — the
   //    acceptance this row ships against (post-regen --check runs 0 skips).
