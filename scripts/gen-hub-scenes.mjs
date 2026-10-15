@@ -491,7 +491,7 @@ export function renderRegion(rel, src, cat, timings) {
   const caption = isChains
     ? `Chain and tool matrix for ${escText(subject)}: each column is a tool this guide covers, most used first, ${rowWord}, and a brighter cell means more of that row's chains run through the tool. Hover a cell to list them.`
     : `Tool landscape of ${escText(subject)}: each station is one tool this guide builds on.`;
-  return assertNoFork(sceneFigure({
+  const figure = sceneFigure({
     id,
     viewBox: `0 0 ${width} ${height}`,
     minWidth: Math.min(isChains ? 720 : 640, width),
@@ -500,8 +500,15 @@ export function renderRegion(rel, src, cat, timings) {
     caption,
     body,
     role: isChains ? 'group' : 'img',
-  }));
+  });
+  return assertNoFork(figure.replace(CAPTION_OPEN, CAPTION_OPEN_CENTERED));
 }
+
+/** Hub-scene captions sit centred under the figure. The kit's .sk-cap is
+ *  left-aligned at a 780px measure, shared by hand-authored explainers, so
+ *  the centring is an inline style on THIS writer's figcaption only. */
+const CAPTION_OPEN = '<figcaption class="sk-cap">';
+const CAPTION_OPEN_CENTERED = '<figcaption class="sk-cap" style="margin-left:auto;margin-right:auto;text-align:center">';
 
 // ── Insertion slot (spec §3) ───────────────────────────────────────────────
 
@@ -677,6 +684,8 @@ function selftest() {
   a('the figure carries a non-empty <title> and <desc>',
     /<title id="hub-scene-fixture-hub-t">[^<]+<\/title>/.test(once.html)
     && /<desc id="hub-scene-fixture-hub-d">[^<]+<\/desc>/.test(once.html));
+  a('the caption is centred (inline style on the hub-scene figcaption only)',
+    once.html.includes(CAPTION_OPEN_CENTERED) && !once.html.includes(CAPTION_OPEN));
   const regionOnce = `${HUB_SCENE_BEGIN}\n${renderRegion(rel, src, cat, timings)}\n${HUB_SCENE_END}`;
   const strippedOnce = once.html
     .replace(`\n${regionOnce}`, '')
