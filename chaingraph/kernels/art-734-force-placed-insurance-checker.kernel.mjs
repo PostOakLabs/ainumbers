@@ -258,7 +258,10 @@ export function compute(pp) {
       { days_between_first_notice_and_reminder: remAfterFirst, minimum_days: 30 }));
   }
 
-  // -- Element 4: no evidence of continuous coverage received by the charge (c)(1)(iii).
+  // -- Element 4: no evidence of continuous coverage received by the end of the
+  //    15-day period beginning on the reminder delivery date (the (c)(1)(iii)
+  //    evidence window, cited on the element below) — the charge-permission
+  //    evidence cutoff is the window end, not the charge date.
   let evidenceZ = null;
   if (pp.evidence_of_continuous_coverage_date !== undefined && pp.evidence_of_continuous_coverage_date !== null && pp.evidence_of_continuous_coverage_date !== '') {
     evidenceZ = parseIso(pp.evidence_of_continuous_coverage_date);
@@ -273,19 +276,26 @@ export function compute(pp) {
     }
   }
   {
+    // The evidence cutoff for charging is the END of the 15-day period
+    // beginning on the reminder delivery date (delivery date per (c)(1)(ii))
+    // — not the charge date. A charge assessed while the window is
+    // open is made despite received evidence (breached); a charge assessed
+    // after the window closed with evidence only straggling in later remains
+    // permitted (the authorization vests at window end and late-arriving
+    // evidence does not retroactively invalidate it).
     let st; let extra;
     if (evidenceZ === null) {
       compliance_flags.push('FPI_NO_EVIDENCE_BEFORE_CHARGE');
       st = 'met';
       extra = { note: 'no evidence of continuous coverage reported as received' };
-    } else if (evidenceZ <= charge.z) {
+    } else if (evidenceZ <= reminder.z + 15) {
       compliance_flags.push('FPI_EVIDENCE_BEFORE_CHARGE_BREACHED');
       st = 'breached';
-      extra = { evidence_date: pp.evidence_of_continuous_coverage_date, note: 'evidence of continuous coverage was received on or before the charge date, so the charge was not permitted' };
+      extra = { evidence_date: pp.evidence_of_continuous_coverage_date, note: 'evidence of continuous coverage was received by the end of the 15-day period beginning on the reminder delivery date (' + isoOf(reminder.z + 15) + '), so the charge was not permitted' };
     } else {
       compliance_flags.push('FPI_NO_EVIDENCE_BEFORE_CHARGE');
       st = 'met';
-      extra = { evidence_date: pp.evidence_of_continuous_coverage_date, note: 'evidence received only after the charge date; the cancellation-and-refund clock is evaluated separately' };
+      extra = { evidence_date: pp.evidence_of_continuous_coverage_date, note: 'evidence was received only after the evidence window closed on ' + isoOf(reminder.z + 15) + ', so the charge assessed before evidence arrived was permitted; the cancellation-and-refund clock is evaluated separately' };
     }
     elements.push(element('no_continuous_coverage_evidence_before_charge', CITE.evidence_window,
       'by the end of the 15-day period beginning on the reminder delivery date the servicer has not received evidence of continuous compliant coverage (a charge assessed despite such evidence is not permitted)',
