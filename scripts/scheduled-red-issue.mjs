@@ -105,12 +105,49 @@ export const SURFACES = new Map([
       'failure (INDETERMINATE). Every one of those deserves the red it gets. A DECLARED\n' +
       'bypass is not a red, so this issue never fires on one.',
   }],
+  // REGEN-FAIL-DEADMAN-1 (2026-10-15). Not a scheduled surface — a workflow_run
+  // listener (.github/workflows/derived-regen-deadman.yml) on the main-side
+  // Derived Artifacts Regen. It is here because the failure shape is identical
+  // to the three above: a red with no issue is a red nobody reads, and the
+  // measured cost was worse than most — the regen is the only writer that
+  // registers new node shards, so a red main silently dequeues EVERY
+  // meta-touching merge-group entry and CI_FAILURE dequeues are never re-armed
+  // (automerge-label.yml re-queues CI_TIMEOUT only). Measured 2026-10-12/13:
+  // art-708 unregistered ~6.5 h, art-709 ~16 h, only because nobody watched the
+  // Actions tab.
+  ['derived-regen', {
+    name: 'Derived Artifacts Regen (main)',
+    workflow: '.github/workflows/derived-regen-deadman.yml',
+    context:
+      'WHY A RED HERE IS LOUDER THAN ITS RUN COUNT SUGGESTS. The regen is the only writer\n' +
+      'that registers new node shards (order.nodes) and auto-lands additive chains. While it\n' +
+      'is red on main, every meta-touching pull request in the merge queue is silently\n' +
+      'dequeued by the simulated-merge check, and CI_FAILURE dequeues are NEVER re-armed\n' +
+      '(automerge-label.yml re-queues CI_TIMEOUT only) — each one needs a manual re-arm after\n' +
+      'a healing regen lands. Measured: 2026-10-12 art-708 (em-dash, §1.4 copy gate) unregistered\n' +
+      '~6.5 h; 2026-10-13 art-709 unregistered ~16 h; PR #2386 sat disarmed ~21 h.\n' +
+      '\n' +
+      'WHAT TO DO: read the first failure line — a copy gate red names the offending file and\n' +
+      'the cure is a heal PR that fixes the copy at its source, then let (or trigger) the next\n' +
+      'regen land it. The listener already retried once (10 min backoff) before this issue\n' +
+      'opened: the failure class is deterministic (a gate red, not a flake), so a second red\n' +
+      'means a human heal is required, not another retry. This issue does NOT auto-re-arm any\n' +
+      'dequeued PR — the CI_FAILURE never-requeue policy is deliberate; re-arm by hand from\n' +
+      'the run URL below once main is green.',
+  }],
 ]);
 
 // Only scheduled/report surfaces may open an issue. pull_request and
 // merge_group are refused by construction — an ordinary PR/CI red is out of
 // scope for this mechanism and must stay that way.
-export const ALLOWED_EVENTS = new Set(['schedule', 'workflow_dispatch', 'push']);
+//
+// `workflow_run` joined for REGEN-FAIL-DEADMAN-1: it is the event shape of a
+// LISTENER run, never a PR/CI run — the derived-regen listener fires only on
+// `Derived Artifacts Regen` conclusion changes for head_branch main, and that
+// scoping (workflow name + branch) is enforced in the listener workflow's own
+// `if:` before this script is ever reached. A pull_request or merge_group
+// event is still refused here.
+export const ALLOWED_EVENTS = new Set(['schedule', 'workflow_dispatch', 'push', 'workflow_run']);
 
 /** Issue title for a surface key. One writer, so callers cannot drift. */
 export function titleFor(key) {

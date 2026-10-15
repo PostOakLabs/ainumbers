@@ -158,12 +158,32 @@ test('LEDGER-ECHO: --harvest recovers pointers into the ledger with no session r
   assert.equal(readFileSync(ledger, 'utf8'), text);
 });
 
-test('registry covers exactly the three surfaces this row names', () => {
+test('registry covers exactly the surfaces the rows name (three scheduled + the regen listener)', () => {
   assert.deepEqual([...SURFACES.keys()].sort(),
-    ['fullsuite-weekly', 'mutation-nightly', 'prepush-attestation']);
+    ['derived-regen', 'fullsuite-weekly', 'mutation-nightly', 'prepush-attestation']);
   for (const [key, s] of SURFACES) {
     assert.ok(existsSync(resolve(HERE, '..', s.workflow)), `${key}: ${s.workflow} must exist`);
   }
+});
+
+test('derived-regen: the workflow_run listener surface is registered, reachable and scoped', () => {
+  // REGEN-FAIL-DEADMAN-1. The listener's event must be accepted by the script
+  // (a workflow_run conclusion the script refused would alarm nobody), while
+  // pull_request/merge_group stay refused.
+  assert.equal(ALLOWED_EVENTS.has('workflow_run'), true);
+  assert.equal(ALLOWED_EVENTS.has('pull_request'), false);
+  const s = SURFACES.get('derived-regen');
+  const wf = readFileSync(resolve(HERE, '..', s.workflow), 'utf8');
+  assert.match(wf, /scheduled-red-issue\.yml/, 'the listener must call the shared reusable workflow');
+  assert.match(wf, /surface:\s*derived-regen\b/);
+  // Branch scoping lives in the listener's `gate` job, not in the script —
+  // via an env-var comparison (template-injection safe), not a raw `${{ }}`
+  // interpolation into the shell.
+  assert.match(wf, /BRANCH: \$\{\{ github\.event\.workflow_run\.head_branch \}\}/, 'the listener must read the branch through env');
+  assert.match(wf, /\$BRANCH" = "main"/, 'the listener must scope itself to main');
+  // And it must guard the workflow name, so no other workflow's failure can
+  // reach this surface.
+  assert.match(wf, /workflows: \[ "Derived Artifacts Regen" \]/);
 });
 
 test('every caller workflow passes a surface key the registry knows', () => {

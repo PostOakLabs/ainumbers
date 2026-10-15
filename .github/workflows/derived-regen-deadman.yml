@@ -1,0 +1,163 @@
+name: Derived Regen Deadman (REGEN-FAIL-DEADMAN-1)
+
+# A main-side Derived Artifacts Regen that fails and opens nothing is a red
+# nobody reads — and its cost is paid by OTHER PRs, not by this repo's own
+# pages: the regen is the only writer that registers new node shards and
+# auto-lands additive chains, so while it sits red every meta-touching
+# merge-group entry is silently dequeued by the simulated-merge check, and
+# CI_FAILURE dequeues are never re-armed (automerge-label.yml re-queues
+# CI_TIMEOUT only). Measured 2026-10-12/13: art-708 unregistered ~6.5 h,
+# art-709 ~16 h, PR #2386 disarmed ~21 h — three incidents, zero alarms.
+#
+# This listener turns that red into exactly ONE tracking issue, reusing the
+# scheduled-red-issue mechanism (same idempotent open-or-update shape, same
+# title registry in scripts/scheduled-red-issue.mjs, new surface key
+# `derived-regen`). It does two other things, both bounded:
+#
+#   RETRY-ONCE (courtesy, not the cure): on the FIRST failure of a run
+#   (run_attempt == 1) it waits 10 minutes and re-runs the failed jobs. The
+#   failure class is deterministic — a copy gate red names an offending file
+#   and a retry heals nothing — so the retry exists for the transient tail
+#   (network, runner, registry) and the ALARM is the cure. run_attempt == 1
+#   is the bound: the rerun is attempt 2, and this listener firing again on
+#   attempt 2's conclusion re-alarms (as it should) but never re-runs.
+#
+#   GREEN → CLOSE: a successful regen closes the tracking issue with the green
+#   run linked, exactly like the three scheduled surfaces.
+#
+# ⛔ NOTHING HERE RE-ARMS A DEQUEUED PR and nothing here touches
+# automerge-label.yml: the CI_FAILURE never-requeue policy is deliberate — this
+# row alarms, it does not auto-re-arm. The tracking issue says so, and names
+# the manual re-arm as the human step.
+#
+# SCOPING (enforced HERE, before the shared script is ever reached): this file
+# only reacts to `Derived Artifacts Regen` completed runs whose head_branch is
+# main. workflow_run events always run THIS file from the default branch, so a
+# branch edit can never weaken or point the listener elsewhere mid-flight.
+
+on:
+  workflow_run:
+    workflows: [ "Derived Artifacts Regen" ]
+    types: [ completed ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: derived-regen-deadman-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Scope to main regen conclusions
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.decide.outputs.proceed }}
+      failed: ${{ steps.decide.outputs.failed }}
+      run_id: ${{ steps.decide.outputs.run_id }}
+      run_url: ${{ steps.decide.outputs.run_url }}
+      run_attempt: ${{ steps.decide.outputs.run_attempt }}
+    steps:
+      - name: Decide
+        id: decide
+        env:
+          NAME: ${{ github.event.workflow_run.name }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: |
+          set -euo pipefail
+          proceed=false; failed=false
+          if [ "$BRANCH" = "main" ] && [ "$NAME" = "Derived Artifacts Regen" ] \
+             && { [ "$CONCLUSION" = "failure" ] || [ "$CONCLUSION" = "success" ]; }; then
+            proceed=true
+            [ "$CONCLUSION" = "failure" ] && failed=true
+          fi
+          echo "proceed=$proceed" >> "$GITHUB_OUTPUT"
+          echo "failed=$failed"    >> "$GITHUB_OUTPUT"
+          echo "run_id=$RUN_ID"             >> "$GITHUB_OUTPUT"
+          echo "run_url=$RUN_URL"           >> "$GITHUB_OUTPUT"
+          echo "run_attempt=$RUN_ATTEMPT"   >> "$GITHUB_OUTPUT"
+          echo "scoped: proceed=$proceed failed=$failed (workflow '$NAME', branch '$BRANCH', conclusion '$CONCLUSION', attempt $RUN_ATTEMPT)"
+
+  retry-once:
+    name: One bounded retry (10 min backoff, first failure only)
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true' && needs.gate.outputs.failed == 'true' && needs.gate.outputs.run_attempt == '1'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The only write besides the issue tracker, and the narrowest one that
+      # can do the job: re-run THIS repo's own failed workflow run.
+      actions: write
+    steps:
+      - name: Back off, then re-run the failed jobs (attempt 2)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ needs.gate.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          echo "first failure of run $RUN_ID — backing off 10 minutes, then retrying once"
+          sleep 600
+          # Bound, not cure: the failure class is deterministic (copy gate), so
+          # this is courtesy for the transient tail. attempt 2 failing fires
+          # this listener again with run_attempt=2 — it alarms there, and this
+          # job's `if:` keeps it from ever running a third attempt.
+          gh run rerun "$RUN_ID" --repo "$GITHUB_REPOSITORY" --failed
+
+  alarm:
+    name: Open, update or close the tracking issue
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Extract the first failing gate line from the failed job log
+        id: failure-line
+        if: needs.gate.outputs.failed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ needs.gate.outputs.run_id }}
+          RUN_URL: ${{ needs.gate.outputs.run_url }}
+        run: |
+          set -euo pipefail
+          # The regen's copy gates (check-copy-hallmarks / check-shipped-prose)
+          # print the offending file; the assembler refusal prints the refused
+          # chain/node. Grep the FAILED jobs' log for the first actionable
+          # line, bounded: -m1 stops at the first hit, and head -c caps the
+          # line a pathological log could emit.
+          JOB_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
+            --jq '[.jobs[] | select(.conclusion == "failure")][0].id' || true)"
+          if [ -z "${JOB_ID:-}" ] || [ "$JOB_ID" = "null" ]; then
+            LINE="(no failed job log could be read for this run — open the run URL)"
+          else
+            LINE="$(gh run view --job "$JOB_ID" --repo "$GITHUB_REPOSITORY" --log-failed 2>/dev/null \
+              | grep -m1 -E 'copy-hallmarks|shipped-prose|::error|REFUSED|Error:' \
+              | cut -c1-300 || true)"
+            [ -n "$LINE" ] || LINE="(no matching gate line found in the failed job log — read the run URL)"
+          fi
+          # The reusable tracker stamps ITS OWN run URL into the issue (the
+          # listener run, not the regen) — prepend the failed regen run's URL
+          # here so the issue's first failure line points at the actual red.
+          LINE="regen run $RUN_URL :: $LINE"
+          {
+            echo "line<<EOF"
+            echo "$LINE"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "failure line: $LINE"
+
+      # The shared tracker: same reusable workflow, same title registry, same
+      # idempotent open-or-update-not-spam shape as the three scheduled
+      # surfaces. `--event workflow_run` is accepted by the script's allowlist
+      # specifically for this listener (scoping enforced in the `gate` job).
+      - name: 🚨 Report the regen's state
+        uses: ./.github/workflows/scheduled-red-issue.yml
+        with:
+          surface: derived-regen
+          state: ${{ needs.gate.outputs.failed == 'true' && 'red' || 'green' }}
+          failure-line: ${{ needs.gate.outputs.failed == 'true' && steps.failure-line.outputs.line || '' }}
