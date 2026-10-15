@@ -938,13 +938,15 @@ existing contract only.
 
 ## §20 Anchor Binding (NORMATIVE, OPTIONAL — new in v0.7)
 An artifact MAY carry portable, offline-verifiable evidence that its `execution_hash` was included in a
-transparency log or timestamp service by a point in time. Anchor evidence attaches at the OPTIONAL
+transparency log or timestamp service by a point in time (the §20.4 `solana-memo` type is the ONE
+exception to "offline-verifiable": its verification requires a Solana RPC, stated there normatively).
+Anchor evidence attaches at the OPTIONAL
 top-level array `anchor_bindings`, which — like §16 `audit_signature` — is attached AFTER hashing and is
 EXCLUDED from `execution_hash` scope. Each entry:
 
 ```json
 {
-  "type": "rfc3161-tst" | "opentimestamps" | "c2sp-tlog-proof-v1" | "scitt-receipt-rfc9942",
+  "type": "rfc3161-tst" | "opentimestamps" | "c2sp-tlog-proof-v1" | "scitt-receipt-rfc9942" | "solana-memo",
   "anchored_hash": "sha256:…",
   "log_origin": "<TSA URL / log origin string / calendar or service identifier>",
   "proof": "<base64 verbatim TST DER | base64 OTS proof | tlog-proof@v1 text | base64 COSE receipt>",
@@ -955,7 +957,9 @@ EXCLUDED from `execution_hash` scope. Each entry:
 `anchored_hash` MUST equal the artifact's `execution_hash` — EXCEPT when a `merkle_inclusion` member is
 present (§20.1), in which case `anchored_hash` is a Merkle ROOT and the artifact `execution_hash` is a
 LEAF of that tree. The last four members (`policy_oid`, `serial`, `gen_time`, `signer_cert_chain_b64`)
-are `rfc3161-tst` additional members — all REQUIRED for that type, absent otherwise.
+are `rfc3161-tst` additional members — all REQUIRED for that type, absent otherwise. A `solana-memo`
+entry (§20.4) instead carries `cluster`, `signature`, `slot`, `block_time`, `commitment`, `signer` and
+`anchored_hash` (plus OPTIONAL `merkle_inclusion`); its member set is defined in §20.4.
 
 Verification (per type): `rfc3161-tst` — RFC 3161 TimeStampToken verification: messageImprint matches
 `anchored_hash`, CMS signature over TSTInfo valid, signer chains to a verifier-pinned TSA root, signing
@@ -1129,6 +1133,62 @@ Gate (NEW): `retention-profile.test.mjs` — a verifier presented a hash-only su
 artifacts are NEVER eligible regardless of checkpoint state; `retention_class` (§20.3.0) is hash-excluded
 (byte-identical `execution_hash` with and without the member, both halves asserted); the tier is additive —
 an artifact/verifier that never encounters a pruned body behaves exactly as before v0.8.18.
+
+### §20.4 `solana-memo` — verification-only ledger anchor (NORMATIVE, OPTIONAL — new in v0.8.25)
+A `solana-memo` binding records that `anchored_hash` was committed to a Solana transaction whose
+Memo-program instruction data equals it, at a named slot, by the holder of a named signer key. It is
+**verification-only** in this standard: OCG defines NO stamping leg, NO key custody and NO funding for
+this type. A producer that wants one brings a transaction signed elsewhere; the binding is evidence
+ABOUT that transaction, never an operation BY this standard. Like every §20 member it attaches AFTER
+hashing, is EXCLUDED from the `execution_hash` preimage, and rides in `anchor_bindings`:
+
+```json
+{
+  "type": "solana-memo",
+  "cluster": "mainnet-beta" | "devnet" | "testnet",
+  "signature": "<base58 transaction signature>",
+  "slot": 123456789,
+  "block_time": 1760000000,
+  "commitment": "finalized",
+  "signer": "<base58 pubkey of a memo-signing account>",
+  "anchored_hash": "sha256:…",
+  "merkle_inclusion": { "…": "OPTIONAL, §20.1 semantics unchanged" }
+}
+```
+
+Members: `anchored_hash` MUST equal the artifact's `execution_hash` — EXCEPT under `merkle_inclusion`
+(§20.1), where it is the Merkle ROOT, the memo commits the ROOT, and the artifact `execution_hash` is a
+LEAF; §20.1 semantics (leaf match, RFC 6962 root reconstruction, root == `anchored_hash`) apply to this
+type unchanged. `commitment` MUST be `finalized` — the only level this section defines, and the level a
+verifier MUST fetch at. `slot` MUST be the slot the transaction landed in. `block_time` is OPTIONAL and
+MAY be null or absent: it is the RPC's stake-weighted validator ESTIMATE of block time, never a signed
+or authoritative time. `signer` MUST be the base58 pubkey of an account that signed the memo
+instruction; a verifier MUST reject the binding when the transaction's signer set does not contain it.
+
+Verification is NOT offline — this is the one §20 type that structurally requires a Solana JSON-RPC
+endpoint, chosen by the VERIFIER (the binding names none; deferring that trust choice to whoever
+verifies is deliberate). A verifier: (1) fetches the transaction by `signature` via `getTransaction`
+at `finalized` commitment and rejects on not-found; (2) confirms the Memo-program instruction data
+equals `anchored_hash` (or, under `merkle_inclusion`, the committed root per §20.1); (3) confirms the
+returned slot equals `slot`; (4) confirms `signer` is among the transaction's memo signers; and (5),
+where the verifier holds a published allowlist of acceptable anchor keys, confirms `signer` is on it —
+without a signer pin ANYONE can write the same memo, so an unpinned binding proves only what the
+ledger records, not who chose to commit it.
+
+**Trust caveat (NORMATIVE honesty; MUST be carried, in spirit, by any product copy for this type):** a
+`solana-memo` binding proves "this hash was committed no later than slot N by the holder of key K". It
+is a ledger-ordering anchor like a Bitcoin OTS commitment, NOT an RFC 3161 token: no accountable time
+authority, no qualified or eIDAS status, no signed gen_time; `block_time` is validator-estimated;
+finality is economic (supermajority stake), not legal; and verification needs an RPC, so there is NO
+verify-offline-forever property — old-transaction availability depends on the RPC (archival nodes for
+deep history). Copy that labels this type a TSA, RFC 3161-aligned, or eIDAS-qualified is
+NON-CONFORMANT with this section.
+
+Gate (EXISTING, extended — no new gate script here): the shape is validated by `schema-validate.mjs`
+against the `solana-memo` oneOf variant added to `openchain-graph-v0.4.schema.json` in the same change;
+verifier behavior, fixtures and the unknown-type fallback live in the anchor-suite repo, which owns the
+verification-only leg. Nothing in this section requires or permits an OCG implementation to hold a
+Solana signing key.
 
 ## §21 Chain Execution (NORMATIVE — new in v0.8)
 Until v0.8 chain execution (`run_chain` / `composite_execution_hash`) was implementation-defined. §21

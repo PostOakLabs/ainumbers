@@ -72,7 +72,7 @@
       }
     },
     "anchorBinding": {
-      "description": "OCG Standard §20 Anchor Binding — portable, offline-verifiable evidence that execution_hash was included in a transparency log or timestamp service by a point in time. Optional; lives at the top-level anchor_bindings array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature). anchored_hash MUST equal the artifact's execution_hash (enforced by anchor-binding.test.mjs; this schema validates shape). rfc3161-tst carries four additional REQUIRED members; the DER in proof is stored verbatim, never re-encoded.",
+      "description": "OCG Standard §20 Anchor Binding — portable, offline-verifiable evidence that execution_hash was included in a transparency log or timestamp service by a point in time. Optional; lives at the top-level anchor_bindings array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature). anchored_hash MUST equal the artifact's execution_hash (enforced by anchor-binding.test.mjs; this schema validates shape). rfc3161-tst carries four additional REQUIRED members; the DER in proof is stored verbatim, never re-encoded. §20.4 solana-memo (v0.8.25) is the ONE exception to offline verification: that variant structurally requires a Solana RPC chosen by the verifier, and is a ledger-ordering anchor, not a timestamp token (see its variant description).",
       "oneOf": [
         {
           "type": "object",
@@ -111,6 +111,23 @@
             "anchored_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
             "log_origin": { "type": "string", "minLength": 1 },
             "proof": { "type": "string", "minLength": 1, "description": "tlog-proof@v1 text | base64 COSE receipt (carries its own inclusion proof)." }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "cluster", "signature", "slot", "commitment", "signer", "anchored_hash"],
+          "description": "OCG Standard §20.4 (v0.8.25) — verification-only ledger anchor: anchored_hash was committed in a Solana Memo-program transaction at slot by the holder of signer. NO stamping leg, NO key custody, NO funding. Unlike every other §20 type, verification structurally REQUIRES a Solana JSON-RPC endpoint chosen by the verifier (no offline path): a ledger-ordering anchor like Bitcoin OTS, NOT an RFC 3161 token (no accountable time authority, no eIDAS status, no signed time; block_time is a validator estimate; finality is economic). Copy labeling this type TSA or RFC 3161-aligned is non-conformant (§20.4).",
+          "properties": {
+            "type": { "const": "solana-memo" },
+            "cluster": { "enum": ["mainnet-beta", "devnet", "testnet"], "description": "§20.4 — the Solana cluster the anchoring transaction lives on. mainnet-beta is the cluster with economic finality; devnet/testnet are admitted for test fixtures." },
+            "signature": { "type": "string", "pattern": "^[1-9A-HJ-NP-Za-km-z]{87,88}$", "description": "§20.4 — base58 transaction signature of the anchoring transaction (Ed25519, 64 bytes)." },
+            "slot": { "type": "integer", "minimum": 0, "description": "§20.4 — the slot the transaction landed in. The claim is 'committed no later than slot N'." },
+            "block_time": { "type": ["integer", "null"], "description": "§20.4 OPTIONAL — the RPC's stake-weighted validator ESTIMATE of block time (unix seconds). Never a signed time; MAY be null or absent, and absence means NO CLAIM." },
+            "commitment": { "const": "finalized", "description": "§20.4 — the only commitment level this section defines; a verifier MUST fetch at finalized." },
+            "signer": { "type": "string", "pattern": "^[1-9A-HJ-NP-Za-km-z]{43,44}$", "description": "§20.4 — base58 pubkey of an account that signed the memo instruction. A verifier SHOULD pin it against its own published allowlist: without a signer pin anyone can write the same memo." },
+            "anchored_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "§20.4 — equals execution_hash directly, or the §20.1 Merkle root when merkle_inclusion is present (the memo commits the root)." },
+            "merkle_inclusion": { "$ref": "#/$defs/merkleInclusion", "description": "§20.4 OPTIONAL — §20.1 batch semantics unchanged: anchored_hash is the RFC 6962 root, the artifact execution_hash is a leaf." }
           }
         }
       ]
