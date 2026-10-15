@@ -2197,6 +2197,9 @@ const GATES = [
   // parity-manifest generation itself crash/error. The cross-engine byte diff
   // (Bun + QuickJS legs) genuinely needs those runtimes and stays CI-only.
   ['Engine-parity node-leg (crash guard)', 'node scripts/check-engine-parity.mjs'],
+  // ENGINE-BUNDLE-ESM-LINT-1: pins the --bundle ESM stripping so a PR kernel
+  // cannot reach QuickJS with a raw top-level export (CI runs 38264357350 et al.).
+  ['Engine-parity bundler ESM lint selftest', 'node scripts/check-engine-parity.bundle.test.mjs'],
   // Every workflow file must PARSE. An invalid one makes GitHub emit a zero-job failure run on
   // every push to every branch (its branch filter is never evaluated) — measured 2026-08-16,
   // derived-artifacts-regen.yml, eleven red runs in three hours. Parity below reads gate names
