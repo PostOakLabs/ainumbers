@@ -7,7 +7,7 @@
 // a committed mulberry32 seed (deterministic) plus a fixed corpus of structural
 // cases.
 //
-// kernel_digest_at_authoring: sha256:7577f417eecdbf8bca1781682330a4f8fd645c4692ddd0cbfbdf3974c3db9146
+// kernel_digest_at_authoring: sha256:dbad1174408ec1f0f5c95733d54dba4f6fb04ce2add7c6bb270fa77b271b8c39
 // spec: VALON reduction map §B2 item 4 (research/VALON-AI-INVENTORY-AND-AINUMBERS-REDUCTION-MAP-2026-10-05.md)
 //   — lender-placed insurance notice-sequence checker built to the pinned
 //   primary text (12 CFR 1024.37(b)-(h); SERVICING-CLAUSE-SNAPSHOT-1). The
@@ -296,6 +296,39 @@ function checkShape() {
   return { name: 'P8-output-shape-no-nonfinite', checked, violations };
 }
 
+// P9 — EVIDENCE-WINDOW BOUNDARY (12 CFR 1024.37(c)(1)(iii)): the charge-
+// permission evidence cutoff is the END of the 15-day period beginning on the
+// reminder delivery date, not the charge date. Evidence on the exact window
+// end breaches; window end + 1 day (before the charge) leaves the charge
+// permitted (element met, verdict compliant).
+function checkEvidenceWindowBoundary() {
+  const rng = mulberry32(SEED + 9);
+  let checked = 0; let violations = 0;
+  for (let i = 0; i < N; i++) {
+    const pp = randomValidPp(rng);
+    const windowEnd = addDays(pp.reminder_notice_date, 15);
+    const mk = (ev) => {
+      const { output_payload: out } = compute({
+        ...pp,
+        evidence_of_continuous_coverage_date: ev,
+        borrower_coverage_start: pp.charge_coverage_start,
+        borrower_coverage_end: addDays(pp.charge_coverage_start, 100),
+      });
+      const e = out.elements.find((x) => x.element_id === 'no_continuous_coverage_evidence_before_charge');
+      return { out, e };
+    };
+    const atEnd = mk(windowEnd);
+    checked += 2;
+    if (atEnd.e.state !== 'breached') violations++;
+    if (atEnd.out.verdict !== 'non_compliant') violations++;
+    const afterEnd = mk(addDays(windowEnd, 1));
+    checked += 2;
+    if (afterEnd.e.state !== 'met') violations++;
+    if (afterEnd.out.verdict !== 'compliant') violations++;
+  }
+  return { name: 'P9-evidence-cutoff-is-window-end-not-charge-date', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -313,6 +346,7 @@ const properties = [
   checkNonTriggeringInvariance(),
   checkLinearity(),
   checkShape(),
+  checkEvidenceWindowBoundary(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — force-placed insurance notice sequence (notice dates + values, values-only benchmark).`);
 const ok = summarize(KERNEL_ID, oracle, properties);
