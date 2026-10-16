@@ -376,6 +376,8 @@ const PREFLIGHT_ONLY = new Map([
     "to strict plus a named CI step is the deliberate follow-up once that step lands a real " +
     "refresh PR. scripts/-only, so scripts-verify.yml's path filter already routes any change to " +
     "the gate or the page through a full preflight."],
+  // ── ENGINE-BUNDLE-ESM-LINT-1 (2026-10-15) ───────────────────────────────────
+  ["check-engine-parity.bundle.test.mjs", SELF_TEST],
   // ── WEBMCP-META-LINT-CEILING-1 (2026-10-01) ─────────────────────────────────
   ["check-webmcp-meta-budgets.test.mjs", SELF_TEST],
   ["check-webmcp-meta-neardupes.test.mjs", SELF_TEST],
