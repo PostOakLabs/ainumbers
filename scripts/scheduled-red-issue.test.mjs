@@ -158,12 +158,36 @@ test('LEDGER-ECHO: --harvest recovers pointers into the ledger with no session r
   assert.equal(readFileSync(ledger, 'utf8'), text);
 });
 
-test('registry covers exactly the three surfaces this row names', () => {
+test('registry covers exactly the surfaces the rows name (three scheduled + the regen listener)', () => {
   assert.deepEqual([...SURFACES.keys()].sort(),
-    ['fullsuite-weekly', 'mutation-nightly', 'prepush-attestation']);
+    ['derived-regen', 'fullsuite-weekly', 'mutation-nightly', 'prepush-attestation']);
   for (const [key, s] of SURFACES) {
     assert.ok(existsSync(resolve(HERE, '..', s.workflow)), `${key}: ${s.workflow} must exist`);
   }
+});
+
+test('derived-regen: the workflow_run listener surface is registered, reachable and scoped', () => {
+  // The regen-failure deadman listener surface: registered, reachable and scoped.
+  // (a workflow_run conclusion the script refused would alarm nobody), while
+  // pull_request/merge_group stay refused.
+  assert.equal(ALLOWED_EVENTS.has('workflow_run'), true);
+  assert.equal(ALLOWED_EVENTS.has('pull_request'), false);
+  const s = SURFACES.get('derived-regen');
+  const wf = readFileSync(resolve(HERE, '..', s.workflow), 'utf8');
+  // The listener runs the tracker as a SCRIPT (DEADMAN-REUSABLE-CALL-HEAL-1,
+  // PR #2426): a step-level `uses:` of the workflow_call file is read as a local
+  // action and dies on the missing action.yml (the PR #2423 regression).
+  assert.match(wf, /node \.\/scripts\/scheduled-red-issue\.mjs/, 'the listener must run the shared tracker script');
+  assert.match(wf, /--surface derived-regen\b/);
+  assert.doesNotMatch(wf, /^\s*(-\s*)?uses:\s*\.\/\.github\/workflows\/scheduled-red-issue\.yml/m, 'a step-level uses: of the workflow_call file is the PR #2423 regression');
+  // Branch scoping lives in the listener's `gate` job, not in the script —
+  // via an env-var comparison (template-injection safe), not a raw `${{ }}`
+  // interpolation into the shell.
+  assert.match(wf, /BRANCH: \$\{\{ github\.event\.workflow_run\.head_branch \}\}/, 'the listener must read the branch through env');
+  assert.match(wf, /\$BRANCH" = "main"/, 'the listener must scope itself to main');
+  // And it must guard the workflow name, so no other workflow's failure can
+  // reach this surface.
+  assert.match(wf, /workflows: \[ "Derived Artifacts Regen" \]/);
 });
 
 test('every caller workflow passes a surface key the registry knows', () => {
@@ -171,7 +195,10 @@ test('every caller workflow passes a surface key the registry knows', () => {
   // which is this row's failure mode wearing a green run.
   for (const [key, s] of SURFACES) {
     const wf = readFileSync(resolve(HERE, '..', s.workflow), 'utf8');
-    assert.match(wf, new RegExp(`surface:\\s*${key}\\b`), `${s.workflow} must call the reusable workflow with surface: ${key}`);
-    assert.match(wf, /scheduled-red-issue\.yml/, `${s.workflow} must call the shared reusable workflow`);
+    // Either caller shape counts: the reusable workflow (`surface: key`) or the
+    // tracker script run directly (`scheduled-red-issue.mjs --surface key`).
+    const viaReusable = /scheduled-red-issue\.yml/.test(wf) && new RegExp(`surface:\\s*${key}\\b`).test(wf);
+    const viaScript = /scheduled-red-issue\.mjs/.test(wf) && new RegExp(`--surface ${key}\\b`).test(wf);
+    assert.ok(viaReusable || viaScript, `${s.workflow} must call the shared tracker with surface ${key}`);
   }
 });

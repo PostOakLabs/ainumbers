@@ -420,6 +420,27 @@ jobs:
         run: node scripts/check-ask-agent-block.mjs
 
       - name: Node page accessibility tree (HARD on pull_request — per-PR derivables promotion)
+        # Queue/main a11y parity (2026-10-15): on merge_group this gate must
+        # adjudicate the derived surface main will have, not the checkout's
+        # chaingraph.json — a brand-new node page is out of the checkout
+        # monolith's enumeration until main's post-merge Derived Artifacts
+        # Regen registers it, so the queue greened #2374 (105/673, run
+        # 38186970179) and the same page went RED on main with 32 findings the
+        # queue never saw (run 38188751622). The ephemeral assembly step above
+        # ALREADY ran before this step on merge_group; its --enroll regen pass
+        # registers the incoming node in the scratch monolith, and
+        # check-a11y-tree.mjs now overlay-reads that tree (derivedResolve
+        # convention). The env is wired merge_group ONLY: pull_request and
+        # push-to-main keep judging the committed checkout, byte-for-byte
+        # today's behaviour (empty string = unset for the gate). Inside the
+        # preflight run above this variable is stripped from every
+        # non-DERIVED_ROOT_GATES command — this named step is the enforcement
+        # point. The gate additionally fails closed on the mid-flight shard
+        # condition (shard on disk not in chaingraph.meta.json order.nodes
+        # with an in-repo page or manifest) in main contexts, warning on
+        # pull_request — the queue can no longer pass what it cannot enumerate.
+        env:
+          DERIVED_ROOT: ${{ github.event_name == 'merge_group' && steps.derived.outputs.root || '' }}
         run: node scripts/check-a11y-tree.mjs
 
       # The single-writer law, proven, not assumed. The

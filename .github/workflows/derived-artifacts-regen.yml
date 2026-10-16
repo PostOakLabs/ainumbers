@@ -163,6 +163,43 @@ jobs:
         # failed instead by the final --refusal-status step.
         run: node scripts/derived-artifacts.mjs --regen
 
+      # ── REGISTRY LINEAGE PUBLISH ───────────────────────────────────────────
+      # The regen step above (registry-absence-tree entry) landed the absence
+      # tree TOGETHER with its lineage-record append. Until this step existed,
+      # the signed registry/lineage/ tlog could only be published by a desk
+      # holding the Ed25519 log-operator key, so every node landing left the
+      # log one entry behind the records file and reddened the gate suites
+      # until a human ran the publish (41 failed runs in four weeks, four
+      # hand-run heal PRs). Route A (the operator's 2026-10-08 ruling: key into
+      # Actions secret): the operator key is the repository Actions secret
+      # REGISTRY_LINEAGE_LOG_KEY, read from env by the key-source change to
+      # scripts/gen-registry-lineage.mjs in this same PR. It runs BEFORE the
+      # §15/copy/fixpoint gates on purpose: the fixpoint step runs
+      # gen-registry-absence-tree --check, whose lineage-BINDING half is red
+      # until this publish lands — with the publish here, one run heals both.
+      #
+      # FAIL-CLOSED per the generator's own header (§2.1 order: consistency →
+      # sign → Sigsum → write): if ANY step inside the generator fails —
+      # including the Sigsum submit — NOTHING is written to disk and this
+      # step's non-zero exit fails the run BEFORE any staging or commit. A
+      # stale-but-valid published log is a strictly weaker claim than a
+      # half-published one; a red run here is the loud signal, never a skip.
+      # ONE attempt, no retry: a racing retry could double-anchor one
+      # checkpoint (never re-stamp an already-anchored checkpoint — Sigsum
+      # pending-flow rule). When the records file is unchanged the generator
+      # itself skips before any key load or network call (its size-only
+      # idempotency skip), so this step is a no-op on every regen that did not
+      # move the F2 key set. The dry-run path exercises this step like every
+      # other one (a dry run that never reaches a new step is not evidence);
+      # the generator's skip keeps a no-growth dry run off the network.
+      - name: Publish the registry lineage log (sign + Sigsum anchor)
+        env:
+          # Secret NAME only in this file; the value never appears in any log,
+          # diff or commit. An unavailable secret resolves to '' and the
+          # generator fails closed at its key source.
+          REGISTRY_LINEAGE_LOG_KEY: ${{ secrets.REGISTRY_LINEAGE_LOG_KEY }}
+        run: node scripts/gen-registry-lineage.mjs
+
       # §15 gate suite validates the regenerated tree BEFORE anything is
       # staged or committed. A red run here stops the job — no commit step
       # executes — so a bad assemble is a visible failed run, never a
@@ -329,6 +366,24 @@ jobs:
             git add -- "$p"
           done < /tmp/paths.txt
 
+          # REGISTRY LINEAGE PUBLISH: the publish step above writes the C2SP
+          # tile set under registry/lineage/ — an UNBOUNDED path set by design
+          # (every append leaves the old partial tile in place and writes a NEW
+          # .p/<W> filename), which is exactly why gen-registry-lineage is EXCLUDED
+          # from COVERED with a literal artifacts list (scripts/derived-artifacts.mjs
+          # EXCLUDED entry) instead of declared here.
+          # Staging the DIRECTORY by explicit pathspec — the same shape the six
+          # directory-declaring COVERED entries use — puts every tile the publish
+          # wrote into the SAME chore(derived) commit as the records append, so a
+          # node landing never leaves registry/lineage/ one entry behind the
+          # records file. The escape self-check below still runs AFTER this line
+          # and still covers the WHOLE tree: registry/lineage is 100%
+          # generator-owned (no hand-authored file may live there), and a no-op
+          # publish (generator skip) leaves `git add -- registry/lineage` staging
+          # nothing — tracked-and-unchanged — so this line can never mask another
+          # generator's escape.
+          git add -- registry/lineage
+
           # SELF-CHECK (independent derivation): the declared path set is
           # recomputed against what the regen ACTUALLY wrote. If a generator's
           # output set ever grows, this goes RED rather than silently committing
@@ -348,7 +403,7 @@ jobs:
           # away, and only a byte-comparing gate could see it.)
           CRLF_HITS=""
           for f in $(git diff --cached --name-only -- .); do
-            if git show ":$f" | grep -qU $'\r'; then
+            if git show ":$f" | grep -qIU $'\r'; then
               CRLF_HITS="$CRLF_HITS $f"
             fi
           done
@@ -536,6 +591,10 @@ jobs:
         if: steps.stage.outputs.changed == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run == true) && !(github.event_name == 'workflow_dispatch' && inputs.self_test != 'off')
         env:
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          # REGISTRY LINEAGE PUBLISH: consumed ONLY by the rebase-retry
+          # re-publish inside this step (see below); the primary publish runs
+          # in its own step above. Secret NAME only, value never logged.
+          REGISTRY_LINEAGE_LOG_KEY: ${{ secrets.REGISTRY_LINEAGE_LOG_KEY }}
         run: |
           set -euo pipefail
           git config user.name  "ainumbers-spec-sync[bot]"
@@ -580,11 +639,20 @@ jobs:
                 echo "rebase conflicted inside the derived set; re-running the regen pass once on the new origin/main, then re-staging by the SAME explicit pathspec"
                 git reset --hard origin/main
                 node scripts/derived-artifacts.mjs --regen
+                # REGISTRY LINEAGE PUBLISH: reset --hard above wiped this
+                # run's lineage publish output, and the re-run regen may have
+                # appended record(s) afresh — without this re-publish the retry
+                # commit would carry exactly the records-ahead/log-behind state
+                # the publish step exists to prevent. The generator is idempotent
+                # (its size-only skip fires when already current) and fail-closed,
+                # so a failure here fails the retry honestly, never half-writes.
+                node scripts/gen-registry-lineage.mjs
                 node scripts/derived-artifacts.mjs --paths > /tmp/paths-retry.txt
                 while IFS= read -r p; do
                   [ -n "$p" ] || continue
                   git add -- "$p"
                 done < /tmp/paths-retry.txt
+                git add -- registry/lineage
                 git diff --cached --quiet || git commit \
                   -m "chore(derived): regenerate shared derived artifacts on main" \
                   -m "Automated by .github/workflows/derived-artifacts-regen.yml. main is the single writer for these artifacts; PR branches must not regenerate them. See scripts/derived-artifacts.mjs for the set and its derivation."

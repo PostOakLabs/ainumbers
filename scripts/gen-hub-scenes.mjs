@@ -161,6 +161,16 @@ export function catalogToolSlugs(cat) {
   return slugs;
 }
 
+/** A readable label for a tool page that is not a registered node (chain steps
+ *  may name pages the node list does not carry): drop the leading number or
+ *  art- prefix, split on hyphens, capitalise, and upper-case short acronyms. */
+export function humanizeSlug(id) {
+  const small = new Set(['of', 'to', 'and', 'for', 'the', 'in', 'vs', 'on', 'by', 'at', 'as', 'or', 'via', 'per', 'with']);
+  return id.replace(/^(?:[a-z]{2,4}-)?\d+[a-z]?-/, '').split('-').filter(Boolean)
+    .map((w) => (small.has(w) ? w : w.length <= 3 && /^[a-z]+$/.test(w) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)))
+    .join(' ') || id;
+}
+
 /**
  * One page's scene data, from ITS OWN links plus the assembled catalog.
  *   toolIds — the tool-page slugs the page links (class-aware href shapes,
@@ -182,7 +192,7 @@ export function pageSceneData(rel, src, cat) {
   }
   const chains = cat.chains.filter((c) => (c.steps ?? []).some((s) => toolIds.has(s.tool_id)));
   const names = new Map(cat.nodes.map((n) => [n.tool_id, n.display_name]));
-  const tools = [...toolIds].sort().map((id) => ({ id, name: names.get(id) ?? id }));
+  const tools = [...toolIds].sort().map((id) => ({ id, name: names.get(id) ?? humanizeSlug(id) }));
   return { toolIds, chains, tools };
 }
 
@@ -251,8 +261,18 @@ export function assertNoFork(region) {
 const PER_ROW = 6;         // stations per row, maximum
 const PITCH = 160;         // station pitch, viewBox units (spec: 150–174)
 const STATION_W = 132;     // station box width
-const STATION_H = 64;      // chain-station box height
 const TOOL_STATION_H = 70; // tool-station box height (icon + label)
+
+// Chain-use matrix geometry (columns = tools, rows = chain groups).
+const M_LABEL_W = 220;     // row-label gutter
+const M_PITCH = 44;        // column pitch
+const M_CELL_W = 38;       // cell width
+const M_CELL_H = 24;       // cell height
+const M_ROW_H = 30;        // row pitch
+const M_HEAD_H = 140;      // rotated column-label band
+const M_RIGHT = 84;        // room for the last rotated label to run out right
+const M_MAX_COLS = 18;     // columns kept; least-used tools beyond this are dropped
+const M_GROUP_ABOVE = 8;   // more chains than this: rows group by domain
 const ROW_H = 86;          // row height, viewBox units (spec)
 const SIDE = 24;           // viewBox side margin
 const TOP = 30;            // viewBox top margin
@@ -301,30 +321,6 @@ const delayFor = (row, indexInRow) => row * 0.3 + indexInRow * 0.12;
 /** viewBox width for the widest row. */
 const sceneWidth = (firstRowCount) => Math.max(480, SIDE * 2 + (firstRowCount - 1) * PITCH + STATION_W);
 
-/** One chain station: rounded rect + the chain's own catalog title. */
-function chainStation(x, y, title, row, col, clamp) {
-  const delay = Math.min(delayFor(row, col), clamp.get('sk-pop') ?? 4.4);
-  const lines = wrapLabel(title, 17, 3);
-  const baseY = y + STATION_H / 2 - (lines.length - 1) * 8 + 4;
-  const labels = lines.map((ln, i) =>
-    `<text x="${x + STATION_W / 2}" y="${baseY + i * 16}" text-anchor="middle" class="sm b">${escText(ln)}</text>`).join('');
-  return `  <g class="sk-pop" style="--d:${dAttr(delay)}"><rect x="${x}" y="${y}" width="${STATION_W}" height="${STATION_H}" rx="9" fill="var(--bg-3,#111E35)" stroke="var(--border-2,#263855)" stroke-width="1.4"/>${labels}</g>`;
-}
-
-/** One link between consecutive stations in a row: a drawing stroke with a
- *  persistent arrowhead (flow direction — Tim-ruled flow-map depth, not a
- *  step player), plus ONE travelling dot that crosses the span once. */
-function link(x, yMid, row, col, clamp) {
-  const start = x + STATION_W + 3;
-  const end = x + PITCH - 4;
-  const dDraw = Math.min(delayFor(row, col), clamp.get('sk-draw') ?? 4.1);
-  const dTravel = Math.min(delayFor(row, col), clamp.get('sk-travel') ?? 2.2);
-  const span = end - start;
-  return `  <path class="sk-draw" pathLength="100" d="M${start} ${yMid} H${end}" style="--d:${dAttr(dDraw)}" stroke="var(--border-2,#263855)" stroke-width="1.6"/>\n`
-    + `  <polygon points="${end},${yMid} ${end - 6},${yMid - 3.5} ${end - 6},${yMid + 3.5}" fill="var(--muted,#3A5270)"/>\n`
-    + `  <circle class="sk-travel" r="3" cy="${yMid}" style="--d:${dAttr(dTravel)};--tx:${span}px" fill="var(--teal-lt,#2DD4BF)"/>`;
-}
-
 /** One tool station for the zero-chain landscape: rect + the kit's doc()
  *  icon + the tool's own display name. */
 function toolStation(x, y, name, row, col, clamp) {
@@ -335,13 +331,132 @@ function toolStation(x, y, name, row, col, clamp) {
   return `  <g class="sk-pop" style="--d:${dAttr(delay)}"><rect x="${x}" y="${y}" width="${STATION_W}" height="${TOOL_STATION_H}" rx="9" fill="var(--bg-3,#111E35)" stroke="var(--border-2,#263855)" stroke-width="1.4"/>${icon.doc(x + STATION_W / 2 - 15, y + 8, 30, 32)}${labels}</g>`;
 }
 
+/** The page's own href for a slug (tool page or chain composer), taken from
+ *  the page source so the scene can never link to a path the page does not
+ *  already use. null when the page carries no such link. */
+function pageHref(src, kind, slug) {
+  const dir = kind === 'chain' ? 'chains/' : '';
+  const re = new RegExp(`href="([^"#?]*${dir}${slug.replace(/[^a-z0-9-]/gi, '')}\\.html)"`);
+  const m = re.exec(src);
+  return m ? m[1] : null;
+}
+
 /**
- * The region body for one page. ≥1 chain → chain-pipeline scene (each chain a
- * station, links + travelling dots between stations in a row); 0 chains →
- * the tool-landscape scene (each tool a station). Same wrap law, same timing
- * budget either way (spec §4). sceneFigure() is the ONLY wrapper (it throws
- * without id/viewBox/title/desc — the accessibility premise, mechanically
- * enforced).
+ * The chain-use matrix data: which of the page's tools each chain row runs
+ * through. Rows are chains when the page has few of them, else chains grouped
+ * by catalog domain (biggest group first). Columns are the page's tools that
+ * at least one chain uses, most-used first (the backbone tool leads), capped
+ * at M_MAX_COLS. PURE; all values come from the assembled catalog.
+ */
+export function matrixData(chains, tools) {
+  const grouped = chains.length > M_GROUP_ABOVE;
+  const toolName = new Map(tools.map((t) => [t.id, t.name]));
+  const usedBy = new Map();
+  for (const c of chains) {
+    for (const id of new Set((c.steps ?? []).map((s) => s.tool_id))) {
+      if (!toolName.has(id)) continue;
+      if (!usedBy.has(id)) usedBy.set(id, []);
+      usedBy.get(id).push(c);
+    }
+  }
+  const cols = [...usedBy.keys()]
+    .sort((x, y) => usedBy.get(y).length - usedBy.get(x).length || (x < y ? -1 : 1))
+    .slice(0, M_MAX_COLS)
+    .map((id) => ({ id, name: toolName.get(id), chains: usedBy.get(id) }));
+  const buckets = new Map();
+  for (const c of chains) {
+    const key = grouped ? (c.domain ?? 'Other') : (c.name ?? c.title ?? 'chain');
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(c);
+  }
+  const rows = [...buckets.entries()]
+    .map(([key, list]) => ({ key, label: grouped ? key : (list[0].title ?? key), chains: list }))
+    .sort((x, y) => grouped
+      ? y.chains.length - x.chains.length || (x.key < y.key ? -1 : 1)
+      : 0);
+  return { grouped, cols, rows };
+}
+
+/** One matrix cell: n chains of this row run through this column's tool. A
+ *  zero cell is a still faint dot (no animation); a hit pops in and carries a
+ *  hover list of the chains. */
+function matrixCell(cx, cy, n, max, grouped, tip, delay) {
+  if (n === 0) return `  <circle cx="${cx}" cy="${cy}" r="2" fill="var(--border-2,#263855)"/>`;
+  const x = cx - M_CELL_W / 2;
+  const y = cy - M_CELL_H / 2;
+  const heat = Number((0.2 + 0.4 * (n / max)).toFixed(2));
+  const mark = grouped
+    ? `<text x="${cx}" y="${cy + 4}" text-anchor="middle" class="m sm b">${n}</text>`
+    : `<circle cx="${cx}" cy="${cy}" r="4.5" fill="var(--teal-lt,#2DD4BF)"/>`;
+  return `  <g class="sk-pop" style="--d:${dAttr(delay)}"><title>${escText(tip)}</title><rect x="${x}" y="${y}" width="${M_CELL_W}" height="${M_CELL_H}" rx="5" fill="var(--teal,#14B8A6)" fill-opacity="${heat}" stroke="var(--teal,#14B8A6)" stroke-opacity="0.6" stroke-width="1"/>${mark}</g>`;
+}
+
+/** The chain-use matrix body: columns are the tools a hub covers, rows are
+ *  chains or chain groups, a cell counts the chains that run through the
+ *  tool. Reads the real coupling (which chains share which tool) instead of
+ *  an invented hand-off order between unrelated chains. */
+function matrixBody(src, chains, tools, clamp) {
+  const { grouped, cols, rows } = matrixData(chains, tools);
+  const popMax = clamp.get('sk-pop') ?? 4.4;
+  const fadeMax = clamp.get('sk-fade') ?? 4.4;
+  const colX = (c) => M_LABEL_W + c * M_PITCH + M_PITCH / 2;
+  let max = 1;
+  const counts = rows.map((r) => cols.map((col) => {
+    const used = new Set(col.chains.map((c) => c.name));
+    const n = r.chains.filter((c) => used.has(c.name)).length;
+    if (n > max) max = n;
+    return n;
+  }));
+  const parts = [];
+  cols.forEach((col, c) => {
+    const x = colX(c);
+    const label = escText(wrapLabel(visibleCopy(col.name), 24, 1)[0] ?? col.id);
+    const href = pageHref(src, 'tool', col.id);
+    const fade = dAttr(Math.min(c * 0.05, fadeMax));
+    const hit = `<rect class="sk-hit" x="${x - M_PITCH / 2 + 1}" y="${M_HEAD_H - 14}" width="${M_PITCH - 2}" height="${rows.length * M_ROW_H + 14}" rx="6" fill="transparent" stroke="none"/>`;
+    const text = `<text x="${x - 2}" y="${M_HEAD_H - 20}" transform="rotate(-55 ${x - 2} ${M_HEAD_H - 20})" class="xs s">${label}</text>`;
+    const inner = `<title>${escText(visibleCopy(col.name))}</title>${hit}${text}`;
+    parts.push(href
+      ? `  <a href="${escText(href)}" class="sk-fade" style="--d:${fade}">${inner}</a>`
+      : `  <g class="sk-fade" style="--d:${fade}">${inner}</g>`);
+  });
+  rows.forEach((r, i) => {
+    const y = M_HEAD_H + i * M_ROW_H + M_ROW_H / 2;
+    const name = escText(wrapLabel(visibleCopy(r.label), grouped ? 26 : 27, 1)[0] ?? r.key);
+    const tail = grouped ? `<tspan class="m xs t" dx="7">${r.chains.length}</tspan>` : '';
+    const chainHref = grouped ? null : pageHref(src, 'chain', r.chains[0].name);
+    const label = `<text x="${M_LABEL_W - 10}" y="${y + 4}" text-anchor="end" class="sm b">${name}${tail}</text>`;
+    parts.push(chainHref
+      ? `  <a href="${escText(chainHref)}"><title>${escText(visibleCopy(r.label))}</title>${label}</a>`
+      : `  ${label}`);
+    cols.forEach((col, c) => {
+      const n = counts[i][c];
+      const used = new Set(col.chains.map((ch) => ch.name));
+      const names = r.chains.filter((ch) => used.has(ch.name)).map((ch) => visibleCopy(ch.title ?? ch.name));
+      const tip = n ? `${grouped ? `${visibleCopy(r.key)}: ` : ''}${names.join('; ')} run through ${visibleCopy(col.name)}` : '';
+      parts.push(matrixCell(colX(c), y, n, max, grouped, tip, Math.min(i * 0.06 + c * 0.05, popMax)));
+    });
+  });
+  const ty = M_HEAD_H + rows.length * M_ROW_H + M_ROW_H / 2;
+  parts.push(`  <text x="${M_LABEL_W - 10}" y="${ty + 4}" text-anchor="end" class="xs s">Chains using the tool</text>`);
+  cols.forEach((col, c) => {
+    parts.push(`  <text x="${colX(c)}" y="${ty + 4}" text-anchor="middle" class="m sm t">${col.chains.length}</text>`);
+  });
+  return {
+    body: parts.join('\n'),
+    width: M_LABEL_W + cols.length * M_PITCH + M_RIGHT,
+    height: M_HEAD_H + (rows.length + 1) * M_ROW_H + 10,
+    grouped,
+  };
+}
+
+/**
+ * The region body for one page. ≥1 chain → chain-use matrix (columns are the
+ * tools the page covers, rows are the chains or chain domains, each cell counts
+ * the chains running through that tool); 0 chains → the tool-landscape scene
+ * (each tool a station). Same timing budget either way (spec §4).
+ * sceneFigure() is the ONLY wrapper (it throws without id/viewBox/title/desc —
+ * the accessibility premise, mechanically enforced).
  *
  * THIRD VERDICT (HUBSCENE-ZEROSTATION-SKIP-1): 0 chains AND 0 tools → this
  * function is never called; applyToPage OMITS the region entirely. A rendered
@@ -353,44 +468,47 @@ export function renderRegion(rel, src, cat, timings) {
   const { chains, tools } = pageSceneData(rel, src, cat);
   const clamp = delayClamps(timings);
   const subject = pageSubject(src);
-  const stations = chains.length >= 1
-    ? chains.map((c) => ({ label: visibleCopy(c.title ?? c.name ?? 'chain'), kind: 'chain' }))
-    : tools.map((t) => ({ label: visibleCopy(t.name), kind: 'tool' }));
-  const rows = Math.max(1, Math.ceil(stations.length / PER_ROW));
-  const width = sceneWidth(Math.min(PER_ROW, stations.length));
-  const height = TOP + rows * ROW_H;
-  const parts = [];
-  stations.forEach((st, i) => {
-    const row = Math.floor(i / PER_ROW);
-    const col = i % PER_ROW;
-    const x = SIDE + col * PITCH;
-    const y = TOP + row * ROW_H;
-    parts.push(st.kind === 'chain'
-      ? chainStation(x, y, st.label, row, col, clamp)
-      : toolStation(x, y, st.label, row, col, clamp));
-    if (st.kind === 'chain' && col < PER_ROW - 1 && i + 1 < stations.length && Math.floor((i + 1) / PER_ROW) === row) {
-      parts.push(link(x, y + STATION_H / 2, row, col, clamp));
-    }
-  });
   const isChains = chains.length >= 1;
   const id = `hub-scene-${rel.split('/').pop().replace(/\.html$/, '')}`;
-  const title = isChains ? `${subject} chain flow map` : `${subject} tool landscape`;
+  let body;
+  let width;
+  let height;
+  let grouped = false;
+  if (isChains) {
+    ({ body, width, height, grouped } = matrixBody(src, chains, tools, clamp));
+  } else {
+    const rows = Math.max(1, Math.ceil(tools.length / PER_ROW));
+    width = sceneWidth(Math.min(PER_ROW, tools.length));
+    height = TOP + rows * ROW_H;
+    body = tools.map((t, i) => toolStation(SIDE + (i % PER_ROW) * PITCH, TOP + Math.floor(i / PER_ROW) * ROW_H,
+      visibleCopy(t.name), Math.floor(i / PER_ROW), i % PER_ROW, clamp)).join('\n');
+  }
+  const title = isChains ? `${subject} chain and tool matrix` : `${subject} tool landscape`;
+  const rowWord = grouped ? 'rows group the chains by domain' : 'each row is one chain';
   const desc = isChains
-    ? `Each station is one named chain on ${subject}; strokes and travelling dots show the hand-off order within each row.`
-    : `Each station is one tool this guide builds on, laid out like the chain flow map.`;
+    ? `Matrix for ${subject}: columns are the tools this guide covers, ${rowWord}, and a filled cell marks a chain that runs through the tool.`
+    : `Each station is one tool this guide builds on.`;
   const caption = isChains
-    ? `Flow map of ${escText(subject)}: each station is one named chain; arrows mark the hand-off order within each row.`
+    ? `Chain and tool matrix for ${escText(subject)}: each column is a tool this guide covers, most used first, ${rowWord}, and a brighter cell means more of that row's chains run through the tool. Hover a cell to list them.`
     : `Tool landscape of ${escText(subject)}: each station is one tool this guide builds on.`;
-  return assertNoFork(sceneFigure({
+  const figure = sceneFigure({
     id,
     viewBox: `0 0 ${width} ${height}`,
-    minWidth: Math.min(640, width),
+    minWidth: Math.min(isChains ? 720 : 640, width),
     title,
     desc,
     caption,
-    body: parts.join('\n'),
-  }));
+    body,
+    role: isChains ? 'group' : 'img',
+  });
+  return assertNoFork(figure.replace(CAPTION_OPEN, CAPTION_OPEN_CENTERED));
 }
+
+/** Hub-scene captions sit centred under the figure. The kit's .sk-cap is
+ *  left-aligned at a 780px measure, shared by hand-authored explainers, so
+ *  the centring is an inline style on THIS writer's figcaption only. */
+const CAPTION_OPEN = '<figcaption class="sk-cap">';
+const CAPTION_OPEN_CENTERED = '<figcaption class="sk-cap" style="margin-left:auto;margin-right:auto;text-align:center">';
 
 // ── Insertion slot (spec §3) ───────────────────────────────────────────────
 
@@ -566,6 +684,8 @@ function selftest() {
   a('the figure carries a non-empty <title> and <desc>',
     /<title id="hub-scene-fixture-hub-t">[^<]+<\/title>/.test(once.html)
     && /<desc id="hub-scene-fixture-hub-d">[^<]+<\/desc>/.test(once.html));
+  a('the caption is centred (inline style on the hub-scene figcaption only)',
+    once.html.includes(CAPTION_OPEN_CENTERED) && !once.html.includes(CAPTION_OPEN));
   const regionOnce = `${HUB_SCENE_BEGIN}\n${renderRegion(rel, src, cat, timings)}\n${HUB_SCENE_END}`;
   const strippedOnce = once.html
     .replace(`\n${regionOnce}`, '')
@@ -578,7 +698,7 @@ function selftest() {
   a('a second pass is byte-identical', twice.problem === null && twice.html === once.html);
 
   // 3. RED: one hand-edited byte inside the region is drift.
-  const mutant = once.html.replace('chain flow map', 'chain flox map');
+  const mutant = once.html.replace('chain and tool matrix', 'chain and tool matriz');
   if (mutant === once.html) fails.push('RED control: mutation target not found in the region');
   const red = applyToPage(rel, mutant, cat, timings);
   a('RED: a hand-edited region byte is reported as drift', red.problem === null && red.html !== mutant);
@@ -642,7 +762,7 @@ function selftest() {
   // Pathological wrap: 1,000 chains → 167 rows. Every delay clamps per class,
   // so the scene STILL ends inside the five-second budget.
   const monster = {
-    chains: Array.from({ length: 1000 }, (_, i) => ({ name: `fixture-chain-${i}`, title: `Fixture chain number ${i}`, steps: [{ tool_id: 'art-42-example-tool' }] })),
+    chains: Array.from({ length: 1000 }, (_, i) => ({ name: `fixture-chain-${i}`, title: `Fixture chain number ${i}`, domain: `Fixture domain ${i % 40}`, steps: [{ tool_id: realSlug }] })),
     nodes: cat.nodes,
   };
   const monsterOut = applyToPage(rel, src, monster, timings);

@@ -243,6 +243,18 @@ jobs:
           node scripts/check-webmcp-meta-budgets.mjs --ceiling
           node scripts/check-webmcp-meta-neardupes.mjs --ceiling
 
+      - name: WebMCP name length, NEW manifests
+        # PR-side only: on merge_group there is no github.base_ref, so the step
+        # is skipped (a no-op) and the same check runs in preflight.mjs there.
+        # The count ceiling above is count-neutral by design; this strict check
+        # fails when any manifest ADDED vs the PR base carries an
+        # mcp_tool_definition.name over 30 chars. Existing manifests stay
+        # grandfathered; the 30 threshold and the baseline are untouched.
+        if: github.event_name == 'pull_request'
+        env:
+          NAMELEN_BASE_REF: ${{ github.base_ref }}
+        run: node scripts/check-webmcp-meta-budgets.mjs --new-strict --base "origin/$NAMELEN_BASE_REF"
+
       - name: Cross-surface fact consistency
         # The page half of the pair land-verify.yml guards from the kernel side:
         # a page-only PR that edits a node page's published table_version /

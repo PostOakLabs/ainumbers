@@ -21,6 +21,8 @@ status: stable
 - [Margin Call Collateral Mobilizer](./513-margin-call-collateral-mobilizer.md) — `mobilize_margin_collateral`
 - [Tokenized Fund Collateral Validator](./514-tokenized-fund-collateral-validator.md) — `validate_fund_collateral`
 - [Collateral Swap Eligibility Validator](./515-collateral-swap-eligibility-validator.md) — `validate_collateral_swap_eligibility`
+- [Borrower Escrow Auditor](./732-borrower-escrow-auditor.md) — `audit_borrower_escrow_stmt`
+- [Servicing Compliance Clock](./733-servicing-compliance-clock.md) — `servicing_compliance_clock`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md) — `model_x402_settlement`
@@ -634,12 +636,17 @@ status: stable
 - [Bond Ladder Builder](./art-705-bond-ladder-builder.md) — `build_bond_ladder`
 - [Yield Curve & G-Spread](./art-706-yield-curve-gspread.md) — `build_yield_curve_gspread`
 - [TSV Tier-Cap Ladder](./art-707-tsv-tier-cap-ladder.md) — `check_tsv_tier_cap_ladder`
+- [V4 Hook Permission Reconciler](./art-708-v4-hook-permission-reconciler.md) — `reconcile_v4_hook_permissions`
+- [V4 Hook Fee Conformance](./art-709-v4-hook-fee-conformance.md) — `check_v4_hook_fee_conformance`
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md) — `model_cbam_certificate_cost`
+- [TSV Stoppage Concurrency](./art-710-tsv-stoppage-concurrency.md) — `check_tsv_stoppage_concurrency`
 - [SCO60 Group 2 Exposure Limit V2](./art-711-sco60-crypto-asset-exposure-classifier-v2.md) — `classify_sco60_exposure_v2`
 - [Workforce Board ROI Report](./art-712-workforce-board-roi.md) — `workforce_board_roi_report`
 - [S-Corp Election Break-Even Modeler](./art-713-scorp-election-break-even.md) — `model_scorp_break_even`
+- [Token-2022 Transfer-Fee Payment Reconciler](./art-715-token2022-transfer-fee-reconciler.md) — `reconcile_token2022_transfer_fee`
 - [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md) — `aggregate_cbam_precursor_emissions`
 - [EU Taxonomy Alignment Scorer](./art-73-taxonomy-alignment-scorer.md) — `score_taxonomy_alignment`
+- [Force-Placed Insurance Notice Checker](./art-734-force-placed-insurance-checker.md) — `check_force_placed_notice`
 - [Taxonomy KPI & Green Asset Ratio Aggregator](./art-74-taxonomy-kpi-gar-aggregator.md) — `aggregate_taxonomy_kpi_gar`
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
 - [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md) — `apply_climate_scenario`

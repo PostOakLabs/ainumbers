@@ -248,6 +248,167 @@ async function mutationTest() {
       console.log(`  shrink correctly rejected: ${e.message}`);
     }
     ok(shrinkRejected, 'shrinking the record set (265 -> 100) is REJECTED (append-only violation)');
+
+    // ── SIGSUM-PENDING tolerance (LINEAGE-SIGSUM-TOLERANCE-2380-1): a fresh
+    // temp log grown with NO submitToSigsum stub at all exercises the real
+    // key-absence branch (the temp workspace has no research/ key files, so
+    // existsSync on the Sigsum submit/token key paths is false exactly as on
+    // CI). generate() must NOT throw, must write tiles + checkpoint + a
+    // PENDING sigsum record, and --check must ACCEPT the pending state.
+    const pendingDir = join(tmpDir, 'lineage-pending');
+    const pendingRecords = Array.from({ length: 3 }, (_, i) => ({ synthetic_pending_index: i, note: 'pending-flow fixture' }));
+    let pendingOk = true;
+    try {
+      await generate({
+        registryDir: pendingDir,
+        records: pendingRecords,
+        logPrivateKeyPath: keyPath, logPublicKeyHex: pubKeyHex,
+        sigsumSubmitKeyPath: join(tmpDir, 'absent', 'sigsum-key.priv.jwk.json'),
+        sigsumTokenKeyPath: join(tmpDir, 'absent', 'sigsum-token-key.priv.jwk.json'),
+      });
+    } catch (e) {
+      pendingOk = false;
+      console.log(`  pending-flow generate() threw: ${e.message}`);
+    }
+    ok(pendingOk, 'SIGSUM-PENDING: generate() with NO submitToSigsum stub and NO Sigsum key files does NOT fail');
+    let pendingRecord = null;
+    try {
+      pendingRecord = JSON.parse(readFileSync(join(pendingDir, 'checkpoint.sigsum-record.json'), 'utf8'));
+    } catch (e) {
+      console.log(`  pending record read failed: ${e.message}`);
+    }
+    ok(pendingRecord !== null && pendingRecord.status === 'pending', 'SIGSUM-PENDING: the written sigsum record carries status "pending"');
+    ok(pendingRecord !== null && typeof pendingRecord.anchored_hash === 'string' && /^sha256:[0-9a-f]{64}$/.test(pendingRecord.anchored_hash), 'SIGSUM-PENDING: the pending record carries the sha256 anchored_hash of the signed checkpoint bytes');
+    const pendingCheck = await check({ registryDir: pendingDir, logPublicKeyHex: pubKeyHex, noExit: true });
+    ok(pendingCheck.ok === true, 'SIGSUM-PENDING: --check ACCEPTS a published log whose sigsum record is pending');
+    // Appending MORE records in pending mode over an already-pending log must
+    // still work (the tolerance is the steady state while keys stay offline).
+    let pendingGrowthOk = true;
+    try {
+      await generate({
+        registryDir: pendingDir,
+        records: [...pendingRecords, { synthetic_pending_index: 3, note: 'appended while pending' }],
+        logPrivateKeyPath: keyPath, logPublicKeyHex: pubKeyHex,
+        sigsumSubmitKeyPath: join(tmpDir, 'absent', 'sigsum-key.priv.jwk.json'),
+        sigsumTokenKeyPath: join(tmpDir, 'absent', 'sigsum-token-key.priv.jwk.json'),
+      });
+    } catch (e) {
+      pendingGrowthOk = false;
+      console.log(`  pending-flow growth threw: ${e.message}`);
+    }
+    ok(pendingGrowthOk, 'SIGSUM-PENDING: append-only growth while keys stay absent is accepted');
+    const pendingGrownCheck = await check({ registryDir: pendingDir, logPublicKeyHex: pubKeyHex, noExit: true });
+    ok(pendingGrownCheck.ok === true, 'SIGSUM-PENDING: --check PASSES on the grown pending log');
+    // KEYS-PRESENT branch: Sigsum key files exist, submit is stubbed via
+    // opts.submitToSigsum (the binding that once threw ReferenceError).
+    const presentDir = join(tmpDir, 'lineage-present');
+    const fakeSubmitKey = join(tmpDir, 'fake-sigsum-submit.key');
+    const fakeTokenKey = join(tmpDir, 'fake-sigsum-token.key');
+    writeFileSync(fakeSubmitKey, 'x');
+    writeFileSync(fakeTokenKey, 'x');
+    const presentStub = { anchor_type: 'c2sp-tlog-proof-v1', log_url: 'https://example.invalid/keys-present-stub', leaf: { checksum: '00'.repeat(32), signature: '00'.repeat(64), public_key: '00'.repeat(32) }, tree_head: { size: 7, root_hash: '00'.repeat(32), log_signature: '00'.repeat(64) }, inclusion_proof: { leaf_index: 3, path: [] }, witness_cosignatures: [] };
+    let presentOk = true;
+    try {
+      await generate({
+        registryDir: presentDir,
+        records: pendingRecords,
+        logPrivateKeyPath: keyPath,
+        logPublicKeyHex: pubKeyHex,
+        sigsumSubmitKeyPath: fakeSubmitKey,
+        sigsumTokenKeyPath: fakeTokenKey,
+        submitToSigsum: async () => presentStub,
+      });
+    } catch (e) {
+      presentOk = false;
+      console.log(`  keys-present generate() threw: ${e.message}`);
+    }
+    ok(presentOk, 'SIGSUM-PRESENT: generate() with Sigsum keys present and an injected submit does not throw');
+    let presentRecord = null;
+    try { presentRecord = JSON.parse(readFileSync(join(presentDir, 'checkpoint.sigsum-record.json'), 'utf8')); } catch (e) { console.log(`  present record read failed: ${e.message}`); }
+    ok(presentRecord !== null && presentRecord.status !== 'pending' && presentRecord.log_url === presentStub.log_url && presentRecord.inclusion_proof.leaf_index === 3, 'SIGSUM-PRESENT: the written record is the stub anchor, not pending');
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 5. ANCHOR HOLD (MAIN-REGEN-SIGSUM-ANCHOR-HEAL-1): a keys-absent publish
+// over a log that already carries a fully-formed c2sp-tlog-proof-v1 anchor
+// must HOLD that anchor, not demote it to a field-less `sigsum-pending-v1`
+// record. Red shape: on the pre-hold code the generate() below overwrote the
+// anchor with status:"pending" (no inclusion_proof.leaf_index, no
+// witness_cosignatures[]) — exactly the bytes that made gen-trust-signals'
+// sigsumSignal throw fail-closed on main (run 38491123351 onward). The
+// assertions here fail on that old behavior (red) and pass on the hold
+// (green). No synthesized anchor data: the anchor is written by the test,
+// then read back verbatim after the publish.
+// ---------------------------------------------------------------------------
+async function anchorHoldTest() {
+  const tmpDir = mkdtempSync(join(tmpdir(), 'registry-lineage-hold-test-'));
+  const registryDir = join(tmpDir, 'lineage-hold');
+  try {
+    const { publicKey, privateKey } = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+    const privJwk = await subtle.exportKey('jwk', privateKey);
+    const pubKeyHex = Buffer.from(await subtle.exportKey('raw', publicKey)).toString('hex');
+    const keyPath = join(tmpDir, 'test-log-key.priv.jwk.json');
+    writeFileSync(keyPath, JSON.stringify(privJwk));
+
+    const records = Array.from({ length: 3 }, (_, i) => ({ synthetic_hold_index: i, note: 'anchor-hold fixture' }));
+    const realShapedAnchor = {
+      anchor_type: 'c2sp-tlog-proof-v1',
+      log_origin: 'sigsum.org/v1/tree/hold-test',
+      log_url: 'https://example.invalid/hold-test',
+      log_public_key: '00'.repeat(32),
+      anchored_hash: `sha256:${'ab'.repeat(32)}`,
+      leaf: { checksum: '00'.repeat(32), signature: '00'.repeat(64), public_key: '00'.repeat(32) },
+      tree_head: { size: 41, root_hash: '00'.repeat(32), log_signature: '00'.repeat(64) },
+      inclusion_proof: { leaf_index: 40, path: ['00'.repeat(32)] },
+      witness_cosignatures: [
+        { key_hash: '11'.repeat(32), timestamp: 1791856229, signature: '00'.repeat(64) },
+        { key_hash: '22'.repeat(32), timestamp: 1791856228, signature: '00'.repeat(64) },
+      ],
+    };
+    // Seed the log via a keys-present publish (stubbed submit) so the on-disk
+    // record is a REAL generate() output carrying the fully-formed anchor.
+    const fakeSubmitKey = join(tmpDir, 'fake-sigsum-submit.key');
+    const fakeTokenKey = join(tmpDir, 'fake-sigsum-token.key');
+    writeFileSync(fakeSubmitKey, 'x');
+    writeFileSync(fakeTokenKey, 'x');
+    await generate({
+      registryDir, records,
+      logPrivateKeyPath: keyPath, logPublicKeyHex: pubKeyHex,
+      sigsumSubmitKeyPath: fakeSubmitKey, sigsumTokenKeyPath: fakeTokenKey,
+      submitToSigsum: async () => realShapedAnchor,
+    });
+    const seeded = JSON.parse(readFileSync(join(registryDir, 'checkpoint.sigsum-record.json'), 'utf8'));
+    ok(seeded.inclusion_proof.leaf_index === 40 && Array.isArray(seeded.witness_cosignatures) && seeded.witness_cosignatures.length === 2, 'ANCHOR-HOLD: seeded log carries the fully-formed anchor');
+
+    // The defect's exact shape: a keys-absent publish (NO submitToSigsum, NO
+    // key files — the CI main-regen condition) over the anchored log.
+    let holdOk = true;
+    try {
+      await generate({
+        registryDir,
+        records: [...records, { synthetic_hold_index: 3, note: 'appended over an anchored log with keys absent' }],
+        logPrivateKeyPath: keyPath, logPublicKeyHex: pubKeyHex,
+        sigsumSubmitKeyPath: join(tmpDir, 'absent', 'sigsum-key.priv.jwk.json'),
+        sigsumTokenKeyPath: join(tmpDir, 'absent', 'sigsum-token-key.priv.jwk.json'),
+      });
+    } catch (e) {
+      holdOk = false;
+      console.log(`  keys-absent generate() over anchored log threw: ${e.message}`);
+    }
+    ok(holdOk, 'ANCHOR-HOLD: keys-absent publish over a fully-anchored log does NOT throw');
+    let after = null;
+    try { after = JSON.parse(readFileSync(join(registryDir, 'checkpoint.sigsum-record.json'), 'utf8')); } catch (e) { console.log(`  post-publish record read failed: ${e.message}`); }
+    // THE RED-THEN-GREEN ASSERTION: fails on the pre-hold code (wrote
+    // status:"pending"), passes on the hold.
+    ok(after !== null && after.status === undefined && after.anchor_type === 'c2sp-tlog-proof-v1', 'ANCHOR-HOLD: the record was NOT demoted to pending');
+    ok(after !== null && after.inclusion_proof && after.inclusion_proof.leaf_index === 40, 'ANCHOR-HOLD: inclusion_proof.leaf_index survives the keys-absent publish (the exact field sigsumSignal threw on)');
+    ok(after !== null && Array.isArray(after.witness_cosignatures) && after.witness_cosignatures.length === 2, 'ANCHOR-HOLD: witness_cosignatures[] survive the keys-absent publish');
+    ok(after !== null && JSON.stringify(after) === JSON.stringify(realShapedAnchor), 'ANCHOR-HOLD: the held record is byte-identical (JSON-equal) to the previously published anchor — nothing synthesized');
+    const holdCheck = await check({ registryDir, logPublicKeyHex: pubKeyHex, noExit: true });
+    ok(holdCheck.ok === true, 'ANCHOR-HOLD: --check PASSES on the grown log with the held anchor');
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -256,6 +417,7 @@ async function mutationTest() {
 await entryBundleRoundTripTest();
 await proofConstructionTest();
 await mutationTest();
+await anchorHoldTest();
 
 console.log(failures === 0 ? '\ngen-registry-lineage.test.mjs: ALL PASS' : `\ngen-registry-lineage.test.mjs: ${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (678 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (685 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -160,6 +160,26 @@ window.CHAINBUILDER_CATALOG = [
       "505-tokenized-collateral-eligibility-checker",
       "507-canton-dvp-atomicity-validator"
     ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "732-borrower-escrow-auditor",
+    "display_name": "Borrower Escrow Auditor",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/732-borrower-escrow-auditor.html",
+    "description": "Audits a servicer escrow accounting statement from borrower-supplied VALUES ONLY (zero PII by schema): recomputes the aggregate accounting t",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "733-servicing-compliance-clock",
+    "display_name": "Servicing Compliance Clock",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/733-servicing-compliance-clock.html",
+    "description": "Computes servicer-compliance due dates and clock states from event dates and loan values: error-resolution and information-request clocks, l",
+    "consumes": [],
     "feeds": [],
     "status": "live"
   },
@@ -7359,6 +7379,26 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-708-v4-hook-permission-reconciler",
+    "display_name": "V4 Hook Permission Reconciler",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-708-v4-hook-permission-reconciler.html",
+    "description": "Decodes a Uniswap v4 hook address's 14 permission bits (the low 14 bits of the address, per v4-core at the pinned commit a7cf038cd568801a79a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-709-v4-hook-fee-conformance",
+    "display_name": "V4 Hook Fee Conformance",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-709-v4-hook-fee-conformance.html",
+    "description": "Recomputes a Uniswap v4 pool's per-swap fee from v4-core's own fee rules at the pinned commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585 (Prot",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-71-cbam-certificate-cost-engine",
     "display_name": "CBAM Certificate Cost & Free-Allocation Engine",
     "mandate_type": "compliance_mandate",
@@ -7371,6 +7411,16 @@ window.CHAINBUILDER_CATALOG = [
       "cry-05-agent-action-audit-trail-aggregator",
       "art-76-climate-scenario-applicator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-710-tsv-stoppage-concurrency",
+    "display_name": "TSV Stoppage Concurrency",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-710-tsv-stoppage-concurrency.html",
+    "description": "Checks a tokenized-stock venue (TSV) against condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026): a TSV",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
@@ -7404,6 +7454,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-715-token2022-transfer-fee-reconciler",
+    "display_name": "Token-2022 Transfer-Fee Payment Reconciler",
+    "mandate_type": "settlement_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-715-token2022-transfer-fee-reconciler.html",
+    "description": "Recomputes the transfer fee a Token-2022 mint with the transfer-fee extension withholds and the net amount the recipient receives, given the",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-72-cbam-precursor-emissions-aggregator",
     "display_name": "CBAM Precursor-Emissions Aggregator",
     "mandate_type": "compliance_mandate",
@@ -7432,6 +7492,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-75-eugb-factsheet-validator",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-734-force-placed-insurance-checker",
+    "display_name": "Force-Placed Insurance Notice Checker",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-734-force-placed-insurance-checker.html",
+    "description": "Checks a lender-placed (force-placed) insurance event against the notice sequence required before a servicer may charge the borrower: the 45",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

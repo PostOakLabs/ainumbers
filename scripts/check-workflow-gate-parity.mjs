@@ -221,6 +221,12 @@ const NOT_A_GATE = new Map([
     "schedule + workflow_dispatch only."],
   ["derived-artifacts-regen.yml",
     "push main only — the SO #35 single-writer regen, post-merge."],
+  ["derived-regen-deadman.yml",
+    "workflow_run listener on derived-artifacts-regen.yml (main-only, completed) — the " +
+    "failure alarm: retry-once (10 min backoff) plus ONE tracking issue via the shared " +
+    "scheduled-red-issue tracker. It has no pull_request, merge_group or push trigger of " +
+    "its own, runs no estate gate, and blocks no merge — it reports a main-side red after " +
+    "the fact."],
   ["fullsuite-schedule.yml",
     "schedule (weekly) + workflow_dispatch only; steps are continue-on-error by design " +
     "so the whole suite reports rather than stopping at the first red."],
@@ -370,6 +376,8 @@ const PREFLIGHT_ONLY = new Map([
     "to strict plus a named CI step is the deliberate follow-up once that step lands a real " +
     "refresh PR. scripts/-only, so scripts-verify.yml's path filter already routes any change to " +
     "the gate or the page through a full preflight."],
+  // ── ENGINE-BUNDLE-ESM-LINT-1 (2026-10-15) ───────────────────────────────────
+  ["check-engine-parity.bundle.test.mjs", SELF_TEST],
   // ── WEBMCP-META-LINT-CEILING-1 (2026-10-01) ─────────────────────────────────
   ["check-webmcp-meta-budgets.test.mjs", SELF_TEST],
   ["check-webmcp-meta-neardupes.test.mjs", SELF_TEST],
@@ -844,6 +852,18 @@ const PREFLIGHT_ONLY = new Map([
     "repo files — no CI-only input; pre-existing wrapper-path divergences are baselined WARN with " +
     "a downward ratchet (scripts/webmcp-wrapper-execute-baseline.json)."],
   ["check-webmcp-wrapper-execute.test.mjs", SELF_TEST],
+
+  // ── WEBMCP-DIRECT-EXECUTE-VM-GATE-1 (2026-10-13) ──────────────────────────
+  ["check-webmcp-direct-execute.mjs",
+    "Direct-execute vm gate on the DIRECT-mode registration set (WEBMCP-DIRECT-EXECUTE-VM-GATE-1): " +
+    "the wrapper-execute gate above covers only the PREFILL set (direct pages refuse adjudicateTool by " +
+    "construction), so this sibling derives the direct-mode set live — the generator's own " +
+    "directAdjudication, fallback-only, never hand-listed — and per page runs BOTH legs: the registered " +
+    "tool's execute(fixture-0 policy_parameters) settling with the fixture execution_hash, and the page's " +
+    "own no-arg run wrapper on the same fixture re-hashing to the same golden. Hard in preflight; its CI " +
+    "route is scripts-verify.yml's full preflight, so a named workflow step would only duplicate the same " +
+    "suite. Reads only tracked repo files — no CI-only input; pre-existing direct-path divergences are " +
+    "baselined WARN with a downward ratchet (scripts/webmcp-direct-execute-baseline.json)."],
 
   // ── EXAMPLE-PROMPTS-JSON-1 (2026-09-05) ──────────────────────────────────
   ["check-showcase-prompts.mjs",

@@ -1281,6 +1281,19 @@ const GATES = [
   // wrapper-path divergences are baselined WARN (downward ratchet).
   ['WebMCP wrapper-execute (fixture-0 params through every registered execute body)', 'node scripts/check-webmcp-wrapper-execute.mjs'],
   ['WebMCP wrapper-execute gate controls (art-118 wedge-class RED + live golden GREEN)', 'node scripts/check-webmcp-wrapper-execute.test.mjs'],
+  // WEBMCP-DIRECT-EXECUTE-VM-GATE-1: the direct-mode sibling of the wrapper-
+  // execute gate above. The wrapper gate iterates only the PREFILL set (direct-
+  // mode pages fail adjudicateTool by construction), so no gate ever executed a
+  // direct page's registered execute() body or its human run path. This gate
+  // derives the direct-mode set live (directAdjudication, fallback-only, the
+  // generator's own probe — never hand-listed) and runs BOTH legs per page:
+  // execute(fixture-0 policy_parameters) settling with the fixture
+  // execution_hash, and the page's own no-arg run wrapper on the same fixture
+  // re-hashing to the same golden. Pre-existing direct-path divergences are
+  // baselined WARN with a downward ratchet
+  // (scripts/webmcp-direct-execute-baseline.json).
+  ['WebMCP direct-execute (fixture-0 through every direct-mode execute body + the page run path)', 'node scripts/check-webmcp-direct-execute.mjs'],
+  ['WebMCP direct-execute gate controls (leg-1/leg-2 RED + GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-webmcp-direct-execute.mjs --self-test'],
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
   // REGISTRY-RESOLVE-STATIC-1: positive-half kernel_digest -> spec_digest resolution
   // records (registry/kernel/<hex>.json). NODE-FANOUT-REGEN-CLOSE-1 (2026-08-21)
@@ -1463,6 +1476,10 @@ const GATES = [
   // baselines load through the hard-failing ratchet-baseline loader.
   ['WebMCP meta budgets ceiling (WEBMCP-META-LINT-CEILING-1)', 'node scripts/check-webmcp-meta-budgets.mjs --ceiling'],
   ['WebMCP meta budgets ceiling controls (RED breach / GREEN real tree / RED deleted baseline, SO #40b pairing)', 'node scripts/check-webmcp-meta-budgets.test.mjs'],
+  // MANIFEST-NAME-LEN-PR-GATE-1 (2026-10-16): NEW manifests are name-strict
+  // even when the count stays at or below the ceiling (count-neutral swap is
+  // legal by design for OLD manifests only).
+  ['WebMCP name length, NEW manifests (MANIFEST-NAME-LEN-PR-GATE-1)', 'node scripts/check-webmcp-meta-budgets.mjs --new-strict --base origin/main'],
   ['WebMCP meta neardupes ceiling (WEBMCP-META-LINT-CEILING-1)', 'node scripts/check-webmcp-meta-neardupes.mjs --ceiling'],
   ['WebMCP meta neardupes ceiling controls (RED breach / GREEN real tree / RED deleted baseline, SO #40b pairing)', 'node scripts/check-webmcp-meta-neardupes.test.mjs'],
   // ZK-PAGES-SVG-PILOT-1 (2026-09-27): SCENE-KIT v1 lives in
@@ -2184,6 +2201,9 @@ const GATES = [
   // parity-manifest generation itself crash/error. The cross-engine byte diff
   // (Bun + QuickJS legs) genuinely needs those runtimes and stays CI-only.
   ['Engine-parity node-leg (crash guard)', 'node scripts/check-engine-parity.mjs'],
+  // ENGINE-BUNDLE-ESM-LINT-1: pins the --bundle ESM stripping so a PR kernel
+  // cannot reach QuickJS with a raw top-level export (CI runs 38264357350 et al.).
+  ['Engine-parity bundler ESM lint selftest', 'node scripts/check-engine-parity.bundle.test.mjs'],
   // Every workflow file must PARSE. An invalid one makes GitHub emit a zero-job failure run on
   // every push to every branch (its branch filter is never evaluated) — measured 2026-08-16,
   // derived-artifacts-regen.yml, eleven red runs in three hours. Parity below reads gate names
@@ -2392,6 +2412,13 @@ const QUICK_GATES = [
   //    at the same ≈0.1 s cost.
   ['chaingraph.json shard freshness (CGSHARD-1, quick)', 'node scripts/assemble-chaingraph.mjs --check'],
   ['Scene-required, blocking for guide class (CHANGED scope, SCENE-REQUIRED-GATE-1)', `node scripts/sync-scene-kit.mjs --scene-required --changed ${QUICK_REF}`],
+  // MANIFEST-NAME-LEN-PR-GATE-1 (2026-10-16): close the count-neutral hole in
+  // the ceiling — a NEW manifest with an over-30 tool name passes --ceiling
+  // whenever an old violation is removed in the same PR. --new-strict fails on
+  // any manifest ADDED vs origin/main whose mcp_tool_definition.name exceeds
+  // 30 chars; the 30 threshold, the 656 ceiling and the baseline are untouched.
+  ['WebMCP name length, NEW manifests (quick)', `node scripts/check-webmcp-meta-budgets.mjs --new-strict --base ${QUICK_REF}`],
+  ['WebMCP meta budgets ceiling (quick, WEBMCP-META-LINT-CEILING-1)', 'node scripts/check-webmcp-meta-budgets.mjs --ceiling'],
 ];
 
 async function runQuickSuite(selfTest) {

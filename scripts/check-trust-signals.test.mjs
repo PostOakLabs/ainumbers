@@ -66,6 +66,63 @@ test('BOT_COMMIT_SUBJECT stays in sync with derived-artifacts-regen.yml', () => 
   assert.ok(yml.includes(BOT_COMMIT_SUBJECT), 'the workflow bot-commit subject changed — gen-trust-signals pickFactCommit must track it');
 });
 
+// ── TRUST-SIGNALS-ANCHOR-SELFREF-1: the digest must never anchor itself ───────
+// `git log --format=%x02%H%x01%cI%x01%s --name-only` shape: head line, then the
+// commit's changed paths. The df3cb00e5 inconsistency (anchor a6038f6b ≠ its own
+// fact-commit df3cb00e5, yet green) is what these RED/GREEN pairs pin shut.
+const DIGEST_PATH = '.well-known/trust-signals.json';
+const digestOnlyRecord = (sha, date) =>
+  `\x02${sha}\x01${date}\x01regen digest\n${DIGEST_PATH}\n.well-known/trust-signals.schema.json`;
+const factRecord = (sha, date) =>
+  `\x02${sha}\x01${date}\x01PR #2380: a fact-input change\nREADME.md\nscripts/gen-trust-signals.mjs`;
+
+test('pickFactCommit skips a digest/anchor-only commit — committing the digest does not re-stale the anchor (GREEN)', () => {
+  const DIGEST = 'd' + '3'.repeat(39);
+  const FACT = 'a' + '1'.repeat(39);
+  // HEAD (newest) is a commit carrying ONLY the digest + its schema.
+  const { commit } = pickFactCommit([digestOnlyRecord(DIGEST, '2026-10-13T09:00:00Z'), factRecord(FACT, '2026-10-12T08:00:00Z')].join('\n'));
+  assert.equal(commit, FACT, 'anchor must land on the newest FACT commit, not the digest carrier');
+});
+
+test('pickFactCommit does NOT skip a commit that changes the digest AND a fact input (RED arm)', () => {
+  const MIXED = 'e' + '4'.repeat(39);
+  const FACT = 'a' + '1'.repeat(39);
+  const mixed = `\x02${MIXED}\x01${'2026-10-13T09:00:00Z'}\x01fact change + digest\n${DIGEST_PATH}\nchaingraph/chaingraph.json`;
+  const { commit } = pickFactCommit([mixed, factRecord(FACT, '2026-10-12T08:00:00Z')].join('\n'));
+  assert.equal(commit, MIXED);
+});
+
+test('pickFactCommit in the legacy (no --name-only, no \\x02) shape still anchors the newest real commit', () => {
+  // Back-compat: bare `--format=%H%x01%cI%x01%s` output (three single-line records).
+  const { commit } = pickFactCommit(LOG_LINES);
+  assert.equal(commit, 'a' + '1'.repeat(39));
+});
+
+// ── isMainContext parity (TRUST-SIGNALS-ANCHOR-SELFREF-1 (b)) ─────────────────
+// The hook leg (check-trust-signals under the local pre-push hook) and the CI
+// pull_request leg must read the SAME downgrade out of the SAME oracle. Pin
+// both arms of the oracle and the fact that the checker imports it — a second
+// context decision in the checker is the drift this pair forbids.
+test('isMainContext: CI pull_request downgrades, push-to-main blocks (the two arms the hook leg must mirror)', async () => {
+  const { isMainContext } = await import('./derived-artifacts.mjs');
+  const oldGA = process.env.GITHUB_ACTIONS, oldEv = process.env.GITHUB_EVENT_NAME;
+  try {
+    process.env.GITHUB_ACTIONS = 'true'; process.env.GITHUB_EVENT_NAME = 'pull_request';
+    assert.equal(isMainContext(), false, 'pull_request must earn the PR-advisory downgrade');
+    process.env.GITHUB_EVENT_NAME = 'push';
+    assert.equal(isMainContext(), true, 'push-to-main stays HARD');
+  } finally {
+    if (oldGA === undefined) delete process.env.GITHUB_ACTIONS; else process.env.GITHUB_ACTIONS = oldGA;
+    if (oldEv === undefined) delete process.env.GITHUB_EVENT_NAME; else process.env.GITHUB_EVENT_NAME = oldEv;
+  }
+});
+
+test('check-trust-signals derives its context ONLY from the shared isMainContext oracle (no second decision)', () => {
+  const src = readFileSync(resolve(HERE, 'check-trust-signals.mjs'), 'utf8');
+  assert.ok(src.includes("import { isMainContext } from './derived-artifacts.mjs'"), 'the hook-side checker must import the shared oracle');
+  assert.ok(!/GITHUB_EVENT_NAME|pull_request/.test(src.replace(/^[ \t]*\/\/.*$/gm, '')), 'no inline CI-context re-derivation may appear in the checker');
+});
+
 // ── signal collectors: GREEN over fixtures, RED over malformed input ─────────
 test('proofCoverageSignal reads the §18 gate classifier over live gpu:false nodes only', () => {
   assert.deepEqual(proofCoverageSignal(CG_TWO_NODES), { covered: 1, total: 2 });
