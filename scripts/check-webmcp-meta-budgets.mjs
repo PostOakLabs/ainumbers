@@ -22,10 +22,24 @@
 // Optional argv entries override the scan set with explicit files/directories
 // (fixture testing); each directory is scanned for *.manifest.json one level deep.
 //
+// NEW-MANIFEST STRICT mode (MANIFEST-NAME-LEN-PR-GATE-1, 2026-10-16, Tim's
+// "no threshold change" ruling: the 30-char budget stays 30): --new-strict
+// [--base origin/main] closes the count-neutral hole the ceiling deliberately
+// leaves open. It lists manifests ADDED vs the base
+// (`git diff --name-only --diff-filter=A <base>...HEAD -- manifests/`, scoped
+// through the shared _changed-files-lib.js and FAILING CLOSED when the diff is
+// undeterminable, PREREQ-3) and exits 1 if any ADDED manifest carries an
+// mcp_tool_definition.name longer than 30 chars, naming file, name and length.
+// Existing manifests and the 656-count ceiling are untouched: over-30 names
+// already on main stay grandfathered, exactly as --ceiling holds them.
+// Scan scope: the added manifests only. The 30 threshold and the baseline file
+// are read-only here; this mode never re-pins anything.
+//
 // Usage:
 //   node scripts/check-webmcp-meta-budgets.mjs                 # report (always exit 0)
 //   node scripts/check-webmcp-meta-budgets.mjs --strict        # exit 1 on any violation
 //   node scripts/check-webmcp-meta-budgets.mjs --ceiling       # DOWN-ONLY ratchet vs the pinned baseline
+//   node scripts/check-webmcp-meta-budgets.mjs --new-strict [--base origin/main]  # exit 1 if any manifest ADDED vs base has a name over 30
 //   node scripts/check-webmcp-meta-budgets.mjs --update-baseline  # re-pin (down only; refuses to raise)
 //
 // Self-test (SO #40b, RED before GREEN): scripts/check-webmcp-meta-budgets.test.mjs.
@@ -33,6 +47,8 @@ import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadRatchetBaselineOrExit, readBaselineForUpdate, assertFiniteCeiling } from './ratchet-baseline.mjs';
+import { getChangedFiles } from './_changed-files-lib.js';
+import { gitSync } from './_git-env-lib.mjs';
 
 const ROOT = path.resolve(fileURLToPath(import.meta.url), '..', '..');
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -178,14 +194,93 @@ function baselineDocument(scan) {
   };
 }
 
+/** Manifests ADDED vs <base> under manifests/, as forward-slash repo-relative
+ * paths (pure given the git output; throws on undeterminable git so the CLI
+ * path fails closed). Uses the shared _changed-files-lib.js diff machinery:
+ * getChangedFiles() first proves the base resolves and the diff is
+ * determinable (PREREQ-CHANGED-SCOPING-1 fail-closed rule), then the added
+ * subset comes from the same ref range with --diff-filter=A. Throws
+ * 'UNDETERMINABLE' when either git step fails. */
+export function addedManifests(base, repo = ROOT) {
+  if (getChangedFiles(base, { repo }) === null) throw new Error('UNDETERMINABLE');
+  let out;
+  try {
+    out = gitSync(['diff', '--name-only', '--diff-filter=A', `${base}...HEAD`, '--', 'manifests/'], { cwd: repo });
+  } catch {
+    throw new Error('UNDETERMINABLE');
+  }
+  return out
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.endsWith('.manifest.json'))
+    .map(toPosix);
+}
+
+/** Name-length findings over ADDED manifests only (pure): one finding per
+ * added manifest whose mcp_tool_definition.name exceeds NAME_MAX. Missing
+ * name or unreadable/parse-broken file counts as a finding too — a new
+ * manifest the gate cannot read is not one it can bless. */
+export function newStrictFindings(addedFiles, repo = ROOT) {
+  const out = [];
+  for (const rel of addedFiles) {
+    let mf;
+    try {
+      mf = JSON.parse(readFileSync(path.join(repo, rel), 'utf8'))?.mcp_tool_definition;
+    } catch (err) {
+      out.push(`${rel}: unreadable or unparseable (${err.message})`);
+      continue;
+    }
+    if (!mf || typeof mf !== 'object') continue; // no mcp_tool_definition: the name budget does not apply
+    if (typeof mf.name !== 'string') {
+      out.push(`${rel}: mcp_tool_definition has no string "name"`);
+    } else if (mf.name.length > NAME_MAX) {
+      out.push(`${rel}: tool name ${mf.name.length} chars > ${NAME_MAX} ("${mf.name}")`);
+    }
+  }
+  return out;
+}
+
 // Gate body runs only when this file is executed directly, never on `import` —
 // the self-test imports the exported pure pieces without triggering a full
 // estate scan or a process.exit as an import side effect.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
 const strict = process.argv.includes('--strict');
 const CEILING = process.argv.includes('--ceiling');
+const NEW_STRICT = process.argv.includes('--new-strict');
 const UPDATE_BASELINE = process.argv.includes('--update-baseline');
-const targets = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const baseIdx = process.argv.indexOf('--base');
+const BASE_REF = baseIdx !== -1 ? process.argv[baseIdx + 1] : 'origin/main';
+const targets = process.argv.slice(2).filter((a) => !a.startsWith('--') && a !== BASE_REF);
+
+if (NEW_STRICT) {
+  // MANIFEST-NAME-LEN-PR-GATE-1: fail closed on an undeterminable diff, fail
+  // on any over-30 name in a manifest ADDED vs the base. Repo for the git
+  // machinery defaults to this checkout; WEBMCP_META_BUDGETS_REPO overrides it
+  // for the self-test's fixture repo.
+  const repo = process.env.WEBMCP_META_BUDGETS_REPO ? path.resolve(process.env.WEBMCP_META_BUDGETS_REPO) : ROOT;
+  let added;
+  try {
+    added = addedManifests(BASE_REF, repo);
+  } catch {
+    console.error(
+      `webmcp-meta-budgets: --new-strict FAIL — diff vs "${BASE_REF}" is UNDETERMINABLE (base does not resolve, or git failed). ` +
+        'This gate fails CLOSED on an unknown scope (PREREQ-3).',
+    );
+    process.exit(1);
+  }
+  if (added.length === 0) {
+    console.log(`webmcp-meta-budgets: --new-strict vs ${BASE_REF} — 0 manifests added, nothing to enforce`);
+    process.exitCode = 0;
+  } else {
+    const findings = newStrictFindings(added, repo);
+    console.log(`webmcp-meta-budgets: --new-strict vs ${BASE_REF} — ${added.length} manifest(s) added, checked name <= ${NAME_MAX}`);
+    if (findings.length > 0) {
+      for (const f of findings) console.error(`webmcp-meta-budgets: NEW-MANIFEST VIOLATION — ${f}`);
+      console.error(`webmcp-meta-budgets: FAIL (--new-strict) — ${findings.length} added manifest(s) over the ${NAME_MAX}-char name budget. Existing manifests stay grandfathered; trim the NEW name.`);
+      process.exit(1);
+    }
+  }
+}
 
 const scan = scanBudgets(targets);
 
