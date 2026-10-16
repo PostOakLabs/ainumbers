@@ -1476,6 +1476,10 @@ const GATES = [
   // baselines load through the hard-failing ratchet-baseline loader.
   ['WebMCP meta budgets ceiling (WEBMCP-META-LINT-CEILING-1)', 'node scripts/check-webmcp-meta-budgets.mjs --ceiling'],
   ['WebMCP meta budgets ceiling controls (RED breach / GREEN real tree / RED deleted baseline, SO #40b pairing)', 'node scripts/check-webmcp-meta-budgets.test.mjs'],
+  // MANIFEST-NAME-LEN-PR-GATE-1 (2026-10-16): NEW manifests are name-strict
+  // even when the count stays at or below the ceiling (count-neutral swap is
+  // legal by design for OLD manifests only).
+  ['WebMCP name length, NEW manifests (MANIFEST-NAME-LEN-PR-GATE-1)', 'node scripts/check-webmcp-meta-budgets.mjs --new-strict --base origin/main'],
   ['WebMCP meta neardupes ceiling (WEBMCP-META-LINT-CEILING-1)', 'node scripts/check-webmcp-meta-neardupes.mjs --ceiling'],
   ['WebMCP meta neardupes ceiling controls (RED breach / GREEN real tree / RED deleted baseline, SO #40b pairing)', 'node scripts/check-webmcp-meta-neardupes.test.mjs'],
   // ZK-PAGES-SVG-PILOT-1 (2026-09-27): SCENE-KIT v1 lives in
@@ -2408,6 +2412,13 @@ const QUICK_GATES = [
   //    at the same ≈0.1 s cost.
   ['chaingraph.json shard freshness (CGSHARD-1, quick)', 'node scripts/assemble-chaingraph.mjs --check'],
   ['Scene-required, blocking for guide class (CHANGED scope, SCENE-REQUIRED-GATE-1)', `node scripts/sync-scene-kit.mjs --scene-required --changed ${QUICK_REF}`],
+  // MANIFEST-NAME-LEN-PR-GATE-1 (2026-10-16): close the count-neutral hole in
+  // the ceiling — a NEW manifest with an over-30 tool name passes --ceiling
+  // whenever an old violation is removed in the same PR. --new-strict fails on
+  // any manifest ADDED vs origin/main whose mcp_tool_definition.name exceeds
+  // 30 chars; the 30 threshold, the 656 ceiling and the baseline are untouched.
+  ['WebMCP name length, NEW manifests (quick)', `node scripts/check-webmcp-meta-budgets.mjs --new-strict --base ${QUICK_REF}`],
+  ['WebMCP meta budgets ceiling (quick, WEBMCP-META-LINT-CEILING-1)', 'node scripts/check-webmcp-meta-budgets.mjs --ceiling'],
 ];
 
 async function runQuickSuite(selfTest) {
