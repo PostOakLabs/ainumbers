@@ -29,6 +29,7 @@ import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { scanBudgets, ceilingBreach } from './check-webmcp-meta-budgets.mjs';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REAL_LINT = resolve(HERE, 'check-webmcp-meta-budgets.mjs');
@@ -100,7 +101,7 @@ function runCli(dir, args, env = {}) {
 // pointed at this repo with WEBMCP_META_BUDGETS_REPO.
 function makeGitRepo(grandfathered) {
   const dir = makeTree({ 'grandfathered.manifest.json': grandfathered });
-  const git = (args) => execFileSync('git', args, { encoding: 'utf8', cwd: dir });
+  const git = (args) => execFileSync('git', args, { encoding: 'utf8', cwd: dir, env: gitEnv() });
   git(['init', '-q']);
   git(['config', 'user.email', 'test@example.invalid']);
   git(['config', 'user.name', 'wbudget-test']);
@@ -114,8 +115,8 @@ function makeGitRepo(grandfathered) {
 // gates' `--diff-filter=A <base>...HEAD`), so legs that add a manifest commit
 // it before running the CLI.
 function commitAdded(dir) {
-  execFileSync('git', ['add', '-A'], { cwd: dir });
-  execFileSync('git', ['commit', '-q', '-m', 'add'], { cwd: dir });
+  execFileSync('git', ['add', '-A'], { cwd: dir, env: gitEnv() });
+  execFileSync('git', ['commit', '-q', '-m', 'add'], { cwd: dir, env: gitEnv() });
 }
 
 function makeManifest(name) {
