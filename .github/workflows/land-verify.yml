@@ -251,6 +251,26 @@ jobs:
           node scripts/derived-artifacts.mjs --out "${SCRATCH}"
           echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
 
+      # 2026-10-16: #2330 made the §18 step below HARD on
+      # pull_request but only merge_group got an assembled tree, so on a PR the gate read
+      # the stale committed monolith. A first-prove PR (deferred -> proven, shards only)
+      # then counted its own node as still deferred and as a "provenance regression",
+      # while pr-autofix (which DOES assemble a scratch tree) lowered the baseline:
+      # an unwinnable loop (#2454/#2455/#2456). This step gives the §18 step - and ONLY
+      # that step - the same scratch assembly on pull_request. It is deliberately a
+      # separate id: the count-drift / derived-freshness steps keep reading
+      # steps.derived (merge_group only), so their PR-side advisory split is unchanged.
+      - name: Ephemeral derived tree for §18 (pull_request)
+        id: s18tree
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRATCH="${RUNNER_TEMP}/s18-derived-tree"
+          node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
+          node scripts/derived-artifacts.mjs --out "${SCRATCH}"
+          echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+
       # HARD on merge_group, advisory on a
       # pull_request, hard on push:main. chaingraph.json is a generated monolith
       # that only the main-branch regeneration job may rewrite, so a branch that
@@ -263,7 +283,7 @@ jobs:
       # main HARD).
       - name: §18 compute-proof coverage (HARD on pull_request — per-PR derivables promotion)
         env:
-          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
+          DERIVED_ROOT: ${{ steps.derived.outputs.root || steps.s18tree.outputs.root }}
         run: |
           # The per-PR derivables row: the §18 ratchet + provenance are now HARD on
           # pull_request, exactly as on merge_group. The removed downgrade is the
