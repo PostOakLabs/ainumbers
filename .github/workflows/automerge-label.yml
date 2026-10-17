@@ -25,9 +25,24 @@ name: Automerge Label
 # CI_TIMEOUT removals counted from the PR timeline; at the cap a comment is
 # posted and the PR is left un-queued.
 
+# AUTOMERGE-WORKFLOWFILE-GAP-1 (2026-10-17), two gaps measured on PR #2376:
+# (1) a PR that edits .github/workflows/** can never be armed by this App token
+# (it carries no `workflows` permission; GitHub refuses both
+# enablePullRequestAutoMerge and enqueuePullRequest). The App installation's
+# workflows grant could not be verified from CI, and requesting an ungranted
+# permission makes the token mint itself fail for EVERY PR, so the token is
+# left as-is and a workflow-touching PR now gets an explicit
+# `needs-human-merge` comment instead of a silently failed run.
+# (2) a labelled PR removed from the queue for any reason other than
+# checks_timed_out (e.g. failed_checks) and later green again was never
+# re-armed. The hourly `rearm-recovered` job below scans labelled open PRs and
+# arms any that are mergeStateStatus CLEAN with nothing pending.
 on:
   pull_request:
     types: [labeled, dequeued]
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -48,9 +63,16 @@ jobs:
           IS_DRAFT: ${{ github.event.pull_request.draft }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           BASE_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          if [ "$IS_DRAFT" = "true" ]; then
+          WF=$(gh pr diff "$PR" -R "$BASE_REPO" --name-only | grep -c '^\.github/workflows/' || true)
+          echo "workflow_files=$WF" >> "$GITHUB_OUTPUT"
+          if [ "$WF" -gt 0 ]; then
+            echo "::notice title=Skipped::PR touches .github/workflows/**; the App token has no workflows permission, so it cannot be armed. Needs a human merge."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          elif [ "$IS_DRAFT" = "true" ]; then
             echo "::notice title=Skipped::PR is a draft; auto-merge not enabled."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           elif [ "$HEAD_REPO" != "$BASE_REPO" ]; then
@@ -69,7 +91,7 @@ jobs:
       # is gated on merge/contents permission, not just PR-write. The
       # installation already grants contents:write (same as regen's token).
       - name: Mint PR token
-        if: steps.guard.outputs.proceed == 'true'
+        if: steps.guard.outputs.proceed == 'true' || steps.guard.outputs.workflow_files != '0'
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
@@ -79,6 +101,20 @@ jobs:
           repositories: ${{ github.event.repository.name }}
           permission-pull-requests: write
           permission-contents: write
+
+      - name: Notice - workflow-touching PR needs a human merge
+        if: steps.guard.outputs.workflow_files != '0'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh pr view "$PR" -R "$REPO" --json comments -q '.comments[].body' | grep -q 'needs-human-merge'; then
+            echo "needs-human-merge notice already posted"
+            exit 0
+          fi
+          gh pr comment "$PR" -R "$REPO" --body "needs-human-merge: this PR changes \`.github/workflows/**\`. The automerge App token has no \`workflows\` permission, so GitHub refuses to arm or enqueue it. Auto-merge was NOT enabled; merge it by hand."
 
       # MERGEQUEUE-REQUEUE-ON-TIMEOUT-1 (2026-09-10): dequeued runs only —
       # count this PR's prior removals from the merge queue and re-queue on
@@ -194,3 +230,47 @@ jobs:
           fi
 
           gh pr comment "$PR" -R "$REPO" --body "auto-merge enabled by automerge-label.yml; GitHub merges this PR itself once every required check passes. No further \`gh pr merge\` needed."
+
+  # AUTOMERGE-WORKFLOWFILE-GAP-1: recovery re-arm. Scheduled/manual only.
+  rearm-recovered:
+    name: Re-arm labelled PRs that recovered to green
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint PR token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-pull-requests: write
+          permission-contents: write
+
+      - name: Arm labelled, clean, un-armed PRs
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          FAILS=0
+          for PR in $(gh pr list -R "$REPO" --label automerge --state open --draft=false --json number -q '.[].number'); do
+            VIEW=$(gh pr view "$PR" -R "$REPO" --json id,mergeStateStatus,autoMergeRequest,headRepositoryOwner,files)
+            STATE=$(echo "$VIEW" | jq -r .mergeStateStatus)
+            ARMED=$(echo "$VIEW" | jq -r '.autoMergeRequest')
+            WF=$(echo "$VIEW" | jq '[.files[].path | select(startswith(".github/workflows/"))] | length')
+            NODE_ID=$(echo "$VIEW" | jq -r .id)
+            Q=$(gh api graphql -f query='query($id: ID!){node(id:$id){... on PullRequest{mergeQueueEntry{id}}}}' -f id="$NODE_ID" | jq -r '.data.node.mergeQueueEntry')
+            if [ "$ARMED" != "null" ] || [ "$Q" != "null" ]; then echo "#$PR already armed/queued"; continue; fi
+            if [ "$WF" -gt 0 ]; then echo "#$PR touches workflows; needs human merge, skipped"; continue; fi
+            if [ "$STATE" != "CLEAN" ]; then echo "#$PR mergeStateStatus=$STATE, not re-arming"; continue; fi
+            echo "#$PR is CLEAN, labelled and un-armed; arming"
+            gh pr merge "$PR" -R "$REPO" --auto --squash || true
+            AUTO=$(gh pr view "$PR" -R "$REPO" --json autoMergeRequest -q .autoMergeRequest)
+            if [ "$AUTO" = "null" ] || [ -z "$AUTO" ]; then
+              gh api graphql -f query='mutation($id: ID!){enqueuePullRequest(input:{pullRequestId:$id}){mergeQueueEntry{id}}}' -f id="$NODE_ID" || { echo "::error title=Re-arm failed::#$PR"; FAILS=$((FAILS+1)); continue; }
+            fi
+            gh pr comment "$PR" -R "$REPO" --body "auto-merge re-armed by automerge-label.yml (scheduled recovery scan: PR is clean and was not armed)."
+          done
+          [ "$FAILS" -eq 0 ]
