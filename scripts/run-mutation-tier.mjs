@@ -900,11 +900,16 @@ export async function runTier(argv, repoRoot = REPO) {
   }
   const config = loadConfig(repoRoot);
   const excluded = config.excludedKernels || {};
-  // ART699-PROPTEST-STRENGTHEN-1 / 7F-V425(1): a kernel listed in hookSkipKernels is
-  // ADVISORY-skipped in-hook ("deferred to CI shards"); the CI shard matrix still runs and
-  // floors it. Not excludedKernels — the kernel is not exempt from the floor, only from the
-  // in-hook leg whose wall-clock bound it provably cannot fit (cause string in the config).
+  // ART699-PROPTEST-STRENGTHEN-1 / 7F-V425(1); scoped by HOOKSKIP-SHARD-FLOOR-GAP-1:
+  // a kernel listed in hookSkipKernels is ADVISORY-deferred ONLY on the in-hook leg —
+  // the ONLY caller that sets the MUTATION_TIER_IN_HOOK=1 marker is .githooks/pre-push
+  // (its preflight run inherits it, and this script is that run's tier leg). Every other
+  // automated context — the six PR CI tier shards (PREFLIGHT_TIER_LEG=only) and the
+  // nightly --all sweep — runs the kernel and floors it. Not excludedKernels — the
+  // kernel is not exempt from the floor, only from the in-hook leg whose wall-clock
+  // bound it provably cannot fit (cause string in the config).
   const hookSkip = config.hookSkipKernels || {};
+  const inHookLeg = process.env.MUTATION_TIER_IN_HOOK === '1';
 
   let ids;
   if (opts.all) {
@@ -925,7 +930,7 @@ export async function runTier(argv, repoRoot = REPO) {
   const skipped = [];
   for (const id of ids) {
     if (Object.prototype.hasOwnProperty.call(excluded, id)) skipped.push({ id, reason: excluded[id] });
-    else if (Object.prototype.hasOwnProperty.call(hookSkip, id)) skipped.push({ id, reason: hookSkip[id], advisory: true });
+    else if (inHookLeg && Object.prototype.hasOwnProperty.call(hookSkip, id)) skipped.push({ id, reason: hookSkip[id], advisory: true });
     else toRun.push(id);
   }
 

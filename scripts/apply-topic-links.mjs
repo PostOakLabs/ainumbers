@@ -67,13 +67,13 @@ function buildBlock(selfPath, topic) {
     const links = paths
       .map(p => {
         const href = relative(selfDir, resolve(root, p)).split('\\').join('/')
-        return `<a href="${href}">${titleOf(p)}</a>`
+        return `<a href="${href}" style="white-space:nowrap">${titleOf(p)}</a>`
       })
       .join(' &middot; ')
     body += `<div><span class="related-topics-label">${group}:</span> ${links}</div>`
   }
 
-  return `${MARK_START}\n<section class="related-topics" aria-label="Related ${topic.label} pages" style="border-top:1px solid var(--border);margin-top:2rem;padding-top:1rem;font-size:0.85rem;color:var(--muted)">${body}</section>\n${MARK_END}`
+  return `${MARK_START}\n<section class="related-topics" aria-label="Related ${topic.label} pages" style="border-top:1px solid var(--border);margin:2rem auto 0;padding-top:1rem;max-width:780px;font-size:0.85rem;line-height:1.7;color:var(--muted);text-align:center">${body}</section>\n${MARK_END}`
 }
 
 let changed = 0

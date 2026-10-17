@@ -319,7 +319,9 @@ test('TIMEOUT - the scan continues past a hung entry so later entries still get 
     { id: 'hang', regen: 'node gen-hang.mjs', artifacts: ['a-out.json'] },
     { id: 'b', regen: 'node gen-b.mjs', artifacts: ['b-out.json'] },
   ];
-  const { timeouts, classB } = runLiveScan({ dir, covered: entries, timeoutMs: 1500 });
+  // 8 s still cuts the 30 s hang short, and leaves entry b room to finish its
+  // node startup under load (1500 ms was below measured startup under concurrent preflights).
+  const { timeouts, classB } = runLiveScan({ dir, covered: entries, timeoutMs: 8000 });
   assert(timeouts.length === 1 && timeouts[0].id === 'hang', `expected the hang named once, got ${JSON.stringify(timeouts)}`);
   assert(classB.length === 1 && classB[0].id === 'b' && classB[0].path === 'undeclared.json',
     `entry b's escape must still be found after the hung entry, got ${JSON.stringify(classB)}`);
@@ -348,7 +350,11 @@ test('TIMEOUT - a command that exits NON-ZERO fast is still an execution failure
   commit(dir, 'init');
 
   const entry = { id: 'fixture-broken', regen: 'node gen.mjs', artifacts: ['out.json'] };
-  const { timeouts, executionFailures } = runLiveScan({ dir, covered: [entry], timeoutMs: 1500 });
+  // The bound is not under test here, only the exit-code classification. Under
+  // concurrent preflights node startup alone measured 3062 ms against the old
+  // 1500 ms bound and the fast exit was misread as a TIMEOUT, so use the same
+  // generous bound as the GREEN test.
+  const { timeouts, executionFailures } = runLiveScan({ dir, covered: [entry], timeoutMs: 60000 });
   assert(timeouts.length === 0, `a fast non-zero exit is not a timeout, got ${JSON.stringify(timeouts)}`);
   assert(executionFailures.length === 1 && executionFailures[0].id === 'fixture-broken',
     `expected one execution failure, got ${JSON.stringify(executionFailures)}`);

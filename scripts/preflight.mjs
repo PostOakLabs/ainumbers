@@ -738,6 +738,28 @@ function runSelfTest() {
 // above stays the reporting machinery's control and keeps exiting here.
 if (!QUICK && process.argv.includes('--self-test')) process.exit(runSelfTest());
 
+// PREPUSH-MERGE-HANG-1 (2026-10-16): the committed-vs-base leg of EVERY
+// touched-set computation below diffs against the PR base — `git merge-base
+// origin/main HEAD` — with `@{u}` only as the fallback where origin/main does
+// not resolve. HOOK-TOUCHED-SET-REBASE-1 fixed this for the kernel set only;
+// the helm / FV-floor / derived-regen-live / vendor-land / L2 sets still used
+// merge-base(@{u}, HEAD). After `git merge origin/main` (or a rebase) on an
+// already-pushed branch, @{u} is the PRE-merge tip, so that diff swept in
+// every file main landed since the last push. Measured on RESPA-732-D2
+// (fb11ef0b, 2026-10-16): @{u}-base diff = 772 files vs 16 branch-own files;
+// main's scripts/gen-hub-scenes.mjs tripped derivedRegenLiveScopeTouched(),
+// which ran the full live derived-set regen (check-derived-regen-live.mjs
+// --check) inside the hook — the pre-push ran >60 min twice with no output.
+// Throws when neither base resolves; callers keep their own fail-open/closed.
+function touchedSetBase(repoPath = REPO) {
+  try {
+    return execSync('git merge-base origin/main HEAD', { cwd: repoPath, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: repoPath, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    return execSync(`git merge-base ${upstream} HEAD`, { cwd: repoPath, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  }
+}
+
 // HELMGATE-DECOUPLE-1 (2026-07-31): the 4 helm drift/freshness gates below
 // assert helm.html against helm/version.json + helm/guide-freshness.json —
 // state that goes stale on a schedule set by a SEPARATE repo's release job,
@@ -759,8 +781,7 @@ function helmPathsTouched() {
     execSync('git diff --name-only --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString().split('\n').forEach(f => f && touched.add(f));
     try {
-      const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-      const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      const base = touchedSetBase(); // PREPUSH-MERGE-HANG-1: PR base, not a stale @{u}
       execSync(`git diff --name-only ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
         .toString().split('\n').forEach(f => f && touched.add(f));
     } catch { /* no upstream configured — local/staged diff above is what we have */ }
@@ -787,8 +808,7 @@ function touchedFloorFiles() {
     execSync('git diff --name-only --diff-filter=ACM --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString().split('\n').forEach(f => f && touched.add(f));
     try {
-      const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-      const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      const base = touchedSetBase(); // PREPUSH-MERGE-HANG-1: PR base, not a stale @{u}
       execSync(`git diff --name-only --diff-filter=ACM ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
         .toString().split('\n').forEach(f => f && touched.add(f));
     } catch { /* no upstream configured — working tree/staged diff above is what we have */ }
@@ -939,8 +959,7 @@ function derivedRegenLiveScopeTouched() {
     execSync('git diff --name-only --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString().split('\n').forEach(f => f && touched.add(f));
     try {
-      const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-      const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      const base = touchedSetBase(); // PREPUSH-MERGE-HANG-1: PR base, not a stale @{u}
       execSync(`git diff --name-only ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
         .toString().split('\n').forEach(f => f && touched.add(f));
     } catch { /* no upstream configured — working tree/staged diff above is what we have */ }
@@ -1095,6 +1114,14 @@ const GATES = [
   // could rot unrun exactly like the reporting self-test above warns against.
   ['Pre-push expect-red fixture proof (env + file routes, EXPECTRED-ENVPREFIX-GAP-1)',
     'node .githooks/pre-push.test.mjs'],
+  // PREPUSH-NARROW-1: red/green controls for the hook's full-suite trigger
+  // (which diff paths owe the FULL leg; docs-only scripts/ edits no longer do).
+  ['Pre-push full-suite trigger controls (RED/GREEN path classes, PREPUSH-NARROW-1)',
+    'node scripts/prepush-full-trigger.mjs --self-test'],
+  // PREPUSH-PRID-ENV-1: red/green controls for the hook's PR_ID_COLLISION_PR export
+  // (open PR on the pushed branch only; every error path exports nothing).
+  ['Pre-push PR-id env export controls (RED/GREEN, PREPUSH-PRID-ENV-1)',
+    'node scripts/prepush-pr-id-env.mjs --self-test'],
   // BINARY-BYTE-GATE-1 runs FIRST, ahead of the JS syntax gate, on purpose.
   // The syntax gate is structurally BLIND to this class: DISE-SEG-T-2 shipped a
   // raw NUL inside a JS string delimiter in tools/582 and check_tools.js was
@@ -1476,6 +1503,10 @@ const GATES = [
   // baselines load through the hard-failing ratchet-baseline loader.
   ['WebMCP meta budgets ceiling (WEBMCP-META-LINT-CEILING-1)', 'node scripts/check-webmcp-meta-budgets.mjs --ceiling'],
   ['WebMCP meta budgets ceiling controls (RED breach / GREEN real tree / RED deleted baseline, SO #40b pairing)', 'node scripts/check-webmcp-meta-budgets.test.mjs'],
+  // MANIFEST-NAME-LEN-PR-GATE-1 (2026-10-16): NEW manifests are name-strict
+  // even when the count stays at or below the ceiling (count-neutral swap is
+  // legal by design for OLD manifests only).
+  ['WebMCP name length, NEW manifests (MANIFEST-NAME-LEN-PR-GATE-1)', 'node scripts/check-webmcp-meta-budgets.mjs --new-strict --base origin/main'],
   ['WebMCP meta neardupes ceiling (WEBMCP-META-LINT-CEILING-1)', 'node scripts/check-webmcp-meta-neardupes.mjs --ceiling'],
   ['WebMCP meta neardupes ceiling controls (RED breach / GREEN real tree / RED deleted baseline, SO #40b pairing)', 'node scripts/check-webmcp-meta-neardupes.test.mjs'],
   // ZK-PAGES-SVG-PILOT-1 (2026-09-27): SCENE-KIT v1 lives in
@@ -2408,6 +2439,13 @@ const QUICK_GATES = [
   //    at the same ≈0.1 s cost.
   ['chaingraph.json shard freshness (CGSHARD-1, quick)', 'node scripts/assemble-chaingraph.mjs --check'],
   ['Scene-required, blocking for guide class (CHANGED scope, SCENE-REQUIRED-GATE-1)', `node scripts/sync-scene-kit.mjs --scene-required --changed ${QUICK_REF}`],
+  // MANIFEST-NAME-LEN-PR-GATE-1 (2026-10-16): close the count-neutral hole in
+  // the ceiling — a NEW manifest with an over-30 tool name passes --ceiling
+  // whenever an old violation is removed in the same PR. --new-strict fails on
+  // any manifest ADDED vs origin/main whose mcp_tool_definition.name exceeds
+  // 30 chars; the 30 threshold, the 656 ceiling and the baseline are untouched.
+  ['WebMCP name length, NEW manifests (quick)', `node scripts/check-webmcp-meta-budgets.mjs --new-strict --base ${QUICK_REF}`],
+  ['WebMCP meta budgets ceiling (quick, WEBMCP-META-LINT-CEILING-1)', 'node scripts/check-webmcp-meta-budgets.mjs --ceiling'],
 ];
 
 async function runQuickSuite(selfTest) {
@@ -2499,6 +2537,13 @@ async function runQuickSuite(selfTest) {
     const idcIncluded = quickLabels.some((l) => l.includes('ID-collision gate'));
     if (idcPresent !== idcIncluded) failures.push('ID-collision gate presence mismatch (exists but omitted, or included but missing)');
     else console.log(`✓ --quick --self-test: ID-collision gate ${idcPresent ? 'present and included' : 'absent and correctly omitted'}`);
+    // (e) PREPUSH-NARROW-1 — FULL ⊇ QUICK. The hook skips the quick leg when it runs
+    //     the full suite; that is sound only while every quick gate has a same-or-wider
+    //     GATES entry. A CHANGED-scoped quick command maps to its un-scoped base.
+    const fullCmds = new Set(GATES.map(([, c]) => c));
+    const uncovered = QUICK_GATES.filter(([, c]) => !fullCmds.has(c) && !fullCmds.has(c.replace(` --changed ${QUICK_REF}`, ''))).map(([l]) => l);
+    if (uncovered.length) failures.push(`full ⊉ quick: no GATES entry covers: ${uncovered.join('; ')}`);
+    else console.log(`✓ --quick --self-test: every quick gate is covered by a same-or-wider full-suite gate (hook may skip quick before full)`);
     if (failures.length) {
       for (const f of failures) console.error(`   ✗ ${f}`);
       console.error(`❌ --quick --self-test FAILED: ${failures.length} assertion(s) red.`);
@@ -2923,8 +2968,7 @@ try {
   execSync('git diff --name-only --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
     .toString().split('\n').forEach(f => f && touched.add(f));
   try {
-    const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-    const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    const base = touchedSetBase(); // PREPUSH-MERGE-HANG-1: PR base, not a stale @{u}
     execSync(`git diff --name-only ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString().split('\n').forEach(f => f && touched.add(f));
   } catch { /* no upstream configured — uncommitted/staged diff already covers local work */ }
@@ -2997,8 +3041,7 @@ gateStart(L2_LABEL);
   collectDiff('HEAD');
   collectDiff('--cached');
   try {
-    const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-    const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    const base = touchedSetBase(); // PREPUSH-MERGE-HANG-1: PR base, not a stale @{u}
     collectDiff(`${base} HEAD`);
   } catch { /* no upstream — local diff already covers it */ }
 

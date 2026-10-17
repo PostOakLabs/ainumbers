@@ -66,7 +66,9 @@ additive updates). No single one of these should be read as "the OpenChainGraph 
 | `spec_version` | `chaingraph.json` (the version of record) | which OCG **release** is this? | `0.8.13` | every release (additive or breaking) |
 | `chaingraph_version` | every **artifact** envelope | which **schema** do I parse/validate this with? | `0.4.0` (frozen) | **only a breaking envelope change** |
 | `@context` URL | the artifact (`…/context/v0.3/…`) | which JSON-LD **vocabulary** applies? | `v0.3` | only when the context vocabulary changes |
-| `payloadType` `;version=` | `audit_signature` (the DSSE shell) | which **signing-envelope** shell? | `0.2` | only when the DSSE shell changes |
+| `payloadType` `;version=` | `audit_signature` (the DSSE shell) | which **signing-envelope** shell? | `0.4` | only when the DSSE shell changes |
+
+Every kernel emits `;version=0.4`. Values of `;version=0.2` in legacy pages and fixtures are accepted and denote the same DSSE shell.
 
 **The rule that ties them together:** every additive layer (§13.11 `vc`, §16 proof, §17 build_identity,
 §18 compute_proof) is hash-excluded and rides under `audit_signature`, so it does **not** move
@@ -96,7 +98,7 @@ Every OpenChainGraph node tool and chain page MUST emit this envelope. Fields an
   "policy_parameters": { "execution_backend": "server", "input_parameters": {} },
   "output_payload": {},
   "compliance_flags": [],
-  "audit_signature": { "payloadType": "application/vnd.openchain.graph+json;version=0.2", "payload": "", "signatures": [] }
+  "audit_signature": { "payloadType": "application/vnd.openchain.graph+json;version=0.4", "payload": "", "signatures": [] }
 }
 ```
 
