@@ -736,6 +736,18 @@ const PREFLIGHT_ONLY = new Map([
     "into a blocking workflow would assert nothing. The thing CI DOES backstop — that the " +
     "hook file exists and invokes preflight — is covered by pre-push.test.mjs and the " +
     "scripts-verify.yml full-preflight run."],
+  // ── PREPUSH-NARROW-1 (2026-10-17) ──────────────────────────────────────────
+  ["prepush-full-trigger.mjs",
+    "Pre-push full-suite trigger classifier (the `--self-test` leg): which changed paths owe " +
+    "the FULL preflight leg inside .githooks/pre-push. Preflight-only BY SUBJECT MATTER: it " +
+    "decides a LOCAL hook's cost (CI's scripts-verify.yml runs the full suite unconditionally " +
+    "on every scripts/** change, so there is no CI trigger decision to mirror). CI still runs " +
+    "the self-test as one GATES entry inside that full-preflight run."],
+  ["prepush-pr-id-env.mjs",
+    "Pre-push PR-number resolver for check-id-collision (the `--self-test` leg): decides whether " +
+    ".githooks/pre-push exports PR_ID_COLLISION_PR from `gh pr view`. Preflight-only BY SUBJECT " +
+    "MATTER: it exists for a LOCAL push (CI derives the PR number from the ref name), and the " +
+    "full-preflight run in scripts-verify.yml executes the self-test as one GATES entry."],
   // ── COMPOSER-PLAN-AND-ROOT-WEBMCP-1 (2026-09-05) ───────────────────────────
   ["check-chain-plan-parity.mjs",
     "Chain plan parity (parity gate A): recomputes every chain's section 4 plan hash from " +

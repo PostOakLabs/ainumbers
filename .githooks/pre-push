@@ -188,32 +188,82 @@ fi
 # when this marker is set, so the PR CI tier shards and the nightly --all sweep
 # (which never see it) run and floor every hookSkip-listed kernel.
 export MUTATION_TIER_IN_HOOK=1
-echo "pre-push: running scripts/preflight.mjs --quick (PREFLIGHT-QUICK-1; full suite only when PREFLIGHT_FULL=1 or the diff touches scripts/, .github/, chaingraph/kernels/_*.mjs) ..."
-node scripts/preflight.mjs --quick "$@"
-status=$?
-[ "$status" -ne 0 ] && echo "pre-push: QUICK preflight RED — push will be blocked below; fix the gate and re-push." 1>&2
 
-# Full suite only when it can be owed (PREFLIGHT-QUICK-1) — and only after a
-# GREEN quick run: a red quick already fails the push, so the full leg has
-# nothing to add on top of it.
-if [ "$status" -eq 0 ]; then
-  need_full=0
-  if [ "$PREFLIGHT_FULL" = "1" ]; then
-    need_full=1
-    full_reason="PREFLIGHT_FULL=1"
-  else
-    merge_base_quick=$(git merge-base origin/main HEAD 2>/dev/null) || merge_base_quick=""
-    if [ -n "$merge_base_quick" ] && [ -n "$(git diff --name-only "$merge_base_quick" HEAD -- scripts/ .github/ 'chaingraph/kernels/_*.mjs')" ]; then
-      need_full=1
-      full_reason="diff touches scripts/ or .github/ or chaingraph/kernels/_*.mjs"
+# PREPUSH-PRID-ENV-1: tell check-id-collision.mjs which PR this push belongs to
+# (it reads PR_ID_COLLISION_PR; otherwise the PR's own title looks like a rival
+# claim on the id). Only when the diff ADDS a node/manifest file (a mint) is gh
+# consulted, with an 8 s cap; scripts/prepush-pr-id-env.mjs exports a number only
+# if the PR is OPEN, in PostOakLabs/ainumbers, and its headRefName equals the
+# pushed branch. ANY error leaves the variable unset; this block never fails a push.
+if [ -z "$PR_ID_COLLISION_PR" ] && [ -f scripts/prepush-pr-id-env.mjs ]; then
+  _prid_mb=$(git merge-base origin/main HEAD 2>/dev/null) || _prid_mb=""
+  if [ -n "$_prid_mb" ]; then
+    _prid_added=$(git diff --name-only --diff-filter=A "$_prid_mb" HEAD -- 'chaingraph/graph/nodes/' 'manifests/' 2>/dev/null)
+    if [ -n "$_prid_added" ]; then
+      _prid_list=$(mktemp 2>/dev/null) || _prid_list=""
+      if [ -n "$_prid_list" ]; then
+        printf '%s\n' "$_prid_added" > "$_prid_list"
+        _prid_num=$(printf '%s\n' "$refs_stdin" | node scripts/prepush-pr-id-env.mjs --head "$(git rev-parse HEAD 2>/dev/null)" --added-file "$_prid_list" 2>/dev/null) || _prid_num=""
+        rm -f "$_prid_list"
+        case "$_prid_num" in
+          ''|*[!0-9]*) ;;
+          *) export PR_ID_COLLISION_PR="$_prid_num"; echo "pre-push: PR_ID_COLLISION_PR=$_prid_num (open PR for this branch; id-collision gate will skip its own title)" ;;
+        esac
+      fi
     fi
   fi
-  if [ "$need_full" -eq 1 ]; then
-    echo "pre-push: running the FULL preflight suite ($full_reason) ..."
+fi
+
+# PREPUSH-NARROW-1: decide whether the FULL suite is owed BEFORE running anything.
+# Trigger = PREFLIGHT_FULL=1, or a diff path that scripts/prepush-full-trigger.mjs
+# classifies as gate machinery or full-suite-read data (scripts/**/*.{mjs,js,cjs,py,sh,ts},
+# scripts/**/*.{json,txt,html} except the QUICK-only baselines, .github/**,
+# chaingraph/kernels/_*.mjs). Docs-only scripts/ edits (README.md, *.DEPRECATED) no
+# longer pay the full suite. The attestation block further down is INDEPENDENT of this
+# decision (it uses check-prepush-attestation.mjs --print-pathspec), so scripts/**
+# commits still get PREFLIGHT-VERIFIED notes.
+need_full=0
+full_reason=""
+if [ "$PREFLIGHT_FULL" = "1" ]; then
+  need_full=1
+  full_reason="PREFLIGHT_FULL=1"
+elif [ -f scripts/prepush-full-trigger.mjs ]; then
+  merge_base_quick=$(git merge-base origin/main HEAD 2>/dev/null) || merge_base_quick=""
+  if [ -n "$merge_base_quick" ]; then
+    full_hits=$(git diff --name-only "$merge_base_quick" HEAD 2>/dev/null | node scripts/prepush-full-trigger.mjs 2>/dev/null | head -n 3)
+    if [ -n "$full_hits" ]; then
+      need_full=1
+      full_reason="diff touches gate machinery: $(printf '%s' "$full_hits" | tr '\n' ' ')"
+    fi
+  fi
+fi
+
+if [ "$need_full" -eq 1 ]; then
+  # FULL ⊇ QUICK_GATES (every quick gate has a same-or-wider GATES entry; asserted by
+  # `preflight.mjs --quick --self-test` check (e)), so the ~90 s quick leg is skipped
+  # when the full suite runs. Full output is teed to a log inside the git dir
+  # (never tracked) so the SLOWEST 10 GATE(S) block survives a long run.
+  echo "pre-push: running the FULL preflight suite ($full_reason); quick leg skipped (full is a superset) ..."
+  _pf_gitdir=$(git rev-parse --git-dir 2>/dev/null)
+  if [ -n "$_pf_gitdir" ] && [ -d "$_pf_gitdir" ]; then
+    _pf_log="$_pf_gitdir/preflight-full.log"
+    _pf_rc="$_pf_gitdir/preflight-full.rc"
+    rm -f "$_pf_rc"
+    { node scripts/preflight.mjs --changed origin/main "$@"; echo $? > "$_pf_rc"; } 2>&1 | tee "$_pf_log"
+    status=$(cat "$_pf_rc" 2>/dev/null)
+    [ -z "$status" ] && status=1
+    rm -f "$_pf_rc"
+    echo "pre-push: full preflight log kept at $_pf_log (SLOWEST 10 GATE(S) block is at its tail)."
+  else
     node scripts/preflight.mjs --changed origin/main "$@"
     status=$?
-    [ "$status" -ne 0 ] && echo "pre-push: FULL preflight RED — push will be blocked below; fix the gate and re-push." 1>&2
   fi
+  [ "$status" -ne 0 ] && echo "pre-push: FULL preflight RED — push will be blocked below; fix the gate and re-push." 1>&2
+else
+  echo "pre-push: running scripts/preflight.mjs --quick (PREFLIGHT-QUICK-1; full suite only when PREFLIGHT_FULL=1 or the diff touches gate machinery per scripts/prepush-full-trigger.mjs) ..."
+  node scripts/preflight.mjs --quick "$@"
+  status=$?
+  [ "$status" -ne 0 ] && echo "pre-push: QUICK preflight RED — push will be blocked below; fix the gate and re-push." 1>&2
 fi
 
 # Disclosure — DISCLOSURE, not permission: runs regardless of outcome, so a
