@@ -1114,6 +1114,10 @@ const GATES = [
   // could rot unrun exactly like the reporting self-test above warns against.
   ['Pre-push expect-red fixture proof (env + file routes, EXPECTRED-ENVPREFIX-GAP-1)',
     'node .githooks/pre-push.test.mjs'],
+  // PREPUSH-NARROW-1: red/green controls for the hook's full-suite trigger
+  // (which diff paths owe the FULL leg; docs-only scripts/ edits no longer do).
+  ['Pre-push full-suite trigger controls (RED/GREEN path classes, PREPUSH-NARROW-1)',
+    'node scripts/prepush-full-trigger.mjs --self-test'],
   // BINARY-BYTE-GATE-1 runs FIRST, ahead of the JS syntax gate, on purpose.
   // The syntax gate is structurally BLIND to this class: DISE-SEG-T-2 shipped a
   // raw NUL inside a JS string delimiter in tools/582 and check_tools.js was
@@ -2529,6 +2533,13 @@ async function runQuickSuite(selfTest) {
     const idcIncluded = quickLabels.some((l) => l.includes('ID-collision gate'));
     if (idcPresent !== idcIncluded) failures.push('ID-collision gate presence mismatch (exists but omitted, or included but missing)');
     else console.log(`✓ --quick --self-test: ID-collision gate ${idcPresent ? 'present and included' : 'absent and correctly omitted'}`);
+    // (e) PREPUSH-NARROW-1 — FULL ⊇ QUICK. The hook skips the quick leg when it runs
+    //     the full suite; that is sound only while every quick gate has a same-or-wider
+    //     GATES entry. A CHANGED-scoped quick command maps to its un-scoped base.
+    const fullCmds = new Set(GATES.map(([, c]) => c));
+    const uncovered = QUICK_GATES.filter(([, c]) => !fullCmds.has(c) && !fullCmds.has(c.replace(` --changed ${QUICK_REF}`, ''))).map(([l]) => l);
+    if (uncovered.length) failures.push(`full ⊉ quick: no GATES entry covers: ${uncovered.join('; ')}`);
+    else console.log(`✓ --quick --self-test: every quick gate is covered by a same-or-wider full-suite gate (hook may skip quick before full)`);
     if (failures.length) {
       for (const f of failures) console.error(`   ✗ ${f}`);
       console.error(`❌ --quick --self-test FAILED: ${failures.length} assertion(s) red.`);

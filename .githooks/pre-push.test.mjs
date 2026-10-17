@@ -15,7 +15,7 @@
  * What it proves (red-before-green, per the row's own "PROVE IT" discipline):
  *   1. DEFAULT PATH — no AINUM_EXPECT_RED set ⇒ preflight is invoked with
  *      exactly the quick-first argv of PREFLIGHT-QUICK-1 (`--quick`, nothing
- *      appended; the full `--changed origin/main` leg only runs when
+ *      appended; the full `--changed origin/main` leg (instead of quick) only runs when
  *      PREFLIGHT_FULL=1 or the diff touches the gated machinery).
  *   2. PARSING — a comma-separated declaration (with stray whitespace) becomes
  *      one `--expect-red <id>` pair per id, in order, forwarded to preflight.
@@ -47,7 +47,7 @@
  * Exit 0 = every assertion passed. Exit 1 = a fixture assertion failed.
  */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, chmodSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, chmodSync, appendFileSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -65,9 +65,10 @@ const MOCK_PREFLIGHT = `#!/usr/bin/env node
 // Mock stand-in for scripts/preflight.mjs — this test proves the HOOK's
 // forwarding/disclosure logic, never the real gate suite (out of this row's
 // fence: "Zero gate semantics").
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, appendFileSync } from 'node:fs';
 const args = process.argv.slice(2);
 writeFileSync(process.env.MOCK_ARGV_DUMP, JSON.stringify(args));
+if (process.env.MOCK_ARGV_LOG) appendFileSync(process.env.MOCK_ARGV_LOG, JSON.stringify(args) + '\\n');
 console.log('mock preflight received: ' + args.join(' '));
 process.exit(process.env.MOCK_PREFLIGHT_EXIT ? Number(process.env.MOCK_PREFLIGHT_EXIT) : 0);
 `;
@@ -105,6 +106,7 @@ function runHook(dir, envOverrides) {
     env: {
       ...process.env,
       MOCK_ARGV_DUMP: argvDump,
+      MOCK_ARGV_LOG: join(dir, 'argv-log.jsonl'),
       AINUM_GUARDRAIL_METRICS_PATH: metricsFile,
       // Explicitly unset — a leaked value from the outer shell must never
       // leak into a scenario that expects it absent (the no-persistence check).
