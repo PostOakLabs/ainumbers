@@ -85,6 +85,13 @@ const RED_GREEN = process.argv.includes('--red-green');
 const SCRATCH = derivedRoot();
 const OVERLAY = Boolean(SCRATCH) && !WRITE && !RED_GREEN && !process.argv.includes('--self-test');
 
+// Flake fix (2026-10-17): the red-green proof used to write a mutated page to
+// the REAL tree and restore it; any concurrent gate reading/mutating the same
+// page raced it (main runs 39004556719 + 39037398003: "gate is deaf"). The
+// mutation now lives in memory only: pageAbs -> mutated source. Disk is never
+// written by --red-green / --self-test.
+const PAGE_OVERRIDE = new Map();
+
 const BASELINE_PATH = resolve(HERE, 'a11y-baseline.json');
 const WEBMCP_BEGIN = '<!-- WEBMCP:GEN-BEGIN ';
 
@@ -251,7 +258,7 @@ function adjudicateNode(node, repoRoot, manifestIndex, mcpNameByTool) {
   // pages the assembly did not produce fall back to the committed page.
   const pageAbs = OVERLAY ? derivedResolve('chaingraph', `${id}.html`) : resolve(repoRoot, pageRel);
   if (!existsSync(pageAbs)) return { id, outOfScope: `${pageRel} absent (no in-repo page)` };
-  const pageSrc = readFileSync(pageAbs, 'utf8');
+  const pageSrc = PAGE_OVERRIDE.has(pageAbs) ? PAGE_OVERRIDE.get(pageAbs) : readFileSync(pageAbs, 'utf8');
   if (!pageSrc.includes(WEBMCP_BEGIN)) return { id, outOfScope: `${pageRel} carries no generated WebMCP region (hand-authored node page — out of scope)` };
   const rec = manifestIndex.byTool.get(id)
     || (mcpNameByTool.get(id) ? manifestIndex.byMcp.get(mcpNameByTool.get(id)) : null)
@@ -407,10 +414,10 @@ function redGreen() {
   if (!target) fail('no emitted region found to mutate for the red-green proof');
   const mutated = target.pageSrc.replace('Run complete. execution_hash', 'Run c0mplete. execution_hash');
   if (mutated === target.pageSrc) fail('mutation did not apply');
-  writeFileSync(target.pageAbs, mutated, 'utf8');
+  PAGE_OVERRIDE.set(target.pageAbs, mutated);
   const during = collect();
   const redOk = during.problems.some((p) => p.startsWith(target.pageRel) && (p.includes('drifted') || p.includes('Run complete')));
-  writeFileSync(target.pageAbs, target.pageSrc, 'utf8'); // restore
+  PAGE_OVERRIDE.delete(target.pageAbs); // restore (in-memory only)
   const after = collect();
   if (!redOk) fail('mutated tree did NOT red the gate — the gate is deaf');
   if (after.problems.length) fail('tree still red after restore');
