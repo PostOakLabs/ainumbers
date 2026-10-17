@@ -379,7 +379,7 @@ const MANIFEST = {
 //   src/libraries/LPFeeLibrary.sol      (DYNAMIC_FEE_FLAG 0x800000 L15, OVERRIDE_FEE_FLAG
 //                                       0x400000 L19, REMOVE_OVERRIDE_MASK 0xBFFFFF L22,
 //                                       MAX_LP_FEE 1_000_000 L25, isDynamicFee L31,
-//                                       isValid L38, hasOverrideFlag L62, removeOverrideFlag L69)
+//                                       isValid L38, isOverride L61, removeOverrideFlag L69)
 //   src/libraries/ProtocolFeeLibrary.sol (MAX_PROTOCOL_FEE 1000 L9, isValidProtocolFee L25,
 //                                       calculateSwapFee L38-46: swapFee = protocolFee +
 //                                       lpFee - protocolFee*lpFee/1_000_000)
@@ -608,11 +608,13 @@ function compute(pp) {
 
     const exactOut = s.exact_out === true;
 
-    // LP fee resolution: an override with its flag set replaces the pool's fee for this
-    // swap (the flag itself is stripped per the pinned mask); otherwise the pool's static
-    // fee applies. A dynamic pool fee with no override leaves the LP fee unknowable here.
+    // LP fee resolution: a hook-returned override is read only on a dynamic pool; there,
+    // an override with its flag set replaces the stored fee for this swap (the flag itself
+    // is stripped per the pinned mask). On a static pool any override is ignored and the
+    // pool's static fee applies. A dynamic pool fee with no override leaves the LP fee
+    // unknowable here.
     const overrideRaw = s.lp_fee_override === undefined ? null : BigInt(s.lp_fee_override);
-    const hasOverride = overrideRaw !== null && (overrideRaw & OVERRIDE_FEE_FLAG) !== 0n;
+    const hasOverride = poolFeeIsDynamic && overrideRaw !== null && (overrideRaw & OVERRIDE_FEE_FLAG) !== 0n;
 
     let lpFee = null;
     if (hasOverride) {
@@ -625,10 +627,6 @@ function compute(pp) {
       row.indeterminate_reason = 'DYNAMIC_POOL_FEE_WITHOUT_OVERRIDE: the LP fee is set per-swap on chain and was not supplied';
     }
 
-    if (exactOut) {
-      row.indeterminate_reason = 'EXACT_OUT_SWAP: v4 reverts an exact-out swap that would pay a 100% fee; this node does not model reverts';
-    }
-
     if (lpFee !== null) {
       row.lp_fee_pips = Number(lpFee);
       row.lp_fee_within_declared_bounds = lpFee >= minPips && lpFee <= maxPips && lpFee <= MAX_LP_FEE;
@@ -639,10 +637,12 @@ function compute(pp) {
       const swapFee = calculateSwapFee(protoDir, lpFee);
       row.swap_fee_pips = Number(swapFee);
 
-      // Pinned Pool.sol L311: a composed fee at or above MAX_SWAP_FEE sits on the revert
-      // boundary; the node reports it INDETERMINATE rather than modelling the revert.
-      if (swapFee >= MAX_SWAP_FEE && row.indeterminate_reason === null) {
-        row.indeterminate_reason = 'SWAP_FEE_AT_MAX: the composed fee reaches the MAX_SWAP_FEE boundary where v4 reverts';
+      // A composed fee at or above MAX_SWAP_FEE reverts only an exact-out swap; the node
+      // reports that swap INDETERMINATE rather than modelling the revert. An exact-in swap
+      // at that fee is not reverted and is checked like any other. An LP fee above
+      // MAX_LP_FEE is invalid before the fee is composed, so it surfaces as OUT_OF_BOUNDS.
+      if (exactOut && lpFee <= MAX_LP_FEE && swapFee >= MAX_SWAP_FEE && row.indeterminate_reason === null) {
+        row.indeterminate_reason = 'EXACT_OUT_SWAP: v4 reverts an exact-out swap that would pay a 100% fee; this node does not model reverts';
       }
 
       // Integer accruals (floor), remainder reported — never rounded away silently.
@@ -741,7 +741,8 @@ function compute(pp) {
         'calculateSwapFee replica: swapFee = protocolFee + lpFee - floor(protocolFee * lpFee / 1000000), in pips, per direction; a zero protocol fee means the whole fee is the LP fee.',
         'All monetary accruals are integer floor divisions in BigInt; every division remainder is reported and never silently dropped.',
         'LP revenue (amount_in * lpFee / 1e6) is reported separately and is never netted against the hook charge: LP revenue stays LP revenue.',
-        'Exact-out swaps and composed fees at or above MAX_SWAP_FEE are reported INDETERMINATE: v4 reverts at that boundary and this node does not model reverts.',
+        'An exact-out swap whose composed fee is at or above MAX_SWAP_FEE is reported INDETERMINATE: v4 reverts that swap and this node does not model reverts. An exact-in swap at that fee is not reverted and is checked like any other swap.',
+        'A per-swap LP-fee override is read only on a dynamic pool (pool_fee exactly 0x800000); on a static pool it is ignored and the pool fee applies. An LP fee above MAX_LP_FEE (1000000) is reported OUT_OF_BOUNDS.',
         'A dynamic pool fee (0x800000) without a per-swap override leaves the LP fee unknowable to an off-chain observer and is reported INDETERMINATE.',
         'Zero network: the node never reads a chain and recomputes only the caller-supplied declared values and emitted fees.',
       ],

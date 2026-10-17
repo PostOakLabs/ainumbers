@@ -118,7 +118,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="field-grid">
       <div class="field" style="grid-column:1/-1"><label for="hook_address">Hook address (0x + 40 hex; checksum not required; its low 14 bits are the permission bitmap)</label><input type="text" id="hook_address" value="0x000000258c397d8f759f70444d6dbf3622c22ac0" aria-label="hook_address" aria-description="0x-prefixed 40-hex-digit Uniswap v4 hook address; checksum not required, normalised to lowercase. Its low 14 bits are the permission bitmap."></div>
       <div class="field" style="grid-column:1/-1"><label for="declared_permissions">Declared permissions JSON: all 14 booleans, required and never defaulted (a missing key is a refusal); the Uniswap hooklist entry shape { hook: { address }, flags, properties: { dynamicFee } } is also accepted</label><textarea id="declared_permissions" rows="6" style="width:100%;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:.5rem;font-family:JetBrains Mono,monospace;font-size:.62rem" aria-label="declared_permissions" aria-description="All 14 callback booleans, required, never defaulted; a missing key is refused. A Uniswap hooklist entry { hook, flags, properties } also accepted.">{ &quot;beforeInitialize&quot;: true, &quot;afterInitialize&quot;: false, &quot;beforeAddLiquidity&quot;: true, &quot;afterAddLiquidity&quot;: false, &quot;beforeRemoveLiquidity&quot;: true, &quot;afterRemoveLiquidity&quot;: false, &quot;beforeSwap&quot;: true, &quot;afterSwap&quot;: true, &quot;beforeDonate&quot;: false, &quot;afterDonate&quot;: false, &quot;beforeSwapReturnDelta&quot;: false, &quot;afterSwapReturnDelta&quot;: false, &quot;afterAddLiquidityReturnDelta&quot;: false, &quot;afterRemoveLiquidityReturnDelta&quot;: false }</textarea></div>
-      <div class="field"><label for="pool_fee">Pool fee (optional uint24; dynamic iff pool_fee &amp; 0x800000 = 8388608)</label><input type="text" id="pool_fee" value="500" aria-label="pool_fee" aria-description="Optional uint24 pool fee; the fee is dynamic iff pool_fee &amp; 0x800000 (8388608)."></div>
+      <div class="field"><label for="pool_fee">Pool fee (optional uint24; dynamic iff pool_fee = 0x800000 = 8388608 exactly)</label><input type="text" id="pool_fee" value="500" aria-label="pool_fee" aria-description="Optional uint24 pool fee; the fee is dynamic iff pool_fee &amp; 0x800000 (8388608)."></div>
       <div class="field"><label for="declaration_source">Declaration source (optional free text, emitted unchanged)</label><input type="text" id="declaration_source" placeholder="e.g. registry entry, notice item" aria-label="declaration_source" aria-description="Optional free text naming where the declaration comes from, e.g. a registry entry or notice item; emitted unchanged in the output."></div>
     </div>
 
@@ -383,12 +383,12 @@ const MANIFEST = {
 //      afterRemoveLiquidity<-afterRemoveLiquidityReturnDelta);
 //   R2 the zero address must NOT carry a dynamic fee;
 //   R3 a non-zero hook must have at least one permission bit set OR a dynamic fee
-//      (pool_fee & 0x800000 != 0).
+//      (pool_fee == 0x800000 exactly; any other value, flag bit set or not, is a static fee).
 //
 // Input shape (step 4b): declared_permissions is accepted either as a flat object with all
 // 14 flag booleans, or in the Uniswap hooklist entry shape { hook: { address }, flags: {...},
 // properties: { dynamicFee } }. When properties.dynamicFee is supplied it is reconciled with
-// the caller's pool_fee (dynamic iff pool_fee & 0x800000). No entry names or descriptions are
+// the caller's pool_fee (dynamic iff pool_fee == 0x800000). No entry names or descriptions are
 // read or emitted (the hooklist registry carries no license); an address plus its flag
 // booleans are used as a fact with the entry URL cited in the fixture.
 //
@@ -472,7 +472,7 @@ void FLAGS; void FLAG_NAMES;
  *   hook_address: '0x' + 40 hex (checksum not required, normalised to lowercase),
  *   declared_permissions: 14 required booleans — flat, or hooklist entry
  *     { hook: { address }, flags, properties: { dynamicFee } },
- *   pool_fee?: uint24 (dynamic fee iff pool_fee & 0x800000),
+ *   pool_fee?: uint24 (dynamic fee iff pool_fee == 0x800000 exactly),
  *   declaration_source?: string (free text, e.g. "TSV Notice item (p)"),
  * }
  */
@@ -553,7 +553,7 @@ function compute(pp) {
     .map(({ flag, bit, declared: d, actual, status }) => ({ flag, bit, declared: d, actual, status }));
 
   // ---- isValidHookAddress replica (v4-core L109-127 at the pin) ----
-  const poolDynamic = poolFee !== undefined && (poolFee & DYNAMIC_FEE_FLAG) !== 0n;
+  const poolDynamic = poolFee !== undefined && poolFee === DYNAMIC_FEE_FLAG;
   let valid = true;
   let failingRule = null;
   const baseOf = { beforeSwapReturnDelta: 'beforeSwap', afterSwapReturnDelta: 'afterSwap',
@@ -644,7 +644,7 @@ function paintResult() {
     html += '<div class="out-row"><span class="k">Decoded permission bits</span><span class="v">' + esc(o.decoded_bits) + '</span></div>';
     html += '<div class="out-row"><span class="k">valid_hook_address (v4-core isValidHookAddress replica)</span><span class="v">' + (o.valid_hook_address ? 'true' : 'false' + (o.failing_rule ? ' (' + esc(o.failing_rule) + ')' : '')) + '</span></div>';
     if (o.failing_rule) html += '<div class="out-row"><span class="k">Failing rule</span><span class="v">' + esc(o.failing_rule) + '</span></div>';
-    if (o.pool_fee !== null && o.pool_fee !== undefined) html += '<div class="out-row"><span class="k">Pool fee (uint24)</span><span class="v">' + o.pool_fee + ((o.pool_fee & 0x800000) ? ' (dynamic)' : ' (static)') + '</span></div>';
+    if (o.pool_fee !== null && o.pool_fee !== undefined) html += '<div class="out-row"><span class="k">Pool fee (uint24)</span><span class="v">' + o.pool_fee + ((o.pool_fee === 0x800000) ? ' (dynamic)' : ' (static)') + '</span></div>';
     html += '<table class="ladder-table"><tr><th>Flag</th><th>Bit</th><th>Declared</th><th>Actual</th><th>Status</th></tr>';
     for (const f of o.flags) html += '<tr><td>' + esc(f.flag) + '</td><td>' + f.bit + '</td><td>' + f.declared + '</td><td>' + f.actual + '</td><td>' + esc(f.status) + '</td></tr>';
     html += '</table>';
