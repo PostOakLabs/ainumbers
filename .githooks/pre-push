@@ -188,6 +188,32 @@ fi
 # when this marker is set, so the PR CI tier shards and the nightly --all sweep
 # (which never see it) run and floor every hookSkip-listed kernel.
 export MUTATION_TIER_IN_HOOK=1
+
+# PREPUSH-PRID-ENV-1: tell check-id-collision.mjs which PR this push belongs to
+# (it reads PR_ID_COLLISION_PR; otherwise the PR's own title looks like a rival
+# claim on the id). Only when the diff ADDS a node/manifest file (a mint) is gh
+# consulted, with an 8 s cap; scripts/prepush-pr-id-env.mjs exports a number only
+# if the PR is OPEN, in PostOakLabs/ainumbers, and its headRefName equals the
+# pushed branch. ANY error leaves the variable unset; this block never fails a push.
+if [ -z "$PR_ID_COLLISION_PR" ] && [ -f scripts/prepush-pr-id-env.mjs ]; then
+  _prid_mb=$(git merge-base origin/main HEAD 2>/dev/null) || _prid_mb=""
+  if [ -n "$_prid_mb" ]; then
+    _prid_added=$(git diff --name-only --diff-filter=A "$_prid_mb" HEAD -- 'chaingraph/graph/nodes/' 'manifests/' 2>/dev/null)
+    if [ -n "$_prid_added" ]; then
+      _prid_list=$(mktemp 2>/dev/null) || _prid_list=""
+      if [ -n "$_prid_list" ]; then
+        printf '%s\n' "$_prid_added" > "$_prid_list"
+        _prid_num=$(printf '%s\n' "$refs_stdin" | node scripts/prepush-pr-id-env.mjs --head "$(git rev-parse HEAD 2>/dev/null)" --added-file "$_prid_list" 2>/dev/null) || _prid_num=""
+        rm -f "$_prid_list"
+        case "$_prid_num" in
+          ''|*[!0-9]*) ;;
+          *) export PR_ID_COLLISION_PR="$_prid_num"; echo "pre-push: PR_ID_COLLISION_PR=$_prid_num (open PR for this branch; id-collision gate will skip its own title)" ;;
+        esac
+      fi
+    fi
+  fi
+fi
+
 # PREPUSH-NARROW-1: decide whether the FULL suite is owed BEFORE running anything.
 # Trigger = PREFLIGHT_FULL=1, or a diff path that scripts/prepush-full-trigger.mjs
 # classifies as gate machinery or full-suite-read data (scripts/**/*.{mjs,js,cjs,py,sh,ts},

@@ -1118,6 +1118,10 @@ const GATES = [
   // (which diff paths owe the FULL leg; docs-only scripts/ edits no longer do).
   ['Pre-push full-suite trigger controls (RED/GREEN path classes, PREPUSH-NARROW-1)',
     'node scripts/prepush-full-trigger.mjs --self-test'],
+  // PREPUSH-PRID-ENV-1: red/green controls for the hook's PR_ID_COLLISION_PR export
+  // (open PR on the pushed branch only; every error path exports nothing).
+  ['Pre-push PR-id env export controls (RED/GREEN, PREPUSH-PRID-ENV-1)',
+    'node scripts/prepush-pr-id-env.mjs --self-test'],
   // BINARY-BYTE-GATE-1 runs FIRST, ahead of the JS syntax gate, on purpose.
   // The syntax gate is structurally BLIND to this class: DISE-SEG-T-2 shipped a
   // raw NUL inside a JS string delimiter in tools/582 and check_tools.js was
