@@ -108,6 +108,49 @@
  * same bytes is collapsed. Verdict classes, the 180 s per-entry bound, --check
  * mtime comparisons and exit codes are unchanged.
  *
+ * ── CROSS-INSTANCE SCAN MUTEX (REGEN-CHECK-CONCURRENCY-HEAL-1, 2026-10-08) ───
+ * WHY: this is the estate's most expensive gate — hundreds of probe cycles,
+ * each one a `cmd.exe → node` generator spawn plus two `git status` walks and
+ * a `git checkout` over a freshly materialized ~12k-file scratch worktree —
+ * and every `repo/scripts/`-touching push runs it from the pre-push hook. The
+ * estate's normal operating state is SEVERAL builders pushing in parallel,
+ * and when their full suites reach this gate together the cycles multiply
+ * until the gate starves: measured 2026-10-08 (this row's claim-time repro +
+ * JCS-PREFIX-ARTIFACT-NOTE-2's six blocked pushes), two concurrent `--check`
+ * instances on one checkout were both still mid-scan past seven minutes with
+ * ~0.6 s of child wall per probe cycle, and five concurrent instances across
+ * sessions left suites killed at 50-60 min and 38 stale `derived-regen-live-*`
+ * scratch worktrees (two permanently `locked (reason: initializing)`)
+ * registered against the shared `.git` — every dead instance's
+ * withScratchWorktree cleanup had lost its process. The scan is correct alone
+ * and self-starving in a crowd: a resource problem, not a verdict problem, so
+ * the CLI scan paths now SERIALIZE on a mutex instead of racing.
+ *
+ * MECHANISM (`withScanLock`): one-scan-at-a-time via an atomically created
+ * directory (`mkdirSync` is atomic on POSIX and Windows) inside the repo's
+ * COMMON git dir — the one filesystem root every worktree of a checkout
+ * shares, so two builders pushing from different worktrees collide exactly
+ * there and nowhere else. A loser WAITS (250 ms polls, one stderr heartbeat
+ * line every 30 s so a hook log names the waiter) and takes its turn; a
+ * single scan pays one mkdir + one rmdir, so the solo baseline is untouched.
+ * Stale-lock defense: the owner records its pid in `owner.json`; a waiter
+ * that finds a DEAD owner pid (the harness exit-137 kill shape) steals the
+ * lock immediately instead of waiting forever; a NAMED-owner lock older than
+ * `DERIVED_REGEN_LIVE_LOCK_STEAL_MS` (default 60 min — liveness is the
+ * primary signal, age only defeats pid recycling) is stolen even from a
+ * nominally-live pid, and an OWNERLESS lock (a crash between mkdir and the
+ * owner.json write) older than 5 min is stolen regardless — the only
+ * legitimate ownerless state is microseconds wide, so a minutes-old
+ * ownerless lock is a dead process and must not wedge every waiter for an
+ * hour. A lock with no readable owner that is YOUNG is assumed to be an
+ * acquirer mid-write: never stolen on sight. Release removes the directory only if the pid inside
+ * is still ours, so a stolen-and-reacquired lock is never deleted by its
+ * dead hand. The mutex is advisory and fail-open: if the common git dir
+ * cannot be resolved the scan runs unlocked with a stderr warning — degraded
+ * to the old concurrency, never blocked from running. Scope: the CLI scan
+ * paths only (`--check`, report mode, `--only`) — `--self-test`, `--list`
+ * and `runLiveScan` (the paired test file's synthetic fixtures) never queue.
+ *
  * Usage:
  *   node scripts/check-derived-regen-live.mjs           # human-readable report
  *   node scripts/check-derived-regen-live.mjs --check    # exit 0/1, wired into preflight (scoped)
@@ -115,9 +158,10 @@
  *   node scripts/check-derived-regen-live.mjs --only <entry>   # run ONE entry (diagnosis)
  *   node scripts/check-derived-regen-live.mjs --self-test      # fixture proof of the timeout path (no real generator)
  *   DERIVED_REGEN_LIVE_TIMEOUT_MS=30000 node scripts/check-derived-regen-live.mjs --only counts
+ *   DERIVED_REGEN_LIVE_LOCK_STEAL_MS=60000 node scripts/check-derived-regen-live.mjs --check
  */
 import { execSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync, readdirSync, statSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -637,6 +681,130 @@ function runLiveScan({ dir, covered, timeoutMs = DEFAULT_ENTRY_TIMEOUT_MS, progr
   return { classA, classB, timeouts, executionFailures, probeUnsafe, probeBlind, unverifiable, skippedEmptyDirs, initialDirty, anchoredProbes, probeTargetVisits, uniqueProbeTargets: sharedProbeResults.size };
 }
 
+// ── cross-instance scan mutex (REGEN-CHECK-CONCURRENCY-HEAL-1) ────────────────
+// See the header section for the why and the protocol. Zero-dependency on
+// purpose (SO #10): mkdir-atomicity for acquisition, a pid+timestamp
+// owner.json for staleness, Atomics.wait for the synchronous poll sleep
+// (execSync makes this whole file synchronous; an async sleep cannot exist
+// here), and `process.kill(pid, 0)` liveness.
+
+const DEFAULT_LOCK_STEAL_MS = 60 * 60_000;   // named owner: dead pids are detected live, this only covers pid recycling
+const DEFAULT_ORPHAN_STEAL_MS = 5 * 60_000;  // ownerless lock: legit only for the microseconds-wide mkdir→owner.json gap
+function lockStealMs() {
+  const raw = process.env.DERIVED_REGEN_LIVE_LOCK_STEAL_MS;
+  if (raw === undefined || raw === '') return DEFAULT_LOCK_STEAL_MS;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) {
+    console.error(`derived-regen-live: ignoring DERIVED_REGEN_LIVE_LOCK_STEAL_MS="${raw}" (not a positive number), using ${DEFAULT_LOCK_STEAL_MS} ms`);
+    return DEFAULT_LOCK_STEAL_MS;
+  }
+  return n;
+}
+
+/** Is `pid` a live process? EPERM means alive-but-not-ours (Windows, other user) — still alive. */
+function isPidAlive(pid) {
+  try { process.kill(pid, 0); return true; } catch (e) { return e?.code === 'EPERM'; }
+}
+
+/**
+ * The COMMON git dir of `repo` — the one `.git` every worktree of the checkout
+ * shares. `--path-format=absolute` (git >= 2.31) keeps the answer stable no
+ * matter which worktree asks; a relative answer is resolved against `repo`.
+ */
+function commonGitDir(repo) {
+  const out = execSync('git rev-parse --path-format=absolute --git-common-dir', { cwd: repo, ...GIT_EXEC_OPTS }).toString().trim();
+  return resolve(repo, out);
+}
+
+/**
+ * Lock path for the scan mutex, or null when the domain cannot be resolved
+ * (fail-open: the scan then runs unlocked, the pre-fix behaviour, with a
+ * warning — never blocked from running).
+ */
+function scanLockDirFor(repo) {
+  try {
+    return join(commonGitDir(repo), 'derived-regen-live-scan.lock');
+  } catch (e) {
+    process.stderr.write(`derived-regen-live: cannot resolve the common git dir (${String(e?.message || e).split('\n')[0]}) — running WITHOUT the cross-instance scan mutex\n`);
+    return null;
+  }
+}
+
+/** `{pid, startedAt}` from the lock's owner.json, or null when absent/corrupt. */
+function readLockOwner(lockDir) {
+  try { return JSON.parse(readFileSync(join(lockDir, 'owner.json'), 'utf8')); } catch { return null; }
+}
+
+function lockAgeMs(lockDir, now = Date.now()) {
+  try { return now - statSync(lockDir).mtimeMs; } catch { return null; }
+}
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * Run `fn()` holding the scan mutex at `lockDir` (a DIRECTORY — mkdir is the
+ * atomic test-and-set). Options are injectable so the paired test file can
+ * drive the protocol against throwaway tmpdir locks in milliseconds:
+ * - `stealMs`     — age past which a lock is stolen even from a live owner
+ * - `pollMs`      — wait-loop sleep between acquire attempts
+ * - `heartbeatMs` — how often the waiting line repeats on `progress`
+ * - `isAlive`     — pid-liveness probe (tests substitute a constant)
+ */
+function withScanLock(lockDir, fn, { progress = () => {}, stealMs = lockStealMs(), orphanStealMs = DEFAULT_ORPHAN_STEAL_MS, pollMs = 250, heartbeatMs = 30_000, isAlive = isPidAlive, _now = Date.now } = {}) {
+  if (!lockDir) return fn();
+  const waitStartedAt = _now();
+  let lastHeartbeat = _now();
+  let heldByName = 'the previous scan';
+  for (;;) {
+    try {
+      mkdirSync(lockDir); // atomic create-or-EEXIST, both platforms
+      break; // acquired
+    } catch (e) {
+      if (e?.code !== 'EEXIST') throw e; // real failure — never hide it
+    }
+    // Held. Decide: wait our turn, or steal a provably dead/stale lock.
+    const owner = readLockOwner(lockDir);
+    const age = lockAgeMs(lockDir, _now());
+    heldByName = owner && Number.isFinite(owner.pid) ? `pid ${owner.pid}` : 'an owner that died before writing its record';
+    // Age bound: NAMED owners get the generous bound (liveness is the primary
+    // signal there; age only defeats pid recycling). OWNERLESS locks get the
+    // short bound — the only legitimate ownerless state is the microseconds
+    // between mkdir and the owner.json write, so an ownerless lock that is
+    // minutes old is a dead process, and waiting out the full named bound on
+    // it would wedge every waiter for an hour.
+    const expired = age !== null && age > (owner ? stealMs : orphanStealMs);
+    const ownerKnownDead = Boolean(owner) && Number.isFinite(owner.pid) && !isAlive(owner.pid);
+    if (!expired && !ownerKnownDead) {
+      // WAIT — this includes the no-owner-young case: a lock whose owner
+      // record is not readable yet is an acquirer between mkdir and its
+      // owner.json write, and must never be stolen on sight.
+      if (_now() - lastHeartbeat >= heartbeatMs) {
+        lastHeartbeat = _now();
+        progress(`scan mutex held by ${heldByName} — this scan waits its turn (serialized, REGEN-CHECK-CONCURRENCY-HEAL-1; waited ${((_now() - waitStartedAt) / 1000).toFixed(0)} s so far)`);
+      }
+      sleepSync(pollMs);
+      continue;
+    }
+    progress(`scan mutex steal: ${expired ? `lock age ${((age ?? 0) / 60000).toFixed(0)} min exceeds the ${((owner ? stealMs : orphanStealMs) / 60000).toFixed(0)} min bound${owner ? '' : ' (ownerless)'}` : `owner is gone (${heldByName})`} — stealing (REGEN-CHECK-CONCURRENCY-HEAL-1)`);
+    try { rmSync(lockDir, { recursive: true, force: true }); } catch { /* a racer may have stolen first — the loop re-decides */ }
+  }
+  try { writeFileSync(join(lockDir, 'owner.json'), JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })); } catch { /* best effort — the age bound covers a lost record */ }
+  const waitedMs = _now() - waitStartedAt;
+  if (waitedMs > 2_000) progress(`scan mutex acquired after ${(waitedMs / 1000).toFixed(1)} s queued behind ${heldByName}`);
+  try {
+    return fn();
+  } finally {
+    // Release ONLY a lock that is still ours (or ownerless because our own
+    // owner.json write failed) — never a successor's after a steal-and-replace.
+    const owner = readLockOwner(lockDir);
+    if (!owner || owner.pid === process.pid) {
+      try { rmSync(lockDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+  }
+}
+
 // ── CLI: scratch worktree wrapper ──────────────────────────────────────────────
 
 function withScratchWorktree(fn) {
@@ -853,16 +1021,22 @@ if (isMain) {
     // reports duplicates for that entry alone rather than the whole estate's.
     const dupFindings = withinEntryDuplicates(covered);
     const shareFindings = crossEntryShares(covered);
-    const result = withScratchWorktree((dir) => runLiveScan({
+    // stderr, not stdout: preflight captures a gate's stdout and prints it
+    // only on failure, so a run killed from OUTSIDE (the 20-minute stalls
+    // that motivated this) would lose exactly the lines that name the
+    // culprit. stderr streams through.
+    const progress = (line) => process.stderr.write(`derived-regen-live: ${line}\n`);
+    // REGEN-CHECK-CONCURRENCY-HEAL-1: serialize the scan across every
+    // worktree of this repository (the mutex lives in the COMMON git dir) so
+    // concurrent full suites take turns instead of starving each other. The
+    // mutex covers the scratch worktree add/remove too — its materialization
+    // is the heaviest single IO burst in the scan.
+    const result = withScanLock(scanLockDirFor(REPO), () => withScratchWorktree((dir) => runLiveScan({
       dir,
       covered,
       timeoutMs,
-      // stderr, not stdout: preflight captures a gate's stdout and prints it
-      // only on failure, so a run killed from OUTSIDE (the 20-minute stalls
-      // that motivated this) would lose exactly the lines that name the
-      // culprit. stderr streams through.
-      progress: (line) => process.stderr.write(`derived-regen-live: ${line}\n`),
-    }));
+      progress,
+    })), { progress });
     const hardFail = printReport({ ...result, dupFindings, shareFindings, executedCount: covered.filter((c) => c.regen).length });
     process.exit(hardFail ? 1 : 0);
   }
@@ -873,4 +1047,6 @@ if (isMain) {
 // mkdtemp + `git worktree add --detach HEAD` + guaranteed `git worktree remove
 // --force` in a finally — rather than growing a second, subtly different
 // implementation of it. One scratch-worktree mechanism, one cleanup path.
-export { runLiveScan, withinEntryDuplicates, crossEntryShares, isWithinDeclared, gitStatusPaths, cleanGitEnv, withScratchWorktree };
+// The mutex pieces are exported (REGEN-CHECK-CONCURRENCY-HEAL-1) for the
+// paired test file to drive against throwaway tmpdir locks.
+export { runLiveScan, withinEntryDuplicates, crossEntryShares, isWithinDeclared, gitStatusPaths, cleanGitEnv, withScratchWorktree, withScanLock, scanLockDirFor, readLockOwner, isPidAlive, lockStealMs };
