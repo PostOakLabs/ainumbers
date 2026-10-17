@@ -212,6 +212,8 @@ const BLOCKING_WORKFLOWS = [
 // rotted: automerge-label.yml, fullsuite-schedule.yml, mutation-full-scheduled.yml,
 // ruleset-apply.yml and ruleset-drift-gate.yml were all absent from it.
 const NOT_A_GATE = new Map([
+  ["swh-save.yml",
+    "workflow_dispatch + push tags only, continue-on-error; no pull_request or merge_group trigger, so it gates no merge."],
   ["automerge-label.yml",
     "pull_request: [labeled] automation that PERFORMS the merge (SO #37's label path); " +
     "it is not a required status check and blocks nothing."],
