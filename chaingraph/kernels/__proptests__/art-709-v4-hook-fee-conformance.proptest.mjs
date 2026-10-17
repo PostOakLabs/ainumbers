@@ -120,6 +120,10 @@ function checkP4_recomputeAndStatuses() {
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkBase(rand);
     const dyn = pp.pool_fee === 0x800000;
+    // exact-out reverts only at or above MAX_SWAP_FEE; an override on a static pool is ignored
+    if (rand() < 0.25) pp.swaps[0].exact_out = true;
+    if (!dyn && rand() < 0.25) pp.swaps[0].lp_fee_override = 0x400000 + Math.floor(rngPick(rand, 1000001));
+    const exactOut = pp.swaps[0].exact_out === true;
     const protoDir = pp.swaps[0].zero_for_one ? (pp.protocol_fee & 0xfff) : ((pp.protocol_fee >> 12) & 0xfff);
     const r = compute(pp).output_payload;
     checked++;
@@ -132,7 +136,8 @@ function checkP4_recomputeAndStatuses() {
     const ref = refSwapFee(protoDir, pp.pool_fee);
     if (row.swap_fee_pips !== ref) violations++;
     const oob = pp.pool_fee < pp.declared_lp_fee_bounds.min_pips || pp.pool_fee > pp.declared_lp_fee_bounds.max_pips;
-    const expect = row.exact_out || ref >= 1000000 ? 'INDETERMINATE'
+    if (row.lp_fee_source !== 'pool_static' || row.lp_fee_pips !== pp.pool_fee) violations++;
+    const expect = exactOut && ref >= 1000000 ? 'INDETERMINATE'
       : oob ? 'OUT_OF_BOUNDS'
         : (row.emitted_fee_pips !== ref) ? 'FEE_MISMATCH' : 'CONFORMS';
     if (row.status !== expect) violations++;
