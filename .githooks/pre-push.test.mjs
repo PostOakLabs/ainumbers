@@ -339,5 +339,32 @@ function loggedArgvs(dir) {
   rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }
 
+// ── 13. PREPUSH-PRID-ENV-1 — PR_ID_COLLISION_PR is exported to preflight only
+//      for an OPEN PR whose headRefName is the pushed branch, and only when the
+//      diff mints a node/manifest id. A fake gh script (PREPUSH_PRID_GH_JS seam) plays the API.
+function prFor(ghJson, branchInStdin, ghExit = 0) {
+  const dir = makeTriggerSandbox('chaingraph/graph/nodes/art-900-new-thing.json');
+  copyFileSync(fileURLToPath(new URL('../scripts/prepush-pr-id-env.mjs', import.meta.url)), join(dir, 'scripts', 'prepush-pr-id-env.mjs'));
+  const fakeGh = join(dir, 'fake-gh.js');
+  writeFileSync(fakeGh, ghExit ? `process.exit(${ghExit});` : `process.stdout.write(${JSON.stringify(ghJson)});`);
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: dir, env: isolatedChildEnv(), encoding: 'utf8' }).stdout.trim();
+  const stdin = `refs/heads/${branchInStdin} ${head} refs/heads/${branchInStdin} ${'0'.repeat(40)}\n`;
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', PREPUSH_PRID_GH_JS: fakeGh }, stdin);
+  const f = join(dir, 'env-log.txt');
+  const seen = existsSync(f) ? readFileSync(f, 'utf8') : '';
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  return { status: r.status, seen };
+}
+{
+  const ok = prFor('{"number":4242,"state":"OPEN","headRefName":"feat-x"}', 'feat-x');
+  assert(ok.status === 0 && ok.seen.includes('PR=4242'), `GREEN: open PR on the pushed branch ⇒ PR_ID_COLLISION_PR=4242 exported (got ${JSON.stringify(ok.seen)})`);
+  const closed = prFor('{"number":4242,"state":"CLOSED","headRefName":"feat-x"}', 'feat-x');
+  assert(closed.status === 0 && closed.seen.includes('PR=\n'), `RED: closed PR ⇒ NOT exported, push unaffected (got ${JSON.stringify(closed.seen)})`);
+  const wrong = prFor('{"number":7,"state":"OPEN","headRefName":"someone-else"}', 'feat-x');
+  assert(wrong.status === 0 && wrong.seen.includes('PR=\n'), `RED: wrong headRefName ⇒ NOT exported (got ${JSON.stringify(wrong.seen)})`);
+  const err = prFor('', 'feat-x', 1);
+  assert(err.status === 0 && err.seen.includes('PR=\n'), `RED: gh failure ⇒ NOT exported and the push still proceeds (got ${JSON.stringify(err.seen)})`);
+}
+
 console.log(`\n${failures === 0 ? '✅' : '❌'} ${failures} failure(s).`);
 process.exit(failures ? 1 : 0);
