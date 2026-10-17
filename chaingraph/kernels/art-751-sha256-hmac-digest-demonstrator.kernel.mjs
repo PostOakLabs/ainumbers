@@ -218,7 +218,7 @@ const INPUT_ENCODINGS = ['utf8', 'hex'];
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'compute_sha256_hmac_digest_demonstrator',
+  mcp_name: 'compute_sha256_hmac_digest',
   mandate_type: 'compliance_control', gpu: false,
 };
 

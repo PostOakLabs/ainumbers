@@ -1,5 +1,5 @@
 // art-751-sha256-hmac-digest-demonstrator -- class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:09e905e7af8060378961b488e0d41948e36acbdcd49496f66aa690131449cacd
+// kernel_digest_at_authoring: sha256:dd59994be22b706a37764b59b362aa949096494b0dc2496180865a0c49f8aaba
 // spec: ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec.0.1 (bundle + demonstrator) + Sec.4 (composition contract)
 //       + board row SHARED-SHA256-BUNDLE-1
 // human_sign_off: PENDING
