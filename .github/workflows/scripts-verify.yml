@@ -317,8 +317,24 @@ jobs:
         run: |
           echo "head commit is the regen bot's (chore(derived): regenerate…) — no ephemeral assembly, DERIVED_ROOT left empty, freshness gates judge the COMMITTED tree."
 
+      # pull_request only: assemble a scratch monolith for the §18 coverage gate ALONE (read via
+      # S18_DERIVED_ROOT, which no other gate reads). A first-prove PR edits node shards only, so the
+      # committed chaingraph.json still names its node as deferred and the hard PR-side §18 ratchet
+      # loops against pr-autofix's baseline bump. DERIVED_ROOT stays empty on pull_request, so every
+      # other gate keeps judging the committed tree exactly as before.
+      - name: Ephemeral monolith for §18 (pull_request)
+        id: s18tree
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRATCH="${RUNNER_TEMP}/s18-derived-tree"
+          node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
+          echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+
       - name: Preflight (full gate suite)
         env:
+          S18_DERIVED_ROOT: ${{ steps.s18tree.outputs.root }}
           # TIER-LEG SHARDING: this job runs EVERY gate EXCEPT the
           # mutation-tier leg (PREFLIGHT_TIER_LEG=skip swaps that one GATES
           # entry for its no-op notRun shape inside preflight; nothing else is
