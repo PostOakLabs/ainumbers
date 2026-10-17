@@ -15,22 +15,19 @@
 // Checks: fixture-oracle gate, NIST vectors (P1), RFC 4231 cases 1-7 (P2), random-bytes differential
 // vs node:crypto across every padding residue (P3), HMAC differential across key lengths on both
 // sides of the 64-byte block (P4), UTF-8 differential vs Buffer incl. surrogates (P5), totality over
-// hostile inputs (P6), determinism (P7), output-shape sanity (P8), and the inlined-region
-// byte-identity manual drift check against _sha256.bundle.mjs (P9, build spec Sec.4.2).
+// hostile inputs (P6), determinism (P7), and output-shape sanity (P8). Inline byte-identity with
+// _sha256.bundle.mjs is NOT a property here (the mutation tier runs this file against an instrumented
+// copy of the kernel); it is gated by the `sha256` pair in scripts/inline-ssot-sync-manifest.json.
 //
 // ZERO external dependencies -- Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
 // Run: node chaingraph/kernels/__proptests__/art-751-sha256-hmac-digest-demonstrator.proptest.mjs
 
 import { createHash, createHmac } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { compute } from '../art-751-sha256-hmac-digest-demonstrator.kernel.mjs';
 import { runFixtureOracle, findShapeViolations, summarize, mulberry32, pickNasty, deepEqual } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-751-sha256-hmac-digest-demonstrator';
-const HERE = dirname(fileURLToPath(import.meta.url));
 
 const hexOf = (buf) => Buffer.from(buf).toString('hex');
 // bytes are carried as hex strings throughout: the checkJs Buffer stub has no alloc()/from(array)
@@ -176,18 +173,6 @@ function checkP8_shape() {
   return { name: 'P8_output_shape_and_algorithm_id_echo', checked, violations };
 }
 
-// ---- P9: inlined region is byte-identical to the bundle (build spec Sec.4.2 manual drift check) -----
-function checkP9_inlineIdentity() {
-  const bundle = readFileSync(join(HERE, '..', '_sha256.bundle.mjs'), 'utf8');
-  const kernel = readFileSync(join(HERE, '..', KERNEL_ID + '.kernel.mjs'), 'utf8');
-  const marker = '\nexport const ALGORITHM_ID';
-  const cut = bundle.indexOf(marker);
-  let violations = 0;
-  if (cut < 0 || bundle.indexOf(marker, cut + 1) !== -1) violations++;
-  else if (!kernel.includes(bundle.slice(0, cut).trim())) violations++;
-  return { name: 'P9_inlined_region_byte_identical_to_bundle', checked: 1, violations };
-}
-
 // ---------- run ----------
 let oracle;
 try {
@@ -205,7 +190,6 @@ const properties = [
   checkP6_totality(),
   checkP7_determinism(),
   checkP8_shape(),
-  checkP9_inlineIdentity(),
 ];
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
