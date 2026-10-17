@@ -738,6 +738,28 @@ function runSelfTest() {
 // above stays the reporting machinery's control and keeps exiting here.
 if (!QUICK && process.argv.includes('--self-test')) process.exit(runSelfTest());
 
+// PREPUSH-MERGE-HANG-1 (2026-10-16): the committed-vs-base leg of EVERY
+// touched-set computation below diffs against the PR base — `git merge-base
+// origin/main HEAD` — with `@{u}` only as the fallback where origin/main does
+// not resolve. HOOK-TOUCHED-SET-REBASE-1 fixed this for the kernel set only;
+// the helm / FV-floor / derived-regen-live / vendor-land / L2 sets still used
+// merge-base(@{u}, HEAD). After `git merge origin/main` (or a rebase) on an
+// already-pushed branch, @{u} is the PRE-merge tip, so that diff swept in
+// every file main landed since the last push. Measured on RESPA-732-D2
+// (fb11ef0b, 2026-10-16): @{u}-base diff = 772 files vs 16 branch-own files;
+// main's scripts/gen-hub-scenes.mjs tripped derivedRegenLiveScopeTouched(),
+// which ran the full live derived-set regen (check-derived-regen-live.mjs
+// --check) inside the hook — the pre-push ran >60 min twice with no output.
+// Throws when neither base resolves; callers keep their own fail-open/closed.
+function touchedSetBase(repoPath = REPO) {
+  try {
+    return execSync('git merge-base origin/main HEAD', { cwd: repoPath, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: repoPath, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    return execSync(`git merge-base ${upstream} HEAD`, { cwd: repoPath, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  }
+}
+
 // HELMGATE-DECOUPLE-1 (2026-07-31): the 4 helm drift/freshness gates below
 // assert helm.html against helm/version.json + helm/guide-freshness.json —
 // state that goes stale on a schedule set by a SEPARATE repo's release job,
@@ -759,8 +781,7 @@ function helmPathsTouched() {
     execSync('git diff --name-only --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString().split('\n').forEach(f => f && touched.add(f));
     try {
-      const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-      const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      const base = touchedSetBase(); // PREPUSH-MERGE-HANG-1: PR base, not a stale @{u}
       execSync(`git diff --name-only ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
         .toString().split('\n').forEach(f => f && touched.add(f));
     } catch { /* no upstream configured — local/staged diff above is what we have */ }
@@ -787,8 +808,7 @@ function touchedFloorFiles() {
     execSync('git diff --name-only --diff-filter=ACM --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString().split('\n').forEach(f => f && touched.add(f));
     try {
-      const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-      const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      const base = touchedSetBase(); // PREPUSH-MERGE-HANG-1: PR base, not a stale @{u}
       execSync(`git diff --name-only --diff-filter=ACM ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
         .toString().split('\n').forEach(f => f && touched.add(f));
     } catch { /* no upstream configured — working tree/staged diff above is what we have */ }
@@ -939,8 +959,7 @@ function derivedRegenLiveScopeTouched() {
     execSync('git diff --name-only --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString().split('\n').forEach(f => f && touched.add(f));
     try {
-      const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-      const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      const base = touchedSetBase(); // PREPUSH-MERGE-HANG-1: PR base, not a stale @{u}
       execSync(`git diff --name-only ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
         .toString().split('\n').forEach(f => f && touched.add(f));
     } catch { /* no upstream configured — working tree/staged diff above is what we have */ }
@@ -2934,8 +2953,7 @@ try {
   execSync('git diff --name-only --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
     .toString().split('\n').forEach(f => f && touched.add(f));
   try {
-    const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-    const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    const base = touchedSetBase(); // PREPUSH-MERGE-HANG-1: PR base, not a stale @{u}
     execSync(`git diff --name-only ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString().split('\n').forEach(f => f && touched.add(f));
   } catch { /* no upstream configured — uncommitted/staged diff already covers local work */ }
@@ -3008,8 +3026,7 @@ gateStart(L2_LABEL);
   collectDiff('HEAD');
   collectDiff('--cached');
   try {
-    const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-    const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    const base = touchedSetBase(); // PREPUSH-MERGE-HANG-1: PR base, not a stale @{u}
     collectDiff(`${base} HEAD`);
   } catch { /* no upstream — local diff already covers it */ }
 
