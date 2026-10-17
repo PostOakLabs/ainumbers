@@ -29,7 +29,12 @@ export const meta = {
 //      deficiency) against the target low point (stated cushion, or the
 //      one-sixth cap when none is supplied), and emit the remedy thresholds
 //      the metadata's remedy basis cites: the $50 mandatory-refund floor for a
-//      surplus, and the one-month's-payment shortage spread trigger.
+//      surplus, and, for a shortage, the set of courses the rule
+//      PERMITS (every course is a "may"; the kernel never emits a required
+//      spread). The shortage threshold base is the borrower's monthly escrow
+//      account payment: pp.monthly_escrow_payment when supplied, else the mean
+//      of pp.monthly_payments, else unavailable (then only the courses
+//      permitted on both sides of the threshold are emitted).
 //   5. Emit evidence fields (stable scalars, no free-text PII carriers)
 //      suitable for anchored-receipt shaping downstream.
 //
@@ -55,7 +60,8 @@ export const meta = {
 
 const CUSHION_FRACTION_MAX = 1 / 6; // cushion cap: 1/6 of estimated total annual disbursements
 const SURPLUS_REFUND_THRESHOLD = 50; // mandatory-refund floor for a disclosed surplus
-const SHORTAGE_SPREAD_MIN_MONTHS = 12; // minimum spread period for a repayable shortage
+const SHORTAGE_SPREAD_MIN_MONTHS = 12; // minimum period if the servicer elects equal monthly repayment
+const SHORTAGE_COURSES = ['do_nothing', 'repay_within_30_days', 'repay_equal_monthly_12_plus_months'];
 const MAX_PERIODS = 12; // bounded: one computation year
 const LINE_TOLERANCE = 0.01; // statement-line rounding tolerance
 
@@ -200,12 +206,24 @@ export function compute(pp) {
   const isBalanced = !isDeficiency && !isShortage && !isSurplus;
 
   let shortageAmount = 0, surplusAmount = 0;
-  let shortageSpreadRequired = false, surplusRefundRequired = false;
+  let surplusRefundRequired = false;
   let surplusRefundUnverified = false;
+  let shortagePermittedCourses = [];
+  let shortageAtOrAboveOneMonth = null;
+  let servicerCoursePermitted = null;
 
-  const monthlyEscrowProxy = periods > 0 && monthlyPayments.length > 0
-    ? r2(totalAnnualDisbursements / MAX_PERIODS)
-    : 0;
+  // Threshold base: the borrower's monthly escrow account payment (not
+  // total annual disbursements / 12). Supplied value wins; else the mean of
+  // the supplied monthly payments; else unavailable.
+  const suppliedMonthly = Number(pp.monthly_escrow_payment);
+  let shortageThresholdBase = 0, shortageThresholdBaseSource = 'unavailable';
+  if (pp.monthly_escrow_payment !== null && pp.monthly_escrow_payment !== '' && typeof pp.monthly_escrow_payment !== 'boolean' && Number.isFinite(suppliedMonthly) && suppliedMonthly > 0) {
+    shortageThresholdBase = r2(suppliedMonthly);
+    shortageThresholdBaseSource = 'monthly_escrow_payment';
+  } else if (monthlyPayments.length > 0) {
+    const mean = r2(monthlyPayments.reduce((a, b) => a + b, 0) / monthlyPayments.length);
+    if (mean > 0) { shortageThresholdBase = mean; shortageThresholdBaseSource = 'mean_of_monthly_payments'; }
+  }
 
   if (isDeficiency) {
     shortageAmount = r2(-lowPoint);
@@ -213,9 +231,23 @@ export function compute(pp) {
   } else if (isShortage) {
     shortageAmount = r2(-spreadVsTarget);
     compliance_flags.push('ESCROW_SHORTAGE');
-    if (shortageAmount >= monthlyEscrowProxy - 1e-9) {
-      shortageSpreadRequired = true;
-      compliance_flags.push('ESCROW_SHORTAGE_MANDATORY_SPREAD');
+    compliance_flags.push('ESCROW_SHORTAGE_COURSES_PERMITTED');
+    if (shortageThresholdBaseSource === 'unavailable') {
+      // Threshold unknown: emit only the courses permitted on both sides.
+      shortagePermittedCourses = ['do_nothing', 'repay_equal_monthly_12_plus_months'];
+      compliance_flags.push('ESCROW_SHORTAGE_THRESHOLD_BASE_UNAVAILABLE');
+    } else if (shortageAmount >= shortageThresholdBase - 1e-9) {
+      shortageAtOrAboveOneMonth = true;
+      shortagePermittedCourses = ['do_nothing', 'repay_equal_monthly_12_plus_months'];
+      compliance_flags.push('ESCROW_SHORTAGE_AT_OR_ABOVE_ONE_MONTH_PAYMENT');
+    } else {
+      shortageAtOrAboveOneMonth = false;
+      shortagePermittedCourses = SHORTAGE_COURSES.slice();
+      compliance_flags.push('ESCROW_SHORTAGE_BELOW_ONE_MONTH_PAYMENT');
+    }
+    if (typeof pp.servicer_chosen_course === 'string' && SHORTAGE_COURSES.indexOf(pp.servicer_chosen_course) !== -1) {
+      servicerCoursePermitted = shortagePermittedCourses.indexOf(pp.servicer_chosen_course) !== -1;
+      if (!servicerCoursePermitted) compliance_flags.push('SERVICER_SHORTAGE_COURSE_NOT_PERMITTED');
     }
   } else if (isSurplus) {
     surplusAmount = r2(spreadVsTarget);
@@ -273,10 +305,14 @@ export function compute(pp) {
     account_status: evidence.account_status,
     shortage_amount: shortageAmount,
     surplus_amount: surplusAmount,
-    shortage_spread_required: shortageSpreadRequired,
+    shortage_threshold_base: shortageThresholdBase,
+    shortage_threshold_base_source: shortageThresholdBaseSource,
+    shortage_at_or_above_one_month_payment: shortageAtOrAboveOneMonth,
+    shortage_permitted_courses: shortagePermittedCourses,
+    servicer_course_permitted: servicerCoursePermitted,
     surplus_refund_required: surplusRefundRequired,
     surplus_refund_unverified: surplusRefundUnverified,
-    minimum_spread_months: SHORTAGE_SPREAD_MIN_MONTHS,
+    shortage_repay_min_months_if_elected: SHORTAGE_SPREAD_MIN_MONTHS,
     discrepancies: { count: discrepancyLines.length, lines: discrepancyLines },
     evidence,
     manual_review_required: manualReviewRequired,
