@@ -69,6 +69,7 @@ import { writeFileSync, appendFileSync } from 'node:fs';
 const args = process.argv.slice(2);
 writeFileSync(process.env.MOCK_ARGV_DUMP, JSON.stringify(args));
 if (process.env.MOCK_ARGV_LOG) appendFileSync(process.env.MOCK_ARGV_LOG, JSON.stringify(args) + '\\n');
+if (process.env.MOCK_ENV_LOG) appendFileSync(process.env.MOCK_ENV_LOG, 'PR=' + (process.env.PR_ID_COLLISION_PR || '') + '\\n');
 console.log('mock preflight received: ' + args.join(' '));
 process.exit(process.env.MOCK_PREFLIGHT_EXIT ? Number(process.env.MOCK_PREFLIGHT_EXIT) : 0);
 `;
@@ -97,16 +98,18 @@ function makeSandbox() {
 // Runs the sandboxed hook exactly as `git push` would invoke it: cwd at the
 // repo root, refs on stdin (empty is fine — reconcile-guard.mjs is absent so
 // that whole block is skipped), env is the ONLY declaration channel.
-function runHook(dir, envOverrides) {
+function runHook(dir, envOverrides, input = '') {
   const argvDump = join(dir, 'argv-dump.json');
   const metricsFile = join(dir, 'metrics.jsonl');
   const res = spawnSync('bash', ['.githooks/pre-push'], {
     cwd: dir,
-    input: '',
+    input,
     env: {
       ...process.env,
       MOCK_ARGV_DUMP: argvDump,
       MOCK_ARGV_LOG: join(dir, 'argv-log.jsonl'),
+      MOCK_ENV_LOG: join(dir, 'env-log.txt'),
+      PR_ID_COLLISION_PR: '',
       AINUM_GUARDRAIL_METRICS_PATH: metricsFile,
       // Explicitly unset — a leaked value from the outer shell must never
       // leak into a scenario that expects it absent (the no-persistence check).
@@ -287,6 +290,52 @@ let greenDenied;
   assert(r.status === 0, 'PREFLIGHT_FULL=1: hook exits 0 when both legs are green');
   assert(JSON.stringify(r.argv) === JSON.stringify(['--changed', 'origin/main', '--expect-red', 'gate-f']),
     `PREFLIGHT_FULL=1: the full leg forwards --changed origin/main plus declared ids (last invocation got ${JSON.stringify(r.argv)})`);
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+}
+
+// ── 11/12. PREPUSH-NARROW-1 — the full-suite trigger. A sandbox WITH an
+//      origin/main ref and the real trigger script: a docs-only scripts/ diff
+//      runs quick only (RED control for the old pathspec, which ran full); a
+//      scripts/*.mjs diff runs FULL ONLY (quick leg skipped) and tees a log.
+function makeTriggerSandbox(changedPath) {
+  const dir = makeSandbox();
+  copyFileSync(fileURLToPath(new URL('../scripts/prepush-full-trigger.mjs', import.meta.url)), join(dir, 'scripts', 'prepush-full-trigger.mjs'));
+  const g = (...a) => spawnSync('git', a, { cwd: dir, env: isolatedChildEnv(), encoding: 'utf8' });
+  g('config', 'user.email', 't@example.invalid'); g('config', 'user.name', 't');
+  writeFileSync(join(dir, 'seed.txt'), 'x');
+  g('add', 'seed.txt'); g('commit', '-q', '-m', 'seed');
+  g('update-ref', 'refs/remotes/origin/main', 'HEAD');
+  mkdirSync(join(dir, dirname(changedPath)), { recursive: true });
+  writeFileSync(join(dir, changedPath), 'y');
+  g('add', changedPath); g('commit', '-q', '-m', 'change');
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  return dir;
+}
+function loggedArgvs(dir) {
+  const f = join(dir, 'argv-log.jsonl');
+  return existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+}
+{
+  const dir = makeTriggerSandbox('scripts/NOTES.md');
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
+  const calls = loggedArgvs(dir);
+  assert(r.status === 0 && calls.length === 1 && calls[0][0] === '--quick',
+    `docs-only scripts/ diff (GREEN, not owed): quick leg only (got ${JSON.stringify(calls)})`);
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+}
+{
+  const dir = makeTriggerSandbox('scripts/new-gate.mjs');
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
+  const calls = loggedArgvs(dir);
+  assert(r.status === 0 && calls.length === 1 && calls[0][0] === '--changed' && calls[0][1] === 'origin/main',
+    `scripts/*.mjs diff (RED, owed): FULL leg only, quick skipped as a subset (got ${JSON.stringify(calls)})`);
+  assert(existsSync(join(dir, '.git', 'preflight-full.log')), 'full leg output is teed to .git/preflight-full.log');
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+}
+{
+  const dir = makeTriggerSandbox('scripts/new-gate.mjs');
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '1' });
+  assert(r.status !== 0, 'full leg red (exit status survives the tee pipe) still BLOCKS the push');
   rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }
 
