@@ -188,6 +188,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="field"><label for="starting_balance">Starting balance ($, stated opening escrow balance)</label><input type="text" id="starting_balance" value="0" aria-label="starting_balance" aria-description="Stated opening escrow balance at the start of the computation year, in dollars. Required."></div>
       <div class="field"><label for="stated_cushion">Stated cushion ($, optional)</label><input type="text" id="stated_cushion" value="0" aria-label="stated_cushion" aria-description="Optional: the servicer stated/target cushion amount. Checked against the one-sixth cap when supplied."></div>
       <div class="field"><label for="borrower_current">Borrower current (optional)</label><select id="borrower_current" aria-label="borrower_current" aria-description="Optional: whether the borrower is current at analysis time. A refund-band surplus without it holds the audit for manual review."><option value="">not stated (surplus refunds held for review)</option><option value="true">current</option><option value="false">not current</option></select></div>
+      <div class="field"><label for="monthly_escrow_payment">Monthly escrow payment ($, optional)</label><input type="text" id="monthly_escrow_payment" value="" aria-label="monthly_escrow_payment" aria-description="Optional: the borrower's monthly escrow payment in dollars, the base for the one-month shortage threshold. Defaults to the mean of monthly_payments."></div>
+      <div class="field"><label for="servicer_chosen_course">Servicer shortage course (optional)</label><select id="servicer_chosen_course" aria-label="servicer_chosen_course" aria-description="Optional: the course the servicer chose: do_nothing, repay_within_30_days or repay_equal_monthly_12_plus_months. Reported as permitted or not."><option value="">not stated</option><option value="do_nothing">allow the shortage and do nothing</option><option value="repay_within_30_days">repay within 30 days</option><option value="repay_equal_monthly_12_plus_months">equal monthly payments over 12 or more months</option></select></div>
       <div class="field" style="grid-column:1/-1"><label for="monthly_payments">Monthly escrow deposit values JSON (array of numbers, max 12)</label><textarea id="monthly_payments" rows="2" style="width:100%;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:.5rem;font-family:JetBrains Mono,monospace;font-size:.62rem" aria-label="monthly_payments" aria-description="Stated monthly escrow deposit values, one per month, at most 12 entries. Values only - never dates or identifiers.">[100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100]</textarea></div>
       <div class="field" style="grid-column:1/-1"><label for="disbursements">Monthly disbursement values JSON (array of numbers, max 12)</label><textarea id="disbursements" rows="2" style="width:100%;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:.5rem;font-family:JetBrains Mono,monospace;font-size:.62rem" aria-label="disbursements" aria-description="Stated monthly escrow disbursement values, one per month, at most 12 entries. Values only.">[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1200]</textarea></div>
       <div class="field" style="grid-column:1/-1"><label for="stated_balances">Statement end-of-month balance values JSON (array of numbers)</label><textarea id="stated_balances" rows="2" style="width:100%;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:.5rem;font-family:JetBrains Mono,monospace;font-size:.62rem" aria-label="stated_balances" aria-description="The servicer statement end-of-month balance values, one per month. Compared line by line against the recomputation.">[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 0]</textarea></div>
@@ -249,7 +251,7 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/732-bor
 (function () {
   'use strict';
   var RUN_TARGET = "runCompute";
-  var TABLE = {"starting_balance":["starting_balance","Stated opening escrow balance at the start of the computation year, in dollars. Required."],"monthly_payments":["monthly_payments","Stated monthly escrow deposit values, one per month, at most 12 entries. Values only - never dates or identifiers."],"disbursements":["disbursements","Stated monthly escrow disbursement values, one per month, at most 12 entries. Values only."],"stated_balances":["stated_balances","The servicer statement end-of-month balance values, one per month. Compared line by line against the recomputation."],"stated_cushion":["stated_cushion","Optional: the servicer stated/target cushion amount. Checked against the one-sixth cap when supplied."],"borrower_current":["borrower_current","Optional: whether the borrower is current at analysis time. A refund-band surplus without it holds the audit for manual review."]};
+  var TABLE = {"starting_balance":["starting_balance","Stated opening escrow balance at the start of the computation year, in dollars. Required."],"monthly_payments":["monthly_payments","Stated monthly escrow deposit values, one per month, at most 12 entries. Values only - never dates or identifiers."],"disbursements":["disbursements","Stated monthly escrow disbursement values, one per month, at most 12 entries. Values only."],"stated_balances":["stated_balances","The servicer statement end-of-month balance values, one per month. Compared line by line against the recomputation."],"stated_cushion":["stated_cushion","Optional: the servicer stated/target cushion amount. Checked against the one-sixth cap when supplied."],"borrower_current":["borrower_current","Optional: whether the borrower is current at analysis time. A refund-band surplus without it holds the audit for manual review."],"monthly_escrow_payment":["monthly_escrow_payment","Optional: the borrower's monthly escrow payment in dollars, the base for the one-month shortage threshold. Defaults to the mean of monthly_payments."],"servicer_chosen_course":["servicer_chosen_course","Optional: the course the servicer chose: do_nothing, repay_within_30_days or repay_equal_monthly_12_plus_months. Reported as permitted or not."]};
   var VERDICT_KEYS = ["verdict","final_verdict","overall_verdict","significance_verdict","classification","entity_classification","conclusion","outcome","decision","grade","overall_status","status"];
   var st = null;
   function ensureRegion() {
@@ -421,7 +423,7 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/732-bor
    (chaingraph/kernels/732-borrower-escrow-auditor.kernel.mjs). The port is
    line-faithful to the kernel: same rounding, same closed refusal set, same
    flag names. Values only — every string-valued input is refused. */
-const MANIFEST = {"tool_id":"732-borrower-escrow-auditor","version":"1.0.0","title":"Borrower Escrow Statement Auditor","description":"Audits a servicer escrow accounting statement from borrower-supplied values only: recomputes the aggregate accounting trial running balance month by month, compares the servicer stated end-of-month balances line by line, flags each discrepant line, checks the stated cushion against the one-sixth-of-annual-disbursements cap, and classifies the recomputed account as balanced, shortage, surplus, or deficiency. Identifier-like fields are refused, never echoed; over 12 monthly periods is refused.","category":"chaingraph","tags":["escrow","mortgage-servicing","statement-audit","mcp:audit_borrower_escrow_stmt"],"input_schema":{"type":"object","required":["starting_balance","monthly_payments","disbursements","stated_balances"],"properties":{"starting_balance":{"type":"number","description":"Stated opening escrow balance at the start of the computation year, in dollars. Required."},"monthly_payments":{"type":"array","items":{"type":"number"},"description":"Stated monthly escrow deposit values, one per month, at most 12 entries. Values only - never dates or identifiers."},"disbursements":{"type":"array","items":{"type":"number"},"description":"Stated monthly escrow disbursement values, one per month, at most 12 entries. Values only."},"stated_balances":{"type":"array","items":{"type":"number"},"description":"The servicer statement end-of-month balance values, one per month. Compared line by line against the recomputation."},"stated_cushion":{"type":"number","description":"Optional: the servicer stated/target cushion amount. Checked against the one-sixth cap when supplied."},"borrower_current":{"type":"boolean","description":"Optional: whether the borrower is current at analysis time. A refund-band surplus without it holds the audit for manual review."}}},"mcp_tool_definition":{"name":"audit_borrower_escrow_stmt","description":"Audits a servicer escrow accounting statement from borrower-supplied values only: recomputes the aggregate accounting trial running balance month by month, compares the servicer stated end-of-month balances line by line, flags each discrepant line, checks the stated cushion against the one-sixth-of-annual-disbursements cap, and classifies the recomputed account as balanced, shortage, surplus, or deficiency. Identifier-like fields are refused, never echoed; over 12 monthly periods is refused.","inputSchema":{"type":"object","required":["starting_balance","monthly_payments","disbursements","stated_balances"],"properties":{"starting_balance":{"type":"number","description":"Stated opening escrow balance at the start of the computation year, in dollars. Required."},"monthly_payments":{"type":"array","items":{"type":"number"},"description":"Stated monthly escrow deposit values, one per month, at most 12 entries. Values only - never dates or identifiers."},"disbursements":{"type":"array","items":{"type":"number"},"description":"Stated monthly escrow disbursement values, one per month, at most 12 entries. Values only."},"stated_balances":{"type":"array","items":{"type":"number"},"description":"The servicer statement end-of-month balance values, one per month. Compared line by line against the recomputation."},"stated_cushion":{"type":"number","description":"Optional: the servicer stated/target cushion amount. Checked against the one-sixth cap when supplied."},"borrower_current":{"type":"boolean","description":"Optional: whether the borrower is current at analysis time. A refund-band surplus without it holds the audit for manual review."}}}},"execution":{"type":"browser-javascript","entry":"chaingraph/732-borrower-escrow-auditor.html","function_name":"runCompute","timeout_ms":5000},"ap2_export":true,"source":"chaingraph/kernels/732-borrower-escrow-auditor.kernel.mjs","input_schema_provenance":"Top-level properties are exactly the policy_parameters members the kernel reads: starting_balance, monthly_payments, disbursements, stated_balances, stated_cushion, borrower_current.","author":"PostOakLabs","license":"CC-BY-4.0","input_example":{"starting_balance":0,"monthly_payments":[100,100,100,100,100,100,100,100,100,100,100,100],"disbursements":[0,0,0,0,0,0,0,0,0,0,0,1200],"stated_balances":[100,200,300,400,500,600,700,800,900,1000,1100,0],"stated_cushion":0,"borrower_current":true},"output_example":null,"example_execution_hash":"3d5cafb294912069b7d8ea5ab7edafd23968e4bbab95acb792edad7a8827e9ee","output_schema":{"type":"object","properties":{"verdict":{"type":"string"},"account_status":{"type":["string","null"]},"periods_analyzed":{"type":"integer"},"recomputed_balances":{"type":"array","items":{"type":"number"}},"recomputed_low_point":{"type":"number"},"target_low_point":{"type":"number"},"total_annual_disbursements":{"type":"number"},"cushion_cap_amount":{"type":"number"},"stated_cushion":{"type":["number","null"]},"cushion_within_cap":{"type":["boolean","null"]},"shortage_amount":{"type":"number"},"surplus_amount":{"type":"number"},"shortage_spread_required":{"type":"boolean"},"surplus_refund_required":{"type":"boolean"},"surplus_refund_unverified":{"type":"boolean"},"discrepancies":{"type":"object"},"evidence":{"type":"object"},"manual_review_required":{"type":"boolean"}}}};
+const MANIFEST = {"tool_id":"732-borrower-escrow-auditor","version":"1.0.0","title":"Borrower Escrow Statement Auditor","description":"Audits a servicer escrow accounting statement from borrower-supplied values only: recomputes the aggregate accounting trial running balance month by month, compares the servicer stated end-of-month balances line by line, flags each discrepant line, checks the stated cushion against the one-sixth-of-annual-disbursements cap, and classifies the recomputed account as balanced, shortage, surplus, or deficiency. Identifier-like fields are refused, never echoed; over 12 monthly periods is refused.","category":"chaingraph","tags":["escrow","mortgage-servicing","statement-audit","mcp:audit_borrower_escrow_stmt"],"input_schema":{"type":"object","required":["starting_balance","monthly_payments","disbursements","stated_balances"],"properties":{"starting_balance":{"type":"number","description":"Stated opening escrow balance at the start of the computation year, in dollars. Required."},"monthly_payments":{"type":"array","items":{"type":"number"},"description":"Stated monthly escrow deposit values, one per month, at most 12 entries. Values only - never dates or identifiers."},"disbursements":{"type":"array","items":{"type":"number"},"description":"Stated monthly escrow disbursement values, one per month, at most 12 entries. Values only."},"stated_balances":{"type":"array","items":{"type":"number"},"description":"The servicer statement end-of-month balance values, one per month. Compared line by line against the recomputation."},"stated_cushion":{"type":"number","description":"Optional: the servicer stated/target cushion amount. Checked against the one-sixth cap when supplied."},"borrower_current":{"type":"boolean","description":"Optional: whether the borrower is current at analysis time. A refund-band surplus without it holds the audit for manual review."},"monthly_escrow_payment":{"type":"number","description":"Optional: the borrower's monthly escrow payment in dollars, the base for the one-month shortage threshold. Defaults to the mean of monthly_payments."},"servicer_chosen_course":{"type":"string","enum":["do_nothing","repay_within_30_days","repay_equal_monthly_12_plus_months"],"description":"Optional: the course the servicer chose: do_nothing, repay_within_30_days or repay_equal_monthly_12_plus_months. Reported as permitted or not."}}},"mcp_tool_definition":{"name":"audit_borrower_escrow_stmt","description":"Audits a servicer escrow accounting statement from borrower-supplied values only: recomputes the aggregate accounting trial running balance month by month, compares the servicer stated end-of-month balances line by line, flags each discrepant line, checks the stated cushion against the one-sixth-of-annual-disbursements cap, and classifies the recomputed account as balanced, shortage, surplus, or deficiency. Identifier-like fields are refused, never echoed; over 12 monthly periods is refused.","inputSchema":{"type":"object","required":["starting_balance","monthly_payments","disbursements","stated_balances"],"properties":{"starting_balance":{"type":"number","description":"Stated opening escrow balance at the start of the computation year, in dollars. Required."},"monthly_payments":{"type":"array","items":{"type":"number"},"description":"Stated monthly escrow deposit values, one per month, at most 12 entries. Values only - never dates or identifiers."},"disbursements":{"type":"array","items":{"type":"number"},"description":"Stated monthly escrow disbursement values, one per month, at most 12 entries. Values only."},"stated_balances":{"type":"array","items":{"type":"number"},"description":"The servicer statement end-of-month balance values, one per month. Compared line by line against the recomputation."},"stated_cushion":{"type":"number","description":"Optional: the servicer stated/target cushion amount. Checked against the one-sixth cap when supplied."},"borrower_current":{"type":"boolean","description":"Optional: whether the borrower is current at analysis time. A refund-band surplus without it holds the audit for manual review."},"monthly_escrow_payment":{"type":"number","description":"Optional: the borrower's monthly escrow account payment in dollars, the base for the one-month shortage threshold. Defaults to the mean of monthly_payments."},"servicer_chosen_course":{"type":"string","enum":["do_nothing","repay_within_30_days","repay_equal_monthly_12_plus_months"],"description":"Optional: the course the servicer chose: do_nothing, repay_within_30_days or repay_equal_monthly_12_plus_months. Reported as permitted or not."}}}},"execution":{"type":"browser-javascript","entry":"chaingraph/732-borrower-escrow-auditor.html","function_name":"runCompute","timeout_ms":5000},"ap2_export":true,"source":"chaingraph/kernels/732-borrower-escrow-auditor.kernel.mjs","input_schema_provenance":"Top-level properties are exactly the policy_parameters members the kernel reads: starting_balance, monthly_payments, disbursements, stated_balances, stated_cushion, borrower_current.","author":"PostOakLabs","license":"CC-BY-4.0","input_example":{"starting_balance":0,"monthly_payments":[100,100,100,100,100,100,100,100,100,100,100,100],"disbursements":[0,0,0,0,0,0,0,0,0,0,0,1200],"stated_balances":[100,200,300,400,500,600,700,800,900,1000,1100,0],"stated_cushion":0,"borrower_current":true},"output_example":null,"example_execution_hash":"3d5cafb294912069b7d8ea5ab7edafd23968e4bbab95acb792edad7a8827e9ee","output_schema":{"type":"object","properties":{"verdict":{"type":"string"},"account_status":{"type":["string","null"]},"periods_analyzed":{"type":"integer"},"recomputed_balances":{"type":"array","items":{"type":"number"}},"recomputed_low_point":{"type":"number"},"target_low_point":{"type":"number"},"total_annual_disbursements":{"type":"number"},"cushion_cap_amount":{"type":"number"},"stated_cushion":{"type":["number","null"]},"cushion_within_cap":{"type":["boolean","null"]},"shortage_amount":{"type":"number"},"surplus_amount":{"type":"number"},"shortage_threshold_base":{"type":"number"},"shortage_threshold_base_source":{"type":"string"},"shortage_at_or_above_one_month_payment":{"type":["boolean","null"]},"shortage_permitted_courses":{"type":"array","items":{"type":"string"}},"servicer_course_permitted":{"type":["boolean","null"]},"surplus_refund_required":{"type":"boolean"},"surplus_refund_unverified":{"type":"boolean"},"discrepancies":{"type":"object"},"evidence":{"type":"object"},"manual_review_required":{"type":"boolean"}}}};
 
 function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
 function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0; }
@@ -444,6 +446,7 @@ function firstStringIndex(arr) {
 const CUSHION_FRACTION_MAX = 1 / 6;
 const SURPLUS_REFUND_THRESHOLD = 50;
 const SHORTAGE_SPREAD_MIN_MONTHS = 12;
+const SHORTAGE_COURSES = ['do_nothing', 'repay_within_30_days', 'repay_equal_monthly_12_plus_months'];
 const MAX_PERIODS = 12;
 const LINE_TOLERANCE = 0.01;
 
@@ -562,12 +565,24 @@ function compute(pp) {
   const isBalanced = !isDeficiency && !isShortage && !isSurplus;
 
   let shortageAmount = 0, surplusAmount = 0;
-  let shortageSpreadRequired = false, surplusRefundRequired = false;
+  let surplusRefundRequired = false;
   let surplusRefundUnverified = false;
+  let shortagePermittedCourses = [];
+  let shortageAtOrAboveOneMonth = null;
+  let servicerCoursePermitted = null;
 
-  const monthlyEscrowProxy = periods > 0 && monthlyPayments.length > 0
-    ? r2(totalAnnualDisbursements / MAX_PERIODS)
-    : 0;
+  // Threshold base: the borrower's monthly escrow account payment (not
+  // total annual disbursements / 12). Supplied value wins; else the mean of
+  // the supplied monthly payments; else unavailable.
+  const suppliedMonthly = Number(pp.monthly_escrow_payment);
+  let shortageThresholdBase = 0, shortageThresholdBaseSource = 'unavailable';
+  if (pp.monthly_escrow_payment !== null && pp.monthly_escrow_payment !== '' && typeof pp.monthly_escrow_payment !== 'boolean' && Number.isFinite(suppliedMonthly) && suppliedMonthly > 0) {
+    shortageThresholdBase = r2(suppliedMonthly);
+    shortageThresholdBaseSource = 'monthly_escrow_payment';
+  } else if (monthlyPayments.length > 0) {
+    const mean = r2(monthlyPayments.reduce((a, b) => a + b, 0) / monthlyPayments.length);
+    if (mean > 0) { shortageThresholdBase = mean; shortageThresholdBaseSource = 'mean_of_monthly_payments'; }
+  }
 
   if (isDeficiency) {
     shortageAmount = r2(-lowPoint);
@@ -575,9 +590,23 @@ function compute(pp) {
   } else if (isShortage) {
     shortageAmount = r2(-spreadVsTarget);
     compliance_flags.push('ESCROW_SHORTAGE');
-    if (shortageAmount >= monthlyEscrowProxy - 1e-9) {
-      shortageSpreadRequired = true;
-      compliance_flags.push('ESCROW_SHORTAGE_MANDATORY_SPREAD');
+    compliance_flags.push('ESCROW_SHORTAGE_COURSES_PERMITTED');
+    if (shortageThresholdBaseSource === 'unavailable') {
+      // Threshold unknown: emit only the courses permitted on both sides.
+      shortagePermittedCourses = ['do_nothing', 'repay_equal_monthly_12_plus_months'];
+      compliance_flags.push('ESCROW_SHORTAGE_THRESHOLD_BASE_UNAVAILABLE');
+    } else if (shortageAmount >= shortageThresholdBase - 1e-9) {
+      shortageAtOrAboveOneMonth = true;
+      shortagePermittedCourses = ['do_nothing', 'repay_equal_monthly_12_plus_months'];
+      compliance_flags.push('ESCROW_SHORTAGE_AT_OR_ABOVE_ONE_MONTH_PAYMENT');
+    } else {
+      shortageAtOrAboveOneMonth = false;
+      shortagePermittedCourses = SHORTAGE_COURSES.slice();
+      compliance_flags.push('ESCROW_SHORTAGE_BELOW_ONE_MONTH_PAYMENT');
+    }
+    if (typeof pp.servicer_chosen_course === 'string' && SHORTAGE_COURSES.indexOf(pp.servicer_chosen_course) !== -1) {
+      servicerCoursePermitted = shortagePermittedCourses.indexOf(pp.servicer_chosen_course) !== -1;
+      if (!servicerCoursePermitted) compliance_flags.push('SERVICER_SHORTAGE_COURSE_NOT_PERMITTED');
     }
   } else if (isSurplus) {
     surplusAmount = r2(spreadVsTarget);
@@ -632,10 +661,14 @@ function compute(pp) {
     account_status: evidence.account_status,
     shortage_amount: shortageAmount,
     surplus_amount: surplusAmount,
-    shortage_spread_required: shortageSpreadRequired,
+    shortage_threshold_base: shortageThresholdBase,
+    shortage_threshold_base_source: shortageThresholdBaseSource,
+    shortage_at_or_above_one_month_payment: shortageAtOrAboveOneMonth,
+    shortage_permitted_courses: shortagePermittedCourses,
+    servicer_course_permitted: servicerCoursePermitted,
     surplus_refund_required: surplusRefundRequired,
     surplus_refund_unverified: surplusRefundUnverified,
-    minimum_spread_months: SHORTAGE_SPREAD_MIN_MONTHS,
+    shortage_repay_min_months_if_elected: SHORTAGE_SPREAD_MIN_MONTHS,
     discrepancies: { count: discrepancyLines.length, lines: discrepancyLines },
     evidence: evidence,
     manual_review_required: manualReviewRequired,
@@ -679,7 +712,8 @@ function paintResult() {
     }
     if (o.shortage_amount > 0) html += '<div class="out-row"><span class="k">Shortage amount</span><span class="v">' + o.shortage_amount + '</span></div>';
     if (o.surplus_amount > 0) html += '<div class="out-row"><span class="k">Surplus amount</span><span class="v">' + o.surplus_amount + '</span></div>';
-    if (o.shortage_spread_required) html += '<div class="out-row"><span class="k">Shortage spread mandatory</span><span class="v">yes (min ' + o.minimum_spread_months + ' months)</span></div>';
+    if (o.shortage_permitted_courses && o.shortage_permitted_courses.length) html += '<div class="out-row"><span class="k">Courses the rule permits for the shortage</span><span class="v">' + o.shortage_permitted_courses.join(', ') + ' (each is optional for the servicer)</span></div>';
+    if (o.servicer_course_permitted === false) html += '<div class="out-row"><span class="k">Servicer course</span><span class="v">not a permitted course at this shortage size</span></div>';
     if (o.surplus_refund_required) html += '<div class="out-row"><span class="k">Surplus refund required</span><span class="v">yes (borrower current)</span></div>';
     if (o.surplus_refund_unverified) html += '<div class="out-row"><span class="k">Surplus refund</span><span class="v">held &mdash; currency not stated</span></div>';
   }
@@ -707,6 +741,10 @@ function readInputs() {
   const current = document.getElementById('borrower_current').value;
   if (current === 'true') pp.borrower_current = true;
   else if (current === 'false') pp.borrower_current = false;
+  const mep = String(document.getElementById('monthly_escrow_payment').value || '').trim();
+  if (mep !== '') pp.monthly_escrow_payment = parseFloat(mep);
+  const course = document.getElementById('servicer_chosen_course').value;
+  if (course !== '') pp.servicer_chosen_course = course;
   return pp;
 }
 
@@ -867,6 +905,19 @@ if (mc) {
         "borrower_current": {
           "type": "boolean",
           "description": "Optional: whether the borrower is current at analysis time. A refund-band surplus without it holds the audit for manual review."
+        },
+        "monthly_escrow_payment": {
+          "type": "number",
+          "description": "Optional: the borrower's monthly escrow payment in dollars, the base for the one-month shortage threshold. Defaults to the mean of monthly_payments."
+        },
+        "servicer_chosen_course": {
+          "type": "string",
+          "enum": [
+            "do_nothing",
+            "repay_within_30_days",
+            "repay_equal_monthly_12_plus_months"
+          ],
+          "description": "Optional: the course the servicer chose: do_nothing, repay_within_30_days or repay_equal_monthly_12_plus_months. Reported as permitted or not."
         }
       }
     },
@@ -883,6 +934,8 @@ if (mc) {
       document.getElementById('stated_balances').value = JSON.stringify(params.stated_balances);
       if (params.stated_cushion !== undefined && params.stated_cushion !== null) document.getElementById('stated_cushion').value = String(params.stated_cushion);
       if (params.borrower_current !== undefined && params.borrower_current !== null) document.getElementById('borrower_current').value = String(params.borrower_current === true);
+      if (params.monthly_escrow_payment !== undefined && params.monthly_escrow_payment !== null) document.getElementById('monthly_escrow_payment').value = String(params.monthly_escrow_payment);
+      if (params.servicer_chosen_course !== undefined && params.servicer_chosen_course !== null) document.getElementById('servicer_chosen_course').value = String(params.servicer_chosen_course);
       await runCompute();
       return _lastArtifact;
       } catch (err) {
@@ -904,7 +957,7 @@ if (mc) {
   'use strict';
   var BUDGET = 30000;
   var RUN_TARGET = "runCompute";
-  var PREFILL = {"starting_balance":["starting_balance","string"],"monthly_payments":["monthly_payments","json"],"disbursements":["disbursements","json"],"stated_balances":["stated_balances","json"],"stated_cushion":["stated_cushion","string"],"borrower_current":["borrower_current","boolstring"]};
+  var PREFILL = {"starting_balance":["starting_balance","string"],"monthly_payments":["monthly_payments","json"],"disbursements":["disbursements","json"],"stated_balances":["stated_balances","json"],"stated_cushion":["stated_cushion","string"],"borrower_current":["borrower_current","boolstring"],"monthly_escrow_payment":["monthly_escrow_payment","string"],"servicer_chosen_course":["servicer_chosen_course","string"]};
   var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
 
   function b64uDec(s) {
@@ -1050,7 +1103,7 @@ if (mc) {
   'use strict';
   var MAX = 1000000;
   var RUN_TARGET = "runCompute";
-  var PREFILL = {"starting_balance":["starting_balance","string"],"monthly_payments":["monthly_payments","json"],"disbursements":["disbursements","json"],"stated_balances":["stated_balances","json"],"stated_cushion":["stated_cushion","string"],"borrower_current":["borrower_current","boolstring"]};
+  var PREFILL = {"starting_balance":["starting_balance","string"],"monthly_payments":["monthly_payments","json"],"disbursements":["disbursements","json"],"stated_balances":["stated_balances","json"],"stated_cushion":["stated_cushion","string"],"borrower_current":["borrower_current","boolstring"],"monthly_escrow_payment":["monthly_escrow_payment","string"],"servicer_chosen_course":["servicer_chosen_course","string"]};
   var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
 
   function fail(msg) {
