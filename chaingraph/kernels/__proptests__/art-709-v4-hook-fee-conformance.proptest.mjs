@@ -2,7 +2,7 @@
 // spec: RHC hooks build spec Addendum art-709 (research/rhc-hooks/RHC-HOOKS-BUILD-SPEC-2026-10-03.md),
 // Uniswap v4-core LPFeeLibrary.sol / ProtocolFeeLibrary.sol / Pool.sol at the pinned commit
 // a7cf038cd568801a79a9b4cf92cd5b52c95c8585
-// kernel_digest_at_authoring: sha256:979154bd3601f1c0e64186e41b3c0b9adef0df6842013d20fc0daf76145ef46f
+// kernel_digest_at_authoring: sha256:68ca34965c2b4f1c5f10617b45c673cf3034c7fe65de08d9cf763d9e0bb04a27
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.

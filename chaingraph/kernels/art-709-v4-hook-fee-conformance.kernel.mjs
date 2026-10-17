@@ -11,7 +11,7 @@ import { executionHash } from './_hash.mjs';
 //   src/libraries/LPFeeLibrary.sol      (DYNAMIC_FEE_FLAG 0x800000 L15, OVERRIDE_FEE_FLAG
 //                                       0x400000 L19, REMOVE_OVERRIDE_MASK 0xBFFFFF L22,
 //                                       MAX_LP_FEE 1_000_000 L25, isDynamicFee L31,
-//                                       isValid L38, hasOverrideFlag L62, removeOverrideFlag L69)
+//                                       isValid L38, isOverride L61, removeOverrideFlag L69)
 //   src/libraries/ProtocolFeeLibrary.sol (MAX_PROTOCOL_FEE 1000 L9, isValidProtocolFee L25,
 //                                       calculateSwapFee L38-46: swapFee = protocolFee +
 //                                       lpFee - protocolFee*lpFee/1_000_000)
