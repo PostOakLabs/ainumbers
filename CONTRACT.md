@@ -759,7 +759,7 @@ A chain (a `chaingraph.json` `chains[]` entry) is **WebMCP-conformant** when all
 | 3 | Every step node is registered: each step's `tool_id` resolves to a registered node tool | step resolution against the registered node set | Advisory: not measured by any gate today |
 | 4 | Browser and server composite hashes agree: the browser leg's composite `execution_hash` equals the server composite's, both computed per SPEC.md §21.2 | browser leg `run-chain-browser.mjs` against server leg `run-chain-corpus.mjs` (worker repo) | Advisory: report-only, compared by a person; SPEC.md §21.2 defines the browser preimage this part tests |
 
-Parts 2 to 4 stay advisory until the chain-execution vm gate lands. When it lands, the amendment that wires it changes the marks in this table; no other text in A15 moves.
+Marks measured 2026-10-18: parts 2 to 4 are advisory. To see where this stands, run `grep -n "webmcp" scripts/preflight.mjs`: a chain-execution vm gate wired there is what moves parts 2 to 4, and the amendment that wires it changes the marks in this table; no other text in A15 moves.
 
 ### A15.3 · Counts are derived, never typed
 Any published count of conformant pages or chains is **derived from a sentinel and date-stamped** (`<!--COUNT:key-->` per the count-drift gate, with the date of the census that produced it). A hand-typed conformance count, in this contract or on any shipped surface, is forbidden. This contract states no conformance figure for either definition.
