@@ -1,7 +1,7 @@
 // art-708-v4-hook-permission-reconciler — class-K property test floor, authored by ART708-V4HOOK-PERMBIT-RECONCILER-1.
 // spec: RHC hooks build spec WU-1 (research/rhc-hooks/RHC-HOOKS-BUILD-SPEC-2026-10-03.md), Uniswap v4-core
 // Hooks.sol at the pinned commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585
-// kernel_digest_at_authoring: sha256:123470ef10f74edc5da96dff1f02ac6eaf45027301a7c64c9aea50cad3686c84
+// kernel_digest_at_authoring: sha256:e08cd99eaa433bc5d34fddce29b5bc96932043799b00ecc03f90b6e8670d25e9
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
@@ -96,13 +96,13 @@ function checkP2_mismatchCountPopcount() {
 function checkP3_validityReference() {
   let violations = 0, checked = 0;
   const DYN = 0x800000n;
-  const FEES = [0n, 500n, 8388608n, 16777215n];
+  const FEES = [0n, 500n, 8388608n, 8388609n, 12582912n, 16777215n];
   for (let i = 0; i < TRIALS; i++) {
     const addr = BigInt(mkAddress(rand));
     const bits = addr & 0x3fffn;
     const has = (bit) => (bits & (1n << BigInt(bit))) !== 0n;
     const poolFee = FEES[Math.floor(rngPick(rand, FEES.length))];
-    const dyn = (poolFee & DYN) !== 0n;
+    const dyn = poolFee === DYN; // isDynamicFee: equality with the flag, not a bit test
     // independent reference (Hooks.sol isValidHookAddress, L109-127 at the pin)
     let ref = true;
     if (!has(7) && has(3)) ref = false;
@@ -157,14 +157,14 @@ function checkP5_hooklistShape() {
     const perms = randomPerms(rand);
     const dynamicFee = rand() < 0.5;
     const withPool = rand() < 0.7;
-    const poolFee = withPool ? Math.floor(rngPick(rand, 16777216)) : undefined;
+    const poolFee = withPool ? (rand() < 0.3 ? 0x800000 : Math.floor(rngPick(rand, 16777216))) : undefined;
     const entry = { hook: { address: addr }, flags: { ...perms }, properties: { dynamicFee } };
     const pp = { declared_permissions: entry };
     if (withPool) pp.pool_fee = poolFee;
     const r = compute(pp).output_payload;
     checked++;
     if (r.hook_address !== addr.toLowerCase()) violations++;               // address came from the entry
-    const poolDynamic = withPool && (BigInt(poolFee) & 0x800000n) !== 0n;
+    const poolDynamic = withPool && poolFee === 0x800000;
     const expect = r.dynamic_fee_declaration;
     if (!expect || expect.declared_dynamic !== dynamicFee) violations++;
     if (withPool) {
