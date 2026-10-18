@@ -1200,6 +1200,12 @@ steps: [{ tool_id, handoff?, id?, gate? }] }`. Execution is deterministic, zero-
 logging. The reference surfaces are the Worker `run_chain` and the byte-identical embedded `runChain`;
 both MUST produce the identical `composite_execution_hash` for the same chain + inputs.
 
+**WebMCP surfaces (citation).** A chain's in-browser WebMCP registration lives on the page named by its
+`composer_url`; a node's lives on its node page. When either is called "WebMCP-conformant", the term
+means exactly the four-part definitions in `CONTRACT.md` Amendment A15 (A15.1 pages, A15.2 chains),
+including the gated or advisory mark on each part. This standard does not restate them (Amendment A5);
+it supplies the browser composite that A15.2 part 4 tests (§21.2).
+
 ### §21.1 Linear execution model (descriptive of shipped behavior)
 Steps run in **array order**. For each step, by `tool_id`: an unknown node → status `unknown_node`; a
 `gpu:true` node → `gpu_browser_only`; a node with no registered kernel → `no_kernel_browser_only`;
@@ -1227,12 +1233,32 @@ composite_output = { chain, steps: [ { tool_id, mandate_type, execution_hash, ou
 Per-step timestamps and `mandate_id`s are EXCLUDED from the preimage, so the composite hash is
 reproducible. If no step ran, `composite_execution_hash` is `null` and no composite artifact is emitted.
 
-> **NOTE (non-normative).** `composite_policy.compute_mode` above is written as the literal
-> `"server"` — this composite preimage is defined for `compute_mode: "server"` only. No browser-leg
-> or other-backend composite preimage is defined anywhere in this standard; this is deliberate as of
-> the current version, not an oversight. See `research/CHAIN-DIFF-HASHTARGET-ADJUDICATION-2026-08-10.md`
-> for the reasoning. A non-server composite is parked, not specced, pending the first genuine
-> consumer that needs one.
+**Browser composite (NORMATIVE; reopened 2026-10-18, text-only, no hash moves).** The first genuine
+consumer of a non-server composite is part 4 of the WebMCP chain conformance definition (`CONTRACT.md`
+Amendment A15.2: browser and server composite hashes agree). For that consumer this standard defines
+the browser composite as follows.
+
+- The literal `compute_mode: "server"` inside `composite_policy` names the §21.1 reference execution
+  model, not the door that ran it. A browser leg that executes a chain MUST run the §21.1 model and MUST
+  build the composite preimage with exactly the members, values and RAN-step rule given above,
+  including that literal. It MUST NOT substitute `"browser"` or any other value inside the preimage.
+- The browser leg records its door outside the preimage, in the composite artifact's top-level
+  `compute_mode` envelope field (§21.3), which is not hashed.
+- The hash is computed with the shared canonicalizer (§4, `kernels/_hash.mjs`), never a page-local
+  reimplementation of the canonical form.
+- The browser composite and the server composite for the same chain and the same inputs therefore
+  MUST have the identical `execution_hash`. A mismatch is a conformance failure of the browser leg
+  (or of the server leg), never a second valid answer.
+- A chain *definition* artifact that hashes the chain's declared steps and handoffs without executing
+  them is a different artifact. It is not a composite under this section and cannot satisfy the
+  agreement test.
+
+The embedded `runChain` already builds this preimage (it carries the same literal), which is why
+`gate-parity.test.mjs` can require it to equal the Worker `run_chain` byte-for-byte. Per-chain
+comparison of a page's own browser leg against the server leg is report-only today (CONTRACT A15.2
+marks part 4 advisory). The earlier parking rationale is recorded in
+`research/CHAIN-DIFF-HASHTARGET-ADJUDICATION-2026-08-10.md`; this reopening supersedes the park
+without changing any shipped hash.
 
 ### §21.3 Composite artifact
 The composite artifact carries `chaingraph_version:"0.4.0"`, `compute_mode:"server"`,
@@ -3981,7 +4007,17 @@ This section adds no second gate and changes no existing gate; nothing emits the
 adoption is a later decision.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **SPEC-TEXT PASS (2026-09-25: §PIN-1 chain recipe pinning, staged by
+See `standard/CHANGELOG.md`. **SPEC-TEXT PASS (2026-10-18: §21.2 browser composite reopened, with the
+WebMCP conformance definitions in `CONTRACT.md` Amendment A15 as its first consumer; the record
+`spec_version` stays at whatever `chaingraph.json` carries, same separation as every prior text
+pass):** §21.2 now defines the browser composite instead of parking it. A browser leg builds the
+identical §21.2 preimage, including the `compute_mode:"server"` literal, which names the §21.1
+reference model rather than the door; the door is recorded only in the hash-excluded envelope
+`compute_mode`. Browser and server composites for the same chain and inputs therefore share one
+`execution_hash`, and a chain definition artifact is not a composite. No preimage member, value or
+hash path changes, no shipped hash moves, and `chaingraph_version` stays `"0.4.0"`. §21 gains a
+citation of the CONTRACT A15 page and chain definitions; one §15 row covers the browser composite.
+**SPEC-TEXT PASS (2026-09-25: §PIN-1 chain recipe pinning, staged by
 `CHAINSTORE-PIN-1` from the adjudicated `CHAIN-STORAGE-BUILD-SPEC.md` §3; the record `spec_version` stays
 at whatever `chaingraph.json` carries, same separation as every prior text pass):** §PIN-1 adds ONE
 OPTIONAL chain member, `catalog_cid`, a §CID-1-profile CID over the exact `chaingraph.json` bytes a chain
@@ -4293,6 +4329,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §21.4 gate static validity: RFC 6901 pointer syntax, closed op enum + value typing, `default` present, all targets resolve + FORWARD-ONLY, unique step ids, no unreachable step | `validate-chains.mjs` (Layer 4) + `gate-static.test.mjs` | validate |
 | §21.4 evaluator semantics: each op × type mismatch × first-match × mandatory default, determinism, decision recomputable + tamper-detect | `gate-semantics.test.mjs` | validate |
 | §21.4 both-branch coverage: a gated chain's fixtures drive every branch (each rule + default) ≥1; a single-branch set is flagged | `gate-branch-coverage.test.mjs` | validate |
+| §21.2 browser composite: a browser leg builds the identical §21.2 preimage (the `compute_mode:"server"` literal names the reference model, not the door; the door is recorded only in the hash-excluded envelope `compute_mode`) and so yields the server's composite `execution_hash`; embedded `runChain` vs Worker `run_chain` is gated, per-page browser-leg comparison is report-only (CONTRACT A15.2 part 4, advisory) | `gate-parity.test.mjs`, `linear-hash-freeze.mjs` | validate |
 | §21.4 evaluator byte-parity: Worker `run_chain` and embedded `runChain` yield identical route + decisions + `composite_execution_hash` for gated chains | `gate-parity.test.mjs` | validate |
 | §20.1 `merkle_inclusion`: reconstruct RFC 6962 root from leaf+path, root == `anchored_hash`, leaf == recomputed `execution_hash`, tampered path / wrong leaf / wrong root MUST fail, outside hash scope | `anchor-binding.test.mjs` | validate |
 | §22 Work Mandate document: separate `workMandateDocument` `$def` present + well-formed; `mandate_type:"work_mandate"` accepted in the existing open envelope string; frozen `$defs/artifact` + `chaingraph_version` 0.4.0 UNCHANGED | `schema-validate.mjs` | validate |
