@@ -193,7 +193,7 @@ function tierOf(score) {
 // median_salary_usd / salary deltas are UNGROUNDED informational (BLS 403).
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'compute_ai_displacement_risk_screener',
+  mcp_name: 'ai_displacement_risk_screener',
   mandate_type: 'career_workforce', gpu: false,
 };
 
