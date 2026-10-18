@@ -1321,6 +1321,17 @@ const GATES = [
   // (scripts/webmcp-direct-execute-baseline.json).
   ['WebMCP direct-execute (fixture-0 through every direct-mode execute body + the page run path)', 'node scripts/check-webmcp-direct-execute.mjs'],
   ['WebMCP direct-execute gate controls (leg-1/leg-2 RED + GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-webmcp-direct-execute.mjs --self-test'],
+  // WEBMCP-CHAIN-EXEC-GATE-1: the chain-execution vm gate CONTRACT A15.2 names
+  // for parts 2 and 3. Calls every composer page's registered plan_chain in two
+  // fresh vm contexts, recomputes its execution_hash through _hash.mjs, asserts
+  // it is stable, and resolves every chain step against the generator's
+  // registered node set. Part 4 and run_chain presence are report columns.
+  // Advisory on a pull_request, blocking on merge_group and main; pre-existing
+  // failures are baselined WARN with a downward ratchet
+  // (scripts/webmcp-chain-execute-baseline.json). About 30 s, so not in the
+  // quick subset.
+  ['WebMCP chain-execute (plan_chain stable hash + registered step nodes per chain)', 'node scripts/check-webmcp-chain-execute.mjs'],
+  ['WebMCP chain-execute gate controls (RED/GREEN, SO #34c pairing)', 'node scripts/check-webmcp-chain-execute.test.mjs'],
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
   // REGISTRY-RESOLVE-STATIC-1: positive-half kernel_digest -> spec_digest resolution
   // records (registry/kernel/<hex>.json). NODE-FANOUT-REGEN-CLOSE-1 (2026-08-21)
