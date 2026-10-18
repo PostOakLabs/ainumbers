@@ -1312,5 +1312,7 @@ if (isMain) {
   // ADVISORY on existing chains, HARD on new/changed (spec §6.1) — that split is enforced by
   // preflight.mjs's own diff-of-touched-chains logic, not by this script's exit code, which stays
   // 0 always (mirrors L1's exit contract, and keeps this CLI usable standalone).
-  process.exit(0);
+  // CHAIN-FV-STDOUT-DRAIN-1: exitCode, not process.exit(0). Exiting right after the ~690 KB
+  // --json write truncates an async (Linux pipe) stdout at ~64 KB; see check-chain-edge-contracts.mjs.
+  process.exitCode = 0;
 }

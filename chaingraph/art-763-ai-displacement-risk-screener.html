@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AI Displacement Risk Screener · ART-763 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Automation-exposure score from SOC task-composition data with a Low/Medium/High/Critical tier and adjacent lower-exposure pivots. Client-side port of Apex #104. Zero PII.">
+<meta name="ain:category" content="run">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-763-ai-displacement-risk-screener.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-763-ai-displacement-risk-screener.md">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-763-ai-displacement-risk-screener.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:91fb630e8e4abce5da6b62416996e456f8665988098ae412e7f24786ac07dedc">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.info-box{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:4px;padding:.6rem .85rem;line-height:1.55;margin:12px 0;font-size:.78rem;color:var(--text)}
+.ib-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.muted-txt{color:var(--muted);font-size:.76rem}
+.field-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 16px;margin:10px 0}
+@media(max-width:640px){.field-grid{grid-template-columns:1fr}}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px;letter-spacing:.02em}
+.field select,.field input{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:4px;padding:.4rem .5rem;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.field input[type=range]{accent-color:var(--teal)}
+.task-val{float:right;color:var(--bright)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.55rem 1.1rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.btn-2{background:var(--bg-3);color:var(--text);border:1px solid var(--border-2)}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:140px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--bright)}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.low{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.medium{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);color:var(--warn)}
+.verdict.high,.verdict.critical{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:.76rem}
+.tbl th{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:6px;border-bottom:1px solid var(--border)}
+.tbl td{padding:5px 6px;border-bottom:1px solid rgba(30,47,74,.5)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+<style>
+
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-763 · AI Displacement Risk Screener</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap" role="main" aria-description="AI displacement risk screener: a 0..100 composite automation-exposure score from task-composition sliders and a sector exposure factor, with a Low/Medium/High/Critical tier, an education-adjusted informational score and up to three adjacent lower-exposure occupations.">
+  <div class="eyebrow">OpenChainGraph Suite · ART-763 · Port of Apex #104 · AL-111</div>
+  <h1>AI Displacement Risk Screener</h1>
+  <p class="sub">Automation-exposure score (0–100) from SOC task-composition data, with a risk tier and adjacent lower-exposure pivots. Select a job (or leave it custom), set the task sliders, run.</p>
+  <div style="margin-bottom:6px"><span class="flag">probabilities: Frey-Osborne 2013 vintage (stale)</span><span class="flag">task splits: Apex approximations labelled O*NET 2024</span><span class="flag">salaries: labelled BLS OES 2025 (UNGROUNDED)</span><span class="flag">Zero PII</span><span class="flag">Client-side only</span></div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data; use synthetic or anonymised inputs only.</div>
+  <div class="info-box"><div class="ib-title">Scope &amp; reliance</div>The score is a fixed-weight composite: 0.40 × automation probability + 0.40 × routine-task fraction (routine cognitive + routine manual over 100) + 0.20 × the selected sector exposure factor, clamped to 0..100 and rounded. A SOC code selects an occupation from the embedded 62-row table; a blank selection estimates the probability from the sliders (slope 0.85, floor 0.05, cap 0.99). The embedded probabilities are Frey-Osborne 2013-vintage estimates, the task splits are Apex-authored approximations, and the median-salary cells labelled BLS OES 2025 stayed ungrounded at porting time (BLS HTTP 403); salary figures are informational only and stay out of the score, with every vintage and grounding flag carried in the kernel metadata.</div>
+
+  <div class="card">
+
+  <div class="card">
+    <div class="section-head">Job &amp; profile</div>
+    <div class="field-grid">
+      <div class="field"><label for="jobSearch">Job title or SOC code (blank = custom estimate)</label><input id="jobSearch" type="text" placeholder="e.g. Software Developer, 15-1132" autocomplete="off" aria-label="Job title or SOC code"></div>
+      <div class="field"><label for="edLevel">ed_level (education, informational)</label><select id="edLevel" aria-label="ed_level"><option value="no_degree">no_degree</option><option value="associate">associate</option><option value="bachelor" selected>bachelor</option><option value="master">master</option><option value="doctorate">doctorate</option></select></div>
+      <div class="field"><label for="yearsRole">years_role (recorded, not in the arithmetic)</label><input id="yearsRole" type="number" value="5" min="0" step="1" aria-label="years_role"></div>
+      <div class="field"><label for="sector">sector_exp (sector exposure factor)</label><select id="sector" aria-label="sector_exp"><option value="0.25">technology (0.25)</option><option value="0.22">education (0.22)</option><option value="0.28">healthcare (0.28)</option><option value="0.30">government (0.30)</option><option value="0.40">professional (0.40)</option><option value="0.58">retail (0.58)</option><option value="0.65">finance (0.65)</option><option value="0.72">transportation (0.72)</option><option value="0.75">manufacturing (0.75)</option><option value="0.45" selected>other (0.45)</option></select></div>
+    </div>
+    <div class="section-head">Task composition (sliders; a SOC pick pre-fills)</div>
+    <div class="field-grid">
+      <div class="field"><label for="t_rc">rc, routine cognitive <span class="task-val" id="v_rc">15</span>%</label><input id="t_rc" type="range" min="0" max="100" value="15"></div>
+      <div class="field"><label for="t_rm">rm, routine manual <span class="task-val" id="v_rm">4</span>%</label><input id="t_rm" type="range" min="0" max="100" value="4"></div>
+      <div class="field"><label for="t_nra">nra, non-routine analytical <span class="task-val" id="v_nra">60</span>%</label><input id="t_nra" type="range" min="0" max="100" value="60"></div>
+      <div class="field"><label for="t_nri">nri, non-routine interpersonal <span class="task-val" id="v_nri">16</span>%</label><input id="t_nri" type="range" min="0" max="100" value="16"></div>
+      <div class="field"><label for="t_nrm">nrm, non-routine manual <span class="task-val" id="v_nrm">5</span>%</label><input id="t_nrm" type="range" min="0" max="100" value="5"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="run()">Run screener</button>
+      <button class="btn-2" onclick="loadSample()">Load sample (manifest example)</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row">
+        <div class="hero-stat"><div class="hero-val" id="heroScore">n/a</div><div class="hero-lbl">Risk score / 100</div></div>
+        <div class="hero-stat"><div class="hero-val" id="heroTier">n/a</div><div class="hero-lbl">Tier</div></div>
+        <div class="hero-stat"><div class="hero-val" id="heroAdj">n/a</div><div class="hero-lbl">Education-adjusted (info)</div></div>
+      </div>
+      <div class="verdict medium" id="verdictBox">n/a</div>
+      <table class="tbl"><thead><tr><th>Factor</th><th>Value</th></tr></thead><tbody id="breakdownBody"></tbody></table>
+      <div class="section-head">Adjacent lower-exposure pivots</div>
+      <div id="altsBox" class="muted-txt"></div>
+      <div class="section-head">Execution hash &amp; kernel output</div>
+      <div class="muted-txt" id="hashOut">execution_hash: n/a</div>
+      <pre id="jsonOut">{}</pre>
+      <div class="info-box" style="margin-top:12px"><div class="ib-title">Proof status</div>This node ships <code>compute_proof_ready: deferred</code>. No formal correctness proof has been produced for this kernel; the result above is a deterministic recompute, verified by a property-test floor, not a proven one.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-763-ai-displacement-risk-screener.manifest.json -->
+<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `ai_displacement_risk_screener`. Task: AI displacement risk screener ported from ApexLogics Apex #104 (AL-111): a 0..100 composite score (0.40 automation probability + 0.40 routine-task fraction + 0.20 sector exposure) with a Low/Medium/High/Critical tier, an education-adjusted informational score, and up to three adjacent lower-exposure pivots gated at similarity &gt;= 60.
+Call it with arguments: {"policy_parameters":{"soc_code":"15-1132","rc":15,"rm":4,"nra":60,"nri":16,"nrm":5,"sector_exp":0.45,"ed_level":"bachelor","years_role":5}}
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
+Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
+PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
+Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-763-ai-displacement-risk-screener.html#p=v1.H4sIAAAAAAAA_wF2AIn_eyJzb2NfY29kZSI6IjE1LTExMzIiLCJyYyI6MTUsInJtIjo0LCJucmEiOjYwLCJucmkiOjE2LCJucm0iOjUsInNlY3Rvcl9leHAiOjAuNDUsImVkX2xldmVsIjoiYmFjaGVsb3IiLCJ5ZWFyc19yb2xlIjo1femBNi12AAAA</pre>
+</section>
+<!-- ASK-AGENT:END -->
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../bazantic-walkthrough.html">Bazantic A/B Walkthrough</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+const MANIFEST={"tool_id":"art-763-ai-displacement-risk-screener","version":"1.0.0","title":"AI Displacement Risk Screener","mcp_tool_definition":{"name":"ai_displacement_risk_screener","description":"AI displacement risk screener ported from ApexLogics Apex #104 (AL-111): a 0..100 composite score (0.40 automation probability + 0.40 routine-task fraction + 0.20 sector exposure) with a Low/Medium/High/Critical tier, an education-adjusted informational score, and up to three adjacent lower-exposure pivots gated at similarity >= 60. Probabilities are Frey-Osborne 2013-vintage; salary cells are ungrounded and informational only. Full provenance in the manifest description."},"ap2_export":true,"chaingraph":true};
+
+/* ── same canonicalization + execution-hash algorithm as chaingraph/kernels/_hash.mjs,
+   browser leg: jcsStringify (RFC 8785-aligned) over {policy_parameters, output_payload},
+   SHA-256, bare lowercase hex ── */
+function jcsStringify(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){let s='[';for(let i=0;i<v.length;i++){if(i)s+=',';const e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':jcsStringify(e);}return s+']';}const keys=Object.keys(v).sort();let s='{',first=true;for(const k of keys){const e=v[k];if(e===undefined||typeof e==='function'||typeof e==='symbol')continue;if(!first)s+=',';first=false;s+=JSON.stringify(k)+':'+jcsStringify(e);}return s+'}';}
+async function sha256Hex(str){const bytes=new TextEncoder().encode(str);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');}
+async function executionHash(policy_parameters,output_payload){return sha256Hex(jcsStringify({policy_parameters,output_payload}));}
+
+/* ── inline port of chaingraph/kernels/art-763-ai-displacement-risk-screener.kernel.mjs compute():
+   same algorithm, same refusal throws, same fixed orders. Pure function of pp.
+   (A tool page cannot import a module; exports are stripped here. The page is
+   digested against the kernel file via the kernel-digest meta above.) ── */
+// --- Named constants (Apex L493-L507) -------------------------------------
+// Composite weights: 0.40 * automation probability + 0.40 * routine-task
+// fraction + 0.20 * sector exposure. Apex-authored; UNGROUNDED (no official
+// counterpart). Kept exactly as Apex.
+const W_PROB = 0.40; // Apex L494
+const W_ROUTINE = 0.40; // Apex L494
+const W_SECTOR = 0.20; // Apex L494
+
+// Custom-occupation probability estimate (Apex L485): high routine -> high
+// prob. Cap 0.99 is an Apex comparator; see boundary fixtures B-CAPa/B-CAPb.
+const PROB_ROUTINE_SLOPE = 0.85; // Apex L485
+const PROB_FLOOR = 0.05; // Apex L485
+const PROB_CAP = 0.99; // Apex L485 (Math.min cap)
+
+// Education adjustment (Apex L499-500): informational only, NOT in the core
+// score. Apex-authored; UNGROUNDED.
+const ED_BONUS = {
+  no_degree: 0,
+  associate: -3,
+  bachelor: -7,
+  master: -12,
+  doctorate: -18,
+};
+
+// Tier cutoffs (Apex L504-507): score <= 30 Low, <= 55 Medium, <= 75 High,
+// else Critical. Apex-authored; UNGROUNDED. Boundary fixtures B-T30/B-T55/B-T75.
+const TIER_CUT_LOW = 30; // Apex L504
+const TIER_CUT_MEDIUM = 55; // Apex L505
+const TIER_CUT_HIGH = 75; // Apex L506
+
+// Adjacent-pivot similarity gate (Apex L546): sim >= 60 on the UNROUNDED sim.
+// Boundary fixtures B-SIMa/B-SIMb. sim = 100 - 60*|prob-dProb|
+// - 20*|rc-dRc|/100 - 20*|nra-dNra|/100 (Apex L544).
+const SIM_GATE = 60; // Apex L546
+const SIM_W_PROB = 60; // Apex L544
+const SIM_W_RC = 20; // Apex L544
+const SIM_W_NRA = 20; // Apex L544
+const ALT_TOP_N = 3; // Apex L547 (.slice(0, 3))
+
+// Sector exposure factors (Apex L190-200, <select id="sector"> option values).
+// Apex-authored; UNGROUNDED.
+const SECTOR_FACTORS = {
+  'technology': 0.25,
+  'education': 0.22,
+  'healthcare': 0.28,
+  'government': 0.30,
+  'professional': 0.40,
+  'retail': 0.58,
+  'finance': 0.65,
+  'transportation': 0.72,
+  'manufacturing': 0.75,
+  'other': 0.45,
+};
+
+
+const SOC_TABLE = [
+  ["11-1021","General & Operations Manager",0.16,28,5,38,26,3,109820],
+  ["11-2021","Marketing Manager",0.14,22,3,40,30,5,156580],
+  ["11-3021","Computer & IS Manager",0.08,18,2,48,28,4,169510],
+  ["11-3031","Financial Manager",0.07,26,2,45,23,4,156100],
+  ["11-9111","Medical & Health Services Manager",0.10,22,3,38,32,5,110680],
+  ["13-1071","Human Resources Specialist",0.55,40,5,22,30,3,67650],
+  ["13-1111","Management Analyst",0.24,28,3,42,22,5,99410],
+  ["13-1151","Training Specialist",0.22,30,4,28,35,3,62700],
+  ["13-2011","Accountant / Auditor",0.94,55,5,25,12,3,79880],
+  ["13-2041","Credit Analyst",0.98,70,3,14,8,5,82380],
+  ["13-2051","Financial Analyst",0.23,35,3,42,15,5,99890],
+  ["13-2099","Financial Specialist (other)",0.58,45,4,28,18,5,77910],
+  ["15-1121","Computer Systems Analyst",0.20,30,4,46,16,4,102240],
+  ["15-1132","Software Developer",0.04,15,4,60,16,5,132270],
+  ["15-1141","Database Administrator",0.14,30,5,48,12,5,101000],
+  ["15-1211","Computer/IS Research Scientist",0.04,12,2,68,14,4,136620],
+  ["15-1221","Computer Network Architect",0.07,20,4,55,16,5,126900],
+  ["15-2051","Data Scientist",0.04,15,3,65,12,5,108020],
+  ["17-1011","Architect",0.02,18,5,50,20,7,96000],
+  ["17-2051","Civil Engineer",0.02,22,8,48,14,8,95890],
+  ["17-2112","Industrial Engineer",0.01,20,8,52,12,8,96350],
+  ["17-2141","Mechanical Engineer",0.01,18,8,52,12,10,96310],
+  ["19-1020","Biological Scientist",0.02,15,10,55,12,8,85880],
+  ["21-1011","Substance Abuse Counselor",0.003,12,3,22,58,5,49330],
+  ["21-1022","Healthcare Social Worker",0.01,15,2,25,55,3,60840],
+  ["23-1011","Lawyer",0.04,30,2,45,20,3,145760],
+  ["25-2021","Elementary School Teacher",0.01,10,4,28,55,3,61620],
+  ["25-2031","Secondary School Teacher",0.008,10,4,30,52,4,62360],
+  ["25-3031","Tutors & Instructors (other)",0.37,25,5,30,35,5,43510],
+  ["25-9099","Education Worker (other)",0.55,42,5,20,28,5,43210],
+  ["29-1141","Registered Nurse",0.009,18,12,28,35,7,86070],
+  ["29-1171","Nurse Practitioner",0.003,14,8,35,38,5,124680],
+  ["29-1215","Hospitalist / Physician",0.004,10,5,42,40,3,229300],
+  ["29-1151","Oral & Maxillofacial Surgeon",0.004,8,10,38,30,14,237020],
+  ["29-2055","Surgical Technologist",0.53,20,30,22,18,10,57870],
+  ["29-2061","Licensed Practical Nurse",0.12,22,18,25,28,7,60250],
+  ["29-2099","Health Technologist (other)",0.50,35,20,22,18,5,56120],
+  ["31-1132","Home Health Aide",0.39,15,30,10,32,13,30180],
+  ["33-3051","Police Officer",0.09,15,15,25,35,10,70820],
+  ["35-1011","Chef / Head Cook",0.11,10,35,20,22,13,60760],
+  ["35-2014","Cook, Restaurant",0.92,12,52,5,10,21,34940],
+  ["35-3031","Waiter / Waitress",0.94,10,20,5,38,27,31370],
+  ["37-2011","Janitor / Cleaner",0.66,5,55,5,10,25,34320],
+  ["41-2011","Cashier",0.97,30,30,5,25,10,31670],
+  ["41-2031","Retail Salesperson",0.92,20,20,10,38,12,36160],
+  ["41-4012","Sales Rep, Non-Technical",0.92,28,10,18,38,6,62890],
+  ["43-3021","Billing / Posting Clerk",0.97,72,5,10,8,5,48330],
+  ["43-4051","Customer Service Rep",0.55,48,8,12,28,4,39680],
+  ["43-9021","Data Entry Keyer",0.99,75,10,8,4,3,37400],
+  ["43-9061","Office Clerk (General)",0.96,68,10,8,10,4,40250],
+  ["43-6011","Executive Secretary",0.40,50,5,20,22,3,65840],
+  ["47-2031","Carpenter",0.56,8,40,20,12,20,60200],
+  ["47-2111","Electrician",0.15,8,30,28,18,16,61550],
+  ["47-2152","Plumber",0.38,8,32,22,18,20,61550],
+  ["49-9021","HVAC Mechanic",0.35,8,30,28,15,19,57300],
+  ["51-4121","Welder",0.73,5,50,15,10,20,48160],
+  ["51-9111","Packaging Machine Operator",0.98,10,65,8,5,12,40300],
+  ["53-3032","Truck Driver (Heavy)",0.79,5,55,8,10,22,53200],
+  ["53-3031","Driver / Sales Worker",0.69,8,45,8,22,17,40780],
+  ["13-1041","Compliance Officer",0.52,45,4,28,18,5,76920],
+  ["15-2011","Actuary",0.04,18,2,65,10,5,120000],
+  ["25-4022","Librarian",0.65,42,12,25,18,3,62580],
+];
+
+
+const SOC_BY_CODE = {};
+for (const d of SOC_TABLE) SOC_BY_CODE[d[0]] = d;
+function tierOf(score) {
+  if (score <= TIER_CUT_LOW) return 'Low'; // Apex L504
+  if (score <= TIER_CUT_MEDIUM) return 'Medium'; // Apex L505
+  if (score <= TIER_CUT_HIGH) return 'High'; // Apex L506
+  return 'Critical'; // Apex L507
+}
+
+// Pure compute. pp = {
+//   soc_code: string|null (6-digit SOC; null/unknown -> custom estimate),
+//   rc, rm, nra, nri, nrm: integers 0..100 (task composition sliders),
+//   sector_exp: number (sector exposure factor),
+//   ed_level: string (no_degree|associate|bachelor|master|doctorate),
+//   years_role: integer >= 0 (recorded; not in the arithmetic, Apex L477),
+// }.
+// Returns { score, adj_score, tier, prob, routine_frac, sector_exp,
+//   automation_pct, routine_pct, sector_pct, title, soc, median_salary_usd,
+//   alts: [{ soc, title, score, sim, salary_delta_vs_selected_usd|null }] }.
+// median_salary_usd / salary deltas are UNGROUNDED informational (BLS 403).
+
+function kernelCompute(pp) { return computeFlat(pp); }
+
+
+function computeFlat(pp) {
+  if (pp === null || typeof pp !== 'object' || Array.isArray(pp)) {
+    throw new Error('pp must be an object');
+  }
+  const { soc_code, rc, rm, nra, nri, nrm, sector_exp, ed_level, years_role } = pp;
+  for (const [k, v] of [['rc', rc], ['rm', rm], ['nra', nra], ['nri', nri], ['nrm', nrm]]) {
+    if (!Number.isInteger(v) || v < 0 || v > 100) throw new Error(k + ' must be an integer 0..100');
+  }
+  if (typeof sector_exp !== 'number' || !Number.isFinite(sector_exp)) {
+    throw new Error('sector_exp must be a finite number');
+  }
+  if (typeof ed_level !== 'string') throw new Error('ed_level must be a string');
+  if (!Number.isInteger(years_role) || years_role < 0) throw new Error('years_role must be an integer >= 0');
+
+  // Apex L480-488: SOC row wins when selected; otherwise estimate from sliders.
+  let prob, title, soc, medSal;
+  const d = (typeof soc_code === 'string' && SOC_BY_CODE[soc_code]) || null;
+  if (d) {
+    prob = d[2]; title = d[1]; soc = d[0]; medSal = d[8];
+  } else {
+    prob = Math.min(PROB_CAP, ((rc + rm) / 100) * PROB_ROUTINE_SLOPE + PROB_FLOOR);
+    title = 'Custom Occupation'; soc = null; medSal = null;
+  }
+
+  // Apex L491-496: routine fraction, weighted composite, clamp, round.
+  const routineFrac = (rc + rm) / 100;
+  let composite = W_PROB * prob + W_ROUTINE * routineFrac + W_SECTOR * sector_exp;
+  composite = Math.min(1, Math.max(0, composite));
+  const score = Math.round(composite * 100);
+
+  // Apex L499-500: education adjustment is informational only.
+  // UNGROUNDED branch (Apex-authored table).
+  const adjScore = Math.max(0, score + (ED_BONUS[ed_level] || 0));
+
+  const tier = tierOf(score);
+
+  // Apex L537-547: adjacent lower-exposure pivots. dScore uses the SAME
+  // weights with the candidate row's prob/routine and the CALLER's sector.
+  // Exclusion comparator dScore >= score (Apex L542) is tested at equality by
+  // fixtures B-DSa (exclude) / B-DSb (include).
+  const altCandidates = SOC_TABLE
+    .map((cand) => ({ soc: cand[0], title: cand[1], prob: cand[2], rc: cand[3], rm: cand[4], nra: cand[5], salary: cand[8], _sim: 0, _score: 0 }))
+    .filter((cand) => {
+      if (cand.soc === soc) return false;
+      const dScore = Math.round((W_PROB * cand.prob + W_ROUTINE * ((cand.rc + cand.rm) / 100) + W_SECTOR * sector_exp) * 100);
+      if (dScore >= score) return false;
+      const sim = 100 - SIM_W_PROB * Math.abs(prob - cand.prob)
+        - SIM_W_RC * Math.abs(rc - cand.rc) / 100
+        - SIM_W_NRA * Math.abs(nra - cand.nra) / 100;
+      cand._sim = Math.round(sim);
+      cand._score = dScore;
+      return sim >= SIM_GATE; // NOTE: unrounded sim gates; _sim displays rounded.
+    }).sort((a, b) => b._sim - a._sim).slice(0, ALT_TOP_N);
+
+  const alts = altCandidates.map((cand) => ({
+    soc: cand.soc,
+    title: cand.title,
+    score: cand._score,
+    sim: cand._sim,
+    // UNGROUNDED salary-delta branch (Apex L550-553; BLS OES 2025 unfetched).
+    salary_delta_vs_selected_usd: (medSal && cand.salary) ? (cand.salary - medSal) : null,
+  }));
+
+  return {
+    score,
+    adj_score: adjScore,
+    tier,
+    prob,
+    routine_frac: routineFrac,
+    sector_exp,
+    automation_pct: Math.round(prob * 100),
+    routine_pct: rc + rm,
+    sector_pct: Math.round(sector_exp * 100),
+    title,
+    soc,
+    median_salary_usd: medSal, // UNGROUNDED (BLS fetch failed; informational only)
+    alts,
+  };
+}
+
+
+
+const SLIDER_KEYS=['rc','rm','nra','nri','nrm'];
+function syncSlider(k){document.getElementById('v_'+k).textContent=document.getElementById('t_'+k).value;}
+for(const k of SLIDER_KEYS){document.getElementById('t_'+k).addEventListener('input',()=>syncSlider(k));}
+let selectedSOC=null;
+document.getElementById('jobSearch').addEventListener('change',(e)=>{
+  const v=e.target.value.trim();
+  const m=v.match(/(\d{2}-\d{4})/);
+  const code=(m&&m[1])||null;
+  if(code&&SOC_BY_CODE[code]){
+    const d=SOC_BY_CODE[code];
+    selectedSOC=d;
+    const set=(k,val)=>{document.getElementById('t_'+k).value=val;syncSlider(k);};
+    set('rc',d[3]);set('rm',d[4]);set('nra',d[5]);set('nri',d[6]);set('nrm',d[7]);
+  } else { selectedSOC=null; }
+});
+function readPP(){
+  return {
+    soc_code: selectedSOC?selectedSOC[0]:null,
+    rc: parseInt(document.getElementById('t_rc').value,10)||0,
+    rm: parseInt(document.getElementById('t_rm').value,10)||0,
+    nra: parseInt(document.getElementById('t_nra').value,10)||0,
+    nri: parseInt(document.getElementById('t_nri').value,10)||0,
+    nrm: parseInt(document.getElementById('t_nrm').value,10)||0,
+    sector_exp: parseFloat(document.getElementById('sector').value),
+    ed_level: document.getElementById('edLevel').value,
+    years_role: parseInt(document.getElementById('yearsRole').value,10)||0,
+  };
+}
+function loadSample(){
+  const s={"soc_code":"15-1132","rc":15,"rm":4,"nra":60,"nri":16,"nrm":5,"sector_exp":0.45,"ed_level":"bachelor","years_role":5};
+  document.getElementById('jobSearch').value=s.soc_code||'';
+  selectedSOC=s.soc_code?SOC_BY_CODE[s.soc_code]:null;
+  const set=(k,val)=>{document.getElementById('t_'+k).value=val;syncSlider(k);};
+  set('rc',s.rc);set('rm',s.rm);set('nra',s.nra);set('nri',s.nri);set('nrm',s.nrm);
+  document.getElementById('sector').value=String(s.sector_exp);
+  document.getElementById('edLevel').value=s.ed_level;
+  document.getElementById('yearsRole').value=s.years_role;
+}
+async function run(){
+  const pp=readPP();
+  let r;
+  try{ r=kernelCompute(pp); }
+  catch(err){
+    const vb=document.getElementById('verdictBox');
+    vb.className='verdict critical';
+    vb.textContent='Input refused: '+err.message;
+    document.getElementById('resultsPanel').classList.add('show');
+    return;
+  }
+  document.getElementById('heroScore').textContent=r.score;
+  document.getElementById('heroTier').textContent=r.tier;
+  document.getElementById('heroAdj').textContent=r.adj_score;
+  const vb=document.getElementById('verdictBox');
+  vb.className='verdict '+r.tier.toLowerCase();
+  vb.textContent=r.title+(r.soc?' · SOC '+r.soc:' (custom estimate)')+': '+r.tier+' exposure ('+r.score+'/100).';
+  document.getElementById('breakdownBody').innerHTML=
+    '<tr><td>Automation probability (Frey-Osborne 2013 vintage)</td><td>'+r.automation_pct+'%</td></tr>'+
+    '<tr><td>Routine task fraction (rc + rm)</td><td>'+r.routine_pct+'%</td></tr>'+
+    '<tr><td>Sector exposure factor</td><td>'+r.sector_pct+'%</td></tr>'+
+    '<tr><td>Raw composite score</td><td>'+r.score+'/100</td></tr>'+
+    '<tr><td>Median salary (UNGROUNDED, informational)</td><td>'+(r.median_salary_usd===null?'n/a (custom estimate)':r.median_salary_usd+' USD')+'</td></tr>';
+  document.getElementById('altsBox').innerHTML=r.alts.length
+    ? r.alts.map((a)=>'<div>'+a.title+' (SOC '+a.soc+'), risk '+a.score+'/100, similarity '+a.sim+'%'+(a.salary_delta_vs_selected_usd===null?'':', salary delta '+a.salary_delta_vs_selected_usd+' USD (UNGROUNDED)')+'</div>').join('')
+    : '<div>No adjacent occupations at similarity ≥ 60.</div>';
+  const h=await executionHash(pp,r);
+  document.getElementById('hashOut').textContent='execution_hash: '+h;
+  const displayBody={policy_parameters:pp,output_payload:r};
+  document.getElementById('jsonOut').textContent=JSON.stringify(displayBody,null,2);
+  document.getElementById('resultsPanel').classList.add('show');
+}
+</script>
+</body>
+</html>
