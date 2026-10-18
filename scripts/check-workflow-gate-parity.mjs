@@ -879,6 +879,17 @@ const PREFLIGHT_ONLY = new Map([
     "suite. Reads only tracked repo files — no CI-only input; pre-existing direct-path divergences are " +
     "baselined WARN with a downward ratchet (scripts/webmcp-direct-execute-baseline.json)."],
 
+  // ── WEBMCP-CHAIN-EXEC-GATE-1 (2026-10-18) ─────────────────────────────────
+  ["check-webmcp-chain-execute.mjs",
+    "Chain-execution vm gate for CONTRACT A15.2 parts 2 and 3 (WEBMCP-CHAIN-EXEC-GATE-1): calls every " +
+    "composer page's registered plan_chain in two fresh node:vm contexts with the wrapper-execute harness, " +
+    "recomputes the execution_hash through chaingraph/kernels/_hash.mjs, asserts it is stable, and resolves " +
+    "every chain step against the generator's registered node set. Advisory on pull_request, blocking on " +
+    "merge_group and main; its CI route is scripts-verify.yml's full preflight, so a named workflow step " +
+    "would only duplicate the same suite. Reads only tracked repo files, no CI-only input; pre-existing " +
+    "failures are baselined WARN with a downward ratchet (scripts/webmcp-chain-execute-baseline.json)."],
+  ["check-webmcp-chain-execute.test.mjs", SELF_TEST],
+
   // ── EXAMPLE-PROMPTS-JSON-1 (2026-09-05) ──────────────────────────────────
   ["check-showcase-prompts.mjs",
     "Showcase-prompts SSOT gate (tools[] liveness, body/tool consistency, enums, " +
