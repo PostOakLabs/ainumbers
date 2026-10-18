@@ -1,0 +1,241 @@
+{
+  "tool_id": "art-763-ai-displacement-risk-screener",
+  "version": "1.0.0",
+  "title": "AI Displacement Risk Screener",
+  "description": "Port of ApexLogics Apex #104 (AL-111) AI Displacement Risk Screener into the AINumbers chaingraph shape. From a task-composition profile (routine cognitive/manual and non-routine analytical/interpersonal/manual shares), a sector exposure factor, an education level and years in role the node computes a 0..100 composite displacement score (0.40 automation probability + 0.40 routine-task fraction + 0.20 sector exposure, clamped and rounded), an education-adjusted informational score, a Low/Medium/High/Critical tier banding, and up to three adjacent lower-exposure occupations gated at similarity >= 60. SOC lookups use an embedded 62-row table; a null SOC code estimates the probability from the sliders. Automation probabilities are Frey-Osborne 2013-vintage estimates (stale by construction), task splits are Apex-embedded approximations, and the BLS-OES-labelled median-salary cells could not be grounded at porting time (BLS HTTP 403): salary figures are informational only and never enter the score. Port provenance: Apex page https://apexlogics.org/tools/104-ai-displacement-risk-screener/ fetched 2026-10-13 (sha256 68D2AA10A6B93A7E31C8E10FDDCACEFDBD661EF330951A6BF1FC25572F891D18), tasking APEXPORT-104 (GRADES PASS-PENDING-XV 2026-10-18, Builder-verifies-at-land 18/18 vectors), landed by APEX-PORT-104-LAND-1 on 2026-10-18.",
+  "category": "chaingraph",
+  "tags": [
+    "labor-market",
+    "displacement-risk",
+    "frey-osborne",
+    "career",
+    "workforce",
+    "mcp:compute_ai_displacement_risk_screener"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "rc",
+      "rm",
+      "nra",
+      "nri",
+      "nrm",
+      "sector_exp",
+      "ed_level",
+      "years_role"
+    ],
+    "properties": {
+      "soc_code": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "6-digit SOC code key into the embedded 62-row table; null selects the custom-occupation estimate branch (Apex L480-488). Optional: only this input is conditionally dereferenced."
+      },
+      "rc": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Routine Cognitive share 0..100 (slider t_rc, Apex L470; parseInt read)."
+      },
+      "rm": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Routine Manual share 0..100 (slider t_rm, Apex L471; parseInt read)."
+      },
+      "nra": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Non-routine Analytical share 0..100 (slider t_nra, Apex L472; parseInt read)."
+      },
+      "nri": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Non-routine Interpersonal share 0..100 (slider t_nri, Apex L473; parseInt read)."
+      },
+      "nrm": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Non-routine Manual share 0..100 (slider t_nrm, Apex L474; parseInt read)."
+      },
+      "sector_exp": {
+        "type": "number",
+        "description": "Sector exposure factor (select sector, Apex L475; parseFloat read). Apex option values 0.22..0.75."
+      },
+      "ed_level": {
+        "type": "string",
+        "enum": [
+          "no_degree",
+          "associate",
+          "bachelor",
+          "master",
+          "doctorate"
+        ],
+        "description": "Highest education (select edLevel, Apex L476; informational education adjustment only, Apex L499-500)."
+      },
+      "years_role": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Years in role (input yearsRole, Apex L477; parseInt read; recorded, not in the arithmetic)."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_ai_displacement_risk_screener",
+    "description": "Port of ApexLogics Apex #104 (AL-111) AI Displacement Risk Screener into the AINumbers chaingraph shape. From a task-composition profile (routine cognitive/manual and non-routine analytical/interpersonal/manual shares), a sector exposure factor, an education level and years in role the node computes a 0..100 composite displacement score (0.40 automation probability + 0.40 routine-task fraction + 0.20 sector exposure, clamped and rounded), an education-adjusted informational score, a Low/Medium/High/Critical tier banding, and up to three adjacent lower-exposure occupations gated at similarity >= 60. SOC lookups use an embedded 62-row table; a null SOC code estimates the probability from the sliders. Automation probabilities are Frey-Osborne 2013-vintage estimates (stale by construction), task splits are Apex-embedded approximations, and the BLS-OES-labelled median-salary cells could not be grounded at porting time (BLS HTTP 403): salary figures are informational only and never enter the score. Port provenance: Apex page https://apexlogics.org/tools/104-ai-displacement-risk-screener/ fetched 2026-10-13 (sha256 68D2AA10A6B93A7E31C8E10FDDCACEFDBD661EF330951A6BF1FC25572F891D18), tasking APEXPORT-104 (GRADES PASS-PENDING-XV 2026-10-18, Builder-verifies-at-land 18/18 vectors), landed by APEX-PORT-104-LAND-1 on 2026-10-18."
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-763-ai-displacement-risk-screener.html",
+    "function_name": "runCompute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "score": {
+        "type": "integer",
+        "description": "Composite risk score 0..100 (Apex L494-496)."
+      },
+      "adj_score": {
+        "type": "integer",
+        "description": "Education-adjusted score, informational (Apex L499-500)."
+      },
+      "tier": {
+        "type": "string",
+        "enum": [
+          "Low",
+          "Medium",
+          "High",
+          "Critical"
+        ],
+        "description": "Risk tier (Apex L504-507)."
+      },
+      "prob": {
+        "type": "number",
+        "description": "Automation probability 0..1, Frey-Osborne 2013 vintage."
+      },
+      "routine_frac": {
+        "type": "number",
+        "description": "Routine task fraction (rc+rm)/100."
+      },
+      "sector_exp": {
+        "type": "number",
+        "description": "Echo of sector exposure input."
+      },
+      "automation_pct": {
+        "type": "integer",
+        "description": "Rounded automation percent."
+      },
+      "routine_pct": {
+        "type": "integer",
+        "description": "Routine task percent rc+rm."
+      },
+      "sector_pct": {
+        "type": "integer",
+        "description": "Rounded sector percent."
+      },
+      "title": {
+        "type": "string"
+      },
+      "soc": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "median_salary_usd": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "UNGROUNDED informational salary cell."
+      },
+      "alts": {
+        "type": "array",
+        "maxItems": 3,
+        "items": {
+          "type": "object",
+          "properties": {
+            "soc": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "score": {
+              "type": "integer"
+            },
+            "sim": {
+              "type": "integer"
+            },
+            "salary_delta_vs_selected_usd": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "source": "chaingraph/kernels/art-763-ai-displacement-risk-screener.kernel.mjs",
+  "input_schema_provenance": "Each property is exactly the policy_parameters member the kernel reads; there is no other input surface. soc_code is the only optional property: null (or an unknown code) selects the custom-occupation estimate branch; the eight remaining properties are required and mirror the Apex page sliders Apex L470-L477.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "soc_code": "15-1132",
+    "rc": 15,
+    "rm": 4,
+    "nra": 60,
+    "nri": 16,
+    "nrm": 5,
+    "sector_exp": 0.45,
+    "ed_level": "bachelor",
+    "years_role": 5
+  },
+  "output_example": {
+    "score": 18,
+    "adj_score": 11,
+    "tier": "Low",
+    "prob": 0.04,
+    "routine_frac": 0.19,
+    "sector_exp": 0.45,
+    "automation_pct": 4,
+    "routine_pct": 19,
+    "sector_pct": 45,
+    "title": "Software Developer",
+    "soc": "15-1132",
+    "median_salary_usd": 132270,
+    "alts": [
+      {
+        "soc": "15-1211",
+        "title": "Computer/IS Research Scientist",
+        "score": 16,
+        "sim": 98,
+        "salary_delta_vs_selected_usd": 4350
+      },
+      {
+        "soc": "29-1215",
+        "title": "Hospitalist / Physician",
+        "score": 15,
+        "sim": 93,
+        "salary_delta_vs_selected_usd": 97030
+      },
+      {
+        "soc": "29-1151",
+        "title": "Oral & Maxillofacial Surgeon",
+        "score": 16,
+        "sim": 92,
+        "salary_delta_vs_selected_usd": 104750
+      }
+    ]
+  },
+  "example_execution_hash": "e8535a85d4252e72e94308517ee3164d1bacfa18ba17e0c9d4568fb541071fc5"
+}
