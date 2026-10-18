@@ -1,0 +1,40 @@
+name: Software Heritage save (soft-fail)
+
+# Ask Software Heritage "Save Code Now" to archive our
+# PUBLIC repos so the spec/kernel/verifier corpus has an off-GitHub home.
+#
+# - Public repos ONLY. Private repos (internal, prover, funding) are excluded
+#   by design and must never be listed here.
+# - Direct curl against the public origin-save API. No third-party action,
+#   no secrets, read-only token, anonymous requests (rate limit is
+#   published in the X-Ratelimit-* response headers; we send 3 per run).
+# - Soft-fail: continue-on-error, never a required check, no pull_request or
+#   merge_group trigger. A Software Heritage outage can never block a release.
+# - Archival is not a completeness or correctness claim about the content.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: [ '**' ]
+
+permissions:
+  contents: read
+
+jobs:
+  swh-save:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - name: Submit public repos to Software Heritage
+        run: |
+          set -u
+          for repo in ainumbers ainumbers-mcp-apps ainumbers-helm; do
+            url="https://github.com/PostOakLabs/${repo}"
+            echo "== ${url}"
+            curl -sS -m 60 -X POST \
+              -w '\nHTTP %{http_code}\n' \
+              "https://archive.softwareheritage.org/api/1/origin/save/git/url/${url}/" \
+              || echo "request failed (soft-fail): ${url}"
+          done
+          exit 0
