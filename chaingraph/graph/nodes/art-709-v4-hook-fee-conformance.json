@@ -7,14 +7,14 @@
   "wave": 128,
   "gpu": false,
   "url": "https://ainumbers.co/chaingraph/art-709-v4-hook-fee-conformance.html",
-  "description": "Recomputes a Uniswap v4 pool's per-swap fee from v4-core's own fee rules at the pinned commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585 (ProtocolFeeLibrary.sol calculateSwapFee: swapFee = protocolFee + lpFee - protocolFee*lpFee/1e6; Pool.sol L307 the protocol-fee-zero pass-through and L311 the MAX_SWAP_FEE revert boundary; LPFeeLibrary.sol the 0x400000 override flag, the 0x800000 dynamic flag and MAX_LP_FEE 1,000,000) and checks each swap's emitted fee against that recomposition: per-swap CONFORMS, OUT_OF_BOUNDS (LP fee outside the declared bounds or over MAX_LP_FEE) or FEE_MISMATCH (the declared fee story does not explain what the pool charged). Validates the packed two-direction protocol fee with isValidProtocolFee (each direction <= 1000 pips), decodes a per-swap LP-fee override by stripping its flag per REMOVE_OVERRIDE_MASK, enforces the declared total fee cap (swap fee + hook charge), accrues a separately declared hook charge per swap and per recipient in integer floor arithmetic with every remainder reported, and reports LP revenue (amount_in * lpFee / 1e6) side by side, never netted against the hook charge; LP revenue stays LP revenue. Exact-out swaps, composed fees at or above MAX_SWAP_FEE, and a dynamic pool fee (0x800000) without a per-swap override are reported INDETERMINATE rather than guessed. Evidence artifact only: it states no opinion on whether a fee is lawful. Zero network: the node never reads a chain and recomputes only what the caller supplies.",
+  "description": "Recomputes a Uniswap v4 pool's per-swap fee from v4-core's own fee rules at the pinned commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585 (ProtocolFeeLibrary.sol calculateSwapFee: swapFee = protocolFee + lpFee - protocolFee*lpFee/1e6; Pool.sol L307 the protocol-fee-zero pass-through and L310-316 the MAX_SWAP_FEE revert, which applies to exact-out swaps only; LPFeeLibrary.sol the 0x400000 override flag, the 0x800000 dynamic flag and MAX_LP_FEE 1,000,000) and checks each swap's emitted fee against that recomposition: per-swap CONFORMS, OUT_OF_BOUNDS (LP fee outside the declared bounds or over MAX_LP_FEE) or FEE_MISMATCH (the declared fee story does not explain what the pool charged). Validates the packed two-direction protocol fee with isValidProtocolFee (each direction <= 1000 pips), decodes a per-swap LP-fee override by stripping its flag per REMOVE_OVERRIDE_MASK (read only on a dynamic pool, per Hooks.sol beforeSwap; on a static pool it is ignored), enforces the declared total fee cap (swap fee + hook charge), accrues a separately declared hook charge per swap and per recipient in integer floor arithmetic with every remainder reported, and reports LP revenue (amount_in * lpFee / 1e6) side by side, never netted against the hook charge; LP revenue stays LP revenue. An exact-out swap whose composed fee is at or above MAX_SWAP_FEE (where v4 reverts) and a dynamic pool fee (0x800000) without a per-swap override are reported INDETERMINATE rather than guessed; an exact-in swap at that fee is checked like any other. Evidence artifact only: it states no opinion on whether a fee is lawful. Zero network: the node never reads a chain and recomputes only what the caller supplies.",
   "input_schema_ref": "chaingraph/art-709-v4-hook-fee-conformance.html#manifest",
   "consumes": [],
   "feeds": [],
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:979154bd3601f1c0e64186e41b3c0b9adef0df6842013d20fc0daf76145ef46f","valid_from":"2026-10-12"}],
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:68ca34965c2b4f1c5f10617b45c673cf3034c7fe65de08d9cf763d9e0bb04a27","valid_from":"2026-10-17"}],
   "export_capability": ["json"],
   "standards_basis": "implements_standard",
   "cited_clause_digest": [
@@ -38,7 +38,7 @@
       "digest": "sha256:4cbcfb1c593d57a5d957b561785b134a244236d251d74884ac6e5619787e32e8",
       "source_url": "https://raw.githubusercontent.com/Uniswap/v4-core/a7cf038cd568801a79a9b4cf92cd5b52c95c8585/src/libraries/LPFeeLibrary.sol",
       "retrieved_at": "2026-10-12",
-      "clause_path": "src/libraries/LPFeeLibrary.sol L12-70 (DYNAMIC_FEE_FLAG 0x800000, OVERRIDE_FEE_FLAG 0x400000, REMOVE_OVERRIDE_MASK 0xBFFFFF, MAX_LP_FEE, isDynamicFee, isValid, hasOverrideFlag, removeOverrideFlag)",
+      "clause_path": "src/libraries/LPFeeLibrary.sol L12-70 (DYNAMIC_FEE_FLAG 0x800000, OVERRIDE_FEE_FLAG 0x400000, REMOVE_OVERRIDE_MASK 0xBFFFFF, MAX_LP_FEE, isDynamicFee, isValid, isOverride L61, removeOverrideFlag)",
       "scheme": "solidity",
       "id": "v4-core a7cf038c LPFeeLibrary fee constants and override helpers"
     },
@@ -57,6 +57,14 @@
       "clause_path": "src/interfaces/IPoolManager.sol L82-91 (Swap event: fee = the swap fee in hundredths of a bip)",
       "scheme": "solidity",
       "id": "v4-core a7cf038c IPoolManager Swap event"
+    },
+    {
+      "digest": "sha256:68d9070df74998f80b3a4190f1fd970dbe75911ce0ea53f0667ed4de18a0e0d4",
+      "source_url": "https://raw.githubusercontent.com/Uniswap/v4-core/a7cf038cd568801a79a9b4cf92cd5b52c95c8585/src/libraries/Hooks.sol",
+      "retrieved_at": "2026-10-17",
+      "clause_path": "src/libraries/Hooks.sol L261-263 beforeSwap (lpFeeOverride read only when key.fee.isDynamicFee())",
+      "scheme": "solidity",
+      "id": "v4-core a7cf038c Hooks.sol beforeSwap override gate"
     }
   ],
   "compute_proof_ready": "deferred",
