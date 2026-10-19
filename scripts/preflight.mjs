@@ -2070,6 +2070,11 @@ const GATES = [
   ['§18 coverage split controls (RED/GREEN-on-PR/HARD-on-main)', 'node scripts/check-compute-proof-coverage.test.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
+  // Proven-digest freeze: a change may not move the sourceDigest() of a proven node unless a commit
+  // message cites an audit finding (REPROVE-AUTHORIZED: art-<n> <path>#<id>) and the same change carries
+  // a fresh receipt. The advisory-on-PR split lives inside the gate; locally it blocks.
+  ['Proven-digest freeze (audit-cited re-prove only)', 'node scripts/check-proven-digest-freeze.mjs'],
+  ['Proven-digest freeze fixture proof (RED/GREEN)', 'node scripts/check-proven-digest-freeze.test.mjs'],
   // S18-FRESHNESS-DURABLE-FIX-1: the regen-owned calibration artifact's own freshness — a COVERED
   // shared-derived-artifact gate of scripts/derived-artifacts.mjs (id 's18-freshness-calibration'),
   // so like every covered entry it is advisory on a PR (the regen bot on main is the single writer)
@@ -2457,6 +2462,9 @@ const QUICK_GATES = [
   // 30 chars; the 30 threshold, the 656 ceiling and the baseline are untouched.
   ['WebMCP name length, NEW manifests (quick)', `node scripts/check-webmcp-meta-budgets.mjs --new-strict --base ${QUICK_REF}`],
   ['WebMCP meta budgets ceiling (quick, WEBMCP-META-LINT-CEILING-1)', 'node scripts/check-webmcp-meta-budgets.mjs --ceiling'],
+  // Proven-digest freeze: measured about 0.4 s (one git diff plus one cat-file batch over changed
+  // node files only), well inside the 10 s bar for the quick subset.
+  ['Proven-digest freeze (quick)', 'node scripts/check-proven-digest-freeze.mjs'],
 ];
 
 async function runQuickSuite(selfTest) {
