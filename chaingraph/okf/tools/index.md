@@ -650,6 +650,7 @@ status: stable
 - [Taxonomy KPI & Green Asset Ratio Aggregator](./art-74-taxonomy-kpi-gar-aggregator.md) — `aggregate_taxonomy_kpi_gar`
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
 - [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md) — `apply_climate_scenario`
+- [AI Displacement Risk Screener](./art-763-ai-displacement-risk-screener.md) — `ai_displacement_risk_screener`
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md) — `run_t1_readiness_diagnostic`
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md) — `calculate_csdr_penalty`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`

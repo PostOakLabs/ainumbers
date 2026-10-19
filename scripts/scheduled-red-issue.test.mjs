@@ -174,8 +174,12 @@ test('derived-regen: the workflow_run listener surface is registered, reachable 
   assert.equal(ALLOWED_EVENTS.has('pull_request'), false);
   const s = SURFACES.get('derived-regen');
   const wf = readFileSync(resolve(HERE, '..', s.workflow), 'utf8');
-  assert.match(wf, /scheduled-red-issue\.yml/, 'the listener must call the shared reusable workflow');
-  assert.match(wf, /surface:\s*derived-regen\b/);
+  // The listener runs the tracker as a SCRIPT (DEADMAN-REUSABLE-CALL-HEAL-1,
+  // PR #2426): a step-level `uses:` of the workflow_call file is read as a local
+  // action and dies on the missing action.yml (the PR #2423 regression).
+  assert.match(wf, /node \.\/scripts\/scheduled-red-issue\.mjs/, 'the listener must run the shared tracker script');
+  assert.match(wf, /--surface derived-regen\b/);
+  assert.doesNotMatch(wf, /^\s*(-\s*)?uses:\s*\.\/\.github\/workflows\/scheduled-red-issue\.yml/m, 'a step-level uses: of the workflow_call file is the PR #2423 regression');
   // Branch scoping lives in the listener's `gate` job, not in the script —
   // via an env-var comparison (template-injection safe), not a raw `${{ }}`
   // interpolation into the shell.
@@ -191,7 +195,10 @@ test('every caller workflow passes a surface key the registry knows', () => {
   // which is this row's failure mode wearing a green run.
   for (const [key, s] of SURFACES) {
     const wf = readFileSync(resolve(HERE, '..', s.workflow), 'utf8');
-    assert.match(wf, new RegExp(`surface:\\s*${key}\\b`), `${s.workflow} must call the reusable workflow with surface: ${key}`);
-    assert.match(wf, /scheduled-red-issue\.yml/, `${s.workflow} must call the shared reusable workflow`);
+    // Either caller shape counts: the reusable workflow (`surface: key`) or the
+    // tracker script run directly (`scheduled-red-issue.mjs --surface key`).
+    const viaReusable = /scheduled-red-issue\.yml/.test(wf) && new RegExp(`surface:\\s*${key}\\b`).test(wf);
+    const viaScript = /scheduled-red-issue\.mjs/.test(wf) && new RegExp(`--surface ${key}\\b`).test(wf);
+    assert.ok(viaReusable || viaScript, `${s.workflow} must call the shared tracker with surface ${key}`);
   }
 });

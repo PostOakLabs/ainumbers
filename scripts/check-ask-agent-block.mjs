@@ -64,6 +64,9 @@ const RED_GREEN = process.argv.includes('--red-green');
 // WRITER-SCOPE-1: --only <node id> scopes the WRITE pass to exactly the named
 // node's page. The CHECK pass (no --write) is ALWAYS whole-tree — the gate
 // semantics do not change — so --only without --write is a usage error (exit 2).
+// ASKAGENT-ONLY-SKIP-1: a scoped node that adjudicateNode excludes (pageless
+// live node, manifest still to land, no sample) is a printed skip with exit 0 —
+// never an error; the CHECK pass owns coverage truth.
 const onlyAt = process.argv.indexOf('--only');
 const ONLY = onlyAt !== -1 ? process.argv[onlyAt + 1] : null;
 
@@ -129,10 +132,15 @@ async function writerScopeProof() {
   const root = mkdtempSync(join(tmpdir(), 'ask-agent-writer-scope-'));
   const idA = 'scope-art-a';
   const idB = 'scope-art-b';
+  // ASKAGENT-ONLY-SKIP-1 control: live node with NO page file. It gets a
+  // manifest+kernel from the loop below like its siblings (harmless — page
+  // absence excludes first), but no page is ever written for it.
+  const idC = 'scope-art-c';
   const description = 'Validates the writer-scope fixture. Twice.';
   const nodes = [
     { tool_id: idA, status: 'live', mcp_name: 'scope_tool_a', url: `https://ainumbers.co/chaingraph/${idA}.html` },
     { tool_id: idB, status: 'live', mcp_name: 'scope_tool_b', url: `https://ainumbers.co/chaingraph/${idB}.html` },
+    { tool_id: idC, status: 'live', mcp_name: 'scope_tool_c', url: `https://ainumbers.co/chaingraph/${idC}.html` },
   ];
   mkdirSync(join(root, 'chaingraph', 'kernels'), { recursive: true });
   mkdirSync(join(root, 'manifests'), { recursive: true });
@@ -173,6 +181,18 @@ async function writerScopeProof() {
   const after = await collect(root); // whole-tree CHECK pass on the fixture tree
   assert(after.problems.length === 0, 'whole-tree check red after the scoped write: ' + after.problems[0]);
   console.log(`WRITER-SCOPE GREEN: --write --only ${idA} wrote exactly ${green.written} page (${green.scopedCount} scoped emittable of ${green.liveCount} live), sibling byte-identical; whole-tree check on the fixture tree afterwards: clean.`);
+  // ASKAGENT-ONLY-SKIP-1 GREEN: --write --only <pageless live node> is a skip
+  // with a printed reason (exit 0), never an error — the pr-autofix
+  // deterministic-writers step calls exactly this shape for every changed
+  // tools/ page whose node is pageless (measured: 38 of 678 live nodes).
+  const pageAAfterGreen = readFileSync(pageAAbs, 'utf8');
+  const skip = await writePass(root, idC);
+  if (skip.error) fail('--only on a pageless fixture node must not error: ' + skip.error);
+  assert(!!skip.skipped, '--only on a pageless fixture node must return a skip reason');
+  assert(skip.written === 0 && skip.scopedCount === 0, 'skip must write nothing');
+  assert(!existsSync(join(root, 'chaingraph', `${idC}.html`)), 'skip must not create the absent page');
+  assert(readFileSync(pageAAbs, 'utf8') === pageAAfterGreen && readFileSync(pageBAbs, 'utf8') === pageB, 'skip repainted a sibling page — scoping is broken');
+  console.log(`WRITER-SCOPE SKIP: --write --only ${idC} (live, pageless) skipped with reason "${skip.skipped}", zero bytes written, siblings byte-identical.`);
   rmSync(root, { recursive: true, force: true });
 }
 
@@ -342,8 +362,16 @@ async function writePass(repoRoot, onlyId = null) {
     }
     scoped = adjudicated.filter((d) => d.id === onlyId);
     if (scoped.length === 0) {
+      // ASKAGENT-ONLY-SKIP-1: a scoped node can be legitimately non-emittable
+      // today — a live node with no in-repo page (38 of 678, the Canton
+      // 503-515 family among them), a manifest still to land, no sample yet.
+      // The whole-tree writer skips those with a printed reason and the CHECK
+      // pass owns coverage truth; the scoped route now does the same instead
+      // of GEN-ERRORing the pr-autofix deterministic-writers step. A node id
+      // that is not live at all stays an error above — that is a caller
+      // mistake, not an exclusion.
       const why = excluded.find((e) => e.id === onlyId);
-      return { error: `--only ${onlyId}: no emittable ask-agent block today${why ? ' — ' + why.exclude : ''}`, problems, excluded };
+      return { skipped: why ? why.exclude : 'excluded with no recorded reason', written: 0, exact: 0, scoped: [], scopedCount: 0, onlyId, liveCount: live.length, excludedCount: excluded.length, excluded, problems };
     }
   }
   let written = 0;
@@ -408,6 +436,7 @@ async function run() {
   if (WRITE) {
     const r = await writePass(REPO, ONLY);
     if (r.error) fail(r.error);
+    if (r.skipped) console.log(`skip ask-agent write for ${r.onlyId} — ${r.skipped}`);
     if (r.problems.length) {
       console.error('✗ write pass hit problems:');
       r.problems.forEach((p) => console.error('    ' + p));

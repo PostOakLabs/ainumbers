@@ -6,7 +6,7 @@
 // totality claim is made over it. Properties below run over a committed
 // mulberry32 seed (deterministic) plus a fixed corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:759f085e71fb92d731f9c15f8b6e16d43eda57cca85572d743c13f88352d8a48
+// kernel_digest_at_authoring: sha256:e7eac9a4322542b6e39434f60df84cdc6eb24ceee9887b282aadc16f319bb4ea
 // spec: VALON reduction map §B2 item 1 (research/VALON-AI-INVENTORY-AND-AINUMBERS-REDUCTION-MAP-2026-10-05.md)
 //   — servicing-compliance timeline checker: per-rule due dates and clock states
 //   from event dates + values, every output carrying its paragraph citation;

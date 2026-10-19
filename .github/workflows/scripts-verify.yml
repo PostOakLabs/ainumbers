@@ -317,8 +317,24 @@ jobs:
         run: |
           echo "head commit is the regen bot's (chore(derived): regenerate…) — no ephemeral assembly, DERIVED_ROOT left empty, freshness gates judge the COMMITTED tree."
 
+      # pull_request only: assemble a scratch monolith for the §18 coverage gate ALONE (read via
+      # S18_DERIVED_ROOT, which no other gate reads). A first-prove PR edits node shards only, so the
+      # committed chaingraph.json still names its node as deferred and the hard PR-side §18 ratchet
+      # loops against pr-autofix's baseline bump. DERIVED_ROOT stays empty on pull_request, so every
+      # other gate keeps judging the committed tree exactly as before.
+      - name: Ephemeral monolith for §18 (pull_request)
+        id: s18tree
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRATCH="${RUNNER_TEMP}/s18-derived-tree"
+          node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
+          echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+
       - name: Preflight (full gate suite)
         env:
+          S18_DERIVED_ROOT: ${{ steps.s18tree.outputs.root }}
           # TIER-LEG SHARDING: this job runs EVERY gate EXCEPT the
           # mutation-tier leg (PREFLIGHT_TIER_LEG=skip swaps that one GATES
           # entry for its no-op notRun shape inside preflight; nothing else is
@@ -406,6 +422,11 @@ jobs:
       # Everything else keeps its downgrade: count-drift, sitemap, trust-signals
       # and the other main-side single-writer artifacts keep their downgrade untouched.
       - name: §18 ratchet + provenance (HARD on pull_request — per-PR derivables promotion)
+        env:
+          # Same PR-only scratch monolith the preflight step gets (steps.s18tree): without it this
+          # hard PR leg reads the committed chaingraph.json, where a first-prove PR's node is still
+          # deferred. Empty off pull_request, so push/merge_group behaviour is unchanged.
+          S18_DERIVED_ROOT: ${{ steps.s18tree.outputs.root }}
         run: |
           if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
             GITHUB_EVENT_NAME=push node scripts/check-compute-proof-coverage.mjs
@@ -420,6 +441,27 @@ jobs:
         run: node scripts/check-ask-agent-block.mjs
 
       - name: Node page accessibility tree (HARD on pull_request — per-PR derivables promotion)
+        # Queue/main a11y parity (2026-10-15): on merge_group this gate must
+        # adjudicate the derived surface main will have, not the checkout's
+        # chaingraph.json — a brand-new node page is out of the checkout
+        # monolith's enumeration until main's post-merge Derived Artifacts
+        # Regen registers it, so the queue greened #2374 (105/673, run
+        # 38186970179) and the same page went RED on main with 32 findings the
+        # queue never saw (run 38188751622). The ephemeral assembly step above
+        # ALREADY ran before this step on merge_group; its --enroll regen pass
+        # registers the incoming node in the scratch monolith, and
+        # check-a11y-tree.mjs now overlay-reads that tree (derivedResolve
+        # convention). The env is wired merge_group ONLY: pull_request and
+        # push-to-main keep judging the committed checkout, byte-for-byte
+        # today's behaviour (empty string = unset for the gate). Inside the
+        # preflight run above this variable is stripped from every
+        # non-DERIVED_ROOT_GATES command — this named step is the enforcement
+        # point. The gate additionally fails closed on the mid-flight shard
+        # condition (shard on disk not in chaingraph.meta.json order.nodes
+        # with an in-repo page or manifest) in main contexts, warning on
+        # pull_request — the queue can no longer pass what it cannot enumerate.
+        env:
+          DERIVED_ROOT: ${{ github.event_name == 'merge_group' && steps.derived.outputs.root || '' }}
         run: node scripts/check-a11y-tree.mjs
 
       # The single-writer law, proven, not assumed. The
@@ -451,6 +493,10 @@ jobs:
         run: node scripts/check-citation-drift.mjs
 
   scripts-verify-tier-shard:
+    # This job NEVER sets MUTATION_TIER_IN_HOOK, so the hookSkipKernels advisory
+    # deferral (a pre-push-hook-only marker in run-mutation-tier.mjs) does not apply
+    # here — these shards RUN every hookSkip-listed kernel under its
+    # kernelTimeoutSeconds bound and FLOOR it.
     # TIER-LEG SHARDING (landed 2026-09-16 after the PR #1908 ceiling failure): the PR-incremental
     # mutation-tier leg, sharded. Mirrors mutation-full-scheduled.yml's
     # `mutation-shard` job: same timeout discipline, same fail-fast: false, same

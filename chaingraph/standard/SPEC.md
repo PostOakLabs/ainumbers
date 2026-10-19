@@ -66,7 +66,9 @@ additive updates). No single one of these should be read as "the OpenChainGraph 
 | `spec_version` | `chaingraph.json` (the version of record) | which OCG **release** is this? | `0.8.13` | every release (additive or breaking) |
 | `chaingraph_version` | every **artifact** envelope | which **schema** do I parse/validate this with? | `0.4.0` (frozen) | **only a breaking envelope change** |
 | `@context` URL | the artifact (`…/context/v0.3/…`) | which JSON-LD **vocabulary** applies? | `v0.3` | only when the context vocabulary changes |
-| `payloadType` `;version=` | `audit_signature` (the DSSE shell) | which **signing-envelope** shell? | `0.2` | only when the DSSE shell changes |
+| `payloadType` `;version=` | `audit_signature` (the DSSE shell) | which **signing-envelope** shell? | `0.4` | only when the DSSE shell changes |
+
+Every kernel emits `;version=0.4`. Values of `;version=0.2` in legacy pages and fixtures are accepted and denote the same DSSE shell.
 
 **The rule that ties them together:** every additive layer (§13.11 `vc`, §16 proof, §17 build_identity,
 §18 compute_proof) is hash-excluded and rides under `audit_signature`, so it does **not** move
@@ -96,7 +98,7 @@ Every OpenChainGraph node tool and chain page MUST emit this envelope. Fields an
   "policy_parameters": { "execution_backend": "server", "input_parameters": {} },
   "output_payload": {},
   "compliance_flags": [],
-  "audit_signature": { "payloadType": "application/vnd.openchain.graph+json;version=0.2", "payload": "", "signatures": [] }
+  "audit_signature": { "payloadType": "application/vnd.openchain.graph+json;version=0.4", "payload": "", "signatures": [] }
 }
 ```
 
@@ -938,13 +940,15 @@ existing contract only.
 
 ## §20 Anchor Binding (NORMATIVE, OPTIONAL — new in v0.7)
 An artifact MAY carry portable, offline-verifiable evidence that its `execution_hash` was included in a
-transparency log or timestamp service by a point in time. Anchor evidence attaches at the OPTIONAL
+transparency log or timestamp service by a point in time (the §20.4 `solana-memo` type is the ONE
+exception to "offline-verifiable": its verification requires a Solana RPC, stated there normatively).
+Anchor evidence attaches at the OPTIONAL
 top-level array `anchor_bindings`, which — like §16 `audit_signature` — is attached AFTER hashing and is
 EXCLUDED from `execution_hash` scope. Each entry:
 
 ```json
 {
-  "type": "rfc3161-tst" | "opentimestamps" | "c2sp-tlog-proof-v1" | "scitt-receipt-rfc9942",
+  "type": "rfc3161-tst" | "opentimestamps" | "c2sp-tlog-proof-v1" | "scitt-receipt-rfc9942" | "solana-memo",
   "anchored_hash": "sha256:…",
   "log_origin": "<TSA URL / log origin string / calendar or service identifier>",
   "proof": "<base64 verbatim TST DER | base64 OTS proof | tlog-proof@v1 text | base64 COSE receipt>",
@@ -955,7 +959,9 @@ EXCLUDED from `execution_hash` scope. Each entry:
 `anchored_hash` MUST equal the artifact's `execution_hash` — EXCEPT when a `merkle_inclusion` member is
 present (§20.1), in which case `anchored_hash` is a Merkle ROOT and the artifact `execution_hash` is a
 LEAF of that tree. The last four members (`policy_oid`, `serial`, `gen_time`, `signer_cert_chain_b64`)
-are `rfc3161-tst` additional members — all REQUIRED for that type, absent otherwise.
+are `rfc3161-tst` additional members — all REQUIRED for that type, absent otherwise. A `solana-memo`
+entry (§20.4) instead carries `cluster`, `signature`, `slot`, `block_time`, `commitment`, `signer` and
+`anchored_hash` (plus OPTIONAL `merkle_inclusion`); its member set is defined in §20.4.
 
 Verification (per type): `rfc3161-tst` — RFC 3161 TimeStampToken verification: messageImprint matches
 `anchored_hash`, CMS signature over TSTInfo valid, signer chains to a verifier-pinned TSA root, signing
@@ -1130,6 +1136,62 @@ artifacts are NEVER eligible regardless of checkpoint state; `retention_class` (
 (byte-identical `execution_hash` with and without the member, both halves asserted); the tier is additive —
 an artifact/verifier that never encounters a pruned body behaves exactly as before v0.8.18.
 
+### §20.4 `solana-memo` — verification-only ledger anchor (NORMATIVE, OPTIONAL — new in v0.8.25)
+A `solana-memo` binding records that `anchored_hash` was committed to a Solana transaction whose
+Memo-program instruction data equals it, at a named slot, by the holder of a named signer key. It is
+**verification-only** in this standard: OCG defines NO stamping leg, NO key custody and NO funding for
+this type. A producer that wants one brings a transaction signed elsewhere; the binding is evidence
+ABOUT that transaction, never an operation BY this standard. Like every §20 member it attaches AFTER
+hashing, is EXCLUDED from the `execution_hash` preimage, and rides in `anchor_bindings`:
+
+```json
+{
+  "type": "solana-memo",
+  "cluster": "mainnet-beta" | "devnet" | "testnet",
+  "signature": "<base58 transaction signature>",
+  "slot": 123456789,
+  "block_time": 1760000000,
+  "commitment": "finalized",
+  "signer": "<base58 pubkey of a memo-signing account>",
+  "anchored_hash": "sha256:…",
+  "merkle_inclusion": { "…": "OPTIONAL, §20.1 semantics unchanged" }
+}
+```
+
+Members: `anchored_hash` MUST equal the artifact's `execution_hash` — EXCEPT under `merkle_inclusion`
+(§20.1), where it is the Merkle ROOT, the memo commits the ROOT, and the artifact `execution_hash` is a
+LEAF; §20.1 semantics (leaf match, RFC 6962 root reconstruction, root == `anchored_hash`) apply to this
+type unchanged. `commitment` MUST be `finalized` — the only level this section defines, and the level a
+verifier MUST fetch at. `slot` MUST be the slot the transaction landed in. `block_time` is OPTIONAL and
+MAY be null or absent: it is the RPC's stake-weighted validator ESTIMATE of block time, never a signed
+or authoritative time. `signer` MUST be the base58 pubkey of an account that signed the memo
+instruction; a verifier MUST reject the binding when the transaction's signer set does not contain it.
+
+Verification is NOT offline — this is the one §20 type that structurally requires a Solana JSON-RPC
+endpoint, chosen by the VERIFIER (the binding names none; deferring that trust choice to whoever
+verifies is deliberate). A verifier: (1) fetches the transaction by `signature` via `getTransaction`
+at `finalized` commitment and rejects on not-found; (2) confirms the Memo-program instruction data
+equals `anchored_hash` (or, under `merkle_inclusion`, the committed root per §20.1); (3) confirms the
+returned slot equals `slot`; (4) confirms `signer` is among the transaction's memo signers; and (5),
+where the verifier holds a published allowlist of acceptable anchor keys, confirms `signer` is on it —
+without a signer pin ANYONE can write the same memo, so an unpinned binding proves only what the
+ledger records, not who chose to commit it.
+
+**Trust caveat (NORMATIVE honesty; MUST be carried, in spirit, by any product copy for this type):** a
+`solana-memo` binding proves "this hash was committed no later than slot N by the holder of key K". It
+is a ledger-ordering anchor like a Bitcoin OTS commitment, NOT an RFC 3161 token: no accountable time
+authority, no qualified or eIDAS status, no signed gen_time; `block_time` is validator-estimated;
+finality is economic (supermajority stake), not legal; and verification needs an RPC, so there is NO
+verify-offline-forever property — old-transaction availability depends on the RPC (archival nodes for
+deep history). Copy that labels this type a TSA, RFC 3161-aligned, or eIDAS-qualified is
+NON-CONFORMANT with this section.
+
+Gate (EXISTING, extended — no new gate script here): the shape is validated by `schema-validate.mjs`
+against the `solana-memo` oneOf variant added to `openchain-graph-v0.4.schema.json` in the same change;
+verifier behavior, fixtures and the unknown-type fallback live in the anchor-suite repo, which owns the
+verification-only leg. Nothing in this section requires or permits an OCG implementation to hold a
+Solana signing key.
+
 ## §21 Chain Execution (NORMATIVE — new in v0.8)
 Until v0.8 chain execution (`run_chain` / `composite_execution_hash`) was implementation-defined. §21
 makes the **existing linear contract** normative (§21.1–§21.3, descriptive of shipped behavior) and adds
@@ -1137,6 +1199,12 @@ makes the **existing linear contract** normative (§21.1–§21.3, descriptive o
 steps: [{ tool_id, handoff?, id?, gate? }] }`. Execution is deterministic, zero-PII, zero payload
 logging. The reference surfaces are the Worker `run_chain` and the byte-identical embedded `runChain`;
 both MUST produce the identical `composite_execution_hash` for the same chain + inputs.
+
+**WebMCP surfaces (citation).** A chain's in-browser WebMCP registration lives on the page named by its
+`composer_url`; a node's lives on its node page. When either is called "WebMCP-conformant", the term
+means exactly the four-part definitions in `CONTRACT.md` Amendment A15 (A15.1 pages, A15.2 chains),
+including the gated or advisory mark on each part. This standard does not restate them (Amendment A5);
+it supplies the browser composite that A15.2 part 4 tests (§21.2).
 
 ### §21.1 Linear execution model (descriptive of shipped behavior)
 Steps run in **array order**. For each step, by `tool_id`: an unknown node → status `unknown_node`; a
@@ -1165,12 +1233,32 @@ composite_output = { chain, steps: [ { tool_id, mandate_type, execution_hash, ou
 Per-step timestamps and `mandate_id`s are EXCLUDED from the preimage, so the composite hash is
 reproducible. If no step ran, `composite_execution_hash` is `null` and no composite artifact is emitted.
 
-> **NOTE (non-normative).** `composite_policy.compute_mode` above is written as the literal
-> `"server"` — this composite preimage is defined for `compute_mode: "server"` only. No browser-leg
-> or other-backend composite preimage is defined anywhere in this standard; this is deliberate as of
-> the current version, not an oversight. See `research/CHAIN-DIFF-HASHTARGET-ADJUDICATION-2026-08-10.md`
-> for the reasoning. A non-server composite is parked, not specced, pending the first genuine
-> consumer that needs one.
+**Browser composite (NORMATIVE; reopened 2026-10-18, text-only, no hash moves).** The first genuine
+consumer of a non-server composite is part 4 of the WebMCP chain conformance definition (`CONTRACT.md`
+Amendment A15.2: browser and server composite hashes agree). For that consumer this standard defines
+the browser composite as follows.
+
+- The literal `compute_mode: "server"` inside `composite_policy` names the §21.1 reference execution
+  model, not the door that ran it. A browser leg that executes a chain MUST run the §21.1 model and MUST
+  build the composite preimage with exactly the members, values and RAN-step rule given above,
+  including that literal. It MUST NOT substitute `"browser"` or any other value inside the preimage.
+- The browser leg records its door outside the preimage, in the composite artifact's top-level
+  `compute_mode` envelope field (§21.3), which is not hashed.
+- The hash is computed with the shared canonicalizer (§4, `kernels/_hash.mjs`), never a page-local
+  reimplementation of the canonical form.
+- The browser composite and the server composite for the same chain and the same inputs therefore
+  MUST have the identical `execution_hash`. A mismatch is a conformance failure of the browser leg
+  (or of the server leg), never a second valid answer.
+- A chain *definition* artifact that hashes the chain's declared steps and handoffs without executing
+  them is a different artifact. It is not a composite under this section and cannot satisfy the
+  agreement test.
+
+The embedded `runChain` already builds this preimage (it carries the same literal), which is why
+`gate-parity.test.mjs` can require it to equal the Worker `run_chain` byte-for-byte. Per-chain
+comparison of a page's own browser leg against the server leg is report-only today (CONTRACT A15.2
+marks part 4 advisory). The earlier parking rationale is recorded in
+`research/CHAIN-DIFF-HASHTARGET-ADJUDICATION-2026-08-10.md`; this reopening supersedes the park
+without changing any shipped hash.
 
 ### §21.3 Composite artifact
 The composite artifact carries `chaingraph_version:"0.4.0"`, `compute_mode:"server"`,
@@ -3919,7 +4007,17 @@ This section adds no second gate and changes no existing gate; nothing emits the
 adoption is a later decision.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **SPEC-TEXT PASS (2026-09-25: §PIN-1 chain recipe pinning, staged by
+See `standard/CHANGELOG.md`. **SPEC-TEXT PASS (2026-10-18: §21.2 browser composite reopened, with the
+WebMCP conformance definitions in `CONTRACT.md` Amendment A15 as its first consumer; the record
+`spec_version` stays at whatever `chaingraph.json` carries, same separation as every prior text
+pass):** §21.2 now defines the browser composite instead of parking it. A browser leg builds the
+identical §21.2 preimage, including the `compute_mode:"server"` literal, which names the §21.1
+reference model rather than the door; the door is recorded only in the hash-excluded envelope
+`compute_mode`. Browser and server composites for the same chain and inputs therefore share one
+`execution_hash`, and a chain definition artifact is not a composite. No preimage member, value or
+hash path changes, no shipped hash moves, and `chaingraph_version` stays `"0.4.0"`. §21 gains a
+citation of the CONTRACT A15 page and chain definitions; one §15 row covers the browser composite.
+**SPEC-TEXT PASS (2026-09-25: §PIN-1 chain recipe pinning, staged by
 `CHAINSTORE-PIN-1` from the adjudicated `CHAIN-STORAGE-BUILD-SPEC.md` §3; the record `spec_version` stays
 at whatever `chaingraph.json` carries, same separation as every prior text pass):** §PIN-1 adds ONE
 OPTIONAL chain member, `catalog_cid`, a §CID-1-profile CID over the exact `chaingraph.json` bytes a chain
@@ -4231,6 +4329,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §21.4 gate static validity: RFC 6901 pointer syntax, closed op enum + value typing, `default` present, all targets resolve + FORWARD-ONLY, unique step ids, no unreachable step | `validate-chains.mjs` (Layer 4) + `gate-static.test.mjs` | validate |
 | §21.4 evaluator semantics: each op × type mismatch × first-match × mandatory default, determinism, decision recomputable + tamper-detect | `gate-semantics.test.mjs` | validate |
 | §21.4 both-branch coverage: a gated chain's fixtures drive every branch (each rule + default) ≥1; a single-branch set is flagged | `gate-branch-coverage.test.mjs` | validate |
+| §21.2 browser composite: a browser leg builds the identical §21.2 preimage (the `compute_mode:"server"` literal names the reference model, not the door; the door is recorded only in the hash-excluded envelope `compute_mode`) and so yields the server's composite `execution_hash`; embedded `runChain` vs Worker `run_chain` is gated, per-page browser-leg comparison is report-only (CONTRACT A15.2 part 4, advisory) | `gate-parity.test.mjs`, `linear-hash-freeze.mjs` | validate |
 | §21.4 evaluator byte-parity: Worker `run_chain` and embedded `runChain` yield identical route + decisions + `composite_execution_hash` for gated chains | `gate-parity.test.mjs` | validate |
 | §20.1 `merkle_inclusion`: reconstruct RFC 6962 root from leaf+path, root == `anchored_hash`, leaf == recomputed `execution_hash`, tampered path / wrong leaf / wrong root MUST fail, outside hash scope | `anchor-binding.test.mjs` | validate |
 | §22 Work Mandate document: separate `workMandateDocument` `$def` present + well-formed; `mandate_type:"work_mandate"` accepted in the existing open envelope string; frozen `$defs/artifact` + `chaingraph_version` 0.4.0 UNCHANGED | `schema-validate.mjs` | validate |

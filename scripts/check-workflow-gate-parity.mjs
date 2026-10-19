@@ -212,6 +212,8 @@ const BLOCKING_WORKFLOWS = [
 // rotted: automerge-label.yml, fullsuite-schedule.yml, mutation-full-scheduled.yml,
 // ruleset-apply.yml and ruleset-drift-gate.yml were all absent from it.
 const NOT_A_GATE = new Map([
+  ["swh-save.yml",
+    "workflow_dispatch + push tags only, continue-on-error; no pull_request or merge_group trigger, so it gates no merge."],
   ["automerge-label.yml",
     "pull_request: [labeled] automation that PERFORMS the merge (SO #37's label path); " +
     "it is not a required status check and blocks nothing."],
@@ -376,6 +378,8 @@ const PREFLIGHT_ONLY = new Map([
     "to strict plus a named CI step is the deliberate follow-up once that step lands a real " +
     "refresh PR. scripts/-only, so scripts-verify.yml's path filter already routes any change to " +
     "the gate or the page through a full preflight."],
+  // ── ENGINE-BUNDLE-ESM-LINT-1 (2026-10-15) ───────────────────────────────────
+  ["check-engine-parity.bundle.test.mjs", SELF_TEST],
   // ── WEBMCP-META-LINT-CEILING-1 (2026-10-01) ─────────────────────────────────
   ["check-webmcp-meta-budgets.test.mjs", SELF_TEST],
   ["check-webmcp-meta-neardupes.test.mjs", SELF_TEST],
@@ -732,6 +736,18 @@ const PREFLIGHT_ONLY = new Map([
     "into a blocking workflow would assert nothing. The thing CI DOES backstop — that the " +
     "hook file exists and invokes preflight — is covered by pre-push.test.mjs and the " +
     "scripts-verify.yml full-preflight run."],
+  // ── PREPUSH-NARROW-1 (2026-10-17) ──────────────────────────────────────────
+  ["prepush-full-trigger.mjs",
+    "Pre-push full-suite trigger classifier (the `--self-test` leg): which changed paths owe " +
+    "the FULL preflight leg inside .githooks/pre-push. Preflight-only BY SUBJECT MATTER: it " +
+    "decides a LOCAL hook's cost (CI's scripts-verify.yml runs the full suite unconditionally " +
+    "on every scripts/** change, so there is no CI trigger decision to mirror). CI still runs " +
+    "the self-test as one GATES entry inside that full-preflight run."],
+  ["prepush-pr-id-env.mjs",
+    "Pre-push PR-number resolver for check-id-collision (the `--self-test` leg): decides whether " +
+    ".githooks/pre-push exports PR_ID_COLLISION_PR from `gh pr view`. Preflight-only BY SUBJECT " +
+    "MATTER: it exists for a LOCAL push (CI derives the PR number from the ref name), and the " +
+    "full-preflight run in scripts-verify.yml executes the self-test as one GATES entry."],
   // ── COMPOSER-PLAN-AND-ROOT-WEBMCP-1 (2026-09-05) ───────────────────────────
   ["check-chain-plan-parity.mjs",
     "Chain plan parity (parity gate A): recomputes every chain's section 4 plan hash from " +
@@ -862,6 +878,17 @@ const PREFLIGHT_ONLY = new Map([
     "route is scripts-verify.yml's full preflight, so a named workflow step would only duplicate the same " +
     "suite. Reads only tracked repo files — no CI-only input; pre-existing direct-path divergences are " +
     "baselined WARN with a downward ratchet (scripts/webmcp-direct-execute-baseline.json)."],
+
+  // ── WEBMCP-CHAIN-EXEC-GATE-1 (2026-10-18) ─────────────────────────────────
+  ["check-webmcp-chain-execute.mjs",
+    "Chain-execution vm gate for CONTRACT A15.2 parts 2 and 3 (WEBMCP-CHAIN-EXEC-GATE-1): calls every " +
+    "composer page's registered plan_chain in two fresh node:vm contexts with the wrapper-execute harness, " +
+    "recomputes the execution_hash through chaingraph/kernels/_hash.mjs, asserts it is stable, and resolves " +
+    "every chain step against the generator's registered node set. Advisory on pull_request, blocking on " +
+    "merge_group and main; its CI route is scripts-verify.yml's full preflight, so a named workflow step " +
+    "would only duplicate the same suite. Reads only tracked repo files, no CI-only input; pre-existing " +
+    "failures are baselined WARN with a downward ratchet (scripts/webmcp-chain-execute-baseline.json)."],
+  ["check-webmcp-chain-execute.test.mjs", SELF_TEST],
 
   // ── EXAMPLE-PROMPTS-JSON-1 (2026-09-05) ──────────────────────────────────
   ["check-showcase-prompts.mjs",

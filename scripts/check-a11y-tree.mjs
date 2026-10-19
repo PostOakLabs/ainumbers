@@ -57,12 +57,40 @@ import {
 } from '../chaingraph/_page-chrome.mjs';
 import { propertyIdMap, findWrapperName } from './gen-webmcp-registrations.mjs';
 import { loadManifestIndex, loadMcpNameIndex } from './check-schema-read-divergence.mjs';
+import { derivedResolve, derivedRoot, isMainContext } from './derived-artifacts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 
 const WRITE = process.argv.includes('--write');
 const RED_GREEN = process.argv.includes('--red-green');
+
+// MERGEGROUP-A11Y-ASSEMBLY-1 (2026-10-15, diagnosis
+// research/queue-main-parity/A11Y-GAP-DIAG-2026-10-12.md): TOOLPAGE-A11Y-1
+// enumerated live nodes from the CHECKOUT's chaingraph.json, so a brand-new
+// node page committed by a PR was silently out of scope in merge_group (the
+// monolith registers a new node only after main's post-merge Derived
+// Artifacts Regen) and the SAME page then failed on main with findings the
+// queue never saw (art-705/#2374: queue run 38186970179 green 105/673, main
+// run 38188751622 RED 32). On merge_group the queue assembles the derived
+// tree ephemerally into $DERIVED_ROOT BEFORE this gate runs
+// (scripts-verify.yml "Ephemeral derived tree" step); this gate now
+// overlay-reads that tree (derivedResolve semantics: scratch first, checkout
+// fallback) for the enumeration monolith, the node pages and the manifests —
+// the same convention every DERIVED_ROOT-aware gate uses. DERIVED_ROOT unset
+// or empty (pull_request, push:main, every local invocation) resolves
+// byte-for-byte today's checkout paths; --write/--red-green/--self-test are
+// repair/proof modes against the COMMITTED tree and never overlay (a repair
+// must never write into an ephemeral scratch tree).
+const SCRATCH = derivedRoot();
+const OVERLAY = Boolean(SCRATCH) && !WRITE && !RED_GREEN && !process.argv.includes('--self-test');
+
+// Flake fix (2026-10-17): the red-green proof used to write a mutated page to
+// the REAL tree and restore it; any concurrent gate reading/mutating the same
+// page raced it (main runs 39004556719 + 39037398003: "gate is deaf"). The
+// mutation now lives in memory only: pageAbs -> mutated source. Disk is never
+// written by --red-green / --self-test.
+const PAGE_OVERRIDE = new Map();
 
 const BASELINE_PATH = resolve(HERE, 'a11y-baseline.json');
 const WEBMCP_BEGIN = '<!-- WEBMCP:GEN-BEGIN ';
@@ -83,8 +111,31 @@ function loadBaseline() {
 }
 
 function liveNodes() {
-  const cg = loadJson(resolve(REPO, 'chaingraph', 'chaingraph.json'));
+  // MERGEGROUP-A11Y-ASSEMBLY-1: enumerate from the ephemeral assembled
+  // monolith when an overlay is mounted (the assembly's --enroll regen pass
+  // registers the incoming node, so the queue adjudicates the surface main
+  // will have); unset = the checkout monolith, byte-for-byte today's read.
+  const cg = loadJson(OVERLAY ? derivedResolve('chaingraph', 'chaingraph.json') : resolve(REPO, 'chaingraph', 'chaingraph.json'));
   return (cg.nodes || []).filter((n) => n.status === 'live' && n.tool_id);
+}
+
+/** The root whose chaingraph/chaingraph.json the gate reads (overlay-aware;
+ *  the mcp-name index must come from the SAME monolith liveNodes read). */
+function effectiveRoot() {
+  return OVERLAY ? resolve(derivedResolve('chaingraph', 'chaingraph.json'), '..', '..') : REPO;
+}
+
+/** manifest index for the gate: union across the overlay when one is mounted —
+ *  scratch entries (the regen's rewrite) win per key, checkout entries fill
+ *  the rest. The manifest FILE read in adjudicateNode resolves per-file with
+ *  the same overlay precedence. */
+function manifestIndexForGate() {
+  const base = loadManifestIndex(REPO);
+  if (!OVERLAY) return base;
+  const scratch = loadManifestIndex(resolve(REPO, SCRATCH));
+  for (const [k, v] of base.byTool) if (!scratch.byTool.has(k)) scratch.byTool.set(k, v);
+  for (const [k, v] of base.byMcp) if (!scratch.byMcp.has(k)) scratch.byMcp.set(k, v);
+  return scratch;
 }
 
 /** A view of the page in which everything OUTSIDE <script> is blanked to
@@ -202,16 +253,19 @@ function expectedRegion(manifestPath, a11yTable, runTarget) {
 function adjudicateNode(node, repoRoot, manifestIndex, mcpNameByTool) {
   const id = node.tool_id;
   const pageRel = `chaingraph/${id}.html`;
-  const pageAbs = resolve(repoRoot, pageRel);
+  // MERGEGROUP-A11Y-ASSEMBLY-1: per-file overlay precedence — the assembly's
+  // page bytes (e.g. a footer-normalized rewrite) win over the checkout's;
+  // pages the assembly did not produce fall back to the committed page.
+  const pageAbs = OVERLAY ? derivedResolve('chaingraph', `${id}.html`) : resolve(repoRoot, pageRel);
   if (!existsSync(pageAbs)) return { id, outOfScope: `${pageRel} absent (no in-repo page)` };
-  const pageSrc = readFileSync(pageAbs, 'utf8');
+  const pageSrc = PAGE_OVERRIDE.has(pageAbs) ? PAGE_OVERRIDE.get(pageAbs) : readFileSync(pageAbs, 'utf8');
   if (!pageSrc.includes(WEBMCP_BEGIN)) return { id, outOfScope: `${pageRel} carries no generated WebMCP region (hand-authored node page — out of scope)` };
   const rec = manifestIndex.byTool.get(id)
     || (mcpNameByTool.get(id) ? manifestIndex.byMcp.get(mcpNameByTool.get(id)) : null)
     || null;
   if (!rec) return { id, outOfScope: `no manifests/*.manifest.json record pairs with tool_id '${id}' (page is not manifest-generated)` };
   const manifestRel = rec.file;
-  const manifestAbs = resolve(repoRoot, manifestRel);
+  const manifestAbs = OVERLAY ? derivedResolve(...manifestRel.split('/')) : resolve(repoRoot, manifestRel);
   if (!existsSync(manifestAbs)) return { id, outOfScope: `${manifestRel} absent (page is not manifest-generated)` };
   let manifest;
   try { manifest = loadJson(manifestAbs); } catch (e) { return { id, problem: `${pageRel}: manifest unparseable: ${e.message}` }; }
@@ -296,8 +350,8 @@ function adjudicateNode(node, repoRoot, manifestIndex, mcpNameByTool) {
 function collect() {
   const live = liveNodes();
   const baseline = loadBaseline();
-  const manifestIndex = loadManifestIndex(REPO);
-  const mcpNameByTool = loadMcpNameIndex(REPO);
+  const manifestIndex = manifestIndexForGate();
+  const mcpNameByTool = loadMcpNameIndex(effectiveRoot());
   const problems = [];
   const adjudicated = [];
   const baselined = [];
@@ -325,6 +379,33 @@ function collect() {
   return { live, problems, adjudicated, baselined, outOfScope, baseline };
 }
 
+/** MERGEGROUP-A11Y-ASSEMBLY-1 Fix B (fail closed on the mid-flight shard):
+ *  node shard ids present on the checkout's disk but absent from the
+ *  checkout's chaingraph.meta.json order.nodes — the exact condition
+ *  assemble-chaingraph reports as a mere WARNING (ASSEMBLE-COVER-1 advisory,
+ *  scripts/assemble-chaingraph.mjs reportUnassembledShards) — restricted to
+ *  shards the a11y surface can actually see (an in-repo page
+ *  chaingraph/<id>.html or a manifests/<id>.manifest.json), i.e. the
+ *  art-705/#2374, art-706/#2379, art-707/#2382 class. Always read from the
+ *  CHECKOUT, never the overlay: the condition IS the committed enumeration
+ *  surface's inability to know the node (Fix A's overlay carries the
+ *  speculative cure; this check refuses to let the un-cured state pass
+ *  silently when the overlay is absent or a shard escapes enrollment). */
+function midflightShardIds() {
+  const metaPath = resolve(REPO, 'chaingraph', 'chaingraph.meta.json');
+  const nodesDir = resolve(REPO, 'chaingraph', 'graph', 'nodes');
+  if (!existsSync(metaPath) || !existsSync(nodesDir)) return [];
+  let orderNodes;
+  try { orderNodes = loadJson(metaPath).order?.nodes; } catch { return []; }
+  if (!Array.isArray(orderNodes)) return [];
+  const known = new Set(orderNodes);
+  return readdirSync(nodesDir)
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => f.slice(0, -'.json'.length))
+    .filter((id) => !known.has(id))
+    .filter((id) => existsSync(resolve(REPO, 'chaingraph', `${id}.html`)) || existsSync(resolve(REPO, 'manifests', `${id}.manifest.json`)));
+}
+
 /** SO #34c RED-then-GREEN proof, in-process (never exits non-zero). */
 function redGreen() {
   const before = collect();
@@ -333,10 +414,10 @@ function redGreen() {
   if (!target) fail('no emitted region found to mutate for the red-green proof');
   const mutated = target.pageSrc.replace('Run complete. execution_hash', 'Run c0mplete. execution_hash');
   if (mutated === target.pageSrc) fail('mutation did not apply');
-  writeFileSync(target.pageAbs, mutated, 'utf8');
+  PAGE_OVERRIDE.set(target.pageAbs, mutated);
   const during = collect();
   const redOk = during.problems.some((p) => p.startsWith(target.pageRel) && (p.includes('drifted') || p.includes('Run complete')));
-  writeFileSync(target.pageAbs, target.pageSrc, 'utf8'); // restore
+  PAGE_OVERRIDE.delete(target.pageAbs); // restore (in-memory only)
   const after = collect();
   if (!redOk) fail('mutated tree did NOT red the gate — the gate is deaf');
   if (after.problems.length) fail('tree still red after restore');
@@ -346,6 +427,23 @@ function redGreen() {
 function run() {
   const { live, problems, adjudicated, baselined, outOfScope } = collect();
   const toolsPages = readdirSync(resolve(REPO, 'tools')).filter((f) => f.endsWith('.html')).length;
+  // MERGEGROUP-A11Y-ASSEMBLY-1 Fix B: the mid-flight shard condition fails
+  // CLOSED in every main context (merge_group with the assembled tree, push
+  // and workflow_run on main — isMainContext()'s fail-closed whitelist) and
+  // stays a WARNING on pull_request, where a mid-flight shard is by
+  // construction repairable inside the PR (commit the regenerated derived
+  // artifacts, the #2384 shape). This also closes the path-filter skip delay
+  // measured on run 38188494506: the post-regen main run cannot skip past an
+  // unregistered shard that carries a page or manifest.
+  const midflight = midflightShardIds();
+  if (midflight.length) {
+    const msg = `node shard(s) on disk not in chaingraph.meta.json order.nodes (mid-flight): ${midflight.join(', ')} — queue cannot prove this page passes TOOLPAGE-A11Y-1; commit the regenerated derived artifacts in the PR (see #2384)`;
+    if (isMainContext()) {
+      problems.push(msg);
+    } else {
+      console.log(`⚠ check-a11y-tree advisory (PR context — the merge queue fails closed on this): ${msg}`);
+    }
+  }
   if (problems.length) {
     console.error(`✗ check-a11y-tree FAILED (${problems.length}):`);
     problems.forEach((p) => console.error('    ' + p));

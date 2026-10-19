@@ -3191,6 +3191,16 @@ async function checkDerivedEntries(manifestIndex, mcpNameByTool, pushProblem) {
  */
 export const DIRECT_MODE_OPT_OUT = {
   // '<tool_id>': 'reason the page must not be direct-emitted',
+  // ART704-DIRECT-EXECUTE-ARTIFACT-FIX-1 (2026-10-15): the code-only
+  // render-finder fix (string literals blanked in candidate bodies) removed a
+  // raw-text false match from art-561's candidate set, which had been keeping
+  // findRenderFunctionName ambiguous ('null: multiple candidates'). art-561 is
+  // therefore NEWLY direct-eligible as a side effect of this row — its direct
+  // emission is unproven (no RUN_PATH_ADAPTERS leg-2 wiring, no live probe),
+  // and this row's fence is art-704 only. The opt-out pins art-561 to its
+  // pre-fix status quo (not direct, zero page bytes) until a follow-up row
+  // proves both legs and removes this entry.
+  'art-561-currency-basket-index': 'newly direct-eligible only as a side effect of the ART704 render-finder literal-blanking fix; direct emission unproven (no leg-2 adapter), pinned to pre-fix status quo by ART704-DIRECT-EXECUTE-ARTIFACT-FIX-1',
 };
 
 /** The DOM-read tokens condition (c) bans from an execution function's body. */
@@ -3274,7 +3284,15 @@ export function findRenderFunctionName(pageSrc, fn, resGlobal) {
       j++;
     }
     if (depth !== 0) continue;
-    const body = pageSrc.slice(m.index, j);
+    // ART704-DIRECT-EXECUTE-ARTIFACT-FIX-1: candidate bodies are matched against
+    // code only — string-literal and comment contents are blanked first (the
+    // same codeBodyText the DOM-read scan uses). Measured defect: art-704's
+    // A11Y-TREE IIFE helper `function artifact()` mentions '_lastArtifact' only
+    // as a string literal in its candidate list, so the raw-text match elected
+    // an IIFE-scoped name the emitted delegate could never resolve
+    // (ReferenceError 'artifact is not defined' -> compute_failed on every
+    // direct call). A painter must READ the global in code.
+    const body = codeBodyText(pageSrc.slice(m.index, j));
     if (!refRe.test(body) || fnCallRe.test(body) || assignRe.test(body)) continue;
     names.add(m[1]);
   }

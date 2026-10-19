@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1229 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1230 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -2334,6 +2334,9 @@
       "name": "card"
     },
     {
+      "name": "career"
+    },
+    {
       "name": "carf"
     },
     {
@@ -3054,6 +3057,9 @@
       "name": "disparate impact"
     },
     {
+      "name": "displacement-risk"
+    },
+    {
       "name": "disposition"
     },
     {
@@ -3576,6 +3582,9 @@
       "name": "freedom"
     },
     {
+      "name": "frey-osborne"
+    },
+    {
       "name": "frictionless"
     },
     {
@@ -3990,6 +3999,9 @@
       "name": "kyc"
     },
     {
+      "name": "labor-market"
+    },
+    {
       "name": "large deposit exception"
     },
     {
@@ -4177,6 +4189,9 @@
     },
     {
       "name": "maturity"
+    },
+    {
+      "name": "mcp:ai_displacement_risk_screener"
     },
     {
       "name": "mcp:audit_borrower_escrow_stmt"
@@ -48198,6 +48213,19 @@
                   "borrower_current": {
                     "type": "boolean",
                     "description": "Optional: whether the borrower is current at analysis time. A refund-band surplus without it holds the audit for manual review."
+                  },
+                  "monthly_escrow_payment": {
+                    "type": "number",
+                    "description": "Optional: the borrower's monthly escrow payment in dollars, the base for the one-month shortage threshold. Defaults to the mean of monthly_payments."
+                  },
+                  "servicer_chosen_course": {
+                    "type": "string",
+                    "enum": [
+                      "do_nothing",
+                      "repay_within_30_days",
+                      "repay_equal_monthly_12_plus_months"
+                    ],
+                    "description": "Optional: the course the servicer chose: do_nothing, repay_within_30_days or repay_equal_monthly_12_plus_months. Reported as permitted or not."
                   }
                 }
               }
@@ -48260,8 +48288,29 @@
                     "surplus_amount": {
                       "type": "number"
                     },
-                    "shortage_spread_required": {
-                      "type": "boolean"
+                    "shortage_threshold_base": {
+                      "type": "number"
+                    },
+                    "shortage_threshold_base_source": {
+                      "type": "string"
+                    },
+                    "shortage_at_or_above_one_month_payment": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "shortage_permitted_courses": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "servicer_course_permitted": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
                     },
                     "surplus_refund_required": {
                       "type": "boolean"
@@ -125927,6 +125976,203 @@
         "x-mcp-tool-name": "apply_climate_scenario",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-76-climate-scenario-applicator.html",
         "x-source": "manifest"
+      }
+    },
+    "/v1/tools/ai_displacement_risk_screener": {
+      "post": {
+        "operationId": "ai_displacement_risk_screener",
+        "summary": "AI Displacement Risk Screener",
+        "description": "Port of ApexLogics Apex #104 (AL-111) AI Displacement Risk Screener into the AINumbers chaingraph shape. From a task-composition profile (routine cognitive/manual and non-routine analytical/interpersonal/manual shares), a sector exposure factor, an education level and years in role the node computes a 0..100 composite displacement score (0.40 automation probability + 0.40 routine-task fraction + 0.20 sector exposure, clamped and rounded), an education-adjusted informational score, a Low/Medium/High/Critical tier banding, and up to three adjacent lower-exposure occupations gated at similarity >= 60. SOC lookups use an embedded 62-row table; a null SOC code estimates the probability from the sliders. Automation probabilities are Frey-Osborne 2013-vintage estimates (stale by construction), task splits are Apex-embedded approximations, and the BLS-OES-labelled median-salary cells stayed ungrounded at porting time (BLS HTTP 403): salary figures are informational only and stay out of the score. Port provenance: Apex page https://apexlogics.org/tools/104-ai-displacement-risk-screener/ fetched 2026-10-13 (sha256 68D2AA10A6B93A7E31C8E10FDDCACEFDBD661EF330951A6BF1FC25572F891D18), tasking APEXPORT-104 (GRADES PASS-PENDING-XV 2026-10-18, Builder-verifies-at-land 18/18 vectors), landed by APEX-PORT-104-LAND-1 on 2026-10-18.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-763-ai-displacement-risk-screener.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "labor-market",
+          "displacement-risk",
+          "frey-osborne",
+          "career",
+          "workforce",
+          "mcp:ai_displacement_risk_screener"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "rc",
+                  "rm",
+                  "nra",
+                  "nri",
+                  "nrm",
+                  "sector_exp",
+                  "ed_level",
+                  "years_role"
+                ],
+                "properties": {
+                  "soc_code": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "6-digit SOC code key into the embedded 62-row table; null selects the custom-occupation estimate branch (Apex L480-488). The only optional input."
+                  },
+                  "rc": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Routine Cognitive share 0..100 (slider t_rc, Apex L470; parseInt read)."
+                  },
+                  "rm": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Routine Manual share 0..100 (slider t_rm, Apex L471; parseInt read)."
+                  },
+                  "nra": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Non-routine Analytical share 0..100 (slider t_nra, Apex L472; parseInt read)."
+                  },
+                  "nri": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Non-routine Interpersonal share 0..100 (slider t_nri, Apex L473; parseInt read)."
+                  },
+                  "nrm": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Non-routine Manual share 0..100 (slider t_nrm, Apex L474; parseInt read)."
+                  },
+                  "sector_exp": {
+                    "type": "number",
+                    "description": "Sector exposure factor (select sector, Apex L475; parseFloat read). Apex option values 0.22..0.75."
+                  },
+                  "ed_level": {
+                    "type": "string",
+                    "enum": [
+                      "no_degree",
+                      "associate",
+                      "bachelor",
+                      "master",
+                      "doctorate"
+                    ],
+                    "description": "Highest education (select edLevel, Apex L476; informational education adjustment only, Apex L499-500)."
+                  },
+                  "years_role": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Years in role (input yearsRole, Apex L477; parseInt read; recorded, not in the arithmetic)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "score": {
+                      "type": "integer",
+                      "description": "Composite risk score 0..100 (Apex L494-496)."
+                    },
+                    "adj_score": {
+                      "type": "integer",
+                      "description": "Education-adjusted score, informational (Apex L499-500)."
+                    },
+                    "tier": {
+                      "type": "string",
+                      "enum": [
+                        "Low",
+                        "Medium",
+                        "High",
+                        "Critical"
+                      ],
+                      "description": "Risk tier (Apex L504-507)."
+                    },
+                    "prob": {
+                      "type": "number",
+                      "description": "Automation probability 0..1, Frey-Osborne 2013 vintage."
+                    },
+                    "routine_frac": {
+                      "type": "number",
+                      "description": "Routine task fraction (rc+rm)/100."
+                    },
+                    "sector_exp": {
+                      "type": "number",
+                      "description": "Echo of sector exposure input."
+                    },
+                    "automation_pct": {
+                      "type": "integer",
+                      "description": "Rounded automation percent."
+                    },
+                    "routine_pct": {
+                      "type": "integer",
+                      "description": "Routine task percent rc+rm."
+                    },
+                    "sector_pct": {
+                      "type": "integer",
+                      "description": "Rounded sector percent."
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "soc": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "median_salary_usd": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "UNGROUNDED informational salary cell."
+                    },
+                    "alts": {
+                      "type": "array",
+                      "maxItems": 3,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "soc": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "score": {
+                            "type": "integer"
+                          },
+                          "sim": {
+                            "type": "integer"
+                          },
+                          "salary_delta_vs_selected_usd": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "ai_displacement_risk_screener",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-763-ai-displacement-risk-screener.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
       }
     },
     "/v1/tools/run_t1_readiness_diagnostic": {

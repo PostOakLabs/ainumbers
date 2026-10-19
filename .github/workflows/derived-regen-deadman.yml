@@ -120,7 +120,12 @@ jobs:
     permissions:
       contents: read
       actions: read
+      issues: write
     steps:
+      - name: Check out this repo so the tracker script is on disk
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
       - name: Extract the first failing gate line from the failed job log
         id: failure-line
         if: needs.gate.outputs.failed == 'true'
@@ -156,13 +161,27 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "failure line: $LINE"
 
-      # The shared tracker: same reusable workflow, same title registry, same
+      # The shared tracker, run as a SCRIPT from this checkout — NOT as a
+      # step-level `uses:` of the reusable workflow: a `workflow_call` file is
+      # only valid at jobs.<id>.uses, and at step level GitHub reads `./…` as a
+      # local action and the runner dies on the missing action.yml (exactly the
+      # PR #2423 regression this row heals). Same title registry, same
       # idempotent open-or-update-not-spam shape as the three scheduled
       # surfaces. `--event workflow_run` is accepted by the script's allowlist
       # specifically for this listener (scoping enforced in the `gate` job).
       - name: 🚨 Report the regen's state
-        uses: ./.github/workflows/scheduled-red-issue.yml
-        with:
-          surface: derived-regen
-          state: ${{ needs.gate.outputs.failed == 'true' && 'red' || 'green' }}
-          failure-line: ${{ needs.gate.outputs.failed == 'true' && steps.failure-line.outputs.line || '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE: ${{ needs.gate.outputs.failed == 'true' && 'red' || 'green' }}
+          LINE: ${{ needs.gate.outputs.failed == 'true' && steps.failure-line.outputs.line || '' }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          node ./scripts/scheduled-red-issue.mjs \
+            --surface derived-regen \
+            --state "$STATE" \
+            --event workflow_run \
+            --run-id "$RUN_ID" \
+            --run-url "$RUN_URL" \
+            --failure-line "$LINE"

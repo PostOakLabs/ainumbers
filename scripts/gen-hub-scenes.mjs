@@ -491,7 +491,7 @@ export function renderRegion(rel, src, cat, timings) {
   const caption = isChains
     ? `Chain and tool matrix for ${escText(subject)}: each column is a tool this guide covers, most used first, ${rowWord}, and a brighter cell means more of that row's chains run through the tool. Hover a cell to list them.`
     : `Tool landscape of ${escText(subject)}: each station is one tool this guide builds on.`;
-  return assertNoFork(sceneFigure({
+  const figure = sceneFigure({
     id,
     viewBox: `0 0 ${width} ${height}`,
     minWidth: Math.min(isChains ? 720 : 640, width),
@@ -500,8 +500,41 @@ export function renderRegion(rel, src, cat, timings) {
     caption,
     body,
     role: isChains ? 'group' : 'img',
-  }));
+  });
+  // A small scene must not stretch to the container: cap the frame at 115% of
+  // the scene's own width and centre it, so a two-column matrix keeps legible
+  // type. A wide scene (width * 1.15 above the container) is unaffected.
+  const framed = figure.replace(SCROLL_OPEN,
+    `<div class="sk-scroll" style="max-width:${Math.round(width * 1.15)}px;margin-left:auto;margin-right:auto">`);
+  const centred = framed.replace(CAPTION_OPEN, CAPTION_OPEN_CENTERED);
+  const container = heroContainerClass(src);
+  return assertNoFork(container ? `<div class="${container}">\n${centred}\n</div>` : centred);
 }
+
+/**
+ * The page's own hero container class, when the scene lands OUTSIDE it.
+ * A `<section class="hero">` page closes its full-bleed band before the scene
+ * slot, so a bare figure runs edge to edge while the hero text above sits in
+ * the page's inset column. Wrapping the figure in the hero's own inner class
+ * (`container`, `wrap`) reuses the page's measure and gutter, so the scene
+ * lines up with the hero on every page, whatever width that page chose.
+ * Returns null (no wrapper) when the hero is a `<div class="hero">` (already
+ * inside the page wrapper), a doc-title page, or when the inner element has
+ * no max-width rule in the page's own CSS: never a guessed class.
+ */
+export function heroContainerClass(src) {
+  const m = /<section class="hero">\s*<div class="([a-z0-9-]+)(?:\s[^"]*)?">/.exec(src);
+  if (!m) return null;
+  const rule = new RegExp(`\\.${m[1]}\\s*\\{[^}]*max-width\\s*:`).test(src);
+  return rule ? m[1] : null;
+}
+
+/** Hub-scene captions sit centred under the figure. The kit's .sk-cap is
+ *  left-aligned at a 780px measure, shared by hand-authored explainers, so
+ *  the centring is an inline style on THIS writer's figcaption only. */
+const CAPTION_OPEN = '<figcaption class="sk-cap">';
+const SCROLL_OPEN = '<div class="sk-scroll">';
+const CAPTION_OPEN_CENTERED = '<figcaption class="sk-cap" style="margin-left:auto;margin-right:auto;text-align:center">';
 
 // ── Insertion slot (spec §3) ───────────────────────────────────────────────
 
@@ -677,6 +710,24 @@ function selftest() {
   a('the figure carries a non-empty <title> and <desc>',
     /<title id="hub-scene-fixture-hub-t">[^<]+<\/title>/.test(once.html)
     && /<desc id="hub-scene-fixture-hub-d">[^<]+<\/desc>/.test(once.html));
+  a('the caption is centred (inline style on the hub-scene figcaption only)',
+    once.html.includes(CAPTION_OPEN_CENTERED) && !once.html.includes(CAPTION_OPEN));
+  // Width: a section.hero page whose inner element has a max-width rule gets
+  // the figure wrapped in that class; every other shape is left bare.
+  const heroSection = '<section class="hero"><div class="container"><h1>x</h1></div></section>';
+  const styled = '<style>.container{max-width:1100px;margin:0 auto;padding:0 2rem}</style>';
+  a('width: section.hero + container rule wraps the figure in that container',
+    heroContainerClass(`${styled}${heroSection}`) === 'container'
+    && renderRegion(rel, `${styled}${heroSection}<a href="../tools/${realSlug}.html">t</a>`, cat, timings)
+      .startsWith('<div class="container">\n<figure'));
+  a('width: the scroll frame is capped at 115% of the scene width and centred',
+    /<div class="sk-scroll" style="max-width:\d+px;margin-left:auto;margin-right:auto">/.test(once.html)
+    && !once.html.includes(SCROLL_OPEN));
+  a('width: no max-width rule means no wrapper (never a guessed class)', heroContainerClass(heroSection) === null);
+  a('width: a div.hero page is left bare (already inside the page wrapper)',
+    heroContainerClass('<style>.wrap{max-width:1000px}</style><div class="wrap"><div class="hero"><div class="eyebrow">x</div></div></div>') === null);
+  a('width: the fixture page (no inner div) renders a bare figure',
+    renderRegion(rel, src, cat, timings).startsWith('<figure'));
   const regionOnce = `${HUB_SCENE_BEGIN}\n${renderRegion(rel, src, cat, timings)}\n${HUB_SCENE_END}`;
   const strippedOnce = once.html
     .replace(`\n${regionOnce}`, '')

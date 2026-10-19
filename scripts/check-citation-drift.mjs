@@ -35,6 +35,21 @@
  * baseline down with --update as findings get fixed; a baselined key that stops reproducing
  * is reported so it can be dropped, never silently re-pinned.
  *
+ * CITATION-DRIFT-FOLLOWUP-ITEM4-1 (2026-10-15) folds shortlist item 4's remaining value into
+ * THIS gate, so a citation gets ONE verdict here instead of two gates that can disagree:
+ *   3. Local source-drift (LOCAL ONLY, advisory via the same baseline): every REGISTERED
+ *      cited digest should also hash-match a real file under research/clause-snapshots/.
+ *      CITATION-DRIFT-GATE-1's own spec item 1 promised this local half but only the
+ *      declared-value digests ever got it (SNAPSHOT_MISSING_LOCALLY); the other node-cited
+ *      digests resolved in registry metadata and were never checked against local bytes.
+ *      Registered-but-locally-absent is reported, never counted as a pass (SO #34c).
+ *   4. SHA256SUMS manifest verification (LOCAL ONLY, advisory via the same baseline), the
+ *      Placard pattern (checksum manifest + verification, pattern only -- no Placard code,
+ *      no new npm dependency): research/clause-snapshots/ carries dated SHA256SUMS-*.txt
+ *      manifests that nothing verified. A manifest entry whose file is missing or no longer
+ *      hashes to its recorded sha256 is source drift and is flagged.
+ * ⛔ No network fetch anywhere: the manifests and snapshots are already-pinned local bytes.
+ *
  * Usage:
  *   node scripts/check-citation-drift.mjs            # gate (preflight + CI)
  *   node scripts/check-citation-drift.mjs --update    # regenerate the baseline from current findings
@@ -168,7 +183,7 @@ export function valueSearchVariants(value, unit) {
 }
 
 /** Pure: given the loaded registry/nodes/declared list and (maybe empty) snapshot text map,
- *  return the full findings list. Exported so the self-test can drive it without touching disk. */
+ * return the full findings list. Exported so the self-test can drive it without touching disk. */
 export function computeFindings({ registry, nodes, declared, snapshotText, localMode }) {
   const findings = [];
 
@@ -226,6 +241,76 @@ export function computeFindings({ registry, nodes, declared, snapshotText, local
     }
   }
 
+  // Check 3: local source-drift (CITATION-DRIFT-FOLLOWUP-ITEM4-1) -- LOCAL only.
+  // Every REGISTERED cited digest should hash-match a real local snapshot file; the declared
+  // entries above already got this via SNAPSHOT_MISSING_LOCALLY, node-cited ones did not.
+  // In CI shape one SKIPPED_NO_SNAPSHOT per cited node -- distinct from a pass (SO #34c).
+  const localDigests = snapshotText instanceof Map ? new Set(snapshotText.keys()) : new Set();
+  for (const node of nodes) {
+    if (!localMode) {
+      findings.push({
+        key: `${node.tool_id}::local-snapshot-verify`,
+        kind: 'SKIPPED_NO_SNAPSHOT',
+        message: `${node.tool_id}: local snapshot byte-match for cited_clause_digest skipped (no workspace-root research/clause-snapshots/ in this checkout)`,
+      });
+      continue;
+    }
+    for (const c of node.cited_clause_digest) {
+      if (!registry.has(c.digest)) continue; // UNRESOLVED_DIGEST already reported by check 1
+      if (!localDigests.has(c.digest)) {
+        findings.push({
+          key: `${node.tool_id}::snapshot::${c.digest}`,
+          kind: 'SOURCE_SNAPSHOT_ABSENT_LOCALLY',
+          message: `${node.tool_id}: cited_clause_digest ${c.digest} (clause_path "${c.clause_path}") is registered but no local file under research/clause-snapshots/ hashes to it -- the pinned source bytes are absent from this workspace`,
+        });
+      }
+    }
+  }
+
+  return findings;
+}
+
+/**
+ * Placard-pattern SHA256SUMS verification (CITATION-DRIFT-FOLLOWUP-ITEM4-1): a dated
+ * SHA256SUMS-*.txt manifest in research/clause-snapshots/ pins the sha256 of each snapshot
+ * file it names; nothing verified it before this row. Pure: takes the parsed manifest
+ * entries and a name -> sha256-hex map of the local files, returns findings (empty when the
+ * manifest holds). LOCAL only -- in the CI shape (no snapshot dir) callers pass localMode
+ * false and get a single SKIPPED_NO_SNAPSHOT, never a silent pass (SO #34c).
+ * `sha256` values in the manifest are bare hex (sha256sum format, two-space separator).
+ */
+export function parseSha256Sums(text) {
+  const out = [];
+  for (const line of String(text).split(/\r?\n/)) {
+    const m = line.match(/^([0-9a-f]{64})\s\s(.+)$/);
+    if (m) out.push({ sha256: m[1], name: m[2] });
+  }
+  return out;
+}
+
+export function computeSha256SumsFindings({ manifest, filesByName, localMode }) {
+  if (!localMode) {
+    return manifest.length
+      ? [{ key: 'sha256sums::verify', kind: 'SKIPPED_NO_SNAPSHOT', message: `SHA256SUMS manifest verification skipped (${manifest.length} entr${manifest.length === 1 ? 'y' : 'ies'}; no workspace-root research/clause-snapshots/ in this checkout)` }]
+      : [];
+  }
+  const findings = [];
+  for (const e of manifest) {
+    const actual = filesByName.get(e.name);
+    if (actual === undefined) {
+      findings.push({
+        key: `${e.name}::manifest-file-missing`,
+        kind: 'MANIFEST_FILE_MISSING',
+        message: `SHA256SUMS manifest names ${e.name} but no such file exists under research/clause-snapshots/`,
+      });
+    } else if (actual !== e.sha256) {
+      findings.push({
+        key: `${e.name}::manifest-drift`,
+        kind: 'SOURCE_DRIFT_MANIFEST',
+        message: `${e.name} hashes to ${actual} but the SHA256SUMS manifest pins ${e.sha256} -- the pinned snapshot bytes drifted after retrieval`,
+      });
+    }
+  }
   return findings;
 }
 
@@ -239,11 +324,27 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const declared = existsSync(DECLARED_VALUES_PATH) ? JSON.parse(readFileSync(DECLARED_VALUES_PATH, 'utf8')) : [];
   const snapshotText = buildSnapshotTextMap();
 
+  // CITATION-DRIFT-FOLLOWUP-ITEM4-1: newest dated SHA256SUMS manifest in the snapshot dir,
+  // plus name -> sha256-hex for every local snapshot file (offline, already-pinned bytes).
+  const filesByName = new Map();
+  if (localMode) {
+    for (const name of readdirSync(SNAPSHOT_DIR)) {
+      const p = join(SNAPSHOT_DIR, name);
+      if (!statSync(p).isFile()) continue;
+      filesByName.set(name, createHash('sha256').update(readFileSync(p)).digest('hex'));
+    }
+  }
+  const manifests = localMode
+    ? readdirSync(SNAPSHOT_DIR).filter((n) => /^SHA256SUMS.*\.txt$/.test(n)).sort().reverse()
+    : [];
+  const manifest = manifests.length ? parseSha256Sums(readFileSync(join(SNAPSHOT_DIR, manifests[0]), 'utf8')) : [];
+
   // CLAUSE-REGISTRY-DEDUPE-1: registry (id, digest) uniqueness -- blocking, CI-checkable.
   // Prepend so a duplicate is reported even when the digest-keyed checks all resolve.
   const findings = [
     ...findRegistryDuplicates(registryEntries),
     ...computeFindings({ registry, nodes, declared, snapshotText, localMode }),
+    ...computeSha256SumsFindings({ manifest, filesByName, localMode }),
   ];
   const skipped = findings.filter((f) => f.kind === 'SKIPPED_NO_SNAPSHOT');
   const real = findings.filter((f) => f.kind !== 'SKIPPED_NO_SNAPSHOT');

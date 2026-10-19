@@ -32,7 +32,11 @@ import { readOutcome, readCases } from '../chaingraph/kernels/_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
-const KERNELS_DIR = resolve(REPO, 'chaingraph', 'kernels');
+// ENGINE-BUNDLE-ESM-LINT-1: the selftest overrides PARITY_BUNDLE_KERNELS_DIR to
+// point the bundler at a temp kernel tree instead of the repo's real kernels.
+const KERNELS_DIR = process.env.PARITY_BUNDLE_KERNELS_DIR
+  ? resolve(process.env.PARITY_BUNDLE_KERNELS_DIR)
+  : resolve(REPO, 'chaingraph', 'kernels');
 const FIXTURES_DIR = resolve(KERNELS_DIR, 'fixtures');
 
 // --- Inline jcsStringify (same semantics as kernels/_hash.mjs; RFC 8785 §3.2.3 member
@@ -116,6 +120,50 @@ function sha256hex(str) {
 // --- Canonical preimage: { policy_parameters, output_payload } through jcsStringify ---
 function preimage(pp, output_payload) {
   return jcsStringify(({ output_payload, policy_parameters: pp }));
+}
+
+// --- ENGINE-BUNDLE-ESM-LINT-1: ESM stripping for the QuickJS bundle ---
+// The bundle has no module machinery: every top-level import/export that survives
+// into the emitted file is a QuickJS SyntaxError ("unsupported keyword: export"),
+// and CI only sees it after the QuickJS download and bundle steps. Rewritable
+// forms are stripped to their non-export declaration:
+//   export default <expr>            -> const _bundle_default = <expr>
+//   export class C                   -> class C
+//   export function f / function* g  -> function f / function* g
+//   export async function f / f*     -> async function f / async function f*
+//   export const|let|var x           -> const|let|var x
+//   import ... from '...'            -> removed (single- or multi-line)
+//   import '...'                     -> removed
+// Refused forms (loud generation-time error, exit 1, before any QuickJS run):
+//   export { a, b };   export *;   export * from '...'
+// and, as a belt, any top-level export|import that survives the rewriting.
+function stripEsmForBundle(src, kernelId, kernelPath) {
+  const fail = (lineNo, text) => {
+    console.error(
+      `ENGINE-BUNDLE-ESM-LINT-1: kernel ${kernelId} (${kernelPath}) line ${lineNo}: `
+      + `ESM form the bundler cannot rewrite: ${JSON.stringify(text)}`,
+    );
+    console.error(
+      'ENGINE-BUNDLE-ESM-LINT-1: rewrite the declaration to a stripped form '
+      + '(export function/const/let/var/async function/default/class), '
+      + 'or extend scripts/check-engine-parity.mjs.',
+    );
+    process.exit(1);
+  };
+  const lineOf = (index) => src.slice(0, index).split('\n').length;
+  // Refuse the non-rewritable export forms first, quoting source line numbers.
+  for (const m of src.matchAll(/^[ \t]*export[ \t]*(\{|\*)/gm)) {
+    const eol = src.indexOf('\n', m.index);
+    fail(lineOf(m.index), src.slice(m.index, eol === -1 ? undefined : eol).trim());
+  }
+  return src
+    .replace(/^[ \t]*import[\s\S]*?from[ \t]*['"][^'"]*['"][ \t]*;?[ \t]*$/gm, '')  // multi-line import block
+    .replace(/^[ \t]*import[ \t]*['"][^'"]*['"][ \t]*;?[ \t]*$/gm, '')              // bare side-effect import
+    .replace(/^[ \t]*import[ \t]+[^;\n]+;?[ \t]*$/gm, '')                           // simple single-line import
+    .replace(/^[ \t]*export[ \t]+default[ \t]+/gm, 'const _bundle_default = ')
+    .replace(/^[ \t]*export[ \t]+class[ \t]+/gm, 'class ')
+    .replace(/^[ \t]*export[ \t]+((?:async[ \t]+)?function\*?)[ \t]+/gm, '$1 ')
+    .replace(/^[ \t]*export[ \t]+(const|let|var)[ \t]+/gm, '$1 ');
 }
 
 // --- Argument parsing ---
@@ -233,10 +281,17 @@ if (bundleFile) {
 
     // Extract the region before buildArtifact (helpers + compute)
     const baPos = src.search(/\nexport\s+async\s+function\s+buildArtifact\b/);
-    const region = (baPos > 0 ? src.slice(0, baPos) : src)
-      .replace(/^import\s.*$/gm, '')                                    // strip imports
-      .replace(/^export\s+((?:async\s+)?function)\s+/gm, '$1 ')        // strip export from functions
-      .replace(/^export\s+(const|let|var)\s+/gm, '$1 ');               // strip export from consts
+    // ENGINE-BUNDLE-ESM-LINT-1: strip/rewrite ESM forms; refuse what cannot be rewritten.
+    const region = stripEsmForBundle(baPos > 0 ? src.slice(0, baPos) : src, kernelId, kernelPath);
+    // Post-condition belt: no top-level export|import may reach the emitted bundle.
+    const beltHit = region.match(/^[ \t]*(?:export|import)\b.*$/m);
+    if (beltHit) {
+      console.error(
+        `ENGINE-BUNDLE-ESM-LINT-1: kernel ${kernelId} (${kernelPath}): top-level ESM `
+        + `survived stripping: ${JSON.stringify(beltHit[0].trim())}; refusing to emit the bundle`,
+      );
+      process.exit(1);
+    }
 
     const safeId = kernelId.replace(/-/g, '_');
     // Detect async compute(): these use Web Crypto (crypto.subtle) which is absent

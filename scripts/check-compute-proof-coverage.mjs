@@ -86,7 +86,13 @@ const REPO = resolve(HERE, '..');
 // third state). Everywhere else DERIVED_ROOT is unset and this resolves to the
 // committed chaingraph.json exactly as before. The shards, fixtures and the
 // baseline stay repo-rooted: they are authored, not derived.
-const CG_PATH = derivedResolve('chaingraph', 'chaingraph.json');
+// S18_DERIVED_ROOT (2026-10-16): a PR-only scratch assembly that scripts-verify mounts for THIS gate
+// alone. The PR-side §18 ratchet is hard, but a first-prove PR edits shards only, so the committed
+// monolith still names its node as deferred. DERIVED_ROOT (merge_group/main) always wins; this
+// variable is read by no other gate, so no other gate's PR-side disposition moves.
+const CG_PATH = (!process.env.DERIVED_ROOT && process.env.S18_DERIVED_ROOT)
+  ? resolve(process.env.S18_DERIVED_ROOT, 'chaingraph', 'chaingraph.json')
+  : derivedResolve('chaingraph', 'chaingraph.json');
 const FIXTURES_DIR = resolve(REPO, 'chaingraph', 'kernels', 'fixtures');
 const BASELINE_PATH = resolve(HERE, 'compute-proof-baseline.json');
 
