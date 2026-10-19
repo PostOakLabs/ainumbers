@@ -185,6 +185,25 @@ export const COVERED = [
     share: '8%',
   },
   {
+    // PROVE-BASELINE-SINGLE-WRITER-1 (2026-10-19): the §18 deferred ratchet
+    // baseline joins the single-writer set. Every prove PR and node PR used to
+    // edit scripts/compute-proof-baseline.json (count + deferred_nodes), so
+    // parallel PRs conflicted on it serially and identical "13 -> 12" hunks
+    // merged more than once. The gate now exempts brand-new deferred nodes from
+    // the ceiling and a prove PR already sits under it, so no PR has to touch
+    // the file; this entry pins the lowered count and the new names on main.
+    // A proof regression is never absorbed: the writer holds (writes nothing,
+    // ::warning, exit 0 so the pass is not stopped) and the strict gate reds main.
+    // Ordered after 'chaingraph-assemble': it reads the reassembled monolith.
+    id: 'compute-proof-baseline',
+    regen: 'node scripts/check-compute-proof-coverage.mjs --regen-baseline',
+    gate: 'node scripts/check-compute-proof-coverage.mjs --check-baseline',
+    writes: ['scripts/compute-proof-baseline.json'],
+    artifacts: ['scripts/compute-proof-baseline.json'],
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-10-19, PROVE-BASELINE-SINGLE-WRITER-1)',
+  },
+  {
     // CHAIN-PROMPT-INFRA-1 (Tim 2026-09-27, "every new chain ships a genuinely
     // useful example prompt"): the ask-your-agent region of every chain page that
     // has an authored prompt at chaingraph/chain-prompts/<chain>.json, rendered

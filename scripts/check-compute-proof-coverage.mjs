@@ -67,6 +67,19 @@
 //   node scripts/check-compute-proof-coverage.mjs --summary        counts only, exit 0
 //   node scripts/check-compute-proof-coverage.mjs --list-deferred  print the deferred gpu:false set, exit 0
 //   node scripts/check-compute-proof-coverage.mjs --update-baseline rewrite the baseline to the current state
+//                                                                  (deliberate hand act; refuses on regression)
+//   node scripts/check-compute-proof-coverage.mjs --regen-baseline  main-side single writer (COVERED id
+//                                                                  'compute-proof-baseline'); on regression it
+//                                                                  writes nothing, warns, exits 0
+//
+// ── SINGLE WRITER (PROVE-BASELINE-SINGLE-WRITER-1, 2026-10-19) ──────────────────────────────────────
+// Prove PRs and node PRs NEVER edit scripts/compute-proof-baseline.json. Parallel PRs used to conflict
+// on it serially, and four PRs merging the same "13 -> 12" hunk left the ceiling 3 too high. Now:
+//   • a prove PR lowers the live deferred count; the old ceiling still holds it (count <= ceiling);
+//   • a node PR adds a brand-new deferred node; ratchetBreach() exempts names absent from the pin;
+//   • main's regen (--regen-baseline) pins the lowered count and the new names after merge.
+// What never changed: a node that was known at the last pin and is deferred now is a regression and
+// fails in every context (findRegressions), and the ceiling still binds every pinned node.
 //
 // Self-test (SO #40b, proven-to-reject): scripts/check-compute-proof-coverage.test.mjs — drives the pure
 // evaluateCoverage() / findRegressions() / ratchetBreach() / disposition() exports below over in-memory
@@ -267,14 +280,43 @@ export function findRegressions(currentDeferred, oldBaseline) {
 // now loads through loadRatchetBaselineOrExit(), and this exported pure function — which the self-test
 // calls directly, bypassing that caller — enforces the same rule itself so the guarantee cannot be lost
 // at the seam between them.
+//
+// BRAND-NEW NODES RIDE ABOVE THE CEILING (PROVE-BASELINE-SINGLE-WRITER-1). A deferred node named in
+// neither `deferred_nodes` nor `known_gpu_false_nodes` did not exist at the last pin; the ceiling bounds
+// only the nodes that did (`counted`), so a node PR no longer has to edit the baseline to land a new
+// deferral, and a prove PR no longer has to lower it. Main's regen (`--regen-baseline`, COVERED id
+// 'compute-proof-baseline') is the single writer that pins the new names and the lowered count after
+// merge. A proven-then-deferred node is still a regression (findRegressions, every context); the
+// exemption never reaches it because a known node is never "new".
+// ⛔ FAILS CLOSED: with no `known_gpu_false_nodes` array there is no provenance to tell new from old,
+// so nothing is exempt and every deferred node counts against the ceiling.
 export function ratchetBreach(currentDeferred, baseline) {
   const ceiling = assertFiniteCeiling(baseline?.deferred, { label: '§18 compute-proof deferred ratchet', keyName: 'deferred' });
   const known = new Set(baseline?.deferred_nodes ?? []);
+  const knownAll = Array.isArray(baseline?.known_gpu_false_nodes) ? new Set(baseline.known_gpu_false_nodes) : null;
+  const newNodes = knownAll
+    ? currentDeferred.filter((r) => !known.has(r.name) && !knownAll.has(r.name)).map((r) => r.name)
+    : [];
+  const counted = currentDeferred.length - newNodes.length;
   return {
     ceiling,
     count: currentDeferred.length,
-    over: currentDeferred.length > ceiling,
+    counted,
+    newNodes,
+    over: counted > ceiling,
     added: currentDeferred.filter((r) => !known.has(r.name)).map((r) => r.name),
+  };
+}
+
+// ── pinnedBaseline ───────────────────────────────────────────────────────────────────────────────
+// The baseline object both writers emit (--update-baseline, --regen-baseline), as a pure function of
+// the live coverage. Keeping one builder means the two writers cannot drift on shape or sort order.
+export function pinnedBaseline(deferred, gpuFalse) {
+  return {
+    _comment: 'Ratchet ceiling for §18 deferred gpu:false nodes (profile ocg-p18-deterministic). Counts only go DOWN for nodes that existed at the last pin; brand-new deferred nodes ride above the ceiling until main pins them. known_gpu_false_nodes is the provenance snapshot the regression discriminator reads (S18-BASELINE-GUARD-1) — every live gpu:false node name as of this pin, proven or deferred. Single writer: main\'s derived-artifacts regen (node scripts/check-compute-proof-coverage.mjs --regen-baseline). Prove and node PRs never edit this file.',
+    deferred: deferred.length,
+    deferred_nodes: deferred.map((r) => r.name).sort(),
+    known_gpu_false_nodes: gpuFalse.map((n) => n.mcp_name || n.tool_id).sort(),
   };
 }
 
@@ -315,15 +357,49 @@ if (UPDATE_BASELINE) {
     console.error('  If this is a deliberate re-park of a previously-proven node, that is a Tim call — do not run --update-baseline to absorb it.');
     process.exit(1);
   }
-  const baseline = {
-    _comment: 'Ratchet ceiling for §18 deferred gpu:false nodes (profile ocg-p18-deterministic). Counts only go DOWN. known_gpu_false_nodes is the provenance snapshot the regression discriminator reads (S18-BASELINE-GUARD-1) — every live gpu:false node name as of this pin, proven or deferred. Regenerate with: node scripts/check-compute-proof-coverage.mjs --update-baseline',
-    deferred: deferred.length,
-    deferred_nodes: deferred.map((r) => r.name).sort(),
-    known_gpu_false_nodes: gpuFalse.map((n) => n.mcp_name || n.tool_id).sort(),
-  };
+  const baseline = pinnedBaseline(deferred, gpuFalse);
   writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n');
   if (newNodes.length) console.log(`  new node(s) accepted: ${newNodes.join(', ')}`);
   console.log(`✓ baseline written: ${deferred.length} deferred gpu:false node(s) → ${BASELINE_PATH}`);
+  process.exit(0);
+}
+
+// ── --regen-baseline (main-side single writer, PROVE-BASELINE-SINGLE-WRITER-1) ─────────────────────
+// Run by derived-artifacts-regen.yml through COVERED id 'compute-proof-baseline', AFTER
+// 'chaingraph-assemble', so it reads the freshly reassembled monolith. It pins the live truth the same
+// way --update-baseline does (lowered count for proven nodes, brand-new deferred names appended), with
+// one difference: a regression is REFUSED WITHOUT FAILING THE PASS. `--regen` stops on the first failing
+// generator, and a stopped pass would strand every other derived artifact on main. So on a regression this
+// writes NOTHING, prints a ::warning naming the nodes, and exits 0; the strict gate (deploy-to-dreamhost,
+// land-verify push:main) stays the place that turns main red on it. The baseline is never rewritten to
+// absorb a regression in any mode.
+// --check-baseline is its freshness gate (COVERED `gate`): exit 1 when --regen-baseline would rewrite the
+// file. Not DERIVED_ROOT-aware, so it is advisory on a PR / merge_group and blocking on main, like every
+// other main-regen-owned artifact.
+const REGEN_BASELINE = process.argv.includes('--regen-baseline');
+const CHECK_BASELINE = process.argv.includes('--check-baseline');
+if (REGEN_BASELINE || CHECK_BASELINE) {
+  const oldBaseline = readBaselineForUpdate(BASELINE_PATH, BASELINE_REQUIRED_KEYS, BASELINE_OPTS);
+  const { regressions, newNodes } = findRegressions(deferred, oldBaseline);
+  if (regressions.length) {
+    console.error(`::warning title=§18 baseline regen held::${regressions.length} previously-known node(s) are deferred now (${regressions.join(', ')}). Baseline NOT rewritten; the strict §18 gate reds main on this. A deliberate re-park is a Tim call.`);
+    process.exit(0);
+  }
+  const next = JSON.stringify(pinnedBaseline(deferred, gpuFalse), null, 2) + '\n';
+  const prev = existsSync(BASELINE_PATH) ? readFileSync(BASELINE_PATH, 'utf8') : null;
+  if (prev === next) {
+    console.log(`✓ §18 baseline already current: ${deferred.length} deferred gpu:false node(s)`);
+    process.exit(0);
+  }
+  if (CHECK_BASELINE) {
+    console.error(`✗ §18 baseline stale — main's regen would pin ${deferred.length} deferred gpu:false node(s)` +
+      (newNodes.length ? ` (new: ${newNodes.join(', ')})` : '') +
+      '. Single writer: derived-artifacts-regen.yml (node scripts/check-compute-proof-coverage.mjs --regen-baseline). A PR never edits this file.');
+    process.exit(1);
+  }
+  writeFileSync(BASELINE_PATH, next);
+  if (newNodes.length) console.log(`  new node(s) pinned: ${newNodes.join(', ')}`);
+  console.log(`✓ §18 baseline regenerated: ${deferred.length} deferred gpu:false node(s) → ${BASELINE_PATH}`);
   process.exit(0);
 }
 
@@ -384,9 +460,12 @@ const baseline = loadRatchetBaselineOrExit(BASELINE_PATH, BASELINE_REQUIRED_KEYS
   const ratchet = ratchetBreach(deferred, baseline);
   if (ratchet.over) {
     failed = true;
-    console.error(`\n✗ §18 deferred ratchet FAILED — deferred gpu:false count rose to ${ratchet.count}, baseline ceiling is ${ratchet.ceiling} (counts only go DOWN).`);
-    if (ratchet.added.length) console.error('  New deferred node(s): ' + ratchet.added.join(', '));
-    console.error('  Either prove the node(s) now, or — if a deliberate new deferral — raise the ceiling with: node scripts/check-compute-proof-coverage.mjs --update-baseline');
+    console.error(`\n✗ §18 deferred ratchet FAILED — ${ratchet.counted} deferred gpu:false node(s) that existed at the last pin, baseline ceiling is ${ratchet.ceiling} (counts only go DOWN).`);
+    if (ratchet.added.length) console.error('  Deferred node(s) not in the pinned deferred set: ' + ratchet.added.join(', '));
+    console.error('  Brand-new nodes are already exempt; this breach is among nodes the baseline knew. Prove them, or treat it as a regression (a Tim call).');
+  }
+  if (ratchet.newNodes.length) {
+    console.log(`  §18 brand-new deferred node(s) above the ceiling, pinned by main's regen after merge: ${ratchet.newNodes.join(', ')}`);
   }
 }
 

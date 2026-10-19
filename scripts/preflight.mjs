@@ -2432,7 +2432,7 @@ const QUICK_GATES = [
   //    diff ∪ working-tree status, fail-closed).
   ['JS syntax (CHANGED files, quick)', `node scripts/check_tools.js --changed ${QUICK_REF}`],
   // 2. The §18 ratchet — RED means "run --update-baseline and commit it".
-  ['§18 compute-proof coverage (ratchet; RED → run --update-baseline and commit it)', 'node scripts/check-compute-proof-coverage.mjs'],
+  ['§18 compute-proof coverage (ratchet; new nodes exempt, main regen pins the baseline; RED = a known node regressed)', 'node scripts/check-compute-proof-coverage.mjs'],
   // 3. Tool-number uniqueness.
   ['Tool-number uniqueness (quick)', 'node scripts/check-tool-number-unique.mjs'],
   // 4. ID-collision gate, if present (PR-ID-COLLISION-GATE-1).
