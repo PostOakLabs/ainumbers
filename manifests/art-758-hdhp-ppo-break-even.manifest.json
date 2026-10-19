@@ -1,0 +1,364 @@
+{
+  "tool_id": "art-758-hdhp-ppo-break-even",
+  "version": "1.0.0",
+  "title": "HDHP vs. PPO Break-Even",
+  "description": "Annual-cost comparator for an HDHP+HSA against a PPO: the break-even medical spend (first $50 grid point in [0, 20000] where the HDHP total is <= the PPO total), the two totals at the expected spend, the winner and savings, a fixed key-spend comparison table, the HSA tax shield, and a recommendation. Pure function of the declared input domain with an explicit as_of date; the node reads no clock. Port of ApexLogics #105 (AL-112). Port provenance: Apex page https://apexlogics.org/tools/105-hdhp-vs-ppo-break-even/ fetched 2026-10-13 (sha256 ba3010ef002501d03ffc95fcc0c75ca1038235c230554e2df067dec57649a460), tasking APEXPORT-105 (GRADES PASS-PENDING-XV 2026-10-14, Builder-verifies-at-land 12/12 vectors re-executed 2026-10-19), landed by APEX-PORT-105-LAND-1 on 2026-10-19.",
+  "category": "chaingraph",
+  "tags": [
+    "compliance_mandate",
+    "health-plan",
+    "hdhp",
+    "ppo",
+    "hsa",
+    "break-even",
+    "tax-shield",
+    "mcp:estimate_hdhp_ppo_breakeven"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "as_of",
+      "coverage",
+      "hdhp_premium_monthly",
+      "hdhp_deductible",
+      "hdhp_oop_max",
+      "hdhp_coinsurance_pct",
+      "ppo_premium_monthly",
+      "ppo_deductible",
+      "ppo_oop_max",
+      "ppo_coinsurance_pct",
+      "employer_hsa",
+      "additional_hsa",
+      "marginal_tax_rate_pct",
+      "expected_annual_spend"
+    ],
+    "properties": {
+      "as_of": {
+        "type": "string",
+        "description": "Run date, a real calendar date as YYYY-MM-DD. The node never reads a clock; it echoes this value so the record is deterministic. (The Apex source stamps a wall-clock timestamp here; the port replaces it with this explicit input.)"
+      },
+      "coverage": {
+        "type": "string",
+        "enum": [
+          "individual",
+          "family"
+        ],
+        "description": "HSA coverage class; selects the 2026 HSA contribution limit used to cap the tax shield (individual $4,400, family $8,750)."
+      },
+      "hdhp_premium_monthly": {
+        "type": "number",
+        "description": "HDHP monthly premium in USD dollars; multiplied by 12 for the annual premium."
+      },
+      "hdhp_deductible": {
+        "type": "number",
+        "description": "HDHP annual deductible in USD dollars."
+      },
+      "hdhp_oop_max": {
+        "type": "number",
+        "description": "HDHP annual out-of-pocket maximum in USD dollars."
+      },
+      "hdhp_coinsurance_pct": {
+        "type": "number",
+        "description": "HDHP coinsurance rate as a percent in [0, 100] applied to spend above the deductible."
+      },
+      "ppo_premium_monthly": {
+        "type": "number",
+        "description": "PPO monthly premium in USD dollars; multiplied by 12 for the annual premium."
+      },
+      "ppo_deductible": {
+        "type": "number",
+        "description": "PPO annual deductible in USD dollars."
+      },
+      "ppo_oop_max": {
+        "type": "number",
+        "description": "PPO annual out-of-pocket maximum in USD dollars."
+      },
+      "ppo_coinsurance_pct": {
+        "type": "number",
+        "description": "PPO coinsurance rate as a percent in [0, 100] applied to spend above the deductible."
+      },
+      "employer_hsa": {
+        "type": "number",
+        "description": "Employer HSA contribution in USD dollars per year; added to additional_hsa, then capped at the coverage HSA limit for the shield."
+      },
+      "additional_hsa": {
+        "type": "number",
+        "description": "Additional personal HSA contribution in USD dollars per year; added to employer_hsa, then capped at the coverage HSA limit for the shield."
+      },
+      "marginal_tax_rate_pct": {
+        "type": "number",
+        "description": "Marginal tax rate (federal + state) as a percent in [0, 100]; the HSA tax shield is (capped contributions) times this rate."
+      },
+      "expected_annual_spend": {
+        "type": "number",
+        "description": "Expected annual medical spend in USD dollars; the point at which the two totals, the winner and the recommendation are evaluated."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "estimate_hdhp_ppo_breakeven",
+    "description": "Annual-cost comparator for an HDHP+HSA against a PPO: the break-even medical spend, the two totals at the expected spend, the winner and savings, a fixed key-spend comparison table, the HSA tax shield, and a recommendation. Pure function over the declared input domain with an explicit as_of date; the node reads no clock. Port of ApexLogics #105 (AL-112).",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "as_of",
+        "coverage",
+        "hdhp_premium_monthly",
+        "hdhp_deductible",
+        "hdhp_oop_max",
+        "hdhp_coinsurance_pct",
+        "ppo_premium_monthly",
+        "ppo_deductible",
+        "ppo_oop_max",
+        "ppo_coinsurance_pct",
+        "employer_hsa",
+        "additional_hsa",
+        "marginal_tax_rate_pct",
+        "expected_annual_spend"
+      ],
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "description": "Run date, YYYY-MM-DD. Never read from a clock; echoed for determinism."
+        },
+        "coverage": {
+          "type": "string",
+          "enum": [
+            "individual",
+            "family"
+          ],
+          "description": "HSA coverage class."
+        },
+        "hdhp_premium_monthly": {
+          "type": "number"
+        },
+        "hdhp_deductible": {
+          "type": "number"
+        },
+        "hdhp_oop_max": {
+          "type": "number"
+        },
+        "hdhp_coinsurance_pct": {
+          "type": "number"
+        },
+        "ppo_premium_monthly": {
+          "type": "number"
+        },
+        "ppo_deductible": {
+          "type": "number"
+        },
+        "ppo_oop_max": {
+          "type": "number"
+        },
+        "ppo_coinsurance_pct": {
+          "type": "number"
+        },
+        "employer_hsa": {
+          "type": "number"
+        },
+        "additional_hsa": {
+          "type": "number"
+        },
+        "marginal_tax_rate_pct": {
+          "type": "number"
+        },
+        "expected_annual_spend": {
+          "type": "number"
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-758-hdhp-ppo-break-even.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "as_of": {
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "coverage": {
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "break_even_spend": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "First $50 grid point in [0, 20000] where the HDHP total is <= the PPO total; null when the HDHP is never cheaper."
+      },
+      "hdhp_total_at_expected": {
+        "type": [
+          "null",
+          "number"
+        ]
+      },
+      "ppo_total_at_expected": {
+        "type": [
+          "null",
+          "number"
+        ]
+      },
+      "winner": {
+        "type": [
+          "null",
+          "string"
+        ],
+        "enum": [
+          "HDHP",
+          "PPO",
+          null
+        ]
+      },
+      "savings": {
+        "type": [
+          "null",
+          "number"
+        ]
+      },
+      "hsa_total_applied": {
+        "type": [
+          "null",
+          "number"
+        ]
+      },
+      "hsa_tax_shield": {
+        "type": [
+          "null",
+          "number"
+        ]
+      },
+      "comparison_table": {
+        "type": "array"
+      },
+      "recommendation": {
+        "type": [
+          "null",
+          "string"
+        ],
+        "enum": [
+          "PPO_ALL_LEVELS",
+          "PPO_LIKELY",
+          "HDHP_BETTER",
+          null
+        ]
+      },
+      "refusals": {
+        "type": "array"
+      },
+      "refusal_reason": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "domain_errors": {
+        "type": "array"
+      },
+      "scope_note": {
+        "type": "string"
+      }
+    }
+  },
+  "source": "chaingraph/kernels/art-758-hdhp-ppo-break-even.kernel.mjs",
+  "input_schema_provenance": "Each property is exactly the policy_parameters member the kernel reads; there is no other input surface. All fourteen properties are required; as_of is the explicit run date the port echoes in place of the Apex page wall-clock export stamp (payload DIFFERS.md S1), and the money/percent fields carry the validation bounds the kernel enforces (payload DIFFERS.md S2).",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "as_of": "2026-10-13",
+    "coverage": "individual",
+    "hdhp_premium_monthly": 180,
+    "hdhp_deductible": 2800,
+    "hdhp_oop_max": 7000,
+    "hdhp_coinsurance_pct": 20,
+    "ppo_premium_monthly": 380,
+    "ppo_deductible": 500,
+    "ppo_oop_max": 5000,
+    "ppo_coinsurance_pct": 20,
+    "employer_hsa": 500,
+    "additional_hsa": 1500,
+    "marginal_tax_rate_pct": 22,
+    "expected_annual_spend": 2000
+  },
+  "output_example": {
+    "as_of": "2026-10-13",
+    "coverage": "individual",
+    "break_even_spend": 0,
+    "hdhp_total_at_expected": 4155.6,
+    "ppo_total_at_expected": 5360,
+    "winner": "HDHP",
+    "savings": 1204.3999999999996,
+    "hsa_total_applied": 2000,
+    "hsa_tax_shield": 440,
+    "comparison_table": [
+      {
+        "spend": 0,
+        "hdhp_total": 2155.6,
+        "ppo_total": 4560,
+        "hdhp_saves": 2404.4
+      },
+      {
+        "spend": 1500,
+        "hdhp_total": 3655.6,
+        "ppo_total": 5260,
+        "hdhp_saves": 1604.4
+      },
+      {
+        "spend": 2000,
+        "hdhp_total": 4155.6,
+        "ppo_total": 5360,
+        "hdhp_saves": 1204.3999999999996
+      },
+      {
+        "spend": 3000,
+        "hdhp_total": 4995.6,
+        "ppo_total": 5560,
+        "hdhp_saves": 564.3999999999996
+      },
+      {
+        "spend": 5000,
+        "hdhp_total": 5395.6,
+        "ppo_total": 5960,
+        "hdhp_saves": 564.3999999999996
+      },
+      {
+        "spend": 10000,
+        "hdhp_total": 6395.6,
+        "ppo_total": 6960,
+        "hdhp_saves": 564.3999999999996
+      },
+      {
+        "spend": 15000,
+        "hdhp_total": 7395.6,
+        "ppo_total": 7960,
+        "hdhp_saves": 564.3999999999996
+      },
+      {
+        "spend": 20000,
+        "hdhp_total": 8395.6,
+        "ppo_total": 8960,
+        "hdhp_saves": 564.3999999999996
+      }
+    ],
+    "recommendation": "HDHP_BETTER",
+    "refusals": [],
+    "refusal_reason": null,
+    "domain_errors": [],
+    "scope_note": "Plan-cost model only: premium + in-network cost sharing to the OOP maximum, minus the HSA tax shield on contributions up to the coverage limit. No FSA/HRA interactions, no out-of-network or balance-billing, no prescription-tier carve-outs, no premium tax credits, no state-specific HSA deduction rules, and no investment growth on HSA balances. The HSA catch-up contribution for age 55+ is not applied (the source page does not apply it). Totals are the source page's own dollar arithmetic, unrounded; display rounds to cents."
+  },
+  "example_execution_hash": "1fa06e3372d6859c85ca355724308121843122a89e25f529e19ae4ff110fa306"
+}
