@@ -93,7 +93,7 @@ results.push(await run('citation plus fresh receipt passes', {
   cite: `Fix rounding.\n\nREPROVE-AUTHORIZED: art-9001 ${AUDIT}#F-3\n`,
 }, false));
 
-// RED: proven node flipped to deferred, even with kernel untouched.
+// RED: proven node whose head shard reads "deferred", even with kernel untouched.
 results.push(await run('flip to deferred fails', {
   base, head: { ...base, compute_proof_ready: 'deferred' }, baseSrc: KERNEL_V1, headSrc: KERNEL_V1,
 }, true));
