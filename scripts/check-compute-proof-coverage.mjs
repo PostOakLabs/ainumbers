@@ -386,7 +386,8 @@ if (REGEN_BASELINE || CHECK_BASELINE) {
     process.exit(0);
   }
   const next = JSON.stringify(pinnedBaseline(deferred, gpuFalse), null, 2) + '\n';
-  const prev = existsSync(BASELINE_PATH) ? readFileSync(BASELINE_PATH, 'utf8') : null;
+  // oldBaseline null = first-ever pin (readBaselineForUpdate's one sanctioned absent path): nothing to compare.
+  const prev = oldBaseline ? readFileSync(BASELINE_PATH, 'utf8') : null;
   if (prev === next) {
     console.log(`✓ §18 baseline already current: ${deferred.length} deferred gpu:false node(s)`);
     process.exit(0);
