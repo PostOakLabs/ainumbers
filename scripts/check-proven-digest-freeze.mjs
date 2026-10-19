@@ -48,6 +48,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -155,7 +156,7 @@ export async function evaluateFreeze({
 // ── git plumbing ──────────────────────────────────────────────────────────────────────────────────
 
 function git(args, opts = {}) {
-  const r = spawnSync('git', args, { cwd: REPO, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, ...opts });
+  const r = spawnSync('git', args, { cwd: REPO, env: gitEnv(), encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, ...opts });
   return { ok: r.status === 0, out: (r.stdout ?? '').trim(), err: (r.stderr ?? '').trim() };
 }
 
@@ -163,7 +164,7 @@ function git(args, opts = {}) {
 function readBlobs(specs) {
   const map = new Map();
   if (!specs.length) return map;
-  const r = spawnSync('git', ['cat-file', '--batch'], { cwd: REPO, input: specs.join('\n') + '\n', maxBuffer: 1024 * 1024 * 1024 });
+  const r = spawnSync('git', ['cat-file', '--batch'], { cwd: REPO, env: gitEnv(), input: specs.join('\n') + '\n', maxBuffer: 1024 * 1024 * 1024 });
   if (r.status !== 0) throw new Error('git cat-file --batch failed: ' + String(r.stderr));
   const buf = r.stdout;
   let pos = 0;
