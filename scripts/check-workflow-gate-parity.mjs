@@ -584,6 +584,17 @@ const PREFLIGHT_ONLY = new Map([
     "the checker's own logic against in-memory fixtures and can only be reddened by a change to " +
     "that checker, which is exactly the PR shape scripts-verify.yml's path filter catches."],
   ["check-art220-table-parity.test.mjs", SELF_TEST],
+  // ── SEALED-KERNEL-RECEIPT-PUSH-GATE-1 (2026-10-19) ─────────────────────────────
+  ["check-sealed-kernel-receipt.mjs",
+    "SO #36 sealed-kernel receipt push gate (SEALED-KERNEL-RECEIPT-PUSH-GATE-1): for every kernel " +
+    "changed between merge-base(origin/main, HEAD) and HEAD whose old bytes the base shard's receipt " +
+    "sealed, requires a head receipt binding the new sourceDigest that also passes verifySeal. Its " +
+    "job is the pre-push hook (the push itself is what SO #36 forbids); its CI route is " +
+    "scripts-verify.yml full preflight, whose checkout is fetch-depth 0 with a base-ref tripwire, so " +
+    "origin/main resolves there and a named workflow step would only duplicate the same suite. Reads " +
+    "only git objects of tracked files (no working tree, no CI-only input); fails CLOSED when no base " +
+    "resolves. NOT a derived artifact and not a ratchet: no baseline file, nothing main-side writes."],
+  ["check-sealed-kernel-receipt.test.mjs", SELF_TEST],
   // PR-AUTOFIX-DERIVABLES-1 removed the PREFLIGHT_ONLY entry for
   // gen-manifest-examples.mjs: scripts-verify.yml now runs the --check gate as a
   // NAMED, HARD-on-pull_request step (divergence from preflight's advisory
