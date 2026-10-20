@@ -651,7 +651,7 @@ import * as art758    from './art-758-hdhp-ppo-break-even.kernel.mjs';
 import * as art76     from './art-76-climate-scenario-applicator.kernel.mjs';
 import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
-import * as art772    from './art-772-daycount-year-fraction.kernel.mjs';
+import * as art773    from './art-773-daycount-year-fraction.kernel.mjs';
 import * as art78     from './art-78-csdr-penalty-calculator.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
@@ -1341,7 +1341,7 @@ export const KERNELS = {
   'art-76-climate-scenario-applicator':                         art76,
   'art-763-ai-displacement-risk-screener':                      art763,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
-  'art-772-daycount-year-fraction':                             art772,
+  'art-773-daycount-year-fraction':                             art773,
   'art-78-csdr-penalty-calculator':                             art78,
   'art-79-settlement-fail-predictor':                           art79,
   'art-80-ssi-conformance-checker':                             art80,
