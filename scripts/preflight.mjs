@@ -1114,6 +1114,14 @@ const GATES = [
   // could rot unrun exactly like the reporting self-test above warns against.
   ['Pre-push expect-red fixture proof (env + file routes, EXPECTRED-ENVPREFIX-GAP-1)',
     'node .githooks/pre-push.test.mjs'],
+  // PREPUSH-NARROW-1: red/green controls for the hook's full-suite trigger
+  // (which diff paths owe the FULL leg; docs-only scripts/ edits no longer do).
+  ['Pre-push full-suite trigger controls (RED/GREEN path classes, PREPUSH-NARROW-1)',
+    'node scripts/prepush-full-trigger.mjs --self-test'],
+  // PREPUSH-PRID-ENV-1: red/green controls for the hook's PR_ID_COLLISION_PR export
+  // (open PR on the pushed branch only; every error path exports nothing).
+  ['Pre-push PR-id env export controls (RED/GREEN, PREPUSH-PRID-ENV-1)',
+    'node scripts/prepush-pr-id-env.mjs --self-test'],
   // BINARY-BYTE-GATE-1 runs FIRST, ahead of the JS syntax gate, on purpose.
   // The syntax gate is structurally BLIND to this class: DISE-SEG-T-2 shipped a
   // raw NUL inside a JS string delimiter in tools/582 and check_tools.js was
@@ -1313,6 +1321,17 @@ const GATES = [
   // (scripts/webmcp-direct-execute-baseline.json).
   ['WebMCP direct-execute (fixture-0 through every direct-mode execute body + the page run path)', 'node scripts/check-webmcp-direct-execute.mjs'],
   ['WebMCP direct-execute gate controls (leg-1/leg-2 RED + GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-webmcp-direct-execute.mjs --self-test'],
+  // WEBMCP-CHAIN-EXEC-GATE-1: the chain-execution vm gate CONTRACT A15.2 names
+  // for parts 2 and 3. Calls every composer page's registered plan_chain in two
+  // fresh vm contexts, recomputes its execution_hash through _hash.mjs, asserts
+  // it is stable, and resolves every chain step against the generator's
+  // registered node set. Part 4 and run_chain presence are report columns.
+  // Advisory on a pull_request, blocking on merge_group and main; pre-existing
+  // failures are baselined WARN with a downward ratchet
+  // (scripts/webmcp-chain-execute-baseline.json). About 30 s, so not in the
+  // quick subset.
+  ['WebMCP chain-execute (plan_chain stable hash + registered step nodes per chain)', 'node scripts/check-webmcp-chain-execute.mjs'],
+  ['WebMCP chain-execute gate controls (RED/GREEN, SO #34c pairing)', 'node scripts/check-webmcp-chain-execute.test.mjs'],
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
   // REGISTRY-RESOLVE-STATIC-1: positive-half kernel_digest -> spec_digest resolution
   // records (registry/kernel/<hex>.json). NODE-FANOUT-REGEN-CLOSE-1 (2026-08-21)
@@ -2529,6 +2548,13 @@ async function runQuickSuite(selfTest) {
     const idcIncluded = quickLabels.some((l) => l.includes('ID-collision gate'));
     if (idcPresent !== idcIncluded) failures.push('ID-collision gate presence mismatch (exists but omitted, or included but missing)');
     else console.log(`✓ --quick --self-test: ID-collision gate ${idcPresent ? 'present and included' : 'absent and correctly omitted'}`);
+    // (e) PREPUSH-NARROW-1 — FULL ⊇ QUICK. The hook skips the quick leg when it runs
+    //     the full suite; that is sound only while every quick gate has a same-or-wider
+    //     GATES entry. A CHANGED-scoped quick command maps to its un-scoped base.
+    const fullCmds = new Set(GATES.map(([, c]) => c));
+    const uncovered = QUICK_GATES.filter(([, c]) => !fullCmds.has(c) && !fullCmds.has(c.replace(` --changed ${QUICK_REF}`, ''))).map(([l]) => l);
+    if (uncovered.length) failures.push(`full ⊉ quick: no GATES entry covers: ${uncovered.join('; ')}`);
+    else console.log(`✓ --quick --self-test: every quick gate is covered by a same-or-wider full-suite gate (hook may skip quick before full)`);
     if (failures.length) {
       for (const f of failures) console.error(`   ✗ ${f}`);
       console.error(`❌ --quick --self-test FAILED: ${failures.length} assertion(s) red.`);
