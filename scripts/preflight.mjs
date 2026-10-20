@@ -2070,6 +2070,17 @@ const GATES = [
   ['§18 coverage split controls (RED/GREEN-on-PR/HARD-on-main)', 'node scripts/check-compute-proof-coverage.test.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
+  // SEALED-KERNEL-RECEIPT-PUSH-GATE-1 (SO #36): the ratchet above can be raised by one --update-baseline,
+  // so it never refused the "fixed, unproven" push shape (PR #2175 art-467). This leg can't be raised:
+  // every kernel changed vs merge-base(origin/main, HEAD) whose old bytes the base receipt sealed must
+  // carry a head receipt that binds the new sourceDigest AND passes verifySeal, or the push is red.
+  ['SO #36 sealed-kernel receipt push gate (SEALED-KERNEL-RECEIPT-PUSH-GATE-1)', 'node scripts/check-sealed-kernel-receipt.mjs'],
+  ['SO #36 sealed-kernel receipt controls (SO #40b pairing)', 'node scripts/check-sealed-kernel-receipt.test.mjs'],
+  // Proven-digest freeze: a change may not move the sourceDigest() of a proven node unless a commit
+  // message cites an audit finding (REPROVE-AUTHORIZED: art-<n> <path>#<id>) and the same change carries
+  // a fresh receipt. The advisory-on-PR split lives inside the gate; locally it blocks.
+  ['Proven-digest freeze (audit-cited re-prove only)', 'node scripts/check-proven-digest-freeze.mjs'],
+  ['Proven-digest freeze fixture proof (RED/GREEN)', 'node scripts/check-proven-digest-freeze.test.mjs'],
   // S18-FRESHNESS-DURABLE-FIX-1: the regen-owned calibration artifact's own freshness — a COVERED
   // shared-derived-artifact gate of scripts/derived-artifacts.mjs (id 's18-freshness-calibration'),
   // so like every covered entry it is advisory on a PR (the regen bot on main is the single writer)
@@ -2247,6 +2258,19 @@ const GATES = [
   // derived-artifacts-regen.yml, eleven red runs in three hours. Parity below reads gate names
   // out of these files, so it silently sees nothing when the YAML is broken.
   ['Workflow YAML parses (on + jobs)', 'python scripts/check-workflow-yaml.py'],
+  // A reusable workflow (a path under .github/workflows/ ending .yml/.yaml) may be
+  // called ONLY from a job (jobs.<id>.uses). A step-level call still parses fine, so
+  // the gate above passes it, and the run then dies at execution time with
+  // "Can't find 'action.yml', 'action.yaml' or 'Dockerfile'" (measured 2026-10-15:
+  // derived-regen-deadman.yml:164, 6 of the last 20 deadman runs red). Placement is
+  // decided by structural indentation, no YAML dependency. The single existing call
+  // is baselined (workflow-step-uses-baseline.json through the shared hard-failing
+  // loader) pending DEADMAN-REUSABLE-CALL-HEAL-1, which removes the entry.
+  ['Workflow step-uses placement (no step-level reusable call)', 'node scripts/check-workflow-step-uses.mjs'],
+  // WORKFLOW-STEP-USES-LINT-1 pairing: RED/GREEN over temp-tree workflows (step-level
+  // local and owner/repo shapes RED, job-level and normal actions GREEN) plus the
+  // ratchet states (missing baseline RED, ceiling never raised).
+  ['Workflow step-uses controls (RED/GREEN + ratchet states)', 'node scripts/check-workflow-step-uses.test.mjs'],
   // JSON-parse + no-read-only-fields check for .github/rulesets/*.json (RULESET-AS-CODE-1).
   // Purely local — the "does it match live" half needs an App token and stays CI-only
   // (ruleset-apply.yml / ruleset-drift-gate.yml).
@@ -2457,6 +2481,9 @@ const QUICK_GATES = [
   // 30 chars; the 30 threshold, the 656 ceiling and the baseline are untouched.
   ['WebMCP name length, NEW manifests (quick)', `node scripts/check-webmcp-meta-budgets.mjs --new-strict --base ${QUICK_REF}`],
   ['WebMCP meta budgets ceiling (quick, WEBMCP-META-LINT-CEILING-1)', 'node scripts/check-webmcp-meta-budgets.mjs --ceiling'],
+  // Proven-digest freeze: measured about 0.4 s (one git diff plus one cat-file batch over changed
+  // node files only), well inside the 10 s bar for the quick subset.
+  ['Proven-digest freeze (quick)', 'node scripts/check-proven-digest-freeze.mjs'],
 ];
 
 async function runQuickSuite(selfTest) {

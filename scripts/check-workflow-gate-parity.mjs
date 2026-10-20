@@ -584,6 +584,17 @@ const PREFLIGHT_ONLY = new Map([
     "the checker's own logic against in-memory fixtures and can only be reddened by a change to " +
     "that checker, which is exactly the PR shape scripts-verify.yml's path filter catches."],
   ["check-art220-table-parity.test.mjs", SELF_TEST],
+  // ── SEALED-KERNEL-RECEIPT-PUSH-GATE-1 (2026-10-19) ─────────────────────────────
+  ["check-sealed-kernel-receipt.mjs",
+    "SO #36 sealed-kernel receipt push gate (SEALED-KERNEL-RECEIPT-PUSH-GATE-1): for every kernel " +
+    "changed between merge-base(origin/main, HEAD) and HEAD whose old bytes the base shard's receipt " +
+    "sealed, requires a head receipt binding the new sourceDigest that also passes verifySeal. Its " +
+    "job is the pre-push hook (the push itself is what SO #36 forbids); its CI route is " +
+    "scripts-verify.yml full preflight, whose checkout is fetch-depth 0 with a base-ref tripwire, so " +
+    "origin/main resolves there and a named workflow step would only duplicate the same suite. Reads " +
+    "only git objects of tracked files (no working tree, no CI-only input); fails CLOSED when no base " +
+    "resolves. NOT a derived artifact and not a ratchet: no baseline file, nothing main-side writes."],
+  ["check-sealed-kernel-receipt.test.mjs", SELF_TEST],
   // PR-AUTOFIX-DERIVABLES-1 removed the PREFLIGHT_ONLY entry for
   // gen-manifest-examples.mjs: scripts-verify.yml now runs the --check gate as a
   // NAMED, HARD-on-pull_request step (divergence from preflight's advisory
@@ -1109,6 +1120,17 @@ const PREFLIGHT_ONLY = new Map([
   ["check-deploy-superseded.test.mjs", SELF_TEST],
   ["check-served-egress.test.mjs", SELF_TEST],
   ["check-workflow-gate-parity.test.mjs", SELF_TEST],
+  // ── WORKFLOW-STEP-USES-LINT-1 (2026-10-15) ─────────────────────────────────
+  ["check-workflow-step-uses.mjs",
+    "Step-level reusable-workflow-call lint (WORKFLOW-STEP-USES-LINT-1): flags a " +
+    "`uses:` of a .github/workflows/*.yml path inside a job's steps list (GitHub " +
+    "Actions only calls reusable workflows from a job; the step form parses but dies " +
+    "at run time). Declared here because the parity extractor credits literal " +
+    "`node <script>` invocations only, and the CI route is the gates array loop in " +
+    ".github/workflows/unwired-gates.yml (Run the 18 measured-green gates), which " +
+    "invokes via `node \"$g\"`. The array entry is real blocking CI enforcement; " +
+    "this declaration records the shape, it does not excuse an unwired gate."],
+  ["check-workflow-step-uses.test.mjs", SELF_TEST],
   ["sync-ain-bridge.test.mjs", SELF_TEST],
   ["check-chain-edge-contracts.selftest.mjs", SELF_TEST],
   ["check-chain-l2-contracts.selftest.mjs", SELF_TEST],
@@ -1536,7 +1558,10 @@ const DECLARED_SOFTENERS = new Map([
   // the trigger comment was reflowed to keep the public file free of
   // internal-governance row ids (check-internal-lang-leak's bare-wu-id
   // class); same pin-move, no gate step below the trigger changed.
-  ["unwired-gates.yml:continue-on-error:146",
+  // WORKFLOW-STEP-USES-LINT-1 (2026-10-15) moved it :146 -> :147 — the
+  // step-uses lint gate landed as one array line in the measured-green
+  // gates loop above the surface-parity step; same pin-move.
+  ["unwired-gates.yml:continue-on-error:147",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
    "continue-on-error is deliberate so the job surfaces drift without blocking. " +
    "Promotion to blocking removes this entry together with the continue-on-error."],
