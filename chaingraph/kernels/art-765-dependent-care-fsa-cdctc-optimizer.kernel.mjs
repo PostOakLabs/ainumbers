@@ -222,11 +222,13 @@ function validate(pp) {
   }
   // fsa_contrib is echoed only: the source page reads this control (page line
   // 359) and never dereferences it in the arithmetic (DIFFERS shape S5). It is
-  // therefore OPTIONAL and never changes a number.
-  if (pp.fsa_contrib !== undefined && !isNonNegMoney(pp.fsa_contrib)) {
+  // therefore OPTIONAL and never changes a number. R4 (absent equals explicit
+  // null): a null fsa_contrib takes the absent form's answer — treated as not
+  // supplied, echoed as not supplied.
+  if (pp.fsa_contrib != null && !isNonNegMoney(pp.fsa_contrib)) {
     return refused('REFUSED_BAD_FSA_CONTRIB', 'fsa_contrib must be a finite non-negative number of USD dollars');
   }
-  if (pp.ruleset !== undefined && pp.ruleset !== 'statutory' && pp.ruleset !== 'apex_page') {
+  if (pp.ruleset != null && pp.ruleset !== 'statutory' && pp.ruleset !== 'apex_page') {
     return refused('REFUSED_BAD_RULESET', "ruleset must be 'statutory' (default) or 'apex_page'");
   }
   return null;
@@ -362,7 +364,7 @@ export function compute(pp) {
   const bad = validate(pp);
   if (bad) return bad;
 
-  const ruleset = pp.ruleset === undefined ? 'statutory' : pp.ruleset;
+  const ruleset = pp.ruleset == null ? 'statutory' : pp.ruleset;
   const as_of = pp.as_of;
   const tax_year = Number(as_of.slice(0, 4));
   const tables = tablesFor(tax_year);
@@ -446,7 +448,7 @@ export function compute(pp) {
       num_children: pp.num_children,
       childcare_cost: pp.childcare_cost,
       fsa_available: pp.fsa_available,
-      fsa_contrib_input: pp.fsa_contrib,
+      fsa_contrib_input: pp.fsa_contrib == null ? undefined : pp.fsa_contrib,
       fsa_limit,
       cdctc_expense_cap: ctx_expenseCap(ctx),
       cdctc_rate: rate,
