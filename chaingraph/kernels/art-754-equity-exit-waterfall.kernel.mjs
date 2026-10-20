@@ -18,7 +18,7 @@
 //   (b) port hardening gated by a policy switch (DIFFERS-01 I-JSON refusal,
 //       DIFFERS-03 structured refusal), or
 //   (c) a flagged heuristic with no official source (DIFFERS-02 preferred-wins warning).
-// Citations: IRC §1001 (payload CITES.md F2) for the taxable-gain convention; NVCA model
+// Citations: IRC Section 1001 (payload CITES.md F2) for the taxable-gain convention; NVCA model
 // term sheet (F3) for the liquidation-preference mechanics context.
 //
 // Pure function: no Date, no clock, no randomness, no I/O. Every comparator is a named
@@ -63,7 +63,7 @@ const ART754_POLICY = {
   APEX_FAITHFUL_MODE: false,
   // true => revert every gated divergence to Apex #141 behavior (parity mode).
   REFUSE_NON_FINITE_INPUT: true,
-  // DIFFERS-01 — port hardening: refuse non-finite inputs per I-JSON guard (RFC 8785 §3.2.2.3).
+  // DIFFERS-01 — port hardening: refuse non-finite inputs per I-JSON guard (RFC 8785 Section 3.2.2.3).
   PREF_WINS_WARNING_THRESHOLD: 0.5,
   // DIFFERS-02 — Apex #141 warns when prefTotal > commonPool; no official threshold
   // exists. Kept as a heuristic, flagged, never a rule. Unused in compute.
@@ -303,4 +303,3 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
   };
 }
 
-export default compute;
