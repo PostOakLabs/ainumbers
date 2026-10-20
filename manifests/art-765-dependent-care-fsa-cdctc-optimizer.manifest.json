@@ -1,0 +1,258 @@
+{
+  "tool_id": "art-765-dependent-care-fsa-cdctc-optimizer",
+  "version": "1.0.0",
+  "title": "Dependent Care FSA vs. CDCTC Optimizer",
+  "description": "Compare a Dependent Care FSA (IRC section 129 exclusion) against the Child and Dependent Care Tax Credit (IRC section 21) plus the optimal combination, with FICA savings on the contribution. Three strategy cards, a $250-grid optimum sweep, and a full OCG v0.4 artifact. Refuses malformed inputs with named reasons; money is float USD exactly as the source computes it.",
+  "category": "chaingraph",
+  "tags": [
+    "dependent-care",
+    "fsa",
+    "cdctc",
+    "childcare",
+    "irc-129",
+    "irc-21",
+    "fica",
+    "working-parents",
+    "tax-optimization",
+    "mcp:estimate_dc_fsa_cdctc_split"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "as_of",
+      "filing_status",
+      "agi",
+      "marginal_rate_pct",
+      "state_rate_pct",
+      "num_children",
+      "childcare_cost",
+      "fsa_available"
+    ],
+    "properties": {
+      "as_of": {
+        "type": "string",
+        "description": "Tax date YYYY-MM-DD. The node reads no clock; its tax year picks the statutory table (2026+ = Pub. L. 119-21 70404/70405).",
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+      },
+      "filing_status": {
+        "type": "string",
+        "enum": [
+          "mfj",
+          "single",
+          "mfs"
+        ],
+        "description": "Filing status. 'mfj' selects the joint tier-B step; 'mfs' uses the $3,750 cap and carries the 21(e)(2) flag."
+      },
+      "agi": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Household adjusted gross income in USD dollars, non-negative. Drives the section 21(a)(2) applicable percentage."
+      },
+      "marginal_rate_pct": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Caller-supplied federal marginal rate in percent, 0..100. Not computed from tax tables."
+      },
+      "state_rate_pct": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "State income tax rate in percent, 0..100."
+      },
+      "num_children": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Number of qualifying individuals, at least 1. Two or more uses the $6,000 expense cap (IRC section 21(c)(2)) instead of $3,000."
+      },
+      "childcare_cost": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Actual annual childcare expenses in USD dollars, non-negative."
+      },
+      "fsa_available": {
+        "type": "boolean",
+        "description": "Is a dependent care FSA available through the employer? When false no sweep runs and the CDCTC-only strategy is the optimum."
+      },
+      "fsa_contrib": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Optional and echoed only, never used: the source page reads this control (page line 359) and the compute never dereferences it, so the optimum is always the $250-grid sweep."
+      },
+      "ruleset": {
+        "type": "string",
+        "enum": [
+          "statutory",
+          "apex_page"
+        ],
+        "description": "Optional verification selector, defaults to statutory: the IRC 129/21 tables as fetched. apex_page reproduces the source page value-for-value. Kernel-internal: not exposed in the registered MCP tool inputSchema."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "estimate_dc_fsa_cdctc_split",
+    "description": "Compare a Dependent Care FSA (IRC section 129 exclusion) against the Child and Dependent Care Tax Credit (IRC section 21) plus the optimal combination, with FICA savings on the contribution. Three strategy cards, a $250-grid optimum sweep, and a full OCG v0.4 artifact. Refuses malformed inputs with named reasons; money is float USD exactly as the source computes it.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "as_of",
+        "filing_status",
+        "agi",
+        "marginal_rate_pct",
+        "state_rate_pct",
+        "num_children",
+        "childcare_cost",
+        "fsa_available"
+      ],
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "description": "Tax date YYYY-MM-DD. The node reads no clock; its tax year picks the statutory table (2026+ = Pub. L. 119-21 70404/70405)."
+        },
+        "filing_status": {
+          "type": "string",
+          "enum": [
+            "mfj",
+            "single",
+            "mfs"
+          ],
+          "description": "Filing status. 'mfj' picks the joint tier-B step; 'mfs' uses the $3,750 cap and carries the 21(e)(2) flag."
+        },
+        "agi": {
+          "type": "number",
+          "description": "Household adjusted gross income in USD dollars, non-negative. Drives the section 21(a)(2) applicable percentage."
+        },
+        "marginal_rate_pct": {
+          "type": "number",
+          "description": "Caller-supplied federal marginal rate in percent, 0..100. Not computed from tax tables."
+        },
+        "state_rate_pct": {
+          "type": "number",
+          "description": "State income tax rate in percent, 0..100."
+        },
+        "num_children": {
+          "type": "integer",
+          "description": "Number of qualifying individuals, at least 1. Two or more uses the $6,000 expense cap (IRC section 21(c)(2)) instead of $3,000."
+        },
+        "childcare_cost": {
+          "type": "number",
+          "description": "Actual annual childcare expenses in USD dollars, non-negative."
+        },
+        "fsa_available": {
+          "type": "boolean",
+          "description": "Is a dependent care FSA available through the employer? When false no sweep runs and the CDCTC-only strategy is the optimum."
+        },
+        "fsa_contrib": {
+          "type": "number",
+          "description": "Optional and echoed only, never used: the source page reads this control (page line 359) and the compute never dereferences it."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-765-dependent-care-fsa-cdctc-optimizer.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "mandate_type": "dependent_care_fsa_cdctc_record",
+  "output_schema": {
+    "type": "object",
+    "description": "output_payload: as_of, tax_year, ruleset, filing_status, agi, marginal_rate_pct, state_rate_pct, num_children, childcare_cost, fsa_available, fsa_contrib_input, fsa_limit, cdctc_expense_cap, cdctc_rate, rate_schedule, credit_base_rule, strategies{fsa_only,cdctc_only,optimal_combo}{fsa_contrib,fsa_tax_savings,fica_savings,cdctc_credit,total_savings,net_cost,effective_rate,credit_base,expense_cap}, optimal_fsa_contribution, fica_savings_on_fsa, effective_rate, effective_subsidy_pct, best_strategy, verdict, refusals[], refusal_reason, domain_errors[], scope_note."
+  },
+  "source": "chaingraph/kernels/art-765-dependent-care-fsa-cdctc-optimizer.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: as_of (validated, and its tax year selects the constant table), filing_status (three-way compare), agi, marginal_rate_pct, state_rate_pct, num_children, childcare_cost, fsa_available (all validated and dereferenced), plus the optional fsa_contrib (echoed only — the source page reads the control and the compute never dereferences it) and the optional ruleset selector. 'required' lists the eight inputs the kernel dereferences unconditionally.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "as_of": "2026-10-13",
+    "filing_status": "mfj",
+    "agi": 95000,
+    "marginal_rate_pct": 22,
+    "state_rate_pct": 5,
+    "num_children": 2,
+    "childcare_cost": 18000,
+    "fsa_available": true,
+    "fsa_contrib": 0
+  },
+  "output_example": {
+    "as_of": "2026-10-13",
+    "tax_year": 2026,
+    "ruleset": "statutory",
+    "filing_status": "mfj",
+    "agi": 95000,
+    "marginal_rate_pct": 22,
+    "state_rate_pct": 5,
+    "num_children": 2,
+    "childcare_cost": 18000,
+    "fsa_available": true,
+    "fsa_contrib_input": 0,
+    "fsa_limit": 7500,
+    "cdctc_expense_cap": 6000,
+    "cdctc_rate": 0.35,
+    "rate_schedule": {
+      "source": "IRC 21(a)(2) as amended by Pub. L. 119-21 sec. 70405 (taxable years beginning after 12/31/2025)",
+      "base": 0.5,
+      "tier_a": {
+        "from": 15000,
+        "step": 2000,
+        "floor": 0.35
+      },
+      "tier_b": {
+        "from_nonjoint": 75000,
+        "from_joint": 150000,
+        "step_nonjoint": 2000,
+        "step_joint": 4000,
+        "floor": 0.2
+      }
+    },
+    "credit_base_rule": "statutory_cap_minus_exclusion_then_expenses",
+    "strategies": {
+      "fsa_only": {
+        "fsa_contrib": 7500,
+        "fsa_tax_savings": 2025.0000000000002,
+        "fica_savings": 573.75,
+        "cdctc_credit": 0,
+        "total_savings": 2598.75,
+        "net_cost": 15401.25,
+        "effective_rate": 0.855625,
+        "credit_base": 0,
+        "expense_cap": 6000
+      },
+      "cdctc_only": {
+        "fsa_contrib": 0,
+        "fsa_tax_savings": 0,
+        "fica_savings": 0,
+        "cdctc_credit": 2100,
+        "total_savings": 2100,
+        "net_cost": 15900,
+        "effective_rate": 0.8833333333333333,
+        "credit_base": 6000,
+        "expense_cap": 6000
+      },
+      "optimal_combo": {
+        "fsa_contrib": 7500,
+        "fsa_tax_savings": 2025.0000000000002,
+        "fica_savings": 573.75,
+        "cdctc_credit": 0,
+        "total_savings": 2598.75,
+        "net_cost": 15401.25,
+        "effective_rate": 0.855625,
+        "credit_base": 0,
+        "expense_cap": 6000
+      }
+    },
+    "optimal_fsa_contribution": 7500,
+    "fica_savings_on_fsa": 573.75,
+    "effective_rate": 0.855625,
+    "effective_subsidy_pct": 14.437500000000004,
+    "best_strategy": "OPTIMAL_COMBO",
+    "verdict": "OPTIMAL_COMBO",
+    "refusals": [],
+    "refusal_reason": null,
+    "domain_errors": [],
+    "scope_note": "Strategy comparator for a Dependent Care FSA (IRC §129 exclusion) vs. the Child & Dependent Care Tax Credit (IRC §21), plus the optimal combination. FICA savings on the FSA contribution are the 7.65% employee share (IRC §3101(a) 6.2% + §3101(b)(1) 1.45%) with NO OASDI wage-base cap ($184,500 for 2026) and NO 0.9% Additional Medicare Tax. Marginal federal and state rates are caller inputs, not computed from tax tables. Not modelled: the §129(b) earned-income limit on the exclusion, the §129(a)(2)(B) excess inclusion, §129(c) related providers, §21(e) household and joint-return rules (MFS is flagged, not zeroed), plan discrimination tests (§129(d)), employer discounts, and state conformity. The optimum is searched on $250 grid steps and is never bounded by actual expenses, exactly as the source page does; both are flagged. Educational decision support, not tax advice. Money is float USD exactly as the source computes it; nothing rounds."
+  },
+  "example_execution_hash": "422dcc659f9ad49b3950446bfd242b11d9ca8218222359dd7da6bac82f6dec2a"
+}
