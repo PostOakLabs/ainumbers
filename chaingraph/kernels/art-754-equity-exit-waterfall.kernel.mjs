@@ -265,7 +265,7 @@ function computeFlat(pp) {
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'calculate_equity_exit_waterfall',
+  mcp_name: 'calc_equity_exit_waterfall',
   mandate_type: 'consumer_finance', gpu: false,
 };
 
