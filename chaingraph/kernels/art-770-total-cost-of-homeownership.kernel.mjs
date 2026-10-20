@@ -101,6 +101,10 @@ function refusedPayload(inputEcho, code, message) {
       grossCost: null, netCost: null, costPerMonth: null, netCostPerMonth: null,
       breakEvenMonthlyRent: null, shareBps: null, negativeAppreciation: null,
       refusal: code, message,
+      // FLAG-MIRROR-DOCTRINE (AUTHORING-STANDARD 2.2): closed-list member so a
+      // 21.4 chain gate can route on the refusal (H4 declared divergence from the
+      // payload refusal shape, which carried no mirror member).
+      domain_errors: [code],
     },
   };
 }
@@ -305,6 +309,7 @@ function computeInner(pp) {
       grossCost, netCost, costPerMonth, netCostPerMonth, breakEvenMonthlyRent,
       shareBps, negativeAppreciation: appreciationPct < 0,
       refusal: null, message: null,
+      domain_errors: [],
     },
     refused: false,
   };

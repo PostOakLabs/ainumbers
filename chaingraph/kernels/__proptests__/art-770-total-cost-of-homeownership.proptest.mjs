@@ -2,7 +2,7 @@
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-153 porting payload
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-18, Builder-verifies-at-land 35/35).
-// kernel_digest_at_authoring: sha256:196064a53ca1064efb27eacef246b1ee5fd94603b158134293f92dcdedb0bdff
+// kernel_digest_at_authoring: sha256:6ff9267e9f0d21e4d41ddfd58002d583a93cb9b1a0bbde24df335df244c38f71
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
@@ -140,7 +140,7 @@ function checkP4RefusalContract() {
     const refusalKeys = Object.keys(out).sort().join(',');
     if (successKeys !== refusalKeys) { violations++; console.log('P4 violation: refusal key set differs from success'); }
     for (const k of Object.keys(out)) {
-      if (k !== 'inputs' && k !== 'refusal' && k !== 'message' && out[k] !== null) { violations++; console.log(`P4 violation: refusal field ${k} not null`); }
+      if (k !== 'inputs' && k !== 'refusal' && k !== 'message' && k !== 'domain_errors' && out[k] !== null) { violations++; console.log(`P4 violation: refusal field ${k} not null`); }
     }
     break; // key-set/null-shape identical across refusal cases; one pass suffices
   }
