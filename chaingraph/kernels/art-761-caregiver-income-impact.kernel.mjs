@@ -129,7 +129,7 @@ const TOOL_VERSION = '1.0.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'estimate_caregiver_income_impact',
+  mcp_name: 'caregiver_income_impact',
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
@@ -151,6 +151,8 @@ function isIsoDate(v) {
   return d <= dim;
 }
 
+const REFUSAL_FLAG = 'ART761_INPUT_REFUSED';
+
 /** @type {(reason: string, text: string) => { output_payload: object, compliance_flags: string[] }} */
 function refused(reason, text) {
   return {
@@ -169,7 +171,7 @@ function refused(reason, text) {
       strategies: [], refusals: [], refusal_reason: reason,
       domain_errors: [{ code: reason, text }], caveats: ['ART761_INPUT_REFUSED'], scope_note: SCOPE_NOTE,
     },
-    compliance_flags: ['ART761_INPUT_REFUSED'],
+    compliance_flags: reason ? [REFUSAL_FLAG] : [],
   };
 }
 
@@ -297,7 +299,9 @@ export function compute(pp) {
   if (careYears > 0 && yearsAfterCare === 0) flags.push('ART761_CARE_AT_OR_AFTER_RETIREMENT');
   if (ssCareScale >= SS_CARE_YEAR_CAP) flags.push('ART761_SS_CARE_YEAR_CAP_REACHED');
   if (setbackPct > SETBACK_STRATEGY_BRANCH_PCT) flags.push('ART761_SETBACK_ABOVE_FIVE_PCT');
-  flags.push('ART761_SS_ESTIMATE_MODELED');
+  // conditional construction (FLAGS-COMPUTED-LINT-1): the flag rides exactly
+  // when the modeled SS term is present in the payload, which is every successful compute.
+  if (Number.isFinite(annualSSReduction)) flags.push('ART761_SS_ESTIMATE_MODELED');
   if (useSuppliedBenefit) flags.push('ART761_SS_AVERAGE_BENEFIT_USER_SUPPLIED');
 
   return {

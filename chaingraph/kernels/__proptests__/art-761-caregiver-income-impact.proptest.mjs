@@ -2,6 +2,7 @@
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-117 porting payload
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-14, Builder-verifies-at-land 64/64, APEX-PORT-117-LAND-1).
+// kernel_digest_at_authoring: sha256:804a97db4e05b09e11175080accb15aaa6636155627abfe51d2e2572245a8f31
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
@@ -71,14 +72,16 @@ function checkP1Monotone() {
       investment_return_pct: 1 + Math.floor(rng() * 12),
       care_years: Math.floor(rng() * 15),
     };
-    for (const [key, bump, cap] of [['salary_usd', 2500, null], ['income_reduction_pct', 5, 100], ['retirement_age', 1, null]]) {
-      const up = { ...pp, [key]: cap === null ? pp[key] + bump : Math.min(cap, pp[key] + bump) };
-      if (up[key] === pp[key]) continue;
+    for (const up of [
+      { ...pp, salary_usd: pp.salary_usd + 2500 },
+      { ...pp, income_reduction_pct: Math.min(100, pp.income_reduction_pct + 5) },
+      { ...pp, retirement_age: pp.retirement_age + 1 },
+    ]) {
       const a = compute(pp).output_payload;
       const b = compute(up).output_payload;
       checked++;
       for (const col of COLUMNS) {
-        if (b[col] < a[col]) { violations++; console.log(`P1 violation: ${col} decreased when ${key} increased (${a[col]} -> ${b[col]})`); }
+        if (b[col] < a[col]) { violations++; console.log(`P1 violation: ${col} decreased when a control input increased (${a[col]} -> ${b[col]})`); }
       }
     }
   }
@@ -89,6 +92,7 @@ function checkP1Monotone() {
 function checkP2FormulaRestated() {
   let checked = 0, violations = 0;
   const fv = (pmt, r, n) => (r === 0 ? pmt * n : pmt * (Math.pow(1 + r, n) - 1) / r);
+  /** @type {any[]} */
   const cases = [
     { ...basePP() },
     { ...basePP(), as_of: '2025-12-31' },
@@ -133,7 +137,7 @@ function checkP3DeterminismShape() {
   const rng = mulberry32(76103);
   for (let i = 0; i < 40; i++) {
     const pp = {
-      as_of: `${pick(rng, [2025, 2026])}-${String(1 + Math.floor(rng() * 12)).padStart(2, '0')}-${String(1 + Math.floor(rng() * 28)).padStart(2, '0')}`,
+      as_of: `${pick(rng, ['2025', '2026'])}-${String(1 + Math.floor(rng() * 12)).padStart(2, '0')}-${String(1 + Math.floor(rng() * 28)).padStart(2, '0')}`,
       salary_usd: Math.floor(rng() * 300000),
       current_age: 18 + Math.floor(rng() * 60),
       retirement_age: 0, care_years: Math.floor(rng() * 40),

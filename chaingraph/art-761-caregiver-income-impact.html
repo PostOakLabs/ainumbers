@@ -62,8 +62,8 @@ pre{background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padd
      landed by APEX-PORT-117-LAND-1 (Builder-verifies-at-land: 64/64 payload fixture vectors re-executed through compute()
      matching the stored outputs). Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-761-caregiver-income-impact.kernel.mjs;
      restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:ec34d459a4d318b36e853f6888227688cfa13917ca221c760ae3a63f5a0f0cba">
-<meta name="ai-tool" content="estimate_caregiver_income_impact">
+<meta name="kernel-digest" content="sha256:804a97db4e05b09e11175080accb15aaa6636155627abfe51d2e2572245a8f31">
+<meta name="ai-tool" content="caregiver_income_impact">
 </head>
 <body>
 <div class="wrap" role="main">
@@ -89,7 +89,7 @@ flagged Social Security estimate &mdash; plus a total. Ported from ApexLogics di
   Not a benefit projection and not tax advice. <code>as_of</code> is an input and the node reads no clock: the SSA
   contribution and benefit base and the SSA average annual benefit are selected from a pinned vintage table by the
   <code>as_of</code> year, and an unpinned year is a refusal rather than a carry-forward. The Social Security term is a
-  flagged linearisation (<code>ART761_SS_ESTIMATE_MODELED</code>) &mdash; it is <em>not</em> the SSA AIME formula; use
+  flagged linearisation (<code>ART761_SS_ESTIMATE_MODELED</code>) &mdash; it is not the SSA AIME formula; use
   <code>art-282-social-security-claiming-optimizer</code> or <code>pf-139-social-security-bridge</code> for a real benefit
   estimate. The career-setback compounding rate (2%), the caregiving-year divisor (35), the 15% cap and the 20-year draw
   are modelling constants carried from the source and each marked UNGROUNDED.
@@ -161,13 +161,13 @@ flagged Social Security estimate &mdash; plus a total. Ported from ApexLogics di
    chaingraph/kernels/art-761-caregiver-income-impact.kernel.mjs minus its
    `import { executionHash } from './_hash.mjs'` line (the browser leg inlines the
    canonicalizer instead, identical algorithm). Kernel digest:
-   sha256:ec34d459a4d318b36e853f6888227688cfa13917ca221c760ae3a63f5a0f0cba
+   sha256:804a97db4e05b09e11175080accb15aaa6636155627abfe51d2e2572245a8f31
    Ported from ApexLogics #117 (AL-124); see DIFFERS.md D1-D5 and CITES.md.
    ============================================================================ */
 const MANIFEST = {
   tool_id: 'art-761-caregiver-income-impact', version: '1.0.0',
   title: 'Caregiver Income Impact & Lost Earnings Estimator', category: 'career_workforce',
-  mandate_type: 'compliance_mandate', mcp_name: 'estimate_caregiver_income_impact', gpu: false,
+  mandate_type: 'compliance_mandate', mcp_name: 'caregiver_income_impact', gpu: false,
   ap2_export: true, ap2_mandate_types: ['caregiver_impact_record'],
   source: 'ApexLogics #117 (al_id AL-124, CC-BY-4.0)', license: 'CC-BY-4.0',
 };
@@ -305,7 +305,9 @@ function compute(pp){
   if (careYears > 0 && yearsAfterCare === 0) flags.push('ART761_CARE_AT_OR_AFTER_RETIREMENT');
   if (ssCareScale >= SS_CARE_YEAR_CAP) flags.push('ART761_SS_CARE_YEAR_CAP_REACHED');
   if (setbackPct > SETBACK_STRATEGY_BRANCH_PCT) flags.push('ART761_SETBACK_ABOVE_FIVE_PCT');
-  flags.push('ART761_SS_ESTIMATE_MODELED');
+  // conditional construction (FLAGS-COMPUTED-LINT-1): the flag rides exactly
+  // when the modeled SS term is present in the payload, which is every successful compute.
+  if (Number.isFinite(annualSSReduction)) flags.push('ART761_SS_ESTIMATE_MODELED');
   if (useSuppliedBenefit) flags.push('ART761_SS_AVERAGE_BENEFIT_USER_SUPPLIED');
 
   return {
