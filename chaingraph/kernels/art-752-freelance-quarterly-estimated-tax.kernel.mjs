@@ -182,7 +182,7 @@ export function compute(pp) {
     quarters: Q_DATES.map((q) => ({ quarter: q.label, due: q.due, amount: round2(perQtr) })),
   };
 
-  const compliance_flags = ['FREELANCE_QUARTERLY_ESTIMATED'];
+  const compliance_flags = (netSE + otherIncome) > 0 ? ['FREELANCE_QUARTERLY_ESTIMATED'] : [];
   if (netSESubject > SS_WAGE_BASE) compliance_flags.push('SS_WAGE_BASE_EXCEEDED');
   if (priorYearTax > 0) compliance_flags.push('SAFE_HARBOR_PRIOR_YEAR_APPLIED');
   if (ytdPaid > 0) compliance_flags.push('YTD_PAYMENTS_ENTERED');
