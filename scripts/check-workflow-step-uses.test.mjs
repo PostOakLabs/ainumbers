@@ -184,14 +184,12 @@ test('--update-baseline pins the live count and refuses to raise a lower ceiling
   rmSync(t.dir, { recursive: true, force: true });
 });
 
-test('the shipped repo baseline pins exactly the deadman entry', () => {
+test('the shipped repo baseline is at zero after DEADMAN-REUSABLE-CALL-HEAL-1', () => {
   assert.ok(existsSync(BASELINE_PATH));
   const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
-  assert.equal(baseline.deferred, 1);
-  assert.deepEqual(baseline.deferred_files, ['derived-regen-deadman.yml']);
-  // and the real tree scan agrees with it
+  assert.equal(baseline.deferred, 0);
+  assert.deepEqual(baseline.deferred_files, []);
+  // and the real tree scan agrees with it: no step-level call survives
   const hits = scanAll();
-  assert.equal(hits.length, 1);
-  assert.equal(hits[0].file, 'derived-regen-deadman.yml');
-  assert.equal(hits[0].line, 164);
+  assert.deepEqual(hits, []);
 });
