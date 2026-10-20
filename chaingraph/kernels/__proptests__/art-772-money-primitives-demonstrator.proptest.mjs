@@ -1,6 +1,6 @@
 // art-772-money-primitives-demonstrator — class-K property floor for the _money shared
 // bundle (SHARED-MONEY-BUNDLE-1). Authored per FV-PBT-FLOOR-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:99e7bdf00202880b891cbfde5613dba4792f3dccf4f58dfb5913666ab3ec93fe
+// kernel_digest_at_authoring: sha256:f62737dbdb17a19dd9e2a94982362402465ce65482936b1e6ca3e4a9b3020f74
 // spec: ACCT-INFRA-KERNELS-BUILD-SPEC.md §0.1/§1.4/§4.1 + row SHARED-MONEY-BUNDLE-1
 // human_sign_off: PENDING
 //
@@ -240,20 +240,21 @@ function checkExactRoundingTable() {
 function checkAllocateExactParts() {
   let checked = 0;
   let violations = 0;
+  /** @type {{ t: string, s: number, w: bigint[], want: bigint[] }[]} */
   const cases = [
-    // [totalString, scale, weights, expected minor counts at scale]
-    [['100.00', 2, [1n, 1n, 1n], [3334n, 3333n, 3333n]], 'split3-first-index-tie-break'],
-    [['10.00', 2, [1n, 2n, 4n], [143n, 286n, 571n]], 'weights-1-2-4'],
-    [['0.01', 2, [1n, 1n, 1n], [1n, 0n, 0n]], 'one-cent-goes-to-first'],
-    [['100.00', 2, [0n, 3n, 1n], [0n, 7500n, 2500n]], 'zero-weight-gets-zero'],
-    [['5', 0, [1n, 1n, 1n, 1n, 1n], [1n, 1n, 1n, 1n, 1n]], 'jpy-ones'],
-    [['7', 0, [1n, 1n, 1n], [3n, 2n, 2n]], 'int-floor-then-remainder'],
+    { t: '100.00', s: 2, w: [1n, 1n, 1n], want: [3334n, 3333n, 3333n] }, // split3-first-index-tie-break
+    { t: '10.00', s: 2, w: [1n, 2n, 4n], want: [143n, 286n, 571n] }, // weights-1-2-4
+    { t: '0.01', s: 2, w: [1n, 1n, 1n], want: [1n, 0n, 0n] }, // one-cent-goes-to-first
+    { t: '100.00', s: 2, w: [0n, 3n, 1n], want: [0n, 7500n, 2500n] }, // zero-weight-gets-zero
+    { t: '5', s: 0, w: [1n, 1n, 1n, 1n, 1n], want: [1n, 1n, 1n, 1n, 1n] }, // jpy-ones
+    { t: '7', s: 0, w: [1n, 1n, 1n], want: [3n, 2n, 2n] }, // int-floor-then-remainder
   ];
-  for (const [[t, s, w, want], label] of cases) {
+  for (const c of cases) {
     checked++;
-    const total = { v: BigInt(t.replace('.', '').replace(/^0+(?=\d)/, '')) * 10n ** BigInt(s - (t.includes('.') ? t.split('.')[1].length : 0)), s };
-    const parts = money.allocate(total, w);
-    if (parts.map((p) => p.v).join(',') !== want.join(',')) violations++;
+    const fracLen = c.t.includes('.') ? c.t.split('.')[1].length : 0;
+    const total = { v: BigInt(c.t.replace('.', '')) * 10n ** BigInt(c.s - fracLen), s: c.s };
+    const parts = money.allocate(total, c.w);
+    if (parts.map((p) => p.v).join(',') !== c.want.join(',')) violations++;
   }
   // sign mirror: allocate(-T, w) === -allocate(T, w) exactly, per part
   checked++;
@@ -434,7 +435,12 @@ function checkBundleValidationAndBounds() {
     if (codeOf(() => money[op]({ v: 1n, s: 1 }, { v: 1n, s: 2 })) !== 'REFUSED_SCALE_MISMATCH') violations++;
   }
   checked++;
-  if (money.add({ v: 1n, s: 2 }, { v: 2n, s: 2 }).v !== 3n || money.sub({ v: 1n, s: 2 }, { v: 2n, s: 2 }).v !== -1n || money.cmp({ v: 1n, s: 2 }, { v: 2n, s: 2 }) !== -1) violations++;
+  // String form: the bundle's inferred value type at this call site is loose, and a
+  // direct bigint cast trips TS2352; the receipts are string-canonical anyway.
+  const sumV = String(money.add({ v: 1n, s: 2 }, { v: 2n, s: 2 }).v);
+  const subV = String(money.sub({ v: 1n, s: 2 }, { v: 2n, s: 2 }).v);
+  const cmpV = String(money.cmp({ v: 1n, s: 2 }, { v: 2n, s: 2 }));
+  if (sumV !== '3' || subV !== '-1' || cmpV !== '-1') violations++;
   // isParseable agrees with the grammar on both sides
   checked++;
   if (money.isParseable('12.34') !== true || money.isParseable('1e5') !== false || money.isParseable(12.34) !== false) violations++;
