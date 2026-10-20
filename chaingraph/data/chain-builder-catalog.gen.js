@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (686 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (687 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7531,6 +7531,16 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-758-hdhp-ppo-break-even",
+    "display_name": "HDHP vs. PPO Break-Even",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-758-hdhp-ppo-break-even.html",
+    "description": "Annual-cost comparator for an HDHP+HSA against a PPO, ported from ApexLogics #105 (AL-112). For two plan profiles (monthly premium, deductib",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
