@@ -137,7 +137,7 @@ function refused(reason, text) {
       domain_errors: [{ code: reason, text }],
       scope_note: SCOPE_NOTE,
     },
-    compliance_flags: ['ART764_INPUT_REFUSED'],
+    compliance_flags: reason ? ['ART764_INPUT_REFUSED'] : [],
   };
 }
 

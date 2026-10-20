@@ -3,7 +3,7 @@
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-18T01:23Z, Builder-verifies-at-land 30/30: every payload fixture vector
 // re-executed through compute() matching the stored outputs, APEX-PORT-112-LAND-1).
-// kernel_digest_at_authoring: sha256:f64ff0425c1099bb3dc88c4efeedd14c2fd13d20ced1ef9770431727feb9375a
+// kernel_digest_at_authoring: sha256:2832967e017299fa4023575d5b141110985215f4da2bb9d6e4a10be38ffb8186
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
