@@ -2,7 +2,7 @@
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-132B porting payload
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-18, Builder-verifies-at-land 42/42).
-// kernel_digest_at_authoring: sha256:85fa56c5bf669b05e3daa1c98ffcebe3401fb0879ab2770994afafcc0c73f5e9
+// kernel_digest_at_authoring: sha256:7659dd0c0c8ca1fe3f298e1f480c51db320966bfdac3ff7571db54cd77ee753d
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
@@ -167,14 +167,14 @@ function checkP5BoundaryPairsFlip(fixtures) {
     if (!sides.at || !sides.past) { violations++; console.log(`P5 violation: pair ${pair} missing a side`); continue; }
     const flips = !deepEqual(sides.at, sides.past);
     if (NON_FLIPPING_PAIRS.has(pair)) {
-      // B18 flips only through the inputs_defaulted flags (travelHours 0 is
+      // B18 flips only through the substitution mirrors (travelHours 0 is
       // swallowed to the page default, so both sides land on 36 and every
       // payload number is identical). Assert the computed payload proper is
-      // byte-identical and the flags DO differ.
-      const at = { ...sides.at }; delete at.inputs_defaulted;
-      const past = { ...sides.past }; delete past.inputs_defaulted;
-      if (!deepEqual(at, past)) { violations++; console.log(`P5 violation: pair ${pair} computed payload differs at/past`); }
-      if (flips === false) { violations++; console.log(`P5 violation: pair ${pair} inputs_defaulted flags do not differ`); }
+      // byte-identical once the mirrors are stripped, and that the mirrors
+      // DO differ.
+      const strip = (o) => { const c = { ...o }; delete c.inputs_defaulted; delete c.warnings; delete c.warn_count; return c; };
+      if (!deepEqual(strip(sides.at), strip(sides.past))) { violations++; console.log(`P5 violation: pair ${pair} computed payload differs at/past`); }
+      if (flips === false) { violations++; console.log(`P5 violation: pair ${pair} substitution mirrors do not differ`); }
       continue;
     }
     if (!flips) { violations++; console.log(`P5 violation: pair ${pair} :at/:past payloads are identical`); }
