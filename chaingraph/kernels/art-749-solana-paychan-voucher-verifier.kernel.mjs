@@ -31,7 +31,7 @@ const TOOL_VERSION = '1.0.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'verify_solana_payment_channel_voucher',
+  mcp_name: 'verify_solana_paychan_voucher',
   mandate_type: 'payment_mandate', gpu: false,
 };
 
