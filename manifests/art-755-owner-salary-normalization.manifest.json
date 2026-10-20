@@ -1,0 +1,253 @@
+{
+  "tool_id": "art-755-owner-salary-normalization",
+  "version": "1.0.0",
+  "title": "Owner Salary Normalization",
+  "description": "Separates what a replacement manager would cost from an owner's total compensation package, producing comparable seller discretionary earnings and normalized EBITDA, plus a neutral reasonable-compensation pattern flag. Employer payroll taxes are the employer share only (IRC 3111), computed from the 2026 OASDI wage base when left at zero. Ported from Apex #158 to AINumbers art-755. Deterministic, zero external data, reads no clock.",
+  "category": "run",
+  "tags": [
+    "owner-compensation",
+    "add-backs",
+    "normalized-earnings",
+    "reasonable-compensation",
+    "sde",
+    "federated-payroll-taxes"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "reported_net_income": {
+        "type": "number",
+        "description": "Reported pre-tax net income from the P&L, before any add-backs (USD). May be negative; the live page allows -100000000 to 1000000000. Default 180000. Read as a whole dollar: the kernel rounds on read."
+      },
+      "one_time_expenses": {
+        "type": "number",
+        "description": "One-time or non-recurring expenses a buyer would not expect to repeat (USD). Default 15000. Read as a whole dollar."
+      },
+      "owner_count": {
+        "type": "integer",
+        "description": "Number of owners taking compensation. Rounded to a whole number and floored at 1, so 0 -> 1 and 1.5 -> 2. Default 1. Also drives replacement_cost_aggregate and per_owner_average_package, and sets multi_owner when greater than 1."
+      },
+      "owner_w2_salary": {
+        "type": "number",
+        "description": "Owner W-2 salary, the wages actually run through payroll (USD). Default 95000. Capped for OASDI only at min(owner_w2_salary, ss_wage_base); Medicare applies to the full figure."
+      },
+      "owner_distributions": {
+        "type": "number",
+        "description": "Owner distributions or draws, non-payroll cash taken out (USD). Default 60000."
+      },
+      "employer_payroll_taxes_entered": {
+        "type": "number",
+        "description": "Employer payroll taxes on owner wages (USD). Exactly 0 means 'compute it from ss_wage_base, ss_rate_pct and medicare_rate_pct'; any other value is used verbatim, including a negative. Default 0."
+      },
+      "owner_health_insurance": {
+        "type": "number",
+        "description": "Owner health insurance premiums paid by the company (USD). Default 14400."
+      },
+      "owner_retirement_contribution": {
+        "type": "number",
+        "description": "Owner retirement contribution by the company, employer side only (USD). Default 12000."
+      },
+      "personal_vehicle_and_travel": {
+        "type": "number",
+        "description": "Non-business personal vehicle and travel run through the company (USD). Default 9600."
+      },
+      "other_personal_expenses": {
+        "type": "number",
+        "description": "Other personal or discretionary expenses run through the company: meals, memberships, family payroll above market (USD). Default 6000."
+      },
+      "market_wage_replacement_manager": {
+        "type": "number",
+        "description": "Base wage it would cost to hire a replacement manager to do the owner's job (USD), before the benefits load. User-supplied market convention, not a statutory figure. Default 85000."
+      },
+      "benefit_load_pct": {
+        "type": "number",
+        "description": "Replacement manager benefits load as a percent of the wage: payroll taxes, insurance, retirement. User-supplied market convention. Clamped at 0. Default 22."
+      },
+      "hours_per_week": {
+        "type": "number",
+        "description": "Hours the owner works per week. Clamped at 0; exactly 0 suppresses the effective hourly rate. Default 55."
+      },
+      "ss_wage_base": {
+        "type": "number",
+        "description": "Social Security OASDI contribution and benefit base (USD). Default 184500, the 2026 figure from IRS Topic 751 and the SSA. Overridable so a prior or later year can be priced without editing the kernel."
+      },
+      "ss_rate_pct": {
+        "type": "number",
+        "description": "Employer Social Security rate, percent (IRC 3111(a)). Clamped at 0. Default 6.2."
+      },
+      "medicare_rate_pct": {
+        "type": "number",
+        "description": "Employer Medicare rate, percent (IRC 3111(b)). Clamped at 0. Default 1.45."
+      },
+      "sde_multiple": {
+        "type": "number",
+        "description": "SDE multiple used only for the valuation-impact line (x). User-supplied market convention. Clamped at 0. Default 2.8."
+      }
+    },
+    "required": [
+      "reported_net_income",
+      "one_time_expenses",
+      "owner_w2_salary",
+      "owner_distributions"
+    ]
+  },
+  "mcp_tool_definition": {
+    "name": "normalize_owner_salary",
+    "description": "Normalizes a small-business owner's total compensation against the fully loaded cost of a replacement manager, producing seller discretionary earnings, normalized EBITDA, a normalization adjustment and a neutral reasonable-compensation pattern flag. Employer payroll taxes are computed from the 2026 OASDI wage base when not supplied. Deterministic, zero external data, reads no clock.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "reported_net_income": {
+          "type": "number",
+          "description": "Reported pre-tax net income from the P&L (USD)"
+        },
+        "one_time_expenses": {
+          "type": "number",
+          "description": "Non-recurring expenses a buyer would not repeat (USD)"
+        },
+        "owner_w2_salary": {
+          "type": "number",
+          "description": "Owner W-2 wages run through payroll (USD)"
+        },
+        "owner_distributions": {
+          "type": "number",
+          "description": "Owner distributions or draws, non-payroll (USD)"
+        },
+        "market_wage_replacement_manager": {
+          "type": "number",
+          "description": "Base wage for a replacement manager (USD); user-supplied"
+        },
+        "benefit_load_pct": {
+          "type": "number",
+          "description": "Benefits load on the replacement wage, percent; user-supplied"
+        },
+        "owner_count": {
+          "type": "integer",
+          "description": "Owners taking compensation; floored at 1"
+        }
+      },
+      "required": [
+        "reported_net_income",
+        "owner_w2_salary",
+        "owner_distributions"
+      ]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-755-owner-salary-normalization.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "employer_payroll_taxes": {
+        "type": "number",
+        "description": "Employer payroll taxes used: computed from the OASDI cap when employer_payroll_taxes_entered was exactly 0, otherwise the entered figure verbatim"
+      },
+      "employer_payroll_taxes_entered": {
+        "type": "boolean",
+        "description": "True when the caller supplied an employer payroll tax figure and the computed branch was not taken"
+      },
+      "ss_taxable_wages": {
+        "type": "number",
+        "description": "min(owner_w2_salary, ss_wage_base): the OASDI-capped wage base. Null when the caller entered payroll taxes."
+      },
+      "employer_ss_tax": {
+        "type": "number",
+        "description": "Employer Social Security tax on ss_taxable_wages, rounded to a whole dollar. Null when the caller entered payroll taxes."
+      },
+      "employer_medicare_tax": {
+        "type": "number",
+        "description": "Employer Medicare tax on the uncapped owner W-2, rounded to a whole dollar. Null when the caller entered payroll taxes."
+      },
+      "total_owner_package": {
+        "type": "number",
+        "description": "Owner W-2 + distributions + employer payroll taxes + health + retirement + personal vehicle + other personal"
+      },
+      "replacement_cost_single": {
+        "type": "number",
+        "description": "Fully loaded cost of one replacement manager: round(market_wage * (1 + benefit_load_pct/100))"
+      },
+      "replacement_cost_aggregate": {
+        "type": "integer",
+        "description": "replacement_cost_single * owner_count"
+      },
+      "normalization_adjustment": {
+        "type": "number",
+        "description": "total_owner_package - replacement_cost_aggregate; positive means the owner takes more than a replacement would cost"
+      },
+      "seller_discretionary_earnings": {
+        "type": "number",
+        "description": "SDE: reported_net_income + total_owner_package + one_time_expenses"
+      },
+      "normalized_ebitda": {
+        "type": "number",
+        "description": "seller_discretionary_earnings - replacement_cost_aggregate"
+      },
+      "owner_effective_hourly_rate": {
+        "type": "number",
+        "description": "total_owner_package / (hours_per_week * 52), rounded to a whole dollar. 0 when hours_per_week is 0."
+      },
+      "owner_hourly_suppressed": {
+        "type": "boolean",
+        "description": "True when hours_per_week is exactly 0 and the hourly rate is therefore not reported"
+      },
+      "owner_package_pct_of_replacement_bp": {
+        "type": "integer",
+        "description": "Owner package as a percent of replacement cost, in basis points. 0 when suppressed."
+      },
+      "owner_package_pct_suppressed": {
+        "type": "boolean",
+        "description": "True when replacement_cost_aggregate is 0 (a fully absentee owner needs no replacement), so the ratio is not reported"
+      },
+      "reasonable_comp_pattern_flag": {
+        "type": "boolean",
+        "description": "Neutral pattern observation: true when owner W-2 is below 60% of replacement_cost_single AND distributions exceed W-2. Ungrounded heuristic, not a statutory test and not an accusation."
+      },
+      "valuation_impact_at_multiple": {
+        "type": "number",
+        "description": "normalization_adjustment * sde_multiple, rounded to a whole dollar"
+      },
+      "per_owner_average_package": {
+        "type": "integer",
+        "description": "total_owner_package / owner_count, rounded to a whole dollar"
+      },
+      "multi_owner": {
+        "type": "boolean",
+        "description": "True when owner_count is greater than 1, i.e. replacement cost is an aggregate across owners"
+      },
+      "error": {
+        "type": "string",
+        "description": "Always null. This kernel has no refusal branch: every input is optional and falls back to the live page default, so it never rejects a call."
+      },
+      "regulatory_basis": {
+        "type": "string",
+        "description": "Statutory basis with the URLs grounded on 2026-10-06"
+      },
+      "scope_note": {
+        "type": "string",
+        "description": "Declared limits: employer share only, federal only, one year only, single replacement manager, pattern flag is not advice"
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Reader-facing mirror of the conditional compliance flags (AUTHORING-STANDARD 2.2): one sentence per raised condition, empty when none apply."
+      }
+    }
+  },
+  "regulatory_citations": [
+    "26 U.S.C. 3111(a) employer Social Security rate 6.2% — https://www.law.cornell.edu/uscode/text/26/3111 (fetched 2026-10-06)",
+    "26 U.S.C. 3111(b) employer Medicare rate 1.45% — https://www.law.cornell.edu/uscode/text/26/3111 (fetched 2026-10-06)",
+    "IRS Topic no. 751, 2026 Social Security wage base $184,500 — https://www.irs.gov/taxtopics/tc751 (fetched 2026-10-06)",
+    "SSA Contribution and Benefit Base, 2026 $184,500 — https://www.ssa.gov/oact/cola/cbb.html (fetched 2026-10-06)"
+  ],
+  "source": "chaingraph/kernels/art-755-owner-salary-normalization.kernel.mjs",
+  "input_schema_provenance": "REPORT ITEM for the trusted builder, not a settled choice. compute() reads all 17 inputs unconditionally on every call, but every read is wrapped in a default (Apex numOr/dollars), so no input is technically dereferenced-null and the kernel has no refusal branch. required is therefore declared on the four inputs that define WHAT IS BEING MEASURED rather than how it is benchmarked: without them the node silently prices the page defaults and the answer looks authoritative while being fictional. The 13 omitted inputs are genuinely optional because each has a defensible single default: the 12 add-back and wage inputs default to the live page's shipped values, and ss_rate_pct / medicare_rate_pct default to the statutory IRC 3111 rates. If the builder prefers a strict schema, the safe change is to make required the full 17 and add a refusal branch for missing values; that is a semantic change to compute() and would break the six live Apex vectors, which depend on the fallback behaviour.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0"
+}

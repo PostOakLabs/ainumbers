@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>Owner Salary Normalization · ART-755 · AINumbers.co</title>
+<meta name="description" content="Separates what a replacement manager would cost from an owner's total compensation package, producing seller discretionary earnings, normalized EBITDA and a neutral reasonable-compensation pattern flag. Client-side. Zero PII.">
+<meta name="ain:category" content="run">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-755-owner-salary-normalization.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>OS</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:.76rem}
+.tbl th{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:6px 6px;border-bottom:1px solid var(--border)}
+.tbl td{padding:5px 6px;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:top}
+.tbl td.num{font-family:'JetBrains Mono',monospace;white-space:nowrap}
+.field-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 16px;margin:10px 0}
+@media(max-width:760px){.field-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.field-grid{grid-template-columns:1fr}}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px;letter-spacing:.02em}
+.field input{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:4px;padding:.4rem .5rem;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.field .hint{display:block;font-size:.58rem;color:var(--muted);margin-top:2px;line-height:1.45}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.55rem 1.1rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.4;cursor:not-allowed}
+.btn-2{background:transparent;color:var(--text);border:1px solid var(--border-2)}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:140px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--bright)}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);color:var(--warn)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright)}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body)}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;display:inline-block}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;padding:.35rem .85rem;display:inline-block}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem}
+</style>
+<meta name="ai-tool" content="normalize_owner_salary">
+<!-- Ported from ApexLogics #158 "Owner Salary Normalization" (tool_id 158-owner-salary-normalization, al_id AL-172).
+     Fetched 2026-10-06 from https://apexlogics.org/tools/158-owner-salary-normalization/ (45977 bytes).
+     Structure mirrors chaingraph/art-704-ai-token-spend.html; the compute() below is the art-755 kernel port. -->
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <div class="logo-name"><span style="color:var(--teal)">AI</span>Numbers</div>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a><span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a><span>›</span>
+      <span style="color:var(--gold)">ART-755 · Owner Salary Normalization</span>
+    </div>
+    <div style="margin-left:auto"><a href="../start.html" class="nav-cta">Start</a></div>
+  </div>
+</nav>
+<div class="wrap" role="main">
+  <div class="eyebrow">OpenChainGraph Suite · ART-755</div>
+  <h1>Owner Salary Normalization</h1>
+  <p class="sub">Separates what a replacement manager would actually cost from what the owner takes out of the business, so seller discretionary earnings and normalized EBITDA come out on a comparable basis. Employer payroll taxes are the employer share only (IRC 3111), computed from the 2026 OASDI wage base unless you enter your own figure.</p>
+  <div style="margin-bottom:6px"><span class="flag">Owner Compensation</span><span class="flag">Add-backs</span><span class="flag">IRC 3111</span><span class="flag">2026 Wage Base</span><span class="flag">Zero PII</span><span class="flag">Client-side only</span></div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted, and this page makes no network calls. Use synthetic or anonymised figures only; enter no real taxpayer data.</div>
+
+  <div class="info-box"><div class="ib-title">Scope &amp; reliance</div>This node produces an illustrative planning estimate and is not tax advice; a CPA or tax attorney should review any real decision. Declared limits: employer payroll taxes cover the employer share only (IRC 3111), federal rules only, one year only, one replacement manager; the market wage, benefits load, SDE multiple and the 60%-of-replacement threshold are caller-supplied or labelled heuristics, and the pattern flag is a neutral observation about the numbers rather than a finding about any owner. Results are a deterministic recompute checked against 31 captured fixtures, with the kernel shipping compute_proof_ready: deferred.</div>
+
+  <div class="card">
+    <div class="section-head">Reported earnings, owner package and replacement benchmark</div>
+    <div class="field-grid">
+      <div class="field"><label for="reported_net_income">reported_net_income</label><input id="reported_net_income" value="180000" aria-label="reported_net_income" aria-description="Reported pre-tax net income from the P&amp;L, before any add-backs, in USD. May be negative."><span class="hint">From the P&amp;L. Negative is allowed.</span></div>
+      <div class="field"><label for="one_time_expenses">one_time_expenses</label><input id="one_time_expenses" value="15000" aria-label="one_time_expenses"><span class="hint">Not expected to repeat under a buyer.</span></div>
+      <div class="field"><label for="owner_count">owner_count</label><input id="owner_count" value="1" aria-label="owner_count" aria-description="Owners taking compensation. Rounded to a whole number and floored at 1, so 0 becomes 1 and 1.5 becomes 2."><span class="hint">Rounded, floored at 1.</span></div>
+      <div class="field"><label for="owner_w2_salary">owner_w2_salary</label><input id="owner_w2_salary" value="95000" aria-label="owner_w2_salary"><span class="hint">Wages actually run through payroll.</span></div>
+      <div class="field"><label for="owner_distributions">owner_distributions</label><input id="owner_distributions" value="60000" aria-label="owner_distributions"><span class="hint">Non-payroll cash taken out.</span></div>
+      <div class="field"><label for="employer_payroll_taxes_entered">employer_payroll_taxes_entered</label><input id="employer_payroll_taxes_entered" value="0" aria-label="employer_payroll_taxes_entered" aria-description="Exactly 0 means compute it from the wage base and rates. Any other value is used verbatim, including a negative."><span class="hint">Leave at 0 to compute it.</span></div>
+      <div class="field"><label for="owner_health_insurance">owner_health_insurance</label><input id="owner_health_insurance" value="14400" aria-label="owner_health_insurance"><span class="hint">Premiums the company pays.</span></div>
+      <div class="field"><label for="owner_retirement_contribution">owner_retirement_contribution</label><input id="owner_retirement_contribution" value="12000" aria-label="owner_retirement_contribution"><span class="hint">Employer side only.</span></div>
+      <div class="field"><label for="personal_vehicle_and_travel">personal_vehicle_and_travel</label><input id="personal_vehicle_and_travel" value="9600" aria-label="personal_vehicle_and_travel"><span class="hint">Non-business portion.</span></div>
+      <div class="field"><label for="other_personal_expenses">other_personal_expenses</label><input id="other_personal_expenses" value="6000" aria-label="other_personal_expenses"><span class="hint">Meals, memberships, family payroll above market.</span></div>
+      <div class="field"><label for="market_wage_replacement_manager">market_wage_replacement_manager</label><input id="market_wage_replacement_manager" value="85000" aria-label="market_wage_replacement_manager"><span class="hint">Base wage for the replacement, before benefits load.</span></div>
+      <div class="field"><label for="benefit_load_pct">benefit_load_pct</label><input id="benefit_load_pct" value="22" aria-label="benefit_load_pct"><span class="hint">Percent of wage. Floored at 0.</span></div>
+      <div class="field"><label for="hours_per_week">hours_per_week</label><input id="hours_per_week" value="55" aria-label="hours_per_week" aria-description="Hours the owner works per week. Exactly 0 suppresses the effective hourly rate."><span class="hint">Exactly 0 suppresses the hourly rate.</span></div>
+      <div class="field"><label for="ss_wage_base">ss_wage_base</label><input id="ss_wage_base" value="184500" aria-label="ss_wage_base"><span class="hint">2026 OASDI base. Overridable.</span></div>
+      <div class="field"><label for="ss_rate_pct">ss_rate_pct</label><input id="ss_rate_pct" value="6.20" aria-label="ss_rate_pct"><span class="hint">IRC 3111(a) employer rate. Floored at 0.</span></div>
+      <div class="field"><label for="medicare_rate_pct">medicare_rate_pct</label><input id="medicare_rate_pct" value="1.45" aria-label="medicare_rate_pct"><span class="hint">IRC 3111(b) employer rate. Floored at 0.</span></div>
+      <div class="field"><label for="sde_multiple">sde_multiple</label><input id="sde_multiple" value="2.80" aria-label="sde_multiple"><span class="hint">Valuation-impact line only.</span></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="run()">Run</button>
+      <button class="btn-2" onclick="loadDefaults()">Load page defaults</button>
+      <button class="btn-2" onclick="loadMultiOwner()">Load multi-owner demo</button>
+      <button class="btn-2" onclick="loadPatternDemo()">Load pattern-flag demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictDiv"></div>
+      <div id="flagsDiv" style="margin-top:8px"></div>
+      <table class="tbl" id="resultTbl"></table>
+      <div class="info-box" style="margin-top:12px"><div class="ib-title">How the numbers are built</div><div id="formulaDiv" class="muted-txt"></div></div>
+      <div class="info-box" style="margin-top:12px"><div class="ib-title">Basis</div><div id="basisDiv" class="muted-txt"></div></div>
+      <div class="info-box" style="margin-top:12px"><div class="ib-title">Proof status</div>This node ships <code>compute_proof_ready: deferred</code>. No formal correctness proof has been produced for this kernel. The result above is a deterministic recompute, checked key-by-key against 31 fixtures whose expected values were captured by executing the source Apex page's own inline <code>calculate()</code>, which is not a proven result.</div>
+    </div>
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS-canonical, RFC 8785):</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2(_lastArtifact)" disabled>Export Policy Mandate JSON</button>
+        <button class="btn-2" onclick="exportArtifact(_lastArtifact)">Export §4 Artifact</button>
+      </div>
+    </div>
+  </div>
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">AI<span>Numbers</span><div class="muted-txt" style="margin-top:4px">CC BY 4.0 · Zero PII · Client-side only</div></div>
+    <div class="footer-cols">
+      <div class="footer-col"><div class="footer-col-label">Platform</div><a href="../index.html">All Tools</a><a href="chaingraph-hub.html">ChainGraph Hub</a><a href="../methods.html">Methods</a></div>
+      <div class="footer-col"><div class="footer-col-label">Trust</div><a href="../about.html">About</a><a href="../errata.html">Errata</a></div>
+      <div class="footer-col"><div class="footer-col-label">Source</div><a href="https://apexlogics.org/tools/158-owner-salary-normalization/" target="_blank" rel="noopener">ApexLogics #158 &#8599;</a><a href="https://www.law.cornell.edu/uscode/text/26/3111" target="_blank" rel="noopener">26 U.S.C. 3111 &#8599;</a></div>
+      <div class="footer-col"><div class="footer-col-label">Company</div><a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  "tool_id": "art-755-owner-salary-normalization",
+  "version": "1.0.0",
+  "title": "Owner Salary Normalization",
+  "description": "Separates what a replacement manager would cost from an owner's total compensation package, producing comparable seller discretionary earnings and normalized EBITDA, plus a neutral reasonable-compensation pattern flag. Employer payroll taxes are the employer share only (IRC 3111), computed from the 2026 OASDI wage base when left at zero. Ported from Apex #158 to AINumbers art-755. Deterministic, zero external data, reads no clock.",
+  "mcp_tool_definition": {
+    "name": "normalize_owner_salary",
+    "description": "Normalizes a small-business owner's total compensation against the fully loaded cost of a replacement manager, producing seller discretionary earnings, normalized EBITDA, a normalization adjustment and a neutral reasonable-compensation pattern flag. Employer payroll taxes are computed from the 2026 OASDI wage base when not supplied. Deterministic, zero external data, reads no clock.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "reported_net_income": { "type": "number", "description": "Reported pre-tax net income from the P&L (USD)" },
+        "one_time_expenses": { "type": "number", "description": "Non-recurring expenses a buyer would not repeat (USD)" },
+        "owner_w2_salary": { "type": "number", "description": "Owner W-2 wages run through payroll (USD)" },
+        "owner_distributions": { "type": "number", "description": "Owner distributions or draws, non-payroll (USD)" },
+        "market_wage_replacement_manager": { "type": "number", "description": "Base wage for a replacement manager (USD); user-supplied" },
+        "benefit_load_pct": { "type": "number", "description": "Benefits load on the replacement wage, percent; user-supplied" },
+        "owner_count": { "type": "integer", "description": "Owners taking compensation; floored at 1" }
+      },
+      "required": ["reported_net_income", "owner_w2_salary", "owner_distributions"]
+    }
+  },
+  "ap2_export": true,
+  "chaingraph": true
+};
+
+/* ── inline port of chaingraph/kernels/art-755-owner-salary-normalization.kernel.mjs
+   compute(): same arithmetic, same rounding, same suppression branches, same
+   pattern-flag thresholds as the source Apex compute. Pure function of pp. ── */
+const SS_WAGE_BASE_2026 = 184500;        // 2026 OASDI contribution and benefit base (IRS Topic 751 / SSA)
+const SS_EMPLOYER_RATE_PCT = 6.20;       // IRC 3111(a)
+const MEDICARE_EMPLOYER_RATE_PCT = 1.45; // IRC 3111(b)
+const BP_SCALE = 10000;
+const WEEKS_PER_YEAR = 52;
+const REASONABLE_COMP_W2_RATIO = 0.6;    // UNGROUNDED heuristic (rather than a statutory test)
+
+const REGULATORY_BASIS =
+  'SSA / IRS 2026 OASDI contribution and benefit base $184,500 (https://www.irs.gov/taxtopics/tc751, '
+  + 'https://www.ssa.gov/oact/cola/cbb.html); IRC 3111(a) employer Social Security rate 6.2% '
+  + '(https://www.law.cornell.edu/uscode/text/26/3111); IRC 3111(b) employer Medicare rate 1.45% '
+  + '(https://www.law.cornell.edu/uscode/text/26/3111). The market wage, the benefits load, the SDE '
+  + 'multiple and the reasonable-compensation pattern threshold are user-supplied or ungrounded '
+  + 'conventions (rather than statutory figures).';
+
+const SCOPE_NOTE =
+  'This is an illustrative estimate rather than tax advice. Reasonable compensation for an S corporation owner '
+  + 'depends on the full facts and on current IRS guidance, which can change; consult a CPA or tax '
+  + 'attorney. Employer payroll taxes are the employer share only (IRC 3111); the section 3101(b)(2) '
+  + 'Additional Medicare Tax is an employee withholding with no employer match and is out of scope. '
+  + 'Federal only: no state wage-base, unemployment-insurance, workers-comp or payroll-tax caps are '
+  + 'modelled. One year only: the OASDI wage-base cap is applied as min(annual owner W-2, base), which '
+  + 'assumes the whole year is already earned. A "replacement manager" is a single full-time manager; '
+  + 'no partial, interim, or shared-role cost is modelled. The reasonable-compensation output is a '
+  + 'neutral pattern observation rather than a finding of unreasonable compensation, and not an accusation.';
+
+function numOr(raw, def) {
+  const n = typeof raw === 'number' ? raw : parseFloat(raw);
+  return Number.isFinite(n) ? n : def;
+}
+function dollars(raw, def) { return Math.round(numOr(raw, def)); }
+
+function compute(pp) {
+  pp = pp || {};
+  const reportedNetIncome = dollars(pp.reported_net_income, 180000);
+  const oneTimeExpenses = dollars(pp.one_time_expenses, 15000);
+  const ownerCount = Math.max(1, Math.round(numOr(pp.owner_count, 1)));
+  const ownerW2 = dollars(pp.owner_w2_salary, 95000);
+  const ownerDistributions = dollars(pp.owner_distributions, 60000);
+  const employerPayrollTaxesEntered = dollars(pp.employer_payroll_taxes_entered, 0);
+  const ownerHealth = dollars(pp.owner_health_insurance, 14400);
+  const ownerRetirement = dollars(pp.owner_retirement_contribution, 12000);
+  const personalVehicle = dollars(pp.personal_vehicle_and_travel, 9600);
+  const otherPersonal = dollars(pp.other_personal_expenses, 6000);
+  const marketWage = dollars(pp.market_wage_replacement_manager, 85000);
+  const benefitLoadPct = Math.max(0, numOr(pp.benefit_load_pct, 22));
+  const hoursPerWeek = Math.max(0, numOr(pp.hours_per_week, 55));
+  const ssRatePct = Math.max(0, numOr(pp.ss_rate_pct, SS_EMPLOYER_RATE_PCT));
+  const medicareRatePct = Math.max(0, numOr(pp.medicare_rate_pct, MEDICARE_EMPLOYER_RATE_PCT));
+  const sdeMultiple = Math.max(0, numOr(pp.sde_multiple, 2.80));
+  const ssWageBase = dollars(pp.ss_wage_base, SS_WAGE_BASE_2026);
+
+  const benefitLoadBp = Math.round(benefitLoadPct * 100);
+  const ssRateBp = Math.round(ssRatePct * 100);
+  const medicareRateBp = Math.round(medicareRatePct * 100);
+
+  let employerPayrollTaxes, employerSsTax = null, employerMedicareTax = null, ssTaxableWages = null;
+  const employerPayrollTaxesWasEntered = employerPayrollTaxesEntered !== 0;
+  if (employerPayrollTaxesEntered === 0) {
+    ssTaxableWages = Math.min(ownerW2, ssWageBase);
+    employerSsTax = Math.round(ssTaxableWages * ssRateBp / BP_SCALE);
+    employerMedicareTax = Math.round(ownerW2 * medicareRateBp / BP_SCALE);
+    employerPayrollTaxes = employerSsTax + employerMedicareTax;
+  } else {
+    employerPayrollTaxes = employerPayrollTaxesEntered;
+  }
+
+  const totalOwnerPackage = ownerW2 + ownerDistributions + employerPayrollTaxes
+    + ownerHealth + ownerRetirement + personalVehicle + otherPersonal;
+
+  const replacementCostSingle = Math.round(marketWage * (BP_SCALE + benefitLoadBp) / BP_SCALE);
+  const replacementCostAggregate = replacementCostSingle * ownerCount;
+
+  const normalizationAdjustment = totalOwnerPackage - replacementCostAggregate;
+  const sellerDiscretionaryEarnings = reportedNetIncome + totalOwnerPackage + oneTimeExpenses;
+  const normalizedEbitda = sellerDiscretionaryEarnings - replacementCostAggregate;
+
+  const ownerHourlySuppressed = hoursPerWeek === 0;
+  const ownerEffectiveHourlyRate = hoursPerWeek > 0
+    ? Math.round(totalOwnerPackage / Math.max(1, hoursPerWeek * WEEKS_PER_YEAR)) : 0;
+
+  const ownerPackagePctSuppressed = replacementCostAggregate === 0;
+  const ownerPackagePctOfReplacementBp = ownerPackagePctSuppressed
+    ? 0 : Math.round(totalOwnerPackage / Math.max(1, replacementCostAggregate) * BP_SCALE);
+
+  const reasonableCompPatternFlag =
+    (ownerW2 < replacementCostSingle * REASONABLE_COMP_W2_RATIO) && (ownerDistributions > ownerW2);
+
+  const valuationImpactAtMultiple = Math.round(normalizationAdjustment * sdeMultiple);
+  const perOwnerAveragePackage = Math.round(totalOwnerPackage / ownerCount);
+  const multiOwner = ownerCount > 1;
+
+  const complianceFlags = ['FEDERAL_ONLY_NOT_TAX_ADVICE', 'ILLUSTRATIVE_ESTIMATE_NOT_ADVICE'];
+  if (employerPayrollTaxesWasEntered) complianceFlags.push('EMPLOYER_PAYROLL_TAXES_USER_ENTERED');
+  if (ownerHourlySuppressed) complianceFlags.push('OWNER_HOURLY_SUPPRESSED_ZERO_HOURS');
+  if (ownerPackagePctSuppressed) complianceFlags.push('OWNER_PACKAGE_PCT_SUPPRESSED_ZERO_REPLACEMENT');
+  if (reasonableCompPatternFlag) complianceFlags.push('REASONABLE_COMP_PATTERN_OBSERVED');
+  if (multiOwner) complianceFlags.push('MULTI_OWNER_AGGREGATE_REPLACEMENT_COST');
+
+  return {
+    output_payload: {
+      employer_payroll_taxes: employerPayrollTaxes,
+      employer_payroll_taxes_entered: employerPayrollTaxesWasEntered,
+      ss_taxable_wages: ssTaxableWages,
+      employer_ss_tax: employerSsTax,
+      employer_medicare_tax: employerMedicareTax,
+      total_owner_package: totalOwnerPackage,
+      replacement_cost_single: replacementCostSingle,
+      replacement_cost_aggregate: replacementCostAggregate,
+      normalization_adjustment: normalizationAdjustment,
+      seller_discretionary_earnings: sellerDiscretionaryEarnings,
+      normalized_ebitda: normalizedEbitda,
+      owner_effective_hourly_rate: ownerEffectiveHourlyRate,
+      owner_hourly_suppressed: ownerHourlySuppressed,
+      owner_package_pct_of_replacement_bp: ownerPackagePctOfReplacementBp,
+      owner_package_pct_suppressed: ownerPackagePctSuppressed,
+      reasonable_comp_pattern_flag: reasonableCompPatternFlag,
+      valuation_impact_at_multiple: valuationImpactAtMultiple,
+      per_owner_average_package: perOwnerAveragePackage,
+      multi_owner: multiOwner,
+      error: null,
+      regulatory_basis: REGULATORY_BASIS,
+      scope_note: SCOPE_NOTE
+    },
+    compliance_flags: complianceFlags
+  };
+}
+
+/* ── execution hash: JCS-canonical preimage over {policy_parameters, output_payload},
+   same algorithm as chaingraph/kernels/_hash.mjs, browser leg ── */
+function cgCanon(v){if(v===null||typeof v!=="object")return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+async function sha256Hex(bytes){const dig=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(dig)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");}
+async function executionHashLocal(pp,op){const s=JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op}));return sha256Hex(new TextEncoder().encode(s));}
+
+/* ── form plumbing: read every control by id into pp ── */
+const NUMERIC_IDS = ["reported_net_income","one_time_expenses","owner_count","owner_w2_salary",
+  "owner_distributions","employer_payroll_taxes_entered","owner_health_insurance",
+  "owner_retirement_contribution","personal_vehicle_and_travel","other_personal_expenses",
+  "market_wage_replacement_manager","benefit_load_pct","hours_per_week","ss_wage_base",
+  "ss_rate_pct","medicare_rate_pct","sde_multiple"];
+
+function readControl(id){
+  const el = document.getElementById(id);
+  const raw = el && el.value != null ? String(el.value).trim() : "";
+  if (raw === "") return undefined;          // blank -> kernel falls back to its documented default
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : raw;      // non-numeric text passes through and the kernel defaults it
+}
+function assemblePP(){
+  const pp = {};
+  for (let i=0;i<NUMERIC_IDS.length;i++){
+    const v = readControl(NUMERIC_IDS[i]);
+    if (v !== undefined) pp[NUMERIC_IDS[i]] = v;
+  }
+  return pp;
+}
+
+/* ── display helpers ── */
+function usd(n){
+  if (n === null || n === undefined) return "—";
+  const sign = n < 0 ? "-" : "";
+  const a = Math.abs(Math.round(n));
+  return sign + "$" + a.toLocaleString("en-US");
+}
+function bpToPct(bp){
+  if (bp === null || bp === undefined) return "—";
+  return (bp / 100).toLocaleString("en-US", { maximumFractionDigits: 2 }) + "%";
+}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+const DEFAULTS = {reported_net_income:180000, one_time_expenses:15000, owner_count:1, owner_w2_salary:95000,
+  owner_distributions:60000, employer_payroll_taxes_entered:0, owner_health_insurance:14400,
+  owner_retirement_contribution:12000, personal_vehicle_and_travel:9600, other_personal_expenses:6000,
+  market_wage_replacement_manager:85000, benefit_load_pct:22, hours_per_week:55, ss_wage_base:184500,
+  ss_rate_pct:6.20, medicare_rate_pct:1.45, sde_multiple:2.80};
+const MULTI_OWNER = {reported_net_income:95000, one_time_expenses:32000, owner_count:2, owner_w2_salary:78000,
+  owner_distributions:55000, employer_payroll_taxes_entered:0, owner_health_insurance:21600,
+  owner_retirement_contribution:15000, personal_vehicle_and_travel:7300, other_personal_expenses:9400,
+  market_wage_replacement_manager:82000, benefit_load_pct:24, hours_per_week:60, ss_wage_base:184500,
+  ss_rate_pct:6.20, medicare_rate_pct:1.45, sde_multiple:3.25};
+const PATTERN_DEMO = {reported_net_income:210000, one_time_expenses:8000, owner_count:1, owner_w2_salary:40000,
+  owner_distributions:210000, employer_payroll_taxes_entered:0, owner_health_insurance:18000,
+  owner_retirement_contribution:6000, personal_vehicle_and_travel:5100, other_personal_expenses:6000,
+  market_wage_replacement_manager:95000, benefit_load_pct:22, hours_per_week:50, ss_wage_base:184500,
+  ss_rate_pct:6.20, medicare_rate_pct:1.45, sde_multiple:2.80};
+
+function fill(o){ for (const k of NUMERIC_IDS) document.getElementById(k).value = String(o[k]); }
+function loadDefaults(){ fill(DEFAULTS); }
+function loadMultiOwner(){ fill(MULTI_OWNER); }
+function loadPatternDemo(){ fill(PATTERN_DEMO); }
+
+let _lastArtifact = null;
+async function run(){
+  let pp, out, flags;
+  try {
+    pp = assemblePP();
+    const r = compute(pp);
+    out = r.output_payload; flags = r.compliance_flags;
+  } catch (e) {
+    pp = null;
+    out = { employer_payroll_taxes:null, employer_payroll_taxes_entered:null, ss_taxable_wages:null,
+      employer_ss_tax:null, employer_medicare_tax:null, total_owner_package:null,
+      replacement_cost_single:null, replacement_cost_aggregate:null, normalization_adjustment:null,
+      seller_discretionary_earnings:null, normalized_ebitda:null, owner_effective_hourly_rate:null,
+      owner_hourly_suppressed:null, owner_package_pct_of_replacement_bp:null,
+      owner_package_pct_suppressed:null, reasonable_comp_pattern_flag:null,
+      valuation_impact_at_multiple:null, per_owner_average_package:null, multi_owner:null,
+      error: String((e && e.message) || e), regulatory_basis: REGULATORY_BASIS, scope_note: SCOPE_NOTE };
+    flags = ["ART728_INPUT_MALFORMED"];
+  }
+  const generatedAt = new Date().toISOString();
+  document.getElementById("generatedAt").textContent = "generated_at " + generatedAt;
+  const artifact = { "@context":"https://ainumbers.co/chaingraph/context/v0.3/context.jsonld",
+    chaingraph_version:"0.4.0", compute_mode:"browser", mandate_type:"owner_salary_normalization_record",
+    tool_id:MANIFEST.tool_id, tool_version:MANIFEST.version, generated_at:generatedAt, execution_hash:null,
+    chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0}, policy_parameters:pp, output_payload:out,
+    compliance_flags:flags,
+    audit_signature:{payloadType:"application/vnd.openchain.graph+json;version=0.4",payload:"",signatures:[]} };
+  if (!out.error) artifact.execution_hash = "sha256:" + await executionHashLocal(pp, out);
+  _lastArtifact = artifact;
+  renderResults(out, flags, pp, artifact.execution_hash || "");
+  document.getElementById("ap2ExportBtn").disabled = false;
+}
+
+function renderResults(o, flags, pp, execHash){
+  document.getElementById("heroRow").innerHTML =
+    "<div class=\"hero-stat\"><div class=\"hero-val\" style=\"color:var(--teal-lt)\">"+usd(o.normalized_ebitda)+"</div><div class=\"hero-lbl\">Normalized EBITDA</div></div>"+
+    "<div class=\"hero-stat\"><div class=\"hero-val\" style=\"color:var(--green)\">"+usd(o.seller_discretionary_earnings)+"</div><div class=\"hero-lbl\">Seller discretionary earnings</div></div>"+
+    "<div class=\"hero-stat\"><div class=\"hero-val\" style=\"color:"+(o.normalization_adjustment>=0?"var(--warn)":"var(--red)")+"\">"+usd(o.normalization_adjustment)+"</div><div class=\"hero-lbl\">Normalization adjustment</div></div>"+
+    "<div class=\"hero-stat\"><div class=\"hero-val\">"+usd(o.total_owner_package)+"</div><div class=\"hero-lbl\">Total owner package</div></div>";
+
+  const vd = document.getElementById("verdictDiv");
+  if (o.error) {
+    vd.innerHTML = "<div class=\"verdict warn\">INPUT MALFORMED — "+esc(o.error)+"</div>";
+  } else if (o.reasonable_comp_pattern_flag) {
+    vd.innerHTML = "<div class=\"verdict warn\">Pattern observed: owner W-2 is below 60% of the replacement cost and distributions exceed W-2. "
+      + "This is a neutral observation about a pattern in the numbers rather than a finding of unreasonable compensation, and it is not tax advice.</div>";
+  } else if (o.normalization_adjustment >= 0) {
+    vd.innerHTML = "<div class=\"verdict info\">The owner package is "+usd(o.normalization_adjustment)+" above the cost of a replacement manager, "
+      + "which lifts normalized earnings above reported net income.</div>";
+  } else {
+    vd.innerHTML = "<div class=\"verdict info\">The owner package is "+usd(Math.abs(o.normalization_adjustment))+" below the cost of a replacement manager, "
+      + "which lowers normalized earnings below reported net income.</div>";
+  }
+
+  document.getElementById("flagsDiv").innerHTML = flags
+    ? flags.map(function(f){ return "<span class=\"badge info\">"+esc(f)+"</span>"; }).join("")
+    : "";
+
+  const rows = [];
+  function add(label, value, note){ rows.push("<tr><td>"+label+"</td><td class=\"num\">"+value+"</td><td class=\"muted-txt\">"+(note||"")+"</td></tr>"); }
+  add("Total owner package", usd(o.total_owner_package), "W-2 + distributions + employer payroll taxes + health + retirement + vehicle + personal");
+  add("Employer payroll taxes used", usd(o.employer_payroll_taxes), o.employer_payroll_taxes_entered ? "entered by the caller; the rate inputs did not apply" : "computed from the OASDI cap and the IRC 3111 rates");
+  if (o.employer_ss_tax === null) {
+    add("— of which OASDI", "—", "not computed: employer payroll taxes were entered");
+    add("— of which Medicare", "—", "not computed: employer payroll taxes were entered");
+  } else {
+    add("— of which OASDI", usd(o.employer_ss_tax), "on "+usd(o.ss_taxable_wages)+" of OASDI wages (capped at the wage base)");
+    add("— of which Medicare", usd(o.employer_medicare_tax), "on the full uncapped owner W-2; Medicare has no wage base");
+  }
+  add("Replacement cost, one manager", usd(o.replacement_cost_single), "market wage plus the benefits load");
+  add("Replacement cost, aggregate", usd(o.replacement_cost_aggregate), o.multi_owner ? "across "+pp.owner_count+" owners" : "single owner");
+  add("Owner package vs replacement", o.owner_package_pct_suppressed ? "suppressed" : bpToPct(o.owner_package_pct_of_replacement_bp), o.owner_package_pct_suppressed ? "replacement cost is zero — a fully absentee owner needs no replacement" : "");
+  add("Owner effective hourly", o.owner_hourly_suppressed ? "suppressed" : usd(o.owner_effective_hourly_rate)+" / hr", o.owner_hourly_suppressed ? "zero hours entered" : "");
+  add("Valuation impact at the multiple", usd(o.valuation_impact_at_multiple), "normalization adjustment x the SDE multiple");
+  add("Per-owner average package", usd(o.per_owner_average_package), o.multi_owner ? "shown because there is more than one owner" : "one owner");
+  add("Reasonable-compensation pattern", o.reasonable_comp_pattern_flag ? "pattern present" : "pattern not present", "heuristic observation rather than a statutory test");
+  document.getElementById("resultTbl").innerHTML =
+    "<thead><tr><th>Line</th><th>Value</th><th>Basis</th></tr></thead><tbody>"+rows.join("")+"</tbody>";
+
+  document.getElementById("formulaDiv").innerHTML =
+    "Owner package = W-2 + distributions + employer payroll taxes + health + retirement + personal vehicle + other personal.<br>"
+    + "SDE = net income + owner package + one-time expenses. Normalized EBITDA = SDE − replacement cost.<br>"
+    + "Normalization adjustment = owner package − replacement cost; the valuation line is that adjustment x the SDE multiple.<br>"
+    + "Employer payroll taxes = round(min(W-2, wage base) x 6.2%) + round(W-2 x 1.45%), each rounded to a whole dollar.<br>"
+    + "The OASDI cap and the uncapped Medicare differ by $1 of owner W-2 in only the cents, so whole-dollar rounding hides the difference near the cap.";
+
+  document.getElementById("basisDiv").textContent = o.regulatory_basis || REGULATORY_BASIS;
+  document.getElementById("execHash").textContent = execHash;
+  document.getElementById("artifactPre").textContent = JSON.stringify(_lastArtifact, null, 2);
+  document.getElementById("resultsPanel").classList.add("show");
+}
+
+function exportAP2(r){ if(!r) return; const ap2 = {schema:"ainumbers-policy-mandate-v1.0",tool_id:MANIFEST.tool_id,
+  version:MANIFEST.version,mandate_type:"owner_salary_normalization_record",generated_at:r.generated_at,
+  execution_hash:r.execution_hash,policy_parameters:r.policy_parameters,output_payload:r.output_payload,
+  compliance_flags:r.compliance_flags};
+  dl(JSON.stringify(ap2,null,2),"art-755-policy-mandate.json","application/json"); }
+function exportArtifact(r){ if(!r) return; dl(JSON.stringify(r,null,2),"art-755-artifact.json","application/json"); }
+function dl(c,f,m){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([c],{type:m}));a.download=f;a.click();}
+function toggleMfst(){const b=document.getElementById("mfstBody"),c=document.getElementById("mfstCode");if(b.style.display==="none"||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display="block";}else b.style.display="none";}
+loadDefaults();
+</script>
+</body>
+</html>
