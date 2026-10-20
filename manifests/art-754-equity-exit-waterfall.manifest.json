@@ -1,0 +1,243 @@
+{
+  "tool_id": "art-754-equity-exit-waterfall",
+  "version": "1.0.0",
+  "title": "Equity Exit Waterfall Modeler",
+  "description": "Equity exit proceeds after a liquidation-preference waterfall for startup employees and founders: the preference stack layer by layer, non-participating conversion or capped participation, the common pool, your gross and net proceeds after option strike, taxable gain per IRC §1001 and the break-even exit valuation. Port of Apex #141 (al_id AL-148).",
+  "category": "chaingraph",
+  "tags": [
+    "equity",
+    "waterfall",
+    "liquidation-preference",
+    "startup",
+    "exit",
+    "stock-options",
+    "mcp:calculate_equity_exit_waterfall"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "exit_valuation_usd",
+      "total_preferred_invested_usd",
+      "preferred_ownership_pct",
+      "liquidation_preference_multiple",
+      "participation_type",
+      "participation_cap_multiple",
+      "your_role",
+      "your_ownership_pct",
+      "your_option_strike_total_usd",
+      "your_cost_basis_usd"
+    ],
+    "properties": {
+      "exit_valuation_usd": {
+        "type": "number",
+        "description": "Total exit valuation in USD. Must be positive; a value <= 0 is refused with REFUSED_NON_POSITIVE_EXIT."
+      },
+      "total_preferred_invested_usd": {
+        "type": "number",
+        "description": "Aggregate liquidation preference amount (total preferred invested) in USD."
+      },
+      "preferred_ownership_pct": {
+        "type": "number",
+        "description": "Preferred ownership percentage (fully-diluted), 0-100. Apex control reads 0-100 and divides by 100."
+      },
+      "liquidation_preference_multiple": {
+        "type": "number",
+        "description": "Liquidation preference multiple (e.g., 1, 1.5, 2, 3)."
+      },
+      "participation_type": {
+        "type": "string",
+        "enum": ["non", "full", "capped"],
+        "description": "Participation type: 'non' (non-participating, converts when pro-rata strictly exceeds the preference), 'full' (full participating), or 'capped' (capped participating)."
+      },
+      "participation_cap_multiple": {
+        "type": "number",
+        "description": "Participation cap as multiple of invested (e.g., 3 means 3x invested). Used only for capped participation."
+      },
+      "your_role": {
+        "type": "string",
+        "enum": ["common", "founder", "employee", "preferred"],
+        "description": "Your role: 'common', 'founder', 'employee', or 'preferred'. Preferred role takes its share of preferred total; break-even exit is 0 for preferred (Apex behavior, DIFFERS-04)."
+      },
+      "your_ownership_pct": {
+        "type": "number",
+        "description": "Your ownership percentage (fully-diluted), 0-100."
+      },
+      "your_option_strike_total_usd": {
+        "type": "number",
+        "description": "Total option exercise cost in USD. Enter 0 for RSAs or vested stock. Net proceeds are floored at 0 after strike."
+      },
+      "your_cost_basis_usd": {
+        "type": "number",
+        "description": "Your cost basis for tax gain calculation in USD. Taxable gain = max(0, net proceeds - cost basis) per IRC §1001."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "calculate_equity_exit_waterfall",
+    "description": "Model equity exit proceeds after liquidation preference waterfalls for startup employees and founders (NVCA model term sheet conventions; IRC §1001 for the gain computation): the preference stack, non-participating conversion or capped participation, the common pool, your gross and net proceeds, taxable gain and the break-even exit. Deterministic, client-side, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "exit_valuation_usd",
+        "total_preferred_invested_usd",
+        "preferred_ownership_pct",
+        "liquidation_preference_multiple",
+        "participation_type",
+        "participation_cap_multiple",
+        "your_role",
+        "your_ownership_pct",
+        "your_option_strike_total_usd",
+        "your_cost_basis_usd"
+      ],
+      "properties": {
+        "exit_valuation_usd": {
+          "type": "number",
+          "description": "Total exit valuation in USD. Must be positive."
+        },
+        "total_preferred_invested_usd": {
+          "type": "number",
+          "description": "Aggregate liquidation preference amount (total preferred invested) in USD."
+        },
+        "preferred_ownership_pct": {
+          "type": "number",
+          "description": "Preferred ownership percentage (fully-diluted), 0-100."
+        },
+        "liquidation_preference_multiple": {
+          "type": "number",
+          "description": "Liquidation preference multiple (e.g., 1, 1.5, 2, 3)."
+        },
+        "participation_type": {
+          "type": "string",
+          "description": "Participation type: 'non', 'full', or 'capped'.",
+          "enum": ["non", "full", "capped"]
+        },
+        "participation_cap_multiple": {
+          "type": "number",
+          "description": "Participation cap as multiple of invested (e.g., 3 means 3x invested)."
+        },
+        "your_role": {
+          "type": "string",
+          "description": "Your role: 'common', 'founder', 'employee', or 'preferred'.",
+          "enum": ["common", "founder", "employee", "preferred"]
+        },
+        "your_ownership_pct": {
+          "type": "number",
+          "description": "Your ownership percentage (fully-diluted), 0-100."
+        },
+        "your_option_strike_total_usd": {
+          "type": "number",
+          "description": "Total option exercise cost in USD. Enter 0 for RSAs or vested stock."
+        },
+        "your_cost_basis_usd": {
+          "type": "number",
+          "description": "Your cost basis for tax gain calculation in USD."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "refusal_reason": { "type": ["string", "null"] },
+      "exit_valuation_usd": { "type": ["number", "null"] },
+      "total_preferred_invested_usd": { "type": ["number", "null"] },
+      "preferred_ownership_fraction": { "type": ["number", "null"] },
+      "liquidation_preference_multiple": { "type": ["number", "null"] },
+      "participation_type": { "type": ["string", "null"] },
+      "participation_cap_multiple": { "type": ["number", "null"] },
+      "your_role": { "type": ["string", "null"] },
+      "your_ownership_fraction": { "type": ["number", "null"] },
+      "your_option_strike_total_usd": { "type": ["number", "null"] },
+      "your_cost_basis_usd": { "type": ["number", "null"] },
+      "liquidation_preference_usd": { "type": ["number", "null"] },
+      "layers": {
+        "type": ["array", "null"],
+        "items": {
+          "type": "object",
+          "properties": {
+            "label": { "type": "string" },
+            "recipient": { "type": "string" },
+            "amount": { "type": "number" }
+          }
+        }
+      },
+      "preferred_total_usd": { "type": ["number", "null"] },
+      "common_pool_usd": { "type": ["number", "null"] },
+      "your_gross_proceeds_usd": { "type": ["number", "null"] },
+      "your_net_proceeds_usd": { "type": ["number", "null"] },
+      "your_taxable_gain_usd": { "type": ["number", "null"] },
+      "break_even_exit_usd": { "type": ["number", "null"] },
+      "switches": {
+        "type": "object",
+        "properties": {
+          "apex_faithful_mode": { "type": "boolean" },
+          "refuse_non_finite_input": { "type": "boolean" },
+          "pref_wins_warning_threshold": { "type": "number" }
+        }
+      },
+      "compliance_flags": { "type": "array", "items": { "type": "string" } },
+      "notes": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "input_example": {
+    "exit_valuation_usd": 50000000,
+    "total_preferred_invested_usd": 10000000,
+    "preferred_ownership_pct": 60,
+    "liquidation_preference_multiple": 1,
+    "participation_type": "non",
+    "participation_cap_multiple": 3,
+    "your_role": "common",
+    "your_ownership_pct": 5,
+    "your_option_strike_total_usd": 50000,
+    "your_cost_basis_usd": 50000
+  },
+  "output_example": {
+    "refusal_reason": null,
+    "exit_valuation_usd": 50000000,
+    "total_preferred_invested_usd": 10000000,
+    "preferred_ownership_fraction": 0.6,
+    "liquidation_preference_multiple": 1,
+    "participation_type": "non",
+    "participation_cap_multiple": 3,
+    "your_role": "common",
+    "your_ownership_fraction": 0.05,
+    "your_option_strike_total_usd": 50000,
+    "your_cost_basis_usd": 50000,
+    "liquidation_preference_usd": 10000000,
+    "layers": [
+      { "label": "Pro-Rata (Preferred converts to common)", "recipient": "All stockholders", "amount": 30000000 },
+      { "label": "Pro-Rata Common", "recipient": "Common stockholders", "amount": 20000000 }
+    ],
+    "preferred_total_usd": 30000000,
+    "common_pool_usd": 20000000,
+    "your_gross_proceeds_usd": 2500000,
+    "your_net_proceeds_usd": 2450000,
+    "your_taxable_gain_usd": 2400000,
+    "break_even_exit_usd": 11000000,
+    "switches": {
+      "apex_faithful_mode": false,
+      "refuse_non_finite_input": true,
+      "pref_wins_warning_threshold": 0.5
+    },
+    "compliance_flags": [],
+    "notes": [
+      "Liquidation preference mechanics follow NVCA model term sheet conventions (fetched 2026-10-06).",
+      "Taxable gain is computed as max(0, net proceeds - cost basis) per IRC §1001 (fetched 2026-10-06)."
+    ]
+  },
+  "ap2_export": true,
+  "chaingraph": true,
+  "regulatory_citations": [
+    "IRC §1001 — realization of gain/loss on sale of property",
+    "NVCA model term sheet — liquidation preference mechanics"
+  ],
+  "source": {
+    "apex_tool_id": "141-equity-exit-waterfall",
+    "apex_al_id": "AL-148",
+    "apex_url": "https://apexlogics.org/tools/141-equity-exit-waterfall/",
+    "fetched": "2026-10-06"
+  }
+}
