@@ -39,7 +39,7 @@ const TOOL_VERSION = '1.0.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'compare_self_employer_retirement',
+  mcp_name: 'compare_solo401k_sep_simple',
   mandate_type: 'compensation_assessment', gpu: false,
 };
 
