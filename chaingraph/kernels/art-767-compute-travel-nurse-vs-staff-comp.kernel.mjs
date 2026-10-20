@@ -64,7 +64,7 @@ import { executionHash } from './_hash.mjs';
 export const meta = {
   tool_id: 'art-767-compute-travel-nurse-vs-staff-comp',
   tool_version: '1.0.0',
-  mcp_name: 'compute_travel_nurse_vs_staff_comp',
+  mcp_name: 'compute_travel_nurse_pay',
   mandate_type: 'compliance_control',
   gpu: false,
 };

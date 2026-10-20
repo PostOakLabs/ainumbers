@@ -2,7 +2,7 @@
   "tool_id": "art-767-compute-travel-nurse-vs-staff-comp",
   "version": "1.0.0",
   "title": "Travel Nurse vs. Staff Nurse Comp",
-  "description": "True net-pay comparison of travel nursing against a permanent staff post. Stacks a caller-asserted tax-free housing stipend and M&IE allowance against contract gap weeks, per-contract travel cost and out-of-pocket housing shortfall; reports staff net excluding benefits, travel net, the annual delta, the counterfactual stipend tax savings, the gap-week opportunity cost and the effective all-in travel hourly rate. NOT TAX ADVICE: the excludability of the stipends is supplied by the caller and is not determined here. Every input is read as parseFloat(value) || page-default, so a literal 0, a blank or a non-numeric value silently reverts to the tool default instead of computing as zero; the response names every substitution in compliance_flags and in output_payload.inputs_defaulted. No range validation is applied. No clock is read. Adjacent to art-338-compute-federal-withholding (which owns federal withholding on the taxable wage lines) and NOT an implementation of art-340.",
+  "description": "Net-pay comparison of travel nursing against a permanent staff post, ported from ApexLogics Apex #132. Stacks a caller-asserted tax-free housing stipend and M&IE allowance against contract gap weeks, travel cost and out-of-pocket housing; reports staff net ex benefits, travel net, the annual delta, stipend tax savings and the effective all-in hourly rate. NOT TAX ADVICE: stipend excludability is a caller assumption. A 0 or blank input reverts to the tool default and each substitution is named.",
   "category": "compensation_benefits",
   "tags": [
     "travel nurse",
@@ -24,7 +24,7 @@
     "properties": {
       "staffRate": {
         "type": "number",
-        "description": "Staff hourly rate, USD/hr. Multiplied by staffHours and staffWeeks for staff gross. page default 38; the literal 0 is falsy and reverts to that default.",
+        "description": "Staff hourly rate, USD/hr.",
         "default": 38,
         "x_apex_control_min": 15,
         "x_apex_control_max": 100,
@@ -42,7 +42,7 @@
       },
       "staffBenefits": {
         "type": "number",
-        "description": "Annual value of the staff benefits package, USD/yr. Reported in staffNetAnnual and in the results table, but EXCLUDED from the winner test, which compares travelNetAnnual against staffNetNoFringe. page default 12000; 0 reverts to the default.",
+        "description": "Annual value of the staff benefits package, USD/yr.",
         "default": 12000,
         "x_apex_control_min": 0,
         "x_apex_control_max": 40000,
@@ -60,7 +60,7 @@
       },
       "taxRate": {
         "type": "number",
-        "description": "Assumed effective tax rate expressed as a PERCENT; the kernel divides by 100 before use. 0 becomes 0/100 = 0, which is falsy, so it reverts to the default 22 -- there is no way to express a 0% effective rate through this input. page default 22.",
+        "description": "Assumed effective tax rate expressed as a PERCENT.",
         "default": 22,
         "x_apex_control_min": 0,
         "x_apex_control_max": 50,
@@ -69,7 +69,7 @@
       },
       "travelBase": {
         "type": "number",
-        "description": "Taxable hourly base rate on the travel contract, USD/hr. travelTaxableAnnual = travelBase x travelHours x weeksWorked. page default 22; 0 reverts to the default.",
+        "description": "Taxable hourly base rate on the travel contract, USD/hr.",
         "default": 22,
         "x_apex_control_min": 10,
         "x_apex_control_max": 80,
@@ -78,7 +78,7 @@
       },
       "housingStipend": {
         "type": "number",
-        "description": "Weekly housing stipend, USD/week, ASSUMED tax-free. The kernel does not establish that this is excludable; see CITES.md. page default 1200; 0 reverts to the default, so a zero stipend is unreachable.",
+        "description": "Weekly housing stipend, USD/week, ASSUMED tax-free.",
         "default": 1200,
         "x_apex_control_min": 0,
         "x_apex_control_max": 3000,
@@ -87,7 +87,7 @@
       },
       "mieStipend": {
         "type": "number",
-        "description": "Weekly meals and incidental expenses allowance, USD/week, ASSUMED tax-free. page default 350; 0 reverts to the default, so a zero allowance is unreachable.",
+        "description": "Weekly meals and incidental expenses allowance, USD/week, ASSUMED tax-free.",
         "default": 350,
         "x_apex_control_min": 0,
         "x_apex_control_max": 1000,
@@ -96,7 +96,7 @@
       },
       "contractWeeks": {
         "type": "number",
-        "description": "Weeks per travel contract. weeksWorked = contractWeeks x contractsPerYear. page default 13; 0 reverts to the default, which is one of the three reasons totalHoursWorked can never equal 0.",
+        "description": "Weeks per travel contract.",
         "default": 13,
         "x_apex_control_min": 4,
         "x_apex_control_max": 26,
@@ -105,7 +105,7 @@
       },
       "contractsPerYear": {
         "type": "number",
-        "description": "Travel contracts worked per year. Multiplies contractWeeks into weeksWorked, and multiplies travelCost into travelTravelCostAnnual. page default 3; 0 reverts to the default.",
+        "description": "Travel contracts worked per year.",
         "default": 3,
         "x_apex_control_min": 1,
         "x_apex_control_max": 5,
@@ -114,7 +114,7 @@
       },
       "gapWeeks": {
         "type": "number",
-        "description": "Unpaid gap weeks between contracts. Enters ONLY totalAnnualGapWeeks -> gapCost, priced at the staff rate. It does NOT subtract from travelNetAnnual. page default 3; 0 reverts to the default.",
+        "description": "Unpaid gap weeks between contracts.",
         "default": 3,
         "x_apex_control_min": 0,
         "x_apex_control_max": 8,
@@ -123,7 +123,7 @@
       },
       "travelHours": {
         "type": "number",
-        "description": "Hours worked per week on travel. A factor of totalHoursWorked, the divisor of effectiveHourly, and of travelTaxableAnnual and gapCost. page default 36; 0 reverts to the default, so the effectiveHourly guard cannot be reached at zero hours.",
+        "description": "Hours worked per week on travel.",
         "default": 36,
         "x_apex_control_min": 20,
         "x_apex_control_max": 60,
@@ -132,7 +132,7 @@
       },
       "travelCost": {
         "type": "number",
-        "description": "Travel and moving cost per contract, USD. travelTravelCostAnnual = travelCost x contractsPerYear. page default 1500; 0 reverts to the default, so a free move is unreachable.",
+        "description": "Travel and moving cost per contract, USD.",
         "default": 1500,
         "x_apex_control_min": 0,
         "x_apex_control_max": 10000,
@@ -141,7 +141,7 @@
       },
       "ttpHousingCost": {
         "type": "number",
-        "description": "Out-of-pocket housing shortfall, USD/week, i.e. housing cost not covered by the stipend. ttpHousingCostAnnual = ttpHousingCost x weeksWorked. page default 200; 0 reverts to the default.",
+        "description": "Out-of-pocket housing shortfall, USD/week, i.e.",
         "default": 200,
         "x_apex_control_min": 0,
         "x_apex_control_max": 1000,
@@ -153,15 +153,15 @@
     "x_apexport_required_note": "required is empty on purpose. All fourteen inputs are unconditionally dereferenced by the compute, but none of them is mandatory: every one has a defined page default, and the default-substitution path is itself load-bearing behaviour under test (boundary pairs B01-B14). Requiring all fourteen would make both the default path and the zero-swallow unreachable through the schema and would silently change the ported tool. A caller that wants the Apex defaults sends {} or null. Flagged for the trusted builder as OPEN-1 in APEXPORT-132-REPORT.md."
   },
   "mcp_tool_definition": {
-    "name": "compute_travel_nurse_vs_staff_comp",
-    "description": "True net-pay comparison of travel nursing against a permanent staff post. Stacks a caller-asserted tax-free housing stipend and M&IE allowance against contract gap weeks, per-contract travel cost and out-of-pocket housing shortfall; reports staff net excluding benefits, travel net, the annual delta, the counterfactual stipend tax savings, the gap-week opportunity cost and the effective all-in travel hourly rate. NOT TAX ADVICE: the excludability of the stipends is supplied by the caller and is not determined here. Every input is read as parseFloat(value) || page-default, so a literal 0, a blank or a non-numeric value silently reverts to the tool default instead of computing as zero; the response names every substitution in compliance_flags and in output_payload.inputs_defaulted. No range validation is applied. No clock is read. Adjacent to art-338-compute-federal-withholding (which owns federal withholding on the taxable wage lines) and NOT an implementation of art-340.",
+    "name": "compute_travel_nurse_pay",
+    "description": "Net-pay comparison of travel nursing against a permanent staff post, ported from ApexLogics Apex #132. Stacks a caller-asserted tax-free housing stipend and M&IE allowance against contract gap weeks, travel cost and out-of-pocket housing; reports staff net ex benefits, travel net, the annual delta, stipend tax savings and the effective all-in hourly rate. NOT TAX ADVICE: stipend excludability is a caller assumption. A 0 or blank input reverts to the tool default and each substitution is named.",
     "inputSchema": {
       "type": "object",
       "required": [],
       "properties": {
         "staffRate": {
           "type": "number",
-          "description": "Staff hourly rate, USD/hr. Multiplied by staffHours and staffWeeks for staff gross. page default 38; the literal 0 is falsy and reverts to that default.",
+          "description": "Staff hourly rate, USD/hr.",
           "default": 38,
           "x_apex_control_min": 15,
           "x_apex_control_max": 100,
@@ -179,7 +179,7 @@
         },
         "staffBenefits": {
           "type": "number",
-          "description": "Annual value of the staff benefits package, USD/yr. Reported in staffNetAnnual and in the results table, but EXCLUDED from the winner test, which compares travelNetAnnual against staffNetNoFringe. page default 12000; 0 reverts to the default.",
+          "description": "Annual value of the staff benefits package, USD/yr.",
           "default": 12000,
           "x_apex_control_min": 0,
           "x_apex_control_max": 40000,
@@ -197,7 +197,7 @@
         },
         "taxRate": {
           "type": "number",
-          "description": "Assumed effective tax rate expressed as a PERCENT; the kernel divides by 100 before use. 0 becomes 0/100 = 0, which is falsy, so it reverts to the default 22 -- there is no way to express a 0% effective rate through this input. page default 22.",
+          "description": "Assumed effective tax rate expressed as a PERCENT.",
           "default": 22,
           "x_apex_control_min": 0,
           "x_apex_control_max": 50,
@@ -206,7 +206,7 @@
         },
         "travelBase": {
           "type": "number",
-          "description": "Taxable hourly base rate on the travel contract, USD/hr. travelTaxableAnnual = travelBase x travelHours x weeksWorked. page default 22; 0 reverts to the default.",
+          "description": "Taxable hourly base rate on the travel contract, USD/hr.",
           "default": 22,
           "x_apex_control_min": 10,
           "x_apex_control_max": 80,
@@ -215,7 +215,7 @@
         },
         "housingStipend": {
           "type": "number",
-          "description": "Weekly housing stipend, USD/week, ASSUMED tax-free. The kernel does not establish that this is excludable; see CITES.md. page default 1200; 0 reverts to the default, so a zero stipend is unreachable.",
+          "description": "Weekly housing stipend, USD/week, ASSUMED tax-free.",
           "default": 1200,
           "x_apex_control_min": 0,
           "x_apex_control_max": 3000,
@@ -224,7 +224,7 @@
         },
         "mieStipend": {
           "type": "number",
-          "description": "Weekly meals and incidental expenses allowance, USD/week, ASSUMED tax-free. page default 350; 0 reverts to the default, so a zero allowance is unreachable.",
+          "description": "Weekly meals and incidental expenses allowance, USD/week, ASSUMED tax-free.",
           "default": 350,
           "x_apex_control_min": 0,
           "x_apex_control_max": 1000,
@@ -233,7 +233,7 @@
         },
         "contractWeeks": {
           "type": "number",
-          "description": "Weeks per travel contract. weeksWorked = contractWeeks x contractsPerYear. page default 13; 0 reverts to the default, which is one of the three reasons totalHoursWorked can never equal 0.",
+          "description": "Weeks per travel contract.",
           "default": 13,
           "x_apex_control_min": 4,
           "x_apex_control_max": 26,
@@ -242,7 +242,7 @@
         },
         "contractsPerYear": {
           "type": "number",
-          "description": "Travel contracts worked per year. Multiplies contractWeeks into weeksWorked, and multiplies travelCost into travelTravelCostAnnual. page default 3; 0 reverts to the default.",
+          "description": "Travel contracts worked per year.",
           "default": 3,
           "x_apex_control_min": 1,
           "x_apex_control_max": 5,
@@ -251,7 +251,7 @@
         },
         "gapWeeks": {
           "type": "number",
-          "description": "Unpaid gap weeks between contracts. Enters ONLY totalAnnualGapWeeks -> gapCost, priced at the staff rate. It does NOT subtract from travelNetAnnual. page default 3; 0 reverts to the default.",
+          "description": "Unpaid gap weeks between contracts.",
           "default": 3,
           "x_apex_control_min": 0,
           "x_apex_control_max": 8,
@@ -260,7 +260,7 @@
         },
         "travelHours": {
           "type": "number",
-          "description": "Hours worked per week on travel. A factor of totalHoursWorked, the divisor of effectiveHourly, and of travelTaxableAnnual and gapCost. page default 36; 0 reverts to the default, so the effectiveHourly guard cannot be reached at zero hours.",
+          "description": "Hours worked per week on travel.",
           "default": 36,
           "x_apex_control_min": 20,
           "x_apex_control_max": 60,
@@ -269,7 +269,7 @@
         },
         "travelCost": {
           "type": "number",
-          "description": "Travel and moving cost per contract, USD. travelTravelCostAnnual = travelCost x contractsPerYear. page default 1500; 0 reverts to the default, so a free move is unreachable.",
+          "description": "Travel and moving cost per contract, USD.",
           "default": 1500,
           "x_apex_control_min": 0,
           "x_apex_control_max": 10000,
@@ -278,7 +278,7 @@
         },
         "ttpHousingCost": {
           "type": "number",
-          "description": "Out-of-pocket housing shortfall, USD/week, i.e. housing cost not covered by the stipend. ttpHousingCostAnnual = ttpHousingCost x weeksWorked. page default 200; 0 reverts to the default.",
+          "description": "Out-of-pocket housing shortfall, USD/week, i.e.",
           "default": 200,
           "x_apex_control_min": 0,
           "x_apex_control_max": 1000,

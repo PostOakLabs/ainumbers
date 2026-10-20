@@ -17,7 +17,7 @@
      (34,826 bytes, sha256 d40048feb51036a660d3d66cd08f97aa88f654c852b9f7714975e885138a748b,
      fetched 2026-10-15), page compute `calculate()` lines 329-379. -->
 
-<meta name="ai-tool" content="compute_travel_nurse_vs_staff_comp">
+<meta name="ai-tool" content="compute_travel_nurse_pay">
 <style>
 :root{--bg:#0d1117;--bg-2:#161b22;--border:#30363d;--fg:#e6edf3;--muted:#8b949e;--teal:#2dd4bf;--gold:#d4a437;--green:#3fb950;--red:#f85149;--font-sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 @media (prefers-color-scheme:light){:root{--bg:#fff;--bg-2:#f6f8fa;--border:#d0d7de;--fg:#1f2328;--muted:#59636e;--green:#1a7f37;--red:#cf222e}}
@@ -62,7 +62,7 @@ summary{cursor:pointer;font-size:12px;color:var(--muted)}
 pre{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;overflow:auto;font-size:11px}
 a{color:var(--teal)}
 </style>
-<meta name="kernel-digest" content="sha256:a6b41cda71aa1df1d202bd8f5773c09036c3d333d5a62e24e51f17d30e27f561">
+<meta name="kernel-digest" content="sha256:85fa56c5bf669b05e3daa1c98ffcebe3401fb0879ab2770994afafcc0c73f5e9">
 </head>
 <body>
 <div class="wrap" role="main">
@@ -399,15 +399,15 @@ runCompute();
 const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
 if (mc) {
   mc.registerTool({
-    name: 'compute_travel_nurse_vs_staff_comp',
-    description: 'True net-pay comparison of travel nursing against a permanent staff post. Stacks a caller-asserted tax-free housing stipend and M&IE allowance against contract gap weeks, per-contract travel cost and out-of-pocket housing shortfall; reports staff net excluding benefits, travel net, the annual delta, the counterfactual stipend tax savings, the gap-week opportunity cost and the effective all-in travel hourly rate. NOT TAX ADVICE: the excludability of the stipends is supplied by the caller and is not determined here. Every input is read as parseFloat(value) || page-default, so a literal 0, a blank or a non-numeric value silently reverts to the tool default instead of computing as zero; the response names every substitution in compliance_flags and in output_payload.inputs_defaulted. No range validation is applied. No clock is read. Adjacent to art-338-compute-federal-withholding (which owns federal withholding on the taxable wage lines) and NOT an implementation of art-340.',
+    name: 'compute_travel_nurse_pay',
+    description: 'Net-pay comparison of travel nursing against a permanent staff post, ported from ApexLogics Apex #132. Stacks a caller-asserted tax-free housing stipend and M&IE allowance against contract gap weeks, travel cost and out-of-pocket housing; reports staff net ex benefits, travel net, the annual delta, stipend tax savings and the effective all-in hourly rate. NOT TAX ADVICE: stipend excludability is a caller assumption. A 0 or blank input reverts to the tool default and each substitution is named.',
     inputSchema: {
       "type": "object",
       "required": [],
       "properties": {
         "staffRate": {
           "type": "number",
-          "description": "Staff hourly rate, USD/hr. Multiplied by staffHours and staffWeeks for staff gross. page default 38; the literal 0 is falsy and reverts to that default.",
+          "description": "Staff hourly rate, USD/hr.",
           "default": 38,
           "x_apex_control_min": 15,
           "x_apex_control_max": 100,
@@ -425,7 +425,7 @@ if (mc) {
         },
         "staffBenefits": {
           "type": "number",
-          "description": "Annual value of the staff benefits package, USD/yr. Reported in staffNetAnnual and in the results table, but EXCLUDED from the winner test, which compares travelNetAnnual against staffNetNoFringe. page default 12000; 0 reverts to the default.",
+          "description": "Annual value of the staff benefits package, USD/yr.",
           "default": 12000,
           "x_apex_control_min": 0,
           "x_apex_control_max": 40000,
@@ -443,7 +443,7 @@ if (mc) {
         },
         "taxRate": {
           "type": "number",
-          "description": "Assumed effective tax rate expressed as a PERCENT; the kernel divides by 100 before use. 0 becomes 0/100 = 0, which is falsy, so it reverts to the default 22 -- there is no way to express a 0% effective rate through this input. page default 22.",
+          "description": "Assumed effective tax rate expressed as a PERCENT.",
           "default": 22,
           "x_apex_control_min": 0,
           "x_apex_control_max": 50,
@@ -452,7 +452,7 @@ if (mc) {
         },
         "travelBase": {
           "type": "number",
-          "description": "Taxable hourly base rate on the travel contract, USD/hr. travelTaxableAnnual = travelBase x travelHours x weeksWorked. page default 22; 0 reverts to the default.",
+          "description": "Taxable hourly base rate on the travel contract, USD/hr.",
           "default": 22,
           "x_apex_control_min": 10,
           "x_apex_control_max": 80,
@@ -461,7 +461,7 @@ if (mc) {
         },
         "housingStipend": {
           "type": "number",
-          "description": "Weekly housing stipend, USD/week, ASSUMED tax-free. The kernel does not establish that this is excludable; see CITES.md. page default 1200; 0 reverts to the default, so a zero stipend is unreachable.",
+          "description": "Weekly housing stipend, USD/week, ASSUMED tax-free.",
           "default": 1200,
           "x_apex_control_min": 0,
           "x_apex_control_max": 3000,
@@ -470,7 +470,7 @@ if (mc) {
         },
         "mieStipend": {
           "type": "number",
-          "description": "Weekly meals and incidental expenses allowance, USD/week, ASSUMED tax-free. page default 350; 0 reverts to the default, so a zero allowance is unreachable.",
+          "description": "Weekly meals and incidental expenses allowance, USD/week, ASSUMED tax-free.",
           "default": 350,
           "x_apex_control_min": 0,
           "x_apex_control_max": 1000,
@@ -479,7 +479,7 @@ if (mc) {
         },
         "contractWeeks": {
           "type": "number",
-          "description": "Weeks per travel contract. weeksWorked = contractWeeks x contractsPerYear. page default 13; 0 reverts to the default, which is one of the three reasons totalHoursWorked can never equal 0.",
+          "description": "Weeks per travel contract.",
           "default": 13,
           "x_apex_control_min": 4,
           "x_apex_control_max": 26,
@@ -488,7 +488,7 @@ if (mc) {
         },
         "contractsPerYear": {
           "type": "number",
-          "description": "Travel contracts worked per year. Multiplies contractWeeks into weeksWorked, and multiplies travelCost into travelTravelCostAnnual. page default 3; 0 reverts to the default.",
+          "description": "Travel contracts worked per year.",
           "default": 3,
           "x_apex_control_min": 1,
           "x_apex_control_max": 5,
@@ -497,7 +497,7 @@ if (mc) {
         },
         "gapWeeks": {
           "type": "number",
-          "description": "Unpaid gap weeks between contracts. Enters ONLY totalAnnualGapWeeks -> gapCost, priced at the staff rate. It does NOT subtract from travelNetAnnual. page default 3; 0 reverts to the default.",
+          "description": "Unpaid gap weeks between contracts.",
           "default": 3,
           "x_apex_control_min": 0,
           "x_apex_control_max": 8,
@@ -506,7 +506,7 @@ if (mc) {
         },
         "travelHours": {
           "type": "number",
-          "description": "Hours worked per week on travel. A factor of totalHoursWorked, the divisor of effectiveHourly, and of travelTaxableAnnual and gapCost. page default 36; 0 reverts to the default, so the effectiveHourly guard cannot be reached at zero hours.",
+          "description": "Hours worked per week on travel.",
           "default": 36,
           "x_apex_control_min": 20,
           "x_apex_control_max": 60,
@@ -515,7 +515,7 @@ if (mc) {
         },
         "travelCost": {
           "type": "number",
-          "description": "Travel and moving cost per contract, USD. travelTravelCostAnnual = travelCost x contractsPerYear. page default 1500; 0 reverts to the default, so a free move is unreachable.",
+          "description": "Travel and moving cost per contract, USD.",
           "default": 1500,
           "x_apex_control_min": 0,
           "x_apex_control_max": 10000,
@@ -524,7 +524,7 @@ if (mc) {
         },
         "ttpHousingCost": {
           "type": "number",
-          "description": "Out-of-pocket housing shortfall, USD/week, i.e. housing cost not covered by the stipend. ttpHousingCostAnnual = ttpHousingCost x weeksWorked. page default 200; 0 reverts to the default.",
+          "description": "Out-of-pocket housing shortfall, USD/week, i.e.",
           "default": 200,
           "x_apex_control_min": 0,
           "x_apex_control_max": 1000,
@@ -572,7 +572,7 @@ if (mc) {
 (function () {
   'use strict';
   var BUDGET = 30000;
-  var RUN_TARGET = "run";
+  var RUN_TARGET = "runCompute";
   var PREFILL = {"staffRate":["staffRate","string"],"staffHours":["staffHours","string"],"staffBenefits":["staffBenefits","string"],"staffWeeks":["staffWeeks","string"],"taxRate":["taxRate","string"],"travelBase":["travelBase","string"],"housingStipend":["housingStipend","string"],"mieStipend":["mieStipend","string"],"contractWeeks":["contractWeeks","string"],"contractsPerYear":["contractsPerYear","string"],"gapWeeks":["gapWeeks","string"],"travelHours":["travelHours","string"],"travelCost":["travelCost","string"],"ttpHousingCost":["ttpHousingCost","string"]};
   var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
 
@@ -718,7 +718,7 @@ if (mc) {
 (function () {
   'use strict';
   var MAX = 1000000;
-  var RUN_TARGET = "run";
+  var RUN_TARGET = "runCompute";
   var PREFILL = {"staffRate":["staffRate","string"],"staffHours":["staffHours","string"],"staffBenefits":["staffBenefits","string"],"staffWeeks":["staffWeeks","string"],"taxRate":["taxRate","string"],"travelBase":["travelBase","string"],"housingStipend":["housingStipend","string"],"mieStipend":["mieStipend","string"],"contractWeeks":["contractWeeks","string"],"contractsPerYear":["contractsPerYear","string"],"gapWeeks":["gapWeeks","string"],"travelHours":["travelHours","string"],"travelCost":["travelCost","string"],"ttpHousingCost":["ttpHousingCost","string"]};
   var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
 
@@ -928,7 +928,7 @@ if (mc) {
     try {
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.textContent = 'Load file (.json / .csv, stays in this tab)';
+      btn.textContent = 'Load file (.json / .csv — stays in this tab)';
       btn.setAttribute('aria-label', 'Load policy inputs from a local JSON or CSV file; the file never leaves your browser');
       btn.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:9998;border:1px solid var(--border-2,#3b4a66);border-radius:8px;padding:8px 12px;font-family:monospace;font-size:.68rem;background:var(--bg-2,#101a2e);color:var(--body,#c7d3e8);cursor:pointer';
       btn.addEventListener('click', pickAndImport);
@@ -938,7 +938,7 @@ if (mc) {
          drop anywhere lands on the import path, never on browser defaults. */
       var zone = document.createElement('div');
       zone.setAttribute('aria-hidden', 'true');
-      zone.textContent = 'Drop a .json or .csv file to prefill this tool; processed locally, nothing is uploaded';
+      zone.textContent = 'Drop a .json or .csv file to prefill this tool — processed locally, nothing is uploaded';
       zone.style.cssText = 'position:fixed;inset:0;z-index:9997;display:none;align-items:center;justify-content:center;border:3px dashed rgba(20,184,166,.6);background:rgba(8,14,26,.72);color:#e6eefc;font-family:monospace;font-size:.85rem;text-align:center;padding:24px';
       var depth = 0;
       var show = function () { depth++; zone.style.display = 'flex'; };
