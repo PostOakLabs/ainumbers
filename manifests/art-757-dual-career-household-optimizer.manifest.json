@@ -1,0 +1,211 @@
+{
+  "tool_id": "art-757-dual-career-household-optimizer",
+  "version": "1.0.0",
+  "title": "Dual-Career Household Optimizer",
+  "description": "Port of ApexLogics Apex #92 (AL-99) Dual-Career Household Optimizer into the AINumbers chaingraph shape. Three coupled legs in one pass: childcare break-even (total childcare cost, the gross salary at which a partner's after-tax contribution covers it, the partner's net contribution, and household after-tax income with both working versus one); sabbatical true cost (direct income lost over the months out, lost employer 401k match on it, and a 10-year compounding opportunity cost of the reduced contribution track net of the direct loss already counted); and relocation (nominal household change plus a cost-of-living-adjusted restatement of the destination household in origin dollars, with a 3-months-per-$10k heuristic re-employment break-even for the lower earner's cut). Tax at or above 100%, a zero-current household, or a zero destination COL return null legs with a DIV_ZERO_GUARD flag instead of the page's Infinity/NaN. Port provenance: Apex page https://apexlogics.org/tools/92-dual-career-household-optimizer/ fetched 2026-10-13T20:56:01-04:00 (53859 bytes, sha256 b0e6c6712213c422910aa6659a4bfb18d4f5e96922e7b9837b49d473d88ae79a), tasking APEXPORT-92 (GRADES PASS-PENDING-XV 2026-10-14; Builder-verifies-at-land 22/22 fixture vectors per Tim 2026-10-18T21:20Z), landed by APEX-PORT-92-LAND-1 on 2026-10-19. The city COL index is the Apex page's own select table (UNGROUNDED, user-overridable); the BLS CES 2024 banner vintage is informational only (UNGROUNDED-1 per payload CITES.md) and no numeric vintage constant enters the arithmetic (payload DIFFERS.md Rows 1-3).",
+  "category": "chaingraph",
+  "tags": [
+    "career",
+    "household",
+    "childcare",
+    "relocation",
+    "sabbatical",
+    "mcp:dual_career_optimizer"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "partnerASalary",
+      "partnerBSalary",
+      "sabbaticalSalary",
+      "geoACurrentSalary",
+      "geoANewSalary"
+    ],
+    "properties": {
+      "partnerASalary": {
+        "type": "number",
+        "description": "Partner A gross salary, USD/yr. Apex control partnerASalary, default 110000."
+      },
+      "partnerBSalary": {
+        "type": "number",
+        "description": "Partner B gross salary, USD/yr. Apex control partnerBSalary, default 75000."
+      },
+      "combinedTaxRate": {
+        "type": "number",
+        "description": "Combined federal effective tax rate, percent. Apex control combinedTaxRate, default 28. User-supplied; no statutory table is embedded."
+      },
+      "annualChildcareCost": {
+        "type": "number",
+        "description": "Annual childcare cost per child, USD/yr. Apex control annualChildcareCost, default 25000 (an infant-center hint; the CCAoA 2024 all-modality national average is $13,128; a different statistic). User-overridable."
+      },
+      "numChildren": {
+        "type": "integer",
+        "description": "Number of children in childcare. Apex control numChildren, default 1."
+      },
+      "sabbaticalSalary": {
+        "type": "number",
+        "description": "Stepping-down partner salary, USD/yr. Apex control sabbaticalSalary, default 95000."
+      },
+      "sabbaticalReduction": {
+        "type": "number",
+        "description": "Work reduction, percent (100 = full stop). Apex control sabbaticalReduction, default 100."
+      },
+      "sabbaticalMonths": {
+        "type": "number",
+        "description": "Sabbatical duration, months. Apex control sabbaticalMonths, default 12."
+      },
+      "match401k": {
+        "type": "number",
+        "description": "Employer 401k match, percent of salary. Apex control match401k, default 4."
+      },
+      "incomeGrowthRate": {
+        "type": "number",
+        "description": "Annual income growth rate, percent, for the 10-year opportunity-cost leg. Apex control incomeGrowthRate, default 3."
+      },
+      "geoACurrentSalary": {
+        "type": "number",
+        "description": "Partner A current salary, USD/yr. Apex control geoACurrentSalary, default 110000."
+      },
+      "geoANewSalary": {
+        "type": "number",
+        "description": "Partner A post-move salary, USD/yr. Apex control geoANewSalary, default 120000."
+      },
+      "geoBCurrentSalary": {
+        "type": "number",
+        "description": "Partner B current salary, USD/yr. Apex control geoBCurrentSalary, default 75000."
+      },
+      "geoBNewSalary": {
+        "type": "number",
+        "description": "Partner B expected post-move salary, USD/yr (0 = no job lined up). Apex control geoBNewSalary, default 65000."
+      },
+      "geoOriginCity": {
+        "type": "number",
+        "description": "Origin city COL index (NYC = 100). Apex control geoOriginCity, default 100. Apex-internal index; see the manifest description UNGROUNDED note."
+      },
+      "geoDestCity": {
+        "type": "number",
+        "description": "Destination city COL index. Apex control geoDestCity, default 75 (Chicago). Apex-internal index; see the manifest description UNGROUNDED note."
+      },
+      "asOf": {
+        "type": "string",
+        "description": "Explicit determinism parameter (ISO date/datetime). The Apex page stamps payloads with new Date() at export time; the kernel never reads the clock (APEXPORT-110B pattern)."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "dual_career_optimizer",
+    "description": "Dual-career household optimizer ported from ApexLogics Apex #92 (AL-99): childcare break-even salary and household net under both-working versus one-stops, sabbatical true cost with a 10-year compounding opportunity leg, and a COL-adjusted relocation comparison with a months-per-$10k re-employment break-even. Guarded legs return null with DIV_ZERO_GUARD. Full provenance in the manifest description.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "partnerASalary",
+        "partnerBSalary",
+        "sabbaticalSalary",
+        "geoACurrentSalary",
+        "geoANewSalary"
+      ],
+      "properties": {
+        "partnerASalary": {
+          "type": "number",
+          "description": "Partner A gross salary, USD/yr (default 110000)."
+        },
+        "partnerBSalary": {
+          "type": "number",
+          "description": "Partner B gross salary, USD/yr (default 75000)."
+        },
+        "combinedTaxRate": {
+          "type": "number",
+          "description": "Combined effective tax rate, percent (default 28; >=100 guards to null legs)."
+        },
+        "annualChildcareCost": {
+          "type": "number",
+          "description": "Annual childcare cost per child, USD/yr (default 25000)."
+        },
+        "numChildren": {
+          "type": "integer",
+          "description": "Children in childcare (default 1)."
+        },
+        "sabbaticalSalary": {
+          "type": "number",
+          "description": "Stepping-down partner salary, USD/yr (default 95000)."
+        },
+        "sabbaticalReduction": {
+          "type": "number",
+          "description": "Work reduction, percent (default 100)."
+        },
+        "sabbaticalMonths": {
+          "type": "number",
+          "description": "Sabbatical duration, months (default 12)."
+        },
+        "match401k": {
+          "type": "number",
+          "description": "Employer 401k match, percent (default 4)."
+        },
+        "incomeGrowthRate": {
+          "type": "number",
+          "description": "Annual growth rate, percent, for the 10-year opportunity leg (default 3)."
+        },
+        "geoACurrentSalary": {
+          "type": "number",
+          "description": "Partner A current salary, USD/yr (default 110000)."
+        },
+        "geoANewSalary": {
+          "type": "number",
+          "description": "Partner A post-move salary, USD/yr (default 120000)."
+        },
+        "geoBCurrentSalary": {
+          "type": "number",
+          "description": "Partner B current salary, USD/yr (default 75000)."
+        },
+        "geoBNewSalary": {
+          "type": "number",
+          "description": "Partner B post-move salary, USD/yr; 0 = no job lined up (default 65000)."
+        },
+        "geoOriginCity": {
+          "type": "number",
+          "description": "Origin city COL index, NYC = 100 (default 100)."
+        },
+        "geoDestCity": {
+          "type": "number",
+          "description": "Destination city COL index (default 75)."
+        },
+        "asOf": {
+          "type": "string",
+          "description": "Explicit determinism parameter (ISO date/datetime); optional."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-757-dual-career-household-optimizer.html",
+    "function_name": "runCompute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "tab1": {
+        "type": "object",
+        "description": "Childcare break-even leg: totalChildcare, childcareBreakevenSalary (null when combinedTaxRate >= 100), netContribution, householdNetBothWorking, householdNetOneStops, netHouseholdGainFromBothWorking, verdicts {belowBreakEven, netPositive}."
+      },
+      "tab2": {
+        "type": "object",
+        "description": "Sabbatical leg: directIncomeLost, matchLost, opportunityCost10yr, totalTrueCost, verdicts {substantialCost}."
+      },
+      "tab3": {
+        "type": "object",
+        "description": "Relocation leg: currentHousehold, newHousehold, nominalChange, nominalPct, colAdjustedChange, colPct, breakEvenMonths (null unless Partner B takes a cut), verdicts {nominalGain, colGain, colTrap, partnerBCut, partnerBNoJob}."
+      },
+      "compliance_flags": {
+        "type": "array",
+        "description": "DIV_ZERO_GUARD appears when a guard branch engaged (taxRate >= 100, currentHousehold == 0, or destCOL == 0); Apex has no such guard and would emit Infinity/NaN."
+      }
+    }
+  },
+  "source": "chaingraph/kernels/art-757-dual-career-household-optimizer.kernel.mjs",
+  "input_schema_provenance": "Each property is exactly the policy_parameters member the kernel reads; there is no other input surface. Five are required and gate Apex execution: calculateTab1 returns early unless both salaries are nonzero, calculateTab2 unless the sabbatical salary is nonzero, calculateTab3 unless the Partner A current/new salary pair is nonzero. All other inputs carry Apex || fallbacks (28, 1, 100, 12, 4, 3, 100, 100) mirrored by the kernel num() defaults; asOf is optional (null when absent).",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0"
+}
