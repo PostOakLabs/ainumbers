@@ -1,6 +1,6 @@
 // art-772-money-primitives-demonstrator — class-K property floor for the _money shared
 // bundle (SHARED-MONEY-BUNDLE-1). Authored per FV-PBT-FLOOR-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:ff6e0c2b54beeaf259b98652668ea26a1a6bd71144d2d1a58f5c21a18f626f3f
+// kernel_digest_at_authoring: sha256:99e7bdf00202880b891cbfde5613dba4792f3dccf4f58dfb5913666ab3ec93fe
 // spec: ACCT-INFRA-KERNELS-BUILD-SPEC.md §0.1/§1.4/§4.1 + row SHARED-MONEY-BUNDLE-1
 // human_sign_off: PENDING
 //

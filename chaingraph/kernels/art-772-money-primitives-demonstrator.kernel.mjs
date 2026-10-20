@@ -536,13 +536,13 @@ export function compute(pp) {
   if (entry === null) {
     return {
       output_payload: refusal('REFUSED_CCY_NOT_IN_SLICE', 'currency code ' + JSON.stringify(ccy) + ' is not in the caller-supplied currency_slice - exponents are data and this kernel bakes none'),
-      compliance_flags: { MONEY_DEMONSTRATOR_REFUSED: true, MONEY_SLICE_IS_DATA_NOT_CODE: true },
+      compliance_flags: { MONEY_DEMONSTRATOR_REFUSED: true },
     };
   }
   if (entry.exponent === null) {
     return {
       output_payload: refusal('REFUSED_CCY_NO_MINOR_UNIT', entry.ccy + ' has no minor unit in the supplied slice; minor-unit arithmetic is undefined'),
-      compliance_flags: { MONEY_DEMONSTRATOR_REFUSED: true, MONEY_SLICE_IS_DATA_NOT_CODE: true },
+      compliance_flags: { MONEY_DEMONSTRATOR_REFUSED: true },
     };
   }
 
@@ -552,23 +552,21 @@ export function compute(pp) {
     if (!Number.isInteger(pp.places) || pp.places < 0 || pp.places > _money.MAX_SCALE) {
       return {
         output_payload: refusal('REFUSED_PLACES_INVALID', 'places must be an integer 0..' + String(_money.MAX_SCALE)),
-        compliance_flags: { MONEY_DEMONSTRATOR_REFUSED: true, MONEY_SLICE_IS_DATA_NOT_CODE: true },
+        compliance_flags: { MONEY_DEMONSTRATOR_REFUSED: true },
       };
     }
     places = pp.places;
   }
 
-  const compliance_flags = {
-    MONEY_DEMONSTRATOR_REFUSED: false,
-    MONEY_SLICE_IS_DATA_NOT_CODE: true,
-    MONEY_PARSE_STRICT: true,
-    MONEY_MODE_CLOSED_SET_REFUSES_UNKNOWNS: true,
-    MONEY_ALLOCATE_SUMS_EXACTLY: true,
-  };
+  // compliance_flags are earned per stage below - nothing is emitted unconditionally
+  // (FLAGS-COMPUTED-LINT-1: an unconditional flag attests work nothing conditioned).
 
   let parsed;
+  const flags = {};
   try {
     parsed = parseDecimal(typeof pp.amount === 'string' ? pp.amount : '', exponent, { truncateExcess: pp.truncate_excess === true });
+    flags.MONEY_SLICE_IS_DATA_NOT_CODE = true; // earned: the caller-supplied slice validated above
+    flags.MONEY_PARSE_STRICT = true; // earned: the closed grammar accepted this input
   } catch (e) {
     if (e instanceof _money.MoneyRefusal) {
       return { output_payload: refusal(e.code, e.message.slice(e.code.length + 2)), compliance_flags: { MONEY_DEMONSTRATOR_REFUSED: true, MONEY_SLICE_IS_DATA_NOT_CODE: true } };
@@ -585,7 +583,7 @@ export function compute(pp) {
     if (!Array.isArray(pp.weights) || pp.weights.length === 0 || pp.weights.length > _money.MAX_ALLOC_PARTS) {
       return {
         output_payload: refusal('REFUSED_ALLOCATE_WEIGHTS', 'weights must be a non-empty array of at most ' + String(_money.MAX_ALLOC_PARTS) + ' integers'),
-        compliance_flags: { MONEY_DEMONSTRATOR_REFUSED: true, MONEY_SLICE_IS_DATA_NOT_CODE: true },
+        compliance_flags: { MONEY_DEMONSTRATOR_REFUSED: true },
       };
     }
     const wB = new Array(pp.weights.length);
@@ -594,12 +592,14 @@ export function compute(pp) {
       if (!Number.isSafeInteger(w) || w < 0 || w > MAX_WEIGHT) {
         return {
           output_payload: refusal('REFUSED_ALLOCATE_WEIGHTS', 'weight[' + String(i) + '] must be a non-negative safe integer <= ' + String(MAX_WEIGHT)),
-          compliance_flags: { MONEY_DEMONSTRATOR_REFUSED: true, MONEY_SLICE_IS_DATA_NOT_CODE: true },
+          compliance_flags: { MONEY_DEMONSTRATOR_REFUSED: true },
         };
       }
       wB[i] = BigInt(w);
     }
     parts = allocate(rounded, wB);
+    flags.MONEY_MODE_CLOSED_SET_REFUSES_UNKNOWNS = true; // earned: round() accepted the mode from the closed set
+    flags.MONEY_ALLOCATE_SUMS_EXACTLY = true; // earned: parts were produced by the exact-sum allocator
   } catch (e) {
     if (e instanceof _money.MoneyRefusal) {
       return { output_payload: refusal(e.code, e.message.slice(e.code.length + 2)), compliance_flags: { MONEY_DEMONSTRATOR_REFUSED: true, MONEY_SLICE_IS_DATA_NOT_CODE: true } };
@@ -640,7 +640,7 @@ export function compute(pp) {
     float_sensitive: false,
     scope_note: SCOPE_NOTE,
   };
-  return { output_payload, compliance_flags };
+  return { output_payload, compliance_flags: flags };
 }
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
