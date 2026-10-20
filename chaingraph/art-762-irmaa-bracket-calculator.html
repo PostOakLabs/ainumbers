@@ -155,9 +155,9 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
   <div class="info-box">
     <div class="ib-title">Scope &amp; reliance</div>
-    Premium year is an <b>input</b>; the node reads no clock. Band edges follow the CMS band semantics:
-    every threshold except the last is an <i>exclusive</i> edge (MAGI exactly ON it is still the lower
-    band) and the last threshold is an <i>inclusive</i> edge (CMS: &ldquo;Greater than or equal to
+    Premium year is an input; the node reads no clock. Band edges follow the CMS band semantics:
+    every threshold except the last is an exclusive edge (MAGI exactly ON it is still the lower
+    band) and the last threshold is an inclusive edge (CMS: &ldquo;Greater than or equal to
     $500,000&rdquo;). Money is integer USD cents. Full Part B coverage only; SSA makes the final
     determination, this is a planning estimate. Kernel constants carry the 2026 CMS tables; see
     <code>CITES.md</code> and <code>DIFFERS.md</code> for the fetch-pinned provenance.
@@ -173,10 +173,10 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
           <option value="MFS">Married filing separately</option>
         </select>
       </label>
-      <label for="mfs_living_apart" id="mfs_living_apart_field">Married filing separately &mdash; lived apart from the spouse ALL YEAR?
+      <label for="mfs_living_apart" id="mfs_living_apart_field">Married filing separately, lived apart from the spouse ALL YEAR?
         <select id="mfs_living_apart">
-          <option value="true" selected>Yes &mdash; single / general ladder</option>
-          <option value="false">No &mdash; lived with the spouse at some point (MFS ladder)</option>
+          <option value="true" selected>Yes: single / general ladder</option>
+          <option value="false">No: lived with the spouse at some point (MFS ladder)</option>
         </select>
         <span class="hint">20 CFR 418.1140(e): a beneficiary who lived apart throughout the year is moved to the general table once the split is attested.</span>
       </label>
@@ -203,7 +203,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </section>
 
   <section class="card">
-    <h2>2 &middot; Premium tables <span class="pill">editable &mdash; defaults are the 2026 CMS tables</span></h2>
+    <h2>2 &middot; Premium tables <span class="pill">editable; defaults are the 2026 CMS tables</span></h2>
     <div class="grid">
       <label for="premium_year">Premium year
         <input id="premium_year" type="number" step="1" value="2026" />
@@ -264,7 +264,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
     <div class="results-export-row">
       <button id="ap2ExportBtn" class="export-btn" disabled>Download Policy Mandate (JSON)</button>
-      <span class="muted-txt">execution hash <span id="execHashSpan">&mdash;</span></span>
+      <span class="muted-txt">execution hash <span id="execHashSpan">(run to compute)</span></span>
     </div>
   </section>
 
@@ -470,7 +470,7 @@ function assemblePP(){
 
 /* ── display: cents -> dollars, integer only ── */
 function usd(cents){
-  if(cents===null||cents===undefined)return '—';
+  if(cents===null||cents===undefined)return 'n/a';
   const sign=cents<0?'-':'',a=Math.abs(cents);
   return sign+'$'+(a/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
@@ -507,15 +507,15 @@ async function run(){
 function renderResults(op, pp){
   const top = op.at_top_tier;
   document.getElementById('heroRow').innerHTML =
-    '<div class="hero-stat"><div class="hero-val">' + (op.refusal_reason?'—':'band '+op.tier) + '</div><div class="hero-lbl">IRMAA band (0 = standard)</div></div>' +
-    '<div class="hero-stat"><div class="hero-val">' + (op.refusal_reason?'—':usd(op.annual_irmaa_household_usd_cents)) + '</div><div class="hero-lbl">Household IRMAA above standard / year</div></div>' +
+    '<div class="hero-stat"><div class="hero-val">' + (op.refusal_reason?'n/a':'band '+op.tier) + '</div><div class="hero-lbl">IRMAA band (0 = standard)</div></div>' +
+    '<div class="hero-stat"><div class="hero-val">' + (op.refusal_reason?'n/a':usd(op.annual_irmaa_household_usd_cents)) + '</div><div class="hero-lbl">Household IRMAA above standard / year</div></div>' +
     '<div class="hero-stat"><div class="hero-val">' + (top?'n/a':usd(op.headroom_before_next_usd_cents)) + '</div><div class="hero-lbl">Headroom before the next cliff</div></div>' +
-    '<div class="hero-stat"><div class="hero-val">' + (op.refusal_reason?'—':op.premium_year+' / '+op.lookback_year) + '</div><div class="hero-lbl">Premium year / look-back year</div></div>';
+    '<div class="hero-stat"><div class="hero-val">' + (op.refusal_reason?'n/a':op.premium_year+' / '+op.lookback_year) + '</div><div class="hero-lbl">Premium year / look-back year</div></div>';
 
   const vd = document.getElementById('verdictDiv');
   if (op.refusal_reason) {
     vd.className = 'verdict fail';
-    vd.innerHTML = 'REFUSED &mdash; ' + op.refusal_reason + ': ' + op.domain_errors.map(function(d){return d.text;}).join(' ');
+    vd.innerHTML = 'REFUSED: ' + op.refusal_reason + ': ' + op.domain_errors.map(function(d){return d.text;}).join(' ');
   } else if (top) {
     vd.className = 'verdict warn';
     vd.innerHTML = 'Already at the top band. There is no further cliff, so the next-threshold and crossing-cost rows do not apply.';
@@ -539,7 +539,7 @@ function renderResults(op, pp){
   ]);
 
   document.getElementById('cliffDiv').innerHTML = top
-    ? kv([['Next threshold', 'none — top band'], ['Headroom', 'n/a'], ['Cost of crossing', 'n/a']])
+    ? kv([['Next threshold', 'none (top band)'], ['Headroom', 'n/a'], ['Cost of crossing', 'n/a']])
     : kv([
         ['Next threshold', usd(op.next_threshold_usd_cents)],
         ['Distance to the next threshold', usd(op.distance_to_next_usd_cents)],
@@ -553,7 +553,7 @@ function renderResults(op, pp){
     ['Projected band', String(op.projected_tier)],
     ['Incremental annual cost', (inc !== null && inc < 0 ? '−' : '') + usd(inc !== null ? Math.abs(inc) : inc)],
     ['Implied marginal rate on the additional income', pct(op.implied_marginal_bps)],
-    ['Major life-changing event', op.life_changing_event ? 'yes — may support a request to use a more recent tax year' : 'no']
+    ['Major life-changing event', op.life_changing_event ? 'yes (may support a request to use a more recent tax year)' : 'no']
   ]);
 }
 
