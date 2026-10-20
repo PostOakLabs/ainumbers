@@ -12,96 +12,34 @@
 - chain rows → A3
 - claim-register or evidence rows → A14, §15
 
-## 🗂️ Repository Structure
+**Moved out (load on demand):** build workflow, wave completion checklist and scale commands → skill `wave-checklist` (`.claude/skills/wave-checklist/SKILL.md`). Tool-HTML-only rules (lang toggle, Policy Mandate export, export tiers, PII banner) → `.claude/rules/tool-html.md` (loads when `tools/**/*.html` is touched).
 
-```
-ainumbers/
-├── CONTRACT.md        ← SSOT — read before any build
-├── index.html         ← Main dashboard (tool grid, category filters, search)
-├── sitemap.html / contact.html / about.html
-├── tools/             ← standalone tool HTML files (numbered, pf-, rbe-, named)
-├── guides/            ← integration hub HTML files (*-hub.html)
-├── manifests/         ← MCP tool manifests (one per tool)
-├── sitemap.xml / robots.txt / llms.txt
-```
-
-**Canonical tool template:** `tools/152-baas-provider-comparator.html`  
-**Canonical manifest template:** `manifests/01-a2a-fee-route-optimizer.manifest.json`
+**Layout:** `tools/` (standalone tool HTML), `guides/` (`*-hub.html`), `manifests/` (one per tool), `chaingraph/`, `index.html`, `CONTRACT.md`. Canonical templates: `tools/152-baas-provider-comparator.html`, `manifests/01-a2a-fee-route-optimizer.manifest.json`.
 
 ## 🔒 Non-Negotiable Constraints
 
 - **Single self-contained `.html` per tool.** Inline CSS/JS only. Google Fonts (`DM Serif Display`, `Sora`, `JetBrains Mono`) only.
 - **Zero network calls.** No `fetch`, `async`, `WebWorker`, external APIs, or CDNs after page load.
 - **Zero PII.** No storage, logging, or transmission of personal/identifiable data.
-- **Storage:** All client storage forbidden — `sessionStorage`, `localStorage`, `cookies`, `IndexedDB`. All state is in-memory. (`ain_lang` sessionStorage exemption removed — lang toggle deferred; see `CONTRACT.md` §1.1.)
-- **Routing:** Tools in `tools/` must use `../` relative paths to reach root assets. Index uses `tools/` and `guides/` prefixes for all internal links. Absolute URLs reserved strictly for the MCP registry surfaces — `.well-known/mcp.json`, `mcp/catalog.json`, `mcp/server.json` (CONTRACT §2.1 historical correction: a root `suite-registry.json` never existed on any ref) — & external MCP endpoints.
-- **License:** CC BY 4.0. Code must be readable, commented, and attribution-ready.
-- **Reader-facing copy (CONTRACT §1.4):** Public HTML prose and `chaingraph.json` descriptions must pass the copy-hallmarks gate — no em-dashes (en-dash ranges fine; §1.3 banner exempt) and no build codes (`Wave N`, `W-A`…`W-G`, `D0`) in visible text. Gate: `node scripts/check-copy-hallmarks.mjs` (in preflight + CI); `scripts/copy-hallmarks-baseline.json` shields unswept legacy debt, counts only go down.
-- **Author every code/data file with the Write/Edit tools — NEVER a bash heredoc, `echo`, or `printf`.** Kernel/HTML/JSON content is full of `'`, backticks, and `$`; piping it through a shell produces unterminated-quote / `unexpected EOF` errors and silently-truncated files. The JS-syntax gate is the backstop, but write files directly and the failure never happens.
-- **`execution_hash` — call `executionHash(policy_parameters, output_payload)` from `chaingraph/kernels/_hash.mjs`. NEVER hand-build the `{policy_parameters, output_payload}` preimage or `JSON.stringify` it yourself.** There is exactly one correct canonicalization (RFC 8785 / JCS `cgCanon`) and it lives in `_hash.mjs`. Ad-hoc canonicalization trips `lint-forbidden-hash` ("Scheme E"); if it ever does, run `node chaingraph/kernels/fix-hash-scheme.mjs`. Copy the hash path from a proven kernel (e.g. `art-213`).
+- **Storage:** All client storage forbidden — `sessionStorage`, `localStorage`, `cookies`, `IndexedDB`. All state is in-memory (`CONTRACT.md` §1.1).
+- **Routing:** Tools in `tools/` use `../` relative paths to reach root assets. Index uses `tools/` and `guides/` prefixes. Absolute URLs only for the MCP registry surfaces (`.well-known/mcp.json`, `mcp/catalog.json`, `mcp/server.json`) and external MCP endpoints.
+- **License:** CC BY 4.0. Code readable, commented, attribution-ready.
+- **Reader-facing copy (CONTRACT §1.4):** no em-dashes (en-dash ranges fine; §1.3 banner exempt) and no build codes (`Wave N`, `W-A`…`W-G`, `D0`) in public HTML prose or `chaingraph.json` descriptions. Gate: `node scripts/check-copy-hallmarks.mjs`; counts in its baseline only go down.
+- **Author every code/data file with Write/Edit — NEVER a bash heredoc, `echo`, or `printf`** (quote/`$` mangling silently truncates files).
+- **`execution_hash` — call `executionHash(policy_parameters, output_payload)` from `chaingraph/kernels/_hash.mjs`. NEVER hand-build the preimage or `JSON.stringify` it.** One canonicalization exists (RFC 8785 / JCS `cgCanon`). Ad-hoc canon trips `lint-forbidden-hash`; fix with `node chaingraph/kernels/fix-hash-scheme.mjs`. Copy the hash path from a proven kernel (e.g. `art-213`).
+- **Derived artifacts: never edit in a PR.** `sitemap.xml`, `mcp/catalog.json`, `mcp/server.json`, `.well-known/mcp.json`, `llms.txt`, `tools.html`, `index.html` generated sections, `chaingraph/chaingraph-hub.html`, and count sentinels have a single writer (`derived-artifacts-regen.yml`, on `main`). Freshness gates are advisory on PRs; details in skill `wave-checklist`.
 
 ## 🤖 MCP / tool-registration invariants (CONTRACT §A4 — MUST)
 
-> **SSOT for the OpenChainGraph standard = `repo/chaingraph/standard/SPEC.md`** (+ `openchain-graph-v0.4.schema.json`). Build rules live in `CONTRACT.md`. "v0.4-compliant" = passes the SPEC.md §15 gate suite (Amendment A5) — cite SPEC.md section numbers, don't restate the envelope/hash/taxonomy. Run the SSOT gates before any push that touches `chaingraph.json`, spec/hub HTML, `standard/`, or a kernel: `node chaingraph/standard/{schema-validate,spec-version-consistency,spec-gate-coverage}.mjs`.
+> **SSOT for the OpenChainGraph standard = `chaingraph/standard/SPEC.md`** (+ `openchain-graph-v0.4.schema.json`). "v0.4-compliant" = passes the SPEC.md §15 gate suite (Amendment A5) — cite section numbers, don't restate. Before any push touching `chaingraph.json`, spec/hub HTML, `standard/`, or a kernel: `node chaingraph/standard/{schema-validate,spec-version-consistency,spec-gate-coverage}.mjs`.
 
-Before adding or renaming any tool, ChainGraph node, chain, or kernel:
-- **Unique `mcp_name`** across live `chaingraph.json` nodes + PILOT widgets + the 6 utility tools — a duplicate 500s the live `/mcp` handshake. Check: `node ../mcp-apps-poc/scripts/check-tool-names.mjs`.
-- **Canonical `execution_hash` only** via the shared `chaingraph/kernels/_hash.mjs` (real WebCrypto SHA-256 over RFC 8785/JCS `{policy_parameters, output_payload}`). Forbidden: array-replacer canon (`JSON.stringify(x, Object.keys(x).sort())`), `simpleHash`/fake `sha256:`, hashing a reduced payload. Gates: `chaingraph/kernels/{lint-forbidden-hash,golden-parity,parity-art-01,syntax-check}.mjs`.
-- **The MCP worker is a separate repo (`mcp-apps-poc/`) that boots from generated `data/` + `kernels/`.** After changing `chaingraph.json`/manifests/kernels, run `node generate.mjs` there and commit `data/` + `kernels/` in the SAME push (generate.mjs can't run in the cloud build). Deploy is gated GitHub Actions only (Workers Builds stays disconnected); confirm the post-deploy `/mcp` smoke step. Full detail: `CONTRACT.md` §A4.
+Before adding or renaming any tool, node, chain, or kernel:
+- **Unique `mcp_name`** across live `chaingraph.json` nodes + PILOT widgets + the 6 utility tools (a duplicate 500s the live `/mcp` handshake): `node ../mcp-apps-poc/scripts/check-tool-names.mjs`.
+- **Canonical `execution_hash` only** (shared `_hash.mjs`). Forbidden: array-replacer canon, `simpleHash`/fake `sha256:`, hashing a reduced payload. Gates: `chaingraph/kernels/{lint-forbidden-hash,golden-parity,parity-art-01,syntax-check}.mjs`.
+- **The MCP worker is a separate repo (`mcp-apps-poc/`) booting from generated `data/` + `kernels/`.** After changing `chaingraph.json`/manifests/kernels, run `node generate.mjs` there and commit `data/` + `kernels/` in the SAME push. Deploy is gated GitHub Actions only; confirm the post-deploy `/mcp` smoke step. Detail: `CONTRACT.md` §A4.
 
-## 📐 Required UI & Export Contracts
+## ⚡ Before every push
 
-- **Lang toggle:** OMIT. Do not add `.lang-bar`, `setLang()`, or `TRANSLATIONS` objects. Toggle deferred — see `CONTRACT.md` §1.1 and `../I18N-SPEC.md` for future re-implementation spec.
-- **Policy Mandate export button:** Must live in `.results-export-row`. Validates against the **Policy Mandate v1.0 schema** (`CONTRACT.md` §3.1) before download. The export is the **AINumbers Policy Mandate**, NOT Google's AP2 payments protocol. **Keep the literal `id="ap2ExportBtn"` and the `AP2Schema.validate()` JS name — retained legacy identifiers (§3.1); do NOT rename them** (a suite-wide rename was explicitly rejected — it's a 465-file churn with no standards gain).
-- **Export Tiers:** Tier 1 (Policy Mandate JSON + Markdown) mandatory for all policy/rule/mandate tools. Tier 2/3 conditional.
-- **PII Banner:** Exact text: `🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.`
+`node scripts/preflight.mjs` (all hard CI gates, CI order). Never push on red. The pre-push hook runs it; enable once per clone with `node scripts/setup-hooks.mjs`. Remediation steps and the full checklist: skill `wave-checklist`.
 
-## 🛠️ Build Workflow
-
-1. Read `CONTRACT.md` §0–§6 (normative rules). `CONTRACT-RATIONALE.md` carries the same sections' explanatory prose and audit history and is optional.
-2. Generate single `.html` file and place it in `tools/`.
-3. Validate Policy Mandate schema (`CONTRACT.md` §3.1), storage, and export contracts before output.
-4. Run pre-flight checklist from `CONTRACT.md` §6.1.
-5. Add card entry to `index.html` tool grid (correct `data-cat`, `data-tags`, `data-name`).
-6. Update category tool count in `index.html` cat-heading `<span class="cat-n">`.
-7. ~~Add `<url>` entry to `sitemap.xml`~~ — **SKIP.** `sitemap.xml` is a shared derived artifact with a single writer: `derived-artifacts-regen.yml` regenerates and commits it on `main` after every merge. A PR never edits it — two branches editing the same generated file independently is what caused the merge-ref skew this convention exists to prevent.
-
-## ✅ Wave Completion Checklist
-
-**⚡ BEFORE EVERY PUSH: `node scripts/preflight.mjs`** — runs every hard CI gate locally, in CI order (JS syntax, hash gates, index-sync, dead-link, count-drift, **hub freshness**, SSOT conformance, verify_repo, mfstSec). **Green here ⇒ green in CI.** Never push on a red preflight — that's the push→CI-fail→fix→re-push churn this prevents. The numbered items below are the individual remediation steps when a gate fails.
-
-**Mechanical enforcement (shift-left):** a committed `pre-push` hook (`.githooks/pre-push`) runs `preflight.mjs` automatically on every push, so a red tree can't reach CI. Enable it once per clone with **`node scripts/setup-hooks.mjs`** (sets `core.hooksPath = .githooks`; worktrees inherit it, so once covers all of them). Emergency bypass: `git push --no-verify`. CI stays the real backstop — the hook only enforces locally.
-
-Run after every batch of new tools/chains, before committing:
-
-0. **JS syntax gate (BLOCKING)** — `node scripts/check_tools.js` MUST print `0 ... syntax error` and exit 0. If red, `node scripts/locate_errors.js` to find the break, fix, re-run. **Never commit tool HTML on a red gate.** (CONTRACT §6.2.)
-0b. **Hub freshness** — `chaingraph/chaingraph-hub.html` is a shared derived artifact with a single writer. Do **NOT** run `gen-chain-index.mjs` and commit it in your PR — `derived-artifacts-regen.yml` regenerates it on `main` after merge. `node scripts/gen-chain-index.mjs --check` downgrades to advisory on a `pull_request` and stays blocking on `main` and on `merge_group` (the queue's CI job assembles the derived tree ephemerally into `DERIVED_ROOT`, so its inputs are fresh); a red PR-side result just tells you main hasn't caught up yet, not that you owe a fix.
-1. **Manifests** — one per new tool: `manifests/{number}-{slug}.manifest.json`. No short-form `{number}-manifest.json` variants.
-2. **Catalog** — `mcp/catalog.json`, `mcp/server.json`, `.well-known/mcp.json`, `llms.txt`, `tools.html`, and `index.html` are shared derived artifacts with a single writer. **Do NOT run or commit `regen_catalog.py` in your PR** — `derived-artifacts-regen.yml` runs it on `main` after merge. `docs/catalog.json` is a copy of `mcp/catalog.json` written later by `scripts/gen-openapi.mjs` (also main-side), not by this script. The freshness gate for `tools.html`/`index.html`, `python scripts/check_index_sync.py --strict --no-color`, downgrades to advisory on a `pull_request` and stays blocking on `main` and on `merge_group` (ephemeral `DERIVED_ROOT` assembly) — a red result on your PR means main hasn't regenerated yet, not that your PR must fix it.
-3. **Sitemap** — `sitemap.xml` is a shared derived artifact with a single writer. **Do NOT run or commit `node scripts/regen-sitemap.mjs` in your PR** — `derived-artifacts-regen.yml` runs it on `main` after merge, scanning every directory in `scripts/published-dirs.json` (the shared manifest `scripts/verify_repo.py`'s `check_sitemap` reads too, so generator and gate cannot scope-drift). Gate `node scripts/regen-sitemap.mjs --check` downgrades to advisory on a `pull_request`, stays blocking on `main` and on `merge_group` (ephemeral `DERIVED_ROOT` assembly). **Not `scripts/regen_sitemap.py`**, now quarantined as `scripts/regen_sitemap.py.DEPRECATED`: it knew only `tools/`, `guides/` and `chaingraph/` plus seven hardcoded root pages, so it silently dropped every published page outside that scope and turned the freshness gate red.
-4. **PII banners** — every new tool must carry the exact CONTRACT §1.3 sentence in its rendered text. Verify: `node scripts/check-pii-banner.mjs` (also runs in preflight; a CSS/JS-only mention of the class name does not satisfy it — the check reads rendered text, not a selector).
-5. **Policy Mandate export** — tools whose title/function involves policy, rule, mandate, routing, compliance, risk, AML, or KYC must have the Policy Mandate export button. Its element id stays `id="ap2ExportBtn"` (retained legacy id, §3.1 — do not rename). Check each new in-scope tool.
-6. **index.html** — card entry present with correct `data-cat`, `data-tags`, `data-name`, and updated `<span class="cat-n">` count.
-7. **Stat sync** — `mcp.html`/`chaingraph/chaingraph-hub.html`'s workflow/tool-count fallbacks are shared derived artifacts with a single writer. **Do NOT run `--fix` and commit it in your PR** — `derived-artifacts-regen.yml` runs it on `main` after merge. `node scripts/sync-stats.mjs` (no flag) downgrades to advisory on a `pull_request`, stays blocking on `main` and on `merge_group` (ephemeral `DERIVED_ROOT` assembly).
-8. **Count-drift gate** — every published count sentinel (`<!--COUNT:key-->N<!--/COUNT-->`, `data-count="key"`) is a shared derived artifact with a single writer. **Do NOT run `--fix` and commit it in your PR** — `derived-artifacts-regen.yml` runs it on `main` after merge. `node scripts/verify-counts.mjs --check` downgrades to advisory on a `pull_request`, stays blocking on `main` and on `merge_group` (ephemeral `DERIVED_ROOT` assembly). **Never hardcode a count to make this pass — fix the sentinel or the source**, and let main's regen repair the derived value.
-
-## 📊 Current Scale
-
-Always verify with `ls` — counts update with every new tool:
-```bash
-ls tools/*.html | wc -l      # tools
-ls guides/*.html | wc -l     # hubs
-ls manifests/*.manifest.json | grep -v "DELETE ME" | wc -l  # manifests
-```
-Run `ls` to verify — counts change each session.
-
-**Hard Stop:** If any constraint conflicts with legacy specs, follow `CONTRACT.md`.
-
-## 📋 Additional Rules (from post-launch audits)
-
-- **Policy Mandate export is mandatory** for any tool whose title/function involves: policy, rule, mandate, routing, compliance, risk assessment, AML, KYC, or gap analysis. When in doubt, add it. (This is the AINumbers Policy Mandate — `CONTRACT.md` §3.1 — NOT Google's AP2 payments protocol. The `ap2ExportBtn` / `ap2_export` / `AP2Schema` identifiers are **retained legacy names, not a rename target**.)
-- **Manifest naming:** one file per tool, always `{number}-{slug}.manifest.json`. Never create short-form `{number}-manifest.json` variants — these become orphans.
-- **No external JS libraries** for export (no jsPDF, no SheetJS, etc.) unless explicitly bundled inline. Use `URL.createObjectURL(new Blob(...))` + `<a download>` only.
-- **JSON-LD schema block** is required on every hub page (see `CONTRACT.md` §6.3).
-
-*(Non-normative build notes — canonical-URL SEO clarification, index.html size/edit guidance — moved to `CONTRACT-RATIONALE.md` under "repo/CLAUDE.md notes", 2026-08-18.)*
+**Hard Stop:** if any constraint conflicts with legacy specs, follow `CONTRACT.md`.
