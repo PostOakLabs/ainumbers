@@ -1,0 +1,308 @@
+{
+  "tool_id": "art-762-irmaa-bracket-calculator",
+  "version": "1.0.0",
+  "title": "IRMAA Bracket Calculator",
+  "description": "Medicare IRMAA band calculator: takes a tax filing status, the look-back-year adjusted gross income and tax-exempt interest, and the Medicare enrollment facts, and returns MAGI, the IRMAA band, the 2026 Part B total monthly premium and Part D income-related monthly adjustment amount, the annualised per-enrollee and household amounts, the headroom in dollars before the next cliff, the annual cost of crossing it, and the effect of additional income under consideration. All money is integer USD cents; the node reads no clock and performs no network or text-encoding work, so compute(pp) is a pure function of its input. Band edges follow the CMS semantics that every threshold except the last is exclusive and the last is inclusive. Premium tables are inputs with named 2026 CMS literal defaults. Refuses malformed input, unknown filing status, non-increasing threshold ladders and premium tables shorter than the band count with named reasons.",
+  "category": "retirement",
+  "tags": [
+    "compliance_mandate",
+    "irmaa",
+    "medicare",
+    "part-b",
+    "part-d",
+    "magi",
+    "surcharge",
+    "retirement-decumulation",
+    "integer-minor-units",
+    "band-ladder",
+    "mcp:compute_irmaa_bracket"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "filing_status",
+      "agi_usd",
+      "enrollees"
+    ],
+    "properties": {
+      "filing_status": {
+        "type": "string",
+        "enum": [
+          "Single",
+          "MFJ",
+          "MFS"
+        ],
+        "description": "Tax filing status on the look-back return. 'Single' also covers head of household and qualifying widow(er), and a married-filing-separately taxpayer who lived apart from the spouse all year (20 CFR 418.1120(b)(1), 418.1140(e)). Required; any other value refuses INVALID_FILING_STATUS."
+      },
+      "mfs_living_apart": {
+        "type": "boolean",
+        "description": "Married filing separately: true when the taxpayer lived apart from the spouse for the ENTIRE tax year, which selects the general (single) ladder; false when the taxpayer lived with the spouse at some point during the year, which selects the three-band MFS ladder (CMS 2026 fact sheet: beneficiaries \"married and lived with their spouses at any time during the year, but who file separate tax returns\"). Default true. Read only when filing_status is MFS; the result is echoed as threshold_basis."
+      },
+      "agi_usd": {
+        "type": "number",
+        "description": "Adjusted gross income from the look-back return, US dollars. Negative values clamp to zero for the band lookup. Required; absent or non-finite refuses INVALID_AGI."
+      },
+      "tax_exempt_interest_usd": {
+        "type": "number",
+        "description": "Tax-exempt interest from the look-back return, US dollars, non-negative. Added to AGI to form MAGI (20 CFR 418.1010(a)(6)(i)). Default 0. The regulation names four further tax-exempt add-backs this node does not model; see the kernel scope_note."
+      },
+      "enrollees": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Medicare enrollees in the household; the Part B and Part D amounts are per enrollee. Required; anything below 1 or non-integer refuses INVALID_ENROLLEES."
+      },
+      "enrolled_part_d": {
+        "type": "boolean",
+        "description": "True when the household is enrolled in a Part D plan, in which case the Part D IRMAA applies. Default true."
+      },
+      "additional_income_usd": {
+        "type": "number",
+        "description": "Additional income under consideration for the upcoming year, US dollars; negative values model a reduction. Default 0, which also short-circuits the implied marginal rate to 0 bp."
+      },
+      "life_changing_event": {
+        "type": "boolean",
+        "description": "A major life-changing event is in play (20 CFR 418.1205). Reported for the SSA appeal note only; it never changes any arithmetic in this node. Default false."
+      },
+      "premium_year": {
+        "type": "integer",
+        "description": "Calendar year the supplied premium tables describe. Default 2026. Label only: it does not select a table, so a caller who sets it to another year without also supplying the tables for that year gets the 2026 tables under a different label."
+      },
+      "lookback_years": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Years between the premium year and the tax year whose return sets the IRMAA. Default 2, per 20 CFR 418.1135(a). Label only; it does not enter any premium arithmetic."
+      },
+      "thresholds_single_usd": {
+        "type": "array",
+        "description": "MAGI thresholds in US dollars for single (and head of household, qualifying widow(er), and married filing separately lived apart all year), strictly increasing, at least 2 entries. Default [109000, 137000, 171000, 205000, 500000] (CMS 2026). Every entry except the last is an EXCLUSIVE edge; the last is INCLUSIVE.",
+        "items": {
+          "type": "number"
+        }
+      },
+      "thresholds_mfj_usd": {
+        "type": "array",
+        "description": "MAGI thresholds in US dollars for married filing jointly, strictly increasing, at least 2 entries. Default [218000, 274000, 342000, 410000, 750000] (CMS 2026). Same exclusive/inclusive edge rule.",
+        "items": {
+          "type": "number"
+        }
+      },
+      "thresholds_mfs_usd": {
+        "type": "array",
+        "description": "MAGI thresholds in US dollars for married filing separately who lived with the spouse at some point during the tax year, strictly increasing, at least 2 entries. Default [109000, 391000] (CMS 2026).",
+        "items": {
+          "type": "number"
+        }
+      },
+      "part_b_total_monthly_by_tier_usd": {
+        "type": "array",
+        "description": "TOTAL monthly Part B premium in US dollars by band for full Part B coverage, at least thresholds+1 entries. Default [202.90, 284.10, 405.80, 527.50, 649.20, 689.90] (CMS 2026). Band 0 is the standard premium, so the Part B IRMAA is band minus band 0.",
+        "items": {
+          "type": "number"
+        }
+      },
+      "part_d_irmaa_monthly_by_tier_usd": {
+        "type": "array",
+        "description": "Monthly Part D income-related monthly adjustment amount in US dollars by band, at least thresholds+1 entries. Default [0, 14.50, 37.50, 60.40, 83.30, 91.00] (CMS 2026).",
+        "items": {
+          "type": "number"
+        }
+      },
+      "part_b_total_monthly_by_tier_mfs_usd": {
+        "type": "array",
+        "description": "TOTAL monthly Part B premium in US dollars by band for married filing separately who lived with the spouse, at least 3 entries. Default [202.90, 649.20, 689.90] (CMS 2026).",
+        "items": {
+          "type": "number"
+        }
+      },
+      "part_d_irmaa_monthly_by_tier_mfs_usd": {
+        "type": "array",
+        "description": "Monthly Part D IRMAA in US dollars by band for married filing separately who lived with the spouse, at least 3 entries. Default [0, 83.30, 91.00] (CMS 2026).",
+        "items": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_irmaa_bracket",
+    "description": "Medicare IRMAA band calculator: takes a tax filing status, the look-back-year adjusted gross income and tax-exempt interest, and the Medicare enrollment facts, and returns MAGI, the IRMAA band, the 2026 Part B total monthly premium and Part D income-related monthly adjustment amount, the annualised per-enrollee and household amounts, the headroom in dollars before the next cliff, the annual cost of crossing it, and the effect of additional income under consideration. All money is integer USD cents; the node reads no clock and performs no network or text-encoding work, so compute(pp) is a pure function of its input. Band edges follow the CMS semantics that every threshold except the last is exclusive and the last is inclusive. Premium tables are inputs with named 2026 CMS literal defaults. Refuses malformed input, unknown filing status, non-increasing threshold ladders and premium tables shorter than the band count with named reasons.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "filing_status",
+        "agi_usd",
+        "enrollees"
+      ],
+      "properties": {
+        "filing_status": {
+          "type": "string",
+          "enum": [
+            "Single",
+            "MFJ",
+            "MFS"
+          ],
+          "description": "Tax filing status on the look-back return. 'Single' also covers head of household and qualifying widow(er), and a married-filing-separately taxpayer who lived apart from the spouse all year (20 CFR 418.1120(b)(1), 418.1140(e)). Required; any other value refuses INVALID_FILING_STATUS."
+        },
+        "mfs_living_apart": {
+          "type": "boolean",
+          "description": "Married filing separately: true when the taxpayer lived apart from the spouse for the ENTIRE tax year, which selects the general (single) ladder; false when the taxpayer lived with the spouse at some point during the year, which selects the three-band MFS ladder (CMS 2026 fact sheet: beneficiaries \"married and lived with their spouses at any time during the year, but who file separate tax returns\"). Default true. Read only when filing_status is MFS; the result is echoed as threshold_basis."
+        },
+        "agi_usd": {
+          "type": "number",
+          "description": "Adjusted gross income from the look-back return, US dollars. Negative values clamp to zero for the band lookup. Required; absent or non-finite refuses INVALID_AGI."
+        },
+        "tax_exempt_interest_usd": {
+          "type": "number",
+          "description": "Tax-exempt interest from the look-back return, US dollars, non-negative. Added to AGI to form MAGI (20 CFR 418.1010(a)(6)(i)). Default 0. The regulation names four further tax-exempt add-backs this node does not model; see the kernel scope_note."
+        },
+        "enrollees": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Medicare enrollees in the household; the Part B and Part D amounts are per enrollee. Required; anything below 1 or non-integer refuses INVALID_ENROLLEES."
+        },
+        "enrolled_part_d": {
+          "type": "boolean",
+          "description": "True when the household is enrolled in a Part D plan, in which case the Part D IRMAA applies. Default true."
+        },
+        "additional_income_usd": {
+          "type": "number",
+          "description": "Additional income under consideration for the upcoming year, US dollars; negative values model a reduction. Default 0, which also short-circuits the implied marginal rate to 0 bp."
+        },
+        "life_changing_event": {
+          "type": "boolean",
+          "description": "A major life-changing event is in play (20 CFR 418.1205). Reported for the SSA appeal note only; it never changes any arithmetic in this node. Default false."
+        },
+        "premium_year": {
+          "type": "integer",
+          "description": "Calendar year the supplied premium tables describe. Default 2026. Label only: it does not select a table, so a caller who sets it to another year without also supplying the tables for that year gets the 2026 tables under a different label."
+        },
+        "lookback_years": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Years between the premium year and the tax year whose return sets the IRMAA. Default 2, per 20 CFR 418.1135(a). Label only; it does not enter any premium arithmetic."
+        },
+        "thresholds_single_usd": {
+          "type": "array",
+          "description": "MAGI thresholds in US dollars for single (and head of household, qualifying widow(er), and married filing separately lived apart all year), strictly increasing, at least 2 entries. Default [109000, 137000, 171000, 205000, 500000] (CMS 2026). Every entry except the last is an EXCLUSIVE edge; the last is INCLUSIVE.",
+          "items": {
+            "type": "number"
+          }
+        },
+        "thresholds_mfj_usd": {
+          "type": "array",
+          "description": "MAGI thresholds in US dollars for married filing jointly, strictly increasing, at least 2 entries. Default [218000, 274000, 342000, 410000, 750000] (CMS 2026). Same exclusive/inclusive edge rule.",
+          "items": {
+            "type": "number"
+          }
+        },
+        "thresholds_mfs_usd": {
+          "type": "array",
+          "description": "MAGI thresholds in US dollars for married filing separately who lived with the spouse at some point during the tax year, strictly increasing, at least 2 entries. Default [109000, 391000] (CMS 2026).",
+          "items": {
+            "type": "number"
+          }
+        },
+        "part_b_total_monthly_by_tier_usd": {
+          "type": "array",
+          "description": "TOTAL monthly Part B premium in US dollars by band for full Part B coverage, at least thresholds+1 entries. Default [202.90, 284.10, 405.80, 527.50, 649.20, 689.90] (CMS 2026). Band 0 is the standard premium, so the Part B IRMAA is band minus band 0.",
+          "items": {
+            "type": "number"
+          }
+        },
+        "part_d_irmaa_monthly_by_tier_usd": {
+          "type": "array",
+          "description": "Monthly Part D income-related monthly adjustment amount in US dollars by band, at least thresholds+1 entries. Default [0, 14.50, 37.50, 60.40, 83.30, 91.00] (CMS 2026).",
+          "items": {
+            "type": "number"
+          }
+        },
+        "part_b_total_monthly_by_tier_mfs_usd": {
+          "type": "array",
+          "description": "TOTAL monthly Part B premium in US dollars by band for married filing separately who lived with the spouse, at least 3 entries. Default [202.90, 649.20, 689.90] (CMS 2026).",
+          "items": {
+            "type": "number"
+          }
+        },
+        "part_d_irmaa_monthly_by_tier_mfs_usd": {
+          "type": "array",
+          "description": "Monthly Part D IRMAA in US dollars by band for married filing separately who lived with the spouse, at least 3 entries. Default [0, 83.30, 91.00] (CMS 2026).",
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-762-irmaa-bracket-calculator.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "ap2_mandate_types": [
+    "compliance_control"
+  ],
+  "output_schema": {
+    "type": "object",
+    "description": "output_payload: premium_year, lookback_year, filing_status, threshold_basis (single | mfj | mfs_lived_apart_single_ladder | mfs_lived_together), magi_usd_cents, tier, at_top_tier, part_b_total_monthly_usd_cents, part_b_irmaa_monthly_usd_cents, part_d_irmaa_monthly_usd_cents, annual_per_person_usd_cents, annual_irmaa_per_person_usd_cents, annual_household_usd_cents, annual_irmaa_household_usd_cents, next_threshold_usd_cents, distance_to_next_usd_cents, headroom_before_next_usd_cents, crossing_cost_annual_usd_cents (the three cliff fields are null when at_top_tier), projected_magi_usd_cents, projected_tier, incremental_annual_cost_usd_cents, implied_marginal_bps, life_changing_event, refusal_reason, domain_errors[], scope_note."
+  },
+  "source": "chaingraph/kernels/art-762-irmaa-bracket-calculator.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: filing_status, mfs_living_apart, agi_usd, tax_exempt_interest_usd, enrollees, enrolled_part_d, additional_income_usd, life_changing_event, premium_year, lookback_years, thresholds_single_usd, thresholds_mfj_usd, thresholds_mfs_usd, part_b_total_monthly_by_tier_usd, part_d_irmaa_monthly_by_tier_usd, part_b_total_monthly_by_tier_mfs_usd, part_d_irmaa_monthly_by_tier_mfs_usd. required = the three the kernel dereferences with no fallback (filing_status, agi_usd, enrollees); every other property has a named literal default. Two controls on the Apex page — the standard Part B premium and the Part B deductible — are NOT listed because the Apex compute never reads them either; see APEXPORT-150-REPORT.md open question OQ-2.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "citations": [
+    "CMS, \"2026 Medicare Parts A & B Premiums and Deductibles\" fact sheet (2025-11-14)",
+    "90 FR 52063 (2025-11-19), Medicare Part B rates beginning 2026-01-01",
+    "20 CFR 418.1010, 418.1105, 418.1115, 418.1120, 418.1135, 418.1140, 418.1201, 418.1205 (eCFR, title-20 issue date 2026-10-08)",
+    "The Apex page cites \"42 CFR 418.1105\"; that section does not exist (42 CFR 418 is HOSPICE CARE, highest section 418.405). The provision is 20 CFR 418.1105 \"What is the threshold?\"",
+    "CMS is the value used wherever an Apex constant diverges; see DIFFERS.md"
+  ],
+  "input_example": {
+    "filing_status": "Single",
+    "mfs_living_apart": true,
+    "agi_usd": 150000,
+    "tax_exempt_interest_usd": 0,
+    "enrollees": 1,
+    "enrolled_part_d": true,
+    "additional_income_usd": 0,
+    "life_changing_event": false,
+    "premium_year": 2026,
+    "lookback_years": 2
+  },
+  "output_example": {
+    "premium_year": 2026,
+    "lookback_year": 2024,
+    "filing_status": "Single",
+    "threshold_basis": "single",
+    "magi_usd_cents": 15000000,
+    "tier": 2,
+    "at_top_tier": false,
+    "part_b_total_monthly_usd_cents": 40580,
+    "part_b_irmaa_monthly_usd_cents": 20290,
+    "part_d_irmaa_monthly_usd_cents": 3750,
+    "annual_per_person_usd_cents": 531960,
+    "annual_irmaa_per_person_usd_cents": 288480,
+    "annual_household_usd_cents": 531960,
+    "annual_irmaa_household_usd_cents": 288480,
+    "next_threshold_usd_cents": 17100000,
+    "distance_to_next_usd_cents": 2100000,
+    "headroom_before_next_usd_cents": 2100000,
+    "crossing_cost_annual_usd_cents": 173520,
+    "projected_magi_usd_cents": 15000000,
+    "projected_tier": 2,
+    "incremental_annual_cost_usd_cents": 0,
+    "implied_marginal_bps": 0,
+    "life_changing_event": false,
+    "refusal_reason": null,
+    "domain_errors": [],
+    "scope_note": "Full Part B coverage only: the CMS Part B table for beneficiaries with Part B immunosuppressive drug coverage only (2026 totals $121.60 base, $202.70 / $324.30 / $445.90 / $567.50 / $608.10) is NOT modelled. MAGI is modelled as adjusted gross income plus tax-exempt interest only; 20 CFR 418.1010(a)(6) adds four further tax-exempt add-backs (US savings-bond higher-education interest, foreign earned income, Guam/American Samoa/Northern Mariana Islands income, Puerto Rico income) that this tool does not expose. No late-enrolment penalty, no non-standard premium, no state surcharge, no Medicare Savings Program interaction, and no Part B or Part D plan premium (the Part D figure is the IRMAA surcharge only). SSA makes the final determination; this is a planning estimate."
+  },
+  "example_execution_hash": "sha256:15a2e79aec6022e101c903d717b175c38fb8d9b610797bd801dfd0421a20ec59"
+}
