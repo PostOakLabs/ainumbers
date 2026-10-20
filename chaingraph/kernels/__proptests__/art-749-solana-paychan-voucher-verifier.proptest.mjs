@@ -1,6 +1,6 @@
 // art-749-solana-paychan-voucher-verifier — class-A property-test floor
 // (SOLANA-PAYCHAN-VOUCHER-VERIFIER-1). REPLACE-of-scaffold per KERNEL-SCAFFOLD-1.
-// kernel_digest_at_authoring: sha256:17c5fcb86a7dfb4a0d5b75043514d5e46c4ac1faf40e38bfb32e4a2119966b7d
+// kernel_digest_at_authoring: sha256:2fb93736b7dac55c9dc08aa9c3af3972db469b9610b00385a26c0de10abe31c6
 // spec: workspace-root research/solana-dvp-hook-in-2026-10-15.md Addendum C items 2-5,
 // behaviour ported from the pinned payment-channels clauses @3ffa4d67
 // (clause-snapshot-registry.json entries "payment-channels README voucher wire format",
