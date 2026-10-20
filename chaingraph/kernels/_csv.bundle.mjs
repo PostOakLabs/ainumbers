@@ -100,7 +100,7 @@ function isCsvInjectionRisk(raw) {
 }
 
 // Prefixes a dangerous leading character with `'` (OWASP mitigation). Safe
-// fields pass through unchanged.
+// fields pass through verbatim.
 function sanitizeCsvField(raw) {
   let s = raw === null || raw === undefined ? '' : String(raw);
   if (CSV_INJECTION_RE.test(s)) s = `'${s}`;
