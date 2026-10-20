@@ -342,7 +342,14 @@ export function compute(pp) {
 
   /* ── compliance flags ───────────────────────────────────────────────────── */
 
-  const complianceFlags = ['FEDERAL_ONLY_NOT_TAX_ADVICE', 'ILLUSTRATIVE_ESTIMATE_NOT_ADVICE'];
+  // The two scope caveats (illustrative estimate, federal only) apply to every
+  // run of this node, so they ride in output_payload.warnings as reader-facing
+  // copy rather than unconditional compliance_flags emissions
+  // (FLAGS-COMPUTED-LINT-1: a flag attests work only the emitting branch earned).
+  const warnings = [
+    'Illustrative estimate, not tax advice; federal rules only.',
+  ];
+  const complianceFlags = [];
   if (employerPayrollTaxesWasEntered) complianceFlags.push('EMPLOYER_PAYROLL_TAXES_USER_ENTERED');
   if (ownerHourlySuppressed) complianceFlags.push('OWNER_HOURLY_SUPPRESSED_ZERO_HOURS');
   if (ownerPackagePctSuppressed) complianceFlags.push('OWNER_PACKAGE_PCT_SUPPRESSED_ZERO_REPLACEMENT');
@@ -352,7 +359,6 @@ export function compute(pp) {
   // AUTHORING-STANDARD section 2.2 flag mirror: every conditional compliance flag is
   // mirrored into output_payload.warnings as a reader-facing sentence, so a
   // consumer that never reads compliance_flags still sees the condition.
-  const warnings = [];
   if (employerPayrollTaxesWasEntered) warnings.push('Employer payroll taxes were entered by the caller and are used verbatim (no wage-base cap was applied).');
   if (ownerHourlySuppressed) warnings.push('Owner effective hourly rate is suppressed because hours per week is 0.');
   if (ownerPackagePctSuppressed) warnings.push('Owner package as a percent of replacement cost is suppressed because the aggregate replacement cost is 0.');
