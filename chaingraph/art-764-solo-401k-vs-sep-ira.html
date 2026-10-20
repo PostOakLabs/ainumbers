@@ -128,10 +128,10 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap" role="main" aria-description="Self-employed retirement-contribution comparator: maximum Solo 401(k), SEP-IRA and SIMPLE IRA contribution under one dated set of IRS limits, each plan's binding cap, a winner ranked by maximum contribution, and the estimated tax saving at a caller-supplied marginal rate.">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-738</div>
   <h1>Solo 401(k) vs. SEP-IRA Optimizer</h1>
-  <p class="sub">How far can a self-employed filer contribute, and to which vehicle? Prices all three of Solo 401(k), SEP-IRA and SIMPLE IRA against one dated set of IRS limits, names the cap that actually bound each one, and ranks them. The tax year is an input below, not a clock &mdash; this page ships the 2026 table only.</p>
+  <p class="sub">How far can a self-employed filer contribute, and to which vehicle? Prices all three of Solo 401(k), SEP-IRA and SIMPLE IRA against one dated set of IRS limits, names the cap that actually bound each one, and ranks them. The tax year is an input below, not a clock, this page ships the 2026 table only.</p>
   <div style="margin-bottom:6px"><span class="flag">Self-Employed</span><span class="flag">Explicit As-Of</span><span class="flag">Integer Cents</span><span class="flag">Cap Attribution</span><span class="flag">Zero PII</span><span class="flag">Client-side only</span></div>
   <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data; use synthetic or anonymised inputs only.</div>
-  <div class="info-box"><div class="ib-title">Scope &amp; reliance</div>Tax year <code>tax_year</code> is an input; the node reads no clock. A year with no pinned IRS table is a <code>NO_LIMITS_FOR_TAX_YEAR</code> refusal, never another year's limits. Amounts are integer cents with floor division. Tax savings are <code>contribution &times; marginal_rate_bp</code>, an identity at a rate you supply, not a projection. <b>Not modelled:</b> the Social Security wage base ($184,500 for 2026, so the true SE rate falls below 15.3% above it); the employer 25% ceiling measured net of the employee deferral; SIMPLE $18,100 small-employer limits and 402(g) aggregation across an outside plan; the $400 net-earnings SE-tax floor; Roth catch-up wage thresholds; and plan administration cost. Draft node &mdash; not yet registered.</div>
+  <div class="info-box"><div class="ib-title">Scope &amp; reliance</div>Tax year <code>tax_year</code> is an input; the node reads no clock. A year with no pinned IRS table is a <code>NO_LIMITS_FOR_TAX_YEAR</code> refusal, never another year's limits. Amounts are integer cents with floor division. Tax savings are <code>contribution &times; marginal_rate_bp</code>, an identity at a rate you supply, not a projection. Not modelled: the Social Security wage base ($184,500 for 2026, so the true SE rate falls below 15.3% above it); the employer 25% ceiling measured net of the employee deferral; SIMPLE $18,100 small-employer limits and 402(g) aggregation across an outside plan; the $400 net-earnings SE-tax floor; Roth catch-up wage thresholds; and plan administration cost. Draft node, not yet registered.</div>
   <div class="card">
     <div class="section-head">Profile, tax year and rate</div>
     <div class="muted-txt" style="margin-bottom:8px">Edit any field and run. Money is entered and read back in whole dollars and converted to cents at the edge; the kernel itself is integer-only.</div>
@@ -192,7 +192,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 <script>
 "use strict";
-/* ───────────────────────── kernel.draft.mjs — INLINED ─────────────────────────
+/* ───────────────────────── kernel.draft.mjs, INLINED ─────────────────────────
    Source: chaingraph/kernels/art-764-solo-401k-vs-sep-ira.kernel.mjs
    APEXPORT-112 draft. Regenerate by inlining; do not hand-edit. */
 
@@ -243,7 +243,7 @@ function validate(pp) {
   if (!pp || typeof pp !== 'object' || Array.isArray(pp)) return refused('REFUSED_BAD_INPUT', 'policy_parameters must be an object carrying tax_year, net_income_usd_cents, age, marginal_rate_bp, existing_employer_plan and existing_deferrals_cents');
   if (!isIntIn(pp.tax_year, 1000, 9999)) return refused('REFUSED_BAD_TAX_YEAR', 'tax_year must be a four-digit integer; the node reads no clock, so the tax year is an input, never "this year"');
   if (SUPPORTED_TAX_YEARS.indexOf(pp.tax_year) === -1) return refused('NO_LIMITS_FOR_TAX_YEAR', 'no IRS limit table is pinned for tax year ' + pp.tax_year + '; this node ships ' + SUPPORTED_TAX_YEARS.join(', ') + ' only. Extend LIMITS_BY_TAX_YEAR with a cited table rather than reusing another year\'s limits');
-  if (!isIntIn(pp.net_income_usd_cents, 1, NI_CENTS_CAP)) return refused('REFUSED_BAD_NET_INCOME', 'net_income_usd_cents must be an integer from 1 to ' + NI_CENTS_CAP + ' ($0 is refused: a contributor with no net profit has no contribution ceiling to maximise, and the Apex source page silently substituted its 120000-dollar default on a zero input — see DIFFERS.md row D2)');
+  if (!isIntIn(pp.net_income_usd_cents, 1, NI_CENTS_CAP)) return refused('REFUSED_BAD_NET_INCOME', 'net_income_usd_cents must be an integer from 1 to ' + NI_CENTS_CAP + ' ($0 is refused: a contributor with no net profit has no contribution ceiling to maximise, and the Apex source page silently substituted its 120000-dollar default on a zero input, see DIFFERS.md row D2)');
   if (!isIntIn(pp.age, AGE_MIN, AGE_MAX)) return refused('REFUSED_BAD_AGE', 'age must be an integer from ' + AGE_MIN + ' to ' + AGE_MAX + ' (age is age AT END OF TAX YEAR, the test 414(v) and 414(v)(2)(E) use)');
   if (!isIntIn(pp.marginal_rate_bp, 0, MARGINAL_RATE_BP_CAP)) return refused('REFUSED_BAD_MARGINAL_RATE', 'marginal_rate_bp must be an integer from 0 to ' + MARGINAL_RATE_BP_CAP + ' (basis points of one; 2400 = 24%)');
   if (typeof pp.existing_employer_plan !== 'boolean') return refused('REFUSED_BAD_EXISTING_PLAN', 'existing_employer_plan must be a boolean; it is echoed and flagged, never used in the arithmetic (see SCOPE_NOTE and DIFFERS.md row D4)');
@@ -444,15 +444,15 @@ function renderResults(op, execHash, pp, flags) {
 
   const vd = document.getElementById('verdictDiv');
   if (op.refusal_reason) {
-    vd.innerHTML = '<div class="verdict fail">REFUSED &mdash; ' + op.refusal_reason + ': ' + op.domain_errors.map(function (d) { return d.text; }).join(' ') + '</div>';
+    vd.innerHTML = '<div class="verdict fail">REFUSED, ' + op.refusal_reason + ': ' + op.domain_errors.map(function (d) { return d.text; }).join(' ') + '</div>';
   } else {
     vd.innerHTML = '<div class="verdict pass">' + wname[op.winner] + ' allows the largest maximum contribution at ' + usd(op[op.winner].max_total_usd_cents) + '.'
-      + (op.winner_tied ? ' <b>Exact tie</b> with ' + op.winner_tie_order.filter(function (p) { return p !== op.winner; }).map(function (p) { return wname[p]; }).join(', ') + ' &mdash; resolved by the declared tie order, not by rank.' : '')
+      + (op.winner_tied ? ' Exact tie: with ' + op.winner_tie_order.filter(function (p) { return p !== op.winner; }).map(function (p) { return wname[p]; }).join(', ') + ', resolved by the declared tie order, not by rank.' : '')
       + (op.super_catchup_band ? ' Age ' + op.age + ' is in the SECURE 2.0 super catch-up band (60&ndash;63).' : (op.catchup_eligible ? ' Age ' + op.age + ' qualifies for the age-50+ catch-up.' : '')) + '</div>';
   }
 
   document.getElementById('capsDiv').innerHTML = ok
-    ? '<span class="muted-txt">Binding cap &mdash; Solo 401(k) deferral: <code>' + op.solo_401k.binding_caps.employee_deferral + '</code>, employer: <code>' + op.solo_401k.binding_caps.employer_contribution + '</code>, total: <code>' + op.solo_401k.binding_caps.total + '</code>; SEP-IRA: <code>' + op.sep_ira.binding_caps.contribution + '</code>; SIMPLE employee: <code>' + op.simple_ira.binding_caps.employee + '</code>.'
+    ? '<span class="muted-txt">Binding cap, Solo 401(k) deferral: <code>' + op.solo_401k.binding_caps.employee_deferral + '</code>, employer: <code>' + op.solo_401k.binding_caps.employer_contribution + '</code>, total: <code>' + op.solo_401k.binding_caps.total + '</code>; SEP-IRA: <code>' + op.sep_ira.binding_caps.contribution + '</code>; SIMPLE employee: <code>' + op.simple_ira.binding_caps.employee + '</code>.'
     : '';
   if (flags && flags.length) {
     document.getElementById('capsDiv').innerHTML += '<div style="margin-top:6px">' + flags.map(function (f) {
@@ -463,7 +463,7 @@ function renderResults(op, execHash, pp, flags) {
   const tbl = document.getElementById('resultTbl');
   if (ok) {
     const rows = [
-      ['Max employee contribution', usd(op.solo_401k.employee_deferral_usd_cents), '&mdash;', usd(op.simple_ira.employee_usd_cents)],
+      ['Max employee contribution', usd(op.solo_401k.employee_deferral_usd_cents), 'vs.', usd(op.simple_ira.employee_usd_cents)],
       ['Max employer contribution', usd(op.solo_401k.employer_contribution_usd_cents), usd(op.sep_ira.max_total_usd_cents), usd(op.simple_ira.employer_nonelective_usd_cents)],
       ['Catch-up available', op.solo_401k.catchup_usd_cents ? usd(op.solo_401k.catchup_usd_cents) : 'none', 'n/a', op.catchup_eligible ? usd(op.simple_ira.max_total_usd_cents - op.simple_ira.employee_usd_cents - op.simple_ira.employer_nonelective_usd_cents) : 'none'],
       ['Total max contribution', usd(op.solo_401k.max_total_usd_cents), usd(op.sep_ira.max_total_usd_cents), usd(op.simple_ira.max_total_usd_cents)],
