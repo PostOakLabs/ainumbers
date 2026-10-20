@@ -1,0 +1,216 @@
+{
+  "tool_id": "art-761-caregiver-income-impact",
+  "version": "1.0.0",
+  "title": "Caregiver Income Impact & Lost Earnings Estimator",
+  "description": "Financial cost of unpaid caregiving: direct income loss during the care period, the retirement savings gap from missed 401(k) contributions plus their lost compounding, the cumulative cost of a post-care career setback, and a flagged Social Security reduction estimate, in integer USD cents. The SSA contribution and benefit base and the SSA average annual benefit are selected from a pinned vintage table by an explicit as_of date (the node reads no clock). Ported from ApexLogics display_number #117 (117-caregiver-income-impact, al_id AL-124, CC BY 4.0); DIFFERS-D1..D5 in the porting payload, three modelling constants UNGROUNDED.",
+  "category": "career_workforce",
+  "tags": [
+    "compliance_mandate",
+    "caregiver",
+    "lost-earnings",
+    "career-gap",
+    "social-security",
+    "retirement",
+    "leave",
+    "2026-ssa-vintage",
+    "mcp:estimate_caregiver_income_impact"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "as_of",
+      "salary_usd",
+      "current_age",
+      "retirement_age",
+      "care_years",
+      "income_reduction_pct",
+      "career_setback_pct",
+      "contribution_401k_pct",
+      "investment_return_pct",
+      "marginal_tax_rate_pct"
+    ],
+    "properties": {
+      "as_of": {
+        "type": "string",
+        "description": "Vintage date as YYYY-MM-DD. The node reads no clock; the year selects the pinned SSA table (2025 or 2026) and any other year is REFUSED_UNSUPPORTED_VINTAGE. Must be a real calendar date."
+      },
+      "salary_usd": {
+        "type": "number",
+        "description": "Current annual salary in US dollars, at least 0. AINumbers advisory bound 10000-1000000 (the Apex control's min/max); outside the bound the compute still runs and raises ART761_OUT_OF_UI_RANGE_SALARY_USD.",
+        "default": 90000
+      },
+      "current_age": {
+        "type": "number",
+        "description": "Current age in years. AINumbers advisory bound 18-65 (the Apex control's min/max).",
+        "default": 42
+      },
+      "retirement_age": {
+        "type": "number",
+        "description": "Expected retirement age in years. AINumbers advisory bound 55-75 (the Apex control's min/max).",
+        "default": 67
+      },
+      "care_years": {
+        "type": "number",
+        "description": "Caregiving duration in years, at least 0. AINumbers advisory bound 0.5-30. A duration that reaches or passes retirement age is allowed and clamps years_after_care at 0.",
+        "default": 5
+      },
+      "income_reduction_pct": {
+        "type": "number",
+        "description": "Income reduction during caregiving as a percent, 0-100 (0 = no reduction, 100 = full leave); the compute divides by 100. Refused outside 0-100. 0 is a real value here, not a prompt for the default (DIFFERS-D3).",
+        "default": 50
+      },
+      "career_setback_pct": {
+        "type": "number",
+        "description": "Post-care salary setback as a percent, 0-100; the compute divides by 100. Refused outside 0-100. Above 5 adds a credential-offset strategy. The Apex selector offers 0/5/10/20; any number in range is accepted.",
+        "default": 10
+      },
+      "contribution_401k_pct": {
+        "type": "number",
+        "description": "Annual 401(k) contribution rate as a percent, 0-100; the compute divides by 100. Refused outside 0-100. AINumbers advisory bound 0-20.",
+        "default": 6
+      },
+      "investment_return_pct": {
+        "type": "number",
+        "description": "Annual investment return as a percent, -100 to 100; the compute divides by 100. 0 takes the ordinary-annuity zero-rate branch (fv = pmt * n). AINumbers advisory bound 1-12.",
+        "default": 7
+      },
+      "marginal_tax_rate_pct": {
+        "type": "number",
+        "description": "Marginal tax rate as a percent, 0-100. Required because the source dereferences it unconditionally, but it enters NO formula and is echoed with marginal_tax_rate_used=false (DIFFERS-D4). AINumbers advisory bound 10-37.",
+        "default": 22
+      },
+      "ss_average_annual_benefit_usd": {
+        "type": "number",
+        "description": "Optional override for the SSA average annual retired-worker benefit in dollars, the same fact as the pinned vintage default (2026: 24864; 2025: 24180). Supply 23000 to reproduce the Apex #117 source constant exactly (DIFFERS-D2); a positive value switches ss_average_benefit_source to user_supplied and raises ART761_SS_AVERAGE_BENEFIT_USER_SUPPLIED.",
+        "minimum": 0
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "estimate_caregiver_income_impact",
+    "description": "Quantify the financial cost of unpaid caregiving from a salary, an age pair and a care duration: direct income loss during the care period, the retirement savings gap from missed 401(k) contributions and lost compounding, the cumulative post-care career-setback cost, and a flagged Social Security reduction estimate, in integer USD cents. as_of selects a pinned SSA vintage (2025 or 2026); the node reads no clock. The SSA term is a flagged linearisation, not the SSA AIME formula.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "as_of",
+        "salary_usd",
+        "current_age",
+        "retirement_age",
+        "care_years",
+        "income_reduction_pct",
+        "career_setback_pct",
+        "contribution_401k_pct",
+        "investment_return_pct",
+        "marginal_tax_rate_pct"
+      ],
+      "properties": {
+        "as_of": { "type": "string", "description": "Vintage date, YYYY-MM-DD; the year selects the pinned SSA table and the node reads no clock." },
+        "salary_usd": { "type": "number", "description": "Current annual salary in USD, at least 0.", "default": 90000 },
+        "current_age": { "type": "number", "description": "Current age in years.", "default": 42 },
+        "retirement_age": { "type": "number", "description": "Expected retirement age in years.", "default": 67 },
+        "care_years": { "type": "number", "description": "Caregiving duration in years, at least 0.", "default": 5 },
+        "income_reduction_pct": { "type": "number", "description": "Income reduction while caregiving, percent 0-100.", "default": 50 },
+        "career_setback_pct": { "type": "number", "description": "Post-care salary setback, percent 0-100.", "default": 10 },
+        "contribution_401k_pct": { "type": "number", "description": "Annual 401(k) contribution rate, percent 0-100.", "default": 6 },
+        "investment_return_pct": { "type": "number", "description": "Annual investment return, percent -100 to 100.", "default": 7 },
+        "marginal_tax_rate_pct": { "type": "number", "description": "Marginal tax rate percent 0-100; echoed, unused (DIFFERS-D4).", "default": 22 },
+        "ss_average_annual_benefit_usd": { "type": "number", "description": "Optional SSA average annual benefit override in USD; 23000 reproduces the Apex source." }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-761-caregiver-income-impact.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "description": "output_payload: as_of, vintage_year, ss_wage_base_usd, ss_average_annual_benefit_usd, ss_average_benefit_source (pinned_official_<vintage> | user_supplied); the echoed inputs including marginal_tax_rate_pct and marginal_tax_rate_used (always false, DIFFERS-D4); years_to_retirement, years_after_care and years_from_midcare (dead in the source, carried for parity); integer-cent annual_income_loss_cents, direct_income_loss_cents, annual_401k_lost_cents, retirement_savings_gap_cents, career_setback_cost_cents, setback_compounding_rate_bp, ss_reduction_fraction_micro, annual_ss_reduction_cents, ss_lifetime_reduction_cents, total_impact_cents (excl. SS) and total_impact_with_ss_cents; strategies (5 base rows plus one when career_setback_pct > 5); refusals, refusal_reason, domain_errors; caveats (the compliance-flag mirror); scope_note. On refusal every money member is null and refusal_reason names the code.",
+    "required": [
+      "as_of",
+      "vintage_year",
+      "ss_wage_base_usd",
+      "ss_average_annual_benefit_usd",
+      "direct_income_loss_cents",
+      "retirement_savings_gap_cents",
+      "career_setback_cost_cents",
+      "annual_ss_reduction_cents",
+      "ss_lifetime_reduction_cents",
+      "total_impact_cents",
+      "total_impact_with_ss_cents",
+      "refusal_reason"
+    ]
+  },
+  "source": "chaingraph/kernels/art-761-caregiver-income-impact.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: as_of, salary_usd, current_age, retirement_age, care_years, income_reduction_pct, career_setback_pct, contribution_401k_pct, investment_return_pct, marginal_tax_rate_pct, plus the optional ss_average_annual_benefit_usd override. Every property type is taken from the compute's read of that member (the nine numerics are arithmetic operands, as_of is the string the ISO comparator and vintage table index). All ten unconditional reads are listed in required, including marginal_tax_rate_pct, which the source dereferences but never uses. The bounds quoted in each description are the Apex control min/max attributes carried over as AINumbers advisory bounds; the hard domain refusals (0-100 percent, care_years >= 0, investment_return_pct within -100..100) are the compute's own guards.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "as_of": "2026-10-13",
+    "salary_usd": 90000,
+    "current_age": 42,
+    "retirement_age": 67,
+    "care_years": 5,
+    "income_reduction_pct": 50,
+    "career_setback_pct": 10,
+    "contribution_401k_pct": 6,
+    "investment_return_pct": 7,
+    "marginal_tax_rate_pct": 22
+  },
+  "output_example": {
+    "as_of": "2026-10-13",
+    "vintage_year": 2026,
+    "ss_wage_base_usd": 184500,
+    "ss_average_annual_benefit_usd": 24864,
+    "ss_average_benefit_source": "pinned_official_2026",
+    "salary_usd": 90000,
+    "current_age": 42,
+    "retirement_age": 67,
+    "care_years": 5,
+    "income_reduction_pct": 50,
+    "career_setback_pct": 10,
+    "contribution_401k_pct": 6,
+    "investment_return_pct": 7,
+    "marginal_tax_rate_pct": 22,
+    "marginal_tax_rate_used": false,
+    "years_to_retirement": 25,
+    "years_after_care": 20,
+    "years_from_midcare": 22.5,
+    "annual_income_loss_cents": 4500000,
+    "direct_income_loss_cents": 22500000,
+    "annual_401k_lost_cents": 270000,
+    "retirement_savings_gap_cents": 6008457,
+    "career_setback_cost_cents": 21867633,
+    "setback_compounding_rate_bp": 200,
+    "ss_reduction_fraction_micro": 243902,
+    "annual_ss_reduction_cents": 86634,
+    "ss_lifetime_reduction_cents": 1732683,
+    "total_impact_cents": 50376090,
+    "total_impact_with_ss_cents": 52108773,
+    "strategies": [
+      "Max IRA/401(k) during and after the caregiving period - even small contributions compound over the years left to retirement",
+      "Consider spousal IRA contributions where applicable (allows retirement savings with little or no own income)",
+      "Negotiate phased re-entry or remote arrangements to limit the career setback",
+      "A written caregiver agreement with family for shared caregiving can provide modest taxable income and keep the Social Security record alive",
+      "Review employer EAP, FMLA and caregiver benefits BEFORE reducing hours",
+      "Invest in a credential or certification during or after caregiving to offset the 10% setback (see the AINumbers workforce ROI node)"
+    ],
+    "refusals": [],
+    "refusal_reason": null,
+    "domain_errors": [],
+    "caveats": [
+      "ART761_SETBACK_ABOVE_FIVE_PCT",
+      "ART761_SS_ESTIMATE_MODELED"
+    ],
+    "scope_note": "Not a benefit projection and not tax advice. The Social Security term is a flagged linearisation (ART761_SS_ESTIMATE_MODELED), not the SSA AIME formula - use art-282-social-security-claiming-optimizer or pf-139-social-security-bridge for a real benefit estimate. The career-setback compounding rate, the caregiving-year divisor, the 15 percent cap and the 20-year draw are modelling constants carried from the source, each UNGROUNDED. marginal_tax_rate_pct is accepted and echoed but enters no formula (source DIFFERS-D4: the Apex page reads it and never uses it). No inflation, no FMLA/state leave value, no unpaid-care opportunity cost beyond the direct wage loss, no employer-benefit valuation."
+  },
+  "example_execution_hash": "100c29d8d0ac5eb5a41f16eac4f27fc94a5caefe31a4c2295bbfbdc40dc29311"
+}
