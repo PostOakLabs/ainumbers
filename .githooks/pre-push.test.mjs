@@ -48,12 +48,34 @@
  */
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, chmodSync, appendFileSync, copyFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isolatedChildEnv } from '../scripts/_git-env-lib.mjs';
 
 const HOOK_SRC = fileURLToPath(new URL('./pre-push', import.meta.url));
+
+// PREPUSH-TEST-TEMPDIR-1: scratch lives inside the worktree (git-ignored
+// `.tmp/`), not %TEMP% — sandboxed lanes can write the worktree but cannot
+// delete under %TEMP%, so preflight could not run locally.
+const SCRATCH_ROOT = resolve(dirname(HOOK_SRC), '..', '.tmp');
+
+// Git for Windows' bash, never a WSL bash.exe that precedes it on PATH.
+function resolveBash() {
+  if (process.platform === 'win32') {
+    for (const root of [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], 'C:\Program Files']) {
+      if (!root) continue;
+      const p = join(root, 'Git', 'usr', 'bin', 'bash.exe');
+      if (existsSync(p)) return p;
+    }
+  }
+  return 'bash';
+}
+const BASH = resolveBash();
+
+// Best-effort: a refused removal must never fail the test.
+function cleanup(dir) {
+  try { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); } catch { /* best-effort */ }
+}
 
 let failures = 0;
 function assert(cond, msg) {
@@ -76,7 +98,8 @@ process.exit(process.env.MOCK_PREFLIGHT_EXIT ? Number(process.env.MOCK_PREFLIGHT
 
 // Fresh, short-lived, session-private sandbox per SO #55 — never a shared temp path.
 function makeSandbox() {
-  const dir = mkdtempSync(join(tmpdir(), 'ain-eR-'));
+  mkdirSync(SCRATCH_ROOT, { recursive: true });
+  const dir = mkdtempSync(join(SCRATCH_ROOT, 'ain-eR-'));
   mkdirSync(join(dir, '.githooks'), { recursive: true });
   mkdirSync(join(dir, 'scripts'), { recursive: true });
   const hookDst = join(dir, '.githooks', 'pre-push');
@@ -101,7 +124,7 @@ function makeSandbox() {
 function runHook(dir, envOverrides, input = '') {
   const argvDump = join(dir, 'argv-dump.json');
   const metricsFile = join(dir, 'metrics.jsonl');
-  const res = spawnSync('bash', ['.githooks/pre-push'], {
+  const res = spawnSync(BASH, ['.githooks/pre-push'], {
     cwd: dir,
     input,
     env: {
@@ -138,7 +161,7 @@ function runHook(dir, envOverrides, input = '') {
   assert(JSON.stringify(r.argv) === JSON.stringify(['--quick']),
     `default path forwards nothing extra to preflight (got ${JSON.stringify(r.argv)})`);
   assert(r.metricsLines.length === 0, 'default path appends nothing to the metrics log');
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 2. PARSING — comma-separated ids, stray whitespace, order preserved ──
@@ -149,7 +172,7 @@ function runHook(dir, envOverrides, input = '') {
   const expected = ['--quick', '--expect-red', 'gate-a', '--expect-red', 'gate-b'];
   assert(JSON.stringify(r.argv) === JSON.stringify(expected),
     `comma-separated declaration becomes one --expect-red pair per id, trimmed, in order (got ${JSON.stringify(r.argv)})`);
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 3. GREEN CONTROL — declared id, preflight accepts, push proceeds ─────
@@ -172,7 +195,7 @@ let greenDenied;
     assert(parsed.denied === false, 'GREEN control: logged denied:false — the declaration was accepted, not blocked');
     greenDenied = parsed.denied;
   }
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 4. RED CONTROL — declaration present, a genuine defect still blocks ──
@@ -193,7 +216,7 @@ let greenDenied;
     assert(parsed.denied === true, 'RED control: logged denied:true — the declaration did NOT waive the block');
   }
   assert(greenDenied === false, 'sanity: GREEN and RED controls produced opposite denied values');
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 5. NO PERSISTENCE — a second, unflagged push against the same red mock
@@ -213,7 +236,7 @@ let greenDenied;
     'NO PERSISTENCE: the unflagged push forwards no --expect-red args (no state survived)');
   assert(plain.metricsLines.length === linesAfterFlagged,
     `NO PERSISTENCE: the unflagged push appended nothing new to the metrics log (had ${linesAfterFlagged}, now ${plain.metricsLines.length})`);
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 6. FILE-BASED ROUTE (EXPECTRED-ENVPREFIX-GAP-1) — reachable under the
@@ -235,7 +258,7 @@ let greenDenied;
     assert(parsed.source === 'file', `file-based route: logged source is "file" (got ${parsed.source})`);
     assert(parsed.row === 'TEST-ROW-2', `file-based route: row id read from the declaration file's second line (got ${parsed.row})`);
   }
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 7. FILE-BASED ROUTE, STILL BLOCKS (load-bearing) — a genuine second red
@@ -247,7 +270,7 @@ let greenDenied;
   const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '1' });
   assert(r.status !== 0, 'file-based route, STILL BLOCKS: a genuine red still fails the push even with a file declaration');
   assert(!existsSync(join(dir, '.git', 'AINUM_EXPECT_RED')), 'file-based route: declaration file deleted even when the push is still denied');
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 8. FILE NEVER OUTLIVES A LATER, UNFLAGGED PUSH ────────────────────────
@@ -263,7 +286,7 @@ let greenDenied;
   assert(second.status !== 0, 'NO PERSISTENCE (file route): a later push with no file and a genuine red still blocks');
   assert(JSON.stringify(second.argv) === JSON.stringify(['--quick']),
     'NO PERSISTENCE (file route): the later push forwards no --expect-red (the file did not survive)');
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 9. ENV TAKES PRECEDENCE OVER A STALE FILE, AND THE STALE FILE IS STILL
@@ -277,7 +300,7 @@ let greenDenied;
     `env wins when both are present (got ${JSON.stringify(r.argv)})`);
   assert(!existsSync(join(dir, '.git', 'AINUM_EXPECT_RED')),
     'a stale file is still deleted even when the env form is the one actually used');
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 10. PREFLIGHT_FULL=1 — the FULL suite leg runs after (and behind) quick,
@@ -290,7 +313,7 @@ let greenDenied;
   assert(r.status === 0, 'PREFLIGHT_FULL=1: hook exits 0 when both legs are green');
   assert(JSON.stringify(r.argv) === JSON.stringify(['--changed', 'origin/main', '--expect-red', 'gate-f']),
     `PREFLIGHT_FULL=1: the full leg forwards --changed origin/main plus declared ids (last invocation got ${JSON.stringify(r.argv)})`);
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 11/12. PREPUSH-NARROW-1 — the full-suite trigger. A sandbox WITH an
@@ -321,7 +344,7 @@ function loggedArgvs(dir) {
   const calls = loggedArgvs(dir);
   assert(r.status === 0 && calls.length === 1 && calls[0][0] === '--quick',
     `docs-only scripts/ diff (GREEN, not owed): quick leg only (got ${JSON.stringify(calls)})`);
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 {
   const dir = makeTriggerSandbox('scripts/new-gate.mjs');
@@ -330,13 +353,13 @@ function loggedArgvs(dir) {
   assert(r.status === 0 && calls.length === 1 && calls[0][0] === '--changed' && calls[0][1] === 'origin/main',
     `scripts/*.mjs diff (RED, owed): FULL leg only, quick skipped as a subset (got ${JSON.stringify(calls)})`);
   assert(existsSync(join(dir, '.git', 'preflight-full.log')), 'full leg output is teed to .git/preflight-full.log');
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 {
   const dir = makeTriggerSandbox('scripts/new-gate.mjs');
   const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '1' });
   assert(r.status !== 0, 'full leg red (exit status survives the tee pipe) still BLOCKS the push');
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 13. PREPUSH-PRID-ENV-1 — PR_ID_COLLISION_PR is exported to preflight only
@@ -352,7 +375,7 @@ function prFor(ghJson, branchInStdin, ghExit = 0) {
   const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', PREPUSH_PRID_GH_JS: fakeGh }, stdin);
   const f = join(dir, 'env-log.txt');
   const seen = existsSync(f) ? readFileSync(f, 'utf8') : '';
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
   return { status: r.status, seen };
 }
 {

@@ -236,6 +236,7 @@ const rootPages = [
   { icon: '🎯', name: 'Agentic Readiness Diagnostic (A–F)', href: 'chaingraph/art-27-agentic-readiness-diagnostic.html' },
   { icon: '🔌', name: 'MCP Server (docs & connect)', href: 'mcp.html' },
   { icon: '🕸', name: 'WebMCP Overview (browser-native tool pages)', href: 'webmcp.html' },
+  { icon: '🔬', name: 'Research (free web AI benchmark and public repos)', href: 'research/index.html' },
   { icon: '🧪', name: 'Bazantic Walkthrough (ETHOnline 2026 evidence)', href: 'bazantic-walkthrough.html' },
   { icon: '🔁', name: 'Conversion Suite', href: 'convert.html' },
   { icon: '🧩', name: 'Helm (control plane, beta)', href: 'helm.html' },
