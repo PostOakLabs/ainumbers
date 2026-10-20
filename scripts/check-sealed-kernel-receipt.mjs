@@ -35,6 +35,7 @@
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -84,7 +85,7 @@ export async function evaluate(changes, { sourceDigest, verifySeal }) {
 
 // ── git readers ───────────────────────────────────────────────────────────────────────────────────
 function git(args, opts = {}) {
-  return execFileSync('git', args, { cwd: REPO, maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'ignore'], ...opts }).toString();
+  return execFileSync('git', args, { cwd: REPO, env: gitEnv(), maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'ignore'], ...opts }).toString();
 }
 function show(ref, path) {
   try { return git(['show', `${ref}:${path}`]); } catch { return null; }
