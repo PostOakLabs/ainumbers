@@ -187,7 +187,7 @@ export function compute(pp) {
   if (priorYearTax > 0) compliance_flags.push('SAFE_HARBOR_PRIOR_YEAR_APPLIED');
   if (ytdPaid > 0) compliance_flags.push('YTD_PAYMENTS_ENTERED');
 
-  // FLAG-MIRROR-DOCTRINE (AUTHORING-STANDARD §2.2): the conditional flags mirror into
+  // FLAG-MIRROR-DOCTRINE (AUTHORING-STANDARD flag-mirror doctrine): the conditional flags mirror into
   // output_payload.warnings so the payload itself carries them. The base
   // FREELANCE_QUARTERLY_ESTIMATED flag is unconditional and stays flag-only.
   const warnings = compliance_flags.filter((f) => f !== 'FREELANCE_QUARTERLY_ESTIMATED');
