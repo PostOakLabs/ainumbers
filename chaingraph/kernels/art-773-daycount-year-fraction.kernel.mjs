@@ -1,4 +1,4 @@
-// art-772-daycount-year-fraction — demonstrator node for the shared
+// art-773-daycount-year-fraction — demonstrator node for the shared
 // _daycount.bundle.mjs kernel (SHARED-DAYCOUNT-BUNDLE-1, build-order step 3
 // of the ACCT-INFRA shared-bundle wave; bundle extracted byte-compatibly from
 // _amort.bundle.mjs and extended with ACT_ACT_ICMA, BUS_252, exact rational
@@ -465,7 +465,7 @@ const {
   CONVENTIONS, fraction, fractionFloat, fractionParts, roll, parseISODate, businessDaysBetween,
 } = _daycount;
 
-const TOOL_ID = 'art-772-daycount-year-fraction';
+const TOOL_ID = 'art-773-daycount-year-fraction';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {

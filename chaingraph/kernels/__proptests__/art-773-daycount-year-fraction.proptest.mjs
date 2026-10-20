@@ -1,6 +1,6 @@
-// art-772-daycount-year-fraction.proptest.mjs — class-K property-test FLOOR
+// art-773-daycount-year-fraction.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md) for the SHARED-DAYCOUNT-BUNDLE-1 demonstrator.
-// kernel_digest_at_authoring: sha256:6fe272592acdf4272a4412fb8799c91b9bf470e334383265ea9f48c8031ee7c7
+// kernel_digest_at_authoring: sha256:b02263ae6a14f2fd4355d5c7df0fcb67a4c992093349ec0689fb58367a7530d5
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof. Internal engineering QC only.
@@ -33,15 +33,15 @@
 // plus the two in-repo bundles this row owns/exercises (_daycount SSOT and the _amort
 // differential oracle; imported as ES modules per their own export-tail contracts).
 //
-// Run: node chaingraph/kernels/__proptests__/art-772-daycount-year-fraction.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-773-daycount-year-fraction.proptest.mjs
 
-import { compute } from '../art-772-daycount-year-fraction.kernel.mjs';
+import { compute } from '../art-773-daycount-year-fraction.kernel.mjs';
 import { runFixtureOracle, summarize } from './_pbt-common.mjs';
 import { _daycount } from '../_daycount.bundle.mjs';
 import { _amort } from '../_amort.bundle.mjs';
 import { readFileSync } from 'node:fs';
 
-const KERNEL_ID = 'art-772-daycount-year-fraction';
+const KERNEL_ID = 'art-773-daycount-year-fraction';
 
 const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { const t = a % b; a = b; b = t; } return a; };
 const deepEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
