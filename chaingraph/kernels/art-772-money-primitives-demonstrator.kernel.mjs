@@ -309,9 +309,9 @@ const _money = {
     // Types are asserted, not inferred: total is a validated {v: BigInt, s} and
     // weights a validated bigint[] (both _requireValue/refused above), so the
     // bigint operators below are sound for the jsdoc-checkjs gate.
+    _requireValue(total, 'allocate');
     const tv = /** @type {bigint} */ (total.v);
     const ws = /** @type {bigint[]} */ (weights);
-    _requireValue(total, 'allocate');
     if (!Array.isArray(weights) || weights.length === 0) {
       throw new MoneyRefusal('REFUSED_ALLOCATE_WEIGHTS', 'weights must be a non-empty array');
     }
