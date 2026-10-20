@@ -1,0 +1,50 @@
+{
+ "tool_id": "art-749-solana-paychan-voucher-verifier",
+ "tool_version": "1.0.0",
+ "display_name": "Solana Paychan Voucher Verifier",
+ "mcp_name": "verify_solana_payment_channel_voucher",
+ "mandate_type": "payment_mandate",
+ "wave": 134,
+ "gpu": false,
+ "url": "https://ainumbers.co/chaingraph/art-749-solana-paychan-voucher-verifier.html",
+ "description": "Values-only check of a Solana payment-channels voucher message against trusted channel terms. The voucher is the 50-byte Ed25519-signed message the payment-channels program reads through the Instructions sysvar: magic bytes 0x56 0x01, a 32-byte channel PDA binding, a u64 little-endian cumulative amount and an i64 little-endian expiry (0 disables). This node recomputes the program validator's own post-signature check sequence by pure byte inspection and trusted inputs: exact 50-byte layout, magic tag/version, channel_id equals the supplied channel PDA, cumulative amount within the escrowed deposit ceiling, cumulative amount strictly above the settled watermark (at-or-below is a stale voucher, mirroring the program's settled >= cumulative failure), expiry 0 or later than the supplied unix clock, and an optional supersession comparison where a second voucher with a lower or equal cumulative amount is superseded by the first. On success it reports the settle delta (cumulative minus settled) a settle of this voucher would add. Values are pasted; every channel term (PDA, ceiling, watermark, clock) is a trusted input computed in BigInt with no floats. Out of scope and stated in every output: the Ed25519 signature itself is NOT verified here and nothing is read from chain — a companion on-chain check or precompile read is required for signature proof. Sibling of the Tempo MPP voucher verifier art-594.",
+ "input_schema_ref": "chaingraph/art-749-solana-paychan-voucher-verifier.html#manifest",
+ "consumes": [],
+ "feeds": [],
+ "status": "live",
+ "conformance_fixtures": true,
+ "compute_capability": "server",
+ "compute_images": [
+  {
+   "system": "sha256-source",
+   "image_id": "sha256:17c5fcb86a7dfb4a0d5b75043514d5e46c4ac1faf40e38bfb32e4a2119966b7d",
+   "valid_from": "2026-10-20"
+  }
+ ],
+ "export_capability": [
+  "json"
+ ],
+ "standards_basis": "implements_standard",
+ "cited_clause_digest": [
+  {
+   "digest": "sha256:cc40da7466903f99f5eb8cf9fb3e16829bffad7632b8776ade0eb07717ab81d6",
+   "source_url": "https://github.com/solana-foundation/payment-channels/blob/3ffa4d6728ad88e4a9667a76ad9ccd68a302c696/README.md#L36-L55",
+   "retrieved_at": "2026-10-15",
+   "clause_path": "README 'Architecture' + 'Voucher wire format' lines 36-55: 50-byte voucher layout magic [0x56,0x01] + channel_id 32B + cumulative_amount u64 LE + expires_at i64 LE (0 disables expiry); channel PDA from b\"channel\",payer,payee,mint,authorized_signer,salt,open_slot; OPEN_SLOT_WINDOW=1500; Ed25519 precompile ix read via Instructions sysvar"
+  },
+  {
+   "digest": "sha256:45a7ae260271aaf0efb74dc38a2b83ba2497793e245bcd5db6c1c4ff64dde6df",
+   "source_url": "https://github.com/solana-foundation/payment-channels/blob/3ffa4d6728ad88e4a9667a76ad9ccd68a302c696/program/payment_channels/src/instructions/helpers/voucher.rs#L1-L101",
+   "retrieved_at": "2026-10-15",
+   "clause_path": "voucher.rs lines 1-101: verify_parsed checks in order magic, channel_id==address, expires_at freshness (expires_at != 0 && now >= expires_at -> expired), cumulative<=deposit, settled<cumulative (strictly monotonic watermark), authorized_signer match; returns cumulative as the new watermark"
+  },
+  {
+   "digest": "sha256:1932e8ef15a5fcd66705c0cd15bf0001b068c147eb57985e8498f72dc28b44b7",
+   "source_url": "https://github.com/solana-foundation/payment-channels/blob/3ffa4d6728ad88e4a9667a76ad9ccd68a302c696/program/payment_channels/src/constants.rs#L36-L56",
+   "retrieved_at": "2026-10-15",
+   "clause_path": "constants.rs lines 36-56: OPEN_SLOT_WINDOW=1_500; MAX_DEPLOYED_OPEN_SLOT_WINDOW ratchet const assert — may only ever decrease across deployments"
+  }
+ ],
+ "compute_proof_ready": "deferred",
+ "deferred_reason": "New gpu:false node, art-749-solana-paychan-voucher-verifier, built 2026-10-20 (SOLANA-PAYCHAN-VOUCHER-VERIFIER-1). No GPU prove has been run and none is proposed by this row — deferred per the section 18 steady-state rule; the section 18 ceiling is raised by one in the same PR (SO #59 in-PR shape) via check-compute-proof-coverage.mjs --update-baseline under a scratch DERIVED_ROOT."
+}
