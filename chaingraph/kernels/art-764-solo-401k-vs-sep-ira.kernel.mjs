@@ -84,7 +84,7 @@ const LIMITS_BY_TAX_YEAR = {
 const SUPPORTED_TAX_YEARS = [2026];
 
 /**
- * Non-tax-year-indexed structural rates. Basis points of one (10000 = 100%).
+ * Non-tax-year-indexed rates. Basis points of one (10000 = 100%).
  * These are definitional/statutory mechanics, not annual COLA amounts, which is
  * why they sit outside LIMITS_BY_TAX_YEAR — but each still carries its citation.
  */
