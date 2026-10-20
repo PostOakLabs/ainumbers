@@ -1,0 +1,295 @@
+{
+  "tool_id": "art-752-freelance-quarterly-estimated-tax",
+  "version": "1.0.0",
+  "title": "Freelance Quarterly Estimated Tax Calculator",
+  "description": "Port of ApexLogics Apex #116 (AL-123) Freelance Quarterly Estimated Tax Calculator into the AINumbers chaingraph shape. From gross freelance income, business expenses, other income, a filing status (single/mfj), an elective state bucket (none/low/mid/high = 0/3/5/9.3%, an illustrative assumption rather than a jurisdiction lookup), prior-year federal tax and year-to-date payments, the node computes net SE income, SE tax (12.4% Social Security capped at the 2026 wage base $184,500 plus 2.9% Medicare on 92.35% of net earnings), AGI after the employer-equivalent half of SE tax, federal income tax on the 2026 brackets after the 2026 standard deduction ($16,100 single / $32,200 MFJ), equal quarterly installments of the annual total with the 2026 due dates, and the safe harbor (lesser of 100% prior-year or 90% current-year federal tax). One constant was corrected to the official source at porting: Q2 2026 ships as June 15, 2026 per IRS Form 1040-ES, where Apex listed June 16 (payload DIFFERS.md D1). Three Apex omissions ride flagged rather than silently patched: the 0.9% Additional Medicare Tax, the 110% high-earner safe-harbor prong and the $1,000 de minimis exemption (DIFFERS.md D2-D4, report items R2-R3). Port provenance: Apex page https://apexlogics.org/tools/116-freelance-quarterly-estimated-tax/ fetched 2026-10-06 (30,666 bytes), tasking APEXPORT-116 (GRADES PASS-PENDING-XV 2026-10-07, Builder-verifies-at-land 19/19 vectors), landed by APEX-PORT-116-LAND-1 on 2026-10-20.",
+  "category": "personal-finance",
+  "ap2_export": true,
+  "tags": [
+    "freelance",
+    "self-employed",
+    "estimated-tax",
+    "quarterly",
+    "se-tax",
+    "safe-harbor",
+    "2026",
+    "mcp:estimate_quarterly_tax"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "gross_income",
+      "business_expenses",
+      "other_income",
+      "filing_status",
+      "state",
+      "prior_year_tax",
+      "ytd_paid"
+    ],
+    "properties": {
+      "gross_income": {
+        "type": "number",
+        "description": "Annual gross freelance / self-employment income in USD (Apex input grossIncome, default 120000, min 1000, max 2000000)."
+      },
+      "business_expenses": {
+        "type": "number",
+        "description": "Business expenses in USD (Apex input expenses, default 15000, min 0, max 500000). Software, home office, equipment, professional fees, etc."
+      },
+      "other_income": {
+        "type": "number",
+        "description": "Other income in USD — W-2 wages, interest, dividends (Apex input otherIncome, default 0, min 0)."
+      },
+      "filing_status": {
+        "type": "string",
+        "enum": [
+          "single",
+          "mfj"
+        ],
+        "description": "Filing status (Apex select filingStatus). 'single' = Single / Married Filing Separately; 'mfj' = Married Filing Jointly."
+      },
+      "state": {
+        "type": "string",
+        "enum": [
+          "none",
+          "low",
+          "mid",
+          "high"
+        ],
+        "description": "State tax bucket (Apex select state). Illustrative elective rates: none=0, low=0.03, mid=0.05, high=0.093. An assumption, not a jurisdiction lookup."
+      },
+      "prior_year_tax": {
+        "type": "number",
+        "description": "Prior-year federal tax in USD (Form 1040 line 24; Apex priorYearTax, default 0). Drives the safe harbor; 0 selects the 90%-of-current fallback."
+      },
+      "ytd_paid": {
+        "type": "number",
+        "description": "Year-to-date estimated payments already made in USD (Apex input ytdPaid, default 0, min 0)."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "estimate_quarterly_tax",
+    "description": "Quarterly IRS estimated tax for self-employed income: net SE income, SE tax (SS + Medicare), federal income tax on the 2026 brackets, an elective state bucket, equal quarterly installments with the 2026 due dates, and the 90%/100% safe-harbor amount. 2026 IRS constants. Full provenance in the manifest description.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "gross_income",
+        "business_expenses",
+        "other_income",
+        "filing_status",
+        "state",
+        "prior_year_tax",
+        "ytd_paid"
+      ],
+      "properties": {
+        "gross_income": {
+          "type": "number",
+          "description": "Annual gross freelance / self-employment income in USD (Apex input grossIncome, default 120000, min 1000, max 2000000)."
+        },
+        "business_expenses": {
+          "type": "number",
+          "description": "Business expenses in USD (Apex input expenses, default 15000, min 0, max 500000). Software, home office, equipment, professional fees, etc."
+        },
+        "other_income": {
+          "type": "number",
+          "description": "Other income in USD — W-2 wages, interest, dividends (Apex input otherIncome, default 0, min 0)."
+        },
+        "filing_status": {
+          "type": "string",
+          "enum": [
+            "single",
+            "mfj"
+          ],
+          "description": "Filing status (Apex select filingStatus). 'single' = Single / Married Filing Separately; 'mfj' = Married Filing Jointly."
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "none",
+            "low",
+            "mid",
+            "high"
+          ],
+          "description": "State tax bucket (Apex select state). Illustrative elective rates: none=0, low=0.03, mid=0.05, high=0.093. An assumption, not a jurisdiction lookup."
+        },
+        "prior_year_tax": {
+          "type": "number",
+          "description": "Prior-year federal tax in USD (Form 1040 line 24; Apex priorYearTax, default 0). Drives the safe harbor; 0 selects the 90%-of-current fallback."
+        },
+        "ytd_paid": {
+          "type": "number",
+          "description": "Year-to-date estimated payments already made in USD (Apex input ytdPaid, default 0, min 0)."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-752-freelance-quarterly-estimated-tax.html",
+    "function_name": "runCompute",
+    "timeout_ms": 5000
+  },
+  "source": "chaingraph/kernels/art-752-freelance-quarterly-estimated-tax.kernel.mjs",
+  "input_schema_provenance": "Each property is exactly the policy_parameters member the kernel reads; all seven are required and mirror the Apex page inputs (grossIncome, expenses, otherIncome, filingStatus, state, priorYearTax, ytdPaid). Unknown state keys price at rate 0 and non-mfj statuses price as single — the Apex page fallback, restated by the property-test floor.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "gross_income": 120000,
+    "business_expenses": 15000,
+    "other_income": 0,
+    "filing_status": "single",
+    "state": "high",
+    "prior_year_tax": 0,
+    "ytd_paid": 0
+  },
+  "output_example": {
+    "net_se_income": 105000,
+    "se_tax": 14836.03,
+    "ss_tax": 12023.97,
+    "mc_tax": 2812.06,
+    "agi": 97581.99,
+    "taxable_income": 81481.99,
+    "federal_income_tax": 12638.04,
+    "effective_fed_rate": 0.13,
+    "state_tax": 9765,
+    "total_federal_tax": 27474.06,
+    "total_annual_tax": 37239.06,
+    "effective_total_rate": 0.35,
+    "per_quarter": 9309.77,
+    "remaining_after_ytd": 37239.06,
+    "safe_harbor_total": 24726.66,
+    "safe_harbor_quarterly": 6181.66,
+    "quarters": [
+      {
+        "quarter": "Q1",
+        "due": "Apr 15, 2026",
+        "amount": 9309.77
+      },
+      {
+        "quarter": "Q2",
+        "due": "Jun 15, 2026",
+        "amount": 9309.77
+      },
+      {
+        "quarter": "Q3",
+        "due": "Sep 15, 2026",
+        "amount": 9309.77
+      },
+      {
+        "quarter": "Q4",
+        "due": "Jan 15, 2027",
+        "amount": 9309.77
+      }
+    ],
+    "warnings": []
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "net_se_income": {
+        "type": "number"
+      },
+      "se_tax": {
+        "type": "number"
+      },
+      "ss_tax": {
+        "type": "number"
+      },
+      "mc_tax": {
+        "type": "number"
+      },
+      "agi": {
+        "type": "number"
+      },
+      "taxable_income": {
+        "type": "number"
+      },
+      "federal_income_tax": {
+        "type": "number"
+      },
+      "effective_fed_rate": {
+        "type": "number"
+      },
+      "state_tax": {
+        "type": "number"
+      },
+      "total_federal_tax": {
+        "type": "number"
+      },
+      "total_annual_tax": {
+        "type": "number"
+      },
+      "effective_total_rate": {
+        "type": "number"
+      },
+      "per_quarter": {
+        "type": "number"
+      },
+      "remaining_after_ytd": {
+        "type": "number"
+      },
+      "safe_harbor_total": {
+        "type": "number"
+      },
+      "safe_harbor_quarterly": {
+        "type": "number"
+      },
+      "quarters": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "quarter": {
+              "type": "string"
+            },
+            "due": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "quarter",
+            "due",
+            "amount"
+          ]
+        }
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "net_se_income",
+      "se_tax",
+      "ss_tax",
+      "mc_tax",
+      "agi",
+      "taxable_income",
+      "federal_income_tax",
+      "effective_fed_rate",
+      "state_tax",
+      "total_federal_tax",
+      "total_annual_tax",
+      "effective_total_rate",
+      "per_quarter",
+      "remaining_after_ytd",
+      "safe_harbor_total",
+      "safe_harbor_quarterly",
+      "quarters",
+      "warnings"
+    ],
+    "additionalProperties": false
+  },
+  "example_execution_hash": "c10e0096fd564f5e0f2c77fe3abe15ca6baf12e478f2c350fed4a972997d2885"
+}
