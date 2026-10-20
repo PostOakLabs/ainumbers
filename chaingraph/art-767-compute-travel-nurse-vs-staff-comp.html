@@ -74,15 +74,7 @@ a{color:var(--teal)}
   <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data; use synthetic or anonymised inputs only.</div>
 
   <div class="info-box">
-    <div class="ib-title">Scope &amp; reliance — read before using the number</div>
-    <ul style="margin:6px 0 0 18px;padding:0">
-      <li><b>Not tax advice, and not a determination.</b> The tax-free treatment of the housing stipend and M&amp;IE is <b>an assumption you supply</b>, not something this node establishes. Excludability is a facts-and-circumstances question under IRC §162(a)(2) and Reg. §1.162-17; if it fails, the "tax-free" lines become ordinary taxable wages.</li>
-      <li><b>Zero is not zero.</b> Every input is read as <code>parseFloat(value) || default</code>, exactly as the source tool does. A literal <b>0</b> — and any blank or non-numeric field — is falsy, so it reverts to the tool's default instead of computing as zero. Typing 0 into the housing stipend gives $1,200/week; typing 0 into the tax rate gives 22%. The <b>Substituted defaults</b> line in the output names every field this happened to.</li>
-      <li><b>Gap weeks never touch the travel net.</b> <code>gapWeeks</code> enters only the separately reported opportunity cost, priced at the <i>staff</i> hourly rate. The travel net itself does not subtract unpaid weeks.</li>
-      <li><b>Benefits are excluded from the comparison.</b> The winner test is travel net against staff net <i>ex</i> fringe, and the staff benefits value is reported but not compared. Benefits are not neutral between the two models.</li>
-      <li><b>No range validation.</b> The source tool carries no bounds check in its arithmetic, so this node does not add one; negative and absurd values flow through and are flagged, not clamped.</li>
-      <li><b>No clock.</b> Nothing here reads the date. The artifact envelope takes an explicit timestamp.</li>
-    </ul>
+    <p class="hint" style="margin:0 0 6px">Scope and reliance: this node is not tax advice and determines nothing about the tax treatment of the housing stipend or M&amp;IE; that treatment is an assumption you supply, and if it fails the tax-free lines are ordinary taxable wages (IRC §162(a)(2), Reg. §1.162-17). Two mechanical limits to know: every input is read as <code>parseFloat(value) || default</code>, so a literal 0 or blank field silently reverts to the tool default (the Substituted defaults line names each field), and the winner test compares travel net against staff net ex fringe, so the staff benefits value is reported but never compared.</p>
   </div>
 
   <div class="card">
@@ -128,12 +120,12 @@ a{color:var(--teal)}
   <div class="card">
     <div class="section-head">Where the regulatory citations come from</div>
     <div class="mono" style="color:var(--muted)">
-      IRC §162(a)(2) — travelling expenses while away from home in the pursuit of a trade or business
+      IRC §162(a)(2), travelling expenses while away from home in the pursuit of a trade or business
       (26 U.S.C. §162, law.cornell.edu, fetched 2026-10-15).<br>
-      Reg. §1.162-17(b)(4) — a per diem in lieu of subsistence on a fixed scale may count as an
+      Reg. §1.162-17(b)(4), a per diem in lieu of subsistence on a fixed scale may count as an
       accounting to the employer (law.cornell.edu, fetched 2026-10-15).<br>
-      GSA FY2026 CONUS standard rate — lodging $110/night, M&amp;IE $68/day (master rates file fetched
-      2026-10-15). Federal agency rates under 41 CFR ch. 301; <b>not</b> binding on a private
+      GSA FY2026 CONUS standard rate: lodging $110/night, M&amp;IE $68/day (master rates file fetched
+      2026-10-15). Federal agency rates under 41 CFR ch. 301; not binding on a private
       staffing contract, and not the same as this tool's defaults. See CITES.md and DIFFERS.md.
     </div>
   </div>
@@ -334,19 +326,19 @@ function renderResults(o, flags) {
   const v = document.getElementById("verdict");
   v.className = "verdict " + (o.travelWins ? "positive" : "warn");
   v.textContent = o.travelWins
-    ? "Travel nursing nets " + fmt(o.delta) + " more annually — stipends overcome gap weeks"
-    : "Staff position nets more — gap weeks (" + o.gapWeeks + " × " + o.contractsPerYear + " = " + (o.gapWeeks * o.contractsPerYear) + " wks) erode travel advantage";
+    ? "Travel nursing nets " + fmt(o.delta) + " more annually; stipends overcome gap weeks"
+    : "Staff position nets more; gap weeks (" + o.gapWeeks + " × " + o.contractsPerYear + " = " + (o.gapWeeks * o.contractsPerYear) + " wks) erode travel advantage";
 
   document.getElementById("flags").textContent = flags.length ? flags.join("  ·  ") : "no compliance flags";
 
   const rows = [
     ["Gross wage income", fmt(o.staffGrossAnnual), fmt(o.travelTaxableAnnual), "Staff: full rate. Travel: taxable base only."],
     ["Net taxable income", fmt(o.staffGrossAnnual * (1 - o.taxRate)), fmt(o.travelTaxableNet), "After " + (o.taxRate * 100).toFixed(0) + "% assumed effective rate."],
-    ["Housing stipend", "—", fmt(o.housingAnnual), "Asserted tax-free. Caller-supplied treatment."],
-    ["M&IE stipend", "—", fmt(o.mieAnnual), "Asserted tax-free. Caller-supplied treatment."],
+    ["Housing stipend", "-", fmt(o.housingAnnual), "Asserted tax-free. Caller-supplied treatment."],
+    ["M&IE stipend", "-", fmt(o.mieAnnual), "Asserted tax-free. Caller-supplied treatment."],
     ["Benefits package", fmt(o.staffBenefits), "(varies)", "Staff benefits often superior; excluded from the winner test."],
-    ["Travel / moving costs", "—", "(" + fmt(o.travelTravelCostAnnual) + ")", o.contractsPerYear + " contracts × " + fmt(o.travelCost) + "."],
-    ["Out-of-pocket housing", "—", "(" + fmt(o.ttpHousingCostAnnual) + ")", "Stipend shortfall."],
+    ["Travel / moving costs", "-", "(" + fmt(o.travelTravelCostAnnual) + ")", o.contractsPerYear + " contracts × " + fmt(o.travelCost) + "."],
+    ["Out-of-pocket housing", "-", "(" + fmt(o.ttpHousingCostAnnual) + ")", "Stipend shortfall."],
     ["Net annual (excl. benefits)", fmt(o.staffNetNoFringe), fmt(o.travelNetAnnual), "Apples-to-apples base."],
   ];
   document.getElementById("r-tbody").innerHTML = rows.map(function (r) {
@@ -936,7 +928,7 @@ if (mc) {
     try {
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.textContent = 'Load file (.json / .csv — stays in this tab)';
+      btn.textContent = 'Load file (.json / .csv, stays in this tab)';
       btn.setAttribute('aria-label', 'Load policy inputs from a local JSON or CSV file; the file never leaves your browser');
       btn.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:9998;border:1px solid var(--border-2,#3b4a66);border-radius:8px;padding:8px 12px;font-family:monospace;font-size:.68rem;background:var(--bg-2,#101a2e);color:var(--body,#c7d3e8);cursor:pointer';
       btn.addEventListener('click', pickAndImport);
@@ -946,7 +938,7 @@ if (mc) {
          drop anywhere lands on the import path, never on browser defaults. */
       var zone = document.createElement('div');
       zone.setAttribute('aria-hidden', 'true');
-      zone.textContent = 'Drop a .json or .csv file to prefill this tool — processed locally, nothing is uploaded';
+      zone.textContent = 'Drop a .json or .csv file to prefill this tool; processed locally, nothing is uploaded';
       zone.style.cssText = 'position:fixed;inset:0;z-index:9997;display:none;align-items:center;justify-content:center;border:3px dashed rgba(20,184,166,.6);background:rgba(8,14,26,.72);color:#e6eefc;font-family:monospace;font-size:.85rem;text-align:center;padding:24px';
       var depth = 0;
       var show = function () { depth++; zone.style.display = 'flex'; };
