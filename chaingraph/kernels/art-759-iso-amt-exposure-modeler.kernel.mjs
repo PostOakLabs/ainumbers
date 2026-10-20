@@ -158,6 +158,14 @@ function paramsFor(status) {
  */
 function computeFlat(pp) {
   pp = pp || {};
+  // R4 null-class cure (MR-R4-NULL-REGRESSION-GATE-1): an explicit null is treated
+  // exactly as an absent key. Every input validates by typeof/finite checks that already
+  // reject undefined and null with the same refusal code, so only the refusal `detail`
+  // string differed ("null" vs "undefined"). No fixture vector carries a null, so no
+  // declared behavior (32 exact + 3 declared refusals) changes.
+  for (const k of Object.keys(pp)) {
+    if (pp[k] === null) delete pp[k];
+  }
   const status = pp.filing_status;
   const params = paramsFor(status);
   if (!params) {
