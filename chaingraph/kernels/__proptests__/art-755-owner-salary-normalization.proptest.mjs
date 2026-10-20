@@ -3,7 +3,7 @@
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-06, CONFIRMED reaudits x2, Builder-verifies-at-land 31/31 per the
 // 2026-10-17/2026-10-18 Tim ruling).
-// kernel_digest_at_authoring: sha256:6f3eb48a037164fdbc5dfaa444d8cb7b82fd53ca75b3e385ab1079b06bbcd101
+// kernel_digest_at_authoring: sha256:6f676c7ca32a58167e0e0b1320d455a2f74d3bd28c911a0c6d71ca7d73540654
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.

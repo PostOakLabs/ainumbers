@@ -142,12 +142,14 @@ export const DEFAULT_SDE_MULTIPLE = 2.80;
 /* ── COERCION HELPERS (verbatim Apex semantics) ────────────────────────────── */
 
 /** Apex `numOr`: parseFloat, non-finite -> def. Accepts "" -> def. */
+/** @param {OwnerSalaryNormalizationInputs[keyof OwnerSalaryNormalizationInputs]|undefined} raw */
 function numOr(raw, def) {
   const n = typeof raw === 'number' ? raw : parseFloat(raw);
   return Number.isFinite(n) ? n : def;
 }
 
 /** Apex `dollars`: numOr then Math.round to a whole dollar. */
+/** @param {OwnerSalaryNormalizationInputs[keyof OwnerSalaryNormalizationInputs]|undefined} raw */
 function dollars(raw, def) {
   return Math.round(numOr(raw, def));
 }
@@ -207,10 +209,10 @@ function dollars(raw, def) {
  * OpenChainGraph kernel shape (cf. art-339, art-704).
  *
  * @param {OwnerSalaryNormalizationInputs} pp
- * @returns {{ output_payload: OwnerSalaryNormalizationOutputs & { error: string|null, regulatory_basis: string, scope_note: string }, compliance_flags: string[] }}
+ * @returns {{ output_payload: OwnerSalaryNormalizationOutputs & { warnings: string[], error: string|null, regulatory_basis: string, scope_note: string }, compliance_flags: string[] }}
  */
 export function compute(pp) {
-  pp = pp || {};
+  pp = /** @type {OwnerSalaryNormalizationInputs} */ (pp || {});
 
   /* ── inputs, with Apex's own coercion order ─────────────────────────────── */
 
