@@ -2252,6 +2252,19 @@ const GATES = [
   // derived-artifacts-regen.yml, eleven red runs in three hours. Parity below reads gate names
   // out of these files, so it silently sees nothing when the YAML is broken.
   ['Workflow YAML parses (on + jobs)', 'python scripts/check-workflow-yaml.py'],
+  // A reusable workflow (a path under .github/workflows/ ending .yml/.yaml) may be
+  // called ONLY from a job (jobs.<id>.uses). A step-level call still parses fine, so
+  // the gate above passes it, and the run then dies at execution time with
+  // "Can't find 'action.yml', 'action.yaml' or 'Dockerfile'" (measured 2026-10-15:
+  // derived-regen-deadman.yml:164, 6 of the last 20 deadman runs red). Placement is
+  // decided by structural indentation, no YAML dependency. The single existing call
+  // is baselined (workflow-step-uses-baseline.json through the shared hard-failing
+  // loader) pending DEADMAN-REUSABLE-CALL-HEAL-1, which removes the entry.
+  ['Workflow step-uses placement (no step-level reusable call)', 'node scripts/check-workflow-step-uses.mjs'],
+  // WORKFLOW-STEP-USES-LINT-1 pairing: RED/GREEN over temp-tree workflows (step-level
+  // local and owner/repo shapes RED, job-level and normal actions GREEN) plus the
+  // ratchet states (missing baseline RED, ceiling never raised).
+  ['Workflow step-uses controls (RED/GREEN + ratchet states)', 'node scripts/check-workflow-step-uses.test.mjs'],
   // JSON-parse + no-read-only-fields check for .github/rulesets/*.json (RULESET-AS-CODE-1).
   // Purely local — the "does it match live" half needs an App token and stays CI-only
   // (ruleset-apply.yml / ruleset-drift-gate.yml).
