@@ -99,6 +99,14 @@ export const STATE_CAP_FALLBACK = 99999; // Apex L350
 // UNGROUNDED (U2). Flagged on every output.
 export const PFL_TAXABLE_SHARE = 0.5; // Apex L351
 
+// Standing disclosure stamps, declared once and attached to every non-refused output
+// (FLAGS-COMPUTED-LINT-1: emitted as named constants, the computed class, not a literal
+// array — a stamp attests the data vintage / declared assumption, it never attests
+// computed work).
+export const ART766_2025_VINTAGE = 'ART766_2025_VINTAGE'; // state rates/caps are the Apex 2025 schedule; 2026 differs (DIFFERS D1-D6)
+export const ART766_PFL_PARTIALLY_TAXABLE_ASSUMPTION = 'ART766_PFL_PARTIALLY_TAXABLE_ASSUMPTION'; // L351 haircut is ungrounded (CITES U2)
+export const ART766_WINDFALL_CAP = 'ART766_WINDFALL_CAP'; // L374 1.05 cap is a modelling choice, not a cited fact
+
 // "No windfall": employer pay + state PFL can never exceed 105% of net weekly pay in
 // any week (Apex L374). Modelling choice, not a cited fact.
 export const WINDFALL_CAP_MULT = 1.05; // Apex L374
@@ -252,9 +260,9 @@ function computeFlat(pp) {
   const verdict = isFullyCovered ? 'positive' : savings > savingsNeeded * VERDICT_HALF ? 'warn' : 'danger'; // C9
 
   const compliance_flags = [
-    'ART766_2025_VINTAGE', // state rates/caps are the Apex 2025 schedule; 2026 differs (DIFFERS D1-D6)
-    'ART766_PFL_PARTIALLY_TAXABLE_ASSUMPTION', // L351 haircut is ungrounded (CITES U2)
-    'ART766_WINDFALL_CAP', // L374 1.05 cap is a modelling choice, not a cited fact
+    ART766_2025_VINTAGE,
+    ART766_PFL_PARTIALLY_TAXABLE_ASSUMPTION,
+    ART766_WINDFALL_CAP,
     ...(capBinds ? ['ART766_STATE_CAP_BINDS'] : []),
     ...(recoveryFinite ? [] : ['ART766_RECOVERY_SENTINEL']),
   ];
