@@ -487,6 +487,7 @@ function refPayload(refused, pp, note) {
     business_days_between: null,
     rolls: null,
     refusal: refused,
+    caveats: [refused],
     note,
   };
 }
@@ -548,6 +549,7 @@ export function compute(pp) {
     business_days_between: null,
     rolls: null,
     refusal: null,
+    caveats: [],
     note: 'fraction is the exact gcd-reduced integer rational {num, den}; fraction_value is the declared single-division float convenience form. Round once, after multiplying.',
   };
 
@@ -577,6 +579,7 @@ export function compute(pp) {
     }
   }
 
+  out.caveats = flags.slice(); // AUTHORING-STANDARD Sec 2 flag-mirror: output_payload tracks the conditional flags
   return { output_payload: out, compliance_flags: flags };
 }
 

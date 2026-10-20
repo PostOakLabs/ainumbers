@@ -1,6 +1,6 @@
 // art-773-daycount-year-fraction.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md) for the SHARED-DAYCOUNT-BUNDLE-1 demonstrator.
-// kernel_digest_at_authoring: sha256:b02263ae6a14f2fd4355d5c7df0fcb67a4c992093349ec0689fb58367a7530d5
+// kernel_digest_at_authoring: sha256:bb9fe4f950004e18f78fdfdd1beaa6691381e31877f66491534ca9e6f8465401
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof. Internal engineering QC only.
