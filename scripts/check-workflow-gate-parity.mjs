@@ -1351,6 +1351,18 @@ const DECLARED_DIVERGENCES = new Map([
 // would treat them as unrelated commands and an argument-drift typo on an
 // advisory gate would read as "consistent" because it matched nothing (hole (d)).
 const DISTINCT_LEGS = new Map([
+  ["node scripts/check-compute-proof-coverage.mjs", {
+    sibling: "node scripts/check-compute-proof-coverage.mjs --check-baseline",
+    decided: "2026-10-20 (PROVE-BASELINE-SINGLE-WRITER-1)",
+    why:
+      "The bare command is the section 18 ratchet: it reds when a node already known to be proven " +
+      "regresses, and it carries its own advisory-on-PR / hard-on-main split inside the script " +
+      "(isMainContext + disposition). The --check-baseline sibling is the COVERED id " +
+      "'compute-proof-baseline' freshness gate for scripts/compute-proof-baseline.json, advisory on a " +
+      "PR (main's regen is the single writer) and blocking on main. Two legs of one script with " +
+      "different jobs, the same pairing as the nav-reachability content gate and its --baseline-check, " +
+      "not argument drift.",
+  }],
   ["node scripts/gen-hub-scenes.mjs --selftest", {
     sibling: "node scripts/gen-hub-scenes.mjs --check",
     decided: "2026-10-07 (HUBSCENE-BUILD-1)",

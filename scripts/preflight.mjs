@@ -2067,6 +2067,10 @@ const GATES = [
   // ADVISORY_ON_PR categorisation below: chaingraph.json's single-writer status is a property of the
   // artifact, so the same downgrade has to hold in preflight AND in both CI workflows that invoke it.
   ['§18 compute-proof coverage',   'node scripts/check-compute-proof-coverage.mjs'],
+  // Two gates, deliberately (as with the nav pair): the plain one is the ratchet (RED = a known node regressed,
+  // hard in every context); --check-baseline is the derived-artifact freshness gate for
+  // scripts/compute-proof-baseline.json (advisory on a PR, repaired by main's regen).
+  ['§18 compute-proof baseline fresh (derived)', 'node scripts/check-compute-proof-coverage.mjs --check-baseline'],
   ['§18 coverage split controls (RED/GREEN-on-PR/HARD-on-main)', 'node scripts/check-compute-proof-coverage.test.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
