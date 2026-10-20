@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Freelance Quarterly Estimated Tax Calculator · ART-752 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Quarterly IRS estimated payments for self-employed income: SE tax, federal income tax on 2026 brackets, an elective state bucket, the 2026 due dates and the 90%/100% safe harbor. Client-side port of Apex #116. Zero PII.">
+<meta name="ain:category" content="run">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-752-freelance-quarterly-estimated-tax.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-752-freelance-quarterly-estimated-tax.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:1fef1a87ecfbecbe0e0b522414f655be76676e434166bfffe03efaeafafc7681">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.info-box{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:4px;padding:.6rem .85rem;line-height:1.55;margin:12px 0;font-size:.78rem;color:var(--text)}
+.ib-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.muted-txt{color:var(--muted);font-size:.76rem}
+.field-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 16px;margin:10px 0}
+@media(max-width:640px){.field-grid{grid-template-columns:1fr}}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px;letter-spacing:.02em}
+.field select,.field input{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:4px;padding:.4rem .5rem;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.55rem 1.1rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.btn-2{background:var(--bg-3);color:var(--text);border:1px solid var(--border-2)}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:140px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--bright)}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem;background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.25);color:var(--teal-lt)}
+.tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:.76rem}
+.tbl th{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:6px;border-bottom:1px solid var(--border)}
+.tbl td{padding:5px 6px;border-bottom:1px solid rgba(30,47,74,.5)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+<style>
+
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-752 · Freelance Quarterly Estimated Tax</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap" role="main" aria-description="Freelance quarterly estimated tax calculator: net SE income, self-employment tax (Social Security plus Medicare), federal income tax on the 2026 brackets, an elective state bucket, the four 2026 quarterly due dates with equal installments, and the 90%/100% safe-harbor amount.">
+  <div class="eyebrow">OpenChainGraph Suite · ART-752 · Port of Apex #116 · AL-123</div>
+  <h1>Freelance Quarterly Estimated Tax Calculator</h1>
+  <p class="sub">Quarterly IRS estimated payments for self-employed income: net SE income, SE tax (Social Security + Medicare), federal income tax on the 2026 brackets, an elective state bucket, the 2026 due dates, and the safe-harbor amount. Enter your figures, run.</p>
+  <div style="margin-bottom:6px"><span class="flag">2026 IRS constants (rate, wage base, brackets, deduction)</span><span class="flag">Q2 due date: official 1040-ES Jun 15, 2026</span><span class="flag">state bucket: illustrative elective rates</span><span class="flag">Zero PII</span><span class="flag">Client-side only</span></div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data; use synthetic or anonymised inputs only.</div>
+  <div class="info-box"><div class="ib-title">Scope &amp; reliance</div>The node computes net SE income (gross minus business expenses), SE tax at 12.4% Social Security (capped at the 2026 wage base of $184,500) plus 2.9% Medicare on 92.35% of net earnings, federal income tax on the 2026 brackets after the employer-equivalent half of SE tax and the 2026 standard deduction ($16,100 single / $32,200 MFJ), an elective state bucket (none/low/mid/high = 0/3/5/9.3%, an illustrative assumption rather than a jurisdiction lookup), equal quarterly installments of the annual total, and the safe harbor (the lesser of 100% of prior-year federal tax or 90% of current-year federal tax). Ported from ApexLogics Apex #116 (AL-123) with the official 2026 IRS constants. One constant was corrected to the official source at porting: the Q2 2026 due date ships as June 15, 2026 per IRS Form 1040-ES, where the Apex page listed June 16 (payload DIFFERS.md D1). Three Apex omissions ride flagged rather than silently patched: the 0.9% Additional Medicare Tax, the 110% high-earner safe-harbor prong, and the $1,000 de minimis exemption (DIFFERS.md D2-D4, report items R2-R3); above those thresholds this calculator understates tax, exactly as the source page does.</div>
+
+  <div class="card">
+
+  <div class="card">
+    <div class="section-head">Income</div>
+    <div class="field-grid">
+      <div class="field"><label for="grossIncome">gross_income (annual freelance / SE income, USD)</label><input id="grossIncome" type="number" value="120000" min="1000" max="2000000" step="1" aria-label="gross_income"></div>
+      <div class="field"><label for="expenses">business_expenses (USD)</label><input id="expenses" type="number" value="15000" min="0" max="500000" step="1" aria-label="business_expenses"></div>
+      <div class="field"><label for="otherIncome">other_income (W-2 wages, interest, dividends, USD)</label><input id="otherIncome" type="number" value="0" min="0" step="1" aria-label="other_income"></div>
+    </div>
+    <div class="section-head">Filing &amp; state</div>
+    <div class="field-grid">
+      <div class="field"><label for="filingStatus">filing_status</label><select id="filingStatus" aria-label="filing_status"><option value="single" selected>single</option><option value="mfj">mfj</option></select></div>
+      <div class="field"><label for="state">state (illustrative elective bucket)</label><select id="state" aria-label="state"><option value="none" selected>none (0%)</option><option value="low">low (3%)</option><option value="mid">mid (5%)</option><option value="high">high (9.3%)</option></select></div>
+    </div>
+    <div class="section-head">Safe harbor &amp; payments to date</div>
+    <div class="field-grid">
+      <div class="field"><label for="priorYearTax">prior_year_tax (prior-year federal tax, Form 1040 line 24, USD)</label><input id="priorYearTax" type="number" value="0" min="0" step="1" aria-label="prior_year_tax"></div>
+      <div class="field"><label for="ytdPaid">ytd_paid (estimated payments already made, USD)</label><input id="ytdPaid" type="number" value="0" min="0" step="1" aria-label="ytd_paid"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="run()">Calculate</button>
+      <button class="btn-2" onclick="loadSample()">Load sample (manifest example)</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row">
+        <div class="hero-stat"><div class="hero-val" id="heroTotal">n/a</div><div class="hero-lbl">Total annual tax</div></div>
+        <div class="hero-stat"><div class="hero-val" id="heroQtr">n/a</div><div class="hero-lbl">Per quarter</div></div>
+        <div class="hero-stat"><div class="hero-val" id="heroSH">n/a</div><div class="hero-lbl">Safe harbor / qtr</div></div>
+      </div>
+      <div class="verdict" id="verdictBox">n/a</div>
+      <table class="tbl"><thead><tr><th>Component</th><th>USD</th></tr></thead><tbody id="breakdownBody"></tbody></table>
+      <div class="section-head">2026 quarterly due dates</div>
+      <table class="tbl"><thead><tr><th>Quarter</th><th>Due</th><th>Amount (USD)</th></tr></thead><tbody id="quartersBody"></tbody></table>
+      <div class="section-head">Execution hash &amp; kernel output</div>
+      <div class="muted-txt" id="hashOut">execution_hash: n/a</div>
+      <pre id="jsonOut">{}</pre>
+      <div class="info-box" style="margin-top:12px"><div class="ib-title">Proof status</div>This node ships <code>compute_proof_ready: deferred</code>. No formal correctness proof has been produced for this kernel; the result above is a deterministic recompute, verified by a property-test floor, not a proven one.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-752-freelance-quarterly-estimated-tax.manifest.json -->
+<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `estimate_quarterly_tax`. Task: Quarterly IRS estimated tax for self-employed income: net SE income, SE tax (SS + Medicare), federal income tax on the 2026 brackets, an elective state bucket, equal quarterly installments with the 2026 due dates, and the 90%/100% safe-harbor amount.
+Call it with arguments: {"policy_parameters":{"gross_income":120000,"business_expenses":15000,"other_income":0,"filing_status":"single","state":"high","prior_year_tax":0,"ytd_paid":0}}
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
+Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
+PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
+Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-752-freelance-quarterly-estimated-tax.html#p=v1.H4sIAAAAAAAA_wGKAHX_eyJncm9zc19pbmNvbWUiOjEyMDAwMCwiYnVzaW5lc3NfZXhwZW5zZXMiOjE1MDAwLCJvdGhlcl9pbmNvbWUiOjAsImZpbGluZ19zdGF0dXMiOiJzaW5nbGUiLCJzdGF0ZSI6ImhpZ2giLCJwcmlvcl95ZWFyX3RheCI6MCwieXRkX3BhaWQiOjB9m1dYyYoAAAA</pre>
+</section>
+<!-- ASK-AGENT:END -->
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../bazantic-walkthrough.html">Bazantic A/B Walkthrough</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+const MANIFEST={"tool_id":"art-752-freelance-quarterly-estimated-tax","version":"1.0.0","title":"Freelance Quarterly Estimated Tax Calculator","mcp_tool_definition":{"name":"estimate_quarterly_tax","description":"Compute annual and quarterly IRS estimated tax for self-employed income: net SE income, SE tax (SS + Medicare), AGI, federal income tax on the 2026 brackets, an elective state bucket, equal quarterly installments with the 2026 due dates, and the 90%/100% safe-harbor amount. 2026 IRS constants."},"ap2_export":true,"chaingraph":true};
+
+/* ── same canonicalization + execution-hash algorithm as chaingraph/kernels/_hash.mjs,
+   browser leg: jcsStringify (RFC 8785-aligned) over {policy_parameters, output_payload},
+   SHA-256, bare lowercase hex ── */
+function jcsStringify(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){let s='[';for(let i=0;i<v.length;i++){if(i)s+=',';const e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':jcsStringify(e);}return s+']';}const keys=Object.keys(v).sort();let s='{',first=true;for(const k of keys){const e=v[k];if(e===undefined||typeof e==='function'||typeof e==='symbol')continue;if(!first)s+=',';first=false;s+=JSON.stringify(k)+':'+jcsStringify(e);}return s+'}';}
+async function sha256Hex(str){const bytes=new TextEncoder().encode(str);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');}
+async function executionHash(policy_parameters,output_payload){return sha256Hex(jcsStringify({policy_parameters,output_payload}));}
+
+/* ── inline port of chaingraph/kernels/art-752-freelance-quarterly-estimated-tax.kernel.mjs compute():
+   same algorithm, same coercion fallbacks, same fixed orders. Pure function of pp.
+   (A tool page cannot import a module; exports are stripped here. The page is
+   digested against the kernel file via the kernel-digest meta above.) ── */
+// 2026 IRS constants (payload CITES.md C1-C8).
+const SS_RATE = 0.124;   // C1; Apex L281
+const MC_RATE = 0.029;   // C1; Apex L282
+const SE_FACTOR = 0.9235; // C2; Apex L280
+const SS_WAGE_BASE = 184500; // C3; Apex L279
+const STD_DEDUCTION = { single: 16100, mfj: 32200 }; // C5; Apex L283
+const BRACKETS_SINGLE = [
+  [12400, 0.10], [50400, 0.12], [105700, 0.22], [201775, 0.24],
+  [256225, 0.32], [640600, 0.35], [Infinity, 0.37],
+];
+const BRACKETS_MFJ = [
+  [24800, 0.10], [100800, 0.12], [211400, 0.22], [403550, 0.24],
+  [512450, 0.32], [768700, 0.35], [Infinity, 0.37],
+];
+// Illustrative elective state buckets (not a regulatory fact).
+const STATE_RATES = { none: 0, low: 0.03, mid: 0.05, high: 0.093 };
+// 2026 due dates (C8). Q2 = June 15, 2026 per official 1040-ES (DIFFERS.md D1).
+const Q_DATES = [
+  { label: 'Q1', due: 'Apr 15, 2026' },
+  { label: 'Q2', due: 'Jun 15, 2026' },
+  { label: 'Q3', due: 'Sep 15, 2026' },
+  { label: 'Q4', due: 'Jan 15, 2027' },
+];
+const SAFE_HARBOR_CURRENT_RATE = 0.90;
+
+function incomeTax(taxableIncome, status) {
+  const B = status === 'mfj' ? BRACKETS_MFJ : BRACKETS_SINGLE;
+  let tax = 0, prev = 0;
+  for (const [top, rate] of B) {
+    if (taxableIncome <= prev) break;
+    tax += (Math.min(taxableIncome, top) - prev) * rate;
+    prev = top;
+  }
+  return tax;
+}
+
+const round2 = (n) => Math.round(n * 100) / 100;
+
+function computeFlat(pp) {
+  const gross = +pp.gross_income || 0;
+  const expenses = +pp.business_expenses || 0;
+  const otherIncome = +pp.other_income || 0;
+  const status = pp.filing_status === 'mfj' ? 'mfj' : 'single';
+  const stateKey = pp.state || 'none';
+  const stateRate = STATE_RATES[stateKey] || 0;
+  const priorYearTax = +pp.prior_year_tax || 0;
+  const ytdPaid = +pp.ytd_paid || 0;
+
+  const netSE = gross - expenses;
+  const netSESubject = netSE * SE_FACTOR;
+  const ssTax = Math.min(netSESubject, SS_WAGE_BASE) * SS_RATE;
+  const mcTax = netSESubject * MC_RATE;
+  const seTax = ssTax + mcTax;
+
+  const halfSE = seTax / 2;
+  const agi = netSE + otherIncome - halfSE;
+  const stdDed = STD_DEDUCTION[status];
+  const taxableIncome = Math.max(0, agi - stdDed);
+  const fedIncomeTax = incomeTax(taxableIncome, status);
+  const effectiveFedRate = agi > 0 ? fedIncomeTax / agi : 0;
+
+  const stateTax = (netSE + otherIncome) * stateRate;
+
+  const totalFed = fedIncomeTax + seTax;
+  const totalTax = totalFed + stateTax;
+  const effectiveTotal = (netSE + otherIncome) > 0 ? totalTax / (netSE + otherIncome) : 0;
+
+  const perQtr = totalTax / 4;
+  const remaining = Math.max(0, totalTax - ytdPaid);
+
+  const safeHarborPriorYear = priorYearTax;
+  const safeHarborCurrentYear = totalFed * SAFE_HARBOR_CURRENT_RATE;
+  const safeHarborAmt = priorYearTax > 0
+    ? Math.min(safeHarborPriorYear, safeHarborCurrentYear)
+    : safeHarborCurrentYear;
+  const safeHarborQtr = safeHarborAmt / 4;
+
+  const out = {
+    net_se_income: round2(netSE),
+    se_tax: round2(seTax),
+    ss_tax: round2(ssTax),
+    mc_tax: round2(mcTax),
+    agi: round2(agi),
+    taxable_income: round2(taxableIncome),
+    federal_income_tax: round2(fedIncomeTax),
+    effective_fed_rate: round2(effectiveFedRate),
+    state_tax: round2(stateTax),
+    total_federal_tax: round2(totalFed),
+    total_annual_tax: round2(totalTax),
+    effective_total_rate: round2(effectiveTotal),
+    per_quarter: round2(perQtr),
+    remaining_after_ytd: round2(remaining),
+    safe_harbor_total: round2(safeHarborAmt),
+    safe_harbor_quarterly: round2(safeHarborQtr),
+    quarters: Q_DATES.map((q) => ({ quarter: q.label, due: q.due, amount: round2(perQtr) })),
+  };
+  // FLAG-MIRROR-DOCTRINE (AUTHORING-STANDARD §2.2): conditional flags mirror into
+  // output_payload.warnings (base flag is unconditional, stays flag-only).
+  const compliance_flags = ['FREELANCE_QUARTERLY_ESTIMATED'];
+  if (netSESubject > SS_WAGE_BASE) compliance_flags.push('SS_WAGE_BASE_EXCEEDED');
+  if (priorYearTax > 0) compliance_flags.push('SAFE_HARBOR_PRIOR_YEAR_APPLIED');
+  if (ytdPaid > 0) compliance_flags.push('YTD_PAYMENTS_ENTERED');
+  out.warnings = compliance_flags.filter((f) => f !== 'FREELANCE_QUARTERLY_ESTIMATED');
+  return out;
+}
+
+const kernelCompute = computeFlat;
+
+const usd = (n) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function readPP(){
+  return {
+    gross_income: parseFloat(document.getElementById('grossIncome').value) || 0,
+    business_expenses: parseFloat(document.getElementById('expenses').value) || 0,
+    other_income: parseFloat(document.getElementById('otherIncome').value) || 0,
+    filing_status: document.getElementById('filingStatus').value,
+    state: document.getElementById('state').value,
+    prior_year_tax: parseFloat(document.getElementById('priorYearTax').value) || 0,
+    ytd_paid: parseFloat(document.getElementById('ytdPaid').value) || 0,
+  };
+}
+function loadSample(){
+  const s={"gross_income":120000,"business_expenses":15000,"other_income":0,"filing_status":"single","state":"high","prior_year_tax":0,"ytd_paid":0};
+  document.getElementById('grossIncome').value=s.gross_income;
+  document.getElementById('expenses').value=s.business_expenses;
+  document.getElementById('otherIncome').value=s.other_income;
+  document.getElementById('filingStatus').value=s.filing_status;
+  document.getElementById('state').value=s.state;
+  document.getElementById('priorYearTax').value=s.prior_year_tax;
+  document.getElementById('ytdPaid').value=s.ytd_paid;
+}
+async function run(){
+  const pp=readPP();
+  const r=kernelCompute(pp);
+  document.getElementById('heroTotal').textContent=usd(r.total_annual_tax);
+  document.getElementById('heroQtr').textContent=usd(r.per_quarter);
+  document.getElementById('heroSH').textContent=usd(r.safe_harbor_quarterly);
+  const vb=document.getElementById('verdictBox');
+  vb.textContent='Total estimated tax '+usd(r.total_annual_tax)+' USD; pay '+usd(r.per_quarter)+' per quarter. Safe harbor: '+usd(r.safe_harbor_total)+' USD annually ('+usd(r.safe_harbor_quarterly)+' per quarter). Remaining after payments to date: '+usd(r.remaining_after_ytd)+' USD.';
+  document.getElementById('breakdownBody').innerHTML=
+    '<tr><td>Net SE income (gross minus expenses)</td><td>'+usd(r.net_se_income)+'</td></tr>'+
+    '<tr><td>SE tax, Social Security (12.4%, wage-base capped)</td><td>'+usd(r.ss_tax)+'</td></tr>'+
+    '<tr><td>SE tax, Medicare (2.9%)</td><td>'+usd(r.mc_tax)+'</td></tr>'+
+    '<tr><td>AGI (after the half-SE-tax deduction)</td><td>'+usd(r.agi)+'</td></tr>'+
+    '<tr><td>Taxable income (after the 2026 standard deduction)</td><td>'+usd(r.taxable_income)+'</td></tr>'+
+    '<tr><td>Federal income tax (2026 brackets)</td><td>'+usd(r.federal_income_tax)+'</td></tr>'+
+    '<tr><td>State tax (illustrative elective bucket)</td><td>'+usd(r.state_tax)+'</td></tr>'+
+    '<tr><td>Total federal tax (income + SE)</td><td>'+usd(r.total_federal_tax)+'</td></tr>'+
+    '<tr><td>Total annual tax</td><td>'+usd(r.total_annual_tax)+'</td></tr>';
+  document.getElementById('quartersBody').innerHTML=r.quarters.map((q)=>'<tr><td>'+q.quarter+'</td><td>'+q.due+'</td><td>'+usd(q.amount)+'</td></tr>').join('');
+  const h=await executionHash(pp,r);
+  document.getElementById('hashOut').textContent='execution_hash: '+h;
+  const displayBody={policy_parameters:pp,output_payload:r};
+  document.getElementById('jsonOut').textContent=JSON.stringify(displayBody,null,2);
+  document.getElementById('resultsPanel').classList.add('show');
+}
+</script>
+</body>
+</html>
