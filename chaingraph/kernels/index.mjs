@@ -655,6 +655,7 @@ import * as art759    from './art-759-iso-amt-exposure-modeler.kernel.mjs';
 import * as art76     from './art-76-climate-scenario-applicator.kernel.mjs';
 import * as art760    from './art-760-espp-break-even-optimal-sell.kernel.mjs';
 import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
+import * as art764    from './art-764-solo-401k-vs-sep-ira.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
 import * as art771    from './art-771-automation-payback.kernel.mjs';
 import * as art774    from './art-774-beacon-seeded-fair-sampling-v2.kernel.mjs';
@@ -1352,6 +1353,7 @@ export const KERNELS = {
   'art-76-climate-scenario-applicator':                         art76,
   'art-760-espp-break-even-optimal-sell':                       art760,
   'art-763-ai-displacement-risk-screener':                      art763,
+  'art-764-solo-401k-vs-sep-ira':                               art764,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
   'art-771-automation-payback':                                 art771,
   'art-774-beacon-seeded-fair-sampling-v2':                     art774,
