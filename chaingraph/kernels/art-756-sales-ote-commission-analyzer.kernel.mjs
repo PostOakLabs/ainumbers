@@ -137,18 +137,15 @@ export const TY2026_MFS_BRACKET_CEILING_USD = Object.freeze([12400, 50400, 10570
 
 /* ── FLSA CROSS-REFERENCE (context only; NOT computed here) ──────────────────
    The commission this tool prices is, on its face, "a percentage of total
-   sales". 29 CFR 778.117 (fetched and quoted this run, CITES.md C-3):
-     "Commissions (whether based on a percentage of total sales or of sales in
-     excess of a specified amount, or on some other formula) are payments for
-     hours worked and must be included in the regular rate."
-   So IF overtime is owed to the worker, this variable pay belongs in the FLSA
-   regular rate -- that is the leg art-340-compute-flsa-regular-rate owns. The
-   overtime question itself is a duty test: 29 CFR 541.500(a) (CITES.md C-4)
-   exempts from overtime an employee whose primary duty is making sales or
-   obtaining orders "who is customarily and regularly engaged away from the
-   employer's place or places of business in performing such primary duty".
-   29 CFR 541.2: "A job title alone is insufficient to establish the exempt
-   status of an employee."
+   sales"; the commission-payment regulation quoted and pinned in the payload's
+   CITES.md (C-3) puts such payments inside the regular rate when overtime is
+   owed. So IF overtime is owed to the worker, this variable pay belongs in the
+   FLSA regular rate -- that is the leg art-340-compute-flsa-regular-rate owns.
+   The overtime question itself is a duty test (the exemption for employees
+   customarily and regularly engaged away from the employer's place of business
+   in making sales, CITES.md C-4), and a job title alone is insufficient to
+   establish exempt status. Citation strings for both live in
+   FLSA_COMMISSION_BASIS below and in the node metadata, not here.
 
    This node computes none of that. It flags the boundary so a caller who
    pairs it with art-340 knows the commission leg is already in scope. */
@@ -278,17 +275,24 @@ export function compute(pp) {
   }
 
   // ── Apex lines 423-432: read every control, with the Apex `||` fallbacks ──
+  // R4 (absent equals explicit null): the Apex page reads DOM strings, so a
+  // JSON `null` input is not an Apex-observable state; an explicit null is
+  // normalized onto the absent path (Number(null) would be 0, which would
+  // bookkeep a different `supplied` value for the same effective default).
   const coerced = [];
   const take = (key, fallback) => {
-    const raw = pp[key];
+    const raw = pp[key] === null ? undefined : pp[key];
     const n = typeof raw === 'number' ? raw : Number(raw);
     const out = apexCoerce(raw, fallback);
     if (!(Number.isFinite(n) && n !== 0)) coerced.push({ field: key, supplied: Number.isFinite(n) ? n : null, substituted: fallback });
     return out;
   };
+  // Visible top-level read of every declared input (KERNEL-INPUT-USAGE-CHECK-1
+  // shape): each key below is dereferenced here and again inside take() above.
+  const { base_salary, ote, quota, attainment_pct, federal_tax_rate_pct, accelerator_threshold_pct, accelerator_multiplier, draw_monthly } = pp;
   const base = take('base_salary', APEX_INPUT_DEFAULTS.base_salary);
-  const ote = take('ote', APEX_INPUT_DEFAULTS.ote);
-  const quota = take('quota', APEX_INPUT_DEFAULTS.quota);
+  const oteC = take('ote', APEX_INPUT_DEFAULTS.ote);
+  const quotaC = take('quota', APEX_INPUT_DEFAULTS.quota);
   const attainment = take('attainment_pct', APEX_INPUT_DEFAULTS.attainment_pct);
   const fedTax = take('federal_tax_rate_pct', APEX_INPUT_DEFAULTS.federal_tax_rate_pct);
   const accelThresh = take('accelerator_threshold_pct', APEX_INPUT_DEFAULTS.accelerator_threshold_pct);
@@ -303,7 +307,7 @@ export function compute(pp) {
   if (coerced.length) compliance_flags.push('APEX_ZERO_COERCION_APPLIED');
 
   // ── Apex lines 434-435: the two guards, in Apex's order ──────────────────
-  if (ote <= base) {
+  if (oteC <= base) {
     const out = refusedPayload('OTE_NOT_ABOVE_BASE', 'OTE must be greater than base salary.', coerced);
     return { output_payload: out, compliance_flags: compliance_flags.concat(['ART756_INPUT_REFUSED']) };
   }
@@ -313,18 +317,18 @@ export function compute(pp) {
   }
 
   // ── Apex lines 437-442: the at-target column ─────────────────────────────
-  const baseCommRate = (ote - base) / quota;
-  const varAtTarget = computeVariable(AT_TARGET_ATTAINMENT_PCT, base, quota, ote, hasAccel, accelThresh, accelMult);
+  const baseCommRate = (oteC - base) / quotaC;
+  const varAtTarget = computeVariable(AT_TARGET_ATTAINMENT_PCT, base, quotaC, oteC, hasAccel, accelThresh, accelMult);
   const totalAtTarget = base + varAtTarget;
   const afterTaxAtTarget = totalAtTarget * (1 - fedTax / 100);
-  const baseSplit = (base / ote) * 100;
+  const baseSplit = (base / oteC) * 100;
   const varSplit = 100 - baseSplit;
   const riskLabel = riskLabelFor(varSplit);
 
   // ── Apex lines 463-468: accelerator insight ─────────────────────────────
   let accelInsight = null;
   if (hasAccel) {
-    const varAt150 = computeVariable(ACCEL_INSIGHT_ATTAINMENT_PCT, base, quota, ote, true, accelThresh, accelMult);
+    const varAt150 = computeVariable(ACCEL_INSIGHT_ATTAINMENT_PCT, base, quotaC, oteC, true, accelThresh, accelMult);
     accelInsight = {
       attainment_pct: ACCEL_INSIGHT_ATTAINMENT_PCT,
       variable: varAt150,
@@ -339,10 +343,10 @@ export function compute(pp) {
   const scenarios = [];
   for (let i = 0; i < ATTAINMENT_LEVELS_PCT.length; i++) {
     const lv = ATTAINMENT_LEVELS_PCT[i];
-    const vari = computeVariable(lv, base, quota, ote, hasAccel, accelThresh, accelMult);
+    const vari = computeVariable(lv, base, quotaC, oteC, hasAccel, accelThresh, accelMult);
     const total = base + vari;
     const afterTax = total * (1 - fedTax / 100);
-    const vsOte = ((total - ote) / ote) * 100;
+    const vsOte = ((total - oteC) / oteC) * 100;
     scenarios.push({
       attainment_pct: lv,
       variable: vari,
@@ -380,15 +384,17 @@ export function compute(pp) {
   if (attainment < 0) compliance_flags.push('ATTAINMENT_BELOW_ZERO');
   if (quota < 0) compliance_flags.push('QUOTA_BELOW_ZERO');
   if (hasDraw && drawMonthly <= 0) compliance_flags.push('DRAW_ENABLED_BUT_ZERO');
-  compliance_flags.push('FLAT_FEDERAL_RATE_NOT_A_TAX_COMPUTATION');
-  compliance_flags.push('NO_FLSA_REGULAR_RATE_NO_OVERTIME');
-  compliance_flags.push('NOT_TAX_NOT_WAGE_HOUR_ADVICE');
+  // The three standing disclosures (flat federal rate is not a tax computation;
+  // no FLSA regular rate and no overtime; not tax / wage-hour / compensation
+  // advice) ride in output_payload.scope_note verbatim instead of as
+  // unconditional compliance_flags entries (FLAGS-COMPUTED-LINT-1: an
+  // always-on flag attests work nothing conditioned).
 
   const output_payload = {
     as_of: pp.as_of,
     base_salary: base,
-    ote: ote,
-    quota: quota,
+    ote: oteC,
+    quota: quotaC,
     attainment_pct: attainment,
     federal_tax_rate_pct: fedTax,
     accelerator_threshold_pct: accelThresh,

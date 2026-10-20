@@ -3,7 +3,7 @@
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-14, Tim 2026-10-18 "Extend ruling" Builder-verifies-at-land: 33/33
 // payload vectors re-executed through compute() at land, APEX-PORT-89-LAND-1).
-// kernel_digest_at_authoring: sha256:f361c429d001bdf5ecf33fefd6e9b23eac182d0d8f36bc44434867a90288bc9e
+// kernel_digest_at_authoring: sha256:b16c64afb3ceeef8652c4aa0d61ba66b70be5f669ed8970d4a480b4e6aa8b87f
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
@@ -79,12 +79,12 @@ function runPayloadFixtureOracle() {
   const failures = [];
   for (const vec of fixtures.vectors) {
     try {
-      const { output_payload, compliance_flags } = compute(vec.inputs);
-      const opOk = deepEqual(output_payload, vec.kernel_output);
+      const { output_payload, compliance_flags } = compute(vec.policy_parameters);
+      const opOk = deepEqual(output_payload, vec.output_payload);
       const flOk = deepEqual(compliance_flags, vec.kernel_compliance_flags);
-      if (!opOk || !flOk) failures.push({ name: vec.id, opOk, flOk });
+      if (!opOk || !flOk) failures.push({ name: vec.name, opOk, flOk });
     } catch (e) {
-      failures.push({ name: vec.id, threw: String(e).slice(0, 120) });
+      failures.push({ name: vec.name, threw: String(e).slice(0, 120) });
     }
   }
   return { total: fixtures.vectors.length, failures };
