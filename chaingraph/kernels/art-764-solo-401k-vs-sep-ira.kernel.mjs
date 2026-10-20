@@ -34,6 +34,8 @@
 // actually bound the answer. A port that silently changed which limit binds is
 // the failure mode this makes visible.
 
+import { executionHash } from './_hash.mjs';
+
 const TOOL_ID = 'art-764-solo-401k-vs-sep-ira';
 const TOOL_VERSION = '1.0.0';
 
@@ -146,7 +148,7 @@ function applyBp(a, bp) {
   return Math.floor((a * bp) / 10_000);
 }
 
-/** @type {(v: unknown) => boolean} integer in [lo, hi] */
+/** @type {(v: unknown, lo: number, hi: number) => boolean} integer in [lo, hi] */
 function isIntIn(v, lo, hi) {
   return typeof v === 'number' && Number.isInteger(v) && v >= lo && v <= hi;
 }
@@ -318,7 +320,6 @@ export function compute(pp) {
 /** Build the OCG v0.4 artifact envelope. Mirrors chaingraph/kernels/_hash.mjs. */
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const { executionHash } = await import('./_hash.mjs');
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
