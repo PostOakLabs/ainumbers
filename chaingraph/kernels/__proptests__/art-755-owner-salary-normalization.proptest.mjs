@@ -97,6 +97,7 @@ const drawPP = (rng) => ({
   hours_per_week: Math.floor(rng() * 80),
   ss_rate_pct: 6.2,
   medicare_rate_pct: 1.45,
+  ss_wage_base: 184500,
   sde_multiple: Math.round(rng() * 8),
 });
 
@@ -197,7 +198,7 @@ function checkP4NoRefusalFallback() {
         ? nasty
         : { ...basePP(), [key]: nasty };
       let out;
-      try { out = compute(pp).output_payload; } catch (e) {
+      try { out = compute(/** @type {any} */ (pp)).output_payload; } catch (e) {
         violations++; console.log(`P4 violation: threw on ${key} = ${safeLabel(nasty)}: ${e.message}`); continue;
       }
       if (out.error !== null) { violations++; console.log(`P4 violation: error ${out.error} on ${key} = ${safeLabel(nasty)}`); }
@@ -208,22 +209,22 @@ function checkP4NoRefusalFallback() {
   // parseFloat's ToString conversion (inherited verbatim from the Apex page's
   // numOr), which may throw — if it does, it must be a plain Error.
   checked += 2;
-  try { compute(nullProtoClone({})); } catch (e) {
+  try { compute(/** @type {any} */ (nullProtoClone({}))); } catch (e) {
     violations++; console.log(`P4 violation: prototype-less whole-pp threw: ${e.message}`);
   }
-  try { compute({ ...basePP(), owner_w2_salary: nullProtoClone({}) }); } catch (e) {
+  try { compute(/** @type {any} */ ({ ...basePP(), owner_w2_salary: nullProtoClone({}) })); } catch (e) {
     if (!(e instanceof Error) || e.message.length === 0) { violations++; console.log('P4 violation: prototype-less value threw without a named reason'); }
   }
   for (const s of NASTY_STRINGS.slice(0, 8)) {
     checked++;
     let out;
-    try { out = compute({ ...basePP(), owner_w2_salary: s }).output_payload; } catch (e) {
+    try { out = compute(/** @type {any} */ ({ ...basePP(), owner_w2_salary: s })).output_payload; } catch (e) {
       violations++; console.log(`P4 violation: threw on nasty string: ${e.message}`); continue;
     }
     if (out.error !== null) { violations++; console.log('P4 violation: error set on nasty string input'); }
   }
   checked++;
-  const blank = compute({}).output_payload;
+  const blank = compute(/** @type {any} */ ({})).output_payload;
   if (!deepEqual(blank, defaults)) { violations++; console.log('P4 violation: empty pp did not reproduce the live page defaults'); }
   return { name: 'P4 no-refusal contract: zero throw sites, malformed inputs fall back to page defaults', checked, violations };
 }
