@@ -2070,6 +2070,12 @@ const GATES = [
   ['§18 coverage split controls (RED/GREEN-on-PR/HARD-on-main)', 'node scripts/check-compute-proof-coverage.test.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
+  // SEALED-KERNEL-RECEIPT-PUSH-GATE-1 (SO #36): the ratchet above can be raised by one --update-baseline,
+  // so it never refused the "fixed, unproven" push shape (PR #2175 art-467). This leg can't be raised:
+  // every kernel changed vs merge-base(origin/main, HEAD) whose old bytes the base receipt sealed must
+  // carry a head receipt that binds the new sourceDigest AND passes verifySeal, or the push is red.
+  ['SO #36 sealed-kernel receipt push gate (SEALED-KERNEL-RECEIPT-PUSH-GATE-1)', 'node scripts/check-sealed-kernel-receipt.mjs'],
+  ['SO #36 sealed-kernel receipt controls (SO #40b pairing)', 'node scripts/check-sealed-kernel-receipt.test.mjs'],
   // Proven-digest freeze: a change may not move the sourceDigest() of a proven node unless a commit
   // message cites an audit finding (REPROVE-AUTHORIZED: art-<n> <path>#<id>) and the same change carries
   // a fresh receipt. The advisory-on-PR split lives inside the gate; locally it blocks.
