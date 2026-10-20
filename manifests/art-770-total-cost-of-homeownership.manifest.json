@@ -1,0 +1,434 @@
+{
+  "tool_id": "art-770-total-cost-of-homeownership",
+  "version": "1.0.0",
+  "title": "Total Cost of Homeownership",
+  "description": "Port of ApexLogics Apex #153 (AL-167) Total Cost of Homeownership into the AINumbers chaingraph shape. Given purchase price, loan terms, recurring costs, growth assumptions and a hold period, the node amortizes the mortgage month by month, charges mortgage insurance while the post-payment loan-to-value is strictly above a drop threshold, grows property tax, insurance, maintenance, HOA and utilities year by year, applies the interest-plus-SALT deduction offset at the caller's marginal rate, compounds the opportunity cost of cash at close, and returns gross and net cost of ownership over the hold, break-even monthly rent and a cost-composition breakdown in basis points. Only a hold under one year is refused (REFUSED_BAD_HOLD_YEARS); a refusal carries the same payload keys as a success. Declared divergences: the SALT cap fallback stays at the Apex $10,000 for vector fidelity while the official 2026 figure is $40,400 (26 USC 164(b)(7)); the 78 percent automatic MI-termination leg of the Homeowners Protection Act is not modeled (80 percent borrower cancellation only); the deduction benefit omits the itemize-versus-standard threshold and the acquisition-indebtedness limit. Port provenance: Apex page https://apexlogics.org/tools/153-total-cost-of-homeownership/ fetched 2026-10-13 (sha256 D6015F52F3099C412879F6D23DE00A616F48E3CBB9970DD2C657961AEA307AA3), tasking APEXPORT-153 (GRADES PASS-PENDING-XV 2026-10-18, Builder-verifies-at-land 35/35 vectors), landed by APEX-PORT-153-LAND-1 on 2026-10-20.",
+  "category": "chaingraph",
+  "tags": [
+    "mortgage",
+    "rent-vs-buy",
+    "homeownership",
+    "piti",
+    "consumer-finance",
+    "mcp:total_cost_of_homeownership"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "price",
+      "downPct",
+      "annualRate",
+      "termYears",
+      "closingPct",
+      "miRatePct",
+      "propertyTaxRate",
+      "insuranceAnnual",
+      "hoaMonthly",
+      "maintenancePct",
+      "extraUtilities",
+      "appreciationPct",
+      "taxGrowthPct",
+      "inflationPct",
+      "holdYears",
+      "sellingPct",
+      "oppRatePct",
+      "marginalRatePct",
+      "cMiDropLTVPct",
+      "cSaltCap"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "price": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 50000000,
+        "description": "Purchase price (Apex input price, default 450000). Clamped to [0, 50000000]."
+      },
+      "downPct": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Down payment, percent of price (Apex downPct, default 20). Clamped to [0,100]; below 20 the LTV starts above 80 so MI accrues."
+      },
+      "annualRate": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Mortgage interest rate, percent APR (Apex rate, default 6.5). Negative becomes 0 (interest-free branch)."
+      },
+      "termYears": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 40,
+        "description": "Loan term in years (Apex termYears, default 30). Under 1 becomes 30; capped at 40; months capped at 480."
+      },
+      "closingPct": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Closing costs, percent of price (Apex closingPct, default 2.5). Negative becomes 0."
+      },
+      "miRatePct": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Mortgage insurance rate, percent of the original loan per year while post-payment LTV is strictly above the drop threshold (Apex miRate, default 0.55)."
+      },
+      "propertyTaxRate": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Property tax, percent of purchase value per year (Apex propertyTaxRate, default 1.1). Negative becomes 0."
+      },
+      "insuranceAnnual": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Annual homeowners insurance in USD (Apex insuranceAnnual, default 1800). Grown yearly by inflationPct."
+      },
+      "hoaMonthly": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Monthly HOA dues in USD (Apex hoaMonthly, default 0). Annualized then grown yearly by inflationPct."
+      },
+      "maintenancePct": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Annual maintenance, percent of price (Apex maintenancePct, default 1.0). This input drives the math."
+      },
+      "extraUtilities": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Annual utilities beyond what you pay renting, USD (Apex extraUtilities, default 1200). Grown yearly by inflationPct."
+      },
+      "appreciationPct": {
+        "type": "number",
+        "description": "Home appreciation, percent per year (Apex appreciation, default 3.0). May be negative; negativeAppreciation flags it."
+      },
+      "taxGrowthPct": {
+        "type": "number",
+        "description": "Property-tax growth, percent per year (Apex taxGrowth, default 2.0)."
+      },
+      "inflationPct": {
+        "type": "number",
+        "description": "Insurance/maintenance/HOA/utilities inflation, percent per year (Apex inflationRate, default 3.0)."
+      },
+      "holdYears": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Years you plan to stay (Apex holdYears, default 7). Under 1 is refused: REFUSED_BAD_HOLD_YEARS."
+      },
+      "sellingPct": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 20,
+        "description": "Selling costs at exit, percent of sale price (Apex sellingPct, default 6.0). Clamped to [0,20]."
+      },
+      "oppRatePct": {
+        "type": "number",
+        "description": "Opportunity-cost rate on cash invested, percent per year, annual compounding (Apex oppRate, default 5.0)."
+      },
+      "marginalRatePct": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 55,
+        "description": "Marginal income-tax rate for the interest+SALT benefit (Apex marginalRate, default 0). Enter 0 on the standard deduction."
+      },
+      "cMiDropLTVPct": {
+        "type": "number",
+        "description": "LTV percent at which MI drops (Apex cMiDropLTV, default 80; HPA cancellation date). Non-finite falls back to 80; MI charges strictly above it."
+      },
+      "cSaltCap": {
+        "type": "number",
+        "description": "SALT deduction cap per year, USD (Apex cSaltCap, default 10000). Falsy input falls back to 10000; official 2026 figure is 40400 (26 USC 164(b)(7))."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "total_cost_of_homeownership",
+    "description": "Total cost of homeownership ported from ApexLogics Apex #153 (AL-167): month-by-month mortgage amortization, MI while post-payment LTV is strictly above a drop threshold, year-grown property tax, insurance, maintenance, HOA and utilities, an interest-plus-SALT deduction offset, opportunity cost on cash at close, and gross/net cost of ownership with break-even monthly rent and a bps cost composition. Holds under one year are refused. Full provenance in the manifest description.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "price",
+        "downPct",
+        "annualRate",
+        "termYears",
+        "closingPct",
+        "miRatePct",
+        "propertyTaxRate",
+        "insuranceAnnual",
+        "hoaMonthly",
+        "maintenancePct",
+        "extraUtilities",
+        "appreciationPct",
+        "taxGrowthPct",
+        "inflationPct",
+        "holdYears",
+        "sellingPct",
+        "oppRatePct",
+        "marginalRatePct",
+        "cMiDropLTVPct",
+        "cSaltCap"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "price": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 50000000,
+          "description": "Purchase price (Apex input price, default 450000). Clamped to [0, 50000000]."
+        },
+        "downPct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Down payment, percent of price (Apex downPct, default 20). Clamped to [0,100]; below 20 the LTV starts above 80 so MI accrues."
+        },
+        "annualRate": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Mortgage interest rate, percent APR (Apex rate, default 6.5). Negative becomes 0 (interest-free branch)."
+        },
+        "termYears": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 40,
+          "description": "Loan term in years (Apex termYears, default 30). Under 1 becomes 30; capped at 40; months capped at 480."
+        },
+        "closingPct": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Closing costs, percent of price (Apex closingPct, default 2.5). Negative becomes 0."
+        },
+        "miRatePct": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Mortgage insurance rate, percent of the original loan per year while post-payment LTV is strictly above the drop threshold (Apex miRate, default 0.55)."
+        },
+        "propertyTaxRate": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Property tax, percent of purchase value per year (Apex propertyTaxRate, default 1.1). Negative becomes 0."
+        },
+        "insuranceAnnual": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Annual homeowners insurance in USD (Apex insuranceAnnual, default 1800). Grown yearly by inflationPct."
+        },
+        "hoaMonthly": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Monthly HOA dues in USD (Apex hoaMonthly, default 0). Annualized then grown yearly by inflationPct."
+        },
+        "maintenancePct": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Annual maintenance, percent of price (Apex maintenancePct, default 1.0). This input drives the math."
+        },
+        "extraUtilities": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Annual utilities beyond what you pay renting, USD (Apex extraUtilities, default 1200). Grown yearly by inflationPct."
+        },
+        "appreciationPct": {
+          "type": "number",
+          "description": "Home appreciation, percent per year (Apex appreciation, default 3.0). May be negative; negativeAppreciation flags it."
+        },
+        "taxGrowthPct": {
+          "type": "number",
+          "description": "Property-tax growth, percent per year (Apex taxGrowth, default 2.0)."
+        },
+        "inflationPct": {
+          "type": "number",
+          "description": "Insurance/maintenance/HOA/utilities inflation, percent per year (Apex inflationRate, default 3.0)."
+        },
+        "holdYears": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Years you plan to stay (Apex holdYears, default 7). Under 1 is refused: REFUSED_BAD_HOLD_YEARS."
+        },
+        "sellingPct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 20,
+          "description": "Selling costs at exit, percent of sale price (Apex sellingPct, default 6.0). Clamped to [0,20]."
+        },
+        "oppRatePct": {
+          "type": "number",
+          "description": "Opportunity-cost rate on cash invested, percent per year, annual compounding (Apex oppRate, default 5.0)."
+        },
+        "marginalRatePct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 55,
+          "description": "Marginal income-tax rate for the interest+SALT benefit (Apex marginalRate, default 0). Enter 0 on the standard deduction."
+        },
+        "cMiDropLTVPct": {
+          "type": "number",
+          "description": "LTV percent at which MI drops (Apex cMiDropLTV, default 80; HPA cancellation date). Non-finite falls back to 80; MI charges strictly above it."
+        },
+        "cSaltCap": {
+          "type": "number",
+          "description": "SALT deduction cap per year, USD (Apex cSaltCap, default 10000). Falsy input falls back to 10000; official 2026 figure is 40400 (26 USC 164(b)(7))."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-770-total-cost-of-homeownership.html",
+    "function_name": "runCompute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "grossCost": {
+        "type": ["number", "null"],
+        "description": "Gross cost of ownership over the hold (excludes principal, which becomes equity)."
+      },
+      "netCost": {
+        "type": ["number", "null"],
+        "description": "Gross cost minus equity gained from price growth; exceeds gross when appreciation is negative (not clamped)."
+      },
+      "breakEvenMonthlyRent": {
+        "type": ["number", "null"],
+        "description": "Net monthly cost; renting for less and investing the gap wins."
+      },
+      "costPerMonth": { "type": ["number", "null"] },
+      "netCostPerMonth": { "type": ["number", "null"] },
+      "monthlyPayment": { "type": ["number", "null"] },
+      "loanAmount": { "type": ["number", "null"] },
+      "cashAtClose": { "type": ["number", "null"] },
+      "downPayment": { "type": ["number", "null"] },
+      "closingCosts": { "type": ["number", "null"] },
+      "totalInterest": { "type": ["number", "null"] },
+      "totalPrincipal": { "type": ["number", "null"] },
+      "totalMI": { "type": ["number", "null"] },
+      "totalPropertyTax": { "type": ["number", "null"] },
+      "totalInsurance": { "type": ["number", "null"] },
+      "totalMaintenance": { "type": ["number", "null"] },
+      "totalHOA": { "type": ["number", "null"] },
+      "totalUtilities": { "type": ["number", "null"] },
+      "deductibleBenefit": { "type": ["number", "null"] },
+      "oppCost": { "type": ["number", "null"] },
+      "homeValueAtExit": { "type": ["number", "null"] },
+      "sellingCosts": { "type": ["number", "null"] },
+      "loanBalanceAtExit": {
+        "type": ["number", "null"],
+        "description": "Raw amortized balance (NOT money-rounded, matching Apex); exactly 0 when holdYears*12 exceeds the loan term."
+      },
+      "netSaleProceeds": { "type": ["number", "null"] },
+      "equityFromPrincipal": { "type": ["number", "null"] },
+      "equityFromAppreciation": { "type": ["number", "null"] },
+      "shareBps": {
+        "type": ["object", "null"],
+        "description": "Cost composition in basis points over grossCost (deductibleBenefit reported negative)."
+      },
+      "negativeAppreciation": { "type": ["boolean", "null"] },
+      "inputs": { "type": ["object", "null"], "additionalProperties": true },
+      "refusal": {
+        "type": ["string", "null"],
+        "description": "Null on success; REFUSED_BAD_HOLD_YEARS when holdYears is under 1 (Apex error text carried in message)."
+      },
+      "message": { "type": ["string", "null"] }
+    },
+    "description": "output_payload shape. A refusal and a success carry the SAME keys: on refusal every field except inputs/refusal/message is null and compliance_flags carries ART770_INPUT_REFUSED."
+  },
+  "source": "chaingraph/kernels/art-770-total-cost-of-homeownership.kernel.mjs",
+  "input_schema_provenance": "Each property is exactly the policy_parameters member the kernel reads; there is no other input surface. All 20 properties are required and mirror the Apex page inputs and editable-constants panel; cMaintenanceRuleOfThumb is excluded (Apex calculate() never reads it, Apex ~L484). Bounds mirror the clamps the compute actually enforces.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "price": 450000,
+    "downPct": 20,
+    "annualRate": 6.5,
+    "termYears": 30,
+    "closingPct": 2.5,
+    "miRatePct": 0.55,
+    "propertyTaxRate": 1.1,
+    "insuranceAnnual": 1800,
+    "hoaMonthly": 0,
+    "maintenancePct": 1,
+    "extraUtilities": 1200,
+    "appreciationPct": 3,
+    "taxGrowthPct": 2,
+    "inflationPct": 3,
+    "holdYears": 7,
+    "sellingPct": 6,
+    "oppRatePct": 5,
+    "marginalRatePct": 0,
+    "cMiDropLTVPct": 80,
+    "cSaltCap": 10000
+  },
+  "output_example": {
+    "inputs": {
+      "price": 450000,
+      "downPct": 20,
+      "annualRate": 6.5,
+      "termYears": 30,
+      "closingPct": 2.5,
+      "miRatePct": 0.55,
+      "propertyTaxRate": 1.1,
+      "insuranceAnnual": 1800,
+      "hoaMonthly": 0,
+      "maintenancePct": 1,
+      "extraUtilities": 1200,
+      "appreciationPct": 3,
+      "taxGrowthPct": 2,
+      "inflationPct": 3,
+      "holdYears": 7,
+      "sellingPct": 6,
+      "oppRatePct": 5,
+      "marginalRatePct": 0,
+      "cMiDropLTVPct": 80,
+      "cSaltCap": 10000
+    },
+    "downPayment": 90000,
+    "loanAmount": 360000,
+    "closingCosts": 11250,
+    "cashAtClose": 101250,
+    "monthlyPayment": 2275.44,
+    "totalInterest": 156635.96,
+    "totalPrincipal": 34501,
+    "totalMI": 0,
+    "totalPropertyTax": 36799.7,
+    "totalInsurance": 13792.43,
+    "totalMaintenance": 34481.08,
+    "totalHOA": 0,
+    "totalUtilities": 9194.95,
+    "deductibleBenefit": 0,
+    "oppCost": 41218.92,
+    "homeValueAtExit": 553443.24,
+    "sellingCosts": 33206.59,
+    "loanBalanceAtExit": 325498.9990509654,
+    "netSaleProceeds": 194737.65,
+    "equityFromPrincipal": 34501,
+    "equityFromAppreciation": 103443.24,
+    "grossCost": 336579.63,
+    "netCost": 233136.39,
+    "costPerMonth": 4006.9,
+    "netCostPerMonth": 2775.43,
+    "breakEvenMonthlyRent": 2775.43,
+    "shareBps": {
+      "closingCosts": 334,
+      "totalInterest": 4654,
+      "totalMI": 0,
+      "totalPropertyTax": 1093,
+      "totalInsurance": 410,
+      "totalMaintenance": 1024,
+      "totalHOA": 0,
+      "totalUtilities": 273,
+      "sellingCosts": 987,
+      "oppCost": 1225,
+      "deductibleBenefit": 0
+    },
+    "negativeAppreciation": false,
+    "refusal": null,
+    "message": null
+  },
+  "example_execution_hash": "3307053382718ddcdad92d893822e53d462dede7746ae10d501aed1f21b75364"
+}
