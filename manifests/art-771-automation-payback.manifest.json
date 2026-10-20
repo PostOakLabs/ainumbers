@@ -1,0 +1,414 @@
+{
+  "tool_id": "art-771-automation-payback",
+  "version": "1.0.0",
+  "title": "Automation Payback",
+  "description": "Rank automation candidates by payback before you build: monthly reclaimable value (hours saved per week times the loaded hourly rate, plus the error cost the automation eliminates) against total cost of ownership (one-time build amortized over the horizon, the subscription, and a maintenance haircut on recurring cost). Outputs a ranked table with break-even months and BUILD/SKIP calls, portfolio totals for hours reclaimed and net dollars, and a verdict naming the best candidate and the fastest break-even. Port of ApexLogics Apex #180 / AL-194 (page https://apexlogics.org/tools/180-automation-payback/ fetched 2026-10-13, 37945 bytes, sha256 4931C9A3713FBA69D6E614CE3BDB0FC8B01A75E7376BA8BF9916553CB2C91D1B), tasking APEXPORT-180 (GRADES PASS-PENDING-XV 2026-10-18, Builder-verifies-at-land 19/19 vectors), landed by APEX-PORT-180-LAND-1 on 2026-10-20. Gross-dollar arithmetic over user estimates; no tool-price database and no tax or regulatory premise.",
+  "category": "chaingraph",
+  "tags": [
+    "automation-payback",
+    "hours-saved",
+    "loaded-rate",
+    "error-cost",
+    "maintenance-haircut",
+    "break-even",
+    "build-vs-buy",
+    "productivity",
+    "mcp:compute_automation_payback"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "maintenance_haircut_pct",
+      "horizon_months",
+      "weeks_per_month",
+      "candidates"
+    ],
+    "properties": {
+      "as_of": {
+        "type": "string",
+        "description": "Explicit as-of date YYYY-MM-DD. The kernel reads no clock; an unparseable date yields a null as_of in the output."
+      },
+      "maintenance_haircut_pct": {
+        "type": "number",
+        "default": 20,
+        "description": "Policy parameter, not a fact: uplift on the monthly subscription only, never the amortised build. Floored at 0. Default 20 kept for live-vector parity."
+      },
+      "horizon_months": {
+        "type": "number",
+        "default": 24,
+        "description": "Evaluation horizon in months. Rounded half-up to a whole number, then floored at 1. The build cost amortizes straight-line as build_cost / horizon_months."
+      },
+      "weeks_per_month": {
+        "type": "number",
+        "default": 4.33,
+        "description": "Policy parameter, not a fact: converts hours per week to hours per month. Floored at 1. The 52/12 quotient is UNGROUNDED; default 4.33 kept for live-vector parity."
+      },
+      "candidates": {
+        "type": "array",
+        "description": "One entry per automation candidate. An empty array returns the zero payload with the NO_CANDIDATES flag. Every economic field is floored at 0.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "",
+              "description": "Candidate label. An empty or absent name renders as Unnamed candidate."
+            },
+            "hours_saved_per_week": {
+              "type": "number",
+              "default": 0,
+              "description": "Hours the automation returns each week. Floored at 0."
+            },
+            "loaded_hourly_rate_usd": {
+              "type": "number",
+              "default": 0,
+              "description": "Loaded hourly value of the reclaimed time, USD. A user estimate; no wage table is stored. Floored at 0."
+            },
+            "error_cost_avoided_usd_month": {
+              "type": "number",
+              "default": 0,
+              "description": "Monthly cost of the errors the automation eliminates, USD. A user estimate. Floored at 0."
+            },
+            "build_cost_usd": {
+              "type": "number",
+              "default": 0,
+              "description": "One-time build cost, USD. Amortized straight-line over horizon_months. Floored at 0."
+            },
+            "subscription_usd_month": {
+              "type": "number",
+              "default": 0,
+              "description": "Monthly subscription, USD, before the maintenance haircut. A user estimate. Floored at 0."
+            }
+          }
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_automation_payback",
+    "description": "Rank automation candidates by payback: monthly value (hours x weeks/month x loaded rate + error cost) against total cost of ownership (subscription with a maintenance haircut plus the amortised one-time build). Returns per-candidate net, break-even months and BUILD/SKIP calls, portfolio net and hours totals, and an ALL_CLEAR / MIXED_LIST / NO_CANDIDATE_CLEARS verdict. Reads no clock.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "maintenance_haircut_pct",
+        "horizon_months",
+        "weeks_per_month",
+        "candidates"
+      ],
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "description": "Explicit as-of date YYYY-MM-DD. The kernel reads no clock."
+        },
+        "maintenance_haircut_pct": {
+          "type": "number",
+          "default": 20,
+          "description": "Policy parameter: uplift on the monthly subscription only. Floored at 0."
+        },
+        "horizon_months": {
+          "type": "number",
+          "default": 24,
+          "description": "Evaluation horizon in whole months, rounded half-up, floored at 1."
+        },
+        "weeks_per_month": {
+          "type": "number",
+          "default": 4.33,
+          "description": "Policy parameter: hours-per-week to hours-per-month. Floored at 1."
+        },
+        "candidates": {
+          "type": "array",
+          "description": "One entry per candidate; an empty array returns the zero payload with the NO_CANDIDATES flag.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "default": ""
+              },
+              "hours_saved_per_week": {
+                "type": "number",
+                "default": 0
+              },
+              "loaded_hourly_rate_usd": {
+                "type": "number",
+                "default": 0
+              },
+              "error_cost_avoided_usd_month": {
+                "type": "number",
+                "default": 0
+              },
+              "build_cost_usd": {
+                "type": "number",
+                "default": 0
+              },
+              "subscription_usd_month": {
+                "type": "number",
+                "default": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-771-automation-payback.html",
+    "function_name": "run",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "as_of": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Echo of the as_of input; null when unparseable."
+      },
+      "haircut_pct": {
+        "type": "number",
+        "description": "Haircut percent after the 0 floor."
+      },
+      "horizon_months": {
+        "type": "integer",
+        "description": "Horizon after half-up rounding and the 1 floor."
+      },
+      "weeks_per_month": {
+        "type": "number",
+        "description": "Weeks per month after the 1 floor, 2dp."
+      },
+      "candidates": {
+        "type": "array",
+        "description": "Echo of the candidate inputs, 2dp."
+      },
+      "ranked": {
+        "type": "array",
+        "description": "Candidates sorted by descending net_mo, ties preserving input order.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "value_mo": {
+              "type": "number",
+              "description": "hours_saved_wk x weeks x loaded_rate + error_cost_mo."
+            },
+            "recurring_with_haircut_mo": {
+              "type": "number",
+              "description": "subscription_mo x (1 + haircut_pct/100)."
+            },
+            "build_amortized_mo": {
+              "type": "number",
+              "description": "build_cost / horizon_months."
+            },
+            "tco_mo": {
+              "type": "number"
+            },
+            "net_mo": {
+              "type": "number",
+              "description": "value_mo - tco_mo."
+            },
+            "breakeven_months": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "build_cost / (value_mo - recurring_with_haircut_mo); null when that margin is not positive. 1dp."
+            },
+            "breakeven_months_exact": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "The same quotient at 6dp."
+            },
+            "call": {
+              "type": "string",
+              "enum": [
+                "BUILD",
+                "SKIP"
+              ],
+              "description": "BUILD when net_mo >= 0."
+            },
+            "horizon_net": {
+              "type": "number",
+              "description": "value_mo x horizon - (build + recurring x horizon)."
+            }
+          }
+        }
+      },
+      "keepers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Ranked names with call BUILD."
+      },
+      "droppers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Ranked names with call SKIP."
+      },
+      "net_keep_mo": {
+        "type": "number",
+        "description": "Sum of net_mo over keepers."
+      },
+      "net_all_mo": {
+        "type": "number",
+        "description": "Sum of net_mo over all ranked."
+      },
+      "hours_reclaimed_wk": {
+        "type": "number",
+        "description": "Sum of hours over BUILD rows only, 1dp."
+      },
+      "horizon_net_keep": {
+        "type": "number"
+      },
+      "horizon_net_all": {
+        "type": "number"
+      },
+      "best_candidate": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Highest-net ranked name."
+      },
+      "fastest_breakeven_candidate": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Defined-break-even candidate with the smallest breakeven_months; net-sorted order breaks ties."
+      },
+      "fastest_breakeven_months": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "verdict": {
+        "type": "string",
+        "enum": [
+          "ALL_CLEAR",
+          "MIXED_LIST",
+          "NO_CANDIDATE_CLEARS"
+        ]
+      },
+      "regulatory_basis": {
+        "type": "string"
+      },
+      "note": {
+        "type": "string"
+      }
+    }
+  },
+  "source": "chaingraph/kernels/art-771-automation-payback.kernel.mjs — landed from the APEXPORT-180 porting payload (msi farm lane) by APEX-PORT-180-LAND-1 on 2026-10-20. Category mapped from the Apex taxonomy career_workforce to the AINumbers hub category Labor Market & Career Risk Analytics; Apex tags reviewed and carried.",
+  "input_schema_provenance": "derived-from-kernel-reads 2026-10-13 (APEXPORT-180). Every property is a field compute() actually reads; required lists the four inputs the kernel dereferences unconditionally. as_of is optional; omitting it yields a null as_of.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "as_of": "2026-10-13",
+    "maintenance_haircut_pct": 20,
+    "horizon_months": 24,
+    "weeks_per_month": 4.33,
+    "candidates": [
+      {
+        "name": "Invoice processing",
+        "hours_saved_per_week": 3,
+        "loaded_hourly_rate_usd": 45,
+        "error_cost_avoided_usd_month": 150,
+        "build_cost_usd": 2000,
+        "subscription_usd_month": 60
+      },
+      {
+        "name": "Report generation",
+        "hours_saved_per_week": 2,
+        "loaded_hourly_rate_usd": 55,
+        "error_cost_avoided_usd_month": 75,
+        "build_cost_usd": 500,
+        "subscription_usd_month": 30
+      },
+      {
+        "name": "Data-entry migration",
+        "hours_saved_per_week": 5,
+        "loaded_hourly_rate_usd": 28,
+        "error_cost_avoided_usd_month": 200,
+        "build_cost_usd": 3500,
+        "subscription_usd_month": 120
+      }
+    ]
+  },
+  "output_example": {
+    "as_of": "2026-10-13",
+    "haircut_pct": 20,
+    "horizon_months": 24,
+    "weeks_per_month": 4.33,
+    "ranked": [
+      {
+        "name": "Invoice processing",
+        "value_mo": 734.55,
+        "recurring_with_haircut_mo": 72,
+        "build_amortized_mo": 83.33,
+        "tco_mo": 155.33,
+        "net_mo": 579.22,
+        "breakeven_months": 3,
+        "breakeven_months_exact": 3.01864,
+        "call": "BUILD",
+        "horizon_net": 13901.2
+      },
+      {
+        "name": "Data-entry migration",
+        "value_mo": 806.2,
+        "recurring_with_haircut_mo": 144,
+        "build_amortized_mo": 145.83,
+        "tco_mo": 289.83,
+        "net_mo": 516.37,
+        "breakeven_months": 5.3,
+        "breakeven_months_exact": 5.285412,
+        "call": "BUILD",
+        "horizon_net": 12392.8
+      },
+      {
+        "name": "Report generation",
+        "value_mo": 551.3,
+        "recurring_with_haircut_mo": 36,
+        "build_amortized_mo": 20.83,
+        "tco_mo": 56.83,
+        "net_mo": 494.47,
+        "breakeven_months": 1,
+        "breakeven_months_exact": 0.970309,
+        "call": "BUILD",
+        "horizon_net": 11867.2
+      }
+    ],
+    "keepers": [
+      "Invoice processing",
+      "Data-entry migration",
+      "Report generation"
+    ],
+    "droppers": [],
+    "net_keep_mo": 1590.05,
+    "net_all_mo": 1590.05,
+    "hours_reclaimed_wk": 10,
+    "horizon_net_keep": 38161.2,
+    "horizon_net_all": 38161.2,
+    "best_candidate": "Invoice processing",
+    "fastest_breakeven_candidate": "Report generation",
+    "fastest_breakeven_months": 1,
+    "verdict": "ALL_CLEAR"
+  },
+  "example_execution_hash": "44c2f047c3d888996d1fc54ea794e51f8b5097ded68879bcfdd76687781ef4a6"
+}
