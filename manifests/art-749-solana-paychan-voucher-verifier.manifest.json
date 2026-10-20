@@ -1,0 +1,404 @@
+{
+  "tool_id": "art-749-solana-paychan-voucher-verifier",
+  "version": "1.0.0",
+  "title": "Solana Paychan Voucher Verifier",
+  "description": "Values-only check of a Solana payment-channels voucher message against trusted channel terms. The voucher is the 50-byte Ed25519-signed message the payment-channels program reads through the Instructions sysvar: magic bytes 0x56 0x01, a 32-byte channel PDA binding, a u64 little-endian cumulative amount and an i64 little-endian expiry (0 disables). This node recomputes the program validator post-signature check sequence by pure byte inspection and trusted inputs: exact 50-byte layout, magic tag/version, channel_id equals the supplied channel PDA, cumulative amount within the escrowed deposit ceiling, cumulative amount strictly above the settled watermark (at-or-below is a stale voucher), expiry 0 or later than the supplied unix clock, an optional supersession comparison where a second voucher with a lower or equal cumulative amount is superseded by the first, and the settle delta (cumulative minus settled) reported on success. Values are pasted; every channel term is a trusted input computed in BigInt with no floats. Out of scope and stated in every output: the Ed25519 signature is NOT verified here and nothing is read from chain. Sibling of the Tempo MPP voucher verifier art-594.",
+  "category": "chaingraph",
+  "tags": [
+    "solana",
+    "payment-channels",
+    "voucher",
+    "payment-verification",
+    "settlement",
+    "watermark",
+    "bigint",
+    "mcp:verify_solana_payment_channel_voucher"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "voucher_hex",
+      "channel_pda",
+      "deposit_ceiling",
+      "settled_watermark",
+      "current_time"
+    ],
+    "properties": {
+      "voucher_hex": {
+        "type": "string",
+        "description": "The 50-byte Ed25519-signed voucher message, hex (optional 0x prefix)."
+      },
+      "channel_pda": {
+        "type": "string",
+        "description": "The trusted channel PDA address, base58, exactly 32 bytes."
+      },
+      "deposit_ceiling": {
+        "type": "string",
+        "description": "The trusted escrowed deposit, decimal string (u64)."
+      },
+      "settled_watermark": {
+        "type": "string",
+        "description": "The trusted current settled amount, decimal string (u64)."
+      },
+      "current_time": {
+        "type": "string",
+        "description": "The trusted unix clock in seconds, decimal string (i64)."
+      },
+      "mint": {
+        "type": "string",
+        "description": "Optional trusted mint, informational passthrough."
+      },
+      "authorized_signer": {
+        "type": "string",
+        "description": "Optional claimed signer pubkey, base58. NOT verified."
+      },
+      "second_voucher_hex": {
+        "type": "string",
+        "description": "Optional second 50-byte voucher message, hex, for the supersession check."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "verify_solana_payment_channel_voucher",
+    "description": "Values-only check of a Solana payment-channels voucher message against trusted channel terms: 50-byte layout, magic bytes 0x56 0x01, channel PDA binding, cumulative amount against the deposit ceiling and the settled watermark, i64 expiry against a supplied clock, optional supersession of a second voucher, and the settle delta. The Ed25519 signature is NOT verified and nothing is read from chain.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "voucher_hex",
+        "channel_pda",
+        "deposit_ceiling",
+        "settled_watermark",
+        "current_time"
+      ],
+      "properties": {
+        "voucher_hex": {
+          "type": "string",
+          "description": "The 50-byte Ed25519-signed voucher message, hex (optional 0x prefix)."
+        },
+        "channel_pda": {
+          "type": "string",
+          "description": "The trusted channel PDA address, base58, exactly 32 bytes."
+        },
+        "deposit_ceiling": {
+          "type": "string",
+          "description": "The trusted escrowed deposit, decimal string (u64)."
+        },
+        "settled_watermark": {
+          "type": "string",
+          "description": "The trusted current settled amount, decimal string (u64)."
+        },
+        "current_time": {
+          "type": "string",
+          "description": "The trusted unix clock in seconds, decimal string (i64)."
+        },
+        "mint": {
+          "type": "string",
+          "description": "Optional trusted mint, informational passthrough."
+        },
+        "authorized_signer": {
+          "type": "string",
+          "description": "Optional claimed signer pubkey, base58. NOT verified."
+        },
+        "second_voucher_hex": {
+          "type": "string",
+          "description": "Optional second 50-byte voucher message, hex, for the supersession check."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-749-solana-paychan-voucher-verifier.html",
+    "function_name": "runCompute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-749-solana-paychan-voucher-verifier.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: voucher_hex, channel_pda, deposit_ceiling, settled_watermark, current_time, mint, authorized_signer, second_voucher_hex.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "voucher_hex": "56014f6c64000000000000000000000000000000000000000000000000000000a1b2e8030000000000000000000000000000",
+    "channel_pda": "6M352GLFANFJcFhbVn9PCykxRUXtrmu25svGLgi86Wss",
+    "deposit_ceiling": "5000",
+    "settled_watermark": "400",
+    "current_time": "1700000000"
+  },
+  "output_example": {
+    "checks": {
+      "length_is_50": true,
+      "magic_is_56_01": true,
+      "channel_id_matches_pda": true,
+      "cumulative_within_deposit_ceiling": true,
+      "cumulative_above_settled_watermark": true,
+      "not_expired": true
+    },
+    "all_pass": true,
+    "settle_delta": "600",
+    "cumulative_amount": "1000",
+    "expires_at": "0",
+    "channel_id_hex": "4f6c64000000000000000000000000000000000000000000000000000000a1b2",
+    "voucher": {
+      "length": 50,
+      "hex_prefix_stripped": true
+    },
+    "second_voucher": null,
+    "pinned_constants": {
+      "voucher_len": 50,
+      "magic": [
+        86,
+        1
+      ],
+      "offsets": {
+        "channel_id": 2,
+        "cumulative_amount": 34,
+        "expires_at": 42
+      },
+      "field_sizes": {
+        "channel_id": 32,
+        "cumulative_amount": 8,
+        "expires_at": 8
+      },
+      "open_slot_window": 1500
+    },
+    "trusted_terms": {
+      "deposit_ceiling": "5000",
+      "settled_watermark": "400",
+      "current_time": "1700000000",
+      "mint": null,
+      "authorized_signer": null
+    },
+    "out_of_scope": "the Ed25519 signature is NOT verified here (the authorized signer is a trusted claim) and nothing is read from chain",
+    "note": "Checks mirror the program validator in its own order after the Ed25519 precompile has proven the signature: exact 50-byte layout, magic tag/version, channel-address binding, deposit cap, strictly monotonic watermark, expiry (0 disables). settle_delta is the amount a settle of this voucher would add to the channel."
+  },
+  "example_execution_hash": "a8db5dd911253b5356178dbbdaa4bcf240a527df0eed2ad6afa5a33c10e1a0be",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "all_pass": {
+        "type": "boolean",
+        "enum": [
+          false,
+          true
+        ]
+      },
+      "channel_id_hex": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "checks": {
+        "type": "object",
+        "properties": {
+          "channel_id_matches_pda": {
+            "type": "boolean",
+            "enum": [
+              false,
+              true
+            ]
+          },
+          "cumulative_above_settled_watermark": {
+            "type": "boolean",
+            "enum": [
+              false,
+              true
+            ]
+          },
+          "cumulative_within_deposit_ceiling": {
+            "type": "boolean",
+            "enum": [
+              false,
+              true
+            ]
+          },
+          "length_is_50": {
+            "type": "boolean",
+            "enum": [
+              false,
+              true
+            ]
+          },
+          "magic_is_56_01": {
+            "type": "boolean",
+            "enum": [
+              false,
+              true
+            ]
+          },
+          "not_expired": {
+            "type": "boolean",
+            "enum": [
+              false,
+              true
+            ]
+          }
+        },
+        "required": [
+          "channel_id_matches_pda",
+          "cumulative_above_settled_watermark",
+          "cumulative_within_deposit_ceiling",
+          "length_is_50",
+          "magic_is_56_01",
+          "not_expired"
+        ],
+        "additionalProperties": false
+      },
+      "cumulative_amount": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "expires_at": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "note": {
+        "type": "string"
+      },
+      "out_of_scope": {
+        "type": "string"
+      },
+      "pinned_constants": {
+        "type": "object",
+        "properties": {
+          "field_sizes": {
+            "type": "object",
+            "properties": {
+              "channel_id": {
+                "type": "number"
+              },
+              "cumulative_amount": {
+                "type": "number"
+              },
+              "expires_at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "channel_id",
+              "cumulative_amount",
+              "expires_at"
+            ],
+            "additionalProperties": false
+          },
+          "magic": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "offsets": {
+            "type": "object",
+            "properties": {
+              "channel_id": {
+                "type": "number"
+              },
+              "cumulative_amount": {
+                "type": "number"
+              },
+              "expires_at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "channel_id",
+              "cumulative_amount",
+              "expires_at"
+            ],
+            "additionalProperties": false
+          },
+          "open_slot_window": {
+            "type": "number"
+          },
+          "voucher_len": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "field_sizes",
+          "magic",
+          "offsets",
+          "open_slot_window",
+          "voucher_len"
+        ],
+        "additionalProperties": false
+      },
+      "second_voucher": {
+        "type": [
+          "null",
+          "object"
+        ]
+      },
+      "settle_delta": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "trusted_terms": {
+        "type": "object",
+        "properties": {
+          "authorized_signer": {
+            "type": "null"
+          },
+          "current_time": {
+            "type": "string"
+          },
+          "deposit_ceiling": {
+            "type": "string"
+          },
+          "mint": {
+            "type": "null"
+          },
+          "settled_watermark": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorized_signer",
+          "current_time",
+          "deposit_ceiling",
+          "mint",
+          "settled_watermark"
+        ],
+        "additionalProperties": false
+      },
+      "voucher": {
+        "type": "object",
+        "properties": {
+          "hex_prefix_stripped": {
+            "type": "boolean"
+          },
+          "length": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "hex_prefix_stripped",
+          "length"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "all_pass",
+      "channel_id_hex",
+      "checks",
+      "cumulative_amount",
+      "expires_at",
+      "note",
+      "out_of_scope",
+      "pinned_constants",
+      "second_voucher",
+      "settle_delta",
+      "trusted_terms",
+      "voucher"
+    ],
+    "additionalProperties": false,
+    "x-derived-from": "fixture"
+  }
+}
