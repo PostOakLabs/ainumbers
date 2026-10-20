@@ -649,6 +649,7 @@ import * as art74     from './art-74-taxonomy-kpi-gar-aggregator.kernel.mjs';
 import * as art75     from './art-75-eugb-factsheet-validator.kernel.mjs';
 import * as art76     from './art-76-climate-scenario-applicator.kernel.mjs';
 import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
+import * as art761    from './art-761-caregiver-income-impact.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
 import * as art78     from './art-78-csdr-penalty-calculator.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
@@ -1337,6 +1338,7 @@ export const KERNELS = {
   'art-75-eugb-factsheet-validator':                            art75,
   'art-76-climate-scenario-applicator':                         art76,
   'art-763-ai-displacement-risk-screener':                      art763,
+  'art-761-caregiver-income-impact':                            art761,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
   'art-78-csdr-penalty-calculator':                             art78,
   'art-79-settlement-fail-predictor':                           art79,
