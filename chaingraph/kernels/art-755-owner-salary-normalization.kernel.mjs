@@ -59,7 +59,7 @@ import { executionHash } from './_hash.mjs';
 
 /**
  * Employer Social Security (OASDI) rate, percent of FICA wages.
- * GROUNDED 2026-10-06, 26 U.S.C. §3111(a)
+ * GROUNDED 2026-10-06, 26 U.S.C. 3111(a)
  * (https://www.law.cornell.edu/uscode/text/26/3111):
  *   "In addition to other taxes, there is hereby imposed on every employer an
  *    excise tax, with respect to having individuals in his employ, equal to 6.2
@@ -73,7 +73,7 @@ export const SS_EMPLOYER_RATE_PCT = 6.20;
 
 /**
  * Employer Medicare (hospital insurance) rate, percent of FICA wages.
- * GROUNDED 2026-10-06, 26 U.S.C. §3111(b)
+ * GROUNDED 2026-10-06, 26 U.S.C. 3111(b)
  * (https://www.law.cornell.edu/uscode/text/26/3111):
  *   "In addition to the tax imposed by the preceding subsection, there is hereby
  *    imposed on every employer an excise tax, with respect to having individuals
@@ -87,9 +87,9 @@ export const SS_EMPLOYER_RATE_PCT = 6.20;
 export const MEDICARE_EMPLOYER_RATE_PCT = 1.45;
 
 /**
- * SCOPE, verified NOT a divergence: the §3101(b)(2) Additional Medicare Tax
+ * SCOPE, verified NOT a divergence: the 3101(b)(2) Additional Medicare Tax
  * (0.9% of wages over $200,000, no employer match) is deliberately absent.
- * This node computes the EMPLOYER's share only — IRC §3111 — and IRS Topic 751
+ * This node computes the EMPLOYER's share only under IRC 3111, and IRS Topic 751
  * says of the Additional Medicare Tax: "There's no employer match for Additional
  * Medicare tax." art-339 kernel lines 80-81 carry it because that node withholds
  * from the employee as well. Recorded here so a future builder does not "fix" it.
@@ -349,7 +349,7 @@ export function compute(pp) {
   if (reasonableCompPatternFlag) complianceFlags.push('REASONABLE_COMP_PATTERN_OBSERVED');
   if (multiOwner) complianceFlags.push('MULTI_OWNER_AGGREGATE_REPLACEMENT_COST');
 
-  // AUTHORING-STANDARD §2.2 flag mirror: every conditional compliance flag is
+  // AUTHORING-STANDARD section 2.2 flag mirror: every conditional compliance flag is
   // mirrored into output_payload.warnings as a reader-facing sentence, so a
   // consumer that never reads compliance_flags still sees the condition.
   const warnings = [];
