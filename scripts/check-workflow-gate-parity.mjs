@@ -1120,6 +1120,17 @@ const PREFLIGHT_ONLY = new Map([
   ["check-deploy-superseded.test.mjs", SELF_TEST],
   ["check-served-egress.test.mjs", SELF_TEST],
   ["check-workflow-gate-parity.test.mjs", SELF_TEST],
+  // ── WORKFLOW-STEP-USES-LINT-1 (2026-10-15) ─────────────────────────────────
+  ["check-workflow-step-uses.mjs",
+    "Step-level reusable-workflow-call lint (WORKFLOW-STEP-USES-LINT-1): flags a " +
+    "`uses:` of a .github/workflows/*.yml path inside a job's steps list (GitHub " +
+    "Actions only calls reusable workflows from a job; the step form parses but dies " +
+    "at run time). Declared here because the parity extractor credits literal " +
+    "`node <script>` invocations only, and the CI route is the gates array loop in " +
+    ".github/workflows/unwired-gates.yml (Run the 18 measured-green gates), which " +
+    "invokes via `node \"$g\"`. The array entry is real blocking CI enforcement; " +
+    "this declaration records the shape, it does not excuse an unwired gate."],
+  ["check-workflow-step-uses.test.mjs", SELF_TEST],
   ["sync-ain-bridge.test.mjs", SELF_TEST],
   ["check-chain-edge-contracts.selftest.mjs", SELF_TEST],
   ["check-chain-l2-contracts.selftest.mjs", SELF_TEST],
@@ -1547,7 +1558,10 @@ const DECLARED_SOFTENERS = new Map([
   // the trigger comment was reflowed to keep the public file free of
   // internal-governance row ids (check-internal-lang-leak's bare-wu-id
   // class); same pin-move, no gate step below the trigger changed.
-  ["unwired-gates.yml:continue-on-error:146",
+  // WORKFLOW-STEP-USES-LINT-1 (2026-10-15) moved it :146 -> :147 — the
+  // step-uses lint gate landed as one array line in the measured-green
+  // gates loop above the surface-parity step; same pin-move.
+  ["unwired-gates.yml:continue-on-error:147",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
    "continue-on-error is deliberate so the job surfaces drift without blocking. " +
    "Promotion to blocking removes this entry together with the continue-on-error."],
