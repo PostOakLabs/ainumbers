@@ -23,12 +23,11 @@
 //       CITES.md): §423(b)(6) 15% discount, §423(a)(1) holding periods,
 //       §423(c) qualifying-disposition ordinary-income cap.
 //
-// CLOCK NOTE (the single wall-clock branch): `already_qualified` is derived
-// from the wall clock exactly as the Apex page does, EXCEPT when the optional
-// port-only input `as_of_date` (YYYY-MM-DD) is supplied, which replaces the
-// clock and makes the whole payload deterministic / zkVM-promotable. Every
-// committed fixture pins as_of_date. Nothing else in compute() reads the
-// clock, randomness or I/O.
+// CLOCK NOTE (deterministic): `already_qualified` is derived from the required
+// port-only input `as_of_date` (YYYY-MM-DD), never from a wall clock; a missing
+// or malformed as_of_date is a named refusal (REFUSED_BAD_AS_OF_DATE). The whole
+// payload is deterministic / zkVM-promotable. Every committed fixture pins
+// as_of_date. Nothing in compute() reads the clock, randomness or I/O.
 
 import { executionHash } from './_hash.mjs';
 
@@ -183,8 +182,8 @@ function refusedPayload(code, detail) {
 
 /**
  * compute(pp) — ported ESPP disposition computation. Pure function of the policy
- * parameters except the single documented clock branch on `already_qualified`
- * (eliminated by the optional `as_of_date` input).
+ * parameters; the valuation date for `already_qualified` is the required
+ * `as_of_date` input (kernel-determinism: the kernel never reads a clock).
  *
  * pp = {
  *   purchase_price:  number (USD/share), the actual price paid, after the 15% discount
@@ -195,8 +194,8 @@ function refusedPayload(code, detail) {
  *   purchase_date:   string YYYY-MM-DD, date shares were purchased
  *   ordinary_income: number (USD), W-2 + all other ordinary income for the year
  *   filing_status:   'single' | 'mfj'
- *   as_of_date:      optional string YYYY-MM-DD. If supplied, replaces the wall clock
- *                    for the `already_qualified` field only (deterministic run).
+ *   as_of_date:      string YYYY-MM-DD. Valuation date for the `already_qualified`
+ *                    field; the kernel never reads a wall clock.
  * }
  *
  * Returns { output_payload, compliance_flags }. An out-of-domain input yields an
@@ -253,10 +252,17 @@ export function compute(pp) {
   const mrate = marginalRate(ordIncome, status);
 
   // ── Qualifying disposition date ──
+  if (!validateISODate(pp.as_of_date)) {
+    return {
+      output_payload: refusedPayload(
+        'REFUSED_BAD_AS_OF_DATE',
+        'as_of_date must be a YYYY-MM-DD string; the kernel never reads a wall clock'
+      ),
+      compliance_flags: ['ART760_INPUT_REFUSED'],
+    };
+  }
   const qualifyDate = calcQualifyDate(grantDate, purchaseDate);
-  const now = pp.as_of_date
-    ? new Date(pp.as_of_date + 'T00:00:00Z')
-    : new Date();
+  const now = new Date(pp.as_of_date + 'T00:00:00Z');
   const qDate = new Date(qualifyDate);
   const alreadyQualified = now.getTime() > qDate.getTime();
 
