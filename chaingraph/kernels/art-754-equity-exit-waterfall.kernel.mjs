@@ -98,16 +98,22 @@ function computeFlat(pp) {
   const P = ART754_POLICY;
 
   // ── 1. Coercion: Apex #141's exact reads (page lines 339-349, `+el.value`) ──
-  const exitVal = Number(pp.exit_valuation_usd);
-  const totalInvested = Number(pp.total_preferred_invested_usd);
-  const prefOwnerPct = Number(pp.preferred_ownership_pct) / C.PERCENT_DIVISOR;
-  const prefMultiple = Number(pp.liquidation_preference_multiple);
-  const participationType = pp.participation_type;
-  const participationCap = Number(pp.participation_cap_multiple);
-  const yourRole = pp.your_role;
-  const yourOwnerPct = Number(pp.your_ownership_pct) / C.PERCENT_DIVISOR;
-  const yourStrike = Number(pp.your_option_strike_total_usd);
-  const yourBasis = Number(pp.your_cost_basis_usd);
+  // R4 (MR-R4-NULL-REGRESSION-GATE-1): an explicit null input must answer exactly
+  // as the absent input. `Number(null)` is 0 while `Number(undefined)` is NaN, so
+  // null is normalized to undefined before every read (port hardening on top of
+  // DIFFERS-01: both forms then refuse with REFUSED_NON_FINITE_INPUT).
+  const N = (v) => Number(v === null ? undefined : v);
+  const S = (v) => (v === null ? undefined : v);
+  const exitVal = N(pp.exit_valuation_usd);
+  const totalInvested = N(pp.total_preferred_invested_usd);
+  const prefOwnerPct = N(pp.preferred_ownership_pct) / C.PERCENT_DIVISOR;
+  const prefMultiple = N(pp.liquidation_preference_multiple);
+  const participationType = S(pp.participation_type);
+  const participationCap = N(pp.participation_cap_multiple);
+  const yourRole = S(pp.your_role);
+  const yourOwnerPct = N(pp.your_ownership_pct) / C.PERCENT_DIVISOR;
+  const yourStrike = N(pp.your_option_strike_total_usd);
+  const yourBasis = N(pp.your_cost_basis_usd);
 
   // ── DIFFERS-01 (port hardening): refuse non-finite inputs ──
   const coercedNumerics = [exitVal, totalInvested, prefOwnerPct, prefMultiple, participationCap, yourOwnerPct, yourStrike, yourBasis];
