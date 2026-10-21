@@ -265,10 +265,13 @@ function computeFlat(pp) {
   // FLAGS-COMPUTED-LINT-1: the standing stamps attach via spread of the module-level
   // STANDING_FLAGS tuple (the never-fires class: the spread attests standing
   // disclosures, not computed work); only the data-dependent flags are inline ternaries.
-  const compliance_flags = [
-    ...ART766_STANDING_FLAGS,
+  const conditionalWarnings = [
     ...(capBinds ? ['ART766_STATE_CAP_BINDS'] : []),
     ...(recoveryFinite ? [] : ['ART766_RECOVERY_SENTINEL']),
+  ];
+  const compliance_flags = [
+    ...ART766_STANDING_FLAGS,
+    ...conditionalWarnings,
   ];
 
   return {
@@ -291,6 +294,9 @@ function computeFlat(pp) {
     return_monthly_net: returnMonthlyNet,
     surplus_per_month: surplusPerMonth,
     rows,
+    // Flag-mirror doctrine (AUTHORING-STANDARD mirror list): the closed-list member that is
+    // truthy exactly when the conditional flags are present (0 -> falsy).
+    warn_count: conditionalWarnings.length,
     compliance_flags,
   };
 }
