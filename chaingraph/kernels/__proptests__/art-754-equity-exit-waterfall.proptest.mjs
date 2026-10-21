@@ -4,7 +4,7 @@
 // 2026-10-07T03:0xZ reaudit CONFIRMED 2026-10-07T04:59:15Z, Builder-verifies-at-land
 // 18/18 pre-build (17 match + 1 expected DIFFERS-01 refusal), Tim extend ruling
 // 2026-10-18T21:20Z).
-// kernel_digest_at_authoring: sha256:sha256:a46e9cb990a7038f60994f348c3a3471baba8ae89fbd6ee2510c657736e4c520
+// kernel_digest_at_authoring: sha256:a46e9cb990a7038f60994f348c3a3471baba8ae89fbd6ee2510c657736e4c520
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
