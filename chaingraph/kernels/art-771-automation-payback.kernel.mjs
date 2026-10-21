@@ -116,7 +116,7 @@ function apexCoerce(v, dflt) {
 }
 
 function r(v, dp) {
-  const f = Math.pow(10, dp);
+  const f = 10 ** dp; // dp is an integer constant (2 or 1); ** is exact here and avoids the Math.pow transcendental pin
   return Number.isFinite(v) ? Math.round(v * f) / f : 0;
 }
 const r2 = (v) => r(v, USD_DECIMALS);
