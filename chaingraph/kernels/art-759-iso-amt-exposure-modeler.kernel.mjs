@@ -257,14 +257,15 @@ export const meta = {
 
 /**
  * compute(pp) — pure decision kernel (port of Apex #109 inline compute).
- * Domain refusals surface as output_payload {refused, detail} with a named compliance flag
- * (the payload contract); happy-path output_payload is the Apex results snapshot.
+ * Domain refusals surface as output_payload {refused, detail, domain_errors} with a named
+ * compliance flag (the payload contract); happy-path output_payload is the Apex results snapshot.
  * @param {object} pp policy_parameters
  * @returns {{ output_payload: object, compliance_flags: string[] }}
  */
 export function compute(pp) {
   const out = computeFlat(pp);
   if (out && typeof out === 'object' && out.refused) {
+    out.domain_errors = [out.refused];
     return { output_payload: out, compliance_flags: [out.refused] };
   }
   return { output_payload: out, compliance_flags: [] };

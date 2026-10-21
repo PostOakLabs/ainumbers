@@ -1,5 +1,5 @@
 // art-759-iso-amt-exposure-modeler.proptest.mjs — class-K property-test FLOOR
-// kernel_digest_at_authoring: sha256:c1fe8a46cc4e56974a7b68492463aa4d6fb8b096561af82fd12aef90b2dafc5e
+// kernel_digest_at_authoring: sha256:6eb30e06eba956f9ebbc925b4a3b22f0fd51fbaec98dfe7e8715737891ae317c
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-109 porting payload
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-09T02:05Z, Builder-verifies-at-land 15/15 pre-build, Tim extend ruling
