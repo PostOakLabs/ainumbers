@@ -209,7 +209,7 @@ export function compute(pp) {
     return {
       output_payload: refusedPayload(
         'REFUSED_UNKNOWN_FILING_STATUS',
-        "filing_status must be 'single' or 'mfj'; received " + JSON.stringify(status)
+        "filing_status must be 'single' or 'mfj'; received " + JSON.stringify(status ?? null) + " (absent and null are the same input, MR-R4)"
       ),
       compliance_flags: ['ART760_INPUT_REFUSED'],
     };
@@ -230,7 +230,7 @@ export function compute(pp) {
       return {
         output_payload: refusedPayload(
           'REFUSED_NON_FINITE_INPUT',
-          k + ' must be a finite number; received ' + JSON.stringify(numeric[k])
+          k + ' must be a finite number; received ' + JSON.stringify(numeric[k] ?? null) + " (absent and null are the same input, MR-R4)"
         ),
         compliance_flags: ['ART760_INPUT_REFUSED'],
       };
