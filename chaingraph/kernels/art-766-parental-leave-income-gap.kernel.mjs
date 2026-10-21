@@ -20,7 +20,8 @@
 // NO as-of parameter (the APEXPORT-110B as-of pattern does not apply).
 //
 // GROUNDING / VINTAGE (see APEXPORT-131 payload CITES.md and DIFFERS.md D1-D11):
-// - FMLA entitlement reference 12 workweeks is GROUNDED (29 CFR 825.200, CITES G0);
+// - FMLA entitlement reference 12 workweeks is GROUNDED (CITES G0, the FMLA
+//   entitlement clause named in node metadata regulatory_basis);
 //   it appears in NO arithmetic on either side.
 // - State PFL rates/caps are the Apex 2025-vintage schedule (registry data_vintage
 //   "state PFL rates as of 2025"), kept verbatim for fixture parity. Official 2026
@@ -120,7 +121,8 @@ export const RECOVERY_SENTINEL_MONTHS = 999; // Apex L390, L408, L418
 // (Apex L411). Display gate only.
 export const VERDICT_HALF = 0.5; // Apex L411
 
-// FMLA reference: 12 workweeks (29 CFR 825.200, CITES G0). Display/prose reference
+// FMLA reference: 12 workweeks (CITES G0 — the FMLA entitlement clause named in
+// node metadata regulatory_basis). Display/prose reference
 // only — it appears in NO arithmetic on either side.
 export const FMLA_WEEKS_REFERENCE = 12;
 
