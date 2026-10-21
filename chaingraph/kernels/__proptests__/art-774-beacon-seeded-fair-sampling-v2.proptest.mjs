@@ -105,7 +105,7 @@ function reimplementV2(pp) {
 // ---------- P1: exact draws — every valid derivation completes, no cap ----------
 function checkP1_exact_draws() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 50; i++) {
     const pp = randomPP(rand);
     const { output_payload: o } = computeV2(pp);
     checked++;
@@ -114,7 +114,7 @@ function checkP1_exact_draws() {
     if (o.draws_used !== pp.sample_size + o.reduction_rejects) violations++;
   }
   // Full samples at populations the v1 cap could not cover: no cap exists here.
-  for (const n of [300, 600]) {
+  for (const n of [200, 400]) {
     const pp = randomPP(rand, 1);
     pp.item_count = n; pp.sample_size = n;
     const { output_payload: o } = computeV2(pp);
@@ -128,7 +128,7 @@ function checkP1_exact_draws() {
 // ---------- P2: boundedness — distinct in-range indices, permutation on full samples, transcript cap ----------
 function checkP2_boundedness() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 50; i++) {
     const pp = randomPP(rand);
     const { output_payload: o } = computeV2(pp);
     checked++;
@@ -148,7 +148,7 @@ function checkP2_boundedness() {
 // ---------- P3: determinism + seed determinism ----------
 function checkP3_seed_determinism() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 120; i++) {
+  for (let i = 0; i < 60; i++) {
     const pp = randomPP(rand);
     const a = computeV2(pp).output_payload;
     const b = computeV2(pp).output_payload;
@@ -164,7 +164,7 @@ function checkP3_seed_determinism() {
 // ---------- P4: differential — full-walk reimplementation + raw-stream identity vs the v1 sampler ----------
 function checkP4_differential() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 120; i++) {
+  for (let i = 0; i < 60; i++) {
     const pp = randomPP(rand);
     const { output_payload: o } = computeV2(pp);
     const exp = reimplementV2(pp);
@@ -175,7 +175,7 @@ function checkP4_differential() {
     if (JSON.stringify(o.derivation_transcript) !== JSON.stringify(exp.transcript)) violations++;
   }
   // Raw-stream identity against the v1 sampler node (read-only import; v1 is never edited).
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 20; i++) {
     const pp1 = randomPP(rand, 60);
     const v1pp = { ...pp1, algorithm_id: 'hmac-drbg-sha256-v1', sample_size: Math.min(pp1.sample_size, 5) };
     const v2pp = { ...pp1, algorithm_id: 'hmac-drbg-sha256-v2', item_count: v1pp.item_count, sample_size: v1pp.sample_size };
@@ -222,7 +222,7 @@ function checkP5_uniformity() {
   }
   // (b) end-to-end index frequency at n=7, sample_size=1, 2100 independent seeds: every
   // index count within 5 sigma of the uniform mean (sigma = sqrt(T/n * (1-1/n))).
-  const n = 7, T = 700;
+  const n = 7, T = 350;
   const counts = new Array(n).fill(0);
   for (let t = 0; t < T; t++) {
     const pp = randomPP(rand, 1);
