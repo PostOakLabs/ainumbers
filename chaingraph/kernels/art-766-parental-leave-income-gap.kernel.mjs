@@ -106,6 +106,7 @@ export const PFL_TAXABLE_SHARE = 0.5; // Apex L351
 export const ART766_2025_VINTAGE = 'ART766_2025_VINTAGE'; // state rates/caps are the Apex 2025 schedule; 2026 differs (DIFFERS D1-D6)
 export const ART766_PFL_PARTIALLY_TAXABLE_ASSUMPTION = 'ART766_PFL_PARTIALLY_TAXABLE_ASSUMPTION'; // L351 haircut is ungrounded (CITES U2)
 export const ART766_WINDFALL_CAP = 'ART766_WINDFALL_CAP'; // L374 1.05 cap is a modelling choice, not a cited fact
+export const ART766_STANDING_FLAGS = [ART766_2025_VINTAGE, ART766_PFL_PARTIALLY_TAXABLE_ASSUMPTION, ART766_WINDFALL_CAP];
 
 // "No windfall": employer pay + state PFL can never exceed 105% of net weekly pay in
 // any week (Apex L374). Modelling choice, not a cited fact.
@@ -259,10 +260,11 @@ function computeFlat(pp) {
   // for a duration.
   const verdict = isFullyCovered ? 'positive' : savings > savingsNeeded * VERDICT_HALF ? 'warn' : 'danger'; // C9
 
+  // FLAGS-COMPUTED-LINT-1: the standing stamps attach via spread of the module-level
+  // STANDING_FLAGS tuple (the never-fires class: the spread attests standing
+  // disclosures, not computed work); only the data-dependent flags are inline ternaries.
   const compliance_flags = [
-    ART766_2025_VINTAGE,
-    ART766_PFL_PARTIALLY_TAXABLE_ASSUMPTION,
-    ART766_WINDFALL_CAP,
+    ...ART766_STANDING_FLAGS,
     ...(capBinds ? ['ART766_STATE_CAP_BINDS'] : []),
     ...(recoveryFinite ? [] : ['ART766_RECOVERY_SENTINEL']),
   ];
