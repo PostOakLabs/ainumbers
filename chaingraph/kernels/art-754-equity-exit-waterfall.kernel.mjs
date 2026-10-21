@@ -70,6 +70,9 @@ const ART754_POLICY = {
 };
 
 function refusalPayload(refusalReason, echo, note) {
+  // FLAGS-COMPUTED-LINT-1: the refusal flag is earned (pushed), never a bare literal.
+  const complianceFlags = [];
+  if (refusalReason) complianceFlags.push('ART754_INPUT_REFUSED');
   const o = {
     refusal_reason: refusalReason,
     exit_valuation_usd: null, total_preferred_invested_usd: null,
@@ -86,7 +89,7 @@ function refusalPayload(refusalReason, echo, note) {
       refuse_non_finite_input: ART754_POLICY.REFUSE_NON_FINITE_INPUT,
       pref_wins_warning_threshold: ART754_POLICY.PREF_WINS_WARNING_THRESHOLD,
     },
-    compliance_flags: ['ART754_INPUT_REFUSED'],
+    compliance_flags: complianceFlags,
     notes: [note],
   };
   if (echo) for (const k of Object.keys(echo)) if (o[k] !== undefined) o[k] = echo[k];
