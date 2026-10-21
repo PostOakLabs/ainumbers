@@ -217,6 +217,7 @@ export function compute(pp) {
         fastest_breakeven_candidate: null,
         fastest_breakeven_months: null,
         verdict: VERDICT_NONE_CLEAR,
+        warning_checks: compliance_flags,
         regulatory_basis: 'none — pure gross-dollar payback arithmetic over user estimates; no tax or regulatory premise',
         note: 'No candidates supplied. The Apex page alerts "Add at least one automation candidate to rank." and returns without rendering results.',
       },
@@ -300,6 +301,7 @@ export function compute(pp) {
     fastest_breakeven_candidate: fastest ? fastest.name : null,
     fastest_breakeven_months: fastest ? r1(fastest.breakeven) : null,
     verdict,
+    warning_checks: compliance_flags,
     regulatory_basis: 'none — pure gross-dollar payback arithmetic over user estimates; no tax or regulatory premise',
     note: 'value_mo = hours_saved_wk*weeks_per_month*loaded_rate + error_cost_mo. tco_mo = subscription_mo*(1+haircut_pct/100) + build_cost/horizon_months. net_mo = value_mo - tco_mo. breakeven_months = build_cost/(value_mo - recurring_with_haircut_mo), null when that denominator is not positive. horizon_net = value_mo*horizon_months - (build_cost + recurring_with_haircut_mo*horizon_months), which equals net_mo*horizon_months. The maintenance haircut applies to the subscription only, never to the amortised build. hours_reclaimed_wk sums hours over BUILD candidates only. Ranking is descending net_mo; ties preserve input order (Array.prototype.sort stability, ES2019).',
   };
