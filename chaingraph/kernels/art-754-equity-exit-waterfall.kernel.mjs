@@ -90,6 +90,8 @@ function refusalPayload(refusalReason, echo, note) {
       pref_wins_warning_threshold: ART754_POLICY.PREF_WINS_WARNING_THRESHOLD,
     },
     compliance_flags: complianceFlags,
+    // AUTHORING-STANDARD Section 2.2 flag mirror (refusal leg).
+    warnings: complianceFlags,
     notes: [note],
   };
   if (echo) for (const k of Object.keys(echo)) if (o[k] !== undefined) o[k] = echo[k];
@@ -268,6 +270,9 @@ function computeFlat(pp) {
       pref_wins_warning_threshold: P.PREF_WINS_WARNING_THRESHOLD,
     },
     compliance_flags: complianceFlags,
+    // AUTHORING-STANDARD Section 2.2 flag mirror: truthy exactly when the conditional
+    // flags above are present.
+    warnings: complianceFlags,
     notes: notes
   };
 }
