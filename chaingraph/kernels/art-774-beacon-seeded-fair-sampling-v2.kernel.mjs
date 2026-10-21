@@ -228,6 +228,10 @@ function deriveFairSample(pp) {
     return {
       output_payload: {
         verdict: 'INDETERMINATE',
+        // Mirror member (AUTHORING-STANDARD section 2.2): the flag channel is conditional
+        // (refusal flags vs derivation flags), so the payload carries a closed-list member
+        // truthy exactly when the operator must fix an input before re-running.
+        manual_review_required: true,
         reasons,
         beacon_source: VALID_BEACON_SOURCES.has(beacon_source) ? beacon_source : (beacon_source || null),
         beacon_round: beacon_round || null,
@@ -295,6 +299,7 @@ function deriveFairSample(pp) {
   return {
     output_payload: {
       verdict: 'DERIVED',
+      manual_review_required: false,
       beacon_source,
       beacon_round,
       beacon_randomness,

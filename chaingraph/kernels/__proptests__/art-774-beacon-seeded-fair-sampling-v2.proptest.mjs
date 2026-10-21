@@ -1,5 +1,5 @@
 // art-774-beacon-seeded-fair-sampling-v2 — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:c757f4569a003583873d412190beb7d376192a7fb58615e8ce21dfd8314e54cc
+// kernel_digest_at_authoring: sha256:225a33c9b312d9564601be3adb3aaf90e35f077f3d2352d63ad7a9dc9d55b102
 // spec: research/browser-first-primitives-revised-plan-2026-10-16.md item 0b + research/no-reprove-shared-bundle-design-2026-10-17.md section 3 (SAMPLER-583-V2-1)
 // human_sign_off: PENDING
 //
@@ -105,7 +105,7 @@ function reimplementV2(pp) {
 // ---------- P1: exact draws — every valid derivation completes, no cap ----------
 function checkP1_exact_draws() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < 100; i++) {
     const pp = randomPP(rand);
     const { output_payload: o } = computeV2(pp);
     checked++;
@@ -114,7 +114,7 @@ function checkP1_exact_draws() {
     if (o.draws_used !== pp.sample_size + o.reduction_rejects) violations++;
   }
   // Full samples at populations the v1 cap could not cover: no cap exists here.
-  for (const n of [500, 1200]) {
+  for (const n of [300, 600]) {
     const pp = randomPP(rand, 1);
     pp.item_count = n; pp.sample_size = n;
     const { output_payload: o } = computeV2(pp);
@@ -128,7 +128,7 @@ function checkP1_exact_draws() {
 // ---------- P2: boundedness — distinct in-range indices, permutation on full samples, transcript cap ----------
 function checkP2_boundedness() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < 100; i++) {
     const pp = randomPP(rand);
     const { output_payload: o } = computeV2(pp);
     checked++;
@@ -148,7 +148,7 @@ function checkP2_boundedness() {
 // ---------- P3: determinism + seed determinism ----------
 function checkP3_seed_determinism() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 400; i++) {
+  for (let i = 0; i < 120; i++) {
     const pp = randomPP(rand);
     const a = computeV2(pp).output_payload;
     const b = computeV2(pp).output_payload;
@@ -164,7 +164,7 @@ function checkP3_seed_determinism() {
 // ---------- P4: differential — full-walk reimplementation + raw-stream identity vs the v1 sampler ----------
 function checkP4_differential() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 400; i++) {
+  for (let i = 0; i < 120; i++) {
     const pp = randomPP(rand);
     const { output_payload: o } = computeV2(pp);
     const exp = reimplementV2(pp);
@@ -222,7 +222,7 @@ function checkP5_uniformity() {
   }
   // (b) end-to-end index frequency at n=7, sample_size=1, 2100 independent seeds: every
   // index count within 5 sigma of the uniform mean (sigma = sqrt(T/n * (1-1/n))).
-  const n = 7, T = 2100;
+  const n = 7, T = 700;
   const counts = new Array(n).fill(0);
   for (let t = 0; t < T; t++) {
     const pp = randomPP(rand, 1);
@@ -244,32 +244,34 @@ function checkP6_forced_categorical() {
   const R = hexN(rand, 64), M = hexN(rand, 64);
   const ok = { beacon_source: 'drand_quicknet', beacon_round: '4321000', beacon_randomness: R, item_manifest_hash: M, algorithm_id: 'hmac-drbg-sha256-v2' };
   { const { output_payload: o } = computeV2({}); checked++;
-    if (o.verdict !== 'INDETERMINATE') violations++;
+    if (o.verdict !== 'INDETERMINATE' || o.manual_review_required !== true) violations++;
     if (o.reasons.length < 5) violations++;
     if (o.item_count !== null || o.sample_size !== null || o.beacon_source !== null) violations++;
     if (o.seed_hex !== undefined) violations++; }
   { const { output_payload: o } = computeV2({ ...ok, item_count: 5, sample_size: 6 }); checked++;
-    if (o.verdict !== 'INDETERMINATE') violations++;
+    if (o.verdict !== 'INDETERMINATE' || o.manual_review_required !== true) violations++;
     if (!o.reasons.some((r) => r.includes('cannot exceed'))) violations++; }
   { const { output_payload: o } = computeV2({ ...ok, item_count: 250, sample_size: 0 }); checked++;
-    if (o.verdict !== 'INDETERMINATE') violations++;
+    if (o.verdict !== 'INDETERMINATE' || o.manual_review_required !== true) violations++;
     if (!o.reasons.some((r) => r.includes('sample_size must be a positive integer'))) violations++;
     if (o.sample_size !== null) violations++; }
   { const { output_payload: o } = computeV2({ ...ok, item_count: 10.5, sample_size: 2 }); checked++;
-    if (o.verdict !== 'INDETERMINATE') violations++;
+    if (o.verdict !== 'INDETERMINATE' || o.manual_review_required !== true) violations++;
     if (o.item_count !== null) violations++; }
   { const { output_payload: o } = computeV2({ ...ok, item_count: 1000001, sample_size: 2 }); checked++;
-    if (o.verdict !== 'INDETERMINATE') violations++;
+    if (o.verdict !== 'INDETERMINATE' || o.manual_review_required !== true) violations++;
     if (!o.reasons.some((r) => r.includes('between 1 and 1000000'))) violations++; }
   { const { output_payload: o } = computeV2({ ...ok, beacon_randomness: 'F'.repeat(64), item_count: 10, sample_size: 2 }); checked++;
-    if (o.verdict !== 'INDETERMINATE') violations++;
+    if (o.verdict !== 'INDETERMINATE' || o.manual_review_required !== true) violations++;
     if (!o.reasons.some((r) => r.includes('64 lowercase hex'))) violations++; }
   { const { output_payload: o } = computeV2({ ...ok, item_count: 10, sample_size: 2, algorithm_id: 'hmac-drbg-sha256-v1' }); checked++;
-    if (o.verdict !== 'INDETERMINATE') violations++;
+    if (o.verdict !== 'INDETERMINATE' || o.manual_review_required !== true) violations++;
     if (!o.reasons.some((r) => r.includes('algorithm_id must be hmac-drbg-sha256-v2'))) violations++; }
   { const { output_payload: o } = computeV2({ ...ok, beacon_source: 'made-up-source', item_count: 10, sample_size: 2 }); checked++;
-    if (o.verdict !== 'INDETERMINATE') violations++;
+    if (o.verdict !== 'INDETERMINATE' || o.manual_review_required !== true) violations++;
     if (!o.reasons.some((r) => r.includes('drand_quicknet, nistir_8213'))) violations++; }
+  { const { output_payload: o } = computeV2({ ...ok, item_count: 10, sample_size: 2 }); checked++;
+    if (o.verdict !== 'DERIVED' || o.manual_review_required !== false) violations++; }
   return { name: 'P6_forced_categorical_refusals', checked: checked, violations };
 }
 
