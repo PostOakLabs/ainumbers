@@ -20,8 +20,8 @@
 //   (a) read verbatim from IRS Rev. Proc. 2025-32 (fetched 2026-10-08, quoted
 //       in the payload CITES.md with the fetched sha256), or
 //   (b) read from the IRC statute (Cornell LII, fetched 2026-10-08, quoted in
-//       CITES.md): §423(b)(6) 15% discount, §423(a)(1) holding periods,
-//       §423(c) qualifying-disposition ordinary-income cap.
+//       CITES.md): IRC 423(b)(6) 15% discount, IRC 423(a)(1) holding periods,
+//       IRC 423(c) qualifying-disposition ordinary-income cap.
 //
 // CLOCK NOTE (deterministic): `already_qualified` is derived from the required
 // port-only input `as_of_date` (YYYY-MM-DD), never from a wall clock; a missing
@@ -48,7 +48,7 @@ const APEX_SOURCE = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // 2026 ordinary-income regular-tax brackets.
-// IRS Rev. Proc. 2025-32 §4.01, Table 3 (single) / Table 1 (MFJ).
+// IRS Rev. Proc. 2025-32 Sec 4.01, Table 3 (single) / Table 1 (MFJ).
 // [upperBound, marginalRate]; last bound Infinity.
 // Verbatim from the fetched PDF (CITES.md G1): "Not over $12,400 10%";
 // "Over $105,700 but not over $201,775 $17,966 plus 24%";
@@ -63,7 +63,7 @@ export const REGULAR_BRACKETS_MFJ = [
 ];
 
 // 2026 long-term capital gains thresholds.
-// IRS Rev. Proc. 2025-32 §4.02 (maximum zero-rate and 15%-rate amounts under §1(j)(5)(B)).
+// IRS Rev. Proc. 2025-32 Sec 4.02 (maximum zero-rate and 15%-rate amounts under Sec 1(j)(5)(B)).
 // Verbatim from the fetched PDF (CITES.md G2):
 //   "All Other Individuals $49,450 $545,500"
 //   "Married Individuals Filing Joint Returns and Surviving Spouse $98,900 $613,700"
@@ -79,7 +79,7 @@ export const LTCG_MFJ = [
   { rate: 0.20, max: Infinity },
 ];
 
-// ESPP 15% discount. IRC §423(b)(6) (Cornell LII, fetched this run):
+// ESPP 15% discount. IRC IRC 423(b)(6) (Cornell LII, fetched this run):
 // "the option price is not less than the lesser of— (A) an amount equal to 85 percent of
 //  the fair market value of the stock at the time such option is granted, or (B) ... 85
 //  percent of the fair market value of the stock at the time such option is exercised".
@@ -87,7 +87,7 @@ export const LTCG_MFJ = [
 //   fmvAtPurchase = purchasePrice / 0.85.
 export const ESPP_DISCOUNT_RATE = 0.85;
 
-// Qualifying disposition holding period. IRC §423(a)(1) (Cornell LII):
+// Qualifying disposition holding period. IRC IRC 423(a)(1) (Cornell LII):
 // "no disposition of such share is made by him within 2 years after the date of the
 //  granting of the option nor within 1 year after the transfer of such share to him".
 // Apex adds +1 day to each anniversary so the day-of-anniversary is the first day
@@ -104,7 +104,7 @@ export const meta = {
   gpu: false,
 };
 
-/** Regular tax on ordinary income using the 2026 §1 rate tables. Mirrors Apex calcOrdTax(). */
+/** Regular tax on ordinary income using the 2026 Sec 1 rate tables. Mirrors Apex calcOrdTax(). */
 export function calcOrdTax(inc, status) {
   const brackets = status === 'mfj' ? REGULAR_BRACKETS_MFJ : REGULAR_BRACKETS_SINGLE;
   let tax = 0, prev = 0;
@@ -209,7 +209,7 @@ export function compute(pp) {
     return {
       output_payload: refusedPayload(
         'REFUSED_UNKNOWN_FILING_STATUS',
-        "filing_status must be 'single' or 'mfj'; received " + JSON.stringify(status ?? null) + " (absent and null are the same input, MR-R4)"
+        "filing_status must be 'single' or 'mfj'; received " + JSON.stringify(status ?? null)
       ),
       compliance_flags: ['ART760_INPUT_REFUSED'],
     };
@@ -230,7 +230,7 @@ export function compute(pp) {
       return {
         output_payload: refusedPayload(
           'REFUSED_NON_FINITE_INPUT',
-          k + ' must be a finite number; received ' + JSON.stringify(numeric[k] ?? null) + " (absent and null are the same input, MR-R4)"
+          k + ' must be a finite number; received ' + JSON.stringify(numeric[k] ?? null)
         ),
         compliance_flags: ['ART760_INPUT_REFUSED'],
       };
@@ -268,7 +268,7 @@ export function compute(pp) {
 
   // ── DISQUALIFYING DISPOSITION (sell any time after purchase) ──
   // Ordinary income = FMV at purchase - purchase price (the discount).
-  // FMV at purchase recovered by inverting the 15% discount (IRC §423(b)(6)).
+  // FMV at purchase recovered by inverting the 15% discount (IRC IRC 423(b)(6)).
   const fmvAtPurchase = purchasePrice / ESPP_DISCOUNT_RATE;
   const disqOrdIncomePerSh = Math.max(0, fmvAtPurchase - purchasePrice);
   const disqOrdIncome = disqOrdIncomePerSh * shares;
@@ -280,9 +280,9 @@ export function compute(pp) {
   const disqProceeds = disqGross - disqTotalTax;
   const disqEffRate = disqGross > 0 ? disqTotalTax / disqGross : 0;
 
-  // ── QUALIFYING DISPOSITION (hold >2yr grant + >1yr purchase, IRC §423(a)(1)) ──
+  // ── QUALIFYING DISPOSITION (hold >2yr grant + >1yr purchase, IRC IRC 423(a)(1)) ──
   // Ordinary income = lesser of (FMV at disposition - amount paid) and (FMV at grant - option
-  // price) per share, floored at 0. IRC §423(c) (Cornell LII):
+  // price) per share, floored at 0. IRC IRC 423(c) (Cornell LII):
   //   "an amount equal to the lesser of— (1) the excess of the fair market value of the
   //    share at the time of such disposition ... over the amount paid for the share under
   //    the option, or (2) the excess of the fair market value of the share at the time the
