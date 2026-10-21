@@ -358,4 +358,3 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
   };
 }
 
-export default compute;

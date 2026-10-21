@@ -1,3 +1,4 @@
+// kernel_digest_at_authoring: sha256:02e7937990b597318ad0d01244fe32c165ed0d93f7b0dd1b4f4585ad737ae8f8
 // art-760-espp-break-even-optimal-sell.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-110B porting payload
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
