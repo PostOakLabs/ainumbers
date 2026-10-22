@@ -211,3 +211,13 @@ hardware, time-of-execution, or operator behavior. It carries exactly the two cl
 3. **zkVM-receipt SCITT profile** — an individual IETF draft against RFC 9943/9942 planting the flag for a
    zk-receipt registered-claims profile; assessed in the landing row's report, Tim-gated, not begun here.
 4. **Media-type registration** for the bundle JSON (I-JSON-clean by §1.5).
+
+**Published bundles (INFORMATIVE).** v0.1 bundles for this repository's own nodes are published at
+`chaingraph/receipt-bundles/<tool_id>.bundle.json`, listed in `chaingraph/receipt-bundles/index.json`. One
+bundle exists per live node whose receipt is fresh under the §18 digest-freshness check (the receipt's
+`journal.kernel_digest` equals the currently-deployed kernel source); a stale receipt is never bundled. They are
+generated on `main` by `scripts/gen-receipt-bundles.mjs`, a wrapper over the §4 builder that adds no field, and
+each verifies with `node scripts/receipt-bundle-verify.mjs <bundle.json>`. Their anchor is the published
+registry-lineage checkpoint, so, as §3.4 states, the log half commits to the registry checkpoint
+`ainumbers.co/registry/lineage` at the recorded size, not to the receipt itself; nothing here says a receipt is
+transparency-logged.
