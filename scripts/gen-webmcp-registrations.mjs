@@ -1006,6 +1006,13 @@ export const propertyIdMap = {
     merkle_root: { element_id: 'merkleRoot', via: 'string' },
     proof_entries: { element_id: 'proofEntries', via: 'json' },
   },
+  // WEBMCP-REGISTER-CRY05-1: register cry-05 for the chain-execute gate's part 3
+  // (every `<chain>#part3:cry-05-...` step); via authored from the page's own
+  // control read:
+  //   chaingraph/cry-05-agent-action-audit-trail-aggregator.html:664 — artifacts -> #srcInput (JSON-text textarea (#srcInput); page JSON.parses the textarea)
+  'cry-05-agent-action-audit-trail-aggregator': {
+    artifacts: { element_id: 'srcInput', via: 'json' },
+  },
   // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
   // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
   // own control reads:
