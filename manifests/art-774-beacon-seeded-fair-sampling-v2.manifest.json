@@ -1,0 +1,367 @@
+{
+  "tool_id": "art-774-beacon-seeded-fair-sampling-v2",
+  "version": "1.0.0",
+  "title": "Beacon-Seeded Fair-Sampling Deriver V2",
+  "description": "Derives a deterministic, offline-replayable audit sample, version 2 of the beacon-seeded fair-sampling family, from a caller-pasted public randomness beacon pulse (drand quicknet or NISTIR-8213) and an item-manifest hash committed before the pulse round, over the same HMAC-DRBG (SHA-256) stream as version 1 (art-583). Version 2 fixes three version 1 defects in a new node rather than editing the proven original: a threshold-rejection reduction replaces the raw modulo so index selection is exactly unbiased; a partial Fisher-Yates walk over an index array consumes exactly sample_size accepted draws with no draw cap, so full samples succeed at any population up to the 1,000,000-item ceiling (version 1's draw cap failed near-full samples above roughly 12,000 items); and both hex inputs are validated as exactly 64 lowercase hex characters, with a structured refusal otherwise. The ceiling commits to a 4 MB index array at maximum population. The emitted per-draw transcript is capped at 50 entries and carries full draws_used and rejection counts, so the artifact stays bounded while the walk remains fully reconstructible offline from the declared inputs alone. The beacon pulse is caller-declared: this kernel does SHA-256/HMAC math only, never fetches a pulse and never verifies its signature. The version 1 node stays untouched and replayable for every receipt already issued against it; new runs should use this node.",
+  "category": "sox-404-icfr-audit-controls",
+  "tags": [
+    "audit-sampling",
+    "randomness-beacon",
+    "drand",
+    "nistir-8213",
+    "fair-sampling",
+    "fisher-yates",
+    "unbiased-reduction",
+    "mcp:derive_beacon_fair_sample_v2"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "beacon_source",
+      "beacon_round",
+      "beacon_randomness",
+      "item_manifest_hash",
+      "item_count",
+      "sample_size",
+      "algorithm_id"
+    ],
+    "properties": {
+      "beacon_source": {
+        "type": "string",
+        "enum": [
+          "drand_quicknet",
+          "nistir_8213"
+        ],
+        "description": "The public randomness beacon family the pulse came from."
+      },
+      "beacon_round": {
+        "type": "string",
+        "description": "The pulse round identifier, exactly as published."
+      },
+      "beacon_randomness": {
+        "type": "string",
+        "description": "The pulse's declared randomness value: exactly 64 lowercase hex characters (0-9, a-f), no prefix."
+      },
+      "item_manifest_hash": {
+        "type": "string",
+        "description": "Hash of the item manifest committed BEFORE the pulse round: exactly 64 lowercase hex characters (0-9, a-f), without a sha256: prefix."
+      },
+      "item_count": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000000,
+        "description": "Population size. The ceiling commits to a 4 MB index array at maximum."
+      },
+      "sample_size": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Number of items to select; cannot exceed item_count. 0 or missing is a refusal."
+      },
+      "algorithm_id": {
+        "type": "string",
+        "enum": [
+          "hmac-drbg-sha256-v2"
+        ],
+        "description": "The algorithm id this kernel implements."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "derive_beacon_fair_sample_v2",
+    "description": "Derives a deterministic audit sample from a public randomness beacon pulse and a pre-committed item-manifest hash over the same HMAC-DRBG (SHA-256) stream as version 1, with exactly unbiased threshold-rejection draws, a partial Fisher-Yates walk that needs exactly sample_size accepted draws and no draw cap (full samples to 1,000,000 items), and strict 64-lowercase-hex input validation. Emits selected indices, the seed, and a per-draw transcript for offline replay.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "beacon_source",
+        "beacon_round",
+        "beacon_randomness",
+        "item_manifest_hash",
+        "item_count",
+        "sample_size",
+        "algorithm_id"
+      ],
+      "properties": {
+        "beacon_source": {
+          "type": "string",
+          "enum": [
+            "drand_quicknet",
+            "nistir_8213"
+          ],
+          "description": "The public randomness beacon family the pulse came from."
+        },
+        "beacon_round": {
+          "type": "string",
+          "description": "The pulse round identifier, exactly as published."
+        },
+        "beacon_randomness": {
+          "type": "string",
+          "description": "The pulse's declared randomness value: exactly 64 lowercase hex characters (0-9, a-f), no prefix."
+        },
+        "item_manifest_hash": {
+          "type": "string",
+          "description": "Hash of the item manifest committed BEFORE the pulse round: exactly 64 lowercase hex characters (0-9, a-f), without a sha256: prefix."
+        },
+        "item_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000,
+          "description": "Population size. The ceiling commits to a 4 MB index array at maximum."
+        },
+        "sample_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of items to select; cannot exceed item_count. 0 or missing is a refusal."
+        },
+        "algorithm_id": {
+          "type": "string",
+          "enum": [
+            "hmac-drbg-sha256-v2"
+          ],
+          "description": "The algorithm id this kernel implements."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-774-beacon-seeded-fair-sampling-v2.html",
+    "function_name": "runCompute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "source": "chaingraph/kernels/art-774-beacon-seeded-fair-sampling-v2.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: beacon_source, beacon_round, beacon_randomness, item_manifest_hash, item_count, sample_size, algorithm_id.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "beacon_source": "drand_quicknet",
+    "beacon_round": "4321000",
+    "beacon_randomness": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "item_manifest_hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "item_count": 10,
+    "sample_size": 10,
+    "algorithm_id": "hmac-drbg-sha256-v2"
+  },
+  "output_example": {
+    "verdict": "DERIVED",
+    "manual_review_required": false,
+    "beacon_source": "drand_quicknet",
+    "beacon_round": "4321000",
+    "beacon_randomness": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "item_manifest_hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "item_count": 10,
+    "sample_size": 10,
+    "algorithm_id": "hmac-drbg-sha256-v2",
+    "seed_hex": "7ad621a6c02245bd61170cd5df633f2464fe26816c0db0b4647bd358c9ea8684",
+    "selected_indices": [
+      2,
+      8,
+      9,
+      0,
+      1,
+      7,
+      3,
+      4,
+      6,
+      5
+    ],
+    "draws_used": 10,
+    "reduction_rejects": 0,
+    "derivation_transcript": [
+      {
+        "draw": 0,
+        "hmac_hex": "dc186f2a0171dad106ead199b8e596e0fa6628cadbce8b84f5cc53b67064df6d",
+        "result": "selected",
+        "position": 0,
+        "swap_index": 2,
+        "selected_index": 2
+      },
+      {
+        "draw": 1,
+        "hmac_hex": "2c043070ddfac04190b919f09ba7c2102a4a7556553a126426b74bb2649c2ddf",
+        "result": "selected",
+        "position": 1,
+        "swap_index": 8,
+        "selected_index": 8
+      },
+      {
+        "draw": 2,
+        "hmac_hex": "7396b987a617a9c39bfa7d898d5874160e421411de164234247e6bac8003629b",
+        "result": "selected",
+        "position": 2,
+        "swap_index": 9,
+        "selected_index": 9
+      },
+      {
+        "draw": 3,
+        "hmac_hex": "dc7d8b484c371a621062cb5a72e8e86b6120169b89a9f86b1cf6e87907bce0d1",
+        "result": "selected",
+        "position": 3,
+        "swap_index": 9,
+        "selected_index": 0
+      },
+      {
+        "draw": 4,
+        "hmac_hex": "b8d3308066882b9664e0e0d5a32843342fb42da2ea72ce6843ef0490a19973c6",
+        "result": "selected",
+        "position": 4,
+        "swap_index": 8,
+        "selected_index": 1
+      },
+      {
+        "draw": 5,
+        "hmac_hex": "f96948b53199166a17f7b0c8daaf745211ceffcfe985c3ec6336e128e66b30b3",
+        "result": "selected",
+        "position": 5,
+        "swap_index": 7,
+        "selected_index": 7
+      },
+      {
+        "draw": 6,
+        "hmac_hex": "9255a9b3d4f7fa8e08e09d84c56e09febe0a72aeb69c99a4ae3f63af42fd92d5",
+        "result": "selected",
+        "position": 6,
+        "swap_index": 9,
+        "selected_index": 3
+      },
+      {
+        "draw": 7,
+        "hmac_hex": "8b96426638312ce1436452a810fcdeb955f2a7d349ae27e6d4310b1fdc763a01",
+        "result": "selected",
+        "position": 7,
+        "swap_index": 8,
+        "selected_index": 4
+      },
+      {
+        "draw": 8,
+        "hmac_hex": "32f82193d0b725b304d7ea6424e4883b1c66e7f27b61c9cb0712b70be439b9ac",
+        "result": "selected",
+        "position": 8,
+        "swap_index": 9,
+        "selected_index": 6
+      },
+      {
+        "draw": 9,
+        "hmac_hex": "0c9d80a2dae0a433b257bf0c0c40c3c70cd5f8602d73e04353cffe4f8555df5c",
+        "result": "selected",
+        "position": 9,
+        "swap_index": 9,
+        "selected_index": 5
+      }
+    ],
+    "transcript_truncated": false
+  },
+  "example_execution_hash": "a002e157d9df6dec4c7c94899e2f8c9bd798cc931ee9f7c2b514e90ef262ba6c",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "verdict": {
+        "type": "string",
+        "enum": [
+          "DERIVED",
+          "INDETERMINATE"
+        ]
+      },
+      "reasons": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "beacon_source": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "beacon_round": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "beacon_randomness": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "item_manifest_hash": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "item_count": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "sample_size": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "algorithm_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "seed_hex": {
+        "type": "string"
+      },
+      "selected_indices": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        }
+      },
+      "draws_used": {
+        "type": "integer"
+      },
+      "reduction_rejects": {
+        "type": "integer"
+      },
+      "derivation_transcript": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "draw": {
+              "type": "integer"
+            },
+            "hmac_hex": {
+              "type": "string"
+            },
+            "result": {
+              "type": "string",
+              "enum": [
+                "selected",
+                "rejected_reduction"
+              ]
+            },
+            "position": {
+              "type": "integer"
+            },
+            "swap_index": {
+              "type": "integer"
+            },
+            "selected_index": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "transcript_truncated": {
+        "type": "boolean"
+      },
+      "manual_review_required": {
+        "type": "boolean",
+        "description": "True exactly when the verdict is INDETERMINATE and an input must be fixed before re-running (flag-mirror member)."
+      }
+    }
+  }
+}
