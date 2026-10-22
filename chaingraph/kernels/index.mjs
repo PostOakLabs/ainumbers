@@ -648,6 +648,7 @@ import * as art734    from './art-734-force-placed-insurance-checker.kernel.mjs'
 import * as art74     from './art-74-taxonomy-kpi-gar-aggregator.kernel.mjs';
 import * as art75     from './art-75-eugb-factsheet-validator.kernel.mjs';
 import * as art758    from './art-758-hdhp-ppo-break-even.kernel.mjs';
+import * as art756    from './art-756-sales-ote-commission-analyzer.kernel.mjs';
 import * as art76     from './art-76-climate-scenario-applicator.kernel.mjs';
 import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
@@ -1337,6 +1338,7 @@ export const KERNELS = {
   'art-74-taxonomy-kpi-gar-aggregator':                         art74,
   'art-75-eugb-factsheet-validator':                            art75,
   'art-758-hdhp-ppo-break-even':                                art758,
+  'art-756-sales-ote-commission-analyzer':                      art756,
   'art-76-climate-scenario-applicator':                         art76,
   'art-763-ai-displacement-risk-screener':                      art763,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
