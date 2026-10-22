@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (687 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (688 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7584,6 +7584,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-83-buy-in-exposure-modeler",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-774-beacon-seeded-fair-sampling-v2",
+    "display_name": "Beacon-Seeded Fair-Sampling Deriver V2",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-774-beacon-seeded-fair-sampling-v2.html",
+    "description": "Derives a deterministic, offline-replayable audit sample, version 2 of the beacon-seeded fair-sampling family, from a caller-pasted public r",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
