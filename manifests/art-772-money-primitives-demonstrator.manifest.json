@@ -1,0 +1,344 @@
+{
+  "tool_id": "art-772-money-primitives-demonstrator",
+  "version": "1.0.0",
+  "title": "Money Primitives Demonstrator",
+  "description": "Demonstrator node for the shared _money.bundle.mjs kernel: exact decimal parse at a caller-declared scale (closed grammar; exponent form, thousands separators and excess precision are named refusals), BigInt minor-unit arithmetic with no engine float on the value path, six named rounding modes in a closed set with structured refusal on unknown or missing tokens, single-rounding mul and div with a zero-divisor refusal, largest-remainder allocation whose parts sum exactly, and receipt-form strings. Rounds a caller-supplied amount to the currency exponent (or explicit places) with the required mode, allocates across integer weights, and echoes the mode. Currency exponents arrive as data via policy_parameters.currency_slice; the fixture slice reflects ISO 4217 Amendment 180 (BGN historic for Bulgaria from 2026-01-01, EUR effective).",
+  "category": "chaingraph",
+  "tags": [
+    "compliance_mandate",
+    "money",
+    "decimal-arithmetic",
+    "rounding-modes",
+    "largest-remainder-allocation",
+    "iso-4217",
+    "minor-units",
+    "mcp:money_primitives_demo"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "amount": {
+        "type": "string",
+        "description": "Exact decimal amount, grammar -?digits(.digits)? at the currency exponent. Exponent form, thousands separators, empty input and excess fractional digits are named refusals (REFUSED_MONEY_PARSE / REFUSED_MONEY_PRECISION) unless truncate_excess is declared."
+      },
+      "ccy": {
+        "type": "string",
+        "description": "3-letter uppercase ISO 4217 code; must be present in the caller-supplied currency_slice."
+      },
+      "mode": {
+        "type": "string",
+        "enum": [
+          "half_up",
+          "half_down",
+          "half_even",
+          "truncate",
+          "floor",
+          "ceiling"
+        ],
+        "description": "REQUIRED rounding mode from the closed set. Unknown or missing tokens are REFUSED_UNKNOWN_ROUNDING_MODE, never a fallback."
+      },
+      "weights": {
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "description": "Non-empty allocation weights (safe integers <= 1e15); largest-remainder parts sum exactly to the rounded amount."
+      },
+      "currency_slice": {
+        "type": "object",
+        "description": "Currency exponents as DATA: { table_version, currencies: [{ ccy, exponent (0..4 or null), status?, valid_from?, valid_to? }] }, 1..64 entries. The kernel bakes no exponents."
+      },
+      "places": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 38,
+        "description": "Optional rounding target; defaults to the currency exponent."
+      },
+      "truncate_excess": {
+        "type": "boolean",
+        "description": "DECLARED truncation flag: allow parse-time truncation of fractional digits beyond the currency exponent (toward zero). Default false."
+      }
+    },
+    "required": [
+      "amount",
+      "ccy",
+      "mode",
+      "weights",
+      "currency_slice"
+    ]
+  },
+  "mcp_tool_definition": {
+    "name": "money_primitives_demo",
+    "description": "Rounds a caller-supplied exact-decimal amount to the currency exponent with one required named rounding mode from a closed six-token set, allocates the rounded amount across integer weights by largest remainder (parts sum exactly), and echoes the mode and matched currency-slice entry. Currency exponents are caller data; malformed input yields a named refusal, never a silent zero or fallback.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "string"
+        },
+        "ccy": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "half_up",
+            "half_down",
+            "half_even",
+            "truncate",
+            "floor",
+            "ceiling"
+          ]
+        },
+        "weights": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "currency_slice": {
+          "type": "object"
+        },
+        "places": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 38
+        },
+        "truncate_excess": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "amount",
+        "ccy",
+        "mode",
+        "weights",
+        "currency_slice"
+      ]
+    }
+  },
+  "execution": {
+    "type": "server",
+    "entry": "chaingraph/kernels/art-772-money-primitives-demonstrator.kernel.mjs",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": [
+          "OK",
+          "REFUSED"
+        ]
+      },
+      "error_code": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "message": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "mode": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "mode_echo": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "ccy": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "exponent": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "places": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "currency_entry_echo": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "table_version": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "amount_echo": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "parsed_amount": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "rounded_amount": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "weights_echo": {
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "allocations": {
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "allocation_sum": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "truncate_excess_declared": {
+        "type": "boolean"
+      },
+      "closed_mode_set": {
+        "type": "array"
+      },
+      "bounds": {
+        "type": "object"
+      },
+      "float_sensitive": {
+        "type": "boolean"
+      },
+      "scope_note": {
+        "type": "string"
+      }
+    }
+  },
+  "source": "authored by SHARED-MONEY-BUNDLE-1 per ACCT-INFRA-KERNELS-BUILD-SPEC.md §0.1/§1.4/§4.1 and the browser-first-primitives review (defects D7/D8/D9/D11). ISO 4217 state per Amendment 180 (SIX, published 2025-09-22): as of 2026-01-01 the Bulgarian lev is historic for Bulgaria and the euro is effective. Rounding-mode semantics follow the widely-recognised Java RoundingMode naming (behaviour definition, cited in kernel source only as the closed-set contract).",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "amount": "2.5",
+    "ccy": "EUR",
+    "mode": "half_up",
+    "places": 1,
+    "weights": [
+      1
+    ],
+    "currency_slice": {
+      "table_version": "iso4217-amendment-180-2026-01-01",
+      "currencies": [
+        {
+          "ccy": "EUR",
+          "exponent": 2,
+          "status": "effective",
+          "valid_from": "2026-01-01",
+          "valid_to": null
+        },
+        {
+          "ccy": "BGN",
+          "exponent": 2,
+          "status": "historic",
+          "valid_from": "1999-07-05",
+          "valid_to": "2025-12-31"
+        },
+        {
+          "ccy": "JPY",
+          "exponent": 0,
+          "status": "effective",
+          "valid_from": null,
+          "valid_to": null
+        },
+        {
+          "ccy": "BHD",
+          "exponent": 3,
+          "status": "effective",
+          "valid_from": null,
+          "valid_to": null
+        },
+        {
+          "ccy": "XXX",
+          "exponent": null,
+          "status": "no_currency",
+          "valid_from": null,
+          "valid_to": null
+        }
+      ]
+    }
+  },
+  "output_example": {
+    "status": "OK",
+    "error_code": null,
+    "message": "parsed at the currency exponent, rounded once with the required mode, allocated by largest remainder (parts sum exactly)",
+    "mode": "half_up",
+    "mode_echo": "half_up",
+    "ccy": "EUR",
+    "exponent": 2,
+    "places": 1,
+    "currency_entry_echo": {
+      "ccy": "EUR",
+      "exponent": 2,
+      "status": "effective",
+      "valid_from": "2026-01-01",
+      "valid_to": null
+    },
+    "table_version": "iso4217-amendment-180-2026-01-01",
+    "amount_echo": "2.5",
+    "parsed_amount": "2.50",
+    "rounded_amount": "2.5",
+    "weights_echo": [
+      1
+    ],
+    "allocations": [
+      "2.5"
+    ],
+    "allocation_sum": "2.5",
+    "truncate_excess_declared": false,
+    "closed_mode_set": [
+      "half_up",
+      "half_down",
+      "half_even",
+      "truncate",
+      "floor",
+      "ceiling"
+    ],
+    "bounds": {
+      "max_slice_entries": 64,
+      "max_scale": 38,
+      "max_alloc_parts": 1000,
+      "max_weight": 1000000000000000
+    },
+    "float_sensitive": false,
+    "scope_note": "Demonstrator for the _money shared bundle: strict decimal parse at the currency exponent, one rounding with a required named mode from the closed set {half_up, half_down, half_even, truncate, floor, ceiling}, and largest-remainder allocation whose parts sum exactly. No FX, no float math, no default mode. Currency exponents are caller data (policy_parameters.currency_slice), never kernel bytes. Not a migration target: existing sealed kernels are out of scope by row fence."
+  },
+  "example_execution_hash": "327f1878a802922e819d0738251f75187017f9236f7575fe073dc95e206ef8b8"
+}
