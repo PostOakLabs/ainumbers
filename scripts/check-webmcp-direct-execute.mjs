@@ -269,11 +269,12 @@ const RUN_PATH_ADAPTERS = {
     },
   },
   'art-691-regulatory-obligations-register': {
-    // run() parses the #input_parameters textarea as policy_parameters and feeds
-    // compute() directly; the adapter serves fixture 0 through that control.
+    // run() parses the #input_parameters textarea (the input_parameters value)
+    // and wraps it into the policy_parameters preimage before compute(); the
+    // adapter serves fixture 0's input_parameters through that control.
     run: 'run',
     prefill(sandbox, fx) {
-      setVal(sandbox, 'input_parameters', JSON.stringify(fx.policy_parameters));
+      setVal(sandbox, 'input_parameters', JSON.stringify(fx.policy_parameters.input_parameters));
     },
   },
   'art-628-declarative-decision-tree-evaluator': {
