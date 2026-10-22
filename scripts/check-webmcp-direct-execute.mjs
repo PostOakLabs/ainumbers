@@ -268,6 +268,14 @@ const RUN_PATH_ADAPTERS = {
       setVal(sandbox, 'mgmtResponses', pp.management_responses === undefined ? '' : JSON.stringify(pp.management_responses, null, 2));
     },
   },
+  'art-691-regulatory-obligations-register': {
+    // run() parses the #ppInput textarea as policy_parameters and feeds
+    // compute() directly; the adapter serves fixture 0 through that control.
+    run: 'run',
+    prefill(sandbox, fx) {
+      setVal(sandbox, 'ppInput', JSON.stringify(fx.policy_parameters));
+    },
+  },
   'art-628-declarative-decision-tree-evaluator': {
     // run() clones the page's DEMO_TREE constant (the tree the human sees) and
     // reads the fact checkboxes; the adapter sets each fixture fact checkbox.
