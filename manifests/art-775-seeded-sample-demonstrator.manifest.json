@@ -1,0 +1,175 @@
+{
+  "tool_id": "art-775-seeded-sample-demonstrator",
+  "version": "1.0.0",
+  "title": "Seeded PRNG Sample Demonstrator",
+  "description": "Derives a seeded sample of k distinct indices from [0, n) under one of three declared PRNG algorithm ids, echoing the algorithm id and a seed commitment in every output, entirely offline. Modes: xoshiro256ss-splitmix64-v1 (decimal integer seed, bit-identical to the proven art-371 generator), xoshiro256ss-splitmix64-sha256str-v1 (UTF-8 string seed, state = SHA-256 digest words) and hmac-drbg-sha256 (64-hex derived seed, the sampler family's DRBG stream). Selection is exactly unbiased: threshold-rejection integer draws driving a partial Fisher-Yates, exactly k accepted draws, no draw cap, n bounded at 1,000,000. Bad seed grammar, unknown algorithm ids and out-of-range n or k are refused with a closed reason code and no sample. Live execution surface for the shared _prng bundle: the kernel carries the bundle verbatim, so its fixtures and property floor exercise the exact bytes other kernels will later inline. It carries no policy and decides nothing.",
+  "category": "regulatory-compliance",
+  "tags": [
+    "compliance_control",
+    "prng",
+    "xoshiro256",
+    "splitmix64",
+    "hmac-drbg",
+    "fair-sampling",
+    "shared-infrastructure",
+    "mcp:derive_seeded_prng_sample"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "algorithm_id": {
+        "type": "string",
+        "enum": [
+          "xoshiro256ss-splitmix64-v1",
+          "xoshiro256ss-splitmix64-sha256str-v1",
+          "hmac-drbg-sha256"
+        ],
+        "description": "PRNG algorithm id. Each id has its own seed grammar; the kernel refuses a seed that does not match the declared id's grammar."
+      },
+      "seed": {
+        "type": "string",
+        "description": "Declared seed, grammar per algorithm id: decimal integer with absolute value at most 9007199254740991 (xoshiro256ss-splitmix64-v1); non-empty UTF-8 string of at most 256 bytes (xoshiro256ss-splitmix64-sha256str-v1); exactly 64 lowercase hex characters (hmac-drbg-sha256)."
+      },
+      "n": {
+        "type": "integer",
+        "description": "Population size. Integer in [1, 1000000]."
+      },
+      "k": {
+        "type": "integer",
+        "description": "Sample size. Integer in [1, n]."
+      }
+    },
+    "required": [
+      "algorithm_id",
+      "seed",
+      "n",
+      "k"
+    ]
+  },
+  "mcp_tool_definition": {
+    "name": "derive_seeded_prng_sample",
+    "description": "Derives a seeded sample of k distinct indices from [0, n) under a declared PRNG algorithm id (xoshiro256ss-splitmix64-v1, xoshiro256ss-splitmix64-sha256str-v1 or hmac-drbg-sha256), echoing the algorithm id and seed commitment. Exactly unbiased partial Fisher-Yates selection, no draw cap. Refuses bad seed grammar or out-of-range n/k with a closed reason code.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "algorithm_id": {
+          "type": "string"
+        },
+        "seed": {
+          "type": "string"
+        },
+        "n": {
+          "type": "integer"
+        },
+        "k": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "algorithm_id",
+        "seed",
+        "n",
+        "k"
+      ]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/kernels/art-775-seeded-sample-demonstrator.kernel.mjs",
+    "function_name": "compute",
+    "timeout_ms": 30000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "rejected"
+        ]
+      },
+      "rejection_reason": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "algorithm_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "seed": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "seed_commitment": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "seed_origin": {
+        "type": "string"
+      },
+      "n": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "k": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "selected_indices": {
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "draws_used": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "rejected_draws": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      }
+    }
+  },
+  "source": "authored by SHARED-PRNG-BUNDLE-1 per ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec.0.1 (bundle plus demonstrator) and Sec.4 (composition contract). Expected selections for the xoshiro modes were derived independently in Python from Vigna's pinned xoshiro256** / splitmix64 C reference (prng.di.unimi.it, retrieved 2026-10-21, bytes sha256:01d518abeb28cdfc86d2d019f0ae4678fff37f25bc306c7367ee5298a7f443a7 / sha256:f8eef8274ff8a4292e203d6a8f8517f1c40a7be5374e13df0f4c753c38f85c1c); the hmac-drbg mode is anchored to art-774 (the sampler v2 node) and node:crypto in the property floor.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "algorithm_id": "xoshiro256ss-splitmix64-v1",
+    "seed": "0",
+    "n": 10,
+    "k": 10
+  },
+  "output_example": {
+    "status": "ok",
+    "rejection_reason": null,
+    "algorithm_id": "xoshiro256ss-splitmix64-v1",
+    "seed": "0",
+    "seed_commitment": "sha256:5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+    "seed_origin": "declared",
+    "n": 10,
+    "k": 10,
+    "selected_indices": [0, 9, 2, 6, 7, 8, 3, 5, 1, 4],
+    "draws_used": 10,
+    "rejected_draws": 0
+  },
+  "example_execution_hash": "80e2b80260ba825176488e9a82dbe6f30cf32e6b68c8845b0006bcf8bf845131"
+}

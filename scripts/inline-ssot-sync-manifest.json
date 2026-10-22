@@ -61,7 +61,7 @@
       "trigger": "/* ===== inlined _sha256 (RISC0 guest provides only _hash; bundle import is unavailable in-guest) ===== */",
       "ssotUntilMarker": "\nexport const ALGORITHM_ID",
       "scanExt": ".kernel.mjs",
-      "note": "SHARED-SHA256-BUNDLE-1, registered in the same PR that lands the bundle (ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec.4.2, same shape as the detmath pair). Sec.4.1 rule 1 forbids importing the bundle at runtime because the RISC0 guest provides only _hash, so each consuming kernel pastes the bundle body inside the Sec.4.1 sentinel comments (the pair trigger); rule 2 makes a byte-different copy a fork, the defect this pair gates. ssotUntilMarker carves the unit at the bundle's ES export tail, which the composition contract replaces with a per-kernel destructure when inlining. Consumer count derived against current bytes at registration: ONE full-paste consumer, the demonstrator art-751-sha256-hmac-digest-demonstrator, byte-identical to the carved unit. The roughly 45 other kernels that carry their own hand-written SHA-256 are NOT consumers of this bundle and are out of this pair's unit (their text does not carry the trigger); adopting the bundle is per-node, later, and each adopter's inlined region becomes covered here automatically because the trigger fires on it."
+      "note": "SHARED-SHA256-BUNDLE-1, registered in the same PR that lands the bundle (ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec.4.2, same shape as the detmath pair). Sec.4.1 rule 1 forbids importing the bundle at runtime because the RISC0 guest provides only _hash, so each consuming kernel pastes the bundle body inside the Sec.4.1 sentinel comments (the pair trigger); rule 2 makes a byte-different copy a fork, the defect this pair gates. ssotUntilMarker carves the unit at the bundle's ES export tail, which the composition contract replaces with a per-kernel destructure when inlining. Consumer count derived against current bytes at registration: ONE full-paste consumer, the demonstrator art-751-sha256-hmac-digest-demonstrator, byte-identical to the carved unit. The roughly 45 other kernels that carry their own hand-written SHA-256 are NOT consumers of this bundle and are out of this pair's unit (their text does not carry the trigger); adopting the bundle is per-node, later, and each adopter's inlined region becomes covered here automatically because the trigger fires on it. SHARED-PRNG-BUNDLE-1 note (2026-10-21): a SECOND consumer now carries the trigger transitively — art-775-seeded-sample-demonstrator embeds _sha256 inside its inlined _prng bundle copy, byte-identical, so this pair covers it the same way; the bundle-to-bundle embedding itself (the _prng bundle's own copy) is gated by the 'sha256-in-bundles' pair because this pair's scanExt '.kernel.mjs' does not scan *.bundle.mjs files."
     },
     {
       "id": "ics23Verify",
@@ -90,6 +90,44 @@
         }
       ],
       "note": "TOOLS625-SSOT-REPORT-1 resolved the divergence INLINE-SSOT-PORTS-GATE-1 measured and left unregistered (see git history for the removed `_unregistered_pending_adjudication` record): the page's byte helpers, RFC 6962 walk, parseSignedNote, formatCheckpoint and toCosignedData were a re-transcription, not a verbatim port (globalThis.crypto.subtle -> crypto.subtle, two added short-path `if (!p.length) return false;` guards in verifyInclusion, five template literals rewritten as string concatenation, a dropped trailing comma). Per Tim's 2026-08-15 ruling, the module's own error contract stays untouched (throw on a too-short sibling path, via an unguarded `p[0]` on an empty array) and the page re-ports it byte-verbatim instead: no consumer of c2sp-tlog-verify.mjs behaviour changed, because the module was not edited. runVerifier()'s existing outer try/catch is what absorbs that throw into a reported error for a person who pastes too few sibling hashes, so the short-path case is still handled — just by the page's own error boundary rather than a page-local return-false inside the ported block itself. Consumers of the module enumerated at registration time: scripts/register-sigsum.mjs, scripts/register-rekor.mjs (both CLI, not kernels), and chaingraph/kernels/c2sp-tlog-verify.test.mjs; no `.kernel.mjs` kernel imports this module, so no execution_hash is in scope."
+    },
+    {
+      "id": "prng",
+      "label": "_prng shared PRNG bundle (whole inlinable body, pasted into RISC0-guest kernels)",
+      "ssotFile": "chaingraph/kernels/_prng.bundle.mjs",
+      "mode": "wholeFileBlock",
+      "trigger": "/* ===== inlined _prng (RISC0 guest provides only _hash; bundle import is unavailable in-guest) ===== */",
+      "ssotUntilMarker": "\nexport const XOSHIRO256SS_SPLITMIX64_V1",
+      "scanExt": ".kernel.mjs",
+      "note": "SHARED-PRNG-BUNDLE-1, registered in the same PR that lands the bundle (ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec.4.2, same shape as the detmath and sha256 pairs). Sec.4.1 rule 1 forbids importing the bundle at runtime because the RISC0 guest provides only _hash, so each consuming kernel pastes the bundle body inside the Sec.4.1 sentinel comments (the pair trigger); rule 2 makes a byte-different copy a fork, the defect this pair gates. ssotUntilMarker carves the unit at the bundle's ES export tail, which the composition contract replaces with a per-kernel destructure when inlining. Consumer count derived against current bytes at registration: ONE full-paste consumer, the demonstrator art-775-seeded-sample-demonstrator, byte-identical to the carved unit (verified mechanically at authoring time). The bundle's own embedded copy of _sha256 is additionally gated inside every consumer by the 'sha256' and 'sha256-in-bundles' pairs."
+    },
+    {
+      "id": "sha256-in-bundles",
+      "label": "_sha256 guest-safe SHA-256 / HMAC-SHA256 bundle embedded inside other shared bundles",
+      "ssotFile": "chaingraph/kernels/_sha256.bundle.mjs",
+      "mode": "wholeFileBlock",
+      "trigger": "/* ===== inlined _sha256 (RISC0 guest provides only _hash; bundle import is unavailable in-guest) ===== */",
+      "ssotUntilMarker": "\nexport const ALGORITHM_ID",
+      "scanExt": ".bundle.mjs",
+      "note": "SHARED-PRNG-BUNDLE-1: a bundle embedding another bundle (the _prng bundle inlines _sha256 verbatim between the same Sec.4.1 sentinels a kernel would use) is the same fork risk as a kernel embedding it, and the 'sha256' pair's scanExt '.kernel.mjs' cannot see *.bundle.mjs files — so this pair scans the bundle namespace for the same sentinel and the same carved unit. Consumer count derived against current bytes at registration: ONE full-paste consumer, chaingraph/kernels/_prng.bundle.mjs, byte-identical to the carved unit (verified mechanically at authoring time); _sha256.bundle.mjs itself and the other bundles do not carry the trigger. Every kernel that inlines _prng carries this embedded copy transitively and is covered here at the bundle layer plus by the 'sha256' pair at the kernel layer."
+    },
+    {
+      "id": "prng-splitmix64-371",
+      "label": "splitmix64 seed-expansion function (art-371's proven inline copy, equivalence-tied to the _prng bundle)",
+      "ssotFile": "chaingraph/kernels/_prng.bundle.mjs",
+      "mode": "line",
+      "trigger": "function splitmix64(seed)",
+      "scanExt": ".kernel.mjs",
+      "note": "SHARED-PRNG-BUNDLE-1 registers art-371's PROVEN inline generator as a differential/equivalence consumer of the bundle (equivalence, not import: research/no-reprove-shared-bundle-design-2026-10-17.md option 1 — art-371 is never edited to adopt the bundle, and its receipt stays valid). The bundle's splitmix64 is a byte-verbatim copy of art-371's own function, so a line pair over the function statement keeps the two copies byte-tied forever: an edit to either side reds this gate, and only an audit can promote the finding to a re-prove. Consumer set derived by scanning *.kernel.mjs at registration: art-371-simulate-var-monte-carlo (the proven original) and art-775-seeded-sample-demonstrator (the bundle's inlined copy) — both byte-identical to the SSOT snippet; no other kernel carries the trigger. Behavioral equivalence beyond the bytes (the case where art-371's rotl or MASK64 drift without this pair's text moving) is enforced by the art-775 floor's P2 differential: 10,000 outputs x 20 seeds against art-371's own extracted source bytes, zero diff."
+    },
+    {
+      "id": "prng-xoshiro256ss-371",
+      "label": "makeXoshiro256ss generator function (art-371's proven inline copy, equivalence-tied to the _prng bundle)",
+      "ssotFile": "chaingraph/kernels/_prng.bundle.mjs",
+      "mode": "line",
+      "trigger": "function makeXoshiro256ss(seed)",
+      "scanExt": ".kernel.mjs",
+      "note": "SHARED-PRNG-BUNDLE-1, companion to 'prng-splitmix64-371': the xoshiro256** step function itself, byte-tied between the _prng bundle and art-371's proven inline copy. Consumer set derived by scanning *.kernel.mjs at registration: art-371-simulate-var-monte-carlo and art-775-seeded-sample-demonstrator, both byte-identical. rotl is deliberately NOT a pair of its own: five unrelated kernels carry 32-bit rotl text (art-129, art-201, art-284, art-424, art-587 at registration), so a rotl trigger would fire on legitimately different code; rotl drift inside art-371 is caught by the P2 stream differential instead."
     }
   ]
 }
