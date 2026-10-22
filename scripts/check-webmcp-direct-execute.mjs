@@ -269,11 +269,11 @@ const RUN_PATH_ADAPTERS = {
     },
   },
   'art-691-regulatory-obligations-register': {
-    // run() parses the #ppInput textarea as policy_parameters and feeds
+    // run() parses the #input_parameters textarea as policy_parameters and feeds
     // compute() directly; the adapter serves fixture 0 through that control.
     run: 'run',
     prefill(sandbox, fx) {
-      setVal(sandbox, 'ppInput', JSON.stringify(fx.policy_parameters));
+      setVal(sandbox, 'input_parameters', JSON.stringify(fx.policy_parameters));
     },
   },
   'art-628-declarative-decision-tree-evaluator': {
