@@ -14,7 +14,7 @@ status: stable
 - [attestation_mandate](./attestation_mandate.md) (38)
 - [capital_assessment](./capital_assessment.md) (7)
 - [collateral_mandate](./collateral_mandate.md) (9)
-- [compliance_control](./compliance_control.md) (103)
+- [compliance_control](./compliance_control.md) (104)
 - [compliance_mandate](./compliance_mandate.md) (335)
 - [consumer_finance](./consumer_finance.md) (3)
 - [credit_assessment](./credit_assessment.md) (3)
