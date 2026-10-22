@@ -7544,6 +7544,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-759-iso-amt-exposure-modeler",
+    "display_name": "ISO AMT Exposure Modeler",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-759-iso-amt-exposure-modeler.html",
+    "description": "AMT liability from an ISO exercise spread using the 2026 exemption amounts and phase-out thresholds, ported from ApexLogics Apex #109 (AL-11",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-76-climate-scenario-applicator",
     "display_name": "Climate Scenario Applicator (NGFS / Fit-for-55)",
     "mandate_type": "model_governance",
