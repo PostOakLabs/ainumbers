@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-103"]
+tags: ["compliance_control", "count-104"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-103 tool(s) in this mandate-type group:
+104 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -114,4 +114,5 @@ status: stable
 - [V4 Hook Permission Reconciler](../tools/art-708-v4-hook-permission-reconciler.md)
 - [V4 Hook Fee Conformance](../tools/art-709-v4-hook-fee-conformance.md)
 - [TSV Stoppage Concurrency](../tools/art-710-tsv-stoppage-concurrency.md)
+- [SHA-256 and HMAC-SHA256 Digest Demonstrator](../tools/art-751-sha256-hmac-digest-demonstrator.md)
 - [HDHP vs. PPO Break-Even](../tools/art-758-hdhp-ppo-break-even.md)
