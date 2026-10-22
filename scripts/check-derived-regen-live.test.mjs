@@ -291,14 +291,19 @@ test('TIMEOUT RED - a regen command that never returns is bounded, named and kil
   commit(dir, 'init');
 
   const entry = { id: 'fixture-hang', regen: 'node gen-hang.mjs', artifacts: ['out.json'] };
+  // SO40B-SELFTEST-BUDGET-SCALE-1 (RULINGS 2026-10-21T23:55Z item 3, Tim's "A —
+  // raise/scale budget"): every fixture budget in this file sits at a flat
+  // 10 s floor so a probe's git+node child work survives concurrent FULL
+  // preflights; the production default (180 s) is untouched.
+  const HANG_KILL_BUDGET_MS = 10_000;
   const startedAt = Date.now();
-  const { timeouts, executionFailures, classA } = runLiveScan({ dir, covered: [entry], timeoutMs: 1500 });
+  const { timeouts, executionFailures, classA } = runLiveScan({ dir, covered: [entry], timeoutMs: HANG_KILL_BUDGET_MS });
   const wallMs = Date.now() - startedAt;
 
   assert(timeouts.length === 1 && timeouts[0].id === 'fixture-hang',
     `expected exactly one TIMEOUT finding naming fixture-hang, got ${JSON.stringify(timeouts)}`);
-  assert(timeouts[0].elapsedMs >= 1350, `the finding must report its elapsed time, got ${timeouts[0].elapsedMs} ms`);
-  assert(wallMs < 15000, `the bound must actually cut the 30 s hang short, whole scan took ${wallMs} ms`);
+  assert(timeouts[0].elapsedMs >= HANG_KILL_BUDGET_MS * 0.9, `the finding must report its elapsed time, got ${timeouts[0].elapsedMs} ms`);
+  assert(wallMs < HANG_KILL_BUDGET_MS + 5_000, `the bound must actually cut the 30 s hang short, whole scan took ${wallMs} ms`);
   assert(executionFailures.length === 0, `a timeout is its own state, never an execution failure: ${JSON.stringify(executionFailures)}`);
   assert(classA.length === 0, `a timed-out probe is inconclusive for CLASS A, got ${JSON.stringify(classA)}`);
 });
@@ -319,9 +324,9 @@ test('TIMEOUT - the scan continues past a hung entry so later entries still get 
     { id: 'hang', regen: 'node gen-hang.mjs', artifacts: ['a-out.json'] },
     { id: 'b', regen: 'node gen-b.mjs', artifacts: ['b-out.json'] },
   ];
-  // 8 s still cuts the 30 s hang short, and leaves entry b room to finish its
-  // node startup under load (1500 ms was below measured startup under concurrent preflights).
-  const { timeouts, classB } = runLiveScan({ dir, covered: entries, timeoutMs: 8000 });
+  // SO40B-SELFTEST-BUDGET-SCALE-1 (RULINGS 2026-10-21T23:55Z item 3): 10 s is
+  // the file-wide flat floor, still well under the 30 s hang it must cut short.
+  const { timeouts, classB } = runLiveScan({ dir, covered: entries, timeoutMs: 10_000 });
   assert(timeouts.length === 1 && timeouts[0].id === 'hang', `expected the hang named once, got ${JSON.stringify(timeouts)}`);
   assert(classB.length === 1 && classB[0].id === 'b' && classB[0].path === 'undeclared.json',
     `entry b's escape must still be found after the hung entry, got ${JSON.stringify(classB)}`);
