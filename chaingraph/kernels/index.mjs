@@ -645,6 +645,7 @@ import * as art715    from './art-715-token2022-transfer-fee-reconciler.kernel.m
 import * as art72     from './art-72-cbam-precursor-emissions-aggregator.kernel.mjs';
 import * as art73     from './art-73-taxonomy-alignment-scorer.kernel.mjs';
 import * as art734    from './art-734-force-placed-insurance-checker.kernel.mjs';
+import * as art766    from './art-766-parental-leave-income-gap.kernel.mjs';
 import * as art74     from './art-74-taxonomy-kpi-gar-aggregator.kernel.mjs';
 import * as art75     from './art-75-eugb-factsheet-validator.kernel.mjs';
 import * as art758    from './art-758-hdhp-ppo-break-even.kernel.mjs';
@@ -1334,6 +1335,7 @@ export const KERNELS = {
   'art-72-cbam-precursor-emissions-aggregator':                 art72,
   'art-73-taxonomy-alignment-scorer':                           art73,
   'art-734-force-placed-insurance-checker':                     art734,
+  'art-766-parental-leave-income-gap':                     art766,
   'art-74-taxonomy-kpi-gar-aggregator':                         art74,
   'art-75-eugb-factsheet-validator':                            art75,
   'art-758-hdhp-ppo-break-even':                                art758,
