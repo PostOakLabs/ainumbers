@@ -232,6 +232,42 @@ const RUN_PATH_ADAPTERS = {
       };
     },
   },
+  'art-499-check-safeguarding-reconciliation': {
+    run: 'runCheck',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'asOfDate', pp.as_of_date ?? '');
+      setVal(sandbox, 'currency', pp.currency ?? '');
+      setVal(sandbox, 'reconType', pp.reconciliation_type ?? '');
+      setVal(sandbox, 'requirement', String(pp.safeguarding_requirement_minor_units ?? ''));
+      setVal(sandbox, 'tolerance', String(pp.tolerance_minor_units ?? ''));
+      setVal(sandbox, 'componentsJson', JSON.stringify(pp.safeguarding_resource_components ?? [], null, 2));
+    },
+  },
+  'art-500-classify-safeguarding-method': {
+    run: 'runClassify',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'asOfDate', pp.as_of_date ?? '');
+      setVal(sandbox, 'highWater', String(pp.relevant_funds_high_water_minor_units ?? ''));
+      setVal(sandbox, 'weeksObserved', String(pp.weeks_observed ?? ''));
+      setVal(sandbox, 'streamsJson', JSON.stringify(pp.streams ?? [], null, 2));
+    },
+  },
+  'art-501-build-safeguarding-audit-evidence': {
+    run: 'runPack',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'firmRef', pp.firm_ref ?? '');
+      setVal(sandbox, 'periodStart', pp.audit_period?.start_date ?? '');
+      setVal(sandbox, 'periodEnd', pp.audit_period?.end_date ?? '');
+      setVal(sandbox, 'attestedSubject', pp.attested_subject === undefined ? '' : JSON.stringify(pp.attested_subject, null, 2));
+      setVal(sandbox, 'reconResults', pp.reconciliation_results === undefined ? '' : JSON.stringify(pp.reconciliation_results, null, 2));
+      setVal(sandbox, 'methodClassification', pp.method_classification === undefined ? '' : JSON.stringify(pp.method_classification, null, 2));
+      setVal(sandbox, 'haRecords', pp.accountability_records === undefined ? '' : JSON.stringify(pp.accountability_records, null, 2));
+      setVal(sandbox, 'mgmtResponses', pp.management_responses === undefined ? '' : JSON.stringify(pp.management_responses, null, 2));
+    },
+  },
   'art-628-declarative-decision-tree-evaluator': {
     // run() clones the page's DEMO_TREE constant (the tree the human sees) and
     // reads the fact checkboxes; the adapter sets each fixture fact checkbox.
