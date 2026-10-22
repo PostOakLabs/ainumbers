@@ -216,12 +216,19 @@ jobs:
             case "$f" in
               */*) : ;;
               *)
+                # A new root page the PR already added to the curated list is
+                # not missing: red only on pages with no href entry there.
+                if grep -qF "href: '$f'" scripts/gen-sitemap-html.mjs; then
+                  echo "gen-sitemap-html: new root page $f is already in the curated rootPages list."
+                  continue
+                fi
                 MISSING="${MISSING}${MISSING:+, }$f"
                 echo "gen-sitemap-html: root page(s) missing from the curated rootPages list. Add each one (icon/name/href) so sitemap.html stays complete:"
                 echo "  $f"
                 ;;
             esac
           done
+          [ -z "$MISSING" ] && exit 0
           # The annotation alone is actionable: it names the missing page(s)
           # instead of saying only "root page(s) missing".
           echo "::error title=gen-sitemap-html: root page(s) missing from the curated rootPages list: ${MISSING}::Add each one (icon/name/href) to the curated rootPages list so sitemap.html stays complete."
