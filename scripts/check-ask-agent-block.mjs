@@ -55,6 +55,8 @@ import { gunzipSync } from 'node:zlib';
 import {
   ASK_AGENT_END, askAgentImperative, buildAskAgentBlock, encodeAskAgentFragment,
 } from '../chaingraph/_page-chrome.mjs';
+import { chromeInsertionIndex } from './page-chrome-anchor.mjs';
+import { verifyPageMapping } from './gen-webmcp-registrations.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -194,6 +196,55 @@ async function writerScopeProof() {
   assert(readFileSync(pageAAbs, 'utf8') === pageAAfterGreen && readFileSync(pageBAbs, 'utf8') === pageB, 'skip repainted a sibling page — scoping is broken');
   console.log(`WRITER-SCOPE SKIP: --write --only ${idC} (live, pageless) skipped with reason "${skip.skipped}", zero bytes written, siblings byte-identical.`);
   rmSync(root, { recursive: true, force: true });
+}
+
+/** WRITER-CANON-ALIGN-1 proofs, hermetic (pure strings + the shared table,
+ *  never touches the live tree):
+ *  1. CONVERGENCE: with both chrome writers' insertions going through the ONE
+ *     shared canonical-position table, either invocation order (a11y then
+ *     ask-agent, or ask-agent then a11y) lands on byte-identical pages, in the
+ *     canonical ASK-above-A11Y-above-footer order.
+ *  2. ART-561 SHAPE (the row's eligibility guard, GREEN-only): a canonical
+ *     relocation of the chrome regions around a mapping-eligible page must NOT
+ *     flip webmcp mapping eligibility. The eligibility consult is
+ *     verifyPageMapping (scripts/gen-webmcp-registrations.mjs) — its element
+ *     consult is the id-attribute scan over the whole page source, which is
+ *     position-insensitive BY DESIGN; the art-561 red state is reproduced at
+ *     the gate level in the row record (post-#2250 bytes red
+ *     gen-webmcp-registrations --check, pristine main bytes green — the page
+ *     carried a generated region while mapping-incomplete). This test pins the
+ *     invariant so a future position-SENSITIVE consult cannot land silently:
+ *     the verdict object must be deep-equal across the relocation. */
+function canonAlignProof() {
+  const ask = '<!-- ASK-AGENT:BEGIN generator=x manifest=y -->ASK-BLOCK<!-- ASK-AGENT:END -->';
+  const a11y = '<!-- A11Y-TREE:BEGIN generator=z --><script>/* ocg */</script><!-- A11Y-TREE:END -->';
+  const insert = (src, block, aboveA11y) => {
+    const at = chromeInsertionIndex(src, { aboveA11yRegion: aboveA11y });
+    if (!at) throw new Error('no anchor');
+    return src.slice(0, at.index).replace(/\s+$/, '') + '\n\n' + block + '\n\n' + src.slice(at.index);
+  };
+  // 1. convergence over both invocation orders, abutting and content-separated.
+  const page0 = '<!doctype html><html><body><h1>p</h1><footer>site footer</footer></body></html>';
+  const aThenAsk = insert(insert(page0, a11y, false), ask, true);
+  const askThenA = insert(insert(page0, ask, true), a11y, false);
+  assert(aThenAsk === askThenA, 'both writer invocation orders converge on identical bytes');
+  assert(aThenAsk.indexOf(ask) < aThenAsk.indexOf(a11y) && aThenAsk.indexOf(a11y) < aThenAsk.indexOf('<footer>'), 'canonical order ASK above A11Y above footer');
+  const withContent = insert(insert(page0.replace('<footer>', '<div>notes</div><footer>'), ask, true), a11y, false);
+  assert(withContent.indexOf(ask) < withContent.indexOf(a11y), 'content-separated tail still converges ASK above A11Y');
+  // 2. art-561 shape: eligibility verdict invariant under chrome relocation.
+  const manifest = {
+    mcp_tool_definition: { name: 'scope_tool_a', inputSchema: { properties: { mode: { type: 'string' } } } },
+    execution: { function_name: 'runCheck' },
+  };
+  const eligibleBody = '<input id="mode"><script>function runCheck(pp){ return pp; }\nfunction runTool(){ _lastResult = runCheck(collect()); }</script>';
+  const canonical = insert(insert(page0.replace('<h1>p</h1>', '<h1>p</h1>' + eligibleBody), ask, true), a11y, false);
+  const relocated = insert(insert(page0.replace('<h1>p</h1>', '<h1>p</h1>' + eligibleBody), a11y, false), ask, true);
+  const vCanon = verifyPageMapping(manifest, canonical, 'fixture.html', null);
+  const vReloc = verifyPageMapping(manifest, relocated, 'fixture.html', null);
+  assert(!vCanon.error, 'canonical page is mapping-eligible: ' + vCanon.error);
+  assert(JSON.stringify(vCanon) === JSON.stringify(vReloc), 'chrome relocation must NOT flip mapping eligibility (art-561 shape): ' + JSON.stringify(vReloc));
+  assert(vReloc.resGlobal === '_lastResult' && vReloc.wrapper === 'runTool', 'relocated page keeps wrapper + result-global verdict');
+  console.log('CANON-ALIGN OK: both invocation orders converge byte-identically (ASK above A11Y above footer); art-561 shape — mapping eligibility verdict invariant under chrome relocation (GREEN-only: the consult, verifyPageMapping, is position-insensitive by design).');
 }
 
 function loadJson(path) {
@@ -384,48 +435,15 @@ async function writePass(repoRoot, onlyId = null) {
       base = base.slice(0, r.start) + base.slice(r.end);
     }
     let next;
-    // Visible block: insert BEFORE the first <footer> that is NOT inside a
-    // <script> span (reader-facing content belongs above the footer). Some
-    // pages build their whole body inside a template literal in a script
-    // that itself contains '<footer>' (measured: art-139/140/142/143) —
-    // injecting there breaks page parsing. Fallback: before the LAST
-    // </body> (never a first-match replace — several pages embed the
-    // literal '</body>' inside script strings, measured: art-373 etc.).
-    const scriptSpans = [];
-    {
-      const re = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
-      let m;
-      while ((m = re.exec(base)) !== null) scriptSpans.push([m.index, m.index + m[0].length]);
-    }
-    const inScript = (i) => scriptSpans.some(([a, b]) => i >= a && i < b);
-    let close = -1;
-    let f = base.indexOf('<footer>');
-    while (f !== -1) {
-      if (!inScript(f)) { close = f; break; }
-      f = base.indexOf('<footer>', f + 1);
-    }
-    if (close === -1) close = base.lastIndexOf('</body>');
-    if (close === -1) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert before`); continue; }
-    // Canonical region order: the ASK-AGENT block precedes the A11Y-TREE
-    // runtime region. Both writers anchor on the first non-script <footer>;
-    // without this, back-to-back whole-tree write passes relocate the block
-    // on every run (each strips only its own region, trims trailing
-    // whitespace, and re-inserts before the footer — ask-agent then a11y
-    // leaves A11Y-then-ASK, the reverse invocation order leaves ASK-then-A11Y),
-    // so the emitted bytes depended on writer order (MAIN-REGEN-SCRIPTS-
-    // VERIFY-HEAL-1). Inserting BEFORE an A11Y-TREE region that directly
-    // abuts the anchor makes both invocation orders converge on the same bytes.
-    let anchor = close;
-    const A11Y_BEGIN = '<!-- A11Y-TREE:BEGIN ';
-    const A11Y_END = '<!-- A11Y-TREE:END -->';
-    const tail = base.slice(0, close);
-    const aAt = tail.lastIndexOf(A11Y_BEGIN);
-    if (aAt !== -1) {
-      const aEnd = tail.indexOf(A11Y_END, aAt);
-      if (aEnd !== -1 && /^\s*$/.test(tail.slice(aEnd + A11Y_END.length))) anchor = aAt;
-    }
-    const head = base.slice(0, anchor).replace(/\s+$/, '');
-    next = head + '\n\n' + d.expected + '\n\n' + base.slice(anchor);
+    // WRITER-CANON-ALIGN-1: the insertion point comes from the ONE shared
+    // canonical-position table (scripts/page-chrome-anchor.mjs) — visible
+    // block above the footer, above an abutting A11Y-TREE region, fallback
+    // last </body>, script spans blinded. The private inline copy this file
+    // carried before is gone; the two chrome writers can no longer drift.
+    const anchorAt = chromeInsertionIndex(base, { aboveA11yRegion: true });
+    if (!anchorAt) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert before`); continue; }
+    const head = base.slice(0, anchorAt.index).replace(/\s+$/, '');
+    next = head + '\n\n' + d.expected + '\n\n' + base.slice(anchorAt.index);
     if (next !== d.pageSrc) { writeFileSync(d.pageAbs, next, 'utf8'); written++; }
     else exact++;
   }
@@ -490,7 +508,8 @@ if (RED_GREEN) {
   assert(!gpuBlock.includes('with the parameter `claimed_hash`'), 'gpu block never promises a server-side hash');
   await redGreen();
   await writerScopeProof();
-  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, gpu sentence, sample execution, mutation red-green, writer --only scoping red-then-green).');
+  canonAlignProof();
+  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, gpu sentence, sample execution, mutation red-green, writer --only scoping red-then-green, canon-align + art-561 eligibility shape).');
 } else {
   await run();
 }
