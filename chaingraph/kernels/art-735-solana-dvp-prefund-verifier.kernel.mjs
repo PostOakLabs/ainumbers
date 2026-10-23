@@ -163,7 +163,7 @@ function refusal(code, detail) {
       disclaimer: DISCLAIMER,
       audit_scope_note: AUDIT_NOTE,
     },
-    compliance_flags: ['INPUT_REFUSED'],
+    compliance_flags: code ? ['INPUT_REFUSED'] : [],
   };
 }
 
