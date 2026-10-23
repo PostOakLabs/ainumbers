@@ -35,7 +35,7 @@
 
 Before adding or renaming any tool, node, chain, or kernel:
 - **Unique `mcp_name`** across live `chaingraph.json` nodes + PILOT widgets + the 6 utility tools (a duplicate 500s the live `/mcp` handshake): `node ../mcp-apps-poc/scripts/check-tool-names.mjs`.
-- **Canonical `execution_hash` only** (shared `_hash.mjs`). Forbidden: array-replacer canon, `simpleHash`/fake `sha256:`, hashing a reduced payload. Gates: `chaingraph/kernels/{lint-forbidden-hash,golden-parity,parity-art-01,syntax-check}.mjs`.
+- **Canonical `execution_hash` only** (shared `_hash.mjs`). Forbidden: array-replacer canon, `simpleHash`/fake `sha256:`, hashing a reduced payload. Gates: `chaingraph/kernels/{lint-forbidden-hash,golden-parity.test,parity-art-01.test,syntax-check}.mjs`.
 - **The MCP worker is a separate repo (`mcp-apps-poc/`) booting from generated `data/` + `kernels/`.** After changing `chaingraph.json`/manifests/kernels, run `node generate.mjs` there and commit `data/` + `kernels/` in the SAME push. Deploy is gated GitHub Actions only; confirm the post-deploy `/mcp` smoke step. Detail: `CONTRACT.md` §A4.
 
 ## ⚡ Before every push
