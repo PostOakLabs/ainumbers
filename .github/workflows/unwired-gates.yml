@@ -132,11 +132,11 @@ jobs:
           done
 
       # The F2 registry absence-tree gates, wired here so they are enforced in
-      # CI and not only in preflight (raw `node` lines — the gate-parity
-      # checker credits explicit `node <script>` invocations only).
+      # CI and not only in preflight (raw `node` line, gate-parity credited).
+      # Main/workflow_run only — pull_requests take the advisory twin at job's end.
       - name: Run the 2 registry absence-tree gates
+        if: github.event_name != 'pull_request'
         run: |
-          set -e
           node scripts/gen-registry-absence-tree.mjs --check
           node scripts/gen-registry-absence-tree.test.mjs
 
@@ -161,3 +161,34 @@ jobs:
           name: surface-parity-report
           path: parity-report.txt
           if-no-files-found: error
+
+      # PR-side lineage retirement (2026-10-22): the advisory twin of the
+      # absence-tree gate step above. Node PRs no longer carry their own
+      # lineage append — main's regen (derived-artifacts-regen.yml) has been
+      # the LIVE single writer of registry/lineage/** since 2026-10-14, and a
+      # PR-side append is what made every node PR serial on files only main
+      # should write. On a pull_request this step computes the PR's touched
+      # paths: a diff that TOUCHES any of registry/lineage/**,
+      # registry/absence/** or chaingraph/kernels/registry-lineage-records.json
+      # runs the check RAW (blocking exactly as the step above); a clean diff
+      # runs it through the sanctioned run-gate.mjs wrapper — ADVISORY, warn +
+      # exit 0 only when check-regen-repairable proves main's regen erases the
+      # drift (the check always RUNS, its output always prints). The controls
+      # stay blocking either way. Why this step lives at the END of the job:
+      # the DECLARED_SOFTENERS key for the report step's continue-on-error is
+      # pinned to its exact line number, so nothing may be inserted between
+      # the blocking step and it; and the blocking step's own `if:` line took
+      # the place of its old `set -e` (Actions runs steps with bash -e by
+      # default, so fail-fast is unchanged).
+      - name: Registry absence-tree gates (advisory on a lineage-clean pull_request)
+        if: github.event_name == 'pull_request'
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          if git diff --name-only "$BASE_SHA" HEAD | grep -qE '^(registry/lineage/|registry/absence/|chaingraph/kernels/registry-lineage-records\.json)'; then
+            echo "lineage file(s) in this PR's diff - the absence-tree gate stays BLOCKING"
+            node scripts/gen-registry-absence-tree.mjs --check
+          else
+            node scripts/run-gate.mjs node scripts/gen-registry-absence-tree.mjs --check
+          fi
+          node scripts/gen-registry-absence-tree.test.mjs
