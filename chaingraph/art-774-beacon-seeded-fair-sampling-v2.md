@@ -6,6 +6,10 @@ Derives a deterministic, offline-replayable audit sample, version 2 of the beaco
 - Markdown twin: https://ainumbers.co/chaingraph/art-774-beacon-seeded-fair-sampling-v2.md
 - MCP tool: derive_beacon_fair_sample_v2 (endpoint https://mcp.ainumbers.co/mcp)
 
+## Page-side pulse signature verification
+
+The web page carries an optional verification layer that the kernel does not have: paste the round's drand signature (48-byte compressed G1, 96 lowercase hex characters, from any drand API or relay) and the page verifies it offline against the pinned drand quicknet group public key using vendored `@noble/curves` BLS12-381 code (MIT, @noble/curves@1.9.7 with @noble/hashes@1.8.0, inlined verbatim; no CDN and no network call). The check hashes the round number (8-byte big-endian) with SHA-256, hashes that onto the G1 curve with the RFC 9380 DST `BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_`, and verifies the BLS signature. Only after the signature verifies does the page derive `randomness = SHA-256(signature)` (drand's own definition) and compare it with the declared `beacon_randomness`, and the signed round with the declared `beacon_round`, reporting VERIFIED, MISMATCH (naming the field), or INVALID SIGNATURE. A pasted randomness value without a signature is refused; it is never evidence on its own. The page also renders the round's wall-clock time (genesis_time 1692803367 plus (round - 1) times the 3-second period) so a reviewer can check the pulse postdates the manifest commitment. This layer proves drand's League of Entropy group signed the round; the residual risk is predictability if a threshold of drand operators collude, not bias (drand's documentation: the network's output is "publicly verifiable, unbiased and unpredictable"). The verification is page-side only: it never enters the artifact, the policy_parameters, or the execution hash, and the derivation itself is unchanged.
+
 ## Inputs
 
 - beacon_source (string, required): The public randomness beacon family the pulse came from.
