@@ -239,6 +239,70 @@ for (const h of pairGreen) {
 ok(pairHeadHits('<h2>x402 Header Decoder, and Payload Linter</h2>').length === 0, 'PAIRHEAD allowlist: the comma-and x402 product-list form stays legal (measured one-heading need)');
 ok(pairHeadHits('<h2>widget Header Decoder, and Payload Linter</h2>').length === 1, 'PAIRHEAD: a lowercase-initial name outside the literal allowlist still fires');
 
+// ── REGEN-VALIDATORS-IN-QUEUE-1 step 7 (SO #34c RED/GREEN, four controls) ────
+// The 2026-10-23 blind spot: PR #2349 put two em-dashes in a node shard's
+// top-level description; PR checks + the merge queue passed (the queue
+// assembled $DERIVED_ROOT but ran no post-regen validator against it), then
+// main's derived regen failed 14 merges in a row at its copy-validation step.
+// These controls prove that blind spot closed: with DERIVED_ROOT set the
+// #descriptions check reads the assembled tree and goes RED; the source-shard
+// lint goes RED on the shard itself; removing the dash turns both GREEN; and
+// the no-DERIVED_ROOT in-tree read is unchanged.
+{
+  const { mkdtempSync, mkdirSync, writeFileSync: w } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const scratch = mkdtempSync(join(tmpdir(), 'regen-validators-dr-'));
+  const cgDir = join(scratch, 'chaingraph');
+  mkdirSync(cgDir, { recursive: true });
+  const monolith = (desc) => JSON.stringify({ spec_version: '0.1', nodes: [{ tool_id: 'fixture-node', description: desc }], chains: [] }, null, 2);
+  const gate = (env, args = []) => spawnSync(process.execPath, ['scripts/check-copy-hallmarks.mjs', ...args], { cwd: REPO, env, encoding: 'utf8' });
+  const withDR = () => ({ ...process.env, DERIVED_ROOT: scratch });
+  const withoutDR = () => { const e = { ...process.env }; delete e.DERIVED_ROOT; return e; };
+
+  // (a) RED: em-dash in the DERIVED_ROOT monolith only — the in-tree file is
+  // clean, so without DERIVED_ROOT the same command exits 0 (exactly the
+  // 10-23 blind spot), and with DERIVED_ROOT it exits 1 naming #descriptions.
+  w(join(cgDir, 'chaingraph.json'), monolith('Checks settlement exposure — across venues.'));
+  let run = gate(withDR());
+  let out = `${run.stdout}\n${run.stderr}`;
+  ok(run.status === 1, `(a RED) DERIVED_ROOT-aware run exits 1 on the assembled fixture — got exit ${run.status}${run.status === 1 ? '' : ':\n' + out.slice(0, 800)}`);
+  ok(out.includes('chaingraph/chaingraph.json#descriptions') && out.includes('em-dash'), '(a RED) failure names the #descriptions em-dash finding');
+  ok(out.includes('DERIVED_ROOT copy'), '(a RED) run printed the DERIVED_ROOT read line');
+  run = gate(withoutDR());
+  out = `${run.stdout}\n${run.stderr}`;
+  ok(run.status === 0, `(a RED, control) same command WITHOUT DERIVED_ROOT over the clean committed tree exits 0 — got exit ${run.status}${run.status === 0 ? '' : ':\n' + out.slice(0, 800)}`);
+
+  // (b)/(c) shard lint: RED on a fixture shard, GREEN once the dash is removed.
+  const fixtureShardRel = 'chaingraph/graph/nodes/zz-regen-validators-fixture.tmp.json';
+  const fixtureShard = resolve(REPO, fixtureShardRel);
+  try {
+    w(fixtureShard, JSON.stringify({ tool_id: 'fixture-node', description: 'Checks settlement exposure — across venues.' }, null, 2) + '\n');
+    const lint = (env) => spawnSync(process.execPath, ['scripts/check-copy-hallmarks.mjs', '--source-shards'], { cwd: REPO, env, encoding: 'utf8' });
+    run = lint(withoutDR());
+    out = `${run.stdout}\n${run.stderr}`;
+    ok(run.status === 1, `(b RED) source-shard lint exits 1 on the em-dash shard — got exit ${run.status}${run.status === 1 ? '' : ':\n' + out.slice(0, 800)}`);
+    ok(out.includes(fixtureShardRel), '(b RED) lint names the offending shard file');
+    // (c) GREEN: remove the dash -> both the shard lint and the DERIVED_ROOT
+    // gate run go green.
+    w(fixtureShard, JSON.stringify({ tool_id: 'fixture-node', description: 'Checks settlement exposure across venues.' }, null, 2) + '\n');
+    run = lint(withoutDR());
+    ok(run.status === 0, `(c GREEN) source-shard lint exits 0 after the dash is removed — got exit ${run.status}`);
+    w(join(cgDir, 'chaingraph.json'), monolith('Checks settlement exposure across venues.'));
+    run = gate(withDR());
+    out = `${run.stdout}\n${run.stderr}`;
+    ok(run.status === 0, `(c GREEN) DERIVED_ROOT-aware run exits 0 on the clean fixture — got exit ${run.status}${run.status === 0 ? '' : ':\n' + out.slice(0, 800)}`);
+  } finally {
+    rmSync(fixtureShard, { force: true });
+  }
+  rmSync(scratch, { recursive: true, force: true });
+
+  // (d) GREEN: no DERIVED_ROOT gives the in-tree read, unchanged.
+  run = gate(withoutDR());
+  out = `${run.stdout}\n${run.stderr}`;
+  ok(run.status === 0 && out.includes('read from in-tree file'), `(d GREEN) no DERIVED_ROOT: in-tree read line printed, exit 0 — got exit ${run.status}`);
+}
+
 if (fail) {
   console.error(`\ncheck-copy-hallmarks.test.mjs: ${fail} FAILURE(s)`);
   process.exit(1);
