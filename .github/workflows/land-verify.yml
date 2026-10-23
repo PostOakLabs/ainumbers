@@ -251,6 +251,28 @@ jobs:
           node scripts/derived-artifacts.mjs --out "${SCRATCH}"
           echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
 
+      # Post-regen copy validators (mechanisms A + B, merge_group ONLY — the
+      # pull_request path above and below is UNCHANGED). PR #2349 (99093e8e,
+      # 2026-10-23) shipped two em-dashes in a node shard's top-level
+      # description; PR checks and this queue passed, then main's single-writer
+      # derived-artifacts-regen.yml failed 14 merges in a row at "Validate the
+      # regenerated reader-facing copy" (run 39936907518) and main's derived
+      # files froze ~9 h. Root cause: the queue assembled $DERIVED_ROOT but ran
+      # none of the regen's post-regen validators against it. These steps close
+      # that: with DERIVED_ROOT set, check-copy-hallmarks and
+      # check-shipped-prose read the just-assembled monolith (mechanism A —
+      # both are now in DERIVED_ROOT_GATES), and the source-shard lint
+      # (--source-shards, mechanism B) reads the shards themselves, so the same
+      # edit now fails here, in the queue, HARD.
+      - name: Post-regen copy validators on the ephemeral tree (merge_group, HARD)
+        if: github.event_name == 'merge_group'
+        env:
+          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
+        run: |
+          node scripts/check-copy-hallmarks.mjs
+          node scripts/check-shipped-prose.mjs
+          node scripts/check-copy-hallmarks.mjs --source-shards
+
       # 2026-10-16: #2330 made the §18 step below HARD on
       # pull_request but only merge_group got an assembled tree, so on a PR the gate read
       # the stale committed monolith. A first-prove PR (deferred -> proven, shards only)

@@ -1719,6 +1719,16 @@ export const DERIVED_ROOT_GATES = new Set([
   'python scripts/verify_repo.py',                           // deploy gate sitemap leg (SITEMAP-DEPLOY-SPLIT-1; overlay read only)
   'node scripts/check-nav-reachability.mjs',                 // nav islands (reads the monolith for dynamic roots)
   'node scripts/check-nav-reachability.mjs --baseline-check',// nav-island baseline freshness
+  // REGEN-VALIDATORS-IN-QUEUE-1 (mechanism A): the two post-regen copy
+  // validators (derived-artifacts-regen.yml "Validate the regenerated
+  // reader-facing copy") are DERIVED_ROOT-aware — under the merge_group
+  // ephemeral tree they read the just-assembled chaingraph.json, so the queue
+  // simulates the regen's post-regen validators instead of passing on stale
+  // in-tree artifacts. check-shipped-prose reads the monolith directly;
+  // check-copy-hallmarks resolves its #descriptions read through
+  // chaingraphJsonReadPath().
+  'node scripts/check-copy-hallmarks.mjs',                   // reader-facing copy (#descriptions leg is DERIVED_ROOT-aware)
+  'node scripts/check-shipped-prose.mjs',                    // shipped prose jargon/slugs (reads the monolith)
 ]);
 
 /** The non-empty DERIVED_ROOT, or '' — CI merge_group jobs only by convention,
