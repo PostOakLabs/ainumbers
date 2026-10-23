@@ -1,5 +1,5 @@
 // art-735-solana-dvp-prefund-verifier property-test floor (SOLANA-DVP-PREFUND-VERIFIER-1).
-// kernel_digest_at_authoring: sha256:aa9714eeb542613621b82e0570ca653d0dfa410d0d910b484db87589ba39661c
+// kernel_digest_at_authoring: sha256:19d5db78bf3d1d454df6c48836afbd3e3ad247feaaedf8ca9b61fad4907e58ab
 // human_sign_off: PENDING
 //
 // Class-K floor per FV-PBT-FLOOR-BUILD-SPEC.md, with the art-715 kill-power shape:
