@@ -604,6 +604,21 @@ function decodeDashEntities(html) {
     .replace(/&#x0*2d;/gi, '-');
 }
 
+// REGEN-VALIDATORS-IN-QUEUE-1 step 1: the chaingraph.json descriptions check
+// factored into one exported function so the DERIVED_ROOT-aware read (step 2),
+// the source-shard lint (step 5) and the self-tests all share one extractor.
+// Pure: takes the parsed chaingraph.json (or any {nodes,chains} shape), returns
+// the #descriptions finding object or null. Byte-for-byte identical to the
+// former inline block in the main-guard scan below. EMDASH is declared further
+// down as a const — module-level TDZ is fine because callers run after full
+// module evaluation.
+export function chaingraphDescriptionsFinding(cg) {
+  let cgEmdash = 0;
+  for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
+  for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
+  return cgEmdash ? { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], absolutes: [], notX: 0, panel: [], fragHead: [], pairHead: [] } : null;
+}
+
 /** Strip script/style/pre/code bodies + HTML comments, keep other tags intact. */
 function proseHtml(html) {
   return decodeDashEntities(html)
@@ -759,11 +774,8 @@ for (const file of scanFiles) {
 // for this when chaingraph.json itself is in the touched set — never write
 // to it (out of this row's fence; this gate only reads it).
 if (!CHANGED || isTouched('chaingraph/chaingraph.json', CHANGED)) {
-  const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
-  let cgEmdash = 0;
-  for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
-  for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
-  if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], absolutes: [], notX: 0, panel: [], fragHead: [], pairHead: [] };
+  const cgFinding = chaingraphDescriptionsFinding(JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8')));
+  if (cgFinding) findings['chaingraph/chaingraph.json#descriptions'] = cgFinding;
 }
 
 // mcp/showcase-prompts.json titles + one_lines (MCP-SHOWCASE-PROMPTS-1) — reader-facing
