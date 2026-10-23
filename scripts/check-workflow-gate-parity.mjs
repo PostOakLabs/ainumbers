@@ -1276,6 +1276,19 @@ const PREFLIGHT_ONLY = new Map([
     "runs the same four checks; kernel-side provenance is the complementary " +
     "ocg-conformance/derive-vector.mjs <id> --check."],
   ["check-conformance-vectors.test.mjs", SELF_TEST],
+  // ── RECEIPT-BUNDLE-PUBLISH-1 (2026-10-23) ───────────────────────────────────
+  ["gen-receipt-bundles.mjs",
+    "Receipt-bundle freshness --check (RECEIPT-BUNDLE-PUBLISH-1): re-derives the per-node " +
+    "RECEIPT-BUNDLE v0.1 files under chaingraph/receipt-bundles from the same tracked repo " +
+    "inputs the writer consumes and byte-compares. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), so a " +
+    "named workflow step would only duplicate the same suite. It is the COVERED gate of " +
+    "derived-artifacts.mjs id 'receipt-bundles' (advisory-on-PR / blocking-on-main via the " +
+    "generic downgrade), and the single writer is derived-artifacts-regen.yml, which " +
+    "regenerates it post-merge exactly like the sitemap and the trust-signals digest — a raw " +
+    "invocation anywhere PR-reachable would duplicate that writer. Reads only tracked repo " +
+    "files plus local git (through gitEnv()) — no network, no CI-only input. The write half " +
+    "is a builder/main-side regen command, never a workflow step by name."],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
