@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (690 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (691 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7604,6 +7604,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-83-buy-in-exposure-modeler",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-771-automation-payback",
+    "display_name": "Automation Payback",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-771-automation-payback.html",
+    "description": "Automation Payback ranker ported from ApexLogics Apex #180 (AL-194). For a list of automation candidates (hours saved per week, loaded hourl",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
