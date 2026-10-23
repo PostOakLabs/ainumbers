@@ -14,6 +14,7 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
   - `chaingraph/kernels/_noble-secp256k1.bundle.mjs`
   - `chaingraph/kernels/_noble-bn254.bundle.mjs`
   - `chaingraph/kernels/_noble-ed25519.bundle.mjs`
+  - `chaingraph/art-774-beacon-seeded-fair-sampling-v2.html (inline BLS12-381 bundle, BEACON-SIG-V2-1)`
 
 ## @noble/post-quantum (ML-DSA + SLH-DSA)
 
