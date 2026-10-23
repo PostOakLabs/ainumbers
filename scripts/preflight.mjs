@@ -2498,6 +2498,13 @@ const QUICK_GATES = [
     : []),
   // 5. Copy hallmarks, CHANGED scope.
   ['Copy hallmarks (§1.4, CHANGED scope, quick)', `node scripts/check-copy-hallmarks.mjs --changed ${QUICK_REF}`],
+  // 5b. REGEN-VALIDATORS-IN-QUEUE-1 (mechanism B): source-shard description
+  //     lint, CHANGED scope (pre-push/PR context). Catches a bad top-level
+  //     `description` in a node/chain shard at push time — the exact edit that
+  //     passed PR + queue and then killed main's derived regen 14 merges in a
+  //     row on 2026-10-23 (PR #2349). CI full mode (all shards) runs in
+  //     land-verify.yml's merge_group "Post-regen copy validators" step.
+  [`Source-shard description lint (REGEN-VALIDATORS-IN-QUEUE-1, quick)`, `node scripts/check-copy-hallmarks.mjs --source-shards --changed ${QUICK_REF}`],
   // 6. PII banner. The script has no --changed scoping of its own, and a FULL
   //    scan measures ≈0.1 s — the full scan is a strict superset of "on changed
   //    tool HTML" and cheaper than porting a second diff-scope into it.

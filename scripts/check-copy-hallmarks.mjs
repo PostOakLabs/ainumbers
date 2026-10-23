@@ -619,6 +619,29 @@ export function chaingraphDescriptionsFinding(cg) {
   return cgEmdash ? { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], absolutes: [], notX: 0, panel: [], fragHead: [], pairHead: [] } : null;
 }
 
+// REGEN-VALIDATORS-IN-QUEUE-1 step 2 (mechanism A): when an ephemeral derived
+// tree is mounted (DERIVED_ROOT set — merge_group queue, or any explicit
+// opt-in, same semantics as derived-artifacts.mjs derivedRoot()) and the
+// assembled monolith exists under $DERIVED_ROOT/chaingraph/, the descriptions
+// check reads THAT copy — the tree the merge queue actually assembled —
+// instead of the committed in-tree monolith, which on a PR is stale by
+// construction. Otherwise (plain PR / push / local runs) it reads the in-tree
+// file, unchanged. Prints one line naming which file was read.
+export function chaingraphJsonReadPath() {
+  const dr = process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim();
+  if (dr) {
+    const p = resolve(dr, 'chaingraph', 'chaingraph.json');
+    if (existsSync(p)) {
+      console.log(`copy-hallmarks: chaingraph.json descriptions read from DERIVED_ROOT copy: ${p}`);
+      return p;
+    }
+    console.log(`copy-hallmarks: DERIVED_ROOT set but no chaingraph/chaingraph.json under ${dr} — falling back to in-tree file`);
+  }
+  const inTree = resolve(REPO, 'chaingraph', 'chaingraph.json');
+  console.log(`copy-hallmarks: chaingraph.json descriptions read from in-tree file: ${inTree}`);
+  return inTree;
+}
+
 /** Strip script/style/pre/code bodies + HTML comments, keep other tags intact. */
 function proseHtml(html) {
   return decodeDashEntities(html)
@@ -756,6 +779,51 @@ export function hasHallmarkDebt(f) {
 // full repo scan / process.exit as an import side effect.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
 
+// ── REGEN-VALIDATORS-IN-QUEUE-1 step 5 (mechanism B): source-shard lint ──────
+// `node scripts/check-copy-hallmarks.mjs --source-shards [--changed <base>]`
+// checks the TOP-LEVEL `description` of every chaingraph/graph/nodes/*.json and
+// chaingraph/graph/chains/*.json shard with the SAME step-1 extractor the
+// assembled monolith goes through (chaingraphDescriptionsFinding on a
+// one-node shape), so the em-dash that killed main's derived regen for ~9 h
+// (PR #2349 / run 39936907518) now fails at PR + pre-push time, before the
+// queue ever assembles it. Baseline semantics identical to the rest of this
+// gate: existing debt is shielded by scripts/copy-hallmarks-baseline.json
+// keyed `<shard rel path>#description` (emdash count), counts only go down
+// (--update ratchets; never grown to admit a new hit). --changed scopes the
+// run to shards touched vs <base> (pre-push quick + PR contexts); the bare
+// form scans ALL shards (CI full mode — the merge_group queue step).
+if (process.argv.includes('--source-shards')) {
+  const shardDirs = [['chaingraph/graph/nodes', 'nodes'], ['chaingraph/graph/chains', 'chains']];
+  const shardFailures = [];
+  const shardImprovements = [];
+  const baseline0 = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : {};
+  let scanned = 0;
+  for (const [dir] of shardDirs) {
+    const abs = resolve(REPO, dir);
+    if (!existsSync(abs)) continue;
+    for (const f of readdirSync(abs)) {
+      if (!f.endsWith('.json')) continue;
+      const rel = `${dir}/${f}`;
+      if (CHANGED && !isTouched(rel, CHANGED)) continue;
+      scanned++;
+      const key = `${rel}#description`;
+      const shard = JSON.parse(readFileSync(resolve(abs, f), 'utf8'));
+      const finding = chaingraphDescriptionsFinding({ nodes: [shard], chains: [] });
+      const emdash = finding ? finding.emdash : 0;
+      const allowed = baseline0[key]?.emdash || 0;
+      if (emdash > allowed) shardFailures.push(`${rel}: ${emdash} em-dash(es) in top-level description (baseline ${allowed}) — CONTRACT §1.4; this shard is what main's derived regen assembles, fix it at the source`);
+      else if (emdash < allowed) shardImprovements.push(`${rel}: em-dash ${allowed} -> ${emdash}`);
+    }
+  }
+  if (shardFailures.length) {
+    console.error(`\ncopy-hallmarks --source-shards: ${shardFailures.length} FAILURE(s):\n  ` + shardFailures.join('\n  '));
+    process.exit(1);
+  }
+  if (shardImprovements.length) console.log(`copy-hallmarks --source-shards: ${shardImprovements.length} shard(s) beat the baseline — tighten with --update:\n  ` + shardImprovements.join('\n  '));
+  console.log(`copy-hallmarks --source-shards: OK (${scanned} shard(s) scanned${CHANGED ? ', changed scope' : ', all shards'}, top-level descriptions em-dash clean).`);
+  process.exit(0);
+}
+
 const findings = {}; // rel path -> { emdash, jargon: [msg], twotone, hallmarks: [msg] }
 const scanFiles = CHANGED ? htmlFiles(REPO).filter((f) => isTouched(relative(REPO, f), CHANGED)) : htmlFiles(REPO);
 for (const file of scanFiles) {
@@ -774,7 +842,7 @@ for (const file of scanFiles) {
 // for this when chaingraph.json itself is in the touched set — never write
 // to it (out of this row's fence; this gate only reads it).
 if (!CHANGED || isTouched('chaingraph/chaingraph.json', CHANGED)) {
-  const cgFinding = chaingraphDescriptionsFinding(JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8')));
+  const cgFinding = chaingraphDescriptionsFinding(JSON.parse(readFileSync(chaingraphJsonReadPath(), 'utf8')));
   if (cgFinding) findings['chaingraph/chaingraph.json#descriptions'] = cgFinding;
 }
 
