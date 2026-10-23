@@ -2706,6 +2706,21 @@ cryptographically valid — revocation overrides signature validity. The three p
 SDK test vectors are **reference only** (a verifier MUST NOT vendor them as a code path). Absence of a status
 reference means "no revocation signal published," not "known-good."
 
+**§REVOKE-1.1a Encoded list form (NORMATIVE).** A published status list SHOULD use the W3C Bitstring
+Status List encoding: the status bitstring is GZIP-compressed (W3C Bitstring Status List v1.0 §3.3
+Bitstring Generation Algorithm) and then Multibase-encoded as base64url with no padding, so the
+`encodedList` value carries the multibase `u` prefix (§2.2), and the uncompressed bitstring is at
+least 16 KB, i.e. 131,072 single-bit entries (§1.1 Conceptual Framework and §2.2; §3.2 fixes
+`minimumNumberOfEntries` at 131,072 unless the deployment declares a different lower bound).
+Expansion follows §3.4 Bitstring Expansion Algorithm (Multibase-decode, then GZIP decompression), and
+a verifier MUST bound the decoded, post-inflate length before and while inflating, refusing any list
+past its declared bound, so decompression is never unbounded. A verifier MAY additionally accept a
+raw, uncompressed base64url bitstring (most-significant-bit first, same bit-indexing convention,
+GZIP step omitted) as a permitted profile; `chaingraph/kernels/art-287-revocation-status-verifier.kernel.mjs`
+implements ONLY this raw MAY profile and deliberately skips multibase and GZIP, so it MUST NOT be
+cited as an implementation of the SHOULD form. The `statusPurpose`, `statusSize` (default 1 when
+absent), and OPTIONAL `ttl` property semantics follow §2.1 and §2.2 of the same Recommendation.
+
 ## §SIDECAR Small conformance riders (informative + reserved invariants — additive, lands as v0.8.7 at the coordinated record bump)
 Four small riders that clarify existing machinery without adding a new machine-checked obligation.
 
@@ -4007,7 +4022,18 @@ This section adds no second gate and changes no existing gate; nothing emits the
 adoption is a later decision.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **SPEC-TEXT PASS (2026-10-18: §21.2 browser composite reopened, with the
+See `standard/CHANGELOG.md`. **SPEC-TEXT PASS (2026-10-22: §REVOKE-1.1a status-list encoding, staged by
+`SPEC-REVOKE1-ENCODING-1`; the record `spec_version` stays at whatever `chaingraph.json` carries, same
+separation as every prior text pass):** §REVOKE-1.1a fixes the interoperable encoding of a published
+§REVOKE-1 status list. The W3C Bitstring Status List form is the SHOULD: GZIP of the status bitstring,
+then Multibase base64url with no padding so `encodedList` carries the `u` prefix, over an uncompressed
+bitstring of at least 16 KB / 131,072 entries (W3C Rec §1.1, §2.2, §3.2, §3.3, §3.4). Raw, uncompressed
+base64url is a permitted MAY profile, and a verifier MUST bound the decoded, post-inflate length and
+refuse past it, so no unbounded inflate. The shipped
+`chaingraph/kernels/art-287-revocation-status-verifier.kernel.mjs` implements the raw MAY profile only
+and is unchanged by this pass: no kernel bytes, no schema edit, no derived artifact regenerated, no
+version bump. Purely additive prose: no preimage member, no `required[]` change, `chaingraph_version`
+stays `"0.4.0"`. **SPEC-TEXT PASS (2026-10-18: §21.2 browser composite reopened, with the
 WebMCP conformance definitions in `CONTRACT.md` Amendment A15 as its first consumer; the record
 `spec_version` stays at whatever `chaingraph.json` carries, same separation as every prior text
 pass):** §21.2 now defines the browser composite instead of parking it. A browser leg builds the
