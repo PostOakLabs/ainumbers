@@ -169,6 +169,9 @@ async function judgeDirectExecute(result, expectedHash, params) {
  * Encoding rules mirror each page's run path exactly (JSON textareas stay
  * JSON, numbers arrive as strings, checkboxes as 'true'/'false').
  */
+// art-616's charge controls (#c_<type>) — the page's own CHARGE_ORDER list.
+const ART616_CHARGE_TYPES = ['credit_insurance_premium', 'single_premium_credit_insurance_charge', 'debt_cancellation_fee', 'debt_suspension_fee', 'credit_related_ancillary_product_fee', 'finance_charge', 'application_fee', 'participation_fee', 'other_credit_card_fee'];
+
 const RUN_PATH_ADAPTERS = {
   'art-559-attest-calc-agent-independence': {
     run: 'runCheck',
@@ -297,6 +300,27 @@ const RUN_PATH_ADAPTERS = {
       setVal(sandbox, 'cache_write_ttl', pp.usage?.cache_write_ttl ?? '');
       setVal(sandbox, 'price_table', pp.price_table === undefined ? '' : JSON.stringify(pp.price_table));
       setVal(sandbox, 'compare', pp.compare === undefined ? '' : JSON.stringify(pp.compare));
+    },
+  },
+  'art-616-mla-mapr-actuarial-recompute': {
+    run: 'runMapr',
+    prefill(sandbox, fx) {
+      // The form path assembles the scalar shorthand (loan_amount/payment_amount/
+      // num_payments); fixture 0's advances/payments arrays are not form-
+      // expressible, so leg 2 settles on the equivalent shorthand schedule and
+      // its hash divergence is documented in the baseline.
+      const pp = fx.policy_parameters;
+      const singleAdvance = Array.isArray(pp.advances) && pp.advances.length === 1 ? pp.advances[0] : null;
+      const firstPayment = Array.isArray(pp.payments) && pp.payments.length ? pp.payments[0] : null;
+      setVal(sandbox, 'loanAmount', singleAdvance ? String(singleAdvance.amount) : '');
+      setVal(sandbox, 'paymentAmount', firstPayment ? String(firstPayment.amount) : '');
+      setVal(sandbox, 'numPayments', String(Array.isArray(pp.payments) ? pp.payments.length : 1));
+      setVal(sandbox, 'periodsPerYear', String(pp.periods_per_year ?? 12));
+      setVal(sandbox, 'oddDays', '0');
+      setVal(sandbox, 'unitPeriodDays', '30');
+      setVal(sandbox, 'isCreditCard', 'no');
+      setVal(sandbox, 'shortTermClaimed', 'no');
+      for (const t of ART616_CHARGE_TYPES) setVal(sandbox, `c_${t}`, '0');
     },
   },
 };
