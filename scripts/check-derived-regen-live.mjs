@@ -108,9 +108,45 @@
  * same bytes is collapsed. Verdict classes, the 180 s per-entry bound, --check
  * mtime comparisons and exit codes are unchanged.
  *
+ * ── ENTRY-SCOPED MODE, --changed <base-ref> (DERIVED-SET-SELFTEST-HOOK-SCOPE-1) ─
+ * The full scan measured 26 min 15 s wall (PR #2104) with ZERO per-entry
+ * timeouts — no bound shortens that wall; only running fewer entries can. But
+ * preflight runs inside the pre-push hook, and the hook's full-suite trigger
+ * (scripts/prepush-full-trigger.mjs) fires on ANY repo/scripts/ diff, so three
+ * desk pushes in a row (2026-10-20 to 10-22) sat in this one gate until the
+ * 60-minute lane cap and were each completed as a declared --no-verify. The
+ * hook's own design (PREFLIGHT-QUICK-1) says the full suite is owed only when
+ * it can be PAID. `--changed <base-ref>` is the paid subset for the hook leg:
+ * run ONLY the covered entries the pushed diff can affect, selected by
+ *   - the entry's regen script or gate script (primaryScriptPath — the SAME
+ *     lexical extractor preflight.mjs's trigger set already uses, reused not
+ *     reimplemented) appearing in `git diff --name-only <base>...HEAD`;
+ *   - any path inside the entry's declared artifacts[] appearing there — most
+ *     generators here read-and-splice their own declared artifacts, so those
+ *     are INPUTS exactly as much as outputs, and derived-artifacts.mjs lists
+ *     them per entry;
+ *   - a touched scripts/derived-artifacts.mjs, or a touched copy of THIS gate's
+ *     own script or its test, selects ALL entries — the declaration or the
+ *     verdict machinery itself moved, so the scoping decision cannot be
+ *     trusted to survive it (the same reasoning as DERIVED-SET-SELFTEST-
+ *     TRIGGER-1's trigger set);
+ *   - an undeterminable diff FAILS OPEN: every entry runs.
+ * NO GATE IS REMOVED: every CI context still runs the FULL live scan exactly
+ * as before — the workflows invoke preflight bare (no --changed), and
+ * preflight.mjs appends `--changed <ref>` ONLY on the pre-push/incremental leg
+ * (its own --changed mode, "local/pre-push runs only", is the context signal;
+ * DERIVED_REGEN_LIVE_FULL=1 in the environment is the kill-switch that forces
+ * the full scan even there). Multi-target entries that share one command still
+ * run it once per unique probe target (the PROBE-DE-DUPLICATION section above
+ * — scoping selects entries; the scan de-duplicates cycles). `--check` with no
+ * `--changed` is byte-for-byte the previous behaviour.
+ *
  * Usage:
  *   node scripts/check-derived-regen-live.mjs           # human-readable report
  *   node scripts/check-derived-regen-live.mjs --check    # exit 0/1, wired into preflight (scoped)
+ *   node scripts/check-derived-regen-live.mjs --check --changed origin/main
+ *                                           # hook/pre-push form (DERIVED-SET-SELFTEST-HOOK-SCOPE-1):
+ *                                           # run ONLY the covered entries the diff vs <ref> touches
  *   node scripts/check-derived-regen-live.mjs --list     # print covered entries + regen commands, run nothing
  *   node scripts/check-derived-regen-live.mjs --only <entry>   # run ONE entry (diagnosis)
  *   node scripts/check-derived-regen-live.mjs --self-test      # fixture proof of the timeout path (no real generator)
@@ -122,6 +158,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COVERED, REPO } from './derived-artifacts.mjs';
+import { primaryScriptPath } from './check-derived-declare-parity.mjs';
 import { gitEnv } from './_git-env-lib.mjs';
 
 // GIT-ENV HYGIENE (measured, not theoretical): the pre-push hook invokes
@@ -251,6 +288,82 @@ function crossEntryShares(covered) {
     }
   }
   return [...owners.entries()].filter(([, ids]) => ids.length > 1).map(([path, ids]) => ({ path, ids }));
+}
+
+// ── --changed <base-ref>: entry-level scoping (DERIVED-SET-SELFTEST-HOOK-SCOPE-1) ─
+// See the file header's ENTRY-SCOPED MODE section for the WHY. Selection is a
+// SUPERSET test only — a diff that names nothing an entry reads (its scripts
+// or its declared artifacts) cannot change that entry's verdict, and the
+// skipped line names the reason so a wrong selection is visible in the log,
+// never silent. Everything undeterminable fails OPEN (all entries run): the
+// scoping narrows what the hook pays for, it must never narrow what is proven.
+const CHANGED_SCOPE_MANIFEST = 'scripts/derived-artifacts.mjs';
+const CHANGED_SCOPE_GATE_OWN = ['scripts/check-derived-regen-live.mjs', 'scripts/check-derived-regen-live.test.mjs'];
+const CHANGED_SCOPE_SKIP_REASON = 'no regen/gate script or declared artifact of these entries appears in the diff';
+
+/**
+ * Which covered entries a `--changed <base-ref>` run must execute, from
+ * `git diff --name-only <baseRef>...HEAD` inside `repoPath`. Returns
+ * { mode: 'all'|'subset', reason, selected, skipped } — 'all' carries every
+ * regen-bearing entry and the reason the scope widened; 'subset' carries the
+ * selected entry objects (declared array order) and the skipped entry IDS.
+ * Parameterized over covered/repoPath so the paired test drives it against a
+ * synthetic fixture repo (same discipline as runLiveScan), never the real list.
+ */
+function selectCoveredByDiff({ repoPath = REPO, baseRef, covered = COVERED }) {
+  const withRegen = covered.filter((c) => c.regen);
+  let touched;
+  try {
+    touched = new Set(
+      execSync(`git diff --name-only ${baseRef}...HEAD`, { cwd: repoPath, ...GIT_EXEC_OPTS })
+        .toString('utf8').split('\n').map((l) => l.trim()).filter(Boolean),
+    );
+  } catch (e) {
+    return {
+      mode: 'all',
+      reason: `git diff ${baseRef}...HEAD is undeterminable (${(execOutput(e).split('\n')[0] || 'git failed').slice(0, 200)}) — failing open, running every entry`,
+      selected: withRegen,
+      skipped: [],
+    };
+  }
+  if (touched.has(CHANGED_SCOPE_MANIFEST)) {
+    return { mode: 'all', reason: `${CHANGED_SCOPE_MANIFEST} changed — every entry's declaration may have moved`, selected: withRegen, skipped: [] };
+  }
+  const gateOwnHit = CHANGED_SCOPE_GATE_OWN.find((p) => touched.has(p));
+  if (gateOwnHit) {
+    return { mode: 'all', reason: `${gateOwnHit} changed — the gate's own script/test changed, so every entry re-proves itself`, selected: withRegen, skipped: [] };
+  }
+  const selected = [];
+  const skipped = [];
+  for (const entry of withRegen) {
+    const regenScript = primaryScriptPath(entry.regen);
+    const gateScript = entry.gate ? primaryScriptPath(entry.gate) : null;
+    const hit = (regenScript && touched.has(regenScript))
+      || (gateScript && touched.has(gateScript))
+      || [...touched].some((p) => isWithinDeclared(p, entry.artifacts));
+    if (hit) selected.push(entry);
+    else skipped.push(entry.id);
+  }
+  return { mode: 'subset', reason: CHANGED_SCOPE_SKIP_REASON, selected, skipped };
+}
+
+/**
+ * The --changed decision lines — ONE naming the selected set, ONE naming the
+ * skipped set with the reason. The CLI writes them to stderr (a run killed
+ * from outside keeps them, same rationale as the progress lines); exported so
+ * the paired test asserts the skipped reason is actually PRINTED, not just
+ * computed.
+ */
+function changedSelectionLines({ baseRef, selection }) {
+  const n = selection.selected.length;
+  if (selection.mode === 'all') {
+    return [`derived-regen-live: --changed ${baseRef} — running ALL ${n} covered entries (${selection.reason})`];
+  }
+  const plural = (k) => (k === 1 ? 'y' : 'ies');
+  return [
+    `derived-regen-live: --changed ${baseRef} — selected ${n} entr${plural(n)}${n ? `: ${selection.selected.map((e) => e.id).join(', ')}` : ''} (regen/gate script or declared artifact appears in git diff ${baseRef}...HEAD)`,
+    `derived-regen-live: --changed ${baseRef} — skipped ${selection.skipped.length} entr${plural(selection.skipped.length)}${selection.skipped.length ? `: ${selection.skipped.join(', ')}` : ''} (${selection.reason}; CI still runs the full live scan)`,
+  ];
 }
 
 // ── classes A + B: the live run ────────────────────────────────────────────────
@@ -848,6 +961,28 @@ if (isMain) {
       }
       console.log(`derived-regen-live: --only "${wanted}" — running one entry, not the whole set\n`);
     }
+    const changedIdx = argv.indexOf('--changed');
+    if (changedIdx !== -1) {
+      // DERIVED-SET-SELFTEST-HOOK-SCOPE-1: entry-level scoping for the
+      // hook/pre-push leg (see the file header's ENTRY-SCOPED MODE section).
+      // stderr, not stdout, for the same reason as the progress lines: a run
+      // killed from outside keeps the decision that scoped it in the log.
+      const baseRef = argv[changedIdx + 1];
+      if (!baseRef || baseRef.startsWith('--')) {
+        console.error('derived-regen-live: --changed needs a base ref (e.g. --changed origin/main)');
+        process.exit(2);
+      }
+      const selection = selectCoveredByDiff({ baseRef, covered });
+      for (const line of changedSelectionLines({ baseRef, selection })) process.stderr.write(`${line}\n`);
+      covered = selection.selected;
+      if (selection.mode === 'subset' && covered.length === 0) {
+        // A vacuous scope is a PASS by design: the diff names nothing this gate
+        // can re-prove locally, and CI runs the FULL live scan on the same PR
+        // (workflows invoke preflight bare — no --changed, ever). Paying the
+        // scratch-worktree checkout to execute zero commands would be pure cost.
+        process.exit(0);
+      }
+    }
     const timeoutMs = envTimeoutMs();
     // CLASS C is static and scoped to whatever set is being run, so --only
     // reports duplicates for that entry alone rather than the whole estate's.
@@ -873,4 +1008,4 @@ if (isMain) {
 // mkdtemp + `git worktree add --detach HEAD` + guaranteed `git worktree remove
 // --force` in a finally — rather than growing a second, subtly different
 // implementation of it. One scratch-worktree mechanism, one cleanup path.
-export { runLiveScan, withinEntryDuplicates, crossEntryShares, isWithinDeclared, gitStatusPaths, cleanGitEnv, withScratchWorktree };
+export { runLiveScan, withinEntryDuplicates, crossEntryShares, isWithinDeclared, gitStatusPaths, cleanGitEnv, withScratchWorktree, selectCoveredByDiff, changedSelectionLines };
