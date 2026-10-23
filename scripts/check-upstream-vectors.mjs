@@ -214,11 +214,141 @@ async function runCid() {
   }
 }
 
+// ── (e) RFC 9421 worked examples: art-129 web-bot-auth signature verifier ─────────────────
+// Vectors are extracted from the vendored rfc-editor.org plain-text RFC itself
+// (Appendix B.1.4 Ed25519 test key, Appendix B.2.6 signed-request example), with an
+// RFC 8792 continuation-unwrap before parsing.
+function unwrap8792(text) { return text.replace(/\\\r?\n[ \t]+/g, ''); }
+function rfcSection(src, startMark, endMark) {
+  // lastIndexOf: the section body heading follows the table of contents entry of the same text.
+  const i = src.lastIndexOf(startMark);
+  if (i < 0) fault(`rfc9421: section marker not found: ${startMark}`);
+  const j = src.indexOf(endMark, i);
+  if (j < 0) fault(`rfc9421: end marker not found: ${endMark}`);
+  return src.slice(i, j);
+}
+async function runRfc9421() {
+  const set = 'rfc9421';
+  checkProvenance(set);
+  const src = vfile(`${set}/rfc-editor.org/rfc9421.txt`);
+
+  // Appendix B.1.4: Ed25519 test key in JWK form.
+  const b14 = unwrap8792(rfcSection(src, 'B.1.4.  Example Ed25519 Test Key', 'B.1.5.'));
+  const jwk = JSON.parse(/\{\s*"kty": "OKP"[\s\S]*?\}/.exec(b14)?.[0] ?? 'null');
+  if (jwk?.kty !== 'OKP' || jwk.crv !== 'Ed25519') fault('rfc9421: could not extract the Appendix B.1.4 Ed25519 JWK');
+
+  // Appendix B.2.6: signed request with test-key-ed25519.
+  const b26 = unwrap8792(rfcSection(src, 'B.2.6.  Signing a Request Using ed25519', 'B.3.'));
+  const sigB64 = /Signature: sig-b26=:([A-Za-z0-9+/=]+):/.exec(b26)?.[1];
+  const baseBlock = /The corresponding signature base is:([\s\S]*?)This results in/.exec(b26)?.[1] ?? '';
+  const baseLines = baseBlock.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('"'));
+  const sigParamsLine = baseLines.find((l) => l.startsWith('"@signature-params": '));
+  if (!sigB64 || baseLines.length !== 7 || !sigParamsLine) fault('rfc9421: could not extract the Appendix B.2.6 signature base / signature');
+
+  const covered = baseLines.filter((l) => !l.startsWith('"@signature-params": '))
+    .map((l) => { const m = /^"([^"]+)": (.*)$/.exec(l); return { name: m[1], value: m[2] }; });
+  const signature_params = sigParamsLine.slice('"@signature-params": '.length);
+  const base = baseLines.join('\n');
+  const created = Number(/created=(\d+)/.exec(signature_params)?.[1]);
+  if (!Number.isFinite(created)) fault('rfc9421: no created timestamp in B.2.6 @signature-params');
+
+  // Reference control: the RFC's own example signature verifies over the RFC's own
+  // signature base with node:crypto. If this fails, the vendored text drifted.
+  const rawPub = Buffer.from(jwk.x, 'base64url');
+  if (!edVerify(null, Buffer.from(base, 'utf8'), createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x: jwk.x }, format: 'jwk' }), Buffer.from(sigB64, 'base64'))) {
+    fault('reference control failed: RFC 9421 B.2.6 example signature does not verify under node:crypto');
+  }
+
+  const m = await import(pathToFileURL(join(KDIR, 'art-129-webbotauth-signature-verifier.kernel.mjs')).href);
+  const run = async (id, pp, wantVerdict, why) => {
+    let art;
+    try { art = await m.buildArtifact(pp, { now: '2026-10-23T00:00:00Z' }); } catch (e) { rec('FAIL', set, id, 'verifier threw ' + e.message); return; }
+    const op = art.output_payload;
+    if (op.verdict === wantVerdict) rec('PASS', set, id, why);
+    else rec('FAIL', set, id, `${why}: wanted verdict ${wantVerdict}, got ${op.verdict} (sig_valid=${op.signature_cryptographically_valid}, tag_ok=${op.tag_ok}, alg_ok=${op.alg_ok})`);
+  };
+  await run('b2.6-request-ed25519-rfc-example',
+    { covered_components: covered, signature_params, signature_b64: sigB64, public_key_jwk: jwk, alg: 'ed25519', created, now_unix: created },
+    'ACCEPT', 'RFC 9421 B.2.6 worked example: a cryptographically valid ed25519 request signature');
+  const bad = Buffer.from(sigB64, 'base64'); bad[0] ^= 1;
+  await run('b2.6-request-ed25519-tampered-signature',
+    { covered_components: covered, signature_params, signature_b64: bad.toString('base64'), public_key_jwk: jwk, alg: 'ed25519', created, now_unix: created },
+    'REFUSE', 'tampered B.2.6 signature must be refused');
+}
+
+// ── (f) did:webvh v1.0 test suite: art-284 did:webvh log verifier ─────────────────────────
+async function runDidWebvh() {
+  const set = 'didwebvh';
+  checkProvenance(set);
+  const m = await import(pathToFileURL(join(KDIR, 'art-284-did-webvh-log-verifier.kernel.mjs')).href);
+  const base = join(VDIR, set, 'didwebvh-test-suite', 'vectors');
+  const defectCode = { // the failure code a conforming verifier should raise per vector family
+    'negative-scid-mismatch-genesis': 'ENTRY_HASH_MISMATCH',
+    'negative-pre-rotation-omit-updatekeys': 'UPDATE_KEYS_MISSING',
+    'negative-wrong-cryptosuite': null,
+    'negative-versiontime-future': null,
+  };
+  for (const name of readdirSync(base).sort()) {
+    const dir = join(base, name);
+    if (!statSync(dir).isDirectory()) continue;
+    const log = vfile(`${set}/didwebvh-test-suite/vectors/${name}/did.jsonl`).split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    const res = JSON.parse(vfile(`${set}/didwebvh-test-suite/vectors/${name}/resolutionResult.json`));
+    const expectedValid = !res.didResolutionMetadata?.error;
+    let out;
+    try { out = m.compute({ did: log[0]?.state?.id ?? '', did_log: log }).output_payload; }
+    catch (e) { rec('FAIL', set, name, 'verifier threw ' + e.message); continue; }
+    const codes = out.failures.map((f) => f.code);
+    const ok = expectedValid
+      ? out.valid === true
+      : out.valid === false && (defectCode[name] === undefined || (defectCode[name] && codes.includes(defectCode[name])));
+    if (ok) rec('PASS', set, name, `spec outcome ${expectedValid ? 'resolves' : 'rejects'} matched`);
+    else rec('FAIL', set, name, `wanted ${expectedValid ? 'valid log' : 'invalid log via ' + (defectCode[name] ?? 'a defect-specific code')}; got valid=${out.valid}, failures=${codes.join(',') || 'none'}`);
+  }
+}
+
+// ── (g) sanctions list binding (self-authored): art-413 private-input screen ──────────────
+async function runSanctionsBinding() {
+  const set = 'sanctions-list-binding';
+  checkProvenance(set);
+  const v = JSON.parse(vfile(`${set}/vectors.json`));
+  const m = await import(pathToFileURL(join(KDIR, 'art-413-screen-sanctions-private.kernel.mjs')).href);
+  const now = '2026-10-23T00:00:00Z';
+  const mk = (parties) => m.buildArtifact({ parties, salt: v.salt_hex, list_version: v.list_version_label }, { now });
+
+  // Control: the verdict math itself functions — hits vs clean differ.
+  const hitArt = await mk(v.screened_parties);
+  const cleanArt = await mk(v.clean_parties);
+  if (hitArt.output_payload.hit_count > 0 && cleanArt.output_payload.hit_count === 0) {
+    rec('PASS', set, 'hit-verdict-functional', 'control: hit and clean party sets produce different verdicts');
+  } else {
+    rec('FAIL', set, 'hit-verdict-functional', `control failed: hit_count=${hitArt.output_payload.hit_count} vs clean hit_count=${cleanArt.output_payload.hit_count}`);
+  }
+
+  // The audited property: same parties + same list_version label over two DIFFERENT list
+  // contents must yield different receipts. art-413 accepts no list input at all, so the
+  // receipt can only distinguish a free label — the two hypothetical list contents A and B
+  // are structurally indistinguishable in policy_parameters / output_payload.
+  const pubKeys = ['screened', 'hit_count', 'clean', 'coverage', 'list_version', 'regulatory_basis', 'pii_note', 'not_legal_advice'];
+  const ppKeys = ['parties_commitment', 'list_version', 'list_source', 'matching_config'];
+  const samePublic = (a, b) => pubKeys.every((k) => JSON.stringify(a.output_payload[k]) === JSON.stringify(b.output_payload[k]))
+    && ppKeys.every((k) => JSON.stringify(a.policy_parameters[k]) === JSON.stringify(b.policy_parameters[k]));
+  const withListA = { ...hitArt }; // parties screened "against" list content A
+  const withListB = JSON.parse(JSON.stringify({ ...hitArt })); // identical call: content B cannot be passed in
+  if (!samePublic(withListA, withListB)) {
+    rec('PASS', set, 'list-version-label-unbound', 'receipt distinguishes list contents under one label');
+  } else {
+    rec('FAIL', set, 'list-version-label-unbound', 'same parties + same list_version label over two different list contents give an identical receipt: policy_parameters carries only the free list_version label and no list-bytes binding');
+  }
+}
+
 // ── driver ────────────────────────────────────────────────────────────────────────────────
 await runMerkle();
 await runCosignature();
 await runBitstring();
 await runCid();
+await runRfc9421();
+await runDidWebvh();
+await runSanctionsBinding();
 
 for (const r of results) console.log(`${r.verdict} ${r.set} ${r.id}${r.reason ? ' ' + r.reason : ''}`);
 const n = (v) => results.filter((r) => r.verdict === v).length;
