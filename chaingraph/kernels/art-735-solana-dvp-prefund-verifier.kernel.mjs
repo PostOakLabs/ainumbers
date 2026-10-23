@@ -183,11 +183,17 @@ const REQUIRED_ADDRESSES = [
  * @returns {{ err?: object, desc?: { extensions: string[], frozenByDefault: boolean, freezeAuthoritySet: boolean } }}
  */
 function parseMintDesc(pp, leg) {
-  const extP = parseExtensionList(pp['mint_' + leg + '_extensions'], 'mint_' + leg + '_extensions');
+  // Reads use the literal member shapes (pp.mint_a_extensions etc.) so the static
+  // input-usage scan (KERNEL-INPUT-USAGE-CHECK-1) sees them; computed subscripts
+  // like pp['mint_' + leg + '_extensions'] are invisible to it.
+  const extRaw = leg === 'a' ? pp.mint_a_extensions : pp.mint_b_extensions;
+  const frozenRaw = leg === 'a' ? pp.mint_a_frozen_by_default : pp.mint_b_frozen_by_default;
+  const freezeRaw = leg === 'a' ? pp.mint_a_freeze_authority_set : pp.mint_b_freeze_authority_set;
+  const extP = parseExtensionList(extRaw, 'mint_' + leg + '_extensions');
   if (extP.err) return { err: refusal('EXTENSION_LIST_MALFORMED', extP.err) };
-  const frozenP = parseBool(pp['mint_' + leg + '_frozen_by_default'], 'mint_' + leg + '_frozen_by_default');
+  const frozenP = parseBool(frozenRaw, 'mint_' + leg + '_frozen_by_default');
   if (frozenP.err) return { err: refusal('FIELD_MALFORMED', frozenP.err) };
-  const freezeP = parseBool(pp['mint_' + leg + '_freeze_authority_set'], 'mint_' + leg + '_freeze_authority_set');
+  const freezeP = parseBool(freezeRaw, 'mint_' + leg + '_freeze_authority_set');
   if (freezeP.err) return { err: refusal('FIELD_MALFORMED', freezeP.err) };
   return { desc: { extensions: extP.list, frozenByDefault: frozenP.val, freezeAuthoritySet: freezeP.val } };
 }
