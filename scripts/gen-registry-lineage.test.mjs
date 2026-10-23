@@ -16,19 +16,24 @@
 //   2. entry-bundle round-trip (bytes -> hashLeafNode -> matches level-0 tile hash)
 //   3. SUBPROOF/PROOF construction against a small hand-checkable 8-leaf tree
 //   4. --check mode's mutation detection (real subprocess-free in-process flip)
+//   5. ANCHOR HOLD (MAIN-REGEN-SIGSUM-ANCHOR-HEAL-1) red-then-green
+//   6. LINEAGE-PR-SIDE-RETIRE-1: the PR-side advisory split, five scenarios
+//      (a)-(e) incl. the RED control — quoted in that row's PR body
 //
 // node scripts/gen-registry-lineage.test.mjs
 
 import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { webcrypto } from 'node:crypto';
 import {
-  hashLeafNode, hashInteriorNode, verifyConsistency, formatCheckpoint, bytesToHex, bytesEqual,
+  hashLeafNode, hashInteriorNode, sha256, verifyConsistency, formatCheckpoint, bytesToHex, bytesEqual,
 } from '../chaingraph/kernels/c2sp-tlog-verify.mjs';
 import {
   encodeTileIndexParts, fullTilePath, partialTilePath, tileGroups, mth, subproof,
   buildConsistencyProof, generate, check, readLevel0LeafHashes,
+  diffTouchesLineageScope, lineageAdvisoryOnPr, anchorLagWarning, checkAndDispose,
 } from './gen-registry-lineage.mjs';
 
 const subtle = webcrypto.subtle;
@@ -415,10 +420,137 @@ async function anchorHoldTest() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// 6. LINEAGE-PR-SIDE-RETIRE-1: the PR-side advisory split — five scenarios
+// (SO #34c RED and GREEN). A synthetic log is generated in a temp dir with a
+// fresh Ed25519 keypair (the section-4 machinery), one tile byte is mutated by
+// XOR so the log becomes a REAL stale tree, and the disposition verdicts are
+// driven through the real exported checkAndDispose()/anchorLagWarning() under env fixtures:
+//   (a) GREEN — pull_request + a diff with NO lineage file → ADVISORY, exit 0,
+//       printed line says why; the absence-tree leg is advisory too (the exact
+//       predicate run-gate.mjs keys on + the unwired-gates.yml advisory step).
+//   (b) GREEN — pull_request + a diff TOUCHING registry/lineage/ → blocking
+//       exactly as today (exit 1).
+//   (c) GREEN — GITHUB_EVENT_NAME=merge_group with DERIVED_ROOT → blocking
+//       (exit 1) regardless of the diff.
+//   (d) RED control — the REAL stale tree on merge_group must NOT be swallowed
+//       by the advisory branch: this scenario FAILS the test if it ever exits 0.
+//   (e) anchor-lag (C3) — equal anchored_hash silent; differing → exactly ONE
+//       WARNING line carrying "held anchor is stale; a desk stamp is owed".
+// ---------------------------------------------------------------------------
+const RETIRE_REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+function retireWithEnv(overrides, fn) {
+  const keys = ['GITHUB_ACTIONS', 'GITHUB_EVENT_NAME', 'DERIVED_ROOT'];
+  const saved = {};
+  for (const k of keys) { saved[k] = process.env[k]; if (overrides[k] === undefined) delete process.env[k]; else process.env[k] = overrides[k]; }
+  const restore = () => { for (const k of keys) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } };
+  try {
+    const r = fn();
+    if (r && typeof r.then === 'function') return r.finally(restore);
+    restore();
+    return r;
+  } catch (e) {
+    restore();
+    throw e;
+  }
+}
+async function lineagePrSideRetire1Test() {
+  const tmpDir = mkdtempSync(join(tmpdir(), 'lineage-pr-side-retire-1-'));
+  const registryDir = join(tmpDir, 'lineage');
+  try {
+    const { publicKey, privateKey } = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+    const privJwk = await subtle.exportKey('jwk', privateKey);
+    const pubKeyHex = Buffer.from(await subtle.exportKey('raw', publicKey)).toString('hex');
+    const keyPath = join(tmpDir, 'test-log-key.priv.jwk.json');
+    writeFileSync(keyPath, JSON.stringify(privJwk));
+    const records = Array.from({ length: 5 }, (_, i) => ({ synthetic_retire_index: i, note: 'LINEAGE-PR-SIDE-RETIRE-1 fixture' }));
+    await generate({
+      registryDir, records,
+      logPrivateKeyPath: keyPath, logPublicKeyHex: pubKeyHex,
+      sigsumSubmitKeyPath: join(tmpDir, 'absent', 'sigsum-key.priv.jwk.json'),
+      sigsumTokenKeyPath: join(tmpDir, 'absent', 'sigsum-token-key.priv.jwk.json'),
+    });
+    const ckOpts = { registryDir, logPublicKeyHex: pubKeyHex, noExit: true };
+    ok((await check(ckOpts)).ok === true, 'RETIRE fixture: the freshly generated log passes --check before mutation');
+
+    // A REAL stale tree: flip one byte in the published level-0 partial tile.
+    const partialPath = partialTilePath(join(registryDir, 'tile', '0'), 0, 5);
+    const originalTile = readFileSync(partialPath);
+    const mutatedTile = Buffer.from(originalTile);
+    mutatedTile[mutatedTile.length - 1] ^= 0xff;
+    writeFileSync(partialPath, mutatedTile);
+    const ckStale = { ...ckOpts };
+    ok((await check(ckStale)).ok === false, 'RETIRE fixture: the byte-flipped log is a REAL --check red (SO #34: the control must ride a genuine failure)');
+
+    // (a) GREEN — advisory on a lineage-clean PR, exit 0, line says why.
+    let lines = [];
+    const origLog = console.log;
+    console.log = (s) => { lines.push(String(s)); };
+    let a;
+    try {
+      a = await retireWithEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request' },
+        () => checkAndDispose({ registryDir, logPublicKeyHex: pubKeyHex, touched: ['tools/900-new-tool.html', 'chaingraph/graph/nodes/art-999-node.json'] }));
+    } finally { console.log = origLog; }
+    ok(a.exitCode === 0 && a.advisory === true, `(a) GREEN — pull_request, no lineage file in the diff: ADVISORY exit 0 (got ${JSON.stringify({ exitCode: a.exitCode, advisory: a.advisory })})`);
+    const aLine = lines.find((l) => l.includes('LINEAGE-PR-SIDE-RETIRE-1'));
+    ok(!!aLine && aLine.includes('ADVISORY') && aLine.includes("main's regen"), `(a) the advisory line says WHY (main's regen appends after merge): ${aLine || '(no line printed)'}`);
+    // (a, second gate) the absence-tree leg: run-gate.mjs's exact keys + the workflow step.
+    const { advisoryGates, isMainContext } = await import('./derived-artifacts.mjs');
+    retireWithEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request' }, () => {
+      ok(isMainContext() === false, '(a) pull_request affirmatively proves a PR context');
+      ok(advisoryGates().has('node scripts/gen-registry-absence-tree.mjs --check'), '(a) the absence-tree check is advisoryGates()-classified, so run-gate.mjs can fire for it');
+    });
+    const yml = readFileSync(join(RETIRE_REPO, '.github/workflows/unwired-gates.yml'), 'utf8');
+    ok(yml.includes('node scripts/run-gate.mjs node scripts/gen-registry-absence-tree.mjs --check')
+      && yml.includes("if: github.event_name == 'pull_request'")
+      && yml.includes("if: github.event_name != 'pull_request'")
+      && yml.includes('registry/lineage/'),
+      '(a) unwired-gates.yml carries the run-gate advisory twin step scoped to pull_request, beside the raw blocking step');
+
+    // (b) GREEN — the same PR context, but the diff TOUCHES a lineage file.
+    const b = await retireWithEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request' },
+      () => checkAndDispose({ registryDir, logPublicKeyHex: pubKeyHex, touched: ['registry/lineage/checkpoint', 'chaingraph/graph/nodes/art-999-node.json'] }));
+    ok(b.exitCode === 1 && b.advisory === false, `(b) GREEN — pull_request touching registry/lineage/: blocking exactly as today, exit 1 (got ${JSON.stringify({ exitCode: b.exitCode, advisory: b.advisory })})`);
+    ok(diffTouchesLineageScope(['registry/absence/tree.json']) === true
+      && diffTouchesLineageScope(['chaingraph/kernels/registry-lineage-records.json']) === true
+      && diffTouchesLineageScope(['registry/lineage/tile/0/000.p/70']) === true
+      && diffTouchesLineageScope(['tools/1.html', 'chaingraph/chaingraph.json']) === false,
+      '(b) scope predicate: all three lineage scopes (and only they) count as touching');
+
+    // (c) GREEN — merge_group with the assembled DERIVED_ROOT blocks.
+    const c = await retireWithEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'merge_group', DERIVED_ROOT: join(tmpDir, 'derived-tree') },
+      () => checkAndDispose({ registryDir, logPublicKeyHex: pubKeyHex, touched: [] }));
+    ok(c.exitCode === 1 && c.advisory === false, `(c) GREEN — merge_group with DERIVED_ROOT: blocking, exit 1 (got ${JSON.stringify({ exitCode: c.exitCode, advisory: c.advisory })})`);
+
+    // (d) RED control — the REAL stale tree on merge_group must NOT be advisory.
+    const d = await retireWithEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'merge_group', DERIVED_ROOT: join(tmpDir, 'derived-tree') },
+      () => checkAndDispose({ registryDir, logPublicKeyHex: pubKeyHex, touched: [] }));
+    ok(d.exitCode === 1 && d.advisory === false,
+      `(d) RED control — a real stale tree on merge_group stays red: the advisory branch must NOT swallow it (got ${JSON.stringify({ exitCode: d.exitCode, advisory: d.advisory })})`);
+    ok(lineageAdvisoryOnPr({ mainContext: true, touched: [] }).advisory === false,
+      '(d) the pure disposition decides main context BEFORE consulting the diff — no touched-set can earn the downgrade there');
+
+    // (e) anchor-lag (C3) — silent when anchored, exactly ONE WARNING line when stale.
+    const checkpointText = readFileSync(join(registryDir, 'checkpoint'), 'utf8');
+    const pendingRecord = JSON.parse(readFileSync(join(registryDir, 'checkpoint.sigsum-record.json'), 'utf8'));
+    ok((await anchorLagWarning(pendingRecord, checkpointText)) === null,
+      '(e) anchor-lag: a fresh publish whose anchored_hash equals sha256(checkpoint) is SILENT (no warning line)');
+    const lag = await anchorLagWarning({ anchored_hash: `sha256:${'0'.repeat(64)}` }, checkpointText);
+    ok(!!lag && lag.includes('held anchor is stale; a desk stamp is owed') && !lag.includes('\n'),
+      '(e) anchor-lag: a differing anchored_hash prints exactly ONE WARNING line: "held anchor is stale; a desk stamp is owed"');
+    ok((await anchorLagWarning({}, checkpointText)) === null, '(e) anchor-lag: no anchored_hash → nothing comparable → silent');
+
+    writeFileSync(partialPath, originalTile);
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 await entryBundleRoundTripTest();
 await proofConstructionTest();
 await mutationTest();
 await anchorHoldTest();
+await lineagePrSideRetire1Test();
 
 console.log(failures === 0 ? '\ngen-registry-lineage.test.mjs: ALL PASS' : `\ngen-registry-lineage.test.mjs: ${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

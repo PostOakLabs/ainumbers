@@ -569,6 +569,112 @@ export async function generate(opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// LINEAGE-PR-SIDE-RETIRE-1 (2026-10-22): the PR-side advisory split for the
+// lineage gates. Main's regen (derived-artifacts-regen.yml) has been the LIVE
+// writer of registry/lineage/** since 2026-10-14 (bot commits 543db5b2,
+// 6070463a, 9746b4e9, 4be6747a, 00a596ba, d876fe52, each one record + one
+// tile), so a node PR no longer carries its own append — the PR-side append
+// made every node PR serial and conflicting on files only main should write
+// (measured 2026-10-22: lineage-carrying PRs merge at a median 4.6h vs 1.2h
+// for the rest). On a pull_request whose diff touches NOTHING under the three
+// scopes below, a --check failure is ADVISORY (reported, never red) — the
+// PROVE-BASELINE-SINGLE-WRITER-1 disposition pattern copied, not reinvented:
+// warn + exit 0 in-script, keyed on isMainContext(). On main, on merge_group
+// with the assembled DERIVED_ROOT, on any other/undeterminable context, and
+// on any diff that DOES touch those files, --check stays BLOCKING exactly as
+// before (fail closed, mirroring isMainContext()'s whitelist-of-PR-proofs
+// shape). The unwired-gates.yml absence-tree leg of the split lives in the
+// workflow (a scope step + the sanctioned run-gate.mjs wrapper); this
+// in-script disposition is the preflight leg (scripts-verify.yml runs
+// preflight on pull_request). Self-test: gen-registry-lineage.test.mjs.
+// ---------------------------------------------------------------------------
+export const LINEAGE_SCOPE_PREFIXES = [
+  'registry/lineage/',
+  'registry/absence/',
+  'chaingraph/kernels/registry-lineage-records.json',
+];
+
+/** True when any touched path is a lineage-scope file (SO #34: recomputed
+ *  from the diff itself, never from a field the artifact under test carries). */
+export function diffTouchesLineageScope(files) {
+  for (const f of files ?? []) {
+    if (!f) continue;
+    if (LINEAGE_SCOPE_PREFIXES.some((p) => f === p || f.startsWith(p))) return true;
+  }
+  return false;
+}
+
+/** The PR-side disposition, pure so the self-test drives it directly.
+ *  advisory iff a PR context was affirmatively proven AND the diff is clean
+ *  of every lineage scope; everything else blocks. */
+export function lineageAdvisoryOnPr({ mainContext, touched }) {
+  if (mainContext) {
+    return { advisory: false, reason: 'main context (push:main, merge_group with DERIVED_ROOT, or undeterminable) — blocking exactly as before' };
+  }
+  if (diffTouchesLineageScope(touched)) {
+    return { advisory: false, reason: 'this diff touches a lineage file (registry/lineage/**, registry/absence/** or chaingraph/kernels/registry-lineage-records.json) — blocking exactly as before' };
+  }
+  return {
+    advisory: true,
+    reason: "pull_request context and the diff touches no lineage file; node PRs no longer carry the append — main's regen (derived-artifacts-regen.yml, live since 2026-10-14) appends after merge",
+  };
+}
+
+/** The touched-path union preflight.mjs already uses (working tree ∪ staged ∪
+ *  committed-vs-merge-base(origin/main, HEAD)). null = undeterminable → the
+ *  caller fails CLOSED (treats the diff as touching). */
+function gitTouchedPathsForScope() {
+  const out = new Set();
+  const add = (s) => { for (const f of String(s).split('\n')) { const t = f.trim(); if (t) out.add(t); } };
+  const run = (args) => execFileSync('git', args, { cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+  try {
+    add(run(['diff', '--name-only', 'HEAD']));
+    add(run(['diff', '--name-only', '--cached']));
+  } catch {
+    return null;
+  }
+  try {
+    const base = execFileSync('git', ['merge-base', 'origin/main', 'HEAD'], { cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    add(run(['diff', '--name-only', base, 'HEAD']));
+  } catch { /* no origin/main ref — working-tree/staged diff above is what we have (preflight.mjs's own fallback shape) */ }
+  return [...out];
+}
+
+/** C3 (LINEAGE-PR-SIDE-RETIRE-1): anchor-lag WARNING — never red. A held
+ *  anchor (or a pending record's anchored_hash) that no longer equals the
+ *  sha256 of the CURRENT checkpoint went stale silently after every bot
+ *  publish; this surfaces it as ONE warning line so a desk stamp is owed.
+ *  null = anchored (silent) / nothing comparable. */
+export async function anchorLagWarning(record, checkpointText) {
+  const m = typeof record?.anchored_hash === 'string' ? record.anchored_hash.match(/^sha256:([0-9a-fA-F]{64})$/) : null;
+  if (!m) return null;
+  const current = bytesToHex(await sha256(Buffer.from(checkpointText, 'utf8')));
+  if (m[1].toLowerCase() === current) return null;
+  return `⚠ held anchor is stale; a desk stamp is owed (LINEAGE-PR-SIDE-RETIRE-1 C3): anchored_hash sha256:${m[1].toLowerCase()} != sha256(registry/lineage/checkpoint) sha256:${current}. The desk stamps once per checkpoint (register-sigsum.mjs); never re-stamp, never red.`;
+}
+
+/** --check with the LINEAGE-PR-SIDE-RETIRE-1 disposition: run check(); on
+ *  failure, advisory-exit (0, one warning line naming why) ONLY on an
+ *  affirmatively-proven PR context whose diff is clean of every lineage
+ *  scope. The check's full output always prints either way. */
+export async function checkAndDispose(opts = {}) {
+  const r = await check({ ...opts, noExit: true });
+  if (r.ok) return { exitCode: 0, advisory: false };
+  const mainContext = opts.mainContext !== undefined
+    ? opts.mainContext
+    : (await import('./derived-artifacts.mjs')).isMainContext();
+  const touched = opts.touched !== undefined ? opts.touched : gitTouchedPathsForScope();
+  const d = touched === null
+    ? { advisory: false, reason: 'touched-path set undeterminable — fail closed, blocking' }
+    : lineageAdvisoryOnPr({ mainContext, touched });
+  if (d.advisory) {
+    console.log(`⚠ ADVISORY — gen-registry-lineage --check (LINEAGE-PR-SIDE-RETIRE-1): ${d.reason}. Underlying --check failure (reported, never red): ${r.message}`);
+    return { exitCode: 0, advisory: true, reason: d.reason };
+  }
+  return { exitCode: 1, advisory: false, reason: d.reason };
+}
+
+// ---------------------------------------------------------------------------
 // --check: read-only recompute-and-verify. No writes, no Sigsum call.
 // Wired into scripts/preflight.mjs. Absence of a checkpoint is a distinct
 // FAILING state (SO #34c) — never treated as a vacuous pass.
@@ -641,6 +747,12 @@ export async function check(opts = {}) {
     } else if (sigsumRecord.anchor_type !== 'c2sp-tlog-proof-v1') {
       return fail(`checkpoint.sigsum-record.json has unexpected anchor_type "${sigsumRecord.anchor_type}" (neither c2sp-tlog-proof-v1 nor sigsum-pending-v1).`);
     }
+    // C3 (LINEAGE-PR-SIDE-RETIRE-1): anchor-lag WARNING, never red — fires for
+    // BOTH record shapes (a held fully-formed anchor, or a pending record's
+    // anchored_hash) whenever it no longer equals the CURRENT checkpoint's
+    // sha256, i.e. main's regen has published past the anchor a desk owes.
+    const lag = await anchorLagWarning(sigsumRecord, checkpointText);
+    if (lag) console.log(lag);
   }
 
   const okMsg = `checkpoint signature valid, ${entryBytes.length} entries cross-checked, root recomputed from published tile bytes matches the checkpoint (size=${parsed.size}, root=${bytesToHex(recomputedRoot)})${sigsumSuffix}.`;
@@ -654,7 +766,13 @@ export async function check(opts = {}) {
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
 
 async function main() {
-  if (process.argv.includes('--check')) return check();
+  if (process.argv.includes('--check')) {
+    // LINEAGE-PR-SIDE-RETIRE-1: the PR-side advisory disposition (block above)
+    // wraps the failing exit; a passing check and every blocking context are
+    // byte-identical to the pre-row behaviour (exit 0 / exit 1).
+    const r = await checkAndDispose();
+    process.exit(r.exitCode);
+  }
   return generate();
 }
 
