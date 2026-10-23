@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (689 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (690 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7531,6 +7531,16 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-754-equity-exit-waterfall",
+    "display_name": "Equity Exit Waterfall Modeler",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-754-equity-exit-waterfall.html",
+    "description": "Equity exit proceeds after a liquidation-preference waterfall, ported from ApexLogics Apex #141 (AL-148). From the exit valuation, the aggre",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

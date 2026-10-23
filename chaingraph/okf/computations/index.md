@@ -651,6 +651,7 @@ status: stable
 - [Force-Placed Insurance Notice Checker](./art-734-force-placed-insurance-checker.md)
 - [Taxonomy KPI & Green Asset Ratio Aggregator](./art-74-taxonomy-kpi-gar-aggregator.md)
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md)
+- [Equity Exit Waterfall Modeler](./art-754-equity-exit-waterfall.md)
 - [HDHP vs. PPO Break-Even](./art-758-hdhp-ppo-break-even.md)
 - [ISO AMT Exposure Modeler](./art-759-iso-amt-exposure-modeler.md)
 - [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md)
