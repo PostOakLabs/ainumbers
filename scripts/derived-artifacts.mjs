@@ -100,6 +100,7 @@ import { chainAskAgentPages } from './gen-chain-ask-agent.mjs';
 import { hubScenePages } from './gen-hub-scenes.mjs';
 import { WRITES_REPORT_PATH } from './gen-manifest-examples.mjs';
 import { PAGE_MD_TWINS_WRITES_REPORT_PATH } from './gen-page-md-twins.mjs';
+import { RECEIPT_BUNDLES_WRITES_REPORT_PATH } from './gen-receipt-bundles.mjs';
 // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: the six new bare-tree entries' report paths come
 // from the shared-constants module — importing the generators themselves would RUN
 // them (several are script-style with module-level write paths / argv dispatch).
@@ -1314,6 +1315,30 @@ export const COVERED = [
     writes: ['rss.xml'],
     artifacts: ['rss.xml'],
     share: 'n/a (new 2026-09-22, FEED-TWINS-1)',
+  },
+  {
+    // RECEIPT-BUNDLE-PUBLISH-1 (2026-10-22): one RECEIPT-BUNDLE v0.1 file per live
+    // node whose receipt the §18 digest-freshness check classes FRESH, plus an
+    // index.json. A thin wrapper over receipt-bundle-build.mjs (no bundle logic of
+    // its own); scope is computeStaleness() from check-s18-digest-freshness.mjs, so a
+    // stale receipt is never published. Anchor = the published registry-lineage
+    // checkpoint, and per RECEIPT-BUNDLE §3.4 every bundle and the index say the log
+    // half commits to that checkpoint, not to the receipt. Zero network, no prover,
+    // no wall clock: --write twice is a zero diff. Runtime-named files inside one
+    // generator-owned tree, so the stage set is the attested writes report
+    // (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1) and the tree is prAbsentOk (SO #35: the
+    // PR never commits it; main's regen writes it after merge).
+    id: 'receipt-bundles',
+    regen: 'node scripts/gen-receipt-bundles.mjs --write',
+    gate: 'node scripts/gen-receipt-bundles.mjs --check',
+    writes: ['chaingraph/receipt-bundles'],
+    artifacts: ['chaingraph/receipt-bundles'],
+    writesReport: RECEIPT_BUNDLES_WRITES_REPORT_PATH,
+    writesReportRequired: true,
+    prAbsentOk: true,
+    // reads chaingraph.json (node scope + receipts) — must run AFTER the assembler
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-10-22, RECEIPT-BUNDLE-PUBLISH-1)',
   },
 ];
 

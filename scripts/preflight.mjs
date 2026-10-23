@@ -1671,6 +1671,10 @@ const GATES = [
   // the newest item date, so the generator is a byte-fixpoint of the committed
   // tree (the property the main-side auto-commit chain needs to converge).
   ['RSS change feed freshness (FEED-TWINS-1)', 'node scripts/gen-rss.mjs --check'],
+  // RECEIPT-BUNDLE-PUBLISH-1: published receipt bundles. Command string matches
+  // derived-artifacts.mjs COVERED id 'receipt-bundles' gate, so it is advisory on a
+  // PR (the tree is written main-side, SO #35) and blocking on main.
+  ['Receipt bundles freshness (RECEIPT-BUNDLE-PUBLISH-1)', 'node scripts/gen-receipt-bundles.mjs --check'],
   ['RSS change feed controls (staleness RED/GREEN + tag-filter, SO #40b)', 'node scripts/gen-rss.mjs --self-test'],
   ['Evidence-profile manifest (EF-2)', 'node scripts/validate-evidence-profiles.mjs'],
   ['Chain domain taxonomy',        'node scripts/check-chain-domain.mjs'],
