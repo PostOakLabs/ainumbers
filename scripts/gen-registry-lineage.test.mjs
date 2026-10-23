@@ -120,14 +120,15 @@ async function proofConstructionTest() {
     ok(!accepted, 'PROOF construction negative control: a tampered newRoot is REJECTED by verifyConsistency');
   }
 
-  // oldSize === 0 trivially accepts with an empty proof (verifyConsistency's own base case).
+  // oldSize === 0 is rejected (RFC 9162 defines no proof from an empty tree);
+  // generate() guards the call and checks the genesis root instead.
   {
     const newSize = 8;
     const newRoot = await mth(leafHashes, 0, newSize);
     const proof = await buildConsistencyProof(0, leafHashes);
     ok(proof.length === 0, 'buildConsistencyProof(0, D) returns an empty proof');
     const accepted = await verifyConsistency({ oldSize: 0, newSize, oldRoot: new Uint8Array(32), newRoot, proof });
-    ok(accepted, 'oldSize=0 trivially accepted by verifyConsistency (first-ever publish)');
+    ok(!accepted, 'oldSize=0 REJECTED by verifyConsistency (RFC 9162; generate() checks the genesis root instead)');
   }
 }
 
