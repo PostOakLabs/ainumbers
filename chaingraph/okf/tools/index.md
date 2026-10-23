@@ -650,9 +650,11 @@ status: stable
 - [Taxonomy KPI & Green Asset Ratio Aggregator](./art-74-taxonomy-kpi-gar-aggregator.md) — `aggregate_taxonomy_kpi_gar`
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
 - [HDHP vs. PPO Break-Even](./art-758-hdhp-ppo-break-even.md) — `estimate_hdhp_ppo_breakeven`
+- [ISO AMT Exposure Modeler](./art-759-iso-amt-exposure-modeler.md) — `estimate_iso_amt_exposure`
 - [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md) — `apply_climate_scenario`
 - [AI Displacement Risk Screener](./art-763-ai-displacement-risk-screener.md) — `ai_displacement_risk_screener`
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md) — `run_t1_readiness_diagnostic`
+- [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md) — `derive_beacon_fair_sample_v2`
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md) — `calculate_csdr_penalty`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
