@@ -224,6 +224,56 @@ export function collectMerges() {
   return parseMerges(git('log --first-parent --merges --date=short --pretty=format:%H%x09%h%x09%ad%x09%s'));
 }
 
+const MAIN_REF_CANDIDATES = ['origin/main', 'main'];
+
+/**
+ * Full hashes of the merge commits on `main`'s FIRST-PARENT history — the
+ * environment anchor for the BRANCH-INTERNAL-MERGE exclusion
+ * (CHANGELOG-WALK-BRANCH-MERGES-1). The walk at HEAD differs by checkout: a
+ * PR branch (and GitHub's merge-queue synthetic test-merge built on it)
+ * first-parent-traverses the branch's OWN integration merges (e.g. a
+ * `Merge origin/main into <branch>` sync), which the committed CHANGELOG.md
+ * rendered locally but CI's checkout never saw — `--check` failed on bytes
+ * no single environment could regenerate. The invariant anchor is main's
+ * first-parent path, identical in every full checkout: a merge commit NOT on
+ * it is branch-internal, excluded BEFORE landing (main never saw it), AFTER
+ * landing (the queue's landing merge carries the work; the branch-internal
+ * merge still never sits on main's first-parent), and on main itself (every
+ * walked merge IS on the path — the set excludes nothing, main's bot regen
+ * is byte-unchanged). Tolerant of a checkout with NO main ref the way
+ * listTags tolerates tag-less ones: refs are probed in order (origin/main,
+ * then main), and if NEITHER resolves this returns `hashes: null` and the
+ * caller CONTINUES with no exclusion, naming the limitation (never a crash).
+ */
+export function listMainFirstParent(runner) {
+  const run = runner || ((args) => git(args));
+  const errors = [];
+  for (const ref of MAIN_REF_CANDIDATES) {
+    try {
+      const out = run(`log --first-parent --merges --pretty=format:%H ${ref}`);
+      return { ref, hashes: new Set(out.split('\n').filter(Boolean)) };
+    } catch (e) {
+      errors.push(`${ref}: ${String((e && e.message) || e).split('\n')[0]}`);
+    }
+  }
+  return { ref: null, hashes: null, error: errors.join('; ') };
+}
+
+/**
+ * Drop branch-internal merges: merge commits not on main's first-parent path.
+ * Pure — takes the parsed merges and the hash set from listMainFirstParent,
+ * spawns nothing. `hashes === null` (no main ref in this checkout) is the
+ * tolerant pass-through: nothing is excluded, environment limitation named by
+ * the caller. Seed entries do NOT keep a branch-internal merge alive — the
+ * exclusion is positional (where the commit sits in history), decided before
+ * classification; a seeded-ignored merge is handled separately in the render.
+ */
+export function filterBranchInternal(merges, hashes) {
+  if (!hashes) return { merges, excluded: [] };
+  const kept = merges.filter((m) => hashes.has(m.hash));
+  return { merges: kept, excluded: merges.filter((m) => !hashes.has(m.hash)) };
+}
+
 const TAG_GIT_ARGS = 'tag --merged HEAD --sort=-creatordate --format=%(refname:short)%09%(creatordate:short)';
 
 function parseTagList(out) {
@@ -341,7 +391,7 @@ export function renderChangelog(merges, tags, seed) {
       `FAIL-CLOSED: ${unknownTags.length} reachable tag(s) unclassified in scripts/changelog-seed.json ("tags"):\n` +
       unknownTags.map((t) => `  ${t.name} (${t.date}) — add { "heading": "..." } or { "ignore": "<reason>" }`).join('\n'));
   }
-  const badSections = Object.entries(entries).filter(([, v]) => !sections.includes(v.section));
+  const badSections = Object.entries(entries).filter(([, v]) => !v.ignore && !sections.includes(v.section));
   if (badSections.length) {
     throw new Error(
       `FAIL-CLOSED: seed entries name sections outside seed.sections (${sections.join(', ')}):\n` +
@@ -371,9 +421,18 @@ export function renderChangelog(merges, tags, seed) {
 
   const bySection = new Map(renderSections.map((s) => [s, []]));
   for (const m of merges) {
+    // SEED IGNORE (CHANGELOG-WALK-BRANCH-MERGES-1): a seed entry may carry
+    // `ignore: "<reason>"` instead of a section/title — that merge NEVER
+    // renders, in any environment, even where the walk still sees it. This is
+    // the manual backstop behind the positional branch-internal-merge
+    // exclusion: the seed stays the curated source of truth, and the reason
+    // string is documentation, never rendered. (`ignore` is checked before
+    // section validation so an ignored entry needs no `section` at all.)
+    const seededRaw = entries[m.key];
+    if (seededRaw && seededRaw.ignore) continue;
     // Seed entries are the curated truth and win; anything else auto-classifies
     // (marked "(auto)" by autoClassify's title, never a raw-subject line).
-    const seeded = entries[m.key];
+    const seeded = seededRaw;
     const e = seeded || autoClassify(m);
     const section = seeded ? e.section
       : renderSections.includes(e.section) ? e.section
@@ -439,7 +498,23 @@ function main() {
   if (git('rev-parse --is-shallow-repository').trim() === 'true') {
     fail('gen-changelog: this checkout is a SHALLOW clone — first-parent history is truncated, so the changelog would silently under-report the landings it can see. Fetch full history (fetch-depth: 0).');
   }
-  const { merges, skippedSynthetic } = collectMerges();
+  const { merges: allMerges, skippedSynthetic } = collectMerges();
+  // BRANCH-INTERNAL-MERGE EXCLUSION (CHANGELOG-WALK-BRANCH-MERGES-1): keep
+  // only merges on main's first-parent path, so the rendered bytes stop
+  // depending on which checkout runs the generator (a PR branch sees its own
+  // integration merges; CI's merge-queue checkout does not). Named, never
+  // silent — the excluded count and the anchor ref are disclosed, and a
+  // checkout with NO main ref degrades to NO exclusion (tolerant, like the
+  // tag-less path) with the limitation printed.
+  const { ref: mainRef, hashes: mainHashes, error: mainError } = listMainFirstParent();
+  const { merges, excluded } = filterBranchInternal(allMerges, mainHashes);
+  if (excluded.length) {
+    const shown = excluded.slice(0, 8).map((m) => m.short).join(', ');
+    console.log(`gen-changelog: excluded ${excluded.length} branch-internal merge(s) not on ${mainRef}'s first-parent path (${shown}${excluded.length > 8 ? ', …' : ''}) — checkout-environment-invariant render.`);
+  }
+  if (!mainHashes) {
+    console.error(`gen-changelog: NO MAIN REF — main-first-parent anchoring failed (${mainError}); proceeding with NO branch-internal exclusion in this checkout. Merge-commit entries may over-report here relative to a full checkout (see the header scope note).`);
+  }
   if (skippedSynthetic) {
     console.log(`gen-changelog: skipped ${skippedSynthetic} synthetic merge-queue test-merge commit(s) (known-synthetic, never lands; the real landing merge classifies per the A12 standing contract).`);
   }
