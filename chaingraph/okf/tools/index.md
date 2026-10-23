@@ -655,6 +655,7 @@ status: stable
 - [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md) — `apply_climate_scenario`
 - [AI Displacement Risk Screener](./art-763-ai-displacement-risk-screener.md) — `ai_displacement_risk_screener`
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md) — `run_t1_readiness_diagnostic`
+- [Automation Payback](./art-771-automation-payback.md) — `compute_automation_payback`
 - [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md) — `derive_beacon_fair_sample_v2`
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md) — `calculate_csdr_penalty`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
