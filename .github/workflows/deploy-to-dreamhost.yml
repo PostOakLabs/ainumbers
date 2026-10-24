@@ -793,6 +793,45 @@ jobs:
           echo "publishing: /.well-known/deploy-manifest.json + /.well-known/deploy-checksums.txt"
           echo "| Deploy manifest | \`.well-known/deploy-manifest.json\` — site_content_digest \`sha256:$DEPLOY_MANIFEST_DIGEST\` |" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: 🧾 Attest receipt-bundle index (Sigstore keyless, one v0.3 bundle)
+        # SIGSTORE-BUNDLE-V03-EXPORT-4: publish ONE keyless Sigstore attestation
+        # over every PUBLISHED receipt bundle, written as
+        # chaingraph/receipt-bundles/index.sigstore.json in the deploy tree so
+        # the single rsync below ships it beside the bundles it covers. A
+        # third party then runs `gh attestation verify <name>.bundle.json
+        # --repo PostOakLabs/ainumbers --bundle index.sigstore.json` with no
+        # AINumbers code installed (RECEIPT-BUNDLE.md §7, verification doc).
+        #
+        # Same pinned action SHA and the same keyless shape as the deploy-
+        # provenance attest step below: the workflow's own OIDC identity signs
+        # via public-good Sigstore and the bundle is logged in Rekor. No new
+        # permission, secret or action: the job-level `id-token: write` +
+        # `attestations: write` grants already cover this step.
+        #
+        # subject-path is ONE glob line over the published bundles. It is
+        # derived, not guessed: scripts/receipt-bundle-attest-subjects.mjs
+        # reads chaingraph/receipt-bundles/index.json and exits 1 unless that
+        # exact glob covers every published bundle (its selftest pins it).
+        # The fixtures under chaingraph/standard/fixtures/ are NEVER attested.
+        #
+        # One attest call over all subjects returns ONE DSSE bundle (v0.3,
+        # media type application/vnd.dev.sigstore.bundle.v0.3+json), written
+        # via bundle-output-path. Scope honesty, same rule as the provenance
+        # attest step below: a PROCESS claim — this workflow identity
+        # published these bytes at this time, logged in Rekor — never a
+        # content-correctness claim, and never a statement that a receipt is
+        # transparency-logged (RECEIPT-BUNDLE.md §3.4).
+        #
+        # ADVISORY-FIRST, same as that step: the deploy is load-bearing and a
+        # Sigstore/API outage must never red the deploy or skip the CF purge
+        # and smoke steps. Declared in check-workflow-gate-parity.mjs's
+        # DECLARED_SOFTENERS with the same promotion criterion.
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: chaingraph/receipt-bundles/*.bundle.json
+          bundle-output-path: chaingraph/receipt-bundles/index.sigstore.json
+
       - name: 🔍 Dry-run rsync (shows what will change — no writes)
         # Two narrow carve-outs before the blanket .md exclude below: chaingraph/okf/
         # is the CI-freshness-gated (generate-okf.mjs --check) machine-knowledge bundle,

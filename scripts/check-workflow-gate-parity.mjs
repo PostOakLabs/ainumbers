@@ -1574,8 +1574,25 @@ const DECLARED_SOFTENERS = new Map([
   // AUD-CGCANON-TWIN-GATE-1 (2026-10-10) moved it :923 → :925 — the hash
   // hard-gate job gained the cgCanon twin-parity lint + its --self-test
   // (two lines) above the attest step; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:925",
+  // SIGSTORE-BUNDLE-V03-EXPORT-4 (2026-10-24) moved it :925 → :964 — the new
+  // "Attest receipt-bundle index" Sigstore step (one `uses:` step with its
+  // comment block) landed between the deploy-manifest build and the dry-run
+  // rsync, ABOVE the attest step; same pin-move. That same edit added the
+  // second continue-on-error entry below.
+  ["deploy-to-dreamhost.yml:continue-on-error:964",
    "attest step is advisory-first by design; promotion criterion on the step"],
+  // SIGSTORE-BUNDLE-V03-EXPORT-4 (2026-10-24): the receipt-bundle index
+  // attest step (continue-on-error at :829) is advisory-first for the SAME
+  // reason as the deploy-provenance attest step: the deploy is load-bearing,
+  // and a Sigstore/API outage must not red the deploy or skip the Cloudflare
+  // purge + smoke steps that follow rsync. One keyless v0.3 bundle over the
+  // published receipt bundles is written to
+  // chaingraph/receipt-bundles/index.sigstore.json and shipped by the single
+  // rsync. Same promotion criterion: after 10 consecutive post-merge deploy
+  // runs with the step succeeding, remove this entry together with the
+  // step's continue-on-error.
+  ["deploy-to-dreamhost.yml:continue-on-error:829",
+   "receipt-bundle index attest step is advisory-first by design; a Sigstore outage must not red the deploy or skip CF purge + smoke; promotion criterion on the step"],
   // MAIN-GATES-AFTER-REGEN-1 (2026-10-08) moved it :109 → :146 — the
   // unwired-gates.yml `on:` block swapped `push: main` for `workflow_run`
   // (trigger comment), the workflow gained a workflow-level GATE_SHA env
