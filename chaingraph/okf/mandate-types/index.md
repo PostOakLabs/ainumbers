@@ -42,7 +42,7 @@ status: stable
 - [routing_policy](./routing_policy.md) (2)
 - [scheme_rule](./scheme_rule.md) (3)
 - [settlement_finality_mandate](./settlement_finality_mandate.md) (1)
-- [settlement_mandate](./settlement_mandate.md) (10)
+- [settlement_mandate](./settlement_mandate.md) (11)
 - [treasury_mandate](./treasury_mandate.md) (8)
 - [vop_readiness_attestation](./vop_readiness_attestation.md) (1)
 - [workforce_program_roi](./workforce_program_roi.md) (1)

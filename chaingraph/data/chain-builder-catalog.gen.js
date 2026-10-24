@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (691 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (692 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7501,6 +7501,18 @@ window.CHAINBUILDER_CATALOG = [
     "url": "https://ainumbers.co/chaingraph/art-734-force-placed-insurance-checker.html",
     "description": "Checks a lender-placed (force-placed) insurance event against the notice sequence required before a servicer may charge the borrower: the 45",
     "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-735-solana-dvp-prefund-verifier",
+    "display_name": "Solana DvP Pre-Funding Terms Verifier",
+    "mandate_type": "settlement_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-735-solana-dvp-prefund-verifier.html",
+    "description": "Verifies, values-only, that a pasted Solana Foundation DvP SwapDvp record is safe to fund: owner must be the pinned DvP program id, account ",
+    "consumes": [
+      "art-715-token2022-transfer-fee-reconciler"
+    ],
     "feeds": [],
     "status": "live"
   },
