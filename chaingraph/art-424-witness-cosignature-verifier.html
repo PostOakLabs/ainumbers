@@ -104,7 +104,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-424-witness-cosignature-verifier.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:d9ed5d3a0780e192b9d8f56ff41b6893ab74c516128dfca643191e9a76324caf">
+<meta name="kernel-digest" content="sha256:4911735e15d9184347fb004c9f3988546b30740fa2d6d5574351eeddef8c5282">
 </head>
 <body>
 <nav>
@@ -142,7 +142,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-424 &middot; Transparency &amp; Anchoring</div>
   <h1>Witness Cosignature Verifier</h1>
-  <p class="sub">Verifies a C2SP tlog-checkpoint + witness-cosignature note (SPEC.md &sect;20.2) entirely offline: parses the signed note, checks its origin and root against your batch anchor's declared hash, and verifies each pinned witness's cosignature &mdash; Ed25519 <code>cosignature/v1</code> or ML-DSA-44 &mdash; against a k-of-n threshold. A cosignature line with no matching valid signature, or fewer than k valid witnesses, FAILS the verdict.</p>
+  <p class="sub">Verifies a C2SP tlog-checkpoint + witness-cosignature note (SPEC.md &sect;20.2) entirely offline: parses the signed note, checks its origin and root against your batch anchor's declared hash, and verifies each pinned witness's cosignature &mdash; Ed25519 <code>cosignature/v1</code> (note byte 0x04: signs the text form including the <code>time N</code> line and extension lines) or ML-DSA-44 (note byte 0x06: signs the binary CosignedSubtree struct; notes with extension lines are refused on this path) &mdash; against a k-of-n threshold. A cosignature line with no matching valid signature, or fewer than k valid witnesses, FAILS the verdict.</p>
   <div style="margin-bottom:6px">
     <span class="flag info">Cryptographic Mandate</span>
     <span class="flag">Verify-Side Only</span>
@@ -383,7 +383,7 @@ var MANIFEST = {
   regulation: 'C2SP tlog-checkpoint + witness-cosignature note format (SPEC.md §20.2); RFC 6962 §2.1.2 consistency proof',
   mcp_tool_definition: {
     name: 'verify_witness_cosignatures',
-    description: 'Verifies k-of-n independent witness cosignatures over a batch anchor Merkle root, per SPEC.md §20.2 (default mode). With mode: "consistency_proof", instead verifies an RFC 6962 consistency proof between two checkpoints from the same log, proving the log did not rewrite history. Supports Ed25519 cosignature/v1 and ML-DSA-44. Offline, verify-side only.',
+    description: 'Verifies k-of-n independent witness cosignatures over a batch anchor Merkle root, per SPEC.md §20.2 (default mode). With mode: "consistency_proof", instead verifies an RFC 6962 consistency proof between two checkpoints from the same log, proving the log did not rewrite history. Conforms to C2SP tlog-cosignature v1.1.0: Ed25519 (0x04) signs the cosignature/v1 text form with the time N line and extension lines; ML-DSA-44 (0x06) signs the binary CosignedSubtree struct and refuses notes with extension lines. Offline, verify-side only.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -3321,8 +3321,8 @@ const ml_dsa44 = /* @__PURE__ */ (() => getDilithium({
 }))();
 
 // Mirrors chaingraph/kernels/art-424-witness-cosignature-verifier.kernel.mjs exactly.
-var ED25519_NOTE_ALG = 0x01;
-var MLDSA44_NOTE_ALG = 0xf0;
+var ED25519_NOTE_ALG = 0x04;
+var MLDSA44_NOTE_ALG = 0x06;
 
 function _str(v) { return typeof v === 'string' ? v : ''; }
 function _int(v) { return Number.isInteger(v) ? v : null; }
@@ -3348,6 +3348,30 @@ function readUint64BE(bytes) {
   var v = 0n;
   for (var i = 0; i < 8; i++) v = (v << 8n) | BigInt(bytes[i]);
   return v;
+}
+function writeUint64BE(buf, offset, value) {
+  var v = BigInt(value);
+  for (var i = 7; i >= 0; i--) { buf[offset + i] = Number(v & 0xffn); v >>= 8n; }
+}
+// ML-DSA-44 cosignatures sign the binary CosignedSubtree struct: a 12-byte label
+// "subtree/v1\n\0", length-prefixed cosigner_name and log_origin, a uint64 timestamp,
+// uint64 start, uint64 end, and the 32-byte subtree hash. A checkpoint cosignature sets
+// start = 0 and end = tree size.
+function buildCosignedSubtreeMessage(cosignerName, timestampStr, logOrigin, start, end, rootBytes) {
+  var name = new TextEncoder().encode(cosignerName);
+  var origin = new TextEncoder().encode(logOrigin);
+  if (name.length < 1 || name.length > 255) throw new Error('cosigner_name must be 1..255 bytes');
+  if (origin.length < 1 || origin.length > 255) throw new Error('log_origin must be 1..255 bytes');
+  var buf = new Uint8Array(12 + 1 + name.length + 8 + 1 + origin.length + 8 + 8 + 32);
+  buf.set([0x73, 0x75, 0x62, 0x74, 0x72, 0x65, 0x65, 0x2f, 0x76, 0x31, 0x0a, 0x00], 0);
+  var o = 12;
+  buf[o++] = name.length; buf.set(name, o); o += name.length;
+  writeUint64BE(buf, o, timestampStr); o += 8;
+  buf[o++] = origin.length; buf.set(origin, o); o += origin.length;
+  writeUint64BE(buf, o, start); o += 8;
+  writeUint64BE(buf, o, end); o += 8;
+  buf.set(rootBytes, o);
+  return buf;
 }
 async function sha256(bytes) {
   var d = await crypto.subtle.digest('SHA-256', bytes);
@@ -3505,13 +3529,24 @@ async function computeVerifier(pp) {
       continue;
     }
     var sig_valid = false;
-    if (res.keyid_match) {
-      var msg = new TextEncoder().encode('cosignature/v1\n' + res.timestamp + '\n' + parsed.noteText);
+    var refusal = null;
+    if (res.algorithm === 'ml-dsa-44' && parsed.extensionLines.length > 0) {
+      refusal = 'ML-DSA-44 cosignatures do not cover extension lines; the note carries ' +
+        parsed.extensionLines.length + ' extension line(s)';
+    } else if (res.keyid_match) {
+      var msg;
+      if (res.algorithm === 'ml-dsa-44') {
+        msg = buildCosignedSubtreeMessage(res.name, res.timestamp, parsed.origin, 0, parsed.size, hexToBytes(parsed.rootHex));
+      } else {
+        msg = new TextEncoder().encode('cosignature/v1\ntime ' + res.timestamp + '\n' + parsed.noteText);
+      }
       sig_valid = res.algorithm === 'ml-dsa-44' ? verifyMldsa44(res.sig, msg, res.rawPubKey) : await verifyEd25519(res.sig, msg, res.rawPubKey);
     }
     if (sig_valid && !seenValidNames[res.name]) { valid_witness_count++; seenValidNames[res.name] = true; }
-    cosignatures.push({ name: res.name, algorithm: res.algorithm, present: true, keyid_match: res.keyid_match,
-      timestamp: res.timestamp, valid: sig_valid });
+    var entry = { name: res.name, algorithm: res.algorithm, present: true, keyid_match: res.keyid_match,
+      timestamp: res.timestamp, valid: sig_valid };
+    if (refusal) entry.refusal = refusal;
+    cosignatures.push(entry);
   }
 
   var pass = anchored_hash_match && origin_match && valid_witness_count >= threshold;

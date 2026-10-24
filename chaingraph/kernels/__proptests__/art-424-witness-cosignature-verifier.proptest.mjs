@@ -1,5 +1,5 @@
 // art-424-witness-cosignature-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C19-1).
-// kernel_digest_at_authoring: sha256:d9ed5d3a0780e192b9d8f56ff41b6893ab74c516128dfca643191e9a76324caf
+// kernel_digest_at_authoring: sha256:4911735e15d9184347fb004c9f3988546b30740fa2d6d5574351eeddef8c5282
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
