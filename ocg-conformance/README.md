@@ -16,7 +16,7 @@ execution_hash = SHA-256( JCS-canonicalize( { policy_parameters, output_payload 
 
 - `policy_parameters` and `output_payload` are the receipt's own top-level members — nothing else enters
   the hash.
-- Canonicalization: recursively sort every object's keys by Unicode code point, keep array order
+- Canonicalization: recursively sort every object's keys by UTF-16 code unit, as RFC 8785 requires (for keys inside the Basic Multilingual Plane this is the same as code-point order), keep array order
   unchanged, serialize with minimal whitespace. For the practical JSON subset this document's vectors
   use (finite numbers, no integers past 2^53), this reproduces RFC 8785 (JSON Canonicalization Scheme)
   output exactly.
