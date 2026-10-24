@@ -1105,6 +1105,14 @@ const PREFLIGHT_ONLY = new Map([
     "added the fourth."],
   ["ocg-verify-hash-tamper.test.mjs", SELF_TEST],
   ["ocg-receipt-verifier-568-tamper.test.mjs", SELF_TEST],
+  ["vcjcs-envelope-verifier-624-tamper.test.mjs",
+    "Estate tamper gate (TSURF-VC-INSPECTOR-1, T568 pattern): brace-extracts the SHIPPED " +
+    "tools/624-vcjcs-envelope-verifier.html verifier and its own fixtures, proves it rejects " +
+    "(Ed25519 and P-256 negative cases, unsupported-cryptosuite / unsupported-key-type declared " +
+    "FAIL branches), asserts zero change against the frozen pre-upgrade fixture outputs, and " +
+    "self-proves by in-memory verdict tampering. Preflight-only is the same deliberate CI-minutes " +
+    "trade as its T568 sibling: the shipped source it reads is tools/**, and a change to the gate " +
+    "itself is scripts/**, which scripts-verify.yml's path filter routes through a full preflight."],
   ["witness-checkpoint-424-tamper.test.mjs", SELF_TEST],
   ["check-gate-selftest-pairing.test.mjs", SELF_TEST],
   ["standards-vectors.test.mjs", SELF_TEST],
