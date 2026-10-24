@@ -3243,6 +3243,9 @@
       "name": "emir-refit"
     },
     {
+      "name": "employee-stock-purchase-plan"
+    },
+    {
       "name": "emr"
     },
     {
@@ -3304,6 +3307,9 @@
     },
     {
       "name": "esma"
+    },
+    {
+      "name": "espp"
     },
     {
       "name": "etr"
@@ -3954,6 +3960,9 @@
       "name": "ira-trap"
     },
     {
+      "name": "irc-423"
+    },
+    {
       "name": "irs"
     },
     {
@@ -4155,6 +4164,9 @@
       "name": "lp-fee-bounds"
     },
     {
+      "name": "ltcg"
+    },
+    {
       "name": "luld-tier"
     },
     {
@@ -4237,6 +4249,9 @@
     },
     {
       "name": "mcp:ai_displacement_risk_screener"
+    },
+    {
+      "name": "mcp:analyze_espp_disposition"
     },
     {
       "name": "mcp:audit_borrower_escrow_stmt"
@@ -5172,6 +5187,9 @@
       "name": "qualification"
     },
     {
+      "name": "qualifying-disposition"
+    },
+    {
       "name": "quantitative-thresholds"
     },
     {
@@ -6049,6 +6067,9 @@
     },
     {
       "name": "tax-shield"
+    },
+    {
+      "name": "taxes"
     },
     {
       "name": "taxes paid"
@@ -126696,6 +126717,102 @@
         "x-mcp-tool-name": "apply_climate_scenario",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-76-climate-scenario-applicator.html",
         "x-source": "manifest"
+      }
+    },
+    "/v1/tools/analyze_espp_disposition": {
+      "post": {
+        "operationId": "analyze_espp_disposition",
+        "summary": "ESPP Break-Even & Optimal Sell",
+        "description": "Port of ApexLogics Apex #110 (AL-117) ESPP Break-Even & Optimal Sell Analyzer into the AINumbers chaingraph shape. From an ESPP purchase (price paid after the 15% statutory discount, offering-price FMV at grant, current price, shares, grant and purchase dates) and a tax profile (ordinary income, single/MFJ filing, optional as-of date) the node computes the disqualifying and qualifying disposition outcomes side by side: ordinary income (the discount, or its section 423(c)-capped qualifying analog), LTCG tax at the 2026 section 1(h) thresholds layered on ordinary income, the marginal ordinary rate from the 2026 section 1 tables, the break-even qualifying-disposition date (later of grant + 2y + 1d and purchase + 1y + 1d), and after-tax proceeds under each path. Tax constants are Rev. Proc. 2025-32 and IRC 423 fetched-and-quoted in the payload CITES.md. Port provenance: Apex page https://apexlogics.org/tools/110-espp-break-even-optimal-sell/ fetched 2026-10-08 (sha256 ddccf05f8b1dc1d0a986a6839f7109710a59ea4593fd70c573b5eb00b60fe0e7), tasking APEXPORT-110B (GRADES PASS-PENDING-XV 2026-10-13, Builder-verifies-at-land 22/22 vectors / 462 field checks), landed by APEX-PORT-110B-LAND-1 on 2026-10-19.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-733-espp-break-even-optimal-sell.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "espp",
+          "employee-stock-purchase-plan",
+          "irc-423",
+          "qualifying-disposition",
+          "ltcg",
+          "taxes",
+          "2026",
+          "mcp:analyze_espp_disposition"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "purchase_price",
+                  "offering_price",
+                  "current_price",
+                  "shares",
+                  "grant_date",
+                  "purchase_date",
+                  "ordinary_income",
+                  "filing_status"
+                ],
+                "properties": {
+                  "purchase_price": {
+                    "type": "number",
+                    "description": "Price actually paid per share after the 15% ESPP discount; min 0.01."
+                  },
+                  "offering_price": {
+                    "type": "number",
+                    "description": "FMV per share at grant / offering start; min 0.01."
+                  },
+                  "current_price": {
+                    "type": "number",
+                    "description": "Current or sale price per share; min 0.01."
+                  },
+                  "shares": {
+                    "type": "number",
+                    "description": "Shares purchased under the ESPP; min 1."
+                  },
+                  "grant_date": {
+                    "type": "string",
+                    "description": "Grant date / offering start, YYYY-MM-DD."
+                  },
+                  "purchase_date": {
+                    "type": "string",
+                    "description": "Date shares were purchased, YYYY-MM-DD."
+                  },
+                  "ordinary_income": {
+                    "type": "number",
+                    "description": "W-2 and other ordinary income for the year in USD; min 0."
+                  },
+                  "filing_status": {
+                    "type": "string",
+                    "enum": [
+                      "single",
+                      "mfj"
+                    ],
+                    "description": "Filing status: 'single' (Single / MFS) or 'mfj' (Married Filing Jointly)."
+                  },
+                  "as_of_date": {
+                    "type": "string",
+                    "description": "Optional YYYY-MM-DD; fixes already_qualified for a reproducible run."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "output_payload: purchase_price, offering_price, current_price, shares_exercised, grant_date, purchase_date, ordinary_income, filing_status, marginal_rate, fmv_at_purchase, disq_ord_income, disq_ltcg_gain, disq_gross, disq_ord_tax, disq_ltcg_tax, disq_total_tax, disq_proceeds, disq_effective_rate, qual_ord_income, qual_ltcg_gain, qual_gross, qual_ord_tax, qual_ltcg_tax, qual_total_tax, qual_proceeds, qual_effective_rate, benefit, qualify_date, already_qualified."
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "analyze_espp_disposition",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-733-espp-break-even-optimal-sell.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
       }
     },
     "/v1/tools/ai_displacement_risk_screener": {
