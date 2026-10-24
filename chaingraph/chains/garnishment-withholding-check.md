@@ -9,7 +9,7 @@ Verify a paycheck's garnishment withholding in three recompute stages: first com
 
 Verify a paycheck's garnishment withholding in three recompute stages: first compute federal income tax withholding by the IRS Publication 15-T percentage method for the declared tax year edition (ART-338), then compute gross-to-net pay with FICA at that year's Social Security wage base (ART-339), then recompute how much of the employee's disposable earnings each order in a caller-declared garnishment stack may lawfully withhold under the CCPA Title III caps, compared against a garnishment notice where one is supplied (ART-572), closing with a session receipt aggregating the run's execution hashes (CRY-05). Wage, filing, deduction, and order figures are caller-supplied inputs; each stage is an independent recompute from its own declared inputs. A mismatch is an arithmetic finding, never a legal determination about an order's validity. Not legal advice and not tax advice.
 
-Domain: Payroll & Tax Compliance
+Domain: HR & Benefits Compliance
 
 ### Steps
 
