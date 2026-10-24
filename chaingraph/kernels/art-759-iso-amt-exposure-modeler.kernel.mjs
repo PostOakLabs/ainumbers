@@ -40,7 +40,8 @@ const APEX_SOURCE = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS — 2026 AMT parameters (Apex value == official 2026 value, payload
-// DIFFERS.md D1/D3/D4)
+// DIFFERS.md D1/D3/D4; EXCEPTION: AMT_PHASEOUT_RATE below departs from Apex —
+// ART759-AMT-PHASEOUT-2026-FIX-1)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // 2026 AMT exemption amounts. IRS Rev. Proc. 2025-32, sec. 4.10 ("Exemption Amounts for
@@ -52,15 +53,23 @@ const AMT_EXEMPTION_MFJ = 140200;     // Apex AMT_PARAMS.mfj.exemption    (line 
 
 // 2026 AMT phase-out threshold (the AMTI above which the exemption is reduced).
 // Rev. Proc. 2025-32 sec. 4.10 ("the amounts used under sec. 55(d)(2) to determine the phaseout"):
-// Joint $1,000,000; Unmarried $500,000. IRC sec. 55(d)(2): reduction is
-// "25 percent of the amount by which the [AMTI] ... exceeds" the threshold.
+// Joint $1,000,000; Unmarried $500,000. IRC sec. 55(d)(2) supplies the reduction
+// mechanics; its 25-percent base rate is overridden for 2026 by sec. 55(d)(4)(A)(ii)
+// (see AMT_PHASEOUT_RATE below).
 const AMT_PHASEOUT_START_SINGLE = 500000;   // Apex AMT_PARAMS.single.phaseoutStart (line 274) — MATCHES
 const AMT_PHASEOUT_START_MFJ = 1000000;     // Apex AMT_PARAMS.mfj.phaseoutStart    (line 275) — MATCHES
 
-// AMT exemption phase-out rate. IRC sec. 55(d)(2) verbatim: "reduced ... by an amount equal to
-// 25 percent of the amount by which the alternative minimum taxable income ... exceeds" the
-// threshold. Apex uses the literal 0.25 at line 284 ("phaseoutAmt * 0.25") — MATCHES statute.
-const AMT_PHASEOUT_RATE = 0.25;
+// AMT exemption phase-out rate for tax year 2026: 50 percent, not 55(d)(2)'s base 25.
+// IRC sec. 55(d)(4)(A)(ii)(IV) as added by P.L. 119-21 sec. 70107(c) applies 55(d)(2)
+// "by substituting '50 percent' for '25 percent'" for taxable years beginning after
+// December 31, 2025 (sec. 70107(d)). Rev. Proc. 2025-32 sec. 4.10's phaseout table
+// embeds the same rate: complete phaseout $680,200 unmarried ($500,000 start + $90,100
+// exemption / 0.50) and $1,280,400 joint ($1,000,000 + $140,200 / 0.50).
+// DIFFERS (ART759-AMT-PHASEOUT-2026-FIX-1): the Apex #109 source page applies the
+// literal 0.25 at its line 284 ("phaseoutAmt * 0.25") — that is the pre-amendment
+// 55(d)(2) base rate, and this kernel deliberately departs from the Apex port here;
+// every other Apex constant in this block still matches the official 2026 figures.
+const AMT_PHASEOUT_RATE = 0.50;
 
 // AMT two-rate structure. IRC sec. 55(b)(1)(A) (Cornell LII): "26 percent of so much of the taxable
 // excess as does not exceed $175,000, plus 28 percent of so much of the taxable excess as exceeds
@@ -96,7 +105,8 @@ const MAX_SEARCH_ITERATIONS = 60;
 
 /** Tentative minimum tax & exemption machinery. Mirrors Apex calcAMT() (lines 281-294). */
 function calcAMT(amti, params) {
-  // Phase-out: exemption reduced by $0.25 per $1 above phaseout start (IRC sec. 55(d)(2)).
+  // Phase-out: exemption reduced by $0.50 per $1 above phaseout start (IRC sec. 55(d)(4)(A)(ii)
+  // overrides 55(d)(2)'s 25-percent base rate for taxable years beginning after Dec 31, 2025).
   const phaseoutAmt = Math.max(0, amti - params.phaseoutStart);
   const effectiveExemption = Math.max(0, params.exemption - phaseoutAmt * AMT_PHASEOUT_RATE);
   const amtBase = Math.max(0, amti - effectiveExemption);

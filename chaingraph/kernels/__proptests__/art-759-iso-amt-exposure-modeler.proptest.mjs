@@ -1,5 +1,5 @@
 // art-759-iso-amt-exposure-modeler.proptest.mjs — class-K property-test FLOOR
-// kernel_digest_at_authoring: sha256:6eb30e06eba956f9ebbc925b4a3b22f0fd51fbaec98dfe7e8715737891ae317c
+// kernel_digest_at_authoring: sha256:0cfc6871b5e506aedc2ed9dd8d8b59b8f81e58e537501004068a454b020f3180
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-109 porting payload
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-09T02:05Z, Builder-verifies-at-land 15/15 pre-build, Tim extend ruling
@@ -17,7 +17,10 @@
 //
 // Checks: fixture-oracle gate (the 4 Apex live vectors and the 11 comparator-boundary
 // pairs — 26%/28% breakpoint at/past $244,500, phase-out start at/past $500,000/$1,000,000,
-// AMT trigger at/past, exemption fully eliminated, MFJ million-dollar phase-out);
+// AMT trigger at/past, exemption fully eliminated, MFJ million-dollar phase-out — plus
+// the 4 ART759-AMT-PHASEOUT-2026-FIX-1 rate vectors: single AMTI $600,000 and MFJ
+// AMTI $1,100,000 pinning the 50-percent reduction, and the IRS 2026 complete-phaseout
+// boundary pair at AMTI $680,200/$680,201 single);
 // P1 amt_owed is non-decreasing in shares and in fmv (both filing statuses); P2
 // regular_tax restated against an independently implemented bracket walk and non-decreasing
 // in ordinary_income; P3 determinism (two runs agree byte-for-byte) and output shape
@@ -27,7 +30,9 @@
 // max_shares_no_amt binary-search contract: TMT at max_shares_no_amt <= regular_tax and,
 // when the search is not saturated, TMT at max_shares_no_amt + 1 > regular_tax;
 // P6 the exemption phase-out restated: effective_exemption == max(0, exemption -
-// 0.25 * max(0, amti - threshold)) with the fixed 2026 amounts, and amt_triggered ==
+// 0.50 * max(0, amti - threshold)) with the fixed 2026 amounts (IRC 55(d)(4)(A)(ii)(IV):
+// 50 percent for tax years beginning after Dec. 31, 2025 — Rev. Proc. 2025-32 sec. 4.10
+// complete phaseout $680,200 unmarried / $1,280,400 joint), and amt_triggered ==
 // (amt_owed > 0).
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
@@ -61,7 +66,7 @@ function restatedParams(status) {
 }
 function restatedTMT(amti, status) {
   const p = restatedParams(status);
-  const eff = Math.max(0, p.exemption - 0.25 * Math.max(0, amti - p.phaseoutStart));
+  const eff = Math.max(0, p.exemption - 0.50 * Math.max(0, amti - p.phaseoutStart));
   const base = Math.max(0, amti - eff);
   return base <= p.threshold ? base * 0.26 : p.threshold * 0.26 + (base - p.threshold) * 0.28;
 }
@@ -200,7 +205,7 @@ function checkP6PhaseoutRestated() {
     pp.ordinary_income = Math.floor(rng() * 1200000);
     const out = compute(pp).output_payload;
     const p = restatedParams(status);
-    const wantEff = Math.max(0, p.exemption - 0.25 * Math.max(0, out.amti - p.phaseoutStart));
+    const wantEff = Math.max(0, p.exemption - 0.50 * Math.max(0, out.amti - p.phaseoutStart));
     checked += 3;
     if (out.effective_exemption !== wantEff) { violations++; console.log('P6 violation: effective_exemption != restated phase-out'); }
     if (out.amt_triggered !== (out.amt_owed > 0)) { violations++; console.log('P6 violation: amt_triggered != (amt_owed > 0)'); }
