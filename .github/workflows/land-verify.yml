@@ -305,8 +305,12 @@ jobs:
           fi
 
           # ── staleness probe: the derived tip's heartbeat (pure git) ───────
+          # NOTE: awk must NOT `exit` on the first match — under this job's
+          # `set -o pipefail` an early awk exit SIGPIPEs git (exit 141) and
+          # reds the step (measured on this PR's first run). Print the first
+          # match, then keep reading to EOF.
           DERIVED_SHA="$(git log origin/main -n 300 --format='%H%x09%s' \
-            | awk -F'\t' '$2=="chore(derived): regenerate shared derived artifacts on main"{print $1; exit}')"
+            | awk -F'\t' '$2=="chore(derived): regenerate shared derived artifacts on main" && !seen {print $1; seen=1}')"
           if [ -z "$DERIVED_SHA" ]; then
             echo "::warning::main derived-regen staleness: no chore(derived) commit in the last 300 commits on main — the regen has not landed its commit in a very long time. Advisory only."
           elif [ "$DERIVED_SHA" = "$(git rev-parse origin/main)" ]; then
