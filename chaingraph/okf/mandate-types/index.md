@@ -31,7 +31,7 @@ status: stable
 - [liquidity_mandate](./liquidity_mandate.md) (2)
 - [model_governance](./model_governance.md) (10)
 - [oracle_price_aggregation](./oracle_price_aggregation.md) (1)
-- [payment_mandate](./payment_mandate.md) (5)
+- [payment_mandate](./payment_mandate.md) (6)
 - [payment_policy](./payment_policy.md) (11)
 - [perp_funding_rate](./perp_funding_rate.md) (1)
 - [prompt_template](./prompt_template.md) (1)
