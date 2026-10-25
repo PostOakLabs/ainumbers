@@ -659,6 +659,7 @@ status: stable
 - [ESPP Break-Even & Optimal Sell](./art-760-espp-break-even-optimal-sell.md)
 - [AI Displacement Risk Screener](./art-763-ai-displacement-risk-screener.md)
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md)
+- [Automation Payback](./art-771-automation-payback.md)
 - [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md)
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md)
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md)
