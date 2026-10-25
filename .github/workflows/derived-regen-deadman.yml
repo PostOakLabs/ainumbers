@@ -12,7 +12,7 @@ name: Derived Regen Deadman
 # This listener turns that red into exactly ONE tracking issue, reusing the
 # scheduled-red-issue mechanism (same idempotent open-or-update shape, same
 # title registry in scripts/scheduled-red-issue.mjs, new surface key
-# `derived-regen`). It does two other things, both bounded:
+# `derived-regen`). It does three other things, all bounded:
 #
 #   RETRY-ONCE (courtesy, not the cure): on the FIRST failure of a run
 #   (run_attempt == 1) it waits 10 minutes and re-runs the failed jobs. The
@@ -24,6 +24,25 @@ name: Derived Regen Deadman
 #
 #   GREEN → CLOSE: a successful regen closes the tracking issue with the green
 #   run linked, exactly like the three scheduled surfaces.
+#
+#   COMMIT STATUS (2026-10-23): a red regen must be visible on the merge
+#   path, not only in an issue. Measured:
+#   the regen failed 14 merges in a row from 01:20Z (run 39936907518, issue
+#   #2557), the deadman DID open the issue — and nothing in the PR or merge
+#   path showed it; main's own checks stayed green and hours were spent
+#   re-curing a frozen main. So on a failed regen the tracker now also posts a
+#   commit status `derived-regen/main` = failure on the failing main SHA
+#   (description: the extracted gate failure line, target: the tracking
+#   issue), and success on the next green regen's SHA. A commit STATUS is not
+#   a check run and CANNOT be made required — it is advisory by construction.
+#   The companion advisory probe in land-verify.yml prints
+#   "main derived regen red since <sha>, see #<issue>" on every PR and queue
+#   run; making that blocking is a separate decision and is not built here.
+#   The same row fixed the failure-line extractor: the old shell grep picked
+#   the `##[group]Run …` header (the word "copy-hallmarks" appears there
+#   before the gate ever prints); the extraction now lives in
+#   scripts/scheduled-red-issue.mjs (extractFailureLine, exported, self-tested
+#   against a captured excerpt of run 39936907518).
 #
 # ⛔ NOTHING HERE RE-ARMS A DEQUEUED PR and nothing here touches
 # automerge-label.yml: the CI_FAILURE never-requeue policy is deliberate — this
@@ -113,7 +132,7 @@ jobs:
           gh run rerun "$RUN_ID" --repo "$GITHUB_REPOSITORY" --failed
 
   alarm:
-    name: Open, update or close the tracking issue
+    name: Open, update or close the tracking issue, and post the commit status
     needs: gate
     if: needs.gate.outputs.proceed == 'true'
     runs-on: ubuntu-latest
@@ -121,6 +140,10 @@ jobs:
       contents: read
       actions: read
       issues: write
+      # The ONLY permission this change adds. Needed
+      # to post the advisory `derived-regen/main` commit status on the regen's
+      # head SHA; a commit status is not a check run and can never be required.
+      statuses: write
     steps:
       - name: Check out this repo so the tracker script is on disk
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -137,28 +160,36 @@ jobs:
           set -euo pipefail
           # The regen's copy gates (check-copy-hallmarks / check-shipped-prose)
           # print the offending file; the assembler refusal prints the refused
-          # chain/node. Grep the FAILED jobs' log for the first actionable
-          # line, bounded: -m1 stops at the first hit, and head -c caps the
-          # line a pathological log could emit.
+          # chain/node. The extraction lives in ONE place — the shared tracker's
+          # extractFailureLine — because the shell
+          # grep this replaces matched the word "copy-hallmarks" in the
+          # `##[group]Run …` header BEFORE the gate ever printed, so issue
+          # #2557 quoted the header instead of the em-dash finding (run
+          # 39936907518). It skips runner noise (##[group], shell:, env:, the
+          # echoed cyan command lines) and prefers the finding line that names
+          # the offending file, falling back to the failure summary.
           JOB_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
             --jq '[.jobs[] | select(.conclusion == "failure")][0].id' || true)"
           if [ -z "${JOB_ID:-}" ] || [ "$JOB_ID" = "null" ]; then
-            LINE="(no failed job log could be read for this run — open the run URL)"
+            RAW_LINE="(no failed job log could be read for this run — open the run URL)"
           else
-            LINE="$(gh run view --job "$JOB_ID" --repo "$GITHUB_REPOSITORY" --log-failed 2>/dev/null \
-              | grep -m1 -E 'copy-hallmarks|shipped-prose|::error|REFUSED|Error:' \
-              | cut -c1-300 || true)"
-            [ -n "$LINE" ] || LINE="(no matching gate line found in the failed job log — read the run URL)"
+            RAW_LINE="$(gh run view --job "$JOB_ID" --repo "$GITHUB_REPOSITORY" --log-failed 2>/dev/null \
+              | node ./scripts/scheduled-red-issue.mjs --extract-failure-line || true)"
+            [ -n "$RAW_LINE" ] || RAW_LINE="(no gate failure line found in the failed job log — read the run URL)"
           fi
           # The reusable tracker stamps ITS OWN run URL into the issue (the
           # listener run, not the regen) — prepend the failed regen run's URL
           # here so the issue's first failure line points at the actual red.
-          LINE="regen run $RUN_URL :: $LINE"
+          LINE="regen run $RUN_URL :: $RAW_LINE"
           {
+            echo "raw_line<<EOF"
+            echo "$RAW_LINE"
+            echo "EOF"
             echo "line<<EOF"
             echo "$LINE"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+          echo "raw gate line: $RAW_LINE"
           echo "failure line: $LINE"
 
       # The shared tracker, run as a SCRIPT from this checkout — NOT as a
@@ -174,14 +205,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           STATE: ${{ needs.gate.outputs.failed == 'true' && 'red' || 'green' }}
           LINE: ${{ needs.gate.outputs.failed == 'true' && steps.failure-line.outputs.line || '' }}
+          # The raw extracted gate line (no run-URL
+          # prefix — GitHub caps a status description at 140 chars) and the
+          # SHA/URL the advisory `derived-regen/main` commit status marks.
+          RAW_LINE: ${{ needs.gate.outputs.failed == 'true' && steps.failure-line.outputs.raw_line || '' }}
+          REGEN_URL: ${{ needs.gate.outputs.run_url }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           RUN_ID: ${{ github.run_id }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
+          # --status-context: on red, post `derived-regen/main` = failure on the
+          # failing main SHA (description = the gate line, target = the tracking
+          # issue the tracker just opened/updated); on green, success on the
+          # healed SHA (target = the green regen run). Advisory by construction.
           node ./scripts/scheduled-red-issue.mjs \
             --surface derived-regen \
             --state "$STATE" \
             --event workflow_run \
             --run-id "$RUN_ID" \
             --run-url "$RUN_URL" \
-            --failure-line "$LINE"
+            --failure-line "$LINE" \
+            --status-context derived-regen/main \
+            --status-sha "$HEAD_SHA" \
+            --status-description "$RAW_LINE" \
+            --status-target "$REGEN_URL"
