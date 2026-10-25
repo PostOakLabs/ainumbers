@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1240 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1241 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -4461,6 +4461,9 @@
       "name": "mcp:verify_merkle_airdrop_proof"
     },
     {
+      "name": "mcp:verify_solana_paychan_voucher"
+    },
+    {
       "name": "mcp:verify_x402_signer_recovery"
     },
     {
@@ -4920,6 +4923,9 @@
       "name": "payment-application"
     },
     {
+      "name": "payment-channels"
+    },
+    {
       "name": "payment-fraud"
     },
     {
@@ -4927,6 +4933,9 @@
     },
     {
       "name": "payment-reconciliation"
+    },
+    {
+      "name": "payment-verification"
     },
     {
       "name": "payment-waterfall"
@@ -6490,6 +6499,9 @@
     },
     {
       "name": "vote deadline"
+    },
+    {
+      "name": "voucher"
     },
     {
       "name": "vulnerability"
@@ -126178,6 +126190,316 @@
         "x-mcp-tool-name": "aggregate_taxonomy_kpi_gar",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-74-taxonomy-kpi-gar-aggregator.html",
         "x-source": "manifest"
+      }
+    },
+    "/v1/tools/verify_solana_paychan_voucher": {
+      "post": {
+        "operationId": "verify_solana_paychan_voucher",
+        "summary": "Solana Paychan Voucher Verifier",
+        "description": "Values-only check of a Solana payment-channels voucher message against trusted channel terms. The voucher is the 50-byte Ed25519-signed message the payment-channels program reads through the Instructions sysvar: magic bytes 0x56 0x01, a 32-byte channel PDA binding, a u64 little-endian cumulative amount and an i64 little-endian expiry (0 disables). This node recomputes the program validator post-signature check sequence by pure byte inspection and trusted inputs: exact 50-byte layout, magic tag/version, channel_id equals the supplied channel PDA, cumulative amount within the escrowed deposit ceiling, cumulative amount strictly above the settled watermark (at-or-below is a stale voucher), expiry 0 or later than the supplied unix clock, an optional supersession comparison where a second voucher with a lower or equal cumulative amount is superseded by the first, and the settle delta (cumulative minus settled) reported on success. Values are pasted; every channel term is a trusted input computed in BigInt with no floats. Out of scope and stated in every output: the Ed25519 signature is NOT verified here and nothing is read from chain. Sibling of the Tempo MPP voucher verifier art-594.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-749-solana-paychan-voucher-verifier.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "solana",
+          "payment-channels",
+          "voucher",
+          "payment-verification",
+          "settlement",
+          "watermark",
+          "bigint",
+          "mcp:verify_solana_paychan_voucher"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "voucher_hex",
+                  "channel_pda",
+                  "deposit_ceiling",
+                  "settled_watermark",
+                  "current_time"
+                ],
+                "properties": {
+                  "voucher_hex": {
+                    "type": "string",
+                    "description": "The 50-byte Ed25519-signed voucher message, hex (optional 0x prefix)."
+                  },
+                  "channel_pda": {
+                    "type": "string",
+                    "description": "The trusted channel PDA address, base58, exactly 32 bytes."
+                  },
+                  "deposit_ceiling": {
+                    "type": "string",
+                    "description": "The trusted escrowed deposit, decimal string (u64)."
+                  },
+                  "settled_watermark": {
+                    "type": "string",
+                    "description": "The trusted current settled amount, decimal string (u64)."
+                  },
+                  "current_time": {
+                    "type": "string",
+                    "description": "The trusted unix clock in seconds, decimal string (i64)."
+                  },
+                  "mint": {
+                    "type": "string",
+                    "description": "Optional trusted mint, informational passthrough."
+                  },
+                  "authorized_signer": {
+                    "type": "string",
+                    "description": "Optional claimed signer pubkey, base58. NOT verified."
+                  },
+                  "second_voucher_hex": {
+                    "type": "string",
+                    "description": "Optional second 50-byte voucher message, hex, for the supersession check."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "all_pass": {
+                      "type": "boolean",
+                      "enum": [
+                        false,
+                        true
+                      ]
+                    },
+                    "channel_id_hex": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "checks": {
+                      "type": "object",
+                      "properties": {
+                        "channel_id_matches_pda": {
+                          "type": "boolean",
+                          "enum": [
+                            false,
+                            true
+                          ]
+                        },
+                        "cumulative_above_settled_watermark": {
+                          "type": "boolean",
+                          "enum": [
+                            false,
+                            true
+                          ]
+                        },
+                        "cumulative_within_deposit_ceiling": {
+                          "type": "boolean",
+                          "enum": [
+                            false,
+                            true
+                          ]
+                        },
+                        "length_is_50": {
+                          "type": "boolean",
+                          "enum": [
+                            false,
+                            true
+                          ]
+                        },
+                        "magic_is_56_01": {
+                          "type": "boolean",
+                          "enum": [
+                            false,
+                            true
+                          ]
+                        },
+                        "not_expired": {
+                          "type": "boolean",
+                          "enum": [
+                            false,
+                            true
+                          ]
+                        }
+                      },
+                      "required": [
+                        "channel_id_matches_pda",
+                        "cumulative_above_settled_watermark",
+                        "cumulative_within_deposit_ceiling",
+                        "length_is_50",
+                        "magic_is_56_01",
+                        "not_expired"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "cumulative_amount": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "expires_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "note": {
+                      "type": "string"
+                    },
+                    "out_of_scope": {
+                      "type": "string"
+                    },
+                    "pinned_constants": {
+                      "type": "object",
+                      "properties": {
+                        "field_sizes": {
+                          "type": "object",
+                          "properties": {
+                            "channel_id": {
+                              "type": "number"
+                            },
+                            "cumulative_amount": {
+                              "type": "number"
+                            },
+                            "expires_at": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "channel_id",
+                            "cumulative_amount",
+                            "expires_at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "magic": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          }
+                        },
+                        "offsets": {
+                          "type": "object",
+                          "properties": {
+                            "channel_id": {
+                              "type": "number"
+                            },
+                            "cumulative_amount": {
+                              "type": "number"
+                            },
+                            "expires_at": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "channel_id",
+                            "cumulative_amount",
+                            "expires_at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "open_slot_window": {
+                          "type": "number"
+                        },
+                        "voucher_len": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "field_sizes",
+                        "magic",
+                        "offsets",
+                        "open_slot_window",
+                        "voucher_len"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "second_voucher": {
+                      "type": [
+                        "null",
+                        "object"
+                      ]
+                    },
+                    "settle_delta": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "trusted_terms": {
+                      "type": "object",
+                      "properties": {
+                        "authorized_signer": {
+                          "type": "null"
+                        },
+                        "current_time": {
+                          "type": "string"
+                        },
+                        "deposit_ceiling": {
+                          "type": "string"
+                        },
+                        "mint": {
+                          "type": "null"
+                        },
+                        "settled_watermark": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "authorized_signer",
+                        "current_time",
+                        "deposit_ceiling",
+                        "mint",
+                        "settled_watermark"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "voucher": {
+                      "type": "object",
+                      "properties": {
+                        "hex_prefix_stripped": {
+                          "type": "boolean"
+                        },
+                        "length": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "hex_prefix_stripped",
+                        "length"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "all_pass",
+                    "channel_id_hex",
+                    "checks",
+                    "cumulative_amount",
+                    "expires_at",
+                    "note",
+                    "out_of_scope",
+                    "pinned_constants",
+                    "second_voucher",
+                    "settle_delta",
+                    "trusted_terms",
+                    "voucher"
+                  ],
+                  "additionalProperties": false,
+                  "x-derived-from": "fixture"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "verify_solana_paychan_voucher",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-749-solana-paychan-voucher-verifier.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
       }
     },
     "/v1/tools/validate_eugb_factsheet": {

@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (693 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (694 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7516,6 +7516,16 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-749-solana-paychan-voucher-verifier",
+    "display_name": "Solana Paychan Voucher Verifier",
+    "mandate_type": "payment_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-749-solana-paychan-voucher-verifier.html",
+    "description": "Values-only check of a Solana payment-channels voucher message against trusted channel terms. The voucher is the 50-byte Ed25519-signed mess",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
