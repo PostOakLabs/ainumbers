@@ -183,7 +183,7 @@ export async function subproof(m, D, lo, hi, haveRootHash) {
 }
 
 export async function buildConsistencyProof(oldSize, newLeafHashes) {
-  if (oldSize === 0) return []; // verifyConsistency's own trivial-accept branch
+  if (oldSize === 0) return []; // genesis: no proof exists; generate() checks the root instead
   return subproof(oldSize, newLeafHashes, 0, newLeafHashes.length, true);
 }
 
@@ -439,7 +439,13 @@ export async function generate(opts = {}) {
 
   const oldRoot = oldSize > 0 ? await mth(readLevel0LeafHashes(registryDir, oldSize), 0, oldSize) : await emptyTreeRoot();
   const proof = await buildConsistencyProof(oldSize, leafHashes);
-  const consistent = await verifyConsistency({ oldSize, newSize: size, oldRoot, newRoot, proof });
+  // RFC 9162 §2.1.4.2 defines no consistency proof from an empty tree, and the
+  // shared verifier rejects oldSize 0 (C2SP-TLOG-VERIFY-HEAL-1). At genesis the
+  // gate instead asserts the new root IS the RFC 9162 root of the new leaves
+  // (the empty-tree root at size 0).
+  const consistent = oldSize > 0
+    ? await verifyConsistency({ oldSize, newSize: size, oldRoot, newRoot, proof })
+    : bytesEqual(newRoot, size === 0 ? await emptyTreeRoot() : await mth(leafHashes, 0, size));
   if (!consistent) {
     throw new Error(
       `CONSISTENCY GATE FAILED (§2.3, SO #34): the new tree (size ${size}, root ${bytesToHex(newRoot)}) does ` +

@@ -100,6 +100,7 @@ import { chainAskAgentPages } from './gen-chain-ask-agent.mjs';
 import { hubScenePages } from './gen-hub-scenes.mjs';
 import { WRITES_REPORT_PATH } from './gen-manifest-examples.mjs';
 import { PAGE_MD_TWINS_WRITES_REPORT_PATH } from './gen-page-md-twins.mjs';
+import { RECEIPT_BUNDLES_WRITES_REPORT_PATH } from './gen-receipt-bundles.mjs';
 // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: the six new bare-tree entries' report paths come
 // from the shared-constants module — importing the generators themselves would RUN
 // them (several are script-style with module-level write paths / argv dispatch).
@@ -183,6 +184,25 @@ export const COVERED = [
     writes: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     share: '8%',
+  },
+  {
+    // PROVE-BASELINE-SINGLE-WRITER-1 (2026-10-19): the §18 deferred ratchet
+    // baseline joins the single-writer set. Every prove PR and node PR used to
+    // edit scripts/compute-proof-baseline.json (count + deferred_nodes), so
+    // parallel PRs conflicted on it serially and identical "13 -> 12" hunks
+    // merged more than once. The gate now exempts brand-new deferred nodes from
+    // the ceiling and a prove PR already sits under it, so no PR has to touch
+    // the file; this entry pins the lowered count and the new names on main.
+    // A proof regression is never absorbed: the writer holds (writes nothing,
+    // ::warning, exit 0 so the pass is not stopped) and the strict gate reds main.
+    // Ordered after 'chaingraph-assemble': it reads the reassembled monolith.
+    id: 'compute-proof-baseline',
+    regen: 'node scripts/check-compute-proof-coverage.mjs --regen-baseline',
+    gate: 'node scripts/check-compute-proof-coverage.mjs --check-baseline',
+    writes: ['scripts/compute-proof-baseline.json'],
+    artifacts: ['scripts/compute-proof-baseline.json'],
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-10-19, PROVE-BASELINE-SINGLE-WRITER-1)',
   },
   {
     // CHAIN-PROMPT-INFRA-1 (Tim 2026-09-27, "every new chain ships a genuinely
@@ -1296,6 +1316,30 @@ export const COVERED = [
     artifacts: ['rss.xml'],
     share: 'n/a (new 2026-09-22, FEED-TWINS-1)',
   },
+  {
+    // RECEIPT-BUNDLE-PUBLISH-1 (2026-10-22): one RECEIPT-BUNDLE v0.1 file per live
+    // node whose receipt the §18 digest-freshness check classes FRESH, plus an
+    // index.json. A thin wrapper over receipt-bundle-build.mjs (no bundle logic of
+    // its own); scope is computeStaleness() from check-s18-digest-freshness.mjs, so a
+    // stale receipt is never published. Anchor = the published registry-lineage
+    // checkpoint, and per RECEIPT-BUNDLE §3.4 every bundle and the index say the log
+    // half commits to that checkpoint, not to the receipt. Zero network, no prover,
+    // no wall clock: --write twice is a zero diff. Runtime-named files inside one
+    // generator-owned tree, so the stage set is the attested writes report
+    // (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1) and the tree is prAbsentOk (SO #35: the
+    // PR never commits it; main's regen writes it after merge).
+    id: 'receipt-bundles',
+    regen: 'node scripts/gen-receipt-bundles.mjs --write',
+    gate: 'node scripts/gen-receipt-bundles.mjs --check',
+    writes: ['chaingraph/receipt-bundles'],
+    artifacts: ['chaingraph/receipt-bundles'],
+    writesReport: RECEIPT_BUNDLES_WRITES_REPORT_PATH,
+    writesReportRequired: true,
+    prAbsentOk: true,
+    // reads chaingraph.json (node scope + receipts) — must run AFTER the assembler
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-10-22, RECEIPT-BUNDLE-PUBLISH-1)',
+  },
 ];
 
 /**
@@ -1675,6 +1719,16 @@ export const DERIVED_ROOT_GATES = new Set([
   'python scripts/verify_repo.py',                           // deploy gate sitemap leg (SITEMAP-DEPLOY-SPLIT-1; overlay read only)
   'node scripts/check-nav-reachability.mjs',                 // nav islands (reads the monolith for dynamic roots)
   'node scripts/check-nav-reachability.mjs --baseline-check',// nav-island baseline freshness
+  // REGEN-VALIDATORS-IN-QUEUE-1 (mechanism A): the two post-regen copy
+  // validators (derived-artifacts-regen.yml "Validate the regenerated
+  // reader-facing copy") are DERIVED_ROOT-aware — under the merge_group
+  // ephemeral tree they read the just-assembled chaingraph.json, so the queue
+  // simulates the regen's post-regen validators instead of passing on stale
+  // in-tree artifacts. check-shipped-prose reads the monolith directly;
+  // check-copy-hallmarks resolves its #descriptions read through
+  // chaingraphJsonReadPath().
+  'node scripts/check-copy-hallmarks.mjs',                   // reader-facing copy (#descriptions leg is DERIVED_ROOT-aware)
+  'node scripts/check-shipped-prose.mjs',                    // shipped prose jargon/slugs (reads the monolith)
 ]);
 
 /** The non-empty DERIVED_ROOT, or '' — CI merge_group jobs only by convention,

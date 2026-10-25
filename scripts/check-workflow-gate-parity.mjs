@@ -226,7 +226,9 @@ const NOT_A_GATE = new Map([
   ["derived-regen-deadman.yml",
     "workflow_run listener on derived-artifacts-regen.yml (main-only, completed) — the " +
     "failure alarm: retry-once (10 min backoff) plus ONE tracking issue via the shared " +
-    "scheduled-red-issue tracker. It has no pull_request, merge_group or push trigger of " +
+    "scheduled-red-issue tracker, plus (REGEN-RED-STOPS-THE-LINE-1) an advisory " +
+    "derived-regen/main commit status on the failing/healed SHA — a status is not a check " +
+    "run and can never be required. It has no pull_request, merge_group or push trigger of " +
     "its own, runs no estate gate, and blocks no merge — it reports a main-side red after " +
     "the fact."],
   ["fullsuite-schedule.yml",
@@ -380,6 +382,8 @@ const PREFLIGHT_ONLY = new Map([
     "the gate or the page through a full preflight."],
   // ── ENGINE-BUNDLE-ESM-LINT-1 (2026-10-15) ───────────────────────────────────
   ["check-engine-parity.bundle.test.mjs", SELF_TEST],
+  // ── CHAIN-PAGES-CANON-ORDER-FIX-1 (2026-10-24) ──────────────────────────────
+  ["check-chain-pages-canon-order.selftest.mjs", SELF_TEST],
   // ── WEBMCP-META-LINT-CEILING-1 (2026-10-01) ─────────────────────────────────
   ["check-webmcp-meta-budgets.test.mjs", SELF_TEST],
   ["check-webmcp-meta-neardupes.test.mjs", SELF_TEST],
@@ -1276,6 +1280,19 @@ const PREFLIGHT_ONLY = new Map([
     "runs the same four checks; kernel-side provenance is the complementary " +
     "ocg-conformance/derive-vector.mjs <id> --check."],
   ["check-conformance-vectors.test.mjs", SELF_TEST],
+  // ── RECEIPT-BUNDLE-PUBLISH-1 (2026-10-23) ───────────────────────────────────
+  ["gen-receipt-bundles.mjs",
+    "Receipt-bundle freshness --check (RECEIPT-BUNDLE-PUBLISH-1): re-derives the per-node " +
+    "RECEIPT-BUNDLE v0.1 files under chaingraph/receipt-bundles from the same tracked repo " +
+    "inputs the writer consumes and byte-compares. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), so a " +
+    "named workflow step would only duplicate the same suite. It is the COVERED gate of " +
+    "derived-artifacts.mjs id 'receipt-bundles' (advisory-on-PR / blocking-on-main via the " +
+    "generic downgrade), and the single writer is derived-artifacts-regen.yml, which " +
+    "regenerates it post-merge exactly like the sitemap and the trust-signals digest — a raw " +
+    "invocation anywhere PR-reachable would duplicate that writer. Reads only tracked repo " +
+    "files plus local git (through gitEnv()) — no network, no CI-only input. The write half " +
+    "is a builder/main-side regen command, never a workflow step by name."],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
@@ -1362,6 +1379,18 @@ const DECLARED_DIVERGENCES = new Map([
 // would treat them as unrelated commands and an argument-drift typo on an
 // advisory gate would read as "consistent" because it matched nothing (hole (d)).
 const DISTINCT_LEGS = new Map([
+  ["node scripts/check-compute-proof-coverage.mjs", {
+    sibling: "node scripts/check-compute-proof-coverage.mjs --check-baseline",
+    decided: "2026-10-20 (PROVE-BASELINE-SINGLE-WRITER-1)",
+    why:
+      "The bare command is the section 18 ratchet: it reds when a node already known to be proven " +
+      "regresses, and it carries its own advisory-on-PR / hard-on-main split inside the script " +
+      "(isMainContext + disposition). The --check-baseline sibling is the COVERED id " +
+      "'compute-proof-baseline' freshness gate for scripts/compute-proof-baseline.json, advisory on a " +
+      "PR (main's regen is the single writer) and blocking on main. Two legs of one script with " +
+      "different jobs, the same pairing as the nav-reachability content gate and its --baseline-check, " +
+      "not argument drift.",
+  }],
   ["node scripts/gen-hub-scenes.mjs --selftest", {
     sibling: "node scripts/gen-hub-scenes.mjs --check",
     decided: "2026-10-07 (HUBSCENE-BUILD-1)",

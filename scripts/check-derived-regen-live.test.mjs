@@ -21,6 +21,15 @@
  *                          cross-entry sharing — chain-index/chaingraph-hub,
  *                          counts/debt-ledger — check-derived-declare-parity.mjs
  *                          already treats as advisory).
+ *   --changed scoping   — DERIVED-SET-SELFTEST-HOOK-SCOPE-1: entry selection
+ *                          for the hook/pre-push leg. A touched generator/gate
+ *                          script selects exactly its entry; a touched
+ *                          unrelated file selects nothing and PRINTS the skip
+ *                          reason; a touched derived-artifacts.mjs (or the
+ *                          gate's own script/test) selects ALL; two entries
+ *                          sharing one command still run it once; and a RED
+ *                          control proves a selection that MISSES a touched
+ *                          generator fails this file.
  *
  * Fixtures are synthetic, throwaway git repos under os.tmpdir() — nothing
  * under this repo's REPO is ever touched, and the real COVERED list is never
@@ -30,11 +39,11 @@
  *
  * Run: node scripts/check-derived-regen-live.test.mjs
  */
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runLiveScan, withinEntryDuplicates, crossEntryShares } from './check-derived-regen-live.mjs';
+import { runLiveScan, withinEntryDuplicates, crossEntryShares, selectCoveredByDiff, changedSelectionLines } from './check-derived-regen-live.mjs';
 import { gitEnv } from './_git-env-lib.mjs';
 
 let pass = 0;
@@ -291,14 +300,19 @@ test('TIMEOUT RED - a regen command that never returns is bounded, named and kil
   commit(dir, 'init');
 
   const entry = { id: 'fixture-hang', regen: 'node gen-hang.mjs', artifacts: ['out.json'] };
+  // SO40B-SELFTEST-BUDGET-SCALE-1 (RULINGS 2026-10-21T23:55Z item 3, Tim's "A —
+  // raise/scale budget"): every fixture budget in this file sits at a flat
+  // 10 s floor so a probe's git+node child work survives concurrent FULL
+  // preflights; the production default (180 s) is untouched.
+  const HANG_KILL_BUDGET_MS = 10_000;
   const startedAt = Date.now();
-  const { timeouts, executionFailures, classA } = runLiveScan({ dir, covered: [entry], timeoutMs: 1500 });
+  const { timeouts, executionFailures, classA } = runLiveScan({ dir, covered: [entry], timeoutMs: HANG_KILL_BUDGET_MS });
   const wallMs = Date.now() - startedAt;
 
   assert(timeouts.length === 1 && timeouts[0].id === 'fixture-hang',
     `expected exactly one TIMEOUT finding naming fixture-hang, got ${JSON.stringify(timeouts)}`);
-  assert(timeouts[0].elapsedMs >= 1350, `the finding must report its elapsed time, got ${timeouts[0].elapsedMs} ms`);
-  assert(wallMs < 15000, `the bound must actually cut the 30 s hang short, whole scan took ${wallMs} ms`);
+  assert(timeouts[0].elapsedMs >= HANG_KILL_BUDGET_MS * 0.9, `the finding must report its elapsed time, got ${timeouts[0].elapsedMs} ms`);
+  assert(wallMs < HANG_KILL_BUDGET_MS + 5_000, `the bound must actually cut the 30 s hang short, whole scan took ${wallMs} ms`);
   assert(executionFailures.length === 0, `a timeout is its own state, never an execution failure: ${JSON.stringify(executionFailures)}`);
   assert(classA.length === 0, `a timed-out probe is inconclusive for CLASS A, got ${JSON.stringify(classA)}`);
 });
@@ -319,9 +333,9 @@ test('TIMEOUT - the scan continues past a hung entry so later entries still get 
     { id: 'hang', regen: 'node gen-hang.mjs', artifacts: ['a-out.json'] },
     { id: 'b', regen: 'node gen-b.mjs', artifacts: ['b-out.json'] },
   ];
-  // 8 s still cuts the 30 s hang short, and leaves entry b room to finish its
-  // node startup under load (1500 ms was below measured startup under concurrent preflights).
-  const { timeouts, classB } = runLiveScan({ dir, covered: entries, timeoutMs: 8000 });
+  // SO40B-SELFTEST-BUDGET-SCALE-1 (RULINGS 2026-10-21T23:55Z item 3): 10 s is
+  // the file-wide flat floor, still well under the 30 s hang it must cut short.
+  const { timeouts, classB } = runLiveScan({ dir, covered: entries, timeoutMs: 10_000 });
   assert(timeouts.length === 1 && timeouts[0].id === 'hang', `expected the hang named once, got ${JSON.stringify(timeouts)}`);
   assert(classB.length === 1 && classB[0].id === 'b' && classB[0].path === 'undeclared.json',
     `entry b's escape must still be found after the hung entry, got ${JSON.stringify(classB)}`);
@@ -384,6 +398,129 @@ test('CLASS C — cross-entry sharing is NOT a within-entry duplicate (legitimat
   assert(hard.length === 0, `two DIFFERENT entries sharing a path must not be a hard within-entry finding, got ${JSON.stringify(hard)}`);
   assert(info.length === 1 && info[0].path === 'shared.html' && info[0].ids.length === 2,
     `expected one informational cross-entry share for shared.html, got ${JSON.stringify(info)}`);
+});
+
+// ── --changed entry scoping: DERIVED-SET-SELFTEST-HOOK-SCOPE-1 ────────────────
+// The selection runs against synthetic repos whose always-run triggers use the
+// REAL production path names (scripts/derived-artifacts.mjs, this gate's own
+// script and test), so the all-mode rules are exercised exactly as the CLI
+// names them, never a paraphrase (SO #34).
+function makeSelectionRepo() {
+  const dir = makeRepo();
+  mkdirSync(join(dir, 'scripts'), { recursive: true });
+  writeFileSync(join(dir, 'scripts/derived-artifacts.mjs'), '// fixture manifest\n');
+  writeFileSync(join(dir, 'scripts/check-derived-regen-live.mjs'), '// fixture copy of the gate itself\n');
+  writeFileSync(join(dir, 'scripts/check-derived-regen-live.test.mjs'), '// fixture copy of the gate test\n');
+  writeFileSync(join(dir, 'gen-a.mjs'), "import { writeFileSync } from 'node:fs';\nwriteFileSync('a.json', '{\"regenerated\":true}\\n');\n");
+  writeFileSync(join(dir, 'gen-b.mjs'), "import { writeFileSync } from 'node:fs';\nwriteFileSync('b.json', '{\"regenerated\":true}\\n');\n");
+  writeFileSync(join(dir, 'gen-shared.mjs'), "import { appendFileSync, writeFileSync } from 'node:fs';\nappendFileSync(process.env.DERIVED_REGEN_LIVE_SELFTEST_RUNS, process.argv[2] + '\\n');\nwriteFileSync(process.argv[2], '{\"regenerated\":true}\\n');\n");
+  writeFileSync(join(dir, 'check-a.mjs'), "import { readFileSync } from 'node:fs';\nprocess.exit(readFileSync('a.json', 'utf8') === '{\"regenerated\":true}\\n' ? 0 : 1);\n");
+  writeFileSync(join(dir, 'a.json'), '{}\n');
+  writeFileSync(join(dir, 'b.json'), '{}\n');
+  writeFileSync(join(dir, 'shared.json'), '{}\n');
+  writeFileSync(join(dir, 'unrelated.txt'), 'nothing any entry declares\n');
+  commit(dir, 'base');
+  return dir;
+}
+function selectionCovered() {
+  return [
+    { id: 'fixture-sel-a', regen: 'node gen-a.mjs', gate: 'node check-a.mjs', artifacts: ['a.json'] },
+    { id: 'fixture-sel-b', regen: 'node gen-b.mjs', artifacts: ['b.json'] },
+    { id: 'fixture-sel-shared-1', regen: 'node gen-shared.mjs shared.json', artifacts: ['shared.json'] },
+    { id: 'fixture-sel-shared-2', regen: 'node gen-shared.mjs shared.json --second-entry', artifacts: ['shared.json'] },
+  ];
+}
+function headSha(dir) {
+  return execSync('git rev-parse HEAD', { cwd: dir, ...GIT_EXEC_OPTS }).toString().trim();
+}
+function assertSelects(selection, expectedIds, msg) {
+  const got = selection.selected.map((e) => e.id).sort().join(',');
+  const want = [...expectedIds].sort().join(',');
+  if (got !== want) throw new Error(`${msg}: expected selected=[${want || '(none)'}], got [${got || '(none)'}] (mode=${selection.mode}, skipped=[${selection.skipped.join(',')}])`);
+}
+
+test('CHANGED GREEN (a) - a change to a generator script selects exactly its entry', () => {
+  const dir = makeSelectionRepo();
+  const base = headSha(dir);
+  writeFileSync(join(dir, 'gen-a.mjs'), "// touched by the diff\nimport { writeFileSync } from 'node:fs';\nwriteFileSync('a.json', '{\"regenerated\":true}\\n');\n");
+  commit(dir, 'touch generator');
+  const sel = selectCoveredByDiff({ repoPath: dir, baseRef: base, covered: selectionCovered() });
+  assert(sel.mode === 'subset', `a generator-only diff must scope, got mode=${sel.mode} (${sel.reason})`);
+  assertSelects(sel, ['fixture-sel-a'], 'generator script touched');
+});
+
+test('CHANGED GREEN (b) - a change to an unrelated file selects nothing and PRINTS the skipped reason', () => {
+  const dir = makeSelectionRepo();
+  const base = headSha(dir);
+  writeFileSync(join(dir, 'unrelated.txt'), 'still nothing any entry declares\n');
+  commit(dir, 'touch unrelated');
+  const sel = selectCoveredByDiff({ repoPath: dir, baseRef: base, covered: selectionCovered() });
+  assertSelects(sel, [], 'unrelated file touched');
+  assert(sel.skipped.length === 4, `every entry must be named as skipped, got ${JSON.stringify(sel.skipped)}`);
+  const lines = changedSelectionLines({ baseRef: base, selection: sel });
+  const skippedLine = lines.find((l) => l.includes('skipped '));
+  assert(skippedLine && skippedLine.includes(sel.reason) && skippedLine.includes('CI still runs the full live scan'),
+    `the printed skipped line must carry the skip reason and the CI backstop, got ${JSON.stringify(lines)}`);
+});
+
+test('CHANGED GREEN (c) - a change to derived-artifacts.mjs selects ALL entries (the gate own scripts too)', () => {
+  const dir = makeSelectionRepo();
+  const base = headSha(dir);
+  writeFileSync(join(dir, 'scripts/derived-artifacts.mjs'), '// fixture manifest, touched\n');
+  commit(dir, 'touch manifest');
+  const sel = selectCoveredByDiff({ repoPath: dir, baseRef: base, covered: selectionCovered() });
+  assert(sel.mode === 'all', `a manifest diff must select all, got mode=${sel.mode}`);
+  assertSelects(sel, ['fixture-sel-a', 'fixture-sel-b', 'fixture-sel-shared-1', 'fixture-sel-shared-2'], 'manifest touched');
+  assert(changedSelectionLines({ baseRef: base, selection: sel })[0].includes('running ALL 4'), 'the printed line must say ALL entries run');
+  // Same widening for the gate's OWN script or test (DERIVED-SET-SELFTEST-TRIGGER-1's
+  // reasoning: a diff that changes the verdict machinery re-proves every entry).
+  for (const gateOwn of ['scripts/check-derived-regen-live.mjs', 'scripts/check-derived-regen-live.test.mjs']) {
+    const dir2 = makeSelectionRepo();
+    const base2 = headSha(dir2);
+    writeFileSync(join(dir2, gateOwn), readFileSync(join(dir2, gateOwn), 'utf8') + '// touched\n');
+    commit(dir2, 'touch gate own');
+    const sel2 = selectCoveredByDiff({ repoPath: dir2, baseRef: base2, covered: selectionCovered() });
+    assert(sel2.mode === 'all', `${gateOwn} touched must select all, got mode=${sel2.mode}`);
+    assertSelects(sel2, ['fixture-sel-a', 'fixture-sel-b', 'fixture-sel-shared-1', 'fixture-sel-shared-2'], `${gateOwn} touched`);
+  }
+});
+
+test('CHANGED GREEN (d) - two entries sharing one command run it exactly ONCE over the selected set', () => {
+  const dir = makeSelectionRepo();
+  const base = headSha(dir);
+  writeFileSync(join(dir, 'gen-shared.mjs'), "// touched by the diff\nimport { appendFileSync, writeFileSync } from 'node:fs';\nappendFileSync(process.env.DERIVED_REGEN_LIVE_SELFTEST_RUNS, process.argv[2] + '\\n');\nwriteFileSync(process.argv[2], '{\"regenerated\":true}\\n');\n");
+  commit(dir, 'touch shared generator');
+  const sel = selectCoveredByDiff({ repoPath: dir, baseRef: base, covered: selectionCovered() });
+  assertSelects(sel, ['fixture-sel-shared-1', 'fixture-sel-shared-2'], 'shared generator touched');
+  // The counted-generator log lives OUTSIDE the fixture repo (an in-repo log
+  // would be an undeclared write, i.e. CLASS B) - same pattern as the
+  // --self-test fixture in check-derived-regen-live.mjs.
+  const runsLog = join(tmpdir(), `derived-regen-live-changedtest-runs-${process.pid}.log`);
+  process.env.DERIVED_REGEN_LIVE_SELFTEST_RUNS = runsLog;
+  try {
+    const res = runLiveScan({ dir, covered: sel.selected, timeoutMs: 60_000 });
+    const runs = existsSync(runsLog) ? readFileSync(runsLog, 'utf8').split('\n').filter(Boolean) : [];
+    assert(runs.filter((r) => r === 'shared.json').length === 1,
+      `two entries sharing one command must execute exactly ONE probe cycle over the selected set, got runs=${JSON.stringify(runs)}`);
+    assert(![...res.classA, ...res.classB, ...res.executionFailures, ...res.timeouts]
+      .some((f) => String(f.id).startsWith('fixture-sel-shared')),
+      `the shared entries must stay clean, got ${JSON.stringify([res.classA, res.classB, res.executionFailures])}`);
+  } finally {
+    delete process.env.DERIVED_REGEN_LIVE_SELFTEST_RUNS;
+    try { rmSync(runsLog, { force: true }); } catch { /* best effort */ }
+  }
+});
+
+test('CHANGED RED CONTROL (e) - a selection that MISSES a touched generator fails this file', () => {
+  // SO #34c: proves the (a) assertion is not vacuous. Feed assertSelects the
+  // selection a BROKEN --changed implementation would produce for the (a)
+  // fixture - one that misses the touched generator - and it must THROW. If a
+  // future edit to selectCoveredByDiff stops selecting a touched generator,
+  // test (a) fails through this same path.
+  const broken = { mode: 'subset', reason: 'no regen/gate script or declared artifact of these entries appears in the diff', selected: [], skipped: ['fixture-sel-a', 'fixture-sel-b', 'fixture-sel-shared-1', 'fixture-sel-shared-2'] };
+  let threw = false;
+  try { assertSelects(broken, ['fixture-sel-a'], 'RED control'); } catch { threw = true; }
+  assert(threw, 'assertSelects must FAIL when the selection misses a touched generator - this file would go red');
 });
 
 console.log(`\ncheck-derived-regen-live.test.mjs: ${pass} passed, ${fail} failed`);

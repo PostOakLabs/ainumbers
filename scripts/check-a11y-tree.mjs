@@ -58,6 +58,7 @@ import {
 import { propertyIdMap, findWrapperName } from './gen-webmcp-registrations.mjs';
 import { loadManifestIndex, loadMcpNameIndex } from './check-schema-read-divergence.mjs';
 import { derivedResolve, derivedRoot, isMainContext } from './derived-artifacts.mjs';
+import { chromeInsertionIndex } from './page-chrome-anchor.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -509,24 +510,16 @@ function runWrite() {
     const metaTag = `<meta name="ai-tool" content="${escapeAttrValue(d.toolName)}">`;
     base = base.slice(0, headClose) + metaTag + '\n' + base.slice(headClose);
 
-    // 6. the runtime region: before the first non-script <footer>, else the last </body>.
-    const scriptSpans = [];
-    {
-      const re = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
-      let m;
-      while ((m = re.exec(base)) !== null) scriptSpans.push([m.index, m.index + m[0].length]);
-    }
-    const inScript = (i) => scriptSpans.some(([a, b]) => i >= a && i < b);
-    let close = -1;
-    let f = base.indexOf('<footer>');
-    while (f !== -1) {
-      if (!inScript(f)) { close = f; break; }
-      f = base.indexOf('<footer>', f + 1);
-    }
-    if (close === -1) close = base.lastIndexOf('</body>');
-    if (close === -1) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert the region before`); continue; }
-    const head = base.slice(0, close).replace(/\s+$/, '');
-    const next = head + '\n\n' + d.expected + '\n\n' + base.slice(close);
+    // 6. the runtime region: WRITER-CANON-ALIGN-1 — the insertion point comes
+    // from the ONE shared canonical-position table
+    // (scripts/page-chrome-anchor.mjs): first non-script <footer>, else the
+    // last </body>. The a11y writer inserts AT the anchor (below any abutting
+    // ASK-AGENT block — the canonical ASK-above-A11Y order falls out by
+    // construction); the private inline copy this file carried before is gone.
+    const anchorAt = chromeInsertionIndex(base, { aboveA11yRegion: false });
+    if (!anchorAt) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert the region before`); continue; }
+    const head = base.slice(0, anchorAt.index).replace(/\s+$/, '');
+    const next = head + '\n\n' + d.expected + '\n\n' + base.slice(anchorAt.index);
     if (next !== d.pageSrc) { writeFileSync(d.pageAbs, next, 'utf8'); written++; }
     else exact++;
   }
@@ -569,8 +562,30 @@ async function selfTest() {
   const anchor = mainAnchorOf(markupView('<body><nav>x</nav><div class="wrap"><input id="a"></div></body>'));
   assert(anchor && anchor.tag === '<div class="wrap">', 'main anchor = first non-script container after </nav>');
 
+  // WRITER-CANON-ALIGN-1: the runtime-region insertion goes through the ONE
+  // shared canonical-position table. Both chrome writers' invocation orders
+  // must converge byte-identically on the canonical ASK-above-A11Y-above-footer
+  // layout (the ask-agent writer inserts above an abutting A11Y region; the
+  // a11y writer inserts at the anchor, below any abutting ASK block).
+  {
+    const ask = '<!-- ASK-AGENT:BEGIN generator=x manifest=y -->ASK-BLOCK<!-- ASK-AGENT:END -->';
+    const region = '<!-- A11Y-TREE:BEGIN generator=z --><script>/* ocg */</script><!-- A11Y-TREE:END -->';
+    const page0 = '<!doctype html><html><body><h1>p</h1><footer>site footer</footer></body></html>';
+    const insert = (src, block, aboveA11y) => {
+      const at = chromeInsertionIndex(src, { aboveA11yRegion: aboveA11y });
+      assert(at, 'shared table finds the tail anchor');
+      return src.slice(0, at.index).replace(/\s+$/, '') + '\n\n' + block + '\n\n' + src.slice(at.index);
+    };
+    const aThenAsk = insert(insert(page0, region, false), ask, true);
+    const askThenA = insert(insert(page0, ask, true), region, false);
+    assert(aThenAsk === askThenA, 'both writer invocation orders converge on identical bytes (shared table)');
+    assert(aThenAsk.indexOf(ask) < aThenAsk.indexOf(region) && aThenAsk.indexOf(region) < aThenAsk.indexOf('<footer>'), 'canonical order ASK above A11Y above footer');
+    const noFooter = insert('<!doctype html><html><body>x</body></html>', region, false);
+    assert(noFooter.includes(region) && noFooter.indexOf(region) < noFooter.indexOf('</body>'), 'fallback anchor = last </body>');
+  }
+
   await redGreen();
-  console.log('SELF-TEST PASS (emitted script shape, attr applier purity/idempotence, region markers, script-blinded control scan, main anchor, mutation red-green).');
+  console.log('SELF-TEST PASS (emitted script shape, attr applier purity/idempotence, region markers, script-blinded control scan, main anchor, shared canonical-position table convergence, mutation red-green).');
 }
 
 function expectedRegionTest() {

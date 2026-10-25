@@ -230,6 +230,101 @@ jobs:
           fi
           echo "base-ref: RESOLVED $BASE @ $(git rev-parse --short=12 "$BASE")"
 
+      # (2026-10-23): ADVISORY ONLY — a red main
+      # derived regen must be visible on the PR checks page, not only in a
+      # tracking issue. Measured 2026-10-23: the
+      # regen failed 14 merges in a row from 01:20Z (run 39936907518, issue
+      # #2557) while every PR here stayed green — main's own checks never
+      # redded, because the regen is a post-merge writer — and hours were
+      # spent re-curing a frozen main. Two probes, BOTH always exit 0:
+      #
+      #   RED: the latest `Derived Artifacts Regen` run on main concluded
+      #     failure -> one ::warning:: naming the SHA and the tracking issue.
+      #     Read from the PUBLIC REST API unauthenticated: this repo is public,
+      #     and this row's only permission grant is `statuses: write` on the
+      #     deadman, so no token scope for the Actions API exists here. On
+      #     rate-limit/network failure the probe degrades to a ::notice:: and
+      #     the staleness probe below still runs.
+      #
+      #   STALE: the newest `chore(derived)` commit on origin/main is more
+      #     than MERGE_BEHIND_WARN merges or HOURS_BEHIND_WARN hours behind
+      #     main HEAD while source merges continued — the heartbeat signal for
+      #     "the regen never ran / was disabled", which the deadman can never
+      #     see because it only reacts to COMPLETED runs. Pure git. A no-drift
+      #     regen commits nothing, so small lag is healthy; the thresholds are
+      #     the row's named constants below.
+      #
+      # Making either probe blocking is a separate decision, and it would
+      # need a `regen-fix` label override so the PR that heals the regen can
+      # still land. That is deliberately NOT built here. This step adds no
+      # `node scripts/…` gate invocation, so gate parity has nothing to pair.
+      - name: Main regen state (advisory only, never blocks)
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Named thresholds (row spec): more than 6 merges or 3 hours behind
+          # the newest chore(derived) commit, while source merges continued.
+          MERGE_BEHIND_WARN=6
+          HOURS_BEHIND_WARN=3
+
+          # ── red probe: the latest concluded regen run on main ─────────────
+          RUNS="$(curl -sf --max-time 20 \
+            "https://api.github.com/repos/$REPO/actions/workflows/derived-artifacts-regen.yml/runs?branch=main&per_page=10" \
+            || true)"
+          if [ -n "$RUNS" ]; then
+            ISSUE_NUM=""
+            ISSUES="$(curl -sf --max-time 20 -G "https://api.github.com/search/issues" \
+              --data-urlencode "q=repo:$REPO state:open in:title \"Scheduled surface RED: Derived Artifacts Regen (main)\"" \
+              --data-urlencode "per_page=1" \
+              || true)"
+            if [ -n "$ISSUES" ]; then
+              ISSUE_NUM="$(printf '%s' "$ISSUES" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);const h=(j.items||[])[0];if(h)console.log(h.number)}catch(e){}})" || true)"
+            fi
+            printf '%s' "$RUNS" | node -e "
+              let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
+                let j; try { j=JSON.parse(d); } catch (e) {
+                  console.log('::notice::main regen red-probe: unparseable API response, skipping (advisory only)');
+                  return;
+                }
+                const run=(j.workflow_runs||[]).find((r)=>r.conclusion);
+                if(!run){
+                  console.log('::notice::main regen red-probe: no concluded regen run on main in the last '+(j.workflow_runs||[]).length+' run(s), skipping (advisory only)');
+                  return;
+                }
+                if(run.conclusion!=='failure'){
+                  console.log('main derived regen: latest concluded run on main is '+run.conclusion+' ('+run.head_sha.slice(0,12)+'), no advisory');
+                  return;
+                }
+                const issue=process.argv[1]?' see #'+process.argv[1]:' — no open tracking issue found';
+                console.log('::warning::main derived regen red since '+run.head_sha.slice(0,12)+' (run '+run.id+', '+run.created_at+'),'+issue);
+              });" "$ISSUE_NUM"
+          else
+            echo "::notice::main regen red-probe: could not read the GitHub API (network or rate limit); the staleness probe below still ran. Advisory only."
+          fi
+
+          # ── staleness probe: the derived tip's heartbeat (pure git) ───────
+          # NOTE: awk must NOT `exit` on the first match — under this job's
+          # `set -o pipefail` an early awk exit SIGPIPEs git (exit 141) and
+          # reds the step (measured on this PR's first run). Print the first
+          # match, then keep reading to EOF.
+          DERIVED_SHA="$(git log origin/main -n 300 --format='%H%x09%s' \
+            | awk -F'\t' '$2=="chore(derived): regenerate shared derived artifacts on main" && !seen {print $1; seen=1}')"
+          if [ -z "$DERIVED_SHA" ]; then
+            echo "::warning::main derived-regen staleness: no chore(derived) commit in the last 300 commits on main — the regen has not landed its commit in a very long time. Advisory only."
+          elif [ "$DERIVED_SHA" = "$(git rev-parse origin/main)" ]; then
+            echo "main derived tip is main HEAD — fresh."
+          else
+            BEHIND="$(git rev-list --count "$DERIVED_SHA..origin/main")"
+            HOURS=$(( ( $(git log -1 --format=%ct origin/main) - $(git log -1 --format=%ct "$DERIVED_SHA") ) / 3600 ))
+            if [ "$BEHIND" -gt "$MERGE_BEHIND_WARN" ] || [ "$HOURS" -gt "$HOURS_BEHIND_WARN" ]; then
+              echo "::warning::main derived-regen stale: newest chore(derived) commit is $BEHIND merge(s) / ${HOURS}h behind main HEAD while source merges continued (thresholds: $MERGE_BEHIND_WARN merges / $HOURS_BEHIND_WARN h) — the regen may be red or not landing. Advisory only."
+            else
+              echo "main derived tip is $BEHIND merge(s) / ${HOURS}h behind main HEAD — within thresholds ($MERGE_BEHIND_WARN merges / $HOURS_BEHIND_WARN h)."
+            fi
+          fi
+
       # On merge_group, assemble the derived tree
       # EPHEMERALLY. The queue's ref is byte-for-byte the tree that will be main,
       # so the single-writer staleness rule that keeps the shared-
@@ -250,6 +345,28 @@ jobs:
           node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
           node scripts/derived-artifacts.mjs --out "${SCRATCH}"
           echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+
+      # Post-regen copy validators (mechanisms A + B, merge_group ONLY — the
+      # pull_request path above and below is UNCHANGED). PR #2349 (99093e8e,
+      # 2026-10-23) shipped two em-dashes in a node shard's top-level
+      # description; PR checks and this queue passed, then main's single-writer
+      # derived-artifacts-regen.yml failed 14 merges in a row at "Validate the
+      # regenerated reader-facing copy" (run 39936907518) and main's derived
+      # files froze ~9 h. Root cause: the queue assembled $DERIVED_ROOT but ran
+      # none of the regen's post-regen validators against it. These steps close
+      # that: with DERIVED_ROOT set, check-copy-hallmarks and
+      # check-shipped-prose read the just-assembled monolith (mechanism A —
+      # both are now in DERIVED_ROOT_GATES), and the source-shard lint
+      # (--source-shards, mechanism B) reads the shards themselves, so the same
+      # edit now fails here, in the queue, HARD.
+      - name: Post-regen copy validators on the ephemeral tree (merge_group, HARD)
+        if: github.event_name == 'merge_group'
+        env:
+          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
+        run: |
+          node scripts/check-copy-hallmarks.mjs
+          node scripts/check-shipped-prose.mjs
+          node scripts/check-copy-hallmarks.mjs --source-shards
 
       # 2026-10-16: #2330 made the §18 step below HARD on
       # pull_request but only merge_group got an assembled tree, so on a PR the gate read

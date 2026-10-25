@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (687 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (694 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7519,6 +7519,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-749-solana-paychan-voucher-verifier",
+    "display_name": "Solana Paychan Voucher Verifier",
+    "mandate_type": "payment_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-749-solana-paychan-voucher-verifier.html",
+    "description": "Values-only check of a Solana payment-channels voucher message against trusted channel terms. The voucher is the 50-byte Ed25519-signed mess",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-75-eugb-factsheet-validator",
     "display_name": "EU Green Bond Factsheet & Allocation Validator",
     "mandate_type": "compliance_mandate",
@@ -7534,11 +7544,31 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-754-equity-exit-waterfall",
+    "display_name": "Equity Exit Waterfall Modeler",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-754-equity-exit-waterfall.html",
+    "description": "Equity exit proceeds after a liquidation-preference waterfall, ported from ApexLogics Apex #141 (AL-148). From the exit valuation, the aggre",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-758-hdhp-ppo-break-even",
     "display_name": "HDHP vs. PPO Break-Even",
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-758-hdhp-ppo-break-even.html",
     "description": "Annual-cost comparator for an HDHP+HSA against a PPO, ported from ApexLogics #105 (AL-112). For two plan profiles (monthly premium, deductib",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-759-iso-amt-exposure-modeler",
+    "display_name": "ISO AMT Exposure Modeler",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-759-iso-amt-exposure-modeler.html",
+    "description": "AMT liability from an ISO exercise spread using the 2026 exemption amounts and phase-out thresholds, ported from ApexLogics Apex #109 (AL-11",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7556,6 +7586,16 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-760-espp-break-even-optimal-sell",
+    "display_name": "ESPP Break-Even & Optimal Sell",
+    "mandate_type": "compensation_benefits",
+    "url": "https://ainumbers.co/chaingraph/art-760-espp-break-even-optimal-sell.html",
+    "description": "ESPP disposition comparator ported from ApexLogics Apex #110 (AL-117). For an ESPP purchase (price paid after the 15% statutory discount, of",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
@@ -7584,6 +7624,36 @@ window.CHAINBUILDER_CATALOG = [
       "art-83-buy-in-exposure-modeler",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-771-automation-payback",
+    "display_name": "Automation Payback",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-771-automation-payback.html",
+    "description": "Automation Payback ranker ported from ApexLogics Apex #180 (AL-194). For a list of automation candidates (hours saved per week, loaded hourl",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-774-beacon-seeded-fair-sampling-v2",
+    "display_name": "Beacon-Seeded Fair-Sampling Deriver V2",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-774-beacon-seeded-fair-sampling-v2.html",
+    "description": "Derives a deterministic, offline-replayable audit sample, version 2 of the beacon-seeded fair-sampling family, from a caller-pasted public r",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-776-paypal-dispute-deadline-evidence",
+    "display_name": "PayPal Dispute Deadline & Evidence",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html",
+    "description": "PayPal dispute deadline calculator and evidence-bundle producer, the PayPal-side PRODUCER for the existing dispute-evidence chain (hub propo",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
