@@ -1581,7 +1581,11 @@ const DECLARED_SOFTENERS = new Map([
   // comment block) landed between the deploy-manifest build and the dry-run
   // rsync, ABOVE the attest step; same pin-move. That same edit added the
   // second continue-on-error entry below.
-  ["deploy-to-dreamhost.yml:continue-on-error:964",
+  // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25) moved it :964 → :1018 — the
+  // subjects-derivation and bundle-copy steps (RULINGS ⚖ 2026-10-24T23:0xZ
+  // fix) landed between the receipt attest step and the dry-run rsync, ABOVE
+  // this attest step; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:1018",
    "attest step is advisory-first by design; promotion criterion on the step"],
   // SIGSTORE-BUNDLE-V03-EXPORT-4 (2026-10-24): the receipt-bundle index
   // attest step (continue-on-error at :829) is advisory-first for the SAME
@@ -1593,8 +1597,34 @@ const DECLARED_SOFTENERS = new Map([
   // rsync. Same promotion criterion: after 10 consecutive post-merge deploy
   // runs with the step succeeding, remove this entry together with the
   // step's continue-on-error.
-  ["deploy-to-dreamhost.yml:continue-on-error:829",
+  // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25) moved it :829 → :857 — the
+  // subjects-derivation step (id: attest_subjects) landed between the deploy
+  // manifest build and this step; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:857",
    "receipt-bundle index attest step is advisory-first by design; a Sigstore outage must not red the deploy or skip CF purge + smoke; promotion criterion on the step"],
+  // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25): the receipt-bundle subjects
+  // step (id: attest_subjects, continue-on-error at :812) is advisory-first
+  // for the same reason as the attest step it feeds: the deploy is
+  // load-bearing, and a red derivation (index shape drift) must not red the
+  // deploy — the attest step then reads an empty subject-path and also
+  // soft-fails, and the copy step warns. Pure node, no network. Same
+  // promotion criterion: after 10 consecutive post-merge deploy runs with
+  // the step succeeding, remove this entry together with the step's
+  // continue-on-error.
+  ["deploy-to-dreamhost.yml:continue-on-error:812",
+   "receipt-bundle subjects step is advisory-first by design; a red index-shape derivation must not red the deploy; promotion criterion on the step"],
+  // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25): the receipt-bundle copy step
+  // (id: copy_sigstore_bundle, continue-on-error at :876) is advisory-first
+  // for the same reason: it only SHIPS the advisory bundle
+  // (chaingraph/receipt-bundles/index.sigstore.json, from the attest step's
+  // bundle-path output — the pinned action v4.2.2 exposes no bundle
+  // destination input), and a copy failure must not red the deploy or skip
+  // the CF purge + smoke steps. Same promotion criterion: after 10
+  // consecutive post-merge deploy runs with the step succeeding, remove this
+  // entry together with the step's continue-on-error.
+  ["deploy-to-dreamhost.yml:continue-on-error:876",
+   "receipt-bundle copy step is advisory-first by design; a copy failure must not red the deploy; promotion criterion on the step"],
+
   // MAIN-GATES-AFTER-REGEN-1 (2026-10-08) moved it :109 → :146 — the
   // unwired-gates.yml `on:` block swapped `push: main` for `workflow_run`
   // (trigger comment), the workflow gained a workflow-level GATE_SHA env
