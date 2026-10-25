@@ -645,6 +645,7 @@ import * as art715    from './art-715-token2022-transfer-fee-reconciler.kernel.m
 import * as art72     from './art-72-cbam-precursor-emissions-aggregator.kernel.mjs';
 import * as art73     from './art-73-taxonomy-alignment-scorer.kernel.mjs';
 import * as art734    from './art-734-force-placed-insurance-checker.kernel.mjs';
+import * as art735    from './art-735-solana-dvp-prefund-verifier.kernel.mjs';
 import * as art74     from './art-74-taxonomy-kpi-gar-aggregator.kernel.mjs';
 import * as art749    from './art-749-solana-paychan-voucher-verifier.kernel.mjs';
 import * as art75     from './art-75-eugb-factsheet-validator.kernel.mjs';
@@ -1341,6 +1342,7 @@ export const KERNELS = {
   'art-72-cbam-precursor-emissions-aggregator':                 art72,
   'art-73-taxonomy-alignment-scorer':                           art73,
   'art-734-force-placed-insurance-checker':                     art734,
+  'art-735-solana-dvp-prefund-verifier':                        art735,
   'art-74-taxonomy-kpi-gar-aggregator':                         art74,
   'art-749-solana-paychan-voucher-verifier':                    art749,
   'art-75-eugb-factsheet-validator':                            art75,
