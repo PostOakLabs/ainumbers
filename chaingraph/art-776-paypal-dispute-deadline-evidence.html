@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>PayPal Dispute Deadline &amp; Evidence · ART-776 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="PayPal dispute seller-response deadlines and the evidence bundle a seller needs: snapshot-stated inquiry windows, seller_response_due_date passthrough, honestly-null NOT STATED windows, and a CE3.0-shaped bundle only for a chargeback on a card-funded transaction. Client-side. Zero PII.">
+<meta name="ain:category" content="run">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.md">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:.76rem}
+.tbl th{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:6px 6px;border-bottom:1px solid var(--border)}
+.tbl td{padding:5px 6px;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle}
+.field-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 16px;margin:10px 0}
+@media(max-width:640px){.field-grid{grid-template-columns:1fr}}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px;letter-spacing:.02em}
+.field select,.field input{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:4px;padding:.4rem .5rem;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.55rem 1.1rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.4;cursor:not-allowed}
+.btn-2{background:transparent;color:var(--text);border:1px solid var(--border-2)}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:140px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--bright)}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);color:var(--warn)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+</style>
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-776-paypal-dispute-deadline-evidence.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:3f184c9165930b2e21c09289e5a2966b4423c3cdcbe8734fbdf4192b713215c3">
+<meta name="ai-tool" content="compute_paypal_dispute_response">
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-776 · PayPal Dispute Deadline &amp; Evidence</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap" role="main" aria-description="PayPal dispute deadline calculator and evidence-bundle producer: seller-response deadlines from PayPal's snapshot-stated rules or a seller_response_due_date passthrough, required evidence and missing items per dispute reason, and the evidence bundle, CE3.0-shaped only for a chargeback on a card-funded transaction. Deterministic client-side arithmetic; refusals are named reasons.">
+  <div class="eyebrow">OpenChainGraph Suite · ART-776</div>
+  <h1>PayPal Dispute Deadline &amp; Evidence</h1>
+  <p class="sub">Seller-response deadlines for a PayPal dispute, computed from PayPal's own stated rules or a seller_response_due_date passthrough, with days remaining against a time you supply; the evidence the reason requires, what is missing, and the bundle to submit, CE3.0-shaped only when a card network is actually in the loop.</p>
+  <div style="margin-bottom:6px"><span class="flag">Payments Disputes</span><span class="flag">PayPal Disputes API v1.12</span><span class="flag">CE3.0 Producer</span><span class="flag">Zero PII</span><span class="flag">Client-side only</span></div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="info-box"><div class="ib-title">Scope &amp; reliance</div>Deadline rules are exactly what PayPal states, quoted from the dated clause snapshot <code>research/clause-snapshots/paypal-disputes-2026-10/SNAPSHOT.md</code> (fetch 2026-10-25T03Z): at the inquiry stage, respond within the first 10 days following dispute creation (S8) and the inquiry stage lasts up to 20 days unless escalated to a claim (S1); disputes are closed automatically after 20 days unless escalated (S8); a supplied <code>seller_response_due_date</code> is the date and time by when the merchant must respond (S5). The chargeback-stage response window and the appeal period length are <code>NOT STATED</code> by PayPal (S9 names issuer-based strict deadlines without a number; S2 names the appeal period without a number): both come back as null with a reason, and you can pass PayPal's own timestamp through instead. Stage scoping: most PayPal disputes run through PayPal's own buyer-protection process (inquiry, then claim), outside the card-network rails; only a chargeback on a card-funded transaction is a network dispute, and the CE3.0-shaped bundle (field names kept verbatim for <code>art-297</code>, the terminal Visa CE3.0 linter) is emitted for that case alone, with null where PayPal has a counterpart missing. This node is deadline arithmetic and evidence assembly only, standing apart from any dispute-outcome prediction or claim of Visa or PayPal acceptance. Reason and evidence vocabulary is reused verbatim from the estate's PayPal dispute-evidence map (four reasons). This node ships <code>compute_proof_ready: deferred</code>.</div>
+  <div class="card">
+    <div class="section-head">Dispute</div>
+    <div class="field-grid">
+      <div class="field"><label for="dispute_reason">dispute_reason</label><select id="dispute_reason" aria-label="dispute_reason"><option value="MERCHANDISE_OR_SERVICE_NOT_RECEIVED">MERCHANDISE_OR_SERVICE_NOT_RECEIVED</option><option value="MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED">MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED</option><option value="UNAUTHORISED" selected>UNAUTHORISED</option><option value="CREDIT_NOT_PROCESSED">CREDIT_NOT_PROCESSED</option></select></div>
+      <div class="field"><label for="lifecycle_stage">lifecycle_stage</label><select id="lifecycle_stage" aria-label="lifecycle_stage"><option value="INQUIRY">INQUIRY</option><option value="CHARGEBACK" selected>CHARGEBACK</option><option value="PRE_ARBITRATION">PRE_ARBITRATION</option><option value="ARBITRATION">ARBITRATION</option></select></div>
+      <div class="field"><label for="funding_source">funding_source</label><select id="funding_source" aria-label="funding_source"><option value="card" selected>card</option><option value="paypal_balance_or_bank">paypal_balance_or_bank</option><option value="unknown">unknown</option></select></div>
+      <div class="field"><label for="dispute_create_time">dispute_create_time (ISO-8601 UTC)</label><input id="dispute_create_time" value="2026-10-01T12:00:00Z" aria-label="dispute_create_time"></div>
+      <div class="field"><label for="as_of">as_of (ISO-8601 UTC; never a wall clock)</label><input id="as_of" value="2026-10-05T12:00:00Z" aria-label="as_of"></div>
+      <div class="field"><label for="seller_response_due_date">seller_response_due_date (optional passthrough)</label><input id="seller_response_due_date" value="2026-10-11T12:00:00Z" aria-label="seller_response_due_date"></div>
+      <div class="field"><label for="transaction_ref">transaction_ref (optional, synthetic)</label><input id="transaction_ref" value="SYN-TXN-42" aria-label="transaction_ref"></div>
+      <div class="field"><label for="card_network">card_network (optional passthrough)</label><input id="card_network" value="visa" aria-label="card_network"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-head">Evidence on hand</div>
+    <div class="muted-txt" style="margin-bottom:8px">Synthetic values only. Blank fields count as missing evidence.</div>
+    <div class="field-grid">
+      <div class="field"><label for="carrier_name">carrier_name</label><input id="carrier_name" value="SyntheticCarrier" aria-label="carrier_name"></div>
+      <div class="field"><label for="tracking_number">tracking_number</label><input id="tracking_number" value="SYN-0002" aria-label="tracking_number"></div>
+      <div class="field"><label for="refund_id">refund_id</label><input id="refund_id" value="" aria-label="refund_id"></div>
+      <div class="field"><label for="notes">notes</label><input id="notes" value="" aria-label="notes"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="run()">Run</button>
+      <button class="btn-2" onclick="loadSample()">Load sample (chargeback on card, CE3.0)</button>
+      <button class="btn-2" onclick="loadInquiryDemo()">Load inquiry demo (10-day and 20-day windows)</button>
+      <button class="btn-2" onclick="clearEvidence()">Clear evidence (missing-items demo)</button>
+    </div>
+  </div>
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictDiv"></div>
+      <div id="refusalsDiv" style="margin-top:8px"></div>
+      <table class="tbl" id="resultTbl"></table>
+      <div class="info-box" style="margin-top:12px"><div class="ib-title">Bundle decision</div><div id="bundleDiv" class="muted-txt"></div></div>
+      <div class="info-box" style="margin-top:12px"><div class="ib-title">Cited clauses (SNAPSHOT.md)</div><div id="clausesDiv" class="muted-txt"></div></div>
+    </div>
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS canonical, RFC 8785):</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2(_lastArtifact)" disabled>Export Policy Mandate JSON</button>
+        <button class="btn-2" onclick="exportArtifact(_lastArtifact)">Export §4 Artifact</button>
+      </div>
+    </div>
+  </div>
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card"><pre id="mfstCode"></pre></div>
+</div>
+
+<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-776-paypal-dispute-deadline-evidence.manifest.json -->
+<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `compute_paypal_dispute_response`. Task: Compute a PayPal dispute seller-response deadline (snapshot-stated inquiry rules or seller_response_due_date passthrough, days remaining against a caller-supplied as_of, null with a reason where PayPal states no number) and produce the seller evidence bundle: CE3.0-shaped with art-297's field names for a chargeback on a card-funded transaction, PayPal buyer-protection process evidence otherwise, withheld with a reason for unknown funding.
+Call it with arguments: {"policy_parameters":{"dispute_reason":"MERCHANDISE_OR_SERVICE_NOT_RECEIVED","lifecycle_stage":"INQUIRY","funding_source":"paypal_balance_or_bank","dispute_create_time":"2026-10-01T12:00:00Z","as_of":"2026-10-05T12:00:00Z","evidence_on_hand":{"carrier_name":"SyntheticCarrier","tracking_number":"SYN-0001"}}}
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
+Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
+PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
+Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html#p=v1.H4sIAAAAAAAA_wEeAeH-eyJkaXNwdXRlX3JlYXNvbiI6Ik1FUkNIQU5ESVNFX09SX1NFUlZJQ0VfTk9UX1JFQ0VJVkVEIiwibGlmZWN5Y2xlX3N0YWdlIjoiSU5RVUlSWSIsImZ1bmRpbmdfc291cmNlIjoicGF5cGFsX2JhbGFuY2Vfb3JfYmFuayIsImRpc3B1dGVfY3JlYXRlX3RpbWUiOiIyMDI2LTEwLTAxVDEyOjAwOjAwWiIsImFzX29mIjoiMjAyNi0xMC0wNVQxMjowMDowMFoiLCJldmlkZW5jZV9vbl9oYW5kIjp7ImNhcnJpZXJfbmFtZSI6IlN5bnRoZXRpY0NhcnJpZXIiLCJ0cmFja2luZ19udW1iZXIiOiJTWU4tMDAwMSJ9fUBuNVIeAQAA</pre>
+</section>
+<!-- ASK-AGENT:END -->
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../bazantic-walkthrough.html">Bazantic A/B Walkthrough</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   inline port of chaingraph/kernels/art-776-paypal-dispute-deadline-evidence.kernel.mjs
+   compute(). Every clause is quoted verbatim from
+   research/clause-snapshots/paypal-disputes-2026-10/SNAPSHOT.md; windows PayPal
+   does not state are returned null with a reason, never guessed.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const SNAPSHOT_SOURCES={
+ S1:'https://developer.paypal.com/platforms/disputes/handle-disputes/use-disputes-api',
+ S2:'https://developer.paypal.com/disputes/disputes-lifecycle',
+ S5:'https://developer.paypal.com/api/customer-disputes/v1/schema.json',
+ S8:'https://www.paypal.com/us/cshelp/article/how-do-i-respond-to-%E2%80%98item-not-received%E2%80%99-and-%E2%80%98significantly-not-as-described%E2%80%99-disputes-help1083',
+ S9:'https://www.paypal.com/us/cshelp/article/evidence-to-provide-for-chargebacks-a-guide-for-sellers-help1103'};
+const CLAUSES={
+ seller_response_10_day_a:{id:'S1',quote:'As a merchant, you can submit supporting documentation within 10 days after the inquiry starts.'},
+ seller_response_10_day_b:{id:'S8',quote:'You must respond within the first 10 days following a dispute creation.'},
+ miss_10_day_consequence:{id:'S8',quote:"If you don't respond within these 10 days and the buyer escalates it to a claim, we will resolve the case in the buyer's favor."},
+ inquiry_20_day:{id:'S1',quote:'The inquiry stage lasts up to 20 days unless escalated to a claim.'},
+ inquiry_auto_close:{id:'S8',quote:'Disputes are closed automatically after 20 days unless you or the buyer escalate it.'},
+ due_date_definition:{id:'S5',quote:'The date and time by when the merchant must respond to the dispute, in Internet date and time format.'},
+ due_date_consequence:{id:'S5',quote:"If the merchant does not respond by this date and time, the dispute is closed in the customer's favor."},
+ chargeback_no_number:{id:'S9',quote:'please respond to us promptly as there are strict response deadlines required for chargebacks based on the issuer.'},
+ appeal_no_number:{id:'S2',quote:'If the merchant does not appeal within the appeal period, the case is considered resolved.'},
+ chargeback_is_claim:{id:'S2',quote:'CHARGEBACK. A customer or merchant escalates an inquiry to a claim, which authorizes PayPal to investigate the case and make a determination.'}};
+function clause(k){const c=CLAUSES[k];return{id:c.id,quote:c.quote,url:SNAPSHOT_SOURCES[c.id]};}
+
+const INQUIRY_SELLER_RESPONSE_DAYS=10; // S8 / S1
+const INQUIRY_STAGE_DAYS=20;           // S1 / S8
+const LIFECYCLE_STAGES=['INQUIRY','CHARGEBACK','PRE_ARBITRATION','ARBITRATION'];
+const FUNDING_SOURCES=['card','paypal_balance_or_bank','unknown'];
+const DAY_MS=86400000;
+
+// Reason -> evidence mapping, VERBATIM from paypal-agent-shop/lib/disputes.js
+// (PAYPAL-E6-DISPUTE-EVIDENCE-1). UNAUTHORISED is PayPal's British-spelled enum value.
+const REASON_EVIDENCE={
+ MERCHANDISE_OR_SERVICE_NOT_RECEIVED:{evidence_type:'PROOF_OF_FULFILLMENT',required:['carrier_name','tracking_number'],why:'prove delivery: carrier name + tracking number for the shipment'},
+ MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED:{evidence_type:'OTHER',required:['notes'],why:'product description proving as-described condition, or the return policy text'},
+ UNAUTHORISED:{evidence_type:'PROOF_OF_FULFILLMENT',required:['carrier_name','tracking_number'],why:'prove the goods reached the cardholder (or their address) with carrier + tracking'},
+ CREDIT_NOT_PROCESSED:{evidence_type:'PROOF_OF_REFUND',required:['refund_id'],why:'the refund transaction id showing the credit was issued'}};
+
+const ISO_UTC_RE=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+function parseIsoUtc(v){
+ if(typeof v!=='string'||!ISO_UTC_RE.test(v))return null;
+ const ms=Date.parse(v);
+ if(!Number.isFinite(ms))return null;
+ const m=v.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.\d{1,3})?Z$/);
+ const normalized=m[1]+(m[2]?m[2].padEnd(4,'0'):'.000')+'Z';
+ if(new Date(ms).toISOString()!==normalized)return null;
+ return ms;
+}
+function isoOf(ms){return new Date(ms).toISOString();}
+function isBlank(v){return v===undefined||v===null||(typeof v==='string'&&v.trim()==='');}
+
+// Pure-JS SHA-256 (FIPS 180-4), sync leg for the delivery_proof element digest.
+const K256=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+// UTF-8 encoder as a plain loop (same shape as the kernel leg; the zkVM guest has no TextEncoder).
+function utf8Bytes(str){
+ const s=String(str);const out=[];
+ for(let i=0;i<s.length;i++){
+  let c=s.charCodeAt(i);
+  if(c<0x80){out.push(c);}
+  else if(c<0x800){out.push(0xc0|(c>>6),0x80|(c&0x3f));}
+  else if(c>=0xd800&&c<=0xdbff){const hi=c,lo=s.charCodeAt(++i);const cp=0x10000+((hi-0xd800)<<10)+(lo-0xdc00);out.push(0xf0|(cp>>18),0x80|((cp>>12)&0x3f),0x80|((cp>>6)&0x3f),0x80|(cp&0x3f));}
+  else{out.push(0xe0|(c>>12),0x80|((c>>6)&0x3f),0x80|(c&0x3f));}
+ }
+ return new Uint8Array(out);
+}
+function sha256HexSync(str){
+ const bytes=utf8Bytes(str);
+ const bitLen=bytes.length*8;
+ const padded=new Uint8Array((((bytes.length+8)>>6)+1)<<6);
+ padded.set(bytes);padded[bytes.length]=0x80;
+ const dv=new DataView(padded.buffer);
+ dv.setUint32(padded.length-4,bitLen>>>0);
+ dv.setUint32(padded.length-8,Math.floor(bitLen/0x100000000));
+ let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+ const w=new Int32Array(64);
+ for(let off=0;off<padded.length;off+=64){
+  for(let i=0;i<16;i++)w[i]=dv.getInt32(off+i*4);
+  for(let i=16;i<64;i++){
+   const s0=((w[i-15]>>>7)|(w[i-15]<<25))^((w[i-15]>>>18)|(w[i-15]<<14))^(w[i-15]>>>3);
+   const s1=((w[i-2]>>>17)|(w[i-2]<<15))^((w[i-2]>>>19)|(w[i-2]<<13))^(w[i-2]>>>10);
+   w[i]=(w[i-16]+s0+w[i-7]+s1)|0;
+  }
+  let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+  for(let i=0;i<64;i++){
+   const S1=((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7));
+   const ch=(e&f)^(~e&g);
+   const t1=(h+S1+ch+K256[i]+w[i])|0;
+   const S0=((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10));
+   const mj=(a&b)^(a&c)^(b&c);
+   const t2=(S0+mj)|0;
+   h=g;g=f;f=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;
+  }
+  h0=(h0+a)|0;h1=(h1+b)|0;h2=(h2+c)|0;h3=(h3+d)|0;h4=(h4+e)|0;h5=(h5+f)|0;h6=(h6+g)|0;h7=(h7+h)|0;
+ }
+ return[h0,h1,h2,h3,h4,h5,h6,h7].map(function(x){return(x>>>0).toString(16).padStart(8,'0');}).join('');
+}
+
+function refusedPayload(code,detail){return{refused:code,detail:detail,domain_errors:[{code:code}],refusal_reason:code};}
+function deadlineBlock(dueMs,asOfMs,source,basis){
+ if(dueMs===null)return{due:null,source:source,basis:basis,days_remaining:null,past_due:null};
+ const days=Math.floor((dueMs-asOfMs)/DAY_MS);
+ return{due:isoOf(dueMs),source:source,basis:basis,days_remaining:days,past_due:days<0};
+}
+
+function compute(pp){
+ pp=pp||{};
+ const reason=pp.dispute_reason;
+ const spec=REASON_EVIDENCE[reason];
+ if(!spec)return{output_payload:refusedPayload('REFUSED_UNKNOWN_DISPUTE_REASON','dispute_reason must be one of '+Object.keys(REASON_EVIDENCE).join(', ')+'; received '+JSON.stringify(reason??null)+'. Refusing to guess evidence for an unmapped reason.'),compliance_flags:['ART775_INPUT_REFUSED']};
+ const stage=pp.lifecycle_stage;
+ if(!LIFECYCLE_STAGES.includes(stage))return{output_payload:refusedPayload('REFUSED_UNKNOWN_LIFECYCLE_STAGE','lifecycle_stage must be one of '+LIFECYCLE_STAGES.join(', ')+'; received '+JSON.stringify(stage??null)),compliance_flags:['ART775_INPUT_REFUSED']};
+ const funding=pp.funding_source;
+ if(!FUNDING_SOURCES.includes(funding))return{output_payload:refusedPayload('REFUSED_UNKNOWN_FUNDING_SOURCE','funding_source must be one of '+FUNDING_SOURCES.join(', ')+'; received '+JSON.stringify(funding??null)),compliance_flags:['ART775_INPUT_REFUSED']};
+ const createMs=parseIsoUtc(pp.dispute_create_time);
+ if(createMs===null)return{output_payload:refusedPayload('REFUSED_BAD_DISPUTE_CREATE_TIME','dispute_create_time must be an ISO-8601 UTC timestamp YYYY-MM-DDTHH:MM:SS(.SSS)Z; received '+JSON.stringify(pp.dispute_create_time??null)),compliance_flags:['ART775_INPUT_REFUSED']};
+ const asOfMs=parseIsoUtc(pp.as_of);
+ if(asOfMs===null)return{output_payload:refusedPayload('REFUSED_BAD_AS_OF','as_of must be an ISO-8601 UTC timestamp YYYY-MM-DDTHH:MM:SS(.SSS)Z; the kernel never reads a wall clock; received '+JSON.stringify(pp.as_of??null)),compliance_flags:['ART775_INPUT_REFUSED']};
+ let passthroughMs=null;
+ if(!isBlank(pp.seller_response_due_date)){
+  passthroughMs=parseIsoUtc(pp.seller_response_due_date);
+  if(passthroughMs===null)return{output_payload:refusedPayload('REFUSED_BAD_SELLER_RESPONSE_DUE_DATE','seller_response_due_date, when supplied, must be an ISO-8601 UTC timestamp YYYY-MM-DDTHH:MM:SS(.SSS)Z; received '+JSON.stringify(pp.seller_response_due_date)),compliance_flags:['ART775_INPUT_REFUSED']};
+ }
+ const eh=(pp.evidence_on_hand&&typeof pp.evidence_on_hand==='object')?pp.evidence_on_hand:{};
+ const evidenceEcho={
+  carrier_name:typeof eh.carrier_name==='string'&&!isBlank(eh.carrier_name)?eh.carrier_name:null,
+  tracking_number:typeof eh.tracking_number==='string'&&!isBlank(eh.tracking_number)?eh.tracking_number:null,
+  refund_id:typeof eh.refund_id==='string'&&!isBlank(eh.refund_id)?eh.refund_id:null,
+  notes:typeof eh.notes==='string'&&!isBlank(eh.notes)?eh.notes:null};
+ const missing=spec.required.filter(function(f){return evidenceEcho[f]===null;});
+ const fulfillmentComplete=evidenceEcho.carrier_name!==null&&evidenceEcho.tracking_number!==null;
+ const refundComplete=evidenceEcho.refund_id!==null;
+ const notesComplete=evidenceEcho.notes!==null;
+ const transactionRef=typeof pp.transaction_ref==='string'&&!isBlank(pp.transaction_ref)?pp.transaction_ref:null;
+ const cardNetwork=typeof pp.card_network==='string'&&!isBlank(pp.card_network)?pp.card_network:null;
+
+ let sellerResponse,inquiryStage=null;
+ if(passthroughMs!==null){
+  sellerResponse=deadlineBlock(passthroughMs,asOfMs,'passthrough','seller_response_due_date passthrough: "The date and time by when the merchant must respond to the dispute, in Internet date and time format." (S5); consequence "If the merchant does not respond by this date and time, the dispute is closed in the customer\'s favor." (S5)');
+ }else if(stage==='INQUIRY'){
+  sellerResponse=deadlineBlock(createMs+INQUIRY_SELLER_RESPONSE_DAYS*DAY_MS,asOfMs,'snapshot_rule_10_day','Snapshot rule: "You must respond within the first 10 days following a dispute creation." (S8); "As a merchant, you can submit supporting documentation within 10 days after the inquiry starts." (S1)');
+ }else if(stage==='CHARGEBACK'){
+  sellerResponse=deadlineBlock(null,asOfMs,'not_stated','Chargeback-stage seller response window in days: NOT STATED. PayPal states deadlines exist: "please respond to us promptly as there are strict response deadlines required for chargebacks based on the issuer." (S9); no number on S1-S9. Supply seller_response_due_date to pass PayPal\'s own timestamp through.');
+ }else{
+  sellerResponse=deadlineBlock(null,asOfMs,'not_stated','Appeal period length (pre-arbitration/arbitration): NOT STATED. PayPal states only "If the merchant does not appeal within the appeal period, the case is considered resolved." (S2); no number. Supply seller_response_due_date to pass PayPal\'s own timestamp through.');
+ }
+ if(stage==='INQUIRY'){
+  inquiryStage=deadlineBlock(createMs+INQUIRY_STAGE_DAYS*DAY_MS,asOfMs,'snapshot_rule_20_day','Snapshot rule: "The inquiry stage lasts up to 20 days unless escalated to a claim." (S1); "Disputes are closed automatically after 20 days unless you or the buyer escalate it." (S8)');
+ }
+
+ const ce30Applicable=stage==='CHARGEBACK'&&funding==='card';
+ let bundleKind,bundleReason;
+ if(ce30Applicable){bundleKind='ce30_shaped';bundleReason='Chargeback on a card-funded transaction: the network dispute case. CE3.0-shaped bundle emitted for consumption by art-297 (mcp:lint_compelling_evidence_ce30_agentic).';}
+ else if(funding==='unknown'){bundleKind=null;bundleReason='CE3.0-shaped bundle withheld: funding_source is unknown. Only a chargeback on a card-funded transaction is a network dispute; the funding source must be known before a network evidence bundle can be produced.';}
+ else{bundleKind='paypal_process_evidence';bundleReason=stage==='CHARGEBACK'?'Chargeback on a non-card funding source: PayPal buyer-protection process evidence, explicitly not CE3.0.':'Inquiry or appeal stage: PayPal buyer-protection process evidence, explicitly not CE3.0. CE3.0 does not govern PayPal inquiries, claims or appeals.';}
+
+ let ce30Bundle=null;
+ if(ce30Applicable){
+  const digestPreimage={evidence_type:'PROOF_OF_FULFILLMENT',carrier_name:evidenceEcho.carrier_name,tracking_number:evidenceEcho.tracking_number};
+  ce30Bundle={label:'CE3.0-shaped bundle for consumption by art-297 (mcp:lint_compelling_evidence_ce30_agentic); Visa CE3.0 is a card-network program, not a PayPal one',
+   dispute:{network:cardNetwork,reason_code:null,transaction_ref:transactionRef},
+   evidence:{ap2_mandate:null,tap_signature:null,agentic_token:null,delivery_proof:fulfillmentComplete?{digest:sha256HexSync(jcsStringify(digestPreimage)),bound_transaction_ref:transactionRef}:null,prior_transactions:null},
+   null_fields_note:'ap2_mandate, tap_signature, agentic_token: no PayPal counterpart (PayPal produces no AP2 mandate, TAP signature or agentic token for a dispute). reason_code: PayPal-to-network reason-code mapping NOT STATED in the PayPal snapshot. prior_transactions: PayPal Disputes API states no prior-transaction linkage data.'};
+ }
+
+ let paypalBundle=null;
+ if(bundleKind==='paypal_process_evidence'){
+  const ev={evidence_type:spec.evidence_type,evidence_info:{}};
+  if(spec.evidence_type==='PROOF_OF_FULFILLMENT'){ev.evidence_info.tracking_info=fulfillmentComplete?{tracking_info_list:[{carrier_name:evidenceEcho.carrier_name,tracking_number:evidenceEcho.tracking_number}]}:{};}
+  else if(spec.evidence_type==='PROOF_OF_REFUND'){ev.evidence_info.refund_ids=refundComplete?{refund_ids_list:[evidenceEcho.refund_id]}:{};}
+  if(notesComplete){ev.notes=evidenceEcho.notes;}
+  paypalBundle={label:'paypal_process_evidence: PayPal buyer-protection process evidence, explicitly NOT CE3.0 (no card-network compelling-evidence program applies)',evidences:[ev],submittable:missing.length===0};
+ }
+
+ const complianceFlags=[];
+ if(bundleKind==='ce30_shaped')complianceFlags.push('CE30_SHAPED_BUNDLE_PRODUCED');
+ if(bundleKind==='paypal_process_evidence')complianceFlags.push('PAYPAL_PROCESS_EVIDENCE_PRODUCED');
+ if(bundleKind===null)complianceFlags.push('CE30_BUNDLE_WITHHELD_UNKNOWN_FUNDING');
+ if(sellerResponse.due===null)complianceFlags.push('PAYPAL_RESPONSE_DEADLINE_NOT_STATED');
+ if(sellerResponse.past_due===true)complianceFlags.push('PAYPAL_RESPONSE_PAST_DUE');
+ if(inquiryStage!==null&&inquiryStage.past_due===true)complianceFlags.push('PAYPAL_INQUIRY_WINDOW_ELAPSED');
+ if(missing.length>0)complianceFlags.push('PAYPAL_EVIDENCE_INCOMPLETE');
+
+ const citedClauses=[];
+ if(passthroughMs!==null){citedClauses.push(clause('due_date_definition'),clause('due_date_consequence'));}
+ else if(stage==='INQUIRY'){citedClauses.push(clause('seller_response_10_day_a'),clause('seller_response_10_day_b'),clause('miss_10_day_consequence'),clause('inquiry_20_day'),clause('inquiry_auto_close'));}
+ else if(stage==='CHARGEBACK'){citedClauses.push(clause('chargeback_is_claim'),clause('chargeback_no_number'));}
+ else{citedClauses.push(clause('appeal_no_number'));}
+
+ return{output_payload:{
+  dispute_reason:reason,lifecycle_stage:stage,funding_source:funding,
+  dispute_create_time:isoOf(createMs),as_of:isoOf(asOfMs),
+  deadlines:{seller_response:sellerResponse,inquiry_stage:inquiryStage,escalation_available_until:inquiryStage!==null?inquiryStage.due:null},
+  required_evidence:{evidence_type:spec.evidence_type,required:spec.required.slice(),why:spec.why},
+  evidence_on_hand:evidenceEcho,
+  missing_evidence:missing,
+  bundle_decision:{ce30_applicable:ce30Applicable,bundle_kind:bundleKind,reason:bundleReason},
+  ce30_shaped_bundle:ce30Bundle,
+  paypal_process_evidence:paypalBundle,
+  cited_clauses:citedClauses,
+  domain_errors:[],refusal_reason:null},compliance_flags:complianceFlags};
+}
+
+/* ── same canonicalization + execution-hash algorithm as chaingraph/kernels/_hash.mjs,
+   browser leg: jcsStringify (RFC 8785-aligned) over {policy_parameters, output_payload},
+   SHA-256, bare lowercase hex ── */
+function jcsStringify(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){let s='[';for(let i=0;i<v.length;i++){if(i)s+=',';const e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':jcsStringify(e);}return s+']';}const keys=Object.keys(v).sort();let s='{',first=true;for(const k of keys){const e=v[k];if(e===undefined||typeof e==='function'||typeof e==='symbol')continue;if(!first)s+=',';first=false;s+=JSON.stringify(k)+':'+jcsStringify(e);}return s+'}';}
+async function sha256Hex(str){const bytes=new TextEncoder().encode(str);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');}
+async function executionHash(policy_parameters,output_payload){return sha256Hex(jcsStringify({policy_parameters:policy_parameters,output_payload:output_payload}));}
+
+/* ── form plumbing ── */
+function fieldStr(id){const el=document.getElementById(id);return el&&el.value!=null?el.value.trim():"";}
+function assemblePP(){
+ const pp={};
+ pp.dispute_reason=fieldStr("dispute_reason");
+ pp.lifecycle_stage=fieldStr("lifecycle_stage");
+ pp.funding_source=fieldStr("funding_source");
+ const ct=fieldStr("dispute_create_time");if(ct!=="")pp.dispute_create_time=ct;
+ const ao=fieldStr("as_of");if(ao!=="")pp.as_of=ao;
+ const dd=fieldStr("seller_response_due_date");if(dd!=="")pp.seller_response_due_date=dd;
+ const tr=fieldStr("transaction_ref");if(tr!=="")pp.transaction_ref=tr;
+ const cn=fieldStr("card_network");if(cn!=="")pp.card_network=cn;
+ const eh={};
+ for(const f of ["carrier_name","tracking_number","refund_id","notes"]){const v=fieldStr(f);if(v!=="")eh[f]=v;}
+ pp.evidence_on_hand=eh;
+ return pp;
+}
+
+let _lastArtifact=null;
+async function run(){
+ let pp,out,malformed=null;
+ try{ pp=assemblePP(); out=compute(pp).output_payload; }
+ catch(e){ malformed=String((e&&e.message)||e); pp=null;
+  out={refused:'PAGE_INPUT_MALFORMED',detail:malformed,domain_errors:[{code:'PAGE_INPUT_MALFORMED'}],refusal_reason:'PAGE_INPUT_MALFORMED'}; }
+ const generatedAt=new Date().toISOString();
+ document.getElementById("generatedAt").textContent="generated_at "+generatedAt;
+ const artifact={"@context":"https://ainumbers.co/chaingraph/context/v0.3/context.jsonld",chaingraph_version:"0.4.0",compute_mode:"browser",
+  mandate_type:"compliance_mandate",tool_id:MANIFEST.tool_id,tool_version:MANIFEST.version,generated_at:generatedAt,
+  execution_hash:null,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},
+  policy_parameters:pp,output_payload:out,compliance_flags:out.refusal_reason?["ART775_INPUT_REFUSED"]:[],
+  audit_signature:{payloadType:"application/vnd.openchain.graph+json;version=0.4",payload:"",signatures:[]}};
+ if(!malformed){ artifact.execution_hash="sha256:"+await executionHash(pp,out); }
+ _lastArtifact=artifact;
+ renderResults(out,artifact.execution_hash||"",pp);
+ document.getElementById("ap2ExportBtn").disabled=false;
+}
+
+function renderResults(op,execHash,pp){
+ const refused=!!op.refusal_reason;
+ const hero=document.getElementById("heroRow");
+ if(refused){
+  hero.innerHTML="<div class=\"hero-stat\"><div class=\"hero-val\" style=\"color:var(--red)\">—</div><div class=\"hero-lbl\">Refused</div></div>";
+ }else{
+  const sr=op.deadlines.seller_response;
+  const dueTxt=sr.due===null?"NOT STATED":sr.days_remaining+" d "+(sr.past_due?"past due":"left");
+  const iq=op.deadlines.inquiry_stage;
+  hero.innerHTML=
+   "<div class=\"hero-stat\"><div class=\"hero-val\" style=\"color:"+(sr.past_due===true?"var(--red)":sr.due===null?"var(--warn)":"var(--green)")+"\">"+(sr.due===null?"null":sr.days_remaining+" d")+"</div><div class=\"hero-lbl\">Days to respond</div></div>"+
+   "<div class=\"hero-stat\"><div class=\"hero-val\" style=\"font-size:.95rem\">"+(sr.due===null?"NOT STATED":sr.due)+"</div><div class=\"hero-lbl\">Response deadline ("+sr.source+")</div></div>"+
+   "<div class=\"hero-stat\"><div class=\"hero-val\" style=\"font-size:.95rem\">"+(iq===null?"n/a":iq.due)+"</div><div class=\"hero-lbl\">Inquiry stage ends</div></div>"+
+   "<div class=\"hero-stat\"><div class=\"hero-val\" style=\"color:"+(op.missing_evidence.length>0?"var(--warn)":"var(--green)")+"\">"+op.missing_evidence.length+"</div><div class=\"hero-lbl\">Missing evidence</div></div>";
+ }
+ const vd=document.getElementById("verdictDiv");
+ if(refused){
+  vd.innerHTML="<div class=\"verdict fail\">REFUSED — "+op.refusal_reason+": "+(op.detail||"")+"</div>";
+ }else{
+  const bd=op.bundle_decision;
+  if(bd.bundle_kind==='ce30_shaped'){vd.innerHTML="<div class=\"verdict pass\">CE3.0-shaped bundle produced for art-297: card-funded chargeback, the network dispute case.</div>";}
+  else if(bd.bundle_kind==='paypal_process_evidence'){vd.innerHTML="<div class=\"verdict warn\">PayPal buyer-protection process evidence produced, explicitly not CE3.0: no card-network compelling-evidence program applies at this stage or funding.</div>";}
+  else{vd.innerHTML="<div class=\"verdict warn\">No evidence bundle produced: funding source unknown. Only a chargeback on a card-funded transaction is a network dispute.</div>";}
+ }
+ const tbl=document.getElementById("resultTbl");
+ if(!refused){
+  const sr=op.deadlines.seller_response,iq=op.deadlines.inquiry_stage;
+  let body="";
+  body+="<tr><td>Seller response deadline</td><td>"+(sr.due===null?"null (NOT STATED)":sr.due)+"</td><td>"+sr.source+"</td><td>"+(sr.days_remaining===null?"—":sr.days_remaining+" d"+(sr.past_due?" (past due)":""))+"</td></tr>";
+  body+="<tr><td>Inquiry stage end</td><td>"+(iq===null?"n/a at this stage":iq.due)+"</td><td>"+(iq===null?"—":iq.source)+"</td><td>"+(iq===null?"—":iq.days_remaining+" d"+(iq.past_due?" (elapsed)":""))+"</td></tr>";
+  body+="<tr><td>Required evidence</td><td>"+op.required_evidence.evidence_type+"</td><td>"+op.required_evidence.required.join(", ")+"</td><td>"+op.required_evidence.why+"</td></tr>";
+  body+="<tr><td>Missing evidence</td><td>"+(op.missing_evidence.length===0?"none":op.missing_evidence.join(", "))+"</td><td>—</td><td>"+(op.missing_evidence.length===0?"submittable":"incomplete")+"</td></tr>";
+  tbl.innerHTML="<thead><tr><th>Item</th><th>Value</th><th>Source</th><th>Days / note</th></tr></thead><tbody>"+body+"</tbody>";
+ }else tbl.innerHTML="";
+ document.getElementById("bundleDiv").textContent=refused?"—":(op.bundle_decision.reason+" (bundle_kind: "+op.bundle_decision.bundle_kind+")");
+ document.getElementById("clausesDiv").innerHTML=refused?"—":op.cited_clauses.map(function(c){return c.id+": \""+c.quote+"\" &lt;"+c.url+"&gt;";}).join("<br>");
+ document.getElementById("artifactPre").textContent=JSON.stringify(_lastArtifact,null,2);
+ document.getElementById("execHash").textContent=execHash||"(not computed — malformed input)";
+ document.getElementById("resultsPanel").classList.add("show");
+}
+
+function loadSample(){ setFields({dispute_reason:"UNAUTHORISED",lifecycle_stage:"CHARGEBACK",funding_source:"card",dispute_create_time:"2026-10-01T12:00:00Z",as_of:"2026-10-05T12:00:00Z",seller_response_due_date:"2026-10-11T12:00:00Z",transaction_ref:"SYN-TXN-42",card_network:"visa",carrier_name:"SyntheticCarrier",tracking_number:"SYN-0002",refund_id:"",notes:""}); }
+function loadInquiryDemo(){ setFields({dispute_reason:"MERCHANDISE_OR_SERVICE_NOT_RECEIVED",lifecycle_stage:"INQUIRY",funding_source:"paypal_balance_or_bank",dispute_create_time:"2026-10-01T12:00:00Z",as_of:"2026-10-05T12:00:00Z",seller_response_due_date:"",transaction_ref:"",card_network:"",carrier_name:"SyntheticCarrier",tracking_number:"SYN-0001",refund_id:"",notes:""}); }
+function clearEvidence(){ setFields({carrier_name:"",tracking_number:"",refund_id:"",notes:""}); }
+function setFields(o){ for(const k of Object.keys(o)){ const el=document.getElementById(k); if(el)el.value=o[k]; } run(); }
+
+/* ── §4 artifact / policy mandate export ── */
+function exportArtifact(a){ if(!a){alert('Run the calculator first.');return;} download('art-776-artifact.json',JSON.stringify(a,null,2)); }
+function exportAP2(a){
+ if(!a){alert('Run the calculator first.');return;}
+ const op=a.output_payload;
+ const payload={mandate_type:"paypal_dispute_response_record",generated_at:a.generated_at,
+  chaingraph_version:"0.4.0",ap2_mandate_type:"paypal_dispute_response_record",tool_id:MANIFEST.tool_id,
+  policy_parameters:a.policy_parameters,output_payload:op,execution_hash:a.execution_hash,
+  chain:a.chain,compliance_flags:a.compliance_flags,
+  audit_signature:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+ download('art-776-paypal-dispute.ap2.json',JSON.stringify(payload,null,2));
+}
+function download(name,text){ const blob=new Blob([text],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); }
+
+function getManifest(){ return MANIFEST; }
+function toggleMfst(){ const b=document.getElementById('mfstBody'); b.style.display=b.style.display==='block'?'none':'block'; if(b.style.display==='block') document.getElementById('mfstCode').textContent=JSON.stringify(getManifest(),null,2); }
+
+const MANIFEST={"tool_id":"art-776-paypal-dispute-deadline-evidence","version":"1.0.0","title":"PayPal Dispute Deadline & Evidence","mcp_tool_definition":{"name":"compute_paypal_dispute_response","description":"Compute a PayPal dispute seller-response deadline (snapshot-stated inquiry rules or seller_response_due_date passthrough, days remaining against a caller-supplied as_of, null with a reason where PayPal states no number) and produce the seller evidence bundle: CE3.0-shaped with art-297's field names for a chargeback on a card-funded transaction, PayPal buyer-protection process evidence otherwise, withheld with a reason for unknown funding. Deterministic, offline, zero PII."},"ap2_export":true,"chaingraph":true};
+</script>
+</body>
+</html>

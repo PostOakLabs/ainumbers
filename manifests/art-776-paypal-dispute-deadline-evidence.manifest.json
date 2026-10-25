@@ -1,0 +1,256 @@
+{
+  "tool_id": "art-776-paypal-dispute-deadline-evidence",
+  "version": "1.0.0",
+  "title": "PayPal Dispute Deadline & Evidence",
+  "description": "PayPal dispute deadline calculator and evidence-bundle producer (PAYPAL-DISPUTE-DEADLINE-NODE-1, hub proposal PAYPAL-HUB-PROPOSALS-2026-10-24 row 9 as amended). From a dispute reason (the four reasons in the estate's PayPal dispute-evidence map, reused verbatim from paypal-agent-shop/lib/disputes.js), a lifecycle stage from PayPal's dispute_life_cycle_stage enum, a funding source, ISO-8601 UTC timestamps and the evidence items on hand, the node computes the seller response deadline from PayPal's stated rules (10 days after dispute creation at the inquiry stage; 20-day inquiry window) or passes seller_response_due_date through, with days remaining against the caller-supplied as_of. Windows PayPal does not state (chargeback-stage response, appeal period) are returned as null with a reason, never guessed. It maps the reason to required evidence and missing items, and emits the evidence bundle: a CE3.0-shaped bundle with art-297's field names only for a chargeback on a card-funded transaction; a paypal_process_evidence bundle (lib evidence types on the Disputes API v1.12 evidence_info shape) for inquiry, claim and appeal stages and non-card funding; no CE3.0 bundle and a reason for unknown funding. Clause authority: research/clause-snapshots/paypal-disputes-2026-10/SNAPSHOT.md (fetch 2026-10-25T03Z). Zero network, zero PII, synthetic values only.",
+  "category": "chaingraph",
+  "tags": [
+    "paypal",
+    "disputes",
+    "seller-response-deadline",
+    "evidence-bundle",
+    "ce30-producer",
+    "mcp:compute_paypal_dispute_response"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "dispute_reason",
+      "lifecycle_stage",
+      "funding_source",
+      "dispute_create_time",
+      "as_of"
+    ],
+    "properties": {
+      "dispute_reason": {
+        "type": "string",
+        "enum": [
+          "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+          "MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED",
+          "UNAUTHORISED",
+          "CREDIT_NOT_PROCESSED"
+        ],
+        "description": "Dispute reason, exactly the four reasons of paypal-agent-shop/lib/disputes.js REASON_EVIDENCE (PAYPAL-E6-DISPUTE-EVIDENCE-1); British spelling UNAUTHORISED matches PayPal's enum. Any other value (including the other six schema v1.12 enum values) is refused, mirroring the lib's UnknownDisputeReasonError. Read unconditionally by compute()."
+      },
+      "lifecycle_stage": {
+        "type": "string",
+        "enum": [
+          "INQUIRY",
+          "CHARGEBACK",
+          "PRE_ARBITRATION",
+          "ARBITRATION"
+        ],
+        "description": "Dispute lifecycle stage, PayPal's dispute_life_cycle_stage enum (schema v1.12). CHARGEBACK is PayPal's escalated-claim stage. Read unconditionally."
+      },
+      "funding_source": {
+        "type": "string",
+        "enum": [
+          "card",
+          "paypal_balance_or_bank",
+          "unknown"
+        ],
+        "description": "Transaction funding source (desk amendment 2026-10-25). Only a chargeback on a card-funded transaction is a network dispute and gets the CE3.0-shaped bundle; unknown funding gets no CE3.0 bundle and a reason. Read unconditionally."
+      },
+      "dispute_create_time": {
+        "type": "string",
+        "description": "Dispute creation timestamp, ISO-8601 UTC YYYY-MM-DDTHH:MM:SS(.SSS)Z. Basis for the snapshot-stated inquiry deadlines. Read unconditionally."
+      },
+      "as_of": {
+        "type": "string",
+        "description": "Reference timestamp for days_remaining and past_due, ISO-8601 UTC. Required: the kernel never reads a wall clock. Read unconditionally."
+      },
+      "seller_response_due_date": {
+        "type": "string",
+        "description": "OPTIONAL passthrough of PayPal's own seller_response_due_date (ISO-8601 UTC). When supplied it IS the seller response deadline and the computed rule is not applied. Not in 'required'."
+      },
+      "transaction_ref": {
+        "type": "string",
+        "description": "OPTIONAL synthetic transaction reference; binds the CE3.0 bundle's bound_transaction_ref exactly the way art-297 checks it. Not in 'required'."
+      },
+      "card_network": {
+        "type": "string",
+        "description": "OPTIONAL card-network label (e.g. 'visa') passed through into the CE3.0 bundle's dispute.network; PayPal's snapshot states no network mapping, so the kernel never invents one. Not in 'required'."
+      },
+      "evidence_on_hand": {
+        "type": "object",
+        "properties": {
+          "carrier_name": { "type": "string", "description": "Carrier name for PROOF_OF_FULFILLMENT evidence (disputes.js required field, verbatim)." },
+          "tracking_number": { "type": "string", "description": "Tracking number for PROOF_OF_FULFILLMENT evidence (disputes.js required field, verbatim)." },
+          "refund_id": { "type": "string", "description": "Refund transaction id for PROOF_OF_REFUND evidence (disputes.js required field, verbatim)." },
+          "notes": { "type": "string", "description": "Narrative for OTHER evidence, e.g. product description or return policy text (disputes.js required field, verbatim; PayPal caps notes at 2000 characters)." }
+        },
+        "description": "OPTIONAL evidence items on hand. Blank or absent members echo back as null and count as missing. Not in 'required'."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_paypal_dispute_response",
+    "description": "Compute a PayPal dispute seller-response deadline (snapshot-stated inquiry rules or seller_response_due_date passthrough, days remaining against a caller-supplied as_of, null with a reason where PayPal states no number) and produce the seller evidence bundle: CE3.0-shaped with art-297's field names for a chargeback on a card-funded transaction, PayPal buyer-protection process evidence otherwise, withheld with a reason for unknown funding. Deterministic, offline, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "dispute_reason",
+        "lifecycle_stage",
+        "funding_source",
+        "dispute_create_time",
+        "as_of"
+      ],
+      "properties": {
+        "dispute_reason": {
+          "type": "string",
+          "enum": [
+            "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+            "MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED",
+            "UNAUTHORISED",
+            "CREDIT_NOT_PROCESSED"
+          ],
+          "description": "One of the four disputes.js reasons; anything else is refused."
+        },
+        "lifecycle_stage": {
+          "type": "string",
+          "enum": [
+            "INQUIRY",
+            "CHARGEBACK",
+            "PRE_ARBITRATION",
+            "ARBITRATION"
+          ],
+          "description": "PayPal dispute_life_cycle_stage enum value."
+        },
+        "funding_source": {
+          "type": "string",
+          "enum": [
+            "card",
+            "paypal_balance_or_bank",
+            "unknown"
+          ],
+          "description": "card, paypal_balance_or_bank or unknown."
+        },
+        "dispute_create_time": {
+          "type": "string",
+          "description": "ISO-8601 UTC timestamp of dispute creation."
+        },
+        "as_of": {
+          "type": "string",
+          "description": "ISO-8601 UTC reference time; the kernel never reads a wall clock."
+        },
+        "seller_response_due_date": {
+          "type": "string",
+          "description": "Optional ISO-8601 UTC passthrough of PayPal's own deadline timestamp."
+        },
+        "transaction_ref": {
+          "type": "string",
+          "description": "Optional synthetic transaction reference for the CE3.0 bundle binding."
+        },
+        "card_network": {
+          "type": "string",
+          "description": "Optional card-network label passed through to the CE3.0 bundle."
+        },
+        "evidence_on_hand": {
+          "type": "object",
+          "description": "Optional { carrier_name, tracking_number, refund_id, notes } evidence items on hand."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-776-paypal-dispute-deadline-evidence.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "description": "output_payload: dispute_reason, lifecycle_stage, funding_source, dispute_create_time, as_of, deadlines (seller_response {due, source, basis, days_remaining, past_due}, inquiry_stage, escalation_available_until), required_evidence {evidence_type, required, why}, evidence_on_hand echo, missing_evidence, bundle_decision {ce30_applicable, bundle_kind, reason}, ce30_shaped_bundle (art-297 field names: dispute {network, reason_code, transaction_ref}, evidence {ap2_mandate, tap_signature, agentic_token, delivery_proof {digest, bound_transaction_ref}, prior_transactions}; null where PayPal has no counterpart) or null, paypal_process_evidence (evidences [{evidence_type, evidence_info {tracking_info|refund_ids}, notes?}], submittable) or null, cited_clauses [{id, quote, url}], domain_errors, refusal_reason."
+  },
+  "source": "chaingraph/kernels/art-776-paypal-dispute-deadline-evidence.kernel.mjs",
+  "input_schema_provenance": "Each property is exactly the policy_parameters member the kernel reads; there is no other input surface. The five required properties scope the dispute; seller_response_due_date, transaction_ref, card_network and evidence_on_hand are the only optional properties, each documented in place. Reason and evidence vocabulary is reused verbatim from paypal-agent-shop/lib/disputes.js; lifecycle stages from PayPal's dispute_life_cycle_stage enum (schema v1.12); funding sources from the 2026-10-25 desk amendment.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "dispute_reason": "UNAUTHORISED",
+    "lifecycle_stage": "CHARGEBACK",
+    "funding_source": "card",
+    "dispute_create_time": "2026-10-01T12:00:00Z",
+    "as_of": "2026-10-05T12:00:00Z",
+    "seller_response_due_date": "2026-10-11T12:00:00Z",
+    "transaction_ref": "SYN-TXN-42",
+    "card_network": "visa",
+    "evidence_on_hand": {
+      "carrier_name": "SyntheticCarrier",
+      "tracking_number": "SYN-0002"
+    }
+  },
+  "output_example": {
+    "dispute_reason": "UNAUTHORISED",
+    "lifecycle_stage": "CHARGEBACK",
+    "funding_source": "card",
+    "dispute_create_time": "2026-10-01T12:00:00.000Z",
+    "as_of": "2026-10-05T12:00:00.000Z",
+    "deadlines": {
+      "seller_response": {
+        "due": "2026-10-11T12:00:00.000Z",
+        "source": "passthrough",
+        "basis": "seller_response_due_date passthrough: \"The date and time by when the merchant must respond to the dispute, in Internet date and time format.\" (S5); consequence \"If the merchant does not respond by this date and time, the dispute is closed in the customer's favor.\" (S5)",
+        "days_remaining": 6,
+        "past_due": false
+      },
+      "inquiry_stage": null,
+      "escalation_available_until": null
+    },
+    "required_evidence": {
+      "evidence_type": "PROOF_OF_FULFILLMENT",
+      "required": ["carrier_name", "tracking_number"],
+      "why": "prove the goods reached the cardholder (or their address) with carrier + tracking"
+    },
+    "evidence_on_hand": {
+      "carrier_name": "SyntheticCarrier",
+      "tracking_number": "SYN-0002",
+      "refund_id": null,
+      "notes": null
+    },
+    "missing_evidence": [],
+    "bundle_decision": {
+      "ce30_applicable": true,
+      "bundle_kind": "ce30_shaped",
+      "reason": "Chargeback on a card-funded transaction: the network dispute case. CE3.0-shaped bundle emitted for consumption by art-297 (mcp:lint_compelling_evidence_ce30_agentic)."
+    },
+    "ce30_shaped_bundle": {
+      "label": "CE3.0-shaped bundle for consumption by art-297 (mcp:lint_compelling_evidence_ce30_agentic); Visa CE3.0 is a card-network program, not a PayPal one",
+      "dispute": { "network": "visa", "reason_code": null, "transaction_ref": "SYN-TXN-42" },
+      "evidence": {
+        "ap2_mandate": null,
+        "tap_signature": null,
+        "agentic_token": null,
+        "delivery_proof": {
+          "digest": "39667b9861805bedc23474ca0792aa6166dbaf49786f4da7562823650009a3b2",
+          "bound_transaction_ref": "SYN-TXN-42"
+        },
+        "prior_transactions": null
+      },
+      "null_fields_note": "ap2_mandate, tap_signature, agentic_token: no PayPal counterpart (PayPal produces no AP2 mandate, TAP signature or agentic token for a dispute). reason_code: PayPal-to-network reason-code mapping NOT STATED in the PayPal snapshot. prior_transactions: PayPal Disputes API states no prior-transaction linkage data."
+    },
+    "paypal_process_evidence": null,
+    "cited_clauses": [
+      {
+        "id": "S5",
+        "quote": "The date and time by when the merchant must respond to the dispute, in Internet date and time format.",
+        "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+      },
+      {
+        "id": "S5",
+        "quote": "If the merchant does not respond by this date and time, the dispute is closed in the customer's favor.",
+        "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+      }
+    ],
+    "domain_errors": [],
+    "refusal_reason": null
+  },
+  "example_execution_hash": "027283d9d1f84a2ee1c8ce95bbd12cdd9981fd52fca534f62da1043e93469afc"
+}
