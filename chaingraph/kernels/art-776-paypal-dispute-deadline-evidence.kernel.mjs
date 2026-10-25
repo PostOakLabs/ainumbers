@@ -117,7 +117,7 @@ export const REASON_EVIDENCE = {
 export const meta = {
   tool_id: TOOL_ID,
   tool_version: TOOL_VERSION,
-  mcp_name: 'compute_paypal_dispute_response',
+  mcp_name: 'compute_paypal_response',
   mandate_type: 'compliance_mandate',
   gpu: false,
 };
