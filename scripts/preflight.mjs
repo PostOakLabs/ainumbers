@@ -1684,6 +1684,7 @@ const GATES = [
   // derived-artifacts.mjs COVERED id 'receipt-bundles' gate, so it is advisory on a
   // PR (the tree is written main-side, SO #35) and blocking on main.
   ['Receipt bundles freshness (RECEIPT-BUNDLE-PUBLISH-1)', 'node scripts/gen-receipt-bundles.mjs --check'],
+  ['Receipt bundle attest subjects (SIGSTORE-BUNDLE-V03-EXPORT-6)', 'node scripts/receipt-bundle-attest-subjects.mjs'],
   ['RSS change feed controls (staleness RED/GREEN + tag-filter, SO #40b)', 'node scripts/gen-rss.mjs --self-test'],
   ['Evidence-profile manifest (EF-2)', 'node scripts/validate-evidence-profiles.mjs'],
   ['Chain domain taxonomy',        'node scripts/check-chain-domain.mjs'],
