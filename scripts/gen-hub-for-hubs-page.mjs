@@ -182,6 +182,7 @@ const CLUSTERS = [
     paths: [
       'guides/agentic-commerce-mcp-hub.html',
       'guides/paypal-agent-shop-walkthrough.html',
+      'guides/paypal-hub.html',
       'guides/agent-observability-hub.html',
       'guides/agent-payment-dispute-evidence-hub.html',
       'chaingraph/agentcore-x402-hub.html',
