@@ -656,6 +656,7 @@ import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
 import * as art771    from './art-771-automation-payback.kernel.mjs';
 import * as art774    from './art-774-beacon-seeded-fair-sampling-v2.kernel.mjs';
+import * as art776    from './art-776-paypal-dispute-deadline-evidence.kernel.mjs';
 import * as art78     from './art-78-csdr-penalty-calculator.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
@@ -1350,6 +1351,7 @@ export const KERNELS = {
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
   'art-771-automation-payback':                                 art771,
   'art-774-beacon-seeded-fair-sampling-v2':                     art774,
+  'art-776-paypal-dispute-deadline-evidence':                   art776,
   'art-78-csdr-penalty-calculator':                             art78,
   'art-79-settlement-fail-predictor':                           art79,
   'art-80-ssi-conformance-checker':                             art80,
