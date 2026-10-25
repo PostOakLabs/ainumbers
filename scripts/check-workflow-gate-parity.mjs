@@ -226,7 +226,9 @@ const NOT_A_GATE = new Map([
   ["derived-regen-deadman.yml",
     "workflow_run listener on derived-artifacts-regen.yml (main-only, completed) — the " +
     "failure alarm: retry-once (10 min backoff) plus ONE tracking issue via the shared " +
-    "scheduled-red-issue tracker. It has no pull_request, merge_group or push trigger of " +
+    "scheduled-red-issue tracker, plus (REGEN-RED-STOPS-THE-LINE-1) an advisory " +
+    "derived-regen/main commit status on the failing/healed SHA — a status is not a check " +
+    "run and can never be required. It has no pull_request, merge_group or push trigger of " +
     "its own, runs no estate gate, and blocks no merge — it reports a main-side red after " +
     "the fact."],
   ["fullsuite-schedule.yml",

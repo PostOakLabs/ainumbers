@@ -646,6 +646,7 @@ import * as art72     from './art-72-cbam-precursor-emissions-aggregator.kernel.
 import * as art73     from './art-73-taxonomy-alignment-scorer.kernel.mjs';
 import * as art734    from './art-734-force-placed-insurance-checker.kernel.mjs';
 import * as art74     from './art-74-taxonomy-kpi-gar-aggregator.kernel.mjs';
+import * as art749    from './art-749-solana-paychan-voucher-verifier.kernel.mjs';
 import * as art75     from './art-75-eugb-factsheet-validator.kernel.mjs';
 import * as art754    from './art-754-equity-exit-waterfall.kernel.mjs';
 import * as art758    from './art-758-hdhp-ppo-break-even.kernel.mjs';
@@ -1341,6 +1342,7 @@ export const KERNELS = {
   'art-73-taxonomy-alignment-scorer':                           art73,
   'art-734-force-placed-insurance-checker':                     art734,
   'art-74-taxonomy-kpi-gar-aggregator':                         art74,
+  'art-749-solana-paychan-voucher-verifier':                    art749,
   'art-75-eugb-factsheet-validator':                            art75,
   'art-754-equity-exit-waterfall':                              art754,
   'art-758-hdhp-ppo-break-even':                                art758,

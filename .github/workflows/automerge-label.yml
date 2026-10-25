@@ -269,7 +269,15 @@ jobs:
             gh pr merge "$PR" -R "$REPO" --auto --squash || true
             AUTO=$(gh pr view "$PR" -R "$REPO" --json autoMergeRequest -q .autoMergeRequest)
             if [ "$AUTO" = "null" ] || [ -z "$AUTO" ]; then
-              gh api graphql -f query='mutation($id: ID!){enqueuePullRequest(input:{pullRequestId:$id}){mergeQueueEntry{id}}}' -f id="$NODE_ID" || { echo "::error title=Re-arm failed::#$PR"; FAILS=$((FAILS+1)); continue; }
+              gh api graphql -f query='mutation($id: ID!){enqueuePullRequest(input:{pullRequestId:$id}){mergeQueueEntry{id}}}' -f id="$NODE_ID" || true
+              Q2=$(gh api graphql -f query='query($id: ID!){node(id:$id){... on PullRequest{mergeQueueEntry{id}}}}' -f id="$NODE_ID" | jq -r '.data.node.mergeQueueEntry')
+              if [ "$Q2" != "null" ]; then
+                echo "#$PR already in queue; re-arm confirmed"
+                continue
+              fi
+              echo "::error title=Re-arm failed::#$PR"
+              FAILS=$((FAILS+1))
+              continue
             fi
             gh pr comment "$PR" -R "$REPO" --body "auto-merge re-armed by automerge-label.yml (scheduled recovery scan: PR is clean and was not armed)."
           done
