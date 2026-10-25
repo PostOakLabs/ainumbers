@@ -661,6 +661,7 @@ status: stable
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md)
 - [Automation Payback](./art-771-automation-payback.md)
 - [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md)
+- [PayPal Dispute Deadline & Evidence](./art-776-paypal-dispute-deadline-evidence.md)
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md)
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md)
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md)

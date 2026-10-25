@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1240 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1241 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -2415,6 +2415,9 @@
       "name": "cdd"
     },
     {
+      "name": "ce30-producer"
+    },
+    {
       "name": "cell-diff"
     },
     {
@@ -3097,6 +3100,9 @@
     },
     {
       "name": "dispute"
+    },
+    {
+      "name": "disputes"
     },
     {
       "name": "dlt-pilot"
@@ -4368,6 +4374,9 @@
       "name": "mcp:compute_isa530_audit_sampling_mus"
     },
     {
+      "name": "mcp:compute_paypal_response"
+    },
+    {
       "name": "mcp:correlate_ap2_cartmandate_x402"
     },
     {
@@ -4942,6 +4951,9 @@
     },
     {
       "name": "payout-curve"
+    },
+    {
+      "name": "paypal"
     },
     {
       "name": "payroll redirect"
@@ -5797,6 +5809,9 @@
     },
     {
       "name": "self-fund"
+    },
+    {
+      "name": "seller-response-deadline"
     },
     {
       "name": "semconv"
@@ -128261,6 +128276,110 @@
         "x-mcp-tool-name": "derive_beacon_fair_sample_v2",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-774-beacon-seeded-fair-sampling-v2.html",
         "x-source": "manifest"
+      }
+    },
+    "/v1/tools/compute_paypal_response": {
+      "post": {
+        "operationId": "compute_paypal_response",
+        "summary": "PayPal Dispute Deadline & Evidence",
+        "description": "PayPal dispute deadline calculator and evidence-bundle producer (PAYPAL-DISPUTE-DEADLINE-NODE-1, hub proposal PAYPAL-HUB-PROPOSALS-2026-10-24 row 9 as amended). From a dispute reason (the four reasons in the estate's PayPal dispute-evidence map, reused verbatim from paypal-agent-shop/lib/disputes.js), a lifecycle stage from PayPal's dispute_life_cycle_stage enum, a funding source, ISO-8601 UTC timestamps and the evidence items on hand, the node computes the seller response deadline from PayPal's stated rules (10 days after dispute creation at the inquiry stage; 20-day inquiry window) or passes seller_response_due_date through, with days remaining against the caller-supplied as_of. Windows PayPal does not state (chargeback-stage response, appeal period) are returned as null with a reason, never guessed. It maps the reason to required evidence and missing items, and emits the evidence bundle: a CE3.0-shaped bundle with art-297's field names only for a chargeback on a card-funded transaction; a paypal_process_evidence bundle (lib evidence types on the Disputes API v1.12 evidence_info shape) for inquiry, claim and appeal stages and non-card funding; no CE3.0 bundle and a reason for unknown funding. Clause authority: research/clause-snapshots/paypal-disputes-2026-10/SNAPSHOT.md (fetch 2026-10-25T03Z). Zero network, zero PII, synthetic values only.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "paypal",
+          "disputes",
+          "seller-response-deadline",
+          "evidence-bundle",
+          "ce30-producer",
+          "mcp:compute_paypal_response"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dispute_reason",
+                  "lifecycle_stage",
+                  "funding_source",
+                  "dispute_create_time",
+                  "as_of"
+                ],
+                "properties": {
+                  "dispute_reason": {
+                    "type": "string",
+                    "enum": [
+                      "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+                      "MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED",
+                      "UNAUTHORISED",
+                      "CREDIT_NOT_PROCESSED"
+                    ],
+                    "description": "One of the four disputes.js reasons; anything else is refused."
+                  },
+                  "lifecycle_stage": {
+                    "type": "string",
+                    "enum": [
+                      "INQUIRY",
+                      "CHARGEBACK",
+                      "PRE_ARBITRATION",
+                      "ARBITRATION"
+                    ],
+                    "description": "PayPal dispute_life_cycle_stage enum value."
+                  },
+                  "funding_source": {
+                    "type": "string",
+                    "enum": [
+                      "card",
+                      "paypal_balance_or_bank",
+                      "unknown"
+                    ],
+                    "description": "card, paypal_balance_or_bank or unknown."
+                  },
+                  "dispute_create_time": {
+                    "type": "string",
+                    "description": "ISO-8601 UTC timestamp of dispute creation."
+                  },
+                  "as_of": {
+                    "type": "string",
+                    "description": "ISO-8601 UTC reference time; the kernel never reads a wall clock."
+                  },
+                  "seller_response_due_date": {
+                    "type": "string",
+                    "description": "Optional ISO-8601 UTC passthrough of PayPal's own deadline timestamp."
+                  },
+                  "transaction_ref": {
+                    "type": "string",
+                    "description": "Optional synthetic transaction reference for the CE3.0 bundle binding."
+                  },
+                  "card_network": {
+                    "type": "string",
+                    "description": "Optional card-network label passed through to the CE3.0 bundle."
+                  },
+                  "evidence_on_hand": {
+                    "type": "object",
+                    "description": "Optional { carrier_name, tracking_number, refund_id, notes } evidence items on hand."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "output_payload: dispute_reason, lifecycle_stage, funding_source, dispute_create_time, as_of, deadlines (seller_response {due, source, basis, days_remaining, past_due}, inquiry_stage, escalation_available_until), required_evidence {evidence_type, required, why}, evidence_on_hand echo, missing_evidence, bundle_decision {ce30_applicable, bundle_kind, reason}, ce30_shaped_bundle (art-297 field names: dispute {network, reason_code, transaction_ref}, evidence {ap2_mandate, tap_signature, agentic_token, delivery_proof {digest, bound_transaction_ref}, prior_transactions}; null where PayPal has no counterpart) or null, paypal_process_evidence (evidences [{evidence_type, evidence_info {tracking_info|refund_ids}, notes?}], submittable) or null, cited_clauses [{id, quote, url}], domain_errors, refusal_reason."
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "compute_paypal_response",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
       }
     },
     "/v1/tools/calculate_csdr_penalty": {
