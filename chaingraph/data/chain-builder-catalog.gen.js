@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (692 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (694 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7519,6 +7519,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-749-solana-paychan-voucher-verifier",
+    "display_name": "Solana Paychan Voucher Verifier",
+    "mandate_type": "payment_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-749-solana-paychan-voucher-verifier.html",
+    "description": "Values-only check of a Solana payment-channels voucher message against trusted channel terms. The voucher is the 50-byte Ed25519-signed mess",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-75-eugb-factsheet-validator",
     "display_name": "EU Green Bond Factsheet & Allocation Validator",
     "mandate_type": "compliance_mandate",
@@ -7632,6 +7642,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-774-beacon-seeded-fair-sampling-v2.html",
     "description": "Derives a deterministic, offline-replayable audit sample, version 2 of the beacon-seeded fair-sampling family, from a caller-pasted public r",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-776-paypal-dispute-deadline-evidence",
+    "display_name": "PayPal Dispute Deadline & Evidence",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html",
+    "description": "PayPal dispute deadline calculator and evidence-bundle producer, the PayPal-side PRODUCER for the existing dispute-evidence chain (hub propo",
     "consumes": [],
     "feeds": [],
     "status": "live"
