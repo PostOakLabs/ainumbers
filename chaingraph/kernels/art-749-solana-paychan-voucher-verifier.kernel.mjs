@@ -55,7 +55,7 @@ function dec(v) { return v.toString(10); }
 function parseU64(s) {
   if (typeof s !== 'string' || !/^[0-9]+$/.test(s)) return null;
   let v = 0n;
-  for (const ch of s) { v = v * 10n + BigInt(ch.charCodeAt(0) - 48); if (v > U64_MAX) return null; }
+  for (let __i = 0; __i < s.length; __i++) { const ch = s[__i]; v = v * 10n + BigInt(ch.charCodeAt(0) - 48); if (v > U64_MAX) return null; }
   return v;
 }
 
@@ -72,7 +72,7 @@ function parseI64(s) {
 // Pure base58 (Bitcoin alphabet) decoder for 32-byte Solana addresses: the decoded
 // byte length (leading '1' zeros plus value bytes) must be exactly 32.
 const B58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-const B58_MAP = new Map([...B58_ALPHABET].map((c, i) => [c, i]));
+const B58_MAP = new Map(B58_ALPHABET.split('').map((c, i) => [c, i]));
 function base58Decode32(s) {
   if (typeof s !== 'string' || s.length === 0 || s.length > 50) return null;
   let n = 0n;
