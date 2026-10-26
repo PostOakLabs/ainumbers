@@ -7,6 +7,9 @@
 //    is rejected (exit path, errors reported).
 // 3. The main() CLI prints the subject-path form and exits 0 on the published
 //    index, exits 1 on a malformed one.
+// 4. A stray on-disk *.bundle.json in the index's own directory that the
+//    index does not name fails main() (exit 1); removing the stray restores
+//    exit 0 — the glob must never attest a file the index does not cover.
 //
 // Run: node --test scripts/receipt-bundle-attest-subjects.test.mjs
 
@@ -71,6 +74,31 @@ test('CLI: exit 0 and glob on the published index, exit 1 on a bad one', () => {
       assert.equal(main([badPath]), 1);
       mkdirSync(dir, { recursive: true });
       assert.equal(main([join(dir, 'missing.json')]), 1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  } finally {
+    console.log = origLog;
+    console.error = origErr;
+  }
+});
+
+test('stray on-disk bundle the index does not name fails main; removing it passes', () => {
+  const origLog = console.log;
+  const origErr = console.error;
+  console.log = () => {};
+  console.error = () => {};
+  try {
+    const dir = mkdtempSync(join(tmpdir(), 'attest-stray-'));
+    try {
+      const indexPath = join(dir, 'index.json');
+      const index = { bundles: [{ tool_id: 'one', bundle: 'one.bundle.json' }] };
+      writeFileSync(indexPath, JSON.stringify(index));
+      writeFileSync(join(dir, 'one.bundle.json'), '{}');
+      writeFileSync(join(dir, 'stray.bundle.json'), '{}');
+      assert.equal(main([indexPath]), 1); // RED: the stray is on disk but not named by the index
+      rmSync(join(dir, 'stray.bundle.json'));
+      assert.equal(main([indexPath]), 0); // GREEN: exactly the indexed set remains on disk
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

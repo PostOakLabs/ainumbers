@@ -717,82 +717,6 @@ jobs:
             > .well-known/deploy-stamp.json
           cat .well-known/deploy-stamp.json
 
-      - name: 🧾 Build deploy manifest (site content digest)
-        # The estate attests kernel computations and the
-        # FV artifacts (land-verify.yml attest job), but the DEPLOY itself
-        # shipped with no provenance: a verifier could check every receipt yet
-        # not that the bytes on ainumbers.co came from a green main build.
-        # This step closes that link, the same way the deploy stamp above is
-        # written HERE at rsync time: it hashes exactly the set of files this
-        # rsync is about to publish — the mirror of the rsync --include/
-        # --exclude set below — into a sorted "<sha256>  <path>" list, then a
-        # JSON manifest carrying the sha256 OVER that list as the SITE CONTENT
-        # digest. Both files ship in the rsync below, so verification is
-        # self-serve at /.well-known/deploy-manifest.json: fetch it, check out
-        # the commit it names, re-run this same derivation, compare bytes.
-        #
-        # Two deliberate exclusions beyond the rsync mirror:
-        #   .well-known/deploy-stamp.json — carries deployed_at, a run
-        #     timestamp, so no third party could ever reproduce its bytes;
-        #   .well-known/deploy-manifest.json / deploy-checksums.txt — a file
-        #     cannot contain its own hash.
-        #
-        # Plain find/sort/sha256sum/node (the land-verify.yml manifest
-        # precedent): shell tooling keeps this step outside
-        # check-workflow-gate-parity.mjs's node-gate scope, so no parity
-        # declaration is owed for it, and the derivation is locally runnable
-        # on any checkout. Node is runner-preinstalled; no setup-node needed
-        # for two fs reads and a write. Keep this pipeline BYTE-IDENTICAL to
-        # the preflight job's "Deploy manifest preview" step above.
-        # DEPLOY_SHA crosses from the workflow-level env (the completed regen's
-        # head_sha on the workflow_run trigger) — the manifest must name the
-        # commit whose tree this run checked out, not the event-time branch head.
-        run: |
-          set -euo pipefail
-          mkdir -p .well-known
-          find . -type f \
-            ! -path './.git/*' ! -name '.git' ! -path './.github/*' ! -path './node_modules/*' \
-            ! -path './scripts/*' ! -path './specs/*' ! -path './docs/*' ! -path './reconciled/*' \
-            ! -path '*/scripts/*' \
-            ! -name '.gitattributes' ! -name '.gitignore' ! -name '.DS_Store' \
-            ! -name 'Thumbs.db' ! -name 'CANONICAL_TOOL_EXAMPLE.html' \
-            ! -name '.env' ! -name '.env.*' \
-            ! -name 'deploy-stamp.json' ! -name 'deploy-manifest.json' ! -name 'deploy-checksums.txt' \
-            -print0 \
-            | sed -z 's|^\./||' \
-            | awk 'BEGIN{RS="\0"} /\.md$/ && $0 !~ /^chaingraph\/okf\// && $0 != "chaingraph/standard/SPEC.md" {next} {printf "%s%c", $0, 0}' \
-            | sort -z \
-            | xargs -0 sha256sum \
-            | sed -e 's/ \*/  /' -e 's|  \./|  |' \
-            > .well-known/deploy-checksums.txt
-          export DEPLOY_GENERATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          DEPLOY_MANIFEST_DIGEST=$(sha256sum .well-known/deploy-checksums.txt | cut -d' ' -f1)
-          export DEPLOY_MANIFEST_DIGEST
-          # Values cross via env, never as a template expression inside the
-          # script text (same rule as the SSH step above); the JSON is
-          # assembled by node from those env vars only.
-          node -e '
-            const fs = require("fs");
-            const sums = fs.readFileSync(".well-known/deploy-checksums.txt", "utf8");
-            const files = sums.split("\n").filter((l) => l.length > 0).map((l) => {
-              const i = l.indexOf("  ");
-              return { sha256: l.slice(0, i), path: l.slice(i + 2) };
-            });
-            const manifest = {
-              schema: "ainumbers/deploy-manifest@v1",
-              deployed_commit: process.env.DEPLOY_SHA,
-              generated_at: process.env.DEPLOY_GENERATED_AT,
-              file_count: files.length,
-              site_content_digest: "sha256:" + process.env.DEPLOY_MANIFEST_DIGEST,
-              digest_input: "sha256 over the exact bytes of .well-known/deploy-checksums.txt: one \"<sha256>  <repo-relative-path>\" line per published file, sorted by path (sha256sum format). Excluded from the list: .well-known/deploy-stamp.json (carries a run timestamp, irreproducible by design) and this manifest plus its checksum list (a file cannot contain its own hash).",
-              files: files
-            };
-            fs.writeFileSync(".well-known/deploy-manifest.json", JSON.stringify(manifest, null, 2) + "\n");
-          '
-          echo "site_content_digest: sha256:$DEPLOY_MANIFEST_DIGEST over $(wc -l < .well-known/deploy-checksums.txt) published files"
-          echo "publishing: /.well-known/deploy-manifest.json + /.well-known/deploy-checksums.txt"
-          echo "| Deploy manifest | \`.well-known/deploy-manifest.json\` — site_content_digest \`sha256:$DEPLOY_MANIFEST_DIGEST\` |" >> "$GITHUB_STEP_SUMMARY"
-
       - name: 🧾 Derive receipt-bundle attest subjects (pure, network-free)
         # The subject-path glob for the attest step below, DERIVED, not
         # guessed: scripts/receipt-bundle-attest-subjects.mjs reads
@@ -872,6 +796,12 @@ jobs:
         # (zizmor template-injection discipline). ADVISORY-FIRST, same
         # promotion criterion as the attest step; declared in
         # DECLARED_SOFTENERS.
+        #
+        # ORDERING (SIGSTORE-BUNDLE-V03-EXPORT-8): this three-step block must
+        # stay ABOVE the "🧾 Build deploy manifest" step below — that step's
+        # find hashes the tree as it stands, so index.sigstore.json must
+        # already exist to ship LISTED in deploy-checksums.txt (inside the
+        # site content digest), never beside it unlisted.
         id: copy_sigstore_bundle
         continue-on-error: true
         env:
@@ -885,6 +815,82 @@ jobs:
           else
             echo "::warning::receipt-bundle attest produced no bundle-path output; chaingraph/receipt-bundles/index.sigstore.json NOT shipped this deploy"
           fi
+
+      - name: 🧾 Build deploy manifest (site content digest)
+        # The estate attests kernel computations and the
+        # FV artifacts (land-verify.yml attest job), but the DEPLOY itself
+        # shipped with no provenance: a verifier could check every receipt yet
+        # not that the bytes on ainumbers.co came from a green main build.
+        # This step closes that link, the same way the deploy stamp above is
+        # written HERE at rsync time: it hashes exactly the set of files this
+        # rsync is about to publish — the mirror of the rsync --include/
+        # --exclude set below — into a sorted "<sha256>  <path>" list, then a
+        # JSON manifest carrying the sha256 OVER that list as the SITE CONTENT
+        # digest. Both files ship in the rsync below, so verification is
+        # self-serve at /.well-known/deploy-manifest.json: fetch it, check out
+        # the commit it names, re-run this same derivation, compare bytes.
+        #
+        # Two deliberate exclusions beyond the rsync mirror:
+        #   .well-known/deploy-stamp.json — carries deployed_at, a run
+        #     timestamp, so no third party could ever reproduce its bytes;
+        #   .well-known/deploy-manifest.json / deploy-checksums.txt — a file
+        #     cannot contain its own hash.
+        #
+        # Plain find/sort/sha256sum/node (the land-verify.yml manifest
+        # precedent): shell tooling keeps this step outside
+        # check-workflow-gate-parity.mjs's node-gate scope, so no parity
+        # declaration is owed for it, and the derivation is locally runnable
+        # on any checkout. Node is runner-preinstalled; no setup-node needed
+        # for two fs reads and a write. Keep this pipeline BYTE-IDENTICAL to
+        # the preflight job's "Deploy manifest preview" step above.
+        # DEPLOY_SHA crosses from the workflow-level env (the completed regen's
+        # head_sha on the workflow_run trigger) — the manifest must name the
+        # commit whose tree this run checked out, not the event-time branch head.
+        run: |
+          set -euo pipefail
+          mkdir -p .well-known
+          find . -type f \
+            ! -path './.git/*' ! -name '.git' ! -path './.github/*' ! -path './node_modules/*' \
+            ! -path './scripts/*' ! -path './specs/*' ! -path './docs/*' ! -path './reconciled/*' \
+            ! -path '*/scripts/*' \
+            ! -name '.gitattributes' ! -name '.gitignore' ! -name '.DS_Store' \
+            ! -name 'Thumbs.db' ! -name 'CANONICAL_TOOL_EXAMPLE.html' \
+            ! -name '.env' ! -name '.env.*' \
+            ! -name 'deploy-stamp.json' ! -name 'deploy-manifest.json' ! -name 'deploy-checksums.txt' \
+            -print0 \
+            | sed -z 's|^\./||' \
+            | awk 'BEGIN{RS="\0"} /\.md$/ && $0 !~ /^chaingraph\/okf\// && $0 != "chaingraph/standard/SPEC.md" {next} {printf "%s%c", $0, 0}' \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed -e 's/ \*/  /' -e 's|  \./|  |' \
+            > .well-known/deploy-checksums.txt
+          export DEPLOY_GENERATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          DEPLOY_MANIFEST_DIGEST=$(sha256sum .well-known/deploy-checksums.txt | cut -d' ' -f1)
+          export DEPLOY_MANIFEST_DIGEST
+          # Values cross via env, never as a template expression inside the
+          # script text (same rule as the SSH step above); the JSON is
+          # assembled by node from those env vars only.
+          node -e '
+            const fs = require("fs");
+            const sums = fs.readFileSync(".well-known/deploy-checksums.txt", "utf8");
+            const files = sums.split("\n").filter((l) => l.length > 0).map((l) => {
+              const i = l.indexOf("  ");
+              return { sha256: l.slice(0, i), path: l.slice(i + 2) };
+            });
+            const manifest = {
+              schema: "ainumbers/deploy-manifest@v1",
+              deployed_commit: process.env.DEPLOY_SHA,
+              generated_at: process.env.DEPLOY_GENERATED_AT,
+              file_count: files.length,
+              site_content_digest: "sha256:" + process.env.DEPLOY_MANIFEST_DIGEST,
+              digest_input: "sha256 over the exact bytes of .well-known/deploy-checksums.txt: one \"<sha256>  <repo-relative-path>\" line per published file, sorted by path (sha256sum format). Excluded from the list: .well-known/deploy-stamp.json (carries a run timestamp, irreproducible by design) and this manifest plus its checksum list (a file cannot contain its own hash).",
+              files: files
+            };
+            fs.writeFileSync(".well-known/deploy-manifest.json", JSON.stringify(manifest, null, 2) + "\n");
+          '
+          echo "site_content_digest: sha256:$DEPLOY_MANIFEST_DIGEST over $(wc -l < .well-known/deploy-checksums.txt) published files"
+          echo "publishing: /.well-known/deploy-manifest.json + /.well-known/deploy-checksums.txt"
+          echo "| Deploy manifest | \`.well-known/deploy-manifest.json\` — site_content_digest \`sha256:$DEPLOY_MANIFEST_DIGEST\` |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: 🔍 Dry-run rsync (shows what will change — no writes)
         # Two narrow carve-outs before the blanket .md exclude below: chaingraph/okf/

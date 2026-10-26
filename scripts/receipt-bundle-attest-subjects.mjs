@@ -16,8 +16,8 @@
 // (default path is relative to the repo root, matching how the deploy
 // workflow checks out the tree).
 
-import { readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { basename, dirname, join, relative } from 'node:path';
 
 export const SUBJECT_GLOB = 'chaingraph/receipt-bundles/*.bundle.json';
 export const BUNDLE_DIR = 'chaingraph/receipt-bundles';
@@ -61,6 +61,17 @@ export function subjectPathsForIndex(index) {
   return { subjectPath: SUBJECT_GLOB, files, errors };
 }
 
+/**
+ * Pure: bare *.bundle.json names actually present in the index's own
+ * directory that the index does not cover. The subject glob would silently
+ * attest every one of them, so main() turns each into an error. Takes the
+ * RAW readdirSync listing (only *.bundle.json entries count).
+ */
+export function unindexedOnDiskBundles(files, onDiskEntries) {
+  const covered = new Set(files.map((f) => basename(f)));
+  return onDiskEntries.filter((n) => n.endsWith('.bundle.json') && !covered.has(n));
+}
+
 export function main(argv) {
   const indexPath = argv[0] ?? join('chaingraph', 'receipt-bundles', 'index.json');
   let index;
@@ -71,6 +82,15 @@ export function main(argv) {
     return 1;
   }
   const { subjectPath, files, errors } = subjectPathsForIndex(index);
+  const bundleDir = dirname(indexPath);
+  try {
+    const strays = unindexedOnDiskBundles(files, readdirSync(bundleDir));
+    for (const stray of strays) {
+      errors.push(`on-disk bundle ${join(bundleDir, stray)} is not named by the index — the subject glob would attest it`);
+    }
+  } catch (err) {
+    errors.push(`cannot list the bundle directory ${bundleDir}: ${err.message}`);
+  }
   if (errors.length > 0) {
     for (const e of errors) console.error(`receipt-bundle-attest-subjects: ${e}`);
     return 1;
