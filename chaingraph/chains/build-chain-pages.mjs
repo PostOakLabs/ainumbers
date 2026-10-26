@@ -95,7 +95,7 @@ function page(chain) {
 
   // Build stage cards HTML
   const stageCards = steps.map((s, i) => {
-    const tag = n === 1 ? 'ROOT · TERMINAL · D0' : (i === 0 ? 'ROOT · D0' : (i === n - 1 ? 'TERMINAL · D' + n : 'D' + (i + 1)));
+    const tag = n === 1 ? 'ROOT · TERMINAL' : (i === 0 ? 'ROOT' : (i === n - 1 ? 'TERMINAL' : 'STAGE ' + (i + 1)));
     const kindBadge = s.kind === 'node'
       ? '<span class="badge-kind badge-node">node</span>'
       : '<span class="badge-kind badge-catalog">catalog</span>';
@@ -322,7 +322,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 
 <!-- DAG DIAGRAM -->
 <div class="dag-section" style="margin-top:2rem">
-  <div class="dag-title">Chain Topology — ${steps.map(s => esc(s.name)).join(' → ')}</div>
+  <div class="dag-title">Chain Topology: ${steps.map(s => esc(s.name)).join(' → ')}</div>
   <svg id="dagSvg" xmlns="http://www.w3.org/2000/svg"></svg>
 </div>
 
@@ -348,7 +348,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 <!-- EXPORT -->
 <div class="export-section">
   <div class="export-title">Export Artifacts</div>
-  <div class="export-desc">Download the §4 chain definition artifact (hash-anchored composite JSON) or the §13.11 W3C Verifiable Credentials view. Both derive from the chain definition — no new hash is minted. Available after hash computation.</div>
+  <div class="export-desc">Download the §4 chain definition artifact (hash-anchored composite JSON) or the §13.11 W3C Verifiable Credentials view. Both derive from the chain definition. Available after hash computation.</div>
   <div class="export-btn-row">
     <button class="export-btn export-btn-primary" id="exportArtifactBtn" onclick="exportArtifact()" disabled>⬇ Export §4 Artifact</button>
     <button class="export-btn export-btn-secondary" id="exportVCBtn" onclick="exportVC()" disabled>⬇ Export W3C VC (§13.11)</button>
@@ -629,7 +629,7 @@ function esc(s){return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(
     var labelLines = s.name.length > 20
       ? [s.name.slice(0, 20) + '-', s.name.slice(20, 38)]
       : [s.name, ''];
-    var tagTxt = i === 0 ? 'ROOT · D0' : (i === N - 1 ? 'TERMINAL' : 'D' + (i + 1));
+    var tagTxt = i === 0 ? 'ROOT' : (i === N - 1 ? 'TERMINAL' : 'STAGE ' + (i + 1));
 
     out += '<rect id="dagNode' + i + '" x="' + x + '" y="8" width="' + nodeW + '" height="' + nodeH + '" rx="6" fill="#111E35" stroke="#263855" stroke-width="1.5"/>';
     out += '<text x="' + mx + '" y="24" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#14B8A6">' + esc(tagTxt) + '</text>';
