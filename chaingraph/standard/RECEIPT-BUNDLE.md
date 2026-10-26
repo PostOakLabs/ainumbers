@@ -221,3 +221,27 @@ each verifies with `node scripts/receipt-bundle-verify.mjs <bundle.json>`. Their
 registry-lineage checkpoint, so, as §3.4 states, the log half commits to the registry checkpoint
 `ainumbers.co/registry/lineage` at the recorded size, not to the receipt itself; nothing here says a receipt is
 transparency-logged.
+
+### §7.1 Third-party verification of the published bundles (INFORMATIVE)
+
+Every published receipt bundle listed in `index.json` is covered by one keyless Sigstore attestation, published
+at `chaingraph/receipt-bundles/index.sigstore.json` (a Sigstore bundle, media type
+`application/vnd.dev.sigstore.bundle.v0.3+json`) by the deploy workflow, signed with the workflow's own
+short-lived OIDC certificate and logged in Rekor. A verifier with standard Sigstore tooling and no AINumbers
+code installed can check any published bundle:
+
+```
+gh attestation verify <name>.bundle.json --repo PostOakLabs/ainumbers --bundle index.sigstore.json
+```
+
+Offline (no network to the GitHub attestations API), the same bundle verifies against a fetched trusted root:
+
+```
+gh attestation verify <name>.bundle.json --bundle index.sigstore.json --custom-trusted-root sigstore-root.json
+```
+
+What this proves: that the repository's deploy workflow identity published the attested bytes (the bundle
+files matched by the subject list) at the recorded time, with the signature logged in Rekor. It is a process
+claim only. It is not a content-correctness claim, it is not a review claim, and it does not change §3: the
+two halves of a receipt bundle's evidence remain the §3.1 proof half and the §3.2 logged half, verified by
+§3's non-collapse rule. This attestation sits on top of that verdict and says who shipped the bytes and when.
