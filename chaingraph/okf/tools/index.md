@@ -647,6 +647,7 @@ status: stable
 - [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md) — `aggregate_cbam_precursor_emissions`
 - [EU Taxonomy Alignment Scorer](./art-73-taxonomy-alignment-scorer.md) — `score_taxonomy_alignment`
 - [Force-Placed Insurance Notice Checker](./art-734-force-placed-insurance-checker.md) — `check_force_placed_notice`
+- [Solana DvP Pre-Funding Terms Verifier](./art-735-solana-dvp-prefund-verifier.md) — `verify_solana_dvp_terms`
 - [Taxonomy KPI & Green Asset Ratio Aggregator](./art-74-taxonomy-kpi-gar-aggregator.md) — `aggregate_taxonomy_kpi_gar`
 - [Solana Paychan Voucher Verifier](./art-749-solana-paychan-voucher-verifier.md) — `verify_solana_paychan_voucher`
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
