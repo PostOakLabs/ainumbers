@@ -368,6 +368,11 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── SIGSTORE-BUNDLE-V03-EXPORT-7 (2026-10-26) ───────────────────────────────
+  ["receipt-bundle-attest-subjects.mjs",
+    "Network-free receipt-bundle attest-subjects lister, run pre-push in preflight; its " +
+    "deploy-to-dreamhost.yml step is continue-on-error by design (advisory-first attestation), so " +
+    "that step can never be the blocking wire."],
   // ── AI-PRICE-REFRESH-1 (2026-10-05) ─────────────────────────────────────────
   ["check-ai-price-freshness.mjs",
     "Art-704 snapshot freshness gate (AI-PRICE-REFRESH-1): reads ONE tracked page " +
