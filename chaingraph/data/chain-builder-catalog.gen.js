@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (693 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (695 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7505,6 +7505,18 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-735-solana-dvp-prefund-verifier",
+    "display_name": "Solana DvP Pre-Funding Terms Verifier",
+    "mandate_type": "settlement_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-735-solana-dvp-prefund-verifier.html",
+    "description": "Verifies, values-only, that a pasted Solana Foundation DvP SwapDvp record is safe to fund: owner must be the pinned DvP program id, account ",
+    "consumes": [
+      "art-715-token2022-transfer-fee-reconciler"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-74-taxonomy-kpi-gar-aggregator",
     "display_name": "Taxonomy KPI & Green Asset Ratio Aggregator",
     "mandate_type": "model_governance",
@@ -7516,6 +7528,16 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-749-solana-paychan-voucher-verifier",
+    "display_name": "Solana Paychan Voucher Verifier",
+    "mandate_type": "payment_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-749-solana-paychan-voucher-verifier.html",
+    "description": "Values-only check of a Solana payment-channels voucher message against trusted channel terms. The voucher is the 50-byte Ed25519-signed mess",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
