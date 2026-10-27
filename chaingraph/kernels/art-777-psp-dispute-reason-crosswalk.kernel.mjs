@@ -594,12 +594,22 @@ function singletonOutput(psp, value, inputEcho) {
   const crosswalk = {};
   for (const other of PSPS) {
     if (other === psp) {
-      crosswalk[other] = {
-        psp, value, match: 'exact',
-        basis: single.basis,
-        evidence_categories: single.evidence_categories || null,
-        clauses: single.clauses,
-      };
+      crosswalk[other] = psp === 'adyen'
+        ? {
+            psp, value, match: 'exact',
+            basis: 'Adyen Visa scheme code from A4\'s Visa table (reproduced as data in the Adyen snapshot).',
+            evidence_categories: [
+              'defense reason codes via retrieveApplicableDefenseReasons (A1)',
+              'defense document types via supplyDefenseDocument (A1)',
+            ],
+            clauses: clauses('ad_defense', 'ad_codes'),
+          }
+        : {
+            psp, value, match: 'exact',
+            basis: single.basis,
+            evidence_categories: single.evidence_categories || null,
+            clauses: single.clauses,
+          };
     } else {
       crosswalk[other] = noneCell(other, 'No clause in the four snapshots supports an equivalent at this PSP for ' + psp + ' ' + value + '. none, never inferred.');
     }
