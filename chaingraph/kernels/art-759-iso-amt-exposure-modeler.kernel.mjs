@@ -104,7 +104,7 @@ const REGULAR_BRACKETS_MFJ = [
 // Individuals Filing Joint Returns and Surviving Spouses $32,200; Unmarried Individuals
 // $16,100; Married Filing Separate $16,100. MFS equals the unmarried amount, so the
 // DIFFERS.md D2 fold of MFS into 'single' is consistent for the deduction (the MFS AMT
-// exemption of $70,100 stays a separate unchanged D2 caveat). Taxable income of a
+// exemption of $70,100 remains a separate D2 caveat). Taxable income of a
 // non-itemizer is AGI minus the standard deduction (IRC sec. 63(b)(1)); the deduction is
 // added back for AMTI (IRC sec. 56(b)(1)(D)), so only the regular-tax leg uses it.
 // Head of household ($24,150) is not modelled (D2 filing-status scope).
@@ -112,7 +112,7 @@ const REGULAR_BRACKETS_MFJ = [
 // standard-deduction step (its calcRegularTax runs the brackets over the gross figure);
 // this kernel deliberately departs from the Apex port here. Regular tax is computed on
 // taxable income, the gross ordinary_income input minus the sec. 4.14(1) deduction, while
-// the AMTI leg stays ordinary income + ISO spread + other adjustments, unchanged, because
+// the AMTI leg keeps its prior form, ordinary income + ISO spread + other adjustments, because
 // IRC sec. 56(b)(1)(D) disallows the deduction for AMT purposes. The node assumes the
 // standard deduction; itemized deductions and the other sec. 63(b) deductions are not
 // modelled.
