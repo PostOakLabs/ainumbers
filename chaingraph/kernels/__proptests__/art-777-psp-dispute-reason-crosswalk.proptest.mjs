@@ -1,5 +1,5 @@
 // art-777-psp-dispute-reason-crosswalk — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:76be352d86b2777248f26cb10d6607a6a343cabc5bd1af9a73c05bdf0147f830
+// kernel_digest_at_authoring: sha256:a62af4e74f99726232353c2d35efa97d4a34cf86cbeb2c0e570b10baf62616b0
 // spec: PSP-DISPUTE-CROSSWALK-NODE-1 (board/queued), narrowed static + credential-free
 //   per the desk; clause authority research/clause-snapshots/{paypal,stripe,adyen,square}-disputes-2026-10/SNAPSHOT.md.
 // human_sign_off: PENDING
