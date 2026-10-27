@@ -11,7 +11,7 @@ AMT liability from an ISO exercise spread using the 2026 exemption amounts and p
 - shares (integer, required): Shares to exercise this year. Integer, min 1, max 10000000.
 - strike_price (number, required): ISO strike price in USD per share; min 0.01.
 - fmv (number, required): Fair market value per share at exercise in USD; min 0.01.
-- ordinary_income (number, required): Gross W-2 and other ordinary income for the year in USD, before the standard deduction (the node subtracts the deduction itself); min 0.
+- ordinary_income (number, required): Gross W-2 and other ordinary income for the year in USD, before the standard deduction; min 0.
 - other_amt_adjustments (number, optional): Other AMT preference items in USD; min 0. Optional; defaults to 0.
 - filing_status (string, required): Filing status: 'single' (Single / MFS) or 'mfj' (Married Filing Jointly).
 
