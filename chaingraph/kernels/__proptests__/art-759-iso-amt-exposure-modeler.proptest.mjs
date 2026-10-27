@@ -1,5 +1,5 @@
 // art-759-iso-amt-exposure-modeler.proptest.mjs — class-K property-test FLOOR
-// kernel_digest_at_authoring: sha256:0cfc6871b5e506aedc2ed9dd8d8b59b8f81e58e537501004068a454b020f3180
+// kernel_digest_at_authoring: sha256:d0580ed1edc9db4596915b737ce42ec9a5aa6d62d0a39fa32d0e1fcab3a2df6c
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-109 porting payload
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-09T02:05Z, Builder-verifies-at-land 15/15 pre-build, Tim extend ruling
@@ -20,20 +20,30 @@
 // AMT trigger at/past, exemption fully eliminated, MFJ million-dollar phase-out — plus
 // the 4 ART759-AMT-PHASEOUT-2026-FIX-1 rate vectors: single AMTI $600,000 and MFJ
 // AMTI $1,100,000 pinning the 50-percent reduction, and the IRS 2026 complete-phaseout
-// boundary pair at AMTI $680,200/$680,201 single);
+// boundary pair at AMTI $680,200/$680,201 single; plus the ART759-REGULAR-TAX-DEDUCTION-
+// FIX-1 standard-deduction vectors H1..H5, and the pre-deduction D1 trigger inputs kept
+// under the D1-old-boundary ids — 26 vectors total);
 // P1 amt_owed is non-decreasing in shares and in fmv (both filing statuses); P2
-// regular_tax restated against an independently implemented bracket walk and non-decreasing
-// in ordinary_income; P3 determinism (two runs agree byte-for-byte) and output shape
-// (no undefined/NaN/non-finite anywhere in output_payload); P4 domain refusals: unknown
-// filing_status and every non-finite numeric input yield output_payload.refused with a
-// named code and a compliance flag (the payload contract — not a throw); P5 the
-// max_shares_no_amt binary-search contract: TMT at max_shares_no_amt <= regular_tax and,
-// when the search is not saturated, TMT at max_shares_no_amt + 1 > regular_tax;
-// P6 the exemption phase-out restated: effective_exemption == max(0, exemption -
-// 0.50 * max(0, amti - threshold)) with the fixed 2026 amounts (IRC 55(d)(4)(A)(ii)(IV):
-// 50 percent for tax years beginning after Dec. 31, 2025 — Rev. Proc. 2025-32 sec. 4.10
-// complete phaseout $680,200 unmarried / $1,280,400 joint), and amt_triggered ==
-// (amt_owed > 0).
+// regular_tax restated as brackets over max(0, ordinary_income - standard_deduction)
+// against an independently implemented deduction table and bracket walk, and
+// non-decreasing in ordinary_income; P3 determinism (two runs agree byte-for-byte) and
+// output shape (no undefined/NaN/non-finite anywhere in output_payload); P4 domain
+// refusals: unknown filing_status and every non-finite numeric input yield
+// output_payload.refused with a named code and a compliance flag (the payload
+// contract — not a throw); P5 the max_shares_no_amt binary-search contract: TMT at
+// max_shares_no_amt <= regular_tax and, when the search is not saturated, TMT at
+// max_shares_no_amt + 1 > regular_tax; P6 the exemption phase-out restated:
+// effective_exemption == max(0, exemption - 0.50 * max(0, amti - threshold)) with the
+// fixed 2026 amounts (IRC 55(d)(4)(A)(ii)(IV): 50 percent for tax years beginning
+// after Dec. 31, 2025 — Rev. Proc. 2025-32 sec. 4.10 complete phaseout $680,200
+// unmarried / $1,280,400 joint), and amt_triggered == (amt_owed > 0); P7 the
+// standard-deduction contract (Rev. Proc. 2025-32 sec. 4.14(1), IRC 63(b)(1) for the
+// regular-tax leg, IRC 56(b)(1)(D) for the AMTI leg): taxable_income == max(0,
+// ordinary_income - standard_deduction), amti == ordinary_income + iso_spread +
+// other_amt_adjustments (independent of the deduction), amt_owed == max(0,
+// tentative_minimum_tax - regular_tax), regular_tax == 0 whenever ordinary_income <=
+// standard_deduction, and the deduction boundary (just under, exactly at, just over)
+// for both statuses.
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
@@ -95,10 +105,15 @@ function checkP1Monotone() {
   return { name: 'P1 amt_owed non-decreasing in shares/fmv (both statuses)', checked, violations };
 }
 
-// P2 — regular_tax restated (independent bracket walk) and monotone in ordinary_income.
+// P2 — regular_tax restated (independent deduction table + bracket walk over taxable
+// income, ART759-REGULAR-TAX-DEDUCTION-FIX-1) and monotone in ordinary_income.
 function checkP2RegularTax() {
   let checked = 0, violations = 0;
   const rng = mulberry32(75902);
+  // 2026 standard deduction, written independently of the kernel's constant from
+  // Rev. Proc. 2025-32 sec. 4.14(1): joint/surviving spouses $32,200, unmarried $16,100
+  // (MFS equals the unmarried amount; head of household $24,150 is not modelled).
+  const deduction = (s) => (s === 'single' ? 16100 : 32200);
   const brackets = (s) => (s === 'single'
     ? [[12400, 0.10], [50400, 0.12], [105700, 0.22], [201775, 0.24], [256225, 0.32], [640600, 0.35]]
     : [[24800, 0.10], [100800, 0.12], [211400, 0.22], [403550, 0.24], [512450, 0.32], [768700, 0.35]]);
@@ -117,12 +132,14 @@ function checkP2RegularTax() {
     pp.filing_status = status;
     pp.ordinary_income = Math.floor(rng() * 1500000);
     const out = compute(pp).output_payload;
-    checked += 2;
-    if (out.regular_tax !== walk(pp.ordinary_income, status)) { violations++; console.log('P2 violation: regular_tax != restated bracket walk'); }
+    const taxable = Math.max(0, pp.ordinary_income - deduction(status));
+    checked += 3;
+    if (out.regular_tax !== walk(taxable, status)) { violations++; console.log('P2 violation: regular_tax != restated bracket walk over taxable income'); }
+    if (out.taxable_income !== taxable) { violations++; console.log('P2 violation: taxable_income != max(0, ordinary_income - deduction)'); }
     const out2 = compute({ ...pp, ordinary_income: pp.ordinary_income + 1000 }).output_payload;
     if (out2.regular_tax < out.regular_tax) { violations++; console.log('P2 violation: regular_tax decreased with income'); }
   }
-  return { name: 'P2 regular_tax restated bracket walk + monotone in income', checked, violations };
+  return { name: 'P2 regular_tax brackets over max(0, income - deduction) + monotone', checked, violations };
 }
 
 // P3 — determinism + output shape.
@@ -214,6 +231,52 @@ function checkP6PhaseoutRestated() {
   return { name: 'P6 phase-out + trigger + amt_base restated (2026 constants)', checked, violations };
 }
 
+// P7 — standard-deduction contract (ART759-REGULAR-TAX-DEDUCTION-FIX-1). Taxable income
+// is gross minus the deduction, floored at zero (IRC 63(b)(1); Rev. Proc. 2025-32
+// sec. 4.14(1) amounts); AMTI takes NO deduction (IRC 56(b)(1)(D)) so it is exactly
+// ordinary_income + iso_spread + other_amt_adjustments; amt_owed is the excess of TMT
+// over regular tax (IRC 55(a)); regular tax is zero at or below the deduction; and the
+// boundary is pinned just under, exactly at, and just over the deduction for both statuses.
+function checkP7StandardDeduction() {
+  let checked = 0, violations = 0;
+  const rng = mulberry32(75907);
+  const ded = (s) => (s === 'single' ? 16100 : 32200);
+  for (let i = 0; i < 50; i++) {
+    const status = pick(rng, STATUSES);
+    const pp = basePP();
+    pp.filing_status = status;
+    pp.shares = 1 + Math.floor(rng() * 100000);
+    pp.ordinary_income = Math.floor(rng() * 900000);
+    pp.other_amt_adjustments = Math.floor(rng() * 50000);
+    const out = compute(pp).output_payload;
+    checked += 4;
+    if (out.taxable_income !== Math.max(0, pp.ordinary_income - ded(status))) {
+      violations++; console.log('P7 violation: taxable_income != max(0, ordinary_income - deduction)');
+    }
+    if (out.amti !== pp.ordinary_income + out.iso_spread + pp.other_amt_adjustments) {
+      violations++; console.log('P7 violation: amti != ordinary_income + iso_spread + other_amt_adjustments (deduction leaked into AMTI)');
+    }
+    if (out.amt_owed !== Math.max(0, out.tentative_minimum_tax - out.regular_tax)) {
+      violations++; console.log('P7 violation: amt_owed != max(0, tmt - regular_tax)');
+    }
+    if (pp.ordinary_income <= ded(status) && out.regular_tax !== 0) {
+      violations++; console.log('P7 violation: regular_tax != 0 at or below the deduction');
+    }
+  }
+  // Boundary: just under, exactly at, just over (both statuses).
+  const edges = [ { status: 'single', d: 16100 }, { status: 'mfj', d: 32200 } ];
+  for (const { status, d } of edges) {
+    for (const [inc, wantTaxable, wantRegular] of [[d - 1, 0, 0], [d, 0, 0], [d + 1, 1, 0.1]]) {
+      const out = compute({ ...basePP(), filing_status: status, ordinary_income: inc }).output_payload;
+      checked += 3;
+      if (out.taxable_income !== wantTaxable) { violations++; console.log(`P7 violation: boundary taxable_income ${out.taxable_income} != ${wantTaxable} at income ${inc} ${status}`); }
+      if (out.regular_tax !== wantRegular) { violations++; console.log(`P7 violation: boundary regular_tax ${out.regular_tax} != ${wantRegular} at income ${inc} ${status}`); }
+      if (out.standard_deduction !== d) { violations++; console.log(`P7 violation: standard_deduction ${out.standard_deduction} != ${d} for ${status}`); }
+    }
+  }
+  return { name: 'P7 standard-deduction contract (63(b)(1) regular leg, 56(b)(1)(D) AMTI leg)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -228,6 +291,7 @@ const properties = [
   checkP4DomainRefusal(),
   checkP5MaxShares(),
   checkP6PhaseoutRestated(),
+  checkP7StandardDeduction(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);

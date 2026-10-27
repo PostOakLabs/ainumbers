@@ -23,6 +23,13 @@
 // Pure function: no Date, no clock, no randomness, no I/O. The binary search for
 // max_shares_no_amt uses a FIXED 60-iteration bound (Apex lines 335-342), never a bound
 // taken from policy_parameters.
+//
+// Standard-deduction model (2026-10-26, ART759-REGULAR-TAX-DEDUCTION-FIX-1): regular tax
+// is computed on taxable income, the gross ordinary_income input minus the 2026 standard
+// deduction (Rev. Proc. 2025-32 sec. 4.14(1); IRC sec. 63(b)(1), quoted in the
+// STANDARD_DEDUCTION block below). AMTI deliberately takes no deduction (IRC sec.
+// 56(b)(1)(D)). The node assumes the standard deduction; itemized deductions and the
+// other sec. 63(b) deductions are not modelled.
 
 import { executionHash } from './_hash.mjs';
 
@@ -92,6 +99,25 @@ const REGULAR_BRACKETS_MFJ = [
   [512450, 0.32], [768700, 0.35], [Infinity, 0.37],
 ];
 
+// 2026 standard deduction. IRS Rev. Proc. 2025-32 sec. 4.14(1) ("For taxable years beginning
+// in 2026, the standard deduction amounts under sec. 63(c)(2) are as follows"): Married
+// Individuals Filing Joint Returns and Surviving Spouses $32,200; Unmarried Individuals
+// $16,100; Married Filing Separate $16,100. MFS equals the unmarried amount, so the
+// DIFFERS.md D2 fold of MFS into 'single' is consistent for the deduction (the MFS AMT
+// exemption of $70,100 stays a separate unchanged D2 caveat). Taxable income of a
+// non-itemizer is AGI minus the standard deduction (IRC sec. 63(b)(1)); the deduction is
+// added back for AMTI (IRC sec. 56(b)(1)(D)), so only the regular-tax leg uses it.
+// Head of household ($24,150) is not modelled (D2 filing-status scope).
+// DIFFERS.md D8 (ART759-REGULAR-TAX-DEDUCTION-FIX-1): the Apex #109 source page has NO
+// standard-deduction step (its calcRegularTax runs the brackets over the gross figure);
+// this kernel deliberately departs from the Apex port here. Regular tax is computed on
+// taxable income, the gross ordinary_income input minus the sec. 4.14(1) deduction, while
+// the AMTI leg stays ordinary income + ISO spread + other adjustments, unchanged, because
+// IRC sec. 56(b)(1)(D) disallows the deduction for AMT purposes. The node assumes the
+// standard deduction; itemized deductions and the other sec. 63(b) deductions are not
+// modelled.
+const STANDARD_DEDUCTION = { single: 16100, mfj: 32200 };
+
 // Scenario ladder exercised by the Apex results table (line 385): 0%, 25%, 50%, 75%, 100%.
 const SCENARIO_PERCENTS = [0, 0.25, 0.5, 0.75, 1];
 
@@ -120,9 +146,11 @@ function calcAMT(amti, params) {
   return { tmt, effectiveExemption, amtBase };
 }
 
-/** Regular tax on ordinary income only. Mirrors Apex calcRegularTax() (lines 296-308).
- * The ISO spread is NOT added to regular taxable income (IRC sec. 56(b)(3): an ISO exercise
- * is not ordinary income for regular tax at exercise) — payload DIFFERS.md D5, MATCH. */
+/** Brackets over taxable income (gross ordinary income minus the STANDARD_DEDUCTION above,
+ * floored at zero). Mirrors Apex calcRegularTax() (lines 296-308) with the argument fixed
+ * by DIFFERS.md D8. The ISO spread is NOT added to regular taxable income (IRC sec. 56(b)(3):
+ * an ISO exercise is not ordinary income for regular tax at exercise) — payload DIFFERS.md
+ * D5, MATCH. */
 function calcRegularTax(income, status) {
   const brackets = status === 'single' ? REGULAR_BRACKETS_SINGLE : REGULAR_BRACKETS_MFJ;
   let tax = 0, prev = 0;
@@ -156,7 +184,10 @@ function paramsFor(status) {
  *   shares:        integer, shares to exercise (Apex default 10000, min 1)
  *   strike_price:  number (USD/share),  option strike (Apex default 2.50, min 0.01)
  *   fmv:           number (USD/share),  FMV at exercise (Apex default 18.00, min 0.01)
- *   ordinary_income: number (USD), W-2 + other ordinary income (Apex default 175000, min 0)
+ *   ordinary_income: number (USD), gross ordinary income BEFORE the standard deduction
+ *                    (W-2 + other ordinary income, AGI-equivalent; the kernel subtracts the
+ *                    deduction itself. Apex default 175000, min 0. Itemized deductions and
+ *                    the other sec. 63(b) deductions are not modelled)
  *   other_amt_adjustments: number (USD), other AMT preferences (Apex default 0, min 0)
  *   filing_status: 'single' | 'mfj' (Apex default 'single')
  * }
@@ -205,7 +236,13 @@ function computeFlat(pp) {
   const amti = ordIncome + isoSpread + otherAMT;
 
   const { tmt, effectiveExemption, amtBase } = calcAMT(amti, params);
-  const regularTax = calcRegularTax(ordIncome, status);
+  // Regular tax is imposed on taxable income: for a non-itemizer, gross ordinary income
+  // minus the 2026 standard deduction (IRC sec. 63(b)(1), amounts in STANDARD_DEDUCTION).
+  // Floored at zero when gross income is below the deduction; the AMTI leg above takes NO
+  // deduction (IRC sec. 56(b)(1)(D)). DIFFERS.md D8.
+  const standardDeduction = STANDARD_DEDUCTION[status];
+  const taxableIncome = Math.max(0, ordIncome - standardDeduction);
+  const regularTax = calcRegularTax(taxableIncome, status);
   // IRC sec. 55(a): the AMT is the excess of tentative minimum tax over the regular tax.
   const amtOwed = Math.max(0, tmt - regularTax);
   // AMT paid becomes a minimum tax credit carried to future years (IRC sec. 53).
@@ -250,6 +287,8 @@ function computeFlat(pp) {
     effective_exemption: effectiveExemption,
     amt_base: amtBase,
     tentative_minimum_tax: tmt,
+    standard_deduction: standardDeduction,
+    taxable_income: taxableIncome,
     regular_tax: regularTax,
     amt_owed: amtOwed,
     amt_credit_generated: amtCredit,
