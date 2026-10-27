@@ -725,7 +725,9 @@ export function compute(pp) {
       compliance_flags: ['ART777_INPUT_REFUSED'],
     };
   }
-  const reason = pp.reason.trim();
+  // Non-string reason (number, object, ...): refuse by name, never crash on
+  // .trim() — found by the floor proptest's P6 forced-categorical battery.
+  const reason = typeof pp.reason === 'string' ? pp.reason.trim() : pp.reason;
   const vocab = { paypal: PAYPAL_REASONS, stripe: STRIPE_REASONS, adyen: ADYEN_VISA_CODES, square: SQUARE_REASONS }[psp];
   if (!vocab.includes(reason)) {
     return {
