@@ -226,7 +226,9 @@ const NOT_A_GATE = new Map([
   ["derived-regen-deadman.yml",
     "workflow_run listener on derived-artifacts-regen.yml (main-only, completed) — the " +
     "failure alarm: retry-once (10 min backoff) plus ONE tracking issue via the shared " +
-    "scheduled-red-issue tracker. It has no pull_request, merge_group or push trigger of " +
+    "scheduled-red-issue tracker, plus (REGEN-RED-STOPS-THE-LINE-1) an advisory " +
+    "derived-regen/main commit status on the failing/healed SHA — a status is not a check " +
+    "run and can never be required. It has no pull_request, merge_group or push trigger of " +
     "its own, runs no estate gate, and blocks no merge — it reports a main-side red after " +
     "the fact."],
   ["fullsuite-schedule.yml",
@@ -368,6 +370,11 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── SIGSTORE-BUNDLE-V03-EXPORT-7 (2026-10-26) ───────────────────────────────
+  ["receipt-bundle-attest-subjects.mjs",
+    "Network-free receipt-bundle attest-subjects lister, run pre-push in preflight; its " +
+    "deploy-to-dreamhost.yml step is continue-on-error by design (advisory-first attestation), so " +
+    "that step can never be the blocking wire."],
   // ── AI-PRICE-REFRESH-1 (2026-10-05) ─────────────────────────────────────────
   ["check-ai-price-freshness.mjs",
     "Art-704 snapshot freshness gate (AI-PRICE-REFRESH-1): reads ONE tracked page " +
@@ -380,6 +387,8 @@ const PREFLIGHT_ONLY = new Map([
     "the gate or the page through a full preflight."],
   // ── ENGINE-BUNDLE-ESM-LINT-1 (2026-10-15) ───────────────────────────────────
   ["check-engine-parity.bundle.test.mjs", SELF_TEST],
+  // ── CHAIN-PAGES-CANON-ORDER-FIX-1 (2026-10-24) ──────────────────────────────
+  ["check-chain-pages-canon-order.selftest.mjs", SELF_TEST],
   // ── WEBMCP-META-LINT-CEILING-1 (2026-10-01) ─────────────────────────────────
   ["check-webmcp-meta-budgets.test.mjs", SELF_TEST],
   ["check-webmcp-meta-neardupes.test.mjs", SELF_TEST],
@@ -1574,8 +1583,67 @@ const DECLARED_SOFTENERS = new Map([
   // AUD-CGCANON-TWIN-GATE-1 (2026-10-10) moved it :923 → :925 — the hash
   // hard-gate job gained the cgCanon twin-parity lint + its --self-test
   // (two lines) above the attest step; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:925",
+  // SIGSTORE-BUNDLE-V03-EXPORT-4 (2026-10-24) moved it :925 → :964 — the new
+  // "Attest receipt-bundle index" Sigstore step (one `uses:` step with its
+  // comment block) landed between the deploy-manifest build and the dry-run
+  // rsync, ABOVE the attest step; same pin-move. That same edit added the
+  // second continue-on-error entry below.
+  // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25) moved it :964 → :1018 — the
+  // subjects-derivation and bundle-copy steps (RULINGS ⚖ 2026-10-24T23:0xZ
+  // fix) landed between the receipt attest step and the dry-run rsync, ABOVE
+  // this attest step; same pin-move.
+  // SIGSTORE-BUNDLE-V03-EXPORT-8 (2026-10-26) moved it :1018 → :1024 — six
+  // ordering-comment lines added inside the receipt block above; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:1024",
    "attest step is advisory-first by design; promotion criterion on the step"],
+  // SIGSTORE-BUNDLE-V03-EXPORT-4 (2026-10-24): the receipt-bundle index
+  // attest step (continue-on-error at :829) is advisory-first for the SAME
+  // reason as the deploy-provenance attest step: the deploy is load-bearing,
+  // and a Sigstore/API outage must not red the deploy or skip the Cloudflare
+  // purge + smoke steps that follow rsync. One keyless v0.3 bundle over the
+  // published receipt bundles is written to
+  // chaingraph/receipt-bundles/index.sigstore.json and shipped by the single
+  // rsync. Same promotion criterion: after 10 consecutive post-merge deploy
+  // runs with the step succeeding, remove this entry together with the
+  // step's continue-on-error.
+  // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25) moved it :829 → :857 — the
+  // subjects-derivation step (id: attest_subjects) landed between the deploy
+  // manifest build and this step; same pin-move.
+  // SIGSTORE-BUNDLE-V03-EXPORT-8 (2026-10-26) moved it :857 → :781 — the
+  // three receipt steps moved as one block to sit immediately above the
+  // deploy-manifest build, so index.sigstore.json ships LISTED in
+  // deploy-checksums.txt; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:781",
+   "receipt-bundle index attest step is advisory-first by design; a Sigstore outage must not red the deploy or skip CF purge + smoke; promotion criterion on the step"],
+  // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25): the receipt-bundle subjects
+  // step (id: attest_subjects, continue-on-error at :812) is advisory-first
+  // for the same reason as the attest step it feeds: the deploy is
+  // load-bearing, and a red derivation (index shape drift) must not red the
+  // deploy — the attest step then reads an empty subject-path and also
+  // soft-fails, and the copy step warns. Pure node, no network. Same
+  // promotion criterion: after 10 consecutive post-merge deploy runs with
+  // the step succeeding, remove this entry together with the step's
+  // continue-on-error.
+  // SIGSTORE-BUNDLE-V03-EXPORT-8 (2026-10-26) moved it :812 → :736 — the
+  // three receipt steps moved as one block to sit immediately above the
+  // deploy-manifest build; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:736",
+   "receipt-bundle subjects step is advisory-first by design; a red index-shape derivation must not red the deploy; promotion criterion on the step"],
+  // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25): the receipt-bundle copy step
+  // (id: copy_sigstore_bundle, continue-on-error at :876) is advisory-first
+  // for the same reason: it only SHIPS the advisory bundle
+  // (chaingraph/receipt-bundles/index.sigstore.json, from the attest step's
+  // bundle-path output — the pinned action v4.2.2 exposes no bundle
+  // destination input), and a copy failure must not red the deploy or skip
+  // the CF purge + smoke steps. Same promotion criterion: after 10
+  // consecutive post-merge deploy runs with the step succeeding, remove this
+  // entry together with the step's continue-on-error.
+  // SIGSTORE-BUNDLE-V03-EXPORT-8 (2026-10-26) moved it :876 → :806 — the
+  // three receipt steps moved as one block to sit immediately above the
+  // deploy-manifest build; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:806",
+   "receipt-bundle copy step is advisory-first by design; a copy failure must not red the deploy; promotion criterion on the step"],
+
   // MAIN-GATES-AFTER-REGEN-1 (2026-10-08) moved it :109 → :146 — the
   // unwired-gates.yml `on:` block swapped `push: main` for `workflow_run`
   // (trigger comment), the workflow gained a workflow-level GATE_SHA env

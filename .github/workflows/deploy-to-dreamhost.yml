@@ -717,6 +717,105 @@ jobs:
             > .well-known/deploy-stamp.json
           cat .well-known/deploy-stamp.json
 
+      - name: 🧾 Derive receipt-bundle attest subjects (pure, network-free)
+        # The subject-path glob for the attest step below, DERIVED, not
+        # guessed: scripts/receipt-bundle-attest-subjects.mjs reads
+        # chaingraph/receipt-bundles/index.json (the PUBLISHED index — never
+        # the §5 fixtures under chaingraph/standard/fixtures/) and exits 1
+        # unless the ONE glob line chaingraph/receipt-bundles/*.bundle.json
+        # covers every published bundle exactly once (a stray file the index
+        # does not name fails it too; its selftest pins this). The script's
+        # last stdout line is the glob; it is written to GITHUB_OUTPUT as
+        # subject_path, which the attest step below reads. ADVISORY-FIRST,
+        # same rule as the attest step: a red derivation (index shape drift)
+        # must not red the deploy — the attest step then sees an empty
+        # subject-path and soft-fails, and the copy step below warns. Declared
+        # in check-workflow-gate-parity.mjs's DECLARED_SOFTENERS with the same
+        # promotion criterion.
+        id: attest_subjects
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          subject_path="$(node scripts/receipt-bundle-attest-subjects.mjs | tail -n 1)"
+          echo "subject_path=$subject_path" >> "$GITHUB_OUTPUT"
+          echo "attest subjects: $subject_path"
+
+      - name: 🧾 Attest receipt-bundle index (Sigstore keyless, one v0.3 bundle)
+        # Publish ONE keyless Sigstore attestation over every PUBLISHED
+        # receipt bundle, written as
+        # chaingraph/receipt-bundles/index.sigstore.json in the deploy tree so
+        # the single rsync below ships it beside the bundles it covers. A
+        # third party then runs `gh attestation verify <name>.bundle.json
+        # --repo PostOakLabs/ainumbers --bundle index.sigstore.json` with no
+        # AINumbers code installed (RECEIPT-BUNDLE.md §7, verification doc).
+        #
+        # Same pinned action SHA and the same keyless shape as the deploy-
+        # provenance attest step below: the workflow's own OIDC identity signs
+        # via public-good Sigstore and the bundle is logged in Rekor. No new
+        # permission, secret or action: the job-level `id-token: write` +
+        # `attestations: write` grants already cover this step.
+        #
+        # subject-path is ONE glob line over the published bundles, read from
+        # the subjects step above (attest_subjects.outputs.subject_path),
+        # which runs scripts/receipt-bundle-attest-subjects.mjs and exits 1
+        # unless that exact glob covers every published bundle (its selftest
+        # pins it). The fixtures under chaingraph/standard/fixtures/ are NEVER attested.
+        #
+        # One attest call over all subjects returns ONE DSSE bundle (v0.3,
+        # media type application/vnd.dev.sigstore.bundle.v0.3+json). This
+        # action takes no bundle destination input; the bundle lands at the
+        # runner path in the step's bundle-path OUTPUT, and the copy step
+        # below moves it to chaingraph/receipt-bundles/index.sigstore.json in
+        # the deploy tree so the single rsync ships it. Scope honesty, same
+        # rule as the provenance
+        # attest step below: a PROCESS claim — this workflow identity
+        # published these bytes at this time, logged in Rekor — never a
+        # content-correctness claim, and never a statement that a receipt is
+        # transparency-logged (RECEIPT-BUNDLE.md §3.4).
+        #
+        # ADVISORY-FIRST, same as that step: the deploy is load-bearing and a
+        # Sigstore/API outage must never red the deploy or skip the CF purge
+        # and smoke steps. Declared in check-workflow-gate-parity.mjs's
+        # DECLARED_SOFTENERS with the same promotion criterion.
+        id: attest_receipts
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.attest_subjects.outputs.subject_path }}
+
+      - name: 🧾 Ship the receipt-bundle Sigstore bundle into the deploy tree
+        # actions/attest-build-provenance@4d101475 exposes its bundle as the
+        # bundle-path OUTPUT (the file it wrote on the runner), not as an
+        # input. This step copies that file to
+        # chaingraph/receipt-bundles/index.sigstore.json so the single rsync
+        # below ships it beside the bundles it covers. When the attest step
+        # produced no bundle-path (advisory failure: Sigstore/API outage, or
+        # an empty subject derivation upstream), print ::warning:: and exit 0
+        # — the deploy still ships, unsigned, and the warning names why. The
+        # output is read through env: and never inline ${{ }} in run:
+        # (zizmor template-injection discipline). ADVISORY-FIRST, same
+        # promotion criterion as the attest step; declared in
+        # DECLARED_SOFTENERS.
+        #
+        # ORDERING: this three-step block must stay ABOVE the "🧾 Build
+        # deploy manifest" step below — that step's find hashes the tree as
+        # it stands, so index.sigstore.json must already exist to ship LISTED
+        # in deploy-checksums.txt (inside the site content digest), never
+        # beside it unlisted.
+        id: copy_sigstore_bundle
+        continue-on-error: true
+        env:
+          SIGSTORE_BUNDLE_PATH: ${{ steps.attest_receipts.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          if [ -n "$SIGSTORE_BUNDLE_PATH" ]; then
+            mkdir -p chaingraph/receipt-bundles
+            cp "$SIGSTORE_BUNDLE_PATH" chaingraph/receipt-bundles/index.sigstore.json
+            echo "shipped: chaingraph/receipt-bundles/index.sigstore.json ($(wc -c < chaingraph/receipt-bundles/index.sigstore.json) bytes)"
+          else
+            echo "::warning::receipt-bundle attest produced no bundle-path output; chaingraph/receipt-bundles/index.sigstore.json NOT shipped this deploy"
+          fi
+
       - name: 🧾 Build deploy manifest (site content digest)
         # The estate attests kernel computations and the
         # FV artifacts (land-verify.yml attest job), but the DEPLOY itself

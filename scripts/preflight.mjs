@@ -1359,6 +1359,15 @@ const GATES = [
   ['Inline hash equality (AUD-C3)', 'node chaingraph/kernels/inline-hash-equality.test.mjs'],
   ['Ed25519 noble↔WebCrypto equivalence (FV-ED25519-NOBLE-1)', 'node chaingraph/kernels/ed25519-webcrypto-equivalence.test.mjs'],
   ['Canon block ordering (CANON-ORDER-1)', 'node scripts/check-canon-order.mjs'],
+  // CHAIN-PAGES-CANON-ORDER-FIX-1: paired control for the gate above, on the
+  // generator side. build-chain-pages.mjs emitted the OCG-CANON block AFTER the
+  // main chain script, so every page it generated was born violating the
+  // predicate the gate above enforces on committed pages (measured on
+  // DEPOSIT-INSURANCE-CHAIN-2; SO #44 premise). The selftest generates a page
+  // from a live chain definition into a TEMP dir outside the repo, proves the
+  // fixed emission GREEN and the pre-fix emission (canon after main script) RED
+  // through the committed gate itself — RED before GREEN, SO #34c pairing.
+  ['Chain-page generator canon emission controls (RED/GREEN, SO #34c pairing)', 'node scripts/check-chain-pages-canon-order.selftest.mjs'],
   // INLINE-SSOT-PORTS-GATE-1: the self-test runs FIRST and is not optional. It
   // asserts, with negative controls, that the codeOnly normalizer still fails on
   // a changed operator/constant/identifier/string — a normalizer that quietly
@@ -1675,6 +1684,7 @@ const GATES = [
   // derived-artifacts.mjs COVERED id 'receipt-bundles' gate, so it is advisory on a
   // PR (the tree is written main-side, SO #35) and blocking on main.
   ['Receipt bundles freshness (RECEIPT-BUNDLE-PUBLISH-1)', 'node scripts/gen-receipt-bundles.mjs --check'],
+  ['Receipt bundle attest subjects (SIGSTORE-BUNDLE-V03-EXPORT-6)', 'node scripts/receipt-bundle-attest-subjects.mjs'],
   ['RSS change feed controls (staleness RED/GREEN + tag-filter, SO #40b)', 'node scripts/gen-rss.mjs --self-test'],
   ['Evidence-profile manifest (EF-2)', 'node scripts/validate-evidence-profiles.mjs'],
   ['Chain domain taxonomy',        'node scripts/check-chain-domain.mjs'],

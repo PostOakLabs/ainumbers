@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Threshold signing: one key across many holders · OpenChainGraph Explainer</title>
+<meta name="description" content="How threshold signing lets several holders control one key, how a trusted dealer differs from distributed key generation, and why bad randomness is the recurring failure, with a recorded 2-of-3 FROST ceremony.">
+<meta name="ain:category" content="learn">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/threshold-signing-explainer.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* SCENE-KIT:v1:START */
+/* SCENE-KIT:v1 (scripts/lib/scene-kit.mjs) */
+.sk-fig{margin:1.1rem 0 1.6rem;min-width:0}
+.sk-scroll{max-width:100%;overflow-x:auto;contain:inline-size;background:var(--bg-2,#0D1627);border:1px solid var(--border,#1E2F4A);border-radius:10px}
+.sk-scroll>svg{display:block;width:100%;height:auto}
+.sk-cap{font-size:.78rem;color:var(--body,#6888A8);line-height:1.6;margin-top:.55rem;max-width:780px}
+.sk-cap a{color:var(--teal-lt,#2DD4BF);border-bottom:1px dotted currentColor}
+.sk-scene text{font-family:'Sora',sans-serif;fill:var(--text,#A8C4DE);font-size:13px}
+.sk-scene .m{font-family:'JetBrains Mono',monospace}
+.sk-scene .h{font-family:'DM Serif Display',serif;fill:var(--white,#EEF6FD)}
+.sk-scene .b{fill:var(--bright,#D4E8F8)}.sk-scene .s{fill:var(--body,#6888A8)}.sk-scene .mu{fill:var(--muted,#3A5270)}
+.sk-scene .g{fill:var(--gold,#D4A847)}.sk-scene .t{fill:var(--teal-lt,#2DD4BF)}.sk-scene .p{fill:var(--purple,#9B72F5)}
+.sk-scene .ok{fill:var(--green,#22C55E)}.sk-scene .r{fill:var(--red,#EF4444)}
+.sk-scene .w{fill:var(--warn,#F59E0B)}.sk-scene .bl{fill:var(--blue,#60A5FA)}
+.sk-scene .xs{font-size:10.5px}.sk-scene .sm{font-size:12px}.sk-scene .md{font-size:14px}.sk-scene .lg{font-size:17px}.sk-scene .xl{font-size:21px}
+.sk-scene .u{letter-spacing:.14em;text-transform:uppercase}
+.sk-scene a{cursor:pointer}
+.sk-scene a:focus{outline:none}
+.sk-scene a:hover .sk-hit,.sk-scene a:focus-visible .sk-hit{stroke:var(--teal-lt,#2DD4BF);stroke-width:2}
+.sk-scene .sk-pop{transform-box:fill-box;transform-origin:center}
+.sk-travel{opacity:0}
+.sk-js .sk-scene .sk-draw{stroke-dasharray:var(--len,100);stroke-dashoffset:var(--len,100)}
+.sk-js .sk-scene .sk-fade,.sk-js .sk-scene .sk-pop,.sk-js .sk-scene .sk-slide,.sk-js .sk-scene .sk-strike{opacity:0}
+.sk-js .sk-scene.sk-play .sk-draw{animation:sk-draw .9s ease-out forwards var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-fade{animation:sk-fade .6s ease-out forwards var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-pop{animation:sk-pop .5s cubic-bezier(.2,1.4,.4,1) forwards var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-slide{animation:sk-slide .7s ease-out forwards var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-pulse{animation:sk-pulse 2.2s ease-in-out 2 var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-travel{animation:sk-travel var(--dur,2.6s) linear 1 var(--d,0s)}
+.sk-js .sk-scene.sk-play .sk-strike{animation:sk-fade .4s ease-out forwards var(--d,0s)}
+@keyframes sk-draw{to{stroke-dashoffset:0}}
+@keyframes sk-fade{to{opacity:1}}
+@keyframes sk-pop{0%{opacity:0;transform:scale(.55)}100%{opacity:1;transform:scale(1)}}
+@keyframes sk-slide{from{opacity:0;transform:translate(var(--dx,0px),var(--dy,8px))}to{opacity:1;transform:translate(0,0)}}
+@keyframes sk-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes sk-travel{0%{opacity:0;transform:translate(0,0)}8%{opacity:1}88%{opacity:1}100%{opacity:0;transform:translate(var(--tx,0px),var(--ty,0px))}}
+@media print,(prefers-reduced-motion:reduce){
+  .sk-js .sk-scene *{animation:none!important}
+  .sk-js .sk-scene .sk-fade,.sk-js .sk-scene .sk-pop,.sk-js .sk-scene .sk-slide,.sk-js .sk-scene .sk-strike{opacity:1!important;transform:none!important}
+  .sk-js .sk-scene .sk-draw{stroke-dashoffset:0!important}
+  .sk-travel{opacity:0!important}
+}
+/* SCENE-KIT:v1:END */
+/* EXPLAINER-KIT:v1:START */
+/* EXPLAINER-KIT:v1 (scripts/lib/explainer-kit.mjs) */
+:root{
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --blue:#60A5FA; --blue-dim:rgba(96,165,250,.12);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px;word-break:break-word}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--teal-lt);outline-offset:2px}
+.wrap{max-width:1000px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+
+/* hero */
+.hero{padding:3.5rem 0 2.4rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.loop-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(212,168,71,.35);background:var(--gold-dim);border-radius:20px;padding:.15rem .6rem}
+.hero h1{font-size:clamp(1.9rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero p{font-size:1rem;color:var(--body);max-width:760px;line-height:1.9}
+.hero-actions{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin:1.5rem 0 .4rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.06em;border-radius:var(--radius);padding:.5rem .95rem;cursor:pointer;border:1px solid var(--border-2);background:var(--bg-2);color:var(--text)}
+.btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.btn-primary{background:var(--gold);color:#080E1A;border-color:var(--gold);font-weight:600}
+.btn-primary:hover{opacity:.88;color:#080E1A}
+.hint{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body)}
+.stair-map{margin:1.2rem 0 .4rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow-x:auto}
+.stair-map svg{display:block;width:100%;height:auto;min-width:640px}
+.stair-bar{cursor:pointer}
+.stair-bar rect{transition:fill .2s,stroke .2s}
+.stair-bar:hover rect,.stair-bar:focus rect{stroke:var(--white)}
+.thesis{margin-top:1.4rem;padding:1rem 1.3rem;background:var(--teal-dim);border-left:3px solid var(--teal);border-radius:0 var(--radius) var(--radius) 0;font-size:.95rem;color:var(--bright)}
+
+/* parts */
+.part-head{padding:3rem 0 .6rem;border-bottom:1px solid var(--border)}
+.part-head .kicker{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.part-head h2{font-size:clamp(1.4rem,2.8vw,2rem);color:var(--white)}
+.part-head p{color:var(--body);max-width:740px;margin:.6rem 0 1.2rem}
+
+/* panels */
+.panel{padding:2.6rem 0;border-bottom:1px solid var(--border)}
+.panel-head{display:flex;align-items:baseline;gap:.9rem;margin-bottom:.4rem;flex-wrap:wrap}
+.stage-n{font-family:'JetBrains Mono',monospace;font-size:.9rem;color:var(--teal-lt);border:1px solid rgba(20,184,166,.35);border-radius:50%;width:2.2rem;height:2.2rem;display:flex;align-items:center;justify-content:center;flex:none}
+.panel.ex .stage-n{color:var(--gold);border-color:rgba(212,168,71,.4)}
+.panel h2{font-size:clamp(1.25rem,2.4vw,1.7rem);color:var(--white)}
+.panel h3{font-size:1.05rem;color:var(--bright);margin:1.5rem 0 .5rem}
+.panel .kicker{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.panel p{color:var(--body);max-width:760px;margin:.9rem 0}
+.panel .lede{color:var(--text)}
+.scene-wrap{position:relative;margin:1.2rem 0}
+.scene-scroll{max-width:100%;overflow-x:auto;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.scene-scroll svg{display:block;width:100%;height:auto;min-width:640px}
+.replay{position:absolute;top:8px;right:8px;z-index:2;font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);border-radius:20px;padding:.2rem .6rem;cursor:pointer}
+.replay:hover{color:var(--teal-lt);border-color:var(--teal)}
+.cite{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.04em;padding:.15rem .55rem;border-radius:12px;background:var(--bg-3);color:var(--teal-lt);border:1px solid var(--border-2);margin:.15rem .25rem .15rem 0}
+.cites{margin-top:.8rem}
+
+/* prompts */
+.prompt{margin:1.2rem 0;background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:0 var(--radius) var(--radius) 0;max-width:860px}
+.prompt-head{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.5rem .9rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--purple)}
+.prompt-head .lvl{color:var(--body);letter-spacing:.08em}
+.prompt pre{margin:0;padding:.8rem .95rem;font-family:'JetBrains Mono',monospace;font-size:.74rem;line-height:1.7;color:var(--bright);white-space:pre-wrap;word-break:break-word}
+.prompt.long pre{max-height:360px;overflow:auto}
+.copy{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;background:transparent;border:1px solid var(--border-2);color:var(--body);border-radius:20px;padding:.18rem .6rem;cursor:pointer}
+.copy:hover{border-color:var(--purple);color:var(--purple)}
+.answer{padding:.55rem .95rem;border-top:1px dashed var(--border);font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--body);line-height:1.7}
+.answer{overflow-wrap:anywhere}
+.answer .hl{color:var(--gold);word-break:break-all}
+.cite{max-width:100%;overflow-wrap:anywhere}
+.checks{list-style:none;margin:1.2rem 0;padding:0;counter-reset:chk}
+.checks li{position:relative;padding:.8rem 1rem .8rem 3rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;font-size:.88rem;color:var(--text);counter-increment:chk}
+.checks li::before{content:counter(chk);position:absolute;left:.9rem;top:.8rem;width:1.5rem;height:1.5rem;border-radius:50%;border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.72rem;display:flex;align-items:center;justify-content:center}
+
+/* run tables */
+.runs{width:100%;border-collapse:collapse;margin:1.1rem 0;font-size:.8rem}
+.runs th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;color:var(--body);padding:.5rem .6rem;border-bottom:1px solid var(--border)}
+.runs td{padding:.55rem .6rem;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text)}
+.runs td.m{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--gold);word-break:break-all}
+.runs-scroll{overflow-x:auto}
+.v{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.08rem .45rem;border-radius:10px;white-space:nowrap}
+.v-ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.35)}
+.v-no{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.35)}
+.v-esc{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.35)}
+
+/* cards */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:1.4rem 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.2rem}
+.card h3{font-size:1.02rem;color:var(--bright);margin:0 0 .4rem;font-family:'DM Serif Display',serif}
+.card p{font-size:.85rem;color:var(--body);margin:0}
+.claim-card{border-left:3px solid var(--gold)}
+.map{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.82rem}
+.map th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--body);padding:.55rem .7rem;border-bottom:1px solid var(--border-2)}
+.map td{padding:.6rem .7rem;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text)}
+.map td:first-child{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--gold);white-space:nowrap}
+.note{background:var(--green-dim);border-left:3px solid var(--green);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.88rem;color:var(--text)}
+.warn-note{background:var(--gold-dim);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.88rem;color:var(--text)}
+.cross-link{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--body);background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;line-height:1.9;margin:1.4rem auto;max-width:1000px}
+.cross-link a{color:var(--gold)}
+.pii{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;font-size:.78rem;color:var(--body);margin:2rem auto;max-width:1000px;font-family:'JetBrains Mono',monospace}
+.dl-row{display:flex;gap:.6rem;flex-wrap:wrap;margin:.8rem 0}
+
+/* presenter mode */
+.pbar{display:none}
+body.present{overflow:hidden}
+body.present nav,body.present header.hero,body.present .part-head,body.present footer,body.present .pii,body.present .detail,body.present .replay{display:none!important}
+body.present .panel{display:none;border:0;padding:0}
+body.present .panel.current{display:flex;flex-direction:column;height:100vh;padding:1rem 0 5.2rem;overflow-y:auto}
+body.present .panel.current .wrap{max-width:min(1360px,96vw);width:100%;margin:auto}
+body.present .panel h2{font-size:clamp(1.25rem,2.4vw,1.8rem)}
+body.present .panel p.lede{max-width:none;font-size:.95rem;line-height:1.65;margin:.4rem 0}
+body.present .scene-wrap{margin:.6rem 0}
+body.present .scene-scroll svg{max-height:calc(100vh - 23rem);min-width:0}
+body.present .prompt{max-width:none;margin:.6rem 0}
+body.present .prompt pre{max-height:15vh;overflow:auto;font-size:.72rem}
+body.present .prompt.long pre{max-height:15vh}
+body.present .runs-scroll{max-height:24vh;overflow:auto}
+body.present .pbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:300;align-items:center;gap:.7rem;padding:.45rem 1rem;background:rgba(8,14,26,.94);border-top:1px solid var(--border);backdrop-filter:blur(8px)}
+.pbar .rail{flex:1;min-width:0}
+.pbar .rail svg{display:block;width:100%;height:46px}
+.pbar .count{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--body);min-width:4.5rem;text-align:center}
+.pbar .btn{padding:.35rem .7rem}
+.pbar .btn[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+
+@media(max-width:680px){.grid{grid-template-columns:1fr}.wrap{padding:0 1rem}.hero{padding:2.4rem 0 1.8rem}.map td:first-child{white-space:normal}}
+/* Phone widths: keep the shared nav inside the viewport (page-local; the canonical chrome block is untouched). */
+@media(max-width:760px){.nav-breadcrumb span:last-child,.nav-breadcrumb span:nth-last-child(2){display:none}}
+@media(max-width:480px){nav .nav-breadcrumb{display:none}}
+@media print,(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+}
+/* EXPLAINER-KIT:v1:END */
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav + footer chrome (same block as every kit explainer in this folder). */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer (derived from chaingraph-hub.html) */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+/* Page-local: recorded-value chips, provenance strip, design labels. */
+.rec{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--gold);background:var(--gold-dim);border:1px solid rgba(212,168,71,.3);border-radius:3px;padding:.06rem .35rem;word-break:break-all}
+.rec b{color:var(--gold);font-weight:500}
+.recrow{display:flex;flex-wrap:wrap;gap:.4rem .8rem;margin:.7rem 0;font-size:.78rem;color:var(--body);align-items:baseline}
+.recrow .lbl{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);min-width:9rem}
+.prov{margin:1.4rem 0;padding:.9rem 1.2rem;background:var(--bg-2);border:1px solid var(--border-2);border-left:3px solid var(--green);border-radius:0 var(--radius) var(--radius) 0;font-size:.83rem;color:var(--text);max-width:860px}
+.prov .lbl{display:block;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--green);margin-bottom:.3rem}
+.designtag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--purple);border:1px solid rgba(155,114,245,.4);background:var(--purple-dim);border-radius:12px;padding:.12rem .55rem;margin-left:.5rem;vertical-align:middle}
+.todaytag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--green);border:1px solid rgba(34,197,94,.4);background:var(--green-dim);border-radius:12px;padding:.12rem .55rem;margin-left:.5rem;vertical-align:middle}
+</style>
+<!-- SCENE-KIT-JS:v1:START -->
+<script>(function(){var d=document.documentElement;try{if(!('IntersectionObserver' in window))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;d.classList.add('sk-js');document.addEventListener('DOMContentLoaded',function(){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('sk-play');io.unobserve(e.target);}});},{threshold:0.2});Array.prototype.forEach.call(document.querySelectorAll('svg.sk-scene'),function(s){io.observe(s);});});}catch(e){d.classList.remove('sk-js');}})();</script>
+<!-- SCENE-KIT-JS:v1:END -->
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">Threshold signing: one key across many holders · OpenChainGraph Explainer</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">OpenChainGraph &middot; Explainer <span class="loop-pill">Recorded 2-of-3 ceremony</span></div>
+  <h1>Threshold signing: one key across many holders</h1>
+  <p>One signing key can sit in several hands at once, so that two of three holders together can sign and any single holder alone cannot. This page walks one 2-of-3 ceremony end to end twice: once with a trusted dealer who briefly holds the whole key, and once with distributed key generation, where the whole key is never assembled anywhere. It closes with the failure stories bad randomness keeps writing, and with where threshold ideas touch this estate. Every ceremony value on this page is a recorded transcript: it was generated offline by a pinned cryptography library before this page was written, and the page itself runs no cryptography.</p>
+  <div class="hero-actions">
+    <button type="button" class="btn btn-primary" id="btnPresent">Present this page</button>
+    <span class="hint">Presenter mode shows one step per screen. Arrow keys move, A toggles autoplay, Esc exits.</span>
+  </div>
+  <div class="stair-map" role="navigation" aria-label="Map of every step on this page">
+    <svg id="stairMap" viewBox="0 0 1000 260" aria-hidden="false" role="list"></svg>
+  </div>
+  <div class="thesis">Two of three holders produced every signature shown here, and each result verifies as one ordinary Ed25519 signature under one group public key. To any outside verifier, a threshold ceremony and a single key look the same.</div>
+</div></header>
+
+<div class="part-head"><div class="wrap">
+  <div class="kicker">Part one &middot; The problem</div>
+  <h2>One key is one point of failure</h2>
+  <p>Two steps: what a verifier actually sees when a signature arrives, and how one key can be split so that no single holder alone can use it.</p>
+</div></div>
+
+<!-- STEP 1 -->
+<section class="panel" id="s-single" data-stair="One to many" data-part="1"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">1</span><div><div class="kicker">Step 1 &middot; The problem</div><h2>From one key to many holders</h2></div></div>
+  <p class="lede">One ordinary signing key answers three questions at once: who approves, where the key lives, and what happens when that one place burns. Threshold signing changes the middle answer: the same single key, in effect, lives in several hands, and a quorum of those hands must agree before anything is signed.</p>
+  <div class="scene-wrap"><button type="button" class="replay" data-replay>Replay</button><div class="scene-scroll"><svg class="sk-scene" viewBox="0 0 960 300" role="img" aria-label="Three custody shapes compared: one holder with one key, three holders each signing separately, and three holders holding shares of one key that produces one signature.">
+    <text x="20" y="30" class="h md">Single key</text>
+    <g class="sk-fade" style="--d:.1s">
+      <rect x="20" y="46" width="130" height="52" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/>
+      <text x="85" y="68" text-anchor="middle" class="b sm">holder</text>
+      <text x="85" y="86" text-anchor="middle" class="s xs">one device</text>
+    </g>
+    <path class="sk-draw" d="M158 72 H210" stroke="var(--muted)" stroke-width="1.5" fill="none" style="--len:52;--d:.4s"/>
+    <g class="sk-pop" style="--d:.7s"><rect x="216" y="46" width="120" height="52" rx="8" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.3"/><text x="276" y="68" text-anchor="middle" class="r sm">one key</text><text x="276" y="86" text-anchor="middle" class="s xs">one secret</text></g>
+    <g class="sk-fade" style="--d:1s"><text x="352" y="78" class="s xs">steal it once, sign anything</text></g>
+
+    <text x="20" y="150" class="h md">Multisignature</text>
+    <g class="sk-fade" style="--d:1.2s">
+      <rect x="20" y="166" width="86" height="46" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/><text x="63" y="194" text-anchor="middle" class="b xs">holder A</text>
+      <rect x="116" y="166" width="86" height="46" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/><text x="159" y="194" text-anchor="middle" class="b xs">holder B</text>
+      <rect x="212" y="166" width="86" height="46" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/><text x="255" y="194" text-anchor="middle" class="b xs">holder C</text>
+    </g>
+    <g class="sk-fade" style="--d:1.6s">
+      <rect x="330" y="160" width="74" height="20" rx="4" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1"/><text x="367" y="174" text-anchor="middle" class="t xs">sig 1</text>
+      <rect x="330" y="184" width="74" height="20" rx="4" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1"/><text x="367" y="198" text-anchor="middle" class="t xs">sig 2</text>
+      <rect x="330" y="208" width="74" height="20" rx="4" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1"/><text x="367" y="222" text-anchor="middle" class="t xs">sig 3</text>
+      <text x="424" y="196" class="s xs">three signatures visible</text>
+    </g>
+
+    <text x="20" y="262" class="h md">Threshold</text>
+    <g class="sk-fade" style="--d:1.9s">
+      <rect x="20" y="272" width="86" height="22" rx="4" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1"/><text x="63" y="287" text-anchor="middle" class="g xs">share 1</text>
+      <rect x="116" y="272" width="86" height="22" rx="4" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1"/><text x="159" y="287" text-anchor="middle" class="g xs">share 2</text>
+      <rect x="212" y="272" width="86" height="22" rx="4" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1"/><text x="255" y="287" text-anchor="middle" class="g xs">share 3</text>
+    </g>
+    <path class="sk-draw" d="M306 283 H360" stroke="var(--muted)" stroke-width="1.5" fill="none" style="--len:54;--d:2.2s"/>
+    <g class="sk-pop" style="--d:2.5s"><rect x="366" y="270" width="120" height="26" rx="6" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.4"/><text x="426" y="287" text-anchor="middle" class="t xs">ONE signature</text></g>
+    <g class="sk-fade" style="--d:2.8s"><text x="506" y="287" class="s xs">two of three agreed, and nobody can tell which two</text></g>
+  </svg></div></div>
+  <p class="detail">A multisignature scheme keeps separate keys and produces separate signatures, so the policy is visible on the wire: a verifier counts three signatures and learns that three parties were involved. A threshold scheme produces one signature under one public key, and the quorum policy stays private to the holders. That privacy is a design choice with a cost: the ceremony that splits the key has to be run well, which is the subject of the next three steps.</p>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>Why does one signature from three holders look identical, to any outside verifier, to one signature from a single key?</pre></div>
+</div></section>
+
+<!-- STEP 2 -->
+<section class="panel" id="s-shares" data-stair="Shares and thresholds" data-part="1"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">2</span><div><div class="kicker">Step 2 &middot; The problem</div><h2>Shares and thresholds</h2></div></div>
+  <p class="lede">A threshold scheme cuts one secret into n shares so that any t of them can act together, while fewer than t learn nothing about the secret. This page's ceremony uses t = 2 and n = 3: two holders can sign, one holder alone cannot, and all three together are never needed.</p>
+  <div class="scene-wrap"><button type="button" class="replay" data-replay>Replay</button><div class="scene-scroll"><svg class="sk-scene" viewBox="0 0 960 250" role="img" aria-label="One key bar splitting into three shares, then any two shares reconstructing signing power while one share alone reveals nothing.">
+    <g class="sk-fade" style="--d:.1s"><rect x="20" y="24" width="300" height="30" rx="6" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.4"/><text x="170" y="44" text-anchor="middle" class="t xs">the whole signing key (scalar)</text></g>
+    <g class="sk-fade" style="--d:.5s"><text x="20" y="90" class="s xs">cut: Shamir secret sharing, a random polynomial of degree t-1 = 1</text></g>
+    <g class="sk-fade" style="--d:.9s">
+      <rect x="20" y="106" width="90" height="26" rx="5" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2"/><text x="65" y="123" text-anchor="middle" class="g xs">share 1</text>
+      <rect x="120" y="106" width="90" height="26" rx="5" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2"/><text x="165" y="123" text-anchor="middle" class="g xs">share 2</text>
+      <rect x="220" y="106" width="90" height="26" rx="5" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2"/><text x="265" y="123" text-anchor="middle" class="g xs">share 3</text>
+    </g>
+    <g class="sk-fade" style="--d:1.3s">
+      <rect x="380" y="96" width="250" height="44" rx="8" fill="var(--green-dim)" stroke="var(--green)" stroke-width="1.3"/>
+      <text x="505" y="114" text-anchor="middle" class="ok xs">any 2 shares sign together</text>
+      <text x="505" y="131" text-anchor="middle" class="s xs">t = 2 of n = 3</text>
+    </g>
+    <g class="sk-fade" style="--d:1.7s">
+      <rect x="680" y="96" width="250" height="44" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/>
+      <text x="805" y="114" text-anchor="middle" class="b xs">1 share alone: no signing power,</text>
+      <text x="805" y="131" text-anchor="middle" class="s xs">and no usable information about the key</text>
+    </g>
+    <g class="sk-fade" style="--d:2.1s">
+      <text x="20" y="196" class="b sm">Each share is also verifiable.</text>
+      <text x="20" y="220" class="s xs">Alongside the shares sits a public list of commitments; any holder can check that its share is consistent with that list without learning anything else, so a bad or corrupted share is caught before it matters.</text>
+    </g>
+  </svg></div></div>
+  <p class="detail">The mathematics is polynomial interpolation over a finite field: fix a secret as the constant term of a random polynomial of degree t-1, hand each holder one point on that polynomial, and any t points determine the polynomial while t-1 points leave it completely undetermined. The commitments are the polynomial's coefficient points, published so shares can be checked. FROST, the signing protocol used on this page, builds its 2-of-3 group exactly this way.</p>
+  <div class="cites"><span class="cite">t = 2, n = 3 throughout this page</span><span class="cite">share check: VSS commitments (RFC 9591 Appendix C.2)</span></div>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>In a 2-of-3 share set, what exactly can one holder do alone, and what does a verifier need before it trusts a claimed share?</pre></div>
+</div></section>
+
+<div class="part-head"><div class="wrap">
+  <div class="kicker">Part two &middot; The ceremony</div>
+  <h2>Two ways to cut one key into three shares</h2>
+  <p>Three steps: the trusted-dealer track, where one party briefly sees everything; distributed key generation, where no party ever does; and the signing step, where two holders produce one signature. Every value in these steps was recorded offline and is quoted, truncated, from that recording.</p>
+</div></div>
+
+<!-- STEP 3: TRUSTED DEALER -->
+<section class="panel" id="s-dealer" data-stair="The trusted dealer" data-part="2"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">3</span><div><div class="kicker">Step 3 &middot; The ceremony</div><h2>The trusted dealer track<span class="designtag">design scene</span></h2></div></div>
+  <p class="lede">The oldest way to cut a key: a dealer generates the whole key, cuts it into shares, hands one share to each holder, and deletes the key. It works, and it has a structural weakness: for a moment, one machine held everything, and the ceremony is only as trustworthy as that machine and its randomness.</p>
+  <div class="scene-wrap"><button type="button" class="replay" data-replay>Replay</button><div class="scene-scroll"><svg class="sk-scene" viewBox="0 0 960 320" role="img" aria-label="A dealer box holding the whole key sends one share to each of three holders; a marker flags the moment the dealer sees the whole key.">
+    <g class="sk-fade" style="--d:.1s">
+      <rect x="330" y="20" width="300" height="66" rx="10" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.4"/>
+      <text x="480" y="44" text-anchor="middle" class="h sm">dealer</text>
+      <text x="480" y="64" text-anchor="middle" class="s xs">generates the whole key with its own randomness</text>
+    </g>
+    <g class="sk-pop" style="--d:.6s">
+      <rect x="330" y="98" width="300" height="30" rx="6" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.3"/>
+      <text x="480" y="118" text-anchor="middle" class="r xs" data-roll="whole key: 79aba78a3d07e4d6…0548f50b" data-roll-delay=".2">whole key: 79aba78a3d07e4d6…0548f50b</text>
+    </g>
+    <g class="sk-fade" style="--d:1.1s">
+      <path d="M400 134 V180 H120 V206" stroke="var(--muted)" stroke-width="1.5" fill="none" class="sk-draw" style="--len:150;--d:1.1s"/>
+      <path d="M480 134 V206" stroke="var(--muted)" stroke-width="1.5" fill="none" class="sk-draw" style="--len:72;--d:1.3s"/>
+      <path d="M560 134 V180 H840 V206" stroke="var(--muted)" stroke-width="1.5" fill="none" class="sk-draw" style="--len:150;--d:1.5s"/>
+    </g>
+    <g class="sk-fade" style="--d:1.9s">
+      <rect x="30" y="210" width="180" height="56" rx="8" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2"/>
+      <text x="120" y="232" text-anchor="middle" class="g xs">holder 1, share</text>
+      <text x="120" y="252" text-anchor="middle" class="m xs" data-roll="57928337…">57928337…</text>
+      <rect x="390" y="210" width="180" height="56" rx="8" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2"/>
+      <text x="480" y="232" text-anchor="middle" class="g xs">holder 2, share</text>
+      <text x="480" y="252" text-anchor="middle" class="m xs" data-roll="593e5c90…">593e5c90…</text>
+      <rect x="750" y="210" width="180" height="56" rx="8" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2"/>
+      <text x="840" y="232" text-anchor="middle" class="g xs">holder 3, share</text>
+      <text x="840" y="252" text-anchor="middle" class="m xs" data-roll="d82f9332…">d82f9332…</text>
+    </g>
+    <g class="sk-fade" style="--d:2.4s">
+      <rect x="30" y="286" width="420" height="26" rx="6" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1"/>
+      <text x="240" y="303" text-anchor="middle" class="b xs">group public key: a0f4f4be…702cf1ef (ordinary Ed25519 key)</text>
+      <rect x="510" y="286" width="420" height="26" rx="6" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1"/>
+      <text x="720" y="303" text-anchor="middle" class="r xs">the marked moment: one party holds the whole key</text>
+    </g>
+  </svg></div></div>
+  <p class="detail">The recorded dealer run drew the whole key first, then cut it into the three shares shown, each share paired with a public verifying share so holder 1 can check what it received. RFC 9591, the FROST specification, sketches exactly this shape in its Appendix C, because key generation is out of that document's scope. The whole-key value above is real and is published deliberately: this ceremony was recorded for teaching, the key was born in a sealed offline run, and showing what the dealer saw is the point. That exposure is why the next step exists.</p>
+  <div class="recrow"><span class="lbl">recorded, dealer run</span><span class="rec">whole key 79aba78a3d07e4d6…0548f50b</span><span class="rec">group key a0f4f4bef38f1941…702cf1ef</span><span class="rec">VSS commitments: a0f4f4be…, 73f35c10…</span></div>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>What exactly does the dealer see in the trusted-dealer setup, at which moment, and what must be trusted about that machine?</pre></div>
+</div></section>
+
+<!-- STEP 4: DKG -->
+<section class="panel" id="s-dkg" data-stair="Distributed generation" data-part="2"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">4</span><div><div class="kicker">Step 4 &middot; The ceremony</div><h2>Distributed key generation</h2></div></div>
+  <p class="lede">Distributed key generation removes the dealer: every holder contributes randomness, the shares are formed in public round messages, and the whole signing key exists only as a sum that is never assembled anywhere. The ceremony holds together as long as one participant is honest.</p>
+  <div class="scene-wrap"><button type="button" class="replay" data-replay>Replay</button><div class="scene-scroll"><svg class="sk-scene" viewBox="0 0 960 330" role="img" aria-label="Three DKG rounds: each holder broadcasts commitments and a proof of knowledge, then sends share fragments to the others, then every holder derives the same group public key.">
+    <text x="20" y="24" class="h sm">Round 1: each holder broadcasts commitments and a proof of knowledge</text>
+    <g class="sk-fade" style="--d:.15s">
+      <rect x="20" y="38" width="280" height="52" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/>
+      <text x="160" y="58" text-anchor="middle" class="b xs">holder 1: commitments 12cedfc7…, 896e8c51…</text>
+      <text x="160" y="76" text-anchor="middle" class="s xs">proof of knowledge: 85819ac0…</text>
+      <rect x="340" y="38" width="280" height="52" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/>
+      <text x="480" y="58" text-anchor="middle" class="b xs">holder 2: commitments 79689f17…, de105726…</text>
+      <text x="480" y="76" text-anchor="middle" class="s xs">proof of knowledge: 8434977d…</text>
+      <rect x="660" y="38" width="280" height="52" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/>
+      <text x="800" y="58" text-anchor="middle" class="b xs">holder 3: commitments caa6d786…, 673e54b8…</text>
+      <text x="800" y="76" text-anchor="middle" class="s xs">proof of knowledge: 65d17df0…</text>
+    </g>
+    <text x="20" y="122" class="h sm">Round 2: each holder sends a private share fragment to every other holder</text>
+    <g class="sk-fade" style="--d:.8s">
+      <path d="M160 138 C 260 176, 380 176, 480 190" stroke="var(--teal)" stroke-width="1.4" fill="none" class="sk-draw" style="--len:220;--d:.9s"/>
+      <path d="M800 138 C 700 176, 580 176, 480 190" stroke="var(--teal)" stroke-width="1.4" fill="none" class="sk-draw" style="--len:220;--d:1.1s"/>
+      <path d="M160 138 C 340 210, 620 210, 800 190" stroke="var(--teal)" stroke-width="1.4" fill="none" class="sk-draw" style="--len:400;--d:1.3s"/>
+      <text x="480" y="166" text-anchor="middle" class="s xs">fragments in transit, e.g. holder 2 to holder 3: 20eccee8…</text>
+    </g>
+    <text x="20" y="252" class="h sm">Round 3: every holder derives the same key material locally</text>
+    <g class="sk-fade" style="--d:1.7s">
+      <rect x="20" y="266" width="200" height="44" rx="8" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2"/><text x="120" y="286" text-anchor="middle" class="g xs">holder 1 derives</text><text x="120" y="302" text-anchor="middle" class="s xs">its share, locally</text>
+      <rect x="380" y="266" width="200" height="44" rx="8" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2"/><text x="480" y="286" text-anchor="middle" class="g xs">holder 2 derives</text><text x="480" y="302" text-anchor="middle" class="s xs">its share, locally</text>
+      <rect x="740" y="266" width="200" height="44" rx="8" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2"/><text x="840" y="286" text-anchor="middle" class="g xs">holder 3 derives</text><text x="840" y="302" text-anchor="middle" class="s xs">its share, locally</text>
+    </g>
+    <g class="sk-pop" style="--d:2.2s">
+      <rect x="240" y="222" width="480" height="30" rx="6" fill="var(--green-dim)" stroke="var(--green)" stroke-width="1.3"/>
+      <text x="480" y="241" text-anchor="middle" class="ok xs" data-roll="all three derive the same group key: e232e373…a6fd45e6">all three derive the same group key: e232e373…a6fd45e6</text>
+    </g>
+  </svg></div></div>
+  <p class="detail">This three-round shape, with the proof of knowledge in round one, is the distributed key generation implemented in @noble/curves 2.4.0, the Zcash Foundation construction. RFC 9591 covers the FROST signing that follows; it deliberately leaves key generation out of scope, so the DKG wording here names the library's construction rather than the RFC. In the recorded run, all three holders derived byte-identical group public keys and mutually consistent verifying shares, and each share validated against the published commitments.</p>
+  <div class="recrow"><span class="lbl">recorded, DKG run</span><span class="rec">group key e232e373e9a3c0cc…a6fd45e6</span><span class="rec">all three agree: yes</span><span class="rec">shares validate: yes</span></div>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>Walk the three DKG rounds. What is public after each round, and where does the whole signing key never exist?</pre></div>
+</div></section>
+
+<!-- STEP 5: SIGNING -->
+<section class="panel" id="s-sign" data-stair="Two sign as one" data-part="2"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">5</span><div><div class="kicker">Step 5 &middot; The ceremony</div><h2>Two holders sign as one</h2></div></div>
+  <p class="lede">Signing is RFC 9591 FROST signing, in two rounds: the participating holders publish nonce commitments, then each produces a partial signature, and an aggregation step folds the partials into one ordinary 64-byte Schnorr signature under the group public key.</p>
+  <div class="scene-wrap"><button type="button" class="replay" data-replay>Replay</button><div class="scene-scroll"><svg class="sk-scene" viewBox="0 0 960 300" role="img" aria-label="Two of the three holders exchange nonce commitments, produce partial signatures, which aggregate into one signature that verifies as an ordinary Ed25519 signature.">
+    <text x="20" y="24" class="h sm">Round 1: nonce commitments (recorded DKG run, holders 2 and 3)</text>
+    <g class="sk-fade" style="--d:.15s">
+      <rect x="20" y="38" width="420" height="46" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/>
+      <text x="230" y="58" text-anchor="middle" class="b xs">holder 2 commits: hiding 9c63684d… binding d732467d…</text>
+      <text x="230" y="75" text-anchor="middle" class="s xs">fresh random nonces, published as commitments only</text>
+      <rect x="520" y="38" width="420" height="46" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/>
+      <text x="730" y="58" text-anchor="middle" class="b xs">holder 3 commits: hiding 86677d93… binding 99e771b4…</text>
+      <text x="730" y="75" text-anchor="middle" class="s xs">each partial signature consumes its nonce exactly once</text>
+    </g>
+    <text x="20" y="118" class="h sm">Round 2: partial signatures, then aggregation</text>
+    <g class="sk-fade" style="--d:.8s">
+      <rect x="20" y="132" width="300" height="34" rx="7" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2"/><text x="170" y="153" text-anchor="middle" class="g xs">partial from holder 2: 07942648…</text>
+      <rect x="640" y="132" width="300" height="34" rx="7" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2"/><text x="790" y="153" text-anchor="middle" class="g xs">partial from holder 3: 4b7d165d…</text>
+    </g>
+    <path d="M330 149 H430" stroke="var(--muted)" stroke-width="1.5" fill="none" class="sk-draw" style="--len:100;--d:1.2s"/>
+    <path d="M630 149 H530" stroke="var(--muted)" stroke-width="1.5" fill="none" class="sk-draw" style="--len:100;--d:1.2s"/>
+    <g class="sk-pop" style="--d:1.6s">
+      <rect x="330" y="184" width="300" height="36" rx="8" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.4"/>
+      <text x="480" y="206" text-anchor="middle" class="t xs" data-roll="aggregate: a8369d73f96814e3…9bc90ea0e">aggregate: a8369d73f96814e3…9bc90ea0e</text>
+    </g>
+    <g class="sk-fade" style="--d:2.1s">
+      <rect x="150" y="244" width="320" height="40" rx="8" fill="var(--green-dim)" stroke="var(--green)" stroke-width="1.3"/><text x="310" y="262" text-anchor="middle" class="ok xs">RFC 9591 FROST verification: PASS</text><text x="310" y="278" text-anchor="middle" class="s xs">against the group public key</text>
+      <rect x="490" y="244" width="320" height="40" rx="8" fill="var(--green-dim)" stroke="var(--green)" stroke-width="1.3"/><text x="650" y="262" text-anchor="middle" class="ok xs">ordinary Ed25519 verification: PASS</text><text x="650" y="278" text-anchor="middle" class="s xs">same signature, same key, no FROST code</text>
+    </g>
+  </svg></div></div>
+  <p class="detail">The message signed in both recorded runs was the ASCII string <code>threshold-signing-explainer recorded ceremony</code>. The recorded transcript also includes, for completeness, the dealer run signing by holders 1 and 2. Every verification below passed in the recorded run, and the second one is the quietly important result: the aggregate is a well-formed RFC 8032 Ed25519 signature, so an ordinary verifier with no FROST code accepts it.</p>
+  <div class="runs-scroll"><table class="runs">
+    <tr><th>Run</th><th>Key generation</th><th>Signing pair</th><th>Aggregate signature</th><th>RFC 9591 verify</th><th>Ordinary Ed25519 verify</th></tr>
+    <tr><td>Dealer</td><td>trusted dealer</td><td>holders 1 + 2</td><td class="m">50688ca151bf4a13…82c3ed00</td><td><span class="v v-ok">PASS</span></td><td><span class="v v-ok">PASS</span></td></tr>
+    <tr><td>DKG</td><td>DKG.round1/2/3</td><td>holders 2 + 3</td><td class="m">a8369d73f96814e3…9bc90ea0e</td><td><span class="v v-ok">PASS</span></td><td><span class="v v-ok">PASS</span></td></tr>
+  </table></div>
+  <p class="detail">Different holder pairs signed the two runs, which is the threshold property doing its job: any two of the three can form a quorum. The nonce discipline matters as much as the shares; the randomness step of this page is where that story lands.</p>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>Which values from the recorded transcript would an external verifier need in order to check the aggregate signature, and which verifier code can it use?</pre></div>
+</div></section>
+
+<div class="part-head"><div class="wrap">
+  <div class="kicker">Part three &middot; Choices, failures, and this estate</div>
+  <h2>From holder choice to failure stories</h2>
+  <p>Four steps: choosing holders as a design value, FROST against MuSig2, the randomness failure stories with their primary sources, and where threshold ideas touch the AINumbers estate.</p>
+</div></div>
+
+<!-- STEP 6: HOLDERS -->
+<section class="panel" id="s-holders" data-stair="Choosing holders" data-part="3"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">6</span><div><div class="kicker">Step 6 &middot; Choices</div><h2>Choosing who holds a share</h2></div></div>
+  <p class="lede">A threshold is only as strong as the spread of its holders. Holder choice is a design value: pick holders by jurisdiction, by authentication type, and by whether each is a person or an organisation, so that one compromise, one legal demand, or one mistake stays below the quorum.</p>
+  <div class="scene-wrap"><button type="button" class="replay" data-replay>Replay</button><div class="scene-scroll"><svg class="sk-scene" viewBox="0 0 960 240" role="img" aria-label="Three holder cards, each tagged with a different jurisdiction, authentication type, and person or organisation status.">
+    <g class="sk-fade" style="--d:.1s">
+      <rect x="20" y="24" width="280" height="150" rx="10" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/>
+      <text x="160" y="50" text-anchor="middle" class="h sm">holder 1</text>
+      <text x="160" y="78" text-anchor="middle" class="b xs">jurisdiction: European Union</text>
+      <text x="160" y="102" text-anchor="middle" class="b xs">authentication: hardware device</text>
+      <text x="160" y="126" text-anchor="middle" class="b xs">who: an organisation</text>
+      <text x="160" y="156" text-anchor="middle" class="s xs">holds one share</text>
+    </g>
+    <g class="sk-fade" style="--d:.4s">
+      <rect x="340" y="24" width="280" height="150" rx="10" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/>
+      <text x="480" y="50" text-anchor="middle" class="h sm">holder 2</text>
+      <text x="480" y="78" text-anchor="middle" class="b xs">jurisdiction: North America</text>
+      <text x="480" y="102" text-anchor="middle" class="b xs">authentication: passkey</text>
+      <text x="480" y="126" text-anchor="middle" class="b xs">who: a person</text>
+      <text x="480" y="156" text-anchor="middle" class="s xs">holds one share</text>
+    </g>
+    <g class="sk-fade" style="--d:.7s">
+      <rect x="660" y="24" width="280" height="150" rx="10" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/>
+      <text x="800" y="50" text-anchor="middle" class="h sm">holder 3</text>
+      <text x="800" y="78" text-anchor="middle" class="b xs">jurisdiction: APAC</text>
+      <text x="800" y="102" text-anchor="middle" class="b xs">authentication: in-person ceremony</text>
+      <text x="800" y="126" text-anchor="middle" class="b xs">who: an organisation</text>
+      <text x="800" y="156" text-anchor="middle" class="s xs">holds one share</text>
+    </g>
+    <g class="sk-fade" style="--d:1s">
+      <text x="20" y="206" class="s xs">Any two of these three form a quorum. No vendor is named here because the properties, spread and independence, are the design levers.</text>
+    </g>
+  </svg></div></div>
+  <p class="detail">The three axes do different work. Jurisdiction spread keeps one court or one regulator from reaching a quorum. Authentication spread means one class of credential compromise, for example a stolen passkey, reaches at most one share. The person-or-organisation choice sets who is accountable and who is reachable in an emergency. A sound policy names its holders along all three axes before the ceremony is scheduled.</p>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>Give three holder-selection policies for a 2-of-3 set and name the failure each one survives.</pre></div>
+</div></section>
+
+<!-- STEP 7: PROTOCOLS -->
+<section class="panel" id="s-protocols" data-stair="FROST and MuSig2" data-part="3"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">7</span><div><div class="kicker">Step 7 &middot; Choices</div><h2>FROST and MuSig2 side by side</h2></div></div>
+  <p class="lede">Two Schnorr multi-party schemes answer different questions. FROST, specified in RFC 9591 (an Informational RFC), lets a threshold subset of n sign. MuSig2, specified in BIP 327 (a draft Bitcoin Improvement Proposal), requires all participants and exists to make several keys look like one ordinary BIP340 key.</p>
+  <div class="runs-scroll"><table class="map">
+    <tr><th></th><th>FROST</th><th>MuSig2</th></tr>
+    <tr><td>specification</td><td>RFC 9591, Informational</td><td>BIP 327, draft</td></tr>
+    <tr><td>who must take part</td><td>any t of n holders (this page: 2 of 3)</td><td>all n participants</td></tr>
+    <tr><td>signing rounds</td><td>two: nonce commitments, then partial signatures</td><td>two</td></tr>
+    <tr><td>key generation</td><td>out of scope for RFC 9591; trusted dealer sketched in its Appendix C; distributed key generation per @noble/curves, the Zcash Foundation construction</td><td>built into the scheme (public-key aggregation)</td></tr>
+    <tr><td>nonce discipline</td><td>a reused nonce in any partial signature leaks that holder's share</td><td>a reused nonce leaks the private key</td></tr>
+  </table></div>
+  <p class="detail">For custody of one key across several holders, the threshold column is the one that matters: MuSig2 cannot express 2-of-3, because all participants must sign. MuSig2 shines where a fixed group wants the efficiency and privacy of one key. Both live or die by nonce discipline, which is the next step's subject.</p>
+  <div class="cites"><span class="cite"><a href="https://datatracker.ietf.org/doc/rfc9591/">RFC 9591 (Informational)</a></span><span class="cite"><a href="https://github.com/bitcoin/bips/blob/master/bip-0327.mediawiki">BIP 327 (draft)</a></span></div>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>Compare FROST and MuSig2 for a 2-of-3 custody policy and say which applies at all.</pre></div>
+</div></section>
+
+<!-- STEP 8: RANDOMNESS -->
+<section class="panel" id="s-randomness" data-stair="Bad randomness" data-part="3"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">8</span><div><div class="kicker">Step 8 &middot; Failures</div><h2>Why bad randomness is the recurring failure</h2></div></div>
+  <p class="lede">Threshold structures spread a key across holders, and every one of those holders still draws randomness: to generate shares, and for every single nonce at signing. The recorded failure stories below are all, at bottom, randomness stories, and each is linked to its primary source.</p>
+  <div class="scene-wrap"><button type="button" class="replay" data-replay>Replay</button><div class="scene-scroll"><svg class="sk-scene" viewBox="0 0 960 220" role="img" aria-label="A randomness pool narrowing: on the left many possible values, in the middle a change removes most of the pool, on the right an attacker enumerates the remaining few.">
+    <g class="sk-fade" style="--d:.1s">
+      <rect x="20" y="30" width="250" height="130" rx="10" fill="var(--green-dim)" stroke="var(--green)" stroke-width="1.3"/>
+      <text x="145" y="58" text-anchor="middle" class="ok sm">healthy entropy pool</text>
+      <text x="145" y="86" text-anchor="middle" class="b xs">2^128+ possible key values</text>
+      <text x="145" y="108" text-anchor="middle" class="s xs">enumeration is hopeless,</text>
+      <text x="145" y="126" text-anchor="middle" class="s xs">so the key survives being public key material</text>
+    </g>
+    <path d="M280 95 H360" stroke="var(--muted)" stroke-width="1.5" fill="none" class="sk-draw" style="--len:80;--d:.5s"/>
+    <g class="sk-pop" style="--d:.9s">
+      <rect x="368" y="30" width="250" height="130" rx="10" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.3"/>
+      <text x="493" y="58" text-anchor="middle" class="r sm">pool quietly narrowed</text>
+      <text x="493" y="86" text-anchor="middle" class="b xs">a packaging change, 2006</text>
+      <text x="493" y="108" text-anchor="middle" class="s xs">keys drawn from a small space,</text>
+      <text x="493" y="126" text-anchor="middle" class="s xs">with no visible error anywhere</text>
+    </g>
+    <path d="M628 95 H708" stroke="var(--muted)" stroke-width="1.5" fill="none" class="sk-draw" style="--len:80;--d:1.3s"/>
+    <g class="sk-pop" style="--d:1.7s">
+      <rect x="716" y="30" width="224" height="130" rx="10" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.3"/>
+      <text x="828" y="58" text-anchor="middle" class="b sm">enumeration wins</text>
+      <text x="828" y="86" text-anchor="middle" class="s xs">days of CPU time, 2008:</text>
+      <text x="828" y="108" text-anchor="middle" class="s xs">the Debian OpenSSL keys,</text>
+      <text x="828" y="126" text-anchor="middle" class="s xs">generated in public within days</text>
+    </g>
+    <g class="sk-fade" style="--d:2.1s">
+      <text x="20" y="196" class="s xs">The same shape repeats at signing time: a per-signature nonce drawn from too small a space hands the key to anyone who sees two signatures.</text>
+    </g>
+  </svg></div></div>
+  <h3>The Debian OpenSSL weakness</h3>
+  <p class="detail">Between 17 September 2006 and 13 May 2008, a Debian-specific change to the OpenSSL package made its random number generator predictable, so cryptographic key material was guessable. The Debian advisory DSA 1571-1 (CVE-2008-0166) told every affected user to recreate keys: SSH keys, OpenVPN keys, DNSSEC keys, and key material for X.509 certificates and TLS sessions, and it flagged DSA signing keys as compromised outright, because DSA signs with a fresh secret random value each time. Two years of keys, one quiet packaging change.</p>
+  <div class="cites"><span class="cite"><a href="https://www.debian.org/security/2008/dsa-1571">Debian DSA 1571-1 (primary source)</a></span><span class="cite">CVE-2008-0166</span></div>
+  <h3>Serial-number entropy misses at certificate authorities</h3>
+  <p class="detail">Three public compliance cases in 2019, none of them key generation: certificate serial numbers. The Baseline Requirements ask certificate authorities for at least 64 bits of output from a cryptographically secure random number generator, and three authorities landed just under it. GoDaddy's serials carried about 63.994 bits after a 2016 change, Entrust's AffirmTrust issuers produced 63-bit serials through an EJBCA flaw, and DarkMatter's platform was configured for 64-bit serials that left about 63 bits of entropy. All three were disclosed on the Mozilla bug tracker, remediated, and the affected certificates re-issued or revoked.</p>
+  <div class="cites"><span class="cite"><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1533774">Bugzilla 1533774, GoDaddy serial entropy</a></span><span class="cite"><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1536287">Bugzilla 1536287, AffirmTrust EJBCA serials</a></span><span class="cite"><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1531800">Bugzilla 1531800, DarkMatter serial entropy</a></span></div>
+  <p class="detail">The lesson for a threshold ceremony: the shares and the nonces both come from randomness, so the ceremony's health is the health of its entropy sources at every draw. <a href="guide-ed25519.html">The estate's Ed25519 guide</a> covers where per-signature randomness sits in the signatures used here.</p>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>What did the Debian OpenSSL weakness and the 2019 CA serial-number findings have in common, and where does the same risk sit in a FROST ceremony?</pre></div>
+</div></section>
+
+<!-- STEP 9: ESTATE -->
+<section class="panel" id="s-estate" data-stair="The estate today" data-part="3"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">9</span><div><div class="kicker">Step 9 &middot; The estate</div><h2>In the AINumbers estate</h2></div></div>
+  <p class="lede">Two statements close this page: what a threshold signer would change for this estate's verifiers, which is design only, and the k-of-n structure the estate runs today, which is a set of independent cosignatures rather than one shared key.</p>
+  <div class="grid">
+    <div class="card claim-card">
+      <h3>How it could plug in<span class="designtag">design</span></h3>
+      <p>A FROST-Ed25519 threshold signer would produce one ordinary Ed25519 signature under one group public key. The estate's receipt verifier <a href="../tools/568-ocg-receipt-verifier.html">T568</a> and envelope verifier <a href="../tools/624-vcjcs-envelope-verifier.html">T624</a> already verify ordinary Ed25519 signatures, so both would accept such a signature with no code change on their side. The threshold signer itself is a design on this page: the estate runs no threshold signing today, and this page runs no cryptography at all.</p>
+    </div>
+    <div class="card">
+      <h3>The estate does this today<span class="todaytag">live</span></h3>
+      <p>The estate's real k-of-n today is the Sigsum witness set behind <a href="anchor.ainumbers.co">anchor.ainumbers.co</a>: twelve pinned witnesses, each an independent key on its own device, cosigning every transparency-log checkpoint, with verification requiring a quorum of those independent cosignatures. That is k-of-n agreement among separate signatures, shown here as exactly that, rather than one threshold key. Measured 23 October 2026 from <code>anchor-suite/public/lib/sigsum.mjs</code> (witness list last changed 20 August 2026).</p>
+    </div>
+  </div>
+  <div class="cites"><span class="cite"><a href="anchors-explainer.html">Anchors and transparency logs</a></span><span class="cite"><a href="../tools/625-c2sp-tlog-verifier.html">T625, one verifier for three logs</a></span><span class="cite"><a href="evidence-estate-explainer.html">The evidence estate</a></span><span class="cite"><a href="keys-revocation-explainer.html">Signatures and key retirement</a></span></div>
+  <p class="detail">The distinction matters for anyone tempted to read a witness quorum as threshold signing. Each Sigsum witness signs with its own key, visibly, and the policy counts the cosignatures; a FROST quorum produces one signature and keeps the policy private. Both are k-of-n trust, and they are different mechanisms.</p>
+  <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>Which estate verifier would accept a FROST-Ed25519 aggregate signature unchanged, and what does the estate use today instead of threshold keys?</pre></div>
+</div></section>
+
+<div class="cross-link">
+  Related reading: <a href="keys-revocation-explainer.html">Signatures and Key Retirement</a> for what happens when a receipt's signing key reaches its end of life; <a href="guide-ed25519.html">Ed25519 Signing</a> for the signature family used on this page; <a href="anchors-explainer.html">Anchors and Transparency Logs</a> for the witness cosigning discussed above; <a href="timestamped-session-receipt-explainer.html">Timestamped session receipts</a> for where these signatures are carried.
+</div>
+
+<div class="prov">
+  <span class="lbl">Value provenance: recorded</span>
+  Every ceremony value on this page (whole key, shares, commitments, nonces, partial and aggregate signatures, group keys, verification results) is quoted from one recorded transcript generated offline on 23 October 2026 by @noble/curves 2.4.0 (MIT licence), suite FROST-ED25519-SHA512-v1, on a deterministic seeded run. Tarball sha256 <code>55279c71b0201d6c0e58d0206d15825359e02a3932f326ba7b7909ac2d334aa9</code>; exact dependency @noble/hashes 2.4.0, tarball sha256 <code>e1946149b780017b2564fcc092cb01c04e1d7f20627d0296c17da8868f4436dc</code>. The generator lives outside this repository and this page runs no cryptography; hex values are displayed truncated, with the full transcript downloadable below.
+  <div class="dl-row"><button type="button" class="btn" data-download="transcriptJson" data-filename="threshold-signing-recorded-transcript.json">Download the recorded transcript</button><button type="button" class="btn copy" data-copy="transcriptJson">Copy transcript JSON</button></div>
+</div>
+
+<div class="pii">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+<div class="pbar" id="pbar" role="toolbar" aria-label="Presenter controls">
+  <button type="button" class="btn" id="pPrev" aria-label="Previous step">&#8592;</button>
+  <span class="count" id="pCount">1 / 1</span>
+  <button type="button" class="btn" id="pNext" aria-label="Next step">&#8594;</button>
+  <div class="rail"><svg id="pRail" viewBox="0 0 1000 60" preserveAspectRatio="none" aria-hidden="true"></svg></div>
+  <button type="button" class="btn" id="pAuto" aria-pressed="false">Autoplay</button>
+  <button type="button" class="btn" id="pExit">Exit</button>
+</div>
+
+<!-- EXPLAINER-KIT-JS:v1:START -->
+<script>
+/* EXPLAINER-KIT:v1 (scripts/lib/explainer-kit.mjs) */
+(function () {
+  'use strict';
+  var reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var body = document.body;
+  var panels = Array.prototype.slice.call(document.querySelectorAll('section.panel[data-stair]'));
+  var HEX = '0123456789abcdef';
+  function byId(id) { return document.getElementById(id); }
+  function on(id, ev, fn) { var n = byId(id); if (n) n.addEventListener(ev, fn); }
+
+  // Scramble a hash label, then settle on its real value (skipped under reduced motion).
+  function rollHashes(scene) {
+    Array.prototype.forEach.call(scene.querySelectorAll('[data-roll]'), function (el) {
+      var fin = el.getAttribute('data-roll');
+      if (reduce) { el.textContent = fin; return; }
+      var delay = parseFloat(el.getAttribute('data-roll-delay') || '0') * 1000;
+      var dur = 900, t0 = null;
+      function frame(t) {
+        if (t0 === null) t0 = t;
+        var e = t - t0 - delay;
+        if (e < 0) { requestAnimationFrame(frame); return; }
+        if (e >= dur) { el.textContent = fin; return; }
+        var keep = Math.floor(fin.length * (e / dur)), out = fin.slice(0, keep);
+        for (var i = keep; i < fin.length; i++) {
+          var c = fin.charAt(i);
+          out += /[0-9a-f]/.test(c) ? HEX.charAt(Math.floor(Math.random() * 16)) : c;
+        }
+        el.textContent = out;
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  // Start a scene that has not run yet. The scene kit's own head script marks
+  // scenes sk-play on scroll, so this only has to cover the hash roll.
+  function reveal(scene) {
+    scene.classList.add('sk-play');
+    rollHashes(scene);
+  }
+
+  // Restart every animation in a scene: drop sk-play, force a reflow so the
+  // start states apply again, then put it back.
+  function play(scene) {
+    scene.classList.remove('sk-play');
+    void scene.getBoundingClientRect();
+    reveal(scene);
+  }
+
+  var scenes = Array.prototype.slice.call(document.querySelectorAll('svg.sk-scene'));
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting && !body.classList.contains('present')) { reveal(e.target); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.25 });
+    scenes.forEach(function (s) { io.observe(s); });
+  } else {
+    scenes.forEach(reveal);
+  }
+
+  // Staircase drawing, shared by the hero map and the presenter rail.
+  var PART_FILL = { '1': 'var(--teal-dim)', '2': 'var(--gold-dim)', '3': 'var(--purple-dim)', '4': 'var(--blue-dim)' };
+  var PART_STROKE = { '1': 'var(--teal)', '2': 'var(--gold)', '3': 'var(--purple)', '4': 'var(--blue)' };
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(name, attrs, text) {
+    var n = document.createElementNS(NS, name);
+    for (var k in attrs) { if (Object.prototype.hasOwnProperty.call(attrs, k)) n.setAttribute(k, attrs[k]); }
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function drawStairs(svg, opts) {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var n = panels.length, W = 1000, H = opts.h, base = H - (opts.pad || 4);
+    var w = W / n, minH = opts.minH, maxH = base - (opts.top || 6);
+    panels.forEach(function (p, i) {
+      var part = p.getAttribute('data-part') || '1';
+      var h = minH + (maxH - minH) * (n > 1 ? i / (n - 1) : 0);
+      var g = el('g', { 'class': 'stair-bar', 'data-i': String(i), tabindex: opts.focusable ? '0' : '-1', role: opts.focusable ? 'listitem' : 'presentation' });
+      if (opts.focusable) g.setAttribute('aria-label', 'Step ' + (i + 1) + ': ' + p.getAttribute('data-stair'));
+      g.appendChild(el('rect', { x: (i * w + 1.5).toFixed(1), y: (base - h).toFixed(1), width: (w - 3).toFixed(1), height: h.toFixed(1), rx: '3', fill: PART_FILL[part], stroke: PART_STROKE[part], 'stroke-width': '1' }));
+      if (opts.labels) {
+        var cx = i * w + w / 2 + 4, ty = base - 8;
+        g.appendChild(el('text', { x: cx.toFixed(1), y: ty.toFixed(1), transform: 'rotate(-90 ' + cx.toFixed(1) + ' ' + ty.toFixed(1) + ')', 'font-family': 'JetBrains Mono, monospace', 'font-size': '11', fill: 'var(--bright)' }, p.getAttribute('data-stair')));
+        g.appendChild(el('text', { x: (i * w + w / 2).toFixed(1), y: (base - h - 6).toFixed(1), 'text-anchor': 'middle', 'font-family': 'JetBrains Mono, monospace', 'font-size': '10', fill: PART_STROKE[part] }, String(i + 1)));
+      }
+      svg.appendChild(g);
+    });
+  }
+  var map = byId('stairMap');
+  var rail = byId('pRail');
+  if (map && panels.length) drawStairs(map, { h: 260, minH: 58, top: 22, pad: 8, labels: true, focusable: true });
+  if (rail && panels.length) drawStairs(rail, { h: 60, minH: 10, top: 4, pad: 2, labels: false, focusable: false });
+
+  // Presenter mode.
+  var cur = 0, auto = null;
+  function paintRail() {
+    Array.prototype.forEach.call(document.querySelectorAll('#pRail .stair-bar rect'), function (r, i) {
+      r.setAttribute('opacity', i === cur ? '1' : (i < cur ? '.75' : '.35'));
+      r.setAttribute('stroke-width', i === cur ? '2.5' : '1');
+    });
+  }
+  function go(i) {
+    if (!panels.length) return;
+    cur = Math.max(0, Math.min(panels.length - 1, i));
+    panels.forEach(function (p, k) { p.classList.toggle('current', k === cur); });
+    var sc = panels[cur].querySelector('svg.sk-scene');
+    if (sc) play(sc);
+    panels[cur].scrollTop = 0;
+    var count = byId('pCount');
+    if (count) count.textContent = (cur + 1) + ' / ' + panels.length;
+    paintRail();
+    try { history.replaceState(null, '', '#' + panels[cur].id); } catch (e) { /* file: URLs */ }
+  }
+  function stopAuto() { if (auto) { clearInterval(auto); auto = null; } var b = byId('pAuto'); if (b) b.setAttribute('aria-pressed', 'false'); }
+  function toggleAuto() {
+    if (auto) { stopAuto(); return; }
+    auto = setInterval(function () { if (cur >= panels.length - 1) { stopAuto(); return; } go(cur + 1); }, 15000);
+    var b = byId('pAuto');
+    if (b) b.setAttribute('aria-pressed', 'true');
+  }
+  function enter(startAt) {
+    if (!panels.length) return;
+    body.classList.add('present');
+    var idx = typeof startAt === 'number' ? startAt : -1;
+    if (idx < 0 && location.hash) { var t = byId(location.hash.slice(1)); idx = panels.indexOf(t); }
+    go(idx >= 0 ? idx : 0);
+    window.scrollTo(0, 0);
+  }
+  function exit() {
+    body.classList.remove('present');
+    stopAuto();
+    panels.forEach(function (p) { p.classList.remove('current'); });
+    if (panels[cur]) panels[cur].scrollIntoView();
+  }
+  on('btnPresent', 'click', function () { enter(); });
+  on('pPrev', 'click', function () { stopAuto(); go(cur - 1); });
+  on('pNext', 'click', function () { stopAuto(); go(cur + 1); });
+  on('pAuto', 'click', toggleAuto);
+  on('pExit', 'click', exit);
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target && e.target.tagName) || '';
+    if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
+    if (!body.classList.contains('present')) {
+      if ((e.key === 'p' || e.key === 'P') && !e.ctrlKey && !e.metaKey && !e.altKey) enter();
+      return;
+    }
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || (e.key === ' ' && !e.shiftKey)) { e.preventDefault(); stopAuto(); go(cur + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp' || (e.key === ' ' && e.shiftKey)) { e.preventDefault(); stopAuto(); go(cur - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(panels.length - 1); }
+    else if (e.key === 'Escape') { exit(); }
+    else if (e.key === 'a' || e.key === 'A') { toggleAuto(); }
+  });
+
+  // Staircase clicks: jump in presenter mode, scroll otherwise.
+  function stairJump(e) {
+    var g = e.target.closest ? e.target.closest('.stair-bar') : null;
+    if (!g) return;
+    var i = parseInt(g.getAttribute('data-i'), 10);
+    if (body.classList.contains('present')) { stopAuto(); go(i); }
+    else if (panels[i]) { panels[i].scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); }
+  }
+  if (map) {
+    map.addEventListener('click', stairJump);
+    map.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stairJump(e); } });
+  }
+  if (rail) rail.addEventListener('click', stairJump);
+
+  // Replay, copy and download buttons.
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var rp = t.closest && t.closest('[data-replay]');
+    if (rp) { var s = rp.parentNode.querySelector('svg.sk-scene'); if (s) play(s); return; }
+    var cp = t.closest && t.closest('[data-copy]');
+    if (cp) {
+      var src = byId(cp.getAttribute('data-copy'));
+      var text = src ? src.textContent : '';
+      var label = cp.textContent;
+      var done = function (ok) { cp.textContent = ok ? 'Copied' : 'Select the text to copy'; setTimeout(function () { cp.textContent = label; }, 1600); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+      else done(false);
+      return;
+    }
+    var dl = t.closest && t.closest('[data-download]');
+    if (dl) {
+      var block = byId(dl.getAttribute('data-download'));
+      if (!block) return;
+      var json = JSON.stringify(JSON.parse(block.textContent), null, 2);
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      a.download = dl.getAttribute('data-filename') || 'download.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    }
+  });
+
+  // Deep link straight into presenter mode: #present or #present-<panel id>, on load or later.
+  function presentFromHash() {
+    if (!/^#present/.test(location.hash) || body.classList.contains('present')) return;
+    var want = location.hash.replace(/^#present-?/, '');
+    var idx = want ? panels.indexOf(byId(want)) : 0;
+    enter(idx >= 0 ? idx : 0);
+  }
+  window.addEventListener('hashchange', presentFromHash);
+  presentFromHash();
+})();
+</script>
+<!-- EXPLAINER-KIT-JS:v1:END -->
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../bazantic-walkthrough.html">Bazantic A/B Walkthrough</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script type="application/json" id="transcriptJson">{"meta":{"purpose":"recorded 2-of-3 FROST transcript for chaingraph/threshold-signing-explainer.html","library":"@noble/curves","version":"2.4.0","tarballSha256":"55279c71b0201d6c0e58d0206d15825359e02a3932f326ba7b7909ac2d334aa9","hashesLibrary":"@noble/hashes","hashesVersion":"2.4.0","hashesTarballSha256":"e1946149b780017b2564fcc092cb01c04e1d7f20627d0296c17da8868f4436dc","suite":"FROST-ED25519-SHA512-v1 (RFC 9591; RFC 8032-compatible signatures)","generatedUtc":"2026-10-23T04:59:03.247Z","threshold":{"min":2,"max":3},"message":"threshold-signing-explainer recorded ceremony","messageSha256":"211f151f6efbf56b143114388982c9327c38db943328a8a4dff2f1c453367658","rng":"seeded sha256 counter PRNG (deterministic, recorded)","seed":"tsurf-threshold-explainer-1 recorded transcript seed v1","identifiersDerivedFrom":["holder-one","holder-two","holder-three"]},"participants":[{"name":"holder-one","label":"Holder 1","identifier":"f92ccdce48796463f26d50c7a1bfcebc9f7ba4aca4bdc90bb481a1e2db2eb903"},{"name":"holder-two","label":"Holder 2","identifier":"476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500"},{"name":"holder-three","label":"Holder 3","identifier":"43f4993a3a14229a36ad5bc7441d41202a087397140ea86a1b9de35ca720f20e"}],"dealerRun":{"dealerHoldsWholeKey":"79aba78a3d07e4d6835d48816e6db6187672a0dc7825cb1499759c350548f50b","wholeKeyOrdinaryPublic":"072806158793753277603dba20332057c015c77921b82e0a73c0aa0262894069","wholeKeyDerivesGroupKey":false,"groupPublicKey":"a0f4f4bef38f194179030f77babefaa8a50bb51a8bbbfd5f6365dc7b702cf1ef","vssCommitments":["a0f4f4bef38f194179030f77babefaa8a50bb51a8bbbfd5f6365dc7b702cf1ef","73f35c104e321992c769e668d56dbde802b3a5a710d21574593ceb9eef222953"],"signingShares":{"f92ccdce48796463f26d50c7a1bfcebc9f7ba4aca4bdc90bb481a1e2db2eb903":"57928337055194a7dde4bee1273cf82cb5871f8004b22c051af7d59ebbe12404","476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500":"593e5c9089f68b925e2a86fc95a652611ae26f1af1e8af9f57c4aaf2454c8900","43f4993a3a14229a36ad5bc7441d41202a087397140ea86a1b9de35ca720f20e":"d82f9332945079f38150434d3227d94a0168840ddd1fa7a0413e23e6f0375404"},"verifyingShares":{"f92ccdce48796463f26d50c7a1bfcebc9f7ba4aca4bdc90bb481a1e2db2eb903":"1e5f26a16d1d655c964e346b94fc31fb3f007fb5d8fe86ebef0eaf8189ac8b0c","476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500":"2a55dc54bc37a0c4606a1e3794edf28ef9d13ee007835b0b54a1e82213fbef3c","43f4993a3a14229a36ad5bc7441d41202a087397140ea86a1b9de35ca720f20e":"11a2845d51879f8b37230e707fae452e1aaae57ae51049743cb6b06cad00fd59"},"sharesValidateAgainstCommitments":true,"signing":{"signers":["f92ccdce48796463f26d50c7a1bfcebc9f7ba4aca4bdc90bb481a1e2db2eb903","476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500"],"nonceCommitments":[{"identifier":"f92ccdce48796463f26d50c7a1bfcebc9f7ba4aca4bdc90bb481a1e2db2eb903","hiding":"0fde7893111f24a87d812ba828c3ba6069830b436ce77466b1d5c7ccfa18d50e","binding":"f7638f8450193c690efb1f412152e827e622dd951572203e29f10c24aa70832c"},{"identifier":"476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500","hiding":"7ef1cf637b1d46cd93fdf78b463b6a9f468da70337250491b70804317fa1f1bd","binding":"0c22cfef1326fbe1e87a57bbd000620bee87648211805d17d9eb6132ea534fc9"}],"signatureShares":{"f92ccdce48796463f26d50c7a1bfcebc9f7ba4aca4bdc90bb481a1e2db2eb903":"ba6bae2bb32f6fc5492b594e1617cf4a5c30564a2317bd352aa904cc58fb8b07","476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500":"073ef90d08d59a9c7064b7732d0cbd8e3296787eaa76957847a4a28329c86109"},"shareVerificationPassed":true,"aggregateSignature":"50688ca151bf4a133fb0d302d241b799156b3b535202e621a5a6ad648cc0bbfbd4d5b1dca0a1f709e4f2181f6529adc48ec6cec8cd8d52ae714da74f82c3ed00","groupPublicKey":"a0f4f4bef38f194179030f77babefaa8a50bb51a8bbbfd5f6365dc7b702cf1ef","verifyFrostRfc9591":true,"verifyOrdinaryEd25519":true}},"dkgRun":{"round1":[{"identifier":"f92ccdce48796463f26d50c7a1bfcebc9f7ba4aca4bdc90bb481a1e2db2eb903","commitment":["12cedfc7b749717c1e1c33b5a1ad5376d469a77792815f8725ff730dd60133fe","896e8c51a076c953c98ac16ef14b3c1d796e077d091037e96a12230c7fa10666"],"proofOfKnowledge":"85819ac09f9ac9919acbe910202d6ba28a9d47304d4ca121dc412240efedddf8bb5c5343aecb38fc9b3e962d40d596baac168439358156ae2e714b5b345e6600"},{"identifier":"476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500","commitment":["79689f172af3c4af8ec1831820135daa178747a0700870bd8870388b6ef602e9","de10572611cea294fe8abb1664405f50a7e9cc35d1d7827f9887ab3181beb6a5"],"proofOfKnowledge":"8434977d3e61d707539e2c6a6a80234a2d938bc5ed45a743ff85b534fcc6dc2a4a989e431f669c55924c3cb5907631db5594814cfe7671404fbb165144520d0f"},{"identifier":"43f4993a3a14229a36ad5bc7441d41202a087397140ea86a1b9de35ca720f20e","commitment":["caa6d78623d0ad7d53fb90ab225a60c10d0c4ccd0c9a79dd9e578deab8a4a6c8","673e54b83cfd04548a5f72fbfc257526392df7e37989a9d16ed70482f24561a0"],"proofOfKnowledge":"65d17df058538f26e69299c2aa105d7651587536b6d6d498ba36835bcb42fd3c488ab941d8bfc87d3c66849dc73b47288f284a7a8599d34abaf9134b8a81df06"}],"round2FragmentsSent":{"f92ccdce48796463f26d50c7a1bfcebc9f7ba4aca4bdc90bb481a1e2db2eb903":{"476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500":"89cc673819bed02fad7390be34822354100b280f2eb83d4e03850a319cbb4502","43f4993a3a14229a36ad5bc7441d41202a087397140ea86a1b9de35ca720f20e":"dedec47942030a6da9e7f846ac8fe2494ce41244533a121b9e21dcb396c49e0e"},"476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500":{"f92ccdce48796463f26d50c7a1bfcebc9f7ba4aca4bdc90bb481a1e2db2eb903":"a22391b0aefce0d763abc8f0966b78cb70bf1fe2ea04392c9c7b0312f57fe906","43f4993a3a14229a36ad5bc7441d41202a087397140ea86a1b9de35ca720f20e":"20eccee8e05d9300329cdfa65fcb58800d2c987002942b9b7e4e78264d8cd80f"},"43f4993a3a14229a36ad5bc7441d41202a087397140ea86a1b9de35ca720f20e":{"476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500":"6bbe544933edebb3d77b76a4bc47226b49f356e0b4c1c1f5fbfa2a28bdae4007","f92ccdce48796463f26d50c7a1bfcebc9f7ba4aca4bdc90bb481a1e2db2eb903":"34af526bb102b5733e8f8691cbd631ca14895fb9f0ed0266e7cb92451295be0e"}},"groupPublicKey":"e232e373e9a3c0ccfa3b4593169f8b7176a5746bb728ced8779807a6a6fd45e6","allParticipantsDerivedSameGroupKey":true,"verifyingSharesAgree":true,"signingShares":{"f92ccdce48796463f26d50c7a1bfcebc9f7ba4aca4bdc90bb481a1e2db2eb903":"c8f8d80e53a7690723cd7984721a32d58c23bcf1f78e9497ee35dd9ed831e60a","476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500":"f3aeba4ecaa4f635de2175c245f90573e75857e1a5f44926fb61fc1b153e9a06","43f4993a3a14229a36ad5bc7441d41202a087397140ea86a1b9de35ca720f20e":"ce2ad34f4819276da28d5fd111ba4985d103eab0e23ab4278c7c27d8efec450f"},"verifyingShares":{"f92ccdce48796463f26d50c7a1bfcebc9f7ba4aca4bdc90bb481a1e2db2eb903":"3d042279697cb069c083e54f05b8a06cd5e63a2919d7ed6ba27c45f84c5dcba6","476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500":"a8d76813b4df90e7bcf1be5310058baf912ba033e42ea846d41c12ca3d089ec4","43f4993a3a14229a36ad5bc7441d41202a087397140ea86a1b9de35ca720f20e":"2fb723d43c58c556ee91fce0597598cc892c4ae0703f40e086e1fc8d76bdcbb1"},"sharesValidateAgainstCommitments":true,"signing":{"signers":["476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500","43f4993a3a14229a36ad5bc7441d41202a087397140ea86a1b9de35ca720f20e"],"nonceCommitments":[{"identifier":"476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500","hiding":"9c63684dd13397ee251af27dd84400f54f9190b58757f632b8918037a4ec069d","binding":"d732467dc58ebbf3d5b43a227da281784f65d1e7c99054659bc85a252c366723"},{"identifier":"43f4993a3a14229a36ad5bc7441d41202a087397140ea86a1b9de35ca720f20e","hiding":"86677d9308b90b722a61eca8407f406c9dd448c16e2d35709bf6dc34e35617d0","binding":"99e771b45b882db34296cfcbe5666b7fc0f6c445390ed919b80f0809fb9e10f9"}],"signatureShares":{"476961ba97560e01cd9c97ee7c9fb41f291a8d2e0dc814b2564542df2be98500":"079426483efed4f2b81e9f29b3930d6935713cec47d2bc4724f08077d08d9b0b","43f4993a3a14229a36ad5bc7441d41202a087397140ea86a1b9de35ca720f20e":"4b7d165dc18a00ac9778deecc0ffc195527acc2f6ef4dec271252a72ec024f03"},"shareVerificationPassed":true,"aggregateSignature":"a8369d73f96814e35c2320cd27e0989bb4d54b71589ff3689110e1576a3fb6b352113da5ff88d59e50977d167493cffe87eb081cb6c69b0a9615abe9bc90ea0e","groupPublicKey":"e232e373e9a3c0ccfa3b4593169f8b7176a5746bb728ced8779807a6a6fd45e6","verifyFrostRfc9591":true,"verifyOrdinaryEd25519":true},"noWholeKeyAnywhere":true}}</script>
+<script>
+/* Page-local: #step=N deep links jump to ceremony step N (1-based), on load and on hash change. */
+(function () {
+  'use strict';
+  var panels = Array.prototype.slice.call(document.querySelectorAll('section.panel[data-stair]'));
+  function jump() {
+    var m = /^#step=(\d+)$/.exec(location.hash);
+    if (!m) return;
+    var i = parseInt(m[1], 10) - 1;
+    /* behavior 'auto' is explicit: the kit CSS sets scroll-behavior smooth, which a
+       deep link must not inherit, or the jump lands mid-animation. */
+    if (i >= 0 && i < panels.length) panels[i].scrollIntoView({ behavior: 'auto', block: 'start' });
+  }
+  window.addEventListener('hashchange', jump);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', jump); else jump();
+})();
+</script>
+</body>
+</html>
