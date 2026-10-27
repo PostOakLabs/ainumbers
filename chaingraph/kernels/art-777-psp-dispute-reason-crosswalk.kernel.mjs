@@ -4,7 +4,7 @@
 // network, no PII, no live PSP API. The shape follows the estate's crosswalk
 // exemplar art-133 (crosswalk_agent_payment_rail_trust).
 //
-// SPEC: PAYPAL-HUB-PROPOSALS-2026-10-24.md §10.3(2) as narrowed by the desk
+// SPEC: PAYPAL-HUB-PROPOSALS-2026-10-24.md section 10.3(2) as narrowed by the desk
 // (2026-10-25): static and credential-free; no competitor live demo or adapter.
 //
 // CLAUSE AUTHORITY: every mapping cell below cites a clause from one of the four
