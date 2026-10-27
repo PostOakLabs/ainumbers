@@ -1,5 +1,5 @@
 // art-603-stablecoin-reserve-3source-recompute.proptest.mjs — FV property-test FLOOR (FVFLOOR-BACKFILL-0811-1).
-// kernel_digest_at_authoring: sha256:c8316be3de60b7720200258695a7e8932fc30fc151208c12d87714c647bfc3db
+// kernel_digest_at_authoring: sha256:2ab3f0b33aeb38c56b77a129faa2beb19e0ba6b0943efd5c704bc6c1aefb2189
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md section 3, class B -- bounded-numeric coverage-
@@ -7,7 +7,7 @@
 // float_sensitive: YES -- coverage_ratio_pct, WAM, and every reconcile check divide floating-point
 // USD/day figures and compare against percentage tolerances (RESERVE_TOTAL_TOLERANCE_PCT,
 // RECONCILE_TOLERANCE_PCT, WAM_CROSSCHECK_TOLERANCE_DAYS). Per FV-PBT-FLOOR-BUILD-SPEC.md section 3
-// this MANDATES ULP-boundary forcing: tolerance ±epsilon, exactly-at-ceiling, zero-denominator, and
+// this MANDATES ULP-boundary forcing: tolerance ±epsilon, exactly-at-limit, zero-denominator, and
 // negative-zero-shaped cases (P4 below), never optional for a float-sensitive kernel.
 //
 // Checks: fixture-oracle gate (P0), totality/never-throws over hostile inputs (P1), a worst-of-rollup
@@ -16,7 +16,8 @@
 // A-class-shaped bounded enumeration since the rollup only has 3^k relevant equivalence classes for
 // a fixed small k), the as-of-skew gating invariant (P3: a skew exceeding MAX_AS_OF_SKEW_DAYS must
 // force the dependent check(s) to INDETERMINATE, never silently compared as same-date), mandatory
-// ULP/threshold-boundary forcing for coverage_ratio_pct and the WAM ceiling (P4), a metamorphic
+// ULP/threshold-boundary forcing for coverage_ratio_pct, the WAM-independence and counterparty-
+// concentration boundary properties (P4), a metamorphic
 // determinism + missing-leg-forces-indeterminate property (P5: a leg's absence must never fabricate
 // a MET/NOT_MET verdict for anything that depends on it), and forced categorical boundary cases (P6:
 // GENIUS item-7 catch-all always INDETERMINATE, non_eligible always DOES_NOT_MATCH, breakdown
@@ -92,7 +93,7 @@ function checkP1_totality() {
 
 // ---------- P2: worst-of rollup self-consistency — over many random leg combinations (including
 // missing legs), independently recompute the worst-of tiering FROM THE KERNEL'S OWN REPORTED PER-
-// CHECK VERDICTS (reserve_ratio, wam_ceiling, every genius_eligible_holdings entry, every reconcile)
+// CHECK VERDICTS (reserve_ratio, every genius_eligible_holdings entry, every reconcile)
 // using the same BAD/INDETERMINATE/good tiering the kernel's header comment declares, and confirm it
 // equals the reported overall_determination. This does not predict which sub-verdict a given random
 // input produces (that is an implementation detail of five independent checks) -- it differentially
@@ -116,7 +117,6 @@ function checkP2_worst_of_rollup_self_consistency() {
     const { output_payload: o } = compute({ leg_a: legA, leg_b: legB, leg_c: legC });
     const allVerdicts = [
       o.reserve_ratio.verdict,
-      o.wam.wam_ceiling_check.verdict,
       ...o.genius_eligible_holdings.map((h) => h.verdict),
       ...o.reconciles.map((r) => r.verdict),
     ];
@@ -151,8 +151,10 @@ function checkP3_asof_skew_gating() {
   return { name: 'P3_as_of_skew_gating_forces_indeterminate_beyond_threshold', trials: checked, violations };
 }
 
-// ---------- P4: MANDATORY ULP/threshold-boundary forcing (float_sensitive: yes) — exactly-at-ceiling,
-// just-under, just-over, and a zero-denominator case for coverage_ratio_pct and the WAM ceiling.
+// ---------- P4: MANDATORY ULP/threshold-boundary forcing (float_sensitive: yes) — exactly-at-limit,
+// just-under, just-over, and a zero-denominator case for coverage_ratio_pct, plus the WAM
+// independence property and the counterparty-concentration exemption and 40 percent boundary
+// properties (12 CFR 15.11(c)(2)(ii), OCC final rule 2026-10-21).
 //
 // ⚠ TWO DISCOVERED DEFECTS (found while authoring this floor, out of this floor's fence to fix, NOT
 // silently papered over): (1) the >=100 comparison is made against coverage_ratio_pct AFTER it has
@@ -201,13 +203,49 @@ function checkP4_ulp_boundary_forcing() {
   { checked++;
     const { output_payload: o } = compute({ leg_a: baseLegA({ token_price: -0 }) });
     if (o.reserve_ratio.verdict !== 'MET' || o.reserve_ratio.coverage_ratio_pct !== Infinity) violations++; }
-  // WAM ceiling exactly at 20 days -> MET; 1 day over -> NOT_MET
+  // WAM INDEPENDENCE (final rule 2026-10-21, 12 CFR 15.11(c): no weighted-average-maturity
+  // requirement): WAM size must never change any verdict except the cross-check. Two inputs
+  // identical except maturity_bucket_days (5 vs 400), each with a matching EDGAR wam_days, must
+  // produce identical verdicts everywhere and NO wam_ceiling_check field of any kind; only the
+  // reported wam_from_disclosure value may move. Diverging WAM from EDGAR moves the cross-check
+  // alone (and, through it, the rollup) — no other check may react.
   { checked++;
-    const { output_payload: o } = compute({ leg_a: baseLegA({ asset_breakdown: [{ asset_class: 'us_coin_and_currency', amount_usd: 1000000, maturity_bucket_days: 20 }] }) });
-    if (o.wam.wam_ceiling_check.verdict !== 'MET') violations++; }
+    const mk = (wam, edgar) => compute({ leg_a: baseLegA({ asset_breakdown: [{ asset_class: 'insured_demand_deposit', amount_usd: 500000, maturity_bucket_days: wam, institution: 'Bank Z' }, { asset_class: 'treasury_bill_93d_or_less', amount_usd: 500000, maturity_bucket_days: wam, institution: 'US Treasury' }] }), leg_b: { as_of: '2027-02-28', accession_number: 'A', total_net_assets: 500000, wam_days: edgar }, leg_c: { as_of: '2027-02-28', onchain_supply: 1000000 } }).output_payload;
+    const a = mk(5, 5), b = mk(400, 400);
+    if ('wam_ceiling_check' in a.wam || 'wam_ceiling_check' in b.wam) violations++;
+    if (a.overall_determination !== b.overall_determination) violations++;
+    if (a.reserve_ratio.verdict !== b.reserve_ratio.verdict) violations++;
+    if (a.genius_eligible_holdings.some((h, i) => h.verdict !== b.genius_eligible_holdings[i].verdict)) violations++;
+    if (a.reconciles.some((r, i) => r.verdict !== b.reconciles[i].verdict)) violations++;
+    if (a.wam.wam_from_disclosure.value_days === b.wam.wam_from_disclosure.value_days) violations++; // WAM itself must differ
+    const c = mk(400, 5); // WAM diverges from EDGAR: cross-check reacts, nothing else may
+    if (c.wam.wam_cross_check.verdict !== 'DISCREPANT') violations++;
+    if (c.reserve_ratio.verdict !== b.reserve_ratio.verdict) violations++;
+    if (c.genius_eligible_holdings.some((h, i) => h.verdict !== b.genius_eligible_holdings[i].verdict)) violations++;
+    if (c.reconciles[0].verdict !== b.reconciles[0].verdict || c.reconciles[1].verdict !== b.reconciles[1].verdict) violations++; }
+  // COUNTERPARTY CONCENTRATION exemptions: a US Government exposure (treasury_bill_93d_or_less)
+  // and directly held coin and currency (us_coin_and_currency) are exempt and never exceed,
+  // at any size; every other asset class is evaluated per counterparty against the 40 percent
+  // limit (12 CFR 15.11(c)(2)(ii)).
   { checked++;
-    const { output_payload: o } = compute({ leg_a: baseLegA({ asset_breakdown: [{ asset_class: 'us_coin_and_currency', amount_usd: 1000000, maturity_bucket_days: 21 }] }) });
-    if (o.wam.wam_ceiling_check.verdict !== 'NOT_MET') violations++; }
+    const { output_payload: o, compliance_flags } = compute({ leg_a: baseLegA({ asset_breakdown: [{ asset_class: 'treasury_bill_93d_or_less', amount_usd: 990000, maturity_bucket_days: 20, institution: 'US Treasury' }, { asset_class: 'us_coin_and_currency', amount_usd: 10000, maturity_bucket_days: 0 }] }) });
+    const t = o.counterparty_concentration.find((e) => e.counterparty === 'US Treasury');
+    const c = o.counterparty_concentration.find((e) => e.counterparty === 'us_coin_and_currency');
+    if (!t || t.exceeds_concentration_limit !== null || !String(t.exempt_basis).includes('(B)(1)')) violations++;
+    if (!c || c.exceeds_concentration_limit !== null || !String(c.exempt_basis).includes('preamble')) violations++;
+    if (o.overall_determination !== 'INDETERMINATE') violations++; // reconciles lack legs, never fabricated MET
+    if (compliance_flags.includes('CONCENTRATION_LIMIT_EXCEEDED')) violations++; }
+  // 40 percent boundary: just under (39.9999) does not exceed, exactly at (40) does not exceed
+  // ("no more than 40 percent"), just over (45) exceeds and raises the flag.
+  { checked++;
+    const run = (amt) => compute({ leg_a: baseLegA({ asset_breakdown: [{ asset_class: 'insured_demand_deposit', amount_usd: amt, maturity_bucket_days: 5, institution: 'Bank Q' }, { asset_class: 'treasury_bill_93d_or_less', amount_usd: 1000000 - amt, maturity_bucket_days: 20, institution: 'US Treasury' }] }) });
+    const under = run(399999), at = run(400000), over = run(450000);
+    const find = (r) => r.output_payload.counterparty_concentration.find((e) => e.counterparty === 'Bank Q');
+    if (find(under).exceeds_concentration_limit !== false) violations++;
+    if (find(at).exceeds_concentration_limit !== false) violations++;
+    if (find(over).exceeds_concentration_limit !== true) violations++;
+    if (under.compliance_flags.includes('CONCENTRATION_LIMIT_EXCEEDED') || at.compliance_flags.includes('CONCENTRATION_LIMIT_EXCEEDED')) violations++;
+    if (!over.compliance_flags.includes('CONCENTRATION_LIMIT_EXCEEDED')) violations++; }
   return { name: 'P4_ulp_and_threshold_boundary_forcing_mandatory_float_sensitive', trials: checked, violations };
 }
 
