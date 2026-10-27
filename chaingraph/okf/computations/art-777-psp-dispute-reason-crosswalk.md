@@ -1,6 +1,6 @@
 ---
 type: Attested Computation
-title: "PSP Dispute Reason Crosswalk — attested computation"
+title: "PSP Dispute Reason Crosswalk: attested computation"
 runtime: server
 computation: "Kernel-backed evaluation for the compliance_mandate decision, producing a hash-anchored OpenChainGraph artifact."
 executor:
@@ -13,7 +13,7 @@ generated: { by: "ainumbers/generate-okf", at: "2026-10-26" }
 status: stable
 ---
 
-# PSP Dispute Reason Crosswalk — attested computation
+# PSP Dispute Reason Crosswalk: attested computation
 
 > §10.2 Attested Computation binding for [PSP Dispute Reason Crosswalk](../tools/art-777-psp-dispute-reason-crosswalk.md).
 
@@ -26,7 +26,7 @@ prove-deferred (`compute_proof_ready: "deferred"` in the shard, excluded from se
 
 ## Attester
 
-Kernel identity: `sha256:a62af4e74f99726232353c2d35efa97d4a34cf86cbeb2c0e570b10baf62616b0` (SPEC.md §17.1 `compute_images`) — a
+Kernel identity: `sha256:a62af4e74f99726232353c2d35efa97d4a34cf86cbeb2c0e570b10baf62616b0` (SPEC.md §17.1 `compute_images`), a
 content-addressed digest of this node's deployed kernel source, already published in the
 Graph Index. Static and dereferenceable; nothing in OpenChainGraph verification depends on
 this OKF bundle, and this concept asserts no execution event or `verified:` status.
