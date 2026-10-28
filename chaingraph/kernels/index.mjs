@@ -660,6 +660,7 @@ import * as art771    from './art-771-automation-payback.kernel.mjs';
 import * as art774    from './art-774-beacon-seeded-fair-sampling-v2.kernel.mjs';
 import * as art776    from './art-776-paypal-dispute-deadline-evidence.kernel.mjs';
 import * as art777    from './art-777-psp-dispute-reason-crosswalk.kernel.mjs';
+import * as art778    from './art-778-token2022-withheld-fee-reconciler.kernel.mjs';
 import * as art78     from './art-78-csdr-penalty-calculator.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
@@ -1358,6 +1359,7 @@ export const KERNELS = {
   'art-774-beacon-seeded-fair-sampling-v2':                     art774,
   'art-776-paypal-dispute-deadline-evidence':                   art776,
   'art-777-psp-dispute-reason-crosswalk':                       art777,
+  'art-778-token2022-withheld-fee-reconciler':                  art778,
   'art-78-csdr-penalty-calculator':                             art78,
   'art-79-settlement-fail-predictor':                           art79,
   'art-80-ssi-conformance-checker':                             art80,
