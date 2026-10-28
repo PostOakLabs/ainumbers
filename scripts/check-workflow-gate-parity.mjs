@@ -1654,7 +1654,10 @@ const DECLARED_SOFTENERS = new Map([
   // WORKFLOW-STEP-USES-LINT-1 (2026-10-15) moved it :146 -> :147 — the
   // step-uses lint gate landed as one array line in the measured-green
   // gates loop above the surface-parity step; same pin-move.
-  ["unwired-gates.yml:continue-on-error:147",
+  // 2026-10-28 moved it :147 -> :153 — fetch-depth: 0 added to the checkout
+  // step above the surface-parity step (the changelog gate fail-closes on
+  // shallow PR merge-ref checkouts); same pin-move.
+  ["unwired-gates.yml:continue-on-error:153",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
    "continue-on-error is deliberate so the job surfaces drift without blocking. " +
    "Promotion to blocking removes this entry together with the continue-on-error."],
