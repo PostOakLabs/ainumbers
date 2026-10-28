@@ -26,7 +26,7 @@ prove-deferred (`compute_proof_ready: "deferred"` in the shard, excluded from se
 
 ## Attester
 
-Kernel identity: `sha256:a62af4e74f99726232353c2d35efa97d4a34cf86cbeb2c0e570b10baf62616b0` (SPEC.md §17.1 `compute_images`), a
+Kernel identity: `sha256:8932a23abee00ab938d8cbc12ccc3cc44bd59addb232c25e4097e343e4383037` (SPEC.md §17.1 `compute_images`), a
 content-addressed digest of this node's deployed kernel source, already published in the
 Graph Index. Static and dereferenceable; nothing in OpenChainGraph verification depends on
 this OKF bundle, and this concept asserts no execution event or `verified:` status.

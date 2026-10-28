@@ -731,7 +731,7 @@ export function compute(pp) {
   const vocab = { paypal: PAYPAL_REASONS, stripe: STRIPE_REASONS, adyen: ADYEN_VISA_CODES, square: SQUARE_REASONS }[psp];
   if (!vocab.includes(reason)) {
     return {
-      output_payload: refusedPayload('REFUSED_UNKNOWN_REASON', 'For psp=' + psp + ', reason must be one of the snapshot-published values: ' + vocab.join(', ') + '; received ' + JSON.stringify(pp.reason) + '. (PayPal spellings are schema v1.12 verbatim, including UNAUTHORISED.)'),
+      output_payload: refusedPayload('REFUSED_UNKNOWN_REASON', 'For psp=' + psp + ', reason must be one of the snapshot-published values: ' + vocab.join(', ') + '; received ' + JSON.stringify(pp.reason ?? null) + '. (PayPal spellings are schema v1.12 verbatim, including UNAUTHORISED.)'),
       compliance_flags: ['ART777_INPUT_REFUSED'],
     };
   }
