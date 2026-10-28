@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1245 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1246 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -3780,6 +3780,9 @@
       "name": "harmonization"
     },
     {
+      "name": "harvest"
+    },
+    {
       "name": "hash"
     },
     {
@@ -4468,6 +4471,9 @@
     },
     {
       "name": "mcp:reconcile_token2022_transfer_fee"
+    },
+    {
+      "name": "mcp:reconcile_token2022_withheld"
     },
     {
       "name": "mcp:reconcile_v4_hook_permissions"
@@ -6616,6 +6622,9 @@
     },
     {
       "name": "wioa"
+    },
+    {
+      "name": "withheld-fees"
     },
     {
       "name": "witness_transfer"
@@ -129026,6 +129035,315 @@
         },
         "x-mcp-tool-name": "crosswalk_psp_dispute_reasons",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-777-psp-dispute-reason-crosswalk.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/reconcile_token2022_withheld": {
+      "post": {
+        "operationId": "reconcile_token2022_withheld",
+        "summary": "Token-2022 Withheld-Fee Reconciler",
+        "description": "Token-2022 withheld-fee reconciliation across token accounts. Paste the mint's declared TransferFeeConfig fields (accumulated withheld_amount and withdraw_withheld_authority), a list of token accounts each carrying its withheld amount, the caller's declared total, and optionally a harvest or withdraw destination. The node recomputes the per-account withheld sum over mint-matching accounts, reconciles it against the declared total with the signed difference, projects the mint's post-harvest accumulation under the program's checked_add semantics (Overflow past u64 reported as a fact, never wrapped), flags wrong-mint accounts and duplicate addresses, and checks fee-receiver placement: the declared destination's mint against the declared mint, and the declared withdraw authority against the config's. Values only, facts only, nothing on-chain is read.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-778-token2022-withheld-fee-reconciler.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "token2022",
+          "solana",
+          "withheld-fees",
+          "transfer-fee",
+          "payment-reconciliation",
+          "harvest",
+          "bigint",
+          "mcp:reconcile_token2022_withheld"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "mint",
+                  "transfer_fee_config",
+                  "accounts",
+                  "declared_total"
+                ],
+                "properties": {
+                  "mint": {
+                    "type": "string",
+                    "description": "The declared mint address, pasted. Every account's mint is compared to this by string equality."
+                  },
+                  "transfer_fee_config": {
+                    "type": "object",
+                    "description": "The mint's TransferFeeConfig fields: withdraw_withheld_authority (string or null) and withheld_amount (u64 decimal string), the accumulated pot.",
+                    "properties": {
+                      "withdraw_withheld_authority": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "withheld_amount": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "withdraw_withheld_authority",
+                      "withheld_amount"
+                    ]
+                  },
+                  "accounts": {
+                    "type": "array",
+                    "description": "Token accounts, each { address, mint, withheld_amount } with withheld_amount a u64 decimal string. Empty array is valid (sum 0).",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "address": {
+                          "type": "string"
+                        },
+                        "mint": {
+                          "type": "string"
+                        },
+                        "withheld_amount": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "address",
+                        "mint",
+                        "withheld_amount"
+                      ]
+                    }
+                  },
+                  "declared_total": {
+                    "type": "string",
+                    "description": "The caller's declared sum of withheld fees, decimal string (u64), reconciled against the recomputed sum."
+                  },
+                  "destination": {
+                    "type": "object",
+                    "description": "Optional destination { address, mint, withdraw_authority }, compared with the declared mint and the config's withdraw authority.",
+                    "properties": {
+                      "address": {
+                        "type": "string"
+                      },
+                      "mint": {
+                        "type": "string"
+                      },
+                      "withdraw_authority": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "address",
+                      "mint",
+                      "withdraw_authority"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mint": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "account_count": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "harvestable_account_count": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "wrong_mint_account_count": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "duplicate_address_count": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "mint_withheld_accumulated": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recomputed_account_sum": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "declared_total": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reconciliation": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "MATCH | DECLARED_ABOVE_RECOMPUTED | DECLARED_BELOW_RECOMPUTED"
+                    },
+                    "declared_minus_recomputed": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Signed decimal string: 0, +N or -N."
+                    },
+                    "sum_over_all_declared_entries": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sum_exceeds_u64": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "post_harvest_mint_withheld": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "post_harvest_would_overflow_u64": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "wrong_mint_accounts": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "address": {
+                            "type": "string"
+                          },
+                          "declared_mint": {
+                            "type": "string"
+                          },
+                          "account_mint": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "duplicate_addresses": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "address": {
+                            "type": "string"
+                          },
+                          "declared_count": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "fee_receiver_placement": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "declared_destination_address": {
+                          "type": "string"
+                        },
+                        "declared_destination_mint": {
+                          "type": "string"
+                        },
+                        "declared_mint": {
+                          "type": "string"
+                        },
+                        "destination_mint_matches_declared_mint": {
+                          "type": "boolean"
+                        },
+                        "declared_withdraw_authority": {
+                          "type": "string"
+                        },
+                        "config_withdraw_withheld_authority": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "declared_withdraw_authority_matches_config": {
+                          "type": "boolean"
+                        },
+                        "authority_basis": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "domain_errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "reconcile_token2022_withheld",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-778-token2022-withheld-fee-reconciler.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
