@@ -146,7 +146,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </div>
   <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
   <div class="pii-notice">&#9888; SBIE payroll/asset rates and the 15% minimum rate are OECD-published transitional table values, pinned in this tool behind a constants_version field. Jurisdiction-level QDMTT enactment and rate are your own inputs &mdash; this tool never vendors a QDMTT-enactment table. Verify current rates against OECD Administrative Guidance before relying on this for a filing.</div>
-  <div class="pii-notice">&#9888; As of 22 August 2026, this calculator's substance-based income exclusion uses the 5 percent steady-state rate for the tangible-asset carve-out in every fiscal year, and its payroll defaults drop to 5 percent from fiscal year 2027. The OECD transitional schedule applies higher rates that decline yearly until 2033, so results here can overstate top-up tax for fiscal years before 2033 where eligible payroll or tangible assets exist. Payroll rates can be overridden per jurisdiction; the tangible-asset rate cannot. For transitional-year carve-out amounts, use the <a href="art-455-globe-sbie-topup.html">substance-based income exclusion calculator</a>, which applies the year-by-year schedule.</div>
+  <div class="pii-notice">&#9888; The tangible-asset and payroll carve-out rates follow the OECD GloBE Article 9.2 transitional schedule for fiscal years beginning 2023 through 2032, and sit at 5 percent from fiscal year 2033. The payroll rate can be overridden per jurisdiction; the assets rate cannot.</div>
 
   <div class="card">
     <div class="row2">
@@ -357,15 +357,22 @@ function r6(v) { return isFinite(v) ? Math.round(v * 1e6) / 1e6 : 0; }
 function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
 
 var SBIE_RATES = {
+  2023: { payroll: 0.10, assets: 0.08 },
   2024: { payroll: 0.098, assets: 0.078 },
-  2025: { payroll: 0.096, assets: 0.064 },
-  2026: { payroll: 0.094, assets: 0.050 },
-  2027: { payroll: 0.050, assets: 0.050 },
+  2025: { payroll: 0.096, assets: 0.076 },
+  2026: { payroll: 0.094, assets: 0.074 },
+  2027: { payroll: 0.092, assets: 0.072 },
+  2028: { payroll: 0.09, assets: 0.07 },
+  2029: { payroll: 0.082, assets: 0.066 },
+  2030: { payroll: 0.074, assets: 0.062 },
+  2031: { payroll: 0.066, assets: 0.058 },
+  2032: { payroll: 0.058, assets: 0.054 },
 };
-var SBIE_ASSETS_RATE = 0.05;
+var SBIE_STEADY_STATE = { payroll: 0.05, assets: 0.05 };
+var SBIE_FIRST_FY = 2023;
 var GLOBE_MIN_RATE = 0.15;
-var CONSTANTS_VERSION = 'oecd-globe-sbie-2024-2027-transitional-v1';
-function defaultSbiePayrollRate(fy) { var t = SBIE_RATES[fy] || SBIE_RATES[2027]; return t.payroll; }
+var CONSTANTS_VERSION = 'oecd-globe-sbie-2023-2032-art92-v2';
+function sbieRates(fy) { return SBIE_RATES[fy] || (fy >= 2033 ? SBIE_STEADY_STATE : null); }
 
 var jurSeq = 0;
 function addJur(jur, income, taxes, payroll, assets, sbieRatePct, qdmttEnacted, qdmttRatePct) {
@@ -395,6 +402,18 @@ function runGlobeTopup() {
   var fy = Math.trunc(safe(document.getElementById('fy').value, 2026));
   var usExempt = parentHq === 'US';
 
+  var vBoxEarly = document.getElementById('verdictBox');
+  var ratesEarly = sbieRates(fy);
+  if (!ratesEarly) {
+    vBoxEarly.style.color = 'var(--warn)';
+    vBoxEarly.style.background = 'rgba(245,158,11,.08)';
+    vBoxEarly.style.border = '1px solid var(--warn)';
+    vBoxEarly.textContent = 'FISCAL YEAR ' + fy + ' IS NOT IN THE ARTICLE 9.2 TABLE (FIRST ACCEPTED YEAR ' + SBIE_FIRST_FY + ') -- NO RESULT COMPUTED';
+    document.getElementById('statRow').innerHTML = '';
+    _lastResult = null;
+    return;
+  }
+
   var flags = [];
   var rows = [];
   document.querySelectorAll('#jurList .jur-row').forEach(function(row) {
@@ -403,11 +422,11 @@ function runGlobeTopup() {
     var taxes = safe(row.querySelector('.jj-taxes').value, 0);
     var payroll = safe(row.querySelector('.jj-payroll').value, 0);
     var assets = safe(row.querySelector('.jj-assets').value, 0);
-    var sbiePayrollRate = safe(row.querySelector('.jj-sbr').value, defaultSbiePayrollRate(fy) * 100) / 100;
+    var sbiePayrollRate = safe(row.querySelector('.jj-sbr').value, ratesEarly.payroll * 100) / 100;
     var qdmttEnacted = row.querySelector('.jj-qdmtt').checked;
     var qdmttRate = safe(row.querySelector('.jj-qr').value, 0) / 100;
 
-    var sbie = r6(payroll * sbiePayrollRate + assets * SBIE_ASSETS_RATE);
+    var sbie = r6(payroll * sbiePayrollRate + assets * ratesEarly.assets);
     var incomeNetSbie = r6(Math.max(income - sbie, 0));
     var etr = income > 0 ? taxes / income : 0;
     var belowMin = etr < GLOBE_MIN_RATE;
@@ -448,7 +467,7 @@ function runGlobeTopup() {
     total_iir_collected: totalIir, total_utpr_collected: totalUtpr,
     constants_version: CONSTANTS_VERSION, globe_min_rate: GLOBE_MIN_RATE,
     regulatory_basis: 'OECD Pillar Two GloBE Model Rules (Dec 2021) + GloBE Commentary (Mar 2022) + Administrative Guidance (2023-2024) + OECD side-by-side package US IIR/UTPR exemption (Jan 2026)',
-    note: 'SBIE payroll rate defaults to the OECD transitional table for fy when not supplied; the tangible-assets SBIE rate is held at the published steady-state 5% regardless of fy, matching the source tools. Jurisdiction-level qdmtt_rate/qdmtt_enacted are caller-supplied, not vendored.'
+    note: 'SBIE payroll and tangible-assets rates come from the OECD GloBE Article 9.2 transitional schedule for fiscal years beginning 2023 through 2032 and sit at the 5% steady state from fiscal year 2033; the payroll rate is overridable per jurisdiction (sbie_payroll_rate) and there is no assets-rate override. Jurisdiction-level qdmtt_rate/qdmtt_enacted are caller-supplied, not vendored.'
   };
 
   _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
