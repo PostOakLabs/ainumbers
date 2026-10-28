@@ -3,8 +3,16 @@
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records at bus pin c0d61c8f, GRADES
 // PASS-PENDING-XV 2026-10-14, Builder-verifies-at-land 12/12 re-executed 2026-10-19
 // per the Tim 2026-10-18T21:20Z extend-ruling).
-// kernel_digest_at_authoring: sha256:e95524058ed93d9c2f4c6b7b81d6f58c8094280895ca7b0a2cd51340e51e21fd
+// kernel_digest_at_authoring: sha256:f7ee5d3baff235297d8382e1aae987363d0a062aa075b9ba66df59a826c5bdbe
 // human_sign_off: PENDING
+//
+// 2026-10-27 ART758-HSA-SHIELD-DOUBLE-SCALE-FIX-1: the Apex #105 source page divides
+// the marginal tax rate by 100 a second time inside its own hdhpTotal (its lines 357
+// and 378); the original port carried that source bug 1:1, so the HDHP totals
+// subtracted an HSA tax shield 100 times too small while the reported
+// hsa_tax_shield field was already correct. The kernel now applies the shield once
+// (capped contribution times the rate fraction). P2's wording was fixed accordingly
+// and P7 was added so the totals and the reported shield can never disagree again.
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
 // float_sensitive: PARTIAL — the kernel deliberately keeps the Apex page's float
@@ -21,8 +29,8 @@
 // declared refusal branch); P1 determinism (two runs agree byte-for-byte) and output
 // shape (no undefined/NaN/non-finite anywhere in output_payload); P2 the HSA shield
 // restated independently (hsa_total_applied == min(emp+addl, coverage limit),
-// hsa_tax_shield == hsa_total_applied * margRate/100 with margRate the same /100 the
-// kernel applies); P3 the winner/recommendation contract restated from outputs alone
+// hsa_tax_shield == hsa_total_applied * (marginal_tax_rate_pct / 100), the rate
+// reduced to a fraction exactly once); P3 the winner/recommendation contract restated from outputs alone
 // (winner==='HDHP' iff hdhp_total_at_expected < ppo_total_at_expected; PPO_ALL_LEVELS
 // iff break_even_spend===null; PPO_LIKELY iff break_even_spend!==null and expected
 // spend < break_even_spend; HDHP_BETTER otherwise); P4 grid discipline: a non-null
@@ -33,7 +41,13 @@
 // for every declared branch (bad as_of, bad coverage, bad money, bad coinsurance,
 // bad tax rate, bad spend); P6 the comparison table restated: spends are the fixed
 // key levels plus the expected spend, deduped and ascending, every row carrying
-// hdhp_saves == ppo_total - hdhp_total.
+// hdhp_saves == ppo_total - hdhp_total; P7 the totals-to-shield identity that the
+// source bug broke: hdhp_total_at_expected equals an independently written
+// annual premium + out-of-pocket (restated from the plan's deductible, coinsurance
+// and OOP max with the same operation order) minus hsa_tax_shield, exact under the
+// same float operations, plus monotonicity in the rate (a higher
+// marginal_tax_rate_pct never raises the HDHP total and never raises a non-null
+// break_even_spend).
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
@@ -212,6 +226,49 @@ function checkP6ComparisonTable() {
   return { name: 'P6 comparison table restatement', checked, violations };
 }
 
+// P7 — the totals-to-shield identity (added by ART758-HSA-SHIELD-DOUBLE-SCALE-FIX-1;
+// its absence is why the double-scale defect escaped P2): the HDHP total at the
+// expected spend equals an independently written annual premium + out-of-pocket minus
+// the reported hsa_tax_shield, restated with the same float operation order so the
+// assertion is exact; plus monotonicity in the rate. The independent OOP walk clamps
+// at the OOP maximum exactly as the plan does.
+function indepOOP(spend, ded, coinPct, oopMax) {
+  const above = spend > ded ? spend - ded : 0;
+  const raw = above * coinPct / 100;
+  const cap = oopMax - ded;
+  const coins = raw < cap ? raw : cap;
+  const oop = (spend < ded ? spend : ded) + (coins > 0 ? coins : 0);
+  return oop < oopMax ? oop : oopMax;
+}
+function checkP7TotalsShieldIdentity() {
+  let checked = 0, violations = 0;
+  const rng = mulberry32(75807);
+  for (let i = 0; i < 40; i++) {
+    const pp = randomValidPP(rng);
+    const out = compute(pp).output_payload;
+    const margRate = pp.marginal_tax_rate_pct / 100;
+    const limit = HSA_LIMITS[pp.coverage];
+    const shield = Math.min(pp.employer_hsa + pp.additional_hsa, limit) * margRate;
+    const restated = pp.hdhp_premium_monthly * 12 + indepOOP(pp.expected_annual_spend, pp.hdhp_deductible, pp.hdhp_coinsurance_pct, pp.hdhp_oop_max) - shield;
+    checked++;
+    // Exact under the same IEEE-754 operation order; if a draw ever diverges at the
+    // last ulp the fallback bound is 1e-9 (not needed on the seeded draws so far).
+    if (out.hdhp_total_at_expected !== restated && Math.abs(out.hdhp_total_at_expected - restated) > 1e-9) violations++;
+    if (out.hsa_tax_shield !== shield) violations++;
+  }
+  // Monotonicity in the rate over the same draws: a higher rate never raises the
+  // HDHP total (the shield only grows) and never raises a non-null break-even.
+  for (let i = 0; i < 40; i++) {
+    const pp = randomValidPP(rng);
+    const lo = compute({ ...pp, marginal_tax_rate_pct: 10 }).output_payload;
+    const hi = compute({ ...pp, marginal_tax_rate_pct: 40 }).output_payload;
+    checked++;
+    if (hi.hdhp_total_at_expected > lo.hdhp_total_at_expected) violations++;
+    if (lo.break_even_spend !== null && hi.break_even_spend !== null && hi.break_even_spend > lo.break_even_spend) violations++;
+  }
+  return { name: 'P7 totals equal premium + OOP minus shield; rate monotonicity', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -226,6 +283,7 @@ const properties = [
   checkP4GridDiscipline(),
   checkP5RefusalTaxonomy(),
   checkP6ComparisonTable(),
+  checkP7TotalsShieldIdentity(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — APEXPORT-105 port (Apex #105, AL-112).`);
 const ok = summarize(KERNEL_ID, oracle, properties);
