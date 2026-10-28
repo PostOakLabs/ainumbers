@@ -12,9 +12,19 @@
 // the two totals at the expected spend, the winner and the savings, a comparison
 // table at the page's fixed key spend levels, the HSA tax shield, and a
 // recommendation. Functions planOOP / hdhpTotal / ppoTotal / calcBreakEven are
-// ported 1:1 from the page (see DIFFERS.md in the payload: value disagreements NONE;
-// shape changes S1 wall-clock -> explicit as_of, S2 DOM fallbacks -> named refusals,
-// S3 inline table list -> named TABLE_STEPS literal).
+// ported from the page (shape changes S1 wall-clock -> explicit as_of, S2 DOM
+// fallbacks -> named refusals, S3 inline table list -> named TABLE_STEPS literal).
+//
+// DIFFERS (deliberate departure from the Apex source, 2026-10-27): the Apex #105
+// page divides the marginal tax rate by 100 a second time inside its own hdhpTotal
+// (its line 357 applies the extra division to a rate its line 378 has already
+// reduced to a fraction), so the page's HDHP totals subtract an HSA tax shield 100
+// times too small; the page's own HSA box (its line 473) uses the fraction once.
+// The original port carried that source bug 1:1, so this kernel's HDHP totals
+// understated the shield the same way while the reported hsa_tax_shield field was
+// already correct. This kernel now applies the shield once: the shield is the
+// capped contribution times the rate fraction, in hdhpTotal and in the reported
+// field alike. The HSA limits are unchanged (IRS Rev. Proc. 2025-19 sec. 2.01(1)).
 //
 // Pure function: no Date, no clock, no randomness, no I/O. The Apex page calls
 // `new Date().toISOString()` ONLY for the lastResult/export timestamp, never in the
@@ -164,10 +174,13 @@ export function planOOP(spend, deductible, coinsurancePct, oopMax) {
   return Math.min(oop, oopMax);
 }
 
-// Apex hdhpTotal: premium + OOP minus the HSA tax shield.
+// hdhpTotal: premium + OOP minus the HSA tax shield. DIFFERS from the Apex page:
+// the page divides the rate fraction by 100 again here; this kernel applies the
+// shield once (capped contribution times the rate fraction), matching the
+// reported hsa_tax_shield field.
 export function hdhpTotal(spend, inp) {
   const oop = planOOP(spend, inp.hdhpDed, inp.coinHdhp, inp.hdhpOop);
-  const hsaTaxShield = Math.min(inp.empHSA + inp.addlHSA, HSA_LIMITS[inp.cov]) * inp.margRate / 100;
+  const hsaTaxShield = Math.min(inp.empHSA + inp.addlHSA, HSA_LIMITS[inp.cov]) * inp.margRate;
   return inp.hdhpPremAnn + oop - hsaTaxShield;
 }
 

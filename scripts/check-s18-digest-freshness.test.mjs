@@ -22,7 +22,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { computeStaleness } from './check-s18-digest-freshness.mjs';
+import { computeStaleness, calibrationVerdict } from './check-s18-digest-freshness.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -98,7 +98,17 @@ await test('CRLF/CR line-ending normalization does not produce a false stale (ca
 });
 
 await test('reproduces the regen-owned §18 freshness calibration against the real committed chaingraph.json', async () => {
-  const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
+  // S18-FIXTURE-PR-DERIVED-ROOT-1: on a re-prove PR the committed monolith lags (it still holds the
+  // OLD journal digest until main's regen lands), so in a PR context that mounted an ephemeral
+  // assembly (S18_DERIVED_ROOT set, DERIVED_ROOT empty — the coverage gate's precedence) this leg
+  // reads THAT tree and the verdict is the PR-side inequality (calibrationVerdict); everywhere else
+  // it reads the committed monolith on the historical exact equality. main and merge_group are
+  // unreachable by construction: the env var is only ever set by the PR-only s18tree step and by
+  // local preflight in a non-main context, and merge_group mounts DERIVED_ROOT, which wins.
+  const derivedPr = !process.env.DERIVED_ROOT && Boolean(process.env.S18_DERIVED_ROOT);
+  const CG_PATH = derivedPr
+    ? resolve(process.env.S18_DERIVED_ROOT, 'chaingraph', 'chaingraph.json')
+    : resolve(REPO, 'chaingraph', 'chaingraph.json');
   const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
   const liveGpuFalse = (cg.nodes ?? []).filter((n) => n.status === 'live' && n.gpu === false);
   const kernelSources = {};
@@ -851,10 +861,39 @@ await test('reproduces the regen-owned §18 freshness calibration against the re
        throw new Error(`calibration artifact key "${k}" must be a finite number, got ${JSON.stringify(cal[k])} — a corrupt calibration is a hard failure, never a default (RATCHET-BASELINE-LOADER-1 doctrine)`);
      }
    }
-   assert(total === cal.total, `recomputed in-scope gpu:false proven nodes (${total}) != calibration artifact total (${cal.total}) — chaingraph.json moved without its regen-owned calibration; the canonical writer is: node scripts/gen-s18-freshness-calibration.mjs --write`);
-   assert(fresh.length === cal.fresh, `recomputed fresh (${fresh.length}) != calibration artifact fresh (${cal.fresh}) — same canonical writer: node scripts/gen-s18-freshness-calibration.mjs --write`);
-   assert(stale.length === cal.stale, `recomputed stale (${stale.length}) != calibration artifact stale (${cal.stale}) — if this is a kernel-edit staleness event, name the moved node in the commit and re-run the canonical writer; the ratchet ceiling in s18-digest-freshness-baseline.json is a different control and is NOT touched`);
+   const failures = calibrationVerdict({ total, fresh: fresh.length, stale: stale.length }, cal, { derivedPr });
+   if (failures.length) throw new Error(failures.join('\n'));
  });
+
+// ── S18-FIXTURE-PR-DERIVED-ROOT-1 controls (SO #34c pairing) ─────────────────────────────────────
+// Pure-function pairs over calibrationVerdict(). Numbers mirror the measured re-prove PR shape
+// (calibration 678/564/114; a lagging committed monolith recomputes 678/563/115 — measured on the
+// #2709 head, 2026-10-27).
+const CAL = { total: 678, fresh: 564, stale: 114 };
+
+await test('control GREEN: PR-context (derivedPr) re-prove, assembled tree equals the calibration — passes', async () => {
+  const f = calibrationVerdict({ total: 678, fresh: 564, stale: 114 }, CAL, { derivedPr: true });
+  assert(f.length === 0, `expected a pass, got ${f.length} failure(s): ${f.join(' | ')}`);
+});
+await test('control GREEN: PR-context first-prove (total+1, fresh+1, stale equal) — passes', async () => {
+  const f = calibrationVerdict({ total: 679, fresh: 565, stale: 114 }, CAL, { derivedPr: true });
+  assert(f.length === 0, `expected a pass, got ${f.length} failure(s): ${f.join(' | ')}`);
+});
+await test('control GREEN: PR-context stale-curing re-prove (stale-1, fresh+1) — passes', async () => {
+  const f = calibrationVerdict({ total: 678, fresh: 565, stale: 113 }, CAL, { derivedPr: true });
+  assert(f.length === 0, `expected a pass, got ${f.length} failure(s): ${f.join(' | ')}`);
+});
+await test('control RED: PR-context receipt does NOT match the edited kernel (stale+1, fresh-1) — fails, naming the stale count', async () => {
+  const f = calibrationVerdict({ total: 678, fresh: 563, stale: 115 }, CAL, { derivedPr: true });
+  assert(f.length === 2, `expected exactly 2 failures, got ${f.length}: ${f.join(' | ')}`);
+  assert(/recomputed stale \(115\) > calibration artifact stale \(114\)/.test(f[1]), `stale-count message missing: ${f.join(' | ')}`);
+});
+await test('control RED: NOT derivedPr (main/merge_group) — the same lagging-monolith numbers still fail on EXACT equality', async () => {
+  const f = calibrationVerdict({ total: 678, fresh: 563, stale: 115 }, CAL, { derivedPr: false });
+  assert(f.length === 2, `expected exactly 2 failures, got ${f.length}: ${f.join(' | ')}`);
+  assert(f[0].includes('recomputed fresh (563) != calibration artifact fresh (564)'), `fresh equality message missing: ${f.join(' | ')}`);
+  assert(/recomputed stale \(115\) != calibration artifact stale \(114\)/.test(f[1]), `stale equality message missing: ${f.join(' | ')}`);
+});
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
