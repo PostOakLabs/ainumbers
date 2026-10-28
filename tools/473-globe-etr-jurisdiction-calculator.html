@@ -91,7 +91,7 @@ footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
   <div class="hero">
     <div class="eyebrow">T473 · Tax / GloBE · AINumbers.co</div>
     <h1>GloBE ETR Jurisdiction Calculator</h1>
-    <p>OECD Pillar Two Global Minimum Tax: GloBE Effective Tax Rate (ETR) per jurisdiction. GloBE ETR = Adjusted Covered Taxes ÷ GloBE Income per OECD GloBE Model Rules Art. 5.1.1. Minimum rate: 15%. Substance-based income exclusion (SBIE): 5% × qualifying payroll + 5% × qualifying tangible assets (transitional rates 2024–2032 per Art. 5.3). Jurisdictions below 15% ETR are subject to top-up tax (computed in T474).</p>
+    <p>OECD Pillar Two Global Minimum Tax: GloBE Effective Tax Rate (ETR) per jurisdiction. GloBE ETR = Adjusted Covered Taxes ÷ GloBE Income per OECD GloBE Model Rules Art. 5.1.1. Minimum rate: 15%. Substance-based income exclusion (SBIE): qualifying payroll × payroll rate + qualifying tangible assets × tangible-asset rate, at the OECD Article 9.2 transitional rates for fiscal years 2023 through 2032 (5% for both from 2033). Jurisdictions below 15% ETR are subject to top-up tax (computed in T474).</p>
     <div class="hero-badges">
       <span class="badge b-gold">OECD Pillar Two GloBE</span>
       <span class="badge">15% minimum ETR</span>
@@ -106,9 +106,14 @@ footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
   <section class="card">
     <h2>GloBE inputs per jurisdiction</h2>
     <p style="font-size:.78rem;color:var(--body);margin-bottom:.7rem">Enter GloBE income, covered taxes, qualifying payroll, and tangible assets per constituent entity group in each jurisdiction. GloBE income net of SBIE is the base for top-up tax computation (T474). All amounts in the same reporting currency.</p>
+    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem;flex-wrap:wrap">
+      <label for="fy" style="font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Reporting FY</label>
+      <input type="number" id="fy" value="2026" min="2023" max="2035" step="1" onchange="syncSBIEPlaceholders()" style="width:80px">
+      <span style="font-size:.72rem;color:var(--body)">Selects the Article 9.2 SBIE payroll and tangible-asset rates for every jurisdiction. Fiscal years before 2023 are refused. 2033 and later use 5% for both.</span>
+    </div>
     <table class="d-table">
       <thead>
-        <tr><th>Jurisdiction (ISO)</th><th>GloBE income (m)</th><th>Covered taxes (m)</th><th>Payroll (m)</th><th>Tangible assets (m)</th><th>SBIE rate %</th><th></th></tr>
+        <tr><th>Jurisdiction (ISO)</th><th>GloBE income (m)</th><th>Covered taxes (m)</th><th>Payroll (m)</th><th>Tangible assets (m)</th><th>Payroll SBIE % (override)</th><th></th></tr>
       </thead>
       <tbody id="jur-tbody"></tbody>
     </table>
@@ -121,7 +126,7 @@ footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
     <h2>GloBE ETR Results</h2>
     <div class="stats-row" id="stats-row"></div>
     <div id="jur-results"></div>
-    <p class="cite">Sources: OECD GloBE Model Rules (released December 2021); OECD Commentary (March 2022); OECD Administrative Guidance (February 2023, July 2023, December 2023, June 2024). SBIE transitional rates: Art. 9.2 / Agreed Administrative Guidance. Minimum rate: 15% (Art. 5.2.4). ⚠ Verify SBIE rates and covered-tax adjustments against current OECD guidance and local implementing legislation. US exemption: OECD side-by-side package (January 2026). GIR first filings: 30 June 2026 for FY2024 groups.</p>
+    <p class="cite">Sources: OECD GloBE Model Rules (released December 2021); OECD Commentary (March 2022); OECD Administrative Guidance (February 2023, July 2023, December 2023, June 2024). SBIE transitional rates: Art. 9.2. Minimum rate: 15% (Art. 5.2.4). ⚠ Verify SBIE rates and covered-tax adjustments against current OECD guidance and local implementing legislation. US exemption: OECD side-by-side package (January 2026). GIR first filings: 30 June 2026 for FY2024 groups.</p>
     <div class="export-row">
       <button class="exp-btn primary" onclick="exportMandate()">📤 Export Policy Mandate JSON</button>
       <button class="exp-btn" onclick="exportMarkdown()">📄 Export Markdown</button>
@@ -162,34 +167,66 @@ footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
    OECD Pillar Two GloBE Model Rules (Dec 2021).
    GloBE ETR = Adjusted Covered Taxes / GloBE Income (Art. 5.1.1).
    Minimum rate = 15% (Art. 5.2.4).
-   SBIE: 5% × qualifying payroll + 5% × qualifying tangible assets (Art. 5.3.2).
-   Transitional SBIE rates (Art. 9.2):
+   SBIE = qualifying payroll × payroll rate + qualifying tangible assets ×
+   tangible-asset rate (mechanism per Art. 5.3.3 / 5.3.4, rates per Art. 9.2).
+   Art. 9.2 transitional rates, fiscal years beginning 2023-2032:
+     FY2023: 10.0% payroll + 8.0% assets
      FY2024: 9.8% payroll + 7.8% assets
-     FY2025: 9.6% payroll + 6.4% assets
-     FY2026: 9.4% payroll + 5.0% assets
-     FY2027+: 5.0% payroll + 5.0% assets (steady state)
-   ⚠ Verify transitional rates against current OECD Administrative Guidance.
+     FY2025: 9.6% payroll + 7.6% assets
+     FY2026: 9.4% payroll + 7.4% assets
+     FY2027: 9.2% payroll + 7.2% assets
+     FY2028: 9.0% payroll + 7.0% assets
+     FY2029: 8.2% payroll + 6.6% assets
+     FY2030: 7.4% payroll + 6.2% assets
+     FY2031: 6.6% payroll + 5.8% assets
+     FY2032: 5.8% payroll + 5.4% assets
+     FY2033+: 5.0% payroll + 5.0% assets
+   Mirrors chaingraph/kernels/art-365-compute-globe-topup-tax.kernel.mjs
+   (constants_version oecd-globe-sbie-2023-2032-art92-v2). The payroll rate is
+   overridable per jurisdiction (a blank override cell uses the year's rate);
+   the tangible-asset rate is the year's value and is not user-editable.
+   Fiscal years before 2023 are refused (the kernel returns year_not_in_table).
    US exemption: US-HQ groups exempt from IIR/UTPR per Jan 2026 OECD side-by-side package.
    ═══ */
 
-/* SBIE transitional rates per GloBE Art. 9.2 / OECD guidance
-   ⚠ Verify against https://www.oecd.org/en/topics/sub-issues/global-minimum-tax/ */
+/* SBIE transitional rates per OECD GloBE Model Rules Art. 9.2 (payroll and tangible
+   assets, fiscal years beginning 2023 through 2032; 5% for both from fiscal year 2033).
+   Values mirror the pinned kernel table exactly -- a rate change there is a constants
+   version bump, and this page follows the kernel, never the other way round. */
 var SBIE_RATES = {
+  2023: { payroll: 0.10, assets: 0.08 },
   2024: { payroll: 0.098, assets: 0.078 },
-  2025: { payroll: 0.096, assets: 0.064 },
-  2026: { payroll: 0.094, assets: 0.050 },
-  2027: { payroll: 0.050, assets: 0.050 },
+  2025: { payroll: 0.096, assets: 0.076 },
+  2026: { payroll: 0.094, assets: 0.074 },
+  2027: { payroll: 0.092, assets: 0.072 },
+  2028: { payroll: 0.09, assets: 0.07 },
+  2029: { payroll: 0.082, assets: 0.066 },
+  2030: { payroll: 0.074, assets: 0.062 },
+  2031: { payroll: 0.066, assets: 0.058 },
+  2032: { payroll: 0.058, assets: 0.054 },
 };
+var SBIE_STEADY_STATE = { payroll: 0.05, assets: 0.05 };
+var SBIE_FIRST_FY = 2023;
 var GLOBE_MIN_RATE = 0.15;
 
 var _lastResult = null;
 var _jId = 0;
 
-function getSBIE(year) {
-  var r = SBIE_RATES[year] || SBIE_RATES[2027];
-  return r;
+function sbieRates(fy) {
+  if (SBIE_RATES[fy]) return SBIE_RATES[fy];
+  if (fy >= 2033) return SBIE_STEADY_STATE;
+  return null;
 }
-
+function sbiePlaceholderPct() {
+  var fy = Math.trunc(Number(document.getElementById('fy') && document.getElementById('fy').value));
+  var r = Number.isFinite(fy) ? sbieRates(fy) : null;
+  if (!r) return '';
+  return String(+(r.payroll * 100).toFixed(2));
+}
+function syncSBIEPlaceholders() {
+  var p = sbiePlaceholderPct();
+  document.querySelectorAll('#jur-tbody input[id^="jsbr-"]').forEach(function(el){ el.placeholder = p; });
+}
 function addJurRow(jur, income, taxes, payroll, assets, sbieRate) {
   var id = ++_jId;
   var tr = document.createElement('tr'); tr.id='jur-'+id;
@@ -199,7 +236,7 @@ function addJurRow(jur, income, taxes, payroll, assets, sbieRate) {
     '<td><input type="number" id="jtax-'+id+'" value="'+(taxes||'70')+'" step="0.01" style="width:90px"></td>'+
     '<td><input type="number" id="jpay-'+id+'" value="'+(payroll||'200')+'" step="0.01" style="width:90px"></td>'+
     '<td><input type="number" id="jtan-'+id+'" value="'+(assets||'300')+'" step="0.01" style="width:90px"></td>'+
-    '<td><input type="number" id="jsbr-'+id+'" value="'+(sbieRate!==undefined?sbieRate:9.4)+'" step="0.01" min="0" max="15" style="width:60px" title="Payroll SBIE % (adjust for year)"></td>'+
+    '<td><input type="number" id="jsbr-'+id+'" value="'+(sbieRate!==undefined&&sbieRate!==''?sbieRate:'')+'" step="0.01" min="0" max="15" style="width:60px" placeholder="'+sbiePlaceholderPct()+'" title="Optional payroll SBIE % override. Blank uses the reporting fiscal year\'s Article 9.2 rate, shown as the placeholder."></td>'+
     '<td><button class="row-del" onclick="delRow(\'jur-'+id+'\')">✕</button></td>';
   document.getElementById('jur-tbody').appendChild(tr);
 }
@@ -209,34 +246,66 @@ function fmtM(n){return(n<0?'-':'')+Math.abs(n).toLocaleString('en-US',{minimumF
 function fmtPct(n){return(n*100).toFixed(2)+'%';}
 
 function runGlobeETR(){
+  var fyEl=document.getElementById('fy');
+  var fy=Math.trunc(Number(fyEl&&fyEl.value));
+  var rates=Number.isFinite(fy)?sbieRates(fy):null;
+  if(!rates){
+    // Pre-2023 (or malformed) fiscal years: refuse visibly, as the pinned kernel
+    // returns year_not_in_table / LOOKUP_YEAR_UNAVAILABLE. No numbers, no NaN.
+    _lastResult=null;
+    var res=document.getElementById('results');res.classList.add('show');
+    document.getElementById('stats-row').innerHTML='';
+    document.getElementById('jur-results').innerHTML=
+      '<p style="font-size:.85rem;color:var(--red);margin:.6rem 0">⚠ Reporting FY '+fy+' is refused: the OECD Article 9.2 transitional SBIE schedule covers fiscal years beginning 2023 and later. Enter a fiscal year of 2023 or more.</p>';
+    setTimeout(function(){
+      // The AP2 wrapper re-enables the export button after any run; re-disable it
+      // so a refused year never exports, and drop any mandate snapshot it cached.
+      var ab=document.getElementById('ap2ExportBtn');
+      if(ab){ab.disabled=true;ab.classList.remove('ready');ab.title='Run the tool first to enable Policy Mandate export';}
+      window._lastMandate=null;
+    },250);
+    return;
+  }
   var rows=[];
   document.querySelectorAll('#jur-tbody tr').forEach(function(tr){
     var id=tr.id.replace('jur-','');
     var jurEl=document.getElementById('jjur-'+id);if(!jurEl)return;
     var jur=jurEl.value.trim().toUpperCase();
     var income=gn('jinc-'+id),taxes=gn('jtax-'+id),payroll=gn('jpay-'+id),assets=gn('jtan-'+id);
-    var sbie_payroll_rate=gn('jsbr-'+id)/100;
-    var sbie_assets_rate=0.05; // steady-state or adjusted by user
-    var sbie=payroll*sbie_payroll_rate+assets*sbie_assets_rate;
+    // Payroll rate: a non-blank override cell wins (kernel sbie_payroll_rate behaviour);
+    // blank uses the reporting fiscal year's Article 9.2 rate. The assets rate is the
+    // year's value; the node has no assets override, so the page offers none.
+    var ovEl=document.getElementById('jsbr-'+id);
+    var ov=ovEl?String(ovEl.value).trim():'';
+    var ovN=ov===''?NaN:parseFloat(ov)/100;
+    var sbie_payroll_rate_applied=(ov!==''&&Number.isFinite(ovN))?ovN:rates.payroll;
+    var sbie_assets_rate_applied=rates.assets;
+    var sbie=payroll*sbie_payroll_rate_applied+assets*sbie_assets_rate_applied;
     var globe_income_net_sbie=Math.max(income-sbie,0);
     var etr=income>0?taxes/income:0;
     var below_min=etr<GLOBE_MIN_RATE;
     var top_up_rate=below_min?GLOBE_MIN_RATE-etr:0;
     var excess_profit=globe_income_net_sbie;
     var top_up_tax_indicative=excess_profit*top_up_rate;
-    rows.push({jur,income,taxes,payroll,assets,sbie,globe_income_net_sbie,etr,below_min,top_up_rate,top_up_tax_indicative});
+    rows.push({jur,income,taxes,payroll,assets,sbie,globe_income_net_sbie,etr,below_min,top_up_rate,top_up_tax_indicative,sbie_payroll_rate_applied,sbie_assets_rate_applied,sbie_payroll_rate_override:(ov!==''||undefined)});
   });
   var total_income=rows.reduce(function(s,r){return s+r.income;},0);
   var total_taxes=rows.reduce(function(s,r){return s+r.taxes;},0);
   var agg_etr=total_income>0?total_taxes/total_income:0;
   var low_count=rows.filter(function(r){return r.below_min;}).length;
-  _lastResult={rows,total_income,total_taxes,agg_etr,low_count};
+  _lastResult={rows,total_income,total_taxes,agg_etr,low_count,fy,sbie_payroll_rate_year:rates.payroll,sbie_assets_rate_year:rates.assets};
   renderResults(_lastResult);
+  // Populate the mandate the AP2 export downloads (the wrapper only fills a DOM
+  // snapshot fallback when a page leaves _lastMandate unset).
+  window._lastMandate=buildMandateObj(_lastResult);
 }
 
 function renderResults(r){
   var res=document.getElementById('results');res.classList.add('show');
   document.getElementById('stats-row').innerHTML=
+    '<div class="stat"><div class="stat-label">Reporting FY</div><div class="stat-val">'+r.fy+'</div></div>'+
+    '<div class="stat"><div class="stat-label">SBIE payroll rate (year)</div><div class="stat-val">'+fmtPct(r.sbie_payroll_rate_year)+'</div></div>'+
+    '<div class="stat"><div class="stat-label">SBIE assets rate (year)</div><div class="stat-val">'+fmtPct(r.sbie_assets_rate_year)+'</div></div>'+
     '<div class="stat"><div class="stat-label">Jurisdictions assessed</div><div class="stat-val">'+r.rows.length+'</div></div>'+
     '<div class="stat"><div class="stat-label">Below 15% ETR</div><div class="stat-val" style="color:var(--red)">'+r.low_count+'</div></div>'+
     '<div class="stat"><div class="stat-label">Total GloBE income</div><div class="stat-val">'+fmtM(r.total_income)+'</div></div>'+
@@ -252,6 +321,8 @@ function renderResults(r){
         '<div class="jb"><div class="jb-label">Covered taxes</div><div class="jb-val">'+fmtM(row.taxes)+'</div></div>'+
         '<div class="jb"><div class="jb-label">SBIE deduction</div><div class="jb-val">'+fmtM(row.sbie)+'</div></div>'+
         '<div class="jb"><div class="jb-label">Income net SBIE</div><div class="jb-val">'+fmtM(row.globe_income_net_sbie)+'</div></div>'+
+        '<div class="jb"><div class="jb-label">SBIE payroll rate applied</div><div class="jb-val">'+fmtPct(row.sbie_payroll_rate_applied)+'</div></div>'+
+        '<div class="jb"><div class="jb-label">SBIE assets rate applied</div><div class="jb-val">'+fmtPct(row.sbie_assets_rate_applied)+'</div></div>'+
         '<div class="jb"><div class="jb-label">Top-up rate</div><div class="jb-val" style="color:'+(row.top_up_rate>0?'var(--red)':'var(--muted)')+'">'+fmtPct(row.top_up_rate)+'</div></div>'+
         '<div class="jb"><div class="jb-label">Indicative top-up (T474)</div><div class="jb-val" style="color:'+(row.top_up_tax_indicative>0?'var(--warn)':'var(--muted)')+'">'+fmtM(row.top_up_tax_indicative)+'</div></div>'+
       '</div>';
@@ -266,9 +337,9 @@ function buildMandateObj(r){
   var now=new Date().toISOString();
   return{mandate_id:uuid(),issued_at:now,issued_by:'ainumbers.co',tool_id:'473-globe-etr-jurisdiction-calculator',tool_version:'1.0.0',mandate_type:'compliance_control',jurisdiction:['OECD','Global'],
     regulatory_frameworks:['OECD Pillar Two GloBE Model Rules (December 2021)','OECD GloBE Commentary (March 2022)','OECD Administrative Guidance (2023–2024)','OECD side-by-side package — US exemption from IIR/UTPR (January 2026)','AINumbers.co Unified Build Contract v1.1'],
-    payload:{jurisdictions:r.rows,total_income_m:r.total_income,total_taxes_m:r.total_taxes,aggregate_etr:r.agg_etr,low_etr_count:r.low_count},
-    summary:'GloBE ETR assessed across '+r.rows.length+' jurisdiction(s). '+r.low_count+' below 15% minimum. Aggregate ETR: '+fmtPct(r.agg_etr)+'. ⚠ US-HQ groups exempt from IIR/UTPR per Jan 2026 OECD side-by-side package.',
-    agent_instructions:['GloBE minimum ETR = 15% per Art. 5.2.4.','SBIE deduction = qualifying payroll × payroll rate + qualifying tangible assets × assets rate. Transitional rates apply through 2026 (Art. 9.2).','Jurisdictions below 15% ETR: top-up tax applies — compute using T474.','US-HQ MNE groups are exempt from IIR and UTPR per the January 2026 OECD side-by-side package. Do NOT apply IIR/UTPR to US-parented groups.','QDMTT exposure applies to all groups in GloBE-implementing jurisdictions (including US-parented).','GIR first filings: 30 June 2026 (for FY2024 groups with extensions). Verify current filing deadlines at oecd.org.','Verify SBIE transitional rates against current OECD Administrative Guidance.'],
+    payload:{fy:r.fy,sbie_payroll_rate_year:r.sbie_payroll_rate_year,sbie_assets_rate_year:r.sbie_assets_rate_year,jurisdictions:r.rows,total_income_m:r.total_income,total_taxes_m:r.total_taxes,aggregate_etr:r.agg_etr,low_etr_count:r.low_count},
+    summary:'GloBE ETR assessed across '+r.rows.length+' jurisdiction(s) at reporting FY '+r.fy+'. '+r.low_count+' below 15% minimum. Aggregate ETR: '+fmtPct(r.agg_etr)+'. ⚠ US-HQ groups exempt from IIR/UTPR per Jan 2026 OECD side-by-side package.',
+    agent_instructions:['GloBE minimum ETR = 15% per Art. 5.2.4.','SBIE deduction = qualifying payroll × payroll rate + qualifying tangible assets × tangible-asset rate. Rates follow the OECD Article 9.2 transitional schedule for fiscal years 2023 through 2032 (5% for both from 2033); the payroll rate can be overridden per jurisdiction.','Jurisdictions below 15% ETR: top-up tax applies — compute using T474.','US-HQ MNE groups are exempt from IIR and UTPR per the January 2026 OECD side-by-side package. Do NOT apply IIR/UTPR to US-parented groups.','QDMTT exposure applies to all groups in GloBE-implementing jurisdictions (including US-parented).','GIR first filings: 30 June 2026 (for FY2024 groups with extensions). Verify current filing deadlines at oecd.org.','Verify SBIE transitional rates against current OECD Administrative Guidance.'],
     valid_from:now.slice(0,10),
     audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
 }
@@ -278,15 +349,15 @@ function exportMarkdown(){
   if(!_lastResult){alert('Run first.');return;}var r=_lastResult;
   var lines=['# GloBE ETR by Jurisdiction — OECD Pillar Two','','> ⚠ **US-HQ groups are exempt from IIR/UTPR per the OECD January 2026 side-by-side package.**','','**Aggregate ETR: '+fmtPct(r.agg_etr)+' | Jurisdictions below 15%: '+r.low_count+'**','','| Jurisdiction | GloBE income | Covered taxes | ETR | SBIE | Income net SBIE | Top-up rate | Indicative top-up |','|---|---|---|---|---|---|---|---|'];
   r.rows.forEach(function(row){lines.push('| '+row.jur+' | '+fmtM(row.income)+' | '+fmtM(row.taxes)+' | '+fmtPct(row.etr)+' | '+fmtM(row.sbie)+' | '+fmtM(row.globe_income_net_sbie)+' | '+fmtPct(row.top_up_rate)+' | '+fmtM(row.top_up_tax_indicative)+' |');});
-  lines.push('','*Source: OECD GloBE Model Rules (Dec 2021). Verify SBIE rates against current OECD guidance. Synthetic data only.*');
+  lines.push('','*Source: OECD GloBE Model Rules (Dec 2021); SBIE rates per Art. 9.2. Verify SBIE rates against current OECD guidance. Synthetic data only.*');
   var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download('globe-etr_'+ts+'.md',lines.join('\n'),'text/markdown');
 }
 function download(name,content,mime){var blob=new Blob([content],{type:mime});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href);}
 
-// Seed defaults
-addJurRow('DE',500,70,200,300,9.4);
-addJurRow('IE',200,20,80,100,9.4);
-addJurRow('SG',150,18,60,120,9.4);
+// Seed defaults (no payroll-rate override: the reporting FY's Article 9.2 rate applies)
+addJurRow('DE',500,70,200,300);
+addJurRow('IE',200,20,80,100);
+addJurRow('SG',150,18,60,120);
 </script>
 <script>
 (function(){
