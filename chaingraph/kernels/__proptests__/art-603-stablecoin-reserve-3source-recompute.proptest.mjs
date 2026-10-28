@@ -413,7 +413,7 @@ function checkP7_exact_output_pinning() {
     pin('S10b rec1 reconciled under override', b.output_payload.reconciles[0], { check: 'reserves_vs_mmf_assets', verdict: 'RECONCILED', detail: 'Reserves attributed to the fund (1000000.00, 100.00% of recomputed reserves) vs Leg B total_net_assets (1000000): delta 0.0000%, tolerance 0.5%.', as_of_skew_days: 14 });
     const c = compute({ leg_a: A(), leg_b: B({ as_of: undefined }) });
     pinStrict('S10c skewAB null when leg B lacks as_of', c.output_payload.as_of_skew_pairs.leg_a_vs_leg_b, null);
-    pinStrict('S10c rec3 skew field null', c.output_payload.reconciles[2].as_of_skew_days, null);
+    pinStrict('S10c rec3 skew field null', /** @type {{ check: string, verdict: string, detail: string, as_of_skew_days: number | null }} */ (c.output_payload.reconciles[2]).as_of_skew_days, null);
     pin('S10c rec3 still compares', c.output_payload.reconciles[2], { check: 'wam_cross_check', verdict: 'RECONCILED', detail: "Disclosure-recomputed WAM (0.00d) and EDGAR-reported WAM (2.00d) are within the 2-day tolerance. This comparison is directional, not exact, when the named fund holds only part of the issuer's reserves.", as_of_skew_days: null });
   }
   // S11 — WAM-from-disclosure edges: one line lacking maturity -> refuse (a `some`
