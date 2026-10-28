@@ -26,7 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, runProcessBounded, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit } from './run-mutation-tier.mjs';
+import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, runProcessBounded, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult } from './run-mutation-tier.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -565,6 +565,71 @@ function runProcessBoundedSync(file, cwd) {
   const r = spawnSync(process.execPath, [file], { cwd, encoding: 'utf8', timeout: 30000 });
   return { code: r.status ?? -1, stderr: r.stderr || '' };
 }
+
+// ── per-mutant survivor detail (MUTATION-SURVIVORS-JSON-1) ───────────────
+// --survivors is an OPT-IN additive projection of the Stryker report the
+// harness already read: per-kernel `survivors` (every Survived / NoCoverage
+// mutant, tier as assigned, sorted line then column) plus
+// `killed_money_math_ids`. WITHOUT the flag the --json output must be
+// byte-identical to the pre-row shape. No count, tier, floor or percentage
+// is derived from any of it.
+
+console.log('\nrun-mutation-tier controls — per-mutant survivor detail (MUTATION-SURVIVORS-JSON-1)');
+
+// Fixture Stryker report, same inline convention as R7's decompose fixtures.
+// Covers: money-math Survivor (m5), money-math NoCoverage (m8), peripheral
+// Survivor (m6 inside the peripheral range), Killed (never a survivor), and
+// Ignored (excluded from the measured surface — never a survivor).
+const SURV_RANGES = [[9000, 9100]];
+const SURV_KERNEL = 'chaingraph/kernels/fixture-id.kernel.mjs';
+const SURV_FIXTURE_REPORT = { files: { [SURV_KERNEL]: { mutants: [
+  { id: 'm1', status: 'Killed', mutatorName: 'ArithmeticOperator', location: { start: { line: 10, column: 3 }, end: { line: 10, column: 8 } } },
+  { id: 'm8', status: 'NoCoverage', mutatorName: 'BlockStatement', location: { start: { line: 50, column: 1 }, end: { line: 52, column: 2 } } },
+  { id: 'm5', status: 'Survived', mutatorName: 'ConditionalExpression', location: { start: { line: 50, column: 9 }, end: { line: 50, column: 20 } } },
+  { id: 'm3', status: 'Killed', mutatorName: 'StringLiteral', location: { start: { line: 30, column: 5 }, end: { line: 30, column: 12 } } },
+  { id: 'm6', status: 'Survived', mutatorName: 'ArrowFunction', location: { start: { line: 9050, column: 7 }, end: { line: 9050, column: 15 } } },
+] } } };
+
+test('R25 survivorLocations: exactly the Survived/NoCoverage mutants, tier as assigned, sorted by line then column', () => {
+  const survivors = survivorLocations(SURV_FIXTURE_REPORT, SURV_KERNEL, SURV_RANGES);
+  assert(JSON.stringify(survivors) === JSON.stringify([
+    { id: 'm8', mutatorName: 'BlockStatement', tier: 'moneyMath', location: { start: { line: 50, column: 1 }, end: { line: 52, column: 2 } }, status: 'NoCoverage' },
+    { id: 'm5', mutatorName: 'ConditionalExpression', tier: 'moneyMath', location: { start: { line: 50, column: 9 }, end: { line: 50, column: 20 } }, status: 'Survived' },
+    { id: 'm6', mutatorName: 'ArrowFunction', tier: 'peripheral', location: { start: { line: 9050, column: 7 }, end: { line: 9050, column: 15 } }, status: 'Survived' },
+  ]), `survivors must be exactly the 3 Survived/NoCoverage mutants, line-then-column sorted, got ${JSON.stringify(survivors)}`);
+  assert(!survivors.some((s) => s.id === 'm1' || s.id === 'm3'),
+    'Killed mutants must never appear in survivors');
+});
+
+test('R26 WITHOUT --survivors the result shape is byte-identical to the pre-row `{ id, runtimeMs, tiers, decomposed }`', () => {
+  const tiers = { moneyMath: { total: 5, killed: 4, score: 80 }, peripheral: { total: 0, killed: 0, score: null } };
+  const decomposed = { total: 5, killedAsShipped: 4, propertyKills: 3, fixtureKills: 1, run2OnlyKills: 0, propertyRatio: 60 };
+  const pre = JSON.stringify({ id: 'k', runtimeMs: 1234, tiers, decomposed });
+  const after = JSON.stringify(buildJsonResult('k', 1234, tiers, decomposed, { survivors: false }, null));
+  assert(pre === after, `default output must be byte-identical to the pre-row shape:\n  pre:   ${pre}\n  after: ${after}`);
+  // Even a stray bundle must never leak into a non-flagged result:
+  const stray = JSON.stringify(buildJsonResult('k', 1234, tiers, decomposed, { survivors: false }, { survivors: [{ id: 'm5' }], killed_money_math_ids: ['m1'] }));
+  assert(pre === stray, 'a bundle passed with the flag off must be dropped — the default output never gains survivor keys');
+  // With the flag on, the keys are ADDITIVE — the base keys are unchanged:
+  const flagged = buildJsonResult('k', 1234, tiers, decomposed, { survivors: true }, { survivors: [{ id: 'm5' }], killed_money_math_ids: ['m1'] });
+  assert(flagged.id === 'k' && flagged.runtimeMs === 1234 && flagged.tiers === tiers && flagged.decomposed === decomposed,
+    'the flagged result must carry the exact same base fields');
+  assert(JSON.stringify(flagged.survivors) === '[{"id":"m5"}]' && JSON.stringify(flagged.killed_money_math_ids) === '["m1"]',
+    'the flagged result must carry survivors and killed_money_math_ids additively');
+});
+
+test('R27 RED case: a Survived mutant missing from the survivors array fails LOUDLY naming the mutant id', () => {
+  const survivors = survivorLocations(SURV_FIXTURE_REPORT, SURV_KERNEL, SURV_RANGES);
+  assertSurvivorsComplete(SURV_FIXTURE_REPORT, survivors, SURV_KERNEL, SURV_RANGES); // the honest array must pass
+  for (const dropped of survivors) {
+    const corrupted = survivors.filter((s) => s.id !== dropped.id);
+    let threw = null;
+    try { assertSurvivorsComplete(SURV_FIXTURE_REPORT, corrupted, SURV_KERNEL, SURV_RANGES); } catch (e) { threw = e; }
+    assert(threw, `dropping ${dropped.id} from survivors must fail — a survivor silently dropped from the reviewable output is the exact defect this row closes`);
+    assert(threw.message.includes(dropped.id) && /MUTATION-SURVIVORS-JSON-1/.test(threw.message),
+      `the failure must name the missing mutant id and the row:\n${threw.message}`);
+  }
+});
 
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

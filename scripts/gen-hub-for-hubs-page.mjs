@@ -153,6 +153,7 @@ const CLUSTERS = [
     paths: [
       'guides/web3-hub.html',
       'guides/solana-hub.html',
+      'guides/ethereum-hub.html',
       'guides/dlt-tokenization-hub.html',
       'guides/canton-tmf-hub.html',
       'guides/token-standards-hub.html',
