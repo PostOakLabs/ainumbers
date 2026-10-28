@@ -346,6 +346,37 @@ test('R14 default 600 untouched when neither env nor a config entry names the ke
     'no config object at all must keep the 600 default');
 });
 
+// MUTATION-RATCHET-GREEN-1 (2026-10-26): the 10-26 nightly (run 40357657270, 20/20
+// shards) MEASUREMENT-LOST 28 pinned kernels; 27 of them as 'MUTATION-TIER TIMEOUT
+// <id> after 600s' (this list, each measured locally and landed a config bound of
+// min(2x measured local wall, 1500 s)); the 28th, art-458-attribute-sampling-plan,
+// hard-failed as 'stryker produced no report.json' (Stryker initial-test-run error at ~302 s on shard 10 — NOT a timeout, not curable by a bound; measured locally: same error at exactly 300 s). A further five of the 27 (see the config's STRICT-SOLO AMENDMENT) still hit 1500 s strictly solo — the brief's STOP — and are routed to hang rows with NO bound here; this list is the 22 landed bounds. R15 pins that batch's
+// own invariant against the REAL config file — a future edit that pushes any of these past
+// the row's 1500 s ceiling (or drops one back to an entry that cannot exceed the 600 s
+// default it was cured from) fails HERE, not at the next nightly red.
+const RATCHET_GREEN_1_TIMEOUT_KERNELS = [
+  'ml-02-credit-default-risk-scorer', 'art-189-markdown-document-converter', 'art-628-declarative-decision-tree-evaluator', 'art-330-tvm-dv01',
+  'art-280-reserve-proof-verifier', 'art-190-tabular-data-converter', 'art-326-tvm-xirr', 'art-595-ap2-cartmandate-hashchain-builder',
+  'art-286-anchored-extract-verifier', 'art-612-erc2612-permit-binding-verifier', 'art-331-tvm-convexity', 'art-652-verify-receipt',
+  'art-605-merkle-airdrop-proof-verifier', 'art-591-x402-signer-recovery-verifier', 'art-193-metadata-sanitization-prover', 'art-284-did-webvh-log-verifier',
+  'art-194-digest-manifest-builder', 'qfa-04-xva-cva-calculator', 'art-329-tvm-bond-duration', 'art-653-pta-verifier',
+  'art-02-agent-spend-policy-simulator', 'art-662-odnsf-fee-recompute',
+];
+
+test('R15 the MUTATION-RATCHET-GREEN-1 batch: every entry in the REAL config is an integer bound 600 < v <= 1500 and resolves per kernel', () => {
+  const configPath = join(import.meta.dirname, '..', 'chaingraph', 'kernels', 'mutation-tiers.config.json');
+  const realConfig = JSON.parse(readFileSync(configPath, 'utf8'));
+  const bounds = realConfig.kernelTimeoutSeconds || {};
+  for (const id of RATCHET_GREEN_1_TIMEOUT_KERNELS) {
+    const v = bounds[id];
+    assert(Number.isInteger(v), `kernelTimeoutSeconds["${id}"] must be present in the real config as an integer (got ${JSON.stringify(v)}) — the kernel reverts to the 600 s default it was cured from`);
+    assert(v > 600, `kernelTimeoutSeconds["${id}"] = ${v} must EXCEED the 600 s default (the 10-26 nightly hard-timed-out at 600 s)`);
+    assert(v <= 1500, `kernelTimeoutSeconds["${id}"] = ${v} must not exceed the row's 1500 s ceiling (min(2x measured local wall, 1500 s))`);
+    assert(kernelTimeoutSecondsForKernel(id, {}, realConfig) === v,
+      `the resolution must return the config value for "${id}" through the real config object`);
+  }
+});
+
 // ── named mutate-surface split controls (RCA01-MUTATION-TIER-COST-1) ─────
 
 console.log('\nrun-mutation-tier controls — named mutate-surface split (RCA01-MUTATION-TIER-COST-1)');
