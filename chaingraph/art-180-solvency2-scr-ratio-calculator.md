@@ -8,24 +8,27 @@ Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and ca
 
 ## Inputs
 
-- capital (any, optional): type not evidenced by kernel source
+- capital (object, optional): Own-funds and capital-requirement amounts. An omitted tier2 is treated as 0, which makes the Tier 2 plus Tier 3 test lenient.
 
 ## Outputs
 
-- eligible_own_funds (integer, optional)
-- mcr (integer, optional)
-- mcr_breached (boolean, optional)
-- mcr_coverage_ratio (integer, optional)
-- scr (integer, optional)
+- scr_coverage_ratio (number, optional)
+- mcr_coverage_ratio (number, optional)
 - scr_breached (boolean, optional)
-- scr_coverage_ratio (integer, optional)
-- tier1_total_limit_ok (boolean, optional)
-- tier1_total_pct_of_scr (integer, optional)
-- tier1_unrestricted_limit_ok (boolean, optional)
-- tier1_unrestricted_pct_of_scr (integer, optional)
-- tier3_limit_ok (boolean, optional)
-- tier3_pct_of_scr (integer, optional)
+- mcr_breached (boolean, optional)
 - tiering_ok (boolean, optional)
+- tier1_unrestricted_pct_of_scr (number, optional)
+- tier1_total_pct_of_scr (number, optional)
+- tier3_pct_of_scr (number, optional)
+- tier1_total_limit_ok (boolean, optional)
+- tier3_limit_ok (boolean, optional)
+- tier2_tier3_pct_of_scr (number, optional)
+- tier2_tier3_limit_ok (boolean, optional)
+- tier1_restricted_pct_of_tier1 (number, optional)
+- tier1_restricted_share_ok (boolean, optional)
+- eligible_own_funds (number, optional)
+- scr (number, optional)
+- mcr (number, optional)
 
 ## Sample
 
@@ -33,8 +36,8 @@ Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and ca
 {
   "capital": {
     "eligible_own_funds": 1500,
-    "tier1_unrestricted": 800,
-    "tier1_restricted": 200,
+    "tier1_unrestricted": 850,
+    "tier1_restricted": 150,
     "tier2": 400,
     "tier3": 100,
     "scr": 1000,

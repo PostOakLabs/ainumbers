@@ -2,7 +2,7 @@
   "tool_id": "art-180-solvency2-scr-ratio-calculator",
   "version": "1.0.0",
   "title": "Solvency II SCR Ratio Calculator",
-  "description": "Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and capital requirements. Checks the three own-funds tiering limits per Delegated Regulation (EU) 2015/35: Tier-1 unrestricted >= 50% of SCR, Tier-1 total >= 80% of SCR, Tier-3 <= 15% of SCR. Returns scr_coverage_ratio, mcr_coverage_ratio, scr_breached, mcr_breached, tiering_ok, and per-tier percentages. Sec. 16 proof candidate. Root node of the solvency-ii-reconciliation-and-capital chain. Solvency II Dir. 2009/138/EC + Del. Reg. 2015/35. NaN-safe. Zero network, zero PII.",
+  "description": "Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and capital requirements. Checks the own-funds SCR tiering limits per Delegated Regulation (EU) 2015/35 Art. 82(1): Tier 1 at least 50% of SCR, Tier 3 less than 15% of SCR, Tier 2 plus Tier 3 at most 50% of SCR, and restricted Tier 1 less than 20% of total Tier 1 (Art. 82(3)). An omitted tier2 is treated as 0, which makes the Tier 2 plus Tier 3 test lenient. The 80% Tier 1 floor is the MCR rule (Art. 82(2)) and is not applied to the SCR; MCR tiering limits and the transitional Tier 1 items are not modelled. Returns scr_coverage_ratio, mcr_coverage_ratio, scr_breached, mcr_breached, tiering_ok, and per-tier percentages. Sec. 16 proof candidate. Root node of the solvency-ii-reconciliation-and-capital chain. Solvency II Dir. 2009/138/EC + Del. Reg. 2015/35. NaN-safe. Zero network, zero PII.",
   "category": "insurance-ifrs-17-and-solvency-ii",
   "tags": [
     "TODO_TAGS_REVIEW",
@@ -13,19 +13,81 @@
     "required": [],
     "properties": {
       "capital": {
-        "description": "type not evidenced by kernel source"
+        "type": "object",
+        "description": "Own-funds and capital-requirement amounts. An omitted tier2 is treated as 0, which makes the Tier 2 plus Tier 3 test lenient.",
+        "properties": {
+          "eligible_own_funds": {
+            "type": "number",
+            "description": "Total eligible own funds (sum of all tiers, pre-limit)."
+          },
+          "tier1_unrestricted": {
+            "type": "number",
+            "description": "Unrestricted Tier 1 items; counts toward the Tier 1 total, at least 50% of SCR."
+          },
+          "tier1_restricted": {
+            "type": "number",
+            "description": "Restricted Tier 1 items (Art. 69(a)(iii), 69(a)(v), 69(b)); less than 20% of total Tier 1."
+          },
+          "tier2": {
+            "type": "number",
+            "description": "Tier 2 items; Tier 2 plus Tier 3 at most 50% of SCR. Omitted means 0."
+          },
+          "tier3": {
+            "type": "number",
+            "description": "Tier 3 items; less than 15% of SCR."
+          },
+          "scr": {
+            "type": "number",
+            "description": "Solvency Capital Requirement."
+          },
+          "mcr": {
+            "type": "number",
+            "description": "Minimum Capital Requirement."
+          }
+        }
       }
     }
   },
   "mcp_tool_definition": {
     "name": "calculate_solvency2_scr_ratio",
-    "description": "Calculate Solvency II SCR/MCR coverage ratios and own-funds tiering compliance. Checks Tier-1 unrestricted ≥50% SCR, Tier-1 total ≥80% SCR, Tier-3 ≤15% SCR (EU Del. Reg. 2015/35 art. 82-85). Returns coverage ratios, breach flags, and per-limit booleans.",
+    "description": "Calculate Solvency II SCR/MCR coverage ratios and own-funds SCR tiering compliance. Checks Tier 1 at least 50% SCR, Tier 3 less than 15% SCR, Tier 2 plus Tier 3 at most 50% SCR (Art. 82(1)), and restricted Tier 1 less than 20% of total Tier 1 (Art. 82(3)); EU Del. Reg. 2015/35. An omitted tier2 is treated as 0. Returns coverage ratios, breach flags, and per-limit booleans.",
     "inputSchema": {
       "type": "object",
       "required": [],
       "properties": {
         "capital": {
-          "description": "type not evidenced by kernel source"
+          "type": "object",
+          "description": "Own-funds and capital-requirement amounts. An omitted tier2 is treated as 0, which makes the Tier 2 plus Tier 3 test lenient.",
+          "properties": {
+            "eligible_own_funds": {
+              "type": "number",
+              "description": "Total eligible own funds (sum of all tiers, pre-limit)."
+            },
+            "tier1_unrestricted": {
+              "type": "number",
+              "description": "Unrestricted Tier 1 items; counts toward the Tier 1 total, at least 50% of SCR."
+            },
+            "tier1_restricted": {
+              "type": "number",
+              "description": "Restricted Tier 1 items (Art. 69(a)(iii), 69(a)(v), 69(b)); less than 20% of total Tier 1."
+            },
+            "tier2": {
+              "type": "number",
+              "description": "Tier 2 items; Tier 2 plus Tier 3 at most 50% of SCR. Omitted means 0."
+            },
+            "tier3": {
+              "type": "number",
+              "description": "Tier 3 items; less than 15% of SCR."
+            },
+            "scr": {
+              "type": "number",
+              "description": "Solvency Capital Requirement."
+            },
+            "mcr": {
+              "type": "number",
+              "description": "Minimum Capital Requirement."
+            }
+          }
         }
       }
     },
@@ -46,47 +108,56 @@
   "output_schema": {
     "type": "object",
     "properties": {
-      "eligible_own_funds": {
-        "type": "integer"
-      },
-      "mcr": {
-        "type": "integer"
-      },
-      "mcr_breached": {
-        "type": "boolean"
+      "scr_coverage_ratio": {
+        "type": "number"
       },
       "mcr_coverage_ratio": {
-        "type": "integer"
-      },
-      "scr": {
-        "type": "integer"
+        "type": "number"
       },
       "scr_breached": {
         "type": "boolean"
       },
-      "scr_coverage_ratio": {
-        "type": "integer"
+      "mcr_breached": {
+        "type": "boolean"
+      },
+      "tiering_ok": {
+        "type": "boolean"
+      },
+      "tier1_unrestricted_pct_of_scr": {
+        "type": "number"
+      },
+      "tier1_total_pct_of_scr": {
+        "type": "number"
+      },
+      "tier3_pct_of_scr": {
+        "type": "number"
       },
       "tier1_total_limit_ok": {
         "type": "boolean"
       },
-      "tier1_total_pct_of_scr": {
-        "type": "integer"
-      },
-      "tier1_unrestricted_limit_ok": {
-        "type": "boolean"
-      },
-      "tier1_unrestricted_pct_of_scr": {
-        "type": "integer"
-      },
       "tier3_limit_ok": {
         "type": "boolean"
       },
-      "tier3_pct_of_scr": {
-        "type": "integer"
+      "tier2_tier3_pct_of_scr": {
+        "type": "number"
       },
-      "tiering_ok": {
+      "tier2_tier3_limit_ok": {
         "type": "boolean"
+      },
+      "tier1_restricted_pct_of_tier1": {
+        "type": "number"
+      },
+      "tier1_restricted_share_ok": {
+        "type": "boolean"
+      },
+      "eligible_own_funds": {
+        "type": "number"
+      },
+      "scr": {
+        "type": "number"
+      },
+      "mcr": {
+        "type": "number"
       }
     }
   },
@@ -97,8 +168,8 @@
   "input_example": {
     "capital": {
       "eligible_own_funds": 1500,
-      "tier1_unrestricted": 800,
-      "tier1_restricted": 200,
+      "tier1_unrestricted": 850,
+      "tier1_restricted": 150,
       "tier2": 400,
       "tier3": 100,
       "scr": 1000,
@@ -111,15 +182,18 @@
     "scr_breached": false,
     "mcr_breached": false,
     "tiering_ok": true,
-    "tier1_unrestricted_pct_of_scr": 80,
+    "tier1_unrestricted_pct_of_scr": 85,
     "tier1_total_pct_of_scr": 100,
     "tier3_pct_of_scr": 10,
-    "tier1_unrestricted_limit_ok": true,
     "tier1_total_limit_ok": true,
     "tier3_limit_ok": true,
+    "tier2_tier3_pct_of_scr": 50,
+    "tier2_tier3_limit_ok": true,
+    "tier1_restricted_pct_of_tier1": 15,
+    "tier1_restricted_share_ok": true,
     "eligible_own_funds": 1500,
     "scr": 1000,
     "mcr": 250
   },
-  "example_execution_hash": "1621e094f93ba17ec8d6456bec42a139d2d93b6301d8e36c3fcf89962ddd3b9f"
+  "example_execution_hash": "33bc0e2f979a1a60e0e974c41e5623426bbaceaf47ae894896a2916ce724cf23"
 }
