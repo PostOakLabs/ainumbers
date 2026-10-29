@@ -14,7 +14,7 @@ Audit of a claimed program-derived-address tuple (program id, seeds with declare
 - claimed_address (string, required): The address the caller believes the tuple yields, base58. Compared by string equality against the recomputation.
 - wallet (string, optional): Optional ATA mode: wallet address, base58. Requires mint and token_program_id alongside.
 - mint (string, optional): Optional ATA mode: the mint address, base58.
-- token_program_id (string, optional): Optional ATA mode: the token program the mint lives under, base58. TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb for Token-2022, TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA for the classic Token program.
+- token_program_id (string, optional): Optional ATA mode: the token program the mint lives under, base58 (Token-2022 or the classic Token program).
 
 ## Outputs
 
