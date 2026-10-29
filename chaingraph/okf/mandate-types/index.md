@@ -14,6 +14,7 @@ status: stable
 - [attestation_mandate](./attestation_mandate.md) (38)
 - [capital_assessment](./capital_assessment.md) (7)
 - [collateral_mandate](./collateral_mandate.md) (9)
+- [compensation_assessment](./compensation_assessment.md) (1)
 - [compensation_benefits](./compensation_benefits.md) (1)
 - [compliance_control](./compliance_control.md) (104)
 - [compliance_mandate](./compliance_mandate.md) (339)
