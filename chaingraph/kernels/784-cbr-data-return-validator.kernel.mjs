@@ -128,11 +128,14 @@ function collectForeignStringLeaves(node, path, out) {
   }
 }
 
-// Non-string/non-number leaf discipline (booleans, null, nested junk where scalars belong)
-// is a TYPE violation (path only), collected in the same walk.
+// Non-string/non-number leaf discipline (booleans, nested junk where scalars belong)
+// is a TYPE violation (path only), collected in the same walk. R4 (absent equals
+// explicit null): a null leaf is treated exactly like an absent one -- every consumer
+// already treats non-objects as missing -- so null never changes the answer.
 function collectTypeViolations(node, path, out) {
   if (typeof node === 'string' || typeof node === 'number') return;
-  if (typeof node === 'boolean' || node === null || node === undefined) {
+  if (node === null || node === undefined) return;
+  if (typeof node === 'boolean') {
     out.push(path);
     return;
   }
@@ -427,7 +430,7 @@ export function compute(pp) {
       period_days: periodDays,
     },
     pii_note: 'Aggregate-only return: counts, sums, currency codes, country codes, period dates and enumerated institution types. Institutions appear only as profile-local pseudonymous codes (FI-NNN form). No customer, counterparty, correspondent or institution names, BIC, LEI or account identifiers are accepted; any string leaf outside the enumerations is refused by JSON path with the value never echoed. Use synthetic or anonymised data only.',
-    disambiguation: 'validate_cbr_data_return validates an AGGREGATE periodic data return against an illustrative profile-driven template. Per-message ISO 20022 address linting lives in lint_cbpr_structured_address (art-241) and per-message LEI/transparency linting in lint_lei_payment_binding (art-246); this node consumes only their aggregate summaries and never reimplements their rules. This template is illustrative and is not any official project data collection template or resilience index.',
+    disambiguation: 'validate_cbr_data_return validates an AGGREGATE periodic data return against an illustrative profile-driven template. Per-message ISO 20022 address linting lives in lint_cbpr_structured_address (art-241) and per-message LEI/transparency linting in lint_lei_payment_binding (art-246); this node accepts only their aggregate summaries as input values and never reimplements their rules. This template is illustrative and is not any official project data collection template or resilience index.',
   };
 
   const compliance_flags = [];
