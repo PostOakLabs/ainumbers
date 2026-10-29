@@ -546,7 +546,7 @@ export function compute(pp) {
     if (pl.upfrontFee > 0) events.push({ due_periods: 0, amount: pl.upfrontFee, kind: 'upfront_fee' });
     events.sort((a, b) => a.due_periods - b.due_periods || (a.no || 0) - (b.no || 0));
 
-    // Delegate the APR to art-215, unchanged. Amounts are passed as CENT
+    // Delegate the APR to art-215 exactly as published. Amounts are passed as CENT
     // INTEGERS (the same schedule scaled x100): integer cents sum exactly in
     // IEEE-754, so a zero-finance-charge stream presents g0 == 0 exactly and
     // never trips art-215's PRE-8 on a 1e-14 float artifact. Appendix J rates

@@ -1,5 +1,5 @@
 // art-779-bnpl-plan-comparator — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:4b35b90d6a743ed4dbef8bbdf33c71a17ea27d9ca5289086251802173a5acc6e
+// kernel_digest_at_authoring: sha256:e20041eb629115ba563e8eb77ba2529959c71eb6c9bf106504d8b46d025df466
 // spec: BNPL-COMPARATOR-NODE-1 (board/queued); clause authority
 //   research/clause-snapshots/bnpl-{paypal,klarna,afterpay,affirm}-2026-10/SNAPSHOT.md
 //   (row BNPL-TERMS-PRIMARY-TEXT-1, fetch 2026-10-28).
@@ -272,8 +272,12 @@ if (/JSON\.stringify\([\s\S]{0,200}?,\s*Object\.keys\([\s\S]{0,160}?\)\.sort\(\)
 // The guest VM resolves only _hash, so the composition rule is a VERBATIM
 // inline between sentinels; this check holds the inline byte-equal to the
 // live art-215 module's own solver core (source-level parity on top of the
-// numeric parity P3 already proves), so no drift can survive.
-{
+// numeric parity P3 already proves via the live import), so no drift can
+// survive. The raw fs read of the sibling kernel source is NOT part of any
+// import graph: sandboxes that copy only imports plus named fixture siblings
+// (the mutation tier's copySandboxDeps) may not carry it, and there the
+// source-level check skips while the numeric parity still runs.
+try {
   const a215 = readFileSync(new URL('../art-215-reg-z-appendix-j-apr.kernel.mjs', import.meta.url), 'utf8');
   const lines = a215.split('\n');
   const start = lines.findIndex((l) => l.startsWith('// Pure ECMA-262 math'));
@@ -286,6 +290,8 @@ if (/JSON\.stringify\([\s\S]{0,200}?,\s*Object\.keys\([\s\S]{0,160}?\)\.sort\(\)
   if (!kernelSource.includes(core)) {
     oracle.failures.push({ name: 'apr-inline-divergence', expected: 'art-215 solver core verbatim between the sentinels', got: 'inlined solver text differs from the live art-215 module' });
   }
+} catch (e) {
+  if (!/ENOENT/.test(String(e && e.code || e))) throw e; // only an absent sibling file may skip this check
 }
 
 const properties = [
