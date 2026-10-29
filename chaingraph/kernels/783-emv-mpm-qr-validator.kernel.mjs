@@ -206,7 +206,9 @@ export function compute(pp) {
   const counter = { n: 0 };
 
   const refuse = (refused_because, detail) => {
-    compliance_flags.push('QR_REFUSED_' + refused_because.toUpperCase());
+    if (typeof refused_because === 'string' && refused_because.length > 0) {
+      compliance_flags.push('QR_REFUSED_' + refused_because.toUpperCase());
+    }
     return {
       output_payload: {
         valid: false,
@@ -583,7 +585,6 @@ export function compute(pp) {
   if (valid) compliance_flags.push('QR_PAYLOAD_VALID');
   else compliance_flags.push('QR_PAYLOAD_INVALID');
   if (!crcCoversLiteral) compliance_flags.push('QR_CRC_EXCLUDED_6304_BUG');
-  compliance_flags.push('QR_PROFILE_' + profile.key.toUpperCase());
 
   return {
     output_payload: {
