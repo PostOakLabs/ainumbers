@@ -2,10 +2,10 @@
   "schema_version": "mcp-catalog-v1",
   "server_id": "ainumbers-fintech-suite",
   "name": "AINumbers Fintech Intelligence Suite",
-  "description": "1222 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
+  "description": "1226 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
   "base_url": "https://ainumbers.co",
-  "generated": "2026-10-28",
-  "tool_count": 1222,
+  "generated": "2026-10-29",
+  "tool_count": 1226,
   "tools": [
     {
       "name": "calculate_a2a_fee_route",
@@ -16162,6 +16162,10 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "fy": {
+            "type": "integer",
+            "description": "Reporting fiscal year (2023 or later); selects the Article 9.2 SBIE rates"
+          },
           "jurisdictions": {
             "type": "array",
             "description": "List of jurisdictions with GloBE income data",
@@ -16190,7 +16194,7 @@
                 },
                 "sbie_payroll_rate_pct": {
                   "type": "number",
-                  "description": "SBIE payroll rate % \u2014 FY2024: 9.8, FY2025: 9.6, FY2026: 9.4, FY2027+: 5.0"
+                  "description": "Optional SBIE payroll rate % override; blank uses the year's Article 9.2 payroll rate (10.0 to 5.8 over FY2023-FY2032; 5.0 from FY2033)"
                 }
               },
               "required": [
@@ -16239,7 +16243,7 @@
           },
           "fy": {
             "type": "integer",
-            "description": "Fiscal year (affects SBIE transitional rates)"
+            "description": "Reporting fiscal year; recorded with the result. SBIE is an entered input, so the fiscal year does not change the arithmetic."
           },
           "jurisdictions": {
             "type": "array",
@@ -52701,6 +52705,368 @@
           "mcp:compute_paypal_response"
         ],
         "url": "https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "crosswalk_psp_dispute_reasons",
+      "description": "Crosswalk a dispute reason across PayPal, Stripe, Adyen and Square: from one PSP's own reason value (or a Visa/Mastercard reason code), return the equivalents at the other three with per-cell match grades and the snapshot clause citations that justify each cell; unsupported mappings are none, never inferred. Deterministic, offline, zero PII.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "psp": {
+            "type": "string",
+            "enum": [
+              "paypal",
+              "stripe",
+              "adyen",
+              "square"
+            ],
+            "description": "PSP whose vocabulary the reason value belongs to."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Dispute-reason value in that PSP's exact enum spelling."
+          },
+          "network_code": {
+            "type": "object",
+            "description": "{network: visa|mastercard, code} card-network reason-code lookup, alternative to psp+reason."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-777-psp-dispute-reason-crosswalk",
+        "category": "chaingraph",
+        "tags": [
+          "psp",
+          "disputes",
+          "reason-codes",
+          "crosswalk",
+          "mcp:crosswalk_psp_dispute_reasons"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-777-psp-dispute-reason-crosswalk.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "reconcile_token2022_withheld",
+      "description": "Reconcile Token-2022 withheld transfer fees across a declared list of token accounts against the mint's accumulated withheld amount: recomputed per-account sum, declared versus recomputed total with the signed difference, wrong-mint and duplicate flags, the post-harvest mint projection under checked_add semantics, and a fee-receiver placement check (destination mint and withdraw authority). Values only; no RPC, no network, no on-chain read.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "mint",
+          "transfer_fee_config",
+          "accounts",
+          "declared_total"
+        ],
+        "properties": {
+          "mint": {
+            "type": "string",
+            "description": "The declared mint address, pasted. Every account's mint is compared to this by string equality."
+          },
+          "transfer_fee_config": {
+            "type": "object",
+            "description": "The mint's TransferFeeConfig fields: withdraw_withheld_authority (string or null) and withheld_amount (u64 decimal string), the accumulated pot.",
+            "properties": {
+              "withdraw_withheld_authority": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "withheld_amount": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "withdraw_withheld_authority",
+              "withheld_amount"
+            ]
+          },
+          "accounts": {
+            "type": "array",
+            "description": "Token accounts, each { address, mint, withheld_amount } with withheld_amount a u64 decimal string. Empty array is valid (sum 0).",
+            "items": {
+              "type": "object",
+              "properties": {
+                "address": {
+                  "type": "string"
+                },
+                "mint": {
+                  "type": "string"
+                },
+                "withheld_amount": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "address",
+                "mint",
+                "withheld_amount"
+              ]
+            }
+          },
+          "declared_total": {
+            "type": "string",
+            "description": "The caller's declared sum of withheld fees, decimal string (u64), reconciled against the recomputed sum."
+          },
+          "destination": {
+            "type": "object",
+            "description": "Optional destination { address, mint, withdraw_authority }, compared with the declared mint and the config's withdraw authority.",
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "mint": {
+                "type": "string"
+              },
+              "withdraw_authority": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "address",
+              "mint",
+              "withdraw_authority"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-778-token2022-withheld-fee-reconciler",
+        "category": "chaingraph",
+        "tags": [
+          "token2022",
+          "solana",
+          "withheld-fees",
+          "transfer-fee",
+          "payment-reconciliation",
+          "harvest",
+          "bigint",
+          "mcp:reconcile_token2022_withheld"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-778-token2022-withheld-fee-reconciler.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "compare_bnpl_plans",
+      "description": "Compare BNPL plans side by side on Reg Z Appendix J APR maths (delegated to art-215): schedules, fees, finance charges and computed APRs for pay-in-N and monthly plans, provider presets as cited labelled examples (never an offer), ranked by total cost.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "principal": {
+            "type": "number",
+            "description": "Purchase amount in USD to split across each plan."
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ],
+            "description": "Currency; only USD is supported (US consumer terms)."
+          },
+          "plans": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "description": "Plans to compare; preset entries inherit a provider's published plan shape.",
+            "items": {
+              "type": "object",
+              "description": "One plan: either a preset id or explicit parameters, never both.",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "description": "Caller's own display label for the plan."
+                },
+                "preset": {
+                  "type": "string",
+                  "description": "Snapshot-backed preset id (labelled example, not an offer)."
+                },
+                "num_instalments": {
+                  "type": "integer",
+                  "description": "Number of instalments, 1 to 156."
+                },
+                "cadence": {
+                  "type": "string",
+                  "enum": [
+                    "weekly",
+                    "biweekly",
+                    "monthly"
+                  ],
+                  "description": "Instalment cadence (unit period)."
+                },
+                "apr_pct": {
+                  "type": "number",
+                  "description": "Stated APR in percent as quoted (0 for interest-free)."
+                },
+                "upfront_fee": {
+                  "type": "number",
+                  "description": "One-time fee paid at purchase, USD."
+                },
+                "per_instalment_fee": {
+                  "type": "number",
+                  "description": "Fee added to every instalment, USD."
+                },
+                "instalment_amount": {
+                  "type": "number",
+                  "description": "Quoted instalment amount; required when apr_pct is above 0."
+                },
+                "down_payment": {
+                  "type": "number",
+                  "description": "Down payment made at purchase, USD."
+                },
+                "first_instalment_at_purchase": {
+                  "type": "boolean",
+                  "description": "True when the first instalment is due at purchase."
+                }
+              }
+            }
+          },
+          "advances": {
+            "type": "array"
+          },
+          "loan_amount": {
+            "type": "number",
+            "default": 0
+          },
+          "num_payments": {
+            "type": "number",
+            "default": 1
+          },
+          "odd_days": {
+            "type": "number",
+            "default": 0,
+            "description": "Duration in days"
+          },
+          "payment_amount": {
+            "type": "number",
+            "default": 0
+          },
+          "payments": {
+            "type": "array"
+          },
+          "periods_per_year": {
+            "type": "number",
+            "default": 12
+          },
+          "unit_period_days": {
+            "type": "number",
+            "default": 30,
+            "description": "Duration in days"
+          }
+        },
+        "required": [
+          "principal",
+          "plans"
+        ]
+      },
+      "metadata": {
+        "tool_id": "art-779-bnpl-plan-comparator",
+        "category": "chaingraph",
+        "tags": [
+          "bnpl",
+          "consumer-credit",
+          "apr",
+          "reg-z",
+          "plan-comparison",
+          "mcp:compare_bnpl_plans"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-779-bnpl-plan-comparator.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "audit_solana_pda_ata",
+      "description": "Audit a claimed Solana program-derived-address tuple (program id, seeds, bump, claimed address): recomputed address for the claimed bump, on-curve fact, canonical bump and address over the 255-to-1 scan, claimed-matches and bump-canonicality booleans, seed limit facts, and optional side-by-side associated-token-account derivation under a declared token program versus the classic Token program (the Token-2022 wrong-derivation class). Values only; no RPC, no network, no on-chain read.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "program_id",
+          "seeds",
+          "bump",
+          "claimed_address"
+        ],
+        "properties": {
+          "program_id": {
+            "type": "string",
+            "description": "The claimed owning program address, base58 (decodes to 32 bytes). The PDA hash mixes these bytes after the seeds and bump."
+          },
+          "seeds": {
+            "type": "array",
+            "description": "Declared seeds in derivation order, each { data, encoding } with encoding \"utf8\" or \"hex\". An empty array is valid.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "string"
+                },
+                "encoding": {
+                  "type": "string",
+                  "enum": [
+                    "utf8",
+                    "hex"
+                  ]
+                }
+              },
+              "required": [
+                "data",
+                "encoding"
+              ]
+            }
+          },
+          "bump": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255,
+            "description": "The claimed bump seed, one byte. The canonical scan searches 255 down to 1; a claimed bump of 0 is auditable but never canonical."
+          },
+          "claimed_address": {
+            "type": "string",
+            "description": "The address the caller believes the tuple yields, base58. Compared by string equality against the recomputation."
+          },
+          "wallet": {
+            "type": "string",
+            "description": "Optional ATA mode: wallet address, base58. Requires mint and token_program_id alongside."
+          },
+          "mint": {
+            "type": "string",
+            "description": "Optional ATA mode: the mint address, base58."
+          },
+          "token_program_id": {
+            "type": "string",
+            "description": "Optional ATA mode: the token program the mint lives under, base58 (Token-2022 or the classic Token program)."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-780-solana-pda-ata-audit",
+        "category": "chaingraph",
+        "tags": [
+          "solana",
+          "pda",
+          "bump-seed",
+          "canonical-bump",
+          "associated-token-account",
+          "token-2022",
+          "address-substitution",
+          "ed25519",
+          "base58",
+          "mcp:audit_solana_pda_ata"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-780-solana-pda-ata-audit.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",

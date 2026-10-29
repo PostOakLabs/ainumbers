@@ -430,9 +430,19 @@ jobs:
           node scripts/check-compute-proof-coverage.test.mjs
 
       - name: §18 digest-freshness ratchet (receipt digest vs current kernel source)
+        # On pull_request the s18tree step above assembles the ephemeral monolith
+        # from THIS branch; both §18 freshness commands read it via S18_DERIVED_ROOT
+        # so a re-prove PR stops reding on the lagging committed monolith. Empty
+        # off pull_request (merge_group/main), so both commands keep reading the
+        # committed monolith there and their verdict is unchanged (exact equality).
+        env:
+          S18_DERIVED_ROOT: ${{ steps.s18tree.outputs.root }}
         run: |
           node scripts/check-s18-digest-freshness.mjs
           node scripts/check-s18-digest-freshness.test.mjs
+          # End-to-end control for the env wiring above: spawns the fixture test against a tmp
+          # copy of the committed monolith (green) and a tampered copy (red). Context-independent.
+          node scripts/check-s18-freshness-fixture-derived-root.test.mjs
 
       - name: Proven-digest freeze (advisory on PR, blocking on merge_group and main)
         # Refuses a change that moves the sourceDigest() of a proven node unless a commit message
