@@ -1,0 +1,279 @@
+{
+  "tool_id": "783-emv-mpm-qr-validator",
+  "version": "1.0.0",
+  "title": "EMV MPM QR Payload Validator",
+  "description": "Decodes and validates an EMV merchant-presented QR payload against a pluggable national scheme profile: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code. TLV structure, CRC-16 over the payload including the 6304 literal, static versus dynamic rules, scheme-mandatory tags, and the signed dynamic-payload envelope shape. Merchant-bearing values are never echoed; no URL is ever fetched; no signature is verified.",
+  "category": "Cross-Border Payments: CBPR+ / ISO 20022 Conformance",
+  "tags": [
+    "emv-qr",
+    "qr-code",
+    "fiji-fjqr",
+    "pix-brcode",
+    "crc16",
+    "scheme-profile",
+    "mcp:validate_emv_mpm_qr_payload"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "payload",
+      "profile"
+    ],
+    "properties": {
+      "payload": {
+        "type": "string",
+        "description": "The EMV merchant-presented QR payload string. Synthetic payloads only; merchant-bearing values are never echoed back."
+      },
+      "profile": {
+        "type": "string",
+        "enum": [
+          "generic",
+          "fjqr",
+          "pix_brcode"
+        ],
+        "description": "Scheme profile to validate against: generic EMV MPM, Fiji FJQR (currency FJD 242, static launch scope), or Brazil Pix BR Code (GUI br.gov.bcb.pix, currency BRL 986, country BR, txid mandatory, dynamic location shape and JWS envelope skeleton)."
+      },
+      "expect": {
+        "type": "string",
+        "enum": [
+          "static",
+          "dynamic"
+        ],
+        "description": "Optional assertion on the derived mode. A mismatch with the payload tag 01 value is reported as a violation."
+      },
+      "dynamic_envelope": {
+        "type": "object",
+        "description": "Optional JWS protected-header skeleton for a Pix dynamic payload: alg (prohibited HS-family and none; allowed RS256-or-higher and ES256-or-higher; recommended PS256 or PS512), typ, kid, jku. Shape check only: no signature verification, no key material, the jku URL is never fetched.",
+        "properties": {
+          "alg": {
+            "type": "string"
+          },
+          "typ": {
+            "type": "string"
+          },
+          "kid": {
+            "type": "string"
+          },
+          "jku": {
+            "type": "string",
+            "description": "JWK Set URL. https shape checked only, never fetched."
+          }
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "validate_emv_mpm_qr_payload",
+    "description": "Decodes and validates an EMV merchant-presented QR payload against a pluggable national scheme profile: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code. TLV structure, CRC-16 over the payload including the 6304 literal, static versus dynamic rules, scheme-mandatory tags, and the signed dynamic-payload envelope shape. Merchant-bearing values are never echoed; no URL is ever fetched; no signature is verified.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "payload",
+        "profile"
+      ],
+      "properties": {
+        "payload": {
+          "type": "string",
+          "description": "The EMV merchant-presented QR payload string. Synthetic payloads only; merchant-bearing values are never echoed back."
+        },
+        "profile": {
+          "type": "string",
+          "enum": [
+            "generic",
+            "fjqr",
+            "pix_brcode"
+          ],
+          "description": "Scheme profile to validate against: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code."
+        },
+        "expect": {
+          "type": "string",
+          "enum": [
+            "static",
+            "dynamic"
+          ],
+          "description": "Optional assertion on the derived mode."
+        },
+        "dynamic_envelope": {
+          "type": "object",
+          "description": "Optional JWS protected-header skeleton (alg, typ, kid, jku) for a Pix dynamic payload. Shape check only."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/783-emv-mpm-qr-validator.html",
+    "function_name": "runCompute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/783-emv-mpm-qr-validator.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: payload, profile, expect, dynamic_envelope.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "payload": "00020101021126390021com.example.synthetic0110ACCT0001115204599953038405802US5918SYNTHETIC MERCHANT6009TESTVILLE62100506TX00016304FFA6",
+    "profile": "generic",
+    "expect": "static"
+  },
+  "output_example": {
+    "valid": true,
+    "profile": "generic",
+    "mode": "static",
+    "tags": [
+      {
+        "tag": "00",
+        "length": 2,
+        "verdict": "pass",
+        "value": "01"
+      },
+      {
+        "tag": "01",
+        "length": 2,
+        "verdict": "pass",
+        "value": "11"
+      },
+      {
+        "tag": "26",
+        "length": 39,
+        "verdict": "pass"
+      },
+      {
+        "tag": "26.00",
+        "length": 21,
+        "verdict": "pass",
+        "value": "com.example.synthetic"
+      },
+      {
+        "tag": "26.01",
+        "length": 10,
+        "verdict": "pass"
+      },
+      {
+        "tag": "52",
+        "length": 4,
+        "verdict": "pass",
+        "value": "5999"
+      },
+      {
+        "tag": "53",
+        "length": 3,
+        "verdict": "pass",
+        "value": "840"
+      },
+      {
+        "tag": "58",
+        "length": 2,
+        "verdict": "pass",
+        "value": "US"
+      },
+      {
+        "tag": "59",
+        "length": 18,
+        "verdict": "pass"
+      },
+      {
+        "tag": "60",
+        "length": 9,
+        "verdict": "pass"
+      },
+      {
+        "tag": "62",
+        "length": 10,
+        "verdict": "pass"
+      },
+      {
+        "tag": "62.05",
+        "length": 6,
+        "verdict": "pass"
+      },
+      {
+        "tag": "63",
+        "length": 4,
+        "verdict": "pass",
+        "value": "FFA6"
+      }
+    ],
+    "violations": [],
+    "crc": {
+      "expected": "FFA6",
+      "found": "FFA6"
+    },
+    "rules_checked": 18
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "valid": {
+        "type": "boolean"
+      },
+      "profile": {
+        "type": "string"
+      },
+      "mode": {
+        "type": "string"
+      },
+      "tags": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "tag": {
+              "type": "string"
+            },
+            "length": {
+              "type": "integer"
+            },
+            "verdict": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "violations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "tag_path": {
+              "type": "string"
+            },
+            "rule_id": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "severity": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "crc": {
+        "type": "object",
+        "properties": {
+          "expected": {
+            "type": "string"
+          },
+          "found": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "rules_checked": {
+        "type": "integer"
+      },
+      "refused": {
+        "type": "object"
+      }
+    }
+  },
+  "example_execution_hash": "ae76a4656943fcb2233b8b07e1462968734491435f5b4fbd50f7f3d10712c186"
+}
