@@ -1,0 +1,798 @@
+{
+  "tool_id": "art-781-x402-svm-payment-outcome",
+  "version": "1.0.0",
+  "title": "x402 Exact Solana Payment Outcome Recompute",
+  "description": "Recompute, clause by clause, whether a pasted x402 exact-scheme Solana payment met its requirements. Paste the decoded instruction list, the PaymentRequirements (asset, amount, pay_to, extra with fee_payer, optional memo and transaction_versions), the mint's declared token program and optional Token-2022 transfer-fee configuration, and optionally Ed25519 signature checks over caller-pasted bytes. The node reports, per clause, what the pinned spec text accepts (x402-foundation/x402 commit e4a086819f419e9395acbbdc1679fe6627029ff7, scheme_exact_svm.md), what the pinned reference facilitator accepts (scheme.ts, smartWalletVerification.ts at the same commit), and a verdict of PASS, FAIL or DIVERGES where the readings disagree, plus the recomputed recipient ATA under both token programs and the net amount after any withheld fee. Values only; nothing on-chain is read, no facilitator is called.",
+  "category": "chaingraph",
+  "tags": [
+    "x402",
+    "solana",
+    "svm",
+    "payment-outcome",
+    "transfer-checked",
+    "token-2022",
+    "transfer-fee",
+    "associated-token-account",
+    "fee-payer-isolation",
+    "ed25519",
+    "mcp:verify_x402_svm_outcome"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "requirements",
+      "transaction",
+      "mint"
+    ],
+    "properties": {
+      "requirements": {
+        "type": "object",
+        "required": [
+          "asset",
+          "amount",
+          "pay_to",
+          "extra"
+        ],
+        "description": "The x402 PaymentRequirements for the exact scheme.",
+        "properties": {
+          "asset": {
+            "type": "string",
+            "description": "The mint address, base58 (decodes to 32 bytes)."
+          },
+          "amount": {
+            "type": "string",
+            "description": "The required amount in base units, decimal string, u64 range.",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "pay_to": {
+            "type": "string",
+            "description": "The recipient wallet, base58 (32 bytes). The destination ATA derives from this."
+          },
+          "extra": {
+            "type": "object",
+            "required": [
+              "fee_payer"
+            ],
+            "description": "Scheme extras. fee_payer is required; memo and transaction_versions are optional. splits is refused (out of scope for this version).",
+            "properties": {
+              "fee_payer": {
+                "type": "string",
+                "description": "The sponsor fee payer, base58 (32 bytes), as carried by the facilitator /supported response."
+              },
+              "memo": {
+                "type": "string",
+                "description": "When present, exactly one Memo instruction must carry this text byte for byte."
+              },
+              "transaction_versions": {
+                "type": "array",
+                "description": "The message versions the requirements advertise: JSON integers 0 and/or 1 only. Absent means [0].",
+                "items": {
+                  "type": "integer",
+                  "enum": [
+                    0,
+                    1
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "transaction": {
+        "type": "object",
+        "required": [
+          "version",
+          "instructions"
+        ],
+        "description": "The decoded transaction message fields, pasted by the caller. Lookup-table accounts must be pasted resolved.",
+        "properties": {
+          "version": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "enum": [
+              0,
+              1,
+              "legacy"
+            ],
+            "description": "The message version: 0, 1 or \"legacy\" (legacy is deprecated and fails the version clause)."
+          },
+          "instructions": {
+            "type": "array",
+            "description": "Decoded instructions in order. transfer_checked carries its parsed fields; is_inner: true marks a caller-pasted inner (CPI) instruction.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "transfer_checked",
+                    "memo",
+                    "compute_unit_limit",
+                    "compute_unit_price",
+                    "other"
+                  ],
+                  "description": "The decoded instruction kind."
+                },
+                "token_program": {
+                  "type": "string",
+                  "enum": [
+                    "spl-token",
+                    "token-2022"
+                  ],
+                  "description": "For transfer_checked: the token program the instruction runs under."
+                },
+                "source": {
+                  "type": "string",
+                  "description": "For transfer_checked: the source token account, base58."
+                },
+                "mint": {
+                  "type": "string",
+                  "description": "For transfer_checked: the mint the transfer moves, base58."
+                },
+                "destination": {
+                  "type": "string",
+                  "description": "For transfer_checked: the destination token account, base58."
+                },
+                "authority": {
+                  "type": "string",
+                  "description": "For transfer_checked: the authority (owner or delegate) signing the transfer, base58."
+                },
+                "amount": {
+                  "type": "string",
+                  "description": "For transfer_checked: the transferred amount in base units, decimal string.",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "decimals": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9,
+                  "description": "For transfer_checked: the decimals operand of TransferChecked."
+                },
+                "is_inner": {
+                  "type": "boolean",
+                  "description": "True when the caller pastes this as an inner (CPI) instruction rather than a top-level one."
+                },
+                "text": {
+                  "type": "string",
+                  "description": "For memo: the memo text."
+                },
+                "units": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "For compute_unit_limit: the CU limit."
+                },
+                "micro_lamports": {
+                  "type": "string",
+                  "description": "For compute_unit_price: the price in microlamports, decimal string.",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "program_id": {
+                  "type": "string",
+                  "description": "For other: the program id, base58."
+                },
+                "accounts": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "For other: the instruction accounts, base58, ALT-resolved."
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          }
+        }
+      },
+      "mint": {
+        "type": "object",
+        "required": [
+          "token_program",
+          "decimals"
+        ],
+        "description": "The mint configuration for requirements.asset.",
+        "properties": {
+          "token_program": {
+            "type": "string",
+            "enum": [
+              "spl-token",
+              "token-2022"
+            ],
+            "description": "The token program the mint lives under."
+          },
+          "decimals": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9,
+            "description": "The mint decimals."
+          },
+          "transfer_fee": {
+            "type": "object",
+            "required": [
+              "transfer_fee_basis_points",
+              "maximum_fee"
+            ],
+            "description": "Optional Token-2022 transfer-fee extension configuration. When absent, no fee is withheld.",
+            "properties": {
+              "transfer_fee_basis_points": {
+                "type": "string",
+                "description": "The fee in basis points, u16 range.",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "maximum_fee": {
+                "type": "string",
+                "description": "The fee cap in base units, u64 range.",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              }
+            }
+          }
+        }
+      },
+      "signature_checks": {
+        "type": "array",
+        "description": "Optional Ed25519 signature checks over caller-pasted bytes. Each check verifies the pasted signature against the pasted public key and message; the node never re-serializes anything.",
+        "items": {
+          "type": "object",
+          "required": [
+            "public_key",
+            "message_hex",
+            "signature_hex"
+          ],
+          "properties": {
+            "public_key": {
+              "type": "string",
+              "description": "The Ed25519 public key, base58 (32 bytes)."
+            },
+            "message_hex": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]*$",
+              "description": "The signed bytes, even-length hex."
+            },
+            "signature_hex": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{128}$",
+              "description": "The 64-byte Ed25519 signature, 128 hex characters."
+            }
+          }
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "verify_x402_svm_outcome",
+    "description": "Recompute, clause by clause, whether a pasted x402 exact-scheme Solana payment met its requirements. Paste the decoded instruction list, the PaymentRequirements (asset, amount, pay_to, extra with fee_payer, optional memo and transaction_versions), the mint's declared token program and optional Token-2022 transfer-fee configuration, and optionally Ed25519 signature checks over caller-pasted bytes. The node reports, per clause, what the pinned spec text accepts (x402-foundation/x402 commit e4a086819f419e9395acbbdc1679fe6627029ff7, scheme_exact_svm.md), what the pinned reference facilitator accepts (scheme.ts, smartWalletVerification.ts at the same commit), and a verdict of PASS, FAIL or DIVERGES where the readings disagree, plus the recomputed recipient ATA under both token programs and the net amount after any withheld fee. Values only; nothing on-chain is read, no facilitator is called.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "requirements",
+        "transaction",
+        "mint"
+      ],
+      "properties": {
+        "requirements": {
+          "type": "object",
+          "required": [
+            "asset",
+            "amount",
+            "pay_to",
+            "extra"
+          ],
+          "description": "The x402 PaymentRequirements for the exact scheme.",
+          "properties": {
+            "asset": {
+              "type": "string",
+              "description": "The mint address, base58 (decodes to 32 bytes)."
+            },
+            "amount": {
+              "type": "string",
+              "description": "The required amount in base units, decimal string, u64 range.",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "pay_to": {
+              "type": "string",
+              "description": "The recipient wallet, base58 (32 bytes). The destination ATA derives from this."
+            },
+            "extra": {
+              "type": "object",
+              "required": [
+                "fee_payer"
+              ],
+              "description": "Scheme extras. fee_payer is required; memo and transaction_versions are optional. splits is refused (out of scope for this version).",
+              "properties": {
+                "fee_payer": {
+                  "type": "string",
+                  "description": "The sponsor fee payer, base58 (32 bytes), as carried by the facilitator /supported response."
+                },
+                "memo": {
+                  "type": "string",
+                  "description": "When present, exactly one Memo instruction must carry this text byte for byte."
+                },
+                "transaction_versions": {
+                  "type": "array",
+                  "description": "The message versions the requirements advertise: JSON integers 0 and/or 1 only. Absent means [0].",
+                  "items": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "transaction": {
+          "type": "object",
+          "required": [
+            "version",
+            "instructions"
+          ],
+          "description": "The decoded transaction message fields, pasted by the caller. Lookup-table accounts must be pasted resolved.",
+          "properties": {
+            "version": {
+              "type": [
+                "integer",
+                "string"
+              ],
+              "enum": [
+                0,
+                1,
+                "legacy"
+              ],
+              "description": "The message version: 0, 1 or \"legacy\" (legacy is deprecated and fails the version clause)."
+            },
+            "instructions": {
+              "type": "array",
+              "description": "Decoded instructions in order. transfer_checked carries its parsed fields; is_inner: true marks a caller-pasted inner (CPI) instruction.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "transfer_checked",
+                      "memo",
+                      "compute_unit_limit",
+                      "compute_unit_price",
+                      "other"
+                    ],
+                    "description": "The decoded instruction kind."
+                  },
+                  "token_program": {
+                    "type": "string",
+                    "enum": [
+                      "spl-token",
+                      "token-2022"
+                    ],
+                    "description": "For transfer_checked: the token program the instruction runs under."
+                  },
+                  "source": {
+                    "type": "string",
+                    "description": "For transfer_checked: the source token account, base58."
+                  },
+                  "mint": {
+                    "type": "string",
+                    "description": "For transfer_checked: the mint the transfer moves, base58."
+                  },
+                  "destination": {
+                    "type": "string",
+                    "description": "For transfer_checked: the destination token account, base58."
+                  },
+                  "authority": {
+                    "type": "string",
+                    "description": "For transfer_checked: the authority (owner or delegate) signing the transfer, base58."
+                  },
+                  "amount": {
+                    "type": "string",
+                    "description": "For transfer_checked: the transferred amount in base units, decimal string.",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "decimals": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9,
+                    "description": "For transfer_checked: the decimals operand of TransferChecked."
+                  },
+                  "is_inner": {
+                    "type": "boolean",
+                    "description": "True when the caller pastes this as an inner (CPI) instruction rather than a top-level one."
+                  },
+                  "text": {
+                    "type": "string",
+                    "description": "For memo: the memo text."
+                  },
+                  "units": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "For compute_unit_limit: the CU limit."
+                  },
+                  "micro_lamports": {
+                    "type": "string",
+                    "description": "For compute_unit_price: the price in microlamports, decimal string.",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "program_id": {
+                    "type": "string",
+                    "description": "For other: the program id, base58."
+                  },
+                  "accounts": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "For other: the instruction accounts, base58, ALT-resolved."
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            }
+          }
+        },
+        "mint": {
+          "type": "object",
+          "required": [
+            "token_program",
+            "decimals"
+          ],
+          "description": "The mint configuration for requirements.asset.",
+          "properties": {
+            "token_program": {
+              "type": "string",
+              "enum": [
+                "spl-token",
+                "token-2022"
+              ],
+              "description": "The token program the mint lives under."
+            },
+            "decimals": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9,
+              "description": "The mint decimals."
+            },
+            "transfer_fee": {
+              "type": "object",
+              "required": [
+                "transfer_fee_basis_points",
+                "maximum_fee"
+              ],
+              "description": "Optional Token-2022 transfer-fee extension configuration. When absent, no fee is withheld.",
+              "properties": {
+                "transfer_fee_basis_points": {
+                  "type": "string",
+                  "description": "The fee in basis points, u16 range.",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "maximum_fee": {
+                  "type": "string",
+                  "description": "The fee cap in base units, u64 range.",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                }
+              }
+            }
+          }
+        },
+        "signature_checks": {
+          "type": "array",
+          "description": "Optional Ed25519 signature checks over caller-pasted bytes. Each check verifies the pasted signature against the pasted public key and message; the node never re-serializes anything.",
+          "items": {
+            "type": "object",
+            "required": [
+              "public_key",
+              "message_hex",
+              "signature_hex"
+            ],
+            "properties": {
+              "public_key": {
+                "type": "string",
+                "description": "The Ed25519 public key, base58 (32 bytes)."
+              },
+              "message_hex": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]*$",
+                "description": "The signed bytes, even-length hex."
+              },
+              "signature_hex": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{128}$",
+                "description": "The 64-byte Ed25519 signature, 128 hex characters."
+              }
+            }
+          }
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-781-x402-svm-payment-outcome.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-781-x402-svm-payment-outcome.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: requirements, transaction, mint, signature_checks.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "requirements": {
+      "asset": "GqD4CyuJhggoXpnhzK14cjgQKg3o3C2u5itsVREXrXsv",
+      "amount": "1000000",
+      "pay_to": "EuhMhFpWGKHenUBZsehZ4QPb3W7yEp6XEH1fgXK5Lprw",
+      "extra": {
+        "fee_payer": "3m8q4EK2PRBFQSZrpnqB7xFAn5ovhhxYG6kCUwjhe4xF"
+      }
+    },
+    "transaction": {
+      "version": 0,
+      "instructions": [
+        {
+          "kind": "transfer_checked",
+          "token_program": "token-2022",
+          "source": "AgkwPo8kExfn2LE16knS9E4cGnLNTr4JndynqiEy3eKD",
+          "mint": "GqD4CyuJhggoXpnhzK14cjgQKg3o3C2u5itsVREXrXsv",
+          "destination": "H6Rg1aU5iPZoMBp6iZg4wquRGCaqARBZHmcxaEk8zCu2",
+          "authority": "EuhMhFpWGKHenUBZsehZ4QPb3W7yEp6XEH1fgXK5Lprw",
+          "amount": "1000000",
+          "decimals": 6
+        }
+      ]
+    },
+    "mint": {
+      "token_program": "token-2022",
+      "decimals": 6
+    }
+  },
+  "output_example": {
+    "requirements_echo": {
+      "asset": "GqD4CyuJhggoXpnhzK14cjgQKg3o3C2u5itsVREXrXsv",
+      "amount": "1000000",
+      "pay_to": "EuhMhFpWGKHenUBZsehZ4QPb3W7yEp6XEH1fgXK5Lprw",
+      "fee_payer": "3m8q4EK2PRBFQSZrpnqB7xFAn5ovhhxYG6kCUwjhe4xF",
+      "memo": null,
+      "transaction_versions": [
+        0
+      ],
+      "splits_present": false
+    },
+    "transaction_version": {
+      "pasted": 0,
+      "accepted_set": [
+        0
+      ],
+      "accepted": true
+    },
+    "instruction_summary": [
+      {
+        "index": 0,
+        "kind": "transfer_checked",
+        "is_inner": false,
+        "token_program": "token-2022",
+        "program_id": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "mint": "GqD4CyuJhggoXpnhzK14cjgQKg3o3C2u5itsVREXrXsv",
+        "source": "AgkwPo8kExfn2LE16knS9E4cGnLNTr4JndynqiEy3eKD",
+        "destination": "H6Rg1aU5iPZoMBp6iZg4wquRGCaqARBZHmcxaEk8zCu2",
+        "authority": "EuhMhFpWGKHenUBZsehZ4QPb3W7yEp6XEH1fgXK5Lprw",
+        "amount": "1000000",
+        "decimals": 6
+      }
+    ],
+    "recipient_atas": {
+      "declared_token_program": "token-2022",
+      "ata_under_declared_token_program": {
+        "address": "H6Rg1aU5iPZoMBp6iZg4wquRGCaqARBZHmcxaEk8zCu2",
+        "bump": 253
+      },
+      "ata_under_classic_token_program": {
+        "address": "5Hc4ETDxeVwT9fiJ5eNPPCmbs6T7se5tvzeHRFQifWpM",
+        "bump": 254
+      },
+      "ata_addresses_differ": true,
+      "wrong_program_ata": false
+    },
+    "matching_transfers": {
+      "transfer_checked_count": 1,
+      "matching_count": 1,
+      "unique": true,
+      "matched_instruction_index": 0
+    },
+    "net_received": {
+      "gross_amount": "1000000",
+      "transfer_fee_declared": false,
+      "transfer_fee_basis_points": "0",
+      "maximum_fee": "0",
+      "withheld": "0",
+      "net_amount": "1000000"
+    },
+    "signature_checks": null,
+    "verdicts": [
+      {
+        "clause": "amount_rule",
+        "question": "does the matched transfer carry the required amount",
+        "spec_reading": "x402-foundation/x402 at commit e4a086819f419e9395acbbdc1679fe6627029ff7 (canonical repo), specs/schemes/exact/scheme_exact_svm.md L150 (S1.1: a transfer of at least PaymentRequirements.amount) and L187-L192 (S1.4: a matching transfer MAY exceed the amount, overpayment is tolerated; it MUST NOT be less): >= required",
+        "reference_reading": "typescript/packages/mechanisms/svm/src/exact/facilitator/{scheme.ts,smartWalletVerification.ts} at the same commit: scheme.ts L1160 rejects amount !== requirements.amount (static path, exact); smartWalletVerification.ts L657-L662 and L727-L781 accept t.amount >= requiredAmount; L795-L803 and L837-L844 accept balanceAfter - balanceBefore >= requiredAmount",
+        "verdict": "PASS",
+        "evidence": "instruction amount 1000000 equals required 1000000: every reading accepts"
+      },
+      {
+        "clause": "single_matching_transfer",
+        "question": "is there exactly one transfer matching mint, destination ATA and token program",
+        "spec_reading": "x402-foundation/x402 at commit e4a086819f419e9395acbbdc1679fe6627029ff7 (canonical repo), specs/schemes/exact/scheme_exact_svm.md L187-L189 (S1.4: exactly one transfer MUST match across top-level instructions and the full CPI trace; zero matches MUST be rejected; more than one MUST be rejected as ambiguous)",
+        "reference_reading": "typescript/packages/mechanisms/svm/src/exact/facilitator/{scheme.ts,smartWalletVerification.ts} at the same commit: scheme.ts parses the single TransferChecked in the static layout; smartWalletVerification.ts L727-L781 collects matching inner transfers and L781 accepts when matching.length >= 1",
+        "verdict": "PASS",
+        "evidence": "exactly one pasted instruction (index 0) is a TransferChecked of the required mint to the recomputed destination ATA under its own token program"
+      },
+      {
+        "clause": "destination_ata",
+        "question": "does the matched transfer pay the recomputed recipient ATA under the relevant token program",
+        "spec_reading": "x402-foundation/x402 at commit e4a086819f419e9395acbbdc1679fe6627029ff7 (canonical repo), specs/schemes/exact/scheme_exact_svm.md L166-L174 (S1.2: correct destination account, the ATA derived from pay_to and asset under the relevant token program; correct token program, spl-token or token-2022)",
+        "reference_reading": "typescript/packages/mechanisms/svm/src/exact/facilitator/{scheme.ts,smartWalletVerification.ts} at the same commit: scheme.ts derives the expected ATA for the parsed TransferChecked; the derivation under the classic program only is the wrong-derivation class the pinned ATA source deprecates for Token-2022 mints",
+        "verdict": "PASS",
+        "evidence": "instruction 0 destination equals the recomputed ATA under token-2022 (H6Rg1aU5iPZoMBp6iZg4wquRGCaqARBZHmcxaEk8zCu2)"
+      },
+      {
+        "clause": "fee_payer_isolation",
+        "question": "is the fee payer absent from every instruction account and role",
+        "spec_reading": "x402-foundation/x402 at commit e4a086819f419e9395acbbdc1679fe6627029ff7 (canonical repo), specs/schemes/exact/scheme_exact_svm.md L276-L292 (S2.1.1: the feePayer MUST NOT appear in the accounts list of any instruction, MUST NOT be invoked as a program, MUST NOT be an authority, source or delegate; the feePayer MAY appear as the payment recipient when feePayer == pay_to)",
+        "reference_reading": "typescript/packages/mechanisms/svm/src/exact/facilitator/{scheme.ts,smartWalletVerification.ts} at the same commit: the static path checks that the facilitator signers are not the transfer authority (scheme.ts L1112-L1115); the account-by-account isolation scan above implements the spec rule, which is broader than that single check",
+        "verdict": "PASS",
+        "evidence": "the fee payer 3m8q4EK2PRBFQSZrpnqB7xFAn5ovhhxYG6kCUwjhe4xF appears in no pasted instruction account, is no transfer source or authority, and is invoked as no program"
+      },
+      {
+        "clause": "net_amount_on_fee_mint",
+        "question": "does the recipient net at least the required amount after any Token-2022 transfer fee",
+        "spec_reading": "x402-foundation/x402 at commit e4a086819f419e9395acbbdc1679fe6627029ff7 (canonical repo), specs/schemes/exact/scheme_exact_svm.md L446 (S3.4 fallback: the destination ATA balance delta, a net quantity on a transfer-fee mint, MUST be >= the required amount); the spec text never mentions the Token-2022 transfer-fee extension by name (no transfer-fee or withheld wording anywhere in the document)",
+        "reference_reading": "typescript/packages/mechanisms/svm/src/exact/facilitator/{scheme.ts,smartWalletVerification.ts} at the same commit: scheme.ts L1160 compares the gross instruction amount; smartWalletVerification.ts L795-L803 and L837-L844 compare the net balance delta; GHSA-725g-w329-g7qr (kora-lib, Token-2022 Transfer Fee Not Deducted During Payment Verification, severity medium) hits exactly this seam",
+        "verdict": "PASS",
+        "evidence": "gross 1000000 equals required and net 1000000 is at least required: both readings accept"
+      },
+      {
+        "clause": "memo_rule",
+        "question": "when a memo is required, does exactly one memo instruction carry it byte for byte",
+        "spec_reading": "x402-foundation/x402 at commit e4a086819f419e9395acbbdc1679fe6627029ff7 (canonical repo), specs/schemes/exact/scheme_exact_svm.md L410-L411 (Path 1: when extra.memo is present the facilitator MUST verify exactly one Memo instruction exists and its data matches extra.memo encoded UTF-8)",
+        "reference_reading": "typescript/packages/mechanisms/svm/src/exact/facilitator/{scheme.ts,smartWalletVerification.ts} at the same commit: the memo count and byte match run on the static layout (scheme.ts memoInstructions filter) and mirror on Path 2 (smartWalletVerification memo enforcement)",
+        "verdict": "PASS",
+        "evidence": "requirements.extra.memo is absent, so the memo rule does not bind; 0 memo instruction(s) pasted are counted as layout facts only"
+      },
+      {
+        "clause": "transaction_version",
+        "question": "is the pasted message version one the requirements advertise",
+        "spec_reading": "x402-foundation/x402 at commit e4a086819f419e9395acbbdc1679fe6627029ff7 (canonical repo), specs/schemes/exact/scheme_exact_svm.md L200+ (S1.5: extra.transactionVersions carries the JSON integers 0 and/or 1, default [0] when absent; a message version outside the advertised set fails closed as unsupported_transaction_version) and L215 (legacy messages are deprecated and never advertised)",
+        "reference_reading": "typescript/packages/mechanisms/svm/src/exact/facilitator/{scheme.ts,smartWalletVerification.ts} at the same commit: scheme.ts L359-L364 and L767-L774 read the wire version before signature work (peekWireTransactionVersion, isAcceptedTransactionVersion) and refuse with ErrUnsupportedTransactionVersion",
+        "verdict": "PASS",
+        "evidence": "message version 0 is inside the advertised set [0]"
+      }
+    ],
+    "clause_summary": {
+      "pass": 7,
+      "fail": 0,
+      "diverges": 0,
+      "spec_undefined": 0
+    },
+    "note": "Clause-verdict recompute of an x402 exact-scheme Solana payment over pasted values only. Spec readings pinned at x402-foundation/x402 at commit e4a086819f419e9395acbbdc1679fe6627029ff7 (canonical repo), specs/schemes/exact/scheme_exact_svm.md; reference readings at typescript/packages/mechanisms/svm/src/exact/facilitator/{scheme.ts,smartWalletVerification.ts} at the same commit. The amount clause is where the readings split: the spec outcome definition accepts overpayment (S1.4 L187-L192) while the static path rejects any amount inequality (scheme.ts L1160), and the smart-wallet paths accept gross >= (smartWalletVerification.ts L657-L662, L727-L781) and net-delta >= (L795-L803, L837-L844). On a Token-2022 transfer-fee mint the static path compares the gross instruction amount while the balance-delta readings compare the net, so one payment can pass one path and fail another; the withheld amount is min(ceil(gross*bps/10000), maximum_fee), the Token-2022 arithmetic (copied from the estate transfer-fee node). Both Kora advisories name these seams (GHSA-725g-w329-g7qr and GHSA-x442-m7cc-hr92, severity field medium on both records, patched_versions null on both (GitHub advisory API, 2026-10-29)). Transaction V1 is no longer spec-undefined: S1.5 (L200+) defines version admission and the reference implements it (scheme.ts L359-L364, L767-L774), so the staged spec-undefined clause was dropped at the re-pin and replaced by this admission rule. The recipient ATA is derived under both token programs with the chain predecessor derivation (seeds [wallet, token program id, mint] under ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL). Limits: only pasted instructions are matched (top-level plus any the caller marks is_inner); the spec S1 rule spans the full CPI trace, so a smart-wallet payment whose inner instructions are not pasted shows matching_count 0, never a verdict the bytes cannot support; lookup-table accounts must be pasted resolved; splits are refused. This kernel reads nothing on-chain, calls no facilitator, checks no balance and moves no funds; verdict vocabulary is PASS, FAIL, DIVERGES, SPEC_UNDEFINED."
+  },
+  "example_execution_hash": "02038cce5df3b7f061b8a14f80426d9e82878ee0df3c20800f961cd635db2c47",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "requirements_echo": {
+        "type": [
+          "object",
+          "array",
+          "null"
+        ],
+        "description": "See the tool page output table for the shape of requirements_echo."
+      },
+      "transaction_version": {
+        "type": [
+          "object",
+          "array",
+          "null"
+        ],
+        "description": "See the tool page output table for the shape of transaction_version."
+      },
+      "instruction_summary": {
+        "type": [
+          "object",
+          "array",
+          "null"
+        ],
+        "description": "See the tool page output table for the shape of instruction_summary."
+      },
+      "recipient_atas": {
+        "type": [
+          "object",
+          "array",
+          "null"
+        ],
+        "description": "See the tool page output table for the shape of recipient_atas."
+      },
+      "matching_transfers": {
+        "type": [
+          "object",
+          "array",
+          "null"
+        ],
+        "description": "See the tool page output table for the shape of matching_transfers."
+      },
+      "net_received": {
+        "type": [
+          "object",
+          "array",
+          "null"
+        ],
+        "description": "See the tool page output table for the shape of net_received."
+      },
+      "signature_checks": {
+        "type": [
+          "object",
+          "array",
+          "null"
+        ],
+        "description": "See the tool page output table for the shape of signature_checks."
+      },
+      "verdicts": {
+        "type": [
+          "object",
+          "array",
+          "null"
+        ],
+        "description": "See the tool page output table for the shape of verdicts."
+      },
+      "clause_summary": {
+        "type": [
+          "object",
+          "array",
+          "null"
+        ],
+        "description": "See the tool page output table for the shape of clause_summary."
+      },
+      "error": {
+        "type": "string",
+        "description": "Lowercase refusal code when the input is refused."
+      },
+      "detail": {
+        "type": "string",
+        "description": "Human-readable refusal detail."
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "note": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Pins and limits, restated with every output."
+      }
+    }
+  }
+}
