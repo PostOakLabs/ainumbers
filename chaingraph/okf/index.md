@@ -20,9 +20,9 @@ never decision artifacts — they carry no `execution_hash`.
 
 ## Browse
 
-- [All tools](tools/index.md) (695)
+- [All tools](tools/index.md) (696)
 - [By mandate type](mandate-types/index.md) (38)
-- [Attested computations](computations/index.md) (695)
+- [Attested computations](computations/index.md) (696)
 
 ## Call
 

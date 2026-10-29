@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (697 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (698 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7702,6 +7702,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-84-settlement-efficiency-kpi",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-780-solana-pda-ata-audit",
+    "display_name": "Solana PDA Bump and ATA Audit",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-780-solana-pda-ata-audit.html",
+    "description": "Audit of a claimed program-derived-address tuple (program id, seeds with declared encodings, bump, claimed address), pasted values only, plu",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
