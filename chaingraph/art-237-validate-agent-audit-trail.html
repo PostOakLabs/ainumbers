@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- WEBMCP:OT-META-BEGIN generator=scripts/gen-webmcp-registrations.mjs -->
+<meta http-equiv="origin-trial" content="AvjPE9Ubhx2ZAiql3vUsqFtXvuHuGVZq9xxwxs6FXkgBXIRAnf+mFu3UmPHszhqN3NW8YvRNXbVbAGvEsuFG7w0AAABfeyJvcmlnaW4iOiJodHRwczovL2FpbnVtYmVycy5jbzo0NDMiLCJmZWF0dXJlIjoiV2ViTUNQIiwiZXhwaXJ5IjoxODA2MzY0ODAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
+<!-- WEBMCP:OT-META-END -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
@@ -95,6 +98,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 .related-topics{max-width:900px;margin:0 auto}
 
 </style>
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-237-validate-agent-audit-trail.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:4b708c0479222377ddaec18a19c7c15708dac8a9bc59d4e6e6b53661301c9801">
 </head>
 <body>
 <nav>
@@ -228,8 +233,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
       <div class="exec-hash" id="execHashBox"></div>
       <div class="results-export-row">
-        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
-        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <button onclick="exportArtifact(_lastResult)">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash(_lastResult)">&#10003; Verify Hash</button>
         <span class="verify-result" id="verifyResult"></span>
         <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
       </div>
@@ -391,88 +396,128 @@ async function computeExecHash(pp,op){
   return 'sha256:'+Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
 }
 
-function runValidate(){
-  var agentId=safeStr(document.getElementById('agentIdentity').value);
-  var ts=safeStr(document.getElementById('timestamp').value);
-  var actionClass=document.getElementById('actionClass').value;
-  var outcome=document.getElementById('outcome').value;
-  var trustLevel=document.getElementById('trustLevel').value;
-  var sha256Prev=safeStr(document.getElementById('sha256Prev').value);
-  var ecdsaSig=safeStr(document.getElementById('ecdsaSig').value);
-  var reason=safeStr(document.getElementById('reason').value);
+function getParams(){
+  return {
+    agent_identity: document.getElementById('agentIdentity').value,
+    action_class: document.getElementById('actionClass').value,
+    outcome: document.getElementById('outcome').value,
+    trust_level: document.getElementById('trustLevel').value,
+    sha256_prev_record: document.getElementById('sha256Prev').value.trim(),
+    ecdsa_present: document.getElementById('ecdsaSig').value.trim() !== '',
+    action_detail: '',
+    record_id: ''
+  };
+}
+
+function boundedStr(s,max){ var t=safeStr(s); return t.length<=max?t:t.slice(0,max)+'[TRUNCATED]'; }
+
+/* Kernel mirror of chaingraph/kernels/art-237-validate-agent-audit-trail.kernel.mjs compute() —
+   pinned to that kernel by the kernel-digest meta in <head>; restamp with
+   scripts/check-page-kernel-digest.mjs --digest whenever this mirror is rebuilt. */
+function compute(pp) {
+  pp = pp || {};
+  var agent_identity  = boundedStr(pp.agent_identity || '', 256);
+  var action_class    = safeStr(pp.action_class || '').toUpperCase();
+  var outcome         = safeStr(pp.outcome || '').toUpperCase();
+  var trust_level     = safeStr(pp.trust_level || '').toUpperCase();
+  var sha256_prev_record = boundedStr(pp.sha256_prev_record || '', 128);
+  var ecdsa_present   = pp.ecdsa_present === true || pp.ecdsa_present === 'true';
+  var action_detail   = boundedStr(pp.action_detail || '', 512);
+  var record_id       = boundedStr(pp.record_id || '', 128);
+
+  if (!agent_identity) {
+    return {
+      output_payload: {
+        conformance_result: 'EMPTY_INPUT',
+        agent_identity: '',
+        action_class: '',
+        outcome: '',
+        trust_level: '',
+        sha256_prev_record: '',
+        chain_position: 'unknown',
+        ecdsa_present: false,
+        aat_required_fields_present: false,
+        aat_completeness_score: 0,
+        validation_errors: ['agent_identity is required'],
+        alignment_note: 'Aligned with IETF draft-sharif-agent-audit-trail-00 (expires Sept 2026). Not a certified standard conformance check.',
+        regulatory_basis: 'IETF draft-sharif-agent-audit-trail-00; RFC 8785 JCS; EU AI Act Art 12',
+        table_version: 'AAT-DRAFT-SHARIF-00-2026'
+      },
+      compliance_flags: ['EMPTY_INPUT']
+    };
+  }
 
   var errors=[];
   var warnings=[];
+  if (!action_class) errors.push('action_class missing');
+  else if (VALID_ACTION.indexOf(action_class)<0) errors.push('action_class invalid: ' + action_class);
+  if (!outcome) errors.push('outcome missing');
+  else if (VALID_OUTCOME.indexOf(outcome)<0) errors.push('outcome invalid: ' + outcome);
+  if (!trust_level) errors.push('trust_level missing');
+  else if (VALID_TRUST.indexOf(trust_level)<0) warnings.push('trust_level unrecognised: ' + trust_level);
 
-  // Required fields
-  if(!agentId) errors.push('agent_identity: required, missing');
-  if(!ts) errors.push('timestamp: required, missing');
-  if(!actionClass) errors.push('action_class: required, missing');
-  if(!outcome) errors.push('outcome: required, missing');
-  if(!trustLevel) errors.push('trust_level: required, missing');
+  var sha256_prev_valid = !sha256_prev_record || /^[0-9a-f]{64}$/.test(sha256_prev_record);
+  if (!sha256_prev_valid) errors.push('sha256_prev_record is not a valid SHA-256 hex string (64 lowercase hex chars or empty)');
+  var chain_position = sha256_prev_record ? 'chained' : 'first';
 
-  // Enum checks
-  var actionValid=VALID_ACTION.indexOf(actionClass)>=0;
-  var outcomeValid=VALID_OUTCOME.indexOf(outcome)>=0;
-  var trustValid=VALID_TRUST.indexOf(trustLevel)>=0;
-  if(!actionValid) errors.push('action_class: "'+actionClass+'" not in AAT enum');
-  if(!outcomeValid) errors.push('outcome: "'+outcome+'" not in AAT enum');
-  if(!trustValid) errors.push('trust_level: "'+trustLevel+'" not in AAT enum');
+  if (!ecdsa_present) warnings.push('ecdsa_signature absent — AAT recommends optional ECDSA signature');
 
-  // sha256_prev_record: empty = first record; 64 hex = chained
-  var chainPos='first';
-  var chainFormatValid=true;
-  if(sha256Prev!==''){
-    if(/^[0-9a-f]{64}$/.test(sha256Prev)){
-      chainPos='chained';
-    } else {
-      chainFormatValid=false;
-      errors.push('sha256_prev_record: must be 64 lowercase hex chars or empty for first record. Got: "'+sha256Prev.substring(0,20)+'"...');
-    }
-  }
+  var required={agent_identity:agent_identity,action_class:action_class,outcome:outcome,trust_level:trust_level};
+  var present=0; for (var rk in required) if(required[rk]) present++;
+  var aat_completeness_score=Math.round(present/Object.keys(required).length*100);
+  var aat_required_fields_present=errors.length===0;
 
-  var ecdsaPresent=ecdsaSig!=='';
-  if(!ecdsaPresent) warnings.push('ecdsa_signature: absent (recommended for high-trust records)');
+  var conformance_result=errors.length===0?'CONFORMANT':(aat_completeness_score>=75?'PARTIAL':'NON_CONFORMANT');
 
-  // Completeness
-  var reqFields=[agentId,ts,actionClass,outcome,trustLevel];
-  var reqPresent=reqFields.filter(function(f){return f!=='';}).length;
-  var score=reqPresent+(!errors.length?1:0)+(ecdsaPresent?1:0)+(chainFormatValid?1:0);
-  score=Math.min(8,score);
+  var compliance_flags=[];
+  if (errors.length>0) compliance_flags.push('AAT_VALIDATION_ERRORS');
+  if (warnings.length>0) compliance_flags.push('AAT_VALIDATION_WARNINGS');
+  if (!ecdsa_present) compliance_flags.push('ECDSA_ABSENT');
+  if (!sha256_prev_record) compliance_flags.push('CHAIN_FIRST_RECORD');
 
-  var hasError=errors.length>0;
-  var conformance=hasError?'NON_CONFORMANT':(ecdsaPresent&&score>=7?'CONFORMANT':'PARTIAL');
-  if(!agentId&&!ts&&!actionClass&&!outcome&&!trustLevel) conformance='EMPTY_INPUT';
-
-  var pp={agent_identity:agentId,action_class:actionClass,outcome:outcome,trust_level:trustLevel,timestamp:ts,sha256_prev_record:sha256Prev,ecdsa_signature:ecdsaSig,reason:reason};
-  var op={
-    conformance_result:conformance,
-    agent_identity:agentId||null,
-    action_class:actionClass,
+  var output_payload={
+    conformance_result:conformance_result,
+    agent_identity:agent_identity,
+    action_class:action_class,
     outcome:outcome,
-    trust_level:trustLevel,
-    sha256_prev_record:sha256Prev||null,
-    chain_position:chainPos,
-    sha256_chain_format_valid:chainFormatValid,
-    ecdsa_present:ecdsaPresent,
-    aat_required_fields_present:reqPresent+'/5',
-    aat_completeness_score:score,
+    trust_level:trust_level,
+    sha256_prev_record:sha256_prev_record,
+    chain_position:chain_position,
+    sha256_chain_format_valid:sha256_prev_valid,
+    ecdsa_present:ecdsa_present,
+    aat_required_fields_present:aat_required_fields_present,
+    aat_completeness_score:aat_completeness_score,
     validation_errors:errors,
     validation_warnings:warnings,
-    action_detail:null,
-    record_id:null,
-    alignment_note:'IETF draft-sharif-agent-audit-trail-00 (expires Sept 2026). Monitor IETF datatracker for updates.',
+    action_detail:action_detail||null,
+    record_id:record_id||null,
+    alignment_note:'Aligned with IETF draft-sharif-agent-audit-trail-00 (I-D expires Sept 2026). Not a certified standard conformance check — no conformance authority exists for this draft.',
     regulatory_basis:'IETF draft-sharif-agent-audit-trail-00; RFC 8785 (JSON Canonicalisation Scheme); EU AI Act (Reg. 2024/1689) Art 12(2)',
     table_version:'AAT-DRAFT-SHARIF-00-2026'
   };
-  var flags=[];
-  if(conformance==='CONFORMANT') flags.push('AAT_CONFORMANT');
-  if(conformance==='PARTIAL') flags.push('AAT_PARTIAL');
-  if(conformance==='NON_CONFORMANT') flags.push('AAT_NON_CONFORMANT');
-  if(!ecdsaPresent) flags.push('ECDSA_ABSENT');
-  if(!chainFormatValid&&sha256Prev!=='') flags.push('CHAIN_FORMAT_INVALID');
+  return { output_payload:output_payload, compliance_flags:compliance_flags };
+}
 
-  _lastResult={pp:pp,output_payload:op,compliance_flags:flags};
+function runValidate(){
+  var pp=getParams();
+  var r=compute(pp);
+  _lastResult={pp:pp,output_payload:r.output_payload,compliance_flags:r.compliance_flags};
+  paintResult();
+}
+
+function paintResult(){
+  if(!_lastResult) return;
+  var op=_lastResult.output_payload;
+  var conformance=op.conformance_result;
+  var score=op.aat_completeness_score;
+  var chainPos=op.chain_position;
+  var ecdsaPresent=op.ecdsa_present;
+  var flags=_lastResult.compliance_flags;
+  var errors=op.validation_errors||[];
+  var warnings=op.validation_warnings||[];
+  var actionValid=VALID_ACTION.indexOf(op.action_class)>=0;
+  var outcomeValid=VALID_OUTCOME.indexOf(op.outcome)>=0;
+  var trustValid=VALID_TRUST.indexOf(op.trust_level)>=0;
 
   var colorMap={CONFORMANT:'var(--green)',PARTIAL:'var(--warn)',NON_CONFORMANT:'var(--red)',EMPTY_INPUT:'var(--body)'};
   var bgMap={CONFORMANT:'rgba(34,197,94,.08)',PARTIAL:'rgba(245,158,11,.08)',NON_CONFORMANT:'rgba(239,68,68,.08)',EMPTY_INPUT:'rgba(104,136,168,.08)'};
@@ -480,11 +525,11 @@ function runValidate(){
   var vBg=bgMap[conformance]||'rgba(104,136,168,.08)';
   var vBox=document.getElementById('verdictBox');
   vBox.style.color=vColor;vBox.style.background=vBg;vBox.style.border='1px solid '+vColor;
-  vBox.textContent=conformance+' (score: '+score+'/8)';
+  vBox.textContent=conformance+' (score: '+score+'/100)';
 
   document.getElementById('statRow').innerHTML=
     '<div class="stat"><span class="stat-val" style="color:'+vColor+'">'+conformance.split('_')[0]+'</span><span class="stat-key">Result</span></div>'+
-    '<div class="stat"><span class="stat-val">'+score+'/8</span><span class="stat-key">AAT Score</span></div>'+
+    '<div class="stat"><span class="stat-val">'+score+'/100</span><span class="stat-key">AAT Score</span></div>'+
     '<div class="stat"><span class="stat-val">'+chainPos+'</span><span class="stat-key">Chain Pos</span></div>'+
     '<div class="stat"><span class="stat-val">'+(ecdsaPresent?'Yes':'No')+'</span><span class="stat-key">ECDSA</span></div>';
 
@@ -501,7 +546,7 @@ function runValidate(){
     ['chain_position',op.chain_position],
     ['sha256_chain_format_valid',op.sha256_chain_format_valid],
     ['ecdsa_present',op.ecdsa_present],
-    ['aat_completeness_score',op.aat_completeness_score+'/8'],
+    ['aat_completeness_score',op.aat_completeness_score+'/100'],
     ['table_version',op.table_version],
   ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+String(x[1]).substring(0,120)+'</span></div>';}).join('');
 
@@ -514,7 +559,7 @@ function runValidate(){
   document.getElementById('execHashBox').textContent='computing...';
   document.getElementById('verifyResult').textContent='';
   document.getElementById('anchorBtn').style.display='none';
-  computeExecHash(pp,op).then(function(h){
+  computeExecHash(_lastResult.pp,op).then(function(h){
     document.getElementById('execHashBox').textContent=h;
     var aBtn=document.getElementById('anchorBtn');
     aBtn.href=ANCHOR_BASE+'/?hash='+encodeURIComponent(h);
@@ -522,20 +567,20 @@ function runValidate(){
   });
 }
 
-function verifyHash(){
-  if(!_lastResult) return;
-  computeExecHash(_lastResult.pp,_lastResult.output_payload).then(function(h){
+function verifyHash(rec){
+  if(!rec) return;
+  computeExecHash(rec.pp,rec.output_payload).then(function(h){
     var cur=document.getElementById('execHashBox').textContent;
     document.getElementById('verifyResult').innerHTML=h===cur?'<span style="color:var(--green)">&#10003; Hash verified</span>':'<span style="color:var(--red)">&#10007; Mismatch</span>';
   });
 }
 
-function exportArtifact(){
-  if(!_lastResult) return;
+function exportArtifact(rec){
+  if(!rec) return;
   var hash=document.getElementById('execHashBox').textContent||'pending';
   const generatedAt = new Date().toISOString();
   document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
-  var artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-237-validate-agent-audit-trail',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-237-validate-agent-audit-trail',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:rec.pp,output_payload:rec.output_payload,compliance_flags:rec.compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
   var json=JSON.stringify(artifact,null,2);
   document.getElementById('artifactPre').textContent=json;
   document.getElementById('artifactPre').style.display='block';
@@ -550,5 +595,140 @@ function toggleMfst(){
   if(b.style.display==='none'||!b.style.display){b.style.display='block';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';}
 }
 </script>
+<!-- WEBMCP:GEN-BEGIN manifest=manifests/art-237-validate-agent-audit-trail.manifest.json generator=scripts/gen-webmcp-registrations.mjs mode=direct -->
+<script>
+// WebMCP registration generated by scripts/gen-webmcp-registrations.mjs from
+// manifests/art-237-validate-agent-audit-trail.manifest.json (mcp_tool_definition reused verbatim; the generator computes
+// nothing and restates no computed value). DIRECT emission mode
+// (WEBMCP-DIRECT-MODE-1): this page's manifest inputs have no single control
+// to prefill, so execute() calls the manifest-declared function with the
+// agent's params, stores the result in the page's result global, lets the
+// page's render function paint it, and shows the mandatory "Inputs used by
+// the agent" echo panel so a human still sees exactly what the agent ran.
+// Feature-detected: absent API registers nothing, so this page is
+// byte-identical without the API.
+// Eligibility is static and re-proven on every --check: kernel-digest
+// sentinel matches the kernel; the declared function takes one parameter
+// and reads no DOM; the kernel reproduces fixture 0 execution_hash. Same
+// kernel, same hash, zero network I/O.
+// Trust annotations, truthful-hint posture: deterministic local compute, no
+// untrusted content, so untrustedContentHint is not applicable per tool (n/a);
+// exposedTo intentionally omitted: no cross-origin exposure. A browser agent
+// is untrusted input like any form submission; the never-trust-client rule is
+// honored by construction because the tool is zero-server and only returns
+// computed JSON derived from declared inputs.
+// Browser support (dated observation): WebMCP origin trial from Chrome 149
+// (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).
+const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+if (mc) {
+  mc.registerTool({
+    name: 'validate_agent_audit_trail',
+    description: 'Validates agent audit trail records against IETF draft-sharif-agent-audit-trail-00 (AAT, expires Sept 2026). Checks required fields (agent_identity, action_class, outcome, trust_level, timestamp), sha256_prev_record chain-link format (/^[0-9a-f]{64}$/ or empty for first record), ECDSA signature presence, and enum conformance for action_class / outcome / trust_level. Returns conformance_result: CONFORMANT | PARTIAL | NON_CONFORMANT | EMPTY_INPUT with aat_completeness_score and validation_errors. Disambiguates from the RFC 9421 HTTP message signature nodes (art-129..132): those validate HTTP message signatures; this node validates agent-to-agent audit trail records per the IETF AAT draft.',
+    inputSchema: {
+      "type": "object",
+      "required": [
+        "action_class",
+        "action_detail",
+        "agent_identity",
+        "ecdsa_present",
+        "outcome",
+        "record_id",
+        "sha256_prev_record",
+        "trust_level"
+      ],
+      "properties": {
+        "action_class": {
+          "description": "type not evidenced by kernel source"
+        },
+        "action_detail": {
+          "description": "type not evidenced by kernel source"
+        },
+        "agent_identity": {
+          "description": "type not evidenced by kernel source"
+        },
+        "ecdsa_present": {
+          "type": "boolean"
+        },
+        "outcome": {
+          "description": "type not evidenced by kernel source"
+        },
+        "record_id": {
+          "description": "type not evidenced by kernel source"
+        },
+        "sha256_prev_record": {
+          "description": "type not evidenced by kernel source"
+        },
+        "trust_level": {
+          "description": "type not evidenced by kernel source"
+        }
+      }
+    },
+    annotations: { readOnlyHint: true },
+    execute: async function(params) {
+      try {
+      if (params.action_class === undefined) throw new Error('action_class is required; received ' + JSON.stringify(params.action_class) + '.');
+      if (params.action_detail === undefined) throw new Error('action_detail is required; received ' + JSON.stringify(params.action_detail) + '.');
+      if (params.agent_identity === undefined) throw new Error('agent_identity is required; received ' + JSON.stringify(params.agent_identity) + '.');
+      if (typeof params.ecdsa_present !== 'boolean') throw new Error('ecdsa_present must be a boolean; received ' + JSON.stringify(params.ecdsa_present) + '.');
+      if (params.outcome === undefined) throw new Error('outcome is required; received ' + JSON.stringify(params.outcome) + '.');
+      if (params.record_id === undefined) throw new Error('record_id is required; received ' + JSON.stringify(params.record_id) + '.');
+      if (params.sha256_prev_record === undefined) throw new Error('sha256_prev_record is required; received ' + JSON.stringify(params.sha256_prev_record) + '.');
+      if (params.trust_level === undefined) throw new Error('trust_level is required; received ' + JSON.stringify(params.trust_level) + '.');
+      var echo = document.getElementById('webmcp-inputs-echo');
+      if (!echo) {
+        echo = document.createElement('pre');
+        echo.id = 'webmcp-inputs-echo';
+        var panel = document.querySelector('.results-panel');
+        if (panel && panel.parentNode) panel.parentNode.insertBefore(echo, panel);
+        else document.body.insertBefore(echo, document.body.firstChild);
+      }
+      echo.textContent = 'Inputs used by the agent: ' + JSON.stringify(params, null, 2);
+      var __normalizeNullMembers = function __normalizeNullMembers(value, schema) {
+        if (Array.isArray(value)) {
+          var changed = false;
+          var out = new Array(value.length);
+          for (var i = 0; i < value.length; i++) {
+            var el = value[i];
+            if (el === null) { out[i] = null; continue; }
+            var n = __normalizeNullMembers(el, schema && schema.items);
+            if (n !== el) changed = true;
+            out[i] = n;
+          }
+          return changed ? out : value;
+        }
+        if (value !== null && typeof value === 'object') {
+          var props = schema && schema.properties;
+          var out2 = {};
+          var changed2 = false;
+          for (var ks = Object.keys(value), j = 0; j < ks.length; j++) {
+            var k = ks[j];
+            var v = value[k];
+            if (v === null) {
+              if (props && props[k] && props[k].x_null_distinct) { out2[k] = null; continue; }
+              changed2 = true;
+              continue;
+            }
+            var n2 = __normalizeNullMembers(v, props && props[k]);
+            if (n2 !== v) changed2 = true;
+            out2[k] = n2;
+          }
+          return changed2 ? out2 : value;
+        }
+        return value;
+      };
+      var __computeInput = __normalizeNullMembers(params, "{\"type\":\"object\",\"required\":[\"action_class\",\"action_detail\",\"agent_identity\",\"ecdsa_present\",\"outcome\",\"record_id\",\"sha256_prev_record\",\"trust_level\"],\"properties\":{\"action_class\":{\"description\":\"type not evidenced by kernel source\"},\"action_detail\":{\"description\":\"type not evidenced by kernel source\"},\"agent_identity\":{\"description\":\"type not evidenced by kernel source\"},\"ecdsa_present\":{\"type\":\"boolean\"},\"outcome\":{\"description\":\"type not evidenced by kernel source\"},\"record_id\":{\"description\":\"type not evidenced by kernel source\"},\"sha256_prev_record\":{\"description\":\"type not evidenced by kernel source\"},\"trust_level\":{\"description\":\"type not evidenced by kernel source\"}}}");
+      var __directResult = await compute(__computeInput);
+      if (typeof __directResult !== 'undefined') _lastResult = __directResult;
+      await paintResult();
+      return _lastResult;
+      } catch (err) {
+        return { error: 'compute_failed', detail: String((err && err.message) || err) };
+      }
+    }
+  });
+}
+</script>
+<!-- WEBMCP:GEN-END -->
+
 </body>
 </html>
