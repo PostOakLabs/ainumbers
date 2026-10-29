@@ -4458,7 +4458,7 @@ const REFUSAL_FIELDS = () => ({
 function refusal(code, detail) {
   return {
     output_payload: { error: code.toLowerCase(), detail, domain_errors: [{ code, text: detail }], ...REFUSAL_FIELDS() },
-    compliance_flags: ['INPUT_REFUSED'],
+    compliance_flags: code ? ['INPUT_REFUSED'] : [],
   };
 }
 
