@@ -43,7 +43,15 @@ import { loadRatchetBaselineOrExit } from './ratchet-baseline.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
-const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
+// S18_DERIVED_ROOT (2026-10-27, S18-FIXTURE-PR-DERIVED-ROOT-1): a PR-only scratch assembly that the
+// s18tree step (land-verify/scripts-verify) and local preflight mount for the §18 freshness gates.
+// A re-prove PR edits the kernel and its shard, so the COMMITTED monolith still holds the OLD journal
+// digest and every §18 freshness count lags by one until main's regen lands. DERIVED_ROOT
+// (merge_group/main) always wins; this variable is read by no other gate, so no other gate's
+// PR-side disposition moves. Same precedence line as check-compute-proof-coverage.mjs.
+const CG_PATH = (!process.env.DERIVED_ROOT && process.env.S18_DERIVED_ROOT)
+  ? resolve(process.env.S18_DERIVED_ROOT, 'chaingraph', 'chaingraph.json')
+  : resolve(REPO, 'chaingraph', 'chaingraph.json');
 const KDIR = resolve(REPO, 'chaingraph', 'kernels');
 const BASELINE_PATH = resolve(HERE, 's18-digest-freshness-baseline.json');
 
@@ -105,6 +113,35 @@ export async function computeStaleness(chaingraph, kernelSourceByToolId, sourceD
   const stale = results.filter((r) => r.state === 'stale' || r.state === 'NO_KERNEL_FILE');
   const fresh = results.filter((r) => r.state === 'fresh');
   return { results, stale, fresh, total: results.length };
+}
+
+// ── calibrationVerdict ────────────────────────────────────────────────────────────────────────────
+// Pure verdict for the §18 freshness calibration (S18-FIXTURE-PR-DERIVED-ROOT-1): compares a measured
+// { total, fresh, stale } against the regen-owned calibration artifact and returns a LIST of failure
+// strings (empty = pass). Two modes:
+//   · not derivedPr (main, merge_group, any context with no S18_DERIVED_ROOT, or DERIVED_ROOT set):
+//     the committed monolith is main's regen-owned truth, so the verdict is the historical EXACT
+//     equality — byte-for-byte the same messages the fixture test asserted before this function
+//     existed. Blocking, exactly as today.
+//   · derivedPr (S18_DERIVED_ROOT set AND DERIVED_ROOT empty — the precedent's precedence, see
+//     check-compute-proof-coverage.mjs): the tree was assembled from the PR branch, so a re-prove
+//     with a matching receipt gives equality, a first-prove gives total+1/fresh+1, a stale-curing
+//     re-prove gives stale-1 — all passes. An INEQUALITY is only red when it means a receipt genuinely
+//     lags its kernel: total must not SHRINK, fresh must not SHRINK, stale must not GROW.
+export function calibrationVerdict(measured, cal, { derivedPr } = {}) {
+  const { total, fresh, stale } = measured;
+  if (!derivedPr) {
+    const failures = [];
+    if (total !== cal.total) failures.push(`recomputed in-scope gpu:false proven nodes (${total}) != calibration artifact total (${cal.total}) — chaingraph.json moved without its regen-owned calibration; the canonical writer is: node scripts/gen-s18-freshness-calibration.mjs --write`);
+    if (fresh !== cal.fresh) failures.push(`recomputed fresh (${fresh}) != calibration artifact fresh (${cal.fresh}) — same canonical writer: node scripts/gen-s18-freshness-calibration.mjs --write`);
+    if (stale !== cal.stale) failures.push(`recomputed stale (${stale}) != calibration artifact stale (${cal.stale}) — if this is a kernel-edit staleness event, name the moved node in the commit and re-run the canonical writer; the ratchet ceiling in s18-digest-freshness-baseline.json is a different control and is NOT touched`);
+    return failures;
+  }
+  const failures = [];
+  if (total < cal.total) failures.push(`PR-context §18 freshness (S18_DERIVED_ROOT): recomputed total (${total}) < calibration artifact total (${cal.total}) — the ephemeral assembly cannot lose proven nodes vs main's committed estate`);
+  if (fresh < cal.fresh) failures.push(`PR-context §18 freshness (S18_DERIVED_ROOT): recomputed fresh (${fresh}) < calibration artifact fresh (${cal.fresh}) — a receipt in the PR tree does not match its currently-deployed kernel source; re-prove the node`);
+  if (stale > cal.stale) failures.push(`PR-context §18 freshness (S18_DERIVED_ROOT): recomputed stale (${stale}) > calibration artifact stale (${cal.stale}) — a kernel edit whose receipt does not match the edited kernel source leaves a node stale; re-prove it (main/merge_group stay on the exact-equality verdict, so this PR-side red cannot soften them)`);
+  return failures;
 }
 
 // ── CLI entry point (only runs when this file is executed directly, not when imported) ─────────────

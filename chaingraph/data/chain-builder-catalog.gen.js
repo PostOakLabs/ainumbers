@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (695 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (700 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -5028,7 +5028,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "EMIR Reconciliation Break Ageing",
     "mandate_type": "attestation_mandate",
     "url": "https://ainumbers.co/chaingraph/art-483-emir-break-ageing.html",
-    "description": "Diffs a current EMIR reconciliation break set (e.g. from art-482-emir-recon-adjudicator) against the prior cycle's sealed break set by stabl",
+    "description": "Diffs a current EMIR reconciliation break set (e.g. from the art-482 recon node) against the prior cycle's sealed break set by stable break_",
     "consumes": [
       "art-482-emir-recon-adjudicator"
     ],
@@ -7621,6 +7621,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-764-solo-401k-vs-sep-ira",
+    "display_name": "Solo 401(k) vs. SEP-IRA Optimizer",
+    "mandate_type": "compensation_assessment",
+    "url": "https://ainumbers.co/chaingraph/art-764-solo-401k-vs-sep-ira.html",
+    "description": "Self-employed retirement-contribution comparator ported from ApexLogics Apex #112 (AL-119). For a tax year, net self-employment profit, age ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-77-t1-settlement-readiness-diagnostic",
     "display_name": "T+1 Settlement Readiness Diagnostic",
     "mandate_type": "agent_guardrail_mandate",
@@ -7669,6 +7679,36 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-777-psp-dispute-reason-crosswalk",
+    "display_name": "PSP Dispute Reason Crosswalk",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-777-psp-dispute-reason-crosswalk.html",
+    "description": "Dispute reason-code crosswalk across PayPal, Stripe, Adyen and Square (static and credential-free: the mapping tables ship with the kernel, ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-778-token2022-withheld-fee-reconciler",
+    "display_name": "Token-2022 Withheld-Fee Reconciler",
+    "mandate_type": "settlement_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-778-token2022-withheld-fee-reconciler.html",
+    "description": "Token-2022 withheld-fee reconciliation across token accounts (the first node added after art-715; its primary text is the Solana Token-2022 ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-779-bnpl-plan-comparator",
+    "display_name": "BNPL Plan Comparator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-779-bnpl-plan-comparator.html",
+    "description": "Side-by-side BNPL plan cost comparison on the estate's Reg Z APR maths: the APR for every plan is computed by the estate's art-215 solver co",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-78-csdr-penalty-calculator",
     "display_name": "CSDR Cash-Penalty Calculator",
     "mandate_type": "compliance_mandate",
@@ -7682,6 +7722,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-84-settlement-efficiency-kpi",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-780-solana-pda-ata-audit",
+    "display_name": "Solana PDA Bump and ATA Audit",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-780-solana-pda-ata-audit.html",
+    "description": "Audit of a claimed program-derived-address tuple (program id, seeds with declared encodings, bump, claimed address), pasted values only, plu",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
