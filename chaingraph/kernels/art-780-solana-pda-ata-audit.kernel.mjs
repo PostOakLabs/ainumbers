@@ -160,6 +160,259 @@ function isNonEmptyString(s) { return typeof s === 'string' && s.length > 0; }
 // chaingraph/kernels/_noble-ed25519.bundle.mjs with its final export line replaced by the
 // return below. sha256(bytes) -> Uint8Array(32), synchronous pure JS.
 // ---------------------------------------------------------------------------
+
+// noble sha256 reached lazily via __noble.sha256(...) — the bundle IIFE sits at end of file
+// Off-curve test (provenance pin 1: bytes_are_curve_point -> CompressedEdwardsY decompress).
+// A 32-byte string that decompresses to a curve point cannot be a program-derived address.
+function isOnCurve(bytes32) {
+  try { __noble.ed25519.Point.fromHex(bytesToHex(bytes32)); return true; } catch { return false; }
+}
+
+// ---------------------------------------------------------------------------
+// The pinned derivation, restated (no bytes copied from the Rust sources).
+// ---------------------------------------------------------------------------
+
+// create_program_address semantics for one candidate bump:
+// preimage = seeds (in declared order) || [bump] || program_id || "ProgramDerivedAddress",
+// hashed with SHA-256; limits: at most 16 seeds INCLUDING the bump seed, each at most 32 bytes.
+function deriveWithBump(seedBytes, bump, programIdBytes) {
+  const parts = [];
+  for (const s of seedBytes) parts.push(s);
+  parts.push(new Uint8Array([bump]));
+  parts.push(programIdBytes);
+  parts.push(utf8Encode(PDA_MARKER_UTF8));
+  let len = 0; for (const p of parts) len += p.length;
+  const pre = new Uint8Array(len);
+  let off = 0;
+  for (const p of parts) { pre.set(p, off); off += p.length; }
+  return __noble.sha256(pre);
+}
+
+// try_find_program_address semantics: candidate bumps 255 down to 1, first off-curve wins.
+function findCanonical(seedBytes, programIdBytes) {
+  for (let bump = BUMP_MAX; bump >= BUMP_MIN; bump--) {
+    const h = deriveWithBump(seedBytes, bump, programIdBytes);
+    if (!isOnCurve(h)) return { bump, address: b58encode(h) };
+  }
+  return null;
+}
+
+function limitsVerdict(seedBytes) {
+  // Count check applies to seeds WITH the bump seed appended (the pinned create_program_address
+  // receives seeds + [bump]); length check applies per seed, and the 1-byte bump always passes.
+  if (seedBytes.length + 1 > MAX_SEEDS) return 'max_seed_length_exceeded';
+  for (const s of seedBytes) if (s.length > MAX_SEED_LEN) return 'max_seed_length_exceeded';
+  return 'ok';
+}
+
+const REFUSAL_FIELDS = () => ({
+  program_id: null, seed_count: null, seed_count_with_bump: null, seeds_exceeding_max_len: null,
+  seed_count_with_bump_exceeds_max: null, derived_hash_base58: null, on_curve: null,
+  create_program_address_verdict: null, claimed_bump: null, claimed_address: null,
+  claimed_matches: null, canonical_bump: null, canonical_address: null,
+  claimed_bump_is_canonical: null, ata_derivation: null, note: null,
+});
+
+function refusal(code, detail) {
+  return {
+    output_payload: { error: code.toLowerCase(), detail, domain_errors: [{ code, text: detail }], ...REFUSAL_FIELDS() },
+    compliance_flags: code ? ['INPUT_REFUSED'] : [],
+  };
+}
+
+/**
+ * compute(pp) — pure audit kernel (values only; nothing on-chain is read).
+ * pp: {
+ *   program_id: string,            // claimed owning program, base58 (32 bytes)
+ *   seeds: [ { data: string, encoding: 'utf8'|'hex' } ],  // declared seeds, in order
+ *   bump: number,                  // claimed bump seed, integer 0..255
+ *   claimed_address: string,       // the address the caller believes the tuple yields, base58
+ *   wallet: string,                // OPTIONAL ATA mode: wallet address, base58
+ *   mint: string,                  // OPTIONAL ATA mode: mint address, base58
+ *   token_program_id: string       // OPTIONAL ATA mode: the mint's declared token program, base58
+ * }
+ * @param {object} pp policy_parameters
+ * @returns {{ output_payload: object, compliance_flags: string[] }}
+ */
+export function compute(pp) {
+  pp = deNull(pp || {});
+  if (!isNonEmptyString(pp.program_id)) {
+    return refusal('PROGRAM_ID_INVALID', 'program_id must be a non-empty base58 string (the claimed owning program address); got ' + JSON.stringify(pp.program_id ?? null) + '.');
+  }
+  const programIdBytes = parseAddress(pp.program_id);
+  if (programIdBytes === null) {
+    return refusal('PROGRAM_ID_INVALID', 'program_id must decode as base58 to 32 bytes (a Solana address); got ' + JSON.stringify(pp.program_id) + '.');
+  }
+
+  if (!Array.isArray(pp.seeds)) {
+    return refusal('SEEDS_MALFORMED', 'seeds must be an array of { data, encoding } objects, encoding "utf8" or "hex", in derivation order; an empty array is valid.');
+  }
+  const seedBytes = [];
+  const seedEcho = [];
+  for (let i = 0; i < pp.seeds.length; i++) {
+    const e = pp.seeds[i];
+    if (!e || typeof e !== 'object' || Array.isArray(e)) {
+      return refusal('SEEDS_MALFORMED', 'seeds[' + i + '] must be an object { data, encoding }.');
+    }
+    if (!isNonEmptyString(e.data) && e.data !== '') {
+      return refusal('SEEDS_MALFORMED', 'seeds[' + i + '].data must be a string (empty string is a valid seed); got ' + JSON.stringify(e.data ?? null) + '.');
+    }
+    if (typeof e.data !== 'string') {
+      return refusal('SEEDS_MALFORMED', 'seeds[' + i + '].data must be a string.');
+    }
+    if (e.encoding !== 'utf8' && e.encoding !== 'hex') {
+      return refusal('SEEDS_MALFORMED', 'seeds[' + i + '].encoding must be "utf8" or "hex" (declared per seed); got ' + JSON.stringify(e.encoding ?? null) + '.');
+    }
+    let bytes;
+    if (e.encoding === 'utf8') {
+      bytes = utf8Encode(e.data);
+    } else {
+      if (e.data.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(e.data)) {
+        return refusal('SEEDS_MALFORMED', 'seeds[' + i + '].data with encoding "hex" must be an even-length hex string; got ' + JSON.stringify(e.data) + '.');
+      }
+      bytes = new Uint8Array(e.data.length / 2);
+      for (let k = 0; k < bytes.length; k++) bytes[k] = parseInt(e.data.slice(k * 2, k * 2 + 2), 16);
+    }
+    seedBytes.push(bytes);
+    seedEcho.push({ data: e.data, encoding: e.encoding, byte_length: bytes.length });
+  }
+
+  if (typeof pp.bump !== 'number' || !Number.isInteger(pp.bump) || pp.bump < 0 || pp.bump > 255) {
+    return refusal('BUMP_INVALID', 'bump must be an integer 0..255 (a single seed byte); got ' + JSON.stringify(pp.bump ?? null) + '.');
+  }
+  const bump = pp.bump;
+
+  if (!isNonEmptyString(pp.claimed_address)) {
+    return refusal('CLAIMED_ADDRESS_INVALID', 'claimed_address must be a non-empty base58 string; got ' + JSON.stringify(pp.claimed_address ?? null) + '.');
+  }
+  if (parseAddress(pp.claimed_address) === null) {
+    return refusal('CLAIMED_ADDRESS_INVALID', 'claimed_address must decode as base58 to 32 bytes (a Solana address); got ' + JSON.stringify(pp.claimed_address) + '.');
+  }
+
+  const hasAta = pp.wallet !== undefined || pp.mint !== undefined || pp.token_program_id !== undefined;
+  let walletBytes = null, mintBytes = null, tokenProgramBytes = null;
+  if (hasAta) {
+    if (!isNonEmptyString(pp.wallet) || !isNonEmptyString(pp.mint) || !isNonEmptyString(pp.token_program_id)) {
+      return refusal('ATA_TRIPLE_MALFORMED', 'ATA mode needs all three of wallet, mint and token_program_id as non-empty base58 strings (token_program_id is the token program the mint lives under, classic or Token-2022).');
+    }
+    walletBytes = parseAddress(pp.wallet);
+    if (walletBytes === null) return refusal('ATA_TRIPLE_MALFORMED', 'ATA wallet must decode as base58 to 32 bytes; got ' + JSON.stringify(pp.wallet) + '.');
+    mintBytes = parseAddress(pp.mint);
+    if (mintBytes === null) return refusal('ATA_TRIPLE_MALFORMED', 'ATA mint must decode as base58 to 32 bytes; got ' + JSON.stringify(pp.mint) + '.');
+    tokenProgramBytes = parseAddress(pp.token_program_id);
+    if (tokenProgramBytes === null) return refusal('ATA_TRIPLE_MALFORMED', 'ATA token_program_id must decode as base58 to 32 bytes; got ' + JSON.stringify(pp.token_program_id) + '.');
+  }
+
+  const compliance_flags = [];
+
+  // Limits facts (the pinned create_program_address would refuse; the audit reports the fact).
+  const overLen = [];
+  for (let i = 0; i < seedBytes.length; i++) if (seedBytes[i].length > MAX_SEED_LEN) overLen.push({ index: i, byte_length: seedBytes[i].length });
+  const countWithBump = seedBytes.length + 1;
+  const countExceeds = countWithBump > MAX_SEEDS;
+  const limits = limitsVerdict(seedBytes);
+
+  // Recompute the address for the CLAIMED bump (create_program_address semantics).
+  let derivedHashB58 = null;
+  let onCurve = null;
+  let verdict;
+  let claimedMatches = null;
+  if (limits !== 'ok') {
+    verdict = 'max_seed_length_exceeded';
+  } else {
+    const h = deriveWithBump(seedBytes, bump, programIdBytes);
+    derivedHashB58 = b58encode(h);
+    onCurve = isOnCurve(h);
+    verdict = onCurve ? 'on_curve' : 'off_curve';
+    claimedMatches = derivedHashB58 === pp.claimed_address;
+  }
+
+  // Canonical bump scan (try_find_program_address semantics: 255 down to 1, first off-curve).
+  let canonical = null;
+  if (limits === 'ok' && seedBytes.length < MAX_SEEDS) {
+    canonical = findCanonical(seedBytes, programIdBytes);
+  }
+  const canonicalBump = canonical === null ? null : canonical.bump;
+  const canonicalAddress = canonical === null ? null : canonical.address;
+  const claimedBumpIsCanonical = canonicalBump === null ? null : canonicalBump === bump;
+
+  if (overLen.length > 0) compliance_flags.push('SEED_LENGTH_EXCEEDS_MAX');
+  if (countExceeds) compliance_flags.push('SEED_COUNT_WITH_BUMP_EXCEEDS_MAX');
+  if (onCurve === true) compliance_flags.push('CLAIMED_BUMP_ON_CURVE');
+  if (claimedMatches === false) compliance_flags.push('CLAIMED_ADDRESS_MISMATCH');
+  if (claimedBumpIsCanonical === false) compliance_flags.push('NON_CANONICAL_BUMP_CLAIMED');
+  if (canonical === null && limits === 'ok' && seedBytes.length < MAX_SEEDS) compliance_flags.push('NO_CANONICAL_BUMP_IN_255_TO_1');
+
+  // ATA mode: side-by-side derivation under the declared token program and the classic one.
+  let ata = null;
+  if (hasAta) {
+    const ataProgramBytes = parseAddress(ATA_PROGRAM_ID);
+    const declared = findCanonical([walletBytes, tokenProgramBytes, mintBytes], ataProgramBytes);
+    const classicBytes = parseAddress(CLASSIC_TOKEN_PROGRAM_ID);
+    const classic = findCanonical([walletBytes, classicBytes, mintBytes], ataProgramBytes);
+    const declaredIsT22 = pp.token_program_id === TOKEN_2022_PROGRAM_ID;
+    const declaredIsClassic = pp.token_program_id === CLASSIC_TOKEN_PROGRAM_ID;
+    const differ = declared !== null && classic !== null && declared.address !== classic.address;
+    const mismatch = declaredIsT22 && differ;
+    if (mismatch) compliance_flags.push('TOKEN_PROGRAM_MISMATCH');
+    ata = {
+      wallet: pp.wallet,
+      mint: pp.mint,
+      token_program_id: pp.token_program_id,
+      declared_token_program_is_token_2022: declaredIsT22,
+      declared_token_program_is_classic: declaredIsClassic,
+      ata_under_declared_token_program: declared === null ? null : { address: declared.address, bump: declared.bump },
+      ata_under_classic_token_program: classic === null ? null : { address: classic.address, bump: classic.bump },
+      ata_addresses_differ: declared === null || classic === null ? null : differ,
+      token_program_mismatch: mismatch,
+    };
+  }
+
+  const output_payload = {
+    program_id: pp.program_id,
+    seed_count: seedBytes.length,
+    seed_count_with_bump: countWithBump,
+    seeds_exceeding_max_len: overLen,
+    seed_count_with_bump_exceeds_max: countExceeds,
+    derived_hash_base58: derivedHashB58,
+    on_curve: onCurve,
+    create_program_address_verdict: verdict,
+    claimed_bump: bump,
+    claimed_address: pp.claimed_address,
+    claimed_matches: claimedMatches,
+    canonical_bump: canonicalBump,
+    canonical_address: canonicalAddress,
+    claimed_bump_is_canonical: claimedBumpIsCanonical,
+    ata_derivation: ata,
+    note: 'Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes "ProgramDerivedAddress" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain.',
+  };
+
+  return { output_payload, compliance_flags };
+}
+
+export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
+  return {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    compute_proof_ready: 'deferred',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+}
+
+
+/* ===== BEGIN deterministic transcendental math (vendored noble ed25519 + sha256 bundle, inlined; excluded from the mutation surface by the named mutateSurfaceSplits entry in mutation-tiers.config.json) ===== */
 const __noble = (() => {
 /* Vendored: @noble/curves (ed25519 EdDSA verify path only) + @noble/hashes (sha2: sha256/sha512)
    v2.2.0 (MIT, (c) Paul Miller paulmillr.com). Self-contained ESM bundle exporting
@@ -4402,253 +4655,4 @@ const sha512 = H_sha2.sha512;
 
   return { ed25519, sha256, sha512 };
 })();
-
-const nobleSha256 = __noble.sha256;
-// Off-curve test (provenance pin 1: bytes_are_curve_point -> CompressedEdwardsY decompress).
-// A 32-byte string that decompresses to a curve point cannot be a program-derived address.
-function isOnCurve(bytes32) {
-  try { __noble.ed25519.Point.fromHex(bytesToHex(bytes32)); return true; } catch { return false; }
-}
-
-// ---------------------------------------------------------------------------
-// The pinned derivation, restated (no bytes copied from the Rust sources).
-// ---------------------------------------------------------------------------
-
-// create_program_address semantics for one candidate bump:
-// preimage = seeds (in declared order) || [bump] || program_id || "ProgramDerivedAddress",
-// hashed with SHA-256; limits: at most 16 seeds INCLUDING the bump seed, each at most 32 bytes.
-function deriveWithBump(seedBytes, bump, programIdBytes) {
-  const parts = [];
-  for (const s of seedBytes) parts.push(s);
-  parts.push(new Uint8Array([bump]));
-  parts.push(programIdBytes);
-  parts.push(utf8Encode(PDA_MARKER_UTF8));
-  let len = 0; for (const p of parts) len += p.length;
-  const pre = new Uint8Array(len);
-  let off = 0;
-  for (const p of parts) { pre.set(p, off); off += p.length; }
-  return nobleSha256(pre);
-}
-
-// try_find_program_address semantics: candidate bumps 255 down to 1, first off-curve wins.
-function findCanonical(seedBytes, programIdBytes) {
-  for (let bump = BUMP_MAX; bump >= BUMP_MIN; bump--) {
-    const h = deriveWithBump(seedBytes, bump, programIdBytes);
-    if (!isOnCurve(h)) return { bump, address: b58encode(h) };
-  }
-  return null;
-}
-
-function limitsVerdict(seedBytes) {
-  // Count check applies to seeds WITH the bump seed appended (the pinned create_program_address
-  // receives seeds + [bump]); length check applies per seed, and the 1-byte bump always passes.
-  if (seedBytes.length + 1 > MAX_SEEDS) return 'max_seed_length_exceeded';
-  for (const s of seedBytes) if (s.length > MAX_SEED_LEN) return 'max_seed_length_exceeded';
-  return 'ok';
-}
-
-const REFUSAL_FIELDS = () => ({
-  program_id: null, seed_count: null, seed_count_with_bump: null, seeds_exceeding_max_len: null,
-  seed_count_with_bump_exceeds_max: null, derived_hash_base58: null, on_curve: null,
-  create_program_address_verdict: null, claimed_bump: null, claimed_address: null,
-  claimed_matches: null, canonical_bump: null, canonical_address: null,
-  claimed_bump_is_canonical: null, ata_derivation: null, note: null,
-});
-
-function refusal(code, detail) {
-  return {
-    output_payload: { error: code.toLowerCase(), detail, domain_errors: [{ code, text: detail }], ...REFUSAL_FIELDS() },
-    compliance_flags: code ? ['INPUT_REFUSED'] : [],
-  };
-}
-
-/**
- * compute(pp) — pure audit kernel (values only; nothing on-chain is read).
- * pp: {
- *   program_id: string,            // claimed owning program, base58 (32 bytes)
- *   seeds: [ { data: string, encoding: 'utf8'|'hex' } ],  // declared seeds, in order
- *   bump: number,                  // claimed bump seed, integer 0..255
- *   claimed_address: string,       // the address the caller believes the tuple yields, base58
- *   wallet: string,                // OPTIONAL ATA mode: wallet address, base58
- *   mint: string,                  // OPTIONAL ATA mode: mint address, base58
- *   token_program_id: string       // OPTIONAL ATA mode: the mint's declared token program, base58
- * }
- * @param {object} pp policy_parameters
- * @returns {{ output_payload: object, compliance_flags: string[] }}
- */
-export function compute(pp) {
-  pp = deNull(pp || {});
-  if (!isNonEmptyString(pp.program_id)) {
-    return refusal('PROGRAM_ID_INVALID', 'program_id must be a non-empty base58 string (the claimed owning program address); got ' + JSON.stringify(pp.program_id ?? null) + '.');
-  }
-  const programIdBytes = parseAddress(pp.program_id);
-  if (programIdBytes === null) {
-    return refusal('PROGRAM_ID_INVALID', 'program_id must decode as base58 to 32 bytes (a Solana address); got ' + JSON.stringify(pp.program_id) + '.');
-  }
-
-  if (!Array.isArray(pp.seeds)) {
-    return refusal('SEEDS_MALFORMED', 'seeds must be an array of { data, encoding } objects, encoding "utf8" or "hex", in derivation order; an empty array is valid.');
-  }
-  const seedBytes = [];
-  const seedEcho = [];
-  for (let i = 0; i < pp.seeds.length; i++) {
-    const e = pp.seeds[i];
-    if (!e || typeof e !== 'object' || Array.isArray(e)) {
-      return refusal('SEEDS_MALFORMED', 'seeds[' + i + '] must be an object { data, encoding }.');
-    }
-    if (!isNonEmptyString(e.data) && e.data !== '') {
-      return refusal('SEEDS_MALFORMED', 'seeds[' + i + '].data must be a string (empty string is a valid seed); got ' + JSON.stringify(e.data ?? null) + '.');
-    }
-    if (typeof e.data !== 'string') {
-      return refusal('SEEDS_MALFORMED', 'seeds[' + i + '].data must be a string.');
-    }
-    if (e.encoding !== 'utf8' && e.encoding !== 'hex') {
-      return refusal('SEEDS_MALFORMED', 'seeds[' + i + '].encoding must be "utf8" or "hex" (declared per seed); got ' + JSON.stringify(e.encoding ?? null) + '.');
-    }
-    let bytes;
-    if (e.encoding === 'utf8') {
-      bytes = utf8Encode(e.data);
-    } else {
-      if (e.data.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(e.data)) {
-        return refusal('SEEDS_MALFORMED', 'seeds[' + i + '].data with encoding "hex" must be an even-length hex string; got ' + JSON.stringify(e.data) + '.');
-      }
-      bytes = new Uint8Array(e.data.length / 2);
-      for (let k = 0; k < bytes.length; k++) bytes[k] = parseInt(e.data.slice(k * 2, k * 2 + 2), 16);
-    }
-    seedBytes.push(bytes);
-    seedEcho.push({ data: e.data, encoding: e.encoding, byte_length: bytes.length });
-  }
-
-  if (typeof pp.bump !== 'number' || !Number.isInteger(pp.bump) || pp.bump < 0 || pp.bump > 255) {
-    return refusal('BUMP_INVALID', 'bump must be an integer 0..255 (a single seed byte); got ' + JSON.stringify(pp.bump ?? null) + '.');
-  }
-  const bump = pp.bump;
-
-  if (!isNonEmptyString(pp.claimed_address)) {
-    return refusal('CLAIMED_ADDRESS_INVALID', 'claimed_address must be a non-empty base58 string; got ' + JSON.stringify(pp.claimed_address ?? null) + '.');
-  }
-  if (parseAddress(pp.claimed_address) === null) {
-    return refusal('CLAIMED_ADDRESS_INVALID', 'claimed_address must decode as base58 to 32 bytes (a Solana address); got ' + JSON.stringify(pp.claimed_address) + '.');
-  }
-
-  const hasAta = pp.wallet !== undefined || pp.mint !== undefined || pp.token_program_id !== undefined;
-  let walletBytes = null, mintBytes = null, tokenProgramBytes = null;
-  if (hasAta) {
-    if (!isNonEmptyString(pp.wallet) || !isNonEmptyString(pp.mint) || !isNonEmptyString(pp.token_program_id)) {
-      return refusal('ATA_TRIPLE_MALFORMED', 'ATA mode needs all three of wallet, mint and token_program_id as non-empty base58 strings (token_program_id is the token program the mint lives under, classic or Token-2022).');
-    }
-    walletBytes = parseAddress(pp.wallet);
-    if (walletBytes === null) return refusal('ATA_TRIPLE_MALFORMED', 'ATA wallet must decode as base58 to 32 bytes; got ' + JSON.stringify(pp.wallet) + '.');
-    mintBytes = parseAddress(pp.mint);
-    if (mintBytes === null) return refusal('ATA_TRIPLE_MALFORMED', 'ATA mint must decode as base58 to 32 bytes; got ' + JSON.stringify(pp.mint) + '.');
-    tokenProgramBytes = parseAddress(pp.token_program_id);
-    if (tokenProgramBytes === null) return refusal('ATA_TRIPLE_MALFORMED', 'ATA token_program_id must decode as base58 to 32 bytes; got ' + JSON.stringify(pp.token_program_id) + '.');
-  }
-
-  const compliance_flags = [];
-
-  // Limits facts (the pinned create_program_address would refuse; the audit reports the fact).
-  const overLen = [];
-  for (let i = 0; i < seedBytes.length; i++) if (seedBytes[i].length > MAX_SEED_LEN) overLen.push({ index: i, byte_length: seedBytes[i].length });
-  const countWithBump = seedBytes.length + 1;
-  const countExceeds = countWithBump > MAX_SEEDS;
-  const limits = limitsVerdict(seedBytes);
-
-  // Recompute the address for the CLAIMED bump (create_program_address semantics).
-  let derivedHashB58 = null;
-  let onCurve = null;
-  let verdict;
-  let claimedMatches = null;
-  if (limits !== 'ok') {
-    verdict = 'max_seed_length_exceeded';
-  } else {
-    const h = deriveWithBump(seedBytes, bump, programIdBytes);
-    derivedHashB58 = b58encode(h);
-    onCurve = isOnCurve(h);
-    verdict = onCurve ? 'on_curve' : 'off_curve';
-    claimedMatches = derivedHashB58 === pp.claimed_address;
-  }
-
-  // Canonical bump scan (try_find_program_address semantics: 255 down to 1, first off-curve).
-  let canonical = null;
-  if (limits === 'ok' && seedBytes.length < MAX_SEEDS) {
-    canonical = findCanonical(seedBytes, programIdBytes);
-  }
-  const canonicalBump = canonical === null ? null : canonical.bump;
-  const canonicalAddress = canonical === null ? null : canonical.address;
-  const claimedBumpIsCanonical = canonicalBump === null ? null : canonicalBump === bump;
-
-  if (overLen.length > 0) compliance_flags.push('SEED_LENGTH_EXCEEDS_MAX');
-  if (countExceeds) compliance_flags.push('SEED_COUNT_WITH_BUMP_EXCEEDS_MAX');
-  if (onCurve === true) compliance_flags.push('CLAIMED_BUMP_ON_CURVE');
-  if (claimedMatches === false) compliance_flags.push('CLAIMED_ADDRESS_MISMATCH');
-  if (claimedBumpIsCanonical === false) compliance_flags.push('NON_CANONICAL_BUMP_CLAIMED');
-  if (canonical === null && limits === 'ok' && seedBytes.length < MAX_SEEDS) compliance_flags.push('NO_CANONICAL_BUMP_IN_255_TO_1');
-
-  // ATA mode: side-by-side derivation under the declared token program and the classic one.
-  let ata = null;
-  if (hasAta) {
-    const ataProgramBytes = parseAddress(ATA_PROGRAM_ID);
-    const declared = findCanonical([walletBytes, tokenProgramBytes, mintBytes], ataProgramBytes);
-    const classicBytes = parseAddress(CLASSIC_TOKEN_PROGRAM_ID);
-    const classic = findCanonical([walletBytes, classicBytes, mintBytes], ataProgramBytes);
-    const declaredIsT22 = pp.token_program_id === TOKEN_2022_PROGRAM_ID;
-    const declaredIsClassic = pp.token_program_id === CLASSIC_TOKEN_PROGRAM_ID;
-    const differ = declared !== null && classic !== null && declared.address !== classic.address;
-    const mismatch = declaredIsT22 && differ;
-    if (mismatch) compliance_flags.push('TOKEN_PROGRAM_MISMATCH');
-    ata = {
-      wallet: pp.wallet,
-      mint: pp.mint,
-      token_program_id: pp.token_program_id,
-      declared_token_program_is_token_2022: declaredIsT22,
-      declared_token_program_is_classic: declaredIsClassic,
-      ata_under_declared_token_program: declared === null ? null : { address: declared.address, bump: declared.bump },
-      ata_under_classic_token_program: classic === null ? null : { address: classic.address, bump: classic.bump },
-      ata_addresses_differ: declared === null || classic === null ? null : differ,
-      token_program_mismatch: mismatch,
-    };
-  }
-
-  const output_payload = {
-    program_id: pp.program_id,
-    seed_count: seedBytes.length,
-    seed_count_with_bump: countWithBump,
-    seeds_exceeding_max_len: overLen,
-    seed_count_with_bump_exceeds_max: countExceeds,
-    derived_hash_base58: derivedHashB58,
-    on_curve: onCurve,
-    create_program_address_verdict: verdict,
-    claimed_bump: bump,
-    claimed_address: pp.claimed_address,
-    claimed_matches: claimedMatches,
-    canonical_bump: canonicalBump,
-    canonical_address: canonicalAddress,
-    claimed_bump_is_canonical: claimedBumpIsCanonical,
-    ata_derivation: ata,
-    note: 'Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes "ProgramDerivedAddress" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain.',
-  };
-
-  return { output_payload, compliance_flags };
-}
-
-export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
-    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
-    chaingraph_version: '0.4.0',
-    mandate_type: meta.mandate_type,
-    tool_id: TOOL_ID,
-    tool_version: TOOL_VERSION,
-    generated_at: now ?? null,
-    execution_hash: hash,
-    chain: { parent_hashes, parent_tool_ids, chain_depth },
-    policy_parameters: pp,
-    output_payload,
-    compliance_flags,
-    compute_mode: 'server',
-    compute_proof_ready: 'deferred',
-    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
-  };
-}
+/* ===== END deterministic transcendental math ===== */

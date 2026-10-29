@@ -36,7 +36,7 @@ Audit of a claimed program-derived-address tuple (program id, seeds with declare
 - error (string, optional)
 - detail (string, optional)
 - domain_errors (array, optional)
-- note (string, optional)
+- note (string,null, optional)
 
 ## Sample
 

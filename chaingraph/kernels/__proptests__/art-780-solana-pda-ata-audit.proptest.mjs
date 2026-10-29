@@ -1,6 +1,6 @@
 // @ts-nocheck — floor file: node:crypto/Buffer reference section needs it (precedent _rca-01-detmath-snapshot.mjs).
 // art-780-solana-pda-ata-audit property-test floor.
-// kernel_digest_at_authoring: sha256:802c45a9c264abdb662037bfb2aab8e9e9e848ef26ccfb1e03e7d39935d45735
+// kernel_digest_at_authoring: sha256:c5e354f27179836563a27c97f829ddca9906255cd8e9da9c524dca9a1eb0b0fe
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md section 3. Shape:
