@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainumbers.co/research/engineering-decision-schema/schemas/zkprof-report.schema.json",
+  "title": "zkprof Report",
+  "description": "One profiling run of a proving workload on one target, with primitive-level timing attribution and the deployment context it was measured under. Deployment context (isolation, threads, timer resolution) is carried in the report itself, because the same code measures differently under COOP/COEP than it does without.",
+  "type": "object",
+  "required": [
+    "report_version",
+    "target",
+    "system",
+    "workload_id",
+    "total_ms",
+    "phases",
+    "primitives",
+    "memory",
+    "threads",
+    "crossOriginIsolated",
+    "timer_resolution_us",
+    "iterations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional self-identifying reference to this schema. Lets edi-validate pick the document kind without an explicit --type."
+    },
+    "report_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semantic version of this report schema."
+    },
+    "target": {
+      "type": "object",
+      "required": ["kind", "os", "cpu"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["native", "wasm-scalar", "wasm-simd", "wasm-threads", "webgpu"]
+        },
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Browser name and version, when the target is a browser target."
+        },
+        "os": { "type": "string", "minLength": 1 },
+        "cpu": { "type": "string", "minLength": 1 },
+        "gpu": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Adapter string reported by the platform, for webgpu targets."
+        }
+      }
+    },
+    "system": {
+      "type": "object",
+      "required": ["proof_system", "curve_or_field"],
+      "additionalProperties": false,
+      "properties": {
+        "proof_system": {
+          "type": "string",
+          "minLength": 1,
+          "description": "e.g. groth16, plonk."
+        },
+        "curve_or_field": {
+          "type": "string",
+          "minLength": 1,
+          "description": "e.g. bn254, bls12-381, m31, goldilocks."
+        },
+        "constraint_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of constraints in the circuit, when known. Absent rather than 0 when not measured."
+        }
+      }
+    },
+    "workload_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifies the workload. Fixture reports MUST use a workload_id that says so."
+    },
+    "total_ms": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Wall time of the measured region, milliseconds."
+    },
+    "phases": {
+      "type": "array",
+      "description": "Sequential prover phases. Phase shares are not required to partition total_ms (phases may overlap or nest); primitive shares are.",
+      "items": {
+        "type": "object",
+        "required": ["name", "ms", "share"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "ms": { "type": "number", "minimum": 0 },
+          "share": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "primitives": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Primitive-level attribution. Shares MUST sum to 1.0 within +/- 0.02 (enforced by the Python validator).",
+      "items": {
+        "type": "object",
+        "required": ["name", "ms", "share"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "msm",
+              "ntt_fft",
+              "hash",
+              "field_arith",
+              "marshalling",
+              "witness_gen",
+              "other"
+            ]
+          },
+          "ms": { "type": "number", "minimum": 0 },
+          "share": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "peak_heap_bytes": { "type": "integer", "minimum": 0 }
+      },
+      "description": "Empty object when peak heap was not measured; omit the key rather than reporting 0."
+    },
+    "threads": {
+      "type": "object",
+      "required": ["count", "shared_array_buffer"],
+      "additionalProperties": false,
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "shared_array_buffer": { "type": "boolean" }
+      }
+    },
+    "crossOriginIsolated": {
+      "type": "boolean",
+      "description": "Value of the platform's crossOriginIsolated flag. Determines whether performance.now() is coarsened (~100 us) or fine-grained (~5 us)."
+    },
+    "timer_resolution_us": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Measured minimum observable nonzero delta of the clock source, microseconds."
+    },
+    "gpu_timing_source": {
+      "type": "string",
+      "enum": ["timestamp-query", "wall-clock"],
+      "description": "How the GPU-attributed time in this report was obtained. 'timestamp-query' means a GPUQuerySet spanned the pass and the figure is the resolved timestamp delta; 'wall-clock' means the host clock spanned submission and completion. Absent for targets with no GPU attribution at all. A timestamp-query figure covers the pass only: buffer copies, resource creation and submission latency are invisible to it, which is why a report that carries one also carries the wall-clock figure for the same region."
+    },
+    "iterations": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of workload repetitions inside the measured region. Per-operation figures are derived by dividing ms by iterations."
+    },
+    "run_manifest_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional reference to an edi-schema run-manifest document."
+    },
+    "backend_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identity of the proving backend that produced this report."
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Backend implementation version, if the backend exposes one."
+    },
+    "commitment_scheme": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Polynomial commitment scheme the backend uses, if known."
+    }
+  }
+}
