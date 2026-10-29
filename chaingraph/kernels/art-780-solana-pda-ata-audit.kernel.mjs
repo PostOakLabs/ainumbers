@@ -1,7 +1,7 @@
 // @ts-nocheck — this file inlines the full _noble-ed25519.bundle.mjs vendored library
 // (same pattern as art-652/art-703): the bundle is not checkJs-clean and is never edited
 // by hand, so type checking is off for the whole file rather than the vendored bytes.
-// art-779-solana-pda-ata-audit — audit a claimed program-derived-address tuple (bump
+// art-780-solana-pda-ata-audit — audit a claimed program-derived-address tuple (bump
 // canonicality and address substitution) and derive Token-2022-correct associated token
 // accounts. The node takes a pasted claim (program id, seeds with declared encodings, bump,
 // claimed address), recomputes the address the Solana runtime rules would produce for that
@@ -66,7 +66,7 @@
 
 import { executionHash } from './_hash.mjs';
 
-const TOOL_ID = 'art-779-solana-pda-ata-audit';
+const TOOL_ID = 'art-780-solana-pda-ata-audit';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {

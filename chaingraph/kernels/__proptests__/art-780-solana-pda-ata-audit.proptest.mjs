@@ -1,6 +1,6 @@
 // @ts-nocheck — floor file: node:crypto/Buffer reference section needs it (precedent _rca-01-detmath-snapshot.mjs).
-// art-779-solana-pda-ata-audit property-test floor.
-// kernel_digest_at_authoring: sha256:cefd23d3e42426f406e46d4672b972845e648d1e31792f91d42a01e132763444
+// art-780-solana-pda-ata-audit property-test floor.
+// kernel_digest_at_authoring: sha256:33e386fae274637391104a216b9dbc7f52e38347c9deabfb19041cfa3ff07e94
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md section 3. Shape:
@@ -30,9 +30,9 @@
 // float:no — no floating point anywhere. ZERO external dependencies — pure Node built-ins.
 // READ-ONLY w.r.t. the kernel it imports.
 //
-// Run: node chaingraph/kernels/__proptests__/art-779-solana-pda-ata-audit.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-780-solana-pda-ata-audit.proptest.mjs
 
-import { compute } from '../art-779-solana-pda-ata-audit.kernel.mjs';
+import { compute } from '../art-780-solana-pda-ata-audit.kernel.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -100,7 +100,7 @@ function getPath(root, key) {
   return cur;
 }
 function fixtureOracle() {
-  const fxPath = path.resolve(__dirname, '..', 'fixtures', 'art-779-solana-pda-ata-audit.fixtures.json');
+  const fxPath = path.resolve(__dirname, '..', 'fixtures', 'art-780-solana-pda-ata-audit.fixtures.json');
   const doc = JSON.parse(readFileSync(fxPath, 'utf8'));
   const violations = [];
   let checked = 0;
@@ -305,7 +305,7 @@ results.properties.push(checkP6());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 console.log(JSON.stringify({
-  tool: 'art-779-solana-pda-ata-audit',
+  tool: 'art-780-solana-pda-ata-audit',
   fixture_oracle: results.fixture_oracle,
   properties: results.properties,
   verdict: (oracleOk && !anyPropertyViolation) ? 'GREEN' : 'RED',
