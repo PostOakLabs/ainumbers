@@ -164,6 +164,7 @@ const FEE_MAX = 100000;
 const AMOUNT_MAX = 1000000;
 
 function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0; }
+function cents(v) { return Math.round(num(v) * 100); }
 function num(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
 
 function refused(domain_error, flags, detail) {
@@ -314,15 +315,20 @@ export function compute(pp) {
     if (pl.upfrontFee > 0) events.push({ due_periods: 0, amount: pl.upfrontFee, kind: 'upfront_fee' });
     events.sort((a, b) => a.due_periods - b.due_periods || (a.no || 0) - (b.no || 0));
 
-    // Delegate the APR to art-215, unchanged.
-    const advances = [{ amount: r2(principal), full_periods: 0, fraction: 0 }];
-    const payments = events.map((e) => ({ amount: e.amount, full_periods: e.due_periods, fraction: 0 }));
+    // Delegate the APR to art-215, unchanged. Amounts are passed as CENT
+    // INTEGERS (the same schedule scaled x100): integer cents sum exactly in
+    // IEEE-754, so a zero-finance-charge stream presents g0 == 0 exactly and
+    // never trips art-215's PRE-8 on a 1e-14 float artifact. Appendix J rates
+    // are scale-invariant, so the reported APR is identical.
+    const advances = [{ amount: cents(principal), full_periods: 0, fraction: 0 }];
+    const payments = events.map((e) => ({ amount: cents(e.amount), full_periods: e.due_periods, fraction: 0 }));
     const apr = computeRegZApr({ advances, payments, periods_per_year: ppy });
     const aprOut = apr.output_payload;
 
-    const totalOfPayments = r2(events.reduce((s, e) => s + e.amount, 0));
+    const totalOfPaymentsCents = events.reduce((s, e) => s + cents(e.amount), 0);
+    const totalOfPayments = totalOfPaymentsCents / 100;
     const totalFees = r2(pl.upfrontFee + pl.perInstFee * pl.n);
-    const financeCharge = r2(totalOfPayments - principal);
+    const financeCharge = (totalOfPaymentsCents - cents(principal)) / 100;
 
     const flags = [];
     for (const fl of (apr.compliance_flags || [])) flags.push(`ART215_${fl}`);
