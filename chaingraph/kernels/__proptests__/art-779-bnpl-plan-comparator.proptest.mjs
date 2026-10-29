@@ -1,5 +1,5 @@
 // art-779-bnpl-plan-comparator — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:e20041eb629115ba563e8eb77ba2529959c71eb6c9bf106504d8b46d025df466
+// kernel_digest_at_authoring: sha256:1210161ca3752bb13065afddf23612751c2b1b0894750dd19848c6c6f23595e4
 // spec: BNPL-COMPARATOR-NODE-1 (board/queued); clause authority
 //   research/clause-snapshots/bnpl-{paypal,klarna,afterpay,affirm}-2026-10/SNAPSHOT.md
 //   (row BNPL-TERMS-PRIMARY-TEXT-1, fetch 2026-10-28).

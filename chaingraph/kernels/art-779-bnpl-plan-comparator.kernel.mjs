@@ -402,8 +402,9 @@ function refused(domain_error, flags, detail) {
   return {
     output_payload: {
       input_echo: null, refused: true, domain_error,
+      warnings: flags.slice(),
       note: detail,
-      apr_method: 'Reg Z Appendix J actuarial via art-215 compute_reg_z_appendix_j_apr (delegated, never reimplemented)',
+      apr_method: 'Reg Z Appendix J actuarial via the art-215 solver carried verbatim inline (compute_reg_z_appendix_j_apr)',
     },
     compliance_flags: flags,
   };
@@ -615,7 +616,10 @@ export function compute(pp) {
       lowest_total_of_payments_plans: lowest,
     },
     plans: results,
-    apr_method: 'Every APR is computed by art-215 compute_reg_z_appendix_j_apr (Reg Z Appendix J general actuarial equation, bracketed bisection), imported and delegated to, never reimplemented.',
+    // FLAG-MIRROR-DOCTRINE (AUTHORING-STANDARD section 2): every conditional
+    // compliance flag is mirrored here, deduped in first-raise order.
+    warnings: [...new Set(compliance_flags)],
+    apr_method: 'Every APR is computed by the art-215 solver compute_reg_z_appendix_j_apr (Reg Z Appendix J general actuarial equation, bracketed bisection), carried verbatim inline between sentinel comments and parity-checked against the live module.',
     terms_note: 'Presets are labelled examples from dated provider snapshots, never an offer. Terms vary by provider, merchant and credit decision; provider quotes carry their own qualifiers.',
     late_fee_note: 'Late fees are contingent on missed payments and are not part of any schedule here; preset entries cite each provider\'s stated late-fee clause as information only.',
   };
