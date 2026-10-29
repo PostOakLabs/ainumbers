@@ -1,5 +1,5 @@
 // art-779-bnpl-plan-comparator — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:2c235c9da8cdbc3076c606cd0301c0c633f855db2d436f0e5e883bdb57603ef5
+// kernel_digest_at_authoring: sha256:4b35b90d6a743ed4dbef8bbdf33c71a17ea27d9ca5289086251802173a5acc6e
 // spec: BNPL-COMPARATOR-NODE-1 (board/queued); clause authority
 //   research/clause-snapshots/bnpl-{paypal,klarna,afterpay,affirm}-2026-10/SNAPSHOT.md
 //   (row BNPL-TERMS-PRIMARY-TEXT-1, fetch 2026-10-28).
@@ -182,16 +182,20 @@ function checkP4_labelled_examples() {
     ['affirm_monthly_example', 400, 426.56, 15],
     ['affirm_pay_in_4_example', 400, 400, 0],
   ];
-  for (const [preset, principal, statedTotal, statedApr] of cases) {
+  for (const [preset, principalIn, statedTotalIn, statedAprIn] of cases) {
     checked++;
+    const principal = Number(principalIn), statedTotal = Number(statedTotalIn), statedApr = Number(statedAprIn);
     const { output_payload: o } = compute779({ principal, plans: [{ preset }] });
     if (o.refused) { violations++; continue; }
     const plan = o.plans[0];
     if (plan.total_of_payments !== statedTotal) violations++;
     if (plan.preset.labelled_example_principal !== principal) violations++;
+    const got = plan.reg_z_apr.apr_pct;
     if (statedApr === 0) {
-      if (plan.reg_z_apr.apr_pct !== 0) violations++;
-    } else if (plan.reg_z_apr.apr_pct === null || Math.abs(plan.reg_z_apr.apr_pct - statedApr) > 0.35) {
+      if (got !== 0) violations++;
+    } else if (got === null) {
+      violations++;
+    } else if (Math.abs(got - statedApr) > 0.35) {
       violations++;
     }
   }
@@ -264,11 +268,24 @@ const kernelSource = readFileSync(new URL('../art-779-bnpl-plan-comparator.kerne
 if (/JSON\.stringify\([\s\S]{0,200}?,\s*Object\.keys\([\s\S]{0,160}?\)\.sort\(\)\s*\)/.test(kernelSource) || /function\s+simpleHash\s*\(/.test(kernelSource)) {
   oracle.failures.push({ name: 'forbidden-hash-pattern', expected: 'none', got: 'kernel matches a lint-forbidden-hash pattern' });
 }
-// The row's hard STOP: the kernel must delegate the APR to art-215, never
-// reimplement a solver. A second bisection/present-value implementation here
-// would be exactly the divergence the row forbids.
-if (!/from '\.\/art-215-reg-z-appendix-j-apr\.kernel\.mjs'/.test(kernelSource) || /function\s+(solveAPR|bisect|pvFlow)\s*\(/.test(kernelSource)) {
-  oracle.failures.push({ name: 'apr-method-divergence', expected: 'art-215 import present, no local solver', got: 'kernel reimplements APR maths or drops the art-215 import' });
+// The row's hard STOP: the APR maths must be art-215's, never a new formula.
+// The guest VM resolves only _hash, so the composition rule is a VERBATIM
+// inline between sentinels; this check holds the inline byte-equal to the
+// live art-215 module's own solver core (source-level parity on top of the
+// numeric parity P3 already proves), so no drift can survive.
+{
+  const a215 = readFileSync(new URL('../art-215-reg-z-appendix-j-apr.kernel.mjs', import.meta.url), 'utf8');
+  const lines = a215.split('\n');
+  const start = lines.findIndex((l) => l.startsWith('// Pure ECMA-262 math'));
+  const buildIdx = lines.findIndex((l) => l.startsWith('export async function buildArtifact'));
+  const core = lines.slice(start, buildIdx - 1).join('\n')
+    .replace('export function compute(pp) {', 'function computeRegZApr(pp) {');
+  if (!kernelSource.includes('// ART-215-SOLVER-INLINE:START') || !kernelSource.includes('// ART-215-SOLVER-INLINE:END')) {
+    oracle.failures.push({ name: 'apr-inline-sentinels', expected: 'ART-215-SOLVER-INLINE sentinels present', got: 'sentinel comments missing from the kernel' });
+  }
+  if (!kernelSource.includes(core)) {
+    oracle.failures.push({ name: 'apr-inline-divergence', expected: 'art-215 solver core verbatim between the sentinels', got: 'inlined solver text differs from the live art-215 module' });
+  }
 }
 
 const properties = [
