@@ -1,6 +1,6 @@
 // @ts-nocheck — floor file: node:crypto/Buffer reference section needs it (precedent _rca-01-detmath-snapshot.mjs).
 // art-780-solana-pda-ata-audit property-test floor.
-// kernel_digest_at_authoring: sha256:33e386fae274637391104a216b9dbc7f52e38347c9deabfb19041cfa3ff07e94
+// kernel_digest_at_authoring: sha256:802c45a9c264abdb662037bfb2aab8e9e9e848ef26ccfb1e03e7d39935d45735
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md section 3. Shape:
@@ -40,6 +40,26 @@ import path from 'node:path';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const results = { fixture_oracle: null, properties: [] };
+
+// Mutation-tier cost mode (same shape as the art-705 floor's stryker-conditional trial
+// caps): when this floor runs as the per-mutant command of a mutation-tier Stryker run,
+// the same battery executes thousands of times against the instrumented kernel. The
+// fixture oracle, the published-golden anchors, the refusal matrix, the ATA grid and the
+// determinism check are NEVER capped and NEVER skipped — every vector and every
+// assertion stays. What changes under mutation mode only:
+//   - randomized trial counts and bump-window widths shrink (the deterministic PRNG is
+//     unchanged, so the kept trials are the SAME leading tuples the full run uses);
+//   - the battery stops at the first violation found (a mutant already detected is
+//     killed; assertions after a kill add no kill information, and the full detail
+//     listing still runs in the normal uncapped invocation).
+const MUTATION_MODE =
+  process.env.__STRYKER_ACTIVE_MUTANT__ !== undefined ||
+  fileURLToPath(import.meta.url).split(String.fromCharCode(92)).join('/').includes('/ain-mutation-tier-');
+const P1_TRIALS = MUTATION_MODE ? 24 : 40;
+const P2_TRIALS = MUTATION_MODE ? 6 : 12;
+const P2_WINDOW = MUTATION_MODE ? 6 : 12;
+const P3_TRIALS = MUTATION_MODE ? 6 : 12;
+const P3_WINDOW = MUTATION_MODE ? 6 : 12;
 
 const P = (1n << 255n) - 19n;
 const ED_D = 37095705934669439343138083508754565189542113879843219016388785533085940283555n;
@@ -112,6 +132,7 @@ function fixtureOracle() {
       if (JSON.stringify(got) !== JSON.stringify(expected)) violations.push(`${v.name}: ${key} expected ${JSON.stringify(expected)} got ${JSON.stringify(got)}`);
       checked++;
     }
+    if (MUTATION_MODE && violations.length > 0) break;
   }
   return { name: 'fixture_oracle', vectors: doc.vectors.length, pins: checked, violations: violations.slice(0, 8), detail: violations };
 }
@@ -137,7 +158,7 @@ function checkP1() {
     if (refB58e(h) !== a.want) violations.push(`P1 anchor broken: ${refB58e(h)} != ${a.want}`);
   }
   // randomized equivalence
-  for (let t = 0; t < 40; t++) {
+  for (let t = 0; t < P1_TRIALS; t++) {
     const nSeeds = Number(rnd() % 3n);
     const seeds = [];
     const seedBufs = [];
@@ -157,14 +178,15 @@ function checkP1() {
     // reference agreement on the flag that matters most
     const wantNonCanonical = refCanonical !== null && refCanonical.bump !== bump;
     if (r.compliance_flags.includes('NON_CANONICAL_BUMP_CLAIMED') !== wantNonCanonical) violations.push(`P1 flag t=${t}`);
+    if (MUTATION_MODE && violations.length > 0) break;
   }
-  return { name: 'P1_reference_equivalence', cases: 40 + anchor.length, violations: violations.length, detail: violations.slice(0, 5) };
+  return { name: 'P1_reference_equivalence', cases: P1_TRIALS + anchor.length, violations: violations.length, detail: violations.slice(0, 5) };
 }
 
 // ---------------------------------------------------------------- P2: canonical invariants
 function checkP2() {
   const violations = [];
-  for (let t = 0; t < 12; t++) {
+  for (let t = 0; t < P2_TRIALS; t++) {
     const s = rndSeedStr() + t;
     const seeds = [{ data: s, encoding: 'utf8' }];
     const r = compute({ program_id: BPF, seeds, bump: 1, claimed_address: ANY_ADDR });
@@ -174,8 +196,8 @@ function checkP2() {
     const at = compute({ program_id: BPF, seeds, bump: o.canonical_bump, claimed_address: ANY_ADDR });
     if (at.output_payload.derived_hash_base58 !== o.canonical_address) violations.push(`P2 canonical address mismatch t=${t}`);
     if (at.output_payload.on_curve !== false) violations.push(`P2 canonical bump on-curve t=${t}`);
-    // every bump above the canonical one (window of 12) is on-curve: definitional
-    for (let b = o.canonical_bump + 1; b <= Math.min(255, o.canonical_bump + 12); b++) {
+    // every bump above the canonical one (window) is on-curve: definitional
+    for (let b = o.canonical_bump + 1; b <= Math.min(255, o.canonical_bump + P2_WINDOW); b++) {
       const rb = compute({ program_id: BPF, seeds, bump: b, claimed_address: ANY_ADDR });
       if (rb.output_payload.on_curve !== true) violations.push(`P2 bump ${b} above canonical ${o.canonical_bump} not on-curve t=${t}`);
     }
@@ -184,21 +206,22 @@ function checkP2() {
       const rb = compute({ program_id: BPF, seeds, bump: b, claimed_address: ANY_ADDR });
       if (rb.output_payload.claimed_bump_is_canonical !== (b === o.canonical_bump)) violations.push(`P2 canonicality bool b=${b} t=${t}`);
     }
+    if (MUTATION_MODE && violations.length > 0) break;
   }
-  return { name: 'P2_canonical_invariants', cases: 12, violations: violations.length, detail: violations.slice(0, 5) };
+  return { name: 'P2_canonical_invariants', cases: P2_TRIALS, violations: violations.length, detail: violations.slice(0, 5) };
 }
 
 // ---------------------------------------------------------------- P3: substitution property
 function checkP3() {
   const violations = [];
   let substitutionCases = 0;
-  for (let t = 0; t < 12; t++) {
+  for (let t = 0; t < P3_TRIALS; t++) {
     const s = rndSeedStr() + 'x' + t;
     const seeds = [{ data: s, encoding: 'utf8' }];
     const base = compute({ program_id: BPF, seeds, bump: 255, claimed_address: ANY_ADDR });
     const cb = base.output_payload.canonical_bump;
     if (cb === null || cb <= 1) continue;
-    for (let b = cb - 1; b >= Math.max(1, cb - 12); b--) {
+    for (let b = cb - 1; b >= Math.max(1, cb - P3_WINDOW); b--) {
       const rb = compute({ program_id: BPF, seeds, bump: b, claimed_address: ANY_ADDR });
       if (rb.output_payload.on_curve === true) continue;
       // second valid address, different from canonical
@@ -208,6 +231,7 @@ function checkP3() {
       substitutionCases++;
       break;
     }
+    if (MUTATION_MODE && violations.length > 0) break;
   }
   if (substitutionCases === 0) violations.push('P3 found no substitution case (unexpected: probability ~1 per seed)');
   return { name: 'P3_substitution_class', cases: substitutionCases, violations: violations.length, detail: violations.slice(0, 5) };
@@ -240,6 +264,7 @@ function checkP4_refusalMatrix() {
     for (const k of ['derived_hash_base58', 'claimed_matches', 'canonical_bump', 'canonical_address', 'claimed_bump_is_canonical', 'ata_derivation']) {
       if (o[k] !== null && o[k] !== undefined) violations.push(`${c.name}: refusal left ${k} non-null`);
     }
+    if (MUTATION_MODE && violations.length > 0) break;
   }
   return { name: 'P4_refusal_matrix', cases: REFUSAL_CASES.length, violations: violations.length, detail: violations.slice(0, 6) };
 }
@@ -257,18 +282,22 @@ function checkP5() {
   if (JSON.stringify(oc.compliance_flags) !== JSON.stringify(wantOc)) violations.push(`P5 on-curve order: ${JSON.stringify(oc.compliance_flags)}`);
   // ATA grid across declared program ids
   const W = ANY_ADDR, M = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+  // loop-invariant reference derivations, hoisted: the wallet/mint decodes and the
+  // classic-program ATA do not depend on the grid's declared program id
+  const wBytes = refB58d(W), mBytes = refB58d(M), ataProgBytes = refB58d(ATA_PROGRAM);
+  const classicRef = refFind([wBytes, refB58d(CLASSIC), mBytes], ataProgBytes);
   for (const [prog, isT22] of [[T22, true], [CLASSIC, false], [BPF, false]]) {
     const r = compute({ program_id: BPF, seeds: [{ data: 'vault', encoding: 'utf8' }], bump: 254, claimed_address: ANY_ADDR, wallet: W, mint: M, token_program_id: prog });
     const ata = r.output_payload.ata_derivation;
     if (!ata) { violations.push('P5 ata missing'); continue; }
     if (ata.declared_token_program_is_token_2022 !== isT22) violations.push(`P5 t22 bool for ${prog}`);
-    const classic = refFind([refB58d(W), refB58d(CLASSIC), refB58d(M)], refB58d(ATA_PROGRAM));
-    const declared = refFind([refB58d(W), refB58d(prog), refB58d(M)], refB58d(ATA_PROGRAM));
-    if (ata.ata_under_classic_token_program.address !== classic.address) violations.push(`P5 classic ata for ${prog}`);
+    const declared = refFind([wBytes, refB58d(prog), mBytes], ataProgBytes);
+    if (ata.ata_under_classic_token_program.address !== classicRef.address) violations.push(`P5 classic ata for ${prog}`);
     if (ata.ata_under_declared_token_program.address !== declared.address) violations.push(`P5 declared ata for ${prog}`);
-    const wantMismatch = isT22 && declared.address !== classic.address;
+    const wantMismatch = isT22 && declared.address !== classicRef.address;
     if (ata.token_program_mismatch !== wantMismatch) violations.push(`P5 mismatch bool for ${prog}`);
     if (r.compliance_flags.includes('TOKEN_PROGRAM_MISMATCH') !== wantMismatch) violations.push(`P5 mismatch flag for ${prog}`);
+    if (MUTATION_MODE && violations.length > 0) break;
   }
   // no ATA triple: ata_derivation null, no ATA flags
   const rno = compute({ program_id: BPF, seeds: [{ data: 'vault', encoding: 'utf8' }], bump: 254, claimed_address: 'HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq' });
@@ -293,22 +322,31 @@ function checkP6() {
 }
 
 // ---------------------------------------------------------------- run
+const emit = (verdict) => {
+  console.log(JSON.stringify({
+    tool: 'art-780-solana-pda-ata-audit',
+    fixture_oracle: results.fixture_oracle,
+    properties: results.properties,
+    verdict,
+  }, null, 1));
+};
 const oracle = fixtureOracle();
 const oracleOk = oracle.violations.length === 0;
 results.fixture_oracle = { name: oracle.name, vectors: oracle.vectors, pins: oracle.pins, violations: oracle.violations.length };
+if (MUTATION_MODE && !oracleOk) { emit('RED'); process.exit(1); }
 results.properties.push(checkP1());
+if (MUTATION_MODE && results.properties[results.properties.length - 1].violations > 0) { emit('RED'); process.exit(1); }
 results.properties.push(checkP2());
+if (MUTATION_MODE && results.properties[results.properties.length - 1].violations > 0) { emit('RED'); process.exit(1); }
 results.properties.push(checkP3());
+if (MUTATION_MODE && results.properties[results.properties.length - 1].violations > 0) { emit('RED'); process.exit(1); }
 results.properties.push(checkP4_refusalMatrix());
+if (MUTATION_MODE && results.properties[results.properties.length - 1].violations > 0) { emit('RED'); process.exit(1); }
 results.properties.push(checkP5());
+if (MUTATION_MODE && results.properties[results.properties.length - 1].violations > 0) { emit('RED'); process.exit(1); }
 results.properties.push(checkP6());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
-console.log(JSON.stringify({
-  tool: 'art-780-solana-pda-ata-audit',
-  fixture_oracle: results.fixture_oracle,
-  properties: results.properties,
-  verdict: (oracleOk && !anyPropertyViolation) ? 'GREEN' : 'RED',
-}, null, 1));
+emit((oracleOk && !anyPropertyViolation) ? 'GREEN' : 'RED');
 
 process.exit(oracleOk && !anyPropertyViolation ? 0 : 1);
