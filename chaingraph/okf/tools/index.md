@@ -662,6 +662,7 @@ status: stable
 - [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md) — `derive_beacon_fair_sample_v2`
 - [PayPal Dispute Deadline & Evidence](./art-776-paypal-dispute-deadline-evidence.md) — `compute_paypal_response`
 - [PSP Dispute Reason Crosswalk](./art-777-psp-dispute-reason-crosswalk.md) — `crosswalk_psp_dispute_reasons`
+- [Token-2022 Withheld-Fee Reconciler](./art-778-token2022-withheld-fee-reconciler.md) — `reconcile_token2022_withheld`
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md) — `calculate_csdr_penalty`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
