@@ -1,0 +1,337 @@
+{
+  "tool_id": "art-779-bnpl-plan-comparator",
+  "version": "1.0.0",
+  "title": "BNPL Plan Comparator",
+  "description": "Side-by-side BNPL plan cost comparison on Reg Z Appendix J APR maths, with every APR computed by art-215 compute_reg_z_appendix_j_apr (imported and delegated to, never reimplemented). Enter a USD principal plus up to 8 plans: a provider preset (labelled examples quoted from dated primary-text snapshots of PayPal, Klarna, Afterpay and Affirm US consumer pages, never an offer) or explicit parameters (instalment count, cadence weekly/biweekly/monthly, stated APR, upfront and per-instalment fees, optional quoted instalment amount). Each plan returns its payment schedule, total of payments, fee total, finance charge and the Reg Z APR of the stream, and the comparison ranks plans by total cost. Terms vary by provider, merchant and credit decision.",
+  "category": "chaingraph",
+  "tags": [
+    "bnpl",
+    "consumer-credit",
+    "apr",
+    "reg-z",
+    "plan-comparison",
+    "mcp:compare_bnpl_plans"
+  ],
+  "input_schema": {
+    "type": "object",
+    "description": "principal (USD) plus 1 to 8 plans; each plan is either {preset} or explicit instalment parameters.",
+    "properties": {
+      "principal": {
+        "type": "number",
+        "description": "Purchase amount in USD to split across each plan."
+      },
+      "currency": {
+        "type": "string",
+        "enum": [
+          "USD"
+        ],
+        "description": "Currency; only USD is supported (US consumer terms)."
+      },
+      "plans": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 8,
+        "description": "Plans to compare; preset entries inherit a provider's published plan shape.",
+        "items": {
+          "type": "object",
+          "description": "One plan: either a preset id or explicit parameters, never both.",
+          "properties": {
+            "label": {
+              "type": "string",
+              "description": "Caller's own display label for the plan."
+            },
+            "preset": {
+              "type": "string",
+              "description": "Snapshot-backed preset id (labelled example, not an offer)."
+            },
+            "num_instalments": {
+              "type": "integer",
+              "description": "Number of instalments, 1 to 156."
+            },
+            "cadence": {
+              "type": "string",
+              "enum": [
+                "weekly",
+                "biweekly",
+                "monthly"
+              ],
+              "description": "Instalment cadence (unit period)."
+            },
+            "apr_pct": {
+              "type": "number",
+              "description": "Stated APR in percent as quoted (0 for interest-free)."
+            },
+            "upfront_fee": {
+              "type": "number",
+              "description": "One-time fee paid at purchase, USD."
+            },
+            "per_instalment_fee": {
+              "type": "number",
+              "description": "Fee added to every instalment, USD."
+            },
+            "instalment_amount": {
+              "type": "number",
+              "description": "Quoted instalment amount; required when apr_pct is above 0."
+            },
+            "down_payment": {
+              "type": "number",
+              "description": "Down payment made at purchase, USD."
+            },
+            "first_instalment_at_purchase": {
+              "type": "boolean",
+              "description": "True when the first instalment is due at purchase (pay-in-N style)."
+            }
+          }
+        }
+      }
+    },
+    "required": [
+      "principal",
+      "plans"
+    ]
+  },
+  "mcp_tool_definition": {
+    "name": "compare_bnpl_plans",
+    "description": "Compare BNPL plans side by side on Reg Z Appendix J APR maths (delegated to art-215): schedules, fees, finance charges and computed APRs for pay-in-N and monthly plans, provider presets as cited labelled examples (never an offer), ranked by total cost.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "principal": {
+          "type": "number",
+          "description": "Purchase amount in USD to split across each plan."
+        },
+        "currency": {
+          "type": "string",
+          "enum": [
+            "USD"
+          ],
+          "description": "Currency; only USD is supported (US consumer terms)."
+        },
+        "plans": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "description": "Plans to compare; preset entries inherit a provider's published plan shape.",
+          "items": {
+            "type": "object",
+            "description": "One plan: either a preset id or explicit parameters, never both.",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Caller's own display label for the plan."
+              },
+              "preset": {
+                "type": "string",
+                "description": "Snapshot-backed preset id (labelled example, not an offer)."
+              },
+              "num_instalments": {
+                "type": "integer",
+                "description": "Number of instalments, 1 to 156."
+              },
+              "cadence": {
+                "type": "string",
+                "enum": [
+                  "weekly",
+                  "biweekly",
+                  "monthly"
+                ],
+                "description": "Instalment cadence (unit period)."
+              },
+              "apr_pct": {
+                "type": "number",
+                "description": "Stated APR in percent as quoted (0 for interest-free)."
+              },
+              "upfront_fee": {
+                "type": "number",
+                "description": "One-time fee paid at purchase, USD."
+              },
+              "per_instalment_fee": {
+                "type": "number",
+                "description": "Fee added to every instalment, USD."
+              },
+              "instalment_amount": {
+                "type": "number",
+                "description": "Quoted instalment amount; required when apr_pct is above 0."
+              },
+              "down_payment": {
+                "type": "number",
+                "description": "Down payment made at purchase, USD."
+              },
+              "first_instalment_at_purchase": {
+                "type": "boolean",
+                "description": "True when the first instalment is due at purchase."
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "principal",
+        "plans"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-779-bnpl-plan-comparator.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "description": "output_payload: input echo, comparison (ranking by total of payments, lowest-total plan indices), per-plan schedule (kind, instalment_no, due_periods_from_purchase, amount), totals, fee total, finance charge, stated APR, reg_z_apr (apr_pct null with flags when no rate is bracketed; computed by art-215), preset provenance (clauses, lender, late-fee note, qualifiers, not-an-offer status), method and terms notes; refusals return domain_error by name."
+  },
+  "source": "chaingraph/kernels/art-779-bnpl-plan-comparator.kernel.mjs",
+  "input_schema_provenance": "Each property is exactly the policy_parameters member the kernel reads; there is no other input surface. Plan-shape preset values come verbatim from the four primary-text snapshots (PayPal P1, Klarna K1/K2, Afterpay A1/A2, Affirm F1/F2, fetch 2026-10-28, research/clause-snapshots/bnpl-*-2026-10/SNAPSHOT.md); the APR is computed by the imported art-215 Reg Z Appendix J solver, never restated here.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "principal": 248,
+    "plans": [
+      {
+        "preset": "klarna_service_fee_example"
+      }
+    ]
+  },
+  "output_example": {
+    "input_echo": {
+      "principal": 248,
+      "currency": "USD",
+      "plans": [
+        {
+          "preset": "klarna_service_fee_example"
+        }
+      ]
+    },
+    "refused": false,
+    "comparison": {
+      "ranked_by_total_of_payments": [
+        0
+      ],
+      "lowest_total_of_payments_plans": [
+        0
+      ]
+    },
+    "plans": [
+      {
+        "plan_index": 0,
+        "label": "Klarna apply-in-advance Pay in 4, labelled example (service fee)",
+        "num_instalments": 4,
+        "cadence": "biweekly",
+        "periods_per_year": 26,
+        "first_instalment_at_purchase": true,
+        "schedule": [
+          {
+            "kind": "upfront_fee",
+            "instalment_no": null,
+            "due_periods_from_purchase": 0,
+            "amount": 4.99
+          },
+          {
+            "kind": "instalment",
+            "instalment_no": 1,
+            "due_periods_from_purchase": 0,
+            "amount": 62
+          },
+          {
+            "kind": "instalment",
+            "instalment_no": 2,
+            "due_periods_from_purchase": 1,
+            "amount": 62
+          },
+          {
+            "kind": "instalment",
+            "instalment_no": 3,
+            "due_periods_from_purchase": 2,
+            "amount": 62
+          },
+          {
+            "kind": "instalment",
+            "instalment_no": 4,
+            "due_periods_from_purchase": 3,
+            "amount": 62
+          }
+        ],
+        "total_of_payments": 252.99,
+        "fee_component_total": 4.99,
+        "finance_charge": 4.99,
+        "stated_apr_pct": 35.68,
+        "reg_z_apr": {
+          "apr_pct": 35.6757,
+          "periodic_rate": 0.013721,
+          "converged": true,
+          "bracketed": true,
+          "iterations": 25
+        },
+        "preset": {
+          "id": "klarna_service_fee_example",
+          "provider": "klarna",
+          "display": "Klarna apply-in-advance Pay in 4, labelled example (service fee)",
+          "kind": "labelled_example",
+          "labelled_example_principal": 248,
+          "clauses": [
+            {
+              "snapshot": "bnpl-klarna-2026-10",
+              "snapshot_path": "research/clause-snapshots/bnpl-klarna-2026-10/SNAPSHOT.md",
+              "fetched": "2026-10-28",
+              "clause": "K2",
+              "quote": "Apply in advance for Pay in 4, issued by WebBank, with a service fee between $1.29–$5.99."
+            },
+            {
+              "snapshot": "bnpl-klarna-2026-10",
+              "snapshot_path": "research/clause-snapshots/bnpl-klarna-2026-10/SNAPSHOT.md",
+              "fetched": "2026-10-28",
+              "clause": "K2",
+              "quote": "a $248 purchase with a $62 down payment and $4.99 service fee results in a 35.68% APR"
+            },
+            {
+              "snapshot": "bnpl-klarna-2026-10",
+              "snapshot_path": "research/clause-snapshots/bnpl-klarna-2026-10/SNAPSHOT.md",
+              "fetched": "2026-10-28",
+              "clause": "K2",
+              "quote": "followed by three more biweekly payments of $62 (total repayment: $252.99)."
+            }
+          ],
+          "lender_note": {
+            "snapshot": "bnpl-klarna-2026-10",
+            "snapshot_path": "research/clause-snapshots/bnpl-klarna-2026-10/SNAPSHOT.md",
+            "fetched": "2026-10-28",
+            "clause": "K2",
+            "quote": "Apply in advance for Pay in 4, issued by WebBank"
+          },
+          "late_fee_note": {
+            "snapshot": "bnpl-klarna-2026-10",
+            "snapshot_path": "research/clause-snapshots/bnpl-klarna-2026-10/SNAPSHOT.md",
+            "fetched": "2026-10-28",
+            "clause": "K1",
+            "quote": "along with a late fee of up to $7.00."
+          },
+          "qualifiers": [
+            {
+              "snapshot": "bnpl-klarna-2026-10",
+              "snapshot_path": "research/clause-snapshots/bnpl-klarna-2026-10/SNAPSHOT.md",
+              "fetched": "2026-10-28",
+              "clause": "K2",
+              "quote": "Subject to credit approval; minimum 25% down payment required."
+            }
+          ],
+          "example_status": "labelled example from the provider's published US consumer page, not an offer"
+        },
+        "flags": [
+          "LOWEST_TOTAL_OF_PAYMENTS"
+        ]
+      }
+    ],
+    "apr_method": "Every APR is computed by art-215 compute_reg_z_appendix_j_apr (Reg Z Appendix J general actuarial equation, bracketed bisection), imported and delegated to, never reimplemented.",
+    "terms_note": "Presets are labelled examples from dated provider snapshots, never an offer. Terms vary by provider, merchant and credit decision; provider quotes carry their own qualifiers.",
+    "late_fee_note": "Late fees are contingent on missed payments and are not part of any schedule here; preset entries cite each provider's stated late-fee clause as information only."
+  },
+  "example_execution_hash": "7e4a2f1427a58d212dd9ae860216579ca230b364cf33c69affb4bbff7ffbe25c"
+}
