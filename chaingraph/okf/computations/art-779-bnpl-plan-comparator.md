@@ -8,8 +8,8 @@ executor:
   receipt: ["type", "system", "receiptFormat", "imageId", "seal", "journal"]
 attester:
   resource: https://ainumbers.co/chaingraph/graph/nodes/art-779-bnpl-plan-comparator.json#compute_images
-timestamp: 2026-10-29
-generated: { by: "ainumbers/generate-okf", at: "2026-10-29" }
+timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
 ---
 
@@ -19,7 +19,7 @@ status: stable
 
 ## Executor
 
-Kernel source: `chaingraph/kernels/art-779-bnpl-plan-comparator.kernel.mjs`. The kernel imports and delegates every APR computation to `chaingraph/kernels/art-215-reg-z-appendix-j-apr.kernel.mjs` (Reg Z Appendix J, 12 CFR 1026); it contains no solver of its own. A §18 zkVM compute-integrity
+Kernel source: `chaingraph/kernels/art-779-bnpl-plan-comparator.kernel.mjs`. A §18 zkVM compute-integrity
 proof, when attached to an artifact this kernel produced, carries these receipt fields:
 `type`, `system`, `receiptFormat`, `imageId`, `seal`, `journal` (SPEC.md §18.0).
 

@@ -665,6 +665,7 @@ status: stable
 - [PayPal Dispute Deadline & Evidence](./art-776-paypal-dispute-deadline-evidence.md)
 - [PSP Dispute Reason Crosswalk](./art-777-psp-dispute-reason-crosswalk.md)
 - [Token-2022 Withheld-Fee Reconciler](./art-778-token2022-withheld-fee-reconciler.md)
+- [BNPL Plan Comparator](./art-779-bnpl-plan-comparator.md)
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md)
 - [Solana PDA Bump and ATA Audit](./art-780-solana-pda-ata-audit.md)
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md)

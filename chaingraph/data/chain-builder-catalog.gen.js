@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (698 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (699 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7684,6 +7684,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "settlement_mandate",
     "url": "https://ainumbers.co/chaingraph/art-778-token2022-withheld-fee-reconciler.html",
     "description": "Token-2022 withheld-fee reconciliation across token accounts (the first node added after art-715; its primary text is the Solana Token-2022 ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-779-bnpl-plan-comparator",
+    "display_name": "BNPL Plan Comparator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-779-bnpl-plan-comparator.html",
+    "description": "Side-by-side BNPL plan cost comparison on the estate's Reg Z APR maths: the APR for every plan is computed by the estate's art-215 solver co",
     "consumes": [],
     "feeds": [],
     "status": "live"
