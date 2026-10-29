@@ -2,10 +2,10 @@
   "schema_version": "mcp-catalog-v1",
   "server_id": "ainumbers-fintech-suite",
   "name": "AINumbers Fintech Intelligence Suite",
-  "description": "1222 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
+  "description": "1224 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
   "base_url": "https://ainumbers.co",
-  "generated": "2026-10-27",
-  "tool_count": 1222,
+  "generated": "2026-10-28",
+  "tool_count": 1224,
   "tools": [
     {
       "name": "calculate_a2a_fee_route",
@@ -16162,6 +16162,10 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "fy": {
+            "type": "integer",
+            "description": "Reporting fiscal year (2023 or later); selects the Article 9.2 SBIE rates"
+          },
           "jurisdictions": {
             "type": "array",
             "description": "List of jurisdictions with GloBE income data",
@@ -16190,7 +16194,7 @@
                 },
                 "sbie_payroll_rate_pct": {
                   "type": "number",
-                  "description": "SBIE payroll rate % \u2014 FY2024: 9.8, FY2025: 9.6, FY2026: 9.4, FY2027+: 5.0"
+                  "description": "Optional SBIE payroll rate % override; blank uses the year's Article 9.2 payroll rate (10.0 to 5.8 over FY2023-FY2032; 5.0 from FY2033)"
                 }
               },
               "required": [
@@ -16239,7 +16243,7 @@
           },
           "fy": {
             "type": "integer",
-            "description": "Fiscal year (affects SBIE transitional rates)"
+            "description": "Reporting fiscal year; recorded with the result. SBIE is an entered input, so the fiscal year does not change the arithmetic."
           },
           "jurisdictions": {
             "type": "array",
@@ -38361,7 +38365,7 @@
     },
     {
       "name": "compute_globe_topup_tax",
-      "description": "OECD Pillar Two GloBE top-up tax calculator: per-jurisdiction substance-based income exclusion (SBIE), effective tax rate (ETR), and top-up-rate/top-up-amount, then allocates the top-up across QDMTT, IIR, and UTPR, applying the OECD Side-by-Side Safe Harbour (approved/declassified 5 January 2026) when the caller declares a Central Record listing of a Qualified SbS Regime, a Filing Constituent Entity election, and a fiscal year on or after 1 January 2026 -- when it applies, Top-up Tax is deemed zero for both the IIR and the UTPR. Ports the calculation from tools/473-globe-etr-jurisdiction-calculator.html and tools/474-topup-tax-qdmtt-calculator.html into one provable kernel. SBIE payroll/asset rates and the 15% minimum rate are OECD-published transitional table values pinned behind a constants_version field -- a rate change is a version bump, never a silent recompute. Jurisdiction-level QDMTT enactment/rate and the Central Record listing are caller-supplied, never vendored. KNOWN-WRONG (comment only, not behaviour, recorded 2026-08-17 per ART9-CITATION-FIX-1): the kernel source at chaingraph/kernels/art-365-compute-globe-topup-tax.kernel.mjs line 49 cites the SBIE transitional rates as 'Art. 9.1' -- the correct citation is Art. 9.2 (Art. 9.1 is Tax Attributes Upon Transition; Art. 9.2 is the Transitional relief for the Substance-based Income Exclusion, per research/ART9-NUMBERING-CONFIRM-1.md and research/ART9-NUMBERING-DENY-1.md). This node is sealed (compute_proof_ready: ready) so the kernel comment is left uncorrected per SO #36 -- no GPU re-prove for a comment. The kernel's behaviour is correct and cleared ART-365-SIDEBYSIDE-1 with zero divergences; fix the comment only if art-365 is ever legitimately re-proved for another reason.",
+      "description": "OECD Pillar Two GloBE top-up tax calculator: per-jurisdiction substance-based income exclusion (SBIE), effective tax rate (ETR), and top-up-rate/top-up-amount, then allocates the top-up across QDMTT, IIR, and UTPR, applying the OECD Side-by-Side Safe Harbour (approved/declassified 5 January 2026) when the caller declares a Central Record listing of a Qualified SbS Regime, a Filing Constituent Entity election, and a fiscal year on or after 1 January 2026 -- when it applies, Top-up Tax is deemed zero for both the IIR and the UTPR. Ports the calculation from tools/473-globe-etr-jurisdiction-calculator.html and tools/474-topup-tax-qdmtt-calculator.html into one provable kernel. SBIE payroll and tangible-assets rates come from the OECD GloBE Model Rules Article 9.2 transitional schedule for fiscal years beginning 2023 through 2032 (Article 9.2 replaces the 5% of Article 5.3.3 and 5.3.4 year by year) and sit at the 5% steady state from fiscal year 2033; the payroll rate is overridable per jurisdiction and there is no assets-rate override; fiscal years before 2023 are refused fail-closed. Rates are pinned behind a constants_version field -- a rate change is a version bump, never a silent recompute. Jurisdiction-level QDMTT enactment/rate and the Central Record listing are caller-supplied, never vendored.",
       "inputSchema": {
         "type": "object",
         "required": [
@@ -52229,7 +52233,7 @@
     },
     {
       "name": "estimate_iso_amt_exposure",
-      "description": "AMT liability from an ISO exercise spread using the 2026 exemption amounts and phase-out thresholds (IRS Rev. Proc. 2025-32; IRC 55-57; IRC 422). Reports AMT owed, effective exemption, the maximum shares exercisable without AMT, and the AMT credit generated, plus a 5-step exercise-quantity scenario ladder. Deterministic, client-side, zero PII.",
+      "description": "AMT liability from an ISO exercise spread using the 2026 exemption amounts and phase-out thresholds (IRS Rev. Proc. 2025-32; IRC 55-57; IRC 422). Regular tax is on taxable income, gross ordinary income minus the 2026 standard deduction; AMTI takes no deduction (IRC 56(b)(1)(D)); standard deduction assumed, itemizers not modelled. Reports AMT owed, effective exemption, max shares without AMT, and the AMT credit, plus a 5-step scenario ladder. Deterministic, client-side, zero PII.",
       "inputSchema": {
         "type": "object",
         "required": [
@@ -52254,7 +52258,7 @@
           },
           "ordinary_income": {
             "type": "number",
-            "description": "W-2 and other ordinary income for the year in USD; min 0."
+            "description": "Gross W-2 and other ordinary income for the year in USD, before the standard deduction; min 0."
           },
           "other_amt_adjustments": {
             "type": "number",
@@ -52701,6 +52705,153 @@
           "mcp:compute_paypal_response"
         ],
         "url": "https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "crosswalk_psp_dispute_reasons",
+      "description": "Crosswalk a dispute reason across PayPal, Stripe, Adyen and Square: from one PSP's own reason value (or a Visa/Mastercard reason code), return the equivalents at the other three with per-cell match grades and the snapshot clause citations that justify each cell; unsupported mappings are none, never inferred. Deterministic, offline, zero PII.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "psp": {
+            "type": "string",
+            "enum": [
+              "paypal",
+              "stripe",
+              "adyen",
+              "square"
+            ],
+            "description": "PSP whose vocabulary the reason value belongs to."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Dispute-reason value in that PSP's exact enum spelling."
+          },
+          "network_code": {
+            "type": "object",
+            "description": "{network: visa|mastercard, code} card-network reason-code lookup, alternative to psp+reason."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-777-psp-dispute-reason-crosswalk",
+        "category": "chaingraph",
+        "tags": [
+          "psp",
+          "disputes",
+          "reason-codes",
+          "crosswalk",
+          "mcp:crosswalk_psp_dispute_reasons"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-777-psp-dispute-reason-crosswalk.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "reconcile_token2022_withheld",
+      "description": "Reconcile Token-2022 withheld transfer fees across a declared list of token accounts against the mint's accumulated withheld amount: recomputed per-account sum, declared versus recomputed total with the signed difference, wrong-mint and duplicate flags, the post-harvest mint projection under checked_add semantics, and a fee-receiver placement check (destination mint and withdraw authority). Values only; no RPC, no network, no on-chain read.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "mint",
+          "transfer_fee_config",
+          "accounts",
+          "declared_total"
+        ],
+        "properties": {
+          "mint": {
+            "type": "string",
+            "description": "The declared mint address, pasted. Every account's mint is compared to this by string equality."
+          },
+          "transfer_fee_config": {
+            "type": "object",
+            "description": "The mint's TransferFeeConfig fields: withdraw_withheld_authority (string or null) and withheld_amount (u64 decimal string), the accumulated pot.",
+            "properties": {
+              "withdraw_withheld_authority": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "withheld_amount": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "withdraw_withheld_authority",
+              "withheld_amount"
+            ]
+          },
+          "accounts": {
+            "type": "array",
+            "description": "Token accounts, each { address, mint, withheld_amount } with withheld_amount a u64 decimal string. Empty array is valid (sum 0).",
+            "items": {
+              "type": "object",
+              "properties": {
+                "address": {
+                  "type": "string"
+                },
+                "mint": {
+                  "type": "string"
+                },
+                "withheld_amount": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "address",
+                "mint",
+                "withheld_amount"
+              ]
+            }
+          },
+          "declared_total": {
+            "type": "string",
+            "description": "The caller's declared sum of withheld fees, decimal string (u64), reconciled against the recomputed sum."
+          },
+          "destination": {
+            "type": "object",
+            "description": "Optional destination { address, mint, withdraw_authority }, compared with the declared mint and the config's withdraw authority.",
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "mint": {
+                "type": "string"
+              },
+              "withdraw_authority": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "address",
+              "mint",
+              "withdraw_authority"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-778-token2022-withheld-fee-reconciler",
+        "category": "chaingraph",
+        "tags": [
+          "token2022",
+          "solana",
+          "withheld-fees",
+          "transfer-fee",
+          "payment-reconciliation",
+          "harvest",
+          "bigint",
+          "mcp:reconcile_token2022_withheld"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-778-token2022-withheld-fee-reconciler.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",

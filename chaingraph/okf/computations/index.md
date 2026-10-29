@@ -663,6 +663,8 @@ status: stable
 - [Automation Payback](./art-771-automation-payback.md)
 - [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md)
 - [PayPal Dispute Deadline & Evidence](./art-776-paypal-dispute-deadline-evidence.md)
+- [PSP Dispute Reason Crosswalk](./art-777-psp-dispute-reason-crosswalk.md)
+- [Token-2022 Withheld-Fee Reconciler](./art-778-token2022-withheld-fee-reconciler.md)
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md)
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md)
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md)

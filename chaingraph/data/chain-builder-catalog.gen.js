@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (695 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (697 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7664,6 +7664,26 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html",
     "description": "PayPal dispute deadline calculator and evidence-bundle producer, the PayPal-side PRODUCER for the existing dispute-evidence chain (hub propo",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-777-psp-dispute-reason-crosswalk",
+    "display_name": "PSP Dispute Reason Crosswalk",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-777-psp-dispute-reason-crosswalk.html",
+    "description": "Dispute reason-code crosswalk across PayPal, Stripe, Adyen and Square (static and credential-free: the mapping tables ship with the kernel, ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-778-token2022-withheld-fee-reconciler",
+    "display_name": "Token-2022 Withheld-Fee Reconciler",
+    "mandate_type": "settlement_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-778-token2022-withheld-fee-reconciler.html",
+    "description": "Token-2022 withheld-fee reconciliation across token accounts (the first node added after art-715; its primary text is the Solana Token-2022 ",
     "consumes": [],
     "feeds": [],
     "status": "live"

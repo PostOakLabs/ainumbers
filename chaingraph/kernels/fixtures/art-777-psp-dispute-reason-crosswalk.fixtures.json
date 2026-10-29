@@ -1,0 +1,1418 @@
+{
+  "tool_id": "art-777-psp-dispute-reason-crosswalk",
+  "note": "Golden + edge vectors for the PSP dispute reason-code crosswalk (PSP-DISPUTE-CROSSWALK-NODE-1). Coverage: one concept-backed golden per PSP (PayPal pinned to the schema v1.12 British UNAUTHORISED), a singleton that crosses to none, Visa and Mastercard network-code lookups, and seven named refusals (unknown PSP, the PayPal American-spelling UNAUTHORIZED vs British UNAUTHORISED distinction, unknown reason, both input shapes neither/both, unknown network, unknown network code). Every mapping cell cites a clause from research/clause-snapshots/{paypal,stripe,adyen,square}-disputes-2026-10/SNAPSHOT.md; cells with no snapshot support are none, never inferred. golden_hash pending - run `node golden-parity.test.mjs --update` to pin it.",
+  "vectors": [
+    {
+      "name": "paypal_concept_unauthorised",
+      "description": "Golden concept lookup from PayPal: dispute_reason UNAUTHORISED (schema v1.12 British spelling, verbatim). Returns the unauthorized-transaction concept with per-PSP equivalents, per-cell clause citations, network codes where the snapshots publish one, and a per-PSP match grade.",
+      "policy_parameters": {
+        "psp": "paypal",
+        "reason": "UNAUTHORISED"
+      },
+      "output_payload": {
+        "input": {
+          "psp": "paypal",
+          "reason": "UNAUTHORISED"
+        },
+        "concept": "unauthorized_or_fraud",
+        "concept_label": "Buyer did not authorize the purchase / card fraud",
+        "match": "exact_or_partial",
+        "per_psp_match": {
+          "paypal": "exact",
+          "stripe": "partial",
+          "adyen": "partial",
+          "square": "exact"
+        },
+        "crosswalk": {
+          "paypal": {
+            "psp": "paypal",
+            "value": "UNAUTHORISED",
+            "match": "exact",
+            "basis": "PayPal dispute_reason enum value (S5, British spelling verbatim) with S3 naming the buyer condition verbatim.",
+            "evidence_categories": [
+              "PROOF_OF_FULFILLMENT (S3)",
+              "PROOF_OF_REFUND (S3)",
+              "OTHER (S3)"
+            ],
+            "clauses": [
+              {
+                "id": "S3",
+                "quote": "The buyer did not authorize purchase of the merchandise or service.",
+                "url": "https://developer.paypal.com/disputes/reasons-evidence"
+              },
+              {
+                "id": "S5",
+                "quote": "The reason for the item-level dispute.",
+                "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+              }
+            ]
+          },
+          "stripe": {
+            "psp": "stripe",
+            "value": "fraudulent",
+            "match": "partial",
+            "basis": "Stripe reason enum value (S2), but S5's own Visa row makes \"Fraudulent\" broader than a buyer unauthorized claim: it spans 33, 10.1, 10.2, 10.3, 10.4 and 10.5 (card-present, card-absent and monitoring-program fraud).",
+            "evidence_categories": [
+              "S5 category: Fraudulent"
+            ],
+            "clauses": [
+              {
+                "id": "S2",
+                "quote": "Reason given by cardholder for dispute.",
+                "url": "https://docs.stripe.com/api/disputes/object"
+              },
+              {
+                "id": "S5",
+                "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                "url": "https://docs.stripe.com/disputes/categories"
+              }
+            ]
+          },
+          "adyen": {
+            "psp": "adyen",
+            "value": [
+              "10.4"
+            ],
+            "match": "partial",
+            "basis": "A4's Visa fraud section spans 10.1-10.5; 10.4 Other Fraud - Card Absent Environment is the card-absent unauthorized member, so the pairing is partial against a PayPal/Square-style buyer unauthorized claim.",
+            "evidence_categories": [
+              "defense reason codes via retrieveApplicableDefenseReasons (A1)",
+              "defense document types via supplyDefenseDocument (A1)"
+            ],
+            "clauses": [
+              {
+                "id": "A1",
+                "quote": "Required: You must and can only supply a single document of this defense document type.",
+                "url": "https://docs.adyen.com/risk-management/disputes-api"
+              },
+              {
+                "id": "A2",
+                "quote": "Defense reason codes",
+                "url": "https://docs.adyen.com/risk-management/disputes-api/disputes-api-reference"
+              }
+            ]
+          },
+          "square": {
+            "psp": "square",
+            "value": "NO_KNOWLEDGE",
+            "match": "exact",
+            "basis": "Square DisputeReason value (Q4); Q4 sentence names not-made / not-authorized verbatim.",
+            "evidence_categories": [
+              "AUTHORIZATION_DOCUMENTATION (Q2)",
+              "ONLINE_OR_APP_ACCESS_LOG (Q2)",
+              "RELATED_TRANSACTION_DOCUMENTATION (Q2)"
+            ],
+            "clauses": [
+              {
+                "id": "Q4",
+                "quote": "The cardholder claims that they did not make this purchase nor authorized the charge.",
+                "url": "https://github.com/square/connect-api-specification"
+              },
+              {
+                "id": "Q2",
+                "quote": "These suggestions are based on card network rules to help the seller make their best case when challenging a dispute.",
+                "url": "https://developer.squareup.com/docs/disputes-api/process-disputes"
+              }
+            ]
+          }
+        },
+        "network_codes": {
+          "visa": [
+            {
+              "code": "10.4",
+              "label": "10.4 Other Fraud - Card Absent Environment",
+              "basis": "S5 Visa row \"Fraudulent\"; A4 Visa fraud section.",
+              "clauses": [
+                {
+                  "id": "S5",
+                  "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                  "url": "https://docs.stripe.com/disputes/categories"
+                }
+              ]
+            }
+          ],
+          "mastercard": [
+            {
+              "code": "6341",
+              "label": "6341 Fraud investigation",
+              "basis": "S5: Fraudulent from 6341 Fraud investigation.",
+              "clauses": [
+                {
+                  "id": "S5",
+                  "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                  "url": "https://docs.stripe.com/disputes/categories"
+                }
+              ]
+            }
+          ]
+        },
+        "network_codes_note": {
+          "square": "Q1-Q5 publish no mapping from Square reasons to card-network reason codes; the Dispute object carries brand_dispute_id (\"The ID of the dispute in the card brand system, generated by the card brand.\" (Q4)) and card_brand but no network reason-code field.",
+          "clauses": [
+            {
+              "id": "Q4",
+              "quote": "The ID of the dispute in the card brand system, generated by the card brand.",
+              "url": "https://github.com/square/connect-api-specification"
+            }
+          ]
+        },
+        "cited_clauses": [
+          {
+            "id": "S3",
+            "quote": "The buyer did not authorize purchase of the merchandise or service.",
+            "url": "https://developer.paypal.com/disputes/reasons-evidence"
+          },
+          {
+            "id": "S5",
+            "quote": "The reason for the item-level dispute.",
+            "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+          },
+          {
+            "id": "S2",
+            "quote": "Reason given by cardholder for dispute.",
+            "url": "https://docs.stripe.com/api/disputes/object"
+          },
+          {
+            "id": "S5",
+            "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+            "url": "https://docs.stripe.com/disputes/categories"
+          },
+          {
+            "id": "A1",
+            "quote": "Required: You must and can only supply a single document of this defense document type.",
+            "url": "https://docs.adyen.com/risk-management/disputes-api"
+          },
+          {
+            "id": "A2",
+            "quote": "Defense reason codes",
+            "url": "https://docs.adyen.com/risk-management/disputes-api/disputes-api-reference"
+          },
+          {
+            "id": "Q4",
+            "quote": "The cardholder claims that they did not make this purchase nor authorized the charge.",
+            "url": "https://github.com/square/connect-api-specification"
+          },
+          {
+            "id": "Q2",
+            "quote": "These suggestions are based on card network rules to help the seller make their best case when challenging a dispute.",
+            "url": "https://developer.squareup.com/docs/disputes-api/process-disputes"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "2e76d9011acdb804ce669b1ecbff4c4b3a37cbe2c01bccda6fcc7fc3cbceaa42"
+    },
+    {
+      "name": "stripe_concept",
+      "description": "Golden concept lookup from Stripe (vocab-ordered mapped reason). Same crosswalk cell set as the PayPal-side golden for the shared concept: the crosswalk is a function of the concept, not of the querying PSP.",
+      "policy_parameters": {
+        "psp": "stripe",
+        "reason": "credit_not_processed"
+      },
+      "output_payload": {
+        "input": {
+          "psp": "stripe",
+          "reason": "credit_not_processed"
+        },
+        "concept": "credit_not_processed",
+        "concept_label": "Refund or credit not processed",
+        "match": "exact_or_partial",
+        "per_psp_match": {
+          "paypal": "exact",
+          "stripe": "exact",
+          "adyen": "exact",
+          "square": "exact"
+        },
+        "crosswalk": {
+          "paypal": {
+            "psp": "paypal",
+            "value": "CREDIT_NOT_PROCESSED",
+            "match": "exact",
+            "basis": "PayPal dispute_reason enum value (S5) with S3 naming the buyer condition verbatim.",
+            "evidence_categories": [
+              "PROOF_OF_REFUND (S3)",
+              "OTHER (S3)"
+            ],
+            "clauses": [
+              {
+                "id": "S3",
+                "quote": "The refund or credit transaction was not processed for the buyer.",
+                "url": "https://developer.paypal.com/disputes/reasons-evidence"
+              },
+              {
+                "id": "S5",
+                "quote": "The reason for the item-level dispute.",
+                "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+              }
+            ]
+          },
+          "stripe": {
+            "psp": "stripe",
+            "value": "credit_not_processed",
+            "match": "exact",
+            "basis": "Stripe reason enum value (S2); S5's Visa row carries \"13.6 Credit not processed; 13.7 Canceled Merchandise/Services\".",
+            "evidence_categories": [
+              "S5 category: Credit not processed"
+            ],
+            "clauses": [
+              {
+                "id": "S2",
+                "quote": "Reason given by cardholder for dispute.",
+                "url": "https://docs.stripe.com/api/disputes/object"
+              },
+              {
+                "id": "S5",
+                "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                "url": "https://docs.stripe.com/disputes/categories"
+              }
+            ]
+          },
+          "adyen": {
+            "psp": "adyen",
+            "value": [
+              "13.6",
+              "13.7"
+            ],
+            "match": "exact",
+            "basis": "A4's Visa consumer-disputes table lists 13.6 Credit not Processed and 13.7 Canceled Merchandise/Services.",
+            "evidence_categories": [
+              "defense reason codes via retrieveApplicableDefenseReasons (A1)",
+              "defense document types via supplyDefenseDocument (A1)"
+            ],
+            "clauses": [
+              {
+                "id": "A1",
+                "quote": "Required: You must and can only supply a single document of this defense document type.",
+                "url": "https://docs.adyen.com/risk-management/disputes-api"
+              },
+              {
+                "id": "A2",
+                "quote": "Defense reason codes",
+                "url": "https://docs.adyen.com/risk-management/disputes-api/disputes-api-reference"
+              }
+            ]
+          },
+          "square": {
+            "psp": "square",
+            "value": "CUSTOMER_REQUESTS_CREDIT",
+            "match": "exact",
+            "basis": "Square DisputeReason value (Q4); Q4 sentence names canceled-or-returned without the credit verbatim.",
+            "evidence_categories": [
+              "CANCELLATION_OR_REFUND_DOCUMENTATION (Q2)",
+              "SERVICE_RECEIVED_DOCUMENTATION (Q2)",
+              "PROOF_OF_DELIVERY_DOCUMENTATION (Q2)",
+              "TRACKING_NUMBER (Q2)"
+            ],
+            "clauses": [
+              {
+                "id": "Q4",
+                "quote": "The cardholder claims that the purchase was canceled or returned, but they have not yet received the credit.",
+                "url": "https://github.com/square/connect-api-specification"
+              },
+              {
+                "id": "Q2",
+                "quote": "These suggestions are based on card network rules to help the seller make their best case when challenging a dispute.",
+                "url": "https://developer.squareup.com/docs/disputes-api/process-disputes"
+              }
+            ]
+          }
+        },
+        "network_codes": {
+          "visa": [
+            {
+              "code": "13.6",
+              "label": "13.6 Credit not processed",
+              "basis": "S5 Visa row \"Credit not processed\"; A4 Visa table.",
+              "clauses": [
+                {
+                  "id": "S5",
+                  "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                  "url": "https://docs.stripe.com/disputes/categories"
+                }
+              ]
+            },
+            {
+              "code": "13.7",
+              "label": "13.7 Canceled Merchandise/Services",
+              "basis": "S5 Visa row \"Credit not processed\" carries 13.7 Canceled Merchandise/Services; A4 Visa table.",
+              "clauses": [
+                {
+                  "id": "S5",
+                  "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                  "url": "https://docs.stripe.com/disputes/categories"
+                }
+              ]
+            }
+          ],
+          "mastercard": [
+            {
+              "code": "4860",
+              "label": "4860 Credit Not Processed",
+              "basis": "S5: Credit not processed from 4860 Credit Not Processed.",
+              "clauses": [
+                {
+                  "id": "S5",
+                  "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                  "url": "https://docs.stripe.com/disputes/categories"
+                }
+              ]
+            }
+          ]
+        },
+        "network_codes_note": {
+          "square": "Q1-Q5 publish no mapping from Square reasons to card-network reason codes; the Dispute object carries brand_dispute_id (\"The ID of the dispute in the card brand system, generated by the card brand.\" (Q4)) and card_brand but no network reason-code field.",
+          "clauses": [
+            {
+              "id": "Q4",
+              "quote": "The ID of the dispute in the card brand system, generated by the card brand.",
+              "url": "https://github.com/square/connect-api-specification"
+            }
+          ]
+        },
+        "cited_clauses": [
+          {
+            "id": "S3",
+            "quote": "The refund or credit transaction was not processed for the buyer.",
+            "url": "https://developer.paypal.com/disputes/reasons-evidence"
+          },
+          {
+            "id": "S5",
+            "quote": "The reason for the item-level dispute.",
+            "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+          },
+          {
+            "id": "S2",
+            "quote": "Reason given by cardholder for dispute.",
+            "url": "https://docs.stripe.com/api/disputes/object"
+          },
+          {
+            "id": "S5",
+            "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+            "url": "https://docs.stripe.com/disputes/categories"
+          },
+          {
+            "id": "A1",
+            "quote": "Required: You must and can only supply a single document of this defense document type.",
+            "url": "https://docs.adyen.com/risk-management/disputes-api"
+          },
+          {
+            "id": "A2",
+            "quote": "Defense reason codes",
+            "url": "https://docs.adyen.com/risk-management/disputes-api/disputes-api-reference"
+          },
+          {
+            "id": "Q4",
+            "quote": "The cardholder claims that the purchase was canceled or returned, but they have not yet received the credit.",
+            "url": "https://github.com/square/connect-api-specification"
+          },
+          {
+            "id": "Q2",
+            "quote": "These suggestions are based on card network rules to help the seller make their best case when challenging a dispute.",
+            "url": "https://developer.squareup.com/docs/disputes-api/process-disputes"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "3a08fb663f291c4e39c97d31b0f13f5bc32eeae089a03b7ff748fe9ba3a900e6"
+    },
+    {
+      "name": "adyen_concept",
+      "description": "Golden concept lookup from Adyen by Adyen Visa scheme code (A4 Visa table). Demonstrates the adyen vocabulary: reason is the scheme code itself, not a PSP-local string.",
+      "policy_parameters": {
+        "psp": "adyen",
+        "reason": "10.1"
+      },
+      "output_payload": {
+        "input": {
+          "psp": "adyen",
+          "reason": "10.1"
+        },
+        "concept": "emv_liability_shift",
+        "concept_label": "EMV liability shift (non-compliant chip-card read)",
+        "match": "exact_or_partial",
+        "per_psp_match": {
+          "paypal": "none",
+          "stripe": "partial",
+          "adyen": "exact",
+          "square": "exact"
+        },
+        "crosswalk": {
+          "paypal": {
+            "psp": "paypal",
+            "value": null,
+            "match": "none",
+            "basis": "No PayPal dispute_reason enum value (S5) names an EMV or chip-liability condition; S3 lists no such buyer condition. none, never inferred.",
+            "evidence_categories": null,
+            "clauses": []
+          },
+          "stripe": {
+            "psp": "stripe",
+            "value": "fraudulent",
+            "match": "partial",
+            "basis": "S5's Visa row places \"10.1 EMV Liability Shift Counterfeit Fraud\" and \"10.2 EMV Liability Shift Non-Counterfeit Fraud\" inside the Fraudulent category — an aggregate, not a dedicated reason, so partial.",
+            "evidence_categories": [
+              "S5 category: Fraudulent"
+            ],
+            "clauses": [
+              {
+                "id": "S5",
+                "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                "url": "https://docs.stripe.com/disputes/categories"
+              }
+            ]
+          },
+          "adyen": {
+            "psp": "adyen",
+            "value": [
+              "10.1",
+              "10.2"
+            ],
+            "match": "exact",
+            "basis": "A4's Visa fraud section lists 10.1 EMV Liability Shift Counterfeit Fraud and 10.2 EMV Liability Shift Non-Counterfeit Fraud.",
+            "evidence_categories": [
+              "defense reason codes via retrieveApplicableDefenseReasons (A1)",
+              "defense document types via supplyDefenseDocument (A1)"
+            ],
+            "clauses": [
+              {
+                "id": "A1",
+                "quote": "Required: You must and can only supply a single document of this defense document type.",
+                "url": "https://docs.adyen.com/risk-management/disputes-api"
+              },
+              {
+                "id": "A2",
+                "quote": "Defense reason codes",
+                "url": "https://docs.adyen.com/risk-management/disputes-api/disputes-api-reference"
+              }
+            ]
+          },
+          "square": {
+            "psp": "square",
+            "value": "EMV_LIABILITY_SHIFT",
+            "match": "exact",
+            "basis": "Square DisputeReason value (Q4); Q4 names the non-compliant chip-reader condition and states the dispute cannot be challenged (\"You cannot challenge this dispute because the payment did not comply with EMV security requirements.\" (Q4)).",
+            "evidence_categories": [
+              "No challengeable evidence path: Q4 states this dispute cannot be challenged."
+            ],
+            "clauses": [
+              {
+                "id": "Q4",
+                "quote": "A chip-enabled card was not processed through a compliant chip-card reader (for example, it was swiped instead of dipped into a chip-card reader).",
+                "url": "https://github.com/square/connect-api-specification"
+              }
+            ]
+          }
+        },
+        "network_codes": {
+          "visa": [
+            {
+              "code": "10.1",
+              "label": "10.1 EMV Liability Shift Counterfeit Fraud",
+              "basis": "S5 Visa row \"Fraudulent\"; A4 Visa fraud section.",
+              "clauses": [
+                {
+                  "id": "S5",
+                  "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                  "url": "https://docs.stripe.com/disputes/categories"
+                }
+              ]
+            },
+            {
+              "code": "10.2",
+              "label": "10.2 EMV Liability Shift Non-Counterfeit Fraud",
+              "basis": "S5 Visa row \"Fraudulent\"; A4 Visa fraud section.",
+              "clauses": [
+                {
+                  "id": "S5",
+                  "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                  "url": "https://docs.stripe.com/disputes/categories"
+                }
+              ]
+            }
+          ],
+          "mastercard": []
+        },
+        "network_codes_note": {
+          "square": "Q1-Q5 publish no mapping from Square reasons to card-network reason codes; the Dispute object carries brand_dispute_id (\"The ID of the dispute in the card brand system, generated by the card brand.\" (Q4)) and card_brand but no network reason-code field.",
+          "clauses": [
+            {
+              "id": "Q4",
+              "quote": "The ID of the dispute in the card brand system, generated by the card brand.",
+              "url": "https://github.com/square/connect-api-specification"
+            }
+          ]
+        },
+        "cited_clauses": [
+          {
+            "id": "S5",
+            "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+            "url": "https://docs.stripe.com/disputes/categories"
+          },
+          {
+            "id": "A1",
+            "quote": "Required: You must and can only supply a single document of this defense document type.",
+            "url": "https://docs.adyen.com/risk-management/disputes-api"
+          },
+          {
+            "id": "A2",
+            "quote": "Defense reason codes",
+            "url": "https://docs.adyen.com/risk-management/disputes-api/disputes-api-reference"
+          },
+          {
+            "id": "Q4",
+            "quote": "A chip-enabled card was not processed through a compliant chip-card reader (for example, it was swiped instead of dipped into a chip-card reader).",
+            "url": "https://github.com/square/connect-api-specification"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "20c05097f65054d5c7a71e5b58ca2d30a01c90049f06172c85b14c137b448be8"
+    },
+    {
+      "name": "square_concept",
+      "description": "Golden concept lookup from Square (vocab-ordered mapped DisputeReason). Square publishes no Visa/Mastercard reason-code map (S1 basis); the network note carries that as data.",
+      "policy_parameters": {
+        "psp": "square",
+        "reason": "AMOUNT_DIFFERS"
+      },
+      "output_payload": {
+        "input": {
+          "psp": "square",
+          "reason": "AMOUNT_DIFFERS"
+        },
+        "concept": "incorrect_amount",
+        "concept_label": "Buyer charged an incorrect amount",
+        "match": "exact_or_partial",
+        "per_psp_match": {
+          "paypal": "exact",
+          "stripe": "partial",
+          "adyen": "exact",
+          "square": "exact"
+        },
+        "crosswalk": {
+          "paypal": {
+            "psp": "paypal",
+            "value": "INCORRECT_AMOUNT",
+            "match": "exact",
+            "basis": "PayPal dispute_reason enum value (S5) with S3 naming the buyer condition verbatim.",
+            "evidence_categories": [
+              "PROOF_OF_REFUND (S3)",
+              "OTHER (S3)"
+            ],
+            "clauses": [
+              {
+                "id": "S3",
+                "quote": "The buyer was charged an incorrect amount.",
+                "url": "https://developer.paypal.com/disputes/reasons-evidence"
+              },
+              {
+                "id": "S5",
+                "quote": "The reason for the item-level dispute.",
+                "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+              }
+            ]
+          },
+          "stripe": {
+            "psp": "stripe",
+            "value": "general",
+            "match": "partial",
+            "basis": "Stripe's 15-value reason enum (S2) has no amount value; S5's Mastercard row maps General from 6305 Cardholder does not agree with amount billed and S5's Visa General row aggregates 12.5 Incorrect Amount among others — the condition lands in the aggregate \"General\" category, so partial.",
+            "evidence_categories": [
+              "S5 category: General"
+            ],
+            "clauses": [
+              {
+                "id": "S2",
+                "quote": "Reason given by cardholder for dispute.",
+                "url": "https://docs.stripe.com/api/disputes/object"
+              },
+              {
+                "id": "S5",
+                "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                "url": "https://docs.stripe.com/disputes/categories"
+              }
+            ]
+          },
+          "adyen": {
+            "psp": "adyen",
+            "value": [
+              "12.5"
+            ],
+            "match": "exact",
+            "basis": "A4's Visa processing-errors table lists 12.5 Incorrect Amount.",
+            "evidence_categories": [
+              "defense reason codes via retrieveApplicableDefenseReasons (A1)",
+              "defense document types via supplyDefenseDocument (A1)"
+            ],
+            "clauses": [
+              {
+                "id": "A1",
+                "quote": "Required: You must and can only supply a single document of this defense document type.",
+                "url": "https://docs.adyen.com/risk-management/disputes-api"
+              },
+              {
+                "id": "A2",
+                "quote": "Defense reason codes",
+                "url": "https://docs.adyen.com/risk-management/disputes-api/disputes-api-reference"
+              }
+            ]
+          },
+          "square": {
+            "psp": "square",
+            "value": "AMOUNT_DIFFERS",
+            "match": "exact",
+            "basis": "Square DisputeReason value (Q4); Q4 sentence names wrong-amount verbatim.",
+            "evidence_categories": [
+              "AUTHORIZATION_DOCUMENTATION (Q2)"
+            ],
+            "clauses": [
+              {
+                "id": "Q4",
+                "quote": "The cardholder claims that they were charged the wrong amount for the purchase.",
+                "url": "https://github.com/square/connect-api-specification"
+              },
+              {
+                "id": "Q2",
+                "quote": "These suggestions are based on card network rules to help the seller make their best case when challenging a dispute.",
+                "url": "https://developer.squareup.com/docs/disputes-api/process-disputes"
+              }
+            ]
+          }
+        },
+        "network_codes": {
+          "visa": [
+            {
+              "code": "12.5",
+              "label": "12.5 Incorrect Amount",
+              "basis": "A4 Visa table (12.5 Incorrect Amount); S5's Visa General row aggregates 12.5.",
+              "clauses": [
+                {
+                  "id": "S5",
+                  "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                  "url": "https://docs.stripe.com/disputes/categories"
+                }
+              ]
+            }
+          ],
+          "mastercard": [
+            {
+              "code": "6305",
+              "label": "6305 Cardholder does not agree with amount billed",
+              "basis": "S5: General from 6305 Cardholder does not agree with amount billed.",
+              "clauses": [
+                {
+                  "id": "S5",
+                  "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                  "url": "https://docs.stripe.com/disputes/categories"
+                }
+              ]
+            }
+          ]
+        },
+        "network_codes_note": {
+          "square": "Q1-Q5 publish no mapping from Square reasons to card-network reason codes; the Dispute object carries brand_dispute_id (\"The ID of the dispute in the card brand system, generated by the card brand.\" (Q4)) and card_brand but no network reason-code field.",
+          "clauses": [
+            {
+              "id": "Q4",
+              "quote": "The ID of the dispute in the card brand system, generated by the card brand.",
+              "url": "https://github.com/square/connect-api-specification"
+            }
+          ]
+        },
+        "cited_clauses": [
+          {
+            "id": "S3",
+            "quote": "The buyer was charged an incorrect amount.",
+            "url": "https://developer.paypal.com/disputes/reasons-evidence"
+          },
+          {
+            "id": "S5",
+            "quote": "The reason for the item-level dispute.",
+            "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+          },
+          {
+            "id": "S2",
+            "quote": "Reason given by cardholder for dispute.",
+            "url": "https://docs.stripe.com/api/disputes/object"
+          },
+          {
+            "id": "S5",
+            "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+            "url": "https://docs.stripe.com/disputes/categories"
+          },
+          {
+            "id": "A1",
+            "quote": "Required: You must and can only supply a single document of this defense document type.",
+            "url": "https://docs.adyen.com/risk-management/disputes-api"
+          },
+          {
+            "id": "A2",
+            "quote": "Defense reason codes",
+            "url": "https://docs.adyen.com/risk-management/disputes-api/disputes-api-reference"
+          },
+          {
+            "id": "Q4",
+            "quote": "The cardholder claims that they were charged the wrong amount for the purchase.",
+            "url": "https://github.com/square/connect-api-specification"
+          },
+          {
+            "id": "Q2",
+            "quote": "These suggestions are based on card network rules to help the seller make their best case when challenging a dispute.",
+            "url": "https://developer.squareup.com/docs/disputes-api/process-disputes"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "2cbe7caea922239588031ae088d73b590aeb294a7b6e578a5da25e12760e6f31"
+    },
+    {
+      "name": "singleton_paypal_crosses_to_none",
+      "description": "Singleton case: paypal publishes this reason but no clause in the four snapshots supports an equivalent at any other PSP. Queried-PSP cell is exact with its own citations; every other-PSP cell is value null, match none, with a no-support basis. A mapping no snapshot supports is none, never inferred.",
+      "policy_parameters": {
+        "psp": "paypal",
+        "reason": "PROBLEM_WITH_REMITTANCE"
+      },
+      "output_payload": {
+        "input": {
+          "psp": "paypal",
+          "reason": "PROBLEM_WITH_REMITTANCE"
+        },
+        "concept": null,
+        "concept_label": null,
+        "match": "none",
+        "per_psp_match": {
+          "paypal": "exact",
+          "stripe": "none",
+          "adyen": "none",
+          "square": "none"
+        },
+        "crosswalk": {
+          "paypal": {
+            "psp": "paypal",
+            "value": "PROBLEM_WITH_REMITTANCE",
+            "match": "exact",
+            "basis": "PayPal dispute_reason enum value (S5); S3 states no buyer condition for it (\"NOT STATED on S3\").",
+            "evidence_categories": [
+              "Not stated by PayPal (S3: absent from the reasons-evidence page)"
+            ],
+            "clauses": [
+              {
+                "id": "S5",
+                "quote": "The reason for the item-level dispute.",
+                "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+              }
+            ]
+          },
+          "stripe": {
+            "psp": "stripe",
+            "value": null,
+            "match": "none",
+            "basis": "No clause in the four snapshots supports an equivalent at this PSP for paypal PROBLEM_WITH_REMITTANCE. none, never inferred.",
+            "evidence_categories": null,
+            "clauses": []
+          },
+          "adyen": {
+            "psp": "adyen",
+            "value": null,
+            "match": "none",
+            "basis": "No clause in the four snapshots supports an equivalent at this PSP for paypal PROBLEM_WITH_REMITTANCE. none, never inferred.",
+            "evidence_categories": null,
+            "clauses": []
+          },
+          "square": {
+            "psp": "square",
+            "value": null,
+            "match": "none",
+            "basis": "No clause in the four snapshots supports an equivalent at this PSP for paypal PROBLEM_WITH_REMITTANCE. none, never inferred.",
+            "evidence_categories": null,
+            "clauses": []
+          }
+        },
+        "network_codes": {
+          "visa": [],
+          "mastercard": []
+        },
+        "network_codes_note": {
+          "square": "Q1-Q5 publish no mapping from Square reasons to card-network reason codes; the Dispute object carries brand_dispute_id (\"The ID of the dispute in the card brand system, generated by the card brand.\" (Q4)) and card_brand but no network reason-code field.",
+          "clauses": [
+            {
+              "id": "Q4",
+              "quote": "The ID of the dispute in the card brand system, generated by the card brand.",
+              "url": "https://github.com/square/connect-api-specification"
+            }
+          ]
+        },
+        "cited_clauses": [
+          {
+            "id": "S5",
+            "quote": "The reason for the item-level dispute.",
+            "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "c856ee9fa0c9774ddc0bb75139b1e8d717d876a90826c1780578f24384f12d36"
+    },
+    {
+      "name": "network_code_visa_13_1",
+      "description": "Network-code lookup: Visa reason code 13.1 from the S5 network-code map / A4 Visa table. Returns the concept whose published network mapping carries the code, with the same cited crosswalk as a reason-side lookup plus a network_input echo.",
+      "policy_parameters": {
+        "network_code": {
+          "network": "visa",
+          "code": "13.1"
+        }
+      },
+      "output_payload": {
+        "input": {
+          "network": "visa",
+          "code": "13.1"
+        },
+        "concept": "merchandise_or_service_not_received",
+        "concept_label": "Buyer did not receive the merchandise or service",
+        "match": "exact_or_partial",
+        "per_psp_match": {
+          "paypal": "exact",
+          "stripe": "exact",
+          "adyen": "exact",
+          "square": "exact"
+        },
+        "crosswalk": {
+          "paypal": {
+            "psp": "paypal",
+            "value": "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+            "match": "exact",
+            "basis": "PayPal dispute_reason enum value (S5) with S3 naming the buyer condition verbatim.",
+            "evidence_categories": [
+              "PROOF_OF_FULFILLMENT (S3)",
+              "PROOF_OF_REFUND (S3)",
+              "notes/documents (S3)"
+            ],
+            "clauses": [
+              {
+                "id": "S3",
+                "quote": "The buyer did not receive the merchandise or service.",
+                "url": "https://developer.paypal.com/disputes/reasons-evidence"
+              },
+              {
+                "id": "S5",
+                "quote": "The reason for the item-level dispute.",
+                "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+              }
+            ]
+          },
+          "stripe": {
+            "psp": "stripe",
+            "value": "product_not_received",
+            "match": "exact",
+            "basis": "Stripe reason enum value (S2); S5 category \"Product not received\" carries Visa 13.1 and 13.9.",
+            "evidence_categories": [
+              "S5 category: Product not received"
+            ],
+            "clauses": [
+              {
+                "id": "S2",
+                "quote": "Reason given by cardholder for dispute.",
+                "url": "https://docs.stripe.com/api/disputes/object"
+              },
+              {
+                "id": "S5",
+                "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                "url": "https://docs.stripe.com/disputes/categories"
+              }
+            ]
+          },
+          "adyen": {
+            "psp": "adyen",
+            "value": [
+              "13.1"
+            ],
+            "match": "exact",
+            "basis": "Adyen reason codes are scheme codes; A4's Visa consumer-disputes table lists 13.1 Merchandise/Services Not Received.",
+            "evidence_categories": [
+              "defense reason codes via retrieveApplicableDefenseReasons (A1)",
+              "defense document types via supplyDefenseDocument (A1)"
+            ],
+            "clauses": [
+              {
+                "id": "A1",
+                "quote": "Required: You must and can only supply a single document of this defense document type.",
+                "url": "https://docs.adyen.com/risk-management/disputes-api"
+              },
+              {
+                "id": "A2",
+                "quote": "Defense reason codes",
+                "url": "https://docs.adyen.com/risk-management/disputes-api/disputes-api-reference"
+              }
+            ]
+          },
+          "square": {
+            "psp": "square",
+            "value": "NOT_RECEIVED",
+            "match": "exact",
+            "basis": "Square DisputeReason value (Q4); Q4 sentence names the not-received condition verbatim.",
+            "evidence_categories": [
+              "AUTHORIZATION_DOCUMENTATION (Q2)",
+              "ONLINE_OR_APP_ACCESS_LOG (Q2)",
+              "RELATED_TRANSACTION_DOCUMENTATION (Q2)"
+            ],
+            "clauses": [
+              {
+                "id": "Q4",
+                "quote": "The cardholder claims the product or service was not received by the cardholder within the stated time frame.",
+                "url": "https://github.com/square/connect-api-specification"
+              },
+              {
+                "id": "Q2",
+                "quote": "These suggestions are based on card network rules to help the seller make their best case when challenging a dispute.",
+                "url": "https://developer.squareup.com/docs/disputes-api/process-disputes"
+              }
+            ]
+          }
+        },
+        "network_codes": {
+          "visa": [
+            {
+              "code": "13.1",
+              "label": "13.1 Merchandise/Services Not Received",
+              "basis": "S5 Visa row \"Product not received\"; A4 Visa table.",
+              "clauses": [
+                {
+                  "id": "S5",
+                  "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                  "url": "https://docs.stripe.com/disputes/categories"
+                }
+              ]
+            }
+          ],
+          "mastercard": [
+            {
+              "code": "4855",
+              "label": "4855 Transaction Did Not Complete",
+              "basis": "S5: Product not received from 4855 Transaction Did Not Complete.",
+              "clauses": [
+                {
+                  "id": "S5",
+                  "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                  "url": "https://docs.stripe.com/disputes/categories"
+                }
+              ]
+            }
+          ]
+        },
+        "network_codes_note": {
+          "square": "Q1-Q5 publish no mapping from Square reasons to card-network reason codes; the Dispute object carries brand_dispute_id (\"The ID of the dispute in the card brand system, generated by the card brand.\" (Q4)) and card_brand but no network reason-code field.",
+          "clauses": [
+            {
+              "id": "Q4",
+              "quote": "The ID of the dispute in the card brand system, generated by the card brand.",
+              "url": "https://github.com/square/connect-api-specification"
+            }
+          ]
+        },
+        "cited_clauses": [
+          {
+            "id": "S3",
+            "quote": "The buyer did not receive the merchandise or service.",
+            "url": "https://developer.paypal.com/disputes/reasons-evidence"
+          },
+          {
+            "id": "S5",
+            "quote": "The reason for the item-level dispute.",
+            "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+          },
+          {
+            "id": "S2",
+            "quote": "Reason given by cardholder for dispute.",
+            "url": "https://docs.stripe.com/api/disputes/object"
+          },
+          {
+            "id": "S5",
+            "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+            "url": "https://docs.stripe.com/disputes/categories"
+          },
+          {
+            "id": "A1",
+            "quote": "Required: You must and can only supply a single document of this defense document type.",
+            "url": "https://docs.adyen.com/risk-management/disputes-api"
+          },
+          {
+            "id": "A2",
+            "quote": "Defense reason codes",
+            "url": "https://docs.adyen.com/risk-management/disputes-api/disputes-api-reference"
+          },
+          {
+            "id": "Q4",
+            "quote": "The cardholder claims the product or service was not received by the cardholder within the stated time frame.",
+            "url": "https://github.com/square/connect-api-specification"
+          },
+          {
+            "id": "Q2",
+            "quote": "These suggestions are based on card network rules to help the seller make their best case when challenging a dispute.",
+            "url": "https://developer.squareup.com/docs/disputes-api/process-disputes"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null,
+        "network_input": {
+          "network": "visa",
+          "code": "13.1",
+          "label": "13.1 Merchandise/Services Not Received",
+          "basis": "S5 network code map (Visa/Mastercard tables) and/or A4 Visa table, as cited per concept."
+        }
+      },
+      "golden_hash": "328a7df1482c949a6b54a843de317ed9d5885c04915ad444fb17ab291aa971f9"
+    },
+    {
+      "name": "network_code_mastercard_4855",
+      "description": "Network-code lookup: Mastercard reason code 4855 from the S5 network-code map. Same concept-returning shape as the Visa lookup.",
+      "policy_parameters": {
+        "network_code": {
+          "network": "mastercard",
+          "code": "4855"
+        }
+      },
+      "output_payload": {
+        "input": {
+          "network": "mastercard",
+          "code": "4855"
+        },
+        "concept": "merchandise_or_service_not_received",
+        "concept_label": "Buyer did not receive the merchandise or service",
+        "match": "exact_or_partial",
+        "per_psp_match": {
+          "paypal": "exact",
+          "stripe": "exact",
+          "adyen": "exact",
+          "square": "exact"
+        },
+        "crosswalk": {
+          "paypal": {
+            "psp": "paypal",
+            "value": "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+            "match": "exact",
+            "basis": "PayPal dispute_reason enum value (S5) with S3 naming the buyer condition verbatim.",
+            "evidence_categories": [
+              "PROOF_OF_FULFILLMENT (S3)",
+              "PROOF_OF_REFUND (S3)",
+              "notes/documents (S3)"
+            ],
+            "clauses": [
+              {
+                "id": "S3",
+                "quote": "The buyer did not receive the merchandise or service.",
+                "url": "https://developer.paypal.com/disputes/reasons-evidence"
+              },
+              {
+                "id": "S5",
+                "quote": "The reason for the item-level dispute.",
+                "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+              }
+            ]
+          },
+          "stripe": {
+            "psp": "stripe",
+            "value": "product_not_received",
+            "match": "exact",
+            "basis": "Stripe reason enum value (S2); S5 category \"Product not received\" carries Visa 13.1 and 13.9.",
+            "evidence_categories": [
+              "S5 category: Product not received"
+            ],
+            "clauses": [
+              {
+                "id": "S2",
+                "quote": "Reason given by cardholder for dispute.",
+                "url": "https://docs.stripe.com/api/disputes/object"
+              },
+              {
+                "id": "S5",
+                "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                "url": "https://docs.stripe.com/disputes/categories"
+              }
+            ]
+          },
+          "adyen": {
+            "psp": "adyen",
+            "value": [
+              "13.1"
+            ],
+            "match": "exact",
+            "basis": "Adyen reason codes are scheme codes; A4's Visa consumer-disputes table lists 13.1 Merchandise/Services Not Received.",
+            "evidence_categories": [
+              "defense reason codes via retrieveApplicableDefenseReasons (A1)",
+              "defense document types via supplyDefenseDocument (A1)"
+            ],
+            "clauses": [
+              {
+                "id": "A1",
+                "quote": "Required: You must and can only supply a single document of this defense document type.",
+                "url": "https://docs.adyen.com/risk-management/disputes-api"
+              },
+              {
+                "id": "A2",
+                "quote": "Defense reason codes",
+                "url": "https://docs.adyen.com/risk-management/disputes-api/disputes-api-reference"
+              }
+            ]
+          },
+          "square": {
+            "psp": "square",
+            "value": "NOT_RECEIVED",
+            "match": "exact",
+            "basis": "Square DisputeReason value (Q4); Q4 sentence names the not-received condition verbatim.",
+            "evidence_categories": [
+              "AUTHORIZATION_DOCUMENTATION (Q2)",
+              "ONLINE_OR_APP_ACCESS_LOG (Q2)",
+              "RELATED_TRANSACTION_DOCUMENTATION (Q2)"
+            ],
+            "clauses": [
+              {
+                "id": "Q4",
+                "quote": "The cardholder claims the product or service was not received by the cardholder within the stated time frame.",
+                "url": "https://github.com/square/connect-api-specification"
+              },
+              {
+                "id": "Q2",
+                "quote": "These suggestions are based on card network rules to help the seller make their best case when challenging a dispute.",
+                "url": "https://developer.squareup.com/docs/disputes-api/process-disputes"
+              }
+            ]
+          }
+        },
+        "network_codes": {
+          "visa": [
+            {
+              "code": "13.1",
+              "label": "13.1 Merchandise/Services Not Received",
+              "basis": "S5 Visa row \"Product not received\"; A4 Visa table.",
+              "clauses": [
+                {
+                  "id": "S5",
+                  "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                  "url": "https://docs.stripe.com/disputes/categories"
+                }
+              ]
+            }
+          ],
+          "mastercard": [
+            {
+              "code": "4855",
+              "label": "4855 Transaction Did Not Complete",
+              "basis": "S5: Product not received from 4855 Transaction Did Not Complete.",
+              "clauses": [
+                {
+                  "id": "S5",
+                  "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+                  "url": "https://docs.stripe.com/disputes/categories"
+                }
+              ]
+            }
+          ]
+        },
+        "network_codes_note": {
+          "square": "Q1-Q5 publish no mapping from Square reasons to card-network reason codes; the Dispute object carries brand_dispute_id (\"The ID of the dispute in the card brand system, generated by the card brand.\" (Q4)) and card_brand but no network reason-code field.",
+          "clauses": [
+            {
+              "id": "Q4",
+              "quote": "The ID of the dispute in the card brand system, generated by the card brand.",
+              "url": "https://github.com/square/connect-api-specification"
+            }
+          ]
+        },
+        "cited_clauses": [
+          {
+            "id": "S3",
+            "quote": "The buyer did not receive the merchandise or service.",
+            "url": "https://developer.paypal.com/disputes/reasons-evidence"
+          },
+          {
+            "id": "S5",
+            "quote": "The reason for the item-level dispute.",
+            "url": "https://developer.paypal.com/api/customer-disputes/v1/schema.json"
+          },
+          {
+            "id": "S2",
+            "quote": "Reason given by cardholder for dispute.",
+            "url": "https://docs.stripe.com/api/disputes/object"
+          },
+          {
+            "id": "S5",
+            "quote": "The following tables show the Stripe categories for each payment method's dispute reason codes.",
+            "url": "https://docs.stripe.com/disputes/categories"
+          },
+          {
+            "id": "A1",
+            "quote": "Required: You must and can only supply a single document of this defense document type.",
+            "url": "https://docs.adyen.com/risk-management/disputes-api"
+          },
+          {
+            "id": "A2",
+            "quote": "Defense reason codes",
+            "url": "https://docs.adyen.com/risk-management/disputes-api/disputes-api-reference"
+          },
+          {
+            "id": "Q4",
+            "quote": "The cardholder claims the product or service was not received by the cardholder within the stated time frame.",
+            "url": "https://github.com/square/connect-api-specification"
+          },
+          {
+            "id": "Q2",
+            "quote": "These suggestions are based on card network rules to help the seller make their best case when challenging a dispute.",
+            "url": "https://developer.squareup.com/docs/disputes-api/process-disputes"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null,
+        "network_input": {
+          "network": "mastercard",
+          "code": "4855",
+          "label": "4855 Transaction Did Not Complete",
+          "basis": "S5 network code map (Visa/Mastercard tables) and/or A4 Visa table, as cited per concept."
+        }
+      },
+      "golden_hash": "ec060ac877bbd84c02d57979c1aaa1d80b83db531ea583825a439b10ce87605b"
+    },
+    {
+      "name": "refused_unknown_psp",
+      "description": "Refusal: psp outside the four snapshot vocabularies (wise). REFUSED_UNKNOWN_PSP.",
+      "policy_parameters": {
+        "psp": "wise",
+        "reason": "UNAUTHORISED"
+      },
+      "output_payload": {
+        "refused": "REFUSED_UNKNOWN_PSP",
+        "detail": "psp must be one of paypal, stripe, adyen, square; received \"wise\"",
+        "domain_errors": [
+          {
+            "code": "REFUSED_UNKNOWN_PSP"
+          }
+        ],
+        "refusal_reason": "REFUSED_UNKNOWN_PSP"
+      },
+      "golden_hash": "66a5dd5cd592df979cb7f0f6b833a31dbc065534e9a6c3168c04dc8b99499b7e"
+    },
+    {
+      "name": "refused_paypal_american_spelling",
+      "description": "Refusal: PayPal UNAUTHORIZED (American spelling) is not a schema v1.12 enum value; only the British UNAUTHORISED is. REFUSED_UNKNOWN_REASON.",
+      "policy_parameters": {
+        "psp": "paypal",
+        "reason": "UNAUTHORIZED"
+      },
+      "output_payload": {
+        "refused": "REFUSED_UNKNOWN_REASON",
+        "detail": "For psp=paypal, reason must be one of the snapshot-published values: MERCHANDISE_OR_SERVICE_NOT_RECEIVED, MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED, UNAUTHORISED, CREDIT_NOT_PROCESSED, DUPLICATE_TRANSACTION, INCORRECT_AMOUNT, PAYMENT_BY_OTHER_MEANS, CANCELED_RECURRING_BILLING, PROBLEM_WITH_REMITTANCE, OTHER; received \"UNAUTHORIZED\". (PayPal spellings are schema v1.12 verbatim, including UNAUTHORISED.)",
+        "domain_errors": [
+          {
+            "code": "REFUSED_UNKNOWN_REASON"
+          }
+        ],
+        "refusal_reason": "REFUSED_UNKNOWN_REASON"
+      },
+      "golden_hash": "f68ffca80270dcf5f1fa269a2729b2cbea0f7cc86bb023b698d71bf2f8391b7a"
+    },
+    {
+      "name": "refused_unknown_reason",
+      "description": "Refusal: a value in no snapshot vocabulary. REFUSED_UNKNOWN_REASON with the psp's published vocabulary enumerated in the detail.",
+      "policy_parameters": {
+        "psp": "stripe",
+        "reason": "not_a_snapshot_reason"
+      },
+      "output_payload": {
+        "refused": "REFUSED_UNKNOWN_REASON",
+        "detail": "For psp=stripe, reason must be one of the snapshot-published values: bank_cannot_process, check_returned, credit_not_processed, customer_initiated, debit_not_authorized, duplicate, fraudulent, general, incorrect_account_details, insufficient_funds, noncompliant, product_not_received, product_unacceptable, subscription_canceled, unrecognized; received \"not_a_snapshot_reason\". (PayPal spellings are schema v1.12 verbatim, including UNAUTHORISED.)",
+        "domain_errors": [
+          {
+            "code": "REFUSED_UNKNOWN_REASON"
+          }
+        ],
+        "refusal_reason": "REFUSED_UNKNOWN_REASON"
+      },
+      "golden_hash": "6c531e7c8ebbad57e5f67b3cb2a438be2815de88e8c8ea2a37c0169429999c49"
+    },
+    {
+      "name": "refused_empty_input",
+      "description": "Refusal: an empty policy_parameters object carries no psp at all, so the kernel's categorical psp check fires first — REFUSED_UNKNOWN_PSP (psp undefined). A named refusal either way, never a silent guess; supplying both {psp, reason} and {network_code} is the REFUSED_INPUT_SHAPE case pinned in its own vector.",
+      "policy_parameters": {},
+      "output_payload": {
+        "refused": "REFUSED_UNKNOWN_PSP",
+        "detail": "psp must be one of paypal, stripe, adyen, square; received null",
+        "domain_errors": [
+          {
+            "code": "REFUSED_UNKNOWN_PSP"
+          }
+        ],
+        "refusal_reason": "REFUSED_UNKNOWN_PSP"
+      },
+      "golden_hash": "88168b59a061678f150f4e8552d2fd95d812598f8576fc4b60763e4d1b4e8a2e"
+    },
+    {
+      "name": "refused_input_shape_both",
+      "description": "Refusal: both {psp, reason} and {network_code} supplied. REFUSED_INPUT_SHAPE.",
+      "policy_parameters": {
+        "psp": "paypal",
+        "reason": "UNAUTHORISED",
+        "network_code": {
+          "network": "visa",
+          "code": "13.1"
+        }
+      },
+      "output_payload": {
+        "refused": "REFUSED_INPUT_SHAPE",
+        "detail": "Provide exactly one of: {psp, reason} or {network_code: {network, code}}. Received both.",
+        "domain_errors": [
+          {
+            "code": "REFUSED_INPUT_SHAPE"
+          }
+        ],
+        "refusal_reason": "REFUSED_INPUT_SHAPE"
+      },
+      "golden_hash": "5232263de299710190223a680061ed1b570b729da22c20240a253e3c101b96ba"
+    },
+    {
+      "name": "refused_unknown_network",
+      "description": "Refusal: network_code.network outside the two snapshot-published maps (amex). REFUSED_UNKNOWN_NETWORK.",
+      "policy_parameters": {
+        "network_code": {
+          "network": "amex",
+          "code": "13.1"
+        }
+      },
+      "output_payload": {
+        "refused": "REFUSED_UNKNOWN_NETWORK",
+        "detail": "network_code.network must be visa or mastercard; received \"amex\". Only Visa (S5/A4) and Mastercard (S5) network maps are snapshot-supported.",
+        "domain_errors": [
+          {
+            "code": "REFUSED_UNKNOWN_NETWORK"
+          }
+        ],
+        "refusal_reason": "REFUSED_UNKNOWN_NETWORK"
+      },
+      "golden_hash": "b6eb103b1a925500caaac97fbad8bf0b3b581787097d4c886eafab977c10a95c"
+    },
+    {
+      "name": "refused_unknown_network_code",
+      "description": "Refusal: a code published by no snapshot network map. REFUSED_UNKNOWN_NETWORK_CODE.",
+      "policy_parameters": {
+        "network_code": {
+          "network": "visa",
+          "code": "99.9"
+        }
+      },
+      "output_payload": {
+        "refused": "REFUSED_UNKNOWN_NETWORK_CODE",
+        "detail": "network_code.code must be one of the snapshot-published visa codes: 10.1, 10.2, 10.4, 12.5, 12.6.1, 12.6.2, 13.1, 13.2, 13.3, 13.6, 13.7; received \"99.9\"",
+        "domain_errors": [
+          {
+            "code": "REFUSED_UNKNOWN_NETWORK_CODE"
+          }
+        ],
+        "refusal_reason": "REFUSED_UNKNOWN_NETWORK_CODE"
+      },
+      "golden_hash": "0d2bb2d17525a8ff3da0c7737a95df14cc9f7f7edac4b3839ffc385fa91985f8"
+    }
+  ]
+}

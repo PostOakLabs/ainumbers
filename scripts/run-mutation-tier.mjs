@@ -83,6 +83,21 @@
  *                          flag (the full-estate scan already overruns the
  *                          6-hour hosted-runner ceiling; a doubled ceiling-blowout
  *                          is not a measurement, see the workflow's own header).
+ *     --survivors          MUTATION-SURVIVORS-JSON-1: with --json, each
+ *                          examined kernel's result gains an ADDITIVE
+ *                          `survivors` array — one
+ *                          { id, mutatorName, tier, location, status } entry
+ *                          per mutant Stryker marked `Survived` or
+ *                          `NoCoverage`, in the tier the harness already
+ *                          assigned (tierOfMutant), sorted by line then
+ *                          column — plus `killed_money_math_ids`. Opt-in:
+ *                          WITHOUT this flag the --json output is
+ *                          byte-identical to the pre-row shape (the nightly
+ *                          workflow and the ratchet are unchanged), and NO
+ *                          count, tier assignment, floor or percentage
+ *                          changes either way — survivor detail only, so
+ *                          review no longer needs Stryker's temp
+ *                          mutation-report.json.
  *     --shard <i> <n>      with --all only: process every kernel id whose
  *                          position (0-indexed) in the sorted full id list
  *                          satisfies `i % n === index`. Used by
@@ -140,7 +155,7 @@ function loadConfig(repoRoot = REPO) {
 
 // ── CLI parsing ───────────────────────────────────────────────────────────
 function parseArgv(argv) {
-  const opts = { kernels: null, all: false, jsonOut: null, concurrency: 2, timeoutMs: 15000, shardIndex: null, shardCount: null, decomposed: false };
+  const opts = { kernels: null, all: false, jsonOut: null, concurrency: 2, timeoutMs: 15000, shardIndex: null, shardCount: null, decomposed: false, survivors: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--all') opts.all = true;
@@ -152,6 +167,7 @@ function parseArgv(argv) {
     else if (a === '--shard') { opts.shardIndex = Number(argv[++i]); opts.shardCount = Number(argv[++i]); }
     else if (a === '--timeout-ms') opts.timeoutMs = Number(argv[++i]);
     else if (a === '--decomposed') opts.decomposed = true;
+    else if (a === '--survivors') opts.survivors = true;
   }
   return opts;
 }
@@ -423,6 +439,91 @@ function killedMoneyMathIds(report, kernelFileRelPath, peripheralRanges) {
     }
   }
   return ids;
+}
+
+/**
+ * survivorLocations — MUTATION-SURVIVORS-JSON-1. Per-mutant survivor detail
+ * straight from the Stryker mutation report the harness ALREADY read, so
+ * review no longer needs the ephemeral `%TEMP%/ain-mutation-tier-<pid>`
+ * scratch to outlive the run. ADDITIVE ONLY: one entry per mutant whose
+ * status is `Survived` or `NoCoverage` (the two non-executed-verdict
+ * statuses), carrying the tier the harness already assigned (tierOfMutant —
+ * the SAME classification tierReport scores with, never a re-classification)
+ * and Stryker's own location. NO count, tier assignment, floor or percentage
+ * is derived from or changed by this function — it is a projection of the
+ * report, not a score. Sorted by line, then column.
+ *
+ * @param {object} report — parsed Stryker mutation-report.json
+ * @param {string} kernelFileRelPath
+ * @param {Array<[number,number]>} peripheralRanges
+ * @returns {Array<{ id: string, mutatorName: string, tier: string, location: object, status: string }>}
+ */
+export function survivorLocations(report, kernelFileRelPath, peripheralRanges) {
+  const survivors = [];
+  for (const [filePath, data] of Object.entries(report?.files || {})) {
+    for (const m of data.mutants || []) {
+      if (m.status !== 'Survived' && m.status !== 'NoCoverage') continue;
+      survivors.push({
+        id: m.id,
+        mutatorName: m.mutatorName,
+        tier: tierOfMutant(m, filePath, kernelFileRelPath, peripheralRanges),
+        location: {
+          start: { line: m.location?.start?.line, column: m.location?.start?.column },
+          end: { line: m.location?.end?.line, column: m.location?.end?.column },
+        },
+        status: m.status,
+      });
+    }
+  }
+  survivors.sort((a, b) =>
+    (a.location.start.line - b.location.start.line)
+    || (a.location.start.column - b.location.start.column));
+  return survivors;
+}
+
+/**
+ * assertSurvivorsComplete — the RED case made structural: every Survived /
+ * NoCoverage mutant in the report must appear in the serialized survivors
+ * array. A survivor silently dropped from the reviewable output is the exact
+ * defect this row exists to close (survivor detail that needs the temp
+ * report), so the run fails loudly naming the missing mutant id rather than
+ * writing a survivors array that under-reports.
+ *
+ * @param {object} report — parsed Stryker mutation-report.json
+ * @param {Array<{ id: string }>} survivors — the array survivorLocations produced
+ * @param {string} kernelFileRelPath
+ * @param {Array<[number,number]>} peripheralRanges
+ */
+export function assertSurvivorsComplete(report, survivors, kernelFileRelPath, peripheralRanges) {
+  const present = new Set(survivors.map((s) => s.id));
+  for (const [filePath, data] of Object.entries(report?.files || {})) {
+    for (const m of data.mutants || []) {
+      if (m.status !== 'Survived' && m.status !== 'NoCoverage') continue;
+      if (!present.has(m.id)) {
+        throw new Error(`survivors array is missing mutant ${m.id} (status ${m.status}, ${filePath.replace(/\\/g, '/')}:${m.location?.start?.line}) — a survivor silently dropped from the reviewable output (MUTATION-SURVIVORS-JSON-1)`);
+      }
+    }
+  }
+}
+
+/**
+ * buildJsonResult — MUTATION-SURVIVORS-JSON-1: assembles one kernel's result
+ * entry. WITHOUT --survivors the shape is EXACTLY the pre-row
+ * `{ id, runtimeMs, tiers, decomposed }` (byte-identical default --json
+ * output); with it, `survivors` and `killed_money_math_ids` are additive
+ * keys only.
+ *
+ * @param {string} id
+ * @param {number} runtimeMs
+ * @param {object} tiers
+ * @param {object | null} decomposed
+ * @param {{ survivors: boolean }} opts
+ * @param {{ survivors: Array, killed_money_math_ids: string[] } | null} bundle
+ */
+export function buildJsonResult(id, runtimeMs, tiers, decomposed, opts, bundle) {
+  const base = { id, runtimeMs, tiers, decomposed };
+  if (!opts?.survivors || !bundle) return base;
+  return { ...base, survivors: bundle.survivors, killed_money_math_ids: bundle.killed_money_math_ids };
 }
 
 /**
@@ -882,7 +983,20 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
     }
   }
 
-  return { id, runtimeMs, tiers, decomposed };
+  // MUTATION-SURVIVORS-JSON-1: additive survivor detail, opt-in via --survivors.
+  // Both reads are free projections of the report already parsed above; no
+  // count, tier assignment or floor is touched. The completeness self-check
+  // runs only on the flagged path (the default output is byte-identical).
+  let survivorBundle = null;
+  if (opts.survivors) {
+    const survivors = survivorLocations(report, kernelRelPath, peripheralRanges);
+    assertSurvivorsComplete(report, survivors, kernelRelPath, peripheralRanges);
+    survivorBundle = {
+      survivors,
+      killed_money_math_ids: [...killedMoneyMathIds(report, kernelRelPath, peripheralRanges)].sort(),
+    };
+  }
+  return buildJsonResult(id, runtimeMs, tiers, decomposed, opts, survivorBundle);
 }
 
 // ── main ──────────────────────────────────────────────────────────────────
