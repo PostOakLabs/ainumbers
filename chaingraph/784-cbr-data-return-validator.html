@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CBR Data Return Validator · ART-784 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Validates a bank or money transfer operator's aggregate correspondent-banking data return against an illustrative profile-driven template: completeness, internal consistency, key-currency and concentration checks, plus a message-quality readiness roll-up. Runs locally, aggregate values only.">
+<meta name="ain:category" content="run">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/784-cbr-data-return-validator.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/784-cbr-data-return-validator.md">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CBR Data Return Validator · ART-784 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Validate an aggregate correspondent-banking data return against an illustrative template before submission: counts, corridors, consistency and message-quality readiness. Local, aggregate-only, zero PII.">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);
+  --red:#E06C75;--amber:#E5C07B;
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:760px;line-height:1.8}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:1.5rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+.notice-strip{font-size:.72rem;color:var(--body);background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.65rem .85rem;line-height:1.7;margin-bottom:1.25rem}
+label{display:block;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);margin:.8rem 0 .3rem}
+input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.55rem .7rem;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+textarea{min-height:210px;resize:vertical;line-height:1.5}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.btn{display:inline-flex;align-items:center;gap:.4rem;background:var(--teal);border:none;border-radius:var(--radius);color:#04211C;font-family:'JetBrains Mono',monospace;font-size:.68rem;font-weight:500;padding:.55rem 1rem;cursor:pointer}
+.btn:hover{filter:brightness(1.1)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--body)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-ghost:disabled,.btn:disabled{opacity:.4;cursor:not-allowed}
+.example-row{display:flex;gap:.5rem;flex-wrap:wrap;margin:.8rem 0}
+.results-panel{margin-top:1.25rem}
+.verdict{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.1em;padding:.3rem .8rem;border-radius:4px;border:1px solid}
+.verdict.ok{color:var(--teal);border-color:var(--teal);background:var(--teal-dim)}
+.verdict.bad{color:var(--red);border-color:var(--red);background:rgba(224,108,117,.1)}
+.verdict.warn{color:var(--amber);border-color:var(--amber);background:rgba(229,192,123,.1)}
+.kv{display:grid;grid-template-columns:220px 1fr;gap:.25rem .9rem;font-size:.72rem;margin:.9rem 0}
+.kv dt{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;align-self:center}
+.kv dd{color:var(--text);font-family:'JetBrains Mono',monospace;word-break:break-all}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.64rem;margin:.6rem 0}
+th{text-align:left;color:var(--muted);font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-size:.52rem;border-bottom:1px solid var(--border);padding:.4rem .5rem}
+td{border-bottom:1px solid rgba(30,47,74,.5);padding:.42rem .5rem;color:var(--text);vertical-align:top;word-break:break-all}
+pre{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:.8rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;line-height:1.55;overflow-x:auto;color:var(--text);white-space:pre-wrap;word-break:break-word}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.mfst-btn{background:none;border:1px solid var(--border);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer;margin-bottom:.6rem}
+.mfst-body{display:none}
+#toast{position:fixed;bottom:1.2rem;right:1.2rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.5rem .9rem;border-radius:6px;opacity:0;pointer-events:none;transition:opacity .25s}
+#toast.show{opacity:1}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+@media(max-width:640px){.row{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-bc">
+      <a href="../index.html">All Tools</a><span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a><span>&rsaquo;</span>
+      <span style="color:var(--teal)">CBR Data Return Validator</span>
+    </div>
+  </div>
+</nav>
+<div class="hero"><div class="container">
+  <h1>CBR Data Return Validator</h1>
+  <p class="hero-desc">Validates an aggregate correspondent-banking data return (a bank's or money transfer operator's periodic counts of active correspondents, terminations, corridors and volumes by key currency) against an illustrative, profile-driven template: completeness, internal consistency, key-currency and concentration checks, plus a message-quality readiness roll-up from the existing address and LEI lint summaries. Everything runs locally on aggregate values only, so an institution can check a return before submission and nothing leaves the machine.</p>
+</div></div>
+<div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="notice-strip">This template is illustrative. It is built from public correspondent-banking metric definitions and is not the official data collection template of the Pacific correspondent-banking project (that template is still being finalised) and not the World Bank CBR Resilience Index (its calibration is pending). Swift deferred its payments structured-address change on 27 August 2026 and undertook to give an update by December 2026 at the latest, so no hard migration date is asserted here; the readiness framing follows the FATF revised Recommendation 16 of June 2025 with its end-2030 transition.</div>
+
+  <div class="panel">
+    <div class="panel-label">Return input (aggregate values only)</div>
+    <div class="row">
+      <div>
+        <label for="profile">Profile</label>
+        <select id="profile">
+          <option value="generic">generic (global metric set)</option>
+          <option value="pacific">pacific (USD, AUD, NZD required)</option>
+        </select>
+      </div>
+      <div>
+        <label for="institution_type">Institution type</label>
+        <select id="institution_type">
+          <option value="bank">bank</option>
+          <option value="mto">mto (money transfer operator)</option>
+          <option value="other_non_bank">other non-bank</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="institution_code">Institution code (pseudonymous FI-NNN)</label>
+        <input id="institution_code" value="FI-001" autocomplete="off">
+      </div>
+      <div>
+        <label for="period">Period (start to end, YYYY-MM-DD)</label>
+        <input id="period" value="2026-01-01 to 2026-03-31" autocomplete="off">
+      </div>
+    </div>
+    <label for="currencies">Currencies (JSON array: per currency, correspondent counts, corridors, totals)</label>
+    <textarea id="currencies" spellcheck="false"></textarea>
+    <label for="message_quality">Message-quality summaries (optional JSON: lint counts from the address and LEI linters)</label>
+    <textarea id="message_quality" spellcheck="false" style="min-height:90px"></textarea>
+    <div class="example-row">
+      <button class="btn-ghost" onclick="loadExample('generic')">Example: generic bank return</button>
+      <button class="btn-ghost" onclick="loadExample('pacific')">Example: pacific MTO return</button>
+      <button class="btn-ghost" onclick="loadExample('broken')">Example: seeded inconsistency</button>
+    </div>
+    <button class="run-btn btn" onclick="runCompute()">&#9654; Validate Return</button>
+    <div class="results-panel" id="resultsPanel" style="display:none">
+      <p id="verdictLine"></p>
+      <dl class="kv" id="summaryKv"></dl>
+      <div id="violationsBlock"></div>
+      <div id="flagsBlock"></div>
+      <div id="readinessBlock"></div>
+      <div class="results-export-row">
+        <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportPolicyMandate()">Export Policy Mandate JSON</button>
+        <button class="btn btn-ghost" id="mdBtn" disabled onclick="exportMd()">Export Markdown</button>
+        <span id="generatedAt" style="font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted)"></span>
+      </div>
+      <pre id="rawOut"></pre>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">What this node checks</div>
+    <table>
+      <tr><th>Rule</th><th>Check</th><th>Outcome</th></tr>
+      <tr><td>REQ-*</td><td>Required fields per profile: period, institution type, pseudonymous code, at least one currency block with corridors; the pacific profile also requires USD, AUD and NZD</td><td>violation</td></tr>
+      <tr><td>COUNT-ROLLFORWARD</td><td>Closing active correspondents equals opening plus opened minus terminated or restricted, per currency</td><td>violation</td></tr>
+      <tr><td>CORRIDOR-SUM-*</td><td>Corridor sums equal the stated currency totals: counts exactly, values within a stated 0.5 percent tolerance</td><td>violation</td></tr>
+      <tr><td>PERIOD-SANITY</td><td>Real calendar dates, end on or after start, span at most 400 days</td><td>violation</td></tr>
+      <tr><td>STRING_LEAF_OUTSIDE_ENUMERATION</td><td>Aggregate-only contract: any string leaf outside the enumerations and the FI-NNN code pattern (a name, BIC, LEI or account identifier) is refused naming the JSON path only, never echoing the value</td><td>refusal</td></tr>
+      <tr><td>KEY_CURRENCY_SINGLE_CORRESPONDENT</td><td>Exactly one active correspondent in a profile key currency: the single-point-of-failure watch item</td><td>flag</td></tr>
+      <tr><td>CONCENTRATION_*</td><td>Top corridor share above 0.80, or Herfindahl-Hirschman index over corridor outbound-value shares above 0.50</td><td>flag</td></tr>
+      <tr><td>readiness</td><td>Roll-up of supplied message-quality summaries (structure mix, valid LEI) into percentages and a band; reports not_supplied when absent</td><td>report</td></tr>
+    </table>
+    <p style="font-size:.72rem;color:var(--body)">The two per-message linters this node builds on are separate tools: the CBPR+ structured address linter (art-241) and the LEI payment binding linter (art-246). This node consumes only their aggregate summaries and never reimplements their rules.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Manifest</div>
+    <button class="mfst-btn" id="mfstToggle" aria-expanded="false" onclick="toggleMfst()"><span id="mfstArrow">&#9660;</span> Show manifest</button>
+    <div class="mfst-body" id="manifest"><pre id="mfstCode"></pre></div>
+  </div>
+</div>
+<div id="toast"></div>
+<footer><div class="container">784-cbr-data-return-validator · CC BY 4.0 · Zero PII</div></footer>
+<script>
+const MANIFEST = {"tool_id":"784-cbr-data-return-validator","version":"1.0.0","title":"CBR Data Return Validator","description":"Validates an aggregate correspondent-banking data return against an illustrative profile-driven template: required fields per profile, correspondent roll-forward, corridor sums against stated totals, period sanity, key-currency single-correspondent watch, concentration flags, and a message-quality readiness roll-up. Aggregate-only: any string leaf outside the enumerations is refused by path with no echo.","category":"chaingraph","tags":["correspondent-banking","de-risking","data-return","payments","mcp:validate_cbr_data_return"],"input_schema":{"type":"object","required":["profile","institution_type","institution_code","period","currencies"],"properties":{"profile":{"type":"string","enum":["generic","pacific"],"description":"Template profile: generic uses the global metric set with USD, EUR, GBP as key currencies; pacific requires USD, AUD, NZD reported."},"institution_type":{"type":"string","enum":["bank","mto","other_non_bank"],"description":"Reporting institution class."},"institution_code":{"type":"string","pattern":"^FI-[0-9]{3}$","description":"Profile-local pseudonymous institution code, FI-NNN form. No real names or identifiers."},"period":{"type":"object","required":["start","end"],"properties":{"start":{"type":"string","description":"Period start, YYYY-MM-DD."},"end":{"type":"string","description":"Period end, YYYY-MM-DD, on or after start, span at most 400 days."}}},"currencies":{"type":"array","minItems":1,"description":"Per key currency: opening_correspondents, active_correspondents (closing), opened, terminated_restricted, corridors (country with outbound and inbound counts and values) and optional totals for the cross-check.","items":{"type":"object","required":["currency","opening_correspondents","active_correspondents","opened","terminated_restricted","corridors"],"properties":{"currency":{"type":"string","description":"ISO 4217 alpha-3 code."},"opening_correspondents":{"type":"integer","minimum":0},"active_correspondents":{"type":"integer","minimum":0},"opened":{"type":"integer","minimum":0},"terminated_restricted":{"type":"integer","minimum":0},"corridors":{"type":"array","minItems":1,"items":{"type":"object","required":["country","outbound_count","inbound_count","outbound_value","inbound_value"],"properties":{"country":{"type":"string","description":"ISO 3166-1 alpha-2 corridor country."},"outbound_count":{"type":"integer","minimum":0},"inbound_count":{"type":"integer","minimum":0},"outbound_value":{"type":"number","minimum":0},"inbound_value":{"type":"number","minimum":0}}}},"totals":{"type":"object","properties":{"outbound_count":{"type":"integer"},"inbound_count":{"type":"integer"},"outbound_value":{"type":"number"},"inbound_value":{"type":"number"}}}}}},"message_quality":{"type":"object","description":"Optional aggregate summaries from the address and LEI linters: messages_linted with fully_structured, hybrid and unstructured counts (must sum to messages_linted), and lei_linted with lei_valid.","properties":{"messages_linted":{"type":"integer","minimum":0},"fully_structured":{"type":"integer","minimum":0},"hybrid":{"type":"integer","minimum":0},"unstructured":{"type":"integer","minimum":0},"lei_linted":{"type":"integer","minimum":0},"lei_valid":{"type":"integer","minimum":0}}}}},"mcp_tool_definition":{"name":"validate_cbr_data_return","description":"Validates an aggregate correspondent-banking data return against an illustrative profile-driven template: required fields, roll-forward consistency, corridor sums, period sanity, key-currency and concentration flags, readiness roll-up. Aggregate-only: free-text leaves are refused by path with no echo.","inputSchema":{"type":"object","required":["profile","institution_type","institution_code","period","currencies"],"properties":{"profile":{"type":"string","enum":["generic","pacific"]},"institution_type":{"type":"string","enum":["bank","mto","other_non_bank"]},"institution_code":{"type":"string"},"period":{"type":"object","required":["start","end"],"properties":{"start":{"type":"string"},"end":{"type":"string"}}},"currencies":{"type":"array","items":{"type":"object"}},"message_quality":{"type":"object"}}}},"execution":{"type":"browser-javascript","entry":"chaingraph/784-cbr-data-return-validator.html","function_name":"runCompute","timeout_ms":5000},"ap2_export":true,"source":"chaingraph/kernels/784-cbr-data-return-validator.kernel.mjs","input_schema_provenance":"Top-level properties are exactly the policy_parameters members the kernel reads: profile, institution_type, institution_code, period, currencies, message_quality.","author":"PostOakLabs","license":"CC-BY-4.0","input_example":{"profile":"generic","institution_type":"bank","institution_code":"FI-001","period":{"start":"2026-01-01","end":"2026-03-31"},"currencies":[{"currency":"USD","opening_correspondents":5,"active_correspondents":4,"opened":1,"terminated_restricted":2,"corridors":[{"country":"US","outbound_count":1200,"inbound_count":900,"outbound_value":6000000,"inbound_value":4400000},{"country":"GB","outbound_count":900,"inbound_count":700,"outbound_value":5000000,"inbound_value":3600000},{"country":"SG","outbound_count":600,"inbound_count":500,"outbound_value":4000000,"inbound_value":2900000}],"totals":{"outbound_count":2700,"inbound_count":2100,"outbound_value":15000000,"inbound_value":10900000}},{"currency":"EUR","opening_correspondents":3,"active_correspondents":3,"opened":0,"terminated_restricted":0,"corridors":[{"country":"DE","outbound_count":400,"inbound_count":300,"outbound_value":1500000,"inbound_value":1200000},{"country":"FR","outbound_count":300,"inbound_count":250,"outbound_value":1000000,"inbound_value":900000},{"country":"NL","outbound_count":150,"inbound_count":120,"outbound_value":700000,"inbound_value":600000}],"totals":{"outbound_count":850,"inbound_count":670,"outbound_value":3200000,"inbound_value":2700000}}]},"output_example":null,"example_execution_hash":"febaa590fef1585a12382a2d5d83bfd99fea9af9027ca8bab8e3aa391779764c","output_schema":{"type":"object","properties":{"valid":{"type":"boolean"},"refused":{"type":["object","null"]},"violations":{"type":"array"},"flags":{"type":"array"},"readiness":{"type":"object"},"rules_checked":{"type":"array"},"profile":{"type":["string","null"]},"template_version":{"type":"string"},"profile_definition":{"type":"object"},"computed":{"type":"object"},"pii_note":{"type":"string"},"disambiguation":{"type":"string"}}}};
+const EXAMPLES = {
+  generic: {"profile":"generic","institution_type":"bank","institution_code":"FI-001","period":{"start":"2026-01-01","end":"2026-03-31"},"currencies":[{"currency":"USD","opening_correspondents":5,"active_correspondents":4,"opened":1,"terminated_restricted":2,"corridors":[{"country":"US","outbound_count":1200,"inbound_count":900,"outbound_value":6000000,"inbound_value":4400000},{"country":"GB","outbound_count":900,"inbound_count":700,"outbound_value":5000000,"inbound_value":3600000},{"country":"SG","outbound_count":600,"inbound_count":500,"outbound_value":4000000,"inbound_value":2900000}],"totals":{"outbound_count":2700,"inbound_count":2100,"outbound_value":15000000,"inbound_value":10900000}},{"currency":"EUR","opening_correspondents":3,"active_correspondents":3,"opened":0,"terminated_restricted":0,"corridors":[{"country":"DE","outbound_count":400,"inbound_count":300,"outbound_value":1500000,"inbound_value":1200000},{"country":"FR","outbound_count":300,"inbound_count":250,"outbound_value":1000000,"inbound_value":900000},{"country":"NL","outbound_count":150,"inbound_count":120,"outbound_value":700000,"inbound_value":600000}],"totals":{"outbound_count":850,"inbound_count":670,"outbound_value":3200000,"inbound_value":2700000}}]},
+  pacific: {"profile":"pacific","institution_type":"mto","institution_code":"FI-042","period":{"start":"2026-04-01","end":"2026-06-30"},"currencies":[{"currency":"AUD","opening_correspondents":3,"active_correspondents":3,"opened":1,"terminated_restricted":1,"corridors":[{"country":"AU","outbound_count":400,"inbound_count":350,"outbound_value":1500000,"inbound_value":1300000},{"country":"US","outbound_count":150,"inbound_count":120,"outbound_value":800000,"inbound_value":700000},{"country":"SG","outbound_count":50,"inbound_count":40,"outbound_value":200000,"inbound_value":200000}],"totals":{"outbound_count":600,"inbound_count":510,"outbound_value":2500000,"inbound_value":2200000}},{"currency":"NZD","opening_correspondents":2,"active_correspondents":2,"opened":0,"terminated_restricted":0,"corridors":[{"country":"NZ","outbound_count":300,"inbound_count":280,"outbound_value":1200000,"inbound_value":1100000},{"country":"AU","outbound_count":100,"inbound_count":90,"outbound_value":500000,"inbound_value":500000},{"country":"US","outbound_count":50,"inbound_count":40,"outbound_value":300000,"inbound_value":300000}],"totals":{"outbound_count":450,"inbound_count":410,"outbound_value":2000000,"inbound_value":1900000}},{"currency":"USD","opening_correspondents":2,"active_correspondents":1,"opened":0,"terminated_restricted":1,"corridors":[{"country":"US","outbound_count":500,"inbound_count":450,"outbound_value":3000000,"inbound_value":2500000}],"totals":{"outbound_count":500,"inbound_count":450,"outbound_value":3000000,"inbound_value":2500000}}],"message_quality":{"messages_linted":200,"fully_structured":130,"hybrid":40,"unstructured":30,"lei_linted":160,"lei_valid":96}},
+  broken: {"profile":"generic","institution_type":"bank","institution_code":"FI-003","period":{"start":"2026-06-01","end":"2026-06-30"},"currencies":[{"currency":"USD","opening_correspondents":5,"active_correspondents":9,"opened":1,"terminated_restricted":2,"corridors":[{"country":"US","outbound_count":1000,"inbound_count":800,"outbound_value":5000000,"inbound_value":4000000}],"totals":{"outbound_count":1500,"inbound_count":800,"outbound_value":5000000,"inbound_value":4000000}}]}
+};
+
+/* ---- kernel port (faithful to chaingraph/kernels/784-cbr-data-return-validator.kernel.mjs) ---- */
+const PROFILES = {
+  generic: { key_currencies:['USD','EUR','GBP'], required_key_currencies:[], institution_types:['bank','mto','other_non_bank'] },
+  pacific: { key_currencies:['USD','AUD','NZD'], required_key_currencies:['USD','AUD','NZD'], institution_types:['bank','mto','other_non_bank'] }
+};
+const PROFILE_NAMES = ['generic','pacific'];
+const INSTITUTION_TYPES = ['bank','mto','other_non_bank'];
+const INSTITUTION_CODE_RE = /^FI-[0-9]{3}$/;
+const DATE_RE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+const TOP_SHARE_THRESHOLD = 0.80, HHI_THRESHOLD = 0.50, VALUE_TOLERANCE_PCT = 0.005, COUNT_TOLERANCE = 0;
+const MAX_PERIOD_DAYS = 400, MIN_PERIOD_YEAR = 2011, MAX_PERIOD_YEAR = 2100;
+const ISO4217 = new Set('AED AFN ALL AMD ANG AOA ARS AUD AWG AZN BAM BBD BDT BGN BHD BIF BMD BND BOB BOV BRL BSD BTN BWP BYN BZD CAD CDF CHE CHF CHW CLF CLP CNY COP COU CRC CUC CUP CVE CZK DJF DKK DOP DZD EGP ERN ETB EUR FJD FKP GBP GEL GHS GIP GMD GNF GTQ GYD HKD HNL HRK HTG HUF IDR ILS INR IQD IRR ISK JMD JOD JPY KES KGS KHR KMF KPW KRW KWD KYD KZT LAK LBP LKR LRD LSL LYD MAD MDL MGA MKD MMK MNT MOP MRU MUR MVR MWK MXN MXV MYR MZN NAD NGN NIO NOK NPR NZD OMR PAB PEN PGK PHP PKR PLN PYG QAR RON RSD RUB RWF SAR SBD SCR SDG SEK SGD SHP SLE SLL SOS SRD SSP STN SVC SYP SZL THB TJS TMT TND TOP TRY TTD TWD TZS UAH UGX USD USN UYI UYU UYW UZS VED VES VND VUV WST XAF XAG XAU XBA XBB XBC XBD XCD XCG XDR XOF XPD XPF XPT XSU XTS XUA XXX YER ZAR ZMW ZWL'.split(' '));
+const ISO3166 = new Set('AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW'.split(' '));
+
+function isPlainObject(v){ return v !== null && typeof v === 'object' && !Array.isArray(v); }
+function isCountInt(v){ return typeof v === 'number' && Number.isInteger(v) && v >= 0; }
+function isNonNegNumber(v){ return typeof v === 'number' && Number.isFinite(v) && v >= 0; }
+function parseDate(s){
+  if (typeof s !== 'string' || !DATE_RE.test(s)) return null;
+  var y = +s.slice(0,4), m = +s.slice(5,7), d = +s.slice(8,10);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  var utc = Date.UTC(y, m-1, d), dt = new Date(utc);
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m-1 || dt.getUTCDate() !== d) return null;
+  return { y: y, utc: utc };
+}
+function pct(part, whole){
+  if (!Number.isFinite(part) || !Number.isFinite(whole) || whole <= 0) return 0;
+  return Math.round(1000 * part / whole) / 10;
+}
+function round4(x){ return Math.round(x * 10000) / 10000; }
+function collectForeignStringLeaves(node, path, out){
+  if (typeof node === 'string') {
+    var ok = false;
+    if (path === 'profile') ok = PROFILE_NAMES.indexOf(node) !== -1;
+    else if (path === 'institution_type') ok = INSTITUTION_TYPES.indexOf(node) !== -1;
+    else if (path === 'institution_code') ok = INSTITUTION_CODE_RE.test(node);
+    else if (path === 'period.start' || path === 'period.end') ok = DATE_RE.test(node);
+    else if (/\.currency$/.test(path)) ok = ISO4217.has(node);
+    else if (/\.country$/.test(path)) ok = ISO3166.has(node);
+    if (!ok) out.push(path);
+    return;
+  }
+  if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) collectForeignStringLeaves(node[i], path === '' ? '['+i+']' : path+'['+i+']', out); return; }
+  if (isPlainObject(node)) { var ks = Object.keys(node); for (var j = 0; j < ks.length; j++) collectForeignStringLeaves(node[ks[j]], path === '' ? ks[j] : path+'.'+ks[j], out); }
+}
+function collectTypeViolations(node, path, out){
+  if (typeof node === 'string' || typeof node === 'number') return;
+  if (typeof node === 'boolean' || node === null || node === undefined) { out.push(path); return; }
+  if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) collectTypeViolations(node[i], path === '' ? '['+i+']' : path+'['+i+']', out); return; }
+  if (isPlainObject(node)) { var ks = Object.keys(node); for (var j = 0; j < ks.length; j++) collectTypeViolations(node[ks[j]], path === '' ? ks[j] : path+'.'+ks[j], out); }
+}
+function computeReturn(pp){
+  pp = pp || {};
+  var violations = [], flags = [];
+  var foreign = [];
+  collectForeignStringLeaves(pp, '', foreign);
+  var refused = null;
+  if (foreign.length > 0) { foreign.sort(); refused = { path: foreign[0], reason_code: 'STRING_LEAF_OUTSIDE_ENUMERATION' }; }
+  var typeBad = [];
+  collectTypeViolations(pp, '', typeBad);
+  typeBad.sort();
+  for (var t = 0; t < typeBad.length; t++) violations.push({ path: typeBad[t], rule_id: 'TYPE_DISCIPLINE', source: 'type' });
+  var profileName = typeof pp.profile === 'string' ? pp.profile : '';
+  var profile = PROFILES[profileName] || null;
+  if (!profile) violations.push({ path: 'profile', rule_id: 'REQ-PROFILE', source: 'required_fields' });
+  if (typeof pp.institution_type !== 'string' || INSTITUTION_TYPES.indexOf(pp.institution_type) === -1) violations.push({ path: 'institution_type', rule_id: 'REQ-INSTITUTION-TYPE', source: 'required_fields' });
+  if (typeof pp.institution_code !== 'string' || !INSTITUTION_CODE_RE.test(pp.institution_code)) violations.push({ path: 'institution_code', rule_id: 'REQ-INSTITUTION-CODE', source: 'required_fields' });
+  if (!isPlainObject(pp.period) || typeof pp.period.start !== 'string' || typeof pp.period.end !== 'string') violations.push({ path: 'period', rule_id: 'REQ-PERIOD', source: 'required_fields' });
+  if (!Array.isArray(pp.currencies) || pp.currencies.length === 0) violations.push({ path: 'currencies', rule_id: 'REQ-CURRENCY-BLOCK', source: 'required_fields' });
+  var periodDays = null;
+  if (isPlainObject(pp.period) && typeof pp.period.start === 'string' && typeof pp.period.end === 'string') {
+    var s = parseDate(pp.period.start), e = parseDate(pp.period.end);
+    if (!s) violations.push({ path: 'period.start', rule_id: 'PERIOD-SANITY', source: 'period' });
+    if (!e) violations.push({ path: 'period.end', rule_id: 'PERIOD-SANITY', source: 'period' });
+    if (s && e) {
+      if (e.utc < s.utc) violations.push({ path: 'period.end', rule_id: 'PERIOD-SANITY', source: 'period' });
+      if (s.y < MIN_PERIOD_YEAR || s.y > MAX_PERIOD_YEAR || e.y < MIN_PERIOD_YEAR || e.y > MAX_PERIOD_YEAR) violations.push({ path: 'period', rule_id: 'PERIOD-SANITY', source: 'period' });
+      periodDays = Math.round((e.utc - s.utc) / 86400000);
+      if (periodDays > MAX_PERIOD_DAYS) violations.push({ path: 'period', rule_id: 'PERIOD-SANITY', source: 'period' });
+    }
+  }
+  var seenCurrencies = [];
+  var blocks = Array.isArray(pp.currencies) ? pp.currencies : [];
+  for (var ci = 0; ci < blocks.length; ci++) {
+    var c = blocks[ci], cpath = 'currencies['+ci+']';
+    if (!isPlainObject(c)) { violations.push({ path: cpath, rule_id: 'REQ-CURRENCY-BLOCK', source: 'required_fields' }); continue; }
+    if (typeof c.currency === 'string') {
+      if (seenCurrencies.indexOf(c.currency) !== -1) violations.push({ path: cpath + '.currency', rule_id: 'CURRENCY-DUPLICATE', source: 'internal_consistency' });
+      seenCurrencies.push(c.currency);
+    }
+    var numericFields = [['opening_correspondents',isCountInt],['active_correspondents',isCountInt],['opened',isCountInt],['terminated_restricted',isCountInt]];
+    for (var nf = 0; nf < numericFields.length; nf++) if (!numericFields[nf][1](c[numericFields[nf][0]])) violations.push({ path: cpath+'.'+numericFields[nf][0], rule_id: 'REQ-NUMERIC-FIELD', source: 'required_fields' });
+    if (isCountInt(c.opening_correspondents) && isCountInt(c.opened) && isCountInt(c.terminated_restricted) && isCountInt(c.active_correspondents)) {
+      if (c.opening_correspondents + c.opened - c.terminated_restricted !== c.active_correspondents) violations.push({ path: cpath+'.active_correspondents', rule_id: 'COUNT-ROLLFORWARD', source: 'internal_consistency' });
+    }
+    var corridors = Array.isArray(c.corridors) ? c.corridors : null;
+    if (!corridors || corridors.length === 0) {
+      violations.push({ path: cpath+'.corridors', rule_id: 'REQ-CORRIDORS', source: 'required_fields' });
+    } else {
+      var seenCountries = [], sumOBCount = 0, sumIBCount = 0, sumOBValue = 0, sumIBValue = 0, corridorValuesOk = true;
+      for (var ki = 0; ki < corridors.length; ki++) {
+        var k = corridors[ki], kpath = cpath+'.corridors['+ki+']';
+        if (!isPlainObject(k)) { violations.push({ path: kpath, rule_id: 'REQ-CORRIDORS', source: 'required_fields' }); continue; }
+        if (typeof k.country === 'string') {
+          if (seenCountries.indexOf(k.country) !== -1) violations.push({ path: kpath+'.country', rule_id: 'CORRIDOR-DUPLICATE', source: 'internal_consistency' });
+          seenCountries.push(k.country);
+        }
+        if (!isCountInt(k.outbound_count)) violations.push({ path: kpath+'.outbound_count', rule_id: 'REQ-NUMERIC-FIELD', source: 'required_fields' });
+        if (!isCountInt(k.inbound_count)) violations.push({ path: kpath+'.inbound_count', rule_id: 'REQ-NUMERIC-FIELD', source: 'required_fields' });
+        if (!isNonNegNumber(k.outbound_value)) { violations.push({ path: kpath+'.outbound_value', rule_id: 'REQ-NUMERIC-FIELD', source: 'required_fields' }); corridorValuesOk = false; }
+        if (!isNonNegNumber(k.inbound_value)) { violations.push({ path: kpath+'.inbound_value', rule_id: 'REQ-NUMERIC-FIELD', source: 'required_fields' }); corridorValuesOk = false; }
+        if (isCountInt(k.outbound_count)) sumOBCount += k.outbound_count;
+        if (isCountInt(k.inbound_count)) sumIBCount += k.inbound_count;
+        if (isNonNegNumber(k.outbound_value)) sumOBValue += k.outbound_value;
+        if (isNonNegNumber(k.inbound_value)) sumIBValue += k.inbound_value;
+      }
+      if (isPlainObject(c.totals)) {
+        if (isCountInt(c.totals.outbound_count) && Math.abs(sumOBCount - c.totals.outbound_count) > COUNT_TOLERANCE) violations.push({ path: cpath+'.totals.outbound_count', rule_id: 'CORRIDOR-SUM-COUNT', source: 'internal_consistency' });
+        if (isCountInt(c.totals.inbound_count) && Math.abs(sumIBCount - c.totals.inbound_count) > COUNT_TOLERANCE) violations.push({ path: cpath+'.totals.inbound_count', rule_id: 'CORRIDOR-SUM-COUNT', source: 'internal_consistency' });
+        if (corridorValuesOk && isNonNegNumber(c.totals.outbound_value) && Math.abs(sumOBValue - c.totals.outbound_value) > Math.max(1, VALUE_TOLERANCE_PCT * c.totals.outbound_value)) violations.push({ path: cpath+'.totals.outbound_value', rule_id: 'CORRIDOR-SUM-VALUE', source: 'internal_consistency' });
+        if (corridorValuesOk && isNonNegNumber(c.totals.inbound_value) && Math.abs(sumIBValue - c.totals.inbound_value) > Math.max(1, VALUE_TOLERANCE_PCT * c.totals.inbound_value)) violations.push({ path: cpath+'.totals.inbound_value', rule_id: 'CORRIDOR-SUM-VALUE', source: 'internal_consistency' });
+      }
+      if (corridorValuesOk && sumOBValue > 0) {
+        var shares = corridors.filter(function(k2){ return isPlainObject(k2) && isNonNegNumber(k2.outbound_value); }).map(function(k2){ return k2.outbound_value / sumOBValue; });
+        var top = Math.max.apply(null, shares), hhi = 0;
+        for (var si = 0; si < shares.length; si++) hhi += shares[si] * shares[si];
+        if (top > TOP_SHARE_THRESHOLD) flags.push({ flag_id:'CONCENTRATION_TOP_CORRIDOR', path: cpath, currency: typeof c.currency === 'string' ? c.currency : null, top_corridor_share: round4(top), threshold: TOP_SHARE_THRESHOLD });
+        if (hhi > HHI_THRESHOLD) flags.push({ flag_id:'CONCENTRATION_HHI', path: cpath, currency: typeof c.currency === 'string' ? c.currency : null, hhi: round4(hhi), threshold: HHI_THRESHOLD });
+      }
+    }
+  }
+  if (profile) {
+    for (var rq = 0; rq < profile.required_key_currencies.length; rq++) {
+      if (seenCurrencies.indexOf(profile.required_key_currencies[rq]) === -1) { violations.push({ path: 'currencies', rule_id: 'REQ-KEY-CURRENCY', source: 'required_fields' }); break; }
+    }
+    for (var ci2 = 0; ci2 < blocks.length; ci2++) {
+      var c2 = blocks[ci2];
+      if (!isPlainObject(c2)) continue;
+      if (profile.key_currencies.indexOf(c2.currency) === -1) continue;
+      if (isCountInt(c2.active_correspondents)) {
+        if (c2.active_correspondents === 1) flags.push({ flag_id:'KEY_CURRENCY_SINGLE_CORRESPONDENT', path:'currencies['+ci2+']', currency: c2.currency, active_correspondents: 1 });
+        else if (c2.active_correspondents === 0) violations.push({ path:'currencies['+ci2+'].active_correspondents', rule_id:'KEY-CURRENCY-NO-CORRESPONDENT', source:'key_currency_watch' });
+      }
+    }
+  }
+  var readiness = { status: 'not_supplied' };
+  var mq = pp.message_quality;
+  if (mq !== undefined && mq !== null) {
+    if (!isPlainObject(mq)) {
+      violations.push({ path:'message_quality', rule_id:'REQ-MESSAGE-QUALITY', source:'required_fields' });
+    } else {
+      var need = ['messages_linted','fully_structured','hybrid','unstructured','lei_linted','lei_valid'], countsOk = true;
+      for (var ni = 0; ni < need.length; ni++) { if (!isCountInt(mq[need[ni]])) { violations.push({ path:'message_quality.'+need[ni], rule_id:'REQ-NUMERIC-FIELD', source:'required_fields' }); countsOk = false; } }
+      if (countsOk) {
+        if (mq.fully_structured + mq.hybrid + mq.unstructured !== mq.messages_linted) violations.push({ path:'message_quality', rule_id:'MESSAGE-QUALITY-SUM', source:'message_quality' });
+        if (mq.lei_valid > mq.lei_linted) violations.push({ path:'message_quality.lei_valid', rule_id:'MESSAGE-QUALITY-SUM', source:'message_quality' });
+        var fsPct = pct(mq.fully_structured, mq.messages_linted), leiPct = pct(mq.lei_valid, mq.lei_linted), band = 'LOW';
+        if (fsPct >= 85 && leiPct >= 70) band = 'HIGH';
+        else if (fsPct >= 60 && leiPct >= 40) band = 'MEDIUM';
+        readiness = { status:'supplied', messages_linted: mq.messages_linted, fully_structured_pct: fsPct, hybrid_pct: pct(mq.hybrid, mq.messages_linted), unstructured_pct: pct(mq.unstructured, mq.messages_linted), valid_lei_pct: leiPct, lei_coverage_pct: pct(mq.lei_linted, mq.messages_linted), band: band };
+      } else { readiness = { status:'not_supplied' }; }
+    }
+  }
+  violations.sort(function(a,b){ return a.path < b.path ? -1 : a.path > b.path ? 1 : a.rule_id < b.rule_id ? -1 : a.rule_id > b.rule_id ? 1 : 0; });
+  flags.sort(function(a,b){ return a.flag_id < b.flag_id ? -1 : a.flag_id > b.flag_id ? 1 : a.path < b.path ? -1 : a.path > b.path ? 1 : 0; });
+  var output_payload = {
+    valid: !refused && violations.length === 0,
+    refused: refused,
+    violations: violations,
+    flags: flags,
+    readiness: readiness,
+    rules_checked: ['CONCENTRATION_HHI','CONCENTRATION_TOP_CORRIDOR','CORRIDOR-DUPLICATE','CORRIDOR-SUM-COUNT','CORRIDOR-SUM-VALUE','COUNT-ROLLFORWARD','CURRENCY-DUPLICATE','ENUM_STRING_LEAVES','KEY-CURRENCY-NO-CORRESPONDENT','KEY_CURRENCY_SINGLE_CORRESPONDENT','MESSAGE-QUALITY-SUM','PERIOD-SANITY','REQ-CORRIDORS','REQ-CURRENCY-BLOCK','REQ-INSTITUTION-CODE','REQ-INSTITUTION-TYPE','REQ-KEY-CURRENCY','REQ-MESSAGE-QUALITY','REQ-NUMERIC-FIELD','REQ-PERIOD','REQ-PROFILE','TYPE_DISCIPLINE'],
+    profile: profileName || null,
+    template_version: 'CBR-DATA-RETURN-ILLUSTRATIVE-V1',
+    profile_definition: { key_currencies: profile ? profile.key_currencies.slice() : [], required_key_currencies: profile ? profile.required_key_currencies.slice() : [], top_share_threshold: TOP_SHARE_THRESHOLD, hhi_threshold: HHI_THRESHOLD, value_tolerance_pct: VALUE_TOLERANCE_PCT, count_tolerance: COUNT_TOLERANCE, max_period_days: MAX_PERIOD_DAYS },
+    computed: { currencies_reported: seenCurrencies.length, period_days: periodDays },
+    pii_note: 'Aggregate-only return: counts, sums, currency codes, country codes, period dates and enumerated institution types. Institutions appear only as profile-local pseudonymous codes (FI-NNN form). No customer, counterparty, correspondent or institution names, BIC, LEI or account identifiers are accepted; any string leaf outside the enumerations is refused by JSON path with the value never echoed. Use synthetic or anonymised data only.',
+    disambiguation: 'validate_cbr_data_return validates an AGGREGATE periodic data return against an illustrative profile-driven template. Per-message ISO 20022 address linting lives in lint_cbpr_structured_address (art-241) and per-message LEI/transparency linting in lint_lei_payment_binding (art-246); this node consumes only their aggregate summaries and never reimplements their rules. This template is illustrative and is not any official project data collection template or resilience index.'
+  };
+  var compliance_flags = [];
+  if (refused) compliance_flags.push('FREE_TEXT_LEAF_REFUSED');
+  if (!refused && violations.length > 0) compliance_flags.push('RETURN_HAS_VIOLATIONS');
+  var seenFlagIds = [];
+  for (var fi = 0; fi < flags.length; fi++) { if (seenFlagIds.indexOf(flags[fi].flag_id) === -1) { seenFlagIds.push(flags[fi].flag_id); compliance_flags.push(flags[fi].flag_id); } }
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+/* ---- UI wiring ---- */
+var _result = null, _artifact = null, _pp = null;
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function parsePeriodField(raw){
+  var m = String(raw).match(/^\s*(\d{4}-\d{2}-\d{2})\s*(?:to|-|until)\s*(\d{4}-\d{2}-\d{2})\s*$/i);
+  if (!m) return null;
+  return { start: m[1], end: m[2] };
+}
+function readInputs(){
+  var period = parsePeriodField(document.getElementById('period').value);
+  var currencies = JSON.parse(document.getElementById('currencies').value);
+  var mqRaw = document.getElementById('message_quality').value.trim();
+  var pp = {
+    profile: document.getElementById('profile').value,
+    institution_type: document.getElementById('institution_type').value,
+    institution_code: document.getElementById('institution_code').value.trim(),
+    period: period || { start: '', end: '' },
+    currencies: currencies
+  };
+  if (mqRaw) pp.message_quality = JSON.parse(mqRaw);
+  return pp;
+}
+function loadExample(which){
+  var ex = EXAMPLES[which];
+  document.getElementById('profile').value = ex.profile;
+  document.getElementById('institution_type').value = ex.institution_type;
+  document.getElementById('institution_code').value = ex.institution_code;
+  document.getElementById('period').value = ex.period.start + ' to ' + ex.period.end;
+  document.getElementById('currencies').value = JSON.stringify(ex.currencies, null, 1);
+  document.getElementById('message_quality').value = ex.message_quality ? JSON.stringify(ex.message_quality) : '';
+}
+async function runCompute(){
+  var panel = document.getElementById('resultsPanel');
+  panel.style.display = 'block';
+  try {
+    _pp = readInputs();
+  } catch (e) {
+    document.getElementById('verdictLine').innerHTML = '<span class="verdict warn">INPUT ERROR</span>';
+    document.getElementById('summaryKv').innerHTML = '';
+    document.getElementById('violationsBlock').innerHTML = '<p style="font-size:.72rem;color:var(--body)">The currencies and message-quality fields must be valid JSON, and the period must read YYYY-MM-DD to YYYY-MM-DD.</p>';
+    document.getElementById('flagsBlock').innerHTML = '';
+    document.getElementById('readinessBlock').innerHTML = '';
+    document.getElementById('rawOut').textContent = '';
+    return;
+  }
+  var r = computeReturn(_pp);
+  _result = r;
+  var op = r.output_payload;
+  var verdictLine = document.getElementById('verdictLine');
+  if (op.refused) verdictLine.innerHTML = '<span class="verdict bad">REFUSED</span> <span style="font-size:.7rem;color:var(--body)">aggregate-only contract: refused at ' + esc(op.refused.path) + ' (' + esc(op.refused.reason_code) + '); the value is never echoed</span>';
+  else if (op.valid) verdictLine.innerHTML = '<span class="verdict ok">VALID</span> <span style="font-size:.7rem;color:var(--body)">complete and internally consistent under the ' + esc(op.profile) + ' profile</span>';
+  else verdictLine.innerHTML = '<span class="verdict bad">VIOLATIONS</span> <span style="font-size:.7rem;color:var(--body)">' + op.violations.length + ' rule violation(s)</span>';
+  var kv = [
+    ['template', op.template_version],
+    ['profile', op.profile || 'unrecognised'],
+    ['key currencies', op.profile_definition.key_currencies.join(', ') || '-'],
+    ['currencies reported', op.computed.currencies_reported],
+    ['period days', op.computed.period_days === null ? 'n/a' : op.computed.period_days],
+    ['violations', op.violations.length],
+    ['flags', op.flags.length],
+    ['readiness', op.readiness.status === 'supplied' ? op.readiness.band + ' band' : 'not supplied'],
+    ['rules checked', op.rules_checked.length]
+  ];
+  document.getElementById('summaryKv').innerHTML = kv.map(function(x){ return '<dt>'+x[0]+'</dt><dd>'+esc(x[1])+'</dd>'; }).join('');
+  var vb = '';
+  if (op.violations.length > 0) {
+    vb = '<h3 style="font-size:.9rem;color:var(--white);margin:1rem 0 .2rem">Violations</h3><table><tr><th>Path</th><th>Rule</th><th>Source</th></tr>' +
+      op.violations.map(function(v){ return '<tr><td>'+esc(v.path)+'</td><td>'+esc(v.rule_id)+'</td><td>'+esc(v.source)+'</td></tr>'; }).join('') + '</table>';
+  }
+  document.getElementById('violationsBlock').innerHTML = vb;
+  var fb = '';
+  if (op.flags.length > 0) {
+    fb = '<h3 style="font-size:.9rem;color:var(--white);margin:1rem 0 .2rem">Flags (watch items, not failures)</h3><table><tr><th>Flag</th><th>Currency</th><th>Detail</th></tr>' +
+      op.flags.map(function(f){
+        var d = f.flag_id === 'CONCENTRATION_HHI' ? ('HHI ' + f.hhi + ' over threshold ' + f.threshold) : (f.flag_id === 'CONCENTRATION_TOP_CORRIDOR' ? ('top corridor share ' + f.top_corridor_share + ' over threshold ' + f.threshold) : ('active correspondents ' + f.active_correspondents));
+        return '<tr><td>'+esc(f.flag_id)+'</td><td>'+esc(f.currency || '-')+'</td><td>'+esc(d)+'</td></tr>';
+      }).join('') + '</table>';
+  }
+  document.getElementById('flagsBlock').innerHTML = fb;
+  var rb = '';
+  if (op.readiness.status === 'supplied') {
+    var q = op.readiness;
+    rb = '<h3 style="font-size:.9rem;color:var(--white);margin:1rem 0 .2rem">Message-quality readiness</h3><table><tr><th>Measure</th><th>Value</th></tr>' +
+      '<tr><td>messages linted</td><td>'+q.messages_linted+'</td></tr>' +
+      '<tr><td>fully structured</td><td>'+q.fully_structured_pct+'%</td></tr>' +
+      '<tr><td>hybrid</td><td>'+q.hybrid_pct+'%</td></tr>' +
+      '<tr><td>unstructured</td><td>'+q.unstructured_pct+'%</td></tr>' +
+      '<tr><td>valid LEI</td><td>'+q.valid_lei_pct+'% (coverage '+q.lei_coverage_pct+'%)</td></tr>' +
+      '<tr><td>band</td><td>'+esc(q.band)+'</td></tr></table>';
+  }
+  document.getElementById('readinessBlock').innerHTML = rb;
+  document.getElementById('rawOut').textContent = JSON.stringify(op, null, 2);
+  var hash = await sha256({ policy_parameters: _pp, output_payload: op });
+  var nowIso = new Date().toISOString();
+  _artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: '784-cbr-data-return-validator',
+    tool_version: '1.0.0',
+    generated_at: nowIso,
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _pp,
+    output_payload: op,
+    compliance_flags: r.compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] }
+  };
+  document.getElementById('generatedAt').textContent = 'generated_at ' + nowIso + ' · execution_hash ' + hash.slice(0, 16) + '...';
+  ['ap2ExportBtn','mdBtn'].forEach(function(id){ var b = document.getElementById(id); b.disabled = false; b.classList.add('ready'); });
+}
+async function sha256(obj){
+  var c = __ocgCanonStr(obj);
+  var b = new TextEncoder().encode(c);
+  var h = await crypto.subtle.digest('SHA-256', b);
+  return Array.from(new Uint8Array(h)).map(function(x){ return x.toString(16).padStart(2,'0'); }).join('');
+}
+function ts14(){ return new Date().toISOString().replace(/[-:T]/g,'').slice(0,14); }
+function showToast(m){
+  var t = document.getElementById('toast');
+  t.textContent = m;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2200);
+}
+function exportPolicyMandate(){
+  if (!_artifact) return;
+  var ts = ts14();
+  var b = new Blob([JSON.stringify(_artifact, null, 2)], { type: 'application/json' });
+  var a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(b), download: '784-cbr-data-return-validator_' + ts + '.policy.json' });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Policy Mandate exported');
+}
+function exportMd(){
+  if (!_result || !_artifact) return;
+  var ts = ts14();
+  var lines = [
+    '# CBR Data Return Validation Report',
+    '',
+    '_' + new Date().toISOString() + ' \u00b7 ainumbers.co/chaingraph/784-cbr-data-return-validator.html \u00b7 client-side, zero PII_',
+    '',
+    '**ART-784 \u00b7 OpenChainGraph**',
+    '**execution_hash:** ' + _artifact.execution_hash,
+    '',
+    '## Output',
+    '',
+    JSON.stringify(_result.output_payload, null, 2),
+    '',
+    '---',
+    '> *ART-784 \u00b7 OpenChainGraph Suite \u00b7 Post Oak Labs \u00b7 CC BY 4.0*'
+  ];
+  var b = new Blob([lines.join('\n')], { type: 'text/markdown' });
+  var a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(b), download: '784-cbr-data-return-validator_' + ts + '.md' });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Markdown exported');
+}
+function toggleMfst(){
+  var body = document.getElementById('manifest'), arrow = document.getElementById('mfstArrow'), btn = document.getElementById('mfstToggle');
+  var open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arrow.innerHTML = open ? '&#9660;' : '&#9650;';
+  btn.setAttribute('aria-expanded', String(!open));
+  if (!open && !document.getElementById('mfstCode').textContent) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+loadExample('generic');
+</script>
+<script>
+/* OCG-CANON v1 - RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
+</script>
+</body>
+</html>
