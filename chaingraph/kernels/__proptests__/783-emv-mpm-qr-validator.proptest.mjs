@@ -1,5 +1,5 @@
 // 783-emv-mpm-qr-validator — class-K floor property test.
-// kernel_digest_at_authoring: sha256:500e6a0ce41c8a8bcb655ce73ad50e0c94de628604eb6bbda9db56ce1d5d1ba6
+// kernel_digest_at_authoring: sha256:9735bbd001ac2f87a18dbc20dfda4cabe09ad4364fe1c81aa9bbfad63c22cdba
 // spec: EMV-MPM-QR-VALIDATOR-1 row (board/queued/EMV-MPM-QR-VALIDATOR-1.md) · pinned texts in
 // research/clause-snapshots/emv-mpm-qr/ · pin note research/EMV-MPM-QR-PIN-2026-10-29.md
 // human_sign_off: PENDING
