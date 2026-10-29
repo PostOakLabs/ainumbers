@@ -1,0 +1,904 @@
+{
+  "tool_id": "art-779-solana-pda-ata-audit",
+  "note": "Spec-pinned fixtures. Primary text re-pinned at claim 2026-10-28: solana-labs/solana at commit 7700cb3128c1f19820de67b81aa45d18f73d2ac0 (final master, 2025-01-22), sdk/program/src/pubkey.rs L23/L25/L29 (MAX_SEED_LEN 32, MAX_SEEDS 16, marker b\"ProgramDerivedAddress\"), L585-616 create_program_address (count/length refusals, SHA-256 over seeds then program id then marker, on-curve refusal), L510-545 try_find_program_address (bump starts at 255, 255 candidates 255 down to 1, first off-curve wins, bump 0 never tried); anza-xyz/solana-sdk at 021fd2f1864ab194b53498bb03c21ad1dc124b8d, address/src/derive.rs L175-183/L239 (same 255..1 search, agreement cross-check); solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-74 (ATA seeds [wallet, token program, mint] under ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL, lib.rs L10-11) and address.rs L22/L29-30 (classic program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA deprecated for Token-2022 mints); spl-token-2022-interface 3.1.2 src/lib.rs L29 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb). Pin anchoring: F1/F2/F4 addresses are the test_create_program_address vectors PUBLISHED in the pinned pubkey.rs itself (L892-930); every other expected value is computed by the kernel and independently re-derived by the proptest's reference implementation (node:crypto SHA-256 plus a separately written BigInt Ed25519 decompression), so the corpus is NOT a round-trip self-test. F5/F5b are the real address-substitution pair for seeds [\"vault\"]: bump 252 and bump 254 are both off-curve and yield two different valid addresses. F6 is a real on-curve case: the derived hash for seeds [\"oc0\"] bump 255 decompresses to a curve point, so it can never be a PDA, while the canonical scan finds bump 254. F9/F10/F11 pin the limit boundaries (33-byte seed; 16 declared seeds plus bump = 17 exceeds; 15 plus bump = 16 exactly at the cap). F12-F16 are refusals. output_payload is filled by fill-fixture-payloads.mjs and golden_hash by golden-parity.test.mjs --update; spec_pins carry the hand-derived or published expected values.",
+  "vectors": [
+    {
+      "name": "F1_golden_empty_seed_bump1_published",
+      "spec_ref": "pinned pubkey.rs L892-896: create_program_address([b\"\", &[1]], BPFLoaderUpgradeab1e...) == BwqrghZA2htAcqq8dzP1WDAhTXYTYWj7CHxF5j7TDBAe (published test vector); canonical scan per L510-545",
+      "spec_pins": {
+        "derived_hash_base58": "BwqrghZA2htAcqq8dzP1WDAhTXYTYWj7CHxF5j7TDBAe",
+        "claimed_matches": true,
+        "on_curve": false,
+        "create_program_address_verdict": "off_curve",
+        "canonical_bump": 253,
+        "canonical_address": "DNKLRoKoM7XxX2iW1PTnqo6iP6CPpVDBgeN9hrpu2R2R",
+        "claimed_bump_is_canonical": false,
+        "compliance_flags": [
+          "NON_CANONICAL_BUMP_CLAIMED"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "",
+            "encoding": "utf8"
+          }
+        ],
+        "bump": 1,
+        "claimed_address": "BwqrghZA2htAcqq8dzP1WDAhTXYTYWj7CHxF5j7TDBAe"
+      },
+      "golden_hash": "0a187c9f9026a01c81c02c8cd3e5258fbbbce6c33d94d1891b56e752c8b12a73",
+      "output_payload": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seed_count": 1,
+        "seed_count_with_bump": 2,
+        "seeds_exceeding_max_len": [],
+        "seed_count_with_bump_exceeds_max": false,
+        "derived_hash_base58": "BwqrghZA2htAcqq8dzP1WDAhTXYTYWj7CHxF5j7TDBAe",
+        "on_curve": false,
+        "create_program_address_verdict": "off_curve",
+        "claimed_bump": 1,
+        "claimed_address": "BwqrghZA2htAcqq8dzP1WDAhTXYTYWj7CHxF5j7TDBAe",
+        "claimed_matches": true,
+        "canonical_bump": 253,
+        "canonical_address": "DNKLRoKoM7XxX2iW1PTnqo6iP6CPpVDBgeN9hrpu2R2R",
+        "claimed_bump_is_canonical": false,
+        "ata_derivation": null,
+        "note": "Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes \"ProgramDerivedAddress\" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain."
+      }
+    },
+    {
+      "name": "F2_golden_sun_utf8_bump0_noncanonical",
+      "spec_ref": "pinned pubkey.rs L898-902: create_program_address([\"UTF-8 sun sign\", &[0]], BPFLoaderUpgradeab1e...) == 13yWmRpaTR4r5nAktwLqMpRNr28tnVUZw26rTvPSSB19 (published); bump 0 is outside the 255..1 canonical search, so a matching address at bump 0 is non-canonical",
+      "spec_pins": {
+        "derived_hash_base58": "13yWmRpaTR4r5nAktwLqMpRNr28tnVUZw26rTvPSSB19",
+        "claimed_matches": true,
+        "canonical_bump": 255,
+        "canonical_address": "E8xXGht6LoNGg77yr8wBfu75p4tWJkieEkzeEtJaGYtk",
+        "claimed_bump_is_canonical": false,
+        "compliance_flags": [
+          "NON_CANONICAL_BUMP_CLAIMED"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "☉",
+            "encoding": "utf8"
+          }
+        ],
+        "bump": 0,
+        "claimed_address": "13yWmRpaTR4r5nAktwLqMpRNr28tnVUZw26rTvPSSB19"
+      },
+      "golden_hash": "9f6fca9958e230080003849094ec836ed41bd659eedc579c1f98a273f7749e30",
+      "output_payload": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seed_count": 1,
+        "seed_count_with_bump": 2,
+        "seeds_exceeding_max_len": [],
+        "seed_count_with_bump_exceeds_max": false,
+        "derived_hash_base58": "13yWmRpaTR4r5nAktwLqMpRNr28tnVUZw26rTvPSSB19",
+        "on_curve": false,
+        "create_program_address_verdict": "off_curve",
+        "claimed_bump": 0,
+        "claimed_address": "13yWmRpaTR4r5nAktwLqMpRNr28tnVUZw26rTvPSSB19",
+        "claimed_matches": true,
+        "canonical_bump": 255,
+        "canonical_address": "E8xXGht6LoNGg77yr8wBfu75p4tWJkieEkzeEtJaGYtk",
+        "claimed_bump_is_canonical": false,
+        "ata_derivation": null,
+        "note": "Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes \"ProgramDerivedAddress\" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain."
+      }
+    },
+    {
+      "name": "F3_golden_pubkey_seed_bump1_published",
+      "spec_ref": "pinned pubkey.rs L912-918: create_program_address([SeedPubey1111111111111111111111111111111111 bytes, &[1]], BPFLoaderUpgradeab1e...) == 976ymqVnfE32QFe6NfGDctSvVa36LWnvYxhU6G2232YL (published); the 32-byte seed is pasted as hex",
+      "spec_pins": {
+        "derived_hash_base58": "976ymqVnfE32QFe6NfGDctSvVa36LWnvYxhU6G2232YL",
+        "claimed_matches": true,
+        "canonical_bump": 255,
+        "claimed_bump_is_canonical": false,
+        "compliance_flags": [
+          "NON_CANONICAL_BUMP_CLAIMED"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "069216fd686865218e275ca0978645845d8bb61a251271f1173f8ac800000000",
+            "encoding": "hex"
+          }
+        ],
+        "bump": 1,
+        "claimed_address": "976ymqVnfE32QFe6NfGDctSvVa36LWnvYxhU6G2232YL"
+      },
+      "golden_hash": "f95879a58349d7c695a439572afb965fb0d844a90bca1ad1b8ffd1902aeed9f7",
+      "output_payload": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seed_count": 1,
+        "seed_count_with_bump": 2,
+        "seeds_exceeding_max_len": [],
+        "seed_count_with_bump_exceeds_max": false,
+        "derived_hash_base58": "976ymqVnfE32QFe6NfGDctSvVa36LWnvYxhU6G2232YL",
+        "on_curve": false,
+        "create_program_address_verdict": "off_curve",
+        "claimed_bump": 1,
+        "claimed_address": "976ymqVnfE32QFe6NfGDctSvVa36LWnvYxhU6G2232YL",
+        "claimed_matches": true,
+        "canonical_bump": 255,
+        "canonical_address": "5BdQw9tRwbTCmhaHrq2v9zcpeDZDAeA8yTmPSdpdpdcb",
+        "claimed_bump_is_canonical": false,
+        "ata_derivation": null,
+        "note": "Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes \"ProgramDerivedAddress\" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain."
+      }
+    },
+    {
+      "name": "F4_canonical_claim_vault_bump254",
+      "spec_ref": "canonical scan L510-545 for seeds [b\"vault\"]: first off-curve bump is 254 and the claimed tuple is exactly that",
+      "spec_pins": {
+        "derived_hash_base58": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "claimed_matches": true,
+        "on_curve": false,
+        "canonical_bump": 254,
+        "canonical_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "claimed_bump_is_canonical": true,
+        "compliance_flags": []
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "vault",
+            "encoding": "utf8"
+          }
+        ],
+        "bump": 254,
+        "claimed_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq"
+      },
+      "golden_hash": "d0db2485372e1a9adbfab957e96e755f507db8f2bf75263b2913c8bfc5740a9d",
+      "output_payload": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seed_count": 1,
+        "seed_count_with_bump": 2,
+        "seeds_exceeding_max_len": [],
+        "seed_count_with_bump_exceeds_max": false,
+        "derived_hash_base58": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "on_curve": false,
+        "create_program_address_verdict": "off_curve",
+        "claimed_bump": 254,
+        "claimed_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "claimed_matches": true,
+        "canonical_bump": 254,
+        "canonical_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "claimed_bump_is_canonical": true,
+        "ata_derivation": null,
+        "note": "Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes \"ProgramDerivedAddress\" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain."
+      }
+    },
+    {
+      "name": "F5_substitution_vault_bump252_second_valid_address",
+      "spec_ref": "the address-substitution class: for seeds [b\"vault\"], bump 252 is also off-curve, so the same seeds have a second valid derived address different from the canonical one at bump 254",
+      "spec_pins": {
+        "derived_hash_base58": "5mKEiyoA669YYj7QRCfcBdZAnX2r38ZnXKpmk3rFNuFv",
+        "claimed_matches": true,
+        "on_curve": false,
+        "canonical_bump": 254,
+        "canonical_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "claimed_bump_is_canonical": false,
+        "compliance_flags": [
+          "NON_CANONICAL_BUMP_CLAIMED"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "vault",
+            "encoding": "utf8"
+          }
+        ],
+        "bump": 252,
+        "claimed_address": "5mKEiyoA669YYj7QRCfcBdZAnX2r38ZnXKpmk3rFNuFv"
+      },
+      "golden_hash": "69b32411af2541b26ccf4c732dc4a1b3ae668dea1b864f1b2fc1ebba9bc4b7cc",
+      "output_payload": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seed_count": 1,
+        "seed_count_with_bump": 2,
+        "seeds_exceeding_max_len": [],
+        "seed_count_with_bump_exceeds_max": false,
+        "derived_hash_base58": "5mKEiyoA669YYj7QRCfcBdZAnX2r38ZnXKpmk3rFNuFv",
+        "on_curve": false,
+        "create_program_address_verdict": "off_curve",
+        "claimed_bump": 252,
+        "claimed_address": "5mKEiyoA669YYj7QRCfcBdZAnX2r38ZnXKpmk3rFNuFv",
+        "claimed_matches": true,
+        "canonical_bump": 254,
+        "canonical_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "claimed_bump_is_canonical": false,
+        "ata_derivation": null,
+        "note": "Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes \"ProgramDerivedAddress\" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain."
+      }
+    },
+    {
+      "name": "F6_oncurve_oc0_bump255_hash_is_curve_point",
+      "spec_ref": "create_program_address L607-610: a derived hash that decompresses to a curve point is refused (InvalidSeeds); for seeds [b\"oc0\"] bump 255 the hash is exactly such a point, and the claimed address equals that on-curve hash",
+      "spec_pins": {
+        "derived_hash_base58": "36ETbDqxX3nXTJSj4MNThicebuuRLsRs58oGudAke7ei",
+        "claimed_matches": true,
+        "on_curve": true,
+        "create_program_address_verdict": "on_curve",
+        "canonical_bump": 254,
+        "canonical_address": "5APH2W6WxFaiatgKNpHnN8M3mcfC9BZe2tsgakr8ZBMQ",
+        "claimed_bump_is_canonical": false,
+        "compliance_flags": [
+          "CLAIMED_BUMP_ON_CURVE",
+          "NON_CANONICAL_BUMP_CLAIMED"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "oc0",
+            "encoding": "utf8"
+          }
+        ],
+        "bump": 255,
+        "claimed_address": "36ETbDqxX3nXTJSj4MNThicebuuRLsRs58oGudAke7ei"
+      },
+      "golden_hash": "05792feafc288462d1e2e4cc13e71547c4808f75da6c81fc1d2eb873e82cf11a",
+      "output_payload": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seed_count": 1,
+        "seed_count_with_bump": 2,
+        "seeds_exceeding_max_len": [],
+        "seed_count_with_bump_exceeds_max": false,
+        "derived_hash_base58": "36ETbDqxX3nXTJSj4MNThicebuuRLsRs58oGudAke7ei",
+        "on_curve": true,
+        "create_program_address_verdict": "on_curve",
+        "claimed_bump": 255,
+        "claimed_address": "36ETbDqxX3nXTJSj4MNThicebuuRLsRs58oGudAke7ei",
+        "claimed_matches": true,
+        "canonical_bump": 254,
+        "canonical_address": "5APH2W6WxFaiatgKNpHnN8M3mcfC9BZe2tsgakr8ZBMQ",
+        "claimed_bump_is_canonical": false,
+        "ata_derivation": null,
+        "note": "Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes \"ProgramDerivedAddress\" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain."
+      }
+    },
+    {
+      "name": "F7_mismatch_claimed_address_vault_bump254",
+      "spec_ref": "claimed_matches is string equality between the recomputation and the pasted claim: same tuple as the canonical case but a different pasted address",
+      "spec_pins": {
+        "derived_hash_base58": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "claimed_matches": false,
+        "canonical_bump": 254,
+        "claimed_bump_is_canonical": true,
+        "compliance_flags": [
+          "CLAIMED_ADDRESS_MISMATCH"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "vault",
+            "encoding": "utf8"
+          }
+        ],
+        "bump": 254,
+        "claimed_address": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+      },
+      "golden_hash": "78818c790eca4b3f552ccbb3499f43b8d8f482bd0bb02d590f10f5be9d9868a9",
+      "output_payload": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seed_count": 1,
+        "seed_count_with_bump": 2,
+        "seeds_exceeding_max_len": [],
+        "seed_count_with_bump_exceeds_max": false,
+        "derived_hash_base58": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "on_curve": false,
+        "create_program_address_verdict": "off_curve",
+        "claimed_bump": 254,
+        "claimed_address": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+        "claimed_matches": false,
+        "canonical_bump": 254,
+        "canonical_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "claimed_bump_is_canonical": true,
+        "ata_derivation": null,
+        "note": "Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes \"ProgramDerivedAddress\" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain."
+      }
+    },
+    {
+      "name": "F8_ata_token2022_vs_classic_side_by_side",
+      "spec_ref": "ATA seeds [wallet, token program, mint] under ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (address.rs L67-74); the deprecated classic-only helper is the wrong-derivation class for Token-2022 mints (address.rs L29-30), so the two derivations differ and token_program_mismatch is true",
+      "spec_pins": {
+        "claimed_bump_is_canonical": true,
+        "ata_derivation.ata_under_declared_token_program.address": "GdjpegrtGwU3pgtzPivYVViSA8rmGL248qBVKzsrU3DD",
+        "ata_derivation.ata_under_declared_token_program.bump": 254,
+        "ata_derivation.ata_under_classic_token_program.address": "FGETo8T8wMcN2wCjav8VK6eh3dLk63evNDPxzLSJra8B",
+        "ata_derivation.ata_under_classic_token_program.bump": 254,
+        "ata_derivation.ata_addresses_differ": true,
+        "ata_derivation.token_program_mismatch": true,
+        "ata_derivation.declared_token_program_is_token_2022": true,
+        "compliance_flags": [
+          "TOKEN_PROGRAM_MISMATCH"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "vault",
+            "encoding": "utf8"
+          }
+        ],
+        "bump": 254,
+        "claimed_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "wallet": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+        "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "token_program_id": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      },
+      "golden_hash": "cbfb9eef2a236d5540051f0f879df21cd4ffc225db54063f774b48cafcaa9982",
+      "output_payload": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seed_count": 1,
+        "seed_count_with_bump": 2,
+        "seeds_exceeding_max_len": [],
+        "seed_count_with_bump_exceeds_max": false,
+        "derived_hash_base58": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "on_curve": false,
+        "create_program_address_verdict": "off_curve",
+        "claimed_bump": 254,
+        "claimed_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "claimed_matches": true,
+        "canonical_bump": 254,
+        "canonical_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "claimed_bump_is_canonical": true,
+        "ata_derivation": {
+          "wallet": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "token_program_id": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "declared_token_program_is_token_2022": true,
+          "declared_token_program_is_classic": false,
+          "ata_under_declared_token_program": {
+            "address": "GdjpegrtGwU3pgtzPivYVViSA8rmGL248qBVKzsrU3DD",
+            "bump": 254
+          },
+          "ata_under_classic_token_program": {
+            "address": "FGETo8T8wMcN2wCjav8VK6eh3dLk63evNDPxzLSJra8B",
+            "bump": 254
+          },
+          "ata_addresses_differ": true,
+          "token_program_mismatch": true
+        },
+        "note": "Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes \"ProgramDerivedAddress\" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain."
+      }
+    },
+    {
+      "name": "F9_ata_classic_program_no_mismatch",
+      "spec_ref": "same wallet and mint under the classic Token program: both derivations use the same seed program id and the two addresses are equal, so token_program_mismatch is false",
+      "spec_pins": {
+        "ata_derivation.ata_under_declared_token_program.address": "FGETo8T8wMcN2wCjav8VK6eh3dLk63evNDPxzLSJra8B",
+        "ata_derivation.ata_under_classic_token_program.address": "FGETo8T8wMcN2wCjav8VK6eh3dLk63evNDPxzLSJra8B",
+        "ata_derivation.ata_addresses_differ": false,
+        "ata_derivation.token_program_mismatch": false,
+        "ata_derivation.declared_token_program_is_token_2022": false,
+        "ata_derivation.declared_token_program_is_classic": true,
+        "compliance_flags": []
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "vault",
+            "encoding": "utf8"
+          }
+        ],
+        "bump": 254,
+        "claimed_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "wallet": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+        "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "token_program_id": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+      },
+      "golden_hash": "f6c5e17bccd9efca47da70ae5a30f0c3cffbfd7c34b9bb46e3342c2ee0bb3e15",
+      "output_payload": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seed_count": 1,
+        "seed_count_with_bump": 2,
+        "seeds_exceeding_max_len": [],
+        "seed_count_with_bump_exceeds_max": false,
+        "derived_hash_base58": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "on_curve": false,
+        "create_program_address_verdict": "off_curve",
+        "claimed_bump": 254,
+        "claimed_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "claimed_matches": true,
+        "canonical_bump": 254,
+        "canonical_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "claimed_bump_is_canonical": true,
+        "ata_derivation": {
+          "wallet": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "token_program_id": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "declared_token_program_is_token_2022": false,
+          "declared_token_program_is_classic": true,
+          "ata_under_declared_token_program": {
+            "address": "FGETo8T8wMcN2wCjav8VK6eh3dLk63evNDPxzLSJra8B",
+            "bump": 254
+          },
+          "ata_under_classic_token_program": {
+            "address": "FGETo8T8wMcN2wCjav8VK6eh3dLk63evNDPxzLSJra8B",
+            "bump": 254
+          },
+          "ata_addresses_differ": false,
+          "token_program_mismatch": false
+        },
+        "note": "Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes \"ProgramDerivedAddress\" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain."
+      }
+    },
+    {
+      "name": "F10_seed_length_33_bytes_refused_by_limits",
+      "spec_ref": "create_program_address L589-594: any seed over MAX_SEED_LEN 32 bytes returns MaxSeedLengthExceeded; the audit states the fact and derives nothing",
+      "spec_pins": {
+        "seeds_exceeding_max_len": [
+          {
+            "index": 0,
+            "byte_length": 33
+          }
+        ],
+        "seed_count_with_bump_exceeds_max": false,
+        "create_program_address_verdict": "max_seed_length_exceeded",
+        "derived_hash_base58": null,
+        "on_curve": null,
+        "claimed_matches": null,
+        "canonical_bump": null,
+        "claimed_bump_is_canonical": null,
+        "compliance_flags": [
+          "SEED_LENGTH_EXCEEDS_MAX"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+            "encoding": "hex"
+          }
+        ],
+        "bump": 255,
+        "claimed_address": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+      },
+      "golden_hash": "a286e393cd297be0b58099d4db0cb7be73fda5516b096d8848ffdffb76d1ef19",
+      "output_payload": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seed_count": 1,
+        "seed_count_with_bump": 2,
+        "seeds_exceeding_max_len": [
+          {
+            "index": 0,
+            "byte_length": 33
+          }
+        ],
+        "seed_count_with_bump_exceeds_max": false,
+        "derived_hash_base58": null,
+        "on_curve": null,
+        "create_program_address_verdict": "max_seed_length_exceeded",
+        "claimed_bump": 255,
+        "claimed_address": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+        "claimed_matches": null,
+        "canonical_bump": null,
+        "canonical_address": null,
+        "claimed_bump_is_canonical": null,
+        "ata_derivation": null,
+        "note": "Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes \"ProgramDerivedAddress\" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain."
+      }
+    },
+    {
+      "name": "F11_seed_count_16_with_bump_refused",
+      "spec_ref": "create_program_address L586-588: more than MAX_SEEDS 16 seeds returns MaxSeedLengthExceeded; 16 declared seeds plus the bump seed is 17",
+      "spec_pins": {
+        "seed_count": 16,
+        "seed_count_with_bump": 17,
+        "seed_count_with_bump_exceeds_max": true,
+        "seeds_exceeding_max_len": [],
+        "create_program_address_verdict": "max_seed_length_exceeded",
+        "canonical_bump": null,
+        "compliance_flags": [
+          "SEED_COUNT_WITH_BUMP_EXCEEDS_MAX"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "1",
+            "encoding": "utf8"
+          },
+          {
+            "data": "2",
+            "encoding": "utf8"
+          },
+          {
+            "data": "3",
+            "encoding": "utf8"
+          },
+          {
+            "data": "4",
+            "encoding": "utf8"
+          },
+          {
+            "data": "5",
+            "encoding": "utf8"
+          },
+          {
+            "data": "6",
+            "encoding": "utf8"
+          },
+          {
+            "data": "7",
+            "encoding": "utf8"
+          },
+          {
+            "data": "8",
+            "encoding": "utf8"
+          },
+          {
+            "data": "9",
+            "encoding": "utf8"
+          },
+          {
+            "data": "10",
+            "encoding": "utf8"
+          },
+          {
+            "data": "11",
+            "encoding": "utf8"
+          },
+          {
+            "data": "12",
+            "encoding": "utf8"
+          },
+          {
+            "data": "13",
+            "encoding": "utf8"
+          },
+          {
+            "data": "14",
+            "encoding": "utf8"
+          },
+          {
+            "data": "15",
+            "encoding": "utf8"
+          },
+          {
+            "data": "16",
+            "encoding": "utf8"
+          }
+        ],
+        "bump": 255,
+        "claimed_address": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+      },
+      "golden_hash": "b814562a554f8caa45ee4a74100f4889815cfd9f56dca81aec08f94ff684880b",
+      "output_payload": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seed_count": 16,
+        "seed_count_with_bump": 17,
+        "seeds_exceeding_max_len": [],
+        "seed_count_with_bump_exceeds_max": true,
+        "derived_hash_base58": null,
+        "on_curve": null,
+        "create_program_address_verdict": "max_seed_length_exceeded",
+        "claimed_bump": 255,
+        "claimed_address": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+        "claimed_matches": null,
+        "canonical_bump": null,
+        "canonical_address": null,
+        "claimed_bump_is_canonical": null,
+        "ata_derivation": null,
+        "note": "Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes \"ProgramDerivedAddress\" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain."
+      }
+    },
+    {
+      "name": "F12_seed_count_15_with_bump_at_cap",
+      "spec_ref": "the boundary: 15 declared seeds plus the bump seed is exactly MAX_SEEDS 16, allowed by create_program_address, and the canonical scan runs; at the claimed bump 1 the derived hash happens to land on-curve, itself a real fact the audit reports",
+      "spec_pins": {
+        "seed_count": 15,
+        "seed_count_with_bump": 16,
+        "seed_count_with_bump_exceeds_max": false,
+        "create_program_address_verdict": "on_curve",
+        "on_curve": true,
+        "canonical_bump": 255,
+        "claimed_bump_is_canonical": false,
+        "compliance_flags": [
+          "CLAIMED_BUMP_ON_CURVE",
+          "CLAIMED_ADDRESS_MISMATCH",
+          "NON_CANONICAL_BUMP_CLAIMED"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "1",
+            "encoding": "utf8"
+          },
+          {
+            "data": "2",
+            "encoding": "utf8"
+          },
+          {
+            "data": "3",
+            "encoding": "utf8"
+          },
+          {
+            "data": "4",
+            "encoding": "utf8"
+          },
+          {
+            "data": "5",
+            "encoding": "utf8"
+          },
+          {
+            "data": "6",
+            "encoding": "utf8"
+          },
+          {
+            "data": "7",
+            "encoding": "utf8"
+          },
+          {
+            "data": "8",
+            "encoding": "utf8"
+          },
+          {
+            "data": "9",
+            "encoding": "utf8"
+          },
+          {
+            "data": "10",
+            "encoding": "utf8"
+          },
+          {
+            "data": "11",
+            "encoding": "utf8"
+          },
+          {
+            "data": "12",
+            "encoding": "utf8"
+          },
+          {
+            "data": "13",
+            "encoding": "utf8"
+          },
+          {
+            "data": "14",
+            "encoding": "utf8"
+          },
+          {
+            "data": "15",
+            "encoding": "utf8"
+          }
+        ],
+        "bump": 1,
+        "claimed_address": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+      },
+      "golden_hash": "d42713fc8f3a242d5dc8213d256937a6252eb9b1e78e9a9dd776d503410743b8",
+      "output_payload": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seed_count": 15,
+        "seed_count_with_bump": 16,
+        "seeds_exceeding_max_len": [],
+        "seed_count_with_bump_exceeds_max": false,
+        "derived_hash_base58": "HtyeL4czABntHyc5dBeXDy6NTvxP66qmZpGXz77VpcNB",
+        "on_curve": true,
+        "create_program_address_verdict": "on_curve",
+        "claimed_bump": 1,
+        "claimed_address": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+        "claimed_matches": false,
+        "canonical_bump": 255,
+        "canonical_address": "9wamTijB1ViK7j1kn9L2ETqz9FPn7BCHcTE9wadguMk4",
+        "claimed_bump_is_canonical": false,
+        "ata_derivation": null,
+        "note": "Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes \"ProgramDerivedAddress\" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain."
+      }
+    },
+    {
+      "name": "F13_refusal_program_id_not_base58",
+      "spec_ref": "input contract: program_id must decode as base58 to 32 bytes",
+      "spec_pins": {
+        "error": "program_id_invalid",
+        "compliance_flags": [
+          "INPUT_REFUSED"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "not-a-base58-address!!!",
+        "seeds": [
+          {
+            "data": "vault",
+            "encoding": "utf8"
+          }
+        ],
+        "bump": 254,
+        "claimed_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq"
+      },
+      "golden_hash": "503e1ff244e87c1db6f54d62de9bcb3d3ee9127c1221f31728b6c33267834835",
+      "output_payload": {
+        "error": "program_id_invalid",
+        "detail": "program_id must decode as base58 to 32 bytes (a Solana address); got \"not-a-base58-address!!!\".",
+        "domain_errors": [
+          {
+            "code": "PROGRAM_ID_INVALID",
+            "text": "program_id must decode as base58 to 32 bytes (a Solana address); got \"not-a-base58-address!!!\"."
+          }
+        ],
+        "program_id": null,
+        "seed_count": null,
+        "seed_count_with_bump": null,
+        "seeds_exceeding_max_len": null,
+        "seed_count_with_bump_exceeds_max": null,
+        "derived_hash_base58": null,
+        "on_curve": null,
+        "create_program_address_verdict": null,
+        "claimed_bump": null,
+        "claimed_address": null,
+        "claimed_matches": null,
+        "canonical_bump": null,
+        "canonical_address": null,
+        "claimed_bump_is_canonical": null,
+        "ata_derivation": null,
+        "note": null
+      }
+    },
+    {
+      "name": "F14_refusal_bump_256",
+      "spec_ref": "input contract: bump is a single seed byte, integer 0..255",
+      "spec_pins": {
+        "error": "bump_invalid",
+        "compliance_flags": [
+          "INPUT_REFUSED"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "vault",
+            "encoding": "utf8"
+          }
+        ],
+        "bump": 256,
+        "claimed_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq"
+      },
+      "golden_hash": "eb7b769dd01add736e715b494377fc2415f0ca0027367170fbd6ca239a215589",
+      "output_payload": {
+        "error": "bump_invalid",
+        "detail": "bump must be an integer 0..255 (a single seed byte); got 256.",
+        "domain_errors": [
+          {
+            "code": "BUMP_INVALID",
+            "text": "bump must be an integer 0..255 (a single seed byte); got 256."
+          }
+        ],
+        "program_id": null,
+        "seed_count": null,
+        "seed_count_with_bump": null,
+        "seeds_exceeding_max_len": null,
+        "seed_count_with_bump_exceeds_max": null,
+        "derived_hash_base58": null,
+        "on_curve": null,
+        "create_program_address_verdict": null,
+        "claimed_bump": null,
+        "claimed_address": null,
+        "claimed_matches": null,
+        "canonical_bump": null,
+        "canonical_address": null,
+        "claimed_bump_is_canonical": null,
+        "ata_derivation": null,
+        "note": null
+      }
+    },
+    {
+      "name": "F15_refusal_hex_seed_odd_length",
+      "spec_ref": "input contract: a hex-encoded seed is an even-length hex string",
+      "spec_pins": {
+        "error": "seeds_malformed",
+        "compliance_flags": [
+          "INPUT_REFUSED"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "0ff",
+            "encoding": "hex"
+          }
+        ],
+        "bump": 254,
+        "claimed_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq"
+      },
+      "golden_hash": "89b0bf603e3ddfeb02cc7f0307437aa8f552ddd9e0abe94c6e179fa6ed2d3706",
+      "output_payload": {
+        "error": "seeds_malformed",
+        "detail": "seeds[0].data with encoding \"hex\" must be an even-length hex string; got \"0ff\".",
+        "domain_errors": [
+          {
+            "code": "SEEDS_MALFORMED",
+            "text": "seeds[0].data with encoding \"hex\" must be an even-length hex string; got \"0ff\"."
+          }
+        ],
+        "program_id": null,
+        "seed_count": null,
+        "seed_count_with_bump": null,
+        "seeds_exceeding_max_len": null,
+        "seed_count_with_bump_exceeds_max": null,
+        "derived_hash_base58": null,
+        "on_curve": null,
+        "create_program_address_verdict": null,
+        "claimed_bump": null,
+        "claimed_address": null,
+        "claimed_matches": null,
+        "canonical_bump": null,
+        "canonical_address": null,
+        "claimed_bump_is_canonical": null,
+        "ata_derivation": null,
+        "note": null
+      }
+    },
+    {
+      "name": "F16_refusal_ata_triple_partial",
+      "spec_ref": "input contract: ATA mode needs all three of wallet, mint and token_program_id",
+      "spec_pins": {
+        "error": "ata_triple_malformed",
+        "compliance_flags": [
+          "INPUT_REFUSED"
+        ]
+      },
+      "policy_parameters": {
+        "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "seeds": [
+          {
+            "data": "vault",
+            "encoding": "utf8"
+          }
+        ],
+        "bump": 254,
+        "claimed_address": "HbSEsJZ7N5uN1mEBaVuFVMXDARHcq4e4AmPoWDQbgrzq",
+        "wallet": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+      },
+      "golden_hash": "7c503117d108777acd13638ff455ad7d3be7d60cc4dbb4ae96f726426b5f9a99",
+      "output_payload": {
+        "error": "ata_triple_malformed",
+        "detail": "ATA mode needs all three of wallet, mint and token_program_id as non-empty base58 strings (token_program_id is the token program the mint lives under, classic or Token-2022).",
+        "domain_errors": [
+          {
+            "code": "ATA_TRIPLE_MALFORMED",
+            "text": "ATA mode needs all three of wallet, mint and token_program_id as non-empty base58 strings (token_program_id is the token program the mint lives under, classic or Token-2022)."
+          }
+        ],
+        "program_id": null,
+        "seed_count": null,
+        "seed_count_with_bump": null,
+        "seeds_exceeding_max_len": null,
+        "seed_count_with_bump_exceeds_max": null,
+        "derived_hash_base58": null,
+        "on_curve": null,
+        "create_program_address_verdict": null,
+        "claimed_bump": null,
+        "claimed_address": null,
+        "claimed_matches": null,
+        "canonical_bump": null,
+        "canonical_address": null,
+        "claimed_bump_is_canonical": null,
+        "ata_derivation": null,
+        "note": null
+      }
+    }
+  ]
+}
