@@ -1,5 +1,5 @@
 // art-776-paypal-dispute-deadline-evidence — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:97a3ed884dcf23313c3122f86ba95099c95fbffa75e3d80ee76e17ba5cdd5a42
+// kernel_digest_at_authoring: sha256:b516d992d795da30c7dbe1222219c526bbf07fdaf8658f4efcd8ba7847a41a5a
 // spec: PAYPAL-DISPUTE-DEADLINE-NODE-1 (board/queued), hub proposal
 //   PAYPAL-HUB-PROPOSALS-2026-10-24.md section 2 row 9 + section 9.5.4 + desk amendment
 //   2026-10-25; clause authority research/clause-snapshots/paypal-disputes-2026-10/SNAPSHOT.md.

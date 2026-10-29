@@ -102,7 +102,7 @@ const DAY_MS = 86400000;
 // are each PSP's own, reproduced from its snapshot; every rule cites its clause.
 // A window stated only as a range, a "typically" figure or not at all yields
 // due null with the reason quoted. The PayPal table is the original behavior
-// above (unchanged); these three feed the same deadline engine.
+// above; these three feed the same deadline engine.
 
 export const PSPS = ['paypal', 'stripe', 'adyen', 'square'];
 
