@@ -169,6 +169,9 @@ async function judgeDirectExecute(result, expectedHash, params) {
  * Encoding rules mirror each page's run path exactly (JSON textareas stay
  * JSON, numbers arrive as strings, checkboxes as 'true'/'false').
  */
+// art-616's charge controls (#c_<type>) — the page's own CHARGE_ORDER list.
+const ART616_CHARGE_TYPES = ['credit_insurance_premium', 'single_premium_credit_insurance_charge', 'debt_cancellation_fee', 'debt_suspension_fee', 'credit_related_ancillary_product_fee', 'finance_charge', 'application_fee', 'participation_fee', 'other_credit_card_fee'];
+
 const RUN_PATH_ADAPTERS = {
   'art-559-attest-calc-agent-independence': {
     run: 'runCheck',
@@ -232,6 +235,51 @@ const RUN_PATH_ADAPTERS = {
       };
     },
   },
+  'art-499-check-safeguarding-reconciliation': {
+    run: 'runCheck',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'asOfDate', pp.as_of_date ?? '');
+      setVal(sandbox, 'currency', pp.currency ?? '');
+      setVal(sandbox, 'reconType', pp.reconciliation_type ?? '');
+      setVal(sandbox, 'requirement', String(pp.safeguarding_requirement_minor_units ?? ''));
+      setVal(sandbox, 'tolerance', String(pp.tolerance_minor_units ?? ''));
+      setVal(sandbox, 'componentsJson', JSON.stringify(pp.safeguarding_resource_components ?? [], null, 2));
+    },
+  },
+  'art-500-classify-safeguarding-method': {
+    run: 'runClassify',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'asOfDate', pp.as_of_date ?? '');
+      setVal(sandbox, 'highWater', String(pp.relevant_funds_high_water_minor_units ?? ''));
+      setVal(sandbox, 'weeksObserved', String(pp.weeks_observed ?? ''));
+      setVal(sandbox, 'streamsJson', JSON.stringify(pp.streams ?? [], null, 2));
+    },
+  },
+  'art-501-build-safeguarding-audit-evidence': {
+    run: 'runPack',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'firmRef', pp.firm_ref ?? '');
+      setVal(sandbox, 'periodStart', pp.audit_period?.start_date ?? '');
+      setVal(sandbox, 'periodEnd', pp.audit_period?.end_date ?? '');
+      setVal(sandbox, 'attestedSubject', pp.attested_subject === undefined ? '' : JSON.stringify(pp.attested_subject, null, 2));
+      setVal(sandbox, 'reconResults', pp.reconciliation_results === undefined ? '' : JSON.stringify(pp.reconciliation_results, null, 2));
+      setVal(sandbox, 'methodClassification', pp.method_classification === undefined ? '' : JSON.stringify(pp.method_classification, null, 2));
+      setVal(sandbox, 'haRecords', pp.accountability_records === undefined ? '' : JSON.stringify(pp.accountability_records, null, 2));
+      setVal(sandbox, 'mgmtResponses', pp.management_responses === undefined ? '' : JSON.stringify(pp.management_responses, null, 2));
+    },
+  },
+  'art-691-regulatory-obligations-register': {
+    // run() parses the #input_parameters textarea (the input_parameters value)
+    // and wraps it into the policy_parameters preimage before compute(); the
+    // adapter serves fixture 0's input_parameters through that control.
+    run: 'run',
+    prefill(sandbox, fx) {
+      setVal(sandbox, 'input_parameters', JSON.stringify(fx.policy_parameters.input_parameters));
+    },
+  },
   'art-628-declarative-decision-tree-evaluator': {
     // run() clones the page's DEMO_TREE constant (the tree the human sees) and
     // reads the fact checkboxes; the adapter sets each fixture fact checkbox.
@@ -252,6 +300,27 @@ const RUN_PATH_ADAPTERS = {
       setVal(sandbox, 'cache_write_ttl', pp.usage?.cache_write_ttl ?? '');
       setVal(sandbox, 'price_table', pp.price_table === undefined ? '' : JSON.stringify(pp.price_table));
       setVal(sandbox, 'compare', pp.compare === undefined ? '' : JSON.stringify(pp.compare));
+    },
+  },
+  'art-616-mla-mapr-actuarial-recompute': {
+    run: 'runMapr',
+    prefill(sandbox, fx) {
+      // The form path assembles the scalar shorthand (loan_amount/payment_amount/
+      // num_payments); fixture 0's advances/payments arrays are not form-
+      // expressible, so leg 2 settles on the equivalent shorthand schedule and
+      // its hash divergence is documented in the baseline.
+      const pp = fx.policy_parameters;
+      const singleAdvance = Array.isArray(pp.advances) && pp.advances.length === 1 ? pp.advances[0] : null;
+      const firstPayment = Array.isArray(pp.payments) && pp.payments.length ? pp.payments[0] : null;
+      setVal(sandbox, 'loanAmount', singleAdvance ? String(singleAdvance.amount) : '');
+      setVal(sandbox, 'paymentAmount', firstPayment ? String(firstPayment.amount) : '');
+      setVal(sandbox, 'numPayments', String(Array.isArray(pp.payments) ? pp.payments.length : 1));
+      setVal(sandbox, 'periodsPerYear', String(pp.periods_per_year ?? 12));
+      setVal(sandbox, 'oddDays', '0');
+      setVal(sandbox, 'unitPeriodDays', '30');
+      setVal(sandbox, 'isCreditCard', 'no');
+      setVal(sandbox, 'shortTermClaimed', 'no');
+      for (const t of ART616_CHARGE_TYPES) setVal(sandbox, `c_${t}`, '0');
     },
   },
 };

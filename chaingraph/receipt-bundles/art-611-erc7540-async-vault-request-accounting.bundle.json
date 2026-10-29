@@ -1,0 +1,256 @@
+{
+  "bundle_version": "0.1",
+  "receipt": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "Ee6ozLbFNY1+SzqZtuwnyKdak2RGTgIfdMmqWLftm80L1iQaUNX11aH6WtTKnJ1ZHxtqLi+lnKHTrfiiXITjuCWheIZaL5qg2jlfiA7JcGncdk8iiwEyNolYE+ens2jACNdpiIle7F0i0kkEGZvM7hqKzozgzc4qSI6cundhEckKGMV3gz+2s8SJrFgvUEhQibk+OxnE3TAz5JoFYUWPqx3kglJwm8/w6AVJeODYjZkz8Qwr2JHn7tYoGHf8+0SQLw+Qz1Ots01XZ4can2Mmp7lezADn8hsAQbRS0EexJpcKDn+sUh3PoxG6E5qC7qQkMS4Qx11wYVTnSCwxYLJONg==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:5cd9dd6c701f8631291807f556d9b14f7f65bf9ccbacc31d2d089ef3a65c0541",
+      "output": {
+        "aggregate_by_controller": true,
+        "claim_rounding_used": "down",
+        "claims": [
+          {
+            "amount": "300",
+            "consumed_requested": "300",
+            "index": 0,
+            "leg": "deposit",
+            "opening_rate_scaled": "333000000000000000",
+            "rate_scale": "1000000000000000000",
+            "received": "99",
+            "received_if_rounded_other_way": "100",
+            "rejected": false,
+            "rejection_reason": null,
+            "rounding_changes_result": true,
+            "rounding_direction": "down",
+            "settled_rate_scaled": "330000000000000000",
+            "unit": "requested"
+          },
+          {
+            "amount": "700",
+            "consumed_requested": "700",
+            "index": 1,
+            "leg": "deposit",
+            "opening_rate_scaled": "333000000000000000",
+            "rate_scale": "1000000000000000000",
+            "received": "233",
+            "received_if_rounded_other_way": "234",
+            "rejected": false,
+            "rejection_reason": null,
+            "rounding_changes_result": true,
+            "rounding_direction": "down",
+            "settled_rate_scaled": "332857142857142857",
+            "unit": "requested"
+          }
+        ],
+        "closing": {
+          "deposit": {
+            "claimable_assets": "0",
+            "claimable_shares": "1",
+            "claimed_assets": "1000",
+            "claimed_shares": "332",
+            "pending_assets": "500"
+          },
+          "redeem": {
+            "claimable_assets": "0",
+            "claimable_shares": "0",
+            "claimed_assets": "0",
+            "claimed_shares": "0",
+            "pending_shares": "0"
+          }
+        },
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "dust": {
+          "deposit_assets_stranded": "0",
+          "deposit_shares_stranded": "1",
+          "note": "A stranded amount is one side of a claimable bucket left non-zero after the other side reached zero, so no further claim against it can be computed at the bucket's rate.",
+          "redeem_assets_stranded": "0",
+          "redeem_shares_stranded": "0"
+        },
+        "invariants": [
+          {
+            "detail": "Structural: this kernel models pending and claimable as separate buckets and never moves an amount between them, so the two views can never double-count. A claim only ever draws from the claimable bucket.",
+            "holds": true,
+            "name": "pending_and_claimable_disjoint",
+            "source": "ERC-7540: pendingDepositRequest/claimableDepositRequest (and the redeem pair) each exclude the other state's amount."
+          },
+          {
+            "detail": "Every claim drew only from an amount already in the Claimable state.",
+            "holds": true,
+            "name": "claim_never_skips_claimable_state",
+            "source": "ERC-7540: \"Requests MUST NOT skip or otherwise short-circuit the Claim state.\""
+          },
+          {
+            "detail": "No claim exceeded its leg's remaining claimable amount.",
+            "holds": true,
+            "name": "claim_within_claimable_bounds",
+            "source": "ERC-7540 max* views track the claimable amount (the standard notes maxDeposit moves in sync with claimableDepositRequest)."
+          },
+          {
+            "applicable": false,
+            "detail": "Not applicable: request_id is 0, the aggregate-by-controller convention, where amounts from separate requests are fungible and no single per-request rate is asserted.",
+            "holds": true,
+            "name": "single_prorata_rate_for_nonzero_request_id",
+            "source": "ERC-7540: \"If a Request with requestId != 0 becomes partially claimable, all requests of the same requestId MUST become claimable at the same pro-rata rate.\""
+          },
+          {
+            "detail": "Direction \"down\" was supplied by the caller, not derived from the standard. Each claim reports what the opposite direction would have produced.",
+            "holds": true,
+            "name": "partial_claim_rounding_direction_is_declared_not_mandated",
+            "source": "ERC-7540 states no rounding direction for a partial claim. ERC-4626 fixes a direction per function; ERC-7540 does not extend that to claims."
+          }
+        ],
+        "note": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state: applies a sequence of claims against the claimable buckets at the implied pro-rata rate, tracks the pending/claimable/claimed split, and checks the standard's stated invariants (pending and claimable are disjoint views; a claim never skips the Claim state; a non-zero requestId stays at one pro-rata rate). ERC-7540 mandates NO rounding direction for a partial claim, so the direction here is a declared parameter and the result of the opposite direction is reported alongside it. This kernel does NOT read any chain: it cannot know whether the declared amounts match any deployed vault, when or whether a pending request will be fulfilled (the standard leaves that timing unspecified), whether the controller is authorised, or whether a claim transaction would succeed.",
+        "opening": {
+          "deposit": {
+            "claimable_assets": "1000",
+            "claimable_shares": "333",
+            "max_deposit_implied": "1000",
+            "max_mint_implied": "333",
+            "pending_assets": "500"
+          },
+          "redeem": {
+            "claimable_assets": "0",
+            "claimable_shares": "0",
+            "max_redeem_implied": "0",
+            "max_withdraw_implied": "0",
+            "pending_shares": "0"
+          }
+        },
+        "reasons": [],
+        "request_id": "0"
+      }
+    }
+  },
+  "journal_contract": {
+    "spec": "SPEC.md §18.7",
+    "serialization": "rfc8785-jcs+utf8",
+    "journal_digest": "sha256:3467248790ace1aacd5b71804129d9347f1140cc69c8d67fb51d72e73a40b669",
+    "claim_digest": null
+  },
+  "provenance": {
+    "repo": "PostOakLabs/ainumbers",
+    "receipt_source": "chaingraph/graph/nodes/art-611-erc7540-async-vault-request-accounting.json",
+    "receipt_source_sha256": "sha256:2ae275b29d44464a344c86e770409a6766792224c7662670d4e2cb26bb8f9993",
+    "anchor_source": "registry/lineage/checkpoint.sigsum-record.json",
+    "checkpoint_source": "registry/lineage/checkpoint"
+  },
+  "anchor": {
+    "type": "c2sp-tlog-proof-v1",
+    "record": {
+      "anchor_type": "c2sp-tlog-proof-v1",
+      "log_origin": "sigsum.org/v1/tree/44ad38f8226ff9bd27629a41e55df727308d0a1cd8a2c31d3170048ac1dd22a1",
+      "log_url": "https://seasalp.glasklar.is",
+      "log_public_key": "0ec7e16843119b120377a73913ac6acbc2d03d82432e2c36b841b09a95841f25",
+      "anchored_hash": "sha256:7a449fcf71aa7e084538ede3423731c9b10c9a30923a53db35777392784b7df1",
+      "leaf": {
+        "checksum": "0622fdb175787d16f7afe56fe05e7abe2972bba05c563e80a9816872cc940905",
+        "signature": "9cef71f8a2659a95ae82d6e824bac482de38059e38fc05d7e848155d9f287808992523f9d68a45652ab656c3a52cbb5e5d50dea836f2f036bf8920bd61675608",
+        "public_key": "64ffed0396abb761968b34ce849b7b09bc47b8a492ba2efd006b6b8f5622ceca"
+      },
+      "tree_head": {
+        "size": 76213,
+        "root_hash": "86ed0bb74f1de13bb278eb92adb1c6edd5f0fce0790ea580c0fa6803d5d1e5fa",
+        "log_signature": "2faf7d0021b9e238eac49c73c16735e6a659dc72adf2bb459d4fdc22dda3bd522e61a2f552f95836c2330cfec8a6a37e48687a691d432d60039af129fa365a0b"
+      },
+      "inclusion_proof": {
+        "leaf_index": 76212,
+        "path": [
+          "b0b81cead894923a97412b53fb568ae899e91df9426bdc05f67854baaf5d5348",
+          "24e75032b881a9183d4967eb0da60145e5362df019063b2fcd27797fcf3fa254",
+          "da24d3dfa016d2d4f77f61058bc1d1cb3815f40e3f6c7b42176c6b59d7bd992f",
+          "ab3212d7cb512501852abd92122ec5ae3806931d83ef518f77a0152254d1fb47",
+          "f5ac894744ab9c4ffdf9b942756f298cb477982702906274ab5860cc4596ea45",
+          "368f83b51a359f602a68b1ad3f3cb3be1377a22d752a0c647f6ce7d7a585e04b",
+          "668dba989ea933a1ecea7315cad1eb9b4e65c7bfdf993edb5f9e992e4c7a354d",
+          "6e3104eb98a720cc868416197a730db01f0032cbbb3f74602bf997125a81f28b"
+        ]
+      },
+      "witness_cosignatures": [
+        {
+          "key_hash": "5da2b3803c2f802eed9744b74e3e4a3d31e1e77ed994ef56730d57fa52f698a5",
+          "timestamp": 1793255375,
+          "signature": "7df547ce4a77edc1972a838f1637ae50f182b07a90818de18b9cff24c1badda456b506abaed012bb6a1f73be0e12e85cc83584762649ebc9958d92b2af48c503"
+        },
+        {
+          "key_hash": "81538d254f0a67aa07172826ef46fe0cd04b7425bd634a50bb0a8419d55fa65f",
+          "timestamp": 1793255375,
+          "signature": "91f2d5e61e99bbeb4347e1a6b91dbbdb15296af8e221e45e6177b03e3945d52569445a2916d536558c01e65598fd02615a1df10c5e70662ee5e442141505a306"
+        },
+        {
+          "key_hash": "ff2f237a707a2d3a6adfb1600d3375cafe4527ba4fcec793e6093b9b1a4bd79a",
+          "timestamp": 1793255375,
+          "signature": "fe787e733b53e0db0f49212981a0ace7213d22fcd3a81b6327771bfb3b9268ced1d260c8d77fd4e7719cd3714b756de793ff831ed47852f1e5ee72d76ee5ed01"
+        },
+        {
+          "key_hash": "d59098d686f47ec1d4d1984c8ac0ab97a3d8a65c7ba8cb6422ada0fae927e194",
+          "timestamp": 1793255375,
+          "signature": "5c733420524192b188a6df2ab94f0a65a7b58fefb0b710b02c3aa2f7050cd3f040bba40f4845c711f89a9ea4cf8102c6da05a71dc5e24c9ca2abecbd1ec20f09"
+        },
+        {
+          "key_hash": "774fafee07d3b0d9399d669676440a6301db9fa8fe2140d7d352418da25144c5",
+          "timestamp": 1793255375,
+          "signature": "29b1668e29841451040fb448d25a83d391b033e906839e2e168200ba6228a567c74548799af6385d672617fb054bc43b093caa91d5721bc29a3a23b00dca4a08"
+        },
+        {
+          "key_hash": "0b00d26b3bf3e0ded29f82803abd34c972cb62752305b0e718cf7b8ec1bf99f6",
+          "timestamp": 1793255375,
+          "signature": "d4956c297bb448ee8087be5cd62ea57e7f09d0bc07e6787bdf7c3f9298f4127b5d33e8af8837253f296a789cdb46bd99205b5a21b2654bdeaaad852311babd05"
+        },
+        {
+          "key_hash": "f6f91669f7955f542718af9edb6a1276d88a0f8822cba9046e549d0b3796f394",
+          "timestamp": 1793255375,
+          "signature": "cdfb5fc8325b006312174af42a857a7dde4732c9e6624849400ff48a19521d70774b347a7e2091e726ef8b1329472f7c1b36121e29a5c1d69bbb900b20fdae02"
+        },
+        {
+          "key_hash": "cd02db1cc0488c28245d7c3ff50b3e214334c067f2571e849425146bb6bd173d",
+          "timestamp": 1793255375,
+          "signature": "4b8e15f3546354acc8c5719a8fe580e945fbbad8b6389304f1e63b6f8d8a7ab60a0272fa2f1349bcc8c8f660cfd89851d453741060803e9c3ef88e1f1fd56b0b"
+        },
+        {
+          "key_hash": "6d6a78191e59815eff9131941fc3e08dd716a281c8b886dd67880d552e587a23",
+          "timestamp": 1793255375,
+          "signature": "5ab7bec7d74e829153b2379fc6138fc70ad39c5ebe3e7cc47d57aa9aaba398ffa8fcb94da95772cc8749aecc47d4f3b7cdfc3722ab7c2fbe3fd6d4a485754105"
+        },
+        {
+          "key_hash": "6bdf03b285fce48e00ff9b199cb2b77472dcc4a112f067fa5b274929cb9504e3",
+          "timestamp": 1793255375,
+          "signature": "8003c17bf9c6ed438a0235687aa5e4c86ea364ceaddb81e0b5a6cdf90573a8dedb6485603458f4fe32ccb37cbb9ecddbc841b40726ba52e52075de2d6be97f01"
+        },
+        {
+          "key_hash": "9a0dcddbd96f6d6d404227b5ff23de7a43f25cdde9790af5ace332d347fac49a",
+          "timestamp": 1793255375,
+          "signature": "82ff1dac1cfbb291459d7538fed1818036ba20e6f038e690a9a6abda0db17f545fde12cdda30aacda10e12c2a53b097dd5ae57f644d21c89c8f3843163f9e40c"
+        },
+        {
+          "key_hash": "3573fb7fdab7434cd0dad9fd6460abf420388055db8aaaec177c248f03a990cc",
+          "timestamp": 1793255375,
+          "signature": "834bf34accca306f2962994fb3612f3fa9d56a42d2b0490b3795ed81f04d5f6a92ac77524302af994618e583a4c280c0c2dfa7f1d44e091f3db06be72e94ed02"
+        },
+        {
+          "key_hash": "0dad9d849c57687454f100d87fa729b54cb69f7af97346613348defcba9c361c",
+          "timestamp": 1793255375,
+          "signature": "9e95547d48b4acf9be00ffe17a1a7766875a42ca0db66a5532f250d940aee3261d4687f246d77de494a5882145c4f2b0f66ae0807344d3a46683abb007ad2a07"
+        }
+      ]
+    },
+    "checkpoint_text": "ainumbers.co/registry/lineage\n97\n6JXLH5Y6G/xU5iwwRnU5iI0a3EILly6G31a18u+MVBI=\n\n— ainumbers.co/registry/lineage JrLnuq5HmR2kOEs21cX5g5xUA65l5rQDYbYFso8QqEaezbWcRLbXcii9XEuxRYl/0DWz8nSpEUUjxBlt8VuS9UlQaAw=\n",
+    "subject": {
+      "kind": "registry-checkpoint",
+      "origin": "ainumbers.co/registry/lineage",
+      "log_policy": "chaingraph/policies/ainumbers-registry-lineage.tlog-policy"
+    }
+  },
+  "trust_policy": {
+    "name": "sigsum-generic-2025-1",
+    "source": "chaingraph/policies/sigsum-generic-2025-1.tlog-policy",
+    "sha256": "sha256:666d9d0b9ab2e4019769c42eaccd7d6d502a9abac45979bb9b08b7213e4f53e3",
+    "shape": "2 logs, 3 witnesses, quorum 2-of-3"
+  }
+}

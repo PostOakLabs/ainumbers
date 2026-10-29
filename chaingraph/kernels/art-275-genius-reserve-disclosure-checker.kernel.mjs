@@ -251,7 +251,7 @@ export function compute(pp) {
     onchain_supply_check,
     applicable_deadline: '2027-01-18',
     regulatory_framework: 'GENIUS Act, Pub. L. 119-27 (S.1582) §4 — Monthly Reserve Composition Report',
-    pdf_extraction_note: 'This linter operates on extracted disclosure fields (JSON), not the source PDF filing. It does NOT cryptographically verify the underlying published PDF — PDF-only publishing is the industry gap (see XBRL US comment letters). Successor to the pre-issuance art-06 attestation pre-check; not a substitute for it. Re-verify against GENIUS Act final-rule text on/after 2026-07-18. Deadline leg-basis (dated observation): applicable_deadline 2027-01-18 is the 18-month leg of the GENIUS Act, Pub. L. 119-27 (S.1582) §20 effective date — the earlier of 18 months after the 2025-07-18 enactment or 120 days after the primary Federal payment stablecoin regulators issue final implementing regulations; no final regulations existed as of 2026-09-01.',
+    pdf_extraction_note: 'This linter operates on extracted disclosure fields (JSON), not the source PDF filing. It does NOT cryptographically verify the underlying published PDF — PDF-only publishing is the industry gap (see XBRL US comment letters). Successor to the pre-issuance art-06 attestation pre-check; not a substitute for it. The OCC issued its final implementing rule on 2026-10-21 (Bulletin 2026-50, 12 CFR Part 15, effective 2027-01-18), so the 120-day leg falls after the statutory 18-month date and applicable_deadline 2027-01-18 (the 18-month leg of the GENIUS Act, Pub. L. 119-27 (S.1582) §20 effective date) stands; final rules of the other primary Federal payment stablecoin regulators were not checked.',
   };
 
   return { output_payload, compliance_flags };

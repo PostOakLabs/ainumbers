@@ -1,6 +1,6 @@
 # Workforce Board ROI Report
 
-Workforce program ROI report generator ported from ApexLogics Apex #15 (AL-07). From a program budget, enrollment and WIOA outcome data the node computes cost per participant, cost per employed exit (Q2) and cost per credential; a five-indicator benchmark scorecard against the WIOA PY 2023 target sets for adult, dislocated-worker and youth programs (each indicator exceeds, meets, below or not applicable); an annualized wage gain against the official BLS QCEW Q3 2023 sector baseline for twelve sector keys; a fixed-rate annual taxpayer tax-recapture estimate, a break-even horizon, a three-year net benefit and a three-year return per dollar; and an overall ROI grade (Excellent, Strong, Moderate, Below Target, Scored or Pending Data). Missing required fields and out-of-domain values are named refusals, never throws. Sector baselines are official QCEW Q3 2023 private-sector weekly wage x52 constants; the WIOA PY 2023 target values ride in-kernel flagged UNGROUNDED pending an official DOL ETA source, and the 30 percent tax-recapture rate is a modeling assumption, not a statutory rate.
+Workforce program ROI report generator ported from ApexLogics Apex #15 (AL-07). From a program budget, enrollment and WIOA outcome data the node computes cost per participant, cost per employed exit (Q2) and cost per credential; a five-indicator benchmark scorecard against the WIOA target sets for adult, dislocated-worker and youth programs (each indicator exceeds, meets, below or not applicable); an annualized wage gain against the official BLS QCEW Q3 2023 sector baseline for twelve sector keys; a fixed-rate annual taxpayer tax-recapture estimate, a break-even horizon, a three-year net benefit and a three-year return per dollar; and an overall ROI grade (Excellent, Strong, Moderate, Below Target, Scored or Pending Data). Missing required fields and out-of-domain values are named refusals, never throws. Sector baselines are official QCEW Q3 2023 private-sector weekly wage x52 constants; the WIOA target values are illustrative defaults carried from the Apex page; WIOA levels are negotiated per State (20 CFR 677.190) and no national value exists, so the caller supplies their State's negotiated levels via the optional policy_parameters.wioa_targets, and the 30 percent tax-recapture rate is a modeling assumption, not a statutory rate.
 
 - Page: https://ainumbers.co/chaingraph/art-712-workforce-board-roi.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-712-workforce-board-roi.md
@@ -9,7 +9,7 @@ Workforce program ROI report generator ported from ApexLogics Apex #15 (AL-07). 
 ## Inputs
 
 - program_name (string, optional): Display name of the program; defaults to 'Unnamed Program' when blank.
-- program_type (string, required): WIOA Title I-B program type; selects the WIOA PY 2023 target set. Required.
+- program_type (string, required): WIOA Title I-B program type; selects the WIOA target set. Required.
 - program_year (string, optional): Program year label; echoed only.
 - sector (string, required): Target sector key; selects the BLS QCEW Q3 2023 baseline annual wage. Required.
 - total_budget (number, required): Total program budget in USD; must be greater than 0. Required.
@@ -21,6 +21,7 @@ Workforce program ROI report generator ported from ApexLogics Apex #15 (AL-07). 
 - median_earnings_q2 (number, optional): Median earnings 2nd quarter after exit, USD (>= 0); null when not entered.
 - credential_rate (number, optional): Credential attainment rate, percent (0-100); null when not applicable.
 - skill_gains_rate (number, optional): Measurable skill gains rate, percent (0-100); null when not applicable.
+- wioa_targets (object, optional): Optional WIOA targets keyed by program type; each an object of up to five indicators. Overrides the in-kernel illustrative defaults.
 
 ## Sample
 

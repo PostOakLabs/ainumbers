@@ -645,14 +645,26 @@ import * as art715    from './art-715-token2022-transfer-fee-reconciler.kernel.m
 import * as art72     from './art-72-cbam-precursor-emissions-aggregator.kernel.mjs';
 import * as art73     from './art-73-taxonomy-alignment-scorer.kernel.mjs';
 import * as art734    from './art-734-force-placed-insurance-checker.kernel.mjs';
+import * as art735    from './art-735-solana-dvp-prefund-verifier.kernel.mjs';
 import * as art74     from './art-74-taxonomy-kpi-gar-aggregator.kernel.mjs';
+import * as art749    from './art-749-solana-paychan-voucher-verifier.kernel.mjs';
 import * as art75     from './art-75-eugb-factsheet-validator.kernel.mjs';
+import * as art754    from './art-754-equity-exit-waterfall.kernel.mjs';
 import * as art758    from './art-758-hdhp-ppo-break-even.kernel.mjs';
+import * as art759    from './art-759-iso-amt-exposure-modeler.kernel.mjs';
 import * as art76     from './art-76-climate-scenario-applicator.kernel.mjs';
+import * as art760    from './art-760-espp-break-even-optimal-sell.kernel.mjs';
 import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
+import * as art771    from './art-771-automation-payback.kernel.mjs';
 import * as art772    from './art-772-money-primitives-demonstrator.kernel.mjs';
+import * as art774    from './art-774-beacon-seeded-fair-sampling-v2.kernel.mjs';
+import * as art776    from './art-776-paypal-dispute-deadline-evidence.kernel.mjs';
+import * as art777    from './art-777-psp-dispute-reason-crosswalk.kernel.mjs';
+import * as art778    from './art-778-token2022-withheld-fee-reconciler.kernel.mjs';
+import * as art779    from './art-779-bnpl-plan-comparator.kernel.mjs';
 import * as art78     from './art-78-csdr-penalty-calculator.kernel.mjs';
+import * as art780    from './art-780-solana-pda-ata-audit.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
@@ -1335,14 +1347,26 @@ export const KERNELS = {
   'art-72-cbam-precursor-emissions-aggregator':                 art72,
   'art-73-taxonomy-alignment-scorer':                           art73,
   'art-734-force-placed-insurance-checker':                     art734,
+  'art-735-solana-dvp-prefund-verifier':                        art735,
   'art-74-taxonomy-kpi-gar-aggregator':                         art74,
+  'art-749-solana-paychan-voucher-verifier':                    art749,
   'art-75-eugb-factsheet-validator':                            art75,
+  'art-754-equity-exit-waterfall':                              art754,
   'art-758-hdhp-ppo-break-even':                                art758,
+  'art-759-iso-amt-exposure-modeler':                           art759,
   'art-76-climate-scenario-applicator':                         art76,
+  'art-760-espp-break-even-optimal-sell':                       art760,
   'art-763-ai-displacement-risk-screener':                      art763,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
+  'art-771-automation-payback':                                 art771,
   'art-772-money-primitives-demonstrator':                      art772,
+  'art-774-beacon-seeded-fair-sampling-v2':                     art774,
+  'art-776-paypal-dispute-deadline-evidence':                   art776,
+  'art-777-psp-dispute-reason-crosswalk':                       art777,
+  'art-778-token2022-withheld-fee-reconciler':                  art778,
+  'art-779-bnpl-plan-comparator':                               art779,
   'art-78-csdr-penalty-calculator':                             art78,
+  'art-780-solana-pda-ata-audit':                               art780,
   'art-79-settlement-fail-predictor':                           art79,
   'art-80-ssi-conformance-checker':                             art80,
   'art-81-allocation-affirmation-conformance':                  art81,
