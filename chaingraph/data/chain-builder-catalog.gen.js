@@ -5028,7 +5028,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "EMIR Reconciliation Break Ageing",
     "mandate_type": "attestation_mandate",
     "url": "https://ainumbers.co/chaingraph/art-483-emir-break-ageing.html",
-    "description": "Diffs a current EMIR reconciliation break set (e.g. from art-482-emir-recon-adjudicator) against the prior cycle's sealed break set by stabl",
+    "description": "Diffs a current EMIR reconciliation break set (e.g. from the art-482 recon node) against the prior cycle's sealed break set by stable break_",
     "consumes": [
       "art-482-emir-recon-adjudicator"
     ],
