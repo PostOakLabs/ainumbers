@@ -441,7 +441,6 @@ export function compute(pp) {
   if (typeof pp.mint.decimals !== 'number' || !Number.isInteger(pp.mint.decimals) || pp.mint.decimals < 0 || pp.mint.decimals > 9) {
     return refusal('MINT_CONFIG_MALFORMED', 'mint.decimals must be an integer 0..9.');
   }
-  const mintDecimals = pp.mint.decimals;
   let feeBps = null, feeMax = null;
   if (pp.mint.transfer_fee !== undefined) {
     const tf = pp.mint.transfer_fee;

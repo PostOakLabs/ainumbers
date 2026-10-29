@@ -1,6 +1,9 @@
 // @ts-nocheck — floor file: node:crypto/Buffer reference section needs it (precedent art-780).
 // art-781-x402-svm-payment-outcome property-test floor.
-// kernel_digest_at_authoring: sha256:10fbb43d8a475b4f3291b5071390411231744ec8133b809c2b4d09bc82d85615
+// kernel_digest_at_authoring: sha256:55ac9997859a08eeb048e8d529a1bd7e9e06e5c1625b0941bb46d25903f6c9dc
+// (re-pinned X402-SVM-OUTCOME-CI-HEAL-1: the KERNEL-INPUT-USAGE-CHECK-1 heal removed the dead
+//  `const mintDecimals = pp.mint.decimals;` local at old line 444 — behavior-neutral, all 27
+//  fixture goldens deep-equal byte-identically before and after)
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md section 3. Shape:
@@ -129,6 +132,12 @@ for (const v of fixtures.vectors) {
   const out = compute(v.policy_parameters);
   const op = out.output_payload;
   const pins = v.spec_pins;
+  // golden_hash binding, asserted (X402-SVM-OUTCOME-CI-HEAL-1): the fixtures carry the
+  // recorded output_payload per vector; compute() must reproduce it byte-identically
+  // (same JSON key order the fixture generator serialized). This is the deep-equality
+  // the golden_hash comment above always claimed; asserting it pins every output string,
+  // number and clause verdict on all 27 vectors (mutation-tier kill floor, test-side).
+  ok('oracle.' + v.name + '.golden', JSON.stringify(op) === JSON.stringify(v.output_payload), v.name + ' output diverged from recorded golden');
   if (pins.error) {
     ok('oracle.' + v.name, op.error === pins.error, op.error + ' / ' + (op.detail || '').slice(0, 80));
     ok('oracle.' + v.name + '.flags', JSON.stringify(out.compliance_flags) === JSON.stringify(['INPUT_REFUSED']));
