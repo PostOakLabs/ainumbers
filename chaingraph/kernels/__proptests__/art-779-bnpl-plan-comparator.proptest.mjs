@@ -276,7 +276,11 @@ if (/JSON\.stringify\([\s\S]{0,200}?,\s*Object\.keys\([\s\S]{0,160}?\)\.sort\(\)
 // survive. The raw fs read of the sibling kernel source is NOT part of any
 // import graph: sandboxes that copy only imports plus named fixture siblings
 // (the mutation tier's copySandboxDeps) may not carry it, and there the
-// source-level check skips while the numeric parity still runs.
+// source-level check skips while the numeric parity still runs. The same skip
+// applies under a mutation instrumenter: stryker REWRITES the kernel file under
+// test with mutant branches, so textual equality is expected to break there,
+// while P3 still proves numeric parity on the instrumented behavior.
+const INSTRUMENTED = /__stryker__|stryMutAct|__stryMut/.test(kernelSource);
 try {
   const a215 = readFileSync(new URL('../art-215-reg-z-appendix-j-apr.kernel.mjs', import.meta.url), 'utf8');
   const lines = a215.split('\n');
@@ -285,9 +289,8 @@ try {
   const core = lines.slice(start, buildIdx - 1).join('\n')
     .replace('export function compute(pp) {', 'function computeRegZApr(pp) {');
   if (!kernelSource.includes('// ART-215-SOLVER-INLINE:START') || !kernelSource.includes('// ART-215-SOLVER-INLINE:END')) {
-    oracle.failures.push({ name: 'apr-inline-sentinels', expected: 'ART-215-SOLVER-INLINE sentinels present', got: 'sentinel comments missing from the kernel' });
-  }
-  if (!kernelSource.includes(core)) {
+    if (!INSTRUMENTED) oracle.failures.push({ name: 'apr-inline-sentinels', expected: 'ART-215-SOLVER-INLINE sentinels present', got: 'sentinel comments missing from the kernel' });
+  } else if (!INSTRUMENTED && !kernelSource.includes(core)) {
     oracle.failures.push({ name: 'apr-inline-divergence', expected: 'art-215 solver core verbatim between the sentinels', got: 'inlined solver text differs from the live art-215 module' });
   }
 } catch (e) {
