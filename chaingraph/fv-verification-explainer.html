@@ -241,6 +241,13 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 .social-row svg{width:18px;height:18px;fill:currentColor}
 .related-topics{max-width:900px;margin:0 auto}
 
+/* guarantees table (page-local) */
+.fv-table{width:100%;border-collapse:collapse;margin:1.1rem 0;font-size:.8rem}
+.fv-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;color:var(--body);padding:.5rem .6rem;border-bottom:1px solid var(--border)}
+.fv-table td{padding:.55rem .6rem;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text)}
+.fv-table td:nth-child(2){font-family:'JetBrains Mono',monospace;font-size:.72rem;white-space:nowrap}
+.panel ul{color:var(--text);font-size:.86rem;line-height:1.65;margin:.6rem 0 0 1.2rem}
+.panel li{margin-bottom:.5rem}
 </style>
 </head>
 <body>
@@ -364,6 +371,29 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <g class="sk-fade" style="--d:2.9s"><text x="480" y="216" text-anchor="middle" class="mu xs">the assumptions sit next to every claim</text></g>
   </svg></div></div>
   <p class="detail">Deterministic replay adds its own guarantee: given the same recorded inputs, the same kernel produces byte-identical output on re-run, so a result can be independently reproduced later. Reproducibility and correctness are different properties, and the <a href="../methods.html">methods page</a> states what each mechanism establishes and what it does not.</p>
+  <h3>How each formal-verification claim on this page is rated</h3>
+  <p class="detail">Each formal-verification claim above carries one of three ratings. <code>asserted</code> means designed and reviewed, with no machine evidence behind it. <code>tested</code> means a re-runnable test covers the claim. <code>machine-checked</code> means a proof or an exhaustive check covers it, with the evidence path named. The grading vocabulary, and the habit of naming the assumption at each joint between layers, is borrowed from EthSystems' writeup on formally verifying a shielded pool (further reading below). Every row restates a claim already published on the <a href="../methods.html">methods page</a>; where no evidence exists, the rating stays asserted.</p>
+  <table class="fv-table">
+    <thead><tr><th>Claim</th><th>Rating</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td>Each pilot spec survived mechanical validation: it reproduces the kernel's golden fixtures and, where published, the regulator's worked examples</td><td>machine-checked</td><td><code>chaingraph/fv-pilot/art-157-emir-lifecycle-event-validator.json</code> and the three sibling status records</td></tr>
+      <tr><td>The EMIR lifecycle validator agrees with its spec over every action type and prior state, all 24 inputs</td><td>machine-checked</td><td><code>chaingraph/fv-pilot/art-157-emir-lifecycle-event-validator.json</code></td></tr>
+      <tr><td>The agentic-readiness diagnostic agrees with its spec over the full answer space, 531,441 inputs</td><td>machine-checked</td><td><code>chaingraph/fv-pilot/art-27-agentic-readiness-diagnostic.json</code></td></tr>
+      <tr><td>The Reg Z Appendix J solver port satisfies the stated proof obligations: convergence of the bracketed solve, an explicit error bound, and preservation of iteration order</td><td>machine-checked</td><td><code>chaingraph/fv-pilot/art-215-reg-z-appendix-j-apr.json</code></td></tr>
+      <tr><td>The Reg Z solver port and the shipped kernel compute the same function, by running them side by side</td><td>tested</td><td>differential testing, recorded in the <code>fv-status/</code> record dated 2026-09-27</td></tr>
+      <tr><td>The payee name-match scorer terminates and its edit-distance recurrence is correct</td><td>tested</td><td><code>chaingraph/fv-pilot/art-376-score-payee-name-match.json</code> (property tests over stated ranges, plus a hand proof)</td></tr>
+      <tr><td>A published output was produced by running the published kernel logic on the recorded inputs</td><td>machine-checked</td><td>compute-integrity proofs, <code>chaingraph/standard/SPEC.md</code> &sect;18</td></tr>
+      <tr><td>The validated spec states what the regulation means</td><td>asserted</td><td>none; a question no machine, and no signature, ever answered</td></tr>
+    </tbody>
+  </table>
+  <h3>Assumptions at each joint</h3>
+  <p class="detail">The checks above connect three layers, and each connection rests on a stated assumption rather than a proof.</p>
+  <ul>
+    <li>Kernel to guest: the pinned zkVM guest faithfully re-executes the published kernel logic. Where a platform-sensitive operation would otherwise depend on the browser engine, a pure-JS replacement is used identically on every surface (<code>chaingraph/standard/SPEC.md</code> &sect;18.5); the proof covers the guest run, and the assumption is that nothing outside that replacement behaves differently in-guest.</li>
+    <li>Guest to receipt: the proof system rejects false proofs, and the receipt binds the output by hash commitment under the usual random-oracle assumption, a standard hash-based commitment rather than a bare digest (<code>chaingraph/standard/SPEC.md</code> &sect;18).</li>
+    <li>Receipt to anchor: the execution hash (<code>chaingraph/standard/SPEC.md</code> &sect;4) pins the exact kernel bytes, and the anchor makes that digest tamper-evident. A changed kernel produces a new hash rather than a moved claim, so the anchor holds only if the hash commitment is collision-resistant.</li>
+  </ul>
+  <p class="detail">Further reading: EthSystems, <a href="https://ethsystems.org/writeups/formally-verifying-a-shielded-pool-from-spec-to-bytecode/" target="_blank" rel="noopener">Formally verifying a shielded pool: from spec to bytecode</a>, whose spec carries a table of guarantees, each with its verification level, and which checks each connection between layers or names its assumption.</p>
   <div class="cites"><span class="cite">methods.html &middot; Golden fixtures</span><span class="cite">methods.html &middot; Deterministic replay</span><span class="cite">methods.html &middot; Formal verification (pilot)</span></div>
   <div class="prompt"><div class="prompt-head"><span>Who asks at this step</span><span class="lvl">agents welcome</span></div><pre>Name the three checks that surround the pilot's proofs, and say what each one watches for.</pre></div>
 </div></section>
