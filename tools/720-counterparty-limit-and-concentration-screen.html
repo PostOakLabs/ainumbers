@@ -1,0 +1,523 @@
+<!-- AINumbers.co · CC BY 4.0 · Post Oak Labs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Counterparty Limit and Concentration Screen · AINumbers.co</title>
+<meta name="description" content="For one counterparty book in millions of USD, check each counterparty against its approved aggregate limit and check the book against caller-declared single-name and sector concentration policy values.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/720-counterparty-limit-and-concentration-screen.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Counterparty Limit and Concentration Screen","url":"https://ainumbers.co/tools/720-counterparty-limit-and-concentration-screen.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "ap2_export": true,
+  "audience": [
+    "risk",
+    "compliance",
+    "finance"
+  ],
+  "author": "PostOakLabs",
+  "category": "credit-risk",
+  "description": "For one counterparty book in millions of USD, check each counterparty against its approved aggregate limit and check the book against caller-declared single-name and sector concentration policy values. Concentration follows art-445 and the limit check follows art-446, with the same typed name used in both panels and the limit type fixed to aggregate for every row. HHI is shown on the 0 to 10000 scale. Runs entirely in the browser, zero network, zero storage, deterministic.",
+  "execution": {
+    "entry": "tools/720-counterparty-limit-and-concentration-screen.html",
+    "function_name": "runScreen",
+    "timeout_ms": 5000,
+    "type": "browser-javascript"
+  },
+  "input_schema": {
+    "properties": {
+      "counterparties": {
+        "description": "One row per counterparty: name, sector, exposure in millions of USD, approved limit in millions of USD, warning threshold percent",
+        "type": "array"
+      },
+      "sector_limit_pct": {
+        "description": "Caller-declared sector policy limit percent, default 25",
+        "type": "number"
+      },
+      "single_name_limit_pct": {
+        "description": "Caller-declared single-name policy limit percent, default 10",
+        "type": "number"
+      },
+      "top_n": {
+        "description": "Number of top names shown, default 5",
+        "type": "number"
+      }
+    },
+    "required": [
+      "counterparties"
+    ],
+    "type": "object"
+  },
+  "license": "CC-BY-4.0",
+  "mcp_tool_definition": {
+    "description": "Screens one counterparty book: per-counterparty aggregate limit status per art-446 and single-name and sector concentration per art-445, on a shared exposure list in millions of USD with caller-declared policy values.",
+    "inputSchema": {
+      "properties": {
+        "counterparties": {
+          "description": "Rows of name, sector, exposure in millions of USD, approved limit in millions of USD, warning threshold percent",
+          "type": "array"
+        },
+        "sector_limit_pct": {
+          "description": "Caller-declared sector policy limit percent",
+          "type": "number"
+        },
+        "single_name_limit_pct": {
+          "description": "Caller-declared single-name policy limit percent",
+          "type": "number"
+        },
+        "top_n": {
+          "description": "Number of top names shown",
+          "type": "number"
+        }
+      },
+      "required": [
+        "counterparties"
+      ],
+      "type": "object"
+    },
+    "name": "screen_counterparty_limits_and_concentration"
+  },
+  "output_schema": {
+    "properties": {
+      "limits": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "portfolio_total": {
+        "type": "number"
+      },
+      "sector_hhi": {
+        "type": "number"
+      },
+      "sector_totals": {
+        "type": "array"
+      },
+      "single_name_hhi": {
+        "type": "number"
+      },
+      "top_n_exposures": {
+        "type": "array"
+      }
+    },
+    "type": "object"
+  },
+  "tags": [
+    "counterparty",
+    "credit limit",
+    "concentration",
+    "HHI",
+    "sector",
+    "aggregate limit"
+  ],
+  "title": "Counterparty Limit and Concentration Screen",
+  "tool_id": "720-counterparty-limit-and-concentration-screen",
+  "version": "1.0.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang toggle removed — CONTRACT §1.1 (2026-06-09) */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--purple)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}.nav-sep{color:var(--border-2)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--purple-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+
+.last-reviewed::before{content:'⏱'}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+/* WEIGHTS PANEL */
+.weights-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.wp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.wp-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.weights-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.75rem}
+@media(max-width:700px){.weights-grid{grid-template-columns:repeat(2,1fr)}}
+.weight-cell{display:flex;flex-direction:column;gap:.25rem}
+.weight-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.weight-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .5rem;border-radius:3px;outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none}
+.weight-input:focus{border-color:var(--purple)}
+/* PROVIDER TABLE */
+.provider-table-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.5rem}
+.prov-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.prov-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .6rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3);white-space:nowrap}
+.prov-table td{padding:.4rem .6rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.prov-table tr:last-child td{border-bottom:none}
+.prov-table input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.25rem .4rem;border-radius:3px;width:100%;outline:none;min-width:30px}
+.prov-table input:focus{border-color:var(--purple)}
+.del-btn{background:transparent;border:none;color:var(--muted);font-size:.85rem;padding:.15rem .35rem;transition:color .2s}
+.del-btn:hover{color:var(--red)}
+.add-row-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:3px;transition:all .2s}
+.add-row-btn:hover{border-color:var(--purple);color:var(--purple)}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--purple-lt)}
+/* OUTPUT */
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+.result-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.result-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.result-table tr:last-child td{border-bottom:none}
+.result-table tr:hover td{background:var(--bg-3)}
+.result-table tr.winner-row td{background:rgba(155,114,245,.05)}
+.score-bar-wrap{display:flex;align-items:center;gap:.5rem}
+.score-bar-outer{flex:1;height:12px;background:var(--bg-3);border-radius:3px;overflow:hidden;max-width:100px}
+.score-bar-inner{height:100%;border-radius:3px}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--purple);color:var(--purple)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+/* 5D-nav-bc-v1 */
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<style>#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-720</span></div>
+</div></nav>
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Credit Risk · T720</div>
+  <h1 class="tool-title">Counterparty Limit and Concentration Screen</h1>
+  <p class="hero-desc">Enter one counterparty book and see, side by side, which counterparties breach their own approved limits and whether the book as a whole breaches single-name or sector concentration policy.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+<div class="tool-body"><div class="container">
+<div class="scope-note" style="background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8"><strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> Embedded rates, thresholds, and regulatory citations are static reference values that may age; verify against current primary sources and your own data before relying on any output for commercial, legal, or compliance decisions. Deterministic logic · no inference · zero PII · runs offline · CC BY 4.0.</div>
+  <p>Enter one counterparty book. Each row carries one name, one sector, one exposure in millions of USD, one approved limit in millions of USD, and one warning threshold. The name typed in a row is used as both the concentration name and the limit-check name, so the two panels agree on identity. The limit type is aggregate for every row: the page accepts no per-row limit type, so mixed limit types cannot be summed into one portfolio total. Amounts are in millions of USD in both panels.</p>
+
+  <h2>Counterparty rows</h2>
+  <table class="prov-table" id="rowTable">
+    <thead><tr><th>Name</th><th>Sector</th><th>Exposure ($m)</th><th>Approved limit ($m)</th><th>Warning threshold (%)</th></tr></thead>
+    <tbody id="rowBody"></tbody>
+  </table>
+  <div style="display:flex;gap:1rem;margin:1rem 0">
+    <button class="add-row-btn" onclick="addRow()">+ Add row</button>
+    <button class="add-row-btn" onclick="loadSample()">Load sample book</button>
+  </div>
+
+  <h2>Policy values</h2>
+  <p>These are caller-declared policy values, editable here. They are the limits this page checks against. Regulatory large-exposure limits are art-425's question, and this page uses caller-declared policy values instead.</p>
+  <div class="weights-grid">
+    <div><label for="singleLimit">Single-name limit (%)</label><input class="weight-input" id="singleLimit" type="number" value="10" min="0" max="100" step="0.1"></div>
+    <div><label for="sectorLimit">Sector limit (%)</label><input class="weight-input" id="sectorLimit" type="number" value="25" min="0" max="100" step="0.1"></div>
+    <div><label for="topN">Top names shown</label><input class="weight-input" id="topN" type="number" value="5" min="1" max="50" step="1"></div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin:2rem 0">
+    <button class="run-btn" onclick="runScreen()">Run screen</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+  <p class="disclaimer">A calculation check, not investment advice. The concentration panel follows art-445 and the limit panel follows art-446, using the figures typed above and the policy values shown.</p>
+
+</div></div>
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)"><button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the screen first to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate</button> <button id="mdExportBtn" onclick="exportMarkdown()" disabled title="Run the screen first to generate a Markdown transcript" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">Export Markdown</button></div>
+</div>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+      <a href="../privacy.html">Privacy</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+<script>
+var MANIFEST = {
+  "ap2_export": true,
+  "audience": [
+    "risk",
+    "compliance",
+    "finance"
+  ],
+  "author": "PostOakLabs",
+  "category": "credit-risk",
+  "description": "For one counterparty book in millions of USD, check each counterparty against its approved aggregate limit and check the book against caller-declared single-name and sector concentration policy values. Concentration follows art-445 and the limit check follows art-446, with the same typed name used in both panels and the limit type fixed to aggregate for every row. HHI is shown on the 0 to 10000 scale. Runs entirely in the browser, zero network, zero storage, deterministic.",
+  "execution": {
+    "entry": "tools/720-counterparty-limit-and-concentration-screen.html",
+    "function_name": "runScreen",
+    "timeout_ms": 5000,
+    "type": "browser-javascript"
+  },
+  "input_schema": {
+    "properties": {
+      "counterparties": {
+        "description": "One row per counterparty: name, sector, exposure in millions of USD, approved limit in millions of USD, warning threshold percent",
+        "type": "array"
+      },
+      "sector_limit_pct": {
+        "description": "Caller-declared sector policy limit percent, default 25",
+        "type": "number"
+      },
+      "single_name_limit_pct": {
+        "description": "Caller-declared single-name policy limit percent, default 10",
+        "type": "number"
+      },
+      "top_n": {
+        "description": "Number of top names shown, default 5",
+        "type": "number"
+      }
+    },
+    "required": [
+      "counterparties"
+    ],
+    "type": "object"
+  },
+  "license": "CC-BY-4.0",
+  "mcp_tool_definition": {
+    "description": "Screens one counterparty book: per-counterparty aggregate limit status per art-446 and single-name and sector concentration per art-445, on a shared exposure list in millions of USD with caller-declared policy values.",
+    "inputSchema": {
+      "properties": {
+        "counterparties": {
+          "description": "Rows of name, sector, exposure in millions of USD, approved limit in millions of USD, warning threshold percent",
+          "type": "array"
+        },
+        "sector_limit_pct": {
+          "description": "Caller-declared sector policy limit percent",
+          "type": "number"
+        },
+        "single_name_limit_pct": {
+          "description": "Caller-declared single-name policy limit percent",
+          "type": "number"
+        },
+        "top_n": {
+          "description": "Number of top names shown",
+          "type": "number"
+        }
+      },
+      "required": [
+        "counterparties"
+      ],
+      "type": "object"
+    },
+    "name": "screen_counterparty_limits_and_concentration"
+  },
+  "output_schema": {
+    "properties": {
+      "limits": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "portfolio_total": {
+        "type": "number"
+      },
+      "sector_hhi": {
+        "type": "number"
+      },
+      "sector_totals": {
+        "type": "array"
+      },
+      "single_name_hhi": {
+        "type": "number"
+      },
+      "top_n_exposures": {
+        "type": "array"
+      }
+    },
+    "type": "object"
+  },
+  "tags": [
+    "counterparty",
+    "credit limit",
+    "concentration",
+    "HHI",
+    "sector",
+    "aggregate limit"
+  ],
+  "title": "Counterparty Limit and Concentration Screen",
+  "tool_id": "720-counterparty-limit-and-concentration-screen",
+  "version": "1.0.0"
+};
+function g(v){var n=Number(v);return Number.isFinite(n)?n:0;}
+function r2(v){return Number.isFinite(v)?Math.round(v*100)/100:0;}
+function r2n(v){return (v===null||!Number.isFinite(v))?null:Math.round(v*100)/100;}
+function clampPct(v,def){var n=Number(v);n=Number.isFinite(n)?n:def;return Math.min(100,Math.max(0,n));}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+var rows=[];
+function addRow(name,sector,exp,lim,warn){rows.push({name:name||'',sector:sector||'',exp:exp==null?'':exp,lim:lim==null?'':lim,warn:warn==null?90:warn});renderRows();}
+function loadSample(){rows=[{name:'Alpha Bank',sector:'Banks',exp:120,lim:100,warn:90},{name:'Beta Corp',sector:'Manufacturing',exp:60,lim:200,warn:90},{name:'Gamma Ltd',sector:'Banks',exp:80,lim:150,warn:90}];renderRows();}
+function renderRows(){
+  var tb=document.getElementById('rowBody');if(!tb)return;var h='';
+  for(var i=0;i<rows.length;i++){
+    h+='<tr><td><input class="weight-input" data-r="'+i+'" data-f="name" value="'+esc(rows[i].name)+'"></td><td><input class="weight-input" data-r="'+i+'" data-f="sector" value="'+esc(rows[i].sector)+'"></td><td><input class="weight-input" type="number" step="any" data-r="'+i+'" data-f="exp" value="'+rows[i].exp+'"></td><td><input class="weight-input" type="number" step="any" data-r="'+i+'" data-f="lim" value="'+rows[i].lim+'"></td><td><input class="weight-input" type="number" step="any" data-r="'+i+'" data-f="warn" value="'+rows[i].warn+'"></td></tr>';
+  }
+  tb.innerHTML=h;
+  var ins=tb.querySelectorAll('input');for(var j=0;j<ins.length;j++){ins[j].addEventListener('input',function(ev){var el=ev.target;var r=Number(el.getAttribute('data-r'));var f=el.getAttribute('data-f');rows[r][f]=el.value;});}
+}
+function compute445(exposures,topN,singleLimit,sectorLimit){
+  var list=exposures.map(function(e){return {name:String(e.name||'').trim(),sector:String(e.sector||'').trim()||'unclassified',amount:g(e.amount)};}).filter(function(e){return e.name;});
+  var total=r2(list.reduce(function(s,e){return s+e.amount;},0));
+  var pctOf=function(a){return total>0?r2((a/total)*100):0;};
+  var withPct=list.map(function(e){return {name:e.name,sector:e.sector,amount:e.amount,pct_of_portfolio:pctOf(e.amount)};});
+  var sorted=withPct.slice().sort(function(a,b){return b.amount-a.amount;});
+  var top=sorted.slice(0,Math.max(0,Math.trunc(topN||5)));
+  var sm=new Map();for(var i=0;i<list.length;i++){sm.set(list[i].sector,(sm.get(list[i].sector)||0)+list[i].amount);}
+  var sectors=[];sm.forEach(function(amount,sector){sectors.push({sector:sector,amount:r2(amount),pct_of_portfolio:pctOf(amount)});});sectors.sort(function(a,b){return b.amount-a.amount;});
+  var hhi=function(shares){return r2(shares.reduce(function(s,x){return s+x*x;},0)*10000);};
+  var sHhi=total>0?hhi(list.map(function(e){return e.amount/total;})):0;
+  var secHhi=total>0?hhi(sectors.map(function(s){return s.amount/total;})):0;
+  var sBreaches=sorted.filter(function(e){return e.pct_of_portfolio>singleLimit;}).map(function(e){return {name:e.name,pct_of_portfolio:e.pct_of_portfolio};});
+  var secBreaches=sectors.filter(function(s){return s.pct_of_portfolio>sectorLimit;}).map(function(s){return {sector:s.sector,pct_of_portfolio:s.pct_of_portfolio};});
+  var flags=['CONC_CALCULATED'];if(total===0)flags.push('CONC_EMPTY_PORTFOLIO');if(sBreaches.length>0)flags.push('CONC_SINGLE_NAME_LIMIT_BREACH');if(secBreaches.length>0)flags.push('CONC_SECTOR_LIMIT_BREACH');
+  return {portfolio_total:total,top_n_exposures:top,sector_totals:sectors,single_name_hhi:sHhi,sector_hhi:secHhi,single_name_breaches:sBreaches,sector_breaches:secBreaches,worst_single_name:sorted.length?sorted[0].name:null,worst_sector:sectors.length?sectors[0].sector:null,flags:flags};
+}
+function compute446(list){
+  return list.map(function(cp){
+    var lim=Math.max(0,g(cp.approved_limit_musd));var cur=Math.max(0,g(cp.current_exposure_musd));var warn=clampPct(cp.warning_threshold_pct,90);
+    var util=lim>0?r2n((cur/lim)*100):null;var head=r2n(lim-cur);
+    var breached=cur>lim;var warned=!breached&&util!==null&&util>=warn;var status=breached?'BREACH':(warned?'WARNING':'WITHIN_LIMIT');
+    return {counterparty_name:cp.counterparty_name,limit_type:'aggregate',approved_limit_musd:r2n(lim),current_exposure_musd:r2n(cur),warning_threshold_pct:r2n(warn),utilization_pct:util,headroom_musd:head,status:status};
+  });
+}
+function runScreen(){
+  var singleLimit=g(document.getElementById('singleLimit').value)||10;var sectorLimit=g(document.getElementById('sectorLimit').value)||25;var topN=g(document.getElementById('topN').value)||5;
+  var exposures=rows.map(function(r){return {name:r.name,sector:r.sector,amount:r.exp};});
+  var c445=compute445(exposures,topN,singleLimit,sectorLimit);
+  var c446=compute446(rows.map(function(r){return {counterparty_name:r.name,approved_limit_musd:r.lim,current_exposure_musd:r.exp,warning_threshold_pct:r.warn};}));
+  var h='<h3>Portfolio total: $'+c445.portfolio_total.toFixed(2)+'m</h3>';
+  h+='<p>Single-name HHI: '+c445.single_name_hhi.toFixed(2)+' &nbsp; Sector HHI: '+c445.sector_hhi.toFixed(2)+' &nbsp; HHI scale: 0 to 10000, sum of squared portfolio shares times 10000.</p>';
+  if(c445.flags.indexOf('CONC_EMPTY_PORTFOLIO')>=0)h+='<p>Empty portfolio: total 0, lists empty.</p>';
+  h+='<h3>Top names</h3><table class="result-table"><thead><tr><th>Name</th><th>Sector</th><th>Exposure ($m)</th><th>Share (%)</th></tr></thead><tbody>';
+  for(var i=0;i<c445.top_n_exposures.length;i++){var t=c445.top_n_exposures[i];h+='<tr><td>'+esc(t.name)+'</td><td>'+esc(t.sector)+'</td><td>'+t.amount.toFixed(2)+'</td><td>'+t.pct_of_portfolio.toFixed(2)+'</td></tr>';}
+  h+='</tbody></table>';
+  h+='<h3>Sector totals</h3><table class="result-table"><thead><tr><th>Sector</th><th>Exposure ($m)</th><th>Share (%)</th></tr></thead><tbody>';
+  for(var j=0;j<c445.sector_totals.length;j++){var s=c445.sector_totals[j];h+='<tr><td>'+esc(s.sector)+'</td><td>'+s.amount.toFixed(2)+'</td><td>'+s.pct_of_portfolio.toFixed(2)+'</td></tr>';}
+  h+='</tbody></table>';
+  h+='<h3>Limit check, aggregate limit type for every row</h3><table class="result-table"><thead><tr><th>Name</th><th>Exposure ($m)</th><th>Approved limit ($m)</th><th>Utilization (%)</th><th>Headroom ($m)</th><th>Status</th></tr></thead><tbody>';
+  for(var k=0;k<c446.length;k++){var c=c446[k];h+='<tr><td>'+esc(c.counterparty_name)+'</td><td>'+(c.current_exposure_musd==null?'':c.current_exposure_musd.toFixed(2))+'</td><td>'+(c.approved_limit_musd==null?'':c.approved_limit_musd.toFixed(2))+'</td><td>'+(c.utilization_pct==null?'null':c.utilization_pct.toFixed(2))+'</td><td>'+(c.headroom_musd==null?'':c.headroom_musd.toFixed(2))+'</td><td>'+c.status+'</td></tr>';}
+  h+='</tbody></table>';
+  if(c445.single_name_breaches.length>0)h+='<p>Single-name policy breaches: '+c445.single_name_breaches.map(function(b){return esc(b.name)+' '+b.pct_of_portfolio.toFixed(2)+'%';}).join(', ')+'</p>';
+  if(c445.sector_breaches.length>0)h+='<p>Sector policy breaches: '+c445.sector_breaches.map(function(b){return esc(b.sector)+' '+b.pct_of_portfolio.toFixed(2)+'%';}).join(', ')+'</p>';
+  document.getElementById('outputSection').innerHTML=h;
+  window._lastResult={inputs:{rows:rows,single_name_limit_pct:singleLimit,sector_limit_pct:sectorLimit,top_n:topN},concentration:c445,limits:c446};
+  var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}
+  var mb=document.getElementById('mdExportBtn');if(mb){mb.disabled=false;mb.classList.add('ready');}
+}
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+window.AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  var RE_VER=/^\d+\.\d+/;
+  function f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')f('mandate must be an object');
+  if(!RE_UUID4.test(m.mandate_id||''))f('mandate_id must be UUIDv4');
+  if(typeof m.issued_at!=='string'||!m.issued_at)f('missing issued_at');
+  if(m.issued_by!=='ainumbers.co')f('issued_by must be ainumbers.co');
+  if(typeof m.tool_id!=='string'||!m.tool_id)f('missing tool_id');
+  if(typeof m.tool_version!=='string'||!RE_VER.test(m.tool_version))f('missing tool_version');
+  var types=['payment_policy','aml_rule','kyc_requirement','routing_policy','compliance_control','risk_parameter','credit_assessment','fx_policy','scheme_rule','disclosure_template','fee_schedule_mandate','velocity_rule_mandate','incident_classification_mandate','routing_policy_mandate','agent_guardrail_mandate'];
+  if(types.indexOf(m.mandate_type)<0)f('mandate_type outside section 3.1 set');
+  if(!Array.isArray(m.jurisdiction))f('jurisdiction must be array');
+  if(!Array.isArray(m.regulatory_frameworks))f('regulatory_frameworks must be array');
+  if(!m.payload||typeof m.payload!=='object')f('missing payload');
+  if(typeof m.summary!=='string'||!m.summary)f('missing summary');
+  if(!Array.isArray(m.agent_instructions))f('agent_instructions must be array');
+  if(typeof m.valid_from!=='string'||!m.valid_from)f('missing valid_from');
+  if(typeof m.valid_until!=='string'||!m.valid_until)f('missing valid_until');
+  if(typeof m.last_reviewed!=='string'||!m.last_reviewed)f('missing last_reviewed');
+  if(!m.source_tool_inputs||typeof m.source_tool_inputs!=='object')f('missing source_tool_inputs');
+  if(!Array.isArray(m.regulatory_citations))f('regulatory_citations must be array');
+  var am=m.audit_metadata;if(!am||am.client_side_executed!==true||am.zero_pii_verified!==true||am.deterministic_run!==true)f('audit_metadata flags must be true');
+  return true;
+};
+window.exportAP2=function(){
+  if(!window._lastResult){alert('Run the screen first to generate results.');return;}
+  var ts=new Date().toISOString();var tid=MANIFEST.tool_id;
+  var mandate={mandate_id:crypto.randomUUID(),issued_at:ts,issued_by:'ainumbers.co',tool_id:tid,tool_version:MANIFEST.version,mandate_type:'risk_parameter',jurisdiction:['ZZ'],regulatory_frameworks:[],payload:window._lastResult,summary:'Counterparty limit and concentration screen for one caller-supplied book in millions of USD, with caller-declared single-name and sector policy values.',agent_instructions:['Review the breach lists against the caller-declared policy values shown on the page.','Apply the limit statuses per your own internal governance.'],valid_from:ts.slice(0,10),valid_until:ts.slice(0,10),last_reviewed:ts.slice(0,10),source_tool_inputs:window._lastResult.inputs,regulatory_citations:[],audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  window.AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download=tid+'-policy-mandate.json';a.click();URL.revokeObjectURL(a.href);
+};
+window.exportMarkdown=function(){
+  if(!window._lastResult){alert('Run the screen first to generate results.');return;}
+  var r=window._lastResult;var lines=['# Counterparty limit and concentration screen','', 'Portfolio total: $'+r.concentration.portfolio_total.toFixed(2)+'m','Single-name HHI: '+r.concentration.single_name_hhi.toFixed(2),'Sector HHI: '+r.concentration.sector_hhi.toFixed(2),'','## Limit check',''];
+  for(var i=0;i<r.limits.length;i++){var c=r.limits[i];lines.push('- '+c.counterparty_name+': '+c.status+', utilization '+(c.utilization_pct==null?'null':c.utilization_pct.toFixed(2))+'%, headroom $'+(c.headroom_musd==null?'':c.headroom_musd.toFixed(2))+'m');}
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/markdown'}));a.download=MANIFEST.tool_id+'-results.md';a.click();URL.revokeObjectURL(a.href);
+};
+window.toggleMfst=function(){var b=document.getElementById('mfstBody');var c=document.getElementById('mfstCode');if(!b||!c)return;if(b.style.display==='block'){b.style.display='none';}else{c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}};
+loadSample();
+
+</script>
+</body>
+</html>
