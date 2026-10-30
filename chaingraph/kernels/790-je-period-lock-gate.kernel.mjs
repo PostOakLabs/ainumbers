@@ -89,7 +89,7 @@ function cgCanon(v) {
 function s(v) { return String(v == null ? '' : v).trim(); }
 function arr(v) { return Array.isArray(v) ? v : []; }
 
-// Days since 1970-01-01 (proleptic Gregorian), pure integer arithmetic (Howard Hinnant).
+// Day number relative to the common epoch (proleptic Gregorian), pure integer arithmetic (Howard Hinnant).
 function daysFromCivil(y, m, d) {
   y = m <= 2 ? y - 1 : y;
   const era = Math.floor((y >= 0 ? y : y - 399) / 400);
