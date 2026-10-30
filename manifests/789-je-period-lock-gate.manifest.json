@@ -1,0 +1,203 @@
+{
+  "tool_id": "789-je-period-lock-gate",
+  "version": "1.0.0",
+  "title": "Journal-Entry Period Lock Gate",
+  "description": "Evaluates caller-declared journal entries against a caller-declared, time-varying period-lock policy and reports, per entry, whether the declared policy admits it. Periods carry dated lock events (open, soft_locked with exact-match exempt roles, hard_closed); the lock state is evaluated at the entry's entered_on date (or a declared as_of_date) for the period containing the entry's effective date, which is what makes a detective test possible: an entry entered the day before a soft lock began is admitted even if the period is locked today. Reversal entries resolve under one of three declared ERP conventions (original_date, first_open_period, explicit_date) with the resolved date reported per entry. Per-entry output carries decision (allow / allow_exempt / refuse), period_id, lock_state_at_entry, exempt_role_used, resolved_effective_date, refusal_code, and a self_approval flag comparing caller-declared preparer and approver labels (null when either is absent); totals roll up by decision and by period, and the e",
+  "category": "chaingraph",
+  "tags": [
+    "journal-entries",
+    "period-close",
+    "audit",
+    "pcaob-as-2401",
+    "erp",
+    "mcp:gate_je_period_lock"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "policy_version",
+      "periods",
+      "entries"
+    ],
+    "properties": {
+      "policy_version": {
+        "type": "string",
+        "description": "Caller-declared lock-policy version string; echoed verbatim in the output."
+      },
+      "periods": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "period_id",
+            "start_date",
+            "end_date",
+            "lock_events"
+          ],
+          "properties": {
+            "period_id": {
+              "type": "string",
+              "description": "Opaque period label, echoed in per-entry results and totals."
+            },
+            "start_date": {
+              "type": "string",
+              "description": "ISO YYYY-MM-DD, inclusive, strict calendar (2026-02-29 refuses)."
+            },
+            "end_date": {
+              "type": "string",
+              "description": "ISO YYYY-MM-DD, inclusive, strict calendar."
+            },
+            "lock_events": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "from_date",
+                  "state"
+                ],
+                "properties": {
+                  "from_date": {
+                    "type": "string",
+                    "description": "ISO YYYY-MM-DD; the state applies on and after this date; must be strictly ascending per period."
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "soft_locked",
+                      "hard_closed"
+                    ],
+                    "description": "Lock state from this date onward; no event means open."
+                  }
+                },
+                "description": "Dated lock event; state at D is the last event with from_date <= D."
+              },
+              "description": "Time-varying lock history of the period."
+            }
+          },
+          "description": "Declared accounting period with its time-varying lock history."
+        },
+        "description": "Declared period table; overlapping or inverted periods refuse the whole run."
+      },
+      "soft_lock_exempt_roles": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Roles admitted through a soft lock; exact case-sensitive match, no hierarchy; applies to soft_locked only."
+      },
+      "reversal_policy": {
+        "type": "string",
+        "enum": [
+          "original_date",
+          "first_open_period",
+          "explicit_date"
+        ],
+        "description": "ERP convention used to resolve a reversal entry's effective date. None is required by an accounting standard."
+      },
+      "explicit_reversal_date": {
+        "type": "string",
+        "description": "Calendar-valid ISO date; required only when reversal_policy is explicit_date."
+      },
+      "as_of_date": {
+        "type": "string",
+        "description": "Preventive-mode fallback: used only for entries that carry no entered_on."
+      },
+      "entries": {
+        "type": "array",
+        "maxItems": 500,
+        "items": {
+          "type": "object",
+          "required": [
+            "entry_id",
+            "effective_date",
+            "roles"
+          ],
+          "properties": {
+            "entry_id": {
+              "type": "string",
+              "description": "Opaque synthetic label; echoed, never interpreted."
+            },
+            "effective_date": {
+              "type": "string",
+              "description": "Accounting date; determines the period whose lock history applies."
+            },
+            "entered_on": {
+              "type": "string",
+              "description": "Entry date: the moment the time-varying lock state is evaluated. Caller-declared, not verified."
+            },
+            "roles": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Roles of the entry; a soft lock admits any exact exempt-role match."
+            },
+            "prepared_by": {
+              "type": "string",
+              "description": "Opaque preparer label; compared to approved_by for self_approval."
+            },
+            "approved_by": {
+              "type": "string",
+              "description": "Opaque approver label; compared to prepared_by for self_approval."
+            },
+            "is_reversal": {
+              "type": "boolean",
+              "description": "True for reversal entries; the declared reversal policy resolves the effective date."
+            },
+            "original_effective_date": {
+              "type": "string",
+              "description": "Reversals: the original entry date being reversed; required unless reversal_policy is explicit_date."
+            }
+          },
+          "description": "Declared journal entry. All identity labels are synthetic; zero PII."
+        },
+        "description": "Declared entries; more than 500 refuses the whole run (ENTRY_CAP_EXCEEDED)."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "gate_je_period_lock",
+    "description": "Evaluates caller-declared journal entries against a caller-declared, time-varying period-lock policy (open, soft_locked with exempt roles, hard_closed) and resolves reversal dates under one of three declared ERP conventions. Per-entry decisions with refusal codes, self-approval flags, totals, and a canonical policy_digest. A bad policy refuses the whole run (did_not_run). Declared facts only: does not prevent posting, does not verify lock history, does not assert fraud or control effectiveness.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "policy_version",
+        "periods",
+        "entries"
+      ],
+      "properties": {
+        "policy_version": {
+          "type": "string"
+        },
+        "periods": {
+          "type": "array"
+        },
+        "soft_lock_exempt_roles": {
+          "type": "array"
+        },
+        "reversal_policy": {
+          "type": "string"
+        },
+        "explicit_reversal_date": {
+          "type": "string"
+        },
+        "as_of_date": {
+          "type": "string"
+        },
+        "entries": {
+          "type": "array"
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/789-je-period-lock-gate.html",
+    "function_name": "runCompute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "hand-authored in-row (JE-PERIOD-LOCK-GATE-1) from the node shard and the audited kernel; output_schema OMITTED — compute_proof deferred (async proving pending; NEWNODE-DEFER-PIN-DOCTRINE)"
+}
