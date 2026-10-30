@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-105"]
+tags: ["compliance_control", "count-106"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,9 +10,10 @@ status: stable
 
 # compliance_control
 
-105 tool(s) in this mandate-type group:
+106 tool(s) in this mandate-type group:
 
 - [QR Go-Live Readiness Assessor](../tools/785-qr-golive-readiness.md)
+- [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
 - [Mastercard Agentic Token Scope Builder](../tools/art-24-mastercard-agentic-token-builder.md)
