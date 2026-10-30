@@ -671,6 +671,7 @@ status: stable
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md)
 - [Solana PDA Bump and ATA Audit](./art-780-solana-pda-ata-audit.md)
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md)
+- [PFMI proportional self-assessment scorer](./art-790-assess-pfmi-proportional.md)
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md)
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md)
 - [Securities-Settlement Message Linter (ISO 20022 sese/semt)](./art-82-securities-settlement-message-linter.md)

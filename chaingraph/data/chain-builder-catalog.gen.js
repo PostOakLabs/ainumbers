@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (701 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (702 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7758,6 +7758,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-84-settlement-efficiency-kpi",
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-790-assess-pfmi-proportional",
+    "display_name": "PFMI proportional self-assessment scorer",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-790-assess-pfmi-proportional.html",
+    "description": "Scores a payment system operator’s or overseer’s self-assessment against the 24 CPMI-IOSCO Principles (Apr 2012) or the 5 responsibilities o",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
