@@ -667,6 +667,7 @@ import * as art778    from './art-778-token2022-withheld-fee-reconciler.kernel.m
 import * as art779    from './art-779-bnpl-plan-comparator.kernel.mjs';
 import * as art78     from './art-78-csdr-penalty-calculator.kernel.mjs';
 import * as art780    from './art-780-solana-pda-ata-audit.kernel.mjs';
+import * as art788    from './art-788-csv-rfc4180-parser.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
@@ -1371,6 +1372,7 @@ export const KERNELS = {
   'art-779-bnpl-plan-comparator':                               art779,
   'art-78-csdr-penalty-calculator':                             art78,
   'art-780-solana-pda-ata-audit':                               art780,
+  'art-788-csv-rfc4180-parser':                                 art788,
   'art-79-settlement-fail-predictor':                           art79,
   'art-80-ssi-conformance-checker':                             art80,
   'art-81-allocation-affirmation-conformance':                  art81,

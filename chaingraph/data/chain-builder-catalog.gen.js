@@ -7755,6 +7755,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-788-csv-rfc4180-parser",
+    "display_name": "RFC 4180 CSV Parser",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Parses a CSV table supplied as a plain string and returns the decoded records plus a per-column summary, over the shared _csv.bundle.mjs (SH",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-79-settlement-fail-predictor",
     "display_name": "Settlement-Fail Predictor",
     "mandate_type": "model_governance",
