@@ -188,7 +188,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="field-grid">
       <div class="field"><label for="policy_version">Policy version (echoed verbatim in the output)</label><input type="text" id="policy_version" value="close-policy-2026Q1" aria-label="policy_version" aria-description="Caller-declared version string of the lock policy; echoed in the output"></div>
       <div class="field"><label for="as_of_date">As-of date (fallback when an entry has no entered_on, optional)</label><input type="text" id="as_of_date" value="" placeholder="YYYY-MM-DD" aria-label="as_of_date" aria-description="Preventive-mode date used only for entries without an entered_on"></div>
-      <div class="field"><label for="soft_lock_exempt_roles">Soft-lock exempt roles (comma-separated, exact case-sensitive match)</label><input type="text" id="soft_lock_exempt_roles" value="controller" aria-label="soft_lock_exempt_roles" aria-description="Roles admitted through a soft lock; applies to soft_locked only"></div>
+      <div class="field"><label for="soft_lock_exempt_roles">Soft-lock exempt roles JSON (array of strings, exact case-sensitive match)</label><textarea id="soft_lock_exempt_roles" rows="1" aria-label="soft_lock_exempt_roles" aria-description="Roles admitted through a soft lock; exact case-sensitive match; applies to soft_locked only">["controller"]</textarea></div>
       <div class="field"><label for="reversal_policy">Reversal policy</label><select id="reversal_policy" aria-label="reversal_policy" aria-description="How reversal entries resolve their effective date"><option value="original_date">original_date</option><option value="first_open_period">first_open_period</option><option value="explicit_date">explicit_date</option></select></div>
       <div class="field"><label for="explicit_reversal_date">Explicit reversal date (only with explicit_date policy)</label><input type="text" id="explicit_reversal_date" value="" placeholder="YYYY-MM-DD" aria-label="explicit_reversal_date" aria-description="The fixed reversal date; required when the reversal policy is explicit_date"></div>
       <div class="field" style="grid-column:1/-1"><label for="periods">Periods JSON (period_id, start_date, end_date, lock_events: [{from_date, state}]; dates ISO YYYY-MM-DD, inclusive; max 500 entries overall)</label><textarea id="periods" rows="6" aria-label="periods_json" aria-description="Declared period table with dated lock events">[{"period_id":"FY26-01","start_date":"2026-01-01","end_date":"2026-01-31","lock_events":[]},{"period_id":"FY26-02","start_date":"2026-02-01","end_date":"2026-02-28","lock_events":[{"from_date":"2026-02-05","state":"soft_locked"}]},{"period_id":"FY26-03","start_date":"2026-03-01","end_date":"2026-03-31","lock_events":[{"from_date":"2026-03-10","state":"soft_locked"},{"from_date":"2026-03-20","state":"hard_closed"}]}]</textarea></div>
@@ -762,8 +762,8 @@ function readInputs() {
     entries: jsonOf('entries'),
     reversal_policy: document.getElementById('reversal_policy').value,
   };
-  const roles = String(document.getElementById('soft_lock_exempt_roles').value || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
-  if (roles.length) pp.soft_lock_exempt_roles = roles;
+  const roles = jsonOf('soft_lock_exempt_roles');
+  if (Array.isArray(roles) && roles.length) pp.soft_lock_exempt_roles = roles;
   const asOf = String(document.getElementById('as_of_date').value || '').trim();
   if (asOf !== '') pp.as_of_date = asOf;
   const erd = String(document.getElementById('explicit_reversal_date').value || '').trim();
