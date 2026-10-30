@@ -21,7 +21,7 @@ Computes one remittance corridor's cost THREE ways from caller-declared provider
 - send_amount (number, optional)
 - lowest_n (integer, optional)
 - quotes_count (integer, optional)
-- averages (object, optional)
+- averages (object,null, optional)
 - weighted_null_reason (string,null, optional)
 - spread_pp (number,null, optional)
 - weighting_coverage_pct (number,null, optional)
