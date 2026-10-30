@@ -1,5 +1,5 @@
 // 784-cbr-data-return-validator — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:1b635db680bdd9e1d6e211a2f0246ef54e0cbfafab2824296906135790199dd3
+// kernel_digest_at_authoring: sha256:6db8e707c2076c107ff6e822f5d0472eae91ee706aab0d16b635dd4c68709e29
 // spec: illustrative CBR aggregate data return template (CBR-DATA-RETURN-VALIDATOR-1); metric
 //       definitions pinned from the CPMI correspondent banking chartpack, the PIFS CBR Project
 //       2025 Annual Report (Rec 3 data collection scope) and FATF revised R.16 (June 2025).

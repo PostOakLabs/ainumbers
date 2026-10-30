@@ -412,6 +412,7 @@ export function compute(pp) {
     refused,
     violations,
     flags,
+    warn_count: flags.length,
     readiness,
     rules_checked,
     profile: profileName || null,
