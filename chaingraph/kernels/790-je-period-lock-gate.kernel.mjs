@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// 789-je-period-lock-gate — journal-entry period-lock policy gate.
+// 790-je-period-lock-gate — journal-entry period-lock policy gate.
 //
 // Evaluates caller-DECLARED journal entries against a caller-DECLARED, VERSIONED,
 // time-varying period-lock policy (periods with dated lock events: open,
@@ -38,7 +38,7 @@ import { executionHash } from './_hash.mjs';
 // network, zero PII: entry_id / prepared_by / approved_by are opaque synthetic
 // labels echoed or compared verbatim, never interpreted.
 
-const TOOL_ID = '789-je-period-lock-gate';
+const TOOL_ID = '790-je-period-lock-gate';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
