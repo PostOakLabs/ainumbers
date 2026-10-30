@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- WEBMCP:OT-META-BEGIN generator=scripts/gen-webmcp-registrations.mjs -->
+<meta http-equiv="origin-trial" content="AvjPE9Ubhx2ZAiql3vUsqFtXvuHuGVZq9xxwxs6FXkgBXIRAnf+mFu3UmPHszhqN3NW8YvRNXbVbAGvEsuFG7w0AAABfeyJvcmlnaW4iOiJodHRwczovL2FpbnVtYmVycy5jbzo0NDMiLCJmZWF0dXJlIjoiV2ViTUNQIiwiZXhwaXJ5IjoxODA2MzY0ODAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
+<!-- WEBMCP:OT-META-END -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
@@ -185,8 +188,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
       <div class="exec-hash" id="execHashBox"></div>
       <div class="results-export-row">
-        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
-        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <button onclick="exportArtifact(_lastResult)">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash(_lastResult)">&#10003; Verify Hash</button>
         <span class="verify-result" id="verifyResult"></span>
         <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
       </div>
@@ -207,7 +210,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
   <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `build_sanctions_screening_evidence_pack`. Task: Bind a caller-declared sanctions-screening decision (query, match count, decision) to the EXACT versioned dataset it was screened against, by comparing a caller-computed digest of the artifact they actually screened against a caller-declared published digest for that dataset version.
 Call it with arguments: {"policy_parameters":{"screening":{"query":"synthetic-test-entity-01","decision":"clear","match_count":0},"dataset_ref":{"dataset_id":"opensanctions-default","version":"20260810","digest_algo":"sha256","published_digest":"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"},"caller_computed_digest":"abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"}}
-Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string, or re-run the in-page WebMCP tool `build_sanctions_screening_evidence_pack`.
 Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
 PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
 Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-585-sanctions-screening-evidence-pack.html#p=v1.H4sIAAAAAAAA_wFvAZD-eyJzY3JlZW5pbmciOnsicXVlcnkiOiJzeW50aGV0aWMtdGVzdC1lbnRpdHktMDEiLCJkZWNpc2lvbiI6ImNsZWFyIiwibWF0Y2hfY291bnQiOjB9LCJkYXRhc2V0X3JlZiI6eyJkYXRhc2V0X2lkIjoib3BlbnNhbmN0aW9ucy1kZWZhdWx0IiwidmVyc2lvbiI6IjIwMjYwODEwIiwiZGlnZXN0X2FsZ28iOiJzaGEyNTYiLCJwdWJsaXNoZWRfZGlnZXN0Ijoic2hhMjU2OmFiY2RlZjEyMzQ1Njc4OTBhYmNkZWYxMjM0NTY3ODkwYWJjZGVmMTIzNDU2Nzg5MGFiY2RlZjEyMzQ1Njc4OTAifSwiY2FsbGVyX2NvbXB1dGVkX2RpZ2VzdCI6ImFiY2RlZjEyMzQ1Njc4OTBhYmNkZWYxMjM0NTY3ODkwYWJjZGVmMTIzNDU2Nzg5MGFiY2RlZjEyMzQ1Njc4OTAifbyjcNFvAQAA</pre>
@@ -350,9 +353,11 @@ function digestWellFormed(algo, digest) {
   return want ? d.length === want : d.length >= 8;
 }
 
-// Mirrors chaingraph/kernels/art-585-sanctions-screening-evidence-pack.kernel.mjs compute() --
-// deterministic comparison only, no clock, no network.
-function bind(pp) {
+// Kernel mirror of chaingraph/kernels/art-585-sanctions-screening-evidence-pack.kernel.mjs compute() --
+// pinned to that kernel by the kernel-digest meta in <head>; restamp with
+// scripts/check-page-kernel-digest.mjs --digest whenever this mirror is rebuilt.
+// Deterministic comparison only, no clock, no network.
+function compute(pp) {
   var screening = pp.screening || {};
   var dataset_ref = pp.dataset_ref || {};
   var caller_computed_digest_raw = pp.caller_computed_digest;
@@ -421,9 +426,15 @@ function runBindingCheck() {
     caller_computed_digest: s(document.getElementById('ppCallerDigest').value) || undefined
   };
 
-  var result = bind(pp);
+  var result = compute(pp);
   _lastResult = { pp: pp, output_payload: result.output_payload, compliance_flags: result.compliance_flags };
-  var op = result.output_payload;
+  paintResult();
+}
+
+function paintResult() {
+  if (!_lastResult) return;
+  var pp = _lastResult.pp;
+  var op = _lastResult.output_payload;
   var ep = op.evidence_pack;
 
   var vBox = document.getElementById('verdictBox');
@@ -432,7 +443,7 @@ function runBindingCheck() {
   else { vBox.style.color = 'var(--teal-lt)'; vBox.style.background = 'rgba(20,184,166,.08)'; vBox.style.border = '1px solid var(--teal)'; }
   vBox.textContent = op.verdict + (op.reason ? ': ' + op.reason.replace(/_/g,' ') : '');
 
-  document.getElementById('flagRow').innerHTML = result.compliance_flags.map(function(f) {
+  document.getElementById('flagRow').innerHTML = _lastResult.compliance_flags.map(function(f) {
     var cls = (f.indexOf('MISMATCH') > -1 || f.indexOf('INCOMPLETE') > -1) ? 'fail' : (f.indexOf('NO_CALLER') > -1) ? 'warn' : 'ok';
     return '<span class="badge ' + cls + '">' + f + '</span>';
   }).join('');
@@ -459,15 +470,17 @@ function runBindingCheck() {
   });
 }
 
-function verifyHash() {
-  if (!_lastResult) return;
-  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+function verifyHash(rec) {
+  if (!rec) return;
+  computeExecHash(rec.pp, rec.output_payload).then(function(h) {
     var cur = document.getElementById('execHashBox').textContent;
     document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
   });
 }
 
-function exportArtifact() {
+function exportArtifact(rec) {
+  if (!rec) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
   if (!_lastResult) return;
   var hash = document.getElementById('execHashBox').textContent || 'pending';
   const __generatedAtCapture = new Date().toISOString();
@@ -480,9 +493,9 @@ function exportArtifact() {
     generated_at: __generatedAtCapture,
     execution_hash: hash,
     chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
-    policy_parameters: _lastResult.pp,
-    output_payload: _lastResult.output_payload,
-    compliance_flags: _lastResult.compliance_flags,
+    policy_parameters: rec.pp,
+    output_payload: rec.output_payload,
+    compliance_flags: rec.compliance_flags,
     compute_mode: 'browser',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
   };
@@ -504,5 +517,115 @@ function toggleMfst() {
   } else { b.style.display = 'none'; }
 }
 </script>
+<!-- WEBMCP:GEN-BEGIN manifest=manifests/art-585-sanctions-screening-evidence-pack.manifest.json generator=scripts/gen-webmcp-registrations.mjs mode=direct -->
+<script>
+// WebMCP registration generated by scripts/gen-webmcp-registrations.mjs from
+// manifests/art-585-sanctions-screening-evidence-pack.manifest.json (mcp_tool_definition reused verbatim; the generator computes
+// nothing and restates no computed value). DIRECT emission mode
+// (WEBMCP-DIRECT-MODE-1): this page's manifest inputs have no single control
+// to prefill, so execute() calls the manifest-declared function with the
+// agent's params, stores the result in the page's result global, lets the
+// page's render function paint it, and shows the mandatory "Inputs used by
+// the agent" echo panel so a human still sees exactly what the agent ran.
+// Feature-detected: absent API registers nothing, so this page is
+// byte-identical without the API.
+// Eligibility is static and re-proven on every --check: kernel-digest
+// sentinel matches the kernel; the declared function takes one parameter
+// and reads no DOM; the kernel reproduces fixture 0 execution_hash. Same
+// kernel, same hash, zero network I/O.
+// Trust annotations, truthful-hint posture: deterministic local compute, no
+// untrusted content, so untrustedContentHint is not applicable per tool (n/a);
+// exposedTo intentionally omitted: no cross-origin exposure. A browser agent
+// is untrusted input like any form submission; the never-trust-client rule is
+// honored by construction because the tool is zero-server and only returns
+// computed JSON derived from declared inputs.
+// Browser support (dated observation): WebMCP origin trial from Chrome 149
+// (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).
+const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+if (mc) {
+  mc.registerTool({
+    name: 'build_sanctions_screening_evidence_pack',
+    description: 'Binds a caller-declared sanctions-screening decision (query, match count, decision) to the EXACT versioned dataset it was screened against, by comparing a caller-computed digest of the artifact they actually screened against a caller-declared published digest for that dataset version. Generic dataset_ref shape (dataset_id + version + digest_algo + published_digest) works with any versioned list source, never a named provider dependency; OpenSanctions\' immutable version-pinned artifact paths are the worked example. Emits BOUND when the digests match, UNBOUND when they diverge, and INDETERMINATE when the dataset reference is incomplete or the caller declares no computed digest of their own, since the node never fetches or computes a digest itself (zero network, zero PII). Proves this decision ran against this exact byte-identical dataset version: process reproducibility, never screening adequacy; the underlying screening logic, thresholds, and list quality remain the screening provider\'s responsibility. Clause: FinCEN CVC 2019 guidance perimeter (verification only, no value custody); OFAC compliance program expectations for maintaining an auditable trail of the list version screened.',
+    inputSchema: {
+      "type": "object",
+      "required": [
+        "caller_computed_digest",
+        "dataset_ref",
+        "screening"
+      ],
+      "properties": {
+        "caller_computed_digest": {
+          "description": "type not evidenced by kernel source"
+        },
+        "dataset_ref": {
+          "description": "type not evidenced by kernel source"
+        },
+        "screening": {
+          "description": "type not evidenced by kernel source"
+        }
+      }
+    },
+    annotations: { readOnlyHint: true },
+    execute: async function(params) {
+      try {
+      if (params.caller_computed_digest === undefined) throw new Error('caller_computed_digest is required; received ' + JSON.stringify(params.caller_computed_digest) + '.');
+      if (params.dataset_ref === undefined) throw new Error('dataset_ref is required; received ' + JSON.stringify(params.dataset_ref) + '.');
+      if (params.screening === undefined) throw new Error('screening is required; received ' + JSON.stringify(params.screening) + '.');
+      var echo = document.getElementById('webmcp-inputs-echo');
+      if (!echo) {
+        echo = document.createElement('pre');
+        echo.id = 'webmcp-inputs-echo';
+        var panel = document.querySelector('.results-panel');
+        if (panel && panel.parentNode) panel.parentNode.insertBefore(echo, panel);
+        else document.body.insertBefore(echo, document.body.firstChild);
+      }
+      echo.textContent = 'Inputs used by the agent: ' + JSON.stringify(params, null, 2);
+      var __normalizeNullMembers = function __normalizeNullMembers(value, schema) {
+        if (Array.isArray(value)) {
+          var changed = false;
+          var out = new Array(value.length);
+          for (var i = 0; i < value.length; i++) {
+            var el = value[i];
+            if (el === null) { out[i] = null; continue; }
+            var n = __normalizeNullMembers(el, schema && schema.items);
+            if (n !== el) changed = true;
+            out[i] = n;
+          }
+          return changed ? out : value;
+        }
+        if (value !== null && typeof value === 'object') {
+          var props = schema && schema.properties;
+          var out2 = {};
+          var changed2 = false;
+          for (var ks = Object.keys(value), j = 0; j < ks.length; j++) {
+            var k = ks[j];
+            var v = value[k];
+            if (v === null) {
+              if (props && props[k] && props[k].x_null_distinct) { out2[k] = null; continue; }
+              changed2 = true;
+              continue;
+            }
+            var n2 = __normalizeNullMembers(v, props && props[k]);
+            if (n2 !== v) changed2 = true;
+            out2[k] = n2;
+          }
+          return changed2 ? out2 : value;
+        }
+        return value;
+      };
+      var __computeInput = __normalizeNullMembers(params, "{\"type\":\"object\",\"required\":[\"caller_computed_digest\",\"dataset_ref\",\"screening\"],\"properties\":{\"caller_computed_digest\":{\"description\":\"type not evidenced by kernel source\"},\"dataset_ref\":{\"description\":\"type not evidenced by kernel source\"},\"screening\":{\"description\":\"type not evidenced by kernel source\"}}}");
+      var __directResult = await compute(__computeInput);
+      if (typeof __directResult !== 'undefined') _lastResult = __directResult;
+      await paintResult();
+      return _lastResult;
+      } catch (err) {
+        return { error: 'compute_failed', detail: String((err && err.message) || err) };
+      }
+    }
+  });
+}
+</script>
+<!-- WEBMCP:GEN-END -->
+
 </body>
 </html>

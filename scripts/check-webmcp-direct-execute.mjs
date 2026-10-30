@@ -323,6 +323,62 @@ const RUN_PATH_ADAPTERS = {
       for (const t of ART616_CHARGE_TYPES) setVal(sandbox, `c_${t}`, '0');
     },
   },
+  // PR-2734-WEBMCP-CURE-1: the agent-payment-compliance-trail chain's six
+  // direct-mode pages (art-01 is wrapper/prefill-bound, so it never appears
+  // here). Adapters name each page's no-arg run wrapper and prefill fixture 0
+  // into the page's own controls; where fixture 0's policy_parameters is {}
+  // (art-10/art-62/art-104) the run path cannot reproduce the kernel golden's
+  // empty-pp preimage and the leg-2 mismatch is baselined with a reason.
+  'art-565-kya-x402-scope-verifier': {
+    run: 'runCheck',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'credInput', JSON.stringify(pp.kya_credential ?? {}, null, 2));
+      setVal(sandbox, 'payInput', JSON.stringify(pp.x402_payload ?? {}, null, 2));
+    },
+  },
+  'art-585-sanctions-screening-evidence-pack': {
+    run: 'runBindingCheck',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'ppQuery', pp.screening?.query ?? '');
+      setVal(sandbox, 'ppDecision', pp.screening?.decision ?? '');
+      setVal(sandbox, 'ppMatchCount', pp.screening?.match_count == null ? '' : String(pp.screening.match_count));
+      setVal(sandbox, 'ppDatasetId', pp.dataset_ref?.dataset_id ?? '');
+      setVal(sandbox, 'ppDatasetVersion', pp.dataset_ref?.version ?? '');
+      setVal(sandbox, 'ppDigestAlgo', pp.dataset_ref?.digest_algo ?? '');
+      setVal(sandbox, 'ppPublishedDigest', pp.dataset_ref?.published_digest ?? '');
+      setVal(sandbox, 'ppCallerDigest', pp.caller_computed_digest ?? '');
+    },
+  },
+  'art-699-x402-permit2-evidence-recomputer': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      setVal(sandbox, 'ppInput', JSON.stringify(fx.policy_parameters, null, 2));
+    },
+  },
+  'art-10-amla-transaction-typology-risk-scorer': {
+    run: 'runScoring',
+    prefill(sandbox, fx) {
+      // fixture 0 carries {} (the kernel's default-scenario path); load the
+      // page's own structuring scenario so the form path still runs end-to-end.
+      if (typeof sandbox.loadScenario === 'function') sandbox.loadScenario('structuring');
+    },
+  },
+  'art-104-tfr-travel-rule-batch-validator': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      setVal(sandbox, 'transfer_batch', '[]');
+      setVal(sandbox, 'tfr_threshold', '1000');
+    },
+  },
+  'art-62-ap2-payment-receipt-verifier': {
+    run: 'run',
+    prefill(sandbox) {
+      // fixture 0 carries {} (the kernel's rejected-inputs path); the form's
+      // empty fields exercise that same path through the page's own controls.
+    },
+  },
 };
 
 function setVal(sandbox, id, v) {
