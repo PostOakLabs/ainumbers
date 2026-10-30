@@ -23,6 +23,7 @@ status: stable
 - [Collateral Swap Eligibility Validator](./515-collateral-swap-eligibility-validator.md) — `validate_collateral_swap_eligibility`
 - [Borrower Escrow Auditor](./732-borrower-escrow-auditor.md) — `audit_borrower_escrow_stmt`
 - [Servicing Compliance Clock](./733-servicing-compliance-clock.md) — `servicing_compliance_clock`
+- [Corridor Cost Averages](./787-corridor-cost-averages.md) — `compute_corridor_cost_averages`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md) — `model_x402_settlement`
@@ -657,11 +658,17 @@ status: stable
 - [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md) — `apply_climate_scenario`
 - [ESPP Break-Even & Optimal Sell](./art-760-espp-break-even-optimal-sell.md) — `analyze_espp_disposition`
 - [AI Displacement Risk Screener](./art-763-ai-displacement-risk-screener.md) — `ai_displacement_risk_screener`
+- [Solo 401(k) vs. SEP-IRA Optimizer](./art-764-solo-401k-vs-sep-ira.md) — `compare_solo401k_sep_simple`
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md) — `run_t1_readiness_diagnostic`
 - [Automation Payback](./art-771-automation-payback.md) — `compute_automation_payback`
 - [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md) — `derive_beacon_fair_sample_v2`
 - [PayPal Dispute Deadline & Evidence](./art-776-paypal-dispute-deadline-evidence.md) — `compute_paypal_response`
+- [PSP Dispute Reason Crosswalk](./art-777-psp-dispute-reason-crosswalk.md) — `crosswalk_psp_dispute_reasons`
+- [Token-2022 Withheld-Fee Reconciler](./art-778-token2022-withheld-fee-reconciler.md) — `reconcile_token2022_withheld`
+- [BNPL Plan Comparator](./art-779-bnpl-plan-comparator.md) — `compare_bnpl_plans`
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md) — `calculate_csdr_penalty`
+- [Solana PDA Bump and ATA Audit](./art-780-solana-pda-ata-audit.md) — `audit_solana_pda_ata`
+- [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md) — `parse_csv_table`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md) — `check_allocation_affirmation`

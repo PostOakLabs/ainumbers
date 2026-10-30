@@ -91,6 +91,7 @@
  */
 import { execSync, exec } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
+import { checkPreflightCap, refusalMessage } from './lib/preflight-cap.mjs';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -171,6 +172,14 @@ function assertRepoFresh(repoPath, via, strict) {
 
 const { path: REPO, via: REPO_VIA, strict: REPO_STRICT } = resolveRepoPath();
 assertRepoFresh(REPO, REPO_VIA, REPO_STRICT);
+// PREFLIGHT-HARD-CAP-1: three runs per builder worktree (.wt/<ROW>), counted in .tmp/preflight-count;
+// the fourth refuses before any gate starts. CI, the pre-push hook's own run, --self-test and
+// PREFLIGHT_BUDGET_OVERRIDE=1 are never counted (scripts/lib/preflight-cap.mjs).
+{
+  const cap = checkPreflightCap({ repo: REPO, env: process.env, argv: process.argv, fs: { readFileSync, writeFileSync, mkdirSync } });
+  if (cap.refused) { console.error(refusalMessage(cap)); process.exit(1); }
+  if (cap.counted) console.log(`preflight budget: ${cap.reason} (PREFLIGHT-HARD-CAP-1)`);
+}
 // GIT-ENV-LEAK-SWEEP-1 (2026-08-23): was `{ ...process.env, ... }`. This object is the environment
 // EVERY gate subprocess below inherits, so scrubbing GIT_* once here protects the whole suite, not
 // just preflight's own git calls — a gate that shells to git can no longer be redirected at the
@@ -204,6 +213,54 @@ if (MERGE_GROUP_DERIVED_ROOT) {
 const changedIdx = process.argv.indexOf('--changed');
 const changedRef = changedIdx !== -1 ? process.argv[changedIdx + 1] : null;
 const BUDGET_MS = 60_000;
+
+// The two §18 freshness commands (ratchet + fixture proof) that read the PR-only scratch assembly.
+// The calibration-artifact --check leg is deliberately NOT here: it compares main's committed
+// monolith against main's committed calibration and is consistent in every context (leave it).
+// S18-FIXTURE-PR-DERIVED-ROOT-1: local/pre-push preflight runs in a PR context (no DERIVED_ROOT,
+// no S18_DERIVED_ROOT) with no assembled tree — which is why every re-prove PR needed the in-branch
+// `assemble-chaingraph.mjs --enroll` cure to pass the §18 freshness fixture. Assemble an EPHEMERAL
+// monolith once (lazily, only when one of the two §18 freshness gates is about to run) and inject
+// S18_DERIVED_ROOT for exactly those two commands; the scratch dir is removed on exit. Nothing
+// changes on the main-side CI leg (MAIN_CONTEXT skips the assembly) or on merge_group
+// (DERIVED_ROOT is mounted, and both gates give it precedence over S18_DERIVED_ROOT), and a caller
+// that already exported S18_DERIVED_ROOT (the s18tree step in scripts-verify/land-verify) wins as-is.
+// ⚠ DECLARED EARLY — BEFORE the reporting self-test's `process.exit(runSelfTest())` further down:
+// gateEnvFor() is called by that self-test's runAdvisoryChecker() BEFORE MAIN_CONTEXT (far below) is
+// initialized, and a TDZ ReferenceError here would be swallowed by its catch and misreport every
+// synthetic checker as UNAVAILABLE (measured 2026-10-27). The context flip is applied where
+// MAIN_CONTEXT is computed; until then this is false, which is exactly main's behavior.
+const S18_FRESHNESS_PR_GATES = new Set([
+  'node scripts/check-s18-digest-freshness.mjs',
+  'node scripts/check-s18-digest-freshness.test.mjs',
+]);
+const S18_PR_DERIVED_ROOT_EXTERNAL =
+  process.env.S18_DERIVED_ROOT && process.env.S18_DERIVED_ROOT.trim() ? process.env.S18_DERIVED_ROOT.trim() : '';
+let s18PrDerivedRoot = null;
+let s18PrContextEnabled = false; // flipped true after MAIN_CONTEXT is computed, PR contexts only
+function ensureS18PrDerivedRoot() {
+  if (S18_PR_DERIVED_ROOT_EXTERNAL) return S18_PR_DERIVED_ROOT_EXTERNAL;
+  if (s18PrDerivedRoot) return s18PrDerivedRoot;
+  const dir = resolve(tmpdir(), `s18-derived-${process.pid}`);
+  mkdirSync(resolve(dir, 'chaingraph'), { recursive: true });
+  const out = resolve(dir, 'chaingraph', 'chaingraph.json');
+  execSync(`node scripts/assemble-chaingraph.mjs --out "${out}"`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  s18PrDerivedRoot = dir;
+  process.on('exit', () => { try { rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ } });
+  return dir;
+}
+
+// Child env for a gate subprocess: re-inject the ephemeral tree ONLY for the
+// gates that read it (they were stripped above so nothing else inherits it).
+function gateEnvFor(cmd) {
+  if (MERGE_GROUP_DERIVED_ROOT && DERIVED_ROOT_GATES.has(cmd)) {
+    return { ...env, DERIVED_ROOT: MERGE_GROUP_DERIVED_ROOT };
+  }
+  if (s18PrContextEnabled && S18_FRESHNESS_PR_GATES.has(cmd)) {
+    return { ...env, S18_DERIVED_ROOT: ensureS18PrDerivedRoot() };
+  }
+  return env;
+}
 
 // PREFLIGHT-KEEPGOING-1 — run-all / report-all mode. STRICTLY ADDITIVE: with
 // neither flag present KEEP_GOING is false, and every branch below that reads it
@@ -970,6 +1027,9 @@ function derivedRegenLiveScopeTouched() {
 }
 const DERIVED_REGEN_LIVE_SCOPE_TOUCHED = derivedRegenLiveScopeTouched();
 const MAIN_CONTEXT = isMainContext();
+// S18-FIXTURE-PR-DERIVED-ROOT-1: enable the S18_DERIVED_ROOT injection (declared early, above) now
+// that MAIN_CONTEXT exists — PR contexts only; main and merge_group keep reading committed artifacts.
+s18PrContextEnabled = !MAIN_CONTEXT && !MERGE_GROUP_DERIVED_ROOT;
 const ADVISORY_ON_PR = advisoryGates();
 
 // MERGEGROUP-HARD-GATES-1: per-gate HARD classification. An advisory gate is
@@ -981,15 +1041,6 @@ const ADVISORY_ON_PR = advisoryGates();
 function gateBlocks(cmd) {
   return MAIN_CONTEXT || (Boolean(MERGE_GROUP_DERIVED_ROOT) && DERIVED_ROOT_GATES.has(cmd));
 }
-// Child env for a gate subprocess: re-inject the ephemeral tree ONLY for the
-// gates that read it (they were stripped above so nothing else inherits it).
-function gateEnvFor(cmd) {
-  if (MERGE_GROUP_DERIVED_ROOT && DERIVED_ROOT_GATES.has(cmd)) {
-    return { ...env, DERIVED_ROOT: MERGE_GROUP_DERIVED_ROOT };
-  }
-  return env;
-}
-
 // MERGEQUEUE-GATE-PARITY-1: a CI run in a MAIN context (push to main, schedule)
 // runs the suite to COMPLETION, not fail-fast.
 //
@@ -2113,6 +2164,7 @@ const GATES = [
   ['§18 coverage split controls (RED/GREEN-on-PR/HARD-on-main)', 'node scripts/check-compute-proof-coverage.test.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
+  ['§18 freshness PR derived-root e2e (S18-FIXTURE-PR-DERIVED-ROOT-1)', 'node scripts/check-s18-freshness-fixture-derived-root.test.mjs'],
   // SEALED-KERNEL-RECEIPT-PUSH-GATE-1 (SO #36): the ratchet above can be raised by one --update-baseline,
   // so it never refused the "fixed, unproven" push shape (PR #2175 art-467). This leg can't be raised:
   // every kernel changed vs merge-base(origin/main, HEAD) whose old bytes the base receipt sealed must
