@@ -42,7 +42,7 @@ const PHASE_NEXT = { pilot: 'production', production: 'cross_border', cross_bord
 
 function refused(reason, flag) {
   return {
-    output_payload: { refusal: true, reason, verdict: null, score_bp: null, blocking_failures: [], conditions: [], principles_summary: [], phase_next: null },
+    output_payload: { refusal: true, reason, verdict: null, score_bp: null, blocking_failures: [], conditions: [], principles_summary: [], warn_count: 1, phase_next: null },
     compliance_flags: [flag],
   };
 }
@@ -185,6 +185,7 @@ export function compute(pp) {
     blocking_failures,
     conditions,
     principles_summary,
+    warn_count: compliance_flags.length,
     advisory_note: 'principles_summary is advisory only and does not affect the verdict',
     phase_next: PHASE_NEXT[phase],
     decision_support_note: 'DECISION-SUPPORT DRAFT — not a supervisory or regulatory assessment of any named participant or scheme.',
