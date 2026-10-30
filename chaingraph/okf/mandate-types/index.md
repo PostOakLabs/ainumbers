@@ -17,7 +17,7 @@ status: stable
 - [compensation_assessment](./compensation_assessment.md) (1)
 - [compensation_benefits](./compensation_benefits.md) (1)
 - [compliance_control](./compliance_control.md) (104)
-- [compliance_mandate](./compliance_mandate.md) (339)
+- [compliance_mandate](./compliance_mandate.md) (340)
 - [consumer_finance](./consumer_finance.md) (5)
 - [credit_assessment](./credit_assessment.md) (3)
 - [crypto_regulatory_mandate](./crypto_regulatory_mandate.md) (1)

@@ -657,7 +657,6 @@ import * as art760    from './art-760-espp-break-even-optimal-sell.kernel.mjs';
 import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
 import * as art764    from './art-764-solo-401k-vs-sep-ira.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
-import * as art788    from './art-788-csv-rfc4180-parser.kernel.mjs';
 import * as art771    from './art-771-automation-payback.kernel.mjs';
 import * as art774    from './art-774-beacon-seeded-fair-sampling-v2.kernel.mjs';
 import * as art776    from './art-776-paypal-dispute-deadline-evidence.kernel.mjs';
@@ -666,6 +665,7 @@ import * as art778    from './art-778-token2022-withheld-fee-reconciler.kernel.m
 import * as art779    from './art-779-bnpl-plan-comparator.kernel.mjs';
 import * as art78     from './art-78-csdr-penalty-calculator.kernel.mjs';
 import * as art780    from './art-780-solana-pda-ata-audit.kernel.mjs';
+import * as art788    from './art-788-csv-rfc4180-parser.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
@@ -1360,7 +1360,6 @@ export const KERNELS = {
   'art-763-ai-displacement-risk-screener':                      art763,
   'art-764-solo-401k-vs-sep-ira':                               art764,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
-  'art-788-csv-rfc4180-parser':                                 art788,
   'art-771-automation-payback':                                 art771,
   'art-774-beacon-seeded-fair-sampling-v2':                     art774,
   'art-776-paypal-dispute-deadline-evidence':                   art776,
@@ -1369,6 +1368,7 @@ export const KERNELS = {
   'art-779-bnpl-plan-comparator':                               art779,
   'art-78-csdr-penalty-calculator':                             art78,
   'art-780-solana-pda-ata-audit':                               art780,
+  'art-788-csv-rfc4180-parser':                                 art788,
   'art-79-settlement-fail-predictor':                           art79,
   'art-80-ssi-conformance-checker':                             art80,
   'art-81-allocation-affirmation-conformance':                  art81,
