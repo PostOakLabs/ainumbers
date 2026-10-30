@@ -8,7 +8,7 @@ Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and ca
 
 ## Inputs
 
-- capital (object, optional): Own-funds and capital-requirement amounts. An omitted tier2 is treated as 0, which makes the Tier 2 plus Tier 3 test lenient.
+- capital (any, optional): type not evidenced by kernel source
 
 ## Outputs
 
