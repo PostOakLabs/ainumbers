@@ -409,11 +409,11 @@ return Object.freeze({
 })();
 
 // Export retained ONLY for this bundle's own PBT floor to import and exercise
-// internals directly (chaingraph/kernels/__proptests__/art-772-*.proptest.mjs).
+// internals directly (chaingraph/kernels/__proptests__/art-785-*.proptest.mjs).
 // Consuming kernels NEVER import this — they inline the IIFE above verbatim
 // between sentinel comments and destructure the local `_csv` const, per the
 // composition contract (ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec 4.1 rule 1). This
 // export line sits OUTSIDE the inlined region by construction, so the
-// inlined copy in art-772's kernel.mjs stays byte-identical to everything
+// inlined copy in art-785's kernel.mjs stays byte-identical to everything
 // above it, sentinel to sentinel.
 export { _csv };

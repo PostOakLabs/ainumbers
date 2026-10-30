@@ -1,4 +1,4 @@
-// art-772-csv-rfc4180-parser — class-K property-test FLOOR (SHARED-CSV-AND-PAGE-XML-1).
+// art-785-csv-rfc4180-parser — class-K property-test FLOOR (SHARED-CSV-AND-PAGE-XML-1).
 // kernel_digest_at_authoring: sha256:a8e7f75d363f064704e9953d0ce3d87c380cc79ca4b1c478b30273e6c3a835bf
 // (this file imports the kernel and bundle directly, so identity drift also fails the fixture oracle).
 // spec: ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec 0.1 (bundle + demonstrator ruling); row
@@ -37,13 +37,13 @@
 //
 // Zero NEW external dependencies — Node built-ins plus the in-repo helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/art-772-csv-rfc4180-parser.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-785-csv-rfc4180-parser.proptest.mjs
 
-import { compute } from '../art-772-csv-rfc4180-parser.kernel.mjs';
+import { compute } from '../art-785-csv-rfc4180-parser.kernel.mjs';
 import { _csv } from '../_csv.bundle.mjs';
 import { runFixtureOracle, summarize } from './_pbt-common.mjs';
 
-const KERNEL_ID = 'art-772-csv-rfc4180-parser';
+const KERNEL_ID = 'art-785-csv-rfc4180-parser';
 
 // ---------- deterministic PRNG (no Math.random) ----------
 function mulberry32(seed) {
