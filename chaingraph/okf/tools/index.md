@@ -668,6 +668,7 @@ status: stable
 - [BNPL Plan Comparator](./art-779-bnpl-plan-comparator.md) — `compare_bnpl_plans`
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md) — `calculate_csdr_penalty`
 - [Solana PDA Bump and ATA Audit](./art-780-solana-pda-ata-audit.md) — `audit_solana_pda_ata`
+- [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md) — `parse_csv_table`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md) — `check_allocation_affirmation`
