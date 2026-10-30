@@ -1,5 +1,5 @@
 // art-786-qr-interop-uat-pack — class-K property-test floor.
-// kernel_digest_at_authoring: sha256:fe8c2e9e00aa24e65512f1aeea9e9b60358d23cbd769840f7305ee610877e139
+// kernel_digest_at_authoring: sha256:b062e52ab8fcf53e7b50bf42b3a399977e4f3dd6a79a865afc05102bfdbd903d
 // spec: board/queued/QR-UAT-PACK-1.md contract · FV-PBT-FLOOR-BUILD-SPEC.md
 // human_sign_off: builder-authored per row QR-UAT-PACK-1 (2026-10-29)
 //

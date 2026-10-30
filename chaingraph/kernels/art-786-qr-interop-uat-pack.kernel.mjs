@@ -73,7 +73,7 @@ function refusal(code, detail) {
       scheme_profile: null, phases: [], matrix: [], cases: [],
       counts: {}, excluded_pairs: [], exit_criteria: {},
     },
-    compliance_flags: ['INPUT_REFUSED'],
+    compliance_flags: code ? ['INPUT_REFUSED'] : [],
   };
 }
 
