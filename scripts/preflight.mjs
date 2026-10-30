@@ -205,6 +205,54 @@ const changedIdx = process.argv.indexOf('--changed');
 const changedRef = changedIdx !== -1 ? process.argv[changedIdx + 1] : null;
 const BUDGET_MS = 60_000;
 
+// The two §18 freshness commands (ratchet + fixture proof) that read the PR-only scratch assembly.
+// The calibration-artifact --check leg is deliberately NOT here: it compares main's committed
+// monolith against main's committed calibration and is consistent in every context (leave it).
+// S18-FIXTURE-PR-DERIVED-ROOT-1: local/pre-push preflight runs in a PR context (no DERIVED_ROOT,
+// no S18_DERIVED_ROOT) with no assembled tree — which is why every re-prove PR needed the in-branch
+// `assemble-chaingraph.mjs --enroll` cure to pass the §18 freshness fixture. Assemble an EPHEMERAL
+// monolith once (lazily, only when one of the two §18 freshness gates is about to run) and inject
+// S18_DERIVED_ROOT for exactly those two commands; the scratch dir is removed on exit. Nothing
+// changes on the main-side CI leg (MAIN_CONTEXT skips the assembly) or on merge_group
+// (DERIVED_ROOT is mounted, and both gates give it precedence over S18_DERIVED_ROOT), and a caller
+// that already exported S18_DERIVED_ROOT (the s18tree step in scripts-verify/land-verify) wins as-is.
+// ⚠ DECLARED EARLY — BEFORE the reporting self-test's `process.exit(runSelfTest())` further down:
+// gateEnvFor() is called by that self-test's runAdvisoryChecker() BEFORE MAIN_CONTEXT (far below) is
+// initialized, and a TDZ ReferenceError here would be swallowed by its catch and misreport every
+// synthetic checker as UNAVAILABLE (measured 2026-10-27). The context flip is applied where
+// MAIN_CONTEXT is computed; until then this is false, which is exactly main's behavior.
+const S18_FRESHNESS_PR_GATES = new Set([
+  'node scripts/check-s18-digest-freshness.mjs',
+  'node scripts/check-s18-digest-freshness.test.mjs',
+]);
+const S18_PR_DERIVED_ROOT_EXTERNAL =
+  process.env.S18_DERIVED_ROOT && process.env.S18_DERIVED_ROOT.trim() ? process.env.S18_DERIVED_ROOT.trim() : '';
+let s18PrDerivedRoot = null;
+let s18PrContextEnabled = false; // flipped true after MAIN_CONTEXT is computed, PR contexts only
+function ensureS18PrDerivedRoot() {
+  if (S18_PR_DERIVED_ROOT_EXTERNAL) return S18_PR_DERIVED_ROOT_EXTERNAL;
+  if (s18PrDerivedRoot) return s18PrDerivedRoot;
+  const dir = resolve(tmpdir(), `s18-derived-${process.pid}`);
+  mkdirSync(resolve(dir, 'chaingraph'), { recursive: true });
+  const out = resolve(dir, 'chaingraph', 'chaingraph.json');
+  execSync(`node scripts/assemble-chaingraph.mjs --out "${out}"`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  s18PrDerivedRoot = dir;
+  process.on('exit', () => { try { rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ } });
+  return dir;
+}
+
+// Child env for a gate subprocess: re-inject the ephemeral tree ONLY for the
+// gates that read it (they were stripped above so nothing else inherits it).
+function gateEnvFor(cmd) {
+  if (MERGE_GROUP_DERIVED_ROOT && DERIVED_ROOT_GATES.has(cmd)) {
+    return { ...env, DERIVED_ROOT: MERGE_GROUP_DERIVED_ROOT };
+  }
+  if (s18PrContextEnabled && S18_FRESHNESS_PR_GATES.has(cmd)) {
+    return { ...env, S18_DERIVED_ROOT: ensureS18PrDerivedRoot() };
+  }
+  return env;
+}
+
 // PREFLIGHT-KEEPGOING-1 — run-all / report-all mode. STRICTLY ADDITIVE: with
 // neither flag present KEEP_GOING is false, and every branch below that reads it
 // collapses to exactly the code that was there before. Same gate list, same order,
@@ -970,6 +1018,9 @@ function derivedRegenLiveScopeTouched() {
 }
 const DERIVED_REGEN_LIVE_SCOPE_TOUCHED = derivedRegenLiveScopeTouched();
 const MAIN_CONTEXT = isMainContext();
+// S18-FIXTURE-PR-DERIVED-ROOT-1: enable the S18_DERIVED_ROOT injection (declared early, above) now
+// that MAIN_CONTEXT exists — PR contexts only; main and merge_group keep reading committed artifacts.
+s18PrContextEnabled = !MAIN_CONTEXT && !MERGE_GROUP_DERIVED_ROOT;
 const ADVISORY_ON_PR = advisoryGates();
 
 // MERGEGROUP-HARD-GATES-1: per-gate HARD classification. An advisory gate is
@@ -981,15 +1032,6 @@ const ADVISORY_ON_PR = advisoryGates();
 function gateBlocks(cmd) {
   return MAIN_CONTEXT || (Boolean(MERGE_GROUP_DERIVED_ROOT) && DERIVED_ROOT_GATES.has(cmd));
 }
-// Child env for a gate subprocess: re-inject the ephemeral tree ONLY for the
-// gates that read it (they were stripped above so nothing else inherits it).
-function gateEnvFor(cmd) {
-  if (MERGE_GROUP_DERIVED_ROOT && DERIVED_ROOT_GATES.has(cmd)) {
-    return { ...env, DERIVED_ROOT: MERGE_GROUP_DERIVED_ROOT };
-  }
-  return env;
-}
-
 // MERGEQUEUE-GATE-PARITY-1: a CI run in a MAIN context (push to main, schedule)
 // runs the suite to COMPLETION, not fail-fast.
 //
@@ -1359,6 +1401,15 @@ const GATES = [
   ['Inline hash equality (AUD-C3)', 'node chaingraph/kernels/inline-hash-equality.test.mjs'],
   ['Ed25519 noble↔WebCrypto equivalence (FV-ED25519-NOBLE-1)', 'node chaingraph/kernels/ed25519-webcrypto-equivalence.test.mjs'],
   ['Canon block ordering (CANON-ORDER-1)', 'node scripts/check-canon-order.mjs'],
+  // CHAIN-PAGES-CANON-ORDER-FIX-1: paired control for the gate above, on the
+  // generator side. build-chain-pages.mjs emitted the OCG-CANON block AFTER the
+  // main chain script, so every page it generated was born violating the
+  // predicate the gate above enforces on committed pages (measured on
+  // DEPOSIT-INSURANCE-CHAIN-2; SO #44 premise). The selftest generates a page
+  // from a live chain definition into a TEMP dir outside the repo, proves the
+  // fixed emission GREEN and the pre-fix emission (canon after main script) RED
+  // through the committed gate itself — RED before GREEN, SO #34c pairing.
+  ['Chain-page generator canon emission controls (RED/GREEN, SO #34c pairing)', 'node scripts/check-chain-pages-canon-order.selftest.mjs'],
   // INLINE-SSOT-PORTS-GATE-1: the self-test runs FIRST and is not optional. It
   // asserts, with negative controls, that the codeOnly normalizer still fails on
   // a changed operator/constant/identifier/string — a normalizer that quietly
@@ -1671,6 +1722,11 @@ const GATES = [
   // the newest item date, so the generator is a byte-fixpoint of the committed
   // tree (the property the main-side auto-commit chain needs to converge).
   ['RSS change feed freshness (FEED-TWINS-1)', 'node scripts/gen-rss.mjs --check'],
+  // RECEIPT-BUNDLE-PUBLISH-1: published receipt bundles. Command string matches
+  // derived-artifacts.mjs COVERED id 'receipt-bundles' gate, so it is advisory on a
+  // PR (the tree is written main-side, SO #35) and blocking on main.
+  ['Receipt bundles freshness (RECEIPT-BUNDLE-PUBLISH-1)', 'node scripts/gen-receipt-bundles.mjs --check'],
+  ['Receipt bundle attest subjects (SIGSTORE-BUNDLE-V03-EXPORT-6)', 'node scripts/receipt-bundle-attest-subjects.mjs'],
   ['RSS change feed controls (staleness RED/GREEN + tag-filter, SO #40b)', 'node scripts/gen-rss.mjs --self-test'],
   ['Evidence-profile manifest (EF-2)', 'node scripts/validate-evidence-profiles.mjs'],
   ['Chain domain taxonomy',        'node scripts/check-chain-domain.mjs'],
@@ -1884,7 +1940,21 @@ const GATES = [
   // fixed literal `artifacts` list and the regen workflow's whole-tree anti-escape guard.
   // This --check gate (read-only recompute-and-verify) is the safe, standing freshness
   // check; publishing new records stays a manual/generated run, same as this one.
-  ['F3 registry lineage log freshness (REGISTRY-LINEAGE-RETRY-1)', 'node scripts/gen-registry-lineage.mjs --check'],
+  // LINEAGE-PR-SIDE-RETIRE-1 (2026-10-22): publishing is now MAIN's regen's job —
+  // derived-artifacts-regen.yml has been the LIVE writer of registry/lineage/** since
+  // 2026-10-14 (ainumbers-spec-sync[bot] commits d876fe52, 00a596ba, 4be6747a,
+  // 9746b4e9, 6070463a, 543db5b2), and a node PR's own append is what made every node
+  // PR serial (median 4.6h vs 1.2h, 2026-10-22 measurement). The PR-side advisory split
+  // lives IN THE SCRIPT (the PROVE-BASELINE-SINGLE-WRITER-1 disposition pattern, copied
+  // not reinvented): on a pull_request whose diff touches nothing under
+  // registry/lineage/, registry/absence/ or chaingraph/kernels/registry-lineage-records.json,
+  // a --check failure prints its full output plus one advisory line and exits 0 — reported,
+  // never red; on main, on merge_group with the assembled DERIVED_ROOT, on any
+  // undeterminable context, and on any diff that DOES touch those files, it stays BLOCKING
+  // exactly as before. The command string is unchanged (gate id stable, parity green);
+  // preflight therefore still shows this gate HARD — the advisory exit happens in-script.
+  // Self-test: gen-registry-lineage.test.mjs section 6 (five scenarios, RED control).
+  ['F3 registry lineage log freshness (REGISTRY-LINEAGE-RETRY-1; advisory in-script on a lineage-clean PR — LINEAGE-PR-SIDE-RETIRE-1)', 'node scripts/gen-registry-lineage.mjs --check'],
   // REGISTRY-ERRATA-TILES-BUILD-1: wired here (satisfies check-generator-coverage.mjs's
   // hard "every --check generator must be invoked by preflight.mjs" rule) but the row
   // itself checked off BLOCKED — the F1 errata log's Sigsum anchoring step (mandatory per
@@ -1902,7 +1972,18 @@ const GATES = [
   // without a lineage append — the two-command remedy is printed with the failure (same
   // red-until-anchored philosophy as the node-registration gap gate; the lineage publish is
   // manual/generated by design, see the EXCLUDED entry in derived-artifacts.mjs).
-  ['F2 absence-tree freshness + lineage binding (REGISTRY-ABSENCE-TREE-BUILD-1)', 'node scripts/gen-registry-absence-tree.mjs --check'],
+  // LINEAGE-PR-SIDE-RETIRE-1 (2026-10-22): the binding red no longer rides a node PR —
+  // main's regen (derived-artifacts-regen.yml, live since 2026-10-14) appends the record
+  // and publishes after merge, so a lineage-clean pull_request is no longer required to
+  // satisfy this gate in-branch. preflight's own classification is unchanged (this command
+  // is COVERED id 'registry-absence-tree', advisory on a PR via the generic
+  // ADVISORY_ON_PR rule, blocking on main and on merge_group with DERIVED_ROOT); the
+  // PR-side BLOCKING half moved to unwired-gates.yml, which now runs this check through
+  // the sanctioned run-gate.mjs wrapper (advisory only on a pull_request whose diff
+  // touches no lineage file, and only when check-regen-repairable proves main's regen
+  // erases the drift) — its raw blocking invocation and its DECLARED_DIVERGENCES entry
+  // stay live for main and for lineage-touching PRs. Gate id and command unchanged.
+  ['F2 absence-tree freshness + lineage binding (REGISTRY-ABSENCE-TREE-BUILD-1; unwired-gates leg advisory on a lineage-clean PR — LINEAGE-PR-SIDE-RETIRE-1)', 'node scripts/gen-registry-absence-tree.mjs --check'],
   // The proof pipeline itself: every existence + every gap non-existence proof over the real
   // F2 key set verified against ics23-verify.mjs's pinned AINUMBERS_SIMPLE_SPEC, plus the
   // caller-supplied-spec rejection (BUILD-SPEC §4.3 pinning rule), the adjacency mutation
@@ -2067,9 +2148,14 @@ const GATES = [
   // ADVISORY_ON_PR categorisation below: chaingraph.json's single-writer status is a property of the
   // artifact, so the same downgrade has to hold in preflight AND in both CI workflows that invoke it.
   ['§18 compute-proof coverage',   'node scripts/check-compute-proof-coverage.mjs'],
+  // Two gates, deliberately (as with the nav pair): the plain one is the ratchet (RED = a known node regressed,
+  // hard in every context); --check-baseline is the derived-artifact freshness gate for
+  // scripts/compute-proof-baseline.json (advisory on a PR, repaired by main's regen).
+  ['§18 compute-proof baseline fresh (derived)', 'node scripts/check-compute-proof-coverage.mjs --check-baseline'],
   ['§18 coverage split controls (RED/GREEN-on-PR/HARD-on-main)', 'node scripts/check-compute-proof-coverage.test.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
+  ['§18 freshness PR derived-root e2e (S18-FIXTURE-PR-DERIVED-ROOT-1)', 'node scripts/check-s18-freshness-fixture-derived-root.test.mjs'],
   // SEALED-KERNEL-RECEIPT-PUSH-GATE-1 (SO #36): the ratchet above can be raised by one --update-baseline,
   // so it never refused the "fixed, unproven" push shape (PR #2175 art-467). This leg can't be raised:
   // every kernel changed vs merge-base(origin/main, HEAD) whose old bytes the base receipt sealed must
@@ -2314,7 +2400,7 @@ const GATES = [
   // touch derived-artifacts.mjs or a generator/gate script it names.
   ['Derived-set regen selftest fixture proof (SO #40b pairing)', 'node scripts/check-derived-regen-live.test.mjs'],
   ...(DERIVED_REGEN_LIVE_SCOPE_TOUCHED
-    ? [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1)', 'node scripts/check-derived-regen-live.mjs --check']]
+    ? [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1)', 'node scripts/check-derived-regen-live.mjs --check' + ((changedRef && process.env.DERIVED_REGEN_LIVE_FULL !== '1') ? ' --changed ' + changedRef : '')]]
     : [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1: no derived-artifacts/generator path touched, skipped)', 'node -e "1"',
         { notRun: 'DERIVED-SET-SELFTEST-1 scoping — this push touches no scripts/derived-artifacts.mjs or generator/gate script it names, so the live regen self-test (which actually executes every regen command) was not run' }]]),
   // MERGEQUEUE-GATE-PARITY-1: the control for the merge-queue repairability probe
@@ -2456,7 +2542,7 @@ const QUICK_GATES = [
   //    diff ∪ working-tree status, fail-closed).
   ['JS syntax (CHANGED files, quick)', `node scripts/check_tools.js --changed ${QUICK_REF}`],
   // 2. The §18 ratchet — RED means "run --update-baseline and commit it".
-  ['§18 compute-proof coverage (ratchet; RED → run --update-baseline and commit it)', 'node scripts/check-compute-proof-coverage.mjs'],
+  ['§18 compute-proof coverage (ratchet; new nodes exempt, main regen pins the baseline; RED = a known node regressed)', 'node scripts/check-compute-proof-coverage.mjs'],
   // 3. Tool-number uniqueness.
   ['Tool-number uniqueness (quick)', 'node scripts/check-tool-number-unique.mjs'],
   // 4. ID-collision gate, if present (PR-ID-COLLISION-GATE-1).
@@ -2465,6 +2551,13 @@ const QUICK_GATES = [
     : []),
   // 5. Copy hallmarks, CHANGED scope.
   ['Copy hallmarks (§1.4, CHANGED scope, quick)', `node scripts/check-copy-hallmarks.mjs --changed ${QUICK_REF}`],
+  // 5b. REGEN-VALIDATORS-IN-QUEUE-1 (mechanism B): source-shard description
+  //     lint, CHANGED scope (pre-push/PR context). Catches a bad top-level
+  //     `description` in a node/chain shard at push time — the exact edit that
+  //     passed PR + queue and then killed main's derived regen 14 merges in a
+  //     row on 2026-10-23 (PR #2349). CI full mode (all shards) runs in
+  //     land-verify.yml's merge_group "Post-regen copy validators" step.
+  [`Source-shard description lint (REGEN-VALIDATORS-IN-QUEUE-1, quick)`, `node scripts/check-copy-hallmarks.mjs --source-shards --changed ${QUICK_REF}`],
   // 6. PII banner. The script has no --changed scoping of its own, and a FULL
   //    scan measures ≈0.1 s — the full scan is a strict superset of "on changed
   //    tool HTML" and cheaper than porting a second diff-scope into it.

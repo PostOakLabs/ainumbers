@@ -11,8 +11,12 @@ name: PR Autofix
 # while the merge_group gate is hard (a PR-side advisory is not CI-enforcement).
 # PR's OWN deterministic writers on the PR head branch:
 #
-#   1. new/changed node under chaingraph/graph/nodes/
-#        -> the §18 bump rides the node PR:
+#   1. RETIRED 2026-10-19 (parallel PRs conflicted on the file): the §18 baseline
+#      is now a main-regen single-writer artifact (derived-artifacts.mjs id
+#      'compute-proof-baseline'); this workflow no longer writes it and its
+#      containment no longer allows it. History of the retired writer:
+#      new/changed node under chaingraph/graph/nodes/
+#        -> the §18 bump rode the node PR:
 #           `node scripts/check-compute-proof-coverage.mjs --update-baseline`
 #           against an EPHEMERALLY ASSEMBLED speculative monolith (the same two
 #           commands the merge_group jobs run: assemble-chaingraph --out scratch
@@ -46,10 +50,11 @@ name: PR Autofix
 # If the tree changed: commit by EXPLICIT pathspec as the spec-sync App (the
 # same token path automerge-label.yml and derived-artifacts-regen.yml mint —
 # never GITHUB_TOKEN, whose pushes do not retrigger PR checks) and push to the
-# PR head branch, then exit 1 with "autofix pushed <sha>, re-run pending". The
-# fresh push re-runs every check; the follow-up run on the bot-authored head
-# is skipped by the loop guards, and the re-tested run reports the PR's real
-# verdicts. If the tree did not change: exit 0.
+# PR head branch, then exit 0 with a "autofix pushed <sha>" notice (it exited 1
+# by design until 2026-10-29). The fresh push re-runs every check;
+# the follow-up run on the bot-authored head is skipped by the loop guards, and
+# the re-tested run reports the PR's real verdicts. If the tree did not
+# change: exit 0.
 #
 # LOOP GUARDS (both required by the row):
 #   - same-repo heads only: a fork's head repo differs from the base repo,
@@ -68,7 +73,7 @@ name: PR Autofix
 # diff.
 #
 # NOT_A_GATE in check-workflow-gate-parity.mjs: this workflow gates no merge —
-# its exit 1 on the pushing run is the "re-run pending" signal, not a required
+# its pushing run ends green with an "autofix pushed" notice, not a required
 # check verdict. The required set is unchanged (rulesets are outside this
 # row's fence); scripts-verify.yml and land-verify.yml carry the four promoted
 # PR-side gate steps that re-test the autofixed tree HARD.
@@ -212,58 +217,31 @@ jobs:
             case "$f" in
               */*) : ;;
               *)
+                # A new root page the PR already added to the curated list is
+                # not missing: red only on pages with no href entry there.
+                if grep -qF "href: '$f'" scripts/gen-sitemap-html.mjs; then
+                  echo "gen-sitemap-html: new root page $f is already in the curated rootPages list."
+                  continue
+                fi
                 MISSING="${MISSING}${MISSING:+, }$f"
                 echo "gen-sitemap-html: root page(s) missing from the curated rootPages list. Add each one (icon/name/href) so sitemap.html stays complete:"
                 echo "  $f"
                 ;;
             esac
           done
+          [ -z "$MISSING" ] && exit 0
           # The annotation alone is actionable: it names the missing page(s)
           # instead of saying only "root page(s) missing".
           echo "::error title=gen-sitemap-html: root page(s) missing from the curated rootPages list: ${MISSING}::Add each one (icon/name/href) to the curated rootPages list so sitemap.html stays complete."
           exit 1
 
-      - name: §18 bump rides the node PR — scratch assembly + --update-baseline
-        if: steps.guard.outputs.skip != 'true' && steps.touched.outputs.has_nodes == 'true'
-        env:
-          NODES_Z: ${{ runner.temp }}/nodes.z
-        run: |
-          set -euo pipefail
-          mapfile -d '' -t NODE_FILES < "$NODES_Z"
-          printf 'Node shard(s) touched — the §18 bump rides this PR:\n'
-          printf '  %q\n' "${NODE_FILES[@]}"
-          # EPHEMERAL speculative monolith — the same tree merge_group judges,
-          # via the same two commands the merge_group jobs run (land-verify.yml
-          # / scripts-verify.yml "Ephemeral derived tree"). The second command
-          # is load-bearing, not duplication: derived-artifacts --out runs the
-          # full COVERED regen pass in a throwaway worktree of HEAD, and its
-          # first generator is `assemble-chaingraph.mjs --enroll` — so a
-          # brand-new committed shard is ENROLLED into the scratch monolith
-          # even though the PR never touches chaingraph.meta.json (measured
-          # 2026-10-08: a committed synthetic deferred shard absent from the
-          # bare assemble --out output is present after derived-artifacts --out,
-          # and only the DERIVED_ROOT bump run absorbs it: "new node(s)
-          # accepted", deferred 4 -> 5, the exact #2284 bump shape). Nothing
-          # derived is ever committed from the scratch; asserted below.
-          SCRATCH="${RUNNER_TEMP}/derived-tree"
-          mkdir -p "${SCRATCH}/chaingraph"
-          node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
-          node scripts/derived-artifacts.mjs --out "${SCRATCH}"
-          # The writer REFUSES on a real regression (proven at pin, deferred
-          # now) — that exit is the row's direction (b): still fails, NOT
-          # auto-edited. On success it absorbs only brand-new deferred nodes
-          # (mcp_name form, unchanged emitter).
-          DERIVED_ROOT="$SCRATCH" node scripts/check-compute-proof-coverage.mjs --update-baseline
-          # The scratch tree must never reach the checkout (the
-          # the merge_group jobs' assert-clean shape): at this point the
-          # ONLY permitted dirty path is the §18 baseline itself.
-          BASELINE_ONLY="$(git status --porcelain | grep -v 'compute-proof-baseline.json' || true)"
-          if [ -n "$BASELINE_ONLY" ]; then
-            echo "::error::autofix dirtied the checkout beyond the §18 baseline — the ephemeral derived tree must never touch it:"
-            printf '%s\n' "$BASELINE_ONLY"
-            exit 1
-          fi
-          echo "checkout untouched by the scratch assembly — only scripts/compute-proof-baseline.json may differ."
+      # §18 baseline: NOT autofixed on the PR any more (main-regen single writer,
+      # 2026-10-19). The bump that used to ride every node PR is what made parallel
+      # node/prove PRs conflict serially on scripts/compute-proof-baseline.json. The
+      # §18 gate now exempts brand-new deferred nodes from the ceiling, a prove PR
+      # already sits under it, and main's derived-artifacts regen (COVERED id
+      # 'compute-proof-baseline') is the single writer that pins the file after merge.
+      # A real proof regression still reds the PR (scripts-verify / land-verify, HARD).
 
       - name: Manifest examples — gen-manifest-examples --write --only <id> per manifest
         if: steps.guard.outputs.skip != 'true' && steps.touched.outputs.has_manifests == 'true'
@@ -334,7 +312,7 @@ jobs:
             keep=0
             for t in "${FILES_ALL[@]}"; do [ "$f" = "$t" ] && keep=1 && break; done
             case "$f" in
-              scripts/a11y-baseline.json|scripts/compute-proof-baseline.json|scripts/manifest-examples-baseline.json) keep=1 ;;
+              scripts/a11y-baseline.json|scripts/manifest-examples-baseline.json) keep=1 ;;
             esac
             if [ "$keep" = "0" ]; then
               echo "  discarded a11y-writer rewrite outside this PR's touched set: $f (check-clean on main — not this PR's diff to widen)"
@@ -378,7 +356,7 @@ jobs:
           mapfile -d '' -t FILES < <(git diff -z --name-only origin/main...HEAD)
           : > "${RUNNER_TEMP}/allowed.txt"
           for f in "${FILES[@]}"; do printf '%s\n' "$f" >> "${RUNNER_TEMP}/allowed.txt"; done
-          printf '%s\n' scripts/compute-proof-baseline.json scripts/a11y-baseline.json scripts/manifest-examples-baseline.json >> "${RUNNER_TEMP}/allowed.txt"
+          printf '%s\n' scripts/a11y-baseline.json scripts/manifest-examples-baseline.json >> "${RUNNER_TEMP}/allowed.txt"
           sort -u -o "${RUNNER_TEMP}/allowed.txt" "${RUNNER_TEMP}/allowed.txt"
 
           printf '%s\n' "${CHANGED[@]}" | sort -u > "${RUNNER_TEMP}/changed.txt"
@@ -441,16 +419,30 @@ jobs:
           # App-authored push: a GITHUB_TOKEN-authored push would not retrigger
           # the PR's checks (the whole reason this row exists); the App's does.
           git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push origin "HEAD:${HEAD_REF}"
+          # A builder push landing between checkout and
+          # this push rejects it (fetch first). Rebase the one autofix commit
+          # onto the new head and retry ONCE. If the rebase conflicts or the
+          # retry still loses the race, exit 0 with a notice: the builder's
+          # newer push re-triggers this workflow, which recomputes the
+          # derivables from the newer tree, so nothing is lost.
+          if ! git push origin "HEAD:${HEAD_REF}"; then
+            if git fetch origin "${HEAD_REF}" && git rebase "origin/${HEAD_REF}" && git push origin "HEAD:${HEAD_REF}"; then
+              echo "autofix: push raced a newer head; rebased and pushed."
+            else
+              git rebase --abort 2>/dev/null || true
+              echo "::notice title=Autofix superseded::The PR head moved during this run. The newer push re-runs this workflow on the newer tree."
+              exit 0
+            fi
+          fi
           SHA="$(git rev-parse HEAD)"
           echo "autofix pushed ${SHA}, re-run pending"
           echo "### autofix pushed ${SHA}, re-run pending" >> "$GITHUB_STEP_SUMMARY"
-          # The red must name its cause in one annotation: historically this
-          # exit carried no ::error, so every by-design red looked like a
-          # mystery failure.
-          echo "::error title=Autofix pushed a fix-up commit::Commit ${SHA::7} was pushed to this PR. This run is red by design so the PR re-runs its checks on the new commit. No action is needed unless those checks fail."
-          echo "Commit ${SHA::7} was pushed to this PR. This run is red by design so the PR re-runs its checks on the new commit. No action is needed unless those checks fail." >> "$GITHUB_STEP_SUMMARY"
-          # The pushing run FAILS BY DESIGN (the autofix.ci pattern): the red
-          # is the signal that a fix-up commit was pushed and every check is
-          # re-running on it.
-          exit 1
+          echo "Commit ${SHA::7} was pushed to this PR. The App-authored push re-runs every check on the new commit. No action is needed unless those checks fail." >> "$GITHUB_STEP_SUMMARY"
+          # This run used to exit 1 by design (the
+          # autofix.ci pattern) to signal the fix-up push. That red cost more
+          # than it said: 70 of 913 failed runs from 10-01 to 10-29 were this
+          # exit, and every PR watcher spent a diagnosis on a run that had
+          # succeeded. The App-authored push already re-triggers every
+          # required check, so a notice carries the same signal without a red.
+          echo "::notice title=Autofix pushed a fix-up commit::Commit ${SHA::7} was pushed to this PR and its checks are re-running on it."
+          exit 0
