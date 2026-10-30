@@ -670,6 +670,7 @@ status: stable
 - [BNPL Plan Comparator](./art-779-bnpl-plan-comparator.md)
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md)
 - [Solana PDA Bump and ATA Audit](./art-780-solana-pda-ata-audit.md)
+- [Qr Interop Uat Pack](./art-786-qr-interop-uat-pack.md)
 - [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md)
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md)
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md)
