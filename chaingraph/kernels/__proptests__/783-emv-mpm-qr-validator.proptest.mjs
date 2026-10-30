@@ -44,7 +44,22 @@ function crc16(bytes) {
 }
 const hex4 = (n) => n.toString(16).toUpperCase().padStart(4, '0');
 const chars = (s) => Array.from(s).map((c) => c.charCodeAt(0));
-const utf8Bytes = (s) => Array.from(Buffer.from(s, 'utf8'));
+// exact UTF-8 encoding without Buffer (the checkJs gate has no @types/node, so
+// Buffer types as { toString } only and Array.from(Buffer.from(...)) is TS2769).
+// Lone surrogates encode as U+FFFD, matching Buffer.from(s, 'utf8') semantics;
+// for..of walks code points, so well-formed surrogate pairs are one unit.
+const utf8Bytes = (s) => {
+  const out = [];
+  for (const ch of s) {
+    let cp = ch.codePointAt(0);
+    if (cp >= 0xd800 && cp <= 0xdfff) cp = 0xfffd;
+    if (cp < 0x80) out.push(cp);
+    else if (cp < 0x800) out.push(0xc0 | (cp >> 6), 0x80 | (cp & 0x3f));
+    else if (cp < 0x10000) out.push(0xe0 | (cp >> 12), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+    else out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+  }
+  return out;
+};
 
 function collectNoEchoSecrets(payload) {
   // every value the no-echo contract forbids from ever appearing in an output
