@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (699 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (700 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7616,6 +7616,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "analytics_mandate",
     "url": "https://ainumbers.co/chaingraph/art-763-ai-displacement-risk-screener.html",
     "description": "AI-driven job-displacement risk screener ported from ApexLogics Apex #104 (AL-111). For a task-composition profile (routine cognitive/manual",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-764-solo-401k-vs-sep-ira",
+    "display_name": "Solo 401(k) vs. SEP-IRA Optimizer",
+    "mandate_type": "compensation_assessment",
+    "url": "https://ainumbers.co/chaingraph/art-764-solo-401k-vs-sep-ira.html",
+    "description": "Self-employed retirement-contribution comparator ported from ApexLogics Apex #112 (AL-119). For a tax year, net self-employment profit, age ",
     "consumes": [],
     "feeds": [],
     "status": "live"

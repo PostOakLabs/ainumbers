@@ -271,6 +271,35 @@ const RUN_PATH_ADAPTERS = {
       setVal(sandbox, 'mgmtResponses', pp.management_responses === undefined ? '' : JSON.stringify(pp.management_responses, null, 2));
     },
   },
+  'art-151-agent-obo-mandate-validator': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'mandate_subject', pp.mandate?.subject ?? '');
+      setVal(sandbox, 'mandate_intent', pp.mandate?.intent ?? '');
+      setVal(sandbox, 'mandate_scope', (pp.mandate?.scope ?? []).join('\n'));
+      setVal(sandbox, 'mandate_valid_until', pp.mandate?.valid_until_unix === undefined || pp.mandate?.valid_until_unix === null ? '' : String(pp.mandate.valid_until_unix));
+      setVal(sandbox, 'now_unix', pp.now_unix === undefined || pp.now_unix === null ? '' : String(pp.now_unix));
+    },
+  },
+  'art-237-validate-agent-audit-trail': {
+    // runValidate() reads the #agentIdentity/#actionClass/#outcome/#trustLevel
+    // selects-inputs, #sha256Prev, #ecdsaSig (presence = non-empty), #reason
+    // (action_detail) and #recordId; optional fields are cleared when the
+    // fixture does not exercise them so the run-path pp matches fixture 0.
+    run: 'runValidate',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'agentIdentity', pp.agent_identity ?? '');
+      setVal(sandbox, 'actionClass', pp.action_class ?? '');
+      setVal(sandbox, 'outcome', pp.outcome ?? '');
+      setVal(sandbox, 'trustLevel', pp.trust_level ?? '');
+      setVal(sandbox, 'sha256Prev', pp.sha256_prev_record ?? '');
+      setVal(sandbox, 'ecdsaSig', pp.ecdsa_present ? 'fixture-signature-present' : '');
+      setVal(sandbox, 'reason', pp.action_detail ?? '');
+      setVal(sandbox, 'recordId', pp.record_id ?? '');
+    },
+  },
   'art-691-regulatory-obligations-register': {
     // run() parses the #input_parameters textarea (the input_parameters value)
     // and wraps it into the policy_parameters preimage before compute(); the
