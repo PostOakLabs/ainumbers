@@ -253,8 +253,9 @@ const NOT_A_GATE = new Map([
     "it runs the per-PR derivable writers (SO #59 §18 baseline bump via the ephemeral " +
     "scratch assembly, gen-manifest-examples --write --only, check-ask-agent-block --write, " +
     "check-a11y-tree --write) on the PR head branch and pushes the diff back as the " +
-    "spec-sync App. It gates no merge: the pushing run's exit 1 is the 're-run pending' " +
-    "signal by design and is not a required status check; the required set is unchanged. " +
+    "spec-sync App. It gates no merge: the pushing run ends green with an 'autofix pushed' " +
+    "notice (exit 1 by design until 2026-10-29) and is not a required status " +
+    "check; the required set is unchanged. " +
     "Its writer invocations are the --write/--update-baseline legs of gate scripts, not " +
     "gate verdicts — the HARD-on-pull_request verdicts live in scripts-verify.yml's and " +
     "land-verify.yml's promoted gate steps, which are classified here as usual."],
