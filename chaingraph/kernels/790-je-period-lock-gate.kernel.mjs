@@ -170,7 +170,6 @@ export function compute(pp) {
 
   // ---- policy validation: a bad policy never yields a silent allow ----
   const refusePolicy = (code, message) => {
-    compliance_flags.push('PERIOD_LOCK_POLICY_FAULT');
     return {
       output_payload: {
         policy_version,
@@ -182,7 +181,7 @@ export function compute(pp) {
         totals_by_decision: { allow: 0, allow_exempt: 0, refuse: 0 },
         totals_by_period: {},
       },
-      compliance_flags,
+      compliance_flags: compliance_flags.concat('PERIOD_LOCK_POLICY_FAULT'),
     };
   };
 
@@ -241,7 +240,7 @@ export function compute(pp) {
     return refusePolicy('ENTRY_CAP_EXCEEDED', `${entries.length} entries declared; the cap is ${MAX_ENTRIES}`);
   }
 
-  compliance_flags.push('PERIOD_LOCK_RAN');
+  if (entries.length > 0) compliance_flags.push('PERIOD_LOCK_RAN');
   for (const p of periods) totals_by_period[p.period_id] = { allow: 0, allow_exempt: 0, refuse: 0 };
 
   const out_entries = [];
