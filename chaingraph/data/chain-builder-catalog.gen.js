@@ -1495,7 +1495,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Solvency II SCR Ratio Calculator",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-180-solvency2-scr-ratio-calculator.html",
-    "description": "Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and capital requirements. Checks the three own-funds tiering limit",
+    "description": "Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and capital requirements. Checks the own-funds SCR tiering limits ",
     "consumes": [],
     "feeds": [
       "art-181-sii-ifrs17-reconciliation-bridger"
