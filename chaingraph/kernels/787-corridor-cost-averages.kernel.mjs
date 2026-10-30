@@ -68,8 +68,12 @@ export function compute(pp) {
   const DEFAULT_LOWEST_N = 3;
   const MAX_LOWEST_N = 50;
 
+  // FLAG-COMPUTED-LINT (FLAGS-COMPUTED-LINT-1): the refusal flag is emitted via a
+  // ternary on the data-dependent `refused` marker at the compute return - never as
+  // an unconditional literal push (unearned-green class).
+  let refused = false;
   function refuse(reason, detail) {
-    flags.push('MALFORMED_INPUT_REFUSED');
+    refused = true;
     return {
       output_payload: {
         verdict: 'refused',
@@ -79,7 +83,7 @@ export function compute(pp) {
         evidence: { record_type: 'corridor_cost_averages', tool_id: TOOL_ID, tool_version: TOOL_VERSION, refused: true },
         manual_review_required: true,
       },
-      compliance_flags: flags,
+      compliance_flags: refused ? ['MALFORMED_INPUT_REFUSED'] : flags,
     };
   }
 
@@ -237,7 +241,7 @@ export function compute(pp) {
       pii_note: 'ZERO PII: pseudonymous provider codes, fees, margins, shares and corridor codes only. No person, account or real provider identity enters this kernel.',
       adjacency_note: 'averages.simple.total_cost_pct (or the chosen average) can feed compare_corridor_cost (art-249) as the declared corridor cost for target comparison.',
     },
-    compliance_flags: flags,
+    compliance_flags: refused ? ['MALFORMED_INPUT_REFUSED'] : flags,
   };
 }
 

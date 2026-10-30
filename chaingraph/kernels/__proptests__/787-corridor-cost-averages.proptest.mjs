@@ -6,7 +6,7 @@
 // Properties below run over a committed mulberry32 seed (deterministic) plus a
 // fixed corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:518257d2de32b84828479d4901c87b84e856ad2599906816eab3be41a6d93667
+// kernel_digest_at_authoring: sha256:3f15eda7d86118242457565ba8092451718ef4bcb3ab37c400e78abc8a9cdf8d
 // spec: research/REMIT-COST-AVERAGES-PIN-2026-10-29.md — one corridor's cost
 //   three ways (simple, market-share-weighted, lowest-N/SmaRT) vs the SDG 10.c
 //   3% target and the G20 no-corridor-above-5% target; integer basis-point
