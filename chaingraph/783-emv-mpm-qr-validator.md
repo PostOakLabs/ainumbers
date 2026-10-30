@@ -1,6 +1,6 @@
 # EMV MPM QR Payload Validator
 
-Decodes and validates an EMV merchant-presented QR payload against a pluggable national scheme profile: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code. TLV structure, CRC-16 over the payload including the 6304 literal, static versus dynamic rules, scheme-mandatory tags, and the signed dynamic-payload envelope shape. Merchant-bearing values are never echoed; no URL is ever fetched; no signature is verified.
+Decodes and validates an EMV merchant-presented-mode (MPM) QR payload against a pluggable national scheme profile - generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code - covering TLV structure, duplicate and trailing-object detection, the CRC-16/CCITT-FALSE checksum over the payload including the literal 6304 (with a dedicated rule for the common generator bug that excludes it), point-of-initiation static versus dynamic semantics, merchant-account templates 26-51 and their globally unique identifiers, MCC, ISO 4217 currency, amount and tip/convenience consistency, merchant name and city presence and length, additional-data subfield structure, and for Pix dynamic payloads the location-URL shape and the JWS protected-header skeleton (alg allowed set, kid, jku) without any signature verification. Zero network and zero PII echo: merchant name, city, postal, additional-data values and account identifiers are reported as tag/length/verdict only, never echoed; a dynamic payload URL is never fetched. Exclusions: no signature or key verification, no QR image decoding (payload string only), no scheme-operator endorsement implied; the FJQR profile cannot verify scheme-specific account GUIDs because the FJQR technical specification's GUI registry is not public (advisory only).
 
 - Page: https://ainumbers.co/chaingraph/783-emv-mpm-qr-validator.html
 - Markdown twin: https://ainumbers.co/chaingraph/783-emv-mpm-qr-validator.md
@@ -8,38 +8,34 @@ Decodes and validates an EMV merchant-presented QR payload against a pluggable n
 
 ## Inputs
 
-- payload (string, required): The EMV merchant-presented QR payload string. Synthetic payloads only: merchant names, cities, additional-data values and account identifiers are never echoed back.
-- profile (string, required): Scheme profile to validate against: generic EMV MPM, Fiji FJQR (currency FJD 242, static launch scope), or Brazil Pix BR Code (GUI br.gov.bcb.pix, currency BRL 986, country BR, txid mandatory, dynamic location shape and JWS envelope skeleton).
-- expect (string, optional): Optional assertion on the derived mode (static or dynamic). A mismatch with the payload tag 01 value is reported as a violation.
-- dynamic_envelope (object, optional): JWS protected-header skeleton for a Pix dynamic payload: alg (prohibited HS-family and none; allowed RS256-or-higher and ES256-or-higher; recommended PS256 or PS512), typ, kid, jku. Shape check only: no signature verification, no key material, the jku URL is never fetched.
+- payload (string, required): The EMV merchant-presented QR payload string. Synthetic payloads only; merchant-bearing values are never echoed back.
+- profile (string, required): Scheme profile to validate against: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code.
+- expect (string, optional): Optional assertion on the derived mode.
+- dynamic_envelope (object, optional): Optional JWS protected-header skeleton (alg, typ, kid, jku) for a Pix dynamic payload. Shape check only.
 
 ## Outputs
 
-- valid (boolean): true when no error-severity violation fired.
-- profile (string): the profile the payload was validated under.
-- mode (string): static or dynamic, derived from tag 01.
-- tags (array): parse-order tag rows as {tag, length, verdict, value}; value appears only for echo-safe structural tags (00, 01, 52, 53, 54, 58, 63) and template GUIDs. Merchant name (59), city (60), postal (61), additional-data subfields (62.xx), alternate-language fields (64.xx), and account identifiers are reported as tag, length, verdict only.
-- violations (array): {tag_path, rule_id, source, severity} sorted for determinism; severity is error or advisory and only errors flip valid.
-- crc (object): expected and found CRC-16/CCITT-FALSE hex; expected is computed over the payload including the literal 6304, and a value that matches only the CRC computed without 6304 is flagged as the CRC_EXCLUDED_6304_LITERAL generator bug.
-- rules_checked (integer): number of rule applications evaluated.
-- refused (object): present only when the input class itself is refused (non-string or empty payload, payload over 2048 characters, unknown profile, invalid expect, non-object envelope).
+- crc (object, required)
+- errors (array, required)
+- mode (string,null, required)
+- profile (string, required)
+- refused (object, optional)
+- rules_checked (number, required)
+- tags (array, required)
+- valid (boolean, required)
+- violations (array, required)
+- warnings (array, required)
 
-## Pinned primary texts
+## Sample
 
-- EMVCo QR Code Specification for Payment Systems, Merchant-Presented Mode, v1.1 (November 2020).
-- Reserve Bank of Fiji, Guidelines on Participation in the Fiji Quick Response Code Scheme (19 May 2026).
-- Banco Central do Brasil, BR Code Manual v2.0.0 (English) and Manual de Padrões para Iniciação do Pix.
-- Banco Central do Brasil, Manual de Segurança do SFN, Volume II, v6.00.
+```json
+{
+  "payload": "00020101021126390021com.example.synthetic0110ACCT0001115204599953038405802US5918SYNTHETIC MERCHANT6009TESTVILLE62100506TX00016304FFA6",
+  "profile": "generic",
+  "expect": "static"
+}
+```
 
-Pinned with sha256 under research/clause-snapshots/emv-mpm-qr/ on the project board; the rule-to-source map is in the pin note. EMVCo terms permit implementation and restrict reproduction: field semantics implemented, no spec text reproduced.
+## Verify
 
-## Add a scheme profile
-
-One engine, profiles as data. The three shipped profiles live as a JSON data file beside the kernel (chaingraph/kernels/fixtures/783-emv-mpm-qr-validator.profiles.json), mirrored inside the kernel with a property test holding the two equal. PromptPay, DuitNow, QRIS, PayNow or SGQR, KHQR, QR Ph, VietQR, and UPI's EMV form are all EMV MPM derivatives: a new country is a profile entry that pins its currency, country code, recognised account-template GUIDs, transaction-identifier requirement, and static or dynamic mode rules.
-
-## Scope notes
-
-- Zero network: a dynamic payload location URL is never fetched; only its shape is checked.
-- No signature verification and no key material.
-- Fixtures are synthetic merchants only; no published specimen payload is reproduced.
-- Independent conformance utility: names no scheme operator official and implies no endorsement by EMVCo, any central bank, or the World Bank.
+Run the sample policy_parameters through MCP tool `validate_emv_mpm_qr_payload` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
