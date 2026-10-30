@@ -392,6 +392,15 @@ const RUN_PATH_ADAPTERS = {
       // fixture 0 carries {} (the kernel's default-scenario path); load the
       // page's own structuring scenario so the form path still runs end-to-end.
       if (typeof sandbox.loadScenario === 'function') sandbox.loadScenario('structuring');
+      // the six weight sliders carry their defaults only as HTML value
+      // attributes, which the element stubs do not reproduce — set them so
+      // runScoring's bare parseFloat() calls never see NaN.
+      setVal(sandbox, 'wStructuring', '1.0');
+      setVal(sandbox, 'wLayering', '1.0');
+      setVal(sandbox, 'wFunnel', '1.0');
+      setVal(sandbox, 'wRoundtrip', '1.0');
+      setVal(sandbox, 'wVelocity', '1.0');
+      setVal(sandbox, 'wTravelRule', '1.2');
     },
   },
   'art-104-tfr-travel-rule-batch-validator': {

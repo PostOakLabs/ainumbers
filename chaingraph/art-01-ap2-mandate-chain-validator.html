@@ -620,7 +620,13 @@ const MANIFEST = {
   mcp_tool_definition: {
     name: 'validate_ap2_mandate_chain',
     description: 'Validates AP2 v0.2 Intent→Cart→Payment mandate chains: signature-chain integrity, scope consistency, TTL/expiry, over-spend, HNP flow flags.',
-    inputSchema: { type:'object', required:['intent','payment'] }
+    inputSchema: { type:'object', required:['intent','payment'], properties: {
+      intent: {type:'object', description:'AP2 Intent mandate JSON'},
+      cart: {type:'object', description:'AP2 Cart mandate JSON (optional)'},
+      payment: {type:'object', description:'AP2 Payment mandate JSON'},
+      validate_at: {type:'string', description:'ISO 8601 timestamp used as the deterministic validation clock'},
+      hnp_mode: {type:'string', description:'HNP flow mode (default: strict)'},
+    } }
   },
   execution: { type:'browser-javascript', entry:'chaingraph/art-01-ap2-mandate-chain-validator.html', function_name:'validateChain', timeout_ms:2000 },
   ap2_export: true, chaingraph: true, conformance_fixtures: true
@@ -898,6 +904,10 @@ function compute(pp) {
 /* --- end mirror --- */
 
 async function validateChain() {
+  /* Deep-link run=1 (and the file-import path) prefill the controls
+     programmatically, so no input events fire — re-sync the parsed cache
+     from the DOM before guarding, exactly as a keystroke would. */
+  onJsonChange('intent'); onJsonChange('cart'); onJsonChange('payment');
   const generatedAt = new Date().toISOString();
   const statusEl = document.getElementById('runStatus');
   statusEl.style.color='var(--muted)'; statusEl.textContent='';
@@ -942,18 +952,14 @@ async function validateChain() {
   };
   document.getElementById('fixtureCode').textContent = JSON.stringify(_fixtureJson, null, 2);
 
-  /* AP2 artifact */
+  /* AP2 artifact. Kernel-faithful hash preimage (kernels/art-01-...kernel.mjs
+     buildArtifact): policy_parameters are the FOLDED inputs the kernel hashes —
+     { validate_at, hnp_mode, intent, cart, payment } — and output_payload is the
+     kernel-mirror's own output_payload, so the form path and the kernel produce
+     the same execution_hash for the same inputs. */
   const now = new Date().toISOString();
-  const policyParams = { execution_backend:'js', hnp_mode:hnpMode, hash_algo:hashAlgo, validate_at: validateAt.toISOString() };
-  const outputPayload = {
-    validation_verdict: verdict,
-    checks_run: checks.length,
-    failing_checks: failing.map(c=>({ id:c.id, detail:c.detail.slice(0,200) })),
-    warning_checks: warnings.map(c=>c.id),
-    mandate_ids: { intent:intent.mandate_id, cart:cart?.mandate_id||null, payment:payment.mandate_id },
-    has_cart: !!cart,
-    human_not_present: !!intent.human_not_present
-  };
+  const policyParams = { validate_at: validateAt.toISOString(), hnp_mode: hnpMode, intent: intent, cart: cart, payment: payment };
+  const outputPayload = r.output_payload;
   const hash = await sha256({policy_parameters:policyParams, output_payload:outputPayload});
 
   _artifact = {
@@ -982,7 +988,7 @@ async function validateChain() {
     }
   };
 
-  _lastResult = { output_payload: outputPayload, compliance_flags: _artifact.compliance_flags, verdict: verdict, checks: checks };
+  _lastResult = { output_payload: outputPayload, compliance_flags: _artifact.compliance_flags, verdict: verdict, checks: checks, execution_hash: hash, policy_parameters: policyParams };
 
   const ap2Btn = document.getElementById('ap2ExportBtn');
   const fxBtn  = document.getElementById('fixtureExportBtn');
@@ -1050,8 +1056,10 @@ function updateChainDiagram(r) {
 
   const setNode = (id, ok) => {
     const el = document.getElementById(id);
+    if (!el) return; /* headless harnesses stub getElementById but not subtrees */
     el.className = 'chain-node ' + (ok?'valid':'invalid');
     const statusEl = el.querySelector('.chain-node-status');
+    if (!statusEl) return;
     statusEl.style.color = ok?'var(--green)':'var(--red)';
     statusEl.textContent  = ok?'✓ valid':'✗ failing';
   };
@@ -1061,9 +1069,12 @@ function updateChainDiagram(r) {
 
   if (r.cart) {
     const el = document.getElementById('nodeCart');
+    if (!el) return; /* headless harnesses stub getElementById but not subtrees */
     el.className = 'chain-node ' + (!chainFails?'valid':'invalid');
-    el.querySelector('.chain-node-status').style.color = !chainFails?'var(--green)':'var(--red)';
-    el.querySelector('.chain-node-status').textContent  = !chainFails?'✓ valid':'✗ check';
+    const st = el.querySelector('.chain-node-status');
+    if (!st) return;
+    st.style.color = !chainFails?'var(--green)':'var(--red)';
+    st.textContent  = !chainFails?'✓ valid':'✗ check';
   }
 
   ['arrowIC','arrowCP'].forEach(id => {
