@@ -26,6 +26,7 @@ status: stable
 - [Borrower Escrow Auditor](./732-borrower-escrow-auditor.md)
 - [Servicing Compliance Clock](./733-servicing-compliance-clock.md)
 - [EMV MPM QR Payload Validator](./783-emv-mpm-qr-validator.md)
+- [Corridor Cost Averages](./787-corridor-cost-averages.md)
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md)
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md)
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md)

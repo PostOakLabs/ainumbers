@@ -184,11 +184,11 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
-    "tool_id": "783-emv-mpm-qr-validator",
-    "display_name": "EMV MPM QR Payload Validator",
+    "tool_id": "787-corridor-cost-averages",
+    "display_name": "Corridor Cost Averages",
     "mandate_type": "compliance_control",
-    "url": "https://ainumbers.co/chaingraph/783-emv-mpm-qr-validator.html",
-    "description": "Decodes and validates an EMV merchant-presented-mode (MPM) QR payload against a pluggable national scheme profile - generic EMV MPM, Fiji FJ",
+    "url": "https://ainumbers.co/chaingraph/787-corridor-cost-averages.html",
+    "description": "Computes one remittance corridor's cost THREE ways from caller-declared provider quotes and reports each against the SDG 10.c 3% target and ",
     "consumes": [],
     "feeds": [],
     "status": "live"

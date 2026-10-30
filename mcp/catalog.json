@@ -25220,55 +25220,99 @@
       }
     },
     {
-      "name": "validate_emv_mpm_qr_payload",
-      "description": "Decodes and validates an EMV merchant-presented QR payload against a pluggable national scheme profile: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code. TLV structure, CRC-16 over the payload including the 6304 literal, static versus dynamic rules, scheme-mandatory tags, and the signed dynamic-payload envelope shape. Merchant-bearing values are never echoed; no URL is ever fetched; no signature is verified.",
+      "name": "compute_corridor_cost_averages",
+      "description": "Corridor cost three ways from declared pseudonymous provider quotes - simple, market-share-weighted and lowest-N (SmaRT, default n=3) averages - each vs the SDG 10.c 3 percent and G20 5 percent per-corridor 2030 targets. Weighted is null with a reason code when shares are missing or do not sum to 100; never renormalised. Cost per quote = fee + FX margin as percent of send amount (RPW method, 200/500 reference). Basis-point arithmetic. Malformed quotes refuse.",
       "inputSchema": {
         "type": "object",
         "required": [
-          "payload",
-          "profile"
+          "corridor",
+          "quotes"
         ],
         "properties": {
-          "payload": {
-            "type": "string",
-            "description": "The EMV merchant-presented QR payload string. Synthetic payloads only; merchant-bearing values are never echoed back."
-          },
-          "profile": {
-            "type": "string",
-            "enum": [
-              "generic",
-              "fjqr",
-              "pix_brcode"
-            ],
-            "description": "Scheme profile to validate against: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code."
-          },
-          "expect": {
-            "type": "string",
-            "enum": [
-              "static",
-              "dynamic"
-            ],
-            "description": "Optional assertion on the derived mode."
-          },
-          "dynamic_envelope": {
+          "corridor": {
             "type": "object",
-            "description": "Optional JWS protected-header skeleton (alg, typ, kid, jku) for a Pix dynamic payload. Shape check only."
+            "required": [
+              "origin",
+              "destination"
+            ],
+            "properties": {
+              "origin": {
+                "type": "string",
+                "description": "ISO 3166 alpha-2 origin country code."
+              },
+              "destination": {
+                "type": "string",
+                "description": "ISO 3166 alpha-2 destination country code."
+              }
+            },
+            "description": "The remittance corridor."
+          },
+          "send_amount": {
+            "type": "number",
+            "description": "Optional send amount in the send currency. Defaults to 200, the RPW reference amount; 500 is the second RPW reference amount."
+          },
+          "quotes": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "required": [
+                "provider_code",
+                "fee",
+                "fx_margin_pct"
+              ],
+              "properties": {
+                "provider_code": {
+                  "type": "string",
+                  "description": "Pseudonymous provider code, 1-24 characters of letters, digits, underscore or hyphen. Real provider names are refused."
+                },
+                "fee": {
+                  "type": "number",
+                  "description": "Transfer fee in the send currency, non-negative."
+                },
+                "fx_margin_pct": {
+                  "type": "number",
+                  "description": "Foreign-exchange margin as a percent of the amount sent, non-negative."
+                },
+                "market_share_pct": {
+                  "type": "number",
+                  "description": "Optional provider market share in percent, 0-100. The weighted average needs every quote to carry a share and the shares to sum to 100 within tol"
+                }
+              },
+              "description": "Declared provider quote. All quotes quote both the fee and the FX margin, so all are SmaRT-eligible (transparent)."
+            },
+            "description": "Declared provider quotes. Synthetic, pseudonymous inputs only."
+          },
+          "lowest_n": {
+            "type": "integer",
+            "description": "Optional number of cheapest quotes for the lowest_n average. Default 3, the SmaRT rule."
+          },
+          "targets": {
+            "type": "object",
+            "properties": {
+              "sdg_pct": {
+                "type": "number"
+              },
+              "corridor_pct": {
+                "type": "number"
+              }
+            },
+            "description": "Optional target overrides in percent. Defaults 3 and 5."
           }
-        }
+        },
+        "description": "Corridor plus at least one declared provider quote."
       },
       "metadata": {
-        "tool_id": "783-emv-mpm-qr-validator",
-        "category": "Cross-Border Payments: CBPR+ / ISO 20022 Conformance",
+        "tool_id": "787-corridor-cost-averages",
+        "category": "chaingraph",
         "tags": [
-          "emv-qr",
-          "qr-code",
-          "fiji-fjqr",
-          "pix-brcode",
-          "crc16",
-          "scheme-profile",
-          "mcp:validate_emv_mpm_qr_payload"
+          "remittances",
+          "sdg-10c",
+          "g20-cross-border-payments",
+          "corridor-cost",
+          "mcp:compute_corridor_cost_averages"
         ],
-        "url": "https://ainumbers.co/chaingraph/783-emv-mpm-qr-validator.html",
+        "url": "https://ainumbers.co/chaingraph/787-corridor-cost-averages.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",
