@@ -23,6 +23,7 @@ status: stable
 - [Collateral Swap Eligibility Validator](./515-collateral-swap-eligibility-validator.md) — `validate_collateral_swap_eligibility`
 - [Borrower Escrow Auditor](./732-borrower-escrow-auditor.md) — `audit_borrower_escrow_stmt`
 - [Servicing Compliance Clock](./733-servicing-compliance-clock.md) — `servicing_compliance_clock`
+- [EMV MPM QR Payload Validator](./783-emv-mpm-qr-validator.md) — `validate_emv_mpm_qr_payload`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md) — `model_x402_settlement`

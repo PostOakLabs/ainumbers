@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>EMV MPM QR Payload Validator · ART-783 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Decodes and validates an EMV merchant-presented QR payload against a pluggable national scheme profile: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code. TLV structure, CRC-16, static versus dynamic rules, scheme-mandatory tags, and the signed dynamic-payload envelope shape. Client-side. Zero PII echo.">
+<meta name="ain:category" content="run">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/783-emv-mpm-qr-validator.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/783-emv-mpm-qr-validator.md">
+<meta property="og:type" content="website">
+<meta property="og:title" content="EMV MPM QR Payload Validator · ART-783 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Decode and validate an EMV merchant-presented QR payload against a scheme profile: TLV structure, CRC-16, static versus dynamic rules, Pix location and JWS envelope shape. Client-side. Zero PII echo.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/783-emv-mpm-qr-validator.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"EMV MPM QR Payload Validator · ART-783 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/783-emv-mpm-qr-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Web browser","description":"Decode and validate an EMV merchant-presented QR payload against a scheme profile: TLV structure, CRC-16, static versus dynamic rules, Pix location and JWS envelope shape. Client-side. Zero PII echo.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:880px;margin:0 auto;padding:0 2rem}
+.hero{padding:3rem 0 1.6rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.8rem}
+.hero h1{font-size:2rem;color:var(--white);margin-bottom:.8rem}
+.hero p{max-width:720px;font-size:.92rem;color:var(--body);line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1.5rem}
+.tool-body{padding:2rem 0 4rem}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.25rem}
+.field{display:flex;flex-direction:column;gap:.35rem}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body)}
+.field input[type=text],.field input[type=number],.field select,.field textarea{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.5rem .65rem}
+.field textarea{min-height:96px;resize:vertical;line-height:1.5}
+.field .field-hint{font-size:.6rem;color:var(--muted);line-height:1.4}
+.run-btn{background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.4);border-radius:var(--radius);padding:.65rem 1.6rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;transition:background .15s}
+.run-btn:hover{background:rgba(20,184,166,.22)}
+.results-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-top:1.25rem;display:none}
+.results-panel.visible{display:block}
+.out-section{margin-bottom:1rem}
+.out-header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--border);padding-bottom:.35rem;margin-bottom:.6rem}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{font-size:.8rem;color:var(--bright)}
+.out-row{display:grid;grid-template-columns:240px 1fr;gap:1rem;padding:.28rem 0;border-bottom:1px dotted rgba(30,47,74,.5);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.out-row .k{color:var(--muted)}
+.out-row .v{color:var(--bright);word-break:break-all}
+.flag-row{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.7rem}
+.flag{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.06em;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:3px;padding:.14rem .5rem;background:var(--gold-dim)}
+.hash-row{margin-top:.9rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);word-break:break-all}
+.hash-row .hash-label{color:var(--teal)}
+.results-export-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem}
+.btn{border-radius:var(--radius);padding:.5rem .9rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.05em}
+.btn-ghost{background:transparent;color:var(--body);border:1px solid var(--border-2)}
+.btn-ghost.ready{color:var(--teal-lt);border-color:rgba(20,184,166,.4);cursor:pointer}
+.btn-ghost:disabled{opacity:.4;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.5rem;color:var(--muted)}
+.mfst-btn{margin-top:1.25rem;background:transparent;border:1px dashed var(--border-2);border-radius:var(--radius);color:var(--body);padding:.55rem .9rem;font-family:'JetBrains Mono',monospace;font-size:.64rem;display:flex;justify-content:space-between;gap:1rem;width:100%}
+.mfst-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.mfst-body{display:none;background:var(--bg-3);border:1px solid var(--border);border-radius:0 0 var(--radius) var(--radius);padding:1rem;max-height:340px;overflow:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body);white-space:pre-wrap;word-break:break-all}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+.panel p{font-size:.8rem;color:var(--body);line-height:1.8;margin-bottom:.6rem}
+.panel ul{margin:.4rem 0 .6rem 1.1rem;font-size:.78rem;color:var(--body);line-height:1.8}
+.panel li{margin-bottom:.25rem}
+.panel code{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal-lt)}
+nav{border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;backdrop-filter:blur(8px);z-index:5}
+.nav-inner{max-width:1060px;margin:0 auto;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-breadcrumb a{color:var(--body)}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;gap:.6rem;align-items:center}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--body);border:1px solid var(--border-2);border-radius:999px;padding:.3rem .85rem}
+.nav-pill:hover{color:var(--teal-lt);border-color:var(--teal)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--bg);background:var(--teal);border-radius:999px;padding:.3rem .95rem}
+.nav-cta:hover{background:var(--teal-lt)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-inner{max-width:1060px;margin:0 auto;display:flex;flex-direction:column;gap:.6rem}
+.footer-links{display:flex;gap:1.2rem;flex-wrap:wrap}
+.footer-links a{color:var(--body)}.footer-links a:hover{color:var(--teal)}
+.toast{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);background:var(--bg-4);border:1px solid var(--teal);color:var(--bright);border-radius:var(--radius);padding:.55rem 1.1rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9}
+.toast.show{opacity:1}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);margin-bottom:.6rem}
+table.tags{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.64rem;margin-top:.4rem}
+table.tags th,table.tags td{text-align:left;padding:.28rem .5rem;border-bottom:1px solid var(--border)}
+table.tags th{color:var(--muted);font-weight:400;letter-spacing:.06em;text-transform:uppercase;font-size:.55rem}
+table.tags td{color:var(--bright);word-break:break-all}
+.verdict-pass{color:var(--green)}.verdict-fail{color:var(--red)}.verdict-advisory{color:var(--warn)}
+.sev-error{color:var(--red)}.sev-advisory{color:var(--warn)}
+@media (max-width:640px){.out-row{grid-template-columns:1fr;gap:.1rem}}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">EMV MPM QR Payload Validator · ART-783 · OpenChainGraph</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="tool-body" role="main" aria-description="Decodes and validates an EMV merchant-presented QR payload against a pluggable national scheme profile: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code. TLV structure, CRC-16 with the 6304 literal included, static versus dynamic rules, scheme-mandatory tags, and the signed dynamic-payload envelope shape. Merchant name, city, additional-data values and account identifiers are never echoed."><div class="container">
+
+  <div class="hero">
+    <div class="hero-eyebrow">ART-783 &middot; OpenChainGraph &middot; QR Scheme Conformance</div>
+    <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem">v1.0.0</span>
+    <h1>EMV MPM QR Payload Validator</h1>
+    <p>Paste an EMV merchant-presented-mode QR payload string and pick a scheme profile: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code. The engine parses the two-digit tag-length-value structure, recomputes the CRC-16/CCITT-FALSE checksum over the payload including the literal 6304 (and flags the common generator bug that leaves it out), checks static versus dynamic initiation semantics, merchant account templates and their globally unique identifiers, MCC, ISO 4217 currency, amount and tip or convenience consistency, merchant name and city presence and length, and additional-data subfields. For Pix dynamic payloads it also checks the location URL shape and the JWS protected-header skeleton. Merchant-bearing field values are reported as tag, length, and verdict only, never echoed. Use synthetic payloads: this page is for scheme engineers and testers, and every example it ships is invented.</p>
+    <div class="hero-meta">
+      <span class="badge badge-teal">Policy Mandate Export</span>
+      <span class="badge badge-gold">Cross-Border Payments</span>
+      <span class="badge badge-muted">compliance_control</span>
+      <span class="badge badge-warn">Proof deferred</span>
+    </div>
+  </div>
+
+  <div style="padding-top:1.5rem">
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only. Paste synthetic merchant payloads only: real merchant names, cities, and account identifiers are never echoed back, and nothing you paste leaves this page.</div>
+
+    <div class="field-grid">
+      <div class="field" style="grid-column:1/-1"><label for="payload">QR payload string (paste box)</label><textarea id="payload" rows="4" aria-label="payload" aria-description="The EMV merchant-presented QR payload string to validate. Synthetic payloads only. Never echoed back in merchant-bearing fields.">00020101021126390021com.example.synthetic0110ACCT0001115204599953038405802US5918SYNTHETIC MERCHANT6009TESTVILLE62100506TX00016304FFA6</textarea><span class="field-hint">The preloaded payload is synthetic and valid under the generic profile. Replace it with your own string.</span></div>
+      <div class="field"><label for="profile">Scheme profile</label><select id="profile" aria-label="profile" aria-description="Scheme profile to validate against: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code."><option value="generic">generic (EMV MPM)</option><option value="fjqr">fjqr (Fiji FJQR)</option><option value="pix_brcode">pix_brcode (Brazil Pix BR Code)</option></select><span class="field-hint">A new country scheme is a profile entry, not a new engine. See the add-a-scheme-profile note below.</span></div>
+      <div class="field"><label for="expect">Expected mode (optional)</label><select id="expect" aria-label="expect" aria-description="Optional assertion: static or dynamic. A mismatch with the payload tag 01 value is reported as a violation."><option value="">unspecified</option><option value="static">static (tag 01 = 11 or absent)</option><option value="dynamic">dynamic (tag 01 = 12)</option></select></div>
+    </div>
+
+    <div class="panel" style="margin-bottom:1.25rem">
+      <div class="panel-label">Signed dynamic-payload envelope skeleton (pix_brcode dynamic only)</div>
+      <div class="field-grid" style="margin-bottom:0">
+        <div class="field"><label for="env_alg">JWS alg</label><input type="text" id="env_alg" value="PS256" aria-label="env_alg" aria-description="The JWS protected-header alg value, for example PS256. Shape check only: prohibited HS-family and none, allowed RS256-or-higher and ES256-or-higher, recommended PS256 or PS512. No signature is verified."></div>
+        <div class="field"><label for="env_typ">JWS typ (optional)</label><input type="text" id="env_typ" value="JOSE" aria-label="env_typ" aria-description="Optional JWS protected-header typ value, typically JOSE. Not rule-checked."></div>
+        <div class="field"><label for="env_kid">JWS kid</label><input type="text" id="env_kid" value="synthetic-key-1" aria-label="env_kid" aria-description="The JWS key identifier. Presence checked only; no key material is accepted and no key is fetched."></div>
+        <div class="field"><label for="env_jku">JWS jku</label><input type="text" id="env_jku" value="https://pix.example.com/.well-known/jwks.json" aria-label="env_jku" aria-description="The JWK Set URL. Its https shape is checked only. This page never fetches it: zero network by construction."></div>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runCompute()">&#9654; Validate Payload</button>
+
+    <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">Result</span></div>
+        <div class="out-body" id="outBody"></div>
+      </div>
+
+      <div class="results-export-row">
+        <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportPolicyMandate()">
+          {} Export Policy Mandate<span class="btn-subtitle">chaingraph_version: 0.4.0 &middot; execution_hash</span>
+        </button>
+        <button class="btn btn-ghost" id="mdBtn" disabled onclick="exportMd()">
+          &#x21E9; Export Markdown<span class="btn-subtitle">Report</span>
+        </button>
+      </div>
+      <div class="hash-row" id="hashRow" style="display:none">
+        <span class="hash-label">sha256:</span><span id="hashVal"></span>
+      </div>
+    </div>
+
+    <button class="mfst-btn" onclick="toggleMfst()" aria-expanded="false" aria-controls="mfstBody">
+      <span>{} MCP Manifest &middot; ART-783</span><span id="mfstArrow">&#9660;</span>
+    </button>
+    <div class="mfst-body" id="mfstBody" aria-hidden="true"><pre class="mfst-code" id="mfstCode"></pre></div>
+  </div>
+
+  <div class="panel" id="how-it-works" style="margin-top:2rem">
+    <div class="panel-label">What this checks, and what it never does</div>
+    <p>Checks: payload format indicator 00 equals 01 and comes first; tag 01 static 11 or dynamic 12 consistent with amount presence per profile; at least one merchant account template in tags 26 to 51 carrying a profile-recognised globally unique identifier; MCC tag 52 four digits; currency tag 53 a three-digit ISO 4217 code pinned per profile (FJD 242 for fjqr, BRL 986 for pix_brcode); amount tag 54 format; tip and convenience tags 55 to 57 consistency; country tag 58; merchant name tag 59 and city tag 60 present and within length; tag 62 subfield structure; duplicate tags and trailing bytes after the CRC; and CRC tag 63 as CRC-16/CCITT-FALSE computed over the payload including the literal 6304, last in the payload. For pix_brcode dynamic payloads the location URL carried in tag 26 subfield 25 is shape-checked (no protocol prefix, host with a dot, path, at most 77 characters) and the JWS envelope skeleton is checked against the pinned algorithm set.</p>
+    <p>Never does: a dynamic payload URL is never fetched (zero network by construction); no signature is verified and no key material is accepted; merchant name, city, postal code, additional-data subfield values, alternate-language merchant fields, and account identifiers inside tags 26 to 51 are never echoed into the result. Structural tags 00, 01, 52, 53, 54, 58, 63 and template GUIDs are echoed because they cannot identify a merchant. Refusals, not verdicts, are returned for malformed input classes: non-string or empty payload, payload over the 2048-character input bound, an unknown profile, an invalid expected-mode value, or a non-object envelope.</p>
+    <ul>
+      <li>EMV MPM rules: EMV QR Code Specification for Payment Systems, Merchant-Presented Mode, v1.1 (November 2020), as licensed by EMVCo. Facts and field semantics implemented; no spec text reproduced.</li>
+      <li>FJQR rules: Reserve Bank of Fiji, Guidelines on Participation in the Fiji Quick Response Code Scheme, May 2026, which builds the scheme on EMV MPM v1.1. The scheme-specific account identifier registry sits in the separate FJQR technical specification, so the fjqr profile reports an advisory rather than a verdict on account GUIDs.</li>
+      <li>Pix rules: Banco Central do Brasil BR Code manual v2.0.0 and the Pix initiation standards, plus the SFN security manual volume II for the JWS protected-header rules.</li>
+    </ul>
+    <p>This is an independent conformance utility. It names no scheme operator official and implies no endorsement by EMVCo, any central bank, or the World Bank.</p>
+  </div>
+
+  <div class="panel" id="add-a-scheme-profile">
+    <div class="panel-label">Add a scheme profile</div>
+    <p>One engine, profiles as data. The three shipped profiles live as a JSON data file beside the kernel (<code>chaingraph/kernels/fixtures/783-emv-mpm-qr-validator.profiles.json</code>) and are mirrored inside the kernel itself, with a property test holding the two equal. PromptPay, DuitNow, QRIS, PayNow or SGQR, KHQR, QR Ph, VietQR, and UPI's EMV form are all EMV MPM derivatives: a new country is a profile entry that pins its currency, country code, recognised account-template GUIDs, transaction-identifier requirement, and static or dynamic mode rules, and it lands as a data change with fixtures, not an engine rewrite.</p>
+  </div>
+
+  <div class="panel" id="provenance">
+    <div class="panel-label">Pinned primary texts</div>
+    <ul>
+      <li>EMVCo QRCPS Merchant-Presented Mode v1.1, November 2020. Pinned with sha256 under research/clause-snapshots/emv-mpm-qr/ on the project board.</li>
+      <li>Reserve Bank of Fiji, Guidelines on Participation in the Fiji Quick Response Code Scheme, 19 May 2026.</li>
+      <li>Banco Central do Brasil, BR Code Manual v2.0.0 (English, May 2020) and Manual de Padr&otilde;es para Inicia&ccedil;&atilde;o do Pix (current edition).</li>
+      <li>Banco Central do Brasil, Manual de Seguran&ccedil;a do SFN, Volume II, v6.00 (JWS protected-header rules for Pix).</li>
+    </ul>
+    <p>Rule-by-rule source mapping lives in the pin note on the project board. Fixtures on this node are synthetic merchants only; no published specimen payload is reproduced.</p>
+  </div>
+
+</div></div>
+
+<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/783-emv-mpm-qr-validator.manifest.json -->
+<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `validate_emv_mpm_qr_payload`. Task: Decode and validates an EMV merchant-presented QR payload against a pluggable national scheme profile: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code.
+Call it with arguments: {"policy_parameters":{"payload":"00020101021126390021com.example.synthetic0110ACCT0001115204599953038405802US5918SYNTHETIC MERCHANT6009TESTVILLE62100506TX00016304FFA6","profile":"generic","expect":"static"}}
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
+Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
+PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
+Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/783-emv-mpm-qr-validator.html#p=v1.H4sIAAAAAAAA_wG5AEb_eyJwYXlsb2FkIjoiMDAwMjAxMDEwMjExMjYzOTAwMjFjb20uZXhhbXBsZS5zeW50aGV0aWMwMTEwQUNDVDAwMDExMTUyMDQ1OTk5NTMwMzg0MDU4MDJVUzU5MThTWU5USEVUSUMgTUVSQ0hBTlQ2MDA5VEVTVFZJTExFNjIxMDA1MDZUWDAwMDE2MzA0RkZBNiIsInByb2ZpbGUiOiJnZW5lcmljIiwiZXhwZWN0Ijoic3RhdGljIn36LH-3uQAAAA</pre>
+</section>
+<!-- ASK-AGENT:END -->
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<div class="toast" id="toast"></div>
+
+<script>
+/* 783-emv-mpm-qr-validator — client-side port of the audited kernel
+   (chaingraph/kernels/783-emv-mpm-qr-validator.kernel.mjs). The port is
+   line-faithful to the kernel: same CRC, same closed refusal set, same
+   no-echo contract, same rule identifiers and profile data. Values are
+   structural only; merchant-bearing values are never echoed. */
+var TOOL_ID = '783-emv-mpm-qr-validator';
+var TOOL_VERSION = '1.0.0';
+
+var SOURCES = {
+  emv: 'EMV-MPM-v1.1',
+  fjqr: 'RBF-FJQR-2026-05',
+  bcbBrc: 'BCB-BRCode-2.0.0',
+  bcbPix: 'BCB-Pix-Iniciacao',
+  bcbSfn: 'BCB-SFN-Seg-Vol2'
+};
+
+var PROFILES = {
+  generic: { key: 'generic', currency: null, country: null, required_guids: null, guid_registry_public: true, txid_required: false, addl_data_required: false, mode: 'open' },
+  fjqr: { key: 'fjqr', currency: '242', country: null, required_guids: null, guid_registry_public: false, txid_required: false, addl_data_required: false, mode: 'static_launch' },
+  pix_brcode: { key: 'pix_brcode', currency: '986', country: 'BR', required_guids: ['br.gov.bcb.pix'], guid_registry_public: true, txid_required: true, addl_data_required: true, mode: 'open' }
+};
+
+var ECHO_SAFE_ROOT = { '00': 1, '01': 1, '52': 1, '53': 1, '54': 1, '58': 1, '63': 1 };
+var ADDL_SUB_CAP = { '01': 25, '02': 25, '03': 25, '04': 25, '05': 25, '06': 25, '07': 25, '08': 25, '09': 3, '10': 20, '11': 3 };
+var JWS_ALG_ALLOWED = { RS256: 1, RS384: 1, RS512: 1, ES256: 1, ES384: 1, ES512: 1, PS256: 1, PS384: 1, PS512: 1 };
+var JWS_ALG_RECOMMENDED = { PS256: 1, PS512: 1 };
+var PAYLOAD_BOUND = 2048;
+var SPEC_PAYLOAD_SHOULD = 512;
+
+function utf8ToBytes(str) {
+  var bytes = [];
+  for (var i = 0; i < str.length; i++) {
+    var code = str.charCodeAt(i);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      var next = i + 1 < str.length ? str.charCodeAt(i + 1) : 0;
+      if (next >= 0xdc00 && next <= 0xdfff) { code = (code - 0xd800) * 0x400 + (next - 0xdc00) + 0x10000; i++; }
+      else code = 0xfffd;
+    } else if (code >= 0xdc00 && code <= 0xdfff) code = 0xfffd;
+    if (code < 0x80) bytes.push(code);
+    else if (code < 0x800) bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+    else if (code < 0x10000) bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+    else bytes.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 0x3f), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+  }
+  return bytes;
+}
+function crc16CcittFalse(bytes) {
+  var crc = 0xffff;
+  for (var i = 0; i < bytes.length; i++) {
+    crc ^= bytes[i] << 8;
+    for (var b = 0; b < 8; b++) crc = (crc & 0x8000) !== 0 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+  }
+  return crc;
+}
+function crcHex(bytes) { var c = crc16CcittFalse(bytes); var s = c.toString(16).toUpperCase(); while (s.length < 4) s = '0' + s; return s; }
+function isDigits(s) {
+  for (var i = 0; i < s.length; i++) { var c = s.charCodeAt(i); if (c < 48 || c > 57) return false; }
+  return true;
+}
+function parseTlv(raw, tagPathPrefix, violations, counter) {
+  var objects = [];
+  var seen = {};
+  var i = 0;
+  while (i < raw.length) {
+    counter.n++;
+    if (i + 4 > raw.length) {
+      violations.push({ tag_path: tagPathPrefix, rule_id: 'TLV_TRUNCATED_HEADER', source: SOURCES.emv + '/4.3.1.1,4.4.1.1', severity: 'error' });
+      return { objects: objects, trailing: raw.slice(i) };
+    }
+    var id = raw.slice(i, i + 2);
+    var lenStr = raw.slice(i + 2, i + 4);
+    if (!isDigits(id) || !isDigits(lenStr)) {
+      violations.push({ tag_path: tagPathPrefix, rule_id: 'TLV_NON_NUMERIC_ID_OR_LENGTH', source: SOURCES.emv + '/4.3.1.1,4.4.1.1', severity: 'error' });
+      return { objects: objects, trailing: raw.slice(i) };
+    }
+    var len = parseInt(lenStr, 10);
+    var valueStart = i + 4;
+    if (valueStart + len > raw.length) {
+      violations.push({ tag_path: tagPathPrefix || id, rule_id: 'TLV_LENGTH_OVERRUN', source: SOURCES.emv + '/4.4.1.1', severity: 'error' });
+      return { objects: objects, trailing: raw.slice(i) };
+    }
+    var value = raw.slice(valueStart, valueStart + len);
+    var path = tagPathPrefix ? tagPathPrefix + '.' + id : id;
+    if (seen[id]) violations.push({ tag_path: path, rule_id: 'DUPLICATE_TAG', source: SOURCES.emv + '/4.3.1.2', severity: 'error' });
+    seen[id] = 1;
+    objects.push({ id: id, len: len, value: value, path: path });
+    i = valueStart + len;
+  }
+  return { objects: objects, trailing: null };
+}
+function amountShapeOk(v) {
+  if (v.length === 0 || v.length > 13) return false;
+  var parts = v.split('.');
+  if (parts.length > 2) return false;
+  for (var i = 0; i < parts.length; i++) if (parts[i].length === 0 || !isDigits(parts[i])) return false;
+  var joined = parts.join('');
+  for (var j = 0; j < joined.length; j++) if (joined.charAt(j) !== '0') return true;
+  return false;
+}
+function guidShapeOk(v) {
+  if (v.length === 0 || v.length > 32) return false;
+  for (var i = 0; i < v.length; i++) { var c = v.charCodeAt(i); if (c <= 32 || c >= 127) return false; }
+  return true;
+}
+function urlish(v) {
+  return v.indexOf('://') !== -1 || v.toLowerCase().indexOf('http://') === 0 || v.toLowerCase().indexOf('https://') === 0;
+}
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function compute(pp) {
+  pp = pp || {};
+  var compliance_flags = [];
+  var counter = { n: 0 };
+
+  function refuse(refused_because, detail) {
+    if (typeof refused_because === 'string' && refused_because.length > 0) {
+      compliance_flags.push('QR_REFUSED_' + refused_because.toUpperCase());
+    }
+    return {
+      output_payload: {
+        valid: false,
+        profile: typeof pp.payload === 'string' && typeof pp.profile === 'string' ? pp.profile : (typeof pp.profile === 'string' ? pp.profile : null),
+        mode: null,
+        tags: [],
+        violations: [{ tag_path: '', rule_id: 'INPUT_REFUSED_' + refused_because.toUpperCase(), source: 'kernel-input-contract', severity: 'error' }],
+        errors: [{ tag_path: '', rule_id: 'INPUT_REFUSED_' + refused_because.toUpperCase() }],
+        warnings: [],
+        crc: { expected: null, found: null },
+        rules_checked: counter.n,
+        refused: { refused: true, refused_because: refused_because, detail: detail }
+      },
+      compliance_flags: compliance_flags
+    };
+  }
+
+  if (typeof pp.payload !== 'string') return refuse('payload_not_string', 'payload must be the QR code string');
+  if (pp.payload.length === 0) return refuse('payload_empty', 'payload must be non-empty');
+  if (pp.payload.length > PAYLOAD_BOUND) return refuse('payload_bound_exceeded', 'payload exceeds the bounded-input guard of ' + PAYLOAD_BOUND + ' characters');
+  if (pp.profile !== undefined && pp.profile !== null && typeof pp.profile !== 'string') return refuse('profile_not_string', 'profile must be a string');
+  var profileKey = pp.profile === undefined || pp.profile === null || pp.profile === '' ? 'generic' : pp.profile;
+  if (!Object.prototype.hasOwnProperty.call(PROFILES, profileKey)) return refuse('profile_unknown', 'unknown profile: use one of generic, fjqr, pix_brcode');
+  var profile = PROFILES[profileKey];
+  if (pp.profile === undefined || pp.profile === null || pp.profile === '') compliance_flags.push('QR_PROFILE_DEFAULTED_GENERIC');
+  if (pp.expect !== undefined && pp.expect !== null) {
+    if (typeof pp.expect !== 'string' || (pp.expect !== 'static' && pp.expect !== 'dynamic')) return refuse('expect_invalid', 'expect must be "static" or "dynamic"');
+  }
+  var envelope = null;
+  if (pp.dynamic_envelope !== undefined && pp.dynamic_envelope !== null) {
+    if (typeof pp.dynamic_envelope !== 'object' || Array.isArray(pp.dynamic_envelope)) return refuse('dynamic_envelope_not_object', 'dynamic_envelope must be an object (JWS protected-header skeleton: alg, typ, kid, jku)');
+    envelope = pp.dynamic_envelope;
+  }
+
+  var payload = pp.payload;
+  var violations = [];
+  var tagRows = [];
+
+  function addV(tag_path, rule_id, source, severity) { violations.push({ tag_path: tag_path, rule_id: rule_id, source: source, severity: severity }); }
+
+  var parsed = parseTlv(payload, '', violations, counter);
+  var root = parsed.objects;
+  if (parsed.trailing !== null && parsed.trailing.length > 0) addV('63', 'TRAILING_DATA_AFTER_CRC', SOURCES.emv + '/4.6.1.2', 'error');
+
+  var rootById = {};
+  for (var r = 0; r < root.length; r++) rootById[root[r].id] = root[r];
+
+  var pfi = rootById['00'];
+  var crcObj = rootById['63'];
+
+  if (root.length > 0 && root[0].id !== '00') addV('00', 'PFI_NOT_FIRST', SOURCES.emv + '/4.6.1.1', 'error');
+  if (pfi === undefined) addV('00', 'PFI_MISSING', SOURCES.emv + '/4.2.1.1', 'error');
+  else if (pfi.value !== '01') addV('00', 'PFI_VALUE_NOT_01', SOURCES.emv + '/4.7.1.1', 'error');
+
+  var crcPos = payload.length;
+  var crcFound = null;
+  var crcCoversLiteral = true;
+  if (crcObj === undefined) {
+    addV('63', 'CRC_MISSING', SOURCES.emv + '/4.6.1.2', 'error');
+  } else {
+    var idx = -1, scan = 0;
+    while (scan < payload.length) {
+      var id2 = payload.slice(scan, scan + 2);
+      var l2 = payload.slice(scan + 2, scan + 4);
+      var l2pad = String(crcObj.len).length < 2 ? '0' + String(crcObj.len) : String(crcObj.len);
+      if (id2 === crcObj.id && l2 === l2pad) { idx = scan; break; }
+      if (!isDigits(id2) || !isDigits(l2)) break;
+      scan += 4 + parseInt(l2, 10);
+    }
+    crcPos = idx >= 0 ? idx : payload.length - 4 - crcObj.len;
+    crcFound = crcObj.value;
+    if (root[root.length - 1].id !== '63') addV('63', 'CRC_NOT_LAST', SOURCES.emv + '/4.6.1.2', 'error');
+    if (crcObj.len !== 4) addV('63', 'CRC_LENGTH_NOT_04', SOURCES.emv + '/4.7.3.2', 'error');
+    if (!/^[0-9A-Fa-f]{4}$/.test(crcObj.value)) addV('63', 'CRC_VALUE_NOT_HEX', SOURCES.emv + '/4.7.3.2', 'error');
+  }
+  var crcExpected = crcHex(utf8ToBytes(payload.slice(0, crcPos) + '6304'));
+  var crcAlt = crcHex(utf8ToBytes(payload.slice(0, crcPos)));
+  if (crcFound !== null && /^[0-9A-Fa-f]{4}$/.test(crcFound)) {
+    if (crcFound.toUpperCase() === crcExpected) { /* agree */ }
+    else if (crcFound.toUpperCase() === crcAlt) { addV('63', 'CRC_EXCLUDED_6304_LITERAL', SOURCES.emv + '/4.7.3.1', 'error'); crcCoversLiteral = false; }
+    else addV('63', 'CRC_MISMATCH', SOURCES.emv + '/4.7.3.1', 'error');
+  } else if (crcFound !== null) {
+    addV('63', 'CRC_MISMATCH', SOURCES.emv + '/4.7.3.1', 'error');
+  }
+
+  if (payload.length > SPEC_PAYLOAD_SHOULD) addV('', 'PAYLOAD_LEN_EXCEEDS_512', SOURCES.emv + '/4.1', 'advisory');
+
+  var pim = rootById['01'];
+  var mode = 'static';
+  if (pim !== undefined) {
+    if (pim.value !== '11' && pim.value !== '12') addV('01', 'PIM_VALUE_INVALID', SOURCES.emv + '/4.7.2.1', 'error');
+    if (pim.value === '12') mode = 'dynamic';
+  }
+  if (pp.expect !== undefined && pp.expect !== null && pp.expect !== mode) addV('01', 'EXPECT_MODE_MISMATCH', 'kernel-input-contract', 'error');
+
+  var templates = [];
+  var primitives = [];
+  for (var t0 = 0; t0 < root.length; t0++) {
+    var o0 = root[t0];
+    if (o0.id >= '26' && o0.id <= '51') templates.push(o0);
+    else if (o0.id >= '02' && o0.id <= '25') primitives.push(o0);
+  }
+  if (templates.length + primitives.length === 0) addV('26', 'MERCHANT_ACCOUNT_MISSING', SOURCES.emv + '/4.7.9.1', 'error');
+  var guidValues = [];
+  var locationByTemplate = {};
+  for (var t1 = 0; t1 < templates.length; t1++) {
+    var t = templates[t1];
+    counter.n++;
+    var sub = parseTlv(t.value, t.id, violations, counter);
+    if (sub.trailing !== null && sub.trailing.length > 0) addV(t.id, 'TEMPLATE_TRAILING_DATA', SOURCES.emv + '/4.3.1.2', 'error');
+    var subById = {};
+    for (var s0 = 0; s0 < sub.objects.length; s0++) subById[sub.objects[s0].id] = sub.objects[s0];
+    var guid = subById['00'];
+    if (guid === undefined) addV(t.id + '.00', 'ACCOUNT_TEMPLATE_NO_GUID', SOURCES.emv + '/4.7.11.2', 'error');
+    else {
+      if (!guidShapeOk(guid.value)) addV(t.id + '.00', 'GUID_SHAPE_INVALID', SOURCES.emv + '/4.7.11.2', 'error');
+      guidValues.push(guid.value);
+    }
+    var loc = subById['25'];
+    if (loc !== undefined) locationByTemplate[t.id] = loc.value;
+  }
+  if (profile.required_guids !== null) {
+    var hit = false;
+    for (var g0 = 0; g0 < guidValues.length; g0++) {
+      for (var g1 = 0; g1 < profile.required_guids.length; g1++) {
+        if (guidValues[g0].toLowerCase() === profile.required_guids[g1].toLowerCase()) hit = true;
+      }
+    }
+    if (!hit && templates.length + primitives.length > 0) addV('26', 'PROFILE_GUID_NOT_RECOGNISED', SOURCES.bcbBrc + '/T1;EMV-MPM-v1.1/4.7.11.2', 'error');
+  } else if (!profile.guid_registry_public && guidValues.length > 0) {
+    addV('26.00', 'PROFILE_GUID_UNVERIFIABLE', SOURCES.fjqr + '/1.2', 'advisory');
+  }
+
+  var mcc = rootById['52'];
+  if (mcc === undefined) addV('52', 'MCC_MISSING', SOURCES.emv + '/4.2.1.1', 'error');
+  else if (!/^\d{4}$/.test(mcc.value)) addV('52', 'MCC_FORMAT', SOURCES.emv + '/4.7.12.1', 'error');
+
+  var ccys = rootById['53'];
+  if (ccys === undefined) addV('53', 'CCY_MISSING', SOURCES.emv + '/4.2.1.1', 'error');
+  else if (!/^\d{3}$/.test(ccys.value)) addV('53', 'CCY_FORMAT', SOURCES.emv + '/4.7.5.1', 'error');
+  else if (profile.currency !== null && ccys.value !== profile.currency) addV('53', 'CCY_PROFILE_MISMATCH', SOURCES.emv + '/4.7.5.1', 'error');
+
+  var amount = rootById['54'];
+  if (amount !== undefined) {
+    counter.n++;
+    if (!amountShapeOk(amount.value)) addV('54', 'AMOUNT_FORMAT', SOURCES.emv + '/4.7.4.1', 'error');
+  }
+
+  var tip = rootById['55'];
+  var feeFixed = rootById['56'];
+  var feePct = rootById['57'];
+  if (tip !== undefined) {
+    counter.n++;
+    if (tip.value !== '01' && tip.value !== '02' && tip.value !== '03') {
+      addV('55', 'TIP_INDICATOR_INVALID', SOURCES.emv + '/4.7.6.1', 'error');
+    } else {
+      if (tip.value === '02') {
+        if (feeFixed === undefined) addV('56', 'CONVENIENCE_FEE_FIXED_MISSING', SOURCES.emv + '/4.7.7.1', 'error');
+        else if (!amountShapeOk(feeFixed.value)) addV('56', 'CONVENIENCE_FEE_FIXED_FORMAT', SOURCES.emv + '/4.7.7.2', 'error');
+        if (feePct !== undefined) addV('57', 'CONVENIENCE_FEE_PCT_PRESENT', SOURCES.emv + '/4.7.8.1', 'error');
+      } else if (feeFixed !== undefined) {
+        addV('56', 'CONVENIENCE_FEE_FIXED_PRESENT', SOURCES.emv + '/4.7.7.1', 'error');
+      }
+      if (tip.value === '03') {
+        if (feePct === undefined) addV('57', 'CONVENIENCE_FEE_PCT_MISSING', SOURCES.emv + '/4.7.8.1', 'error');
+        else {
+          var pct = parseFloat(feePct.value);
+          if (!/^\d+(\.\d+)?$/.test(feePct.value) || !(pct >= 0.01 && pct <= 99.99)) addV('57', 'CONVENIENCE_FEE_PCT_RANGE', SOURCES.emv + '/4.7.8.1', 'error');
+        }
+      } else if (feePct !== undefined) {
+        addV('57', 'CONVENIENCE_FEE_PCT_PRESENT', SOURCES.emv + '/4.7.8.1', 'error');
+      }
+    }
+  } else {
+    if (feeFixed !== undefined) addV('56', 'CONVENIENCE_FEE_FIXED_PRESENT', SOURCES.emv + '/4.7.7.1', 'error');
+    if (feePct !== undefined) addV('57', 'CONVENIENCE_FEE_PCT_PRESENT', SOURCES.emv + '/4.7.8.1', 'error');
+  }
+
+  var country = rootById['58'];
+  if (country === undefined) addV('58', 'COUNTRY_MISSING', SOURCES.emv + '/4.2.1.1', 'error');
+  else if (!/^[A-Za-z]{2}$/.test(country.value)) addV('58', 'COUNTRY_FORMAT', SOURCES.emv + '/4.7.13.1', 'error');
+  else if (profile.country !== null && country.value.toUpperCase() !== profile.country) addV('58', 'COUNTRY_PROFILE_MISMATCH', SOURCES.bcbBrc + '/T1', 'error');
+
+  var name = rootById['59'];
+  if (name === undefined) addV('59', 'MERCHANT_NAME_MISSING', SOURCES.emv + '/4.2.1.1', 'error');
+  else if (name.len < 1 || name.len > 25) addV('59', 'MERCHANT_NAME_LENGTH', SOURCES.emv + '/4.7;T3.6', 'error');
+  var city = rootById['60'];
+  if (city === undefined) addV('60', 'MERCHANT_CITY_MISSING', SOURCES.emv + '/4.2.1.1', 'error');
+  else if (city.len < 1 || city.len > 15) addV('60', 'MERCHANT_CITY_LENGTH', SOURCES.emv + '/4.7;T3.6', 'error');
+  var postal = rootById['61'];
+  if (postal !== undefined && postal.len > 10) addV('61', 'POSTAL_LENGTH', SOURCES.emv + '/T3.6', 'error');
+
+  var addl = rootById['62'];
+  var addlSub = {};
+  if (addl !== undefined) {
+    counter.n++;
+    if (addl.len > 99) addV('62', 'ADDL_TEMPLATE_LENGTH', SOURCES.emv + '/T3.6', 'error');
+    var sub62 = parseTlv(addl.value, '62', violations, counter);
+    if (sub62.trailing !== null && sub62.trailing.length > 0) addV('62', 'TEMPLATE_TRAILING_DATA', SOURCES.emv + '/4.3.1.2', 'error');
+    for (var s1 = 0; s1 < sub62.objects.length; s1++) {
+      var sv = sub62.objects[s1];
+      addlSub[sv.id] = sv;
+      var cap = ADDL_SUB_CAP[sv.id];
+      if (cap !== undefined && sv.len > cap) addV('62.' + sv.id, 'ADDL_SUB_LENGTH', SOURCES.emv + '/T3.7', 'error');
+      if (sv.id === '09' && !/^[AME]{1,3}$/.test(sv.value)) addV('62.09', 'ADDL_CONSUMER_REQUEST_SHAPE', SOURCES.emv + '/4.8;T3.7', 'advisory');
+    }
+  }
+
+  var langT = rootById['64'];
+  if (langT !== undefined) {
+    counter.n++;
+    var sub64 = parseTlv(langT.value, '64', violations, counter);
+    var subById64 = {};
+    for (var s2 = 0; s2 < sub64.objects.length; s2++) subById64[sub64.objects[s2].id] = sub64.objects[s2];
+    var lp = subById64['00'];
+    if (lp === undefined) addV('64.00', 'LANGUAGE_PREFERENCE_MISSING', SOURCES.emv + '/4.2.1.3;T3.8', 'error');
+    else if (lp.len !== 2) addV('64.00', 'LANGUAGE_PREFERENCE_LENGTH', SOURCES.emv + '/T3.8', 'error');
+    var altName = subById64['01'];
+    if (altName === undefined) addV('64.01', 'ALT_MERCHANT_NAME_MISSING', SOURCES.emv + '/4.2.1.3;T3.8', 'error');
+    else if (altName.len > 25) addV('64.01', 'ALT_MERCHANT_NAME_LENGTH', SOURCES.emv + '/T3.8', 'error');
+    var altCity = subById64['02'];
+    if (altCity !== undefined && altCity.len > 15) addV('64.02', 'ALT_MERCHANT_CITY_LENGTH', SOURCES.emv + '/T3.8', 'error');
+  }
+
+  for (var u0 = 0; u0 < root.length; u0++) {
+    var uo = root[u0];
+    if (uo.id >= '80' && uo.id <= '99') {
+      counter.n++;
+      var subU = parseTlv(uo.value, uo.id, violations, counter);
+      var hasGuid = false;
+      for (var s3 = 0; s3 < subU.objects.length; s3++) if (subU.objects[s3].id === '00') hasGuid = true;
+      if (!hasGuid) addV(uo.id + '.00', 'UNRESERVED_TEMPLATE_NO_GUID', SOURCES.emv + '/4.11', 'error');
+    }
+  }
+
+  if (profile.key === 'fjqr') {
+    if (mode === 'dynamic') {
+      addV('01', 'FJQR_DYNAMIC_BEYOND_LAUNCH_SCOPE', SOURCES.fjqr + '/1.2fn2,fn5', 'advisory');
+      if (amount === undefined) addV('54', 'FJQR_DYNAMIC_AMOUNT_MISSING', SOURCES.fjqr + '/2.2', 'error');
+      if (addlSub['05'] === undefined) addV('62.05', 'FJQR_DYNAMIC_TXREF_MISSING', SOURCES.fjqr + '/2.2', 'error');
+    } else if (amount !== undefined) {
+      addV('54', 'FJQR_STATIC_AMOUNT_UNEXPECTED', SOURCES.fjqr + '/2.2', 'advisory');
+    }
+  }
+  if (profile.key === 'pix_brcode') {
+    if (addl === undefined) addV('62', 'PIX_ADDL_DATA_MISSING', SOURCES.bcbBrc + '/T1', 'error');
+    else if (addlSub['05'] === undefined) addV('62.05', 'PIX_TXID_MISSING', SOURCES.bcbBrc + '/T1', 'error');
+    var pixLocations = [];
+    for (var p0 = 0; p0 < templates.length; p0++) {
+      var pt = templates[p0];
+      var subP = parseTlv(pt.value, pt.id, [], counter);
+      var pg = null;
+      for (var s4 = 0; s4 < subP.objects.length; s4++) if (subP.objects[s4].id === '00') pg = subP.objects[s4];
+      if (pg !== null && pg.value.toLowerCase() === 'br.gov.bcb.pix' && locationByTemplate[pt.id] !== undefined) pixLocations.push({ id: pt.id, loc: locationByTemplate[pt.id] });
+    }
+    if (mode === 'dynamic') {
+      if (pixLocations.length === 0) {
+        addV('26.25', 'PIX_LOCATION_MISSING', SOURCES.bcbPix + '/2.5.2,2.7.2', 'error');
+      } else {
+        var locV = pixLocations[0].loc;
+        if (urlish(locV)) addV('26.25', 'PIX_LOCATION_PROTOCOL_PREFIX', SOURCES.bcbPix + '/2.5.2', 'error');
+        if (locV.length > 77) addV('26.25', 'PIX_LOCATION_LENGTH', SOURCES.bcbPix + '/2.5.2', 'error');
+        var slash = locV.indexOf('/');
+        var host = slash === -1 ? locV : locV.slice(0, slash);
+        if (slash === -1 || host.indexOf('.') === -1 || host.length === 0 || slash === locV.length - 1) addV('26.25', 'PIX_LOCATION_SHAPE', SOURCES.bcbPix + '/2.5.2', 'error');
+      }
+    } else {
+      if (pixLocations.length > 0) addV('26.25', 'PIX_LOCATION_IN_STATIC', SOURCES.bcbPix + '/2.5.2', 'error');
+    }
+    if (envelope !== null) {
+      if (mode !== 'dynamic') addV('26.25', 'ENVELOPE_NOT_APPLICABLE', 'kernel-input-contract', 'advisory');
+      var alg = envelope.alg;
+      if (typeof alg !== 'string' || alg.length === 0) addV('jws.alg', 'JWS_ALG_MISSING', SOURCES.bcbSfn + '/5', 'error');
+      else if (alg.toLowerCase() === 'none' || alg.toUpperCase().indexOf('HS') === 0) addV('jws.alg', 'JWS_ALG_PROHIBITED', SOURCES.bcbSfn + '/5', 'error');
+      else if (!JWS_ALG_ALLOWED[alg.toUpperCase()]) addV('jws.alg', 'JWS_ALG_NOT_ALLOWED', SOURCES.bcbSfn + '/5', 'error');
+      else if (!JWS_ALG_RECOMMENDED[alg.toUpperCase()]) addV('jws.alg', 'JWS_ALG_NOT_RECOMMENDED', SOURCES.bcbSfn + '/5', 'advisory');
+      if (typeof envelope.kid !== 'string' || envelope.kid.length === 0) addV('jws.kid', 'JWS_KID_MISSING', SOURCES.bcbSfn + '/5', 'error');
+      if (typeof envelope.jku !== 'string' || envelope.jku.length === 0) addV('jws.jku', 'JWS_JKU_MISSING', SOURCES.bcbSfn + '/5', 'error');
+      else if (envelope.jku.indexOf('https://') !== 0) addV('jws.jku', 'JWS_JKU_NOT_HTTPS', SOURCES.bcbSfn + '/5', 'error');
+    }
+  } else if (envelope !== null) {
+    addV('jws', 'ENVELOPE_NOT_APPLICABLE', 'kernel-input-contract', 'advisory');
+  }
+
+  for (var w0 = 0; w0 < root.length; w0++) {
+    var o = root[w0];
+    var pathErr = false, pathAdv = false;
+    for (var v0 = 0; v0 < violations.length; v0++) {
+      var vv = violations[v0];
+      if (vv.tag_path === o.id || vv.tag_path.indexOf(o.id + '.') === 0) { if (vv.severity === 'error') pathErr = true; else pathAdv = true; }
+    }
+    var sev = pathErr ? 'fail' : (pathAdv ? 'advisory' : 'pass');
+    var row = { tag: o.id, length: o.len, verdict: sev };
+    if (ECHO_SAFE_ROOT[o.id] === 1) row.value = o.value;
+    tagRows.push(row);
+    if (o.id >= '26' && o.id <= '51') {
+      var subD = parseTlv(o.value, o.id, [], counter);
+      for (var s5 = 0; s5 < subD.objects.length; s5++) {
+        var sd = subD.objects[s5];
+        var subPath = o.id + '.' + sd.id;
+        var sErr = false, sAdv = false;
+        for (var v1 = 0; v1 < violations.length; v1++) {
+          var vvv = violations[v1];
+          if (vvv.tag_path === subPath) { if (vvv.severity === 'error') sErr = true; else sAdv = true; }
+        }
+        var subRow = { tag: subPath, length: sd.len, verdict: sErr ? 'fail' : (sAdv ? 'advisory' : 'pass') };
+        if (sd.id === '00') subRow.value = sd.value;
+        tagRows.push(subRow);
+      }
+    } else if (o.id === '62' || o.id === '64') {
+      var subT = parseTlv(o.value, o.id, [], counter);
+      for (var s6 = 0; s6 < subT.objects.length; s6++) {
+        var st = subT.objects[s6];
+        var tPath = o.id + '.' + st.id;
+        var tErr = false, tAdv = false;
+        for (var v2 = 0; v2 < violations.length; v2++) {
+          var v3 = violations[v2];
+          if (v3.tag_path === tPath) { if (v3.severity === 'error') tErr = true; else tAdv = true; }
+        }
+        tagRows.push({ tag: tPath, length: st.len, verdict: tErr ? 'fail' : (tAdv ? 'advisory' : 'pass') });
+      }
+    }
+  }
+
+  violations.sort(function (a, b) { return a.tag_path < b.tag_path ? -1 : (a.tag_path > b.tag_path ? 1 : (a.rule_id < b.rule_id ? -1 : (a.rule_id > b.rule_id ? 1 : 0))); });
+  var hasError = false;
+  for (var v4 = 0; v4 < violations.length; v4++) if (violations[v4].severity === 'error') hasError = true;
+  var valid = !hasError;
+
+  if (valid) compliance_flags.push('QR_PAYLOAD_VALID');
+  else compliance_flags.push('QR_PAYLOAD_INVALID');
+  if (!crcCoversLiteral) compliance_flags.push('QR_CRC_EXCLUDED_6304_BUG');
+
+  return {
+    output_payload: {
+      valid: valid,
+      profile: profile.key,
+      mode: mode,
+      tags: tagRows,
+      violations: violations,
+      errors: violations.filter(function (v) { return v.severity === 'error'; }).map(function (v) { return { tag_path: v.tag_path, rule_id: v.rule_id }; }),
+      warnings: violations.filter(function (v) { return v.severity === 'advisory'; }).map(function (v) { return { tag_path: v.tag_path, rule_id: v.rule_id }; }),
+      crc: { expected: crcExpected, found: crcFound === null ? null : crcFound.toUpperCase() },
+      rules_checked: counter.n
+    },
+    compliance_flags: compliance_flags
+  };
+}
+
+let _result = null;
+let _artifact = null;
+let _lastArtifact = null;
+let _pp = null;
+
+function readInputs() {
+  var pp = {
+    payload: String(document.getElementById('payload').value || ''),
+    profile: document.getElementById('profile').value
+  };
+  var expect = document.getElementById('expect').value;
+  if (expect === 'static' || expect === 'dynamic') pp.expect = expect;
+  var alg = String(document.getElementById('env_alg').value || '').trim();
+  var typ = String(document.getElementById('env_typ').value || '').trim();
+  var kid = String(document.getElementById('env_kid').value || '').trim();
+  var jku = String(document.getElementById('env_jku').value || '').trim();
+  if (alg !== '' || typ !== '' || kid !== '' || jku !== '') {
+    pp.dynamic_envelope = { alg: alg, typ: typ, kid: kid, jku: jku };
+  }
+  return pp;
+}
+
+async function runCompute() {
+  _pp = readInputs();
+  const r = compute(_pp);
+  _result = r;
+  paintResult();
+  await buildArtifact();
+}
+
+function paintResult() {
+  if (!_result) return;
+  const o = _result.output_payload;
+  const compliance_flags = _result.compliance_flags || [];
+  let html = '';
+  if (o.refused && o.refused.refused === true) {
+    html = '<div class="out-row"><span class="k">Refused</span><span class="v">' + esc(o.refused.refused_because) + '</span></div>' +
+      '<div class="out-row"><span class="k">Why</span><span class="v">' + esc(o.refused.detail) + '</span></div>';
+  } else {
+    html += '<div class="out-row"><span class="k">Valid</span><span class="v ' + (o.valid ? 'verdict-pass' : 'verdict-fail') + '">' + (o.valid ? 'yes' : 'NO') + '</span></div>';
+    html += '<div class="out-row"><span class="k">Profile</span><span class="v">' + esc(o.profile) + '</span></div>';
+    html += '<div class="out-row"><span class="k">Mode</span><span class="v">' + esc(o.mode) + '</span></div>';
+    html += '<div class="out-row"><span class="k">CRC expected / found</span><span class="v">' + esc(o.crc.expected) + ' / ' + esc(o.crc.found) + '</span></div>';
+    html += '<div class="out-row"><span class="k">Rules checked</span><span class="v">' + o.rules_checked + '</span></div>';
+    html += '<div class="out-row"><span class="k">Violations</span><span class="v">' + o.violations.length + '</span></div>';
+    if (o.violations.length) {
+      html += '<table class="tags"><tr><th>tag_path</th><th>rule_id</th><th>severity</th><th>source</th></tr>';
+      for (const v of o.violations) {
+        html += '<tr><td>' + esc(v.tag_path) + '</td><td>' + esc(v.rule_id) + '</td><td class="sev-' + v.severity + '">' + v.severity + '</td><td>' + esc(v.source) + '</td></tr>';
+      }
+      html += '</table>';
+    }
+    html += '<div style="margin-top:.8rem;font-family:\'JetBrains Mono\',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Tags (values shown only for echo-safe structural tags and template GUIDs)</div>';
+    html += '<table class="tags"><tr><th>tag</th><th>length</th><th>verdict</th><th>value</th></tr>';
+    for (const t of o.tags) {
+      html += '<tr><td>' + esc(t.tag) + '</td><td>' + t.length + '</td><td class="verdict-' + t.verdict + '">' + t.verdict + '</td><td>' + (t.value !== undefined ? esc(t.value) : '(not echoed)') + '</td></tr>';
+    }
+    html += '</table>';
+  }
+  if (compliance_flags.length) html += '<div class="flag-row">' + compliance_flags.map(function (f) { return '<span class="flag">' + esc(f) + '</span>'; }).join('') + '</div>';
+  document.getElementById('outBody').innerHTML = html;
+  var __rp = document.getElementById('resultsPanel');
+  __rp.classList.add('visible');
+  if (typeof __rp.scrollIntoView === 'function') __rp.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function buildArtifact() {
+  const pp = _pp;
+  const output_payload = _result.output_payload;
+  const hash = await sha256({ policy_parameters: pp, output_payload: output_payload });
+  document.getElementById('hashRow').style.display = 'block';
+  document.getElementById('hashVal').textContent = hash;
+  const __generatedAtCapture = new Date().toISOString();
+  _artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_control',
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: __generatedAtCapture,
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload: output_payload,
+    compliance_flags: _result.compliance_flags,
+    compute_mode: 'client',
+    compute_proof_ready: 'deferred',
+    audit_signature: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  _lastArtifact = _artifact;
+  document.getElementById('generatedAt').textContent = 'generated_at ' + __generatedAtCapture;
+  ['ap2ExportBtn', 'mdBtn'].forEach(function (id) {
+    const b = document.getElementById(id);
+    b.disabled = false;
+    b.classList.add('ready');
+  });
+}
+
+async function sha256(obj) {
+  const c = __ocgCanonStr(obj);
+  const b = new TextEncoder().encode(c);
+  const h = await crypto.subtle.digest('SHA-256', b);
+  return Array.from(new Uint8Array(h)).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+}
+
+function ts14() { return new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14); }
+function showToast(m) {
+  const t = document.getElementById('toast');
+  t.textContent = m;
+  t.classList.add('show');
+  setTimeout(function () { t.classList.remove('show'); }, 2200);
+}
+function exportPolicyMandate() {
+  if (!_artifact) return;
+  const ts = ts14();
+  const b = new Blob([JSON.stringify(_artifact, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(b), download: '783-emv-mpm-qr-validator_' + ts + '.policy.json' });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Policy Mandate exported');
+}
+function exportMd() {
+  if (!_result || !_artifact) return;
+  const ts = ts14();
+  const lines = [
+    '# EMV MPM QR Payload Validation Report',
+    '',
+    '_' + new Date().toISOString() + ' \u00b7 ainumbers.co/chaingraph/783-emv-mpm-qr-validator.html \u00b7 client-side, zero PII_',
+    '',
+    '**ART-783 \u00b7 OpenChainGraph**',
+    '**execution_hash:** ' + _artifact.execution_hash,
+    '',
+    '## Output',
+    '',
+    JSON.stringify(_result.output_payload, null, 2),
+    '',
+    '---',
+    '> *ART-783 \u00b7 OpenChainGraph Suite \u00b7 Post Oak Labs \u00b7 CC BY 4.0*'
+  ];
+  const b = new Blob([lines.join('\n')], { type: 'text/markdown' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(b), download: '783-emv-mpm-qr-validator_' + ts + '.md' });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Markdown exported');
+}
+function toggleMfst() {
+  const body = document.getElementById('mfstBody'), arrow = document.getElementById('mfstArrow'), btn = document.querySelector('.mfst-btn');
+  const open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '\u25BC' : '\u25B2';
+  btn.setAttribute('aria-expanded', String(!open));
+  body.setAttribute('aria-hidden', String(open));
+  if (!open && !document.getElementById('mfstCode').textContent) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+</script>
+<script>
+const MANIFEST = {"tool_id":"783-emv-mpm-qr-validator","version":"1.0.0","title":"EMV MPM QR Payload Validator","description":"Decodes and validates an EMV merchant-presented QR payload against a pluggable national scheme profile: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code. TLV structure, CRC-16 over the payload including the 6304 literal, static versus dynamic rules, scheme-mandatory tags, and the signed dynamic-payload envelope shape. Merchant-bearing values are never echoed; no URL is ever fetched; no signature is verified.","category":"Cross-Border Payments: CBPR+ / ISO 20022 Conformance","tags":["emv-qr","qr-code","fiji-fjqr","pix-brcode","crc16","scheme-profile","mcp:validate_emv_mpm_qr_payload"],"input_schema":{"type":"object","required":["payload","profile"],"properties":{"payload":{"type":"string","description":"The EMV merchant-presented QR payload string. Synthetic payloads only; merchant-bearing values are never echoed back."},"profile":{"type":"string","enum":["generic","fjqr","pix_brcode"],"description":"Scheme profile to validate against: generic EMV MPM, Fiji FJQR (currency FJD 242, static launch scope), or Brazil Pix BR Code (GUI br.gov.bcb.pix, currency BRL 986, country BR, txid mandatory, dynamic location shape and JWS envelope skeleton)."},"expect":{"type":"string","enum":["static","dynamic"],"description":"Optional assertion on the derived mode. A mismatch with the payload tag 01 value is reported as a violation."},"dynamic_envelope":{"type":"object","description":"Optional JWS protected-header skeleton for a Pix dynamic payload: alg (prohibited HS-family and none; allowed RS256-or-higher and ES256-or-higher; recommended PS256 or PS512), typ, kid, jku. Shape check only: no signature verification, no key material, the jku URL is never fetched.","properties":{"alg":{"type":"string"},"typ":{"type":"string"},"kid":{"type":"string"},"jku":{"type":"string","description":"JWK Set URL. https shape checked only, never fetched."}}}}},"mcp_tool_definition":{"name":"validate_emv_mpm_qr_payload","description":"Decodes and validates an EMV merchant-presented QR payload against a pluggable national scheme profile: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code. TLV structure, CRC-16 over the payload including the 6304 literal, static versus dynamic rules, scheme-mandatory tags, and the signed dynamic-payload envelope shape. Merchant-bearing values are never echoed; no URL is ever fetched; no signature is verified.","inputSchema":{"type":"object","required":["payload","profile"],"properties":{"payload":{"type":"string","description":"The EMV merchant-presented QR payload string. Synthetic payloads only; merchant-bearing values are never echoed back."},"profile":{"type":"string","enum":["generic","fjqr","pix_brcode"],"description":"Scheme profile to validate against: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code."},"expect":{"type":"string","enum":["static","dynamic"],"description":"Optional assertion on the derived mode."},"dynamic_envelope":{"type":"object","description":"Optional JWS protected-header skeleton (alg, typ, kid, jku) for a Pix dynamic payload. Shape check only."}}}},"execution":{"type":"browser-javascript","entry":"chaingraph/783-emv-mpm-qr-validator.html","function_name":"runCompute","timeout_ms":5000},"ap2_export":true,"source":"chaingraph/kernels/783-emv-mpm-qr-validator.kernel.mjs","input_schema_provenance":"Top-level properties are exactly the policy_parameters members the kernel reads: payload, profile, expect, dynamic_envelope.","author":"PostOakLabs","license":"CC-BY-4.0","input_example":{"payload":"00020101021126390021com.example.synthetic0110ACCT0001115204599953038405802US5918SYNTHETIC MERCHANT6009TESTVILLE62100506TX00016304FFA6","profile":"generic","expect":"static"},"output_example":null,"output_schema":{"type":"object","properties":{"valid":{"type":"boolean"},"profile":{"type":"string"},"mode":{"type":"string"},"tags":{"type":"array","items":{"type":"object","properties":{"tag":{"type":"string"},"length":{"type":"integer"},"verdict":{"type":"string"},"value":{"type":"string"}}}},"violations":{"type":"array","items":{"type":"object","properties":{"tag_path":{"type":"string"},"rule_id":{"type":"string"},"source":{"type":"string"},"severity":{"type":"string"}}}},"crc":{"type":"object","properties":{"expected":{"type":"string"},"found":{"type":["string","null"]}}},"rules_checked":{"type":"integer"},"refused":{"type":"object"}}}};
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
+</script>
+</body>
+</html>
