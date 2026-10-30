@@ -78,7 +78,7 @@ function venueFee(venue, cu, cs, price, opts) {
     // "Fees are rounded to 5 decimal places ... Anything smaller rounds to zero": truncate to $0.00001.
     return { micro: (f.num * 100000n / f.den) * 10n, regime: 'polymarket_global', theta: fmtRatio(rate[0], rate[1]), rounding: 'truncate_5dp' };
   }
-  // cme_event, robinhood and sx_bet: unchanged by this fix (cent-rounded as before).
+  // cme_event, robinhood and sx_bet: same cent-rounded formulas as before this fix.
   const n = Number(cu) / Number(cs);
   const p = Math.max(0.001, Math.min(0.999, price));
   let legacy = null;

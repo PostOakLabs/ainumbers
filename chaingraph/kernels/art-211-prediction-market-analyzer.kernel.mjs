@@ -1639,7 +1639,7 @@ function venueFee(venue, cu, cs, p, opts) {
     // "Fees are rounded to 5 decimal places ... Anything smaller rounds to zero": truncate to $0.00001.
     return { micro: (f.num * 100000n / f.den) * 10n, regime: 'polymarket_global', theta: fmtRatio(rate[0], rate[1]), rounding: 'truncate_5dp', category: opts.market_category };
   }
-  // cme_event and robinhood: flat per-contract fees, unchanged by this fix.
+  // cme_event and robinhood: flat per-contract fees, same formulas as before this fix.
   const n = Number(cu) / Number(cs);
   if (venue === 'cme_event') return { micro: BigInt(Math.round(0.5 * n * 1e6)), regime: 'cme_event_flat', theta: null, rounding: 'none' };
   if (venue === 'robinhood') return { micro: BigInt(Math.round(0.1 * n * 1e6)), regime: 'robinhood_flat', theta: null, rounding: 'none' };
