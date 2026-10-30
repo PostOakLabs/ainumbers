@@ -657,7 +657,7 @@ import * as art760    from './art-760-espp-break-even-optimal-sell.kernel.mjs';
 import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
 import * as art764    from './art-764-solo-401k-vs-sep-ira.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
-import * as art785    from './art-785-csv-rfc4180-parser.kernel.mjs';
+import * as art788    from './art-788-csv-rfc4180-parser.kernel.mjs';
 import * as art771    from './art-771-automation-payback.kernel.mjs';
 import * as art774    from './art-774-beacon-seeded-fair-sampling-v2.kernel.mjs';
 import * as art776    from './art-776-paypal-dispute-deadline-evidence.kernel.mjs';
@@ -1360,7 +1360,7 @@ export const KERNELS = {
   'art-763-ai-displacement-risk-screener':                      art763,
   'art-764-solo-401k-vs-sep-ira':                               art764,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
-  'art-785-csv-rfc4180-parser':                                 art785,
+  'art-788-csv-rfc4180-parser':                                 art788,
   'art-771-automation-payback':                                 art771,
   'art-774-beacon-seeded-fair-sampling-v2':                     art774,
   'art-776-paypal-dispute-deadline-evidence':                   art776,

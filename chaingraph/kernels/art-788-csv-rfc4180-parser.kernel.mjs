@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-const TOOL_ID = 'art-785-csv-rfc4180-parser';
+const TOOL_ID = 'art-788-csv-rfc4180-parser';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
@@ -443,12 +443,12 @@ return Object.freeze({
 })();
 
 // Export retained ONLY for this bundle's own PBT floor to import and exercise
-// internals directly (chaingraph/kernels/__proptests__/art-785-*.proptest.mjs).
+// internals directly (chaingraph/kernels/__proptests__/art-788-*.proptest.mjs).
 // Consuming kernels NEVER import this — they inline the IIFE above verbatim
 // between sentinel comments and destructure the local `_csv` const, per the
 // composition contract (ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec 4.1 rule 1). This
 // export line sits OUTSIDE the inlined region by construction, so the
-// inlined copy in art-785's kernel.mjs stays byte-identical to everything
+// inlined copy in art-788's kernel.mjs stays byte-identical to everything
 // above it, sentinel to sentinel.
 /* ===== END inlined _csv ===== */
 
