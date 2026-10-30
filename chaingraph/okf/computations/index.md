@@ -662,6 +662,7 @@ status: stable
 - [Solo 401(k) vs. SEP-IRA Optimizer](./art-764-solo-401k-vs-sep-ira.md)
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md)
 - [Automation Payback](./art-771-automation-payback.md)
+- [Money Primitives Demonstrator](./art-772-money-primitives-demonstrator.md)
 - [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md)
 - [PayPal Dispute Deadline & Evidence](./art-776-paypal-dispute-deadline-evidence.md)
 - [PSP Dispute Reason Crosswalk](./art-777-psp-dispute-reason-crosswalk.md)

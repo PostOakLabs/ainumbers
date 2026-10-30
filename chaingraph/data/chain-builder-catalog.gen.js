@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (700 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (701 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7654,6 +7654,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "analytics_mandate",
     "url": "https://ainumbers.co/chaingraph/art-771-automation-payback.html",
     "description": "Automation Payback ranker ported from ApexLogics Apex #180 (AL-194). For a list of automation candidates (hours saved per week, loaded hourl",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-772-money-primitives-demonstrator",
+    "display_name": "Money Primitives Demonstrator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Demonstrator node for the shared _money.bundle.mjs kernel: exact decimal parse (closed grammar -?digits(.digits)? at the caller-declared sca",
     "consumes": [],
     "feeds": [],
     "status": "live"
