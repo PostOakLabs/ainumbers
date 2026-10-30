@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (702 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (703 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -179,6 +179,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "consumer_finance",
     "url": "https://ainumbers.co/chaingraph/733-servicing-compliance-clock.html",
     "description": "Computes servicer-compliance due dates and clock states from event dates and loan values: error-resolution and information-request clocks, l",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "785-qr-golive-readiness",
+    "display_name": "QR Go-Live Readiness Assessor",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/785-qr-golive-readiness.html",
+    "description": "Assesses a QR payment scheme's pilot, production, or cross-border go-live readiness through weighted blocking and advisory gates: participan",
     "consumes": [],
     "feeds": [],
     "status": "live"
