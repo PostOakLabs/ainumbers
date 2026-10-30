@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:50383b30da28ddff91ea438dbd7fb49e6a9688b10a493a72d42811a35733f2b9
+// kernel_digest_at_authoring: sha256:9de8985132fa0e2c236ff11a4867d08f38e2ae3efdc27e75240b0c1078bb7f49
 //
 // FV-PROPFLOOR-SHARD-B5-1 — property-test floor for art-212-prediction-market-arbitrage.
 // Class B (bounded cross-venue arbitrage calculator). float-sensitive: yes -- venue-specific
@@ -98,7 +98,8 @@ function checkP3_netProfitIdentity() {
     checked++;
     const expNet = Math.round((r.gross_profit - r.total_fees) * 100) / 100;
     if (Math.abs(r.net_profit - expNet) > TOL) violations++;
-    if (r.total_fees !== Math.round((r.fee_a + r.fee_b) * 100) / 100) violations++;
+    // Leg fees are summed in integer micro-dollars (PREDMKT-FEE-INPLACE-FIX-1), so the identity is exact to $0.000001.
+    if (Math.round(r.total_fees * 1e6) !== Math.round(r.fee_a * 1e6) + Math.round(r.fee_b * 1e6)) violations++;
   }
   return { name: 'P3_net_profit_reconstructs_from_gross_and_fees', trials: checked, violations };
 }
@@ -143,6 +144,22 @@ function checkP5_forced() {
   return rows;
 }
 
+// ---------- P6 (PREDMKT-FEE-INPLACE-FIX-1): with a whole contract count, the Kalshi leg equals the exact integer ceil ----------
+// stake_total = n * cost makes k_contracts = n; fee_cents = ceil(7 * n * pc * (100 - pc) / 10000).
+function checkP6_kalshiExactCeil() {
+  let violations = 0, checked = 0;
+  for (let n = 1; n <= 300; n++) {
+    for (let pc = 1; pc <= 99; pc++) {
+      const r = compute({ venue_a: 'kalshi', venue_b: 'cme_event', yes_price_a: pc / 100, no_price_b: 0.5, payout: 1, stake_total: n * (pc / 100 + 0.5) }).output_payload;
+      if (r.k_contracts !== n) continue;
+      checked++;
+      const exact = Math.floor((7 * n * pc * (100 - pc) + 9999) / 10000);
+      if (Math.round(r.fee_a * 100) !== exact) violations++;
+    }
+  }
+  return { name: 'P6_kalshi_leg_exact_integer_ceil_whole_k', trials: checked, violations };
+}
+
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED — spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
@@ -153,6 +170,7 @@ results.properties.push(checkP1_boundedness());
 results.properties.push(checkP2_arbAgreement());
 results.properties.push(checkP3_netProfitIdentity());
 results.properties.push(checkP4_scaleInvariance());
+results.properties.push(checkP6_kalshiExactCeil());
 results.boundary_forced = checkP5_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
