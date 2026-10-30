@@ -134,6 +134,8 @@ const TIER_NOTE = 'The proportional tiers (systemic, prominent, small) are this 
   + 'methodology.';
 
 function refusal(code, detail) {
+  const flags = [];
+  if (code) flags.push('INPUT_REFUSED');
   return {
     output_payload: {
       error: code.toLowerCase(), detail,
@@ -141,7 +143,7 @@ function refusal(code, detail) {
       principles_in_scope: [], rated_count: 0, gap_register: [], action_plan: [],
       summary_by_rating: {}, coverage_pct: 0, tier_note: TIER_NOTE,
     },
-    compliance_flags: ['INPUT_REFUSED'],
+    compliance_flags: flags,
   };
 }
 
