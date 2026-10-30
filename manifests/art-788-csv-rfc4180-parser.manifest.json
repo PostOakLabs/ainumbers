@@ -1,0 +1,217 @@
+{
+  "tool_id": "art-788-csv-rfc4180-parser",
+  "version": "1.0.0",
+  "title": "RFC 4180 CSV Parser",
+  "description": "Demonstrator node for the shared _csv.bundle.mjs kernel (SHARED-CSV-AND-PAGE-XML-1): a deterministic RFC 4180 parser over a caller-supplied CSV string -- quoted fields, embedded commas and CRLF inside quotes, doubled-quote decoding, CRLF record breaks (bare LF accepted and flagged, bare CR refused), a leading UTF-8 BOM stripped and flagged, declared byte/row/column caps enforced before parsing with structured refusals, a header map, and a per-column summary. Every field value is returned as a decoded string, never numerically coerced. When sanitize_export is true, export-echoed values pass through the estate's CSV-injection guard (the _csv_injection.mjs SSOT, inlined verbatim -- the OWASP formula-prefix rule). The bundle is the reuse vehicle for CSV-ingesting wave kernels; this node gives it an execution_hash surface, a fixture set, a PBT floor and a section 18 proof surface.",
+  "category": "chaingraph",
+  "tags": [
+    "compliance_mandate",
+    "csv",
+    "rfc-4180",
+    "parser",
+    "csv-injection-guard",
+    "header-map",
+    "column-summary",
+    "mcp:parse_csv_table"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "csv_text": {
+        "type": "string",
+        "description": "The CSV table as a plain string, already extracted by the caller (E2.parse doctrine: the zk guest has no DOMParser and this kernel deliberately contains no markup tokenizer). Capped by max_bytes (default 1,000,000 UTF-8 bytes), max_rows (default 10,000 data records) and max_cols (default 512)."
+      },
+      "header": {
+        "type": "boolean",
+        "description": "When true (default), the first record is treated as the column-name header row and is excluded from the returned data records and used for the column names in the summary."
+      },
+      "summarize": {
+        "type": "boolean",
+        "description": "When true (default), the output includes column_summary: per-column name, non_empty_count, empty_count, min_length and max_length over the decoded string values."
+      },
+      "sanitize_export": {
+        "type": "boolean",
+        "description": "When true, every data value echoed toward an export surface is passed through the CSV-injection guard (OWASP formula-prefix rule: a leading = + - @ TAB or CR receives a literal apostrophe prefix) and fully RFC 4180 quoted serialized rows are returned. When false (default), the parse stays a faithful decode and any risk value only sets the CSV_INJECTION_RISK_UNSANITIZED flag."
+      },
+      "max_bytes": {
+        "type": "number",
+        "description": "Override for the UTF-8 byte cap. An over-cap input is refused whole (INPUT_TOO_LARGE), never truncated."
+      },
+      "max_rows": {
+        "type": "number",
+        "description": "Override for the data-record cap. An over-cap input is refused whole (TOO_MANY_ROWS), never truncated."
+      },
+      "max_cols": {
+        "type": "number",
+        "description": "Override for the per-record field cap. An over-cap record is refused whole (TOO_MANY_COLUMNS), never truncated."
+      }
+    },
+    "required": [
+      "csv_text"
+    ]
+  },
+  "mcp_tool_definition": {
+    "name": "parse_csv_table",
+    "description": "Parses a CSV table string per RFC 4180 (quoted fields, embedded CRLF, doubled quotes, BOM stripped and flagged, declared caps with structured refusals) and returns decoded string records plus a per-column summary; optional OWASP CSV-injection sanitization for export echo.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "csv_text": {
+          "type": "string"
+        },
+        "header": {
+          "type": "boolean"
+        },
+        "summarize": {
+          "type": "boolean"
+        },
+        "sanitize_export": {
+          "type": "boolean"
+        },
+        "max_bytes": {
+          "type": "number"
+        },
+        "max_rows": {
+          "type": "number"
+        },
+        "max_cols": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "csv_text"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "server",
+    "entry": "chaingraph/kernels/art-788-csv-rfc4180-parser.kernel.mjs",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "ok": {
+        "type": "boolean"
+      },
+      "error": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "detail": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "header": {
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "records": {
+        "type": "array"
+      },
+      "errors": {
+        "type": "array"
+      },
+      "column_summary": {
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "export_rows": {
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "serialized_rows": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "injection_flags": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "bounds": {
+        "type": "object"
+      },
+      "note": {
+        "type": "string"
+      }
+    }
+  },
+  "source": "authored by SHARED-CSV-AND-PAGE-XML-1 per ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec 0.1 (bundle + demonstrator ruling) and the row's own fence. Parse grammar pinned to RFC 4180 Section 2 (clause snapshot registered in chaingraph/standard/clause-snapshot-registry.json, digest sha256:d9179e244fe88c91b043fb1c56e57d4393fd245ef3c675c344c5c586e1bc4a6a; two declared deviations named in the bundle header: bare LF accepted and flagged, bare CR refused). CSV-injection guard inlined VERBATIM from chaingraph/kernels/_csv_injection.mjs (WORKBOOK-1-BUILD-SPEC.md Sec WB-5 SSOT), never re-derived. Golden fixtures derive from the RFC grammar cases plus the malformed/cap set, filled from the kernel's own compute() by chaingraph/kernels/fill-fixture-payloads.mjs. human_sign_off PENDING.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "csv_text": "a,b\r\n1,2\r\n"
+  },
+  "output_example": {
+    "ok": true,
+    "error": null,
+    "detail": null,
+    "header": [
+      "a",
+      "b"
+    ],
+    "records": [
+      [
+        "1",
+        "2"
+      ]
+    ],
+    "errors": [],
+    "column_summary": [
+      {
+        "index": 0,
+        "name": "a",
+        "non_empty_count": 1,
+        "empty_count": 0,
+        "min_length": 1,
+        "max_length": 1
+      },
+      {
+        "index": 1,
+        "name": "b",
+        "non_empty_count": 1,
+        "empty_count": 0,
+        "min_length": 1,
+        "max_length": 1
+      }
+    ],
+    "export_rows": null,
+    "serialized_rows": null,
+    "injection_flags": {
+      "sanitize_export": false,
+      "values_prefixed": 0
+    },
+    "bounds": {
+      "max_bytes": 1000000,
+      "max_rows": 10000,
+      "max_cols": 512,
+      "bytes_used": 10,
+      "rows_used": 1,
+      "cols_used": 2
+    },
+    "note": "RFC 4180 parse over the inlined _csv bundle: quoted fields, embedded CRLF, doubled quotes, BOM stripped and flagged, declared byte/row/column caps with structured refusals, header map, per-column summary. All values are strings; numeric parsing belongs to downstream money kernels. CSV-injection guard (OWASP formula-prefix rule) applied to export-echoed values when sanitize_export is true."
+  },
+  "example_execution_hash": "e9197775a818b3702b37b592fe5aadea97e00256175b5e6430cdc1b4af2e41a9"
+}
