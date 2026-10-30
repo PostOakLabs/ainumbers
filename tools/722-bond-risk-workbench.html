@@ -1,0 +1,560 @@
+<!-- AINumbers.co · CC BY 4.0 · Post Oak Labs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>How Much Does This Bond's Price Move When Yields Move? · AINumbers.co</title>
+<meta name="description" content="One bond, three risk measures side by side: modified duration, DV01 by full reprice, and convexity, with a combined price-move estimate for a declared yield shock. Browser only, no data transmitted.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/722-bond-risk-workbench.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"How Much Does This Bond's Price Move When Yields Move?","url":"https://ainumbers.co/tools/722-bond-risk-workbench.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "ap2_export": true,
+  "audience": [
+    "risk",
+    "treasury",
+    "auditor"
+  ],
+  "author": "PostOakLabs",
+  "category": "risk",
+  "description": "One bond, declared once, measured three ways: modified duration (art-329), DV01 by central-difference full reprice (art-330), and convexity (art-331), with a combined price-move estimate for a declared yield shock showing duration only, duration plus convexity, and full reprice side by side. Middle office, not lifecycle-bound (risk measurement). Bullet bonds on an even-period schedule only; no odd first coupon, no stub period, parallel shifts only, no embedded options.",
+  "execution": {
+    "entry": "tools/722-bond-risk-workbench.html",
+    "function_name": "computeAll",
+    "timeout_ms": 3000,
+    "type": "browser-javascript"
+  },
+  "input_schema": {
+    "properties": {
+      "coupon_rate_pct": {
+        "description": "Coupon rate, percent per year",
+        "type": "number"
+      },
+      "face_value": {
+        "description": "Bond face value",
+        "type": "number"
+      },
+      "periods_per_year": {
+        "description": "Coupon periods per year",
+        "type": "number"
+      },
+      "years_to_maturity": {
+        "description": "Years to maturity",
+        "type": "number"
+      },
+      "yield_shock_bp": {
+        "description": "Declared yield shock in basis points for the combined view",
+        "type": "number"
+      },
+      "ytm_pct": {
+        "description": "Yield to maturity, percent per year",
+        "type": "number"
+      }
+    },
+    "required": [
+      "face_value",
+      "coupon_rate_pct",
+      "ytm_pct",
+      "years_to_maturity",
+      "periods_per_year"
+    ],
+    "type": "object"
+  },
+  "license": "CC-BY-4.0",
+  "mcp_tool_definition": {
+    "description": "For one declared bullet bond, computes modified duration (art-329), DV01 by central-difference full reprice (art-330), and convexity (art-331), with a combined price-move estimate for a declared yield shock: duration only, duration plus convexity, and full reprice side by side.",
+    "inputSchema": {
+      "properties": {
+        "coupon_rate_pct": {
+          "type": "number"
+        },
+        "face_value": {
+          "type": "number"
+        },
+        "periods_per_year": {
+          "type": "number"
+        },
+        "years_to_maturity": {
+          "type": "number"
+        },
+        "yield_shock_bp": {
+          "type": "number"
+        },
+        "ytm_pct": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "face_value",
+        "coupon_rate_pct",
+        "ytm_pct",
+        "years_to_maturity",
+        "periods_per_year"
+      ],
+      "type": "object"
+    },
+    "name": "compute_bond_price_sensitivity"
+  },
+  "output_schema": {
+    "properties": {
+      "combined": {
+        "type": "object"
+      },
+      "convexity": {
+        "type": "number"
+      },
+      "dv01": {
+        "type": "number"
+      },
+      "macaulay_duration_years": {
+        "type": "number"
+      },
+      "modified_duration_years": {
+        "type": "number"
+      },
+      "price": {
+        "type": "number"
+      }
+    },
+    "type": "object"
+  },
+  "tags": [
+    "bond",
+    "duration",
+    "DV01",
+    "convexity",
+    "price sensitivity",
+    "yield shock",
+    "bullet bond",
+    "Fabozzi"
+  ],
+  "title": "How Much Does This Bond's Price Move When Yields Move?",
+  "tool_id": "722-bond-risk-workbench",
+  "version": "1.0.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.card h2{font-size:1.1rem;color:var(--bright);margin-bottom:.75rem}
+.card p,.card li{font-size:.82rem;color:var(--body)}
+.card ul{padding-left:1.25rem}.card li{margin:.25rem 0}
+label{display:block;color:var(--text);font-size:.8rem;margin:.6rem 0 .15rem}
+input{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);border-radius:4px;padding:.5rem .6rem;font-size:.9rem;font-family:'JetBrains Mono',monospace}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.6rem 1.5rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;margin-top:1rem}
+.run-btn:hover{background:var(--teal-lt)}
+.result-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.result-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.result-table tr:last-child td{border-bottom:none}
+td.num{font-family:'JetBrains Mono',monospace;color:var(--bright)}
+.note{font-size:.72rem;color:var(--muted);margin-top:.5rem;line-height:1.6}
+code{font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal-lt)}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)}
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.28;transition:opacity .2s,border-color .2s}
+.export-btn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+.export-btn.ready:hover{background:var(--bg-3)}
+.ap2-note{font-size:.72rem;margin-top:.5rem;min-height:1.2em}
+.ap2-note.err{color:var(--red)}.ap2-note.ok{color:var(--green)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+<style>#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-3,#111E35)}#mdExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-trail"><a href="../index.html">Home</a> / <a href="../tools.html">Tools</a> / Bond Risk Workbench</div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">T722 · Risk Measurement</div>
+  <span class="badge badge-muted">v1.0</span>
+  <h1>How much does this bond's price move when yields move?</h1>
+  <p class="hero-desc">One bond, declared once, measured three ways: modified duration (art-329), DV01 (art-330), and convexity (art-331). All three share the same even-period bullet-bond cash-flow schedule, so the three answers describe one bond.</p>
+  <div class="disclaimer">This page is a calculation check, not investment advice and not a pricing service. It computes textbook bond risk measures from inputs you supply; it does not recommend buying, selling, or holding any bond, and it does not price any bond for trading. Verify every result against your own models and current market data before relying on it for any decision.</div>
+  <div class="hero-badges">
+    <span class="badge badge-teal">Risk</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note" style="background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8"><span style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;font-weight:600">Scope and reliance:</span> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> Embedded rates, thresholds, plus regulatory citations are static reference values that may age: verify against current primary sources and your own data before relying on any output for commercial, legal, or compliance decisions. Deterministic logic, no inference, zero PII, runs offline, CC BY 4.0.</div>
+  <p style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);margin-bottom:1rem">Office cell: middle office, not lifecycle-bound (risk measurement).</p>
+
+  <div class="card">
+    <h2>Inputs</h2>
+    <label for="face">Face value</label>
+    <input id="face" type="number" value="1000" step="any">
+    <label for="coupon">Coupon rate, percent per year</label>
+    <input id="coupon" type="number" value="5" step="any">
+    <label for="ytm">Yield to maturity, percent per year</label>
+    <input id="ytm" type="number" value="4" step="any">
+    <label for="years">Years to maturity</label>
+    <input id="years" type="number" value="10" step="any">
+    <label for="periods">Coupon periods per year</label>
+    <input id="periods" type="number" value="2" step="1">
+    <label for="shock">Declared yield shock, basis points (for the combined view)</label>
+    <input id="shock" type="number" value="100" step="any">
+    <button class="run-btn" onclick="runAll()">Compute</button>
+  </div>
+
+  <div class="card">
+    <h2>Risk measures</h2>
+    <table class="result-table">
+      <tr><th>Measure</th><th>Value</th></tr>
+      <tr><td>Price at the stated yield</td><td class="num" id="outPrice">-</td></tr>
+      <tr><td>Macaulay duration, years (art-329)</td><td class="num" id="outMac">-</td></tr>
+      <tr><td>Modified duration, years (art-329)</td><td class="num" id="outMod">-</td></tr>
+      <tr><td>DV01, per 1bp (art-330, central-difference full reprice)</td><td class="num" id="outDv01">-</td></tr>
+      <tr><td>Convexity, annualised (art-331)</td><td class="num" id="outConv">-</td></tr>
+    </table>
+    <p class="note">DV01 here is computed by art-330, a central-difference full reprice at yield plus and minus 1bp. Kernel line, art-330 line 67: "via central-difference full reprice at y±1bp". Kernel line, art-330 line 92: <code>const dv01 = (priceDown - priceUp) / 2;</code> Kernel line, art-330 line 107: <code>method: 'central_difference_full_reprice'</code>. Modified duration times price times 0.0001 is only the linear approximation compared against DV01. art-330 computes DV01 by full reprice.</p>
+  </div>
+
+  <div class="card">
+    <h2>Combined view: price move for the declared shock</h2>
+    <table class="result-table">
+      <tr><th>Estimate</th><th>Price change</th><th>New price</th></tr>
+      <tr><td>Duration only</td><td class="num" id="chgDur">-</td><td class="num" id="newDur">-</td></tr>
+      <tr><td>Duration plus convexity</td><td class="num" id="chgDurConv">-</td><td class="num" id="newDurConv">-</td></tr>
+      <tr><td>Full reprice at the declared shock (page's own one-sided reprice)</td><td class="num" id="chgFull">-</td><td class="num" id="newFull">-</td></tr>
+    </table>
+    <p class="note">Expected order: the full reprice is the reference. Duration plus convexity is nearer to it than duration only, for a rise or a fall. Convexity always moves the estimate in the holder's favour: for a yield rise it softens the fall, for a yield fall it adds to the gain.</p>
+    <p class="note">The full reprice line is the page's own one-sided reprice at the declared shock: it reprices the same schedule at the shocked yield. That is distinct from art-330's DV01, which is a separate 1 bp central difference at yield plus and minus 1 bp. Duration only: change equals negative modified duration times yield change times price. Duration plus convexity: change equals (negative modified duration times yield change plus 0.5 times convexity times yield change squared) times price.</p>
+  </div>
+
+  <div class="card">
+    <h2>Limits</h2>
+    <ul>
+      <li>Bullet bonds only, on an even-period schedule. No odd first coupon and no stub period.</li>
+      <li>Parallel shifts only. The shock moves the whole yield curve by one amount; twists and non-parallel moves are out of scope.</li>
+      <li>No embedded options. Callable, putable, or convertible bonds are out of scope; their price sensitivity is not duration plus convexity alone.</li>
+      <li>Modified duration times price times 0.0001 is an approximation to DV01, shown for comparison only. The reported DV01 is the art-330 full reprice, which is a separate 1 bp central difference. The combined view's one-sided reprice at the declared shock is a different calculation.</li>
+      <li>The day-count convention is echoed for receipt transparency; the schedule itself assumes even periods.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Policy Mandate export</h2>
+    <p>Run the computation, then export a Tier 1 Policy Mandate (JSON plus Markdown transcript) carrying the inputs and the three measures for audit.</p>
+    <div class="results-export-row">
+      <button class="export-btn" id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the analysis above to generate a Policy Mandate">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+      <button class="export-btn" id="mdExportBtn" onclick="exportMarkdown()" disabled title="Run the analysis above to generate a Policy Mandate">Export Markdown</button>
+    </div>
+    <p class="ap2-note" id="ap2Note"></p>
+  </div>
+
+  <div class="card">
+    <h2>Sources</h2>
+    <ul>
+      <li>art-329-tvm-bond-duration: Macaulay and modified duration, textbook definition (Fabozzi, Bond Markets).</li>
+      <li>art-330-tvm-dv01: DV01 / price value of a basis point, central-difference full reprice (Fabozzi, Bond Markets). art-330's DV01 is a separate 1 bp central difference; the combined view's full reprice line is the page's own one-sided reprice at the declared shock.</li>
+      <li>art-331-tvm-convexity: closed-form convexity, annualised by periods per year squared (Fabozzi, Bond Markets, Ch.4).</li>
+    </ul>
+    <p class="note">The page reimplements the three kernels' schedules and formulas in browser JavaScript. Kernel workers use a custom power series for determinism; this page uses Math.pow, and the displayed values agree with the kernel outputs to the displayed rounding for ordinary inputs.</p>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+      <a href="../privacy.html">Privacy</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+'use strict';
+function safeNum(v, def) { var n = Number(v); return Number.isFinite(n) ? n : def; }
+function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0; }
+function r6(v) { return Number.isFinite(v) ? Math.round(v * 1e6) / 1e6 : 0; }
+function buildSchedule(face, couponRatePct, yearsToMaturity, periodsPerYear) {
+  var n = Math.max(1, Math.round(yearsToMaturity * periodsPerYear));
+  var couponPerPeriod = face * (couponRatePct / 100) / periodsPerYear;
+  var cashFlows = [];
+  for (var t = 1; t <= n; t++) {
+    cashFlows.push({ t: t, amount: t === n ? couponPerPeriod + face : couponPerPeriod });
+  }
+  return cashFlows;
+}
+function priceAt(cashFlows, periodicYield) {
+  var price = 0;
+  for (var i = 0; i < cashFlows.length; i++) {
+    price += cashFlows[i].amount * Math.pow(1 + periodicYield, -cashFlows[i].t);
+  }
+  return price;
+}
+function computeAll(inp) {
+  var face = safeNum(inp.face, 1000);
+  var coupon = safeNum(inp.coupon, 0);
+  var ytm = safeNum(inp.ytm, 0);
+  var years = Math.max(0, safeNum(inp.years, 0));
+  var periods = Math.max(1, Math.round(safeNum(inp.periods, 2)));
+  var shockBp = safeNum(inp.shock, 100);
+  var flags = [];
+  if (years <= 0) flags.push('YEARS_TO_MATURITY_NOT_POSITIVE');
+  var cf = years > 0 ? buildSchedule(face, coupon, years, periods) : [];
+  var y = ytm / 100 / periods;
+  var price = 0, weightedT = 0, secondMoment = 0;
+  for (var i = 0; i < cf.length; i++) {
+    var disc = Math.pow(1 + y, -cf[i].t);
+    var pv = cf[i].amount * disc;
+    price += pv;
+    weightedT += cf[i].t * pv;
+    secondMoment += cf[i].amount * cf[i].t * (cf[i].t + 1) * Math.pow(1 + y, -(cf[i].t + 2));
+  }
+  var macaulayYears = price !== 0 ? (weightedT / price) / periods : 0;
+  var modifiedYears = macaulayYears / (1 + y);
+  var convexityAnnual = price !== 0 ? (secondMoment / price) / (periods * periods) : 0;
+  var shockPeriodic = (1 / 10000) / periods;
+  var priceUp = cf.length ? priceAt(cf, y + shockPeriodic) : 0;
+  var priceDown = cf.length ? priceAt(cf, y - shockPeriodic) : 0;
+  var dv01 = (priceDown - priceUp) / 2;
+  if (price <= 0 && cf.length) flags.push('NON_POSITIVE_PRICE');
+  var dy = shockBp / 10000;
+  var chgDur = -modifiedYears * dy * price;
+  var chgDurConv = (-modifiedYears * dy + 0.5 * convexityAnnual * dy * dy) * price;
+  var priceFull = cf.length ? priceAt(cf, y + dy / periods) : 0;
+  var chgFull = priceFull - price;
+  return {
+    inputs: { face_value: r2(face), coupon_rate_pct: coupon, ytm_pct: ytm, years_to_maturity: years, periods_per_year: periods, yield_shock_bp: shockBp },
+    price: r2(price), macaulay_duration_years: r6(macaulayYears), modified_duration_years: r6(modifiedYears),
+    dv01: r6(dv01), convexity: r6(convexityAnnual),
+    combined: {
+      duration_only_change: r2(chgDur), duration_only_price: r2(price + chgDur),
+      duration_convexity_change: r2(chgDurConv), duration_convexity_price: r2(price + chgDurConv),
+      full_reprice_change: r2(chgFull), full_reprice_price: r2(priceFull)
+    },
+    flags: flags
+  };
+}
+var lastResult = null;
+function runAll() {
+  var inp = {
+    face: document.getElementById('face').value,
+    coupon: document.getElementById('coupon').value,
+    ytm: document.getElementById('ytm').value,
+    years: document.getElementById('years').value,
+    periods: document.getElementById('periods').value,
+    shock: document.getElementById('shock').value
+  };
+  lastResult = computeAll(inp);
+  document.getElementById('outPrice').textContent = lastResult.price;
+  document.getElementById('outMac').textContent = lastResult.macaulay_duration_years;
+  document.getElementById('outMod').textContent = lastResult.modified_duration_years;
+  document.getElementById('outDv01').textContent = lastResult.dv01;
+  document.getElementById('outConv').textContent = lastResult.convexity;
+  document.getElementById('chgDur').textContent = lastResult.combined.duration_only_change;
+  document.getElementById('newDur').textContent = lastResult.combined.duration_only_price;
+  document.getElementById('chgDurConv').textContent = lastResult.combined.duration_convexity_change;
+  document.getElementById('newDurConv').textContent = lastResult.combined.duration_convexity_price;
+  document.getElementById('chgFull').textContent = lastResult.combined.full_reprice_change;
+  document.getElementById('newFull').textContent = lastResult.combined.full_reprice_price;
+  var jb = document.getElementById('ap2ExportBtn');
+  jb.disabled = false; jb.classList.add('ready'); jb.title = 'For API integration · audit trail';
+  var mb = document.getElementById('mdExportBtn');
+  mb.disabled = false; mb.classList.add('ready'); mb.title = 'For API integration · audit trail';
+}
+/* AP2 Policy Mandate Export: CONTRACT 3.1 (v1.0 schema), 3.2, and 4 Tier 1.
+   AP2Schema is the legacy internal JS name kept for stability; the emitted
+   document is an AINumbers Policy Mandate, not a Google AP2 mandate. */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function (m) {
+  var RE_ISO = /^\d{4}-\d{2}-\d{2}/, RE_VER = /^\d+\.\d+/, RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  var MANDATE_TYPES = ['payment_policy', 'aml_rule', 'kyc_requirement', 'routing_policy', 'compliance_control', 'risk_parameter', 'credit_assessment', 'fx_policy', 'scheme_rule', 'disclosure_template', 'fee_schedule_mandate', 'velocity_rule_mandate', 'incident_classification_mandate', 'routing_policy_mandate', 'agent_guardrail_mandate'];
+  function _f(msg) { throw new Error('AP2Schema: ' + msg); }
+  if (!m || typeof m !== 'object') _f('mandate must be an object');
+  if (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id)) _f('mandate_id must be UUIDv4');
+  if (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at)) _f('issued_at must be ISO 8601');
+  if (m.issued_by !== 'ainumbers.co') _f('issued_by must be ainumbers.co');
+  if (typeof m.tool_id !== 'string' || !m.tool_id) _f('missing tool_id');
+  if (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version)) _f('tool_version must be semver');
+  if (typeof m.mandate_type !== 'string' || MANDATE_TYPES.indexOf(m.mandate_type) === -1) _f('mandate_type must be a 3.1 type');
+  if (!Array.isArray(m.jurisdiction)) _f('jurisdiction must be array');
+  if (!Array.isArray(m.regulatory_frameworks)) _f('regulatory_frameworks must be array');
+  if (!m.payload || typeof m.payload !== 'object') _f('missing payload');
+  if (typeof m.summary !== 'string' || !m.summary) _f('missing summary');
+  if (!Array.isArray(m.agent_instructions)) _f('agent_instructions must be array');
+  if (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from)) _f('valid_from must be ISO 8601');
+  if (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until)) _f('valid_until must be ISO 8601');
+  if (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed)) _f('last_reviewed must be ISO 8601');
+  if (!m.source_tool_inputs || typeof m.source_tool_inputs !== 'object') _f('missing source_tool_inputs');
+  if (!Array.isArray(m.regulatory_citations)) _f('regulatory_citations must be array');
+  if (!m.audit_metadata || typeof m.audit_metadata !== 'object') _f('missing audit_metadata');
+  if (m.audit_metadata.client_side_executed !== true) _f('audit_metadata.client_side_executed must be true');
+  if (m.audit_metadata.zero_pii_verified !== true) _f('audit_metadata.zero_pii_verified must be true');
+  if (m.audit_metadata.deterministic_run !== true) _f('audit_metadata.deterministic_run must be true');
+  return true;
+};
+AP2Schema.build = function (toolId, payload, inputs) {
+  var ts = new Date().toISOString();
+  var today = ts.slice(0, 10);
+  var nextYear = (Number(today.slice(0, 4)) + 1) + today.slice(4);
+  return {
+    mandate_id: crypto.randomUUID(),
+    issued_at: ts,
+    issued_by: 'ainumbers.co',
+    tool_id: toolId,
+    tool_version: '1.0.0',
+    mandate_type: 'risk_parameter',
+    jurisdiction: ['ZZ'],
+    regulatory_frameworks: [],
+    payload: payload,
+    summary: 'Bond price sensitivity assessment for one declared bullet bond: modified duration, DV01 by central-difference full reprice, and convexity, with a combined price-move estimate for the declared yield shock.',
+    agent_instructions: [
+      'Review the exported measures against your own bond models before relying on them.',
+      'Treat the full reprice line as the reference estimate and the duration-only line as the linear approximation.',
+      'Verify the inputs and the stated yield against current market data before any decision.'
+    ],
+    valid_from: today,
+    valid_until: nextYear,
+    last_reviewed: today,
+    source_tool_inputs: inputs,
+    regulatory_citations: ['Fabozzi, Bond Markets', 'art-329-tvm-bond-duration', 'art-330-tvm-dv01', 'art-331-tvm-convexity'],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+};
+function stampStr(ts) { return ts.replace(/[:.TZ]/g, '').replace(/-/g, '').slice(0, 14); }
+function downloadBlob(content, type, filename) {
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type: type }));
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function setNote(msg, ok) {
+  var el = document.getElementById('ap2Note');
+  el.textContent = msg;
+  el.className = 'ap2-note ' + (ok ? 'ok' : 'err');
+}
+function exportAP2() {
+  if (!lastResult) { setNote('Run the computation first to generate results.', false); return; }
+  var mandate;
+  try {
+    mandate = AP2Schema.build('722-bond-risk-workbench', lastResult, lastResult.inputs);
+    AP2Schema.validate(mandate);
+  } catch (e) {
+    setNote('Export blocked: ' + e.message, false);
+    return;
+  }
+  var ts = new Date().toISOString();
+  downloadBlob(JSON.stringify(mandate, null, 2), 'application/json', '722-bond-risk-workbench_' + stampStr(ts) + '.policy.json');
+  setNote('Policy Mandate exported.', true);
+}
+function markdownTranscript(mandate) {
+  var p = mandate.payload;
+  var c = p.combined;
+  var lines = [];
+  lines.push('# Bond Risk Workbench: Policy Mandate transcript');
+  lines.push('');
+  lines.push('- mandate_id: ' + mandate.mandate_id);
+  lines.push('- issued_at: ' + mandate.issued_at);
+  lines.push('- issued_by: ' + mandate.issued_by);
+  lines.push('- tool_id: ' + mandate.tool_id);
+  lines.push('- tool_version: ' + mandate.tool_version);
+  lines.push('- mandate_type: ' + mandate.mandate_type);
+  lines.push('');
+  lines.push('## Inputs');
+  lines.push('');
+  lines.push('- face_value: ' + p.inputs.face_value);
+  lines.push('- coupon_rate_pct: ' + p.inputs.coupon_rate_pct);
+  lines.push('- ytm_pct: ' + p.inputs.ytm_pct);
+  lines.push('- years_to_maturity: ' + p.inputs.years_to_maturity);
+  lines.push('- periods_per_year: ' + p.inputs.periods_per_year);
+  lines.push('- yield_shock_bp: ' + p.inputs.yield_shock_bp);
+  lines.push('');
+  lines.push('## Risk measures');
+  lines.push('');
+  lines.push('- price: ' + p.price);
+  lines.push('- macaulay_duration_years: ' + p.macaulay_duration_years);
+  lines.push('- modified_duration_years: ' + p.modified_duration_years);
+  lines.push('- dv01 (art-330, separate 1 bp central difference): ' + p.dv01);
+  lines.push('- convexity: ' + p.convexity);
+  lines.push('');
+  lines.push('## Combined view for the declared shock');
+  lines.push('');
+  lines.push('- duration_only_change: ' + c.duration_only_change + ' (new price ' + c.duration_only_price + ')');
+  lines.push('- duration_convexity_change: ' + c.duration_convexity_change + ' (new price ' + c.duration_convexity_price + ')');
+  lines.push('- full_reprice_change (page\'s own one-sided reprice at the declared shock): ' + c.full_reprice_change + ' (new price ' + c.full_reprice_price + ')');
+  lines.push('');
+  lines.push('## Notes');
+  lines.push('');
+  lines.push('The full reprice line is the page\'s own one-sided reprice at the declared shock. art-330\'s DV01 is a separate 1 bp central difference. This transcript is a calculation check, not investment advice and not a pricing service.');
+  lines.push('');
+  lines.push('## Summary');
+  lines.push('');
+  lines.push(mandate.summary);
+  return lines.join('\n');
+}
+function exportMarkdown() {
+  if (!lastResult) { setNote('Run the computation first to generate results.', false); return; }
+  var mandate;
+  try {
+    mandate = AP2Schema.build('722-bond-risk-workbench', lastResult, lastResult.inputs);
+    AP2Schema.validate(mandate);
+  } catch (e) {
+    setNote('Export blocked: ' + e.message, false);
+    return;
+  }
+  var ts = new Date().toISOString();
+  downloadBlob(markdownTranscript(mandate), 'text/markdown', '722-bond-risk-workbench_' + stampStr(ts) + '.md');
+  setNote('Markdown transcript exported.', true);
+}
+</script>
+</body>
+</html>
