@@ -1,0 +1,151 @@
+{
+  "tool_id": "art-789-check-je-multicurrency-balance",
+  "version": "1.0.0",
+  "title": "Multicurrency JE Balance Check",
+  "description": "Check that structured journal entries balance on a basis the caller declares: per_currency (every declared currency's lines sum to zero separately) or functional (the caller-declared functional-currency amounts sum to zero; no default, none inferred). All amounts are signed JSON integers in minor units, debit positive, checked against the safe-integer bound -- non-integers refused AMOUNT_NOT_INTEGER, beyond 2^53-1 refused AMOUNT_UNSAFE_INTEGER, never coerced through floats. A per-currency integer tolerance may be declared and the tolerance actually used is echoed in the output, never inferred. Currency exponents are declared by the caller (ISO 4217 minor units are published by SIX, the maintenance agency; this node does not fetch and does not claim the declared exponents are authoritative). Output: per-entry status (balanced, within_tolerance, imbalanced, refused), residuals by currency (per_currency) or in the functional currency (functional), zero-amount-line warnings, and totals by status. The node does NOT claim any entry is correct, approved or compliant; only that its arithmetic closes on the declared basis, or by how much it does not. functional_minor is a caller-declared input taken as given: no FX-rate recomputation and no rounding-line checks in v1. Sibling: art-653 is the plain-text single-currency journal-entry verifier; this node is the structured multi-currency check and does not extend it.",
+  "category": "sox-404-icfr-audit-controls",
+  "tags": [
+    "journal-entries",
+    "balance-check",
+    "multi-currency",
+    "functional-currency",
+    "minor-units",
+    "tolerance",
+    "audit",
+    "je-testing",
+    "integer-arithmetic",
+    "mcp:check_je_multicurrency_balance"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": ["balance_basis", "currency_exponents", "entries"],
+    "properties": {
+      "policy_version": { "type": "string", "description": "Echoed through to the artifact." },
+      "balance_basis": { "type": "string", "enum": ["functional", "per_currency"], "description": "Required, no default. per_currency: every currency's lines must sum to zero separately. functional: the caller-declared functional-currency amounts must sum to zero. Absent or any other value refuses BASIS_NOT_DECLARED." },
+      "functional_currency": { "type": "string", "description": "Required when balance_basis is functional; the declared functional currency code, which must also appear in currency_exponents." },
+      "tolerance_minor": { "type": "object", "description": "Optional map of currency code to a declared integer tolerance >= 0 (default 0, echoed explicitly in the output; never inferred). A negative or non-integer value refuses NEGATIVE_TOLERANCE." },
+      "currency_exponents": { "type": "object", "description": "Declared map of currency code to minor-unit exponent (e.g. USD 2, JPY 0, KWD 3). Declared by the caller; membership only is checked -- a line currency absent from the map refuses UNKNOWN_CURRENCY. No run-time fetch; the declared exponents are not claimed authoritative." },
+      "entries": {
+        "type": "array",
+        "description": "Journal entries, capped at 500 (ENTRY_CAP_EXCEEDED above). Each entry: entry_id, optional effective_date, and lines.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "entry_id": { "type": "string", "description": "Opaque synthetic label; duplicates refuse DUPLICATE_ENTRY_ID." },
+            "effective_date": { "type": "string", "description": "Optional opaque date label." },
+            "lines": {
+              "type": "array",
+              "description": "At least 2 lines (ENTRY_TOO_FEW_LINES below that). Each line: line_id, account, currency, amount_minor, optional functional_minor.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "line_id": { "type": "string", "description": "Opaque synthetic label; duplicates across the batch refuse DUPLICATE_LINE_ID." },
+                  "account": { "type": "string", "description": "Opaque synthetic account label." },
+                  "currency": { "type": "string", "description": "Currency code; must appear in currency_exponents." },
+                  "amount_minor": { "type": "integer", "description": "Signed integer minor units, debit positive. Non-integer refuses AMOUNT_NOT_INTEGER; beyond 2^53-1 refuses AMOUNT_UNSAFE_INTEGER. Zero carries a ZERO_AMOUNT_LINE warning." },
+                  "functional_minor": { "type": "integer", "description": "Required when the basis is functional and the line currency differs from the functional currency (missing refuses MISSING_FUNCTIONAL_AMOUNT); taken as caller-declared, not recomputed." }
+                },
+                "required": ["line_id", "account", "currency", "amount_minor"]
+              }
+            }
+          },
+          "required": ["entry_id", "lines"]
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "check_je_multicurrency_balance",
+    "description": "Check whether structured multi-currency journal entries balance on a caller-declared basis (functional or per_currency) in integer minor units, with a declared per-currency tolerance. Per-entry status, residuals, declared-tolerance echo, zero-amount-line warnings, totals by status, and named refusals for every malformed input. Values only: no rates are recomputed, no compliance or correctness claim is made.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["balance_basis", "currency_exponents", "entries"],
+      "properties": {
+        "policy_version": { "type": "string", "description": "Echoed through to the artifact." },
+        "balance_basis": { "type": "string", "enum": ["functional", "per_currency"], "description": "Required, no default; absent refuses BASIS_NOT_DECLARED." },
+        "functional_currency": { "type": "string", "description": "Required when the basis is functional." },
+        "tolerance_minor": { "type": "object", "description": "Optional declared integer tolerance >= 0 per currency; default 0, echoed in the output." },
+        "currency_exponents": { "type": "object", "description": "Declared currency code to minor-unit exponent map; membership checked only." },
+        "entries": { "type": "array", "description": "Journal entries (cap 500): entry_id, optional effective_date, lines of { line_id, account, currency, amount_minor, functional_minor? }." }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-789-check-je-multicurrency-balance.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-789-check-je-multicurrency-balance.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: policy_version, balance_basis, functional_currency, tolerance_minor, currency_exponents, entries.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "policy_version": "1.0.0",
+    "balance_basis": "functional",
+    "functional_currency": "USD",
+    "currency_exponents": { "USD": 2, "EUR": 2 },
+    "entries": [
+      {
+        "entry_id": "E1",
+        "lines": [
+          { "line_id": "L1", "account": "cash-eur", "currency": "EUR", "amount_minor": 10000, "functional_minor": 10800 },
+          { "line_id": "L2", "account": "cash-usd", "currency": "USD", "amount_minor": -10800 }
+        ]
+      }
+    ]
+  },
+  "output_example": {
+    "execution_state": "ran",
+    "basis": "functional",
+    "functional_currency": "USD",
+    "tolerance_used": {},
+    "entry_cap": 500,
+    "entries": [
+      {
+        "entry_id": "E1",
+        "status": "balanced",
+        "residual_minor": { "USD": 0 },
+        "tolerance_used": {},
+        "warnings": []
+      }
+    ],
+    "totals": { "balanced": 1, "within_tolerance": 0, "imbalanced": 0, "refused": 0 }
+  },
+  "example_execution_hash": "a71fcb9488cad6be082813f7b9ef425fd3300b4a8111f4fb0ddcc1dec00a0146",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "execution_state": { "type": "string", "enum": ["ran", "did_not_run"] },
+      "reason": { "type": "string", "description": "Batch-level refusal reason when execution_state is did_not_run." },
+      "basis": { "type": "string", "enum": ["functional", "per_currency"] },
+      "functional_currency": { "type": ["string", "null"] },
+      "tolerance_used": { "type": "object", "description": "The declared tolerance map actually used; default empty (0 everywhere)." },
+      "entry_cap": { "type": "integer" },
+      "entries": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "entry_id": { "type": ["string", "null"] },
+            "status": { "type": "string", "enum": ["balanced", "within_tolerance", "imbalanced", "refused"] },
+            "reason": { "type": "string", "description": "Refusal code when status is refused." },
+            "residual_minor": { "type": ["object", "null"], "description": "By currency on per_currency; keyed by the functional currency on functional; null when refused." },
+            "tolerance_used": { "type": ["object", "null"] },
+            "warnings": { "type": "array", "items": { "type": "string", "enum": ["ZERO_AMOUNT_LINE"] } }
+          }
+        }
+      },
+      "totals": {
+        "type": "object",
+        "properties": {
+          "balanced": { "type": "integer" },
+          "within_tolerance": { "type": "integer" },
+          "imbalanced": { "type": "integer" },
+          "refused": { "type": "integer" }
+        }
+      }
+    }
+  }
+}
