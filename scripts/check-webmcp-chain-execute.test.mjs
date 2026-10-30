@@ -29,7 +29,7 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { executionHash } from '../chaingraph/kernels/_hash.mjs';
-import { runPlanChain, judgePart2, judgePart3, ratchet } from './check-webmcp-chain-execute.mjs';
+import { runPlanChain, judgePart2, judgePart3, ratchet, verdictBlocks } from './check-webmcp-chain-execute.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -85,6 +85,14 @@ async function main() {
   check('Ratchet: baselined key WARNs', r.warned.length === 1 && r.warned[0].startsWith('c1#part2'), JSON.stringify(r));
   check('Ratchet: new key is fresh', r.fresh.length === 1 && r.fresh[0].startsWith('c3#part2'), JSON.stringify(r));
   check('Ratchet: healed baseline key is STALE, un-run chain key is not', r.stale.join() === 'c2#part3:art-x', JSON.stringify(r.stale));
+
+  // Verdict: STALE-only warns on PR + merge_group, blocks on main/local; NEW blocks off-PR.
+  check('Verdict: STALE-only does not block a merge_group', verdictBlocks({ fresh: 0, stale: 1, event: 'merge_group' }) === false);
+  check('Verdict: STALE-only does not block a pull_request', verdictBlocks({ fresh: 0, stale: 1, event: 'pull_request' }) === false);
+  check('Verdict: STALE-only blocks on main push', verdictBlocks({ fresh: 0, stale: 1, event: 'push' }) === true);
+  check('Verdict: STALE-only blocks locally (no event)', verdictBlocks({ fresh: 0, stale: 1, event: undefined }) === true);
+  check('Verdict: NEW blocks a merge_group', verdictBlocks({ fresh: 1, stale: 0, event: 'merge_group' }) === true);
+  check('Verdict: NEW is advisory on a pull_request', verdictBlocks({ fresh: 1, stale: 0, event: 'pull_request' }) === false);
 
   const liveRel = 'chaingraph/chains/2052a-classify-daily.html';
   const liveAbs = join(REPO, liveRel);
