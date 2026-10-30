@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1250 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1251 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -2787,6 +2787,9 @@
       "name": "correspondent banking"
     },
     {
+      "name": "corridor-cost"
+    },
+    {
       "name": "cose"
     },
     {
@@ -3768,6 +3771,9 @@
       "name": "g-sib"
     },
     {
+      "name": "g20-cross-border-payments"
+    },
+    {
       "name": "g_spread"
     },
     {
@@ -4462,6 +4468,9 @@
     },
     {
       "name": "mcp:compute_automation_payback"
+    },
+    {
+      "name": "mcp:compute_corridor_cost_averages"
     },
     {
       "name": "mcp:compute_deterministic_amortization_schedule"
@@ -5586,6 +5595,9 @@
       "name": "remediation"
     },
     {
+      "name": "remittances"
+    },
+    {
       "name": "render only"
     },
     {
@@ -5884,6 +5896,9 @@
     },
     {
       "name": "sdd"
+    },
+    {
+      "name": "sdg-10c"
     },
     {
       "name": "sec"
@@ -49678,6 +49693,224 @@
         },
         "x-mcp-tool-name": "recommend_payment_rail",
         "x-tool-url": "https://ainumbers.co/tools/78-smart-routing-advisor.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/compute_corridor_cost_averages": {
+      "post": {
+        "operationId": "compute_corridor_cost_averages",
+        "summary": "Corridor Cost Averages",
+        "description": "Corridor cost three ways from declared pseudonymous provider quotes - simple, market-share-weighted and lowest-N (SmaRT, default n=3) averages - each vs the SDG 10.c 3 percent and G20 5 percent per-corridor 2030 targets. Weighted is null with a reason code when shares are missing or do not sum to 100; never renormalised. Cost per quote = fee + FX margin as percent of send amount (RPW method, 200/500 reference). Basis-point arithmetic. Malformed quotes refuse.\n\n**Tool URL:** https://ainumbers.co/chaingraph/787-corridor-cost-averages.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "remittances",
+          "sdg-10c",
+          "g20-cross-border-payments",
+          "corridor-cost",
+          "mcp:compute_corridor_cost_averages"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "corridor",
+                  "quotes"
+                ],
+                "properties": {
+                  "corridor": {
+                    "type": "object",
+                    "required": [
+                      "origin",
+                      "destination"
+                    ],
+                    "properties": {
+                      "origin": {
+                        "type": "string",
+                        "description": "ISO 3166 alpha-2 origin country code."
+                      },
+                      "destination": {
+                        "type": "string",
+                        "description": "ISO 3166 alpha-2 destination country code."
+                      }
+                    },
+                    "description": "The remittance corridor."
+                  },
+                  "send_amount": {
+                    "type": "number",
+                    "description": "Optional send amount in the send currency. Defaults to 200, the RPW reference amount; 500 is the second RPW reference amount."
+                  },
+                  "quotes": {
+                    "type": "array",
+                    "maxItems": 200,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "provider_code",
+                        "fee",
+                        "fx_margin_pct"
+                      ],
+                      "properties": {
+                        "provider_code": {
+                          "type": "string",
+                          "description": "Pseudonymous provider code, 1-24 characters of letters, digits, underscore or hyphen. Real provider names are refused."
+                        },
+                        "fee": {
+                          "type": "number",
+                          "description": "Transfer fee in the send currency, non-negative."
+                        },
+                        "fx_margin_pct": {
+                          "type": "number",
+                          "description": "Foreign-exchange margin as a percent of the amount sent, non-negative."
+                        },
+                        "market_share_pct": {
+                          "type": "number",
+                          "description": "Optional provider market share in percent, 0-100. The weighted average needs every quote to carry a share and the shares to sum to 100 within tol"
+                        }
+                      },
+                      "description": "Declared provider quote. All quotes quote both the fee and the FX margin, so all are SmaRT-eligible (transparent)."
+                    },
+                    "description": "Declared provider quotes. Synthetic, pseudonymous inputs only."
+                  },
+                  "lowest_n": {
+                    "type": "integer",
+                    "description": "Optional number of cheapest quotes for the lowest_n average. Default 3, the SmaRT rule."
+                  },
+                  "targets": {
+                    "type": "object",
+                    "properties": {
+                      "sdg_pct": {
+                        "type": "number"
+                      },
+                      "corridor_pct": {
+                        "type": "number"
+                      }
+                    },
+                    "description": "Optional target overrides in percent. Defaults 3 and 5."
+                  }
+                },
+                "description": "Corridor plus at least one declared provider quote."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verdict": {
+                      "type": "string"
+                    },
+                    "corridor": {
+                      "type": "string"
+                    },
+                    "send_amount": {
+                      "type": "number"
+                    },
+                    "lowest_n": {
+                      "type": "integer"
+                    },
+                    "quotes_count": {
+                      "type": "integer"
+                    },
+                    "averages": {
+                      "type": "object",
+                      "properties": {
+                        "simple": {
+                          "type": "object",
+                          "properties": {
+                            "total_cost_pct": {
+                              "type": "number"
+                            },
+                            "meets_sdg_3pct": {
+                              "type": "boolean"
+                            },
+                            "meets_g20_corridor_5pct": {
+                              "type": "boolean"
+                            },
+                            "quotes_used": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "weighted": {
+                          "type": [
+                            "object",
+                            "null"
+                          ]
+                        },
+                        "lowest_n": {
+                          "type": "object",
+                          "properties": {
+                            "total_cost_pct": {
+                              "type": "number"
+                            },
+                            "meets_sdg_3pct": {
+                              "type": "boolean"
+                            },
+                            "meets_g20_corridor_5pct": {
+                              "type": "boolean"
+                            },
+                            "quotes_used": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "weighted_null_reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "spread_pp": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "weighting_coverage_pct": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "targets": {
+                      "type": "object"
+                    },
+                    "method_notes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "pii_note": {
+                      "type": "string"
+                    },
+                    "adjacency_note": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "compute_corridor_cost_averages",
+        "x-tool-url": "https://ainumbers.co/chaingraph/787-corridor-cost-averages.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
