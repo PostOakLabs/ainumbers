@@ -1,5 +1,5 @@
-// art-789-check-je-multicurrency-balance — class-K property-test floor.
-// kernel_digest_at_authoring: sha256:a204c0bc22513fa5f27542b486fb80008caf07eda37de68bcafd760c51e56131
+// art-791-check-je-multicurrency-balance — class-K property-test floor.
+// kernel_digest_at_authoring: sha256:b6d7bcfeb17ca487d5fcc37212a7d3a604c28110483550fb68711ff50878fb39
 // spec: JE-MULTICCY-BALANCE-1 (fixed contract in the row; research/borrow-triage-2026-10-29/
 //       ledger-checks-enhanced-recommendations-2026-10-30.md §3)
 // human_sign_off: builder JE-MULTICCY-BALANCE-1, 2026-10-30 (all inputs synthetic integers)
@@ -8,12 +8,12 @@
 // amounts over stated ranges with a deterministic mulberry32 seed — no floats anywhere in
 // the amount paths. ZERO external dependencies.
 //
-// Run: node chaingraph/kernels/__proptests__/art-789-check-je-multicurrency-balance.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-791-check-je-multicurrency-balance.proptest.mjs
 
-import { compute } from '../art-789-check-je-multicurrency-balance.kernel.mjs';
+import { compute } from '../art-791-check-je-multicurrency-balance.kernel.mjs';
 import { runFixtureOracle, findShapeViolations, summarize, mulberry32, deepEqual } from './_pbt-common.mjs';
 
-const KERNEL_ID = 'art-789-check-je-multicurrency-balance';
+const KERNEL_ID = 'art-791-check-je-multicurrency-balance';
 
 const EXP = { USD: 2, EUR: 2, JPY: 0, KWD: 3 };
 

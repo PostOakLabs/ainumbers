@@ -1,10 +1,10 @@
 import { executionHash } from './_hash.mjs';
 
-// art-789-check-je-multicurrency-balance — checks that structured journal entries balance on a
+// art-791-check-je-multicurrency-balance — checks that structured journal entries balance on a
 // caller-declared basis (functional currency or per currency) in integer minor units, with a
 // declared per-currency tolerance. Pure decision kernel: every amount is a signed JSON integer
 // with debit positive; no floats, no hashing, no guest builtins.
-const TOOL_ID = 'art-789-check-je-multicurrency-balance';
+const TOOL_ID = 'art-791-check-je-multicurrency-balance';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
