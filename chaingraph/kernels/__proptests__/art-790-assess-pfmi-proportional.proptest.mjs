@@ -1,4 +1,4 @@
-// art-787-assess-pfmi-proportional — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
+// art-790-assess-pfmi-proportional — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
 // kernel_digest_at_authoring: sha256:f02af97a6fffa3be832b1aefd668c8355dfb24fd9b3426bf14bd6be4eb5b112d
 // human_sign_off: builder-authored 2026-10-29 — synthetic inputs only.
 //
@@ -9,15 +9,15 @@
 // (a worse rating never reduces the gap burden), invalid-domain rejection (REACHABLE refusals), and
 // determinism. Zero external dependencies.
 //
-// Run: node chaingraph/kernels/__proptests__/art-787-assess-pfmi-proportional.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-790-assess-pfmi-proportional.proptest.mjs
 
-import { compute, buildTierMap } from '../art-787-assess-pfmi-proportional.kernel.mjs';
+import { compute, buildTierMap } from '../art-790-assess-pfmi-proportional.kernel.mjs';
 import { runFixtureOracle, summarize } from './_pbt-common.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const KERNEL_ID = 'art-787-assess-pfmi-proportional';
+const KERNEL_ID = 'art-790-assess-pfmi-proportional';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function mulberry32(seed) {
@@ -62,7 +62,7 @@ function randomOperatorCase(rng) {
 
 // ---------- P1: tier-map parity — kernel config rebuild deep-equals the data file beside the kernel ----------
 function checkP1_tierMapParity() {
-  const file = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-787-assess-pfmi-proportional.tier-map.json'), 'utf8'));
+  const file = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-790-assess-pfmi-proportional.tier-map.json'), 'utf8'));
   const built = buildTierMap();
   const violations = JSON.stringify(built) === JSON.stringify(file) ? 0 : 1;
   return { name: 'P1_tier_map_parity_with_data_file', trials: 1, violations };

@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// art-787-assess-pfmi-proportional — scores a payment system operator's or overseer's self-assessment
+// art-790-assess-pfmi-proportional — scores a payment system operator's or overseer's self-assessment
 // against the CPMI-IOSCO Principles for Financial Market Infrastructures (Apr 2012) using the
 // assessment methodology's four-level rating scale (Dec 2012, paras 3.18/3.21), with this tool's
 // own ILLUSTRATIVE proportional tiers (systemic / prominent / small — not a CPMI-IOSCO
@@ -8,7 +8,7 @@ import { executionHash } from './_hash.mjs';
 // Behaviour only — citations live in the node shard (KERNEL-CITATION-CLASS-1). Primary text is
 // pinned under workspace research/clause-snapshots/pfmi/ (PFMI-PIN-2026-10-29.md).
 
-const TOOL_ID = 'art-787-assess-pfmi-proportional';
+const TOOL_ID = 'art-790-assess-pfmi-proportional';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
@@ -18,7 +18,7 @@ export const meta = {
 };
 
 // ---- Tier map: config embedded here is the single generator; the expanded DATA file lives at
-// chaingraph/kernels/fixtures/art-787-assess-pfmi-proportional.tier-map.json and the proptest asserts
+// chaingraph/kernels/fixtures/art-790-assess-pfmi-proportional.tier-map.json and the proptest asserts
 // deep equality between buildTierMap() and that file, so the two cannot drift.
 
 const PRINCIPLE_TITLES = {
@@ -71,7 +71,7 @@ function tierCell(id, systemType, tier) {
 }
 
 /** Rebuild the tier map DATA from the embedded config. Exported so the proptest can assert deep
- * equality with chaingraph/kernels/fixtures/art-787-assess-pfmi-proportional.tier-map.json. */
+ * equality with chaingraph/kernels/fixtures/art-790-assess-pfmi-proportional.tier-map.json. */
 export function buildTierMap() {
   const principles = {};
   for (const id of Object.keys(PRINCIPLE_TITLES)) {
@@ -104,12 +104,12 @@ export function buildTierMap() {
     };
   }
   return {
-    _note: 'Tier map DATA for node art-787-assess-pfmi-proportional. The systemic/prominent/small '
+    _note: 'Tier map DATA for node art-790-assess-pfmi-proportional. The systemic/prominent/small '
       + 'proportional tiers are the tool\u2019s illustrative design, labelled as such and NOT a '
       + 'CPMI-IOSCO classification. Every cell carries a source cite to the pinned primary text '
       + '(research/clause-snapshots/pfmi/, PFMI-PIN-2026-10-29.md). The kernel rebuilds this map '
       + 'from the same config and the proptest asserts deep equality.',
-    schema: 'art-787-assess-pfmi-proportional.tier-map/1',
+    schema: 'art-790-assess-pfmi-proportional.tier-map/1',
     systems: SYSTEMS, tiers: TIERS,
     principles, authorities, linked_fps_module: linkedFpsModule,
   };
@@ -271,7 +271,7 @@ export function compute(pp) {
     summary_by_rating: summary,
     coverage_pct: coveragePct,
     tier_note: TIER_NOTE,
-    tier_map_cite: 'chaingraph/kernels/fixtures/art-787-assess-pfmi-proportional.tier-map.json (data beside the kernel; source cite per cell)',
+    tier_map_cite: 'chaingraph/kernels/fixtures/art-790-assess-pfmi-proportional.tier-map.json (data beside the kernel; source cite per cell)',
   };
   return { output_payload: output, compliance_flags: flags };
 }
