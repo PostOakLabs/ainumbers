@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- WEBMCP:OT-META-BEGIN generator=scripts/gen-webmcp-registrations.mjs -->
+<meta http-equiv="origin-trial" content="AvjPE9Ubhx2ZAiql3vUsqFtXvuHuGVZq9xxwxs6FXkgBXIRAnf+mFu3UmPHszhqN3NW8YvRNXbVbAGvEsuFG7w0AAABfeyJvcmlnaW4iOiJodHRwczovL2FpbnVtYmVycy5jbzo0NDMiLCJmZWF0dXJlIjoiV2ViTUNQIiwiZXhwaXJ5IjoxODA2MzY0ODAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
+<!-- WEBMCP:OT-META-END -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
@@ -235,7 +238,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export AP2 Mandate</button>
     <button id="signArtifactBtn" onclick="signArtifact()" disabled style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3,#111E35);color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s;margin-top:.5rem;display:inline-block">⬇ Sign artifact (Ed25519 · §16)</button>
     <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:all .2s;margin-top:.5rem;display:inline-block">🔏 Verify signature (§16)</button>
-        <button onclick="exportPDF()">Export PDF</button>
+        <button onclick="exportPDF(_lastOP)">Export PDF</button>
         <button onclick="exportXLSX()">Export CSV</button>
       </div>
     </div>
@@ -256,7 +259,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
   <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `validate_tfr_travel_rule_batch`. Task: Validate originator/beneficiary field completeness on synthetic/hashed transfer batches (self-/cross-CASP + unhosted-wallet branches) per TFR recast Reg.
 Call it with arguments: {"policy_parameters":{}}
-Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string, or re-run the in-page WebMCP tool `validate_tfr_travel_rule_batch`.
 Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
 PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
 Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-104-tfr-travel-rule-batch-validator.html#p=v1.H4sIAAAAAAAA_wECAP3_e31Dv6ajAgAAAA</pre>
@@ -555,12 +558,13 @@ function exportAP2() {
   const a = document.createElement('a');
   a.href = url; a.download = MANIFEST.tool_id + '_' + ts + '.policy.json';
   document.body.appendChild(a); a.click();
-  document.body.removeChild(a); URL.revokeObjectURL(url);
+  if (typeof document.body.removeChild === 'function') document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
-function exportPDF() {
-  if (!_lastOP) return;
-  const flagged = _lastOP.transfers_flagged || [];
+function exportPDF(op) {
+  if (!op) return;
+  const flagged = op.transfers_flagged || [];
   const flaggedRows = flagged.length === 0
     ? '<tr><td colspan="2">No flagged transfers.</td></tr>'
     : flagged.map(f => `<tr><td>${f.transfer_id || '(no id)'}</td><td>${f.missing_fields.join(', ')}</td></tr>`).join('');
@@ -575,15 +579,15 @@ function exportPDF() {
   <div class="info" style="margin-top:8px">🔒 Synthetic data only — no real PII processed.</div>
   <h2>Batch Summary</h2>
   <table><tr><th>Metric</th><th>Value</th></tr>
-  <tr><td>Batch Size</td><td>${_lastOP.batch_size}</td></tr>
-  <tr><td>Batch Conformance</td><td>${_lastOP.batch_conformance_pct}%</td></tr>
-  <tr><td>Unhosted Wallet DD Required</td><td>${_lastOP.unhosted_dd_required_count}</td></tr>
-  <tr><td>Simulated Merkle Root</td><td class="mono">${_lastOP.merkle_root}</td></tr>
+  <tr><td>Batch Size</td><td>${op.batch_size}</td></tr>
+  <tr><td>Batch Conformance</td><td>${op.batch_conformance_pct}%</td></tr>
+  <tr><td>Unhosted Wallet DD Required</td><td>${op.unhosted_dd_required_count}</td></tr>
+  <tr><td>Simulated Merkle Root</td><td class="mono">${op.merkle_root}</td></tr>
   </table>
   <h2>Flagged Transfers</h2>
   <table><tr><th>Transfer ID</th><th>Missing Fields</th></tr>${flaggedRows}</table>
   <h2>Regulatory Note</h2>
-  <p style="font-size:.75rem">${_lastOP.tfr_note}</p>
+  <p style="font-size:.75rem">${op.tfr_note}</p>
   <h2>Execution Hash</h2>
   <p class="mono">${_lastArtifact ? _lastArtifact.execution_hash : ''}</p>
   <p style="margin-top:30px;font-size:.65rem;color:#888">Generated by AINumbers.co ART-104 · ${new Date().toISOString()} · CC BY 4.0</p>
@@ -604,7 +608,8 @@ function exportXLSX() {
   const a = document.createElement('a');
   a.href = url; a.download = MANIFEST.tool_id + '_flagged_' + ts + '.csv';
   document.body.appendChild(a); a.click();
-  document.body.removeChild(a); URL.revokeObjectURL(url);
+  if (typeof document.body.removeChild === 'function') document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function toggleMfst() {
@@ -684,5 +689,101 @@ async function verifySignature(){
   obs.observe(el,{attributes:true,attributeFilter:['disabled']});
 })();
 </script>
+<!-- WEBMCP:GEN-BEGIN manifest=manifests/art-104-tfr-travel-rule-batch-validator.manifest.json generator=scripts/gen-webmcp-registrations.mjs mode=direct -->
+<script>
+// WebMCP registration generated by scripts/gen-webmcp-registrations.mjs from
+// manifests/art-104-tfr-travel-rule-batch-validator.manifest.json (mcp_tool_definition reused verbatim; the generator computes
+// nothing and restates no computed value). DIRECT emission mode
+// (WEBMCP-DIRECT-MODE-1): this page's manifest inputs have no single control
+// to prefill, so execute() calls the manifest-declared function with the
+// agent's params, stores the result in the page's result global, lets the
+// page's render function paint it, and shows the mandatory "Inputs used by
+// the agent" echo panel so a human still sees exactly what the agent ran.
+// Feature-detected: absent API registers nothing, so this page is
+// byte-identical without the API.
+// Eligibility is static and re-proven on every --check: kernel-digest
+// sentinel matches the kernel; the declared function takes one parameter
+// and reads no DOM; the kernel reproduces fixture 0 execution_hash. Same
+// kernel, same hash, zero network I/O.
+// Trust annotations, truthful-hint posture: deterministic local compute, no
+// untrusted content, so untrustedContentHint is not applicable per tool (n/a);
+// exposedTo intentionally omitted: no cross-origin exposure. A browser agent
+// is untrusted input like any form submission; the never-trust-client rule is
+// honored by construction because the tool is zero-server and only returns
+// computed JSON derived from declared inputs.
+// Browser support (dated observation): WebMCP origin trial from Chrome 149
+// (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).
+const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+if (mc) {
+  mc.registerTool({
+    name: 'validate_tfr_travel_rule_batch',
+    description: 'Validates originator/beneficiary field completeness on synthetic/hashed transfer batches (self-/cross-CASP + unhosted-wallet branches) per TFR recast Reg. (EU) 2023/1113. Batch conformance + Merkle root. No real PII.',
+    inputSchema: {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "inputs": {
+          "description": "type not evidenced by kernel source"
+        }
+      }
+    },
+    annotations: { readOnlyHint: true },
+    execute: async function(params) {
+      try {
+      var echo = document.getElementById('webmcp-inputs-echo');
+      if (!echo) {
+        echo = document.createElement('pre');
+        echo.id = 'webmcp-inputs-echo';
+        var panel = document.querySelector('.results-panel');
+        if (panel && panel.parentNode) panel.parentNode.insertBefore(echo, panel);
+        else document.body.insertBefore(echo, document.body.firstChild);
+      }
+      echo.textContent = 'Inputs used by the agent: ' + JSON.stringify(params, null, 2);
+      var __normalizeNullMembers = function __normalizeNullMembers(value, schema) {
+        if (Array.isArray(value)) {
+          var changed = false;
+          var out = new Array(value.length);
+          for (var i = 0; i < value.length; i++) {
+            var el = value[i];
+            if (el === null) { out[i] = null; continue; }
+            var n = __normalizeNullMembers(el, schema && schema.items);
+            if (n !== el) changed = true;
+            out[i] = n;
+          }
+          return changed ? out : value;
+        }
+        if (value !== null && typeof value === 'object') {
+          var props = schema && schema.properties;
+          var out2 = {};
+          var changed2 = false;
+          for (var ks = Object.keys(value), j = 0; j < ks.length; j++) {
+            var k = ks[j];
+            var v = value[k];
+            if (v === null) {
+              if (props && props[k] && props[k].x_null_distinct) { out2[k] = null; continue; }
+              changed2 = true;
+              continue;
+            }
+            var n2 = __normalizeNullMembers(v, props && props[k]);
+            if (n2 !== v) changed2 = true;
+            out2[k] = n2;
+          }
+          return changed2 ? out2 : value;
+        }
+        return value;
+      };
+      var __computeInput = __normalizeNullMembers(params, "{\"type\":\"object\",\"required\":[],\"properties\":{\"inputs\":{\"description\":\"type not evidenced by kernel source\"}}}");
+      var __directResult = await compute(__computeInput);
+      if (typeof __directResult !== 'undefined') _lastArtifact = __directResult;
+      await exportAP2();
+      return _lastArtifact;
+      } catch (err) {
+        return { error: 'compute_failed', detail: String((err && err.message) || err) };
+      }
+    }
+  });
+}
+</script>
+<!-- WEBMCP:GEN-END -->
 </body>
 </html>

@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- WEBMCP:OT-META-BEGIN generator=scripts/gen-webmcp-registrations.mjs -->
+<meta http-equiv="origin-trial" content="AvjPE9Ubhx2ZAiql3vUsqFtXvuHuGVZq9xxwxs6FXkgBXIRAnf+mFu3UmPHszhqN3NW8YvRNXbVbAGvEsuFG7w0AAABfeyJvcmlnaW4iOiJodHRwczovL2FpbnVtYmVycy5jbzo0NDMiLCJmZWF0dXJlIjoiV2ViTUNQIiwiZXhwaXJ5IjoxODA2MzY0ODAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
+<!-- WEBMCP:OT-META-END -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
@@ -296,57 +299,182 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 // compute() — MUST mirror kernels/art-62-ap2-payment-receipt-verifier.kernel.mjs
 const SIG_LEVELS={'VC-signed':{score:4,label:'W3C Verifiable Credential — signed mandate chain'},'API-asserted':{score:2,label:'API-asserted — no cryptographic signature'},'none':{score:0,label:'No signature present'}};
 
-function compute(pp){
-  const {payment_receipt={},mandate_chain={},hnp_policy={}}=pp;
-  const {receipt_id='',payment_mandate_ref='',amount=0,currency='USD',executed_at='',human_present=true,signature_type='none',keyid=''}=payment_receipt;
-  const {intent_mandate_id='',cart_mandate_id='',payment_mandate_id='',mandate_issued_at='',cart_updated_at=''}=mandate_chain;
-  const {max_autonomous_amount=0,allowed_categories=[],mandate_max_age_sec=3600,require_fresh_cart=true,payment_category=''}=hnp_policy;
-  const findings=[];
-  const mandate_chain_intact=!!(intent_mandate_id&&cart_mandate_id&&payment_mandate_id);
-  if(!mandate_chain_intact)findings.push({check:'mandate_chain_intact',result:'FAIL',detail:'One or more mandate chain IDs missing.'});
-  else findings.push({check:'mandate_chain_intact',result:'PASS',detail:'Intent, Cart, and Payment mandate IDs all present.'});
-  const mandate_ref_matches=!!payment_mandate_ref&&payment_mandate_ref===payment_mandate_id;
-  if(mandate_chain_intact){
-    if(mandate_ref_matches)findings.push({check:'receipt_mandate_ref',result:'PASS',detail:'Receipt payment_mandate_ref matches mandate chain payment_mandate_id.'});
-    else findings.push({check:'receipt_mandate_ref',result:'FAIL',detail:'Receipt payment_mandate_ref does not match mandate chain payment_mandate_id.'});
+/* Kernel mirror of chaingraph/kernels/art-62-ap2-payment-receipt-verifier.kernel.mjs compute() —
+   pinned to that kernel by the kernel-digest meta; restamp with
+   scripts/check-page-kernel-digest.mjs --digest whenever this mirror is rebuilt.
+   Ported verbatim (PR-2734-WEBMCP-CURE-1): the prior inline mirror had drifted
+   on finding detail strings, which changed the execution_hash preimage. */
+function compute(pp) {
+  const {
+    payment_receipt = {},
+    mandate_chain   = {},
+    hnp_policy      = {},
+  } = pp;
+
+  const {
+    receipt_id            = '',
+    payment_mandate_ref   = '',
+    amount                = 0,
+    currency              = 'USD',
+    executed_at           = '',
+    human_present         = true,
+    signature_type        = 'none',  // 'VC-signed' | 'API-asserted' | 'none'
+    keyid                 = '',
+  } = payment_receipt;
+
+  const {
+    intent_mandate_id    = '',
+    cart_mandate_id      = '',
+    payment_mandate_id   = '',
+    mandate_issued_at    = '',
+    cart_updated_at      = '',
+  } = mandate_chain;
+
+  const {
+    max_autonomous_amount = 0,     // minor units; 0 = HNP not configured
+    allowed_categories    = [],
+    mandate_max_age_sec   = 3600,
+    require_fresh_cart    = true,
+    payment_category      = '',    // Category of this payment (must be in allowed_categories)
+  } = hnp_policy;
+
+  const findings = [];
+
+  // --- 1. Mandate chain integrity ---
+  const mandate_chain_intact = !!(intent_mandate_id && cart_mandate_id && payment_mandate_id);
+  if (!mandate_chain_intact) {
+    findings.push({ check: 'mandate_chain_intact', result: 'FAIL', detail: 'One or more mandate chain IDs (intent/cart/payment) are missing.' });
+  } else {
+    findings.push({ check: 'mandate_chain_intact', result: 'PASS', detail: 'Intent, Cart, and Payment mandate IDs all present.' });
   }
-  const sig_level=SIG_LEVELS[signature_type]||SIG_LEVELS['none'];
-  const signature_check=sig_level.label;
-  if(sig_level.score===4)findings.push({check:'signature',result:'PASS',detail:signature_check});
-  else if(sig_level.score===2)findings.push({check:'signature',result:'WARN',detail:signature_check+' — VC-signed recommended for production.'});
-  else findings.push({check:'signature',result:'FAIL',detail:'No signature on receipt or mandate chain.'});
-  const receipt_valid=mandate_chain_intact&&mandate_ref_matches&&sig_level.score>=2;
-  const receipt_verdict=receipt_valid?'valid':'invalid';
-  let hnp_verdict='na',authorized_amount_headroom=null;
-  if(!human_present){
-    const hnp_checks=[];
-    if(max_autonomous_amount>0){
-      const amt=Number(amount);
-      if(amt<=max_autonomous_amount){hnp_checks.push({check:'hnp_amount',result:'PASS',detail:`Amount ${amt} ${currency} ≤ max ${max_autonomous_amount}`});authorized_amount_headroom=max_autonomous_amount-amt;}
-      else hnp_checks.push({check:'hnp_amount',result:'FAIL',detail:`Amount ${amt} ${currency} exceeds max_autonomous_amount ${max_autonomous_amount}`});
-    } else hnp_checks.push({check:'hnp_amount',result:'FAIL',detail:'max_autonomous_amount is 0 — HNP not permitted.'});
-    if(allowed_categories.length>0){
-      if(allowed_categories.includes(payment_category))hnp_checks.push({check:'hnp_category',result:'PASS',detail:`Category "${payment_category}" in allowed_categories.`});
-      else hnp_checks.push({check:'hnp_category',result:'FAIL',detail:`Category "${payment_category}" NOT in allowed_categories [${allowed_categories.join(', ')}].`});
-    } else hnp_checks.push({check:'hnp_category',result:'WARN',detail:'No allowed_categories configured — all categories permitted.'});
-    if(mandate_issued_at&&mandate_max_age_sec>0){
-      let mandate_age_sec=null;
-      try{const issued=new Date(mandate_issued_at).getTime();const exec=executed_at?new Date(executed_at).getTime():null;if(!isNaN(issued)&&exec!==null&&!isNaN(exec))mandate_age_sec=Math.round((exec-issued)/1000);}catch(_){}
-      if(mandate_age_sec!==null){if(mandate_age_sec<=mandate_max_age_sec)hnp_checks.push({check:'hnp_mandate_age',result:'PASS',detail:`Mandate age ${mandate_age_sec}s ≤ max ${mandate_max_age_sec}s`});else hnp_checks.push({check:'hnp_mandate_age',result:'FAIL',detail:`Mandate age ${mandate_age_sec}s exceeds max ${mandate_max_age_sec}s — STALE_MANDATE.`});}
-      else hnp_checks.push({check:'hnp_mandate_age',result:'WARN',detail:'Cannot compute mandate age — timestamps missing/unparseable.'});
+
+  // Check that the receipt references the payment mandate
+  const mandate_ref_matches = !!payment_mandate_ref && payment_mandate_ref === payment_mandate_id;
+  if (mandate_chain_intact) {
+    if (mandate_ref_matches) {
+      findings.push({ check: 'receipt_mandate_ref', result: 'PASS', detail: 'Receipt payment_mandate_ref matches the mandate chain payment_mandate_id.' });
+    } else {
+      findings.push({ check: 'receipt_mandate_ref', result: 'FAIL', detail: 'Receipt payment_mandate_ref does not match mandate chain payment_mandate_id.' });
     }
-    if(require_fresh_cart){
-      if(cart_updated_at&&executed_at){try{const cu=new Date(cart_updated_at).getTime();const et=new Date(executed_at).getTime();if(!isNaN(cu)&&!isNaN(et)&&cu<=et)hnp_checks.push({check:'hnp_cart_fresh',result:'PASS',detail:'Cart updated before execution.'});else hnp_checks.push({check:'hnp_cart_fresh',result:'WARN',detail:'Cart freshness check inconclusive.'});}catch(_){hnp_checks.push({check:'hnp_cart_fresh',result:'WARN',detail:'Timestamp parse error.'});}}
-      else hnp_checks.push({check:'hnp_cart_fresh',result:'WARN',detail:'require_fresh_cart=true but timestamps missing.'});
+  }
+
+  // --- 2. Signature verification (educational approximation) ---
+  const sig_level = SIG_LEVELS[signature_type] ?? SIG_LEVELS['none'];
+  const signature_check = sig_level.label;
+  if (sig_level.score === 4) {
+    findings.push({ check: 'signature', result: 'PASS', detail: signature_check });
+  } else if (sig_level.score === 2) {
+    findings.push({ check: 'signature', result: 'WARN', detail: signature_check + ' — VC-signed mandate chain recommended for production.' });
+  } else {
+    findings.push({ check: 'signature', result: 'FAIL', detail: 'No signature on receipt or mandate chain.' });
+  }
+
+  // --- 3. Receipt verdict ---
+  const receipt_valid = mandate_chain_intact && mandate_ref_matches && sig_level.score >= 2;
+  const receipt_verdict = receipt_valid ? 'valid' : 'invalid';
+
+  // --- 4. HNP guardrail (only if human_present is false) ---
+  let hnp_verdict = 'na';
+  let authorized_amount_headroom = null;
+
+  if (!human_present) {
+    const hnp_checks = [];
+
+    // Amount check
+    if (max_autonomous_amount > 0) {
+      const amt = Number(amount);
+      if (amt <= max_autonomous_amount) {
+        hnp_checks.push({ check: 'hnp_amount', result: 'PASS', detail: `Amount ${amt} ${currency} ≤ max_autonomous_amount ${max_autonomous_amount}` });
+        authorized_amount_headroom = max_autonomous_amount - amt;
+      } else {
+        hnp_checks.push({ check: 'hnp_amount', result: 'FAIL', detail: `Amount ${amt} ${currency} exceeds max_autonomous_amount ${max_autonomous_amount}` });
+      }
+    } else {
+      hnp_checks.push({ check: 'hnp_amount', result: 'FAIL', detail: 'max_autonomous_amount is 0 or not configured — HNP not permitted.' });
     }
+
+    // Category check
+    if (allowed_categories.length > 0) {
+      if (allowed_categories.includes(payment_category)) {
+        hnp_checks.push({ check: 'hnp_category', result: 'PASS', detail: `Category "${payment_category}" is in allowed_categories.` });
+      } else {
+        hnp_checks.push({ check: 'hnp_category', result: 'FAIL', detail: `Category "${payment_category}" is NOT in allowed_categories [${allowed_categories.join(', ')}].` });
+      }
+    } else {
+      hnp_checks.push({ check: 'hnp_category', result: 'WARN', detail: 'No allowed_categories configured — all categories permitted (broad scope).' });
+    }
+
+    // Mandate age check
+    if (mandate_issued_at && mandate_max_age_sec > 0) {
+      let mandate_age_sec = null;
+      try {
+        const issued = new Date(mandate_issued_at).getTime();
+        const exec   = executed_at ? new Date(executed_at).getTime() : null;
+        if (!isNaN(issued) && exec !== null && !isNaN(exec)) {
+          mandate_age_sec = Math.round((exec - issued) / 1000);
+        }
+      } catch (_) {}
+      if (mandate_age_sec !== null) {
+        if (mandate_age_sec <= mandate_max_age_sec) {
+          hnp_checks.push({ check: 'hnp_mandate_age', result: 'PASS', detail: `Mandate age ${mandate_age_sec}s ≤ max ${mandate_max_age_sec}s` });
+        } else {
+          hnp_checks.push({ check: 'hnp_mandate_age', result: 'FAIL', detail: `Mandate age ${mandate_age_sec}s exceeds max ${mandate_max_age_sec}s — STALE_MANDATE.` });
+        }
+      } else {
+        hnp_checks.push({ check: 'hnp_mandate_age', result: 'WARN', detail: 'Cannot compute mandate age — mandate_issued_at or executed_at missing or unparseable.' });
+      }
+    }
+
+    // Cart freshness check
+    if (require_fresh_cart) {
+      if (cart_updated_at && executed_at) {
+        try {
+          const cartUpdated = new Date(cart_updated_at).getTime();
+          const execTime    = new Date(executed_at).getTime();
+          if (!isNaN(cartUpdated) && !isNaN(execTime) && cartUpdated <= execTime) {
+            hnp_checks.push({ check: 'hnp_cart_fresh', result: 'PASS', detail: 'Cart mandate updated before or at execution.' });
+          } else {
+            hnp_checks.push({ check: 'hnp_cart_fresh', result: 'WARN', detail: 'Cart freshness check inconclusive — timestamps may be in wrong order.' });
+          }
+        } catch (_) {
+          hnp_checks.push({ check: 'hnp_cart_fresh', result: 'WARN', detail: 'Cannot verify cart freshness — timestamp parse error.' });
+        }
+      } else {
+        hnp_checks.push({ check: 'hnp_cart_fresh', result: 'WARN', detail: 'require_fresh_cart is true but cart_updated_at or executed_at missing.' });
+      }
+    }
+
     findings.push(...hnp_checks);
-    hnp_verdict=hnp_checks.filter(c=>c.result==='FAIL').length===0?'authorized':'blocked';
+
+    // HNP verdict: all PASS (or acceptable WARN for category) → authorized
+    const hnp_fails = hnp_checks.filter(c => c.result === 'FAIL');
+    hnp_verdict = hnp_fails.length === 0 ? 'authorized' : 'blocked';
   }
-  const compliance_flags=[];
-  if(receipt_verdict==='invalid'){if(!mandate_ref_matches)compliance_flags.push('RECEIPT_MANDATE_MISMATCH');if(sig_level.score===0)compliance_flags.push('SIGNATURE_INVALID');}
-  if(!human_present&&hnp_verdict==='blocked')compliance_flags.push('HNP_OUT_OF_POLICY');
-  if(findings.find(f=>f.check==='hnp_mandate_age'&&f.result==='FAIL'))compliance_flags.push('STALE_MANDATE');
-  return {output_payload:{receipt_verdict,mandate_chain_intact,hnp_verdict,findings,signature_check,authorized_amount_headroom,receipt_id:receipt_id||null,human_present,note:'Educational AP2 v0.2 PaymentReceipt verifier and HNP guardrail. Runtime/post-trade — verifies the receipt AFTER an executed payment. art-01 validates the mandate chain BEFORE the buy (pre-trade). Signature verification is an educational approximation — production implementations must use a real VC verifier against the AP2 v0.2 FIDO Alliance spec. Not legal or payment advice. Verify AP2 v0.2 rules against current FIDO Alliance / ap2-protocol.org primary sources (2026-06-20).',status_asof:'2026-06-20 — verify AP2 v0.2: https://ap2-protocol.org/ · FIDO Alliance governance'},compliance_flags};
+
+  // --- 5. Compliance flags ---
+  const compliance_flags = [];
+  if (receipt_verdict === 'invalid') {
+    if (!mandate_ref_matches) compliance_flags.push('RECEIPT_MANDATE_MISMATCH');
+    if (sig_level.score === 0) compliance_flags.push('SIGNATURE_INVALID');
+  }
+  if (!human_present && hnp_verdict === 'blocked') compliance_flags.push('HNP_OUT_OF_POLICY');
+  const stale_finding = findings.find(f => f.check === 'hnp_mandate_age' && f.result === 'FAIL');
+  if (stale_finding) compliance_flags.push('STALE_MANDATE');
+
+  const output_payload = {
+    receipt_verdict,
+    mandate_chain_intact,
+    hnp_verdict,
+    findings,
+    signature_check,
+    authorized_amount_headroom,
+    receipt_id: receipt_id || null,
+    human_present,
+    note: 'Educational AP2 v0.2 PaymentReceipt verifier and HNP guardrail. Runtime/post-trade — verifies the receipt AFTER an executed payment. art-01 validates the mandate chain BEFORE the buy (pre-trade). Signature verification is an educational approximation — production implementations must use a real VC verifier against the AP2 v0.2 FIDO Alliance spec. Not legal or payment advice. Verify AP2 v0.2 rules against current FIDO Alliance / ap2-protocol.org primary sources (2026-06-20).',
+    status_asof: '2026-06-20 — verify AP2 v0.2: https://ap2-protocol.org/ · FIDO Alliance governance',
+  };
+
+  return { output_payload, compliance_flags };
 }
 
 const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
@@ -379,6 +507,7 @@ function loadPreset(p){
 const MANIFEST=JSON.parse(document.getElementById('manifest').textContent);
 function toggleMfst(){const b=document.getElementById('mfstBody');const show=b.style.display==='block';b.style.display=show?'none':'block';if(!show)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
 
+let _lastResult=null;
 async function run(){
   const cats=document.getElementById('allowed_categories').value.split(',').map(s=>s.trim()).filter(Boolean);
   const pp={
@@ -391,6 +520,16 @@ async function run(){
   const generatedAt = new Date().toISOString();
   document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
   const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-62-ap2-payment-receipt-verifier',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  _lastResult={pp:pp,output_payload:op,compliance_flags:compliance_flags,artifact:artifact};
+  paintResult();
+}
+
+function paintResult(){
+  if(!_lastResult) return;
+  const pp=_lastResult.pp;
+  const op=_lastResult.output_payload;
+  const compliance_flags=_lastResult.compliance_flags;
+  const artifact=_lastResult.artifact||null;
 
   document.getElementById('results').classList.add('show');
   const rv=document.getElementById('receiptVerdict');rv.textContent=op.receipt_verdict.toUpperCase();rv.className='vbadge '+(op.receipt_verdict==='valid'?'v-valid':'v-invalid');
@@ -399,8 +538,8 @@ async function run(){
   document.getElementById('headroomRow').innerHTML=op.authorized_amount_headroom!==null?`<div class="muted">HNP authorized · remaining headroom: <b style="color:var(--teal-lt)">${op.authorized_amount_headroom} ${pp.payment_receipt.currency}</b></div>`:'';
   document.getElementById('flagsRow').innerHTML=compliance_flags.length?compliance_flags.map(f=>`<span class="flag-pill">${f}</span>`).join(' '):'';
   document.getElementById('findingsSection').innerHTML=op.findings&&op.findings.length?'<table class="findings-table"><thead><tr><th>Check</th><th>Result</th><th>Detail</th></tr></thead><tbody>'+op.findings.map(f=>`<tr><td>${f.check}</td><td class="fr-${f.result}">${f.result}</td><td>${f.detail}</td></tr>`).join('')+'</tbody></table>':'';
-  document.getElementById('hash').textContent='sha256:'+hash;
-  document.getElementById('artifact').textContent=JSON.stringify(artifact,null,2);
+  document.getElementById('hash').textContent=artifact?('sha256:'+artifact.execution_hash):'';
+  document.getElementById('artifact').textContent=JSON.stringify(artifact||_lastResult,null,2);
 }
 </script>
 
@@ -413,7 +552,7 @@ async function run(){
   <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
   <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `verify_ap2_payment_receipt`. Task: Verify an AP2 v0.2 PaymentReceipt against its signed Intent/Cart/Payment mandate chain, and applies the Human-Not-Present (HNP) autonomy guardrail: amount, category, mandate age, cart freshness.
 Call it with arguments: {"policy_parameters":{}}
-Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string, or re-run the in-page WebMCP tool `verify_ap2_payment_receipt`.
 Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
 PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
 Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-62-ap2-payment-receipt-verifier.html#p=v1.H4sIAAAAAAAA_wECAP3_e31Dv6ajAgAAAA</pre>
@@ -1206,4 +1345,107 @@ function boot(){buildIntakeUI();buildShareUI();initPrefill();mcpBoot();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
 </script>
+<!-- WEBMCP:GEN-BEGIN manifest=manifests/art-62-ap2-payment-receipt-verifier.manifest.json generator=scripts/gen-webmcp-registrations.mjs mode=direct -->
+<script>
+// WebMCP registration generated by scripts/gen-webmcp-registrations.mjs from
+// manifests/art-62-ap2-payment-receipt-verifier.manifest.json (mcp_tool_definition reused verbatim; the generator computes
+// nothing and restates no computed value). DIRECT emission mode
+// (WEBMCP-DIRECT-MODE-1): this page's manifest inputs have no single control
+// to prefill, so execute() calls the manifest-declared function with the
+// agent's params, stores the result in the page's result global, lets the
+// page's render function paint it, and shows the mandatory "Inputs used by
+// the agent" echo panel so a human still sees exactly what the agent ran.
+// Feature-detected: absent API registers nothing, so this page is
+// byte-identical without the API.
+// Eligibility is static and re-proven on every --check: kernel-digest
+// sentinel matches the kernel; the declared function takes one parameter
+// and reads no DOM; the kernel reproduces fixture 0 execution_hash. Same
+// kernel, same hash, zero network I/O.
+// Trust annotations, truthful-hint posture: deterministic local compute, no
+// untrusted content, so untrustedContentHint is not applicable per tool (n/a);
+// exposedTo intentionally omitted: no cross-origin exposure. A browser agent
+// is untrusted input like any form submission; the never-trust-client rule is
+// honored by construction because the tool is zero-server and only returns
+// computed JSON derived from declared inputs.
+// Browser support (dated observation): WebMCP origin trial from Chrome 149
+// (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).
+const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+if (mc) {
+  mc.registerTool({
+    name: 'verify_ap2_payment_receipt',
+    description: 'Verifies an AP2 v0.2 PaymentReceipt against its signed Intent/Cart/Payment mandate chain, and applies the Human-Not-Present (HNP) autonomy guardrail: amount, category, mandate age, cart freshness. Runtime/post-trade: art-01 validates the mandate before the buy; ART-62 verifies the receipt after, applying HNP gating (AP2 v0.2 new primitive, FIDO Alliance Apr 2026).',
+    inputSchema: {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "hnp_policy": {
+          "description": "type not evidenced by kernel source"
+        },
+        "mandate_chain": {
+          "description": "type not evidenced by kernel source"
+        },
+        "payment_receipt": {
+          "description": "type not evidenced by kernel source"
+        }
+      }
+    },
+    annotations: { readOnlyHint: true },
+    execute: async function(params) {
+      try {
+      var echo = document.getElementById('webmcp-inputs-echo');
+      if (!echo) {
+        echo = document.createElement('pre');
+        echo.id = 'webmcp-inputs-echo';
+        var panel = document.querySelector('.results-panel');
+        if (panel && panel.parentNode) panel.parentNode.insertBefore(echo, panel);
+        else document.body.insertBefore(echo, document.body.firstChild);
+      }
+      echo.textContent = 'Inputs used by the agent: ' + JSON.stringify(params, null, 2);
+      var __normalizeNullMembers = function __normalizeNullMembers(value, schema) {
+        if (Array.isArray(value)) {
+          var changed = false;
+          var out = new Array(value.length);
+          for (var i = 0; i < value.length; i++) {
+            var el = value[i];
+            if (el === null) { out[i] = null; continue; }
+            var n = __normalizeNullMembers(el, schema && schema.items);
+            if (n !== el) changed = true;
+            out[i] = n;
+          }
+          return changed ? out : value;
+        }
+        if (value !== null && typeof value === 'object') {
+          var props = schema && schema.properties;
+          var out2 = {};
+          var changed2 = false;
+          for (var ks = Object.keys(value), j = 0; j < ks.length; j++) {
+            var k = ks[j];
+            var v = value[k];
+            if (v === null) {
+              if (props && props[k] && props[k].x_null_distinct) { out2[k] = null; continue; }
+              changed2 = true;
+              continue;
+            }
+            var n2 = __normalizeNullMembers(v, props && props[k]);
+            if (n2 !== v) changed2 = true;
+            out2[k] = n2;
+          }
+          return changed2 ? out2 : value;
+        }
+        return value;
+      };
+      var __computeInput = __normalizeNullMembers(params, "{\"type\":\"object\",\"required\":[],\"properties\":{\"hnp_policy\":{\"description\":\"type not evidenced by kernel source\"},\"mandate_chain\":{\"description\":\"type not evidenced by kernel source\"},\"payment_receipt\":{\"description\":\"type not evidenced by kernel source\"}}}");
+      var __directResult = await compute(__computeInput);
+      if (typeof __directResult !== 'undefined') _lastResult = __directResult;
+      await paintResult();
+      return _lastResult;
+      } catch (err) {
+        return { error: 'compute_failed', detail: String((err && err.message) || err) };
+      }
+    }
+  });
+}
+</script>
+<!-- WEBMCP:GEN-END -->
+
 </body></html>

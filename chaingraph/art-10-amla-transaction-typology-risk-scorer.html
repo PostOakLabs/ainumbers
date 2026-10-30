@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- WEBMCP:OT-META-BEGIN generator=scripts/gen-webmcp-registrations.mjs -->
+<meta http-equiv="origin-trial" content="AvjPE9Ubhx2ZAiql3vUsqFtXvuHuGVZq9xxwxs6FXkgBXIRAnf+mFu3UmPHszhqN3NW8YvRNXbVbAGvEsuFG7w0AAABfeyJvcmlnaW4iOiJodHRwczovL2FpbnVtYmVycy5jbzo0NDMiLCJmZWF0dXJlIjoiV2ViTUNQIiwiZXhwaXJ5IjoxODA2MzY0ODAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
+<!-- WEBMCP:OT-META-END -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
@@ -519,7 +522,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
   <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `score_aml_typologies`. Task: Score a synthetic transaction graph against six AML typology detectors.
 Call it with arguments: {"policy_parameters":{}}
-Verify before trusting: this node computes in your browser, so the MCP endpoint returns no execution_hash. Run the tool in the page, export the Policy Mandate artifact it produces, and call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with that artifact.
+Verify before trusting: this node computes in your browser, so the MCP endpoint returns no execution_hash. Run the tool in the page, export the Policy Mandate artifact it produces, and call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with that artifact. You can also re-run the in-page WebMCP tool `score_aml_typologies`.
 Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
 PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
 Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-10-amla-transaction-typology-risk-scorer.html#p=v1.H4sIAAAAAAAA_wECAP3_e31Dv6ajAgAAAA</pre>
@@ -771,6 +774,165 @@ function generateGraph(){
 /* ─────────────────────────────────────────────────────────────────
    TYPOLOGY SCORING ENGINE
    ───────────────────────────────────────────────────────────────── */
+/* Kernel mirror of chaingraph/kernels/art-10-amla-transaction-typology-risk-scorer.kernel.mjs compute() —
+   pinned to that kernel by the kernel-digest meta in <head>; restamp with
+   scripts/check-page-kernel-digest.mjs --digest whenever this mirror is rebuilt.
+   Private helpers carry the _k_ prefix so the page's interactive graph demo
+   (scoreTransactions / buildAccountProfiles below) keeps its own separate names. */
+const _k_TYPOLOGY_WEIGHTS = {
+  STRUCTURING:     0.30,
+  LAYERING:        0.25,
+  FUNNEL:          0.20,
+  ROUND_TRIP:      0.15,
+  HIGH_VELOCITY:   0.05,
+  TRAVEL_RULE:     0.05,
+};
+const _k_TRAVEL_RULE_THRESHOLD = 1000; // EUR/USD
+function _k_scoreTx(tx, params) {
+  const {
+    structuring_threshold = 10000,
+    velocity_window_hours = 24,
+    round_trip_window_hours = 72,
+  } = params ?? {};
+
+  let structuring = 0, layering = 0, funnel = 0, round_trip = 0,
+      high_velocity = 0, travel_rule = 0;
+
+  const amt = tx.amount ?? 0;
+
+  if (amt > structuring_threshold * 0.80 && amt < structuring_threshold) {
+    structuring = 0.8 + (amt / structuring_threshold) * 0.2;
+  } else if (amt > structuring_threshold * 0.60 && amt < structuring_threshold * 0.80) {
+    structuring = 0.4;
+  }
+
+  const hops = tx.hops ?? tx.intermediaries ?? 0;
+  if (hops >= 3) layering = Math.min(1.0, hops * 0.25);
+  else if (hops >= 2) layering = 0.5;
+
+  if (tx.cross_border && (tx.source_count ?? 1) >= 2) {
+    funnel = Math.min(1.0, 0.4 + (tx.source_count - 2) * 0.2);
+  }
+
+  if (tx.round_trip_detected) round_trip = 0.9;
+  else if (tx.same_origin_dest) round_trip = 0.5;
+
+  const txCount = tx.tx_count_in_window ?? 1;
+  if (txCount >= 10) high_velocity = Math.min(1.0, txCount * 0.08);
+  else if (txCount >= 5) high_velocity = 0.4;
+
+  if (amt >= _k_TRAVEL_RULE_THRESHOLD && !(tx.originator_info && tx.beneficiary_info)) {
+    travel_rule = 0.9;
+  } else if (amt >= _k_TRAVEL_RULE_THRESHOLD * 0.80 && !(tx.originator_info)) {
+    travel_rule = 0.5;
+  }
+
+  const composite =
+    structuring  * _k_TYPOLOGY_WEIGHTS.STRUCTURING  +
+    layering     * _k_TYPOLOGY_WEIGHTS.LAYERING     +
+    funnel       * _k_TYPOLOGY_WEIGHTS.FUNNEL       +
+    round_trip   * _k_TYPOLOGY_WEIGHTS.ROUND_TRIP   +
+    high_velocity * _k_TYPOLOGY_WEIGHTS.HIGH_VELOCITY +
+    travel_rule  * _k_TYPOLOGY_WEIGHTS.TRAVEL_RULE;
+
+  return {
+    id:           tx.id,
+    amount:       amt,
+    composite_score: +composite.toFixed(4),
+    typology_scores: { structuring, layering, funnel, round_trip, high_velocity, travel_rule },
+    risk_level:   composite >= 0.7 ? 'HIGH' : composite >= 0.4 ? 'MEDIUM' : 'LOW',
+    travel_rule_violation: travel_rule >= 0.9,
+  };
+}
+function _k_buildAccountProfiles(scored) {
+  const accounts = {};
+  for (const tx of scored) {
+    const acct = tx.account_id ?? tx.id ?? 'unknown';
+    if (!accounts[acct]) accounts[acct] = { account_id: acct, tx_count: 0, total_score: 0, max_score: 0 };
+    accounts[acct].tx_count++;
+    accounts[acct].total_score += tx.composite_score;
+    if (tx.composite_score > accounts[acct].max_score) accounts[acct].max_score = tx.composite_score;
+  }
+  return Object.values(accounts).map(a => ({
+    ...a,
+    avg_score: +(a.total_score / a.tx_count).toFixed(4),
+  })).sort((a, b) => b.max_score - a.max_score).slice(0, 10);
+}
+const _k_SCENARIOS = {
+  structuring_example: [
+    { id: 'TX001', amount: 9500,  hops: 0, cross_border: false },
+    { id: 'TX002', amount: 9800,  hops: 0, cross_border: false },
+    { id: 'TX003', amount: 9200,  hops: 0, cross_border: false },
+  ],
+  layering_example: [
+    { id: 'TX001', amount: 50000, hops: 4, cross_border: true },
+    { id: 'TX002', amount: 25000, hops: 3, cross_border: true, source_count: 3 },
+  ],
+  travel_rule_example: [
+    { id: 'TX001', amount: 1500, cross_border: true, originator_info: null, beneficiary_info: null },
+    { id: 'TX002', amount: 2000, cross_border: true, originator_info: null, beneficiary_info: null },
+  ],
+};
+function compute(pp) {
+  let transactions = pp.transactions;
+  if (!transactions || !transactions.length) {
+    const scenarioName = pp.scenario ?? 'structuring_example';
+    transactions = _k_SCENARIOS[scenarioName] ?? _k_SCENARIOS.structuring_example;
+  }
+
+  const params = {
+    structuring_threshold:   pp.structuring_threshold   ?? 10000,
+    velocity_window_hours:   pp.velocity_window_hours   ?? 24,
+    round_trip_window_hours: pp.round_trip_window_hours ?? 72,
+  };
+
+  const scored = transactions.map(tx => _k_scoreTx(tx, params));
+
+  const transaction_count  = scored.length;
+  const high_risk_count    = scored.filter(t => t.risk_level === 'HIGH').length;
+  const medium_risk_count  = scored.filter(t => t.risk_level === 'MEDIUM').length;
+  const average_score      = transaction_count > 0
+    ? +(scored.reduce((s, t) => s + t.composite_score, 0) / transaction_count).toFixed(4)
+    : 0;
+  const max_score          = scored.reduce((m, t) => Math.max(m, t.composite_score), 0);
+  const travel_rule_violations = scored.filter(t => t.travel_rule_violation).length;
+
+  const typology_hit_counts = { STRUCTURING: 0, LAYERING: 0, FUNNEL: 0, ROUND_TRIP: 0, HIGH_VELOCITY: 0, TRAVEL_RULE: 0 };
+  scored.forEach(t => {
+    if (t.typology_scores.structuring  > 0.3) typology_hit_counts.STRUCTURING++;
+    if (t.typology_scores.layering     > 0.3) typology_hit_counts.LAYERING++;
+    if (t.typology_scores.funnel       > 0.3) typology_hit_counts.FUNNEL++;
+    if (t.typology_scores.round_trip   > 0.3) typology_hit_counts.ROUND_TRIP++;
+    if (t.typology_scores.high_velocity > 0.3) typology_hit_counts.HIGH_VELOCITY++;
+    if (t.typology_scores.travel_rule  > 0.3) typology_hit_counts.TRAVEL_RULE++;
+  });
+
+  const top_risk_accounts = _k_buildAccountProfiles(scored);
+
+  const overall_risk = average_score >= 0.60 ? 'HIGH' : average_score >= 0.30 ? 'MEDIUM' : 'LOW';
+
+  const compliance_flags = [];
+  if (overall_risk === 'HIGH')   compliance_flags.push('AML_HIGH_RISK_PORTFOLIO');
+  if (overall_risk === 'MEDIUM') compliance_flags.push('AML_MEDIUM_RISK_PORTFOLIO');
+  if (overall_risk === 'LOW')    compliance_flags.push('AML_LOW_RISK_PORTFOLIO');
+  if (travel_rule_violations > 0) compliance_flags.push('TRAVEL_RULE_VIOLATIONS_DETECTED');
+  if (typology_hit_counts.STRUCTURING > 0) compliance_flags.push('STRUCTURING_RISK_DETECTED');
+
+  return {
+    overall_risk,
+    transaction_count,
+    high_risk_count,
+    medium_risk_count,
+    average_score,
+    max_score: +max_score.toFixed(4),
+    travel_rule_violations,
+    typology_hit_counts,
+    top_risk_accounts,
+    compliance_flags,
+  };
+}
+/* --- end mirror --- */
+
 function scoreTransactions(txns, params){
   const {reportingThreshold, travelRuleThreshold, layeringWindow,
          wStructuring, wLayering, wFunnel, wRoundtrip, wVelocity, wTravelRule} = params;
@@ -999,7 +1161,26 @@ async function runScoring(){
       signatures: []
     }
   };
-  _lastResult = _artifact;
+  /* Registered result path (PR-2734-WEBMCP-CURE-1): the kernel mirror compute()
+     above is the manifest-declared entry point, so the run wrapper stores its
+     result as the agent-visible global. The interactive graph demo keeps _artifact
+     and _scored for its own visualization. */
+  var kpp = { transactions: txns.map(function(t) {
+    return {
+      id: t.id,
+      amount: t.amount,
+      hops: t.hops ?? t.intermediaries ?? 0,
+      cross_border: !!t.cross_border,
+      source_count: t.source_count ?? 1,
+      round_trip_detected: !!t.round_trip_detected,
+      same_origin_dest: !!t.same_origin_dest,
+      tx_count_in_window: t.tx_count_in_window ?? 1,
+      originator_info: t.has_originator_info ? { present: true } : null,
+      beneficiary_info: t.has_beneficiary_info ? { present: true } : null,
+    };
+  }) };
+  var kres = compute(kpp);
+  _lastResult = { pp: kpp, output_payload: kres, compliance_flags: kres.compliance_flags };
   document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
 
   document.getElementById('progressWrap').classList.remove('visible');
@@ -1017,8 +1198,8 @@ async function runScoring(){
 // paints the stored result global, so the agent path and the form path paint
 // from the same store. Reads _lastResult only; never assigns it.
 function paintResult(){
-  if(!_lastResult||!_lastResult.output_payload) return;
-  const op=_lastResult.output_payload;
+  if(!_lastResult) return;
+  const op=_lastResult.output_payload||_lastResult;
   const risk=op.overall_risk||'LOW';
   const vMeta={
     LOW: {cls:'low',icon:'✅',label:'Low AML Risk',title:'Transaction graph presents low typology risk',sub:'No high-risk transactions or pattern sequences detected under current sensitivity settings.'},
@@ -1192,7 +1373,7 @@ function toggleMfst(){
 }
 
 /* Init sliders */
-['wStructuring','wLayering','wFunnel','wRoundtrip','wVelocity','wTravelRule'].forEach(id=>document.getElementById(id).dispatchEvent(new Event('input')));
+try{['wStructuring','wLayering','wFunnel','wRoundtrip','wVelocity','wTravelRule'].forEach(id=>document.getElementById(id).dispatchEvent(new Event('input')));}catch(e){/* no Event constructor in the headless vm (direct-execute leg 1); the browser path never throws */}
 </script>
 <script>
 /* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
@@ -1268,5 +1449,121 @@ async function verifySignature(){
   }
 })();
 </script>
+<!-- WEBMCP:GEN-BEGIN manifest=manifests/art-10-amla-transaction-typology-risk-scorer.manifest.json generator=scripts/gen-webmcp-registrations.mjs mode=direct -->
+<script>
+// WebMCP registration generated by scripts/gen-webmcp-registrations.mjs from
+// manifests/art-10-amla-transaction-typology-risk-scorer.manifest.json (mcp_tool_definition reused verbatim; the generator computes
+// nothing and restates no computed value). DIRECT emission mode
+// (WEBMCP-DIRECT-MODE-1): this page's manifest inputs have no single control
+// to prefill, so execute() calls the manifest-declared function with the
+// agent's params, stores the result in the page's result global, lets the
+// page's render function paint it, and shows the mandatory "Inputs used by
+// the agent" echo panel so a human still sees exactly what the agent ran.
+// Feature-detected: absent API registers nothing, so this page is
+// byte-identical without the API.
+// Eligibility is static and re-proven on every --check: kernel-digest
+// sentinel matches the kernel; the declared function takes one parameter
+// and reads no DOM; the kernel reproduces fixture 0 execution_hash. Same
+// kernel, same hash, zero network I/O.
+// Trust annotations, truthful-hint posture: deterministic local compute, no
+// untrusted content, so untrustedContentHint is not applicable per tool (n/a);
+// exposedTo intentionally omitted: no cross-origin exposure. A browser agent
+// is untrusted input like any form submission; the never-trust-client rule is
+// honored by construction because the tool is zero-server and only returns
+// computed JSON derived from declared inputs.
+// Browser support (dated observation): WebMCP origin trial from Chrome 149
+// (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).
+const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+if (mc) {
+  mc.registerTool({
+    name: 'score_aml_typologies',
+    description: 'Scores a synthetic transaction graph against six AML typology detectors. Returns per-transaction risk scores, typology hit counts, account risk profiles, and SAR narrative skeleton.',
+    inputSchema: {
+      "type": "object",
+      "required": [
+        "transactions"
+      ],
+      "properties": {
+        "round_trip_window_hours": {
+          "default": 72,
+          "description": "type not evidenced by kernel source"
+        },
+        "scenario": {
+          "default": "structuring_example",
+          "description": "type not evidenced by kernel source"
+        },
+        "structuring_threshold": {
+          "default": 10000,
+          "description": "type not evidenced by kernel source"
+        },
+        "transactions": {
+          "description": "type not evidenced by kernel source"
+        },
+        "velocity_window_hours": {
+          "default": 24,
+          "description": "type not evidenced by kernel source"
+        }
+      }
+    },
+    annotations: { readOnlyHint: true },
+    execute: async function(params) {
+      try {
+      if (params.transactions === undefined) throw new Error('transactions is required; received ' + JSON.stringify(params.transactions) + '.');
+      var echo = document.getElementById('webmcp-inputs-echo');
+      if (!echo) {
+        echo = document.createElement('pre');
+        echo.id = 'webmcp-inputs-echo';
+        var panel = document.querySelector('.results-panel');
+        if (panel && panel.parentNode) panel.parentNode.insertBefore(echo, panel);
+        else document.body.insertBefore(echo, document.body.firstChild);
+      }
+      echo.textContent = 'Inputs used by the agent: ' + JSON.stringify(params, null, 2);
+      var __normalizeNullMembers = function __normalizeNullMembers(value, schema) {
+        if (Array.isArray(value)) {
+          var changed = false;
+          var out = new Array(value.length);
+          for (var i = 0; i < value.length; i++) {
+            var el = value[i];
+            if (el === null) { out[i] = null; continue; }
+            var n = __normalizeNullMembers(el, schema && schema.items);
+            if (n !== el) changed = true;
+            out[i] = n;
+          }
+          return changed ? out : value;
+        }
+        if (value !== null && typeof value === 'object') {
+          var props = schema && schema.properties;
+          var out2 = {};
+          var changed2 = false;
+          for (var ks = Object.keys(value), j = 0; j < ks.length; j++) {
+            var k = ks[j];
+            var v = value[k];
+            if (v === null) {
+              if (props && props[k] && props[k].x_null_distinct) { out2[k] = null; continue; }
+              changed2 = true;
+              continue;
+            }
+            var n2 = __normalizeNullMembers(v, props && props[k]);
+            if (n2 !== v) changed2 = true;
+            out2[k] = n2;
+          }
+          return changed2 ? out2 : value;
+        }
+        return value;
+      };
+      var __computeInput = __normalizeNullMembers(params, "{\"type\":\"object\",\"required\":[\"transactions\"],\"properties\":{\"round_trip_window_hours\":{\"default\":72,\"description\":\"type not evidenced by kernel source\"},\"scenario\":{\"default\":\"structuring_example\",\"description\":\"type not evidenced by kernel source\"},\"structuring_threshold\":{\"default\":10000,\"description\":\"type not evidenced by kernel source\"},\"transactions\":{\"description\":\"type not evidenced by kernel source\"},\"velocity_window_hours\":{\"default\":24,\"description\":\"type not evidenced by kernel source\"}}}");
+      var __directResult = await compute(__computeInput);
+      if (typeof __directResult !== 'undefined') _lastResult = __directResult;
+      await paintResult();
+      return _lastResult;
+      } catch (err) {
+        return { error: 'compute_failed', detail: String((err && err.message) || err) };
+      }
+    }
+  });
+}
+</script>
+<!-- WEBMCP:GEN-END -->
+
 </body>
 </html>
