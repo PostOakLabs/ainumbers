@@ -2287,6 +2287,7 @@ const GATES = [
   ['Ledger live channel de-dup + envelope (LEDGER-BRIDGE-LIVE-1, shipped source)', 'node scripts/ledger-dedup.test.mjs'],
   ['OCG verify.html proven-to-reject (AV-REJECT-FIX-1)', 'node scripts/ocg-verify-hash-tamper.test.mjs'],
   ['tools/568 receipt verifier proven-to-reject (AV-REJECT-FIX-1, shipped source)', 'node scripts/ocg-receipt-verifier-568-tamper.test.mjs'],
+  ['tools/624 VCJCS envelope verifier proven-to-reject + frozen-fixture regression (TSURF-VC-INSPECTOR-1, shipped source)', 'node scripts/vcjcs-envelope-verifier-624-tamper.test.mjs'],
   // TAMPER-GATE-SHIPPED-SOURCE-1: retitled off "proven-to-reject". That label claimed a
   // witness-signature rejection this gate never performs — it exercises the shipped
   // checkpoint-note parser and the root/origin cross-check only; the Ed25519 / ML-DSA-44
