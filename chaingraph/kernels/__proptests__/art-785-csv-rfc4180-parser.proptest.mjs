@@ -1,5 +1,5 @@
 // art-785-csv-rfc4180-parser — class-K property-test FLOOR (SHARED-CSV-AND-PAGE-XML-1).
-// kernel_digest_at_authoring: sha256:a8e7f75d363f064704e9953d0ce3d87c380cc79ca4b1c478b30273e6c3a835bf
+// kernel_digest_at_authoring: sha256:b83bd030895e317f88ac6a31fb537d646da10af518cb822cb475b222b28ac4b2
 // (this file imports the kernel and bundle directly, so identity drift also fails the fixture oracle).
 // spec: ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec 0.1 (bundle + demonstrator ruling); row
 // SHARED-CSV-AND-PAGE-XML-1; RFC 4180 (with the two declared deviations named in the
