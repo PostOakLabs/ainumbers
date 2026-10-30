@@ -91,6 +91,7 @@
  */
 import { execSync, exec } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
+import { checkPreflightCap, refusalMessage } from './lib/preflight-cap.mjs';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -171,6 +172,14 @@ function assertRepoFresh(repoPath, via, strict) {
 
 const { path: REPO, via: REPO_VIA, strict: REPO_STRICT } = resolveRepoPath();
 assertRepoFresh(REPO, REPO_VIA, REPO_STRICT);
+// PREFLIGHT-HARD-CAP-1: three runs per builder worktree (.wt/<ROW>), counted in .tmp/preflight-count;
+// the fourth refuses before any gate starts. CI, the pre-push hook's own run, --self-test and
+// PREFLIGHT_BUDGET_OVERRIDE=1 are never counted (scripts/lib/preflight-cap.mjs).
+{
+  const cap = checkPreflightCap({ repo: REPO, env: process.env, argv: process.argv, fs: { readFileSync, writeFileSync, mkdirSync } });
+  if (cap.refused) { console.error(refusalMessage(cap)); process.exit(1); }
+  if (cap.counted) console.log(`preflight budget: ${cap.reason} (PREFLIGHT-HARD-CAP-1)`);
+}
 // GIT-ENV-LEAK-SWEEP-1 (2026-08-23): was `{ ...process.env, ... }`. This object is the environment
 // EVERY gate subprocess below inherits, so scrubbing GIT_* once here protects the whole suite, not
 // just preflight's own git calls — a gate that shells to git can no longer be redirected at the

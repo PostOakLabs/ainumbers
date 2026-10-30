@@ -91,7 +91,17 @@ function loadReservations() {
  * mainPaths: Map id -> string[] (paths on main) | null (main unreadable)
  * openPrs: [{number,title}] of open PRs | null (leg (c) unavailable)
  */
-export function checkId({ id, kind, path, mainPaths, reservations, openPrs, prNumber }) {
+/**
+ * A pr=null reservation belongs to THIS PR when the PR itself added the line
+ * (mainReservations = origin/main's registry; null = unreadable, never owned
+ * by that leg) or the reserving row is this PR's head branch name.
+ */
+export function ownsNullPrReservation({ id, res, mainReservations, headRef }) {
+  if (mainReservations && !mainReservations[id]) return true
+  return Boolean(headRef && res.row && headRef.split('/').pop() === res.row)
+}
+
+export function checkId({ id, kind, path, mainPaths, reservations, openPrs, prNumber, mainReservations = null, headRef = null }) {
   const refusals = []
   const onMain = mainPaths?.get(id) ?? []
 
@@ -111,6 +121,12 @@ export function checkId({ id, kind, path, mainPaths, reservations, openPrs, prNu
       `chaingraph/graph/RESERVATIONS.json. Every node-minting PR MUST add its own line ` +
       `("art-<id>": {"row":..., "pr":..., "reserved":...}) — the registry line is the lock; ` +
       `two PRs reserving the same id conflict on it in the merge queue.`)
+  } else if (prNumber != null && res.pr == null && ownsNullPrReservation({ id, res, mainReservations, headRef })) {
+    // A row reserves its id before its PR exists, so
+    // the line usually carries pr=null. That is this PR's own lock when the
+    // line is new in this PR (absent from origin/main's registry: git conflict
+    // on the line is still the mechanical collision check) or its row names
+    // this PR's head branch. 26 false refusals over 10-01..10-29 were this shape.
   } else if (prNumber != null && res.pr !== prNumber) {
     refusals.push(`REFUSAL(b) reservation-mismatch: ${id} (${kind}) is reserved in ` +
       `RESERVATIONS.json to pr=${res.pr} (row "${res.row}"), but this PR is #${prNumber}. ` +
@@ -142,10 +158,15 @@ export function checkId({ id, kind, path, mainPaths, reservations, openPrs, prNu
  * with NO surface on main stays a mint and goes through checkId exactly as
  * before.
  */
-export function checkNewPath({ id, path, mainPaths, reservations, openPrs, prNumber }) {
+export function checkNewPath({ id, path, mainPaths, reservations, openPrs, prNumber, mainReservations = null, headRef = null }) {
   if ((mainPaths?.get(id) ?? []).length > 0) return { backfill: true, refusals: [] }
   const kind = NODE_RE.test(path) ? 'node' : MANIFEST_RE.test(path) ? 'manifest' : 'tool'
-  return { backfill: false, refusals: checkId({ id, kind, path, mainPaths, reservations, openPrs, prNumber }) }
+  return { backfill: false, refusals: checkId({ id, kind, path, mainPaths, reservations, openPrs, prNumber, mainReservations, headRef }) }
+}
+
+/** origin/main's RESERVATIONS.json, or null when unreadable (the new-in-PR leg then never fires). */
+function loadMainReservations() {
+  try { return JSON.parse(git(['show', 'origin/main:chaingraph/graph/RESERVATIONS.json'])) } catch { return null }
 }
 
 /** Which open PRs claim `id` (exact token match, not substring). null = leg unavailable. */
@@ -245,6 +266,27 @@ export function selfTest() {
     ok: mint.backfill === false && mint.refusals.some(r => r.includes('REFUSAL(b)')),
     quote: mint.refusals.find(r => r.includes('REFUSAL(b)')) || '(no refusal — UNEXPECTED GREEN)' })
 
+  // pr=null reservations (a row reserves before its PR exists).
+  const nullRes = { ...reservations, 'art-780': { row: 'SOLANA-PDA-ATA-AUDIT-1', pr: null, reserved: '2026-10-29T02:00:00Z' } }
+  // GREEN: the PR added the pr=null line itself (absent from main's registry) — the #2727 shape.
+  expectGreen('GREEN pr=null reservation added by this PR',
+    checkId({ id: 'art-780', kind: 'node', path: 'chaingraph/graph/nodes/art-780-foo.json', mainPaths, reservations: nullRes,
+      openPrs: [], prNumber: 2727, mainReservations: reservations }))
+  // GREEN: pr=null line already on main, its row is this PR's head branch.
+  expectGreen('GREEN pr=null reservation on main, row = head branch',
+    checkId({ id: 'art-780', kind: 'node', path: 'chaingraph/graph/nodes/art-780-foo.json', mainPaths, reservations: nullRes,
+      openPrs: [], prNumber: 2727, mainReservations: nullRes, headRef: 'SOLANA-PDA-ATA-AUDIT-1' }))
+  // RED: pr=null line already on main for ANOTHER row — still someone else's lock.
+  expectRed('RED(b) pr=null reservation on main held by another row',
+    checkId({ id: 'art-780', kind: 'node', path: 'chaingraph/graph/nodes/art-780-foo.json', mainPaths, reservations: nullRes,
+      openPrs: null, prNumber: 2730, mainReservations: nullRes, headRef: 'OTHER-ROW-1' }),
+    'b')
+  // RED: main's registry unreadable and no row match — fail closed.
+  expectRed('RED(b) pr=null reservation, main registry unreadable, no row match',
+    checkId({ id: 'art-780', kind: 'node', path: 'chaingraph/graph/nodes/art-780-foo.json', mainPaths, reservations: nullRes,
+      openPrs: null, prNumber: 2730, mainReservations: null, headRef: null }),
+    'b')
+
   let failed = 0
   for (const r of results) {
     console.error(`  ${r.ok ? 'ok' : 'FAIL'} — ${r.name}`)
@@ -278,6 +320,8 @@ function runDiff() {
     console.error(`check-id-collision: RESERVATIONS.json unreadable (${e.message}) — refusing closed.`); process.exit(1)
   }
   const prNumber = thisPrNumber()
+  const mainReservations = loadMainReservations()
+  const headRef = process.env.GITHUB_HEAD_REF || null
   const changed = changedPaths().filter(p => NODE_RE.test(p) || MANIFEST_RE.test(p) || TOOL_RE.test(p))
 
   // Exact-token open-PR scan, one gh call, only when there is something to check.
@@ -317,7 +361,8 @@ function runDiff() {
     if (!isNew) continue // modification of an existing main file: not a mint
     const id = `art-${m[1]}`
     const out = checkNewPath({ id, path: p, mainPaths, reservations,
-      openPrs: openByid.get(id) ?? (MERGE_GROUP ? null : (ghSkipped ? null : [])), prNumber })
+      openPrs: openByid.get(id) ?? (MERGE_GROUP ? null : (ghSkipped ? null : [])), prNumber,
+      mainReservations, headRef })
     if (out.backfill) backfills++ // backfill of an existing id: not a mint, no refusal
     refusals.push(...out.refusals)
   }
