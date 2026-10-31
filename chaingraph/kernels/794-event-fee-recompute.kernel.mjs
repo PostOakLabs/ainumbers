@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// 789-event-fee-recompute — recomputes event-contract trading fees per fill and per
+// 794-event-fee-recompute — recomputes event-contract trading fees per fill and per
 // order from an effective-dated venue fee profile, and diffs the recompute against a
 // caller-reported fee. Venue-neutral: the fee family and its parameters are DATA
 // (effective-dated profile rows), Kalshi / Polymarket global / Polymarket US are
@@ -29,7 +29,7 @@ import { executionHash } from './_hash.mjs';
 // Pure ECMA-262: no Date.now/Math.random/network/filesystem; no Math.pow on fee
 // paths. compute() is a pure function of pp.
 
-const TOOL_ID = '789-event-fee-recompute';
+const TOOL_ID = '794-event-fee-recompute';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
@@ -60,7 +60,7 @@ function numOut(v) {
 // Row shape mirrors Kalshi GET /series/fee_changes (series_ticker, fee_type,
 // fee_multiplier, scheduled_ts) as effective-dated rows; a scheduled change is one
 // new row. Profiles are ALSO shipped as a data file at
-// chaingraph/kernels/fixtures/789-event-fee-recompute.profiles.json (the zkVM guest
+// chaingraph/kernels/fixtures/794-event-fee-recompute.profiles.json (the zkVM guest
 // cannot read files, so this table is the embedded copy).
 const KALSHI_PIN = 'docs.kalshi.com/getting_started/fee_rounding + kalshi.com/fee-schedule (pinned 2026-10-31; snapshots sha256 706043bc / fb7b72c8)';
 const PM_GLOBAL_PIN = 'docs.polymarket.com/trading/fees (pinned 2026-10-31; snapshot sha256 2b2b8dcc)';

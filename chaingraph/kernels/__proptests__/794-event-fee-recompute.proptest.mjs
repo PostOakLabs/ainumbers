@@ -1,16 +1,16 @@
-// 789-event-fee-recompute — class-K property-test FLOOR per FV-PBT-FLOOR-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:99eda8d66c693f321db4e57ab101bcbdd780d996426eaeb338d7cfb5d51ea7b8
+// 794-event-fee-recompute — class-K property-test FLOOR per FV-PBT-FLOOR-BUILD-SPEC.md.
+// kernel_digest_at_authoring: sha256:93e829980db28a63b66b2fe3a39a1234f52c77bf7edb8260e7c49dd3c5203854
 // spec: research/kalshi-event-contract-rows-2026-10-30.md section 3.3 + research/EVENT-FEE-RECOMPUTE-PIN-2026-10-30.md
 // human_sign_off: TIM-PENDING-2026-10-31
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/789-event-fee-recompute.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/794-event-fee-recompute.proptest.mjs
 
-import { compute } from '../789-event-fee-recompute.kernel.mjs';
+import { compute } from '../794-event-fee-recompute.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
-const KERNEL_ID = '789-event-fee-recompute';
+const KERNEL_ID = '794-event-fee-recompute';
 
 const SEED = 20261031;
 const N = 200;
