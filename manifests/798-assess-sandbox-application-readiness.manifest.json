@@ -1,0 +1,295 @@
+{
+ "tool_id": "798-assess-sandbox-application-readiness",
+ "version": "1.0.0",
+ "title": "Assess Sandbox Application Readiness",
+ "description": "Assesses a regulatory sandbox application against a declared regulator profile: the applicant declares per-criterion status (met, partially_met, not_met) with evidence refs, requested test parameters (duration, customer cap, per-customer and aggregate value caps, eligible customer types), the four common safeguards (consumer redress, AML/CFT controls, data protection, disclosure to participants) and the exit plan. Returns READY, READY_WITH_GAPS or NOT_ELIGIBLE with sorted gaps, parameter breaches against profile caps, missing safeguards and per-item source cites. Profiles are data: generic (jurisdiction-neutral rubric; its only number is this tool's own disclosed 250-customer default) and cbob (Central Bank of The Bahamas Guidance Note for Participation in the Regulatory Sandbox Framework, issued 8 October 2026: 12-month testing cap at paragraph 28; customer, transaction and cash limits are set per application by ORSAC, so the profile asserts no number there). A cap the pinned source does not fix is null and is never invented. The BMA profile is not shipped: the AI Payments Hub remained consultation-stage at authoring. Any mandatory criterion not_met or a missing exit plan gives NOT_ELIGIBLE. Unknown profile, unknown criterion id and invalid status are refused by name. Synthetic values only; zero network; zero PII.",
+ "category": "chaingraph",
+ "tags": [
+  "regulatory-sandbox",
+  "application-readiness",
+  "eligibility-criteria",
+  "test-parameters",
+  "bahamas"
+ ],
+ "input_schema": {
+  "type": "object",
+  "required": [
+   "profile",
+   "criteria",
+   "test_parameters",
+   "safeguards",
+   "exit_plan"
+  ],
+  "properties": {
+   "profile": {
+    "type": "string",
+    "enum": [
+     "generic",
+     "cbob"
+    ],
+    "description": "Regulator profile. generic is the jurisdiction-neutral rubric (its only number is this tool's own disclosed 250-customer default); cbob is the pinned Central Bank of The Bahamas Regulatory Sandbox Guidance Note (issued 8 October 2026)."
+   },
+   "criteria": {
+    "type": "array",
+    "items": {
+     "type": "object",
+     "required": [
+      "criterion_id",
+      "status"
+     ],
+     "properties": {
+      "criterion_id": {
+       "type": "string",
+       "enum": [
+        "innovation",
+        "consumer_benefit",
+        "benchmarking_viability",
+        "resources",
+        "customer_risk",
+        "legal_compatibility"
+       ]
+      },
+      "status": {
+       "type": "string",
+       "enum": [
+        "met",
+        "partially_met",
+        "not_met"
+       ]
+      },
+      "evidence_ref": {
+       "type": "string",
+       "description": "Optional synthetic evidence reference."
+      }
+     }
+    },
+    "description": "Declared per-criterion status. Unknown criterion ids and invalid statuses are refused."
+   },
+   "test_parameters": {
+    "type": "object",
+    "required": [
+     "duration_months",
+     "customer_cap"
+    ],
+    "properties": {
+     "duration_months": {
+      "type": "number",
+      "description": "Requested testing duration in months. cbob cap 12 (Guidance Note para 28)."
+     },
+     "customer_cap": {
+      "type": "number",
+      "description": "Requested maximum participating customers. cbob sets limits per application (paras 17 v, 25, 27); the generic profile carries this tool's own disclosed 250 default."
+     },
+     "value_cap_per_customer": {
+      "type": "number",
+      "description": "Optional requested per-customer transaction threshold; cbob sets thresholds per application."
+     },
+     "aggregate_value_cap": {
+      "type": "number",
+      "description": "Optional requested aggregate/cash holding limit; cbob sets limits per application."
+     },
+     "eligible_customer_types": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Requested customer types, e.g. retail, sme."
+     }
+    }
+   },
+   "safeguards": {
+    "type": "object",
+    "required": [
+     "consumer_redress",
+     "aml_cft_controls",
+     "data_protection",
+     "disclosure_to_participants"
+    ],
+    "properties": {
+     "consumer_redress": {
+      "type": "object",
+      "properties": {
+       "present": {
+        "type": "boolean"
+       },
+       "evidence_ref": {
+        "type": "string"
+       }
+      }
+     },
+     "aml_cft_controls": {
+      "type": "object",
+      "properties": {
+       "present": {
+        "type": "boolean"
+       },
+       "evidence_ref": {
+        "type": "string"
+       }
+      }
+     },
+     "data_protection": {
+      "type": "object",
+      "properties": {
+       "present": {
+        "type": "boolean"
+       },
+       "evidence_ref": {
+        "type": "string"
+       }
+      }
+     },
+     "disclosure_to_participants": {
+      "type": "object",
+      "properties": {
+       "present": {
+        "type": "boolean"
+       },
+       "evidence_ref": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "description": "The four common safeguards; each must declare present true or it is reported missing."
+   },
+   "exit_plan": {
+    "type": "object",
+    "required": [
+     "present",
+     "customer_transition"
+    ],
+    "properties": {
+     "present": {
+      "type": "boolean"
+     },
+     "wind_down_days": {
+      "type": "number"
+     },
+     "customer_transition": {
+      "type": "string",
+      "description": "Synthetic description of how customers transition at exit."
+     }
+    },
+    "description": "A missing exit plan gives NOT_ELIGIBLE (Guidance Note paras 17 xii and 18 iv)."
+   }
+  }
+ },
+ "mcp_tool_definition": {
+  "name": "assess_sandbox_application_readiness",
+  "description": "Assess a regulatory sandbox application against a declared regulator profile (generic rubric or the pinned Central Bank of The Bahamas Regulatory Sandbox Guidance Note, issued 8 October 2026). Returns READY, READY_WITH_GAPS or NOT_ELIGIBLE with sorted gaps, parameter breaches against profile caps, missing safeguards and per-item source cites. Unknown profile, unknown criterion id and invalid status are refused by name."
+ },
+ "ap2_export": true,
+ "execution": {
+  "mode": "server",
+  "compute_proof_ready": "deferred"
+ },
+ "input_example": {
+  "profile": "cbob",
+  "criteria": [
+   {
+    "criterion_id": "innovation",
+    "status": "met",
+    "evidence_ref": "synthetic://innovation"
+   },
+   {
+    "criterion_id": "consumer_benefit",
+    "status": "met",
+    "evidence_ref": "synthetic://consumer-benefit"
+   },
+   {
+    "criterion_id": "benchmarking_viability",
+    "status": "partially_met",
+    "evidence_ref": "synthetic://benchmark"
+   },
+   {
+    "criterion_id": "resources",
+    "status": "met",
+    "evidence_ref": "synthetic://resources"
+   },
+   {
+    "criterion_id": "customer_risk",
+    "status": "met",
+    "evidence_ref": "synthetic://customer-risk"
+   },
+   {
+    "criterion_id": "legal_compatibility",
+    "status": "met",
+    "evidence_ref": "synthetic://legal"
+   }
+  ],
+  "test_parameters": {
+   "duration_months": 9,
+   "customer_cap": 50,
+   "value_cap_per_customer": 500,
+   "aggregate_value_cap": 25000,
+   "eligible_customer_types": [
+    "retail"
+   ]
+  },
+  "safeguards": {
+   "consumer_redress": {
+    "present": true,
+    "evidence_ref": "synthetic://redress-policy"
+   },
+   "aml_cft_controls": {
+    "present": true,
+    "evidence_ref": "synthetic://aml-program"
+   },
+   "data_protection": {
+    "present": true,
+    "evidence_ref": "synthetic://data-protection"
+   },
+   "disclosure_to_participants": {
+    "present": true,
+    "evidence_ref": "synthetic://disclosure-pack"
+   }
+  },
+  "exit_plan": {
+   "present": true,
+   "wind_down_days": 20,
+   "customer_transition": "synthetic plan: customer notice at exit, balances returned"
+  }
+ },
+ "output_example": {
+  "verdict": "READY_WITH_GAPS",
+  "exit_plan_declared": true,
+  "exit_plan_note": null,
+  "gaps": [
+   {
+    "criterion_id": "benchmarking_viability",
+    "status": "partially_met",
+    "mandatory": false,
+    "cite": "CBOB Guidance Note ¶13 iii — benchmarking and impact assessments demonstrating usefulness, functionality and viability",
+    "evidence_ref": "synthetic://benchmark"
+   }
+  ],
+  "parameter_breaches": [],
+  "safeguards_missing": [],
+  "profile_cites": {
+   "profile": "cbob",
+   "label": "Central Bank of The Bahamas — Regulatory Sandbox Framework (Guidance Note issued 8 Oct 2026)",
+   "criteria": {
+    "innovation": "CBOB Guidance Note ¶18 i — innovation beneficial to The Bahamas, potential to promote financial inclusion",
+    "consumer_benefit": "CBOB Guidance Note ¶13 ii — enhance accessibility, efficiency, security and quality; broaden financial inclusion",
+    "benchmarking_viability": "CBOB Guidance Note ¶13 iii — benchmarking and impact assessments demonstrating usefulness, functionality and viability",
+    "resources": "CBOB Guidance Note ¶13 iv — financial, human and technical resources sufficient to mitigate consumer risks",
+    "customer_risk": "CBOB Guidance Note ¶13 v — capacity of the technology to adversely impact customers or financial stability",
+    "legal_compatibility": "CBOB Guidance Note ¶13 vi — compatibility with existing laws, regulations and Central Bank policies; treated as mandatory because a wholesale incompatibility is what the pre-application feedback stage (¶16 iii) screens out"
+   },
+   "caps": {
+    "duration_months": "CBOB Guidance Note ¶28 — the proposed testing stage may not exceed 12 months",
+    "customer_cap": "CBOB Guidance Note ¶¶17 v, 25, 27 — customer limits are set per application by ORSAC; the source fixes no numeric cap, so none is asserted",
+    "value_cap_per_customer": "CBOB Guidance Note ¶¶17 v, 27 v — transaction thresholds are set per application by ORSAC; no numeric cap fixed",
+    "aggregate_value_cap": "CBOB Guidance Note ¶¶17 v, 27 v — cash holding limits are set per application by ORSAC; no numeric cap fixed"
+   },
+   "safeguards": "CBOB Guidance Note ¶19 iii–vi — data protection, informed consent and disclosure, customer redress; ¶12 v / ¶35 iii — AML/CFT",
+   "exit_plan": "CBOB Guidance Note ¶17 xii — application must include an exit-plan assessment; ¶18 iv — ORSAC evaluates the exit strategy; ¶45 — exit mechanics"
+  }
+ },
+ "example_execution_hash": "616f66fbc5e67ca5facac7133f4d144c6defab979428ee7d88b7189d0c4abf2e",
+ "source": "Primary text pinned 2026-10-31: Central Bank of The Bahamas, Guidance Note for Participation in the Regulatory Sandbox Framework, issued 8 October 2026, sha256 344286717227a407e3e1d731d5fb2071a9ee2a62b9955c3b62ebe8aced95125b (research/clause-snapshots/sandbox-readiness/cbob-sandbox-guidance-final.pdf; paragraph map in research/SANDBOX-READINESS-PIN-2026-10-30.md). BMA profile dropped: no published sandbox framework text at claim time; AI Payments Hub consultation-stage.",
+ "author": "Post Oak Labs",
+ "license": "CC-BY-4.0",
+ "input_schema_provenance": "Row-fixed criteria contract (SANDBOX-APPLICATION-READINESS-1); profile caps from the pinned CBOB guidance note only."
+}
