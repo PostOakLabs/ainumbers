@@ -7,14 +7,16 @@
 // as a subprocess with S18_DERIVED_ROOT pointing at an ephemeral monolith, actually READS that tree
 // (and fails when the tree is tampered — a tamper the committed-monolith read can never see).
 //
-// GREEN leg: spawn scripts/check-s18-digest-freshness.test.mjs with S18_DERIVED_ROOT at a tmp COPY
-//   of the committed chaingraph.json → exit 0. (On this gate-fix row the kernels are untouched, so
-//   the copy recomputes exactly to the calibration; on a re-prove PR the assembled-from-branch tree
-//   likewise recomputes equal, which is the PR shape this row serves.)
-// RED leg: same spawn, but the copy has one live gpu:false node's journal.kernel_digest replaced by
-//   a bogus digest → exit 1, and the output names the calibration leg's stale message. This leg is
-//   what proves the env path is really read: without the env override the fixture reads the
-//   untouched committed monolith and stays green.
+// GREEN leg: spawn the repo's own assembler (scripts/assemble-chaingraph.mjs — the same assembler
+//   land-verify.yml uses for S18_DERIVED_ROOT on pull_request) to build an ephemeral monolith from
+//   THIS checkout into a tmp root, then spawn scripts/check-s18-digest-freshness.test.mjs with
+//   S18_DERIVED_ROOT at that root → exit 0. Assembling from the checkout (not copying the committed
+//   chaingraph.json, which is main-regen single-writer and lags any kernel re-prove) means the leg
+//   tracks the branch's own kernels/receipts, exactly the PR shape this row serves.
+// RED leg: a copy of the SAME assembled tree with one live gpu:false node's journal.kernel_digest
+//   replaced by a bogus digest → exit 1, and the output names the calibration leg's stale message.
+//   This leg is what proves the env path is really read: without the env override the fixture reads
+//   the untouched committed monolith and stays green.
 //
 // DERIVED_ROOT is stripped from the child env in BOTH legs — the gates give DERIVED_ROOT
 // (merge_group/main) precedence, so a leaked value would silently flip both legs onto the committed
@@ -52,10 +54,20 @@ function writeTree(tmpRoot, cgObject) {
   mkdirSync(resolve(tmpRoot, 'chaingraph'), { recursive: true });
   writeFileSync(resolve(tmpRoot, 'chaingraph', 'chaingraph.json'), JSON.stringify(cgObject));
 }
+// Build an ephemeral monolith from THIS checkout into <root>/chaingraph/chaingraph.json,
+// exactly as land-verify.yml's s18tree step does.
+function assembleTree(root) {
+  const out = resolve(root, 'chaingraph', 'chaingraph.json');
+  const r = spawnSync(process.execPath, ['scripts/assemble-chaingraph.mjs', '--out', out], {
+    cwd: REPO, encoding: 'utf8', timeout: 300_000,
+  });
+  assert(r.status === 0, `assemble-chaingraph.mjs failed (exit ${r.status})\nstdout: ${(r.stdout || '').slice(-400)}\nstderr: ${(r.stderr || '').slice(-400)}`);
+  return JSON.parse(readFileSync(out, 'utf8'));
+}
 
-const committed = JSON.parse(readFileSync(CG_SRC, 'utf8'));
 // The RED leg must tamper a FRESH node (stale+1); tampering an already-stale node moves nothing.
 // Identify the fresh set with the gate's own computeStaleness over the gate's own kernel-source map.
+const committed = JSON.parse(readFileSync(CG_SRC, 'utf8'));
 {
   const KDIR = resolve(REPO, 'chaingraph', 'kernels');
   const { sourceDigest } = await import(pathToFileURL(resolve(KDIR, '_buildid.mjs')).href);
@@ -71,18 +83,20 @@ assert(FRESH_TOOL_ID, 'no fresh node found in the committed monolith — the RED
 
 const scratch = mkdtempSync(resolve(tmpdir(), 's18-derived-root-e2e-'));
 try {
-  await test('e2e GREEN: the fixture test reads S18_DERIVED_ROOT (clean copy of the committed monolith) and exits 0', async () => {
+  var assembled;
+  await test('e2e GREEN: the fixture test reads S18_DERIVED_ROOT (monolith assembled from the checkout) and exits 0', async () => {
     const root = resolve(scratch, 'clean');
-    writeTree(root, committed);
+    assembled = assembleTree(root);
     const r = spawnFixture(root);
     assert(r.status === 0, `expected exit 0, got ${r.status}\nstdout: ${(r.stdout || '').slice(-800)}\nstderr: ${(r.stderr || '').slice(-800)}`);
   });
 
-  await test('e2e RED: a bogus journal.kernel_digest in the S18_DERIVED_ROOT tree fails the fixture with the calibration stale message', async () => {
-    const tampered = structuredClone(committed);
+  await test('e2e RED: a bogus journal.kernel_digest in a tampered copy of the ASSEMBLED tree fails the fixture with the calibration stale message', async () => {
+    const tampered = structuredClone(assembled);
     const victim = tampered.nodes.find(
       (n) => n.tool_id === FRESH_TOOL_ID
     );
+    assert(victim, `tamper target ${FRESH_TOOL_ID} missing from the assembled tree`);
     (victim.audit_signature?.compute_proof ?? victim.compute_proof).journal.kernel_digest = 'bogus-digest-not-a-real-receipt';
     const root = resolve(scratch, 'tampered');
     writeTree(root, tampered);
