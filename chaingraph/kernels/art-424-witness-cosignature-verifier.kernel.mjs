@@ -2903,7 +2903,7 @@ const ml_dsa44 = /* @__PURE__ */ (() => getDilithium({
 }))();
 
 const TOOL_ID = 'art-424-witness-cosignature-verifier';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -2916,19 +2916,22 @@ export const meta = {
 // supplied pinned witness key set. VERIFY-SIDE ONLY: this tool never operates, mirrors,
 // or serves a log — it consumes a checkpoint note text the caller already has (e.g. from
 // a c2sp.org/tlog-proof bundle) and performs zero network fetches. Two witness signature
-// suites: Ed25519 cosignature/v1 (the C2SP-shipped suite) and ML-DSA-44 (the suite our own
-// §20.2 text names alongside it, per the §PQC-1 reserved-extension discipline — no
-// C2SP-assigned type byte exists yet for ML-DSA in the note-signature registry, so the
-// 0xf0 type byte used below is a PROVISIONAL, locally-declared id for this verifier's own
-// key-id derivation only, not an external standard).
+// suites: Ed25519 cosignature/v1 (the C2SP-shipped suite) and ML-DSA-44 (the suite this
+// tool's SPEC section names alongside it). Note algorithm bytes and key-id derivation follow the
+// assigned registry: Ed25519 = 0x04, ML-DSA-44 = 0x06, key id = the first 4 bytes of
+// SHA-256(cosigner name || "\n" || algorithm byte || raw public key). The two suites sign
+// DIFFERENT messages: Ed25519 signs the cosignature/v1 text form (label, `time N` line,
+// then the checkpoint body including any extension lines); ML-DSA-44 signs the binary
+// CosignedSubtree struct over the checkpoint body ONLY — a note with extension lines is
+// a structured refusal on the ML-DSA-44 path, never a pass.
 //
 // COPY FENCE (row requirement): a verdict here states ONLY that ≥k pinned witnesses signed
 // THIS root. It says nothing about whether the log itself is honest or complete, or whether
 // the pinned witness keys truly belong to the parties they claim to be — both are trust
 // decisions made before this tool runs, not by it.
 
-const ED25519_NOTE_ALG = 0x01;      // Go sumdb note package's assigned Ed25519 algorithm byte
-const MLDSA44_NOTE_ALG = 0xf0;      // provisional local id — see header note above
+const ED25519_NOTE_ALG = 0x04;      // note-signature registry assigned Ed25519 algorithm byte
+const MLDSA44_NOTE_ALG = 0x06;      // note-signature registry assigned ML-DSA-44 algorithm byte
 
 function _str(v) { return typeof v === 'string' ? v : ''; }
 function _int(v) { return Number.isInteger(v) ? v : null; }
@@ -2947,6 +2950,31 @@ function readUint64BE(bytes) {
   let v = 0n;
   for (let i = 0; i < 8; i++) v = (v << 8n) | BigInt(bytes[i]);
   return v; // BigInt — timestamps stay exact past 2^53
+}
+function writeUint64BE(buf, offset, value) {
+  let v = BigInt(value);
+  for (let i = 7; i >= 0; i--) { buf[offset + i] = Number(v & 0xffn); v >>= 8n; }
+}
+
+// ML-DSA-44 cosignatures sign the binary CosignedSubtree struct (tlog-cosignature, RFC 9846
+// data conventions): a 12-byte label "subtree/v1\n\0", then length-prefixed cosigner_name and
+// log_origin, a uint64 timestamp (0 for a pure subtree), uint64 start, uint64 end, and the
+// 32-byte subtree hash. A checkpoint cosignature sets start = 0 and end = tree size.
+function buildCosignedSubtreeMessage(cosignerName, timestampStr, logOrigin, start, end, rootBytes) {
+  const name = new TextEncoder().encode(cosignerName);
+  const origin = new TextEncoder().encode(logOrigin);
+  if (name.length < 1 || name.length > 255) throw new Error('cosigner_name must be 1..255 bytes');
+  if (origin.length < 1 || origin.length > 255) throw new Error('log_origin must be 1..255 bytes');
+  const buf = new Uint8Array(12 + 1 + name.length + 8 + 1 + origin.length + 8 + 8 + 32);
+  buf.set([0x73, 0x75, 0x62, 0x74, 0x72, 0x65, 0x65, 0x2f, 0x76, 0x31, 0x0a, 0x00], 0);
+  let o = 12;
+  buf[o++] = name.length; buf.set(name, o); o += name.length;
+  writeUint64BE(buf, o, timestampStr); o += 8;
+  buf[o++] = origin.length; buf.set(origin, o); o += origin.length;
+  writeUint64BE(buf, o, start); o += 8;
+  writeUint64BE(buf, o, end); o += 8;
+  buf.set(rootBytes, o);
+  return buf;
 }
 
 async function sha256(bytes) {
@@ -3279,13 +3307,29 @@ async function computeAsync(pp) {
       continue;
     }
     let sig_valid = false;
-    if (r.keyid_match) {
-      const msg = new TextEncoder().encode('cosignature/v1\n' + r.timestamp + '\n' + parsed.noteText);
+    let refusal = null;
+    if (r.algorithm === 'ml-dsa-44' && parsed.extensionLines.length > 0) {
+      // Ed25519 cosignature/v1 covers extension lines; ML-DSA-44 signs only the CosignedSubtree
+      // struct over the checkpoint body, so an extended note can never verify on this path —
+      // structured refusal, never a pass.
+      refusal = 'ML-DSA-44 cosignatures do not cover extension lines; the note carries ' +
+        parsed.extensionLines.length + ' extension line(s)';
+    } else if (r.keyid_match) {
+      let msg;
+      if (r.algorithm === 'ml-dsa-44') {
+        msg = buildCosignedSubtreeMessage(r.name, r.timestamp, parsed.origin, 0, parsed.size, hexToBytes(parsed.rootHex));
+      } else {
+        // Ed25519 cosignature/v1 text form: label, `time N`, then the checkpoint body
+        // (origin, size, root, and any extension lines, each newline-terminated).
+        msg = new TextEncoder().encode('cosignature/v1\ntime ' + r.timestamp + '\n' + parsed.noteText);
+      }
       sig_valid = r.algorithm === 'ml-dsa-44' ? verifyMldsa44(r.sig, msg, r.rawPubKey) : await verifyEd25519(r.sig, msg, r.rawPubKey);
     }
     if (sig_valid && !seenValidNames.has(r.name)) { valid_witness_count++; seenValidNames.add(r.name); }
-    cosignatures.push({ name: r.name, algorithm: r.algorithm, present: true, keyid_match: r.keyid_match,
-      timestamp: r.timestamp, valid: sig_valid });
+    const entry = { name: r.name, algorithm: r.algorithm, present: true, keyid_match: r.keyid_match,
+      timestamp: r.timestamp, valid: sig_valid };
+    if (refusal) entry.refusal = refusal;
+    cosignatures.push(entry);
   }
 
   const pass = anchored_hash_match && origin_match && valid_witness_count >= threshold;
