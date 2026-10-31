@@ -2,7 +2,7 @@
   "tool_id": "794-event-fee-recompute",
   "version": "1.0.0",
   "title": "Event Fee Recompute",
-  "description": "Recomputes event-contract trading fees per fill and per order from an effective-dated venue fee profile, and diffs the recompute against a caller-reported fee (MATCH | OVERCHARGE | UNDERCHARGE). Venue-neutral: the fee family and its parameters are data - parabolic, multiplier, linear, flat, rebate_share, combo - with shipped effective-dated profile rows for Kalshi (per-fill ceil to $0.000001 plus the pinned per-order rounding accumulator), Polymarket global (pinned category rate table, 5-decimal rounding with the 0.00001 USDC minimum floor) and Polymarket US (CFTC 40.6(d) taker theta 0.06 from 2026-07-07, 0.0695 from 2026-09-17, pinned combo curve from 2026-09-25), plus a caller-declared generic profile whose rows mirror Kalshi GET /series/fee_changes. Integer BigInt arithmetic only; no float in any fee path. Identifier-like labels are refused, never echoed.",
+  "description": "Recomputes event-contract trading fees per fill and per order from an effective-dated venue fee profile (Kalshi with the pinned rounding accumulator, Polymarket global category rates, Polymarket US CFTC 40.6(d) history, or caller-declared generic) and diffs against a reported fee: MATCH, OVERCHARGE or UNDERCHARGE. Integer BigInt arithmetic; no float in any fee path.",
   "category": "chaingraph",
   "tags": [
     "event-contracts",
@@ -21,7 +21,12 @@
     "properties": {
       "profile": {
         "type": "string",
-        "enum": ["kalshi", "polymarket_global", "polymarket_us", "generic"],
+        "enum": [
+          "kalshi",
+          "polymarket_global",
+          "polymarket_us",
+          "generic"
+        ],
         "description": "Shipped profile id, or generic to declare every parameter from the caller. Any other string is refused."
       },
       "as_of": {
@@ -31,23 +36,29 @@
       },
       "category": {
         "type": "string",
-        "description": "polymarket_global only: market category (crypto, sports, finance, politics, economics, culture, weather, other, mentions, tech, combos). Defaults to other."
+        "description": "polymarket_global only: market category (crypto, sports, politics, other, combos and more). Defaults to other."
       },
       "balance_precision_micro": {
         "type": "integer",
-        "enum": [100, 10000],
+        "enum": [
+          100,
+          10000
+        ],
         "description": "kalshi only: the member balance grid in micro-dollars. 10000 = non-direct ($0.01, default), 100 = direct ($0.0001)."
       },
       "params": {
         "type": "object",
-        "description": "generic only: fee_family (parabolic, multiplier, linear, flat, rebate_share, combo), theta_taker_num/den, optional theta_maker_num/den, series_multiplier_num/den, rebate_share_bp, flat_fee_micro, fill_rounding_unit_micro, order_rounding_unit_micro, rounding_mode (ceil | round_half_up), optional floor_min_fee_micro, optional accumulator, or rows[] of effective-dated parameter rows."
+        "description": "Opaque synthetic label. Identifier-like values (hashes, addresses, long ids) are refused and never echoed."
       },
       "orders": {
         "type": "array",
         "maxItems": 100,
         "items": {
           "type": "object",
-          "required": ["order_label", "role"],
+          "required": [
+            "order_label",
+            "role"
+          ],
           "properties": {
             "order_label": {
               "type": "string",
@@ -56,34 +67,84 @@
             },
             "role": {
               "type": "string",
-              "enum": ["taker", "maker"]
+              "enum": [
+                "taker",
+                "maker"
+              ]
             },
             "kind": {
               "type": "string",
-              "enum": ["standard", "combo"],
+              "enum": [
+                "standard",
+                "combo"
+              ],
               "description": "Defaults to standard. Combo orders carry legs[]."
             },
             "outcomes": {
               "type": "array",
               "minItems": 2,
-              "items": { "type": "string", "maxLength": 64 },
+              "items": {
+                "type": "string",
+                "maxLength": 64
+              },
               "description": "Two or more opaque outcome labels declaring a multi-outcome market."
             },
             "fills": {
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["contracts", "price_micro"],
+                "required": [
+                  "contracts",
+                  "price_micro"
+                ],
                 "properties": {
-                  "contracts": { "type": "integer", "minimum": 1, "maximum": 1000000000 },
-                  "price_micro": { "type": "integer", "minimum": 1, "maximum": 999999, "description": "Integer price in micro-dollars of par (1e-6 USD)." }
+                  "contracts": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000
+                  },
+                  "price_micro": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 999999,
+                    "description": "Integer price in micro-dollars of par (1e-6 USD)."
+                  }
                 }
               },
               "description": "Standard-order fills."
             },
             "legs": {
               "type": "array",
-              "items": { "type": "object", "properties": { "fills": { "type": "array", "items": { "type": "object", "properties": { "contracts": { "type": "integer", "minimum": 1 }, "price_micro": { "type": "integer", "minimum": 1, "maximum": 999999 } }, "required": ["contracts", "price_micro"] } } }, "required": ["fills"] },
+              "items": {
+                "type": "object",
+                "properties": {
+                  "fills": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "contracts": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "price_micro": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 999999,
+                          "description": "Integer price in micro-dollars of par (1e-6 USD)."
+                        }
+                      },
+                      "required": [
+                        "contracts",
+                        "price_micro"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "fills"
+                ]
+              },
               "description": "Combo-order legs, each with its own fills."
             },
             "reported_fee_minor": {
@@ -93,14 +154,14 @@
             }
           }
         },
-        "description": "Orders to recompute. At most 500 fills total across the call. Aggregate only: no account or order identifiers."
+        "description": "Orders to recompute. At most 500 fills total. Aggregate only: no account or order identifiers."
       }
     },
     "description": "Profile selection with as_of, plus at least one order of synthetic labelled fills."
   },
   "mcp_tool_definition": {
     "name": "recompute_event_contract_fee",
-    "description": "Recomputes event-contract trading fees per fill and per order from an effective-dated venue fee profile, and diffs the recompute against a caller-reported fee (MATCH | OVERCHARGE | UNDERCHARGE). Venue-neutral: the fee family and its parameters are data - parabolic, multiplier, linear, flat, rebate_share, combo - with shipped effective-dated profile rows for Kalshi (per-fill ceil to $0.000001 plus the pinned per-order rounding accumulator), Polymarket global (pinned category rate table, 5-decimal rounding with the 0.00001 USDC minimum floor) and Polymarket US (CFTC 40.6(d) taker theta 0.06 from 2026-07-07, 0.0695 from 2026-09-17, pinned combo curve from 2026-09-25), plus a caller-declared generic profile whose rows mirror Kalshi GET /series/fee_changes. Integer BigInt arithmetic only; no float in any fee path. Identifier-like labels are refused, never echoed.",
+    "description": "Recomputes event-contract trading fees per fill and per order from an effective-dated venue fee profile (Kalshi with the pinned rounding accumulator, Polymarket global category rates, Polymarket US CFTC 40.6(d) history, or caller-declared generic) and diffs against a reported fee: MATCH, OVERCHARGE or UNDERCHARGE. Integer BigInt arithmetic; no float in any fee path.",
     "inputSchema": {
       "type": "object",
       "required": [
@@ -111,7 +172,12 @@
       "properties": {
         "profile": {
           "type": "string",
-          "enum": ["kalshi", "polymarket_global", "polymarket_us", "generic"],
+          "enum": [
+            "kalshi",
+            "polymarket_global",
+            "polymarket_us",
+            "generic"
+          ],
           "description": "Shipped profile id, or generic to declare every parameter from the caller. Any other string is refused."
         },
         "as_of": {
@@ -121,23 +187,29 @@
         },
         "category": {
           "type": "string",
-          "description": "polymarket_global only: market category (crypto, sports, finance, politics, economics, culture, weather, other, mentions, tech, combos). Defaults to other."
+          "description": "polymarket_global only: market category (crypto, sports, politics, other, combos and more). Defaults to other."
         },
         "balance_precision_micro": {
           "type": "integer",
-          "enum": [100, 10000],
+          "enum": [
+            100,
+            10000
+          ],
           "description": "kalshi only: the member balance grid in micro-dollars. 10000 = non-direct ($0.01, default), 100 = direct ($0.0001)."
         },
         "params": {
           "type": "object",
-          "description": "generic only: fee_family (parabolic, multiplier, linear, flat, rebate_share, combo), theta_taker_num/den, optional theta_maker_num/den, series_multiplier_num/den, rebate_share_bp, flat_fee_micro, fill_rounding_unit_micro, order_rounding_unit_micro, rounding_mode (ceil | round_half_up), optional floor_min_fee_micro, optional accumulator, or rows[] of effective-dated parameter rows."
+          "description": "Opaque synthetic label. Identifier-like values (hashes, addresses, long ids) are refused and never echoed."
         },
         "orders": {
           "type": "array",
           "maxItems": 100,
           "items": {
             "type": "object",
-            "required": ["order_label", "role"],
+            "required": [
+              "order_label",
+              "role"
+            ],
             "properties": {
               "order_label": {
                 "type": "string",
@@ -146,34 +218,84 @@
               },
               "role": {
                 "type": "string",
-                "enum": ["taker", "maker"]
+                "enum": [
+                  "taker",
+                  "maker"
+                ]
               },
               "kind": {
                 "type": "string",
-                "enum": ["standard", "combo"],
+                "enum": [
+                  "standard",
+                  "combo"
+                ],
                 "description": "Defaults to standard. Combo orders carry legs[]."
               },
               "outcomes": {
                 "type": "array",
                 "minItems": 2,
-                "items": { "type": "string", "maxLength": 64 },
+                "items": {
+                  "type": "string",
+                  "maxLength": 64
+                },
                 "description": "Two or more opaque outcome labels declaring a multi-outcome market."
               },
               "fills": {
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": ["contracts", "price_micro"],
+                  "required": [
+                    "contracts",
+                    "price_micro"
+                  ],
                   "properties": {
-                    "contracts": { "type": "integer", "minimum": 1, "maximum": 1000000000 },
-                    "price_micro": { "type": "integer", "minimum": 1, "maximum": 999999, "description": "Integer price in micro-dollars of par (1e-6 USD)." }
+                    "contracts": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000000
+                    },
+                    "price_micro": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 999999,
+                      "description": "Integer price in micro-dollars of par (1e-6 USD)."
+                    }
                   }
                 },
                 "description": "Standard-order fills."
               },
               "legs": {
                 "type": "array",
-                "items": { "type": "object", "properties": { "fills": { "type": "array", "items": { "type": "object", "properties": { "contracts": { "type": "integer", "minimum": 1 }, "price_micro": { "type": "integer", "minimum": 1, "maximum": 999999 } }, "required": ["contracts", "price_micro"] } } }, "required": ["fills"] },
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "fills": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "contracts": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "price_micro": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 999999,
+                            "description": "Integer price in micro-dollars of par (1e-6 USD)."
+                          }
+                        },
+                        "required": [
+                          "contracts",
+                          "price_micro"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "fills"
+                  ]
+                },
                 "description": "Combo-order legs, each with its own fills."
               },
               "reported_fee_minor": {
@@ -183,7 +305,7 @@
               }
             }
           },
-          "description": "Orders to recompute. At most 500 fills total across the call. Aggregate only: no account or order identifiers."
+          "description": "Orders to recompute. At most 500 fills total. Aggregate only: no account or order identifiers."
         }
       },
       "description": "Profile selection with as_of, plus at least one order of synthetic labelled fills."
@@ -194,7 +316,21 @@
       "profile": "kalshi",
       "as_of": "2026-10-31",
       "orders": [
-        { "order_label": "sample-order-a", "role": "taker", "outcomes": ["outcome-a", "outcome-b"], "fills": [{ "contracts": 1, "price_micro": 55000 }], "reported_fee_minor": 5000 }
+        {
+          "order_label": "sample-order-a",
+          "role": "taker",
+          "outcomes": [
+            "outcome-a",
+            "outcome-b"
+          ],
+          "fills": [
+            {
+              "contracts": 1,
+              "price_micro": 55000
+            }
+          ],
+          "reported_fee_minor": 5000
+        }
       ]
     }
   },
