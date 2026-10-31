@@ -180,6 +180,7 @@ export function compute(pp) {
         entries: [],
         totals_by_decision: { allow: 0, allow_exempt: 0, refuse: 0 },
         totals_by_period: {},
+        warnings: ['PERIOD_LOCK_POLICY_FAULT'],
       },
       compliance_flags: compliance_flags.concat('PERIOD_LOCK_POLICY_FAULT'),
     };
@@ -338,8 +339,9 @@ export function compute(pp) {
     out_entries.push(record);
   }
 
-  if (totals_by_decision.refuse > 0) compliance_flags.push('PERIOD_LOCK_ENTRIES_REFUSED');
-  if (totals_by_decision.allow_exempt > 0) compliance_flags.push('PERIOD_LOCK_EXEMPT_USED');
+  const warnings = [];
+  if (totals_by_decision.refuse > 0) { compliance_flags.push('PERIOD_LOCK_ENTRIES_REFUSED'); warnings.push('PERIOD_LOCK_ENTRIES_REFUSED'); }
+  if (totals_by_decision.allow_exempt > 0) { compliance_flags.push('PERIOD_LOCK_EXEMPT_USED'); warnings.push('PERIOD_LOCK_EXEMPT_USED'); }
   if (out_entries.some((r) => r.self_approval === true)) compliance_flags.push('PERIOD_LOCK_SELF_APPROVAL_PRESENT');
 
   return {
@@ -350,6 +352,7 @@ export function compute(pp) {
       reason: null,
       entry_count: out_entries.length,
       entries: out_entries,
+      warnings,
       totals_by_decision,
       totals_by_period,
     },
