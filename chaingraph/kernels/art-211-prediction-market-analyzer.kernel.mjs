@@ -1573,20 +1573,85 @@ export const meta = {
   mandate_type: 'event_market_pnl', gpu: false,
 };
 
-// Kalshi parabolic taker fee: ceil_to_cent(coef * n * P * (1-P))
-function kalshiFee(coef, n, p) {
-  if (!Number.isFinite(p) || p <= 0 || p >= 1) return 0;
-  const raw = coef * n * p * (1 - p);
-  return Math.ceil(raw * 100) / 100;
+// ---- Parabolic taker fee, exact integer arithmetic ----
+// fee = theta * C * p * (1 - p). Price p is held on a micro grid (pu = p * 1e6,
+// clamped to 1000..999000, i.e. 0.001..0.999); contracts C are held as cu / cs
+// (cs = 1 here: n is a whole count). Every fee is returned in integer
+// micro-dollars (BigInt); rounding happens once, on the regime's own grid.
+const PRICE_SCALE = 1000000n;
+function ceilDiv(a, b) { return (a + b - 1n) / b; }   // a >= 0, b > 0
+function halfUpDiv(a, b) { return (2n * a + b) / (2n * b); }
+function priceMicro(p) {
+  const q = Number.isFinite(p) ? p : 0.5;
+  return BigInt(Math.min(999000, Math.max(1000, Math.round(q * 1e6))));
+}
+// num/den over one contract-unit: theta_num * cu * pu * (1e6 - pu) / (theta_den * cs * 1e12)
+function parabolic(theta_num, theta_den, cu, cs, pu) {
+  return {
+    num: theta_num * cu * pu * (PRICE_SCALE - pu),
+    den: theta_den * cs * PRICE_SCALE * PRICE_SCALE,
+  };
 }
 
-// Per-venue fee (taker, binary mode). Returns USD fee.
-function venueFee(venue, n, entry_price) {
-  const p = Math.max(0.001, Math.min(0.999, Number(entry_price) || 0.5));
-  if (venue === 'kalshi') return kalshiFee(0.07, n, p);
-  if (venue === 'cme_event') return 0.5 * n;
-  if (venue === 'robinhood') return 0.1 * n;
-  return 0; // polymarket ~0, default
+// Polymarket global taker rates by market category (docs.polymarket.com/trading/fees,
+// retrieved 2026-10-30). Makers pay 0; maker rebates are paid out of collected
+// taker fees and are not a per-trade fee, so they stay out of this node.
+const POLYMARKET_GLOBAL_RATES = {
+  crypto: [7n, 100n], sports: [5n, 100n], finance: [4n, 100n], politics: [4n, 100n],
+  economics: [5n, 100n], culture: [5n, 100n], weather: [5n, 100n], other: [5n, 100n],
+  mentions: [4n, 100n], tech: [4n, 100n], geopolitics: [0n, 1n], combos: [5n, 100n],
+};
+// Polymarket US taker theta by effective date (CFTC 40.6(d) letters dated 2026-07-07
+// and 2026-09-21; both effective 12:00 a.m. ET on the date shown).
+const POLYMARKET_US_THETA = [
+  { from: '2026-09-17', theta: [695n, 10000n], label: '0.0695' },
+  { from: '2026-07-01', theta: [6n, 100n], label: '0.06' },
+  { from: '', theta: [5n, 100n], label: '0.05' },
+];
+const DEFAULT_FEE_REGIME = 'polymarket_global';
+const DEFAULT_MARKET_CATEGORY = 'other';
+const DEFAULT_AS_OF = '2026-10-30';
+
+function fmtRatio(n, d) {
+  if (n === 0n) return '0';
+  const s = (n * 1000000n / d).toString().padStart(7, '0');
+  return (s.slice(0, -6) + '.' + s.slice(-6)).replace(/0+$/, '').replace(/\.$/, '');
+}
+
+// Per-venue taker fee for the whole order (binary mode).
+// Returns { micro (BigInt micro-dollars), regime, theta, rounding, category?, as_of? }.
+function venueFee(venue, cu, cs, p, opts) {
+  const pu = priceMicro(p);
+  if (venue === 'kalshi') {
+    // Kalshi standard schedule (multiplier 1): theta 0.07, ceil to the cent for the order.
+    const f = parabolic(7n, 100n, cu, cs, pu);
+    return { micro: ceilDiv(f.num * 100n, f.den) * 10000n, regime: 'kalshi', theta: '0.07', rounding: 'ceil_cent' };
+  }
+  if (venue === 'polymarket') {
+    if (opts.fee_regime === 'polymarket_us') {
+      const row = POLYMARKET_US_THETA.find(r => opts.as_of >= r.from);
+      const f = parabolic(row.theta[0], row.theta[1], cu, cs, pu);
+      // The filings state no rounding rule; shown to $0.000001, half-up.
+      return { micro: halfUpDiv(f.num * PRICE_SCALE, f.den), regime: 'polymarket_us', theta: row.label, rounding: 'half_up_micro_usd_unstated_in_filing', as_of: opts.as_of };
+    }
+    const rate = POLYMARKET_GLOBAL_RATES[opts.market_category];
+    const f = parabolic(rate[0], rate[1], cu, cs, pu);
+    // "Fees are rounded to 5 decimal places ... Anything smaller rounds to zero": truncate to $0.00001.
+    return { micro: (f.num * 100000n / f.den) * 10n, regime: 'polymarket_global', theta: fmtRatio(rate[0], rate[1]), rounding: 'truncate_5dp', category: opts.market_category };
+  }
+  // cme_event and robinhood: flat per-contract fees, same formulas as before this fix.
+  const n = Number(cu) / Number(cs);
+  if (venue === 'cme_event') return { micro: BigInt(Math.round(0.5 * n * 1e6)), regime: 'cme_event_flat', theta: null, rounding: 'none' };
+  if (venue === 'robinhood') return { micro: BigInt(Math.round(0.1 * n * 1e6)), regime: 'robinhood_flat', theta: null, rounding: 'none' };
+  return { micro: 0n, regime: 'not_modelled', theta: null, rounding: 'none' };
+}
+
+function feeOpts(pp) {
+  const fee_regime = pp.fee_regime === 'polymarket_us' ? 'polymarket_us' : DEFAULT_FEE_REGIME;
+  const cat = String(pp.market_category || DEFAULT_MARKET_CATEGORY).toLowerCase();
+  const market_category = Object.prototype.hasOwnProperty.call(POLYMARKET_GLOBAL_RATES, cat) ? cat : DEFAULT_MARKET_CATEGORY;
+  const as_of = /^\d{4}-\d{2}-\d{2}$/.test(String(pp.as_of || '')) ? String(pp.as_of) : DEFAULT_AS_OF;
+  return { fee_regime, market_category, as_of };
 }
 
 // Fractional odds string (e.g. "3/2")
@@ -1639,7 +1704,8 @@ export function compute(pp) {
     const holdingWon = isYesSide ? yesWon : !yesWon;
     const payout_received = holdingWon ? payout : 0;
 
-    const fee = venueFee(venue, n, entry_price / payout);
+    const fee_info = venueFee(venue, BigInt(n), 1n, entry_price / payout, feeOpts(pp));
+    const fee = Number(fee_info.micro) / 1e6;
     const pnl = round2(n * (payout_received - entry_price) - fee);
 
     const implied_probability = round4(entry_price / payout);
@@ -1702,6 +1768,7 @@ export function compute(pp) {
     if (implied_probability < 0.05 || implied_probability > 0.95) compliance_flags.push('EXTREME_PROBABILITY');
     if (entry_price <= 0 || entry_price >= payout) compliance_flags.push('INVALID_PRICE');
     if (won === 0) compliance_flags.push('POSITION_EXPIRED_LOSS');
+    if (fee_info.regime === 'not_modelled') compliance_flags.push('FEE_NOT_MODELLED');
     if (kelly_fraction !== null && kelly_fraction === 0 && user_probability !== null) compliance_flags.push('NEGATIVE_EDGE');
 
     output_payload = {
@@ -1713,7 +1780,12 @@ export function compute(pp) {
       payout: round6(payout),
       won: won,
       pnl: pnl,
-      fee_paid: round2(fee),
+      fee_paid: fee,
+      fee_regime: fee_info.regime,
+      fee_theta: fee_info.theta,
+      fee_rounding: fee_info.rounding,
+      fee_market_category: fee_info.category ?? null,
+      fee_as_of: fee_info.as_of ?? null,
       implied_probability: implied_probability,
       break_even_probability: break_even_probability,
       no_vig_fair_value: fair_yes_prob,
