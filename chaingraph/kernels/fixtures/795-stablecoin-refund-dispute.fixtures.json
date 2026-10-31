@@ -1,0 +1,585 @@
+{
+  "tool_id": "795-stablecoin-refund-dispute",
+  "note": "SYNTHETIC VECTORS ONLY -- all payment_ref values are opaque synthetic labels, all amounts and timestamps are invented round numbers. No real payment data. Rule basis: Circle Refund Protocol (pinned commit a7ae494b67ceae4693b416efd52f835d7b53c690, Apache-2.0), re-implemented in plain JS; pin note research/STABLECOIN-REFUND-DISPUTE-PIN-2026-10-30.md. human_sign_off: PENDING.",
+  "vectors": [
+    {
+      "name": "synthetic-clean-release-after-lock",
+      "note": "Synthetic: one payment of 500000 minor units paid at t=0, lock 86400s, no refund requests, no arbiter decisions, no early withdrawal. Expected terminal state RELEASED with the full amount released, zero fee; merchant reports RELEASED/0/500000. Verdict CONSISTENT; conservation balanced.",
+      "policy_parameters": {
+        "profile": "refund_protocol_a7ae494",
+        "params": {
+          "lock_period_seconds": 86400,
+          "early_withdrawal_fee_bp": 100,
+          "arbiter_role": "arbiter",
+          "partial_refunds_allowed": true
+        },
+        "payments": [
+          {
+            "refund_requests": [],
+            "arbiter_decisions": [],
+            "payment_ref": "syn-pay-001",
+            "amount_minor": 500000,
+            "paid_at": 0,
+            "reported_state": "RELEASED",
+            "reported_refunded_minor": 0,
+            "reported_released_minor": 500000
+          }
+        ]
+      },
+      "output_payload": {
+        "refused": false,
+        "profile": "refund_protocol_a7ae494",
+        "rules_basis": "refund_protocol_pinned_a7ae494",
+        "fee_rounding": "floor(amount_minor * early_withdrawal_fee_bp / 10000)",
+        "arbiter_role": "arbiter",
+        "expected": [
+          {
+            "payment_ref": "syn-pay-001",
+            "terminal_state": "RELEASED",
+            "refunded_minor": 0,
+            "released_minor": 500000,
+            "fee_minor": 0,
+            "held_minor": 0
+          }
+        ],
+        "breaks": [],
+        "conservation": {
+          "per_payment": [
+            {
+              "payment_ref": "syn-pay-001",
+              "paid_minor": 500000,
+              "refunded_minor": 0,
+              "released_minor": 500000,
+              "fee_minor": 0,
+              "held_minor": 0,
+              "balanced": true
+            }
+          ],
+          "total": {
+            "paid_minor": 500000,
+            "refunded_minor": 0,
+            "released_minor": 500000,
+            "fee_minor": 0,
+            "held_minor": 0,
+            "balanced": true
+          },
+          "balanced": true
+        },
+        "verdict": "CONSISTENT"
+      },
+      "golden_hash": "b1b2c94b4fccb88e831fe8580ac640dc642472588ccea0e980887ad11aace482"
+    },
+    {
+      "name": "synthetic-full-arbiter-refund-inside-lock",
+      "note": "Synthetic: one payment of 250000 minor units, arbiter refunds the full amount at t=3600 inside the 86400s lock. Expected REFUNDED, released 0, fee 0; merchant reports REFUNDED/250000/0. Verdict CONSISTENT; conservation balanced.",
+      "policy_parameters": {
+        "profile": "refund_protocol_a7ae494",
+        "params": {
+          "lock_period_seconds": 86400,
+          "early_withdrawal_fee_bp": 100,
+          "arbiter_role": "arbiter",
+          "partial_refunds_allowed": true
+        },
+        "payments": [
+          {
+            "refund_requests": [
+              {
+                "at": 1800,
+                "amount_minor": 250000
+              }
+            ],
+            "arbiter_decisions": [
+              {
+                "at": 3600,
+                "refund_minor": 250000
+              }
+            ],
+            "payment_ref": "syn-pay-002",
+            "amount_minor": 250000,
+            "paid_at": 0,
+            "reported_state": "REFUNDED",
+            "reported_refunded_minor": 250000,
+            "reported_released_minor": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "refused": false,
+        "profile": "refund_protocol_a7ae494",
+        "rules_basis": "refund_protocol_pinned_a7ae494",
+        "fee_rounding": "floor(amount_minor * early_withdrawal_fee_bp / 10000)",
+        "arbiter_role": "arbiter",
+        "expected": [
+          {
+            "payment_ref": "syn-pay-002",
+            "terminal_state": "REFUNDED",
+            "refunded_minor": 250000,
+            "released_minor": 0,
+            "fee_minor": 0,
+            "held_minor": 0
+          }
+        ],
+        "breaks": [],
+        "conservation": {
+          "per_payment": [
+            {
+              "payment_ref": "syn-pay-002",
+              "paid_minor": 250000,
+              "refunded_minor": 250000,
+              "released_minor": 0,
+              "fee_minor": 0,
+              "held_minor": 0,
+              "balanced": true
+            }
+          ],
+          "total": {
+            "paid_minor": 250000,
+            "refunded_minor": 250000,
+            "released_minor": 0,
+            "fee_minor": 0,
+            "held_minor": 0,
+            "balanced": true
+          },
+          "balanced": true
+        },
+        "verdict": "CONSISTENT"
+      },
+      "golden_hash": "feb404c4cce2e96164cad90a5a845aa69ed1c1a3dea9d6d00999a30fde4d22fb"
+    },
+    {
+      "name": "synthetic-partial-refund-then-release",
+      "note": "Synthetic: one payment of 800000 minor units, arbiter refunds 300000 (partial_refunds_allowed=true), remainder released after the lock. Expected PARTIALLY_REFUNDED, refunded 300000, released 500000, fee 0; merchant agrees. Verdict CONSISTENT; conservation balanced.",
+      "policy_parameters": {
+        "profile": "refund_protocol_a7ae494",
+        "params": {
+          "lock_period_seconds": 86400,
+          "early_withdrawal_fee_bp": 100,
+          "arbiter_role": "arbiter",
+          "partial_refunds_allowed": true
+        },
+        "payments": [
+          {
+            "refund_requests": [
+              {
+                "at": 100,
+                "amount_minor": 300000
+              }
+            ],
+            "arbiter_decisions": [
+              {
+                "at": 200,
+                "refund_minor": 300000
+              }
+            ],
+            "payment_ref": "syn-pay-003",
+            "amount_minor": 800000,
+            "paid_at": 0,
+            "reported_state": "PARTIALLY_REFUNDED",
+            "reported_refunded_minor": 300000,
+            "reported_released_minor": 500000
+          }
+        ]
+      },
+      "output_payload": {
+        "refused": false,
+        "profile": "refund_protocol_a7ae494",
+        "rules_basis": "refund_protocol_pinned_a7ae494",
+        "fee_rounding": "floor(amount_minor * early_withdrawal_fee_bp / 10000)",
+        "arbiter_role": "arbiter",
+        "expected": [
+          {
+            "payment_ref": "syn-pay-003",
+            "terminal_state": "PARTIALLY_REFUNDED",
+            "refunded_minor": 300000,
+            "released_minor": 500000,
+            "fee_minor": 0,
+            "held_minor": 0
+          }
+        ],
+        "breaks": [],
+        "conservation": {
+          "per_payment": [
+            {
+              "payment_ref": "syn-pay-003",
+              "paid_minor": 800000,
+              "refunded_minor": 300000,
+              "released_minor": 500000,
+              "fee_minor": 0,
+              "held_minor": 0,
+              "balanced": true
+            }
+          ],
+          "total": {
+            "paid_minor": 800000,
+            "refunded_minor": 300000,
+            "released_minor": 500000,
+            "fee_minor": 0,
+            "held_minor": 0,
+            "balanced": true
+          },
+          "balanced": true
+        },
+        "verdict": "CONSISTENT"
+      },
+      "golden_hash": "903d40cd3fcd9a739c2d1e2f5cdd6dee785378719350060d13709271e946f24b"
+    },
+    {
+      "name": "synthetic-early-withdrawal-with-fee",
+      "note": "Synthetic: one payment of 1000000 minor units, arbiter early-withdraws at t=3600 inside the lock; fee bp 100 => expected fee floor(1000000*100/10000)=10000, released 990000. Merchant reports EARLY_WITHDRAWN/0/990000. Verdict CONSISTENT; conservation balanced.",
+      "policy_parameters": {
+        "profile": "refund_protocol_a7ae494",
+        "params": {
+          "lock_period_seconds": 86400,
+          "early_withdrawal_fee_bp": 100,
+          "arbiter_role": "arbiter",
+          "partial_refunds_allowed": true
+        },
+        "payments": [
+          {
+            "refund_requests": [],
+            "arbiter_decisions": [],
+            "payment_ref": "syn-pay-004",
+            "amount_minor": 1000000,
+            "paid_at": 0,
+            "early_withdrawal_at": 3600,
+            "reported_state": "EARLY_WITHDRAWN",
+            "reported_refunded_minor": 0,
+            "reported_released_minor": 990000
+          }
+        ]
+      },
+      "output_payload": {
+        "refused": false,
+        "profile": "refund_protocol_a7ae494",
+        "rules_basis": "refund_protocol_pinned_a7ae494",
+        "fee_rounding": "floor(amount_minor * early_withdrawal_fee_bp / 10000)",
+        "arbiter_role": "arbiter",
+        "expected": [
+          {
+            "payment_ref": "syn-pay-004",
+            "terminal_state": "EARLY_WITHDRAWN",
+            "refunded_minor": 0,
+            "released_minor": 990000,
+            "fee_minor": 10000,
+            "held_minor": 0
+          }
+        ],
+        "breaks": [],
+        "conservation": {
+          "per_payment": [
+            {
+              "payment_ref": "syn-pay-004",
+              "paid_minor": 1000000,
+              "refunded_minor": 0,
+              "released_minor": 990000,
+              "fee_minor": 10000,
+              "held_minor": 0,
+              "balanced": true
+            }
+          ],
+          "total": {
+            "paid_minor": 1000000,
+            "refunded_minor": 0,
+            "released_minor": 990000,
+            "fee_minor": 10000,
+            "held_minor": 0,
+            "balanced": true
+          },
+          "balanced": true
+        },
+        "verdict": "CONSISTENT"
+      },
+      "golden_hash": "a9f325dddd3fec1d8a05219ced690fcac16b27f516ec5409d15578c847c2f2cb"
+    },
+    {
+      "name": "synthetic-released-report-while-lock-open-break",
+      "note": "Synthetic: one payment of 750000 minor units paid at t=0 with an 86400s lock; audit clock as_of_seconds=43200 (lock still open); no refund decisions, no early withdrawal. Expected HELD, but the merchant reports RELEASED with 750000 released. Two breaks (reported_state, reported_released_minor) under rule payment_still_locked; reported figures still internally conservative so verdict CONSISTENT_WITH_BREAKS; conservation of the EXPECTED figures balanced.",
+      "policy_parameters": {
+        "profile": "refund_protocol_a7ae494",
+        "params": {
+          "lock_period_seconds": 86400,
+          "early_withdrawal_fee_bp": 100,
+          "arbiter_role": "arbiter",
+          "partial_refunds_allowed": true,
+          "as_of_seconds": 43200
+        },
+        "payments": [
+          {
+            "refund_requests": [],
+            "arbiter_decisions": [],
+            "payment_ref": "syn-pay-005",
+            "amount_minor": 750000,
+            "paid_at": 0,
+            "reported_state": "RELEASED",
+            "reported_refunded_minor": 0,
+            "reported_released_minor": 750000
+          }
+        ]
+      },
+      "output_payload": {
+        "refused": false,
+        "profile": "refund_protocol_a7ae494",
+        "rules_basis": "refund_protocol_pinned_a7ae494",
+        "fee_rounding": "floor(amount_minor * early_withdrawal_fee_bp / 10000)",
+        "arbiter_role": "arbiter",
+        "expected": [
+          {
+            "payment_ref": "syn-pay-005",
+            "terminal_state": "HELD",
+            "refunded_minor": 0,
+            "released_minor": 0,
+            "fee_minor": 0,
+            "held_minor": 750000
+          }
+        ],
+        "breaks": [
+          {
+            "payment_ref": "syn-pay-005",
+            "rule": "payment_still_locked",
+            "field": "reported_state",
+            "reported": "RELEASED",
+            "expected": "HELD"
+          },
+          {
+            "payment_ref": "syn-pay-005",
+            "rule": "payment_still_locked",
+            "field": "reported_released_minor",
+            "reported": 750000,
+            "expected": 0
+          }
+        ],
+        "conservation": {
+          "per_payment": [
+            {
+              "payment_ref": "syn-pay-005",
+              "paid_minor": 750000,
+              "refunded_minor": 0,
+              "released_minor": 0,
+              "fee_minor": 0,
+              "held_minor": 750000,
+              "balanced": true
+            }
+          ],
+          "total": {
+            "paid_minor": 750000,
+            "refunded_minor": 0,
+            "released_minor": 0,
+            "fee_minor": 0,
+            "held_minor": 750000,
+            "balanced": true
+          },
+          "balanced": true
+        },
+        "verdict": "CONSISTENT_WITH_BREAKS"
+      },
+      "golden_hash": "c4eb685579b55fe0157a1949c2e9f56b9d477a6e341f2505ce8b6f80149335d3"
+    },
+    {
+      "name": "synthetic-identifier-like-payment-ref-refused",
+      "note": "Synthetic: payment_ref is a 40-byte hex address-shaped string (synthetic 0xaaaa... pattern, not a real address). Refusal branch fires: refused=true, reason identifier_like_payment_ref, no values echoed. Reachable refusal path (AUTHORING-STANDARD section 1).",
+      "policy_parameters": {
+        "profile": "refund_protocol_a7ae494",
+        "params": {
+          "lock_period_seconds": 86400,
+          "early_withdrawal_fee_bp": 100,
+          "arbiter_role": "arbiter",
+          "partial_refunds_allowed": true
+        },
+        "payments": [
+          {
+            "refund_requests": [],
+            "arbiter_decisions": [],
+            "payment_ref": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "amount_minor": 100000,
+            "paid_at": 0,
+            "reported_state": "HELD",
+            "reported_refunded_minor": 0,
+            "reported_released_minor": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "refused": true,
+        "reason": "identifier_like_payment_ref",
+        "refused_count": 1
+      },
+      "golden_hash": "85ae7fcdeeb11a89026c26c838b09d5b67e01b71e84545a8de5cff7eac550ab1"
+    },
+    {
+      "name": "synthetic-partial-not-allowed-all-or-nothing-break",
+      "note": "Synthetic: partial_refunds_allowed=false; an arbiter decision of 300000 against a 800000 payment violates the all-or-nothing refund rule; expected refund treated as the full 800000 (REFUNDED). Merchant reported PARTIALLY_REFUNDED. Verdict CONSISTENT_WITH_BREAKS; conservation balanced.",
+      "policy_parameters": {
+        "profile": "refund_protocol_a7ae494",
+        "params": {
+          "lock_period_seconds": 86400,
+          "early_withdrawal_fee_bp": 100,
+          "arbiter_role": "arbiter",
+          "partial_refunds_allowed": false
+        },
+        "payments": [
+          {
+            "refund_requests": [],
+            "arbiter_decisions": [
+              {
+                "at": 200,
+                "refund_minor": 300000
+              }
+            ],
+            "payment_ref": "syn-pay-007",
+            "amount_minor": 800000,
+            "paid_at": 0,
+            "reported_state": "PARTIALLY_REFUNDED",
+            "reported_refunded_minor": 300000,
+            "reported_released_minor": 500000
+          }
+        ]
+      },
+      "output_payload": {
+        "refused": false,
+        "profile": "refund_protocol_a7ae494",
+        "rules_basis": "refund_protocol_pinned_a7ae494",
+        "fee_rounding": "floor(amount_minor * early_withdrawal_fee_bp / 10000)",
+        "arbiter_role": "arbiter",
+        "expected": [
+          {
+            "payment_ref": "syn-pay-007",
+            "terminal_state": "REFUNDED",
+            "refunded_minor": 800000,
+            "released_minor": 0,
+            "fee_minor": 0,
+            "held_minor": 0
+          }
+        ],
+        "breaks": [
+          {
+            "payment_ref": "syn-pay-007",
+            "rule": "refund_is_all_or_nothing",
+            "field": "arbiter_decisions.refund_minor",
+            "reported": 300000,
+            "expected": 800000
+          },
+          {
+            "payment_ref": "syn-pay-007",
+            "rule": "terminal_state_mismatch",
+            "field": "reported_state",
+            "reported": "PARTIALLY_REFUNDED",
+            "expected": "REFUNDED"
+          },
+          {
+            "payment_ref": "syn-pay-007",
+            "rule": "reported_amount_mismatch",
+            "field": "reported_refunded_minor",
+            "reported": 300000,
+            "expected": 800000
+          },
+          {
+            "payment_ref": "syn-pay-007",
+            "rule": "reported_amount_mismatch",
+            "field": "reported_released_minor",
+            "reported": 500000,
+            "expected": 0
+          }
+        ],
+        "conservation": {
+          "per_payment": [
+            {
+              "payment_ref": "syn-pay-007",
+              "paid_minor": 800000,
+              "refunded_minor": 800000,
+              "released_minor": 0,
+              "fee_minor": 0,
+              "held_minor": 0,
+              "balanced": true
+            }
+          ],
+          "total": {
+            "paid_minor": 800000,
+            "refunded_minor": 800000,
+            "released_minor": 0,
+            "fee_minor": 0,
+            "held_minor": 0,
+            "balanced": true
+          },
+          "balanced": true
+        },
+        "verdict": "CONSISTENT_WITH_BREAKS"
+      },
+      "golden_hash": "a00aff7339c47a2a6b3d4b9939134fafd7876bbbaaad2b595995edb6dd32ac09"
+    },
+    {
+      "name": "synthetic-inconsistent-reported-overrelease",
+      "note": "Synthetic: clean post-lock payment of 500000, merchant reports 900000 released (over-release beyond the paid amount). Break on reported_released_minor; reported figures violate conservation => verdict INCONSISTENT.",
+      "policy_parameters": {
+        "profile": "refund_protocol_a7ae494",
+        "params": {
+          "lock_period_seconds": 86400,
+          "early_withdrawal_fee_bp": 100,
+          "arbiter_role": "arbiter",
+          "partial_refunds_allowed": true
+        },
+        "payments": [
+          {
+            "refund_requests": [],
+            "arbiter_decisions": [],
+            "payment_ref": "syn-pay-008",
+            "amount_minor": 500000,
+            "paid_at": 0,
+            "reported_state": "RELEASED",
+            "reported_refunded_minor": 0,
+            "reported_released_minor": 900000
+          }
+        ]
+      },
+      "output_payload": {
+        "refused": false,
+        "profile": "refund_protocol_a7ae494",
+        "rules_basis": "refund_protocol_pinned_a7ae494",
+        "fee_rounding": "floor(amount_minor * early_withdrawal_fee_bp / 10000)",
+        "arbiter_role": "arbiter",
+        "expected": [
+          {
+            "payment_ref": "syn-pay-008",
+            "terminal_state": "RELEASED",
+            "refunded_minor": 0,
+            "released_minor": 500000,
+            "fee_minor": 0,
+            "held_minor": 0
+          }
+        ],
+        "breaks": [
+          {
+            "payment_ref": "syn-pay-008",
+            "rule": "reported_amount_mismatch",
+            "field": "reported_released_minor",
+            "reported": 900000,
+            "expected": 500000
+          }
+        ],
+        "conservation": {
+          "per_payment": [
+            {
+              "payment_ref": "syn-pay-008",
+              "paid_minor": 500000,
+              "refunded_minor": 0,
+              "released_minor": 500000,
+              "fee_minor": 0,
+              "held_minor": 0,
+              "balanced": true
+            }
+          ],
+          "total": {
+            "paid_minor": 500000,
+            "refunded_minor": 0,
+            "released_minor": 500000,
+            "fee_minor": 0,
+            "held_minor": 0,
+            "balanced": true
+          },
+          "balanced": true
+        },
+        "verdict": "INCONSISTENT"
+      },
+      "golden_hash": "fb593468a8b9c5c4b592e18d82d96c41882572b42193baa6a7b837d3973272b6"
+    }
+  ]
+}
