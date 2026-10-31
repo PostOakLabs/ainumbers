@@ -60,6 +60,9 @@ function isDayStr(v) { return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.tes
  *   conversion_rate_variance_bp}] — one aggregate row per token per day,
  *   in day order per token.
  */
+// explicit null is given exactly the absent form's answer everywhere below
+// (MR-R4-NULL-REGRESSION-GATE-1): null profile, null fiat_tolerance_value and
+// null receipt day take the absent/default path, not a refusal third state.
 export function compute(pp) {
   pp = pp || {};
   const policy = pp.policy;
@@ -68,7 +71,7 @@ export function compute(pp) {
   if (!policy || typeof policy !== 'object' || Array.isArray(policy)) {
     return refused('REFUSED_POLICY_MISSING', 'policy object is required');
   }
-  if (pp.profile !== undefined && typeof pp.profile !== 'string') {
+  if (pp.profile !== undefined && pp.profile !== null && typeof pp.profile !== 'string') {
     return refused('REFUSED_PROFILE_INVALID', 'profile must be a string');
   }
   if (!Array.isArray(policy.eligible_tokens) || policy.eligible_tokens.length === 0) {
@@ -92,7 +95,7 @@ export function compute(pp) {
   if (policy.custody !== 'self' && policy.custody !== 'custodian') {
     return refused('REFUSED_CUSTODY', 'policy.custody must be "self" or "custodian"');
   }
-  const fiatTol = policy.fiat_tolerance_value === undefined ? 0 : policy.fiat_tolerance_value;
+  const fiatTol = (policy.fiat_tolerance_value === undefined || policy.fiat_tolerance_value === null) ? 0 : policy.fiat_tolerance_value;
   if (!isNonNegInt(fiatTol)) {
     return refused('REFUSED_TOLERANCE_INVALID', 'policy.fiat_tolerance_value must be a non-negative integer');
   }
@@ -107,14 +110,14 @@ export function compute(pp) {
     for (const f of ['received_value', 'converted_value', 'fiat_credited_value', 'refunds_value', 'max_hours_to_conversion', 'conversion_rate_variance_bp']) {
       if (!isNonNegInt(r[f])) return refused('REFUSED_NON_INTEGER_MONEY', 'receipt field ' + f + ' must be a non-negative integer (minor units / hours / bp)');
     }
-    if (r.day !== undefined && !isDayStr(r.day)) {
+    if (r.day !== undefined && r.day !== null && !isDayStr(r.day)) {
       return refused('REFUSED_DAY_MALFORMED', 'receipt day, when present, must be a YYYY-MM-DD string');
     }
   }
   // day order per token (array order is the reconciliation order)
   const lastDay = Object.create(null);
   for (const r of receipts) {
-    if (r.day !== undefined) {
+    if (r.day !== undefined && r.day !== null) {
       if (lastDay[r.token_code] !== undefined && r.day < lastDay[r.token_code]) {
         return refused('REFUSED_DAY_ORDER', 'receipts must be in non-decreasing day order per token_code');
       }
