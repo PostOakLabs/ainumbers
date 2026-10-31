@@ -1,0 +1,1604 @@
+<!-- AINumbers.co · CC BY 4.0 · Post Oak Labs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T+1 Post-Trade Timing and Funding Check · AINumbers.co</title>
+<meta name="description" content="For one declared trade, check which post-trade step breaks only under T+1, whether each allocation and confirmation event met the 23:00 CET trade-date rule in machine-readable form, and whether declared FX funding legs make every cutoff for the same declared settle date. Runs entirely in the browser, zero network, zero storage, deterministic.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/723-t1-posttrade-timing-and-funding-check.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"T+1 Post-Trade Timing and Funding Check","url":"https://ainumbers.co/tools/723-t1-posttrade-timing-and-funding-check.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "ap2_export": true,
+  "audience": [
+    "compliance",
+    "finance",
+    "risk"
+  ],
+  "author": "PostOakLabs",
+  "category": "capital-markets",
+  "description": "For one declared trade, check which post-trade step breaks only under T+1, whether each allocation and confirmation event met the 23:00 CET trade-date rule in machine-readable form, and whether declared FX funding legs make every cutoff for the same declared settle date. The timing panel follows art-506, the allocation panel follows art-81, and the funding panel follows art-672, all over one trade record entered once with its UTC offset. Runs entirely in the browser, zero network, zero storage, deterministic.",
+  "execution": {
+    "entry": "tools/723-t1-posttrade-timing-and-funding-check.html",
+    "function_name": "runCheck",
+    "timeout_ms": 5000,
+    "type": "browser-javascript"
+  },
+  "input_schema": {
+    "properties": {
+      "at_risk_margin_seconds": {
+        "description": "At-risk band in seconds for the timing panel, 0 means no at-risk band, default 3600",
+        "type": "number"
+      },
+      "baseline_cycle": {
+        "description": "Baseline settlement cycle label, default T+2",
+        "type": "string"
+      },
+      "confirm_time_local": {
+        "description": "Trade confirmation time in HH:MM on trade_date in the declared local zone, converted to UTC for the funding panel",
+        "type": "string"
+      },
+      "cutoff_local": {
+        "description": "Allocation and confirmation cutoff in HH:MM local CET time, default 23:00",
+        "type": "string"
+      },
+      "events": {
+        "description": "Allocation and confirmation events, one object per row, each with event_type, time_local in HH:MM CET on trade_date, format, counterparty_type",
+        "type": "array"
+      },
+      "legs": {
+        "description": "Declared FX funding legs, one object per currency, each with ccy as a 3-letter uppercase currency code and cutoff_utc in HH:MM UTC",
+        "type": "array"
+      },
+      "settle_date": {
+        "description": "Declared settle date in YYYY-MM-DD, caller-declared, not computed from trade_date and cycle because no business-day calendar is shipped",
+        "type": "string"
+      },
+      "steps": {
+        "description": "Post-trade steps, one object per step, each with step, achieved_local, cutoff_target_local and cutoff_baseline_local as YYYY-MM-DDTHH:MM datetimes in the declared local zone",
+        "type": "array"
+      },
+      "target_cycle": {
+        "description": "Target settlement cycle label, default T+1",
+        "type": "string"
+      },
+      "trade_date": {
+        "description": "Trade date in YYYY-MM-DD, calendar date in the declared local zone",
+        "type": "string"
+      },
+      "trade_ref": {
+        "description": "Opaque trade reference, caller-supplied, no personal data",
+        "type": "string"
+      },
+      "trade_time_local": {
+        "description": "Trade execution time in HH:MM on trade_date in the declared local zone",
+        "type": "string"
+      },
+      "utc_offset_minutes": {
+        "description": "Minutes east of UTC for the declared local zone, for example 60 for CET in winter and 120 for CEST in summer, applied to every local time to derive UTC",
+        "type": "integer"
+      },
+      "venue_cutoff_local": {
+        "description": "Venue cutoff datetime in YYYY-MM-DDTHH:MM in the declared local zone for the trade execution step",
+        "type": "string"
+      }
+    },
+    "required": [
+      "trade_ref",
+      "trade_date",
+      "trade_time_local",
+      "utc_offset_minutes",
+      "confirm_time_local",
+      "settle_date",
+      "steps",
+      "events",
+      "legs"
+    ],
+    "type": "object"
+  },
+  "license": "CC-BY-4.0",
+  "mcp_tool_definition": {
+    "description": "Checks one declared trade across three panels: post-trade step timing under a target cycle versus a baseline cycle per art-506, allocation and confirmation conformance against the 23:00 CET trade-date machine-readable rule per art-81, and FX funding sequencing against declared UTC cutoffs for one settle date per art-672, all derived from one trade record with a declared UTC offset.",
+    "inputSchema": {
+      "properties": {
+        "at_risk_margin_seconds": {
+          "description": "At-risk band in seconds for the timing panel, 0 means no at-risk band",
+          "type": "number"
+        },
+        "baseline_cycle": {
+          "description": "Baseline settlement cycle label",
+          "type": "string"
+        },
+        "confirm_time_local": {
+          "description": "Trade confirmation time in HH:MM on trade_date in the declared local zone, converted to UTC for the funding panel",
+          "type": "string"
+        },
+        "cutoff_local": {
+          "description": "Allocation and confirmation cutoff in HH:MM local CET time",
+          "type": "string"
+        },
+        "events": {
+          "description": "Allocation and confirmation events, one object per row, each with event_type, time_local in HH:MM CET on trade_date, format, counterparty_type",
+          "type": "array"
+        },
+        "legs": {
+          "description": "Declared FX funding legs, one object per currency, each with ccy as a 3-letter uppercase currency code and cutoff_utc in HH:MM UTC",
+          "type": "array"
+        },
+        "settle_date": {
+          "description": "Declared settle date in YYYY-MM-DD, caller-declared, not computed from trade_date and cycle",
+          "type": "string"
+        },
+        "steps": {
+          "description": "Post-trade steps, one object per step, each with step, achieved_local, cutoff_target_local, cutoff_baseline_local in YYYY-MM-DDTHH:MM local time",
+          "type": "array"
+        },
+        "target_cycle": {
+          "description": "Target settlement cycle label",
+          "type": "string"
+        },
+        "trade_date": {
+          "description": "Trade date in YYYY-MM-DD, calendar date in the declared local zone",
+          "type": "string"
+        },
+        "trade_ref": {
+          "description": "Opaque trade reference, caller-supplied, no personal data",
+          "type": "string"
+        },
+        "trade_time_local": {
+          "description": "Trade execution time in HH:MM on trade_date in the declared local zone",
+          "type": "string"
+        },
+        "utc_offset_minutes": {
+          "description": "Minutes east of UTC for the declared local zone, for example 60 for CET in winter and 120 for CEST in summer",
+          "type": "integer"
+        },
+        "venue_cutoff_local": {
+          "description": "Venue cutoff datetime in YYYY-MM-DDTHH:MM in the declared local zone for the trade execution step",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trade_ref",
+        "trade_date",
+        "trade_time_local",
+        "utc_offset_minutes",
+        "confirm_time_local",
+        "settle_date",
+        "steps",
+        "events",
+        "legs"
+      ],
+      "type": "object"
+    },
+    "name": "check_t1_timing_funding"
+  },
+  "output_schema": {
+    "properties": {
+      "allocation": {
+        "type": "object"
+      },
+      "converted": {
+        "type": "object"
+      },
+      "derived": {
+        "type": "object"
+      },
+      "funding": {
+        "type": "object"
+      },
+      "timing": {
+        "type": "object"
+      }
+    },
+    "type": "object"
+  },
+  "tags": [
+    "T+1",
+    "settlement",
+    "CSDR",
+    "allocation",
+    "confirmation",
+    "FX funding",
+    "cutoff",
+    "post-trade"
+  ],
+  "title": "T+1 Post-Trade Timing and Funding Check",
+  "tool_id": "723-t1-posttrade-timing-and-funding-check",
+  "version": "1.0.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px}
+@media(prefers-color-scheme:light){:root{--bg:#F4F7FB;--bg-2:#FFFFFF;--bg-3:#E9EFF6;--border:#D3DEEA;--border-2:#BCCBDC;--muted:#6B7F95;--body:#41586E;--text:#243B52;--bright:#12283E;--white:#0B1C2E;--teal:#0E8A7C;--teal-dim:rgba(14,138,124,.10);--gold:#9A7524;--gold-dim:rgba(154,117,36,.10);--green:#1B8A4A;--green-dim:rgba(27,138,74,.10);--red:#C53030;--red-dim:rgba(197,48,48,.10);--purple:#6D4BC4;--purple-dim:rgba(109,75,196,.10)}}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:200}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-name .lg-ai{color:var(--teal)}.logo-name .lg-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;gap:.5rem;align-items:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.4rem;margin-top:1.4rem}
+.panel h2{font-size:1.05rem;color:var(--bright);margin-bottom:.5rem}
+.panel p{font-size:.8rem;color:var(--body);margin-bottom:.8rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
+label.flab{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:.3rem}
+.mono{font-family:'JetBrains Mono',monospace}
+input[type="text"],input[type="date"],input[type="time"],input[type="number"]{width:100%;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright);background:var(--bg);border:1px solid var(--border-2);border-radius:4px;padding:.45rem .6rem;color-scheme:dark}
+textarea{width:100%;min-height:140px;resize:vertical;font-family:'JetBrains Mono',monospace;font-size:.68rem;line-height:1.6;color:var(--bright);background:var(--bg);border:1px solid var(--border-2);border-radius:4px;padding:.7rem .85rem}
+.btn{background:var(--teal-dim);border:1px solid var(--teal);color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;padding:.55rem 1rem;border-radius:4px;transition:background .15s}
+.btn:hover{background:var(--teal);color:var(--bg)}
+.btnrow{display:flex;gap:.6rem;flex-wrap:wrap;margin:.6rem 0}
+.verdict{font-family:'JetBrains Mono',monospace;font-size:.72rem;border-radius:4px;padding:.7rem .85rem;margin-top:.6rem;line-height:1.6;display:none}
+.verdict.ok{background:var(--green-dim);border:1px solid var(--green);color:var(--green)}
+.verdict.fail{background:var(--red-dim);border:1px solid var(--red);color:var(--red)}
+.verdict.warn{background:var(--gold-dim);border:1px solid var(--gold);color:var(--gold)}
+.verdict.mut{background:var(--bg);border:1px solid var(--border-2);color:var(--body)}
+table.result-table{width:100%;border-collapse:collapse;font-size:.74rem;margin:.6rem 0}
+table.result-table th{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;text-align:left;padding:.4rem .5rem;border-bottom:1px solid var(--border)}
+table.result-table td{padding:.4rem .5rem;border-bottom:1px solid var(--border);color:var(--bright);word-break:break-word}
+#ap2ExportBtn.ready,#mdExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}
+#ap2ExportBtn.ready:hover,#mdExportBtn.ready:hover{background:var(--bg-3,#111E35)}
+.mfst-btn{width:100%;text-align:left;background:var(--bg);border:1px solid var(--border-2);border-radius:4px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.55rem .8rem;display:flex;justify-content:space-between}
+#mfstBody{display:none;margin-top:.6rem}
+#mfstCode{white-space:pre-wrap;word-break:break-word;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--bright);background:var(--bg);border:1px solid var(--border-2);border-radius:4px;padding:.7rem .85rem;max-height:420px;overflow:auto}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo"><div class="logo-text"><div class="logo-name"><span class="lg-ai">AI</span>Numbers<span class="lg-co">.co</span></div></div></a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span>/</span><span>T-723</span></div>
+</div></nav>
+<div class="container">
+<div class="hero">
+  <div class="hero-eyebrow">Settlement · T723</div>
+  <h1>T+1 Post-Trade Timing and Funding Check</h1>
+  <p class="hero-desc">Enter one trade record once, with its UTC offset. The page derives each panel input from that record and shows the converted values, so a reader can see exactly what each panel was fed. The timing panel classifies each post-trade step against a target cycle cutoff and a baseline cycle cutoff. The allocation panel checks each allocation and confirmation event against the 23:00 CET trade-date rule in machine-readable form. The funding panel sequences declared FX legs by cutoff for one declared settle date. Nothing here settles, nets, moves or instructs anything, and no live cutoff feed is read.</p>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+</div>
+
+<div class="panel">
+<h2>One trade record</h2>
+<p>Enter the trade once. Times in the declared local zone are converted with the UTC offset you declare. The same instant is shown in local time, in UTC and in CET in the results, so the three panels can be compared.</p>
+<div class="grid3">
+<div><label class="flab" for="trade_ref">Trade reference</label><input type="text" id="trade_ref"></div>
+<div><label class="flab" for="trade_date">Trade date (YYYY-MM-DD)</label><input type="date" id="trade_date"></div>
+<div><label class="flab" for="trade_time_local">Trade time, local (HH:MM)</label><input type="time" id="trade_time_local"></div>
+<div><label class="flab" for="utc_offset_minutes">UTC offset, minutes east of UTC</label><input type="number" id="utc_offset_minutes"></div>
+<div><label class="flab" for="confirm_time_local">Confirmation time, local (HH:MM)</label><input type="time" id="confirm_time_local"></div>
+<div><label class="flab" for="settle_date">Settle date (YYYY-MM-DD)</label><input type="date" id="settle_date"></div>
+<div><label class="flab" for="target_cycle">Target cycle</label><input type="text" id="target_cycle"></div>
+<div><label class="flab" for="baseline_cycle">Baseline cycle</label><input type="text" id="baseline_cycle"></div>
+<div><label class="flab" for="at_risk_margin_seconds">At-risk band, seconds</label><input type="number" id="at_risk_margin_seconds"></div>
+<div><label class="flab" for="venue_cutoff_local">Venue cutoff, local datetime</label><input type="text" id="venue_cutoff_local"></div>
+<div><label class="flab" for="cutoff_local">Allocation cutoff, local (HH:MM)</label><input type="time" id="cutoff_local"></div>
+</div>
+<div style="margin-top:1rem"><label class="flab" for="steps_json">Post-trade steps (JSON array)</label><textarea id="steps_json"></textarea></div>
+<div style="margin-top:1rem"><label class="flab" for="events_json">Allocation and confirmation events (JSON array)</label><textarea id="events_json"></textarea></div>
+<div style="margin-top:1rem"><label class="flab" for="legs_json">FX funding legs (JSON array)</label><textarea id="legs_json"></textarea></div>
+<div class="btnrow"><button class="btn" onclick="runCheck()">Run check</button><button class="btn" onclick="loadSample()">Load example</button></div>
+</div>
+
+<div class="panel" id="outputSection">
+<h2>Results</h2>
+<p>Run the check to see the three panels, the derived panel inputs and the converted times.</p>
+<div id="derivedOut"></div>
+<div id="convertedOut"></div>
+<div id="timingOut"></div>
+<div id="allocationOut"></div>
+<div id="fundingOut"></div>
+<div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)"><button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the check first to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">Export Policy Mandate</button> <button id="mdExportBtn" onclick="exportMarkdown()" disabled title="Run the check first to generate a Markdown transcript" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">Export Markdown</button></div>
+</div>
+
+<div class="panel">
+<h2>Scope and limits</h2>
+<p>Scope: EU and EEA settlement under the Central Securities Depositories Regulation, for the deadlines in force on the dates cited below. This page is a calculation check, not legal or regulatory advice, and not a determination of regulatory compliance.</p>
+<p>Every cutoff on this page is a caller input. No market or venue cutoff table is shipped, and no declared cutoff is checked against any live feed. The settle date is caller-declared: it is not computed from the trade date and the cycle, because no business-day or holiday calendar is shipped. The funding panel compares declared UTC times on one declared settle date only, with no timezone conversion, date rollover, holiday calendar or daylight saving adjustment of its own. The allocation panel reads event timestamps as CET, as the underlying kernel does. The timing panel computes no settlement penalty, and the funding panel makes no payment-versus-payment determination and performs no settlement action.</p>
+<p>Sources: Commission Delegated Regulation (EU) 2026/1536, OJ L, 2026/1536, 14.10.2026, Article 1, point (1)(b), replacing Article 2(2) of Delegated Regulation (EU) 2018/1229: "Professional clients shall ensure that the investment firm receives the written allocations and written confirmations referred to in paragraph 1 as soon as possible and by no later than 23:00 CET on the business day on which the transaction has taken place." Article 1, point (1)(a)(ii), replacing Article 2(1), requires written allocations and confirmations "using an electronic standardised communication method structured so that software applications can easily identify, recognise and extract specific data". Article 1, point (2), replacing Article 3, applies the same 23:00 CET deadline to retail clients, except where the client holds the relevant financial instruments and cash at the same investment firm. Delegated Regulation (EU) 2026/1536, Article 2: "It shall start to apply from 7 December 2026." The delayed tranches in that article, 1 July 2027 and 11 October 2027, do not include Article 1, points (1) or (2), so the allocation and confirmation amendments apply from 7 December 2026. Entry into force is the twentieth day after publication in the Official Journal. Commission document C(2026) 4640 of 6 July 2026, per EUR-Lex metadata; the number is not printed in the OJ text itself. Correction to the earlier report: the deadline was wrongly attributed there to an ESMA Final Report dated 16 October 2026. That item, ESMA74-2119945926-3749, is the revised guidelines on standardised procedures and messaging protocols. The RTS report is ESMA 13 October 2025, ESMA74-2119945926-3430. Regulation (EU) 2025/2075, OJ L, 2025/2075, 14.10.2025, Article 1, point (1), replacing Article 5(2) of Regulation (EU) No 909/2014: "the intended settlement date shall be no later than on the first business day after the trading takes place", with listed exceptions for privately negotiated venue trades, bilaterally executed venue-reported trades, first book-entry recordings, and documented single-transaction securities financing transactions. Article 2 of Regulation (EU) 2025/2075: "It shall apply from 11 October 2027." The settlement-discipline RTS Final Report is ESMA 13 October 2025, ESMA74-2119945926-3430. The 16 October 2026 ESMA Final Report, ESMA74-2119945926-3749, is the revised guidelines on standardised procedures and messaging protocols, not the RTS report, and it is not cited for any deadline on this page.</p>
+</div>
+
+<div class="panel">
+<button class="mfst-btn" onclick="toggleMfst()"><span>manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+<div id="mfstBody"><div id="mfstCode"></div></div>
+</div>
+</div>
+<script>
+var MANIFEST = {
+  "ap2_export": true,
+  "audience": [
+    "compliance",
+    "finance",
+    "risk"
+  ],
+  "author": "PostOakLabs",
+  "category": "capital-markets",
+  "description": "For one declared trade, check which post-trade step breaks only under T+1, whether each allocation and confirmation event met the 23:00 CET trade-date rule in machine-readable form, and whether declared FX funding legs make every cutoff for the same declared settle date. The timing panel follows art-506, the allocation panel follows art-81, and the funding panel follows art-672, all over one trade record entered once with its UTC offset. Runs entirely in the browser, zero network, zero storage, deterministic.",
+  "execution": {
+    "entry": "tools/723-t1-posttrade-timing-and-funding-check.html",
+    "function_name": "runCheck",
+    "timeout_ms": 5000,
+    "type": "browser-javascript"
+  },
+  "input_schema": {
+    "properties": {
+      "at_risk_margin_seconds": {
+        "description": "At-risk band in seconds for the timing panel, 0 means no at-risk band, default 3600",
+        "type": "number"
+      },
+      "baseline_cycle": {
+        "description": "Baseline settlement cycle label, default T+2",
+        "type": "string"
+      },
+      "confirm_time_local": {
+        "description": "Trade confirmation time in HH:MM on trade_date in the declared local zone, converted to UTC for the funding panel",
+        "type": "string"
+      },
+      "cutoff_local": {
+        "description": "Allocation and confirmation cutoff in HH:MM local CET time, default 23:00",
+        "type": "string"
+      },
+      "events": {
+        "description": "Allocation and confirmation events, one object per row, each with event_type, time_local in HH:MM CET on trade_date, format, counterparty_type",
+        "type": "array"
+      },
+      "legs": {
+        "description": "Declared FX funding legs, one object per currency, each with ccy as a 3-letter uppercase currency code and cutoff_utc in HH:MM UTC",
+        "type": "array"
+      },
+      "settle_date": {
+        "description": "Declared settle date in YYYY-MM-DD, caller-declared, not computed from trade_date and cycle because no business-day calendar is shipped",
+        "type": "string"
+      },
+      "steps": {
+        "description": "Post-trade steps, one object per step, each with step, achieved_local, cutoff_target_local and cutoff_baseline_local as YYYY-MM-DDTHH:MM datetimes in the declared local zone",
+        "type": "array"
+      },
+      "target_cycle": {
+        "description": "Target settlement cycle label, default T+1",
+        "type": "string"
+      },
+      "trade_date": {
+        "description": "Trade date in YYYY-MM-DD, calendar date in the declared local zone",
+        "type": "string"
+      },
+      "trade_ref": {
+        "description": "Opaque trade reference, caller-supplied, no personal data",
+        "type": "string"
+      },
+      "trade_time_local": {
+        "description": "Trade execution time in HH:MM on trade_date in the declared local zone",
+        "type": "string"
+      },
+      "utc_offset_minutes": {
+        "description": "Minutes east of UTC for the declared local zone, for example 60 for CET in winter and 120 for CEST in summer, applied to every local time to derive UTC",
+        "type": "integer"
+      },
+      "venue_cutoff_local": {
+        "description": "Venue cutoff datetime in YYYY-MM-DDTHH:MM in the declared local zone for the trade execution step",
+        "type": "string"
+      }
+    },
+    "required": [
+      "trade_ref",
+      "trade_date",
+      "trade_time_local",
+      "utc_offset_minutes",
+      "confirm_time_local",
+      "settle_date",
+      "steps",
+      "events",
+      "legs"
+    ],
+    "type": "object"
+  },
+  "license": "CC-BY-4.0",
+  "mcp_tool_definition": {
+    "description": "Checks one declared trade across three panels: post-trade step timing under a target cycle versus a baseline cycle per art-506, allocation and confirmation conformance against the 23:00 CET trade-date machine-readable rule per art-81, and FX funding sequencing against declared UTC cutoffs for one settle date per art-672, all derived from one trade record with a declared UTC offset.",
+    "inputSchema": {
+      "properties": {
+        "at_risk_margin_seconds": {
+          "description": "At-risk band in seconds for the timing panel, 0 means no at-risk band",
+          "type": "number"
+        },
+        "baseline_cycle": {
+          "description": "Baseline settlement cycle label",
+          "type": "string"
+        },
+        "confirm_time_local": {
+          "description": "Trade confirmation time in HH:MM on trade_date in the declared local zone, converted to UTC for the funding panel",
+          "type": "string"
+        },
+        "cutoff_local": {
+          "description": "Allocation and confirmation cutoff in HH:MM local CET time",
+          "type": "string"
+        },
+        "events": {
+          "description": "Allocation and confirmation events, one object per row, each with event_type, time_local in HH:MM CET on trade_date, format, counterparty_type",
+          "type": "array"
+        },
+        "legs": {
+          "description": "Declared FX funding legs, one object per currency, each with ccy as a 3-letter uppercase currency code and cutoff_utc in HH:MM UTC",
+          "type": "array"
+        },
+        "settle_date": {
+          "description": "Declared settle date in YYYY-MM-DD, caller-declared, not computed from trade_date and cycle",
+          "type": "string"
+        },
+        "steps": {
+          "description": "Post-trade steps, one object per step, each with step, achieved_local, cutoff_target_local, cutoff_baseline_local in YYYY-MM-DDTHH:MM local time",
+          "type": "array"
+        },
+        "target_cycle": {
+          "description": "Target settlement cycle label",
+          "type": "string"
+        },
+        "trade_date": {
+          "description": "Trade date in YYYY-MM-DD, calendar date in the declared local zone",
+          "type": "string"
+        },
+        "trade_ref": {
+          "description": "Opaque trade reference, caller-supplied, no personal data",
+          "type": "string"
+        },
+        "trade_time_local": {
+          "description": "Trade execution time in HH:MM on trade_date in the declared local zone",
+          "type": "string"
+        },
+        "utc_offset_minutes": {
+          "description": "Minutes east of UTC for the declared local zone, for example 60 for CET in winter and 120 for CEST in summer",
+          "type": "integer"
+        },
+        "venue_cutoff_local": {
+          "description": "Venue cutoff datetime in YYYY-MM-DDTHH:MM in the declared local zone for the trade execution step",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trade_ref",
+        "trade_date",
+        "trade_time_local",
+        "utc_offset_minutes",
+        "confirm_time_local",
+        "settle_date",
+        "steps",
+        "events",
+        "legs"
+      ],
+      "type": "object"
+    },
+    "name": "check_t1_timing_funding"
+  },
+  "output_schema": {
+    "properties": {
+      "allocation": {
+        "type": "object"
+      },
+      "converted": {
+        "type": "object"
+      },
+      "derived": {
+        "type": "object"
+      },
+      "funding": {
+        "type": "object"
+      },
+      "timing": {
+        "type": "object"
+      }
+    },
+    "type": "object"
+  },
+  "tags": [
+    "T+1",
+    "settlement",
+    "CSDR",
+    "allocation",
+    "confirmation",
+    "FX funding",
+    "cutoff",
+    "post-trade"
+  ],
+  "title": "T+1 Post-Trade Timing and Funding Check",
+  "tool_id": "723-t1-posttrade-timing-and-funding-check",
+  "version": "1.0.0"
+};
+</script>
+<script>
+/* Pure logic for the T+1 post-trade timing and funding check. No DOM access in this block,
+   so node can load it directly and run computeAll on the example input. */
+function isStr(v){return typeof v==='string'&&v.trim().length>0;}
+function isNum(v){return typeof v==='number'&&isFinite(v);}
+function pad(n){return (n<10?'0':'')+n;}
+function parseHHMM(s){
+  if(typeof s!=='string')return null;
+  var m=/^([01]\d|2[0-3]):([0-5]\d)$/.exec(s.trim());
+  if(!m)return null;
+  return parseInt(m[1],10)*60+parseInt(m[2],10);
+}
+function fmtMin(m){m=((m%1440)+1440)%1440;return pad(Math.floor(m/60))+':'+pad(m%60);}
+function offsetStr(min){
+  var sign=min<0?'-':'+';var a=Math.abs(min);
+  return sign+pad(Math.floor(a/60))+':'+pad(a%60);
+}
+function validDate(s){
+  if(typeof s!=='string')return false;
+  var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
+  if(!m)return false;
+  var d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3]));
+  return d.getUTCFullYear()===+m[1]&&d.getUTCMonth()===+m[2]-1&&d.getUTCDate()===+m[3];
+}
+function validLocalDT(s){
+  if(typeof s!=='string')return false;
+  var m=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(s.trim());
+  if(!m)return false;
+  var h=+m[4],mi=+m[5];
+  if(h>23||mi>59)return false;
+  var d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3]));
+  return d.getUTCFullYear()===+m[1]&&d.getUTCMonth()===+m[2]-1&&d.getUTCDate()===+m[3];
+}
+function validateInput(inp){
+  var rej=[];
+  if(!inp||typeof inp!=='object'){return ['input'];}
+  if(!isStr(inp.trade_ref))rej.push('trade_ref');
+  if(!validDate(inp.trade_date))rej.push('trade_date');
+  if(parseHHMM(inp.trade_time_local)===null)rej.push('trade_time_local');
+  if(!isNum(inp.utc_offset_minutes)||Math.floor(inp.utc_offset_minutes)!==inp.utc_offset_minutes)rej.push('utc_offset_minutes');
+  if(parseHHMM(inp.confirm_time_local)===null)rej.push('confirm_time_local');
+  if(!validDate(inp.settle_date))rej.push('settle_date');
+  if(inp.target_cycle!==undefined&&!isStr(inp.target_cycle))rej.push('target_cycle');
+  if(inp.baseline_cycle!==undefined&&!isStr(inp.baseline_cycle))rej.push('baseline_cycle');
+  if(inp.at_risk_margin_seconds!==undefined&&!isNum(inp.at_risk_margin_seconds))rej.push('at_risk_margin_seconds');
+  if(inp.venue_cutoff_local!==undefined&&inp.venue_cutoff_local!==''&&!validLocalDT(inp.venue_cutoff_local))rej.push('venue_cutoff_local');
+  if(inp.cutoff_local!==undefined&&parseHHMM(inp.cutoff_local)===null)rej.push('cutoff_local');
+  if(!Array.isArray(inp.steps)||inp.steps.length===0){rej.push('steps');}
+  else inp.steps.forEach(function(s,i){
+    if(!s||typeof s!=='object'){rej.push('steps['+i+']');return;}
+    if(!isStr(s.step))rej.push('steps['+i+'].step');
+    if(!validLocalDT(s.achieved_local))rej.push('steps['+i+'].achieved_local');
+    if(!validLocalDT(s.cutoff_target_local))rej.push('steps['+i+'].cutoff_target_local');
+    if(!validLocalDT(s.cutoff_baseline_local))rej.push('steps['+i+'].cutoff_baseline_local');
+  });
+  if(!Array.isArray(inp.events)||inp.events.length===0){rej.push('events');}
+  else inp.events.forEach(function(e,i){
+    if(!e||typeof e!=='object'){rej.push('events['+i+']');return;}
+    if(!isStr(e.event_type))rej.push('events['+i+'].event_type');
+    if(parseHHMM(e.time_local)===null)rej.push('events['+i+'].time_local');
+    if(!isStr(e.format))rej.push('events['+i+'].format');
+    if(!isStr(e.counterparty_type))rej.push('events['+i+'].counterparty_type');
+  });
+  if(!Array.isArray(inp.legs)||inp.legs.length===0){rej.push('legs');}
+  else inp.legs.forEach(function(l,i){
+    if(!l||typeof l!=='object'){rej.push('legs['+i+']');return;}
+    if(typeof l.ccy!=='string'||!/^[A-Z]{3}$/.test(l.ccy.trim()))rej.push('legs['+i+'].ccy');
+    if(parseHHMM(l.cutoff_utc)===null)rej.push('legs['+i+'].cutoff_utc');
+  });
+  return rej;
+}
+function deriveInputs(inp){
+  var off=offsetStr(inp.utc_offset_minutes);
+  var target=isStr(inp.target_cycle)?inp.target_cycle.trim():'T+1';
+  var baseline=isStr(inp.baseline_cycle)?inp.baseline_cycle.trim():'T+2';
+  var atRisk=isNum(inp.at_risk_margin_seconds)?inp.at_risk_margin_seconds:3600;
+  var cutoff=isStr(inp.cutoff_local)?inp.cutoff_local.trim():'23:00';
+  var p506={
+    trade_ref:inp.trade_ref,
+    target_cycle:target,
+    baseline_cycle:baseline,
+    time_zone_offset_minutes:inp.utc_offset_minutes,
+    at_risk_margin_seconds:atRisk,
+    trade_timestamp:inp.trade_date+'T'+inp.trade_time_local.trim()+off,
+    venue_cutoff:(isStr(inp.venue_cutoff_local)?inp.venue_cutoff_local.trim()+off:''),
+    steps:inp.steps.map(function(s){
+      return {step:s.step,achieved_at:s.achieved_local.trim()+off,cutoff_target:s.cutoff_target_local.trim()+off,cutoff_baseline:s.cutoff_baseline_local.trim()+off};
+    })
+  };
+  var p81={
+    events:inp.events.map(function(e){
+      return {event_type:e.event_type,timestamp_ct:inp.trade_date+'T'+e.time_local.trim(),trade_date:inp.trade_date,format:e.format,counterparty_type:e.counterparty_type};
+    }),
+    cutoff_local:cutoff
+  };
+  var confirmMin=parseHHMM(inp.confirm_time_local)-inp.utc_offset_minutes;
+  var p672={
+    settle_date:inp.settle_date,
+    trade_confirm_utc:fmtMin(confirmMin),
+    legs:inp.legs.map(function(l){return {ccy:l.ccy.trim(),cutoff_utc:l.cutoff_utc.trim()};})
+  };
+  return {art506:p506,art81:p81,art672:p672};
+}
+function instantForms(dateStr,timeLocal,offsetMinutes){
+  var parts=dateStr.split('-');
+  var lm=parseHHMM(timeLocal);
+  var epoch=Date.UTC(+parts[0],+parts[1]-1,+parts[2],Math.floor(lm/60),lm%60)-offsetMinutes*60000;
+  function iso(ms){var d=new Date(ms);return d.toISOString().slice(0,16).replace('T',' ')+' UTC';}
+  return {
+    local:dateStr+' '+timeLocal+' (UTC offset '+offsetStr(offsetMinutes)+')',
+    utc:iso(epoch),
+    cet:iso(epoch+60*60000).replace(' UTC',' CET')
+  };
+}
+/* Timing mirror: same arithmetic as the art-506 kernel (ISO parse with offset, margin, status, verdict). */
+var TS_RE_506=/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(Z|[+-]\d{2}:\d{2})?$/;
+function parseTS506(value,defaultOffset,declared){
+  if(typeof value!=='string'||!value.trim())return {ok:false,epoch_seconds:null,offset_source:null,reason:'No timestamp was supplied for this step.'};
+  var m=TS_RE_506.exec(value.trim());
+  if(!m)return {ok:false,epoch_seconds:null,offset_source:null,reason:'The timestamp is not an ISO 8601 value of the form YYYY-MM-DDTHH:MM:SS with an optional Z or +HH:MM offset.'};
+  var y=+m[1],mo=+m[2],d=+m[3],H=+m[4],Mi=+m[5],S=m[6]?+m[6]:0;
+  if(mo<1||mo>12||d<1||d>31||H>23||Mi>59||S>59)return {ok:false,epoch_seconds:null,offset_source:null,reason:'The timestamp names a calendar or clock field outside its permitted range.'};
+  var baseMs=Date.UTC(y,mo-1,d,H,Mi,S);
+  var back=new Date(baseMs);
+  if(back.getUTCFullYear()!==y||back.getUTCMonth()!==mo-1||back.getUTCDate()!==d)return {ok:false,epoch_seconds:null,offset_source:null,reason:'The timestamp names a calendar date that does not exist in that month.'};
+  var offMin,src;
+  if(m[7]==='Z'){offMin=0;src='explicit_utc';}
+  else if(m[7]){var sg=m[7][0]==='-'?-1:1;offMin=sg*(+m[7].slice(1,3)*60+ +m[7].slice(4,6));src='explicit_offset';}
+  else if(declared){offMin=defaultOffset;src='declared_time_zone_offset_minutes';}
+  else {offMin=0;src='no_offset_declared_treated_as_utc';}
+  return {ok:true,epoch_seconds:Math.round(baseMs/1000)-offMin*60,offset_source:src,reason:null};
+}
+function statusFor506(margin,band){
+  if(margin===null)return 'undetermined';
+  if(margin<0)return 'breached';
+  if(band>0&&margin<=band)return 'at_risk';
+  return 'on_time';
+}
+function timingCompute(pp){
+  var target=isStr(pp.target_cycle)?pp.target_cycle.trim():'T+1';
+  var baseline=isStr(pp.baseline_cycle)?pp.baseline_cycle.trim():'T+2';
+  var declared=typeof pp.time_zone_offset_minutes==='number'&&isFinite(pp.time_zone_offset_minutes);
+  var off=declared?pp.time_zone_offset_minutes:null;
+  var band=(isNum(pp.at_risk_margin_seconds)&&pp.at_risk_margin_seconds>0)?pp.at_risk_margin_seconds:0;
+  var work=[];
+  if(isStr(pp.trade_timestamp)&&isStr(pp.venue_cutoff))work.push({step:'trade_execution',achieved_at:pp.trade_timestamp,cutoff_target:pp.venue_cutoff,cutoff_baseline:pp.venue_cutoff,synthesised_from:'trade_timestamp and venue_cutoff'});
+  (Array.isArray(pp.steps)?pp.steps:[]).forEach(function(raw,i){
+    var s=(raw&&typeof raw==='object')?raw:{};
+    work.push({step:isStr(s.step)?s.step:'(unnamed-step-'+i+')',achieved_at:isStr(s.achieved_at)?s.achieved_at:'',cutoff_target:isStr(s.cutoff_target)?s.cutoff_target:'',cutoff_baseline:isStr(s.cutoff_baseline)?s.cutoff_baseline:'',synthesised_from:null});
+  });
+  var steps=[],rationale=[],offUndeclared=false;
+  work.forEach(function(w){
+    var ach=parseTS506(w.achieved_at,off,declared);
+    var cutT=parseTS506(w.cutoff_target,off,declared);
+    var cutB=parseTS506(w.cutoff_baseline,off,declared);
+    [ach,cutT,cutB].forEach(function(p){if(p.offset_source==='no_offset_declared_treated_as_utc')offUndeclared=true;});
+    var margin=(ach.ok&&cutT.ok)?cutT.epoch_seconds-ach.epoch_seconds:null;
+    var marginB=(ach.ok&&cutB.ok)?cutB.epoch_seconds-ach.epoch_seconds:null;
+    var status=statusFor506(margin,band);
+    var statusB=statusFor506(marginB,band);
+    var undet=margin===null?(!ach.ok?ach.reason:cutT.reason):null;
+    var newly=status==='breached'&&statusB==='on_time';
+    var baseNotCompared=marginB===null;
+    if(status==='breached'&&baseNotCompared)rationale.push('Step '+w.step+' breaches its '+target+' cut-off, but no usable '+baseline+' cut-off was supplied, so this run cannot say whether the breach is new.');
+    else if(newly)rationale.push('Step '+w.step+' breaches its '+target+' cut-off by '+Math.abs(margin)+' second(s) and met its '+baseline+' cut-off with '+marginB+' second(s) to spare. The shorter cycle is what breaks it.');
+    else if(status==='breached')rationale.push('Step '+w.step+' breaches its '+target+' cut-off and also missed its '+baseline+' cut-off, so the shorter cycle is not the cause.');
+    else if(status==='at_risk')rationale.push('Step '+w.step+' clears its '+target+' cut-off by '+margin+' second(s), inside the declared at-risk band of '+band+' second(s).');
+    else if(status==='undetermined')rationale.push('Step '+w.step+' could not be classified: '+undet);
+    steps.push({step:w.step,synthesised_from:w.synthesised_from,achieved_at:w.achieved_at,achieved_epoch_seconds:ach.epoch_seconds,achieved_offset_source:ach.offset_source,cutoff_target:w.cutoff_target,cutoff_target_epoch_seconds:cutT.epoch_seconds,cutoff_baseline:w.cutoff_baseline,cutoff_baseline_epoch_seconds:cutB.epoch_seconds,margin_seconds:margin,margin_seconds_baseline:marginB,status:status,status_baseline:statusB,breaches_under_target_only:newly,baseline_not_compared:baseNotCompared,undetermined_reason:undet});
+  });
+  var breached=steps.filter(function(s){return s.status==='breached';});
+  var atRisk=steps.filter(function(s){return s.status==='at_risk';});
+  var onTime=steps.filter(function(s){return s.status==='on_time';});
+  var undetS=steps.filter(function(s){return s.status==='undetermined';});
+  var newlyL=steps.filter(function(s){return s.breaches_under_target_only;});
+  var baseGaps=steps.filter(function(s){return s.baseline_not_compared;});
+  var firstFail=breached.length>0?breached[0].step:null;
+  var firstNewly=newlyL.length>0?newlyL[0].step:null;
+  var verdict,reason;
+  if(steps.length===0){verdict='no_steps_supplied';reason='No post-trade step was supplied, so there is nothing to classify.';}
+  else if(newlyL.length>0){verdict='breaches_introduced_by_target_cycle';reason=newlyL.length+' step(s) breach under '+target+' that met their '+baseline+' cut-off. The first is '+firstNewly+'.';}
+  else if(breached.length>0&&breached.some(function(s){return s.baseline_not_compared;})){verdict='breached_baseline_not_comparable';reason=breached.length+' step(s) breach under '+target+'. At least one of them carries no usable '+baseline+' cut-off, so this run cannot say whether the shorter cycle is what breaks it. The first failing step is '+firstFail+'.';}
+  else if(breached.length>0){verdict='breached_under_both_cycles';reason=breached.length+' step(s) breach under '+target+', and none of them met their '+baseline+' cut-off either, so on these timings the shorter cycle is not what breaks them. The first failing step is '+firstFail+'.';}
+  else if(atRisk.length>0){verdict='at_risk_under_target_cycle';reason='No step breaches under '+target+', and '+atRisk.length+' step(s) clear their cut-off inside the declared at-risk band of '+band+' second(s).';}
+  else if(undetS.length>0&&onTime.length===0){verdict='timings_incomplete';reason='No step could be classified against '+target+'. Every supplied step is missing a usable achieved timestamp or a usable cut-off.';}
+  else if(undetS.length>0){verdict='on_time_with_timings_incomplete';reason='Every one of the '+onTime.length+' step(s) this run could classify clears its '+target+' cut-off, but '+undetS.length+' step(s) could not be classified at all. This is not a ready result.';}
+  else {verdict='on_time_under_target_cycle';reason='Every step this run could classify clears its '+target+' cut-off on the timings supplied.';}
+  if(undetS.length>0&&verdict!=='timings_incomplete')rationale.push(undetS.length+' step(s) could not be classified and are excluded from the on-time count. An unclassified step is not an on-time step.');
+  if(band===0&&steps.length>0)rationale.push('No at-risk band was declared, so at_risk_margin_seconds is zero and no step can be classified at risk.');
+  if(baseGaps.length>0)rationale.push(baseGaps.length+' step(s) carry no usable '+baseline+' cut-off, so this run cannot say whether their result is new to '+target+'.');
+  if(offUndeclared)rationale.push('At least one timestamp carried no offset of its own and no time_zone_offset_minutes was declared, so it was read as UTC.');
+  var flags=[];
+  if(steps.length===0)flags.push('T1_NO_STEPS_SUPPLIED');
+  if(breached.length>0)flags.push('T1_BREACH_PROJECTED');
+  if(breached.length===0&&atRisk.length>0)flags.push('T1_AT_RISK');
+  if(steps.length>0&&breached.length===0&&atRisk.length===0&&undetS.length===0)flags.push('T1_READY');
+  if(newlyL.length>0||breached.length>0)flags.push('ESCALATION_RAISED');
+  if(newlyL.length>0)flags.push('T1_BREACHES_INTRODUCED_BY_SHORTER_CYCLE');
+  if(undetS.length>0)flags.push('T1_TIMINGS_INCOMPLETE');
+  if(baseGaps.length>0)flags.push('T1_BASELINE_NOT_COMPARED');
+  if(band===0&&steps.length>0)flags.push('T1_AT_RISK_BAND_UNDECLARED');
+  if(offUndeclared)flags.push('T1_TIME_ZONE_OFFSET_UNDECLARED');
+  return {output_payload:{trade_ref:isStr(pp.trade_ref)?pp.trade_ref:'',target_cycle:target,baseline_cycle:baseline,cycle_compared:baseline+' to '+target,time_zone_offset_minutes:off,at_risk_margin_seconds:band,trade_timestamp:isStr(pp.trade_timestamp)?pp.trade_timestamp:'',venue_cutoff:isStr(pp.venue_cutoff)?pp.venue_cutoff:'',verdict:verdict,verdict_reason:reason,first_failing_step:firstFail,first_newly_breaching_step:firstNewly,steps:steps,step_count:steps.length,breached_count:breached.length,at_risk_count:atRisk.length,on_time_count:onTime.length,undetermined_count:undetS.length,newly_breaching_count:newlyL.length,baseline_not_compared_count:baseGaps.length,rationale:rationale},compliance_flags:flags};
+}
+/* Allocation mirror: same arithmetic as the art-81 kernel. */
+function toMinutes81(hhmm){
+  var parts=String(hhmm||'').split(':').map(Number);
+  return (isNaN(parts[0])?23:parts[0])*60+(isNaN(parts[1])?0:parts[1]);
+}
+function allocationCompute(pp){
+  var events=pp.events===undefined?[]:pp.events;
+  var cutoff=pp.cutoff_local===undefined?'23:00':pp.cutoff_local;
+  var cutoffMins=toMinutes81(cutoff);
+  var flagged=[],onTime=0,fmtCount=0;
+  events.forEach(function(ev){
+    var issues=[];
+    var tsStr=String(ev.timestamp_ct||'');
+    var timePart=tsStr.indexOf('T')>=0?tsStr.split('T')[1].split(':').slice(0,2).join(':'):tsStr.slice(0,5);
+    var evMins=toMinutes81(timePart);
+    var sameDay=!ev.trade_date||tsStr.indexOf('T')<0||tsStr.indexOf(ev.trade_date)===0;
+    var late=!sameDay||evMins>cutoffMins;
+    if(late){
+      var reason=!sameDay?('Event date ('+tsStr.split('T')[0]+') after trade date ('+ev.trade_date+')'):('Event time '+timePart+' CET exceeds '+cutoff+' CET trade-date cutoff');
+      if(ev.event_type==='allocation')issues.push({rule:'LATE_ALLOCATION',reason:reason});
+      else issues.push({rule:'LATE_CONFIRMATION',reason:reason});
+    } else {onTime++;}
+    if(ev.format!=='machine-readable'){issues.push({rule:'MANUAL_FORMAT',reason:'Non-machine-readable format. ESMA RTS Dec 2026 mandate requires machine-readable allocation/confirmation.'});fmtCount++;}
+    if(issues.length>0)flagged.push({event_type:ev.event_type,timestamp_ct:ev.timestamp_ct,trade_date:ev.trade_date,format:ev.format,counterparty_type:ev.counterparty_type,issues:issues});
+  });
+  var total=events.length;
+  var rate=total>0?+((onTime/total*100).toFixed(1)):100;
+  var flags=[];
+  if(flagged.some(function(e){return e.issues.some(function(i){return i.rule==='LATE_ALLOCATION';});}))flags.push('LATE_ALLOCATION');
+  if(flagged.some(function(e){return e.issues.some(function(i){return i.rule==='LATE_CONFIRMATION';});}))flags.push('LATE_CONFIRMATION');
+  if(fmtCount>0)flags.push('MANUAL_FORMAT');
+  return {output_payload:{on_time_rate:rate,total_events:total,on_time_events:onTime,events_flagged:flagged,format_nonconformance_count:fmtCount,cutoff_applied:cutoff,cutoff_timezone:'CET (Central European Time)'},compliance_flags:flags};
+}
+/* Funding mirror: same arithmetic as the art-672 kernel (happy path and fail-closed). */
+function fundingCompute(pp){
+  var rejected=[];
+  var settleSupplied=typeof pp.settle_date==='string';
+  var settle=settleSupplied?pp.settle_date.trim():null;
+  if(!settleSupplied||!/^\d{4}-\d{2}-\d{2}$/.test(settle))rejected.push({where:'settle_date',reason:'absent or not a declared YYYY-MM-DD settle date',supplied:settleSupplied?pp.settle_date:null});
+  var confirmSupplied=typeof pp.trade_confirm_utc==='string';
+  var confirm=confirmSupplied?pp.trade_confirm_utc.trim():null;
+  var confirmMin=null;
+  if(!confirmSupplied||!/^([01]\d|2[0-3]):[0-5]\d$/.test(confirm))rejected.push({where:'trade_confirm_utc',reason:'absent or not a declared UTC HH:MM confirm time',supplied:confirmSupplied?pp.trade_confirm_utc:null});
+  else confirmMin=parseHHMM(confirm);
+  var legsPresent=Array.isArray(pp.legs)&&pp.legs.length>0;
+  if(!legsPresent)rejected.push({where:'legs',reason:'absent, malformed, or empty; at least one declared currency leg is required',supplied:null});
+  var legs=null;
+  if(legsPresent){
+    legs=[];
+    pp.legs.forEach(function(raw,i){
+      var where='legs['+i+']';
+      if(!raw||typeof raw!=='object'||Array.isArray(raw)){rejected.push({where:where,reason:'not an object; expected { ccy, cutoff_utc }',supplied:raw===undefined?null:String(raw)});return;}
+      var ccySupplied=typeof raw.ccy==='string';
+      var ccy=ccySupplied?raw.ccy.trim():null;
+      if(!ccySupplied||!/^[A-Z]{3}$/.test(ccy))rejected.push({where:where+'.ccy',reason:'absent or not a 3-letter uppercase currency code',supplied:ccySupplied?raw.ccy:null});
+      var cutSupplied=typeof raw.cutoff_utc==='string';
+      var cut=cutSupplied?raw.cutoff_utc.trim():null;
+      if(!cutSupplied||!/^([01]\d|2[0-3]):[0-5]\d$/.test(cut))rejected.push({where:where+'.cutoff_utc',reason:'absent or not a declared UTC HH:MM time',supplied:cutSupplied?raw.cutoff_utc:null});
+      if(ccy&&cut&&/^[A-Z]{3}$/.test(ccy)&&/^([01]\d|2[0-3]):[0-5]\d$/.test(cut))legs.push({ccy:ccy,cutoff_utc:cut,margin_minutes:parseHHMM(cut)-confirmMin});
+    });
+  }
+  if(!legs||legs.length===0||legs.length!==pp.legs.length||confirmMin===null){
+    return {output_payload:{sequence:null,margins_minutes:null,all_cutoffs_met:null,trace:null,overall:'INDETERMINATE',indeterminate_reason:'settle_date, trade_confirm_utc, or legs were absent or malformed; no funding sequence could be computed from declared inputs alone.',settle_date:settle||null,trade_confirm_utc:confirm||null,rejected_inputs:rejected},compliance_flags:[]};
+  }
+  var seen={};
+  pp.legs.forEach(function(){});
+  for(var k=0;k<legs.length;k++){
+    if(seen[legs[k].ccy]){rejected.push({where:'legs['+k+'].ccy',reason:'duplicate declared currency leg "'+legs[k].ccy+'"; a currency may appear at most once',supplied:legs[k].ccy});}
+    seen[legs[k].ccy]=true;
+  }
+  if(rejected.length>0){
+    return {output_payload:{sequence:null,margins_minutes:null,all_cutoffs_met:null,trace:null,overall:'INDETERMINATE',indeterminate_reason:'settle_date, trade_confirm_utc, or legs were absent or malformed; no funding sequence could be computed from declared inputs alone.',settle_date:settle||null,trade_confirm_utc:confirm||null,rejected_inputs:rejected},compliance_flags:[]};
+  }
+  var ordered=legs.map(function(l,idx){return {ccy:l.ccy,cutoff_utc:l.cutoff_utc,margin_minutes:l.margin_minutes,idx:idx};}).sort(function(a,b){return (a.margin_minutes-b.margin_minutes)||(a.idx-b.idx);});
+  var sequence=ordered.map(function(l){return l.ccy;});
+  var margins={};
+  ordered.forEach(function(l){margins[l.ccy]=l.margin_minutes;});
+  var allMet=ordered.every(function(l){return l.margin_minutes>=0;});
+  var trace=ordered.map(function(l){return l.ccy+' '+l.cutoff_utc+' - '+confirm+' = '+l.margin_minutes+' min';}).join('; ')+'; order by tightest first';
+  return {output_payload:{sequence:sequence,margins_minutes:margins,all_cutoffs_met:allMet,trace:trace,overall:allMet?'FUNDING_SEQUENCED':'CUTOFF_MISSED'},compliance_flags:[]};
+}
+function computeAll(inp){
+  var rej=validateInput(inp);
+  if(rej.length>0)return {error:'INPUT_REFUSED',rejected:rej};
+  var d=deriveInputs(inp);
+  var timing=timingCompute(d.art506);
+  var allocation=allocationCompute(d.art81);
+  var funding=fundingCompute(d.art672);
+  return {
+    derived:{art506:d.art506,art81:d.art81,art672:d.art672},
+    timing:timing.output_payload,
+    allocation:allocation.output_payload,
+    funding:funding.output_payload,
+    converted:{
+      trade:instantForms(inp.trade_date,inp.trade_time_local.trim(),inp.utc_offset_minutes),
+      confirm:instantForms(inp.trade_date,inp.confirm_time_local.trim(),inp.utc_offset_minutes)
+    }
+  };
+}
+var EXAMPLE_INPUT={
+  trade_ref:'TRADE-2026-1207-001',
+  trade_date:'2026-12-07',
+  trade_time_local:'14:30',
+  utc_offset_minutes:60,
+  confirm_time_local:'17:00',
+  settle_date:'2026-12-08',
+  target_cycle:'T+1',
+  baseline_cycle:'T+2',
+  at_risk_margin_seconds:3600,
+  venue_cutoff_local:'2026-12-07T17:30',
+  cutoff_local:'23:00',
+  steps:[
+    {step:'allocation',achieved_local:'2026-12-07T21:45',cutoff_target_local:'2026-12-07T23:00',cutoff_baseline_local:'2026-12-08T23:00'},
+    {step:'confirmation',achieved_local:'2026-12-07T22:10',cutoff_target_local:'2026-12-07T23:00',cutoff_baseline_local:'2026-12-08T23:00'},
+    {step:'settlement_instruction',achieved_local:'2026-12-08T10:00',cutoff_target_local:'2026-12-08T09:00',cutoff_baseline_local:'2026-12-09T09:00'}
+  ],
+  events:[
+    {event_type:'allocation',time_local:'21:45',format:'machine-readable',counterparty_type:'professional'},
+    {event_type:'confirmation',time_local:'22:10',format:'machine-readable',counterparty_type:'professional'}
+  ],
+  legs:[
+    {ccy:'EUR',cutoff_utc:'17:00'},
+    {ccy:'USD',cutoff_utc:'19:00'},
+    {ccy:'CHF',cutoff_utc:'16:30'}
+  ]
+};
+if(typeof module!=='undefined'&&module.exports){module.exports={computeAll:computeAll,EXAMPLE_INPUT:EXAMPLE_INPUT,validateInput:validateInput,deriveInputs:deriveInputs};}
+
+</script>
+<script>
+function esc(s){return String(s===null||s===undefined?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function val(id){var el=document.getElementById(id);return el?el.value:'';}
+function setVal(id,v){var el=document.getElementById(id);if(el)el.value=v;}
+function readInput(){
+  var inp={};
+  inp.trade_ref=val('trade_ref');
+  inp.trade_date=val('trade_date');
+  inp.trade_time_local=val('trade_time_local');
+  var off=val('utc_offset_minutes');
+  inp.utc_offset_minutes=off===''?'':Number(off);
+  inp.confirm_time_local=val('confirm_time_local');
+  inp.settle_date=val('settle_date');
+  inp.target_cycle=val('target_cycle');
+  inp.baseline_cycle=val('baseline_cycle');
+  var ar=val('at_risk_margin_seconds');
+  inp.at_risk_margin_seconds=ar===''?'':Number(ar);
+  inp.venue_cutoff_local=val('venue_cutoff_local');
+  inp.cutoff_local=val('cutoff_local');
+  var bad=[];
+  try{inp.steps=JSON.parse(val('steps_json'));}catch(e){bad.push('steps');}
+  try{inp.events=JSON.parse(val('events_json'));}catch(e){bad.push('events');}
+  try{inp.legs=JSON.parse(val('legs_json'));}catch(e){bad.push('legs');}
+  if(bad.length>0)return {error:'INPUT_REFUSED',rejected:bad};
+  return inp;
+}
+function loadSample(){
+  var e=EXAMPLE_INPUT;
+  setVal('trade_ref',e.trade_ref);setVal('trade_date',e.trade_date);setVal('trade_time_local',e.trade_time_local);
+  setVal('utc_offset_minutes',e.utc_offset_minutes);setVal('confirm_time_local',e.confirm_time_local);setVal('settle_date',e.settle_date);
+  setVal('target_cycle',e.target_cycle);setVal('baseline_cycle',e.baseline_cycle);setVal('at_risk_margin_seconds',e.at_risk_margin_seconds);
+  setVal('venue_cutoff_local',e.venue_cutoff_local);setVal('cutoff_local',e.cutoff_local);
+  setVal('steps_json',JSON.stringify(e.steps,null,2));setVal('events_json',JSON.stringify(e.events,null,2));setVal('legs_json',JSON.stringify(e.legs,null,2));
+}
+function runCheck(){
+  var inp=readInput();
+  if(inp.error){
+    document.getElementById('timingOut').innerHTML='<div class="verdict fail" style="display:block">Input refused. Rejected keys: '+esc(inp.rejected.join(', '))+'</div>';
+    document.getElementById('allocationOut').innerHTML='';document.getElementById('fundingOut').innerHTML='';
+    document.getElementById('derivedOut').innerHTML='';document.getElementById('convertedOut').innerHTML='';
+    return;
+  }
+  var r=computeAll(inp);
+  if(r.error){
+    document.getElementById('timingOut').innerHTML='<div class="verdict fail" style="display:block">Input refused. Rejected keys: '+esc(r.rejected.join(', '))+'</div>';
+    document.getElementById('allocationOut').innerHTML='';document.getElementById('fundingOut').innerHTML='';
+    document.getElementById('derivedOut').innerHTML='';document.getElementById('convertedOut').innerHTML='';
+    return;
+  }
+  window._lastResult={inputs:inp,derived:r.derived,timing:r.timing,allocation:r.allocation,funding:r.funding,converted:r.converted};
+  var d='<h3>Derived panel inputs</h3><table class="result-table"><thead><tr><th>Panel input</th><th>Derived value</th></tr></thead><tbody>';
+  d+='<tr><td>Timing trade timestamp</td><td>'+esc(r.derived.art506.trade_timestamp)+'</td></tr>';
+  d+='<tr><td>Timing venue cutoff</td><td>'+esc(r.derived.art506.venue_cutoff)+'</td></tr>';
+  d+='<tr><td>Timing offset, minutes</td><td>'+esc(r.derived.art506.time_zone_offset_minutes)+'</td></tr>';
+  d+='<tr><td>Allocation cutoff, local</td><td>'+esc(r.derived.art81.cutoff_local)+'</td></tr>';
+  r.derived.art81.events.forEach(function(ev,i){d+='<tr><td>Allocation event '+i+'</td><td>'+esc(ev.event_type)+' '+esc(ev.timestamp_ct)+' '+esc(ev.format)+' '+esc(ev.counterparty_type)+'</td></tr>';});
+  d+='<tr><td>Funding confirm, UTC</td><td>'+esc(r.derived.art672.trade_confirm_utc)+'</td></tr>';
+  d+='<tr><td>Funding settle date</td><td>'+esc(r.derived.art672.settle_date)+'</td></tr>';
+  r.derived.art672.legs.forEach(function(l){d+='<tr><td>Funding leg</td><td>'+esc(l.ccy)+' cutoff '+esc(l.cutoff_utc)+' UTC</td></tr>';});
+  d+='</tbody></table>';
+  document.getElementById('derivedOut').innerHTML=d;
+  var c='<h3>Converted times, same instant</h3><table class="result-table"><thead><tr><th>Instant</th><th>Local</th><th>UTC</th><th>CET</th></tr></thead><tbody>';
+  c+='<tr><td>Trade</td><td>'+esc(r.converted.trade.local)+'</td><td>'+esc(r.converted.trade.utc)+'</td><td>'+esc(r.converted.trade.cet)+'</td></tr>';
+  c+='<tr><td>Confirmation</td><td>'+esc(r.converted.confirm.local)+'</td><td>'+esc(r.converted.confirm.utc)+'</td><td>'+esc(r.converted.confirm.cet)+'</td></tr>';
+  c+='</tbody></table>';
+  document.getElementById('convertedOut').innerHTML=c;
+  var t=r.timing;
+  var th='<h3>Timing panel</h3><p>Verdict: '+esc(t.verdict)+'. '+esc(t.verdict_reason)+'</p><table class="result-table"><thead><tr><th>Step</th><th>Target status</th><th>Baseline status</th><th>Margin, target (seconds)</th><th>Margin, baseline (seconds)</th></tr></thead><tbody>';
+  t.steps.forEach(function(s){th+='<tr><td>'+esc(s.step)+'</td><td>'+esc(s.status)+'</td><td>'+esc(s.status_baseline)+'</td><td>'+esc(s.margin_seconds)+'</td><td>'+esc(s.margin_seconds_baseline)+'</td></tr>';});
+  th+='</tbody></table><p>First failing step: '+esc(t.first_failing_step)+'. First newly breaching step: '+esc(t.first_newly_breaching_step)+'.</p>';
+  document.getElementById('timingOut').innerHTML=th;
+  var a=r.allocation;
+  var ah='<h3>Allocation panel</h3><p>On-time rate: '+esc(a.on_time_rate)+' percent. On-time events: '+esc(a.on_time_events)+' of '+esc(a.total_events)+'. Cutoff applied: '+esc(a.cutoff_applied)+' '+esc(a.cutoff_timezone)+'. Format nonconformance count: '+esc(a.format_nonconformance_count)+'.</p>';
+  if(a.events_flagged.length>0){ah+='<table class="result-table"><thead><tr><th>Event</th><th>Timestamp</th><th>Issues</th></tr></thead><tbody>';a.events_flagged.forEach(function(e){ah+='<tr><td>'+esc(e.event_type)+'</td><td>'+esc(e.timestamp_ct)+'</td><td>'+esc(e.issues.map(function(i){return i.rule;}).join(', '))+'</td></tr>';});ah+='</tbody></table>';}
+  document.getElementById('allocationOut').innerHTML=ah;
+  var f=r.funding;
+  var fh='<h3>Funding panel</h3><p>Overall: '+esc(f.overall)+'. All cutoffs met: '+esc(f.all_cutoffs_met)+'. Sequence, tightest first: '+esc(f.sequence?f.sequence.join(', '):'')+'.</p><p>'+esc(f.trace)+'</p>';
+  document.getElementById('fundingOut').innerHTML=fh;
+  var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}
+  var mb=document.getElementById('mdExportBtn');if(mb){mb.disabled=false;mb.classList.add('ready');}
+}
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+window.AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  var RE_VER=/^\d+\.\d+/;
+  function f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')f('mandate must be an object');
+  if(!RE_UUID4.test(m.mandate_id||''))f('mandate_id must be UUIDv4');
+  if(typeof m.issued_at!=='string'||!m.issued_at)f('missing issued_at');
+  if(m.issued_by!=='ainumbers.co')f('issued_by must be ainumbers.co');
+  if(typeof m.tool_id!=='string'||!m.tool_id)f('missing tool_id');
+  if(typeof m.tool_version!=='string'||!RE_VER.test(m.tool_version))f('missing tool_version');
+  var types=['payment_policy','aml_rule','kyc_requirement','routing_policy','compliance_control','risk_parameter','credit_assessment','fx_policy','scheme_rule','disclosure_template','fee_schedule_mandate','velocity_rule_mandate','incident_classification_mandate','routing_policy_mandate','agent_guardrail_mandate'];
+  if(types.indexOf(m.mandate_type)<0)f('mandate_type outside section 3.1 set');
+  if(!Array.isArray(m.jurisdiction))f('jurisdiction must be array');
+  if(!Array.isArray(m.regulatory_frameworks))f('regulatory_frameworks must be array');
+  if(!m.payload||typeof m.payload!=='object')f('missing payload');
+  if(typeof m.summary!=='string'||!m.summary)f('missing summary');
+  if(!Array.isArray(m.agent_instructions))f('agent_instructions must be array');
+  if(typeof m.valid_from!=='string'||!m.valid_from)f('missing valid_from');
+  if(typeof m.valid_until!=='string'||!m.valid_until)f('missing valid_until');
+  if(typeof m.last_reviewed!=='string'||!m.last_reviewed)f('missing last_reviewed');
+  if(!m.source_tool_inputs||typeof m.source_tool_inputs!=='object')f('missing source_tool_inputs');
+  if(!Array.isArray(m.regulatory_citations))f('regulatory_citations must be array');
+  var am=m.audit_metadata;if(!am||am.client_side_executed!==true||am.zero_pii_verified!==true||am.deterministic_run!==true)f('audit_metadata flags must be true');
+  return true;
+};
+window.exportAP2=function(){
+  if(!window._lastResult){alert('Run the check first to generate results.');return;}
+  var ts=new Date().toISOString();var tid=MANIFEST.tool_id;
+  var mandate={mandate_id:crypto.randomUUID(),issued_at:ts,issued_by:'ainumbers.co',tool_id:tid,tool_version:MANIFEST.version,mandate_type:'compliance_control',jurisdiction:['EU','EEA'],regulatory_frameworks:['Regulation (EU) No 909/2014 (CSDR)'],payload:window._lastResult,summary:'T+1 post-trade timing and funding check for one caller-supplied trade: timing under target versus baseline cycle, allocation and confirmation conformance against the 23:00 CET trade-date machine-readable rule, and FX funding sequencing against declared UTC cutoffs for one settle date.',agent_instructions:['Review the timing verdict and the first newly breaching step against the caller-declared cutoffs shown on the page.','Apply the allocation deadline and format results per your own internal governance.','Apply the funding sequence only against the declared settle date and declared cutoffs shown on the page.'],valid_from:ts.slice(0,10),valid_until:ts.slice(0,10),last_reviewed:ts.slice(0,10),source_tool_inputs:window._lastResult.inputs,regulatory_citations:[],audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  window.AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download=tid+'-policy-mandate.json';a.click();URL.revokeObjectURL(a.href);
+};
+window.exportMarkdown=function(){
+  if(!window._lastResult){alert('Run the check first to generate results.');return;}
+  var r=window._lastResult;var lines=['# T+1 Post-Trade Timing and Funding Check','','Timing verdict: '+r.timing.verdict,'First newly breaching step: '+r.timing.first_newly_breaching_step,'Allocation on-time rate: '+r.allocation.on_time_rate+' percent','Funding overall: '+r.funding.overall,'Funding sequence: '+(r.funding.sequence?r.funding.sequence.join(', '):'')];
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/markdown'}));a.download=MANIFEST.tool_id+'-results.md';a.click();URL.revokeObjectURL(a.href);
+};
+window.toggleMfst=function(){var b=document.getElementById('mfstBody');var c=document.getElementById('mfstCode');if(!b||!c)return;if(b.style.display==='block'){b.style.display='none';}else{c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}};
+loadSample();
+</script>
+<script>window.AIN_BRIDGE_CFG={runFn:'runCheck',intake:false,intakeTarget:null,intakeAnchor:null,share:true};</script>
+<script>
+(function(){
+'use strict';
+/* Declared ONCE and read by both AINBridge.version and AINBridge.capabilities.version,
+   so the two can never disagree. scripts/sync-ain-bridge.mjs reads this literal to
+   decide the version it stamps onto a page's header comment and bridge_version
+   metadata — the master snippet is the only place a bridge version is authored. */
+var BRIDGE_VERSION='1.3';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={
+ en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
+ es:{pf:'Campos precargados desde el enlace — revise y ejecute',ran:'Campos precargados desde el enlace y ejecutados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Suelte un .policy.json aquí, o',choose:'Elegir archivo',paste:'Pegar JSON',apply:'Aplicar',ok:'Policy Mandate importado desde',bad:'JSON de Policy Mandate no válido'},
+ fr:{pf:'Champs préremplis depuis le lien — vérifiez puis exécutez',ran:'Champs préremplis depuis le lien et exécutés',fields:'champs',it:'Importer un Policy Mandate (.policy.json)',drop:'Déposez un .policy.json ici, ou',choose:'Choisir un fichier',paste:'Coller le JSON',apply:'Appliquer',ok:'Policy Mandate importé depuis',bad:'JSON Policy Mandate non valide'},
+ ar:{pf:'تم ملء الحقول مسبقًا من الرابط — راجع ثم شغّل',ran:'تم ملء الحقول من الرابط وتنفيذها',fields:'حقول',it:'استيراد Policy Mandate (.policy.json)',drop:'أسقط ملف ‎.policy.json هنا، أو',choose:'اختر ملفًا',paste:'لصق JSON',apply:'تطبيق',ok:'تم استيراد Policy Mandate من',bad:'JSON غير صالح لـ Policy Mandate'},
+ pt:{pf:'Campos pré-preenchidos a partir do link — revise e execute',ran:'Campos pré-preenchidos a partir do link e executados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Solte um .policy.json aqui, ou',choose:'Escolher arquivo',paste:'Colar JSON',apply:'Aplicar',ok:'Policy Mandate importado de',bad:'JSON de Policy Mandate inválido'},
+ zh:{pf:'已从链接预填输入 — 请检查后运行',ran:'已从链接预填并自动执行',fields:'个字段',it:'导入 Policy Mandate (.policy.json)',drop:'将 .policy.json 拖放到此处，或',choose:'选择文件',paste:'粘贴 JSON',apply:'应用',ok:'已导入 Policy Mandate，来源：',bad:'无效的 AINumbers Policy Mandate JSON'}
+};
+function t(k){return (L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return (CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.getElementById('ainIntakeZone')||anchorEl();
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function looksLikeMandate(o){return !!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){
+  var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}
+  if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}
+  var n=0;
+  if(CFG.intakeTarget){var ta=document.getElementById(CFG.intakeTarget);
+    if(ta){ta.value=JSON.stringify(o,null,2);try{ta.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}n++;}}
+  if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);
+  if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);
+  notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');
+  return n;
+}
+function buildIntakeUI(){
+  if(!CFG.intake)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainIntakeZone';
+  z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');
+  var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');
+  var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');
+  var txt=document.createElement('span');txt.textContent=t('drop');
+  function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}
+  var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));
+  var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';
+  fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});
+  bFile.addEventListener('click',function(){fi.click();});
+  var pasteRow=document.createElement('div');pasteRow.style.display='none';pasteRow.setAttribute('style','display:none;margin-top:.6rem');
+  var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');
+  var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';
+  bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});
+  pasteRow.appendChild(ta);pasteRow.appendChild(bApply);
+  bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});
+  z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});
+  z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});
+  z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});
+  row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);
+  z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
+  a.parentNode.insertBefore(z,a);
+}
+/* ── SHARE LINK (BRIDGE-SHARE-FLAG-1, 2026-09-29) — off by default ───────────
+   Behind CFG.share===true. The button rebuilds this page's address with #in=
+   from the tool's current inputs: fragment only, clipboard only. Everything
+   after # never reaches a server, ours included; the button never calls
+   history.replaceState or pushState, never stores anything, and never makes a
+   network call. The collected field set is exactly what applyFields can write
+   back (same tag gate, keyed by id), minus file, password and hidden inputs,
+   so a shared link can only ever carry values this page's own prefill path
+   accepts. makeLink carries the encoding, so share and prefill can never
+   diverge on the wire shape. */
+function writableFields(){
+  var out={};var els=document.querySelectorAll('input[id],select[id],textarea[id]');
+  for(var i=0;i<els.length;i++){var el=els[i];
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')continue;
+    if(el.type==='file'||el.type==='password'||el.type==='hidden')continue;
+    out[el.id]=(el.type==='checkbox'||el.type==='radio')?!!el.checked:String(el.value);
+  }
+  return out;
+}
+/* Select-and-copy fallback for browsers without navigator.clipboard or when a
+   permission prompt is denied: off-screen textarea, select, execCommand. */
+function legacyCopy(text){
+  var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+  ta.setAttribute('style','position:fixed;left:-9999px;top:0');
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{ta.setSelectionRange(0,text.length);}catch(e){}
+  var ok=false;try{ok=document.execCommand('copy');}catch(e){ok=false;}
+  document.body.removeChild(ta);return ok;
+}
+function copyShareLink(){
+  if(!window.AINBridge||typeof window.AINBridge.makeLink!=='function')return;
+  var link=window.AINBridge.makeLink(writableFields(),false);
+  if(link.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to share ('+link.length+' chars).','warn');return;}
+  var report=function(ok){
+    if(ok){notice('🔗 Link copied. It reopens this tool with the same inputs. Share synthetic values only.','ok');return;}
+    notice('⚠ Copy failed. Select the link below and copy it.','warn');
+    var z=document.getElementById('ainShareZone');
+    if(!z)return;
+    var old=z.querySelector('input[data-ain-share-fallback]');
+    if(old)old.parentNode.removeChild(old);
+    var f=document.createElement('input');
+    f.type='text';f.setAttribute('readonly','');f.setAttribute('data-ain-share-fallback','');
+    f.setAttribute('style','display:inline-block;vertical-align:middle;box-sizing:border-box;max-width:100%;width:36rem;margin-left:.6rem;margin-top:.4rem;padding:.3rem .5rem;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.62rem');
+    f.value=link;
+    z.appendChild(f);
+    f.focus();f.select();
+    try{f.setSelectionRange(0,link.length);}catch(e){}
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(link).then(function(){report(true);},function(){report(legacyCopy(link));});}
+  else report(legacyCopy(link));
+}
+function buildShareUI(){
+  if(CFG.share!==true)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainShareZone';
+  z.setAttribute('style','margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace');
+  var b=document.createElement('button');b.type='button';b.id='ainShareBtn';b.textContent='🔗 Copy share link';
+  b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');
+  b.addEventListener('click',copyShareLink);
+  z.appendChild(b);
+  a.parentNode.insertBefore(z,a);
+}
+/* ONE INTAKE PATH (BRIDGE-MCP-APPS-ALIGN-1, goal 1). The `#in=` deep link and the
+   host's ui/notifications/tool-input notification carry the SAME shape — a bare
+   id→value map, or {"fields":{...}} — so both feed this routine. The MCP leg gets
+   no second parser: a divergence between the two would be invisible on the page
+   and visible only to whichever host happened to send the other shape. */
+function intakeFieldObject(obj){
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  return applyFields(fields);
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var n=intakeFieldObject(obj);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
+    else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  }
+  /* BRIDGE-SHARE-FLAG-1: a link that parsed but matches no field here must say
+     so — silence reads as "this tool accepted the link" to whoever shared it. */
+  else notice('⚠ This link had no fields matching this tool.','warn');
+}
+var HANDOFF_MAX_CHARS=2000000;
+/* ── AIN LEDGER LIVE CHANNEL v1: MESSAGE SCHEMA (B3/B4/B5) ────────────────────
+   This comment block is IDENTICAL in ledger/index.html and in
+   scripts/ain-bridge-v1.snippet.html. Change one, change both.
+
+   Transport: BroadcastChannel, name 'ain-ledger-v1'. Same-origin by
+   construction: a message only ever reaches a tab on the SAME origin, so the
+   channel carries nothing across an origin boundary. The ledger serves at BOTH
+   ainumbers.co/ledger/ (path form) and ledger.ainumbers.co (subdomain form);
+   only the path form shares an origin with a tool page, so the subdomain form
+   keeps today's fragment-only intake unchanged.
+
+   Envelope: JSON-RPC 2.0 in the MCP Apps ui/ dialect, the same envelope the AIN
+   Bridge postMessage leg carries. Both legs are notifications, so neither
+   carries an id and neither expects a JSON-RPC response object.
+
+   page to ledger:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt",
+      "params":{"v":1,"receipt":<OCG artifact>}}
+
+   ledger to page:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt-ack",
+      "params":{"v":1,"execution_hash":"<hash>",
+                "status":"added"|"duplicate"|"rejected"}}
+
+   Identity: a receipt's ledger identity is its execution_hash, the keyPath of
+   the artifact store. The ack deliberately does NOT use the name record_hash:
+   on this page record_hash already means the SPEC.md 22.8.4 escalation-record
+   hash, a different value over a different object.
+
+   params.receipt is validated exactly the way a #a=v1 fragment is, by the same
+   extractArtifact + isArtifact pair, and anything else acks 'rejected'. The
+   channel carries a receipt only, never a mandate body and never any other
+   payload: the same rule the fragment leg already follows.
+   ─────────────────────────────────────────────────────────────────────────── */
+var AIN_LEDGER_CHANNEL='ain-ledger-v1';
+var AIN_LEDGER_ACK_MS=2000;
+/* B3 origin guard. BroadcastChannel is same-origin, so a receipt can only reach a
+   ledger tab served from THIS origin, which is the path form ainumbers.co/ledger/.
+   Returns the ledger URL this page may live-update, or null when this origin has
+   no path-form ledger (ledger.ainumbers.co included: a different origin, whose
+   intake stays fragment-only). Pure: reads the origin it is handed, no globals. */
+function ainLedgerTarget(origin){
+  if(typeof origin!=='string'||!origin)return null;
+  var u;try{u=new URL(origin);}catch(e){return null;}
+  if(u.protocol!=='https:'&&u.protocol!=='http:')return null;
+  var h=u.hostname.toLowerCase();
+  if(h!=='ainumbers.co'&&h!=='localhost'&&h!=='127.0.0.1')return null;
+  return u.origin+'/ledger/';
+}
+function ainLedgerReceipt(receipt){
+  return {jsonrpc:'2.0',method:'ui/notifications/receipt',params:{v:1,receipt:receipt}};
+}
+function ainIsLedgerAck(msg){
+  if(!msg||typeof msg!=='object')return false;
+  if(msg.jsonrpc!=='2.0'||msg.method!=='ui/notifications/receipt-ack')return false;
+  var p=msg.params;
+  if(!p||typeof p!=='object'||p.v!==1)return false;
+  if(typeof p.execution_hash!=='string'&&p.execution_hash!==null)return false;
+  return p.status==='added'||p.status==='duplicate'||p.status==='rejected';
+}
+/* B3 send + B5 ack. Resolves with the ack params when a ledger tab answers inside
+   AIN_LEDGER_ACK_MS, else with null, so a page with no ledger tab open behaves
+   exactly as it did before this leg existed. */
+function ainLedgerSend(receipt,origin){
+  var target=ainLedgerTarget(origin||(typeof location!=='undefined'?location.origin:''));
+  if(!target||typeof BroadcastChannel!=='function')return Promise.resolve(null);
+  var ch;try{ch=new BroadcastChannel(AIN_LEDGER_CHANNEL);}catch(e){return Promise.resolve(null);}
+  return new Promise(function(resolve){
+    var done=false,timer=null;
+    function finish(v){if(done)return;done=true;if(timer)clearTimeout(timer);try{ch.close();}catch(e){}resolve(v);}
+    ch.onmessage=function(ev){if(ainIsLedgerAck(ev&&ev.data))finish(ev.data.params);};
+    try{ch.postMessage(ainLedgerReceipt(receipt));}catch(e){finish(null);return;}
+    timer=setTimeout(function(){finish(null);},AIN_LEDGER_ACK_MS);
+  });
+}
+function apSendToVerify(){
+  var m;try{m=window.AINBridge.getMandate();}catch(e){m=null;}
+  if(!m){notice('⚠ No Policy Mandate to send — run the tool first.','warn');return Promise.resolve(null);}
+  var json;try{json=JSON.stringify(m);}catch(e){notice('⚠ Could not serialize the mandate: '+e.message,'warn');return Promise.resolve(null);}
+  if(json.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to hand off ('+json.length+' chars).','warn');return Promise.resolve(null);}
+  /* B3/B5: hand the receipt to an open ledger tab on this origin. Fired BEFORE
+     window.open so the user gesture is not spent waiting on the ack. With no
+     ledger tab open the promise resolves null and nothing on this page changes. */
+  var ledgerAck=ainLedgerSend(m).then(function(ack){
+    if(ack&&ack.status==='added')notice('🧾 Recorded in the open Ledger tab.','ok');
+    else if(ack&&ack.status==='duplicate')notice('🧾 Already recorded in the open Ledger tab.','ok');
+    return ack;
+  });
+  /* An MCP Apps host that answered ui/initialize is told, in its own transcript,
+     that a receipt now exists (BRIDGE-MCP-APPS-ALIGN-1, goal 1). Identifiers only
+     — mcpReceiptText never carries the mandate body. The same-origin verifier
+     handoff below is unchanged and happens either way. */
+  if(MCP.ready)mcpPost(mcpMessageRequest(mcpNextId(),mcpReceiptText(m)));
+  var target=new URL('../chaingraph/verify.html',window.location.href).href;
+  var win=window.open(target,'_blank');
+  if(!win){notice('⚠ The verifier window was blocked. Allow pop-ups for this site.','warn');return ledgerAck;}
+  var sent=false,timer=null;
+  function onReady(ev){
+    if(ev.origin!==window.location.origin)return;
+    if(ev.source!==win)return;
+    var d=ev.data;
+    if(!d||typeof d!=='object'||d.type!=='ain-handoff-ready/v1')return;
+    if(sent)return;sent=true;
+    window.removeEventListener('message',onReady);
+    if(timer)clearTimeout(timer);
+    win.postMessage({type:'ain-handoff/v1',kind:'policy-mandate',mandate:json},window.location.origin);
+    notice('➡ Sent to the Artifact Verifier in the new tab.','ok');
+  }
+  window.addEventListener('message',onReady);
+  notice('Opening the Artifact Verifier…','ok');
+  timer=setTimeout(function(){
+    if(sent)return;
+    window.removeEventListener('message',onReady);
+    notice('⚠ The verifier did not answer. Export the mandate and paste it in.','warn');
+  },10000);
+  return ledgerAck;
+}
+window.apSendToVerify=apSendToVerify;
+/* ══ MCP-APPS-JSONRPC v1 START ══════════════════════════════════════════════
+   BRIDGE-MCP-APPS-ALIGN-1. Primary text: MCP Apps specification 2026-01-26
+   (modelcontextprotocol/ext-apps, specification/2026-01-26/apps.mdx). Message
+   shapes quoted from it, direction as the spec labels them:
+
+     ui/initialize                    View→Host REQUEST
+         params {protocolVersion, clientInfo, appCapabilities}
+         result {protocolVersion, hostCapabilities, hostInfo, hostContext}
+     ui/notifications/initialized     View→Host notification, after that result
+     ui/message                       View→Host request
+         params {role:'user', content:{type:'text', text}}
+     ui/open-link                     View→Host request   params {url}
+     ui/request-display-mode          View→Host request   params {mode}
+     ui/update-model-context          View→Host request   params {content?, structuredContent?}
+     ui/notifications/size-changed    View→Host notification  params {width, height}
+     tools/call                       View→Host, proxied by the host to the server
+
+     ui/notifications/tool-input          Host→View  params {arguments}  at most once
+     ui/notifications/tool-input-partial  Host→View  params {arguments}  0..n, before tool-input
+     ui/notifications/tool-result         Host→View  params CallToolResult {content, structuredContent, _meta}
+     ui/notifications/tool-cancelled      Host→View  params {reason}
+     ui/notifications/host-context-changed Host→View params {hostContext}
+     ui/resource-teardown                 Host→View  REQUEST (carries an id), result {}
+
+   ui/notifications/sandbox-proxy-ready and ui/notifications/sandbox-resource-ready
+   are RESERVED for a web host's sandbox proxy (spec, "Reserved Messages (Sandbox
+   Proxy)"): a View neither sends nor receives them, so they are absent from both
+   lists by decision, not by oversight.
+
+   NOTHING IN THIS REGION MAY REFERENCE AN IDENTIFIER DECLARED OUTSIDE IT. The
+   routines are pure: scripts/ain-bridge-jsonrpc.test.mjs cuts the region out of
+   this file and evaluates it on its own, and scripts/check-bridge-jsonrpc.mjs
+   reads the two allowlists out of it and holds them to the spec list above.
+   ────────────────────────────────────────────────────────────────────────── */
+var MCP_PROTOCOL_VERSION='2026-01-26';
+/* Host→View: the methods this View ACCEPTS. Anything else with an id is answered
+   -32601 (JSON-RPC 2.0 "Method not found"); anything else without one is dropped,
+   because a notification has no reply channel to carry an error on. */
+var MCP_HOST_METHODS=[
+  'ui/notifications/tool-input',
+  'ui/notifications/tool-input-partial',
+  'ui/notifications/tool-result',
+  'ui/notifications/tool-cancelled',
+  'ui/notifications/host-context-changed',
+  'ui/resource-teardown'
+];
+/* View→Host: the methods this View may EMIT. A send outside this list is a bug in
+   the bridge, not a host problem, so mcpEnvelopeOut refuses it locally. */
+var MCP_VIEW_METHODS=[
+  'ui/initialize',
+  'ui/notifications/initialized',
+  'ui/message',
+  'ui/open-link',
+  'ui/request-display-mode',
+  'ui/update-model-context',
+  'ui/notifications/size-changed',
+  'tools/call'
+];
+/* ain-handoff/v1 alias table (goal 3) — kept for ONE snippet version so pages
+   rolled at different times interoperate; a later row deletes it. One line each,
+   naming the MCP method the legacy type corresponds to, or null where the legacy
+   leg has no MCP twin at all (getMandate is a composer pull; the spec has no
+   Host→View "give me your state" request, so it stays ain-handoff-only). */
+var MCP_LEGACY_ALIAS={
+  'ain:prefill':'ui/notifications/tool-input',
+  'ain:run':'ui/notifications/tool-input',
+  'ain:getMandate':null
+};
+function mcpNewState(){return {hostOrigin:null,ready:false,initId:null,nextId:2,hostCapabilities:null,hostInfo:null,hostContext:null};}
+/* 'request' | 'notification' | 'response' | null. null = not a JSON-RPC 2.0
+   envelope we can act on (this includes every ain-handoff/v1 message, which the
+   legacy listener owns). */
+function mcpEnvelopeKind(d){
+  if(!d||typeof d!=='object'||d.jsonrpc!=='2.0')return null;
+  if(typeof d.method==='string')return (d.id===undefined||d.id===null)?'notification':'request';
+  if(d.id!==undefined&&('result' in d||'error' in d))return 'response';
+  return null;
+}
+function mcpError(id,code,message){return {jsonrpc:'2.0',id:id,error:{code:code,message:message}};}
+function mcpOk(id,result){return {jsonrpc:'2.0',id:id,result:result};}
+/* Pure. The outbound envelope, or null when the method is not one this View is
+   allowed to emit. */
+function mcpEnvelopeOut(method,params,id){
+  if(MCP_VIEW_METHODS.indexOf(method)===-1)return null;
+  var env={jsonrpc:'2.0',method:method};
+  if(id!==undefined&&id!==null)env.id=id;
+  if(params!==undefined)env.params=params;
+  return env;
+}
+/* appCapabilities per the spec's McpUiAppCapabilities: `tools` is omitted because
+   the page exposes no MCP-style tools TO the host (its WebMCP registrations are a
+   different surface), and the B7 capabilities object rides in `experimental`,
+   whose structure the spec leaves open. */
+function mcpAppCapabilities(caps){
+  return {experimental:{ainBridge:caps||null},availableDisplayModes:['inline','fullscreen']};
+}
+function mcpInitRequest(id,caps,version){
+  return mcpEnvelopeOut('ui/initialize',{
+    protocolVersion:MCP_PROTOCOL_VERSION,
+    clientInfo:{name:'ainumbers-ain-bridge',version:String(version||'')},
+    appCapabilities:mcpAppCapabilities(caps)
+  },id);
+}
+function mcpInitializedNotification(){return mcpEnvelopeOut('ui/notifications/initialized',{});}
+/* Origin pinning. Before the handshake the host origin is unknown, so any origin
+   may carry the ui/initialize RESPONSE; from the moment that response lands, the
+   origin it came from is the only one this View will read or write. */
+function mcpOriginOk(state,origin){
+  if(state.hostOrigin===null)return true;
+  return origin===state.hostOrigin;
+}
+/* Pure. Consume the ui/initialize response: pin the origin, keep the host's own
+   three fields. Returns the ui/notifications/initialized envelope to send, or
+   null when this is not our pending handshake (or the host answered with an
+   error, in which case the View stays unpinned and un-ready). */
+function mcpAcceptInitResponse(state,d,origin){
+  if(state.ready)return null;
+  if(state.initId===null||d.id!==state.initId)return null;
+  if(d.error)return null;
+  var r=d.result||{};
+  state.hostOrigin=origin;
+  state.ready=true;
+  state.hostCapabilities=r.hostCapabilities||null;
+  state.hostInfo=r.hostInfo||null;
+  state.hostContext=r.hostContext||null;
+  return mcpInitializedNotification();
+}
+/* Pure. One line of text naming the receipt a Send to Verify just produced —
+   identifiers only, never the mandate body: ui/message content goes into the
+   host's chat transcript, and the payload can carry the user's own inputs. */
+function mcpReceiptText(mandate){
+  var m=mandate||{};
+  var bits=['AINumbers Policy Mandate ready to verify'];
+  if(m.mandate_id)bits.push('mandate '+m.mandate_id);
+  if(m.tool_id)bits.push('tool '+m.tool_id);
+  if(m.execution_hash)bits.push('execution_hash '+m.execution_hash);
+  return bits.join(' · ');
+}
+function mcpMessageRequest(id,text){
+  return mcpEnvelopeOut('ui/message',{role:'user',content:{type:'text',text:String(text)}},id);
+}
+/**
+ * Pure. Handle one Host→View envelope.
+ * deps: {applyArguments(args,complete), renderResult(callToolResult),
+ *        cancelled(reason), hostContextChanged(hostContext)} — every one
+ * optional; a missing dep means that leg is a no-op, never a throw.
+ * Returns {responses:[envelope...], handled:<method|null>, ignored:<reason|null>}.
+ */
+function mcpHandleHostMessage(state,d,origin,deps){
+  var out={responses:[],handled:null,ignored:null};
+  var kind=mcpEnvelopeKind(d);
+  if(kind===null||kind==='response'){out.ignored='not-a-host-message';return out;}
+  if(!mcpOriginOk(state,origin)){out.ignored='origin-not-pinned-host';return out;}
+  var method=d.method,params=d.params||{},fn;
+  if(MCP_HOST_METHODS.indexOf(method)===-1){
+    if(kind==='request')out.responses.push(mcpError(d.id,-32601,'Method not found: '+method));
+    out.ignored='method-not-allowlisted';
+    return out;
+  }
+  if(method==='ui/notifications/tool-input'||method==='ui/notifications/tool-input-partial'){
+    fn=deps&&deps.applyArguments;
+    if(fn)fn(params.arguments,method==='ui/notifications/tool-input');
+  }else if(method==='ui/notifications/tool-result'){
+    fn=deps&&deps.renderResult;
+    if(fn)fn(params);
+  }else if(method==='ui/notifications/tool-cancelled'){
+    fn=deps&&deps.cancelled;
+    if(fn)fn(params.reason);
+  }else if(method==='ui/notifications/host-context-changed'){
+    state.hostContext=params.hostContext||params||null;
+    fn=deps&&deps.hostContextChanged;
+    if(fn)fn(state.hostContext);
+  }else if(method==='ui/resource-teardown'){
+    /* Responded to WITHOUT work: the page holds no host-owned resource and no
+       unsaved state of the host's, so there is nothing to flush and nothing that
+       could make the host wait (the spec has it wait for this response). */
+    if(kind==='request')out.responses.push(mcpOk(d.id,{}));
+  }
+  out.handled=method;
+  return out;
+}
+/* ══ MCP-APPS-JSONRPC v1 END ═══════════════════════════════════════════════ */
+/* DOM wiring for the region above. Everything that touches window lives HERE, so
+   the region stays evaluable on its own. */
+var MCP=mcpNewState();
+/* Every post after the handshake goes through this: no host origin, no send. The
+   targetOrigin is the pinned origin, never a wildcard. */
+function mcpPost(env){
+  if(!MCP.hostOrigin)return false;
+  if(!env)return false;
+  try{window.parent.postMessage(env,MCP.hostOrigin);}catch(e){return false;}
+  return true;
+}
+/* The ONE pre-handshake send. The host's origin is unknowable until it answers
+   ui/initialize (a sandboxed View is not told who framed it), so this single
+   message is addressed with a wildcard and carries nothing but our capability
+   declaration — no page data. Every later send is mcpPost, pinned. */
+function mcpPostInit(env){
+  if(!env)return false;
+  try{window.parent.postMessage(env,MCP.hostOrigin||'*');}catch(e){return false;} /* PRE-HANDSHAKE-ORIGIN-OK: MCP.hostOrigin is null until ui/initialize answers */
+  return true;
+}
+function mcpSend(method,params,id){return mcpPost(mcpEnvelopeOut(method,params,id));}
+function mcpNextId(){return MCP.nextId++;}
+function mcpApplyArguments(args,complete){
+  var n=intakeFieldObject(args||{});
+  if(n>0)notice((complete?'🔗 ':'… ')+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  return n;
+}
+/* The existing result hook, reused: a CallToolResult whose structuredContent is a
+   Policy Mandate goes through intakeApply — the same routine the 📥 import zone
+   and a dropped .policy.json use. Anything else is reported, not parsed. */
+function mcpRenderResult(res){
+  var r=res||{};
+  var sc=r.structuredContent;
+  if(looksLikeMandate(sc)){try{return intakeApply(JSON.stringify(sc));}catch(e){}}
+  if(sc&&typeof sc==='object'&&looksLikeMandate(sc.mandate)){try{return intakeApply(JSON.stringify(sc.mandate));}catch(e){}}
+  if(r.isError)notice('⚠ The host reported a tool error.','warn');
+  else notice('✓ Tool result received from the host.','ok');
+  return 0;
+}
+function mcpOnMessage(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  var d=e.data;
+  var kind=mcpEnvelopeKind(d);
+  if(kind===null)return; /* ain-handoff/v1 and everything else: onComposerMessage owns it */
+  if(kind==='response'){
+    var initialized=mcpAcceptInitResponse(MCP,d,e.origin);
+    if(initialized)mcpPost(initialized);
+    return;
+  }
+  var r=mcpHandleHostMessage(MCP,d,e.origin,{
+    applyArguments:mcpApplyArguments,
+    renderResult:mcpRenderResult,
+    cancelled:function(reason){notice('⚠ The host cancelled the tool call'+(reason?': '+reason:'.'),'warn');},
+    hostContextChanged:null
+  });
+  for(var i=0;i<r.responses.length;i++){
+    /* A -32601 or a teardown result before the handshake has nowhere pinned to
+       go; mcpPost refuses it rather than broadcasting. */
+    mcpPost(r.responses[i]);
+  }
+}
+function mcpBoot(){
+  if(window.parent===window)return false;
+  MCP.initId=1;
+  return mcpPostInit(mcpInitRequest(MCP.initId,window.AINBridge&&window.AINBridge.capabilities,BRIDGE_VERSION));
+}
+/* sessionRoot — COMPOSER-PLAN-AND-ROOT-WEBMCP-1. ONE ROUTINE LAW: the core below
+   is byte-identical to SESSION_ROOT_SOURCE in scripts/gen-webmcp-registrations.mjs
+   (emitted onto every chain composer page) and a port of the worker's
+   build_session_receipt (worker.mjs buildSessionReceiptCore). Asserted by
+   scripts/session-root-parity.test.mjs. Never re-derive the Merkle rule. */
+async function ainSessionRoot(executionHashes) {
+  if (!Array.isArray(executionHashes) || executionHashes.length === 0) throw new Error('execution_hashes must be a non-empty array.');
+  var normalize = function (h) { return String(h).replace(/^sha256:/, '').toLowerCase(); };
+  var level = executionHashes.map(normalize).map(function (h) { return 'sha256:' + h; });
+  var hashPair = async function (a, b) {
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalize(a) + normalize(b)));
+    return 'sha256:' + Array.from(new Uint8Array(buf)).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+  };
+  while (level.length > 1) {
+    var next = [];
+    for (var i = 0; i < level.length; i += 2) {
+      var right = level[i + 1] !== undefined ? level[i + 1] : level[i]; // duplicate last leaf when odd
+      next.push(await hashPair(level[i], right));
+    }
+    level = next;
+  }
+  return level[0];
+}
+window.AINBridge={
+  version:BRIDGE_VERSION,
+  /* capabilities — B7 (BRIDGE-SNIPPET-SYNC-GEN-1). A feature-detect surface so an
+     agent can read what this page's bridge supports instead of probing it by
+     calling functions and watching them throw. Every flag is DERIVED from the
+     routine actually present in this closure, never hand-maintained: an older
+     page carrying an older copy of this block reports the truth about itself. */
+  capabilities:{
+    version:BRIDGE_VERSION,
+    prefill:typeof applyFields==='function',
+    mandate:typeof intakeApply==='function',
+    handoff:typeof onComposerMessage==='function',
+    sendToVerify:typeof apSendToVerify==='function',
+    sessionRoot:typeof ainSessionRoot==='function',
+    liveLedger:typeof ainLedgerSend==='function',
+    mcpApps:typeof mcpHandleHostMessage==='function',
+    /* BRIDGE-SHARE-FLAG-1: derived from the page's own config, not the routine's
+       presence — every rolled page carries copyShareLink, but only a page whose
+       CFG.share is true supports it. */
+    share:CFG.share===true
+  },
+  apply:applyFields,
+  run:runTool,
+  intake:intakeApply,
+  sendToVerify:apSendToVerify,
+  sessionRoot:ainSessionRoot,
+  ledgerSend:ainLedgerSend,
+  ledgerTarget:ainLedgerTarget,
+  /* MCP Apps View legs, so a page never hand-rolls a JSON-RPC envelope: every
+     send goes through the allowlist (mcpEnvelopeOut) and the pinned origin
+     (mcpPost). Reads of the host's own three fields are copies of state. */
+  mcp:{
+    ready:function(){return MCP.ready;},
+    host:function(){return {origin:MCP.hostOrigin,info:MCP.hostInfo,capabilities:MCP.hostCapabilities,context:MCP.hostContext};},
+    send:mcpSend,
+    message:function(text){return mcpPost(mcpMessageRequest(mcpNextId(),text));},
+    openLink:function(url){return mcpPost(mcpEnvelopeOut('ui/open-link',{url:String(url)},mcpNextId()));}
+  },
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+/* Named (was an inline anonymous listener) so capabilities.handoff can be derived
+   from the routine's presence rather than asserted. Function declarations hoist,
+   so the typeof test above is true at the moment AINBridge is assigned. */
+/* Reply target for the ain-handoff/v1 legs. Once a host has answered
+   ui/initialize, the pinned origin is the only address used — the wildcard
+   below can only be reached before any handshake, on an opaque-origin page
+   (file://), where a same-origin composer has no other addressable form. */
+function legacyTarget(e){
+  if(MCP.hostOrigin)return MCP.hostOrigin;
+  return (e.origin&&e.origin!=='null')?e.origin:'*'; /* PRE-HANDSHAKE-ORIGIN-OK: MCP.hostOrigin is null, opaque-origin composer */
+}
+function onComposerMessage(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=legacyTarget(e);
+  var d=e.data||{};
+  /* MCP_LEGACY_ALIAS (goal 3) names the ui/ method each of these three legacy
+     types corresponds to; the behaviour below is unchanged, so a page rolled to
+     v1.3 and a composer still speaking ain-handoff/v1 keep working together for
+     this one snippet version. A later row deletes the alias and this listener. */
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+}
+window.addEventListener('message',onComposerMessage);
+window.addEventListener('message',mcpOnMessage);
+function boot(){buildIntakeUI();buildShareUI();initPrefill();mcpBoot();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
