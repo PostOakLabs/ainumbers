@@ -1,5 +1,5 @@
 // art-577-exchange-fee-tier-recompute.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C30-1).
-// kernel_digest_at_authoring: sha256:caed451dceca161ee2dd898a0aee48ceeaee497d39ac0eab2963ebad4437f5d8
+// kernel_digest_at_authoring: sha256:24864e8b2866414d271eeb1d5b37aed745f7e9f0ed45587420a0a6886971d7a4
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
