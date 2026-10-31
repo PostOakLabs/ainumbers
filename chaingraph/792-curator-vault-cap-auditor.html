@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Curator Vault Cap Auditor · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Audit a vault curator's allocation snapshot against per-market absolute and relative caps and a declared mandate — concentration, idle liquidity, redemption coverage and conservation, from declared values only.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/792-curator-vault-cap-auditor.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.7rem 1rem;margin:1.25rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+textarea{width:100%;min-height:300px;background:var(--bg);color:var(--bright);border:1px solid var(--border);border-radius:var(--radius);padding:.8rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;line-height:1.6;resize:vertical}
+textarea:focus{outline:none;border-color:var(--teal)}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.04em;background:var(--teal-dim);color:var(--teal);border:1px solid var(--teal);border-radius:var(--radius);padding:.55rem 1.1rem;cursor:pointer;margin-top:.8rem}
+.btn:hover{background:var(--teal);color:var(--bg)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-ghost{background:transparent}
+.btn-subtitle{display:block;font-size:.5rem;color:var(--muted);letter-spacing:0}
+.results-export-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem}
+.out-section{border:1px solid var(--border);border-radius:var(--radius);padding:.8rem 1rem;margin-top:.8rem;background:var(--bg)}
+.out-header{margin-bottom:.4rem}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{font-size:.72rem;color:var(--text)}
+.check-item{display:flex;gap:.6rem;padding:.3rem 0;border-bottom:1px dashed var(--border);align-items:baseline}
+.check-item:last-child{border-bottom:none}
+.check-kind{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--warn);white-space:nowrap}
+.check-detail{font-size:.68rem;color:var(--body)}
+.verdict-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.08em;border-radius:var(--radius);padding:.35rem .8rem;border:1px solid var(--border)}
+.verdict-ok{color:var(--green);background:var(--green-dim);border-color:var(--green)}
+.verdict-warn{color:var(--warn);background:var(--warn-dim);border-color:var(--warn)}
+.verdict-bad{color:var(--red);background:var(--red-dim);border-color:var(--red)}
+.kv{display:flex;gap:.5rem;flex-wrap:wrap}
+.kv span{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body)}
+.kv b{color:var(--bright);font-weight:500}
+.error-box{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.62rem;white-space:pre-wrap}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);background:none;border:none;cursor:pointer;margin:1rem 0 .4rem}
+.mfst-btn:hover{color:var(--teal)}
+.mfst-body{display:none;margin-bottom:1.25rem}
+.mfst-body pre{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:.9rem;font-size:.6rem;color:var(--body);white-space:pre-wrap;word-break:break-word}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-bc">
+      <a href="../index.html">All Tools</a><span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a><span>&rsaquo;</span>
+      <span style="color:var(--teal)">Curator Vault Cap Auditor</span>
+    </div>
+  </div>
+</nav>
+<div class="hero"><div class="container">
+  <h1>Curator Vault Cap Auditor</h1>
+  <p class="hero-desc">Audits a vault curator's point-in-time allocation snapshot against per-market absolute and relative caps and a declared mandate: per-market and per-asset-class limits, idle floor, RWA floor, DeFi ceiling, concentration (largest market share and Herfindahl index), redemption coverage and conservation. Caps follow the pinned Morpho curation documentation semantics: caps are allocation-time constraints, so an audit legitimately reports breaches observed on a snapshot. Declared minor-unit values only — no on-chain reads, no pricing, no curator or platform is named.</p>
+</div></div>
+<div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="panel-label">Declared snapshot · mandate · redemptions (JSON)</div>
+    <p style="font-size:.7rem;color:var(--body);margin-bottom:.7rem">Paste policy_parameters as declared values: <code style="font-family:'JetBrains Mono',monospace;font-size:.6rem">profile</code> (<code style="font-family:'JetBrains Mono',monospace;font-size:.6rem">morpho_vault_v2</code> or <code style="font-family:'JetBrains Mono',monospace;font-size:.6rem">generic</code>), <code style="font-family:'JetBrains Mono',monospace;font-size:.6rem">snapshot</code> (total_assets_minor, idle_minor, markets[] with market_label, asset_class, allocated_minor, optional abs_cap_minor / rel_cap_bp / withdrawable_minor), <code style="font-family:'JetBrains Mono',monospace;font-size:.6rem">mandate</code> (max_per_market_bp, max_per_asset_class_bp, min_idle_bp, optional min_rwa_bp / max_defi_bp) and optional <code style="font-family:'JetBrains Mono',monospace;font-size:.6rem">redemptions</code> (pending_minor, horizon_hours). Integer minor units and integer basis points only. The pre-filled example is synthetic.</p>
+    <label for="ppInput" style="position:absolute;left:-9999px">Policy parameters JSON — declared values only, no personal data</label>
+    <textarea id="ppInput" spellcheck="false"></textarea>
+    <button class="btn" id="runBtn" onclick="runAudit()">Run audit</button>
+  </div>
+
+  <div class="panel" id="resultsPanel" style="display:none">
+    <div class="panel-label">Audit result</div>
+    <div id="resultsBody"></div>
+    <div class="results-export-row">
+      <button class="btn btn-ghost btn-sm" id="ap2ExportBtn" disabled onclick="exportAP2()">
+        {} Export Policy Mandate
+        <span class="btn-subtitle">API · audit trail</span>
+      </button>
+    </div>
+    <div class="out-section" id="hashSection" style="display:none">
+      <div class="out-body"><div class="kv"><span>execution_hash</span><b id="hashVal" style="word-break:break-all"></b></div></div>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()" aria-expanded="false" aria-controls="mfstBody">[ manifest ]</button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true"><pre id="mfstPre"></pre></div>
+</div>
+
+<div id="manifest" style="position:relative;top:-60px"></div>
+
+<footer><div class="container">792-curator-vault-cap-auditor · CC BY 4.0 · Zero PII · declared values only; no on-chain reads, no pricing</div></footer>
+
+<script>
+'use strict';
+/* 792-curator-vault-cap-auditor — client-side UI logic.
+   Mirrors chaingraph/kernels/792-curator-vault-cap-auditor.kernel.mjs compute()
+   semantics over declared values only. Deterministic. Zero PII.
+   Cap semantics per the pinned Morpho curation documentation (edition 2026-10-30):
+   absolute cap = fixed maximum amount per market; relative cap = maximum share of
+   total assets, compared by exact integer cross-multiplication with no division.
+   NOTE: outputs are audit evidence, not legal advice. */
+
+const MANIFEST = {
+  tool_id: '792-curator-vault-cap-auditor',
+  version: '1.0.0',
+  title: 'Curator Vault Cap Auditor',
+  mcp_tool_definition: {
+    name: 'audit_curator_vault_caps',
+    description: 'Audits a vault curator\'s point-in-time allocation snapshot against per-market absolute and relative caps and a declared mandate (per-market, per-asset-class, idle floor, RWA floor, DeFi ceiling), reporting cap breaches, mandate breaches, concentration (largest market share and Herfindahl index in basis points), idle-plus-withdrawable coverage of pending redemptions, conservation, and a WITHIN_MANDATE / WITHIN_MANDATE_WITH_WARNINGS / BREACH verdict. Declared minor-unit values only; caps follow the pinned Morpho curation documentation semantics compared by exact integer cross-multiplication; no on-chain reads and no pricing (share pricing is the art-610 domain, async redemption state the art-611 domain).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        profile: { type: 'string', enum: ['morpho_vault_v2', 'generic'], description: 'morpho_vault_v2 uses the pinned Morpho curation documentation cap semantics; generic carries caller-declared cap semantics.' },
+        snapshot: {
+          type: 'object',
+          properties: {
+            total_assets_minor: { type: 'integer', minimum: 0 },
+            idle_minor: { type: 'integer', minimum: 0 },
+            markets: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  market_label: { type: 'string', maxLength: 120, description: 'declared label, not an on-chain selector' },
+                  asset_class: { type: 'string', enum: ['rwa_treasury', 'rwa_credit', 'defi_lending', 'other'] },
+                  allocated_minor: { type: 'integer', minimum: 0 },
+                  abs_cap_minor: { type: 'integer', minimum: 0 },
+                  rel_cap_bp: { type: 'integer', minimum: 0, maximum: 1000000 },
+                  withdrawable_minor: { type: 'integer', minimum: 0 }
+                },
+                required: ['market_label', 'asset_class', 'allocated_minor']
+              }
+            }
+          },
+          required: ['total_assets_minor', 'idle_minor', 'markets']
+        },
+        mandate: {
+          type: 'object',
+          properties: {
+            max_per_market_bp: { type: 'integer', minimum: 0, maximum: 1000000 },
+            max_per_asset_class_bp: { type: 'object', additionalProperties: { type: 'integer', minimum: 0, maximum: 1000000 } },
+            min_idle_bp: { type: 'integer', minimum: 0, maximum: 1000000 },
+            min_rwa_bp: { type: 'integer', minimum: 0, maximum: 1000000 },
+            max_defi_bp: { type: 'integer', minimum: 0, maximum: 1000000 }
+          },
+          required: ['max_per_market_bp', 'min_idle_bp']
+        },
+        redemptions: {
+          type: 'object',
+          properties: {
+            pending_minor: { type: 'integer', minimum: 0 },
+            horizon_hours: { type: 'integer', minimum: 0 }
+          },
+          required: ['pending_minor', 'horizon_hours']
+        }
+      },
+      required: ['profile', 'snapshot', 'mandate']
+    }
+  },
+  ap2_export: true,
+  chaingraph: true
+};
+
+const SAMPLE = {
+  profile: 'morpho_vault_v2',
+  snapshot: {
+    total_assets_minor: 100000000,
+    idle_minor: 10000000,
+    markets: [
+      { market_label: 'synthetic-market-A', asset_class: 'rwa_treasury', allocated_minor: 30000000, abs_cap_minor: 40000000, rel_cap_bp: 4000, withdrawable_minor: 25000000 },
+      { market_label: 'synthetic-market-B', asset_class: 'rwa_credit', allocated_minor: 20000000, abs_cap_minor: 35000000, rel_cap_bp: 3500, withdrawable_minor: 15000000 },
+      { market_label: 'synthetic-market-C', asset_class: 'defi_lending', allocated_minor: 40000000, abs_cap_minor: 50000000, rel_cap_bp: 4500, withdrawable_minor: 40000000 }
+    ]
+  },
+  mandate: { max_per_market_bp: 5000, max_per_asset_class_bp: { rwa_treasury: 4000, defi_lending: 4500 }, min_idle_bp: 800, min_rwa_bp: 4000, max_defi_bp: 5000 },
+  redemptions: { pending_minor: 5000000, horizon_hours: 24 }
+};
+
+const ASSET_CLASSES = ['rwa_treasury', 'rwa_credit', 'defi_lending', 'other'];
+const PROFILES = ['morpho_vault_v2', 'generic'];
+const SCOPE_NOTE = 'Values-only audit of a declared curator allocation snapshot. No on-chain reads, no pricing; asset classes are a fixed declared enum; no curator or platform is named.';
+
+/* Deterministic sorted-key JSON (canonical form for this payload's plain data:
+   safe integers, strings, booleans, null, arrays, plain objects). Used for the
+   displayed execution_hash preimage; the kernel's canonical hash is computed
+   server-side by kernels/_hash.mjs. */
+function canon(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(canon).join(',') + ']';
+  const keys = Object.keys(value).sort();
+  return '{' + keys.map(function (k) { return JSON.stringify(k) + ':' + canon(value[k]); }).join(',') + '}';
+}
+
+async function sha256Hex(str) {
+  const bytes = new TextEncoder().encode(str);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+function floorBp(numeratorBig, denominatorBig) {
+  if (denominatorBig <= 0n) return 0;
+  return Number((numeratorBig * 10000n) / denominatorBig);
+}
+
+function isInt(v) { return typeof v === 'number' && Number.isSafeInteger(v); }
+
+/* Mirrors the kernel: returns { output_payload, compliance_flags }. */
+function compute(pp) {
+  pp = pp || {};
+  const reasons = [];
+  const profile = pp.profile;
+  if (!PROFILES.includes(profile)) reasons.push('profile must be one of morpho_vault_v2 | generic');
+  const snap = pp.snapshot || {};
+  const total = snap.total_assets_minor, idle = snap.idle_minor;
+  if (!isInt(total) || total < 0) reasons.push('snapshot.total_assets_minor must be a non-negative safe integer');
+  if (!isInt(idle) || idle < 0) reasons.push('snapshot.idle_minor must be a non-negative safe integer');
+  if (!Array.isArray(snap.markets) || snap.markets.length === 0) reasons.push('snapshot.markets must be a non-empty array');
+  else snap.markets.forEach(function (m, i) {
+    const at = 'snapshot.markets[' + i + ']';
+    if (!m || typeof m.market_label !== 'string' || m.market_label.length === 0 || m.market_label.length > 120) reasons.push(at + '.market_label must be a 1-120 character string');
+    if (!ASSET_CLASSES.includes(m.asset_class)) reasons.push(at + '.asset_class must be one of ' + ASSET_CLASSES.join(' | '));
+    if (!isInt(m.allocated_minor) || m.allocated_minor < 0) reasons.push(at + '.allocated_minor must be a non-negative safe integer');
+    if (m.abs_cap_minor !== undefined && (!isInt(m.abs_cap_minor) || m.abs_cap_minor < 0)) reasons.push(at + '.abs_cap_minor must be a non-negative safe integer');
+    if (m.rel_cap_bp !== undefined && (!isInt(m.rel_cap_bp) || m.rel_cap_bp < 0 || m.rel_cap_bp > 1000000)) reasons.push(at + '.rel_cap_bp must be an integer in [0, 1000000]');
+    if (m.withdrawable_minor !== undefined && (!isInt(m.withdrawable_minor) || m.withdrawable_minor < 0)) reasons.push(at + '.withdrawable_minor must be a non-negative safe integer');
+  });
+  const man = pp.mandate || {};
+  if (!isInt(man.max_per_market_bp) || man.max_per_market_bp < 0 || man.max_per_market_bp > 1000000) reasons.push('mandate.max_per_market_bp must be an integer in [0, 1000000]');
+  const classCaps = man.max_per_asset_class_bp || {};
+  Object.keys(classCaps).forEach(function (k) {
+    if (!ASSET_CLASSES.includes(k)) reasons.push('mandate.max_per_asset_class_bp key "' + k + '" is outside the declared asset_class enum');
+    else if (!isInt(classCaps[k]) || classCaps[k] < 0 || classCaps[k] > 1000000) reasons.push('mandate.max_per_asset_class_bp.' + k + ' must be an integer in [0, 1000000]');
+  });
+  if (!isInt(man.min_idle_bp) || man.min_idle_bp < 0 || man.min_idle_bp > 1000000) reasons.push('mandate.min_idle_bp must be an integer in [0, 1000000]');
+  if (man.min_rwa_bp !== undefined && (!isInt(man.min_rwa_bp) || man.min_rwa_bp < 0 || man.min_rwa_bp > 1000000)) reasons.push('mandate.min_rwa_bp must be an integer in [0, 1000000] when declared');
+  if (man.max_defi_bp !== undefined && (!isInt(man.max_defi_bp) || man.max_defi_bp < 0 || man.max_defi_bp > 1000000)) reasons.push('mandate.max_defi_bp must be an integer in [0, 1000000] when declared');
+  let red = null;
+  if (pp.redemptions !== undefined && pp.redemptions !== null) {
+    red = pp.redemptions;
+    if (!red || !isInt(red.pending_minor) || red.pending_minor < 0) reasons.push('redemptions.pending_minor must be a non-negative safe integer');
+    if (!red || !isInt(red.horizon_hours) || red.horizon_hours < 0) reasons.push('redemptions.horizon_hours must be a non-negative safe integer');
+  }
+  if (reasons.length > 0) {
+    return {
+      output_payload: { profile: null, conservation: null, cap_breaches: [], mandate_breaches: [], concentration: null, coverage: null, verdict: 'INDETERMINATE', scope_note: SCOPE_NOTE, reasons: reasons },
+      compliance_flags: ['CURATOR_VAULT_CAPS_INDETERMINATE', 'CURATOR_VAULT_CAPS_MALFORMED_INPUT']
+    };
+  }
+  const markets = snap.markets;
+  let allocatedSum = 0n;
+  markets.forEach(function (m) { allocatedSum += BigInt(m.allocated_minor); });
+  const idleBig = BigInt(idle), totalBig = BigInt(total);
+  const idlePlusAlloc = idleBig + allocatedSum;
+  const conservationDelta = totalBig - idlePlusAlloc;
+  const conserved = conservationDelta === 0n;
+  const cap_breaches = [];
+  markets.forEach(function (m) {
+    if (m.abs_cap_minor !== undefined && BigInt(m.allocated_minor) > BigInt(m.abs_cap_minor)) {
+      cap_breaches.push({ market_label: m.market_label, kind: 'absolute', allocated_minor: m.allocated_minor, cap_minor: m.abs_cap_minor, excess_minor: Number(BigInt(m.allocated_minor) - BigInt(m.abs_cap_minor)) });
+    }
+    if (m.rel_cap_bp !== undefined && BigInt(m.allocated_minor) * 10000n > BigInt(m.rel_cap_bp) * totalBig) {
+      cap_breaches.push({ market_label: m.market_label, kind: 'relative', allocated_minor: m.allocated_minor, cap_bp: m.rel_cap_bp, observed_bp: floorBp(BigInt(m.allocated_minor), totalBig) });
+    }
+  });
+  const mandate_breaches = [];
+  markets.forEach(function (m) {
+    if (BigInt(m.allocated_minor) * 10000n > BigInt(man.max_per_market_bp) * totalBig) {
+      mandate_breaches.push({ scope: 'market', label: m.market_label, limit_bp: man.max_per_market_bp, observed_bp: floorBp(BigInt(m.allocated_minor), totalBig) });
+    }
+  });
+  const classSum = {};
+  ASSET_CLASSES.forEach(function (c) { classSum[c] = 0n; });
+  markets.forEach(function (m) { classSum[m.asset_class] += BigInt(m.allocated_minor); });
+  ASSET_CLASSES.forEach(function (c) {
+    if (classCaps[c] !== undefined && classSum[c] * 10000n > BigInt(classCaps[c]) * totalBig) {
+      mandate_breaches.push({ scope: 'asset_class', label: c, limit_bp: classCaps[c], observed_bp: floorBp(classSum[c], totalBig) });
+    }
+  });
+  if (idleBig * 10000n < BigInt(man.min_idle_bp) * totalBig) {
+    mandate_breaches.push({ scope: 'idle', label: 'idle_minor', limit_bp: man.min_idle_bp, observed_bp: floorBp(idleBig, totalBig), direction: 'below_min' });
+  }
+  const rwaSum = classSum.rwa_treasury + classSum.rwa_credit;
+  if (man.min_rwa_bp !== undefined && rwaSum * 10000n < BigInt(man.min_rwa_bp) * totalBig) {
+    mandate_breaches.push({ scope: 'asset_class', label: 'rwa_treasury+rwa_credit', limit_bp: man.min_rwa_bp, observed_bp: floorBp(rwaSum, totalBig), direction: 'below_min' });
+  }
+  if (man.max_defi_bp !== undefined && classSum.defi_lending * 10000n > BigInt(man.max_defi_bp) * totalBig) {
+    mandate_breaches.push({ scope: 'asset_class', label: 'defi_lending', limit_bp: man.max_defi_bp, observed_bp: floorBp(classSum.defi_lending, totalBig), direction: 'above_max' });
+  }
+  let largest = null, herfindahl = 0;
+  markets.forEach(function (m) {
+    const shareBp = floorBp(BigInt(m.allocated_minor), totalBig);
+    herfindahl += shareBp * shareBp;
+    if (!largest || shareBp > largest.share_bp) largest = { market_label: m.market_label, share_bp: shareBp };
+  });
+  let coverage = null;
+  if (red) {
+    let withdrawable = 0n;
+    markets.forEach(function (m) { if (m.withdrawable_minor !== undefined) withdrawable += BigInt(m.withdrawable_minor); });
+    const available = idleBig + withdrawable, pending = BigInt(red.pending_minor);
+    coverage = {
+      horizon_hours: red.horizon_hours,
+      pending_minor: red.pending_minor,
+      available_minor: Number(available),
+      available_is_floor: markets.some(function (m) { return m.withdrawable_minor === undefined; }),
+      shortfall_minor: available >= pending ? 0 : Number(pending - available),
+      covered: available >= pending
+    };
+  }
+  let verdict;
+  if (!conserved || cap_breaches.length > 0 || mandate_breaches.length > 0) verdict = 'BREACH';
+  else if (coverage && !coverage.covered) verdict = 'BREACH';
+  else if (coverage && coverage.available_is_floor) verdict = 'WITHIN_MANDATE_WITH_WARNINGS';
+  else verdict = 'WITHIN_MANDATE';
+  const compliance_flags = [];
+  if (!conserved) compliance_flags.push('CURATOR_VAULT_CAPS_NOT_CONSERVED');
+  if (cap_breaches.length > 0) compliance_flags.push('CURATOR_VAULT_CAPS_CAP_BREACH');
+  if (mandate_breaches.length > 0) compliance_flags.push('CURATOR_VAULT_CAPS_MANDATE_BREACH');
+  if (coverage && !coverage.covered) compliance_flags.push('CURATOR_VAULT_CAPS_REDEMPTION_COVERAGE_SHORT');
+  if (coverage && coverage.available_is_floor) compliance_flags.push('CURATOR_VAULT_CAPS_WITHDRAWABLE_INCOMPLETE');
+  if (compliance_flags.length === 0) compliance_flags.push('CURATOR_VAULT_CAPS_WITHIN_MANDATE');
+  return {
+    output_payload: {
+      profile: profile,
+      declared_context: { unit: 'minor', basis_points: true, rounding_rule: 'no division: relative comparisons are exact integer cross-multiplications (value * 10000 vs bp * total_assets_minor); reported shares are floored to integer basis points' },
+      conservation: { reported_total_assets_minor: total, idle_plus_allocations_minor: Number(idlePlusAlloc), delta_minor: Number(conservationDelta), conserved: conserved },
+      cap_breaches: cap_breaches,
+      mandate_breaches: mandate_breaches,
+      concentration: { largest_market: largest, herfindahl_bp2: herfindahl },
+      coverage: coverage,
+      verdict: verdict,
+      scope_note: SCOPE_NOTE,
+      primary_text: 'Morpho docs, Liquidity curation concepts page, pinned edition 2026-10-30 (sha256 in the node registration)'
+    },
+    compliance_flags: compliance_flags
+  };
+}
+
+let LAST = null;
+
+function runAudit() {
+  const body = document.getElementById('resultsBody');
+  document.getElementById('resultsPanel').style.display = '';
+  document.getElementById('ap2ExportBtn').disabled = true;
+  document.getElementById('hashSection').style.display = 'none';
+  let pp;
+  try {
+    pp = JSON.parse(document.getElementById('ppInput').value);
+  } catch (e) {
+    body.innerHTML = '<div class="error-box">Input is not valid JSON: ' + String(e && e.message || e).replace(/</g, '&lt;') + '</div>';
+    return;
+  }
+  const res = compute(pp);
+  LAST = { pp: pp, res: res };
+  const out = res.output_payload;
+  let html = '';
+  const vcls = out.verdict === 'WITHIN_MANDATE' ? 'verdict-ok' : (out.verdict === 'WITHIN_MANDATE_WITH_WARNINGS' ? 'verdict-warn' : (out.verdict === 'INDETERMINATE' ? 'verdict-warn' : 'verdict-bad'));
+  html += '<div class="out-section"><div class="out-header"><span class="out-title">Verdict</span></div><div class="out-body"><span class="verdict-badge ' + vcls + '">' + out.verdict + '</span>';
+  html += '<div class="kv" style="margin-top:.5rem"><span>flags</span><b>' + res.compliance_flags.join(' · ') + '</b></div></div></div>';
+  if (out.reasons) {
+    html += '<div class="out-section"><div class="out-header"><span class="out-title">Refusal — malformed input</span></div><div class="out-body"><div class="error-box">' + out.reasons.map(function (r) { return '· ' + String(r).replace(/</g, '&lt;'); }).join('\n') + '</div></div></div>';
+  }
+  if (out.conservation) {
+    html += '<div class="out-section"><div class="out-header"><span class="out-title">Conservation (idle + allocations = total assets)</span></div><div class="out-body"><div class="kv">' +
+      '<span>total_assets_minor</span><b>' + out.conservation.reported_total_assets_minor + '</b>' +
+      '<span>idle+allocations</span><b>' + out.conservation.idle_plus_allocations_minor + '</b>' +
+      '<span>delta</span><b>' + out.conservation.delta_minor + '</b>' +
+      '<span>conserved</span><b>' + (out.conservation.conserved ? 'yes' : 'NO') + '</b></div></div></div>';
+  }
+  const items = (out.cap_breaches || []).map(function (b) {
+    return '<div class="check-item"><span class="check-kind">cap ' + b.kind + '</span><span class="check-detail">' + String(b.market_label).replace(/</g, '&lt;') + (b.kind === 'absolute'
+      ? ' — allocated ' + b.allocated_minor + ' over abs cap ' + b.cap_minor + ' (excess ' + b.excess_minor + ')'
+      : ' — ' + b.observed_bp + ' bp over rel cap ' + b.cap_bp + ' bp') + '</span></div>';
+  });
+  (out.mandate_breaches || []).forEach(function (b) {
+    items.push('<div class="check-item"><span class="check-kind">mandate ' + b.scope + '</span><span class="check-detail">' + String(b.label).replace(/</g, '&lt;') + ' — ' + b.observed_bp + ' bp vs limit ' + b.limit_bp + ' bp' + (b.direction ? ' (' + b.direction + ')' : '') + '</span></div>');
+  });
+  html += '<div class="out-section"><div class="out-header"><span class="out-title">Cap and mandate breaches</span></div><div class="out-body">' +
+    (items.length ? items.join('') : '<div class="check-detail">none — every declared limit holds on this snapshot</div>') + '</div></div>';
+  if (out.concentration && out.concentration.largest_market) {
+    html += '<div class="out-section"><div class="out-header"><span class="out-title">Concentration</span></div><div class="out-body"><div class="kv">' +
+      '<span>largest market</span><b>' + String(out.concentration.largest_market.market_label).replace(/</g, '&lt;') + '</b>' +
+      '<span>share</span><b>' + out.concentration.largest_market.share_bp + ' bp</b>' +
+      '<span>Herfindahl</span><b>' + out.concentration.herfindahl_bp2 + ' bp&sup2;</b></div></div></div>';
+  }
+  if (out.coverage) {
+    html += '<div class="out-section"><div class="out-header"><span class="out-title">Redemption coverage (' + out.coverage.horizon_hours + 'h horizon)</span></div><div class="out-body"><div class="kv">' +
+      '<span>pending</span><b>' + out.coverage.pending_minor + '</b>' +
+      '<span>idle+withdrawable</span><b>' + out.coverage.available_minor + '</b>' +
+      '<span>shortfall</span><b>' + out.coverage.shortfall_minor + '</b>' +
+      '<span>covered</span><b>' + (out.coverage.covered ? 'yes' : 'NO') + '</b></div>' +
+      (out.coverage.available_is_floor ? '<div class="check-detail" style="margin-top:.4rem">Some markets declared no withdrawable_minor, so the available figure is a floor and the verdict carries a warning.</div>' : '') + '</div></div>';
+  }
+  body.innerHTML = html;
+  document.getElementById('ap2ExportBtn').disabled = false;
+  sha256Hex(canon({ policy_parameters: pp, output_payload: out })).then(function (hex) {
+    document.getElementById('hashVal').textContent = 'sha256:' + hex;
+    document.getElementById('hashSection').style.display = '';
+  });
+}
+
+function exportAP2() {
+  if (!LAST) return;
+  const artifact = LAST.res.output_payload;
+  const payload = {
+    tool_id: MANIFEST.tool_id,
+    tool_version: MANIFEST.version,
+    title: MANIFEST.title,
+    generated_from: 'declared values entered on this page',
+    assessment: {
+      verdict: artifact.verdict,
+      compliance_flags: LAST.res.compliance_flags,
+      conservation: artifact.conservation,
+      cap_breaches: artifact.cap_breaches,
+      mandate_breaches: artifact.mandate_breaches,
+      concentration: artifact.concentration,
+      coverage: artifact.coverage
+    },
+    policy_summary: 'Curator allocation snapshot audited against per-market absolute and relative caps and the declared mandate; verdict ' + artifact.verdict + '. Declared values only; no on-chain reads; no pricing; no curator or platform named.',
+    caveats: ['Audit evidence for a declared snapshot, not legal advice.', 'Caps are allocation-time constraints per the pinned Morpho curation documentation; an audit reports breaches observed on a snapshot.']
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = MANIFEST.tool_id + '_policy-mandate.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function toggleMfst() {
+  const open = document.getElementById('mfstBody').style.display === 'block';
+  document.getElementById('mfstBody').style.display = open ? 'none' : 'block';
+  document.getElementById('mfstBody').setAttribute('aria-hidden', open ? 'true' : 'false');
+  document.querySelector('.mfst-btn').setAttribute('aria-expanded', open ? 'false' : 'true');
+  if (!open) document.getElementById('mfstPre').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+document.getElementById('ppInput').value = JSON.stringify(SAMPLE, null, 2);
+</script>
+</body>
+</html>
