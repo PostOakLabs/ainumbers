@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Event Contract Position Limit Check · ART-790 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Validates a bank or money transfer operator's aggregate correspondent-banking data return against an illustrative profile-driven template: completeness, internal consistency, key-currency and concentration checks, plus a message-quality readiness roll-up. Runs locally, aggregate values only.">
+<meta name="ain:category" content="run">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/790-event-position-limit-check.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/790-event-position-limit-check.md">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Event Contract Position Limit Check · ART-790 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Validate an aggregate correspondent-banking data return against an illustrative template before submission: counts, corridors, consistency and message-quality readiness. Local, aggregate-only, zero PII.">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);
+  --red:#E06C75;--amber:#E5C07B;
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:760px;line-height:1.8}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:1.5rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+.notice-strip{font-size:.72rem;color:var(--body);background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.65rem .85rem;line-height:1.7;margin-bottom:1.25rem}
+label{display:block;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);margin:.8rem 0 .3rem}
+input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.55rem .7rem;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+textarea{min-height:210px;resize:vertical;line-height:1.5}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.btn{display:inline-flex;align-items:center;gap:.4rem;background:var(--teal);border:none;border-radius:var(--radius);color:#04211C;font-family:'JetBrains Mono',monospace;font-size:.68rem;font-weight:500;padding:.55rem 1rem;cursor:pointer}
+.btn:hover{filter:brightness(1.1)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--body)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-ghost:disabled,.btn:disabled{opacity:.4;cursor:not-allowed}
+.example-row{display:flex;gap:.5rem;flex-wrap:wrap;margin:.8rem 0}
+.results-panel{margin-top:1.25rem}
+.verdict{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.1em;padding:.3rem .8rem;border-radius:4px;border:1px solid}
+.verdict.ok{color:var(--teal);border-color:var(--teal);background:var(--teal-dim)}
+.verdict.bad{color:var(--red);border-color:var(--red);background:rgba(224,108,117,.1)}
+.verdict.warn{color:var(--amber);border-color:var(--amber);background:rgba(229,192,123,.1)}
+.kv{display:grid;grid-template-columns:220px 1fr;gap:.25rem .9rem;font-size:.72rem;margin:.9rem 0}
+.kv dt{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;align-self:center}
+.kv dd{color:var(--text);font-family:'JetBrains Mono',monospace;word-break:break-all}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.64rem;margin:.6rem 0}
+th{text-align:left;color:var(--muted);font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-size:.52rem;border-bottom:1px solid var(--border);padding:.4rem .5rem}
+td{border-bottom:1px solid rgba(30,47,74,.5);padding:.42rem .5rem;color:var(--text);vertical-align:top;word-break:break-all}
+pre{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:.8rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;line-height:1.55;overflow-x:auto;color:var(--text);white-space:pre-wrap;word-break:break-word}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.mfst-btn{background:none;border:1px solid var(--border);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer;margin-bottom:.6rem}
+.mfst-body{display:none}
+#toast{position:fixed;bottom:1.2rem;right:1.2rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.5rem .9rem;border-radius:6px;opacity:0;pointer-events:none;transition:opacity .25s}
+#toast.show{opacity:1}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+@media(max-width:640px){.row{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">Event Contract Position Limit Check · ART-790 · OpenChainGraph</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="hero"><div class="container">
+  <h1>Event Contract Position Limit Check</h1>
+  <p class="hero-desc">Checks a book of event-contract positions, stated as quantities and prices only, against caller-declared position accountability levels and position limits: maximum loss per position recomputed from the side (yes loses its full cost; no loses payout minus price), aggregated per contract, per event or per series as the caller declares, with market-maker treatment applied as data. Every limit figure is caller-supplied — this tool hard-codes no venue figure — and the node reports arithmetic against declared levels; it never states that a participant violated a rule.</p>
+</div></div>
+<div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="notice-strip">Scope note: how position limits aggregate across similar contracts is venue-specific and CFTC staff guidance on that question (a staff advisory and an advance notice of proposed rulemaking, 2026) sets no numeric levels, so every level and limit here is caller-supplied. Accountability levels and position limits are regulatory figures a designated contract market adopts per contract (17 CFR 38.300, 38.301); the pinned Kalshi rulebook profile states the market-maker treatment shape (accountability levels 10x for market makers with quoting obligations, and no position limits on program contracts), never a figure. Fee and pricing arithmetic for event contracts lives in separate tools (art-211 and art-212); this node does no fee arithmetic. This is arithmetic evidence, not a legal opinion, and no venue or participant is named as compliant or in violation.</div>
+
+  <div class="panel">
+    <div class="panel-label">Book input (quantities and prices only)</div>
+    <div class="row">
+      <div>
+        <label for="profile">Profile</label>
+        <select id="profile">
+          <option value="kalshi_rulebook_v1_29">kalshi_rulebook_v1_29 (pinned rulebook v1.29)</option>
+          <option value="generic">generic (everything caller-declared)</option>
+        </select>
+      </div>
+      <div>
+        <label for="as_of">as_of (YYYY-MM-DD, profile window)</label>
+        <input id="as_of" value="2026-10-31" autocomplete="off">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="aggregation">Aggregation</label>
+        <select id="aggregation">
+          <option value="per_contract">per_contract</option>
+          <option value="per_event">per_event</option>
+          <option value="per_series">per_series</option>
+        </select>
+      </div>
+      <div>
+        <label for="netting">Netting</label>
+        <select id="netting">
+          <option value="gross">gross (yes and no both count)</option>
+          <option value="per_contract_net">per_contract_net (net quantities per contract)</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="participant_class">Participant class</label>
+        <select id="participant_class">
+          <option value="standard">standard</option>
+          <option value="market_maker">market_maker</option>
+        </select>
+      </div>
+      <div>
+        <label for="mm_overrides">Market-maker overrides (optional JSON: mm_accountability_multiplier, mm_limit_exempt)</label>
+        <input id="mm_overrides" value="" placeholder="{}" autocomplete="off">
+      </div>
+    </div>
+    <label for="positions">Positions (JSON array: contract_label, event_label, series_label, side yes|no, quantity, avg_price_micro, optional max_loss_minor, accountability_level_minor, limit_minor, limit_basis max_loss|contracts)</label>
+    <textarea id="positions" spellcheck="false"></textarea>
+    <div class="example-row">
+      <button class="btn-ghost" onclick="loadExample('within')">Example: book inside every level</button>
+      <button class="btn-ghost" onclick="loadExample('breach')">Example: accountability review then limit breach</button>
+      <button class="btn-ghost" onclick="loadExample('maker')">Example: the same book as a market maker</button>
+    </div>
+    <button class="run-btn btn" onclick="runCompute()">&#9654; Check Position Limits</button>
+    <div class="results-panel" id="resultsPanel" style="display:none">
+      <p id="verdictLine"></p>
+      <dl class="kv" id="summaryKv"></dl>
+      <div id="positionsBlock"></div>
+      <div id="breachesBlock"></div>
+      <div class="results-export-row">
+        <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportPolicyMandate()">Export Policy Mandate JSON</button>
+        <button class="btn btn-ghost" id="mdBtn" disabled onclick="exportMd()">Export Markdown</button>
+        <span id="generatedAt" style="font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted)"></span>
+      </div>
+      <pre id="rawOut"></pre>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">What this node checks</div>
+    <table>
+      <tr><th>Check</th><th>Arithmetic</th><th>Outcome</th></tr>
+      <tr><td>Max loss</td><td>yes: quantity × price; no: quantity × (payout − price); rounded UP to the next minor unit when computed from micro-denominated prices (the one rounding rule; conservative toward finding). A caller-declared max_loss_minor is used as given</td><td>report</td></tr>
+      <tr><td>Accountability</td><td>group max loss vs the declared accountability level, x10 under the pinned profile for a market maker with quoting obligations (Rule 4.5); only where a level is declared</td><td>breach</td></tr>
+      <tr><td>Position limit</td><td>group max loss (basis max_loss) or quantity (basis contracts) vs the declared limit; not applied to a limit-exempt market maker; only where a limit is declared</td><td>breach</td></tr>
+      <tr><td>Netting</td><td>gross counts yes and no on the same contract separately; per_contract_net nets quantities per contract before the max-loss computation. The declared rule and the profile default are both stated in the output</td><td>report</td></tr>
+      <tr><td>Aggregation</td><td>per contract, per event or per series, declared by the caller; a group's level or limit is applied only when every position in the group declares the same figure — mixed or missing figures surface as a manual-review flag, never a silent default</td><td>report</td></tr>
+      <tr><td>Verdict</td><td>LIMIT_BREACH over ACCOUNTABILITY_REVIEW over WITHIN, from the breaches found</td><td>verdict</td></tr>
+      <tr><td>Identifier-like labels</td><td>any contract, event or series label shaped like an account id, member id, address, email or hash is refused with a structured non-verdict; the value is never echoed</td><td>refusal</td></tr>
+      <tr><td>Refused inputs</td><td>unknown profile, malformed as_of, out-of-window as_of, out-of-enum aggregation, netting, participant class, side or limit basis: structured refusal, no default applied</td><td>refusal</td></tr>
+    </table>
+    <p style="font-size:.72rem;color:var(--body)">Fee and pricing arithmetic for event contracts is separate tooling (art-211 and art-212). This node never hard-codes a venue limit figure, never names a participant as having violated a rule, and gives no legal opinion; CFTC questions on how limits aggregate across similar contracts (staff advisory and advance notice, 2026) set no numeric levels.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Manifest</div>
+    <button class="mfst-btn" id="mfstToggle" aria-expanded="false" onclick="toggleMfst()"><span id="mfstArrow">&#9660;</span> Show manifest</button>
+    <div class="mfst-body" id="manifest"><pre id="mfstCode"></pre></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+const MANIFEST = {"tool_id":"790-event-position-limit-check","version":"1.0.0","title":"Event Contract Position Limit Check","description":"Checks a book of event-contract positions, stated as quantities and prices only, against caller-declared position accountability levels and position limits, per contract, per event or per series: maximum loss recomputed from side, quantity and price (rounded up to the next minor unit, conservative toward finding), market-maker treatment as data, accountability and limit breaches each with the profile's rule cite, verdict WITHIN, ACCOUNTABILITY_REVIEW or LIMIT_BREACH. Every limit figure is caller-supplied; the node hard-codes no venue figure, never states that a participant violated a rule, and refuses identifier-like labels with no echo.","category":"chaingraph","tags":["event-contracts","position-limits","position-accountability","prediction-markets","mcp:check_event_contract_position_limits"],"input_schema":{"type":"object","required":["profile","as_of","aggregation","participant_class","positions"],"properties":{"profile":{"type":"string","enum":["kalshi_rulebook_v1_29","generic"],"description":"Regime profile. kalshi_rulebook_v1_29 carries the pinned rulebook's market-maker treatment shape (10x accountability multiplier default, limit exemption default) and no figures; generic carries no defaults at all."},"as_of":{"type":"string","description":"Caller clock, YYYY-MM-DD; the kernel never reads a wall clock and the profile window is enforced."},"aggregation":{"type":"string","enum":["per_contract","per_event","per_series"],"description":"Grouping scope for breaches, declared by the caller."},"netting":{"type":"string","enum":["gross","per_contract_net"],"description":"Optional; default is the profile rule (gross). per_contract_net nets yes and no quantities on the same contract."},"participant_class":{"type":"string","enum":["standard","market_maker"],"description":"Participant class; market-maker treatment is data, never inferred."},"mm_accountability_multiplier":{"type":"integer","minimum":1,"description":"Optional market-maker accountability multiplier override; required for a market_maker on the generic profile (no default exists there)."},"mm_limit_exempt":{"type":"boolean","description":"Optional limit-exemption override; profile default applies otherwise."},"positions":{"type":"array","minItems":1,"maxItems":200,"items":{"type":"object","required":["contract_label","event_label","series_label","side","quantity","avg_price_micro","limit_basis"],"properties":{"contract_label":{"type":"string","description":"Synthetic contract designator; identifier-like values (account ids, member ids, addresses, emails, hashes) are refused and never echoed."},"event_label":{"type":"string","description":"Synthetic event designator; identifier-like values refused."},"series_label":{"type":"string","description":"Synthetic series designator; identifier-like values refused."},"side":{"type":"string","enum":["yes","no"],"description":"yes loses its full cost; no loses payout minus price."},"quantity":{"type":"integer","minimum":1},"avg_price_micro":{"type":"integer","minimum":0,"maximum":1000000,"description":"Average entry price in micro units (1000000 = full payout)."},"max_loss_minor":{"type":"integer","minimum":0,"description":"Optional caller-declared max loss in minor units; used as given when present."},"accountability_level_minor":{"type":"integer","minimum":0,"description":"Caller-declared position accountability level in minor units; no check runs where absent."},"limit_minor":{"type":"integer","minimum":0,"description":"Caller-declared position limit in minor units; no check runs where absent."},"limit_basis":{"type":"string","enum":["max_loss","contracts"],"description":"What the declared limit measures: maximum loss in minor units, or contract quantity."}}},"description":"The position book; quantities and prices only, synthetic labels."}},"description":"Profile, caller clock, aggregation scope, participant class and the position book."},"mcp_tool_definition":{"name":"check_event_contract_position_limits","description":"Checks a book of event-contract positions against caller-declared position accountability levels and position limits, per contract, per event or per series, with market-maker treatment as data; verdict WITHIN, ACCOUNTABILITY_REVIEW or LIMIT_BREACH. Every limit figure is caller-supplied.","inputSchema":{"type":"object","required":["profile","as_of","aggregation","participant_class","positions"],"properties":{"profile":{"type":"string","enum":["kalshi_rulebook_v1_29","generic"]},"as_of":{"type":"string"},"aggregation":{"type":"string","enum":["per_contract","per_event","per_series"]},"netting":{"type":"string","enum":["gross","per_contract_net"]},"participant_class":{"type":"string","enum":["standard","market_maker"]},"mm_accountability_multiplier":{"type":"integer"},"mm_limit_exempt":{"type":"boolean"},"positions":{"type":"array","items":{"type":"object"}}}}},"execution":{"type":"browser-javascript","entry":"chaingraph/790-event-position-limit-check.html","function_name":"runCompute","timeout_ms":5000},"ap2_export":true,"source":"chaingraph/kernels/790-event-position-limit-check.kernel.mjs","input_schema_provenance":"Top-level properties are exactly the policy_parameters members the kernel reads: profile, as_of, aggregation, netting, participant_class, mm_accountability_multiplier, mm_limit_exempt, positions.","author":"PostOakLabs","license":"CC-BY-4.0","input_example":{"profile":"kalshi_rulebook_v1_29","as_of":"2026-10-31","aggregation":"per_contract","netting":"gross","participant_class":"standard","positions":[{"contract_label":"C-1","event_label":"ELEC-2026","series_label":"SENATE-AZ","side":"yes","quantity":1000,"avg_price_micro":400000,"max_loss_minor":null,"accountability_level_minor":30000,"limit_minor":50000,"limit_basis":"max_loss"}]},"output_example":{"verdict":"ACCOUNTABILITY_REVIEW","manual_review_required":false,"profile_id":"kalshi_rulebook_v1_29","venue_label":"Kalshi DCM","as_of":"2026-10-31","aggregation":"per_contract","netting_declared":"gross","participant_class":"standard","positions":[{"contract_label":"C-1","event_label":"ELEC-2026","series_label":"SENATE-AZ","side":"yes","quantity":1000,"avg_price_micro":400000,"netted":false,"declared_max_loss_minor":null,"max_loss_minor":40000,"rounding":"ceil_micro_to_minor","accountability_level_minor":30000,"effective_accountability_level_minor":30000,"limit_minor":50000,"limit_basis":"max_loss","limit_applies":true,"group_key":"C-1"}],"groups":[{"group_key":"C-1","aggregation":"per_contract","position_count":1,"quantity":1000,"max_loss_minor":40000,"accountability_level_minor":30000,"effective_accountability_level_minor":30000,"accountability_exceeded":true,"limit_minor":50000,"limit_basis":"max_loss","limit_applies":true,"limit_exceeded":false}],"accountability_breaches":[{"group_key":"C-1","max_loss_minor":40000,"declared_level_minor":30000,"effective_level_minor":30000,"market_maker_multiplier_applied":null,"cite":"Kalshi DCM Rulebook v1.29 Rule 5.18 (Position Accountability) with 17 CFR 38.300 Core Principle 5"}],"limit_breaches":[],"cite_accountability":"Kalshi DCM Rulebook v1.29 Rule 5.18 (Position Accountability) with 17 CFR 38.300 Core Principle 5","cite_limit":"Kalshi DCM Rulebook v1.29 Rule 5.19 (Position Limits) with 17 CFR 38.301"},"example_execution_hash":"PLACEHOLDER_REFRESH","output_schema":{"type":"object","properties":{"verdict":{"type":"string","enum":["WITHIN","ACCOUNTABILITY_REVIEW","LIMIT_BREACH","REFUSED"]},"manual_review_required":{"type":"boolean"},"profile_id":{"type":"string"},"venue_label":{"type":"string"},"source_pin":{"type":"string"},"as_of":{"type":"string"},"aggregation":{"type":"string"},"netting_declared":{"type":"string"},"participant_class":{"type":"string"},"market_maker_treatment":{"type":"object"},"rounding_rule":{"type":"string"},"error_direction":{"type":"string"},"positions":{"type":"array"},"groups":{"type":"array"},"accountability_breaches":{"type":"array"},"limit_breaches":{"type":"array"},"cite_accountability":{"type":"string"},"cite_limit":{"type":"string"},"refusal":{"type":["object","null"]}}}};
+const EXAMPLES = {
+  within: {"profile":"kalshi_rulebook_v1_29","as_of":"2026-10-31","aggregation":"per_contract","netting":"gross","participant_class":"standard","positions":[
+    {"contract_label":"C-1","event_label":"ELEC-2026","series_label":"SENATE-AZ","side":"yes","quantity":500,"avg_price_micro":300000,"max_loss_minor":null,"accountability_level_minor":16000,"limit_minor":20000,"limit_basis":"max_loss"},
+    {"contract_label":"C-2","event_label":"ELEC-2026","series_label":"SENATE-AZ","side":"no","quantity":300,"avg_price_micro":650000,"max_loss_minor":null,"accountability_level_minor":16000,"limit_minor":20000,"limit_basis":"max_loss"}]},
+  breach: {"profile":"kalshi_rulebook_v1_29","as_of":"2026-10-31","aggregation":"per_event","netting":"gross","participant_class":"standard","positions":[
+    {"contract_label":"C-1","event_label":"ELEC-2026","series_label":"SENATE-AZ","side":"yes","quantity":600,"avg_price_micro":500000,"max_loss_minor":null,"accountability_level_minor":70000,"limit_minor":40000,"limit_basis":"max_loss"},
+    {"contract_label":"C-2","event_label":"ELEC-2026","series_label":"SENATE-AZ","side":"yes","quantity":700,"avg_price_micro":500000,"max_loss_minor":null,"accountability_level_minor":70000,"limit_minor":40000,"limit_basis":"max_loss"}]},
+  maker: {"profile":"kalshi_rulebook_v1_29","as_of":"2026-10-31","aggregation":"per_contract","netting":"gross","participant_class":"market_maker","positions":[
+    {"contract_label":"C-1","event_label":"ELEC-2026","series_label":"SENATE-AZ","side":"yes","quantity":1000,"avg_price_micro":400000,"max_loss_minor":null,"accountability_level_minor":30000,"limit_minor":50000,"limit_basis":"max_loss"}]},
+  net: {"profile":"kalshi_rulebook_v1_29","as_of":"2026-10-31","aggregation":"per_contract","netting":"per_contract_net","participant_class":"standard","positions":[
+    {"contract_label":"C-1","event_label":"ELEC-2026","series_label":"SENATE-AZ","side":"yes","quantity":300,"avg_price_micro":400000,"max_loss_minor":null,"accountability_level_minor":25000,"limit_minor":30000,"limit_basis":"max_loss"},
+    {"contract_label":"C-1","event_label":"ELEC-2026","series_label":"SENATE-AZ","side":"no","quantity":200,"avg_price_micro":600000,"max_loss_minor":null,"accountability_level_minor":25000,"limit_minor":30000,"limit_basis":"max_loss"}]}
+};
+
+/* ---- kernel port (faithful to chaingraph/kernels/790-event-position-limit-check.kernel.mjs) ---- */
+var PROFILES = {
+  kalshi_rulebook_v1_29: { profile_id:'kalshi_rulebook_v1_29', venue_label:'Kalshi DCM', effective_from:'2026-10-30', effective_to:null, mm_accountability_multiplier_default:10, mm_limit_exempt_default:true, netting_default:'gross', source_pin:'Kalshi DCM Rulebook v1.29 (pinned sha256:3b6d4ffd5b32330d3466179d4cae610372d07511123c9976bc6cbb1b5185240b); accountability cite Rule 5.18, limit cite Rule 5.19, market-maker cite Rule 4.5',
+    cites:{ accountability:'Kalshi DCM Rulebook v1.29 Rule 5.18 (Position Accountability) with 17 CFR 38.300 Core Principle 5', limit:'Kalshi DCM Rulebook v1.29 Rule 5.19 (Position Limits) with 17 CFR 38.301', market_maker:'Kalshi DCM Rulebook v1.29 Rule 4.5 (market maker accountability 10x; limit exemption on program contracts)' } },
+  generic: { profile_id:'generic', venue_label:'caller-declared venue', effective_from:'0000-01-01', effective_to:null, mm_accountability_multiplier_default:null, mm_limit_exempt_default:null, netting_default:'gross', source_pin:'caller-supplied; the generic profile carries no venue data and no defaults',
+    cites:{ accountability:'caller-declared accountability level (venue regime data); see 17 CFR 38.300 for the DCM obligation shape', limit:'caller-declared position limit (venue regime data); see 17 CFR 38.301 for the DCM obligation shape', market_maker:'caller-declared market-maker treatment; no default is applied' } }
+};
+var MICRO_PER_MINOR = 10000, PRICE_MICRO_MAX = 1000000;
+var ISO_DATE_RE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+
+function refusedPayload(flag, field, reason){
+  return { verdict:'REFUSED', manual_review_required:true, refusal:{ flag:flag, field:field||null, reason:reason }, refusal_flag:flag, compliance_note:'structured non-verdict: no limit or accountability finding is asserted on a refused input' };
+}
+function labelLooksLikeIdentifier(s){
+  if (typeof s !== 'string' || s.length === 0) return 'empty';
+  if (s.length > 64) return 'over-64-chars';
+  if (/^(acct|account|member|user|order|cust|client|customer)[\s:_-]*\d/i.test(s)) return 'account-or-member-id-shape';
+  if (/^0x[0-9a-f]+$/i.test(s) && s.length >= 20) return 'address-shape';
+  if (/^[0-9a-f]{32,}$/i.test(s)) return 'hash-shape';
+  if (/[A-Za-z]{4}\d{6,}/.test(s) && /\d{6,}/.test(s) && s.length >= 12 && s.indexOf('ID') !== -1) return 'id-token-shape';
+  if (s.indexOf('@') !== -1) return 'email-shape';
+  return null;
+}
+function isNonNegInt(v){ return typeof v === 'number' && Number.isInteger(v) && v >= 0; }
+function isPosInt(v){ return typeof v === 'number' && Number.isInteger(v) && v > 0; }
+function maxLossMinorOf(side, quantity, priceMicro, declared){
+  if (declared !== null && declared !== undefined) return { minor: declared, rounding: 'declared_by_caller' };
+  if (quantity === 0) return { minor: 0, rounding: 'netted_to_zero' };
+  var micro = (side === 'yes' ? quantity * priceMicro : quantity * (PRICE_MICRO_MAX - priceMicro));
+  return { minor: Math.ceil(micro / MICRO_PER_MINOR), rounding: 'ceil_micro_to_minor' };
+}
+function computeLimitCheck(pp){
+  pp = pp || {};
+  var profileId = pp.profile;
+  if (typeof profileId !== 'string' || !Object.prototype.hasOwnProperty.call(PROFILES, profileId)) {
+    return { output_payload: refusedPayload('PROFILE_REFUSED','profile','unknown profile string; the closed profile set is kalshi_rulebook_v1_29 and generic; no default profile is applied'), compliance_flags:['PROFILE_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+  }
+  var profile = PROFILES[profileId];
+  var asOf = pp.as_of;
+  if (typeof asOf !== 'string' || !ISO_DATE_RE.test(asOf)) {
+    return { output_payload: refusedPayload('AS_OF_REFUSED','as_of','as_of must be an ISO-8601 date YYYY-MM-DD; the kernel never reads a wall clock'), compliance_flags:['AS_OF_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+  }
+  if (asOf < profile.effective_from || (profile.effective_to && asOf > profile.effective_to)) {
+    return { output_payload: refusedPayload('PROFILE_NOT_EFFECTIVE','as_of','as_of falls outside the pinned profile window ' + profile.effective_from + '..' + (profile.effective_to || 'open')), compliance_flags:['PROFILE_NOT_EFFECTIVE','REFUSED_NO_FINDING_ASSERTED'] };
+  }
+  var aggregation = pp.aggregation;
+  if (aggregation !== 'per_contract' && aggregation !== 'per_event' && aggregation !== 'per_series') {
+    return { output_payload: refusedPayload('AGGREGATION_REFUSED','aggregation','aggregation must be one of per_contract, per_event, per_series'), compliance_flags:['AGGREGATION_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+  }
+  var netting = (pp.netting === undefined || pp.netting === null) ? profile.netting_default : pp.netting;
+  if (netting !== 'gross' && netting !== 'per_contract_net') {
+    return { output_payload: refusedPayload('NETTING_REFUSED','netting','netting must be one of gross, per_contract_net'), compliance_flags:['NETTING_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+  }
+  var participantClass = pp.participant_class;
+  if (participantClass !== 'standard' && participantClass !== 'market_maker') {
+    return { output_payload: refusedPayload('PARTICIPANT_CLASS_REFUSED','participant_class','participant_class must be one of standard, market_maker'), compliance_flags:['PARTICIPANT_CLASS_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+  }
+  var isMM = participantClass === 'market_maker', mmMultiplier;
+  if (pp.mm_accountability_multiplier !== undefined && pp.mm_accountability_multiplier !== null) {
+    if (!isPosInt(pp.mm_accountability_multiplier)) {
+      return { output_payload: refusedPayload('MM_MULTIPLIER_REFUSED','mm_accountability_multiplier','mm_accountability_multiplier must be a positive integer'), compliance_flags:['MM_MULTIPLIER_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+    }
+    mmMultiplier = pp.mm_accountability_multiplier;
+  } else if (profile.mm_accountability_multiplier_default !== null) mmMultiplier = profile.mm_accountability_multiplier_default;
+  else if (isMM) {
+    return { output_payload: refusedPayload('MM_MULTIPLIER_REQUIRED','mm_accountability_multiplier','the generic profile carries no market-maker default; a market_maker caller must declare mm_accountability_multiplier'), compliance_flags:['MM_MULTIPLIER_REQUIRED','REFUSED_NO_FINDING_ASSERTED'] };
+  } else mmMultiplier = 1;
+  var mmLimitExempt;
+  if (pp.mm_limit_exempt !== undefined && pp.mm_limit_exempt !== null) {
+    if (typeof pp.mm_limit_exempt !== 'boolean') {
+      return { output_payload: refusedPayload('MM_LIMIT_EXEMPT_REFUSED','mm_limit_exempt','mm_limit_exempt must be a boolean'), compliance_flags:['MM_LIMIT_EXEMPT_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+    }
+    mmLimitExempt = pp.mm_limit_exempt;
+  } else if (profile.mm_limit_exempt_default !== null) mmLimitExempt = profile.mm_limit_exempt_default;
+  else mmLimitExempt = false;
+
+  if (!Array.isArray(pp.positions) || pp.positions.length === 0) {
+    return { output_payload: refusedPayload('POSITIONS_REFUSED','positions','positions must be a non-empty array'), compliance_flags:['POSITIONS_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+  }
+  if (pp.positions.length > 200) {
+    return { output_payload: refusedPayload('POSITIONS_REFUSED','positions','more than 200 positions exceeds the declared bounded domain'), compliance_flags:['POSITIONS_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+  }
+  var LABEL_FIELDS = ['contract_label','event_label','series_label'];
+  var parsed = [];
+  for (var pi = 0; pi < pp.positions.length; pi++) {
+    var pos = pp.positions[pi];
+    if (!pos || typeof pos !== 'object' || Array.isArray(pos)) {
+      return { output_payload: refusedPayload('POSITION_REFUSED','positions','each position must be an object'), compliance_flags:['POSITION_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+    }
+    for (var lf = 0; lf < LABEL_FIELDS.length; lf++) {
+      var bad = labelLooksLikeIdentifier(pos[LABEL_FIELDS[lf]]);
+      if (bad) {
+        return { output_payload: refusedPayload('LABEL_IDENTIFIER_SUSPECTED', LABEL_FIELDS[lf], 'label field looks like an account id, member id, address, email or hash (' + bad + '); labels must be synthetic contract, event or series designators'), compliance_flags:['LABEL_IDENTIFIER_SUSPECTED','REFUSED_NO_FINDING_ASSERTED'] };
+      }
+    }
+    if (pos.side !== 'yes' && pos.side !== 'no') return { output_payload: refusedPayload('SIDE_REFUSED','side','side must be one of yes, no'), compliance_flags:['SIDE_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+    if (!isPosInt(pos.quantity)) return { output_payload: refusedPayload('QUANTITY_REFUSED','quantity','quantity must be a positive integer'), compliance_flags:['QUANTITY_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+    if (!isNonNegInt(pos.avg_price_micro) || pos.avg_price_micro > PRICE_MICRO_MAX) return { output_payload: refusedPayload('PRICE_REFUSED','avg_price_micro','avg_price_micro must be an integer in 0..' + PRICE_MICRO_MAX), compliance_flags:['PRICE_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+    if (pos.max_loss_minor !== undefined && pos.max_loss_minor !== null && !isNonNegInt(pos.max_loss_minor)) return { output_payload: refusedPayload('MAX_LOSS_REFUSED','max_loss_minor','max_loss_minor, when declared, must be a non-negative integer'), compliance_flags:['MAX_LOSS_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+    if (pos.accountability_level_minor !== undefined && pos.accountability_level_minor !== null && !isNonNegInt(pos.accountability_level_minor)) return { output_payload: refusedPayload('ACCOUNTABILITY_LEVEL_REFUSED','accountability_level_minor','accountability_level_minor, when declared, must be a non-negative integer'), compliance_flags:['ACCOUNTABILITY_LEVEL_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+    if (pos.limit_minor !== undefined && pos.limit_minor !== null && !isNonNegInt(pos.limit_minor)) return { output_payload: refusedPayload('LIMIT_REFUSED','limit_minor','limit_minor, when declared, must be a non-negative integer'), compliance_flags:['LIMIT_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+    if (pos.limit_basis !== 'max_loss' && pos.limit_basis !== 'contracts') return { output_payload: refusedPayload('LIMIT_BASIS_REFUSED','limit_basis','limit_basis must be one of max_loss, contracts'), compliance_flags:['LIMIT_BASIS_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
+    parsed.push({ contract_label: pos.contract_label, event_label: pos.event_label, series_label: pos.series_label, side: pos.side, quantity: pos.quantity, avg_price_micro: pos.avg_price_micro, declared_max_loss_minor: (pos.max_loss_minor === undefined ? null : pos.max_loss_minor), accountability_level_minor: (pos.accountability_level_minor === undefined ? null : pos.accountability_level_minor), limit_minor: (pos.limit_minor === undefined ? null : pos.limit_minor), limit_basis: pos.limit_basis });
+  }
+
+  var nettingApplied = netting === 'per_contract_net';
+  var books = parsed;
+  if (nettingApplied) {
+    var byContract = {}, order = [];
+    for (var bi = 0; bi < parsed.length; bi++) {
+      var key = parsed[bi].contract_label;
+      if (!byContract[key]) { byContract[key] = []; order.push(key); }
+      byContract[key].push(parsed[bi]);
+    }
+    books = [];
+    for (var oi = 0; oi < order.length; oi++) {
+      var group = byContract[order[oi]];
+      var yesQty = 0, noQty = 0, yesPrice = null, noPrice = null;
+      for (var gi = 0; gi < group.length; gi++) {
+        if (group[gi].side === 'yes') { yesQty += group[gi].quantity; if (yesPrice === null) yesPrice = group[gi].avg_price_micro; }
+        else { noQty += group[gi].quantity; if (noPrice === null) noPrice = group[gi].avg_price_micro; }
+      }
+      var net = yesQty - noQty, proto = group[0];
+      if (net === 0) books.push(Object.assign({}, proto, { side:'yes', quantity:0, avg_price_micro:proto.avg_price_micro, netted:true }));
+      else if (net > 0) books.push(Object.assign({}, proto, { side:'yes', quantity:net, avg_price_micro:yesPrice, netted:true }));
+      else books.push(Object.assign({}, proto, { side:'no', quantity:-net, avg_price_micro:noPrice, netted:true }));
+    }
+  }
+
+  var bookRows = [];
+  for (var ri = 0; ri < books.length; ri++) {
+    var b = books[ri];
+    var ml = maxLossMinorOf(b.side, b.quantity, b.avg_price_micro, b.declared_max_loss_minor);
+    bookRows.push({ book: Object.assign({}, b, { netted: b.netted === true }), max_loss_minor: ml.minor, rounding: ml.rounding });
+  }
+
+  var flags = [];
+  if (isMM) flags.push('MM_ACCOUNTABILITY_MULTIPLIER_APPLIED');
+  if (isMM && mmLimitExempt) flags.push('MM_LIMIT_EXEMPTION_APPLIED');
+
+  var groupKeyOf = function(bb){ return aggregation === 'per_contract' ? bb.contract_label : (aggregation === 'per_event' ? bb.event_label : bb.series_label); };
+  var groups = {}, groupOrder = [];
+  for (var gri = 0; gri < bookRows.length; gri++) {
+    var gk = groupKeyOf(bookRows[gri].book);
+    if (!groups[gk]) { groups[gk] = []; groupOrder.push(gk); }
+    groups[gk].push(bookRows[gri]);
+  }
+  var groupRows = [], accountabilityBreaches = [], limitBreaches = [], nonUniformLevels = false;
+  for (var gi2 = 0; gi2 < groupOrder.length; gi2++) {
+    var key2 = groupOrder[gi2], rows = groups[key2];
+    var maxLossMinor = 0, quantity = 0, levels = {}, limits = {}, bases = {}, anyNoLevel = false, anyNoLimit = false;
+    for (var xi = 0; xi < rows.length; xi++) {
+      maxLossMinor += rows[xi].max_loss_minor;
+      quantity += rows[xi].book.quantity;
+      if (rows[xi].book.accountability_level_minor === null) anyNoLevel = true; else levels[rows[xi].book.accountability_level_minor] = true;
+      if (rows[xi].book.limit_minor === null) anyNoLimit = true; else { limits[rows[xi].book.limit_minor] = true; bases[rows[xi].book.limit_basis] = true; }
+    }
+    var levelKeys = Object.keys(levels), limitKeys = Object.keys(limits), baseKeys = Object.keys(bases);
+    if (anyNoLevel || levelKeys.length > 1) nonUniformLevels = true;
+    var effAcct = null;
+    if (!anyNoLevel && levelKeys.length === 1) effAcct = Number(levelKeys[0]) * (isMM ? mmMultiplier : 1);
+    var effLimit = null, effBasis = null;
+    if (!anyNoLimit && limitKeys.length === 1 && baseKeys.length === 1 && !(isMM && mmLimitExempt)) { effLimit = Number(limitKeys[0]); effBasis = baseKeys[0]; }
+    var acctExceeded = effAcct !== null && maxLossMinor > effAcct;
+    var limitExceeded = effLimit !== null && (effBasis === 'max_loss' ? maxLossMinor > effLimit : quantity > effLimit);
+    groupRows.push({ group_key:key2, aggregation:aggregation, position_count:rows.length, quantity:quantity, max_loss_minor:maxLossMinor,
+      accountability_level_minor: effAcct === null ? null : rows[0].book.accountability_level_minor,
+      effective_accountability_level_minor: effAcct, accountability_exceeded: acctExceeded,
+      limit_minor: effLimit, limit_basis: effBasis, limit_applies: effLimit !== null, limit_exceeded: limitExceeded });
+    if (acctExceeded) accountabilityBreaches.push({ group_key:key2, max_loss_minor:maxLossMinor, declared_level_minor:rows[0].book.accountability_level_minor, effective_level_minor:effAcct, market_maker_multiplier_applied: isMM ? mmMultiplier : null, cite: profile.cites.accountability });
+    if (limitExceeded) limitBreaches.push({ group_key:key2, max_loss_minor:maxLossMinor, quantity:quantity, limit_minor:effLimit, limit_basis:effBasis, market_maker_exemption_applied:false, cite: profile.cites.limit });
+  }
+  if (nonUniformLevels) flags.push('AGG_LEVELS_NOT_UNIFORM_PER_GROUP_CHECKS_ONLY');
+
+  var verdict;
+  if (limitBreaches.length > 0) { verdict = 'LIMIT_BREACH'; flags.push('LIMIT_BREACH_PRESENT'); }
+  else if (accountabilityBreaches.length > 0) { verdict = 'ACCOUNTABILITY_REVIEW'; flags.push('ACCOUNTABILITY_BREACH_PRESENT'); }
+  else { verdict = 'WITHIN'; flags.push('VERDICT_WITHIN_NO_BREACH'); }
+
+  var mmMultiplierSource = (pp.mm_accountability_multiplier != null) ? 'caller' : (isMM ? 'profile_default' : 'standard_1x');
+  var output_payload = {
+    verdict: verdict,
+    manual_review_required: nonUniformLevels,
+    profile_id: profile.profile_id || 'generic',
+    venue_label: profile.venue_label,
+    source_pin: profile.source_pin,
+    as_of: asOf,
+    aggregation: aggregation,
+    netting_declared: netting,
+    netting_rule_note: nettingApplied ? 'per_contract_net: yes and no quantities on the same contract were netted before max-loss computation' : 'gross: yes and no positions on the same contract are both counted; the profile default is ' + profile.netting_default,
+    participant_class: participantClass,
+    market_maker_treatment: { accountability_multiplier: isMM ? mmMultiplier : 1, multiplier_source: mmMultiplierSource, limit_exempt: isMM && mmLimitExempt, cite: profile.cites.market_maker },
+    rounding_rule: 'max loss computed from side, quantity and avg_price_micro is rounded UP to the next minor unit (ceiling of micro/10000) — conservative toward finding; a caller-declared max_loss_minor is used as given',
+    error_direction: 'conservative_toward_finding',
+    aggregation_scope_note: 'aggregation across similar contracts is venue-specific and sets no numeric level here; every figure is caller-supplied',
+    positions: bookRows.map(function(r2){
+      var lvl = r2.book.accountability_level_minor === null ? null : r2.book.accountability_level_minor * (isMM ? mmMultiplier : 1);
+      var limApplies = r2.book.limit_minor !== null && !(isMM && mmLimitExempt);
+      return { contract_label:r2.book.contract_label, event_label:r2.book.event_label, series_label:r2.book.series_label, side:r2.book.side, quantity:r2.book.quantity, avg_price_micro:r2.book.avg_price_micro, netted:r2.book.netted === true, declared_max_loss_minor:r2.book.declared_max_loss_minor, max_loss_minor:r2.max_loss_minor, rounding:r2.rounding, accountability_level_minor:r2.book.accountability_level_minor, effective_accountability_level_minor:lvl, limit_minor:r2.book.limit_minor, limit_basis:r2.book.limit_basis, limit_applies:limApplies, group_key:groupKeyOf(r2.book) };
+    }),
+    groups: groupRows,
+    accountability_breaches: accountabilityBreaches,
+    limit_breaches: limitBreaches,
+    cite_accountability: profile.cites.accountability,
+    cite_limit: profile.cites.limit
+  };
+  return { output_payload: output_payload, compliance_flags: flags };
+}
+
+/* ---- UI wiring ---- */
+var _result = null, _artifact = null, _pp = null;
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function readInputs(){
+  var mmRaw = document.getElementById('mm_overrides').value.trim();
+  var pp = {
+    profile: document.getElementById('profile').value,
+    as_of: document.getElementById('as_of').value.trim(),
+    aggregation: document.getElementById('aggregation').value,
+    netting: document.getElementById('netting').value,
+    participant_class: document.getElementById('participant_class').value,
+    positions: JSON.parse(document.getElementById('positions').value)
+  };
+  if (mmRaw) { var mm = JSON.parse(mmRaw); if (mm.mm_accountability_multiplier !== undefined) pp.mm_accountability_multiplier = mm.mm_accountability_multiplier; if (mm.mm_limit_exempt !== undefined) pp.mm_limit_exempt = mm.mm_limit_exempt; }
+  return pp;
+}
+function loadExample(which){
+  var ex = EXAMPLES[which];
+  document.getElementById('profile').value = ex.profile;
+  document.getElementById('as_of').value = ex.as_of;
+  document.getElementById('aggregation').value = ex.aggregation;
+  document.getElementById('netting').value = ex.netting;
+  document.getElementById('participant_class').value = ex.participant_class;
+  document.getElementById('mm_overrides').value = '';
+  document.getElementById('positions').value = JSON.stringify(ex.positions, null, 1);
+}
+async function runCompute(){
+  var panel = document.getElementById('resultsPanel');
+  panel.style.display = 'block';
+  try {
+    _pp = readInputs();
+  } catch (e) {
+    document.getElementById('verdictLine').innerHTML = '<span class="verdict warn">INPUT ERROR</span>';
+    document.getElementById('summaryKv').innerHTML = '';
+    document.getElementById('positionsBlock').innerHTML = '<p style="font-size:.72rem;color:var(--body)">The positions field must be valid JSON.</p>';
+    document.getElementById('breachesBlock').innerHTML = '';
+    document.getElementById('rawOut').textContent = '';
+    return;
+  }
+  var r = computeLimitCheck(_pp);
+  _result = r;
+  var op = r.output_payload;
+  var verdictLine = document.getElementById('verdictLine');
+  if (op.verdict === 'REFUSED') verdictLine.innerHTML = '<span class="verdict bad">REFUSED</span> <span style="font-size:.7rem;color:var(--body)">structured non-verdict: ' + esc(op.refusal.flag) + ' on ' + esc(op.refusal.field || 'input') + ' - the value is never echoed, no finding asserted</span>';
+  else if (op.verdict === 'WITHIN') verdictLine.innerHTML = '<span class="verdict ok">WITHIN</span> <span style="font-size:.7rem;color:var(--body)">no accountability or limit breach against the declared levels</span>';
+  else if (op.verdict === 'ACCOUNTABILITY_REVIEW') verdictLine.innerHTML = '<span class="verdict warn">ACCOUNTABILITY_REVIEW</span> <span style="font-size:.7rem;color:var(--body)">' + op.accountability_breaches.length + ' accountability breach(es), no limit breach</span>';
+  else verdictLine.innerHTML = '<span class="verdict bad">LIMIT_BREACH</span> <span style="font-size:.7rem;color:var(--body)">' + op.limit_breaches.length + ' limit breach(es)</span>';
+  var kv = [
+    ['profile', op.profile_id + ' (' + op.venue_label + ')'],
+    ['as_of', op.as_of],
+    ['aggregation', op.aggregation],
+    ['netting', op.netting_declared],
+    ['participant', op.participant_class],
+    ['market-maker multiplier', op.market_maker_treatment.accountability_multiplier + ' (' + op.market_maker_treatment.multiplier_source + ')'],
+    ['limit exempt', String(op.market_maker_treatment.limit_exempt)],
+    ['accountability breaches', op.accountability_breaches.length],
+    ['limit breaches', op.limit_breaches.length]
+  ];
+  document.getElementById('summaryKv').innerHTML = kv.map(function(x){ return '<dt>'+x[0]+'</dt><dd>'+esc(x[1])+'</dd>'; }).join('');
+  var pb = '<h3 style="font-size:.9rem;color:var(--white);margin:1rem 0 .2rem">Groups</h3><table><tr><th>Group</th><th>Max loss</th><th>Accountability</th><th>Limit</th></tr>' +
+    op.groups.map(function(g){
+      var acct = g.effective_accountability_level_minor === null ? 'not declared' : (g.accountability_exceeded ? '<span style="color:var(--red)">' + g.effective_accountability_level_minor + ' exceeded</span>' : g.effective_accountability_level_minor + ' ok');
+      var lim = !g.limit_applies ? 'not applied' : (g.limit_exceeded ? '<span style="color:var(--red)">' + g.limit_minor + ' (' + g.limit_basis + ') exceeded</span>' : g.limit_minor + ' (' + g.limit_basis + ') ok');
+      return '<tr><td>'+esc(g.group_key)+' ('+g.position_count+')</td><td>'+g.max_loss_minor+'</td><td>'+acct+'</td><td>'+lim+'</td></tr>';
+    }).join('') + '</table>';
+  document.getElementById('positionsBlock').innerHTML = pb;
+  var bb = '';
+  if (op.accountability_breaches.length > 0 || op.limit_breaches.length > 0) {
+    bb = '<h3 style="font-size:.9rem;color:var(--white);margin:1rem 0 .2rem">Breaches (arithmetic against declared levels)</h3><table><tr><th>Kind</th><th>Group</th><th>Detail</th><th>Cite</th></tr>' +
+      op.accountability_breaches.map(function(x){ return '<tr><td>accountability</td><td>'+esc(x.group_key)+'</td><td>max loss '+x.max_loss_minor+' vs effective level '+x.effective_level_minor+(x.market_maker_multiplier_applied ? ' (x'+x.market_maker_multiplier_applied+' market-maker multiplier)' : '')+'</td><td style="font-size:.6rem">'+esc(x.cite)+'</td></tr>'; }).join('') +
+      op.limit_breaches.map(function(x){ return '<tr><td>limit</td><td>'+esc(x.group_key)+'</td><td>'+(x.limit_basis === 'max_loss' ? 'max loss '+x.max_loss_minor : 'quantity '+x.quantity)+' vs limit '+x.limit_minor+'</td><td style="font-size:.6rem">'+esc(x.cite)+'</td></tr>'; }).join('') + '</table>';
+  }
+  document.getElementById('breachesBlock').innerHTML = bb;
+  document.getElementById('rawOut').textContent = JSON.stringify(op, null, 2);
+  var hash = await sha256({ policy_parameters: _pp, output_payload: op });
+  var nowIso = new Date().toISOString();
+  _artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_control',
+    tool_id: '790-event-position-limit-check',
+    tool_version: '1.0.0',
+    generated_at: nowIso,
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _pp,
+    output_payload: op,
+    compliance_flags: r.compliance_flags,
+    compute_mode: 'server',
+    compute_proof_ready: 'deferred',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] }
+  };
+  document.getElementById('generatedAt').textContent = 'generated_at ' + nowIso + ' · execution_hash ' + hash.slice(0, 16) + '...';
+  ['ap2ExportBtn','mdBtn'].forEach(function(id){ var b = document.getElementById(id); b.disabled = false; b.classList.add('ready'); });
+}
+async function sha256(obj){
+  var c = __ocgCanonStr(obj);
+  var b = new TextEncoder().encode(c);
+  var h = await crypto.subtle.digest('SHA-256', b);
+  return Array.from(new Uint8Array(h)).map(function(x){ return x.toString(16).padStart(2,'0'); }).join('');
+}
+function ts14(){ return new Date().toISOString().replace(/[-:T]/g,'').slice(0,14); }
+function showToast(m){
+  var t = document.getElementById('toast');
+  t.textContent = m;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2200);
+}
+function exportPolicyMandate(){
+  if (!_artifact) return;
+  var ts = ts14();
+  var b = new Blob([JSON.stringify(_artifact, null, 2)], { type: 'application/json' });
+  var a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(b), download: '790-event-position-limit-check_' + ts + '.policy.json' });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Policy Mandate exported');
+}
+function exportMd(){
+  if (!_result || !_artifact) return;
+  var ts = ts14();
+  var lines = [
+    '# Event Contract Position Limit Check Report',
+    '',
+    '_' + new Date().toISOString() + ' \u00b7 ainumbers.co/chaingraph/790-event-position-limit-check.html \u00b7 client-side, zero PII_',
+    '',
+    '**ART-790 \u00b7 OpenChainGraph**',
+    '**execution_hash:** ' + _artifact.execution_hash,
+    '',
+    '## Output',
+    '',
+    JSON.stringify(_result.output_payload, null, 2),
+    '',
+    '---',
+    '> *ART-790 \u00b7 OpenChainGraph Suite \u00b7 Post Oak Labs \u00b7 CC BY 4.0*'
+  ];
+  var b = new Blob([lines.join('\n')], { type: 'text/markdown' });
+  var a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(b), download: '790-event-position-limit-check_' + ts + '.md' });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Markdown exported');
+}
+function toggleMfst(){
+  var body = document.getElementById('manifest'), arrow = document.getElementById('mfstArrow'), btn = document.getElementById('mfstToggle');
+  var open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arrow.innerHTML = open ? '&#9660;' : '&#9650;';
+  btn.setAttribute('aria-expanded', String(!open));
+  if (!open && !document.getElementById('mfstCode').textContent) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+loadExample('within');
+
+</script>
+<script>
+/* OCG-CANON v1 - RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
+</script>
+</body>
+</html>
