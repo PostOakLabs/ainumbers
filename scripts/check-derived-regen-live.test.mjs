@@ -39,11 +39,12 @@
  *
  * Run: node scripts/check-derived-regen-live.test.mjs
  */
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, utimesSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runLiveScan, withinEntryDuplicates, crossEntryShares, selectCoveredByDiff, changedSelectionLines } from './check-derived-regen-live.mjs';
+import { runLiveScan, withinEntryDuplicates, crossEntryShares, selectCoveredByDiff, changedSelectionLines,
+  parseWorktreePorcelain, staleScratchWorktrees, sweepStaleScratch, hostStateLine, withScratchWorktree, ScratchSetupError } from './check-derived-regen-live.mjs';
 import { gitEnv } from './_git-env-lib.mjs';
 
 let pass = 0;
@@ -521,6 +522,126 @@ test('CHANGED RED CONTROL (e) - a selection that MISSES a touched generator fail
   let threw = false;
   try { assertSelects(broken, ['fixture-sel-a'], 'RED control'); } catch { threw = true; }
   assert(threw, 'assertSelects must FAIL when the selection misses a touched generator - this file would go red');
+});
+
+// ── scratch-setup hardening (DERIVED-REGEN-LIVE-HARDEN-1) ────────────────────
+// The three guards in withScratchWorktree: a bounded `git worktree add` that
+// FAILS on timeout, a sweep of stale scratch worktrees by exact name + age, and
+// a host-state line. Every real-git case runs against a FIXTURE repo, so the
+// real repo's worktree list is never read or changed by this file.
+
+const HOUR = 3_600_000;
+const normWt = (p) => p.replace(/\\/g, '/').toLowerCase();
+
+test('SCRATCH parse - porcelain worktree list yields paths and the locked flag', () => {
+  const text = [
+    'worktree C:/repo', 'HEAD abc', 'branch refs/heads/main', '',
+    'worktree C:/Temp/derived-regen-live-AbC123', 'HEAD def', 'detached', 'locked', '',
+    'worktree C:/Temp/derived-regen-live-XyZ789', 'HEAD 012', 'detached', 'locked reason here', '',
+    'worktree C:/Temp/derived-regen-live-Qq1111', 'HEAD 345', 'detached', '',
+  ].join('\n');
+  const got = parseWorktreePorcelain(text);
+  assert(got.length === 4, `4 entries expected, got ${got.length}`);
+  assert(got[1].locked === true && got[2].locked === true, 'both `locked` forms must set locked');
+  assert(got[0].locked === false && got[3].locked === false, 'unlocked entries stay unlocked');
+});
+
+test('SCRATCH select - only unlocked, exactly-named, old scratch directly under tmp is stale', () => {
+  const tmp = tmpdir();
+  const now = 100 * HOUR;
+  const old = now - 10 * HOUR;
+  const fresh = now - 1 * HOUR;
+  const p = (name) => join(tmp, name);
+  const ages = new Map([
+    [p('derived-regen-live-OLD111'), old],
+    [p('derived-regen-live-NEW222'), fresh],
+    [p('derived-regen-live-LCK333'), old],
+    [p('derived-regen-live-selftest-ABC444'), old],
+    [p('derived-regen-live-UNK555'), null],
+    [join(tmp, 'nested', 'derived-regen-live-NST666'), old],
+    [p('my-own-worktree'), old],
+  ]);
+  const entries = [...ages.keys()].map((path) => ({ path, locked: path.endsWith('LCK333') }));
+  const stale = staleScratchWorktrees({ entries, tmp, now, maxAgeMs: 6 * HOUR, ageOf: (x) => ages.get(x) });
+  const names = stale.map((e) => e.path);
+  assert(names.length === 1 && names[0].endsWith('derived-regen-live-OLD111'), `only OLD111 may be stale, got ${JSON.stringify(names)}`);
+  // RED control: the same matrix with a bound longer than every age selects nothing.
+  assert(staleScratchWorktrees({ entries, tmp, now, maxAgeMs: 1000 * HOUR, ageOf: (x) => ages.get(x) }).length === 0,
+    'a bound longer than every age must select nothing');
+  if (process.platform === 'win32') {
+    // git prints forward slashes and may differ in drive-letter case from os.tmpdir().
+    const gitStyle = tmp.replace(/\\/g, '/').toUpperCase() + '/derived-regen-live-OLD111';
+    assert(staleScratchWorktrees({ entries: [{ path: gitStyle, locked: false }], tmp, now, maxAgeMs: 6 * HOUR, ageOf: () => old }).length === 1,
+      'on Windows a forward-slash, case-different tmp path must still match');
+  }
+});
+
+test('SCRATCH sweep - removes an OLD leftover scratch worktree and keeps a fresh one (real git, fixture repo)', () => {
+  const repo = makeRepo();
+  writeFileSync(join(repo, 'a.txt'), 'a\n');
+  commit(repo, 'init');
+  const oldWt = mkdtempSync(join(tmpdir(), 'derived-regen-live-'));
+  const freshWt = mkdtempSync(join(tmpdir(), 'derived-regen-live-'));
+  roots.push(oldWt, freshWt);
+  // mkdtemp leaves an empty dir; `worktree add` accepts an empty existing dir.
+  execSync(`git worktree add --detach "${oldWt}" HEAD`, { cwd: repo, ...GIT_EXEC_OPTS });
+  execSync(`git worktree add --detach "${freshWt}" HEAD`, { cwd: repo, ...GIT_EXEC_OPTS });
+  const tenHoursAgo = new Date(Date.now() - 10 * HOUR);
+  utimesSync(join(oldWt, '.git'), tenHoursAgo, tenHoursAgo);
+  const lines = [];
+  // RED control first: a bound longer than the planted age removes nothing.
+  const none = sweepStaleScratch({ repo, maxAgeMs: 100 * HOUR, log: (l) => lines.push(l) });
+  assert(none.removed.length === 0, `a 100 h bound must remove nothing, removed ${JSON.stringify(none.removed)}`);
+  const res = sweepStaleScratch({ repo, maxAgeMs: 6 * HOUR, log: (l) => lines.push(l) });
+  assert(res.removed.length === 1 && res.failed.length === 0, `exactly one removal expected, got ${JSON.stringify({ removed: res.removed, failed: res.failed })}`);
+  const left = normWt(execSync('git worktree list --porcelain', { cwd: repo, ...GIT_EXEC_OPTS }).toString('utf8'));
+  assert(!left.includes(normWt(oldWt)), 'the old scratch worktree must no longer be registered');
+  assert(left.includes(normWt(freshWt)), 'the fresh scratch worktree must stay registered');
+  assert(lines.some((l) => l.includes('removed 1 of 1')), `the sweep must log what it removed, got ${JSON.stringify(lines)}`);
+  execSync(`git worktree remove --force "${freshWt}"`, { cwd: repo, ...GIT_EXEC_OPTS });
+});
+
+test('SCRATCH setup GREEN - withScratchWorktree hands fn a checked-out tree and unregisters it after', () => {
+  const repo = makeRepo();
+  writeFileSync(join(repo, 'a.txt'), 'a\n');
+  commit(repo, 'init');
+  const lines = [];
+  const seen = withScratchWorktree((dir) => existsSync(join(dir, 'a.txt')), { repo, log: (l) => lines.push(l) });
+  assert(seen === true, 'fn must see the committed file in the scratch tree');
+  const left = parseWorktreePorcelain(execSync('git worktree list --porcelain', { cwd: repo, ...GIT_EXEC_OPTS }).toString('utf8'));
+  assert(left.length === 1, `only the main worktree may remain registered, got ${left.length}`);
+  assert(lines.some((l) => l.startsWith('host state: free RAM')), `the host-state line must print before setup, got ${JSON.stringify(lines)}`);
+});
+
+test('SCRATCH setup RED - a hung `worktree add` FAILS within its bound as a host-state error, fn never runs', () => {
+  const repo = makeRepo();
+  writeFileSync(join(repo, 'a.txt'), 'a\n');
+  commit(repo, 'init');
+  let fnRan = false;
+  let err = null;
+  const t0 = Date.now();
+  try {
+    // The stand-in reaps itself after 20 s: on Windows a grandchild can outlive
+    // execSync's kill (same reason as the --self-test hang fixture).
+    withScratchWorktree(() => { fnRan = true; }, {
+      repo,
+      addTimeoutMs: 1500,
+      addCommand: 'node -e "setTimeout(() => process.exit(0), 20000)"',
+      log: () => {},
+    });
+  } catch (e) { err = e; }
+  const wall = Date.now() - t0;
+  assert(err instanceof ScratchSetupError, `a ScratchSetupError must be thrown, got ${err && err.constructor.name}: ${err && err.message}`);
+  assert(/HOST-STATE/.test(err.message) && /exceeded 2 s/.test(err.message), `the message must name the bound and host state, got: ${err.message}`);
+  assert(!fnRan, 'fn must never run when setup failed');
+  assert(wall < 15_000, `the bound must cut the hang short, wall was ${wall} ms`);
+});
+
+test('SCRATCH host line - flags RAM below the 4 GB gate and only then', () => {
+  const low = hostStateLine({ freeBytes: 3.3 * 1024 ** 3, totalBytes: 16 * 1024 ** 3, scratchCount: 42, worktreeCount: 399 });
+  const ok = hostStateLine({ freeBytes: 5.5 * 1024 ** 3, totalBytes: 16 * 1024 ** 3, scratchCount: 0, worktreeCount: 12 });
+  assert(low.includes('BELOW the 4 GB gate') && low.includes('399') && low.includes('42'), `low line wrong: ${low}`);
+  assert(!ok.includes('BELOW'), `a 5.5 GB line must not warn: ${ok}`);
 });
 
 console.log(`\ncheck-derived-regen-live.test.mjs: ${pass} passed, ${fail} failed`);
