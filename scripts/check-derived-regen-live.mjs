@@ -151,11 +151,16 @@
  *   node scripts/check-derived-regen-live.mjs --only <entry>   # run ONE entry (diagnosis)
  *   node scripts/check-derived-regen-live.mjs --self-test      # fixture proof of the timeout path (no real generator)
  *   DERIVED_REGEN_LIVE_TIMEOUT_MS=30000 node scripts/check-derived-regen-live.mjs --only counts
+ *
+ * Scratch-setup knobs (DERIVED-REGEN-LIVE-HARDEN-1, see withScratchWorktree):
+ *   DERIVED_REGEN_LIVE_WORKTREE_TIMEOUT_MS   bound on `git worktree add` (default 300000); exceeding it FAILS
+ *   DERIVED_REGEN_LIVE_STALE_SCRATCH_MS      age past which a leftover scratch worktree is swept (default 6 h)
+ *   DERIVED_REGEN_LIVE_SWEEP=0               skip the stale-scratch sweep (diagnosis only)
  */
 import { execSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync, readdirSync, statSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve, relative } from 'node:path';
+import { tmpdir, freemem, totalmem } from 'node:os';
+import { join, resolve, relative, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COVERED, REPO } from './derived-artifacts.mjs';
 import { primaryScriptPath } from './check-derived-declare-parity.mjs';
@@ -750,18 +755,171 @@ function runLiveScan({ dir, covered, timeoutMs = DEFAULT_ENTRY_TIMEOUT_MS, progr
   return { classA, classB, timeouts, executionFailures, probeUnsafe, probeBlind, unverifiable, skippedEmptyDirs, initialDirty, anchoredProbes, probeTargetVisits, uniqueProbeTargets: sharedProbeResults.size };
 }
 
+// ── scratch-worktree hardening (DERIVED-REGEN-LIVE-HARDEN-1, 2026-11-01) ──────
+// Measured 2026-11-01: two builder runs froze at this gate's scratch setup
+// (`git worktree add` registered the scratch dir and never wrote a file, 26+
+// min) and were reported as "cannot complete on win32". A desk re-run of the
+// SAME commit went green in 39 min with the add taking 11.8 s. The freeze was
+// host state: free RAM under the 4 GB spawn gate, 27 then 42 leaked scratch
+// worktrees from earlier killed runs, ~400 registered worktrees. Three guards:
+//   1. The add carries a timeout. Exceeding it FAILS the gate (exit 1) with a
+//      message naming host state, never a skip or a pass, so a stall ends in
+//      minutes instead of eating a builder's lane cap.
+//   2. Before the add, scratch worktrees left by earlier killed runs are
+//      removed: registered, unlocked, directly under tmpdir(), named EXACTLY
+//      `derived-regen-live-` + mkdtemp's 6-char suffix, and older than the
+//      stale bound. A run still in flight is far younger than the bound
+//      (the full scan is ~40 min). Removal is `git worktree remove --force` on
+//      that one path only; no repo-wide prune, no rmSync of anything else.
+//   3. One host-state line is printed first (free RAM, registered scratch
+//      count, worktree count), so a later stall is attributable from the log.
+const SCRATCH_PREFIX = 'derived-regen-live-';
+// mkdtempSync appends exactly six [A-Za-z0-9] characters. The self-test
+// fixtures use longer prefixes (derived-regen-live-selftest-…), so they can
+// never match, and neither can anything a human named.
+const SCRATCH_NAME = /^derived-regen-live-[A-Za-z0-9]{6}$/;
+const DEFAULT_WORKTREE_ADD_TIMEOUT_MS = 300_000;
+const DEFAULT_STALE_SCRATCH_MS = 6 * 3_600_000;
+const LOW_RAM_BYTES = 4 * 1024 ** 3; // the estate's 4 GB spawn gate
+
+function envMs(name, dflt) {
+  const v = Number(process.env[name]);
+  return Number.isFinite(v) && v > 0 ? v : dflt;
+}
+
+/** Normalise a path for comparison: forward slashes, no trailing slash, case-folded on Windows. */
+function normPath(p) {
+  const s = resolve(p).replace(/\\/g, '/').replace(/\/+$/, '');
+  return process.platform === 'win32' ? s.toLowerCase() : s;
+}
+
+/** Parse `git worktree list --porcelain` into [{ path, locked }]. */
+function parseWorktreePorcelain(text) {
+  const out = [];
+  let cur = null;
+  for (const line of text.split(/\r?\n/)) {
+    if (line.startsWith('worktree ')) { cur = { path: line.slice('worktree '.length), locked: false }; out.push(cur); }
+    else if (cur && (line === 'locked' || line.startsWith('locked '))) cur.locked = true;
+  }
+  return out;
+}
+
+/**
+ * Which registered worktrees are scratch left behind by an earlier killed run?
+ * Pure: `ageOf(path)` returns the creation-time ms (or null when unknown, which
+ * never qualifies; an unknown age is not evidence of staleness).
+ */
+function staleScratchWorktrees({ entries, tmp, now, maxAgeMs, ageOf }) {
+  const tmpN = normPath(tmp);
+  return entries.filter((e) => {
+    if (e.locked) return false;
+    if (normPath(dirname(e.path)) !== tmpN) return false;
+    if (!SCRATCH_NAME.test(basename(e.path))) return false;
+    const born = ageOf(e.path);
+    return born !== null && now - born > maxAgeMs;
+  });
+}
+
+/**
+ * Creation time of a linked worktree: the mtime of its `.git` file, which git
+ * writes once at `worktree add` and never touches again (the directory's own
+ * mtime moves whenever the scan writes into it). null when unreadable.
+ */
+function scratchBornMs(path) {
+  try { return statSync(join(path, '.git')).mtimeMs; } catch { return null; }
+}
+
+function listWorktrees(repo) {
+  return parseWorktreePorcelain(execSync('git worktree list --porcelain', { cwd: repo, ...GIT_EXEC_OPTS, timeout: 60_000 }).toString('utf8'));
+}
+
+/** Remove stale scratch worktrees (guard 2). Returns { removed, failed, entries }. Never throws. */
+function sweepStaleScratch({ repo = REPO, tmp = tmpdir(), now = Date.now(), maxAgeMs = envMs('DERIVED_REGEN_LIVE_STALE_SCRATCH_MS', DEFAULT_STALE_SCRATCH_MS), ageOf = scratchBornMs, log = () => {} } = {}) {
+  let entries;
+  try { entries = listWorktrees(repo); } catch (e) { log(`stale-scratch sweep skipped: could not list worktrees (${String(e.message).split('\n')[0]})`); return { removed: [], failed: [], entries: null }; }
+  const stale = staleScratchWorktrees({ entries, tmp, now, maxAgeMs, ageOf });
+  const removed = [];
+  const failed = [];
+  for (const e of stale) {
+    try { execSync(`git worktree remove --force "${e.path}"`, { cwd: repo, ...GIT_EXEC_OPTS, timeout: 120_000 }); removed.push(e.path); }
+    catch { failed.push(e.path); }
+  }
+  if (stale.length) log(`stale-scratch sweep: removed ${removed.length} of ${stale.length} scratch worktree(s) older than ${(maxAgeMs / 3_600_000).toFixed(1)} h${failed.length ? ` (could not remove: ${failed.join(', ')})` : ''}`);
+  return { removed, failed, entries };
+}
+
+/** The one host-state line (guard 3). Pure formatter. */
+function hostStateLine({ freeBytes, totalBytes, scratchCount, worktreeCount }) {
+  const gb = (b) => (b / 1024 ** 3).toFixed(2);
+  const low = freeBytes < LOW_RAM_BYTES;
+  return `host state: free RAM ${gb(freeBytes)} of ${gb(totalBytes)} GB${low ? ' (BELOW the 4 GB gate: a stall in this run is host-state evidence first)' : ''}; ` +
+    `registered worktrees ${worktreeCount ?? 'unknown'}, of which leftover scratch ${scratchCount ?? 'unknown'}`;
+}
+
+class ScratchSetupError extends Error {}
+
 // ── CLI: scratch worktree wrapper ──────────────────────────────────────────────
 
-function withScratchWorktree(fn) {
-  const scratch = mkdtempSync(join(tmpdir(), 'derived-regen-live-'));
-  execSync(`git worktree add --detach "${scratch}" HEAD`, { cwd: REPO, ...GIT_EXEC_OPTS });
+// `opts` exists for the paired test file (a fixture repo, a short bound, a
+// stand-in add command). Production callers pass nothing and get REPO, the
+// env-configurable bound and the real `git worktree add`.
+function withScratchWorktree(fn, opts = {}) {
+  const repo = opts.repo || REPO;
+  const log = opts.log || ((line) => process.stderr.write(`derived-regen-live: ${line}\n`));
+  const addTimeoutMs = opts.addTimeoutMs || envMs('DERIVED_REGEN_LIVE_WORKTREE_TIMEOUT_MS', DEFAULT_WORKTREE_ADD_TIMEOUT_MS);
+  const sweep = process.env.DERIVED_REGEN_LIVE_SWEEP === '0'
+    ? { removed: [], failed: [], entries: null }
+    : sweepStaleScratch({ repo, log });
+  const entries = sweep.entries;
+  const tmpN = normPath(tmpdir());
+  log(hostStateLine({
+    freeBytes: freemem(),
+    totalBytes: totalmem(),
+    worktreeCount: entries ? entries.length : null,
+    scratchCount: entries ? entries.filter((e) => normPath(dirname(e.path)) === tmpN && SCRATCH_NAME.test(basename(e.path))).length - sweep.removed.length : null,
+  }));
+  // A TIMEOUT fails at once. A non-timeout failure gets ONE retry after a short
+  // pause: measured 2026-11-01 inside the pre-push hook, the add failed in
+  // 0.0 s with no output while 12 sweep removals in the same second also
+  // failed, then succeeded standalone minutes later. An instant, silent failure
+  // is the host refusing to start a process under load, not a git verdict.
+  // The retry only re-attempts SETUP; no derived-set verdict is ever retried.
+  const retryDelayMs = opts.retryDelayMs ?? 5_000;
+  let scratch = null;
+  let lastFailure = '';
+  for (let attempt = 1; attempt <= 2 && !scratch; attempt++) {
+    const dir = mkdtempSync(join(tmpdir(), SCRATCH_PREFIX));
+    const addCommand = opts.addCommand || `git worktree add --detach "${dir}" HEAD`;
+    const t0 = Date.now();
+    try {
+      execSync(addCommand, { cwd: repo, ...GIT_EXEC_OPTS, timeout: addTimeoutMs });
+      scratch = dir;
+    } catch (e) {
+      const elapsedMs = Date.now() - t0;
+      try { execSync(`git worktree remove --force "${dir}"`, { cwd: repo, ...GIT_EXEC_OPTS, timeout: 120_000 }); } catch { /* may never have registered */ }
+      try { rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
+      if (isTimeoutError(e, addTimeoutMs, elapsedMs)) {
+        throw new ScratchSetupError(`scratch worktree setup exceeded ${(addTimeoutMs / 1000).toFixed(0)} s (\`git worktree add\`, no generator had run yet). This is a HOST-STATE failure, not a derived-set verdict: check free RAM against the 4 GB gate, leftover ${SCRATCH_PREFIX}* worktrees and disk, then re-run. Do not report it as "cannot complete".`);
+      }
+      const detail = `exit ${e?.status ?? 'none'}${e?.code ? `, ${e.code}` : ''}${e?.signal ? `, ${e.signal}` : ''}`;
+      const said = tailLines(execOutput(e)) || String(e?.message || e).split('\n')[0];
+      lastFailure = `scratch worktree setup failed after ${(elapsedMs / 1000).toFixed(1)} s on attempt ${attempt} of 2 (\`git worktree add\`, ${detail}, no generator had run yet): ${said}`;
+      if (attempt < 2) {
+        log(`${lastFailure}; retrying setup once in ${(retryDelayMs / 1000).toFixed(1)} s`);
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, retryDelayMs);
+      }
+    }
+  }
+  if (!scratch) {
+    throw new ScratchSetupError(`${lastFailure}. An instant failure with no output is usually the host refusing to start a process under load (a HOST-STATE failure, not a derived-set verdict); re-run before reporting anything.`);
+  }
   try {
     return fn(scratch);
   } finally {
     try {
-      execSync(`git worktree remove --force "${scratch}"`, { cwd: REPO, ...GIT_EXEC_OPTS });
+      execSync(`git worktree remove --force "${scratch}"`, { cwd: repo, ...GIT_EXEC_OPTS });
     } catch {
-      try { rmSync(scratch, { recursive: true, force: true }); execSync('git worktree prune', { cwd: REPO, stdio: 'ignore', env: cleanGitEnv() }); }
+      try { rmSync(scratch, { recursive: true, force: true }); execSync('git worktree prune', { cwd: repo, stdio: 'ignore', env: cleanGitEnv() }); }
       catch { /* best effort cleanup — a stray scratch worktree is annoying, never load-bearing */ }
     }
   }
@@ -988,16 +1146,25 @@ if (isMain) {
     // reports duplicates for that entry alone rather than the whole estate's.
     const dupFindings = withinEntryDuplicates(covered);
     const shareFindings = crossEntryShares(covered);
-    const result = withScratchWorktree((dir) => runLiveScan({
-      dir,
-      covered,
-      timeoutMs,
-      // stderr, not stdout: preflight captures a gate's stdout and prints it
-      // only on failure, so a run killed from OUTSIDE (the 20-minute stalls
-      // that motivated this) would lose exactly the lines that name the
-      // culprit. stderr streams through.
-      progress: (line) => process.stderr.write(`derived-regen-live: ${line}\n`),
-    }));
+    let result;
+    try {
+      result = withScratchWorktree((dir) => runLiveScan({
+        dir,
+        covered,
+        timeoutMs,
+        // stderr, not stdout: preflight captures a gate's stdout and prints it
+        // only on failure, so a run killed from OUTSIDE (the 20-minute stalls
+        // that motivated this) would lose exactly the lines that name the
+        // culprit. stderr streams through.
+        progress: (line) => process.stderr.write(`derived-regen-live: ${line}\n`),
+      }));
+    } catch (e) {
+      // DERIVED-REGEN-LIVE-HARDEN-1 guard 1: a setup failure is a hard FAIL
+      // with its own message, never a pass and never a silent skip.
+      if (!(e instanceof ScratchSetupError)) throw e;
+      console.log(`✗ SCRATCH SETUP — ${e.message}`);
+      process.exit(1);
+    }
     const hardFail = printReport({ ...result, dupFindings, shareFindings, executedCount: covered.filter((c) => c.regen).length });
     process.exit(hardFail ? 1 : 0);
   }
@@ -1008,4 +1175,4 @@ if (isMain) {
 // mkdtemp + `git worktree add --detach HEAD` + guaranteed `git worktree remove
 // --force` in a finally — rather than growing a second, subtly different
 // implementation of it. One scratch-worktree mechanism, one cleanup path.
-export { runLiveScan, withinEntryDuplicates, crossEntryShares, isWithinDeclared, gitStatusPaths, cleanGitEnv, withScratchWorktree, selectCoveredByDiff, changedSelectionLines };
+export { runLiveScan, withinEntryDuplicates, crossEntryShares, isWithinDeclared, gitStatusPaths, cleanGitEnv, withScratchWorktree, selectCoveredByDiff, changedSelectionLines, parseWorktreePorcelain, staleScratchWorktrees, sweepStaleScratch, hostStateLine, ScratchSetupError };
