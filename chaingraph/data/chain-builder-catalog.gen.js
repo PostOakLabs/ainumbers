@@ -7693,7 +7693,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "PayPal Dispute Deadline & Evidence",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html",
-    "description": "PayPal dispute deadline calculator and evidence-bundle producer, the PayPal-side PRODUCER for the existing dispute-evidence chain (hub propo",
+    "description": "Dispute deadline calculator and evidence-bundle producer across four payment service providers (PayPal default, plus Stripe, Adyen and Squar",
     "consumes": [],
     "feeds": [],
     "status": "live"

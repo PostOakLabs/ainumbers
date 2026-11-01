@@ -2,7 +2,7 @@
   "tool_id": "art-776-paypal-dispute-deadline-evidence",
   "version": "1.0.0",
   "title": "PayPal Dispute Deadline & Evidence",
-  "description": "PayPal dispute deadline calculator and evidence-bundle producer (PAYPAL-DISPUTE-DEADLINE-NODE-1, hub proposal PAYPAL-HUB-PROPOSALS-2026-10-24 row 9 as amended). From a dispute reason (the four reasons in the estate's PayPal dispute-evidence map, reused verbatim from paypal-agent-shop/lib/disputes.js), a lifecycle stage from PayPal's dispute_life_cycle_stage enum, a funding source, ISO-8601 UTC timestamps and the evidence items on hand, the node computes the seller response deadline from PayPal's stated rules (10 days after dispute creation at the inquiry stage; 20-day inquiry window) or passes seller_response_due_date through, with days remaining against the caller-supplied as_of. Windows PayPal does not state (chargeback-stage response, appeal period) are returned as null with a reason, never guessed. It maps the reason to required evidence and missing items, and emits the evidence bundle: a CE3.0-shaped bundle with art-297's field names only for a chargeback on a card-funded transaction; a paypal_process_evidence bundle (lib evidence types on the Disputes API v1.12 evidence_info shape) for inquiry, claim and appeal stages and non-card funding; no CE3.0 bundle and a reason for unknown funding. Clause authority: research/clause-snapshots/paypal-disputes-2026-10/SNAPSHOT.md (fetch 2026-10-25T03Z). Zero network, zero PII, synthetic values only.",
+  "description": "Dispute deadline calculator and evidence-bundle producer across four payment service providers (PayPal default; Stripe, Adyen and Square via the psp input). From a dispute reason (the four reasons in the estate's PayPal dispute-evidence map, reused verbatim from paypal-agent-shop/lib/disputes.js), a lifecycle stage from PayPal's dispute_life_cycle_stage enum, a funding source, ISO-8601 UTC timestamps and the evidence items on hand, the node computes the seller response deadline from PayPal's stated rules (10 days after dispute creation at the inquiry stage; 20-day inquiry window) or passes seller_response_due_date through, with days remaining against the caller-supplied as_of. Windows PayPal does not state (chargeback-stage response, appeal period) are returned as null with a reason, never guessed. It maps the reason to required evidence and missing items, and emits the evidence bundle: a CE3.0-shaped bundle with art-297's field names only for a chargeback on a card-funded transaction; a paypal_process_evidence bundle (lib evidence types on the Disputes API v1.12 evidence_info shape) for inquiry, claim and appeal stages and non-card funding; no CE3.0 bundle and a reason for unknown funding. Clause authority: research/clause-snapshots/paypal-disputes-2026-10/SNAPSHOT.md (fetch 2026-10-25T03Z). Zero network, zero PII, synthetic values only. psp selects the deadline table: paypal (default, byte-identical to the original behavior), stripe, adyen or square; the non-PayPal paths take their own stage vocabulary from their snapshot (Stripe Dispute object status, Adyen webhook event codes keyed by scheme, Square DisputeState) and return every unstated window as null with a reason.",
   "category": "chaingraph",
   "tags": [
     "paypal",
@@ -22,6 +22,17 @@
       "as_of"
     ],
     "properties": {
+      "psp": {
+        "type": "string",
+        "enum": [
+          "paypal",
+          "stripe",
+          "adyen",
+          "square"
+        ],
+        "default": "paypal",
+        "description": "Payment service provider whose deadline table applies. Absent means paypal (the original behavior, byte-identical). Each PSP enforces its own lifecycle_stage vocabulary from its snapshot; funding_source and the PayPal reason map apply to the paypal path only."
+      },
       "dispute_reason": {
         "type": "string",
         "enum": [
