@@ -1586,7 +1586,11 @@ export function insertIntoPage(pageSrc, block) {
     return pageSrc.slice(0, region.start) + block + pageSrc.slice(region.end);
   }
   if (!pageSrc.includes('</body>')) throw new Error('page has no </body> to insert before');
-  return pageSrc.replace('</body>', block + '\n\n</body>');
+  // Insert before the LAST </body>: pages may carry a literal '</body>' inside a
+  // script string or template (e.g. document.write('</body></html>')), and a
+  // first-match splice would land the region inside script text and throw at load.
+  const at = pageSrc.lastIndexOf('</body>');
+  return pageSrc.slice(0, at) + block + '\n\n' + pageSrc.slice(at);
 }
 
 // ── Candidate derivation (sweep gate live) ────────────────────────────────────
@@ -3945,6 +3949,12 @@ async function selftest(){
     check('file-import reader present, sourced from _page-chrome.mjs', block.includes(FILE_IMPORT_MARKER) && block.includes('__ocgFileImport'));
     check('file-import reader shares the deep-link run target', block.includes('var RUN_TARGET = "run"'));
     check('file-import reader declares json/csv acceptance and no-upload posture', block.includes(".csv") && block.includes(".json") && block.includes("no storage, no network"));
+
+    // 4b. WEBMCP-GEN-LASTBODY-FIX-1: a literal '</body>' inside script text must
+    // not capture the insert — the block lands before the FINAL </body>.
+    const trickySrc = '<!doctype html>\n<html><body>\n<script>w.document.write("</body></html>");</script>\n</body></html>';
+    const trickyOut = insertIntoPage(trickySrc, block);
+    check('insert lands before the LAST </body> (literal </body> in script text is not the anchor)', trickyOut.indexOf(block) > trickySrc.indexOf('</body>') && trickyOut.endsWith(block + '\n\n</body></html>'));
 
     // 4. Insert is idempotent.
     const once = insertIntoPage(pageBody, block);
