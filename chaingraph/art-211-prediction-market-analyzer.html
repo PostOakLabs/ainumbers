@@ -112,7 +112,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-211-prediction-market-analyzer.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:3db60f420ca07f2d35c4aa2707c39a13b6e04399b65f0924f3e1c71d1b619885">
+<meta name="kernel-digest" content="sha256:181e511f17ddc58d5415726f8a8974a9ad43739b79a6d5d8a1438d63a87125f2">
 </head>
 <body>
 <nav>
@@ -160,6 +160,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </div>
 
   <div class="disclaimer">Not financial advice. For informational purposes only. Verify all fee schedules and contract terms with the venue before trading. This tool does not access live prices or execute orders.</div>
+  <div class="disclaimer">Fee rule: taker fee for the whole order, fee = theta &times; contracts &times; p &times; (1 &minus; p), worked in whole numbers (price on a 0.000001 grid, clamped to 0.001&ndash;0.999). Kalshi: theta 0.07, rounded up to the cent. Polymarket global (input <code>fee_regime: "polymarket_global"</code>, the default): theta by <code>market_category</code> (crypto 0.07; sports, economics, culture, weather, other and combos 0.05; finance, politics, mentions and tech 0.04; geopolitics 0; default <code>other</code>), cut to 5 decimals. Polymarket US (<code>fee_regime: "polymarket_us"</code>): theta by <code>as_of</code> trade date, 0.05 before 2026-07-01, 0.06 from 2026-07-01, 0.0695 from 2026-09-17 (default date 2026-10-30); the venue's filings give no rounding rule, so the fee is shown to $0.000001. Makers and maker rebates are not modelled. Venue omitted means Polymarket global. Earlier outputs of this node assumed a zero fee for Polymarket and could be one cent high on some whole-cent Kalshi inputs (for example 4 contracts at 0.50 gave $0.08; the fee is $0.07).</div>
   <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
 
   <div class="card">
@@ -174,11 +175,41 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         <div class="q">
           <label class="q-label" for="venue">Venue</label>
           <select id="venue">
-            <option value="polymarket">Polymarket (~0 fee)</option>
+            <option value="polymarket">Polymarket (taker fee by regime)</option>
             <option value="kalshi">Kalshi (parabolic fee)</option>
             <option value="cme_event">CME Event ($0.50/contract)</option>
             <option value="robinhood">Robinhood ($0.10/contract)</option>
           </select>
+        </div>
+        <div class="q">
+          <label class="q-label" for="feeRegime">Polymarket fee regime</label>
+          <select id="feeRegime">
+            <option value="polymarket_global">Polymarket global (rate by category)</option>
+            <option value="polymarket_us">Polymarket US (theta by date)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="q">
+          <label class="q-label" for="marketCategory">Market category (global)</label>
+          <select id="marketCategory">
+            <option value="other">Other / general (0.05)</option>
+            <option value="crypto">Crypto (0.07)</option>
+            <option value="sports">Sports (0.05)</option>
+            <option value="economics">Economics (0.05)</option>
+            <option value="culture">Culture (0.05)</option>
+            <option value="weather">Weather (0.05)</option>
+            <option value="combos">Combos (0.05)</option>
+            <option value="finance">Finance (0.04)</option>
+            <option value="politics">Politics (0.04)</option>
+            <option value="mentions">Mentions (0.04)</option>
+            <option value="tech">Tech (0.04)</option>
+            <option value="geopolitics">Geopolitics (no fee)</option>
+          </select>
+        </div>
+        <div class="q">
+          <label class="q-label" for="asOf">Trade date (US regime)</label>
+          <input type="date" id="asOf" value="2026-10-30">
         </div>
         <div class="q">
           <label class="q-label" for="side">Side</label>
@@ -455,6 +486,9 @@ var MANIFEST = {
       properties: {
         mode: { type: 'string', enum: ['binary', 'scalar'], description: 'Contract mode. Default: binary' },
         venue: { type: 'string', description: 'polymarket | kalshi | cme_event | robinhood' },
+fee_regime: { type: 'string', description: 'polymarket_global (default) | polymarket_us; Polymarket venue only' },
+market_category: { type: 'string', description: 'Polymarket global category: crypto | sports | finance | politics | economics | culture | weather | other (default) | mentions | tech | geopolitics | combos' },
+as_of: { type: 'string', description: 'Trade date YYYY-MM-DD for the polymarket_us theta (default 2026-10-30)' },
         side: { type: 'string', description: 'yes | no (binary) or long | short (scalar)' },
         entry_price: { type: 'number', description: 'Entry price per contract (USD). Binary: 0.01-0.99 for $1 payout' },
         n_contracts: { type: 'number', description: 'Number of contracts' },
@@ -500,16 +534,38 @@ function r2(v) { return Math.round(v * 100) / 100; }
 function r6(v) { return Math.round(v * 1e6) / 1e6; }
 function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
 
-function kalshiFee(n, p) {
-  if (!Number.isFinite(p) || p <= 0 || p >= 1) return 0;
-  return Math.ceil(0.07 * n * p * (1-p) * 100) / 100;
+// Taker fee in exact integer micro-dollars (BigInt), same table and rounding as the kernel.
+var PRICE_SCALE = BigInt(1000000);
+var PM_GLOBAL = { crypto:[7,100], sports:[5,100], finance:[4,100], politics:[4,100], economics:[5,100], culture:[5,100],
+  weather:[5,100], other:[5,100], mentions:[4,100], tech:[4,100], geopolitics:[0,1], combos:[5,100] };
+var PM_US = [ { from:'2026-09-17', theta:[695,10000], label:'0.0695' }, { from:'2026-07-01', theta:[6,100], label:'0.06' }, { from:'', theta:[5,100], label:'0.05' } ];
+function ratioLabel(n, d) { if (n === 0) return '0'; var s = String(BigInt(n) * PRICE_SCALE / BigInt(d)).padStart(7, '0'); return (s.slice(0,-6) + '.' + s.slice(-6)).replace(/0+$/,'').replace(/\.$/,''); }
+function parabolic(tn, td, cu, cs, pu) { return { num: BigInt(tn) * cu * pu * (PRICE_SCALE - pu), den: BigInt(td) * cs * PRICE_SCALE * PRICE_SCALE }; }
+function venueFee(venue, cu, cs, p, o) {
+  var q = Number.isFinite(p) ? p : 0.5;
+  var pu = BigInt(Math.min(999000, Math.max(1000, Math.round(q * 1e6)))), f;
+  if (venue === 'kalshi') { f = parabolic(7, 100, cu, cs, pu); return { micro: ((f.num * BigInt(100) + f.den - BigInt(1)) / f.den) * BigInt(10000), regime:'kalshi', theta:'0.07', rounding:'ceil_cent' }; }
+  if (venue === 'polymarket') {
+    if (o.fee_regime === 'polymarket_us') {
+      var row = PM_US.find(function (r) { return o.as_of >= r.from; });
+      f = parabolic(row.theta[0], row.theta[1], cu, cs, pu);
+      return { micro: (BigInt(2) * f.num * PRICE_SCALE + f.den) / (BigInt(2) * f.den), regime:'polymarket_us', theta:row.label, rounding:'half_up_micro_usd_unstated_in_filing', as_of:o.as_of };
+    }
+    var rate = PM_GLOBAL[o.market_category]; f = parabolic(rate[0], rate[1], cu, cs, pu);
+    return { micro: (f.num * BigInt(100000) / f.den) * BigInt(10), regime:'polymarket_global', theta:ratioLabel(rate[0], rate[1]), rounding:'truncate_5dp', category:o.market_category };
+  }
+  var n = Number(cu) / Number(cs);
+  if (venue === 'cme_event') return { micro: BigInt(Math.round(0.5 * n * 1e6)), regime:'cme_event_flat', theta:null, rounding:'none' };
+  if (venue === 'robinhood') return { micro: BigInt(Math.round(0.1 * n * 1e6)), regime:'robinhood_flat', theta:null, rounding:'none' };
+  return { micro: BigInt(0), regime:'not_modelled', theta:null, rounding:'none' };
 }
-function venueFee(venue, n, p) {
-  var pp = Math.max(0.001, Math.min(0.999, Number(p) || 0.5));
-  if (venue === 'kalshi') return kalshiFee(n, pp);
-  if (venue === 'cme_event') return 0.5 * n;
-  if (venue === 'robinhood') return 0.1 * n;
-  return 0;
+function feeOpts(pp) {
+  var cat = String(pp.market_category || 'other').toLowerCase();
+  return {
+    fee_regime: pp.fee_regime === 'polymarket_us' ? 'polymarket_us' : 'polymarket_global',
+    market_category: Object.prototype.hasOwnProperty.call(PM_GLOBAL, cat) ? cat : 'other',
+    as_of: /^\d{4}-\d{2}-\d{2}$/.test(String(pp.as_of || '')) ? String(pp.as_of) : '2026-10-30'
+  };
 }
 function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
 function fracOdds(dec) {
@@ -548,11 +604,17 @@ function runAnalyze() {
     if (userProb !== null) pp.user_probability = userProb;
     if (forecastProb !== null) pp.forecast_prob = forecastProb;
     if (outcome !== null) pp.outcome = outcome;
+    if (venue === 'polymarket') {
+      pp.fee_regime = document.getElementById('feeRegime').value;
+      if (pp.fee_regime === 'polymarket_us') pp.as_of = document.getElementById('asOf').value || '2026-10-30';
+      else pp.market_category = document.getElementById('marketCategory').value;
+    }
 
     var isYes = side !== 'no';
     var holdingWon = isYes ? (won === 1) : (won === 0);
     var payoutRcvd = holdingWon ? payout : 0;
-    var fee = venueFee(venue, n, entry / payout);
+    var feeInfo = venueFee(venue, BigInt(n), BigInt(1), entry / payout, feeOpts(pp));
+    var fee = Number(feeInfo.micro) / 1e6;
     var pnl = r2(n * (payoutRcvd - entry) - fee);
     var impliedProb = r4(entry / payout);
     var breakEven = r4((entry + fee/n) / payout);
@@ -577,12 +639,15 @@ function runAnalyze() {
 
     if (impliedProb < 0.05 || impliedProb > 0.95) flags.push('EXTREME_PROBABILITY');
     if (won === 0) flags.push('POSITION_EXPIRED_LOSS');
+    if (feeInfo.regime === 'not_modelled') flags.push('FEE_NOT_MODELLED');
     if (kf !== null && kf === 0 && userProb !== null) flags.push('NEGATIVE_EDGE');
 
     op = {
       mode:'binary', venue:venue, side:isYes?'yes':'no',
       entry_price:r6(entry), n_contracts:n, payout:r6(payout), won:won,
-      pnl:pnl, fee_paid:r2(fee), implied_probability:impliedProb,
+      pnl:pnl, fee_paid:fee, fee_regime:feeInfo.regime, fee_theta:feeInfo.theta, fee_rounding:feeInfo.rounding,
+      fee_market_category:feeInfo.category !== undefined ? feeInfo.category : null, fee_as_of:feeInfo.as_of !== undefined ? feeInfo.as_of : null,
+      implied_probability:impliedProb,
       break_even_probability:breakEven, no_vig_fair_value:fairYes,
       expected_value:ev, kelly_fraction:kf, half_kelly_stake:hks,
       odds_decimal:decOdds, odds_american:amOdds, odds_fractional:fracOdds(decOdds),
@@ -598,7 +663,7 @@ function runAnalyze() {
       (kf !== null ? '<div class="stat"><span class="stat-val">'+(kf*100).toFixed(1)+'%</span><span class="stat-key">Kelly %</span></div>' : '');
 
     var kvItems = [
-      ['Fee paid','$'+op.fee_paid],['Break-even prob',(breakEven*100).toFixed(2)+'%'],
+      ['Fee paid','$'+op.fee_paid],['Fee regime',op.fee_regime+(op.fee_theta !== null ? ' (theta '+op.fee_theta+')' : '')],['Break-even prob',(breakEven*100).toFixed(2)+'%'],
       ['No-vig fair value',(fairYes*100).toFixed(1)+'%'],
       ['American odds',amOdds > 0 ? '+'+amOdds : ''+amOdds],
       ['Fractional odds',op.odds_fractional]

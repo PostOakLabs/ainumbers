@@ -112,7 +112,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-212-prediction-market-arbitrage.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:50383b30da28ddff91ea438dbd7fb49e6a9688b10a493a72d42811a35733f2b9">
+<meta name="kernel-digest" content="sha256:9a5ed82513d2fd9cb6bbeb2f71b2591791f0fb3887ce0c6472badb25dce95f94">
 <meta name="ai-tool" content="find_prediction_arbitrage">
 </head>
 <body>
@@ -161,6 +161,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </div>
 
   <div class="disclaimer">Not financial advice. Arbitrage opportunities are transient and may disappear before execution. Verify current prices and fees with each venue. This tool does not access live prices or execute orders.</div>
+  <div class="disclaimer">Fee rule: each leg pays a taker fee, fee = theta &times; contracts &times; p &times; (1 &minus; p), worked in whole numbers: price on a 0.000001 grid (clamped to 0.001&ndash;0.999) and the contract count, a stake ratio, on a 0.000001-contract grid. Kalshi: theta 0.07, rounded up to the cent. Polymarket global (input <code>fee_regime: "polymarket_global"</code>, the default): theta by <code>market_category</code> (crypto 0.07; sports, economics, culture, weather, other and combos 0.05; finance, politics, mentions and tech 0.04; geopolitics 0; default <code>other</code>), cut to 5 decimals. Polymarket US (<code>fee_regime: "polymarket_us"</code>): theta by <code>as_of</code> trade date, 0.05 before 2026-07-01, 0.06 from 2026-07-01, 0.0695 from 2026-09-17 (default date 2026-10-30); the venue's filings give no rounding rule, so the fee is shown to $0.000001. SX Bet, Robinhood and CME Event fees are unchanged. Earlier outputs of this node assumed a zero fee for Polymarket legs and could be one cent high on some whole-cent Kalshi inputs.</div>
   <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
 
   <div class="card">
@@ -168,7 +169,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="q">
         <label class="q-label" for="venueA">Venue A (buy YES)</label>
         <select id="venueA" aria-label="venue_a" aria-description="type not evidenced by kernel source">
-          <option value="polymarket">Polymarket (~0 fee)</option>
+          <option value="polymarket">Polymarket (taker fee by regime)</option>
           <option value="kalshi">Kalshi (parabolic)</option>
           <option value="sx_bet">SX Bet (2% flat)</option>
           <option value="robinhood">Robinhood ($0.10/ct)</option>
@@ -179,12 +180,45 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         <label class="q-label" for="venueB">Venue B (buy NO)</label>
         <select id="venueB" aria-label="venue_b" aria-description="type not evidenced by kernel source">
           <option value="kalshi" selected>Kalshi (parabolic)</option>
-          <option value="polymarket">Polymarket (~0 fee)</option>
+          <option value="polymarket">Polymarket (taker fee by regime)</option>
           <option value="sx_bet">SX Bet (2% flat)</option>
           <option value="robinhood">Robinhood ($0.10/ct)</option>
           <option value="cme_event">CME Event ($0.50/ct)</option>
         </select>
       </div>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="feeRegime">Polymarket fee regime</label>
+        <select id="feeRegime" aria-label="fee_regime">
+          <option value="polymarket_global">Polymarket global (rate by category)</option>
+          <option value="polymarket_us">Polymarket US (theta by date)</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="marketCategory">Market category (global)</label>
+        <select id="marketCategory" aria-label="market_category">
+          <option value="other">Other / general (0.05)</option>
+          <option value="crypto">Crypto (0.07)</option>
+          <option value="sports">Sports (0.05)</option>
+          <option value="economics">Economics (0.05)</option>
+          <option value="culture">Culture (0.05)</option>
+          <option value="weather">Weather (0.05)</option>
+          <option value="combos">Combos (0.05)</option>
+          <option value="finance">Finance (0.04)</option>
+          <option value="politics">Politics (0.04)</option>
+          <option value="mentions">Mentions (0.04)</option>
+          <option value="tech">Tech (0.04)</option>
+          <option value="geopolitics">Geopolitics (no fee)</option>
+        </select>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="asOf">Trade date (US regime)</label>
+        <input type="date" id="asOf" value="2026-10-30" aria-label="as_of">
+      </div>
+      <div class="q"></div>
     </div>
     <div class="row2">
       <div class="q">
@@ -445,7 +479,10 @@ var MANIFEST = {
         yes_price_a: { type: 'number', description: 'YES ask price on Venue A (USD per $1 contract)' },
         no_price_b: { type: 'number', description: 'NO ask price on Venue B (USD per $1 contract)' },
         payout: { type: 'number', description: 'Payout per winning contract in USD. Default: 1.0' },
-        stake_total: { type: 'number', description: 'Total capital to deploy in USD. Default: 1000' }
+        stake_total: { type: 'number', description: 'Total capital to deploy in USD. Default: 1000' },
+        fee_regime: { type: 'string', description: 'polymarket_global (default) | polymarket_us; applies to any Polymarket leg' },
+        market_category: { type: 'string', description: 'Polymarket global category: crypto | sports | finance | politics | economics | culture | weather | other (default) | mentions | tech | geopolitics | combos' },
+        as_of: { type: 'string', description: 'Trade date YYYY-MM-DD for the polymarket_us theta (default 2026-10-30)' }
       }
     }
   }
@@ -467,17 +504,41 @@ function r2(v) { return Math.round(v * 100) / 100; }
 function r6(v) { return Math.round(v * 1e6) / 1e6; }
 function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
 
-function kalshiFee(n, p) {
-  if (!Number.isFinite(p) || p <= 0 || p >= 1) return 0;
-  return Math.ceil(0.07 * n * p * (1-p) * 100) / 100;
+// Taker fee per leg in exact integer micro-dollars (BigInt), same table and rounding as the kernel.
+// The contract count is a stake ratio, so it is held as integer micro-contracts (round half-up of k x 1e6).
+var PRICE_SCALE = BigInt(1000000), CONTRACT_SCALE = BigInt(1000000);
+var PM_GLOBAL = { crypto:[7,100], sports:[5,100], finance:[4,100], politics:[4,100], economics:[5,100], culture:[5,100],
+  weather:[5,100], other:[5,100], mentions:[4,100], tech:[4,100], geopolitics:[0,1], combos:[5,100] };
+var PM_US = [ { from:'2026-09-17', theta:[695,10000], label:'0.0695' }, { from:'2026-07-01', theta:[6,100], label:'0.06' }, { from:'', theta:[5,100], label:'0.05' } ];
+function ratioLabel(n, d) { if (n === 0) return '0'; var s = String(BigInt(n) * PRICE_SCALE / BigInt(d)).padStart(7, '0'); return (s.slice(0,-6) + '.' + s.slice(-6)).replace(/0+$/,'').replace(/\.$/,''); }
+function parabolic(tn, td, cu, cs, pu) { return { num: BigInt(tn) * cu * pu * (PRICE_SCALE - pu), den: BigInt(td) * cs * PRICE_SCALE * PRICE_SCALE }; }
+function venueFee(venue, cu, cs, price, o) {
+  var q = Number.isFinite(price) ? price : 0.5;
+  var pu = BigInt(Math.min(999000, Math.max(1000, Math.round(q * 1e6)))), f;
+  if (venue === 'kalshi') { f = parabolic(7, 100, cu, cs, pu); return { micro: ((f.num * BigInt(100) + f.den - BigInt(1)) / f.den) * BigInt(10000), regime:'kalshi', theta:'0.07' }; }
+  if (venue === 'polymarket') {
+    if (o.fee_regime === 'polymarket_us') {
+      var row = PM_US.find(function (r) { return o.as_of >= r.from; });
+      f = parabolic(row.theta[0], row.theta[1], cu, cs, pu);
+      return { micro: (BigInt(2) * f.num * PRICE_SCALE + f.den) / (BigInt(2) * f.den), regime:'polymarket_us', theta:row.label };
+    }
+    var rate = PM_GLOBAL[o.market_category]; f = parabolic(rate[0], rate[1], cu, cs, pu);
+    return { micro: (f.num * BigInt(100000) / f.den) * BigInt(10), regime:'polymarket_global', theta:ratioLabel(rate[0], rate[1]) };
+  }
+  var n = Number(cu) / Number(cs), p = Math.max(0.001, Math.min(0.999, price)), legacy = null;
+  if (venue === 'cme_event') legacy = 0.5 * n;
+  if (venue === 'robinhood') legacy = 0.1 * n;
+  if (venue === 'sx_bet') legacy = Math.round(0.02 * n * p * 100) / 100;
+  if (legacy === null) return { micro: BigInt(0), regime:'not_modelled', theta:null };
+  return { micro: BigInt(Math.round(r2(legacy) * 1e6)), regime: venue + '_legacy', theta:null };
 }
-function venueFee(venue, n, price) {
-  var p = Math.max(0.001, Math.min(0.999, price));
-  if (venue === 'kalshi') return kalshiFee(n, p);
-  if (venue === 'cme_event') return 0.5 * n;
-  if (venue === 'robinhood') return 0.1 * n;
-  if (venue === 'sx_bet') return Math.round(0.02 * n * p * 100) / 100;
-  return 0;
+function feeOpts(pp) {
+  var cat = String(pp.market_category || 'other').toLowerCase();
+  return {
+    fee_regime: pp.fee_regime === 'polymarket_us' ? 'polymarket_us' : 'polymarket_global',
+    market_category: Object.prototype.hasOwnProperty.call(PM_GLOBAL, cat) ? cat : 'other',
+    as_of: /^\d{4}-\d{2}-\d{2}$/.test(String(pp.as_of || '')) ? String(pp.as_of) : '2026-10-30'
+  };
 }
 
 function runArb() {
@@ -494,9 +555,20 @@ function runArb() {
   var kContracts = costPerUnit > 0 ? stake / costPerUnit : 0;
   var capitalDeployed = r2(kContracts * costPerUnit);
   var grossProfit = r2(kContracts * grossSpread);
-  var feeA = r2(venueFee(venueA, kContracts, yesA / payout));
-  var feeB = r2(venueFee(venueB, kContracts, noB / payout));
-  var totalFees = r2(feeA + feeB);
+  var pp = {venue_a:venueA, venue_b:venueB, yes_price_a:r6(yesA), no_price_b:r6(noB), payout:r6(payout), stake_total:r2(stake)};
+  var usesPm = venueA === 'polymarket' || venueB === 'polymarket';
+  if (usesPm) {
+    pp.fee_regime = document.getElementById('feeRegime').value;
+    if (pp.fee_regime === 'polymarket_us') pp.as_of = document.getElementById('asOf').value || '2026-10-30';
+    else pp.market_category = document.getElementById('marketCategory').value;
+  }
+  var fo = feeOpts(pp);
+  var cu = BigInt(Math.max(0, Math.round((Number.isFinite(kContracts) ? kContracts : 0) * 1e6)));
+  var legA = venueFee(venueA, cu, CONTRACT_SCALE, yesA / payout, fo);
+  var legB = venueFee(venueB, cu, CONTRACT_SCALE, noB / payout, fo);
+  var feeA = Number(legA.micro) / 1e6;
+  var feeB = Number(legB.micro) / 1e6;
+  var totalFees = Number(legA.micro + legB.micro) / 1e6;
   var netProfit = r2(grossProfit - totalFees);
   var netEdgePct = capitalDeployed > 0 ? r4(netProfit / capitalDeployed * 100) : 0;
   var minSpread = r4(kContracts > 0 ? totalFees / kContracts : 0);
@@ -510,14 +582,18 @@ function runArb() {
   if (netProfit <= 0) flags.push('FEES_ELIMINATE_EDGE');
   if (grossSpread > 0 && grossSpread < 0.03) flags.push('THIN_SPREAD');
   if (venueA === venueB) flags.push('SAME_VENUE');
+  if (legA.regime === 'not_modelled' || legB.regime === 'not_modelled') flags.push('FEE_NOT_MODELLED');
 
-  var pp = {venue_a:venueA, venue_b:venueB, yes_price_a:r6(yesA), no_price_b:r6(noB), payout:r6(payout), stake_total:r2(stake)};
   var op = {
     venue_a:venueA, venue_b:venueB, yes_price_a:r6(yesA), no_price_b:r6(noB), payout:r6(payout),
     gross_spread:r6(grossSpread), gross_spread_pct:r4(payout>0?grossSpread/payout*100:0),
     arb_exists:arbExists, stake_total:r2(stake), k_contracts:r4(kContracts),
     capital_deployed:capitalDeployed, gross_profit:grossProfit,
-    fee_a:feeA, fee_b:feeB, total_fees:totalFees, net_profit:netProfit,
+    fee_a:feeA, fee_b:feeB, total_fees:totalFees,
+    fee_regime_a:legA.regime, fee_regime_b:legB.regime, fee_theta_a:legA.theta, fee_theta_b:legB.theta,
+    fee_market_category: usesPm && fo.fee_regime === 'polymarket_global' ? fo.market_category : null,
+    fee_as_of: usesPm && fo.fee_regime === 'polymarket_us' ? fo.as_of : null,
+    net_profit:netProfit,
     net_edge_pct:netEdgePct, min_spread_to_break_even:minSpread,
     implied_prob_yes_a:implProbA, implied_prob_yes_b:implProbBYes, consensus_gap:consensusGap,
     disclaimer:'Not financial advice. Arb opportunities are transient and may disappear before execution. Verify current prices and fees with each venue. For informational purposes only.'
