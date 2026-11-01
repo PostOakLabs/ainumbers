@@ -18,10 +18,19 @@
 // Usage: node scripts/check-credits-coverage.mjs <repo-id>
 //        node scripts/check-credits-coverage.mjs --self-test
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const ROOT = path.resolve(fileURLToPath(import.meta.url), '..', '..');
+
+// Direct-run guard (CI-RELEVANT-VENDOR-PATHS-1, 2026-11-01): this module now EXPORTS
+// isCreditsGateScopeFile() for scripts/check-ci-relevant.mjs — one source of truth for
+// "a file the credits gate examines". The gate flow below still runs when the script is
+// executed directly, exactly as before; when imported, only the predicate is handed over
+// (no behaviour change to the gate itself).
+const DIRECT_RUN = !!process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+
+if (DIRECT_RUN) {
 const repoId = process.argv[2];
 const selfTestMode = process.argv.includes('--self-test');
 if (!selfTestMode && (!repoId || !['repo', 'mcp-apps-poc', 'helm', 'anchor-suite'].includes(repoId))) {
@@ -48,6 +57,7 @@ for (const [rel, entry] of Object.entries(originalAllowlist)) {
     allowlistErrors.push(`${rel}: original-authorship-bundle-allowlist.json entry has no written \`reason\` — every original-authorship bundle exemption must say why it is original`);
   }
 }
+} // end DIRECT_RUN setup
 
 const EXCLUDE_DIRS = new Set(['.git', 'node_modules', '.wt', '.wrangler', '.claude', '.claude-worktrees', '.worktrees', 'bundled', 'dist']);
 // `vendor/` OR `vendored/` as a whole path segment (LICENCE-VENDOR-GATE-1, 2026-09-03). The
@@ -128,6 +138,7 @@ function walk(dir, relDir, out) {
   }
 }
 
+if (DIRECT_RUN) {
 const found = [];
 walk(ROOT, '', found);
 
@@ -148,3 +159,17 @@ if (allowlistErrors.length || uncovered.length) {
 }
 
 console.log(`check-credits-coverage: ${found.length} vendored-looking file(s) scanned, all covered by the registry or the original-authorship allowlist.`);
+} // end DIRECT_RUN gate flow
+
+// ── Shared path predicate (CI-RELEVANT-VENDOR-PATHS-1, 2026-11-01) ──────────
+// ONE source of truth for "a file this gate examines". scripts/check-ci-relevant.mjs
+// imports this so CI relevance can never be narrower than the credits gate's scan
+// scope: any vendor(ed)/ path segment, any *.bundle.(mjs|js) file, or the credits
+// registry itself marks a changed file CI-relevant for EVERY path-filtered key.
+// Rules mirror the walk() above and carry the same file: import nothing.
+export function isCreditsGateScopeFile(relPath) {
+  const rel = String(relPath).replace(/\\/g, '/');
+  if (rel === 'data/credits-registry.json') return true;
+  const name = rel.slice(rel.lastIndexOf('/') + 1);
+  return VENDOR_PATH_RE.test(rel) || BUNDLE_FILE_RE.test(name);
+}
