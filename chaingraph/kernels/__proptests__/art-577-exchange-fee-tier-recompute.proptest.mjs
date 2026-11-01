@@ -202,6 +202,1580 @@ function checkP5_forced_categorical() {
   return { name: 'P5_forced_categorical_boundary_cases', trials: checked, violations };
 }
 
+// ---------- P6: curated exact-output cases (mutation killtests, PR-2795-MUTATION-FLOOR-KILLTESTS-1) ----------
+// Each case pins the ENTIRE output_payload (except scope_note/clause_note, which the fixture
+// oracle already byte-compares) and compliance_flags for one hand-built input, harvested from the
+// pristine kernel. These pin the exact boundary and rejection behavior the randomized properties
+// above can only hit by chance: tier-selection equality (adv == min_adv_shares), the tolerance
+// boundary in both diff directions (abs() of a negative diff included), the Rule 610(c) cap
+// boundary (taker rate exactly 1000 vs 1001 micros, including on a NON-active tier), cap
+// applicability independence, MAX_TIERS truncation with an exact-threshold active tier,
+// string-typed safe-integer coercion, and the full rejected_inputs literal strings for every
+// validation branch. A mutant that changes any observable byte of these runs' output dies here.
+function exactEq(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+function checkP6_curated_exact_output() {
+  const cases = [
+  {
+    "name": "A_match_exact_boundary",
+    "pp": {
+      "recompute_tolerance_micros": 40,
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "prior_period_adv_shares": 50000,
+      "fee_schedule": {
+        "schedule_id": "SCH-EXACT",
+        "effective_date": "2026-03-01",
+        "quotes_priced_ge_1usd": true,
+        "tiers": [
+          {
+            "tier_id": "TA",
+            "min_adv_shares": 0,
+            "maker_rate_micros_per_share": -150,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "TB",
+            "min_adv_shares": 50000,
+            "maker_rate_micros_per_share": 220,
+            "taker_rate_micros_per_share": 700
+          },
+          {
+            "tier_id": "TC",
+            "min_adv_shares": 90000,
+            "maker_rate_micros_per_share": 900,
+            "taker_rate_micros_per_share": 1200
+          }
+        ]
+      },
+      "volume_lines": [
+        {
+          "side": "maker",
+          "shares": 300
+        },
+        {
+          "side": "taker",
+          "shares": 200
+        },
+        {
+          "side": "maker",
+          "shares": 700
+        }
+      ],
+      "claimed_invoice_micros": 359960
+    },
+    "flags": [
+      "EXFEE_INVOICE_AND_CAP_EVALUATED",
+      "EXFEE_CAP_EXCEEDED"
+    ],
+    "out": {
+      "decision": {
+        "gate_policy": "review_required",
+        "execution_state": "ran",
+        "reason": null
+      },
+      "invoice_verdict": "MATCHES",
+      "cap_verdict": "CAP_EXCEEDS",
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "recompute_tolerance_micros": 40,
+      "prior_period_adv_shares": 50000,
+      "fee_schedule_summary": {
+        "schedule_id": "SCH-EXACT",
+        "effective_date": "2026-03-01",
+        "tier_count": 3,
+        "quotes_priced_ge_1usd": true
+      },
+      "tiers": [
+        {
+          "tier_id": "TA",
+          "min_adv_shares": 0,
+          "maker_rate_micros_per_share": -150,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "TB",
+          "min_adv_shares": 50000,
+          "maker_rate_micros_per_share": 220,
+          "taker_rate_micros_per_share": 700
+        },
+        {
+          "tier_id": "TC",
+          "min_adv_shares": 90000,
+          "maker_rate_micros_per_share": 900,
+          "taker_rate_micros_per_share": 1200
+        }
+      ],
+      "active_tier": {
+        "tier_id": "TB",
+        "min_adv_shares": 50000,
+        "maker_rate_micros_per_share": 220,
+        "taker_rate_micros_per_share": 700
+      },
+      "volume_summary": {
+        "line_count": 3,
+        "maker_shares_total": 1000,
+        "taker_shares_total": 200
+      },
+      "recomputed_invoice_micros": 360000,
+      "claimed_invoice_micros": 359960,
+      "diff_micros": 40,
+      "cap_check": {
+        "cap_micros_per_share": 1000,
+        "quotes_priced_ge_1usd": true,
+        "tier_findings": [
+          {
+            "tier_id": "TA",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "TB",
+            "taker_rate_micros_per_share": 700,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "TC",
+            "taker_rate_micros_per_share": 1200,
+            "exceeds_cap": true
+          }
+        ]
+      },
+      "findings": [
+        {
+          "code": "ACCESS_FEE_CAP_EXCEEDED",
+          "severity": "high",
+          "message": "Tier(s) TC declare a taker rate above the $0.001/share Rule 610(c) cap."
+        }
+      ],
+      "rejected_inputs": []
+    }
+  },
+  {
+    "name": "B_diverge_over_tol",
+    "pp": {
+      "recompute_tolerance_micros": 40,
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "prior_period_adv_shares": 50000,
+      "fee_schedule": {
+        "schedule_id": "SCH-EXACT",
+        "effective_date": "2026-03-01",
+        "quotes_priced_ge_1usd": true,
+        "tiers": [
+          {
+            "tier_id": "TA",
+            "min_adv_shares": 0,
+            "maker_rate_micros_per_share": -150,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "TB",
+            "min_adv_shares": 50000,
+            "maker_rate_micros_per_share": 220,
+            "taker_rate_micros_per_share": 700
+          },
+          {
+            "tier_id": "TC",
+            "min_adv_shares": 90000,
+            "maker_rate_micros_per_share": 900,
+            "taker_rate_micros_per_share": 1200
+          }
+        ]
+      },
+      "volume_lines": [
+        {
+          "side": "maker",
+          "shares": 300
+        },
+        {
+          "side": "taker",
+          "shares": 200
+        },
+        {
+          "side": "maker",
+          "shares": 700
+        }
+      ],
+      "claimed_invoice_micros": 360041
+    },
+    "flags": [
+      "EXFEE_INVOICE_AND_CAP_EVALUATED",
+      "EXFEE_INVOICE_DIVERGES",
+      "EXFEE_CAP_EXCEEDED"
+    ],
+    "out": {
+      "decision": {
+        "gate_policy": "review_required",
+        "execution_state": "ran",
+        "reason": null
+      },
+      "invoice_verdict": "DIVERGES",
+      "cap_verdict": "CAP_EXCEEDS",
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "recompute_tolerance_micros": 40,
+      "prior_period_adv_shares": 50000,
+      "fee_schedule_summary": {
+        "schedule_id": "SCH-EXACT",
+        "effective_date": "2026-03-01",
+        "tier_count": 3,
+        "quotes_priced_ge_1usd": true
+      },
+      "tiers": [
+        {
+          "tier_id": "TA",
+          "min_adv_shares": 0,
+          "maker_rate_micros_per_share": -150,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "TB",
+          "min_adv_shares": 50000,
+          "maker_rate_micros_per_share": 220,
+          "taker_rate_micros_per_share": 700
+        },
+        {
+          "tier_id": "TC",
+          "min_adv_shares": 90000,
+          "maker_rate_micros_per_share": 900,
+          "taker_rate_micros_per_share": 1200
+        }
+      ],
+      "active_tier": {
+        "tier_id": "TB",
+        "min_adv_shares": 50000,
+        "maker_rate_micros_per_share": 220,
+        "taker_rate_micros_per_share": 700
+      },
+      "volume_summary": {
+        "line_count": 3,
+        "maker_shares_total": 1000,
+        "taker_shares_total": 200
+      },
+      "recomputed_invoice_micros": 360000,
+      "claimed_invoice_micros": 360041,
+      "diff_micros": -41,
+      "cap_check": {
+        "cap_micros_per_share": 1000,
+        "quotes_priced_ge_1usd": true,
+        "tier_findings": [
+          {
+            "tier_id": "TA",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "TB",
+            "taker_rate_micros_per_share": 700,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "TC",
+            "taker_rate_micros_per_share": 1200,
+            "exceeds_cap": true
+          }
+        ]
+      },
+      "findings": [
+        {
+          "code": "INVOICE_RECOMPUTE_DIVERGES",
+          "severity": "high",
+          "message": "Recomputed invoice (360000 micros) differs from the claimed invoice (360041 micros) by more than the declared tolerance."
+        },
+        {
+          "code": "ACCESS_FEE_CAP_EXCEEDED",
+          "severity": "high",
+          "message": "Tier(s) TC declare a taker rate above the $0.001/share Rule 610(c) cap."
+        }
+      ],
+      "rejected_inputs": []
+    }
+  },
+  {
+    "name": "C_cap_exceeds_inactive_tier",
+    "pp": {
+      "recompute_tolerance_micros": 0,
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "prior_period_adv_shares": 10,
+      "fee_schedule": {
+        "schedule_id": "SCH-CAP",
+        "effective_date": "2026-03-01",
+        "quotes_priced_ge_1usd": true,
+        "tiers": [
+          {
+            "tier_id": "LOW",
+            "min_adv_shares": 0,
+            "maker_rate_micros_per_share": 100,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "HIGH",
+            "min_adv_shares": 50000,
+            "maker_rate_micros_per_share": 100,
+            "taker_rate_micros_per_share": 1001
+          }
+        ]
+      },
+      "volume_lines": [
+        {
+          "side": "taker",
+          "shares": 10
+        }
+      ],
+      "claimed_invoice_micros": 10000
+    },
+    "flags": [
+      "EXFEE_INVOICE_AND_CAP_EVALUATED",
+      "EXFEE_CAP_EXCEEDED"
+    ],
+    "out": {
+      "decision": {
+        "gate_policy": "review_required",
+        "execution_state": "ran",
+        "reason": null
+      },
+      "invoice_verdict": "MATCHES",
+      "cap_verdict": "CAP_EXCEEDS",
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "recompute_tolerance_micros": 0,
+      "prior_period_adv_shares": 10,
+      "fee_schedule_summary": {
+        "schedule_id": "SCH-CAP",
+        "effective_date": "2026-03-01",
+        "tier_count": 2,
+        "quotes_priced_ge_1usd": true
+      },
+      "tiers": [
+        {
+          "tier_id": "LOW",
+          "min_adv_shares": 0,
+          "maker_rate_micros_per_share": 100,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "HIGH",
+          "min_adv_shares": 50000,
+          "maker_rate_micros_per_share": 100,
+          "taker_rate_micros_per_share": 1001
+        }
+      ],
+      "active_tier": {
+        "tier_id": "LOW",
+        "min_adv_shares": 0,
+        "maker_rate_micros_per_share": 100,
+        "taker_rate_micros_per_share": 1000
+      },
+      "volume_summary": {
+        "line_count": 1,
+        "maker_shares_total": 0,
+        "taker_shares_total": 10
+      },
+      "recomputed_invoice_micros": 10000,
+      "claimed_invoice_micros": 10000,
+      "diff_micros": 0,
+      "cap_check": {
+        "cap_micros_per_share": 1000,
+        "quotes_priced_ge_1usd": true,
+        "tier_findings": [
+          {
+            "tier_id": "LOW",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "HIGH",
+            "taker_rate_micros_per_share": 1001,
+            "exceeds_cap": true
+          }
+        ]
+      },
+      "findings": [
+        {
+          "code": "ACCESS_FEE_CAP_EXCEEDED",
+          "severity": "high",
+          "message": "Tier(s) HIGH declare a taker rate above the $0.001/share Rule 610(c) cap."
+        }
+      ],
+      "rejected_inputs": []
+    }
+  },
+  {
+    "name": "D_no_tier_qualifies",
+    "pp": {
+      "recompute_tolerance_micros": 0,
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "prior_period_adv_shares": 5,
+      "fee_schedule": {
+        "schedule_id": "SCH-D",
+        "effective_date": "2026-03-01",
+        "quotes_priced_ge_1usd": true,
+        "tiers": [
+          {
+            "tier_id": "T1",
+            "min_adv_shares": 10,
+            "maker_rate_micros_per_share": 5,
+            "taker_rate_micros_per_share": 6
+          }
+        ]
+      },
+      "volume_lines": [
+        {
+          "side": "maker",
+          "shares": 4
+        }
+      ],
+      "claimed_invoice_micros": 0
+    },
+    "flags": [
+      "EXFEE_INVOICE_AND_CAP_EVALUATED",
+      "EXFEE_TIER_NOT_RESOLVED"
+    ],
+    "out": {
+      "decision": {
+        "gate_policy": "auto_pass",
+        "execution_state": "ran",
+        "reason": null
+      },
+      "invoice_verdict": "INDETERMINATE",
+      "cap_verdict": "CAP_CONFORMANT",
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "recompute_tolerance_micros": 0,
+      "prior_period_adv_shares": 5,
+      "fee_schedule_summary": {
+        "schedule_id": "SCH-D",
+        "effective_date": "2026-03-01",
+        "tier_count": 1,
+        "quotes_priced_ge_1usd": true
+      },
+      "tiers": [
+        {
+          "tier_id": "T1",
+          "min_adv_shares": 10,
+          "maker_rate_micros_per_share": 5,
+          "taker_rate_micros_per_share": 6
+        }
+      ],
+      "active_tier": null,
+      "volume_summary": {
+        "line_count": 1,
+        "maker_shares_total": 4,
+        "taker_shares_total": 0
+      },
+      "recomputed_invoice_micros": null,
+      "claimed_invoice_micros": 0,
+      "diff_micros": null,
+      "cap_check": {
+        "cap_micros_per_share": 1000,
+        "quotes_priced_ge_1usd": true,
+        "tier_findings": [
+          {
+            "tier_id": "T1",
+            "taker_rate_micros_per_share": 6,
+            "exceeds_cap": false
+          }
+        ]
+      },
+      "findings": [
+        {
+          "code": "NO_TIER_QUALIFIES_FOR_DECLARED_ADV",
+          "severity": "warning",
+          "message": "Declared prior_period_adv_shares does not meet the lowest tier threshold in the schedule."
+        }
+      ],
+      "rejected_inputs": []
+    }
+  },
+  {
+    "name": "E_cap_applicability_false",
+    "pp": {
+      "recompute_tolerance_micros": 1,
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "prior_period_adv_shares": 1000,
+      "fee_schedule": {
+        "schedule_id": "SCH-E",
+        "effective_date": "2026-03-01",
+        "quotes_priced_ge_1usd": false,
+        "tiers": [
+          {
+            "tier_id": "T1",
+            "min_adv_shares": 0,
+            "maker_rate_micros_per_share": 10,
+            "taker_rate_micros_per_share": 20
+          }
+        ]
+      },
+      "volume_lines": [
+        {
+          "side": "taker",
+          "shares": 100
+        }
+      ],
+      "claimed_invoice_micros": 2000
+    },
+    "flags": [
+      "EXFEE_INVOICE_AND_CAP_EVALUATED",
+      "EXFEE_CAP_APPLICABILITY_UNCONFIRMED"
+    ],
+    "out": {
+      "decision": {
+        "gate_policy": "auto_pass",
+        "execution_state": "ran",
+        "reason": null
+      },
+      "invoice_verdict": "MATCHES",
+      "cap_verdict": "INDETERMINATE",
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "recompute_tolerance_micros": 1,
+      "prior_period_adv_shares": 1000,
+      "fee_schedule_summary": {
+        "schedule_id": "SCH-E",
+        "effective_date": "2026-03-01",
+        "tier_count": 1,
+        "quotes_priced_ge_1usd": false
+      },
+      "tiers": [
+        {
+          "tier_id": "T1",
+          "min_adv_shares": 0,
+          "maker_rate_micros_per_share": 10,
+          "taker_rate_micros_per_share": 20
+        }
+      ],
+      "active_tier": {
+        "tier_id": "T1",
+        "min_adv_shares": 0,
+        "maker_rate_micros_per_share": 10,
+        "taker_rate_micros_per_share": 20
+      },
+      "volume_summary": {
+        "line_count": 1,
+        "maker_shares_total": 0,
+        "taker_shares_total": 100
+      },
+      "recomputed_invoice_micros": 2000,
+      "claimed_invoice_micros": 2000,
+      "diff_micros": 0,
+      "cap_check": {
+        "cap_micros_per_share": 1000,
+        "quotes_priced_ge_1usd": false,
+        "tier_findings": []
+      },
+      "findings": [
+        {
+          "code": "CAP_APPLICABILITY_NOT_CONFIRMED",
+          "severity": "warning",
+          "message": "quotes_priced_ge_1usd is not declared true -- Rule 610(c)'s $0.001/share cap applies only to quotations priced at $1.00/share or more; sub-dollar pricing uses a different formula this kernel does not evaluate."
+        }
+      ],
+      "rejected_inputs": []
+    }
+  },
+  {
+    "name": "F_missing_claimed",
+    "pp": {
+      "recompute_tolerance_micros": 0,
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "prior_period_adv_shares": 1000,
+      "fee_schedule": {
+        "schedule_id": "SCH-F",
+        "effective_date": "2026-03-01",
+        "quotes_priced_ge_1usd": true,
+        "tiers": [
+          {
+            "tier_id": "T1",
+            "min_adv_shares": 0,
+            "maker_rate_micros_per_share": 10,
+            "taker_rate_micros_per_share": 20
+          }
+        ]
+      },
+      "volume_lines": [
+        {
+          "side": "taker",
+          "shares": 10
+        }
+      ]
+    },
+    "flags": [
+      "EXFEE_REQUIRED_INPUTS_INCOMPLETE"
+    ],
+    "out": {
+      "decision": {
+        "gate_policy": "review_required",
+        "execution_state": "did_not_run",
+        "reason": "required_inputs_incomplete"
+      },
+      "invoice_verdict": "INDETERMINATE",
+      "cap_verdict": "INDETERMINATE",
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "recompute_tolerance_micros": 0,
+      "prior_period_adv_shares": 1000,
+      "fee_schedule_summary": null,
+      "tiers": [],
+      "active_tier": null,
+      "volume_summary": null,
+      "recomputed_invoice_micros": null,
+      "claimed_invoice_micros": null,
+      "diff_micros": null,
+      "cap_check": null,
+      "findings": [],
+      "rejected_inputs": [
+        {
+          "where": "claimed_invoice_micros",
+          "reason": "absent or not an integer number of micro-dollars",
+          "supplied": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "G_tolerance_absent",
+    "pp": {
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "prior_period_adv_shares": 1000,
+      "fee_schedule": {
+        "schedule_id": "SCH-G",
+        "effective_date": "2026-03-01",
+        "quotes_priced_ge_1usd": true,
+        "tiers": [
+          {
+            "tier_id": "T1",
+            "min_adv_shares": 0,
+            "maker_rate_micros_per_share": 10,
+            "taker_rate_micros_per_share": 20
+          }
+        ]
+      },
+      "volume_lines": [
+        {
+          "side": "taker",
+          "shares": 10
+        }
+      ],
+      "claimed_invoice_micros": 200
+    },
+    "flags": [
+      "EXFEE_TOLERANCE_NOT_DECLARED"
+    ],
+    "out": {
+      "decision": {
+        "gate_policy": "review_required",
+        "execution_state": "did_not_run",
+        "reason": "recompute_tolerance_not_declared"
+      },
+      "invoice_verdict": "INDETERMINATE",
+      "cap_verdict": "INDETERMINATE",
+      "invoice_period": null,
+      "recompute_tolerance_micros": null,
+      "prior_period_adv_shares": null,
+      "fee_schedule_summary": null,
+      "tiers": [],
+      "active_tier": null,
+      "volume_summary": null,
+      "recomputed_invoice_micros": null,
+      "claimed_invoice_micros": null,
+      "diff_micros": null,
+      "cap_check": null,
+      "findings": [],
+      "rejected_inputs": [
+        {
+          "where": "recompute_tolerance_micros",
+          "reason": "absent -- a tolerance must be declared, never defaulted",
+          "supplied": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "H_tolerance_negative",
+    "pp": {
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "prior_period_adv_shares": 1000,
+      "fee_schedule": {
+        "schedule_id": "SCH-G",
+        "effective_date": "2026-03-01",
+        "quotes_priced_ge_1usd": true,
+        "tiers": [
+          {
+            "tier_id": "T1",
+            "min_adv_shares": 0,
+            "maker_rate_micros_per_share": 10,
+            "taker_rate_micros_per_share": 20
+          }
+        ]
+      },
+      "volume_lines": [
+        {
+          "side": "taker",
+          "shares": 10
+        }
+      ],
+      "claimed_invoice_micros": 200,
+      "recompute_tolerance_micros": -1
+    },
+    "flags": [
+      "EXFEE_TOLERANCE_NOT_DECLARED"
+    ],
+    "out": {
+      "decision": {
+        "gate_policy": "review_required",
+        "execution_state": "did_not_run",
+        "reason": "recompute_tolerance_not_declared"
+      },
+      "invoice_verdict": "INDETERMINATE",
+      "cap_verdict": "INDETERMINATE",
+      "invoice_period": null,
+      "recompute_tolerance_micros": null,
+      "prior_period_adv_shares": null,
+      "fee_schedule_summary": null,
+      "tiers": [],
+      "active_tier": null,
+      "volume_summary": null,
+      "recomputed_invoice_micros": null,
+      "claimed_invoice_micros": null,
+      "diff_micros": null,
+      "cap_check": null,
+      "findings": [],
+      "rejected_inputs": [
+        {
+          "where": "recompute_tolerance_micros",
+          "reason": "not a non-negative safe integer number of micro-dollars",
+          "supplied": -1
+        }
+      ]
+    }
+  },
+  {
+    "name": "I_validation_harvest",
+    "pp": {
+      "recompute_tolerance_micros": 0,
+      "invoice_period": {
+        "start_date": "2026-02-10",
+        "end_date": "2026-02-10"
+      },
+      "prior_period_adv_shares": -3,
+      "fee_schedule": {
+        "schedule_id": "",
+        "effective_date": "March 2026",
+        "quotes_priced_ge_1usd": true,
+        "tiers": [
+          {
+            "tier_id": "",
+            "min_adv_shares": 0,
+            "maker_rate_micros_per_share": 1,
+            "taker_rate_micros_per_share": 1
+          },
+          {
+            "tier_id": "DUPX",
+            "min_adv_shares": 100,
+            "maker_rate_micros_per_share": 1,
+            "taker_rate_micros_per_share": 1
+          },
+          {
+            "tier_id": "DUPX",
+            "min_adv_shares": 100,
+            "maker_rate_micros_per_share": 1,
+            "taker_rate_micros_per_share": 1
+          },
+          {
+            "tier_id": "NEGM",
+            "min_adv_shares": -5,
+            "maker_rate_micros_per_share": 1,
+            "taker_rate_micros_per_share": 1
+          },
+          {
+            "tier_id": "NOMK",
+            "min_adv_shares": 200,
+            "maker_rate_micros_per_share": null,
+            "taker_rate_micros_per_share": 1
+          },
+          {
+            "tier_id": "NOTK",
+            "min_adv_shares": 300,
+            "maker_rate_micros_per_share": 1
+          },
+          {
+            "tier_id": " OKID ",
+            "min_adv_shares": 400,
+            "maker_rate_micros_per_share": "7",
+            "taker_rate_micros_per_share": "8"
+          }
+        ]
+      },
+      "volume_lines": [
+        {
+          "side": "taker",
+          "shares": 10
+        },
+        {
+          "side": "odd",
+          "shares": 5
+        },
+        {
+          "side": "maker",
+          "shares": 0
+        },
+        {
+          "side": "maker",
+          "shares": -2
+        },
+        {
+          "side": "maker",
+          "shares": "xyz"
+        },
+        null
+      ],
+      "claimed_invoice_micros": "abc"
+    },
+    "flags": [
+      "EXFEE_REQUIRED_INPUTS_INCOMPLETE"
+    ],
+    "out": {
+      "decision": {
+        "gate_policy": "review_required",
+        "execution_state": "did_not_run",
+        "reason": "required_inputs_incomplete"
+      },
+      "invoice_verdict": "INDETERMINATE",
+      "cap_verdict": "INDETERMINATE",
+      "invoice_period": {
+        "start_date": "2026-02-10",
+        "end_date": "2026-02-10"
+      },
+      "recompute_tolerance_micros": 0,
+      "prior_period_adv_shares": -3,
+      "fee_schedule_summary": null,
+      "tiers": [],
+      "active_tier": null,
+      "volume_summary": null,
+      "recomputed_invoice_micros": null,
+      "claimed_invoice_micros": null,
+      "diff_micros": null,
+      "cap_check": null,
+      "findings": [],
+      "rejected_inputs": [
+        {
+          "where": "prior_period_adv_shares",
+          "reason": "absent or not a non-negative safe integer",
+          "supplied": null
+        },
+        {
+          "where": "fee_schedule.schedule_id",
+          "reason": "absent",
+          "supplied": null
+        },
+        {
+          "where": "fee_schedule.effective_date",
+          "reason": "absent or not YYYY-MM-DD",
+          "supplied": "March 2026"
+        },
+        {
+          "where": "fee_schedule.tiers[0].tier_id",
+          "reason": "absent",
+          "supplied": null
+        },
+        {
+          "where": "fee_schedule.tiers[2].tier_id",
+          "reason": "duplicate tier_id",
+          "supplied": "DUPX"
+        },
+        {
+          "where": "fee_schedule.tiers[3].min_adv_shares",
+          "reason": "absent or not a non-negative safe integer",
+          "supplied": "NEGM"
+        },
+        {
+          "where": "fee_schedule.tiers[4].maker_rate_micros_per_share",
+          "reason": "absent or not an integer number of micro-dollars",
+          "supplied": "NOMK"
+        },
+        {
+          "where": "fee_schedule.tiers[5].taker_rate_micros_per_share",
+          "reason": "absent or not an integer number of micro-dollars",
+          "supplied": "NOTK"
+        },
+        {
+          "where": "volume_lines[1]",
+          "reason": "side must be maker/taker and shares a positive integer",
+          "supplied": "odd"
+        },
+        {
+          "where": "volume_lines[2]",
+          "reason": "side must be maker/taker and shares a positive integer",
+          "supplied": "maker"
+        },
+        {
+          "where": "volume_lines[3]",
+          "reason": "side must be maker/taker and shares a positive integer",
+          "supplied": "maker"
+        },
+        {
+          "where": "volume_lines[4]",
+          "reason": "side must be maker/taker and shares a positive integer",
+          "supplied": "maker"
+        },
+        {
+          "where": "volume_lines[5]",
+          "reason": "side must be maker/taker and shares a positive integer",
+          "supplied": null
+        },
+        {
+          "where": "claimed_invoice_micros",
+          "reason": "absent or not an integer number of micro-dollars",
+          "supplied": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "J_string_ints_accepted",
+    "pp": {
+      "recompute_tolerance_micros": "50",
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "prior_period_adv_shares": "0",
+      "fee_schedule": {
+        "schedule_id": " SCH-J ",
+        "effective_date": "2026-03-01",
+        "quotes_priced_ge_1usd": true,
+        "tiers": [
+          {
+            "tier_id": " TJ ",
+            "min_adv_shares": "0",
+            "maker_rate_micros_per_share": "-25",
+            "taker_rate_micros_per_share": "30"
+          }
+        ]
+      },
+      "volume_lines": [
+        {
+          "side": "maker",
+          "shares": "100"
+        },
+        {
+          "side": "taker",
+          "shares": "200"
+        }
+      ],
+      "claimed_invoice_micros": 3480
+    },
+    "flags": [
+      "EXFEE_INVOICE_AND_CAP_EVALUATED"
+    ],
+    "out": {
+      "decision": {
+        "gate_policy": "auto_pass",
+        "execution_state": "ran",
+        "reason": null
+      },
+      "invoice_verdict": "MATCHES",
+      "cap_verdict": "CAP_CONFORMANT",
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "recompute_tolerance_micros": 50,
+      "prior_period_adv_shares": 0,
+      "fee_schedule_summary": {
+        "schedule_id": "SCH-J",
+        "effective_date": "2026-03-01",
+        "tier_count": 1,
+        "quotes_priced_ge_1usd": true
+      },
+      "tiers": [
+        {
+          "tier_id": "TJ",
+          "min_adv_shares": 0,
+          "maker_rate_micros_per_share": -25,
+          "taker_rate_micros_per_share": 30
+        }
+      ],
+      "active_tier": {
+        "tier_id": "TJ",
+        "min_adv_shares": 0,
+        "maker_rate_micros_per_share": -25,
+        "taker_rate_micros_per_share": 30
+      },
+      "volume_summary": {
+        "line_count": 2,
+        "maker_shares_total": 100,
+        "taker_shares_total": 200
+      },
+      "recomputed_invoice_micros": 3500,
+      "claimed_invoice_micros": 3480,
+      "diff_micros": 20,
+      "cap_check": {
+        "cap_micros_per_share": 1000,
+        "quotes_priced_ge_1usd": true,
+        "tier_findings": [
+          {
+            "tier_id": "TJ",
+            "taker_rate_micros_per_share": 30,
+            "exceeds_cap": false
+          }
+        ]
+      },
+      "findings": [],
+      "rejected_inputs": []
+    }
+  },
+  {
+    "name": "K_truncation_25_tiers",
+    "pp": {
+      "recompute_tolerance_micros": 0,
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "prior_period_adv_shares": 19,
+      "fee_schedule": {
+        "schedule_id": "SCH-K",
+        "effective_date": "2026-03-01",
+        "quotes_priced_ge_1usd": true,
+        "tiers": [
+          {
+            "tier_id": "T0",
+            "min_adv_shares": 0,
+            "maker_rate_micros_per_share": 0,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T1",
+            "min_adv_shares": 1,
+            "maker_rate_micros_per_share": 1,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T2",
+            "min_adv_shares": 2,
+            "maker_rate_micros_per_share": 2,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T3",
+            "min_adv_shares": 3,
+            "maker_rate_micros_per_share": 3,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T4",
+            "min_adv_shares": 4,
+            "maker_rate_micros_per_share": 4,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T5",
+            "min_adv_shares": 5,
+            "maker_rate_micros_per_share": 5,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T6",
+            "min_adv_shares": 6,
+            "maker_rate_micros_per_share": 6,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T7",
+            "min_adv_shares": 7,
+            "maker_rate_micros_per_share": 7,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T8",
+            "min_adv_shares": 8,
+            "maker_rate_micros_per_share": 8,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T9",
+            "min_adv_shares": 9,
+            "maker_rate_micros_per_share": 9,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T10",
+            "min_adv_shares": 10,
+            "maker_rate_micros_per_share": 10,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T11",
+            "min_adv_shares": 11,
+            "maker_rate_micros_per_share": 11,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T12",
+            "min_adv_shares": 12,
+            "maker_rate_micros_per_share": 12,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T13",
+            "min_adv_shares": 13,
+            "maker_rate_micros_per_share": 13,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T14",
+            "min_adv_shares": 14,
+            "maker_rate_micros_per_share": 14,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T15",
+            "min_adv_shares": 15,
+            "maker_rate_micros_per_share": 15,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T16",
+            "min_adv_shares": 16,
+            "maker_rate_micros_per_share": 16,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T17",
+            "min_adv_shares": 17,
+            "maker_rate_micros_per_share": 17,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T18",
+            "min_adv_shares": 18,
+            "maker_rate_micros_per_share": 18,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T19",
+            "min_adv_shares": 19,
+            "maker_rate_micros_per_share": 19,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T20",
+            "min_adv_shares": 20,
+            "maker_rate_micros_per_share": 20,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T21",
+            "min_adv_shares": 21,
+            "maker_rate_micros_per_share": 21,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T22",
+            "min_adv_shares": 22,
+            "maker_rate_micros_per_share": 22,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T23",
+            "min_adv_shares": 23,
+            "maker_rate_micros_per_share": 23,
+            "taker_rate_micros_per_share": 1000
+          },
+          {
+            "tier_id": "T24",
+            "min_adv_shares": 24,
+            "maker_rate_micros_per_share": 24,
+            "taker_rate_micros_per_share": 1000
+          }
+        ]
+      },
+      "volume_lines": [
+        {
+          "side": "taker",
+          "shares": 1
+        }
+      ],
+      "claimed_invoice_micros": 1000
+    },
+    "flags": [
+      "EXFEE_INVOICE_AND_CAP_EVALUATED"
+    ],
+    "out": {
+      "decision": {
+        "gate_policy": "auto_pass",
+        "execution_state": "ran",
+        "reason": null
+      },
+      "invoice_verdict": "MATCHES",
+      "cap_verdict": "CAP_CONFORMANT",
+      "invoice_period": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+      },
+      "recompute_tolerance_micros": 0,
+      "prior_period_adv_shares": 19,
+      "fee_schedule_summary": {
+        "schedule_id": "SCH-K",
+        "effective_date": "2026-03-01",
+        "tier_count": 20,
+        "quotes_priced_ge_1usd": true
+      },
+      "tiers": [
+        {
+          "tier_id": "T0",
+          "min_adv_shares": 0,
+          "maker_rate_micros_per_share": 0,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T1",
+          "min_adv_shares": 1,
+          "maker_rate_micros_per_share": 1,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T2",
+          "min_adv_shares": 2,
+          "maker_rate_micros_per_share": 2,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T3",
+          "min_adv_shares": 3,
+          "maker_rate_micros_per_share": 3,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T4",
+          "min_adv_shares": 4,
+          "maker_rate_micros_per_share": 4,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T5",
+          "min_adv_shares": 5,
+          "maker_rate_micros_per_share": 5,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T6",
+          "min_adv_shares": 6,
+          "maker_rate_micros_per_share": 6,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T7",
+          "min_adv_shares": 7,
+          "maker_rate_micros_per_share": 7,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T8",
+          "min_adv_shares": 8,
+          "maker_rate_micros_per_share": 8,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T9",
+          "min_adv_shares": 9,
+          "maker_rate_micros_per_share": 9,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T10",
+          "min_adv_shares": 10,
+          "maker_rate_micros_per_share": 10,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T11",
+          "min_adv_shares": 11,
+          "maker_rate_micros_per_share": 11,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T12",
+          "min_adv_shares": 12,
+          "maker_rate_micros_per_share": 12,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T13",
+          "min_adv_shares": 13,
+          "maker_rate_micros_per_share": 13,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T14",
+          "min_adv_shares": 14,
+          "maker_rate_micros_per_share": 14,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T15",
+          "min_adv_shares": 15,
+          "maker_rate_micros_per_share": 15,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T16",
+          "min_adv_shares": 16,
+          "maker_rate_micros_per_share": 16,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T17",
+          "min_adv_shares": 17,
+          "maker_rate_micros_per_share": 17,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T18",
+          "min_adv_shares": 18,
+          "maker_rate_micros_per_share": 18,
+          "taker_rate_micros_per_share": 1000
+        },
+        {
+          "tier_id": "T19",
+          "min_adv_shares": 19,
+          "maker_rate_micros_per_share": 19,
+          "taker_rate_micros_per_share": 1000
+        }
+      ],
+      "active_tier": {
+        "tier_id": "T19",
+        "min_adv_shares": 19,
+        "maker_rate_micros_per_share": 19,
+        "taker_rate_micros_per_share": 1000
+      },
+      "volume_summary": {
+        "line_count": 1,
+        "maker_shares_total": 0,
+        "taker_shares_total": 1
+      },
+      "recomputed_invoice_micros": 1000,
+      "claimed_invoice_micros": 1000,
+      "diff_micros": 0,
+      "cap_check": {
+        "cap_micros_per_share": 1000,
+        "quotes_priced_ge_1usd": true,
+        "tier_findings": [
+          {
+            "tier_id": "T0",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T1",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T2",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T3",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T4",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T5",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T6",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T7",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T8",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T9",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T10",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T11",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T12",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T13",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T14",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T15",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T16",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T17",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T18",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          },
+          {
+            "tier_id": "T19",
+            "taker_rate_micros_per_share": 1000,
+            "exceeds_cap": false
+          }
+        ]
+      },
+      "findings": [],
+      "rejected_inputs": []
+    }
+  },
+  {
+    "name": "L_date_equal_and_reversed",
+    "pp": {
+      "recompute_tolerance_micros": 0,
+      "invoice_period": {
+        "start_date": "2026-02-01",
+        "end_date": "2026-01-15"
+      },
+      "prior_period_adv_shares": 0,
+      "fee_schedule": {
+        "schedule_id": "SCH-L",
+        "effective_date": "2026-03-01",
+        "quotes_priced_ge_1usd": true,
+        "tiers": [
+          {
+            "tier_id": "T1",
+            "min_adv_shares": 0,
+            "maker_rate_micros_per_share": 10,
+            "taker_rate_micros_per_share": 20
+          }
+        ]
+      },
+      "volume_lines": [
+        {
+          "side": "taker",
+          "shares": 10
+        }
+      ],
+      "claimed_invoice_micros": 200
+    },
+    "flags": [
+      "EXFEE_REQUIRED_INPUTS_INCOMPLETE"
+    ],
+    "out": {
+      "decision": {
+        "gate_policy": "review_required",
+        "execution_state": "did_not_run",
+        "reason": "required_inputs_incomplete"
+      },
+      "invoice_verdict": "INDETERMINATE",
+      "cap_verdict": "INDETERMINATE",
+      "invoice_period": null,
+      "recompute_tolerance_micros": 0,
+      "prior_period_adv_shares": 0,
+      "fee_schedule_summary": null,
+      "tiers": [],
+      "active_tier": null,
+      "volume_summary": null,
+      "recomputed_invoice_micros": null,
+      "claimed_invoice_micros": 200,
+      "diff_micros": null,
+      "cap_check": null,
+      "findings": [],
+      "rejected_inputs": [
+        {
+          "where": "invoice_period",
+          "reason": "start_date is after end_date",
+          "supplied": "2026-02-01..2026-01-15"
+        }
+      ]
+    }
+  }
+];
+  let violations = 0, checked = 0;
+  for (const c of cases) {
+    const r = compute(c.pp);
+    checked++;
+    const { scope_note: _sn, clause_note: _cn, ...payloadSansNotes } = r.output_payload;
+    if (!exactEq(payloadSansNotes, c.out)) violations++;
+    if (!exactEq(r.compliance_flags, c.flags)) violations++;
+  }
+  return { name: 'P6_curated_exact_output_cases', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -214,6 +1788,7 @@ results.properties.push(checkP2_boundedness());
 results.properties.push(checkP3_differential());
 results.properties.push(checkP4_permutation_invariance());
 results.properties.push(checkP5_forced_categorical());
+results.properties.push(checkP6_curated_exact_output());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
