@@ -1,0 +1,244 @@
+{
+  "tool_id": "804-ivms101-skeleton-validator",
+  "version": "1.0.0",
+  "title": "IVMS101 Skeleton Validator",
+  "description": "Structural and code-list validation of an IVMS 101.2023 travel-rule payload supplied as a zero-PII skeleton: every free-text leaf must be the literal SYNTHETIC or a {\"len\": n} max-length marker; country, name, address and identifier type codes are validated against the pinned code lists; required entities, cardinality, max lengths, the declared edition and the C1-C12 constraints are checked per the pinned standard. Output is paths, rule ids and verdicts only - the tool never echoes a leaf value, and any free-text leaf holding other content is refused by path. ISO-3166 and GLEIF Registration Authority lists are checked at format level; the C2 date-in-past rule is evaluated against the pinned 2026-11-01 build date, not a runtime clock.",
+  "category": "chaingraph",
+  "tags": [
+    "travel-rule",
+    "ivms101",
+    "fatf-r16",
+    "zero-pii",
+    "vasp",
+    "mcp:validate_ivms101_skeleton"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "ivms101_edition",
+      "payload"
+    ],
+    "properties": {
+      "ivms101_edition": {
+        "type": "string",
+        "description": "Declared IVMS 101 edition; must equal the pinned \"101.2023\". Any other value fails closed with a single EDITION violation."
+      },
+      "payload": {
+        "type": "object",
+        "description": "The zero-PII skeleton payload: originator, beneficiary, originatingVASP, beneficiaryVASP, transferPath and payloadMetadata entities. Every free-text leaf is \"SYNTHETIC\" or a {\"len\": n} marker; enumeration leaves carry real code values.",
+        "properties": {
+          "originator": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "Person component: exactly one of naturalPerson or legalPerson, plus accountNumber values as SYNTHETIC markers."
+            }
+          },
+          "beneficiary": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "Person component, same shape as originator."
+            }
+          },
+          "originatingVASP": {
+            "type": "object",
+            "description": "Optional Person component for the originating VASP."
+          },
+          "beneficiaryVASP": {
+            "type": "object",
+            "description": "Optional Person component for the beneficiary VASP."
+          },
+          "transferPath": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "IntermediaryVASP: intermediaryVASP Person plus a sequence integer starting at 0 and uninterrupted (C12)."
+            }
+          },
+          "payloadMetadata": {
+            "type": "object",
+            "description": "payloadVersion (101 or 101.2023) and optional transliterationMethod script codes."
+          }
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "validate_ivms101_skeleton",
+    "description": "Validate an IVMS 101.2023 travel-rule payload supplied as a zero-PII skeleton: required entities, cardinality, max lengths via len markers, pinned code-list membership, edition fail-closed, and constraints C1-C12 including the mutually exclusive natural-person and legal-person branches. Refuses any free-text leaf other than SYNTHETIC or a len marker, reporting the JSON path only and never echoing the value.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "ivms101_edition",
+        "payload"
+      ],
+      "properties": {
+        "ivms101_edition": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/804-ivms101-skeleton-validator.html",
+    "function_name": "run",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "source": "chaingraph/kernels/804-ivms101-skeleton-validator.kernel.mjs",
+  "input_schema_provenance": "ivms101_edition and payload are exactly the policy_parameters members the kernel reads; the payload entity fields follow the pinned IVMS 101.2023 structures in their zero-PII skeleton form.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "ivms101_edition": "101.2023",
+    "payload": {
+      "originator": [
+        {
+          "naturalPerson": {
+            "name": {
+              "nameIdentifier": [
+                {
+                  "primaryIdentifier": {
+                    "len": 6
+                  },
+                  "naturalPersonNameIdentifierType": "LEGL"
+                }
+              ]
+            },
+            "geographicAddress": [
+              {
+                "addressType": "HOME",
+                "streetName": {
+                  "len": 12
+                },
+                "townName": {
+                  "len": 9
+                },
+                "country": "DE"
+              }
+            ]
+          }
+        }
+      ],
+      "beneficiary": [
+        {
+          "naturalPerson": {
+            "name": {
+              "nameIdentifier": [
+                {
+                  "primaryIdentifier": "SYNTHETIC",
+                  "naturalPersonNameIdentifierType": "LEGL"
+                }
+              ]
+            },
+            "geographicAddress": [
+              {
+                "addressType": "GEOG",
+                "addressLine": [
+                  {
+                    "len": 20
+                  }
+                ],
+                "townName": {
+                  "len": 8
+                },
+                "country": "FR"
+              }
+            ]
+          }
+        }
+      ],
+      "payloadMetadata": {
+        "payloadVersion": "101.2023"
+      }
+    }
+  },
+  "output_example": {
+    "valid": true,
+    "edition": "101.2023",
+    "edition_declared": "101.2023",
+    "rules_checked": [
+      "EDITION",
+      "PII-REFUSAL",
+      "REQUIRED",
+      "CARD",
+      "MAXLEN",
+      "CODE",
+      "PERSON-EXCL",
+      "C1",
+      "C2",
+      "C3",
+      "C4",
+      "C5",
+      "C6",
+      "C7",
+      "C8",
+      "C9",
+      "C10",
+      "C11",
+      "C12"
+    ],
+    "violation_count": 0,
+    "violations": []
+  },
+  "example_execution_hash": "de80b58a300262bc27d5f12a332d2650faae0ee463daf0ae241dd0393814dc83",
+  "output_schema": {
+    "type": "object",
+    "required": [
+      "valid",
+      "edition",
+      "violation_count",
+      "violations"
+    ],
+    "properties": {
+      "valid": {
+        "type": "boolean"
+      },
+      "edition": {
+        "type": "string"
+      },
+      "edition_declared": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "rules_checked": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "violation_count": {
+        "type": "integer"
+      },
+      "violations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "path",
+            "rule_id",
+            "section"
+          ],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "rule_id": {
+              "type": "string"
+            },
+            "section": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
