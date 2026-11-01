@@ -23,7 +23,11 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { computeStaleness, calibrationVerdict } from './check-s18-digest-freshness.mjs';
-import { derivedResolve } from './derived-artifacts.mjs';
+// LEAF import, never './derived-artifacts.mjs' (S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1):
+// check-s18-digest-freshness.mjs sits mid-cycle (derived-artifacts → gen-receipt-bundles →
+// check-s18); a static edge back to derived-artifacts TDZ-crashed DERIVED-SET-SELFTEST-1's
+// receipt-bundles leg. Same resolver, re-exported verbatim by derived-artifacts.mjs.
+import { derivedResolve } from './_derived-resolve-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');

@@ -1740,23 +1740,19 @@ export const DERIVED_ROOT_GATES = new Set([
   'node scripts/check-s18-digest-freshness.test.mjs',        // §18 freshness fixture proof (monolith + calibration)
 ]);
 
-/** The non-empty DERIVED_ROOT, or '' — CI merge_group jobs only by convention,
- *  but any caller that sets the variable explicitly opts in to the overlay. */
-export function derivedRoot() {
-  const dr = process.env.DERIVED_ROOT;
-  return dr && dr.trim() ? dr.trim() : '';
-}
-
-/** Resolve a repo-relative derived-artifact path against the ephemeral tree
- *  when one is mounted, falling back to the real repo (overlay semantics: only
- *  files the assembly actually produced come from the scratch root). Accepts
- *  path segments, e.g. derivedResolve('chaingraph', 'chaingraph.json'). */
-export function derivedResolve(...parts) {
-  const rel = parts.join('/');
-  const dr = derivedRoot();
-  const scratch = dr ? resolve(REPO, dr, ...parts) : null;
-  return scratch && existsSync(scratch) ? scratch : resolve(REPO, ...parts);
-}
+// S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM
+// to _derived-resolve-lib.mjs (a leaf — imports nothing from this estate) and re-exported here so
+// every existing importer of this module is unchanged. In-place reason: THIS file statically
+// imports RECEIPT_BUNDLES_WRITES_REPORT_PATH from gen-receipt-bundles.mjs (see the import block
+// above), which imports computeStaleness from check-s18-digest-freshness.mjs; once check-s18
+// imported derivedResolve from HERE, that cycle left RECEIPT_BUNDLES_WRITES_REPORT_PATH in TDZ at
+// the 'receipt-bundles' entry's writesReport literal below whenever gen-receipt-bundles.mjs was
+// the ENTRY process — exactly what DERIVED-SET-SELFTEST-1 executes — with "ReferenceError:
+// Cannot access 'RECEIPT_BUNDLES_WRITES_REPORT_PATH' before initialization". The leaf breaks the
+// cycle at its root; the resolver's bytes and semantics are identical (same DERIVED_ROOT overlay,
+// same existsSync fallback, same REPO base).
+import { derivedRoot } from './_derived-resolve-lib.mjs';
+export { derivedResolve, derivedRoot } from './_derived-resolve-lib.mjs';
 
 /**
  * Is this a MAIN context (gates block) or a PR context (gates warn)?

@@ -40,7 +40,14 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadRatchetBaselineOrExit } from './ratchet-baseline.mjs';
-import { derivedResolve } from './derived-artifacts.mjs';
+// LEAF import, never './derived-artifacts.mjs' (S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1):
+// THIS file sits mid-cycle — derived-artifacts.mjs → gen-receipt-bundles.mjs (computeStaleness,
+// below) → THIS file — so a static edge from HERE back to derived-artifacts.mjs left that
+// module's RECEIPT_BUNDLES_WRITES_REPORT_PATH read in TDZ whenever gen-receipt-bundles.mjs was
+// the ENTRY process (DERIVED-SET-SELFTEST-1's receipt-bundles leg: "ReferenceError: Cannot
+// access 'RECEIPT_BUNDLES_WRITES_REPORT_PATH' before initialization"). The resolver is imported
+// from the leaf instead; derived-artifacts.mjs re-exports it verbatim for its other importers.
+import { derivedResolve } from './_derived-resolve-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -56,13 +63,15 @@ const REPO = resolve(HERE, '..');
 // re-proved receipt, so an in-place kernel edit recomputes fresh there instead of stale against the
 // committed monolith — the #2730/#2795 merge-queue ejects). Where DERIVED_ROOT is unset (PR, main,
 // local) the fallback resolves to the committed monolith exactly as before.
-// ⚠ RESOLVED LAZILY, never at module top level: derived-artifacts.mjs statically imports
-// RECEIPT_BUNDLES_WRITES_REPORT_PATH from gen-receipt-bundles.mjs, which imports computeStaleness
-// from THIS file — so when derived-artifacts loads first (assemble-chaingraph.mjs's import of
-// isMainContext) a top-level derivedResolve() call runs while derived-artifacts' own module body —
-// including its REPO const — is still in TDZ: "ReferenceError: Cannot access 'REPO' before
-// initialization". The function-declaration exports on both cycle edges are hoisted and safe; only
-// cross-module top-level EXECUTION is not. Cached: env is constant for the process lifetime.
+// ⚠ RESOLVED LAZILY and cached (env is constant for the process lifetime), and derivedResolve
+// comes from the LEAF _derived-resolve-lib.mjs, never from derived-artifacts.mjs: derived-artifacts
+// statically imports RECEIPT_BUNDLES_WRITES_REPORT_PATH from gen-receipt-bundles.mjs, which
+// imports computeStaleness from THIS file — a static edge from HERE to derived-artifacts closed
+// that cycle and TDZ-crashed the entry=gen-receipt-bundles shape (DERIVED-SET-SELFTEST-1's
+// receipt-bundles leg; the earlier entry=derived-artifacts shape crashed the same way on its REPO
+// const, which is what made this resolution lazy in the first place). The leaf's
+// function-declaration exports are hoisted and it imports nothing from this estate, so no entry
+// shape can re-enter a half-initialized module through this file.
 let cgPathCache = null;
 function resolveCgPath() {
   if (cgPathCache) return cgPathCache;
