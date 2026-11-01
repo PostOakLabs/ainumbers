@@ -1,6 +1,6 @@
 # Revocation-Status Verifier
 
-Checks a receipt's optional W3C BitstringStatusList credentialStatus reference and reads the revocation bit at statusListIndex from a supplied, zero-egress status list credential. A set bit means revoked, and revocation overrides the receipt's own signature validity even when that signature is cryptographically valid. Absence of a credentialStatus reference is its own no-signal state, never treated as evidence of active status. Not-X-use-Y: this kernel checks revocation status only, it does not verify the underlying §16 signature itself.
+Reads a revocation bit from an uncompressed status bitstring up to 8 KB, shaped after W3C BitstringStatusList, for a receipt's optional credentialStatus reference, from a supplied, zero-egress status list credential. A real W3C v1.0 BitstringStatusList (GZIP plus multibase u) is refused, not read. A set bit means revoked, and revocation overrides the receipt's own signature validity even when that signature is cryptographically valid. Absence of a credentialStatus reference is its own no-signal state, never treated as evidence of active status. Not-X-use-Y: this kernel checks revocation status only, it does not verify the underlying §16 signature itself.
 
 - Page: https://ainumbers.co/chaingraph/art-287-revocation-status-verifier.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-287-revocation-status-verifier.md
