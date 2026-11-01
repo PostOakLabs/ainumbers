@@ -345,6 +345,9 @@ jobs:
           node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
           node scripts/derived-artifacts.mjs --out "${SCRATCH}"
           echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+          # thin-YAML (2026-11-01): the root also lands in a file scripts/ci/run-gate.mjs
+          # reads, replacing the steps.*.outputs env plumbing on the gate steps.
+          echo "${SCRATCH}" > "${RUNNER_TEMP}/derived-root.txt"
 
       # Post-regen copy validators (mechanisms A + B, merge_group ONLY — the
       # pull_request path above and below is UNCHANGED). PR #2349 (99093e8e,
@@ -361,12 +364,10 @@ jobs:
       # edit now fails here, in the queue, HARD.
       - name: Post-regen copy validators on the ephemeral tree (merge_group, HARD)
         if: github.event_name == 'merge_group'
-        env:
-          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
-        run: |
-          node scripts/check-copy-hallmarks.mjs
-          node scripts/check-shipped-prose.mjs
-          node scripts/check-copy-hallmarks.mjs --source-shards
+        # thin-YAML (2026-11-01): the run body and its DERIVED_ROOT env moved into
+        # scripts/ci/run-gate.mjs under this name — same three commands, same
+        # order, same root. Context resolution: $RUNNER_TEMP/derived-root.txt.
+        run: node scripts/ci/run-gate.mjs post-regen-copy-validators
 
       # 2026-10-16: #2330 made the §18 step below HARD on
       # pull_request but only merge_group got an assembled tree, so on a PR the gate read
@@ -387,6 +388,8 @@ jobs:
           node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
           node scripts/derived-artifacts.mjs --out "${SCRATCH}"
           echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+          # thin-YAML (2026-11-01): see the derived-root.txt note on the merge_group step.
+          echo "${SCRATCH}" > "${RUNNER_TEMP}/s18-derived-root.txt"
 
       # HARD on merge_group, advisory on a
       # pull_request, hard on push:main. chaingraph.json is a generated monolith
@@ -399,35 +402,31 @@ jobs:
       # all three states (PR advisory / merge_group HARD under DERIVED_ROOT /
       # main HARD).
       - name: §18 compute-proof coverage (HARD on pull_request — per-PR derivables promotion)
-        env:
-          DERIVED_ROOT: ${{ steps.derived.outputs.root || steps.s18tree.outputs.root }}
-        run: |
-          # The per-PR derivables row: the §18 ratchet + provenance are now HARD on
-          # pull_request, exactly as on merge_group. The removed downgrade is the
-          # bare invocation below, which inherited the gate's internal PR-advisory
-          # disposition (check-compute-proof-coverage.mjs disposition() via
-          # isMainContext(): GITHUB_EVENT_NAME === 'pull_request' -> warn + exit 0
-          # — the gate's own PR-side relaxation). That relaxation's
-          # premise ("a PR is FORBIDDEN to reassemble chaingraph.json, so a branch
-          # is structurally unable to satisfy the ratchet") no longer holds for the
-          # BASELINE leg: scripts/compute-proof-baseline.json is an ordinary
-          # committed file, and pr-autofix.yml now writes its bump on the PR head
-          # branch (the bump rides the node PR). A gate a PR can satisfy
-          # must not read advisory at label time — the census's 44 merge_group
-          # ejects all passed a green, advisory §18 first. Same plumbing
-          # scripts-verify.yml uses to present merge_group's shape: a shell-level
-          # env prefix (GITHUB_* names are runner-reserved and a step-level env
-          # entry would be silently ignored — measured 2026-09-11, run 34654251817).
-          # merge_group + DERIVED_ROOT keeps its third state (hard, scratch
-          # monolith); push:main keeps its hard exit; only the pull_request arm
-          # changes. The writer-side refusal of a REAL regression (proven at pin,
-          # deferred now) is untouched — that stays red in every context.
-          if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
-            GITHUB_EVENT_NAME=push node scripts/check-compute-proof-coverage.mjs
-          else
-            node scripts/check-compute-proof-coverage.mjs
-          fi
-          node scripts/check-compute-proof-coverage.test.mjs
+        # The per-PR derivables row: the §18 ratchet + provenance are now HARD on
+        # pull_request, exactly as on merge_group. The removed downgrade was the
+        # bare invocation this step used to carry, which inherited the gate's
+        # internal PR-advisory disposition (check-compute-proof-coverage.mjs
+        # disposition() via isMainContext(): GITHUB_EVENT_NAME === 'pull_request'
+        # -> warn + exit 0 — the gate's own PR-side relaxation). That relaxation's
+        # premise ("a PR is FORBIDDEN to reassemble chaingraph.json, so a branch
+        # is structurally unable to satisfy the ratchet") no longer holds for the
+        # BASELINE leg: scripts/compute-proof-baseline.json is an ordinary
+        # committed file, and pr-autofix.yml now writes its bump on the PR head
+        # branch (the bump rides the node PR). A gate a PR can satisfy
+        # must not read advisory at label time — the census's 44 merge_group
+        # ejects all passed a green, advisory §18 first. Same plumbing
+        # scripts-verify.yml uses to present merge_group's shape: a shell-level
+        # env prefix (GITHUB_* names are runner-reserved and a step-level env
+        # entry would be silently ignored — measured 2026-09-11, run 34654251817).
+        # merge_group + DERIVED_ROOT keeps its third state (hard, scratch
+        # monolith); push:main keeps its hard exit; only the pull_request arm
+        # changes. The writer-side refusal of a REAL regression (proven at pin,
+        # deferred now) is untouched — that stays red in every context.
+        #
+        # thin-YAML (2026-11-01): the body (incl. the GITHUB_EVENT_NAME=push
+        # presentation and the DERIVED_ROOT = derived || s18 wiring) moved
+        # verbatim into scripts/ci/run-gate.mjs under this name.
+        run: node scripts/ci/run-gate.mjs s18-compute-proof-coverage
 
       - name: §18 digest-freshness ratchet (receipt digest vs current kernel source)
         # On pull_request the s18tree step above assembles the ephemeral monolith
@@ -435,13 +434,14 @@ jobs:
         # so a re-prove PR stops reding on the lagging committed monolith. Empty
         # off pull_request (merge_group/main), so both commands keep reading the
         # committed monolith there and their verdict is unchanged (exact equality).
-        env:
-          S18_DERIVED_ROOT: ${{ steps.s18tree.outputs.root }}
+        # thin-YAML (2026-11-01): the two freshness commands and their S18_DERIVED_ROOT env
+        # moved verbatim into scripts/ci/run-gate.mjs under this name
+        # ($RUNNER_TEMP/s18-derived-root.txt). The end-to-end control below stays a
+        # literal invocation on purpose: check-workflow-gate-parity.mjs axis 3 reads
+        # workflow TEXT (comment-blind) for reverse presence, and the control is
+        # context-independent (it builds its own tmp copies), so it needs no env.
         run: |
-          node scripts/check-s18-digest-freshness.mjs
-          node scripts/check-s18-digest-freshness.test.mjs
-          # End-to-end control for the env wiring above: spawns the fixture test against a tmp
-          # copy of the committed monolith (green) and a tampered copy (red). Context-independent.
+          node scripts/ci/run-gate.mjs s18-digest-freshness
           node scripts/check-s18-freshness-fixture-derived-root.test.mjs
 
       - name: Proven-digest freeze (advisory on PR, blocking on merge_group and main)
@@ -475,9 +475,11 @@ jobs:
         # reassembled in-tree. (this change corrected this step's own comment:
         # isMainContext() never treated merge_group as main — it was advisory there, which
         # is exactly the hole the four same-day red-mains came through.)
-        env:
-          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
-        run: node scripts/run-gate.mjs node scripts/verify-counts.mjs --check
+        #
+        # thin-YAML (2026-11-01): DERIVED_ROOT plumbing + the run-gate.mjs call moved
+        # into scripts/ci/run-gate.mjs (which delegates to scripts/run-gate.mjs
+        # verbatim, keeping the split logic where it lives).
+        run: node scripts/ci/run-gate.mjs count-drift
 
       # Derived-freshness + index-sync + sitemap HARD on
       # merge_group. --verify runs every COVERED freshness gate; the
@@ -489,9 +491,9 @@ jobs:
       # deploy-to-dreamhost.yml and derived-artifacts-regen.yml).
       - name: Derived-freshness, index-sync, sitemap (HARD on merge_group)
         if: github.event_name == 'merge_group'
-        env:
-          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
-        run: node scripts/derived-artifacts.mjs --verify
+        # thin-YAML (2026-11-01): the DERIVED_ROOT env plumbing moved into
+        # scripts/ci/run-gate.mjs under this name ($RUNNER_TEMP/derived-root.txt).
+        run: node scripts/ci/run-gate.mjs derived-freshness-verify
 
       - name: Registry kernel-resolve coverage
         # WIRED 2026-08-23. Third instance of this workflow's founding class: a gate that

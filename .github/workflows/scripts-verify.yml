@@ -305,6 +305,9 @@ jobs:
           node scripts/derived-artifacts.mjs --out "${SCRATCH}"
           echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
           echo "DERIVED_ROOT=${SCRATCH} — freshness gates judge the ephemeral regenerated tree (event: ${GITHUB_EVENT_NAME})."
+          # thin-YAML (2026-11-01): the root also lands in a file scripts/ci/run-gate.mjs
+          # reads, replacing the steps.*.outputs env plumbing on the gate steps.
+          echo "${SCRATCH}" > "${RUNNER_TEMP}/derived-root.txt"
 
       # The exact complement, so the committed-tree path is VISIBLE in the log
       # instead of a silently-skipped step: on the bot's own commit nothing is
@@ -331,65 +334,35 @@ jobs:
           SCRATCH="${RUNNER_TEMP}/s18-derived-tree"
           node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
           echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+          # thin-YAML (2026-11-01): see the derived-root.txt note on the merge_group step.
+          echo "${SCRATCH}" > "${RUNNER_TEMP}/s18-derived-root.txt"
 
       - name: Preflight (full gate suite)
+        # TIER-LEG SHARDING: this job runs EVERY gate EXCEPT the
+        # mutation-tier leg (PREFLIGHT_TIER_LEG=skip swaps that one GATES
+        # entry for its no-op notRun shape inside preflight; nothing else is
+        # scoped, softened or reordered). The leg itself runs in the
+        # scripts-verify-tier-shard matrix job below (PREFLIGHT_TIER_LEG=only,
+        # one round-robin slice of the same touched-kernel set per shard), and
+        # the reporter's aggregate fails iff this job OR any shard does.
+        # Union across the jobs = the single-job suite as it stood at base
+        # cc86ccbd (2026-09-16), byte for byte.
+        #
+        # check-id-collision.mjs leg (c) scans other OPEN PRs for a claimed art-id
+        # (the collision class no in-tree gate can see: two open PRs never share a
+        # tree, so file-level uniqueness gates cannot catch them). gh reads the job's
+        # own token from the environment — token-free, no extra secret.
+        #
+        # thin-YAML (2026-11-01): the computed env plumbing (S18_DERIVED_ROOT,
+        # DERIVED_ROOT) and the shell-level GITHUB_EVENT_NAME=merge_group
+        # presentation when the scratch tree is mounted moved verbatim into
+        # scripts/ci/run-gate.mjs under this name ($RUNNER_TEMP/derived-root.txt
+        # / s18-derived-root.txt). The literal env entries below stay — they are
+        # constants, not resolved context.
         env:
-          S18_DERIVED_ROOT: ${{ steps.s18tree.outputs.root }}
-          # TIER-LEG SHARDING: this job runs EVERY gate EXCEPT the
-          # mutation-tier leg (PREFLIGHT_TIER_LEG=skip swaps that one GATES
-          # entry for its no-op notRun shape inside preflight; nothing else is
-          # scoped, softened or reordered). The leg itself runs in the
-          # scripts-verify-tier-shard matrix job below (PREFLIGHT_TIER_LEG=only,
-          # one round-robin slice of the same touched-kernel set per shard), and
-          # the reporter's aggregate fails iff this job OR any shard does.
-          # Union across the jobs = the single-job suite as it stood at base
-          # cc86ccbd (2026-09-16), byte for byte.
           PREFLIGHT_TIER_LEG: skip
-          # check-id-collision.mjs leg (c) scans other OPEN PRs for a claimed art-id
-          # (the collision class no in-tree gate can see: two open PRs never share a
-          # tree, so file-level uniqueness gates cannot catch them). gh reads the job's
-          # own token from the environment — token-free, no extra secret.
           GITHUB_TOKEN: ${{ github.token }}
-          # Empty on pull_request and on push:main runs of the regen bot's own
-          # chore(derived) commit — those judge the committed tree, unchanged.
-          # Set to the ephemeral scratch tree on merge_group, on push:main of a
-          # human commit, and on workflow_dispatch (step above). preflight.mjs
-          # scopes this to the DERIVED_ROOT_GATES commands only; that list did
-          # not widen and no gate's blocking status moves.
-          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
-          # When the scratch tree IS mounted, preflight must apply the SAME
-          # root-scoping rules it applies on merge_group: strip the root from
-          # every non-aware subprocess, run the DERIVED_ROOT_GATES commands
-          # HARD against it, and downgrade the non-aware COVERED freshness
-          # gates (e.g. EUC register, OKF bundle — they read in-tree paths
-          # and cannot overlay-read a scratch tree) while the aware
-          # `derived-artifacts.mjs --verify` enforces their freshness HARD
-          # against the scratch tree. That rule set keys on
-          # GITHUB_EVENT_NAME === 'merge_group' inside preflight.mjs (the
-          # 2026-09-06 merge_group hard-gates rule), and this row is fenced
-          # from editing gate scripts — so when DERIVED_ROOT is set the step
-          # presents the event name that selects those existing rules, via a
-          # shell-level override (GITHUB_* names are runner-reserved and a
-          # step-level env entry would be silently ignored — measured
-          # 2026-09-11, run 34654251817). Net enforcement is unchanged from
-          # the queue's proven shape: nothing becomes advisory that is not
-          # already advisory on merge_group, and every freshness verdict now
-          # comes from the fresh scratch tree. When the root is NOT mounted
-          # (pull_request, the regen bot's own push) preflight runs with the
-          # runner's real environment and the run is byte-for-byte today's
-          # behavior.
-          #
-          # NOTE: while the scratch tree is mounted this run intentionally
-          # takes merge_group's shape in full — including its fail-fast
-          # (no run-to-completion) on a red, and advisory statuses for the
-          # non-aware COVERED gates. Their freshness stays HARD via the
-          # aware --verify gate on the scratch tree.
-        run: |
-          if [ -n "$DERIVED_ROOT" ]; then
-            GITHUB_EVENT_NAME=merge_group node scripts/preflight.mjs
-          else
-            node scripts/preflight.mjs
-          fi
+        run: node scripts/ci/run-gate.mjs preflight
 
       # ── the per-PR derivables row: the four per-PR derivable gates, HARD on pull_request ──
       # The four-week red census of failed merge_group runs measured 44 §18
@@ -422,17 +395,11 @@ jobs:
       # Everything else keeps its downgrade: count-drift, sitemap, trust-signals
       # and the other main-side single-writer artifacts keep their downgrade untouched.
       - name: §18 ratchet + provenance (HARD on pull_request — per-PR derivables promotion)
-        env:
-          # Same PR-only scratch monolith the preflight step gets (steps.s18tree): without it this
-          # hard PR leg reads the committed chaingraph.json, where a first-prove PR's node is still
-          # deferred. Empty off pull_request, so push/merge_group behaviour is unchanged.
-          S18_DERIVED_ROOT: ${{ steps.s18tree.outputs.root }}
-        run: |
-          if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
-            GITHUB_EVENT_NAME=push node scripts/check-compute-proof-coverage.mjs
-          else
-            node scripts/check-compute-proof-coverage.mjs
-          fi
+        # thin-YAML (2026-11-01): the body (S18_DERIVED_ROOT from steps.s18tree, plus the
+        # shell-level GITHUB_EVENT_NAME=push presentation on pull_request — the
+        # per-PR derivables promotion) moved verbatim into scripts/ci/run-gate.mjs
+        # under this name ($RUNNER_TEMP/s18-derived-root.txt).
+        run: node scripts/ci/run-gate.mjs s18-ratchet
 
       - name: Manifest examples drift (HARD on pull_request — per-PR derivables promotion)
         run: node scripts/gen-manifest-examples.mjs --check
@@ -460,6 +427,11 @@ jobs:
         # condition (shard on disk not in chaingraph.meta.json order.nodes
         # with an in-repo page or manifest) in main contexts, warning on
         # pull_request — the queue can no longer pass what it cannot enumerate.
+        #
+        # thin-YAML (2026-11-01): this step keeps its literal invocation on purpose —
+        # check-workflow-gate-parity.mjs axis 3 reads workflow TEXT (comment-blind)
+        # for reverse presence, so routing this gate through scripts/ci/run-gate.mjs
+        # reads as "unwired". Its merge_group-only DERIVED_ROOT ternary stays here.
         env:
           DERIVED_ROOT: ${{ github.event_name == 'merge_group' && steps.derived.outputs.root || '' }}
         run: node scripts/check-a11y-tree.mjs
