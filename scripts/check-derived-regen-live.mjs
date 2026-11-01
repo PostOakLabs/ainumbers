@@ -878,19 +878,40 @@ function withScratchWorktree(fn, opts = {}) {
     worktreeCount: entries ? entries.length : null,
     scratchCount: entries ? entries.filter((e) => normPath(dirname(e.path)) === tmpN && SCRATCH_NAME.test(basename(e.path))).length - sweep.removed.length : null,
   }));
-  const scratch = mkdtempSync(join(tmpdir(), SCRATCH_PREFIX));
-  const addCommand = opts.addCommand || `git worktree add --detach "${scratch}" HEAD`;
-  const t0 = Date.now();
-  try {
-    execSync(addCommand, { cwd: repo, ...GIT_EXEC_OPTS, timeout: addTimeoutMs });
-  } catch (e) {
-    const elapsedMs = Date.now() - t0;
-    try { execSync(`git worktree remove --force "${scratch}"`, { cwd: repo, ...GIT_EXEC_OPTS, timeout: 120_000 }); } catch { /* may never have registered */ }
-    try { rmSync(scratch, { recursive: true, force: true }); } catch { /* best effort */ }
-    const timedOut = isTimeoutError(e, addTimeoutMs, elapsedMs);
-    throw new ScratchSetupError(timedOut
-      ? `scratch worktree setup exceeded ${(addTimeoutMs / 1000).toFixed(0)} s (\`git worktree add\`, no generator had run yet). This is a HOST-STATE failure, not a derived-set verdict: check free RAM against the 4 GB gate, leftover ${SCRATCH_PREFIX}* worktrees and disk, then re-run. Do not report it as "cannot complete".`
-      : `scratch worktree setup failed after ${(elapsedMs / 1000).toFixed(1)} s (\`git worktree add\`, no generator had run yet): ${tailLines(execOutput(e))}`);
+  // A TIMEOUT fails at once. A non-timeout failure gets ONE retry after a short
+  // pause: measured 2026-11-01 inside the pre-push hook, the add failed in
+  // 0.0 s with no output while 12 sweep removals in the same second also
+  // failed, then succeeded standalone minutes later. An instant, silent failure
+  // is the host refusing to start a process under load, not a git verdict.
+  // The retry only re-attempts SETUP; no derived-set verdict is ever retried.
+  const retryDelayMs = opts.retryDelayMs ?? 5_000;
+  let scratch = null;
+  let lastFailure = '';
+  for (let attempt = 1; attempt <= 2 && !scratch; attempt++) {
+    const dir = mkdtempSync(join(tmpdir(), SCRATCH_PREFIX));
+    const addCommand = opts.addCommand || `git worktree add --detach "${dir}" HEAD`;
+    const t0 = Date.now();
+    try {
+      execSync(addCommand, { cwd: repo, ...GIT_EXEC_OPTS, timeout: addTimeoutMs });
+      scratch = dir;
+    } catch (e) {
+      const elapsedMs = Date.now() - t0;
+      try { execSync(`git worktree remove --force "${dir}"`, { cwd: repo, ...GIT_EXEC_OPTS, timeout: 120_000 }); } catch { /* may never have registered */ }
+      try { rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
+      if (isTimeoutError(e, addTimeoutMs, elapsedMs)) {
+        throw new ScratchSetupError(`scratch worktree setup exceeded ${(addTimeoutMs / 1000).toFixed(0)} s (\`git worktree add\`, no generator had run yet). This is a HOST-STATE failure, not a derived-set verdict: check free RAM against the 4 GB gate, leftover ${SCRATCH_PREFIX}* worktrees and disk, then re-run. Do not report it as "cannot complete".`);
+      }
+      const detail = `exit ${e?.status ?? 'none'}${e?.code ? `, ${e.code}` : ''}${e?.signal ? `, ${e.signal}` : ''}`;
+      const said = tailLines(execOutput(e)) || String(e?.message || e).split('\n')[0];
+      lastFailure = `scratch worktree setup failed after ${(elapsedMs / 1000).toFixed(1)} s on attempt ${attempt} of 2 (\`git worktree add\`, ${detail}, no generator had run yet): ${said}`;
+      if (attempt < 2) {
+        log(`${lastFailure}; retrying setup once in ${(retryDelayMs / 1000).toFixed(1)} s`);
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, retryDelayMs);
+      }
+    }
+  }
+  if (!scratch) {
+    throw new ScratchSetupError(`${lastFailure}. An instant failure with no output is usually the host refusing to start a process under load (a HOST-STATE failure, not a derived-set verdict); re-run before reporting anything.`);
   }
   try {
     return fn(scratch);

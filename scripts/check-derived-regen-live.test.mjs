@@ -637,6 +637,27 @@ test('SCRATCH setup RED - a hung `worktree add` FAILS within its bound as a host
   assert(wall < 15_000, `the bound must cut the hang short, wall was ${wall} ms`);
 });
 
+test('SCRATCH setup RETRY - an instant non-timeout failure is retried ONCE, then FAILS naming both attempts', () => {
+  const repo = makeRepo();
+  writeFileSync(join(repo, 'a.txt'), 'a\n');
+  commit(repo, 'init');
+  const lines = [];
+  let fnRan = false;
+  let err = null;
+  try {
+    withScratchWorktree(() => { fnRan = true; }, {
+      repo,
+      retryDelayMs: 100,
+      addCommand: 'node -e "process.exit(3)"',
+      log: (l) => lines.push(l),
+    });
+  } catch (e) { err = e; }
+  assert(err instanceof ScratchSetupError, `a ScratchSetupError must be thrown, got ${err && err.message}`);
+  assert(/attempt 2 of 2/.test(err.message) && /exit 3/.test(err.message), `the final message must name attempt 2 and the exit status, got: ${err.message}`);
+  assert(lines.some((l) => /attempt 1 of 2/.test(l) && /retrying setup once/.test(l)), `attempt 1 must log the retry, got ${JSON.stringify(lines)}`);
+  assert(!fnRan, 'fn must never run when setup failed twice');
+});
+
 test('SCRATCH host line - flags RAM below the 4 GB gate and only then', () => {
   const low = hostStateLine({ freeBytes: 3.3 * 1024 ** 3, totalBytes: 16 * 1024 ** 3, scratchCount: 42, worktreeCount: 399 });
   const ok = hostStateLine({ freeBytes: 5.5 * 1024 ** 3, totalBytes: 16 * 1024 ** 3, scratchCount: 0, worktreeCount: 12 });
