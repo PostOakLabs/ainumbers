@@ -30,7 +30,17 @@ const ROOT = path.resolve(fileURLToPath(import.meta.url), '..', '..');
 // (no behaviour change to the gate itself).
 const DIRECT_RUN = !!process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 
-if (DIRECT_RUN) {
+// Gate state, assigned only by gateMain() on a direct run; the module-level helpers
+// below (isCovered, isOriginalAuthorshipBundle, the tail flow) close over these.
+let covered = [];
+let originalAllowlist = {};
+let allowlistErrors = [];
+
+// Path-shape rules, module-level so the exported predicate below shares them.
+const VENDOR_PATH_RE = /(^|\/)vendor(ed)?\//i;
+const BUNDLE_FILE_RE = /\.bundle\.(mjs|js)$/i;
+
+function gateMain() {
 const repoId = process.argv[2];
 const selfTestMode = process.argv.includes('--self-test');
 if (!selfTestMode && (!repoId || !['repo', 'mcp-apps-poc', 'helm', 'anchor-suite'].includes(repoId))) {
@@ -40,24 +50,23 @@ if (!selfTestMode && (!repoId || !['repo', 'mcp-apps-poc', 'helm', 'anchor-suite
 }
 
 const registry = JSON.parse(readFileSync(path.join(ROOT, 'data', 'credits-registry.json'), 'utf8'));
-const covered = registry.vendored
+covered = registry.vendored
   .filter(v => v.repos.includes(repoId))
   .flatMap(v => (v.paths && v.paths[repoId]) || [])
   .map(p => p.replace(/\\/g, '/'));
 
 const ORIGINAL_ALLOWLIST_PATH = path.join(ROOT, 'scripts', 'original-authorship-bundle-allowlist.json');
-const originalAllowlist = existsSync(ORIGINAL_ALLOWLIST_PATH)
+originalAllowlist = existsSync(ORIGINAL_ALLOWLIST_PATH)
   ? JSON.parse(readFileSync(ORIGINAL_ALLOWLIST_PATH, 'utf8'))
   : {};
 
-const allowlistErrors = [];
+allowlistErrors = [];
 for (const [rel, entry] of Object.entries(originalAllowlist)) {
   if (rel === '_README') continue;
   if (typeof entry?.reason !== 'string' || !entry.reason.trim()) {
     allowlistErrors.push(`${rel}: original-authorship-bundle-allowlist.json entry has no written \`reason\` — every original-authorship bundle exemption must say why it is original`);
   }
 }
-} // end DIRECT_RUN setup
 
 const EXCLUDE_DIRS = new Set(['.git', 'node_modules', '.wt', '.wrangler', '.claude', '.claude-worktrees', '.worktrees', 'bundled', 'dist']);
 // `vendor/` OR `vendored/` as a whole path segment (LICENCE-VENDOR-GATE-1, 2026-09-03). The
@@ -66,8 +75,6 @@ const EXCLUDE_DIRS = new Set(['.git', 'node_modules', '.wt', '.wrangler', '.clau
 // header above documents and the one real vendored trees under repo/ actually use
 // (chaingraph/kernels/vendor/…, docs/vendor/…). `vendor(ed)?` keeps `vendored/` matching for the
 // helm/anchor-suite `vendored/` trees and drops the meaningless `vendore/` typo shape.
-const VENDOR_PATH_RE = /(^|\/)vendor(ed)?\//i;
-const BUNDLE_FILE_RE = /\.bundle\.(mjs|js)$/i;
 
 // ── SELF-TEST (LICENCE-VENDOR-GATE-1, SO #34c: a gate that has only ever been observed green
 // has not been observed at all). `node scripts/check-credits-coverage.mjs --self-test` asserts
@@ -138,7 +145,6 @@ function walk(dir, relDir, out) {
   }
 }
 
-if (DIRECT_RUN) {
 const found = [];
 walk(ROOT, '', found);
 
@@ -159,7 +165,8 @@ if (allowlistErrors.length || uncovered.length) {
 }
 
 console.log(`check-credits-coverage: ${found.length} vendored-looking file(s) scanned, all covered by the registry or the original-authorship allowlist.`);
-} // end DIRECT_RUN gate flow
+} // end gateMain (direct run only)
+if (DIRECT_RUN) gateMain();
 
 // ── Shared path predicate (CI-RELEVANT-VENDOR-PATHS-1, 2026-11-01) ──────────
 // ONE source of truth for "a file this gate examines". scripts/check-ci-relevant.mjs
