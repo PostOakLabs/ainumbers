@@ -432,11 +432,18 @@ jobs:
       - name: §18 digest-freshness ratchet (receipt digest vs current kernel source)
         # On pull_request the s18tree step above assembles the ephemeral monolith
         # from THIS branch; both §18 freshness commands read it via S18_DERIVED_ROOT
-        # so a re-prove PR stops reding on the lagging committed monolith. Empty
-        # off pull_request (merge_group/main), so both commands keep reading the
-        # committed monolith there and their verdict is unchanged (exact equality).
+        # so a re-prove PR stops reding on the lagging committed monolith.
+        # S18_DERIVED_ROOT is empty off pull_request. On merge_group, DERIVED_ROOT
+        # (steps.derived — empty on pull_request and push:main) now reaches these
+        # commands too: both overlay-read the queue ref's assembled tree through their
+        # derivedResolve fallback (S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1), where an
+        # in-place kernel edit's re-proved receipt recomputes FRESH and the exact-
+        # equality verdict holds against the calibration the same assembly regenerates
+        # — the committed-monolith read ejected every such PR from the queue (#2730
+        # twice, #2795). push:main keeps both empty and reads the committed pair.
         env:
           S18_DERIVED_ROOT: ${{ steps.s18tree.outputs.root }}
+          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
         run: |
           node scripts/check-s18-digest-freshness.mjs
           node scripts/check-s18-digest-freshness.test.mjs

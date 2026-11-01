@@ -1729,6 +1729,15 @@ export const DERIVED_ROOT_GATES = new Set([
   // chaingraphJsonReadPath().
   'node scripts/check-copy-hallmarks.mjs',                   // reader-facing copy (#descriptions leg is DERIVED_ROOT-aware)
   'node scripts/check-shipped-prose.mjs',                    // shipped prose jargon/slugs (reads the monolith)
+  // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): the two §18 digest-freshness commands
+  // read the monolith (the .test.mjs also the calibration) through derivedResolve — the coverage
+  // gate's shape — so they must SEE the merge_group scratch tree. Stripped, they fell back to the
+  // COMMITTED monolith, whose OLD journal digest against the queue ref's NEW kernel source counted
+  // the edited node stale and failed the exact-equality calibration: every in-place kernel-edit PR
+  // ejected from the merge queue (#2730 twice, #2795 — PR-2730-MERGEQUEUE-EJECT-DIAG-1). Spelled
+  // exactly as preflight.mjs's GATES list runs them.
+  'node scripts/check-s18-digest-freshness.mjs',             // §18 digest-freshness ratchet (reads the monolith)
+  'node scripts/check-s18-digest-freshness.test.mjs',        // §18 freshness fixture proof (monolith + calibration)
 ]);
 
 /** The non-empty DERIVED_ROOT, or '' — CI merge_group jobs only by convention,

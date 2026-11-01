@@ -40,18 +40,37 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadRatchetBaselineOrExit } from './ratchet-baseline.mjs';
+import { derivedResolve } from './derived-artifacts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 // S18_DERIVED_ROOT (2026-10-27, S18-FIXTURE-PR-DERIVED-ROOT-1): a PR-only scratch assembly that the
 // s18tree step (land-verify/scripts-verify) and local preflight mount for the §18 freshness gates.
 // A re-prove PR edits the kernel and its shard, so the COMMITTED monolith still holds the OLD journal
-// digest and every §18 freshness count lags by one until main's regen lands. DERIVED_ROOT
-// (merge_group/main) always wins; this variable is read by no other gate, so no other gate's
-// PR-side disposition moves. Same precedence line as check-compute-proof-coverage.mjs.
-const CG_PATH = (!process.env.DERIVED_ROOT && process.env.S18_DERIVED_ROOT)
-  ? resolve(process.env.S18_DERIVED_ROOT, 'chaingraph', 'chaingraph.json')
-  : resolve(REPO, 'chaingraph', 'chaingraph.json');
+// digest and every §18 freshness count lags by one until main's regen lands. This variable is read
+// by no other gate, so no other gate's PR-side disposition moves.
+// S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): DERIVED_ROOT (merge_group) wins via the
+// derivedResolve fallback — the same precedence line as check-compute-proof-coverage.mjs. Both §18
+// freshness commands are DERIVED_ROOT_GATES members, so preflight re-injects the ephemeral tree for
+// them and this gate overlay-reads the queue ref's ASSEMBLED monolith (its shards carry the
+// re-proved receipt, so an in-place kernel edit recomputes fresh there instead of stale against the
+// committed monolith — the #2730/#2795 merge-queue ejects). Where DERIVED_ROOT is unset (PR, main,
+// local) the fallback resolves to the committed monolith exactly as before.
+// ⚠ RESOLVED LAZILY, never at module top level: derived-artifacts.mjs statically imports
+// RECEIPT_BUNDLES_WRITES_REPORT_PATH from gen-receipt-bundles.mjs, which imports computeStaleness
+// from THIS file — so when derived-artifacts loads first (assemble-chaingraph.mjs's import of
+// isMainContext) a top-level derivedResolve() call runs while derived-artifacts' own module body —
+// including its REPO const — is still in TDZ: "ReferenceError: Cannot access 'REPO' before
+// initialization". The function-declaration exports on both cycle edges are hoisted and safe; only
+// cross-module top-level EXECUTION is not. Cached: env is constant for the process lifetime.
+let cgPathCache = null;
+function resolveCgPath() {
+  if (cgPathCache) return cgPathCache;
+  cgPathCache = (!process.env.DERIVED_ROOT && process.env.S18_DERIVED_ROOT)
+    ? resolve(process.env.S18_DERIVED_ROOT, 'chaingraph', 'chaingraph.json')
+    : derivedResolve('chaingraph', 'chaingraph.json');
+  return cgPathCache;
+}
 const KDIR = resolve(REPO, 'chaingraph', 'kernels');
 const BASELINE_PATH = resolve(HERE, 's18-digest-freshness-baseline.json');
 
@@ -120,9 +139,11 @@ export async function computeStaleness(chaingraph, kernelSourceByToolId, sourceD
 // { total, fresh, stale } against the regen-owned calibration artifact and returns a LIST of failure
 // strings (empty = pass). Two modes:
 //   · not derivedPr (main, merge_group, any context with no S18_DERIVED_ROOT, or DERIVED_ROOT set):
-//     the committed monolith is main's regen-owned truth, so the verdict is the historical EXACT
-//     equality — byte-for-byte the same messages the fixture test asserted before this function
-//     existed. Blocking, exactly as today.
+//     the read monolith is the regen-owned truth of ITS context (the committed monolith on main/PR;
+//     the ephemeral DERIVED_ROOT assembly on merge_group, judged against the calibration that same
+//     assembly regenerates), so the verdict is the historical EXACT equality — byte-for-byte the
+//     same messages the fixture test asserted before this function existed. Blocking, exactly as
+//     today.
 //   · derivedPr (S18_DERIVED_ROOT set AND DERIVED_ROOT empty — the precedent's precedence, see
 //     check-compute-proof-coverage.mjs): the tree was assembled from the PR branch, so a re-prove
 //     with a matching receipt gives equality, a first-prove gives total+1/fresh+1, a stale-curing
@@ -149,7 +170,7 @@ const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(im
 if (IS_MAIN) {
 
 const { sourceDigest } = await import(pathToFileURL(resolve(KDIR, '_buildid.mjs')).href);
-const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
+const cg = JSON.parse(readFileSync(resolveCgPath(), 'utf8'));
 
 // ── calibration (mandatory before trusting any mismatch, per row's done-criteria) ──────────────────
 // Prove the instrument against a node whose kernel source has NOT changed since it was proven — any
