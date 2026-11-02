@@ -298,10 +298,21 @@ export function absenceLineageRecord(tree) {
 // failure is a DISTINCT failing state (SO #34c) and prints its remedy.
 // ---------------------------------------------------------------------------
 
+// LINEAGE-BINDING-REGEN-REPAIRABLE-1: the printed remedy stopped driving PR-side
+// appends (the doctrine LANE-PROMPT has carried since LINEAGE-PR-SIDE-RETIRE-1,
+// PR #2549 — yet 14/14 kernel PRs still carried the five lineage files). The
+// remedy text now says, in every lineage-binding failure state, that a PR must
+// NOT append or publish: main's single-writer derived-artifacts-regen does both
+// after merge, and check-regen-repairable.mjs proves the drift repairable in
+// pull_request / merge_group. The main-side command is unchanged; this is text
+// only — no gate predicate moves (the row's hard STOP).
 function fail(msg) {
   console.error(`✗ gen-registry-absence-tree --check: ${msg}`);
   process.exit(1);
 }
+
+const LINEAGE_REMEDY =
+  "PR / merge_group context: do NOT append or publish lineage in the PR — main's regen (derived-artifacts-regen.yml) appends and publishes after merge, and check-regen-repairable.mjs proves this drift regen-repairable. On main only: node scripts/append-absence-lineage-record.mjs && node scripts/gen-registry-lineage.mjs";
 
 export async function check({ log = console.log, error = console.error } = {}) {
   let tree;
@@ -321,7 +332,7 @@ export async function check({ log = console.log, error = console.error } = {}) {
   }
 
   if (!existsSync(LINEAGE_CHECKPOINT)) {
-    fail(`no lineage checkpoint published at registry/lineage/checkpoint — the absence root cannot be bound to an anchored history (BUILD-SPEC §4.4). Remedy: node scripts/append-absence-lineage-record.mjs && node scripts/gen-registry-lineage.mjs`);
+    fail(`no lineage checkpoint published at registry/lineage/checkpoint — the absence root cannot be bound to an anchored history (BUILD-SPEC §4.4). Remedy: ${LINEAGE_REMEDY}`);
   }
   let lineageSize, lineageEntries;
   try {
@@ -337,7 +348,7 @@ export async function check({ log = console.log, error = console.error } = {}) {
     if (rec && rec.anchor_type === ABSENCE_ANCHOR_TYPE) absenceRecords.push({ index: i, rec });
   }
   if (absenceRecords.length === 0) {
-    fail(`the lineage log (size ${lineageSize}) contains NO ${ABSENCE_ANCHOR_TYPE} entry — absence is currently proven against nothing (SO #34c). Remedy: node scripts/append-absence-lineage-record.mjs && node scripts/gen-registry-lineage.mjs`);
+    fail(`the lineage log (size ${lineageSize}) contains NO ${ABSENCE_ANCHOR_TYPE} entry — absence is currently proven against nothing (SO #34c). Remedy: ${LINEAGE_REMEDY}`);
   }
   const last = absenceRecords[absenceRecords.length - 1];
   const boundRoot = String(last.rec.tree_root ?? '').replace(/^sha256:/, '');
@@ -346,7 +357,7 @@ export async function check({ log = console.log, error = console.error } = {}) {
       `LINEAGE BINDING STALE — the lineage log's latest absence-tree entry (index ${last.index}, ` +
       `tree_root ${boundRoot}, key_count ${last.rec.key_count}) does not match the tree recomputed from the ` +
       `current ${tree.count}-key F2 set (root ${bytesToHex(tree.root)}). The key set grew or moved without a ` +
-      `lineage append. Remedy: node scripts/append-absence-lineage-record.mjs && node scripts/gen-registry-lineage.mjs`,
+      `lineage append. Remedy: ${LINEAGE_REMEDY}`,
     );
   }
 
