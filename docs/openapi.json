@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1256 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1257 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -3453,6 +3453,9 @@
       "name": "erc7730"
     },
     {
+      "name": "erp"
+    },
+    {
       "name": "error"
     },
     {
@@ -4191,6 +4194,9 @@
       "name": "joint randomness"
     },
     {
+      "name": "journal-entries"
+    },
+    {
       "name": "json"
     },
     {
@@ -4573,6 +4579,9 @@
     },
     {
       "name": "mcp:find_runway_goal_path"
+    },
+    {
+      "name": "mcp:gate_je_period_lock"
     },
     {
       "name": "mcp:lint_authorization_payload"
@@ -5154,6 +5163,9 @@
       "name": "pcaob"
     },
     {
+      "name": "pcaob-as-2401"
+    },
+    {
       "name": "pda"
     },
     {
@@ -5179,6 +5191,9 @@
     },
     {
       "name": "pensions"
+    },
+    {
+      "name": "period-close"
     },
     {
       "name": "periodic statement"
@@ -50386,6 +50401,380 @@
         },
         "x-mcp-tool-name": "dynamic_discounting",
         "x-tool-url": "https://ainumbers.co/tools/79-dynamic-discounting.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/gate_je_period_lock": {
+      "post": {
+        "operationId": "gate_je_period_lock",
+        "summary": "Journal-Entry Period Lock Gate",
+        "description": "Evaluates caller-declared journal entries against a caller-declared, time-varying period-lock policy and reports, per entry, whether the declared policy admits it. Periods carry dated lock events (open, soft_locked with exact-match exempt roles, hard_closed); the lock state is evaluated at the entry's entered_on date (or a declared as_of_date) for the period containing the entry's effective date, which is what makes a detective test possible: an entry entered the day before a soft lock began is admitted even if the period is locked today. Reversal entries resolve under one of three declared ERP conventions (original_date, first_open_period, explicit_date) with the resolved date reported per entry. Per-entry output carries decision (allow / allow_exempt / refuse), period_id, lock_state_at_entry, exempt_role_used, resolved_effective_date, refusal_code, and a self_approval flag comparing caller-declared preparer and approver labels (null when either is absent); totals roll up by decision and by period, and the e\n\n**Tool URL:** https://ainumbers.co/chaingraph/790-je-period-lock-gate.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "journal-entries",
+          "period-close",
+          "audit",
+          "pcaob-as-2401",
+          "erp",
+          "mcp:gate_je_period_lock"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "policy_version",
+                  "periods",
+                  "entries"
+                ],
+                "properties": {
+                  "policy_version": {
+                    "type": "string"
+                  },
+                  "periods": {
+                    "type": "array"
+                  },
+                  "soft_lock_exempt_roles": {
+                    "type": "array"
+                  },
+                  "reversal_policy": {
+                    "type": "string"
+                  },
+                  "explicit_reversal_date": {
+                    "type": "string"
+                  },
+                  "as_of_date": {
+                    "type": "string"
+                  },
+                  "entries": {
+                    "type": "array"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "decision": {
+                            "type": "string",
+                            "enum": [
+                              "allow",
+                              "allow_exempt",
+                              "refuse"
+                            ]
+                          },
+                          "entry_id": {
+                            "type": "string",
+                            "enum": [
+                              "E1",
+                              "R1"
+                            ]
+                          },
+                          "exempt_role_used": {
+                            "type": [
+                              "null",
+                              "string"
+                            ]
+                          },
+                          "lock_state_at_entry": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "hard_closed",
+                              "open",
+                              "soft_locked",
+                              null
+                            ]
+                          },
+                          "period_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "refusal_code": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "BAD_DATE",
+                              "HARD_CLOSED",
+                              "MISSING_ENTERED_ON_AND_AS_OF",
+                              "NO_OPEN_PERIOD_FOR_REVERSAL",
+                              "NO_PERIOD_FOR_DATE",
+                              "SOFT_LOCKED",
+                              null
+                            ]
+                          },
+                          "resolved_effective_date": {
+                            "type": [
+                              "null",
+                              "string"
+                            ]
+                          },
+                          "self_approval": {
+                            "type": [
+                              "null",
+                              "boolean"
+                            ],
+                            "enum": [
+                              false,
+                              true,
+                              null
+                            ]
+                          }
+                        },
+                        "required": [
+                          "decision",
+                          "entry_id",
+                          "exempt_role_used",
+                          "lock_state_at_entry",
+                          "period_id",
+                          "refusal_code",
+                          "resolved_effective_date",
+                          "self_approval"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "entry_count": {
+                      "type": "number"
+                    },
+                    "execution_state": {
+                      "type": "string",
+                      "enum": [
+                        "did_not_run",
+                        "ran"
+                      ]
+                    },
+                    "policy_digest": {
+                      "type": "string"
+                    },
+                    "policy_version": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "totals_by_decision": {
+                      "type": "object",
+                      "properties": {
+                        "allow": {
+                          "type": "number"
+                        },
+                        "allow_exempt": {
+                          "type": "number"
+                        },
+                        "refuse": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "allow",
+                        "allow_exempt",
+                        "refuse"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "totals_by_period": {
+                      "type": "object",
+                      "properties": {
+                        "FY26-01": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "number"
+                            },
+                            "allow_exempt": {
+                              "type": "number"
+                            },
+                            "refuse": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "allow",
+                            "allow_exempt",
+                            "refuse"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "FY26-02": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "number"
+                            },
+                            "allow_exempt": {
+                              "type": "number"
+                            },
+                            "refuse": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "allow",
+                            "allow_exempt",
+                            "refuse"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "FY26-03": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "number"
+                            },
+                            "allow_exempt": {
+                              "type": "number"
+                            },
+                            "refuse": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "allow",
+                            "allow_exempt",
+                            "refuse"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "FY26-12": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "number"
+                            },
+                            "allow_exempt": {
+                              "type": "number"
+                            },
+                            "refuse": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "allow",
+                            "allow_exempt",
+                            "refuse"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "FY27-01": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "number"
+                            },
+                            "allow_exempt": {
+                              "type": "number"
+                            },
+                            "refuse": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "allow",
+                            "allow_exempt",
+                            "refuse"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "FY27-01B": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "number"
+                            },
+                            "allow_exempt": {
+                              "type": "number"
+                            },
+                            "refuse": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "allow",
+                            "allow_exempt",
+                            "refuse"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "FY28-02": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "number"
+                            },
+                            "allow_exempt": {
+                              "type": "number"
+                            },
+                            "refuse": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "allow",
+                            "allow_exempt",
+                            "refuse"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [],
+                      "additionalProperties": false
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "PERIOD_LOCK_ENTRIES_REFUSED",
+                          "PERIOD_LOCK_EXEMPT_USED",
+                          "PERIOD_LOCK_POLICY_FAULT"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "entries",
+                    "entry_count",
+                    "execution_state",
+                    "policy_digest",
+                    "policy_version",
+                    "reason",
+                    "totals_by_decision",
+                    "totals_by_period",
+                    "warnings"
+                  ],
+                  "additionalProperties": false,
+                  "x-derived-from": "fixture"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "gate_je_period_lock",
+        "x-tool-url": "https://ainumbers.co/chaingraph/790-je-period-lock-gate.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
