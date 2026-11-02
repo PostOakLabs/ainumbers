@@ -115,7 +115,8 @@ function looksIdentifierLike(s) {
 
 function refusal(reason, field) {
   return {
-    output_payload: { refused: true, reason_code: reason, field: field || null, verdict: 'REFUSED' },
+    // issues mirrors the raised flag (flag-mirror doctrine): the refusal reason
+    output_payload: { refused: true, reason_code: reason, field: field || null, verdict: 'REFUSED', issues: [reason] },
     compliance_flags: [reason ? 'terms_lint_input_refused' : 'terms_lint_refused'],
   };
 }
@@ -245,6 +246,9 @@ export function compute(pp) {
     verdict === 'FAIL' ? 'terms_lint_fail'
       : (verdict === 'PASS_WITH_FINDINGS' ? 'terms_lint_findings' : 'terms_lint_pass'),
   ];
+  // issues mirrors the raised flag (flag-mirror doctrine): every FINDING item,
+  // in findings order; [] on PASS, so it is truthy exactly when verdict !== PASS
+  const issues = findings.filter((f) => f.status === 'FINDING').map((f) => f.item);
 
   return {
     output_payload: {
@@ -256,6 +260,7 @@ export function compute(pp) {
       findings,
       evaluated_items: findings.length,
       verdict,
+      issues,
     },
     compliance_flags,
   };

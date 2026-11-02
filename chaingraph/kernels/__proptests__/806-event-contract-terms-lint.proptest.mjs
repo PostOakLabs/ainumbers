@@ -7,7 +7,7 @@
 // objects: malformed inputs must land in the refusal branch, which is itself
 // asserted.
 //
-// kernel_digest_at_authoring: sha256:850ef2db18904c04f34a7c7c3f4f4c3ddea3ac4008264a869d88a553dae5c2f7
+// kernel_digest_at_authoring: sha256:8a45e6e92437b794e7087e2b86ca9e15027ca56a2bbe83cb744c8a65fd7f28bb
 // spec: event-contract declared settlement terms lint against a caller policy
 //   (board/queued/EVENT-TERMS-LINT-RESUME-1.md; pinned primary text mapped in
 //   research/EVENT-TERMS-LINT-PIN-2026-10-30.md — rule_key ids only in source,
