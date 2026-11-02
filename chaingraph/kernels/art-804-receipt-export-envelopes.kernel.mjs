@@ -96,51 +96,64 @@ function runIdFromHash(hash) {
   return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20, 32);
 }
 
-export function compute(pp) {
-  pp = pp || {};
-  const flags = [];
-  const fail = (field, detail) => ({
-    output_payload: {
-      status: 'refused',
-      refused_field: field,
-      reason: detail,
-      lineage_event: null,
-      event_envelope: null,
-    },
-    compliance_flags: ['RECEIPT_EXPORT_REFUSED'],
-  });
-
-  const r = pp.receipt;
+// Fail-closed validation, extracted so the refusal outcome is DATA (a [field, detail]
+// pair or null) rather than a closure that emits its own flag literal. The refusal
+// flag is emitted in compute() behind the branch the refusal datum earned — the
+// sanctioned conditional-emission shape for FLAGS-COMPUTED-LINT-1 (art-113 pattern).
+function receiptRefusal(r) {
   if (r === null || typeof r !== 'object' || Array.isArray(r)) {
-    return fail('receipt', 'pp.receipt must be a JSON object carrying the receipt to export.');
+    return ['receipt', 'pp.receipt must be a JSON object carrying the receipt to export.'];
   }
 
   const REQUIRED = ['tool_id', 'namespace', 'source', 'event_time', 'policy_parameters_hash', 'parent_hashes', 'parent_tool_ids', 'execution_hash', 'chain_depth'];
   for (const field of REQUIRED) {
-    if (!(field in r)) return fail(field, 'receipt member is missing; export is fail-closed.');
+    if (!(field in r)) return [field, 'receipt member is missing; export is fail-closed.'];
   }
 
-  if (!isNonEmptyString(r.tool_id)) return fail('tool_id', 'tool_id must be a non-empty string.');
-  if (!isNonEmptyString(r.namespace)) return fail('namespace', 'namespace must be a non-empty string.');
-  if (!isUriReference(r.source)) return fail('source', 'source must be a well-formed URI-reference (printable ASCII, valid percent-escapes, no whitespace or control characters).');
-  if (!isTimestamp(r.event_time)) return fail('event_time', 'event_time must be a well-formed timestamp with date, time, optional fractional seconds and an offset.');
-  if (!isHex64(r.execution_hash)) return fail('execution_hash', 'execution_hash must be a 64-character lowercase hex digest.');
-  if (!isHex64(r.policy_parameters_hash)) return fail('policy_parameters_hash', 'policy_parameters_hash must be a 64-character lowercase hex digest.');
+  if (!isNonEmptyString(r.tool_id)) return ['tool_id', 'tool_id must be a non-empty string.'];
+  if (!isNonEmptyString(r.namespace)) return ['namespace', 'namespace must be a non-empty string.'];
+  if (!isUriReference(r.source)) return ['source', 'source must be a well-formed URI-reference (printable ASCII, valid percent-escapes, no whitespace or control characters).'];
+  if (!isTimestamp(r.event_time)) return ['event_time', 'event_time must be a well-formed timestamp with date, time, optional fractional seconds and an offset.'];
+  if (!isHex64(r.execution_hash)) return ['execution_hash', 'execution_hash must be a 64-character lowercase hex digest.'];
+  if (!isHex64(r.policy_parameters_hash)) return ['policy_parameters_hash', 'policy_parameters_hash must be a 64-character lowercase hex digest.'];
 
-  const ph = r.parent_hashes;
-  if (!Array.isArray(ph) || ph.some((h) => !isHex64(h))) {
-    return fail('parent_hashes', 'parent_hashes must be an array of 64-character lowercase hex digests.');
+  if (!Array.isArray(r.parent_hashes) || r.parent_hashes.some((h) => !isHex64(h))) {
+    return ['parent_hashes', 'parent_hashes must be an array of 64-character lowercase hex digests.'];
   }
-  const pti = r.parent_tool_ids;
-  if (!Array.isArray(pti) || pti.some((t) => !isNonEmptyString(t))) {
-    return fail('parent_tool_ids', 'parent_tool_ids must be an array of non-empty strings.');
+  if (!Array.isArray(r.parent_tool_ids) || r.parent_tool_ids.some((t) => !isNonEmptyString(t))) {
+    return ['parent_tool_ids', 'parent_tool_ids must be an array of non-empty strings.'];
   }
-  if (ph.length !== pti.length) {
-    return fail('parent_tool_ids', 'parent_hashes and parent_tool_ids must have the same length (one id per parent hash).');
+  if (r.parent_hashes.length !== r.parent_tool_ids.length) {
+    return ['parent_tool_ids', 'parent_hashes and parent_tool_ids must have the same length (one id per parent hash).'];
   }
   if (typeof r.chain_depth !== 'number' || !Number.isInteger(r.chain_depth) || r.chain_depth < 0) {
-    return fail('chain_depth', 'chain_depth must be a non-negative integer.');
+    return ['chain_depth', 'chain_depth must be a non-negative integer.'];
   }
+  return null;
+}
+
+export function compute(pp) {
+  pp = pp || {};
+  const flags = [];
+
+  const refusal = receiptRefusal(pp.receipt);
+  if (refusal !== null) {
+    flags.push('RECEIPT_EXPORT_REFUSED');
+    return {
+      output_payload: {
+        status: 'refused',
+        refused_field: refusal[0],
+        reason: refusal[1],
+        lineage_event: null,
+        event_envelope: null,
+      },
+      compliance_flags: flags,
+    };
+  }
+
+  const r = pp.receipt;
+  const ph = r.parent_hashes;
+  const pti = r.parent_tool_ids;
 
   const data = {
     tool_id: r.tool_id,
@@ -172,7 +185,7 @@ export function compute(pp) {
     data,
   };
 
-  flags.push('RECEIPT_EXPORTED');
+  flags.push(refusal === null ? 'RECEIPT_EXPORTED' : 'RECEIPT_EXPORT_REFUSED');
   flags.push(ph.length === 0 ? 'RECEIPT_ROOT_NO_PARENTS' : 'RECEIPT_PARENTS_PRESENT');
   flags.push(ph.length > 1 ? 'RECEIPT_MULTI_PARENT' : 'RECEIPT_SINGLE_OR_NO_PARENT');
 
