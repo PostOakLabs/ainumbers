@@ -54,6 +54,14 @@ jobs:
     if: (github.event.action == 'labeled' && github.event.label.name == 'automerge') || (github.event.action == 'dequeued' && github.event.reason == 'CI_TIMEOUT' && contains(github.event.pull_request.labels.*.name, 'automerge'))
     runs-on: ubuntu-latest
     steps:
+      # The merge-group-shadow gate below runs the repo's own decision helper,
+      # so the checkout is needed (depth 1, read-only — this job never pushes).
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
       # Held-draft shard PRs must never auto-merge (board/STANDING-ORDERS.md
       # -0.7) and a fork PR's head repo differs from the base repo, which the
       # App token cannot push/merge across without a second grant — skip both.
@@ -81,6 +89,40 @@ jobs:
           else
             echo "proceed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # MERGE-GROUP-SHADOW GATE: pull_request CI judges the COMMITTED tree,
+      # merge_group judges the assembled DERIVED_ROOT tree. The
+      # `merge-group-shadow` job (scripts-verify.yml, pull_request-only,
+      # non-required) replays the queue's assembled-tree verdict on the PR;
+      # this step refuses to arm or enqueue a labelled PR whose shadow check
+      # is failing, pending or MISSING on its head. The decision is the repo's
+      # own helper (scripts/check-merge-group-shadow.mjs — pure over the
+      # `gh pr checks --json name,state` payload), and the refusal reason is
+      # posted verbatim to the job summary. Refusing is NOT a red job: the
+      # arming simply does not happen, exactly like the draft/fork skips above,
+      # with the summary saying why. Required checks are untouched.
+      - name: Guard merge-group-shadow parity check
+        id: shadow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          CHECKS=$(gh pr checks "$PR" -R "$REPO" --json name,state || echo '[]')
+          VERDICT=$(node scripts/check-merge-group-shadow.mjs "$CHECKS") && CODE=0 || CODE=$?
+          if [ "$CODE" = "0" ]; then
+            echo "verdict=proceed" >> "$GITHUB_OUTPUT"
+          else
+            echo "verdict=refuse" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Refused::merge-group-shadow is not green on this head (exit $CODE); auto-merge NOT enabled."
+          fi
+          {
+            echo "### merge-group-shadow gate"
+            echo ""
+            echo "$VERDICT"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
 
       # Mints a credential scoped to this one repo, expiring with the job.
       # Same App + same action pin as derived-artifacts-regen.yml and
@@ -171,7 +213,7 @@ jobs:
       # state via GraphQL and falls back to enqueuePullRequest directly
       # when native auto-merge left the PR untouched.
       - name: Enable auto-merge / enqueue
-        if: steps.guard.outputs.proceed == 'true' && steps.timeout-cap.outputs.proceed != 'false'
+        if: steps.guard.outputs.proceed == 'true' && steps.shadow.outputs.verdict == 'proceed' && steps.timeout-cap.outputs.proceed != 'false'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR: ${{ github.event.pull_request.number }}
@@ -237,6 +279,12 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Mint PR token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -264,6 +312,14 @@ jobs:
             Q=$(gh api graphql -f query='query($id: ID!){node(id:$id){... on PullRequest{mergeQueueEntry{id}}}}' -f id="$NODE_ID" | jq -r '.data.node.mergeQueueEntry')
             if [ "$ARMED" != "null" ] || [ "$Q" != "null" ]; then echo "#$PR already armed/queued"; continue; fi
             if [ "$WF" -gt 0 ]; then echo "#$PR touches workflows; needs human merge, skipped"; continue; fi
+            # Same merge-group-shadow gate the labeled/dequeued path enforces:
+            # never re-arm while the queue's assembled-tree verdict is failing,
+            # pending or missing on this head.
+            SHADOW_JSON=$(gh pr checks "$PR" -R "$REPO" --json name,state || echo '[]')
+            if ! node scripts/check-merge-group-shadow.mjs "$SHADOW_JSON" > /dev/null 2>&1; then
+              echo "#$PR merge-group-shadow not green (failing, pending or missing); not re-arming"
+              continue
+            fi
             if [ "$STATE" != "CLEAN" ]; then echo "#$PR mergeStateStatus=$STATE, not re-arming"; continue; fi
             echo "#$PR is CLEAN, labelled and un-armed; arming"
             gh pr merge "$PR" -R "$REPO" --auto --squash || true

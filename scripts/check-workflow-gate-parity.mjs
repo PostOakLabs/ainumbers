@@ -1595,7 +1595,9 @@ const DECLARED_SOFTENERS = new Map([
   // this attest step; same pin-move.
   // SIGSTORE-BUNDLE-V03-EXPORT-8 (2026-10-26) moved it :1018 → :1024 — six
   // ordering-comment lines added inside the receipt block above; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:1024",
+  // CHANGELOG-DEPLOY-INCLUDE-1 (2026-10-31) moved it :1024 → :1026 — two
+  // --include lines added to the dry-run rsync above; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:1026",
    "attest step is advisory-first by design; promotion criterion on the step"],
   // SIGSTORE-BUNDLE-V03-EXPORT-4 (2026-10-24): the receipt-bundle index
   // attest step (continue-on-error at :829) is advisory-first for the SAME

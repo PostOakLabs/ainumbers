@@ -813,6 +813,14 @@ if (process.argv.includes('--source-shards')) {
       const allowed = baseline0[key]?.emdash || 0;
       if (emdash > allowed) shardFailures.push(`${rel}: ${emdash} em-dash(es) in top-level description (baseline ${allowed}) — CONTRACT §1.4; this shard is what main's derived regen assembles, fix it at the source`);
       else if (emdash < allowed) shardImprovements.push(`${rel}: em-dash ${allowed} -> ${emdash}`);
+      // COPY-CODENAME-PR-GATE-2: row-codename/insider-register ban on the
+      // top-level `description` (zero-tolerance, no baseline — measured clean
+      // over every node shard at origin/main 93d3532ee). A codename here turns
+      // main red only AFTER merge, in the derived regen; fail the PR instead.
+      if (dir === 'chaingraph/graph/nodes') {
+        const descInsider = insiderHits(decodeDashEntities(String(shard.description || '')));
+        if (descInsider.length) shardFailures.push(`${rel}: insider-register/codename hit(s) in top-level description: ${descInsider.join('; ')} — rewrite the copy; row codenames never ship in node copy (COPY-CODENAME-PR-GATE-2)`);
+      }
     }
   }
   if (shardFailures.length) {
@@ -909,6 +917,23 @@ if (UPDATE) {
 
 const baseline = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : {};
 const failures = [];
+
+// COPY-CODENAME-PR-GATE-2: row-codename/insider-register ban on the top-level
+// `description` of every chaingraph/graph/nodes/*.json shard — zero-tolerance,
+// no baseline (measured clean over all node shards at origin/main 93d3532ee;
+// deferred_reason and display_name are OUT of scope by ruling). These shards
+// are what main's post-merge derived regen assembles into chaingraph.json and
+// the hub/sitemap, so a leak only surfaces on main AFTER merge — catch it on
+// the PR instead. Scans all shards on full runs and touched shards on
+// --changed runs, same scoping shape as the html scan above.
+for (const nodeFile of readdirSync(resolve(REPO, 'chaingraph', 'graph', 'nodes'))) {
+  if (!nodeFile.endsWith('.json')) continue;
+  const nodeRel = `chaingraph/graph/nodes/${nodeFile}`;
+  if (CHANGED && !isTouched(nodeRel, CHANGED)) continue;
+  const nodeShard = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'graph', 'nodes', nodeFile), 'utf8'));
+  const descInsider = insiderHits(decodeDashEntities(String(nodeShard.description || '')));
+  if (descInsider.length) failures.push(`${nodeRel}: insider-register/codename hit(s) in top-level description: ${descInsider.join('; ')} — rewrite the copy; row codenames never ship in node copy (COPY-CODENAME-PR-GATE-2)`);
+}
 const improvements = [];
 const advisories = [];
 

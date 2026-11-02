@@ -591,6 +591,79 @@ jobs:
             echo "::error title=tier shard $SHARD/6::Mutation tier floor RED on this shard — see the scan step log above. The scripts-verify / required aggregate will fail with it."
           fi
 
+  # MERGE-GROUP SHADOW (pull_request only, NON-REQUIRED by construction: this
+  # job is NOT in the scripts-verify-required aggregate below and is never
+  # added to any branch ruleset — its verdict alone can never block a PR).
+  #
+  # The parity gap this closes: pull_request CI judges the COMMITTED tree while
+  # merge_group judges the assembled DERIVED_ROOT tree (the "Ephemeral derived
+  # tree" step above). A PR can therefore be green on one and red on the other:
+  # #2797 was red on pull_request (nav island) yet green on merge_group and
+  # needed a bypass merge; #2730/#2795 were green on the PR side and were then
+  # ejected from the queue on §18 digest freshness. This job replays the
+  # queue's judgment ON the PR, where the author can still see and fix it.
+  #
+  # Shape: byte-for-byte the merge_group path. Same checkout (the merge ref via
+  # GATE_SHA), same assembly (assemble-chaingraph --out + derived-artifacts
+  # --out into a runner-temp scratch dir — nothing derived is ever committed),
+  # then the DERIVED_ROOT_GATES set HARD against the scratch tree. The
+  # shell-level `GITHUB_EVENT_NAME=merge_group` prefix is the SAME presentation
+  # plumbing the "Preflight (full gate suite)" step above uses on merge_group
+  # (GITHUB_* names are runner-reserved; a step-level env entry would be
+  # silently ignored — measured 2026-09-11, run 34654251817): with the scratch
+  # tree mounted, `derived-artifacts.mjs --verify` is the ephemeral GATE that
+  # runs exactly the DERIVED_ROOT_GATES set (every main-regen-owned covered
+  # gate is skipped with a printed reason), each HARD, in the third-state
+  # context merge_group earns. The full commit-scoped suite (mutation tier,
+  # per-PR derivables, citation drift) keeps running in the main job above —
+  # this job is ONLY the queue's freshness verdict, reported early.
+  merge-group-shadow:
+    name: merge-group-shadow
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ env.GATE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: Ephemeral derived tree (the merge_group assembly, byte-for-byte)
+        id: derived
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRATCH="${RUNNER_TEMP}/derived-tree"
+          node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
+          node scripts/derived-artifacts.mjs --out "${SCRATCH}"
+          echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+
+      - name: DERIVED_ROOT_GATES against the assembled tree (merge_group shape, HARD)
+        shell: bash
+        run: |
+          set -euo pipefail
+          DERIVED_ROOT="${RUNNER_TEMP}/derived-tree" GITHUB_EVENT_NAME=merge_group node scripts/derived-artifacts.mjs --verify
+
+      - name: Assert clean tree (nothing derived was committed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          s="$(git status --porcelain)"
+          if [ -n "$s" ]; then
+            echo "::error::shadow job dirtied the checkout — the ephemeral derived tree must never touch it:"
+            printf '%s\n' "$s"
+            exit 1
+          fi
+          echo "checkout clean — the ephemeral derived tree touched nothing."
+
   scripts-verify-required:
     name: scripts-verify / required
     # Always-report shape: the check named in the branch ruleset. ALWAYS

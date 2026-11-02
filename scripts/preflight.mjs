@@ -14,10 +14,13 @@
  *
  * ── MODES ───────────────────────────────────────────────────────────────────
  *   node scripts/preflight.mjs
- *       DEFAULT, UNCHANGED: fail-fast. Stops at the first red gate, exits 1, and
- *       reports nothing about the gates behind it. This is what CI
- *       (scripts-verify.yml), the pre-push hook and assemble-land.mjs run, and
- *       every line of that path is deliberately left exactly as it was.
+ *       Fail-fast, CONCURRENT (PREFLIGHT-PARALLEL-FAILFAST-1). Gates start in
+ *       list order up to the RAM-bound concurrency cap; on the first FAIL no
+ *       new gate starts, in-flight gates finish, and the run then names and
+ *       prints exactly what the old serial loop did — the FIRST failing gate
+ *       in LIST order, its full output, exit 1, nothing about the gates behind
+ *       it. This is what CI (scripts-verify.yml), the pre-push hook and
+ *       assemble-land.mjs run. Gates in SERIAL_GATES never share the pool.
  *
  *   node scripts/preflight.mjs --quiet
  *       Output-only: same gates/order/exit code; suppresses per-gate progress lines and
@@ -29,12 +32,13 @@
  *       PASS / FAIL / ADVISORY / UNAVAILABLE / DID-NOT-RUN list with totals derived
  *       from the gate list at runtime, and exits 1 if any unwaived gate failed.
  *       EXPECTRED-ENVPREFIX-GAP-1 (2026-08-29): this mode runs the gate list with
- *       bounded CONCURRENCY (default 8, override via AINUM_PREFLIGHT_CONCURRENCY),
- *       not serially — every gate here is a read-only checker/lint/test, so this
- *       changes wall-clock only, never which gates run, their order in the final
- *       ledger, or their pass/fail verdict. Fail-fast mode (no flag) is UNCHANGED
- *       and stays serial, since a run that stops at the first red has nothing to
- *       gain from concurrency.
+ *       bounded CONCURRENCY — min(env override, 8, floor(free RAM GB / 1.5)),
+ *       never below 1 — not serially; every gate here is a read-only
+ *       checker/lint/test, so this changes wall-clock only, never which gates
+ *       run, their order in the final ledger, or their pass/fail verdict.
+ *       PREFLIGHT-PARALLEL-FAILFAST-1 (2026-11-01): fail-fast mode reuses this
+ *       SAME pool with a stop-on-first-FAIL rule instead of a second serial
+ *       loop.
  *
  *   node scripts/preflight.mjs --self-test
  *       ...proves the machinery above is real. Also HOOK-TOUCHED-SET-REBASE-1's
@@ -94,7 +98,7 @@ import { gitEnv } from './_git-env-lib.mjs';
 import { checkPreflightCap, refusalMessage } from './lib/preflight-cap.mjs';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpdir, freemem } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 // PREFLIGHT-STALE-REFUSE-1: resolve the site-repo path LOUDLY, then validate it
@@ -2703,164 +2707,197 @@ const advisoryFailures = []; // [label, cmd] — covered-artifact staleness on a
 const coveredFailures = []; // [label, cmd] — covered-artifact staleness on MAIN (hard red, classified below)
 const suiteStart = Date.now();
 
+// ── PREFLIGHT-PARALLEL-FAILFAST-1 (2026-11-01): ONE pool for BOTH modes ─────
+// Fail-fast no longer runs its own serial execSync loop; it reuses the EXACT
+// pool --keep-going uses (same pMapLimit, same worker, same classification —
+// no second pool), with two fail-fast-only rules added:
+//   1. STOP rule: the first hard FAIL (any FAIL verdict, completion order)
+//      sets a stop flag; no gate that has not already STARTED is started, and
+//      in-flight gates are allowed to finish. Printing then walks the list in
+//      GATES declaration order and stops at the FIRST failing gate in LIST
+//      order — the named gate, the printed output and the exit code are
+//      exactly what the old serial loop produced; the gates behind it still
+//      report nothing, exactly as before.
+//   2. SERIAL_GATES: labels matching a prefix below are pulled out of the
+//      pool entirely and run one at a time, in list order, ahead of the pool.
+const SERIAL_GATES_PREFIXES = [
+  // 'Mutation tier floor' — run-mutation-tier.mjs is the ONLY gate in GATES
+  // whose contract is "mutate a kernel copy, run the suite, revert": it never
+  // shares the machine with a peer gate. Every other entry is a read-only
+  // checker over the working tree or a self-test that mutates only its own
+  // mkdtemp()/tmpdir() fixture (shared scratch candidates were audited:
+  // ensureS18PrDerivedRoot() and MERGE_GROUP_DERIVED_ROOT both assemble their
+  // ephemeral tree synchronously and memoize it before any subprocess spawns,
+  // so two gates can never race its build) — and PREFLIGHT-KEEPGOING-1 has
+  // run the whole list concurrently at cap 8 since 2026-08 with zero
+  // shared-scratch collisions. The set starts at exactly one entry: the one
+  // deliberate mutator.
+  'Mutation tier floor',
+];
+
+// RAM-bound cap (PREFLIGHT-PARALLEL-FAILFAST-1): min(env override, 8,
+// floor(free RAM GB / 1.5)), never below 1. Free RAM is sampled once, here,
+// and the chosen cap is printed on the FIRST line of every gate-running
+// invocation.
+const CONCURRENCY_ENV_RAW = process.env.AINUM_PREFLIGHT_CONCURRENCY;
+const CONCURRENCY_ENV = Number(CONCURRENCY_ENV_RAW);
+const FREE_RAM_GB = freemem() / 2 ** 30;
+const CONCURRENCY = Math.max(1, Math.min(
+  Number.isFinite(CONCURRENCY_ENV) && CONCURRENCY_ENV > 0 ? CONCURRENCY_ENV : 8,
+  8,
+  Math.floor(FREE_RAM_GB / 1.5),
+));
+console.log(`▶ preflight: concurrency cap ${CONCURRENCY} (env ${CONCURRENCY_ENV_RAW || 'unset'}, free RAM ${FREE_RAM_GB.toFixed(1)} GB) — PREFLIGHT-PARALLEL-FAILFAST-1`);
+
 if (KEEP_GOING) {
   console.log('▶ preflight --keep-going: running EVERY gate and collecting every result.');
-  console.log('  (the default no-flag run is unchanged and still stops at the first red)');
+  console.log('  (the default no-flag run still stops at the first red — now on this same pool, PREFLIGHT-PARALLEL-FAILFAST-1)');
   if (EXPECT_RED.length) {
     console.log(`  --expect-red declared for THIS invocation only: ${EXPECT_RED.join(', ')}`);
   }
   console.log('');
 }
 
-if (!KEEP_GOING) {
-  // DEFAULT, UNCHANGED: fail-fast, serial, stops at the first red. Nothing to
-  // gain from concurrency on a run that stops here anyway, and every consumer
-  // of this path (CI's scripts-verify.yml, the pre-push hook, assemble-land.mjs)
-  // depends on exactly this behaviour — left byte-for-byte as it was.
-  for (const [label, cmd, meta] of RUN_GATES) {
-    gateStart(label);
-    const t0 = Date.now();
-    try {
-      execSync(cmd, { cwd: REPO, env: gateEnvFor(cmd), stdio: ['ignore', 'pipe', 'pipe'] });
-      const ms = Date.now() - t0;
-      timings.push([label, ms]);
-      gatePass(`✓ (${ms}ms)`);
-      results.push({ label, state: 'PASS', ms, note: meta?.note });
-    } catch (e) {
-      const ms = Date.now() - t0;
-      timings.push([label, ms]);
-      const out = (e.stdout?.toString() || '') + (e.stderr?.toString() || '');
-      if (!gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) {
-        const c = classifyExecFailure(e);
-        if (c.ran) {
-          gateFail(`⚠ (${ms}ms) ADVISORY`);
-          console.log('\n' + out.trim() + '\n');
-          advisoryFailures.push([label, cmd]);
-          results.push({ label, state: 'ADVISORY', ms, note: meta?.note });
-        } else {
-          gateFail(`✗ (${ms}ms) UNAVAILABLE — ${c.reason}`);
-          console.log('\n' + out.trim() + '\n');
-          unavailableAdvisories.push({ label, reason: c.reason });
-          results.push({ label, state: 'UNAVAILABLE', ms, note: `${c.reason} — this gate reported NOTHING; ⛔ absence of a result is not a pass (SO #34c)` });
-        }
-        continue;
-      }
-      if (gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
-      gateFail(`✗ (${ms}ms)`);
-      console.log('\n' + out.trim() + '\n');
-      results.push({ label, state: 'FAIL', ms, note: meta?.note });
-      if (failed === null) failed = label; // where a fail-fast run stops
-      break;
+// EXPECTRED-ENVPREFIX-GAP-1 (defect 2, 2026-08-29): --expect-red implies
+// KEEP_GOING, which MUST run the full gate list to prove no OTHER gate is red
+// — never a partial scan, that would turn --expect-red into the blanket pass
+// it must never be. Running ~215 gates one at a time, each paying its own
+// Node/Python startup cost, is what pushed a real --expect-red push past the
+// 600s tool ceiling (measured on ML03-HANG-FIX-1: killed at exit 143 ~90
+// gates in) and denied the run its own final summary line — exactly the
+// evidence a session needs to certify "the declared gate was the only red"
+// (SO #34c / SO #56). Every GATES entry is a read-only checker/lint/test
+// (`--check`, `--quiet`, `--self-test`, `*.test.mjs` — none writes shared
+// state; several already run their own isolated scratch-worktree internally),
+// so running them CONCURRENTLY changes wall-clock only: same commands, same
+// classification, same full-breadth guarantee, same final ledger — just not
+// one at a time.
+const slots = new Array(RUN_GATES.length);
+const runnableIdx = [];
+const serialRunIdx = [];
+RUN_GATES.forEach(([label, , meta], i) => {
+  if (meta?.notRun && KEEP_GOING) {
+    // keep-going keeps its DID-NOT-RUN ledger entry. Fail-fast instead runs
+    // the gate's own command exactly as the old serial loop did — every
+    // notRun shape is a `node -e "1"` no-op that PASSes and prints as a PASS —
+    // so the fail-fast printed ledger is unchanged.
+    slots[i] = { label, state: 'DID-NOT-RUN', ms: 0, note: meta.notRun };
+    return;
+  }
+  if (SERIAL_GATES_PREFIXES.some((p) => label.startsWith(p))) serialRunIdx.push(i);
+  else runnableIdx.push(i);
+});
+
+async function pMapLimit(items, limit, worker) {
+  let cursor = 0;
+  async function run() {
+    while (cursor < items.length) {
+      const i = cursor++;
+      await worker(items[i]);
     }
   }
-} else {
-  // EXPECTRED-ENVPREFIX-GAP-1 (defect 2, 2026-08-29): --expect-red implies
-  // KEEP_GOING, which MUST run the full gate list to prove no OTHER gate is red
-  // — never a partial scan, that would turn --expect-red into the blanket pass
-  // it must never be. Running ~215 gates one at a time, each paying its own
-  // Node/Python startup cost, is what pushed a real --expect-red push past the
-  // 600s tool ceiling (measured on ML03-HANG-FIX-1: killed at exit 143 ~90
-  // gates in) and denied the run its own final summary line — exactly the
-  // evidence a session needs to certify "the declared gate was the only red"
-  // (SO #34c / SO #56). Every GATES entry is a read-only checker/lint/test
-  // (`--check`, `--quiet`, `--self-test`, `*.test.mjs` — none writes shared
-  // state; several already run their own isolated scratch-worktree internally),
-  // so running them CONCURRENTLY changes wall-clock only: same commands, same
-  // classification, same full-breadth guarantee, same final ledger — just not
-  // one at a time.
-  const slots = new Array(RUN_GATES.length);
-  const runnableIdx = [];
-  RUN_GATES.forEach(([label, , meta], i) => {
-    if (meta?.notRun) {
-      slots[i] = { label, state: 'DID-NOT-RUN', ms: 0, note: meta.notRun };
-    } else {
-      runnableIdx.push(i);
-    }
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, run));
+}
+
+async function runGateAt(i, ffStop) {
+  if (ffStop && ffStop.stop) return; // fail-fast: no NEW gate starts after the first FAIL
+  const [label, cmd, meta] = RUN_GATES[i];
+  const t0 = Date.now();
+  const { err, stdout, stderr } = await new Promise((res) => {
+    exec(cmd, { cwd: REPO, env: gateEnvFor(cmd) }, (err, stdout, stderr) => res({ err, stdout, stderr }));
   });
-
-  async function pMapLimit(items, limit, worker) {
-    let cursor = 0;
-    async function run() {
-      while (cursor < items.length) {
-        const i = cursor++;
-        await worker(items[i]);
-      }
-    }
-    await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, run));
-  }
-
-  const concurrency = Math.max(1, Number(process.env.AINUM_PREFLIGHT_CONCURRENCY) || 8);
-  await pMapLimit(runnableIdx, concurrency, async (i) => {
-    const [label, cmd, meta] = RUN_GATES[i];
-    const t0 = Date.now();
-    const { err, stdout, stderr } = await new Promise((res) => {
-      exec(cmd, { cwd: REPO, env: gateEnvFor(cmd) }, (err, stdout, stderr) => res({ err, stdout, stderr }));
-    });
-    const ms = Date.now() - t0;
-    timings.push([label, ms]);
-    if (!err) {
-      const declared = expectedRedFor(label);
-      slots[i] = {
-        label, state: 'PASS', ms,
-        note: declared ? `declared --expect-red ${declared} but PASSED — the declaration was unnecessary` : meta?.note,
-      };
-      return;
-    }
-    // exec()'s callback error uses `.code` for BOTH the numeric exit code and a
-    // spawn-errno string, depending on failure class; execSync (what
-    // classifyExecFailure was written against) splits those into `.status`
-    // (exit code) and `.code` (spawn errno). Normalize here, once, so the SAME
-    // classifier reused below sees the shape it expects either way.
-    if (typeof err.code === 'number') { err.status = err.code; err.code = undefined; }
-    err.stdout = stdout;
-    err.stderr = stderr;
-    const out = (stdout?.toString() || '') + (stderr?.toString() || '');
-    if (!gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) {
-      const c = classifyExecFailure(err);
-      if (c.ran) {
-        advisoryFailures.push([label, cmd]);
-        slots[i] = { label, state: 'ADVISORY', ms, note: meta?.note, out, tag: 'ADVISORY' };
-      } else {
-        unavailableAdvisories.push({ label, reason: c.reason });
-        slots[i] = {
-          label, state: 'UNAVAILABLE', ms,
-          note: `${c.reason} — this gate reported NOTHING; ⛔ absence of a result is not a pass (SO #34c)`,
-          out, tag: 'UNAVAILABLE', reason: c.reason,
-        };
-      }
-      return;
-    }
-    if (gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
+  const ms = Date.now() - t0;
+  if (!err) {
     const declared = expectedRedFor(label);
-    if (failed === null) failed = label; // truthiness only under --keep-going; see PROBE_LABEL below
     slots[i] = {
-      label, state: declared ? 'EXPECTED-RED' : 'FAIL', ms,
-      note: declared ? `red, waived for this invocation only by --expect-red ${declared}` : meta?.note,
-      out, tag: declared ? 'EXPECTED-RED' : 'FAIL', declared,
+      label, state: 'PASS', ms,
+      note: declared ? `declared --expect-red ${declared} but PASSED — the declaration was unnecessary` : meta?.note,
     };
-  });
-
-  // Print and record in GATES DECLARATION ORDER (never completion order), so the
-  // KEEP-GOING SUMMARY, the "would have stopped at" index, and the run-list
-  // reconciliation below are identical to what a serial run would have produced.
-  for (const slot of slots) {
-    if (slot.state === 'DID-NOT-RUN') {
-      console.log(`⊘ ${slot.label} … DID NOT RUN`);
-      results.push(slot);
-      continue;
-    }
-    gateStart(slot.label);
-    if (slot.state === 'PASS') {
-      gatePass(`✓ (${slot.ms}ms)`);
-      results.push({ label: slot.label, state: slot.state, ms: slot.ms, note: slot.note });
-      continue;
-    }
-    if (slot.tag === 'ADVISORY') gateFail(`⚠ (${slot.ms}ms) ADVISORY`);
-    else if (slot.tag === 'UNAVAILABLE') gateFail(`✗ (${slot.ms}ms) UNAVAILABLE — ${slot.reason}`);
-    else gateFail(slot.declared ? `✗ (${slot.ms}ms) [EXPECTED-RED via --expect-red ${slot.declared}]` : `✗ (${slot.ms}ms)`);
-    console.log('\n' + slot.out.trim() + '\n');
-    results.push({ label: slot.label, state: slot.state, ms: slot.ms, note: slot.note });
+    return;
   }
+  // exec()'s callback error uses `.code` for BOTH the numeric exit code and a
+  // spawn-errno string, depending on failure class; execSync (what
+  // classifyExecFailure was written against) splits those into `.status`
+  // (exit code) and `.code` (spawn errno). Normalize here, once, so the SAME
+  // classifier reused below sees the shape it expects either way.
+  if (typeof err.code === 'number') { err.status = err.code; err.code = undefined; }
+  err.stdout = stdout;
+  err.stderr = stderr;
+  const out = (stdout?.toString() || '') + (stderr?.toString() || '');
+  if (!gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) {
+    const c = classifyExecFailure(err);
+    if (c.ran) {
+      advisoryFailures.push([label, cmd]);
+      slots[i] = { label, state: 'ADVISORY', ms, note: meta?.note, out, tag: 'ADVISORY' };
+    } else {
+      unavailableAdvisories.push({ label, reason: c.reason });
+      slots[i] = {
+        label, state: 'UNAVAILABLE', ms,
+        note: `${c.reason} — this gate reported NOTHING; ⛔ absence of a result is not a pass (SO #34c)`,
+        out, tag: 'UNAVAILABLE', reason: c.reason,
+      };
+    }
+    return;
+  }
+  if (gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
+  const declared = expectedRedFor(label);
+  if (KEEP_GOING && failed === null) failed = label; // truthiness only under --keep-going; see PROBE_LABEL below
+  slots[i] = {
+    label, state: declared ? 'EXPECTED-RED' : 'FAIL', ms,
+    note: declared ? `red, waived for this invocation only by --expect-red ${declared}` : meta?.note,
+    out, tag: declared ? 'EXPECTED-RED' : 'FAIL', declared,
+  };
+  if (ffStop && !declared) ffStop.stop = true; // fail-fast: let in-flight gates finish, start no new ones
+}
+
+if (KEEP_GOING) {
+  await pMapLimit(runnableIdx, CONCURRENCY, (i) => runGateAt(i, null));
+} else {
+  const ffStop = { stop: false };
+  for (const i of serialRunIdx) {
+    if (ffStop.stop) break;
+    await runGateAt(i, ffStop);
+  }
+  await pMapLimit(runnableIdx, CONCURRENCY, (i) => runGateAt(i, ffStop));
+}
+
+// Print and record in GATES DECLARATION ORDER (never completion order), so the
+// KEEP-GOING SUMMARY, the "would have stopped at" index, and the run-list
+// reconciliation below are identical to what a serial run would have produced.
+function printSlot(slot) {
+  if (!slot) return; // never started (fail-fast stop reached first)
+  if (slot.state === 'DID-NOT-RUN') {
+    console.log(`⊘ ${slot.label} … DID NOT RUN`);
+    results.push(slot);
+    return;
+  }
+  gateStart(slot.label);
+  timings.push([slot.label, slot.ms]);
+  if (slot.state === 'PASS') {
+    gatePass(`✓ (${slot.ms}ms)`);
+    results.push({ label: slot.label, state: slot.state, ms: slot.ms, note: slot.note });
+    return;
+  }
+  if (slot.tag === 'ADVISORY') gateFail(`⚠ (${slot.ms}ms) ADVISORY`);
+  else if (slot.tag === 'UNAVAILABLE') gateFail(`✗ (${slot.ms}ms) UNAVAILABLE — ${slot.reason}`);
+  else gateFail(slot.declared ? `✗ (${slot.ms}ms) [EXPECTED-RED via --expect-red ${slot.declared}]` : `✗ (${slot.ms}ms)`);
+  console.log('\n' + slot.out.trim() + '\n');
+  results.push({ label: slot.label, state: slot.state, ms: slot.ms, note: slot.note });
+}
+
+if (KEEP_GOING) {
+  for (const slot of slots) printSlot(slot);
+} else {
+  // Fail-fast: name the FIRST failing gate in LIST order, then print exactly
+  // the gates the old serial loop would have printed — everything up to and
+  // including that gate, nothing behind it.
+  let stopIdx = -1;
+  for (let i = 0; i < slots.length; i++) {
+    if (slots[i] && slots[i].tag === 'FAIL') { stopIdx = i; break; }
+  }
+  if (stopIdx >= 0) failed = slots[stopIdx].label;
+  const lastPrinted = stopIdx >= 0 ? stopIdx : slots.length - 1;
+  for (let i = 0; i <= lastPrinted; i++) printSlot(slots[i]);
 }
 
 // mfstSec presence — every tool HTML must carry the manifest panel (CI hard gate).
