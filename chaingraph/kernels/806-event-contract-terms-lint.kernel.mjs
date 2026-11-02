@@ -116,7 +116,7 @@ function looksIdentifierLike(s) {
 function refusal(reason, field) {
   return {
     output_payload: { refused: true, reason_code: reason, field: field || null, verdict: 'REFUSED' },
-    compliance_flags: ['terms_lint_input_refused'],
+    compliance_flags: [reason ? 'terms_lint_input_refused' : 'terms_lint_refused'],
   };
 }
 
@@ -241,10 +241,10 @@ export function compute(pp) {
   const anyFinding = findings.some((f) => f.status === 'FINDING');
   const verdict = anyFail ? 'FAIL' : (anyFinding ? 'PASS_WITH_FINDINGS' : 'PASS');
 
-  const compliance_flags = [];
-  if (verdict === 'FAIL') compliance_flags.push('terms_lint_fail');
-  else if (verdict === 'PASS_WITH_FINDINGS') compliance_flags.push('terms_lint_findings');
-  else compliance_flags.push('terms_lint_pass');
+  const compliance_flags = [
+    verdict === 'FAIL' ? 'terms_lint_fail'
+      : (verdict === 'PASS_WITH_FINDINGS' ? 'terms_lint_findings' : 'terms_lint_pass'),
+  ];
 
   return {
     output_payload: {
