@@ -7759,7 +7759,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "RFC 4180 CSV Parser",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/mcp.html",
-    "description": "Parses a CSV table supplied as a plain string and returns the decoded records plus a per-column summary, over the shared _csv.bundle.mjs (SH",
+    "description": "Parses a CSV table supplied as a plain string and returns the decoded records plus a per-column summary, over the shared _csv.bundle.mjs (a ",
     "consumes": [],
     "feeds": [],
     "status": "live"
