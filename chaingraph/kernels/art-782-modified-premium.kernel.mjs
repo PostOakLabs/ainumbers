@@ -12,7 +12,7 @@ export const meta = {
 // Modified premium: the caller supplies a subject premium (total manual premium
 // plus every premium item subject to experience rating) and an experience
 // modification factor; the modified premium is their product. The experience
-// modification itself is NOT computed here -- it is read unchanged from the
+// modification itself is NOT computed here -- it is taken as given from the
 // output of the experience-modification node in a chain, or supplied directly
 // by the caller from their own experience rating worksheet.
 //
