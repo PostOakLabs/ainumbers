@@ -73,6 +73,12 @@ export function compute(pp) {
     regulatory_basis: 'NCCI Basic Manual premium algorithm as published by the Indiana Compensation Rating Bureau (Premium Algorithms): add to manual premium all premium items subject to experience rating to get total subject premium, then apply the experience modification to arrive at the modified premium; premiums shown to the nearest dollar, a remainder of $0.50 or more rounded to the next higher dollar (WCRB Wisconsin Workers Compensation and Employers Liability Basic Manual, Whole Dollars - Premiums).',
     note: 'Subject premium composition is the caller\'s responsibility -- this kernel does not compute manual premium from payrolls and rates, and never vendors or reproduces NCCI or state rate tables. Out of scope: premium discount, expense constant, terrorism/catastrophe surcharges, state taxes, schedule rating and assigned-risk surcharge. The NCCI algorithm does not apply in the monopolistic state funds (Ohio, North Dakota, Washington, Wyoming) or the Puerto Rico and USVI funds.',
     gate: modifiedPremium === null ? 'flagged' : 'computed',
+    // FLAG-MIRROR-DOCTRINE (AUTHORING-STANDARD.md §2.2): compute() raises flags
+    // CONDITIONALLY (empty on success, INPUT_NOT_FINITE / NEGATIVE_SUBJECT_PREMIUM /
+    // NONPOSITIVE_MOD on refusal), so output_payload mirrors them in the closed-list
+    // `errors` member -- truthy exactly when the flags are present, so a §21.4 chain
+    // gate can route on the payload alone.
+    errors: compliance_flags.slice(),
   };
 
   return { output_payload, compliance_flags };

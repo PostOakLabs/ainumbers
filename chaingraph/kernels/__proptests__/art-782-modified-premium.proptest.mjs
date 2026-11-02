@@ -1,5 +1,5 @@
 // art-782-modified-premium — class-K property-test FLOOR (KERNEL-SCAFFOLD-1 scaffold, authored).
-// kernel_digest_at_authoring: sha256:4623bf7547c7c89b9aa9d3a6057d81ab47c0d3bd3a4c4a266ecd34782e40353e
+// kernel_digest_at_authoring: sha256:92a9428b25c9a25d1be8b834795a16a72e993668f04d9d467351593594c6517e
 // spec: modified premium = subject premium × experience modification, whole dollars
 // human_sign_off: PENDING
 //
