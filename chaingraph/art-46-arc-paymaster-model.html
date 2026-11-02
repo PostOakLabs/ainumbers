@@ -197,9 +197,9 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
           <span class="field-hint">Estimated gas units per ERC-4337 UserOperation. Simple transfer ~21k; account abstraction adds validation overhead (~100–200k total).</span>
         </div>
         <div class="field-group">
-          <span class="field-label">Arc gas price (Gwei)</span>
-          <input type="number" id="arcGasPriceGwei" value="0.001" min="0.0001" max="1000" step="0.0001">
-          <span class="field-hint">Arc L1 gas price in Gwei. Arc targets sub-cent fees. Default: 0.001 Gwei (estimate — adjust to current network conditions).</span>
+          <span class="field-label">Arc gas cost (USDC per gas unit)</span>
+          <input type="number" id="arcUsdcPerGasUnit" value="0.000001" min="0.0000001" max="1" step="0.000001">
+          <span class="field-hint">Arc gas cost in USDC per gas unit. Arc targets sub-cent fees. Default: 0.000001 USDC/gas unit (estimate — adjust to current network conditions).</span>
         </div>
         <div class="field-group">
           <span class="field-label">ETH price (USD)</span>
@@ -210,17 +210,17 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="panel-row">
         <div class="field-group">
           <span class="field-label">Sponsorship % (Paymaster covers gas)</span>
-          <input type="number" id="sponsorshipPct" value="0" min="0" max="100" step="1">
+          <input type="number" id="merchantSponsorshipPct" value="0" min="0" max="100" step="1">
           <span class="field-hint">% of UserOperations where a Paymaster sponsors (covers) gas on behalf of user/agent. 0 = user pays all. 100 = full sponsorship.</span>
         </div>
         <div class="field-group">
-          <span class="field-label">Paymaster overhead per sponsored UOp (USD)</span>
-          <input type="number" id="sponsorOverheadUsd" value="0.002" min="0" max="10" step="0.001">
-          <span class="field-hint">Paymaster infrastructure cost per sponsored UserOperation (bundler premium, Paymaster deposit management). User-adjustable estimate.</span>
+          <span class="field-label">Implementation effort (months)</span>
+          <input type="number" id="implMonths" value="3" min="1" max="24" step="1">
+          <span class="field-hint">Estimated implementation effort in months for the Paymaster migration ($12k/month engineering cost assumed).</span>
         </div>
         <div class="field-group">
           <span class="field-label">Ethereum L1 gas price (Gwei, for comparison)</span>
-          <input type="number" id="ethGasPriceGwei" value="15" min="0.001" max="10000" step="0.1">
+          <input type="number" id="gasPriceGwei" value="30" min="0.001" max="10000" step="0.1">
           <span class="field-hint">Current Ethereum L1 base fee in Gwei (for baseline comparison). Does not affect Arc cost.</span>
         </div>
       </div>
@@ -393,13 +393,13 @@ const MANIFEST = {
       properties: {
         monthly_uops: { type: 'number', description: 'Monthly ERC-4337 UserOperation count' },
         gas_per_uop: { type: 'number', description: 'Gas units per UserOperation' },
-        arc_gas_price_gwei: { type: 'number', description: 'Arc L1 gas price in Gwei (user estimate)' },
+        gas_price_gwei: { type: 'number', description: 'Ethereum L1 gas price in Gwei (for comparison)', default: 30 },
         eth_price_usd: { type: 'number', description: 'ETH price in USD' },
-        sponsorship_pct: { type: 'number', description: 'Percentage of UOps sponsored by Paymaster (0-100)' },
-        sponsor_overhead_usd: { type: 'number', description: 'Paymaster overhead per sponsored UOp in USD' },
-        eth_gas_price_gwei: { type: 'number', description: 'Ethereum L1 gas price in Gwei (for comparison)' }
+        arc_usdc_per_gas_unit: { type: 'number', description: 'Arc gas cost in USDC per gas unit (Arc targets sub-cent fees)' },
+        merchant_sponsorship_pct: { type: 'number', description: 'Percentage of UOps sponsored by Paymaster (0-100)', default: 0 },
+        impl_months: { type: 'number', description: 'Implementation effort in months', default: 3 }
       },
-      required: ['monthly_uops', 'gas_per_uop', 'arc_gas_price_gwei', 'eth_price_usd']
+      required: []
     }
   },
   ap2_export: true,
@@ -424,50 +424,62 @@ function fmtK(n) {
 }
 
 async function runModel() {
-  const monthlyUops = Math.max(1, parseFloat(document.getElementById('monthlyUops').value) || 50000);
+  /* Kernel-aligned (art-46-arc-paymaster-model.kernel.mjs): the parameter names and
+     the economics below mirror the kernel's compute() exactly so an agent call
+     through this page yields the kernel's own execution_hash. */
+  const monthlyUops = Math.max(1, parseFloat(document.getElementById('monthlyUops').value) || 10000);
   const gasPerUop = Math.max(1000, parseFloat(document.getElementById('gasPerUop').value) || 150000);
-  const arcGasPriceGwei = Math.max(0.0001, parseFloat(document.getElementById('arcGasPriceGwei').value) || 0.001);
+  const gasPriceGwei = Math.max(0.001, parseFloat(document.getElementById('gasPriceGwei').value) || 30);
   const ethPriceUsd = Math.max(1, parseFloat(document.getElementById('ethPriceUsd').value) || 3500);
-  const sponsorshipPct = Math.min(100, Math.max(0, parseFloat(document.getElementById('sponsorshipPct').value) || 0)) / 100;
-  const sponsorOverheadUsd = Math.max(0, parseFloat(document.getElementById('sponsorOverheadUsd').value) || 0.002);
-  const ethGasPriceGwei = Math.max(0.001, parseFloat(document.getElementById('ethGasPriceGwei').value) || 15);
+  const arcUsdcPerGasUnit = Math.max(0.0000001, parseFloat(document.getElementById('arcUsdcPerGasUnit').value) || 0.000001);
+  const merchantSponsorshipPct = Math.min(100, Math.max(0, Math.round(parseFloat(document.getElementById('merchantSponsorshipPct').value) || 0)));
+  const implMonths = Math.max(1, parseFloat(document.getElementById('implMonths').value) || 3);
 
-  /* Gas cost formula: gas_units × gas_price_gwei × 1e-9 ETH × ETH_price_USD */
-  const arcCostPerUopEth = gasPerUop * arcGasPriceGwei * 1e-9;
-  const arcCostPerUopUsd = arcCostPerUopEth * ethPriceUsd;
+  /* Kernel formulas */
+  const ethCostPerUop = gasPerUop * gasPriceGwei * 1e-9 * ethPriceUsd;
+  const arcCostPerUopFull = gasPerUop * arcUsdcPerGasUnit;
+  const userPortionPct = (100 - merchantSponsorshipPct) / 100;
+  const arcCostPerUopUser = arcCostPerUopFull * userPortionPct;
+  const arcCostPerUopMerchant = arcCostPerUopFull * (merchantSponsorshipPct / 100);
+  const savingPerUop = ethCostPerUop - arcCostPerUopFull;
+  const savingBps = ethCostPerUop > 0 ? (savingPerUop / ethCostPerUop) * 10000 : 0;
 
-  const ethCostPerUopEth = gasPerUop * ethGasPriceGwei * 1e-9;
-  const ethCostPerUopUsd = ethCostPerUopEth * ethPriceUsd;
-
-  /* Effective cost with sponsorship */
-  const userFacingCostPerUop = arcCostPerUopUsd * (1 - sponsorshipPct);
-  const paymasterCostPerUop = arcCostPerUopUsd * sponsorshipPct + sponsorOverheadUsd * sponsorshipPct;
-  const totalPlatformCostPerUop = userFacingCostPerUop + paymasterCostPerUop;
-
-  const monthlyArcCost = monthlyUops * totalPlatformCostPerUop;
-  const monthlyEthCost = monthlyUops * ethCostPerUopUsd;
+  const monthlyEthCost = ethCostPerUop * monthlyUops;
+  const monthlyArcCost = arcCostPerUopFull * monthlyUops;
   const monthlySavings = monthlyEthCost - monthlyArcCost;
   const annualSavings = monthlySavings * 12;
-  const savingsPct = monthlyEthCost > 0 ? (monthlySavings / monthlyEthCost) * 100 : 0;
 
-  /* Break-even: how much volume needed for Paymaster to make sense economically */
-  const breakEvenUopsPerMonth = sponsorOverheadUsd > 0 ? Math.ceil((ethCostPerUopUsd - arcCostPerUopUsd) / sponsorOverheadUsd) : 0;
+  const IMPL_COST_PER_MONTH = 12000;
+  const implCost = implMonths * IMPL_COST_PER_MONTH;
+  const breakEvenMonths = annualSavings > 0 ? implCost / (annualSavings / 12) : Infinity;
+
+  let verdict;
+  if (annualSavings >= 50000 && breakEvenMonths <= 12) verdict = 'MIGRATE';
+  else if (annualSavings >= 10000 && breakEvenMonths <= 24) verdict = 'EVALUATE';
+  else verdict = 'HOLD';
+
+  const complianceFlags = [];
+  if (verdict === 'MIGRATE') complianceFlags.push('ARC_PAYMASTER_MIGRATION_RECOMMENDED');
+  else if (verdict === 'EVALUATE') complianceFlags.push('ARC_PAYMASTER_EVALUATION_RECOMMENDED');
+  else complianceFlags.push('ARC_PAYMASTER_HOLD');
+  if (merchantSponsorshipPct > 0) complianceFlags.push('ERC4337_MERCHANT_SPONSORSHIP_ACTIVE');
+  if (arcCostPerUopUser === 0) complianceFlags.push('ZERO_GAS_USER_EXPERIENCE');
 
   document.getElementById('kpiGrid').innerHTML = [
-    { label: 'Arc UOp cost', value: fmtUSD(totalPlatformCostPerUop), cls: 'teal', sub: 'incl. ' + (sponsorshipPct*100).toFixed(0) + '% sponsorship' },
-    { label: 'Ethereum UOp cost', value: fmtUSD(ethCostPerUopUsd), cls: 'red', sub: ethGasPriceGwei + ' Gwei @ $' + ethPriceUsd + '/ETH' },
-    { label: 'Savings per UOp', value: fmtUSD(ethCostPerUopUsd - totalPlatformCostPerUop), cls: monthlySavings > 0 ? 'green' : 'red', sub: savingsPct.toFixed(1) + '% vs Ethereum' },
+    { label: 'Arc UOp cost (full)', value: fmtUSD(arcCostPerUopFull), cls: 'teal', sub: 'incl. ' + merchantSponsorshipPct.toFixed(0) + '% sponsorship' },
+    { label: 'Ethereum UOp cost', value: fmtUSD(ethCostPerUop), cls: 'red', sub: gasPriceGwei + ' Gwei @ $' + ethPriceUsd + '/ETH' },
+    { label: 'Savings per UOp', value: fmtUSD(savingPerUop), cls: monthlySavings > 0 ? 'green' : 'red', sub: (savingBps / 100).toFixed(2) + '% vs Ethereum · ' + verdict },
     { label: 'Monthly savings', value: fmtUSD(monthlySavings), cls: monthlySavings > 0 ? 'green' : 'red', sub: fmtK(monthlyUops) + ' UOps/month' },
     { label: 'Annual savings', value: fmtUSD(annualSavings), cls: monthlySavings > 0 ? 'green' : 'red', sub: 'vs Ethereum L1' },
-    { label: 'Arc L1 gas price', value: arcGasPriceGwei + ' Gwei', cls: 'purple', sub: 'User estimate — Arc targets sub-cent' }
+    { label: 'Arc cost per gas unit', value: arcUsdcPerGasUnit + ' USDC', cls: 'purple', sub: 'User estimate — Arc targets sub-cent' }
   ].map(function(k) {
     return '<div class="kpi-tile"><div class="kpi-label">' + k.label + '</div><div class="kpi-value ' + k.cls + '">' + k.value + '</div><div class="kpi-sub">' + k.sub + '</div></div>';
   }).join('');
 
   document.getElementById('cmpBody').innerHTML = [
-    { label: 'Arc — user pays (USDC)', gasPriceGwei: arcGasPriceGwei + ' (Arc)', perUop: arcCostPerUopUsd, monthly: monthlyUops * arcCostPerUopUsd, css: 'teal' },
-    { label: 'Arc — with ' + (sponsorshipPct*100).toFixed(0) + '% Paymaster sponsorship', gasPriceGwei: arcGasPriceGwei + ' + overhead', perUop: totalPlatformCostPerUop, monthly: monthlyArcCost, css: 'green' },
-    { label: 'Ethereum L1 — native ETH gas', gasPriceGwei: ethGasPriceGwei + ' Gwei', perUop: ethCostPerUopUsd, monthly: monthlyEthCost, css: '' }
+    { label: 'Arc — user pays (USDC)', gasPriceGwei: arcUsdcPerGasUnit + ' USDC/gas (Arc)', perUop: arcCostPerUopUser, monthly: monthlyUops * arcCostPerUopUser, css: 'teal' },
+    { label: 'Arc — with ' + merchantSponsorshipPct.toFixed(0) + '% Paymaster sponsorship', gasPriceGwei: arcUsdcPerGasUnit + ' USDC/gas (full)', perUop: arcCostPerUopFull, monthly: monthlyArcCost, css: 'green' },
+    { label: 'Ethereum L1 — native ETH gas', gasPriceGwei: gasPriceGwei + ' Gwei', perUop: ethCostPerUop, monthly: monthlyEthCost, css: '' }
   ].map(function(r) {
     return '<tr>' +
       '<td class="hl">' + r.label + '</td>' +
@@ -485,16 +497,16 @@ async function runModel() {
     'USEROPERATION PROFILE (ERC-4337)',
     '  Monthly UOps:           ' + fmtK(monthlyUops),
     '  Gas per UOp:            ' + gasPerUop.toLocaleString() + ' gas units',
-    '  Sponsorship:            ' + (sponsorshipPct*100).toFixed(0) + '% of UOps sponsored',
+    '  Sponsorship:            ' + merchantSponsorshipPct.toFixed(0) + '% of UOps sponsored',
     '',
     'GAS COSTS',
-    '  Arc L1 gas price:       ' + arcGasPriceGwei + ' Gwei (user estimate)',
-    '  Arc cost per UOp:       ' + fmtUSD(arcCostPerUopUsd) + ' (USDC, no sponsorship)',
-    '  Arc + Paymaster/UOp:    ' + fmtUSD(totalPlatformCostPerUop) + ' (platform total)',
-    '  Ethereum L1 cost/UOp:   ' + fmtUSD(ethCostPerUopUsd) + ' (' + ethGasPriceGwei + ' Gwei @ $' + ethPriceUsd + '/ETH)',
+    '  Arc cost per gas unit:  ' + arcUsdcPerGasUnit + ' USDC (user estimate)',
+    '  Arc cost per UOp:       ' + fmtUSD(arcCostPerUopFull) + ' (USDC, full cost)',
+    '  Arc user cost/UOp:      ' + fmtUSD(arcCostPerUopUser) + ' (after sponsorship)',
+    '  Ethereum L1 cost/UOp:   ' + fmtUSD(ethCostPerUop) + ' (' + gasPriceGwei + ' Gwei @ $' + ethPriceUsd + '/ETH)',
     '',
     'SAVINGS vs ETHEREUM',
-    '  Per-UOp savings:        ' + fmtUSD(ethCostPerUopUsd - totalPlatformCostPerUop) + ' (' + savingsPct.toFixed(1) + '%)',
+    '  Per-UOp savings:        ' + fmtUSD(savingPerUop) + ' (' + (savingBps / 100).toFixed(2) + '%)',
     '  Monthly savings:        ' + fmtUSD(monthlySavings),
     '  Annual savings:         ' + fmtUSD(annualSavings),
     '',
@@ -502,7 +514,7 @@ async function runModel() {
     '  ERC-4337 UserOperations allow gas to be paid in USDC via Circle Paymaster.',
     '  Agents and users have no ETH bootstrap requirement on Arc — USDC is native gas.',
     '  Paymasters can sponsor gas for retention, UX, or B2B pricing models.',
-    (breakEvenUopsPerMonth > 0 ? '  Break-even volume for Paymaster sponsorship: ' + fmtK(breakEvenUopsPerMonth) + ' UOps/month.\n' : ''),
+    '  Verdict: ' + verdict + (isFinite(breakEvenMonths) ? ' · break-even ' + breakEvenMonths.toFixed(1) + ' months (impl cost $' + fmtK(implCost) + ')' : ''),
     'ARC L1 FEATURES',
     '  Finality:               ~350ms (Malachite BFT)',
     '  Gas token:              USDC (native) — no ETH required',
@@ -518,26 +530,27 @@ async function runModel() {
   document.getElementById('resultsPanel').classList.add('visible');
 
   const policyParameters = {
-    execution_backend: 'js',
     monthly_uops: monthlyUops,
     gas_per_uop: gasPerUop,
-    arc_gas_price_gwei: arcGasPriceGwei,
+    gas_price_gwei: gasPriceGwei,
     eth_price_usd: ethPriceUsd,
-    sponsorship_pct: Math.round(sponsorshipPct * 100),
-    sponsor_overhead_usd: sponsorOverheadUsd,
-    eth_gas_price_gwei: ethGasPriceGwei
+    arc_usdc_per_gas_unit: arcUsdcPerGasUnit,
+    merchant_sponsorship_pct: merchantSponsorshipPct,
+    impl_months: implMonths
   };
   const outputPayload = {
-    arc_cost_per_uop_usd: Math.round(arcCostPerUopUsd * 1e8) / 1e8,
-    arc_paymaster_cost_per_uop_usd: Math.round(totalPlatformCostPerUop * 1e8) / 1e8,
-    eth_cost_per_uop_usd: Math.round(ethCostPerUopUsd * 1e8) / 1e8,
-    monthly_arc_cost_usd: Math.round(monthlyArcCost * 100) / 100,
-    monthly_eth_cost_usd: Math.round(monthlyEthCost * 100) / 100,
-    monthly_savings_usd: Math.round(monthlySavings * 100) / 100,
-    annual_savings_usd: Math.round(annualSavings * 100) / 100,
-    savings_pct: Math.round(savingsPct * 10) / 10,
-    break_even_uops_per_month: breakEvenUopsPerMonth,
-    compliance_flags: ['PAYMASTER_ECONOMICS_MODELLED']
+    verdict: verdict,
+    eth_cost_per_uop_usd: +ethCostPerUop.toFixed(6),
+    arc_cost_per_uop_full_usd: +arcCostPerUopFull.toFixed(6),
+    arc_cost_per_uop_user_usd: +arcCostPerUopUser.toFixed(6),
+    arc_cost_per_uop_merchant_usd: +arcCostPerUopMerchant.toFixed(6),
+    saving_per_uop_usd: +savingPerUop.toFixed(6),
+    saving_bps: +savingBps.toFixed(2),
+    monthly_saving_usd: +monthlySavings.toFixed(2),
+    annual_saving_usd: +annualSavings.toFixed(2),
+    impl_cost_usd: +implCost.toFixed(2),
+    break_even_months: isFinite(breakEvenMonths) ? +breakEvenMonths.toFixed(1) : null,
+    compliance_flags: complianceFlags
   };
   const hash = await sha256({ policy_parameters: policyParameters, output_payload: outputPayload });
 
