@@ -2725,7 +2725,11 @@ const PS_REF = 'origin/main';
 
 function psChangedFiles() {
   try {
-    const out = execSync(`git diff --name-only ${PS_REF} HEAD`, { cwd: REPO, env, encoding: 'utf8' });
+    // Merge-base, not PS_REF directly: origin/main can move between branch cut
+    // and push, and files DELETED on main must never be scanned as if this
+    // branch still carried them (--diff-filter=d drops deletions either side).
+    const base = execSync(`git merge-base ${PS_REF} HEAD`, { cwd: REPO, env, encoding: 'utf8' }).trim();
+    const out = execSync(`git diff --name-only --diff-filter=d ${base} HEAD`, { cwd: REPO, env, encoding: 'utf8' });
     return out.split('\n').map((l) => l.trim()).filter(Boolean);
   } catch {
     return [];
