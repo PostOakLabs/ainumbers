@@ -1,0 +1,255 @@
+{
+  "tool_id": "795-stablecoin-refund-dispute",
+  "version": "1.0.0",
+  "title": "Stablecoin Refund Dispute Check",
+  "description": "Recomputes the expected refund and dispute outcome of stablecoin payments held under an escrowed refund protocol (lock period, refund request, arbiter decision, early-withdrawal fee, partial refunds) and flags each break against the merchant reported state with a named rule and a conservation identity. Aggregate-only: payment_ref values are opaque synthetic labels and identifier-like values are refused with no echo.",
+  "category": "chaingraph",
+  "tags": [
+    "stablecoin",
+    "refunds",
+    "disputes",
+    "escrow",
+    "mcp:check_stablecoin_refunds"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "profile",
+      "params",
+      "payments"
+    ],
+    "properties": {
+      "profile": {
+        "type": "string",
+        "enum": [
+          "refund_protocol_a7ae494",
+          "generic"
+        ],
+        "description": "Pinned Circle Refund Protocol rule set at commit a7ae494, or generic with every rule caller-declared."
+      },
+      "params": {
+        "type": "object",
+        "required": [
+          "lock_period_seconds",
+          "early_withdrawal_fee_bp",
+          "partial_refunds_allowed"
+        ],
+        "properties": {
+          "lock_period_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Escrow lock period in seconds."
+          },
+          "early_withdrawal_fee_bp": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "Early-withdrawal fee in basis points; fee = floor(amount times bp over 10000), round-down."
+          },
+          "arbiter_role": {
+            "type": "string",
+            "description": "Label only."
+          },
+          "partial_refunds_allowed": {
+            "type": "boolean",
+            "description": "Whether arbiter refund decisions below the full amount count."
+          },
+          "as_of_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Optional audit clock; when supplied the expected state is evaluated at that second and a release reported inside the lock is a break."
+          }
+        }
+      },
+      "payments": {
+        "type": "array",
+        "minItems": 1,
+        "description": "Per payment: opaque synthetic payment_ref, amount_minor, paid_at, refund_requests, arbiter_decisions, optional early_withdrawal_at, and the merchant reported state and amounts.",
+        "items": {
+          "type": "object",
+          "required": [
+            "payment_ref",
+            "amount_minor",
+            "paid_at"
+          ],
+          "properties": {
+            "payment_ref": {
+              "type": "string"
+            },
+            "amount_minor": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "paid_at": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "refund_requests": {
+              "type": "array"
+            },
+            "arbiter_decisions": {
+              "type": "array"
+            },
+            "early_withdrawal_at": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reported_state": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "reported_refunded_minor": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "reported_released_minor": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "check_stablecoin_refunds",
+    "description": "Recomputes the expected refund and dispute outcome of escrowed stablecoin payments (lock period, arbiter refund, early-withdrawal fee, partial refunds) and flags breaks against the merchant reported state. Aggregate-only: identifier-like payment references are refused with no echo.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "profile",
+        "params",
+        "payments"
+      ],
+      "properties": {
+        "profile": {
+          "type": "string",
+          "enum": [
+            "refund_protocol_a7ae494",
+            "generic"
+          ]
+        },
+        "params": {
+          "type": "object"
+        },
+        "payments": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/795-stablecoin-refund-dispute.html",
+    "function_name": "runCompute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/795-stablecoin-refund-dispute.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: profile, params, payments.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "profile": "refund_protocol_a7ae494",
+    "params": {
+      "lock_period_seconds": 86400,
+      "early_withdrawal_fee_bp": 100,
+      "arbiter_role": "arbiter",
+      "partial_refunds_allowed": true
+    },
+    "payments": [
+      {
+        "payment_ref": "syn-pay-001",
+        "amount_minor": 500000,
+        "paid_at": 0,
+        "refund_requests": [],
+        "arbiter_decisions": [],
+        "reported_state": "RELEASED",
+        "reported_refunded_minor": 0,
+        "reported_released_minor": 500000
+      }
+    ]
+  },
+  "output_example": {
+    "refused": false,
+    "profile": "refund_protocol_a7ae494",
+    "rules_basis": "refund_protocol_pinned_a7ae494",
+    "fee_rounding": "floor(amount_minor * early_withdrawal_fee_bp / 10000)",
+    "arbiter_role": "arbiter",
+    "expected": [
+      {
+        "payment_ref": "syn-pay-001",
+        "terminal_state": "RELEASED",
+        "refunded_minor": 0,
+        "released_minor": 500000,
+        "fee_minor": 0,
+        "held_minor": 0
+      }
+    ],
+    "breaks": [],
+    "conservation": {
+      "per_payment": [
+        {
+          "payment_ref": "syn-pay-001",
+          "paid_minor": 500000,
+          "refunded_minor": 0,
+          "released_minor": 500000,
+          "fee_minor": 0,
+          "held_minor": 0,
+          "balanced": true
+        }
+      ],
+      "total": {
+        "paid_minor": 500000,
+        "refunded_minor": 0,
+        "released_minor": 500000,
+        "fee_minor": 0,
+        "held_minor": 0,
+        "balanced": true
+      },
+      "balanced": true
+    },
+    "verdict": "CONSISTENT"
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "refused": {
+        "type": "boolean"
+      },
+      "profile": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "expected": {
+        "type": "array"
+      },
+      "breaks": {
+        "type": "array"
+      },
+      "conservation": {
+        "type": "object"
+      },
+      "verdict": {
+        "type": "string",
+        "enum": [
+          "CONSISTENT",
+          "CONSISTENT_WITH_BREAKS",
+          "INCONSISTENT"
+        ]
+      }
+    }
+  },
+  "example_execution_hash": "b1b2c94b4fccb88e831fe8580ac640dc642472588ccea0e980887ad11aace482"
+}
