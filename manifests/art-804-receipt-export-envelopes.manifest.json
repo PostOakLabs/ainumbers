@@ -1,0 +1,213 @@
+{
+  "tool_id": "art-804-receipt-export-envelopes",
+  "version": "1.0.0",
+  "title": "Receipt Export Envelopes",
+  "description": "Deterministically re-expresses one caller-supplied execution receipt as two wire envelopes so lineage and eventing stacks can ingest estate receipts without a custom adapter. Envelope 1 is a lineage RunEvent: eventType COMPLETE, eventTime carried from the receipt, runId derived as a pure function of the first 16 bytes of the receipt execution_hash (version nibble 8, variant bits 10), job namespace/name from the receipt, one input dataset per parent hash named by hash in the estate lineage-card facet dialect, producer and schemaURL pinned to the vendored 1.55.0 schema. Envelope 2 is a structured-mode event envelope: specversion 1.0, id = the execution_hash, caller-declared source URI-reference, type co.ainumbers.ocg.receipt.v1, time = the receipt event time, datacontenttype application/json, data echoing the receipt fields unchanged. The receipt is caller-supplied and caller-asserted: the kernel never verifies the hash values, reads no clock, uses no randomness, performs no network access, and refuses (fail-closed, no envelopes emitted) any missing or malformed hash, timestamp or URI-reference. Scope limits: one receipt per call, no receipt-correctness verification, no timestamp assignment; a terminal export view that consumes nothing and feeds nothing.",
+  "category": "Evidence Envelope Receipt Verification",
+  "tags": [
+    "compliance_control",
+    "openlineage",
+    "cloudevents",
+    "receipt-export",
+    "lineage",
+    "event-envelope",
+    "deterministic",
+    "zero-network",
+    "mcp:export_receipt_lineage_events"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "receipt": {
+        "type": "object",
+        "description": "One execution receipt: tool_id (non-empty string), execution_hash and policy_parameters_hash (64-character lowercase hex digests), parent_hashes (array of 64-hex digests) and parent_tool_ids (array of non-empty strings, same length as parent_hashes), chain_depth (non-negative integer), event_time (timestamp with date, time, optional fractional seconds and an offset), source (a well-formed URI-reference: printable US-ASCII, valid percent-escapes) and namespace (non-empty string). All members are required; any missing or malformed member is refused whole.",
+        "properties": {
+          "tool_id": {
+            "type": "string"
+          },
+          "execution_hash": {
+            "type": "string"
+          },
+          "parent_hashes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "parent_tool_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "chain_depth": {
+            "type": "integer"
+          },
+          "policy_parameters_hash": {
+            "type": "string"
+          },
+          "event_time": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "namespace": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_id",
+          "execution_hash",
+          "parent_hashes",
+          "parent_tool_ids",
+          "chain_depth",
+          "policy_parameters_hash",
+          "event_time",
+          "source",
+          "namespace"
+        ]
+      }
+    },
+    "required": [
+      "receipt"
+    ]
+  },
+  "mcp_tool_definition": {
+    "name": "export_receipt_lineage_events",
+    "description": "Exports one caller-supplied execution receipt as a deterministic lineage RunEvent plus a structured-mode event envelope (type co.ainumbers.ocg.receipt.v1); fail-closed on any missing or malformed hash, timestamp or URI-reference.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "receipt": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "receipt"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "server",
+    "entry": "chaingraph/kernels/art-804-receipt-export-envelopes.kernel.mjs",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": [
+          "exported",
+          "refused"
+        ]
+      },
+      "event_time": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "refused_field": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "reason": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "lineage_event": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "event_envelope": {
+        "type": [
+          "object",
+          "null"
+        ]
+      }
+    }
+  },
+  "source": "authored by the builder of LANDSCAPE-RECEIPT-EXPORT-ENVELOPES-RESUME-1 (2026-11-02). Field mapping pinned by the row brief: the RunEvent required-field surface and the event-envelope REQUIRED attributes are pinned to clause snapshots registered in chaingraph/standard/clause-snapshot-registry.json (digests sha256:31dd83cb4c3bc3abff6f6bd77e8a4e18d987e9f5c4356322571d0fe2cf04783a, sha256:564840acfb085e253c5fd221845be14e2a720fab5c6ded5e288127e00a840681, sha256:719bc2e7834eecfcef5a620bc16a0e8b85f0e63c5905230a15f4c0e81e67941b; full snapshots under workspace research/clause-snapshots/receipt-export/, schema vendored as test data with its Apache-2.0 LICENSE at chaingraph/kernels/fixtures/vendor/openlineage-1.55.0/). Fixtures carry pinned golden hashes; every emitted RunEvent is schema-validated against the vendored schema in the proptest. human_sign_off PENDING.",
+  "input_schema_provenance": "hand-authored from the kernel validation rules (the input_schema members mirror the compute() fail-closed checks one-for-one)",
+  "input_example": {
+    "receipt": {
+      "tool_id": "art-801-example-agent-run",
+      "execution_hash": "656e6fd6346925d1293a6dcffbebdb8dbc2fe3709033a5d95554f8a301140c68",
+      "parent_hashes": [
+        "1610e51d344e87efd8934735ccf4f55da7821522708d9c15cbacbfa078eeb5bb"
+      ],
+      "parent_tool_ids": [
+        "art-800-parent-tool"
+      ],
+      "chain_depth": 1,
+      "policy_parameters_hash": "4df584296e5be38d975aef7914d9c0bc02fd63d3a4b658447e542d50ac2a8f98",
+      "event_time": "2026-11-02T09:00:00Z",
+      "source": "https://ainumbers.co/chaingraph",
+      "namespace": "ainumbers.co"
+    }
+  },
+  "output_example": {
+    "status": "exported",
+    "event_time": "2026-11-02T09:00:00Z",
+    "lineage_event": {
+      "eventType": "COMPLETE",
+      "eventTime": "2026-11-02T09:00:00Z",
+      "run": {
+        "runId": "656e6fd6-3469-85d1-a93a-6dcffbebdb8d"
+      },
+      "job": {
+        "namespace": "ainumbers.co",
+        "name": "art-801-example-agent-run"
+      },
+      "inputs": [
+        {
+          "namespace": "ainumbers.co",
+          "name": "1610e51d344e87efd8934735ccf4f55da7821522708d9c15cbacbfa078eeb5bb",
+          "type": "table"
+        }
+      ],
+      "outputs": [],
+      "producer": "https://github.com/OpenLineage/OpenLineage/blob/1.55.0/spec/OpenLineage.json",
+      "schemaURL": "https://raw.githubusercontent.com/OpenLineage/OpenLineage/1.55.0/spec/OpenLineage.json"
+    },
+    "event_envelope": {
+      "specversion": "1.0",
+      "id": "656e6fd6346925d1293a6dcffbebdb8dbc2fe3709033a5d95554f8a301140c68",
+      "source": "https://ainumbers.co/chaingraph",
+      "type": "co.ainumbers.ocg.receipt.v1",
+      "time": "2026-11-02T09:00:00Z",
+      "datacontenttype": "application/json",
+      "data": {
+        "tool_id": "art-801-example-agent-run",
+        "execution_hash": "656e6fd6346925d1293a6dcffbebdb8dbc2fe3709033a5d95554f8a301140c68",
+        "parent_hashes": [
+          "1610e51d344e87efd8934735ccf4f55da7821522708d9c15cbacbfa078eeb5bb"
+        ],
+        "parent_tool_ids": [
+          "art-800-parent-tool"
+        ],
+        "chain_depth": 1,
+        "policy_parameters_hash": "4df584296e5be38d975aef7914d9c0bc02fd63d3a4b658447e542d50ac2a8f98"
+      }
+    }
+  },
+  "example_execution_hash": "47b72788a2bc8b8ba25772292ed4e704bb122a83160de780d47a880f5373278b",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0"
+}
