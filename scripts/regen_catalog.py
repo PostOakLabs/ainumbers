@@ -102,6 +102,21 @@ def main():
         except Exception as e:
             parse_fail.append((slug, str(e))); continue
 
+        # GRADE-FIX-CATALOG-DEPRECATED-1: a manifest whose ChainGraph node shard is
+        # marked "deprecated" advertises a tool the MCP worker does not serve (the
+        # worker's generator skips status === 'deprecated'). Skip it here too, so
+        # the public catalog lists only tools the server answers. Nothing wider:
+        # every other status (planned, live, …) keeps its entry; manifests with no
+        # shard behave exactly as before.
+        _tool_id = man.get('tool_id', slug)
+        _shard_path = os.path.join('chaingraph', 'graph', 'nodes', _tool_id + '.json')
+        if os.path.exists(_shard_path):
+            try:
+                if read_json(_shard_path).get('status') == 'deprecated':
+                    continue
+            except Exception:
+                pass  # unreadable shard: keep the entry, same as no shard
+
         mtd = man.get('mcp_tool_definition') or {}
         name = mtd.get('name')
         if not name:
