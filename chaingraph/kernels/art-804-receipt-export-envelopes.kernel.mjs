@@ -146,6 +146,10 @@ export function compute(pp) {
         reason: refusal[1],
         lineage_event: null,
         event_envelope: null,
+        // Flag-mirror doctrine (AUTHORING-STANDARD, section 2.2): the conditional flag set
+        // (RECEIPT_EXPORT_REFUSED vs RECEIPT_EXPORTED) is mirrored into output_payload
+        // so existing gates can route on the refusal without reading the flag array.
+        domain_errors: [refusal[1]],
       },
       compliance_flags: flags,
     };
@@ -195,6 +199,7 @@ export function compute(pp) {
       event_time: r.event_time,
       lineage_event,
       event_envelope,
+      domain_errors: [],
     },
     compliance_flags: flags,
   };
