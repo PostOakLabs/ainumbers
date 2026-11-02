@@ -6,7 +6,7 @@ import { executionHash } from './_hash.mjs';
 //   1. a lineage RunEvent in the estate's dataset-facet dialect (inputs are
 //      {namespace, name, type} records, one per parent hash, named by hash);
 //   2. an event envelope in structured-mode JSON (specversion/id/source/type/time/
-//      datacontenttype/data), with `data` echoing the receipt fields unchanged.
+//      datacontenttype/data), with `data` echoing the receipt fields verbatim.
 //
 // HARD FENCE (receipt MUST record this, copy MUST lead with it): the input receipt is
 // caller-supplied and caller-asserted. This kernel performs no verification of the hash
