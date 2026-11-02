@@ -18,7 +18,8 @@ Lints a single pacs.008 PostalAddress24 block against the SWIFT CBPR+ structured
 
 ## Outputs
 
-- cbpr_plus_deadline (string, optional)
+- cbpr_plus_deadline (string or null, optional)
+- cbpr_plus_deadline_status (string, optional)
 - compliant (boolean, optional)
 - disambiguation (string, optional)
 - error_count (integer, optional)
