@@ -18,10 +18,29 @@
 // Usage: node scripts/check-credits-coverage.mjs <repo-id>
 //        node scripts/check-credits-coverage.mjs --self-test
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const ROOT = path.resolve(fileURLToPath(import.meta.url), '..', '..');
+
+// Direct-run guard (CI-RELEVANT-VENDOR-PATHS-1, 2026-11-01): this module now EXPORTS
+// isCreditsGateScopeFile() for scripts/check-ci-relevant.mjs — one source of truth for
+// "a file the credits gate examines". The gate flow below still runs when the script is
+// executed directly, exactly as before; when imported, only the predicate is handed over
+// (no behaviour change to the gate itself).
+const DIRECT_RUN = !!process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+
+// Gate state, assigned only by gateMain() on a direct run; the module-level helpers
+// below (isCovered, isOriginalAuthorshipBundle, the tail flow) close over these.
+let covered = [];
+let originalAllowlist = {};
+let allowlistErrors = [];
+
+// Path-shape rules, module-level so the exported predicate below shares them.
+const VENDOR_PATH_RE = /(^|\/)vendor(ed)?\//i;
+const BUNDLE_FILE_RE = /\.bundle\.(mjs|js)$/i;
+
+function gateMain() {
 const repoId = process.argv[2];
 const selfTestMode = process.argv.includes('--self-test');
 if (!selfTestMode && (!repoId || !['repo', 'mcp-apps-poc', 'helm', 'anchor-suite'].includes(repoId))) {
@@ -31,17 +50,17 @@ if (!selfTestMode && (!repoId || !['repo', 'mcp-apps-poc', 'helm', 'anchor-suite
 }
 
 const registry = JSON.parse(readFileSync(path.join(ROOT, 'data', 'credits-registry.json'), 'utf8'));
-const covered = registry.vendored
+covered = registry.vendored
   .filter(v => v.repos.includes(repoId))
   .flatMap(v => (v.paths && v.paths[repoId]) || [])
   .map(p => p.replace(/\\/g, '/'));
 
 const ORIGINAL_ALLOWLIST_PATH = path.join(ROOT, 'scripts', 'original-authorship-bundle-allowlist.json');
-const originalAllowlist = existsSync(ORIGINAL_ALLOWLIST_PATH)
+originalAllowlist = existsSync(ORIGINAL_ALLOWLIST_PATH)
   ? JSON.parse(readFileSync(ORIGINAL_ALLOWLIST_PATH, 'utf8'))
   : {};
 
-const allowlistErrors = [];
+allowlistErrors = [];
 for (const [rel, entry] of Object.entries(originalAllowlist)) {
   if (rel === '_README') continue;
   if (typeof entry?.reason !== 'string' || !entry.reason.trim()) {
@@ -56,8 +75,6 @@ const EXCLUDE_DIRS = new Set(['.git', 'node_modules', '.wt', '.wrangler', '.clau
 // header above documents and the one real vendored trees under repo/ actually use
 // (chaingraph/kernels/vendor/…, docs/vendor/…). `vendor(ed)?` keeps `vendored/` matching for the
 // helm/anchor-suite `vendored/` trees and drops the meaningless `vendore/` typo shape.
-const VENDOR_PATH_RE = /(^|\/)vendor(ed)?\//i;
-const BUNDLE_FILE_RE = /\.bundle\.(mjs|js)$/i;
 
 // ── SELF-TEST (LICENCE-VENDOR-GATE-1, SO #34c: a gate that has only ever been observed green
 // has not been observed at all). `node scripts/check-credits-coverage.mjs --self-test` asserts
@@ -148,3 +165,18 @@ if (allowlistErrors.length || uncovered.length) {
 }
 
 console.log(`check-credits-coverage: ${found.length} vendored-looking file(s) scanned, all covered by the registry or the original-authorship allowlist.`);
+} // end gateMain (direct run only)
+if (DIRECT_RUN) gateMain();
+
+// ── Shared path predicate (CI-RELEVANT-VENDOR-PATHS-1, 2026-11-01) ──────────
+// ONE source of truth for "a file this gate examines". scripts/check-ci-relevant.mjs
+// imports this so CI relevance can never be narrower than the credits gate's scan
+// scope: any vendor(ed)/ path segment, any *.bundle.(mjs|js) file, or the credits
+// registry itself marks a changed file CI-relevant for EVERY path-filtered key.
+// Rules mirror the walk() above and carry the same file: import nothing.
+export function isCreditsGateScopeFile(relPath) {
+  const rel = String(relPath).replace(/\\/g, '/');
+  if (rel === 'data/credits-registry.json') return true;
+  const name = rel.slice(rel.lastIndexOf('/') + 1);
+  return VENDOR_PATH_RE.test(rel) || BUNDLE_FILE_RE.test(name);
+}
