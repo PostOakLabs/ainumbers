@@ -1,5 +1,5 @@
 // art-805-agt-audit-chain-verifier — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:0359563a30ce4e46d2f2bd4c7d325c19297dc3991206938bf15ff42cb6cf066f
+// kernel_digest_at_authoring: sha256:d3a96683e60729156f0ca539f5eec22cd1d4facd9f5a4b397b7262bdad3e54fc
 // spec: research/AGT-AUDIT-FORMAT-PIN-2026-10-29.md (upstream commit 3433fa7);
 //       RIDER-KERNEL K-FULL; row LANDSCAPE-AGT-AUDIT-VERIFIER-RESUME-1
 // human_sign_off: PENDING

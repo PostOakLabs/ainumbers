@@ -238,6 +238,10 @@ function baseOutput() {
     signature_status: 'no_keyed_signature_field_in_pinned_schema',
     rejected: false,
     rejected_fields: [],
+    // Flag-mirror doctrine (AUTHORING-STANDARD.md, flag-mirror section): this
+    // kernel raises compliance_flags conditionally, so output_payload carries a
+    // mirror member — issues is non-empty exactly when a refusal/break/mismatch flag is raised.
+    issues: [],
   };
 }
 
@@ -262,6 +266,7 @@ export function compute(pp) {
     out.rejected_fields = rejectedFields;
     out.chain_intact = false;
     out.breaks = [];
+    out.issues = ['AGT_AUDIT_INPUT_REJECTED_SCHEMA'];
     return { output_payload: out, compliance_flags: ['AGT_AUDIT_INPUT_REJECTED_SCHEMA'] };
   }
 
@@ -304,8 +309,14 @@ export function compute(pp) {
 
   const flags = [];
   if (out.chain_intact) flags.push('AGT_AUDIT_CHAIN_INTACT');
-  else flags.push('AGT_AUDIT_CHAIN_BREAK_DETECTED');
-  if (out.claimed_root_match === false) flags.push('AGT_AUDIT_CLAIMED_ROOT_MISMATCH');
+  else {
+    flags.push('AGT_AUDIT_CHAIN_BREAK_DETECTED');
+    for (const b of breaks) out.issues.push(`AGT_AUDIT_CHAIN_BREAK:${b.index}:${b.reason}`);
+  }
+  if (out.claimed_root_match === false) {
+    flags.push('AGT_AUDIT_CLAIMED_ROOT_MISMATCH');
+    out.issues.push('AGT_AUDIT_CLAIMED_ROOT_MISMATCH');
+  }
   return { output_payload: out, compliance_flags: flags };
 }
 
