@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (702 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (703 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -179,6 +179,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "consumer_finance",
     "url": "https://ainumbers.co/chaingraph/733-servicing-compliance-clock.html",
     "description": "Computes servicer-compliance due dates and clock states from event dates and loan values: error-resolution and information-request clocks, l",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "784-cbr-data-return-validator",
+    "display_name": "CBR Data Return Validator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/784-cbr-data-return-validator.html",
+    "description": "Validates a bank's or money transfer operator's periodic AGGREGATE correspondent-banking data return against an illustrative, profile-driven",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -1505,7 +1515,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Solvency II SCR Ratio Calculator",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-180-solvency2-scr-ratio-calculator.html",
-    "description": "Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and capital requirements. Checks the three own-funds tiering limit",
+    "description": "Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and capital requirements. Checks the own-funds SCR tiering limits ",
     "consumes": [],
     "feeds": [
       "art-181-sii-ifrs17-reconciliation-bridger"
@@ -2922,7 +2932,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Revocation-Status Verifier",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-287-revocation-status-verifier.html",
-    "description": "Checks a receipt's optional W3C BitstringStatusList credentialStatus reference and reads the revocation bit at statusListIndex from a suppli",
+    "description": "Reads a revocation bit from an uncompressed status bitstring up to 8 KB, shaped after W3C BitstringStatusList, for a receipt's optional cred",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -3967,7 +3977,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Tempo On-Chain AML & Travel Rule Screener",
     "mandate_type": "aml_rule",
     "url": "https://ainumbers.co/chaingraph/art-38-tempo-onchain-aml.html",
-    "description": "Parses a batch of synthetic TIP-20 transfers (with memos), runs OFAC/SDN hit screening, checks FATF Travel Rule field completeness (originat",
+    "description": "Parses a batch of synthetic TIP-20 transfers (with memos), screens parties by substring match against a fixed three-name synthetic test list",
     "consumes": [
       "art-37-tempo-stablecoin-issuance"
     ],
@@ -4330,7 +4340,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Private-Input Sanctions Screen",
     "mandate_type": "analytics_mandate",
     "url": "https://ainumbers.co/chaingraph/art-413-screen-sanctions-private.html",
-    "description": "Screens a privately held party/transfer list against a pinned OFAC-SDN-style list version and emits a public verdict (screened, hit count, c",
+    "description": "Demonstrates the private-input screening shape: screens a privately held party/transfer list against a fixed three-name synthetic test list ",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7683,7 +7693,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "PayPal Dispute Deadline & Evidence",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html",
-    "description": "PayPal dispute deadline calculator and evidence-bundle producer, the PayPal-side PRODUCER for the existing dispute-evidence chain (hub propo",
+    "description": "Dispute deadline calculator and evidence-bundle producer across four payment service providers (PayPal default, plus Stripe, Adyen and Squar",
     "consumes": [],
     "feeds": [],
     "status": "live"

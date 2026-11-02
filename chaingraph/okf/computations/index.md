@@ -25,6 +25,7 @@ status: stable
 - [Collateral Swap Eligibility Validator](./515-collateral-swap-eligibility-validator.md)
 - [Borrower Escrow Auditor](./732-borrower-escrow-auditor.md)
 - [Servicing Compliance Clock](./733-servicing-compliance-clock.md)
+- [CBR Data Return Validator](./784-cbr-data-return-validator.md)
 - [Corridor Cost Averages](./787-corridor-cost-averages.md)
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md)
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md)
