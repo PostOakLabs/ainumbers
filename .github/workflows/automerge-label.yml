@@ -25,7 +25,7 @@ name: Automerge Label
 # CI_TIMEOUT removals counted from the PR timeline; at the cap a comment is
 # posted and the PR is left un-queued.
 
-# AUTOMERGE-WORKFLOWS-PROTECTED-LIST-1 (2026-11-02): the App installation has
+# Automerge workflow hardening (2026-11-02): the App installation has
 # `workflows: write` since 2026-11-02 (this row id), so a PR that edits
 # .github/workflows/** is armed like any other PR. A SENSITIVE workflow PR —
 # one touching a listed protected workflow, adding a workflow file, touching
@@ -39,7 +39,7 @@ name: Automerge Label
 # (1) a PR that edits .github/workflows/** could never be armed by the App
 # token (it carried no `workflows` permission; GitHub refused both
 # enablePullRequestAutoMerge and enqueuePullRequest). Superseded 2026-11-02
-# (AUTOMERGE-WORKFLOWS-PROTECTED-LIST-1): the token now mints with
+# (2026-11-02 hardening): the token now mints with
 # workflows:write and sensitive workflow PRs gate on zizmor instead of a
 # human merge.
 # (2) a labelled PR removed from the queue for any reason other than
@@ -84,7 +84,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          # AUTOMERGE-WORKFLOWS-PROTECTED-LIST-1 (2026-11-02): workflow-file PRs
+          # Workflow hardening (2026-11-02): workflow-file PRs
           # are no longer skipped as a class — the App carries workflows:write.
           # A PR is SENSITIVE when it touches a listed protected workflow, adds
           # a workflow file, touches .github/actions/**, or its added workflow
@@ -172,7 +172,7 @@ jobs:
       # integration (mergePullRequest)" from enablePullRequestAutoMerge —
       # measured 2026-08-16, run 31981224894 — because enabling auto-merge
       # is gated on merge/contents permission, not just PR-write.
-      # AUTOMERGE-WORKFLOWS-PROTECTED-LIST-1 (2026-11-02): the installation
+      # Hardening 2026-11-02: the installation
       # also grants workflows:write (granted and accepted 2026-11-02), so
       # workflow-file PRs arm through the same token instead of routing to a
       # human.
@@ -189,7 +189,7 @@ jobs:
           permission-contents: write
           permission-workflows: write
 
-      # AUTOMERGE-WORKFLOWS-PROTECTED-LIST-1 (2026-11-02): a SENSITIVE
+      # Hardening 2026-11-02: a SENSITIVE
       # workflow PR arms only when the `zizmor` workflow run on this PR's
       # head SHA concluded success. Otherwise the PR is left un-armed with
       # ONE `automerge-held:` comment addressed to the orchestrator, which
@@ -216,7 +216,7 @@ jobs:
             echo "automerge-held notice already posted"
             exit 0
           fi
-          gh pr comment "$PR" -R "$REPO" --body "automerge-held: $RULE; zizmor $CONCLUSION. ORCH: sensitive workflow PR arms only after a successful zizmor run on this head SHA — mint a heal row."
+          gh pr comment "$PR" -R "$REPO" --body "automerge-held: $RULE; zizmor $CONCLUSION. Re-arming requires a successful zizmor run on this head SHA."
 
       # MERGEQUEUE-REQUEUE-ON-TIMEOUT-1 (2026-09-10): dequeued runs only —
       # count this PR's prior removals from the merge queue and re-queue on
@@ -372,7 +372,7 @@ jobs:
             NODE_ID=$(echo "$VIEW" | jq -r .id)
             Q=$(gh api graphql -f query='query($id: ID!){node(id:$id){... on PullRequest{mergeQueueEntry{id}}}}' -f id="$NODE_ID" | jq -r '.data.node.mergeQueueEntry')
             if [ "$ARMED" != "null" ] || [ "$Q" != "null" ]; then echo "#$PR already armed/queued"; continue; fi
-            # AUTOMERGE-WORKFLOWS-PROTECTED-LIST-1 (2026-11-02): workflow PRs
+            # Workflow hardening (2026-11-02): workflow PRs
             # arm here like any other PR. Sensitive ones — same rules as the
             # labeled-path guard step — arm only after a successful zizmor run
             # on the head SHA; no PR routes to a human.
