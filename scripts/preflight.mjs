@@ -805,7 +805,7 @@ function runSelfTest() {
 // PREFLIGHT-QUICK-1: `--quick --self-test` is the QUICK suite's own control and
 // runs further down (after GATES/QUICK_GATES exist); the generic --self-test
 // above stays the reporting machinery's control and keeps exiting here.
-if (!QUICK && process.argv.includes('--self-test')) process.exit(runSelfTest());
+if (!QUICK && !PUSH_SAFETY && process.argv.includes('--self-test')) process.exit(runSelfTest());
 
 // PREPUSH-MERGE-HANG-1 (2026-10-16): the committed-vs-base leg of EVERY
 // touched-set computation below diffs against the PR base — `git merge-base
