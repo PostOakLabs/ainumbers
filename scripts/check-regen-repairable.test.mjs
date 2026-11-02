@@ -277,7 +277,10 @@ check('CI with no event name is STRICT (fails closed)', isRelaxedBindingContext(
 check('local run (no env at all) is relaxed — a local pre-push run is PR-bound', isRelaxedBindingContext({}) === true);
 
 // acceptance (a)/(c) against the REAL repo bytes, read-only: main's records
-// file is in sync with the published log (104 == 104 at claim), so the real
+// file is in sync with the published log at the time this row was written
+// (measured 2026-11-01 with
+// `node scripts/append-absence-lineage-record.mjs --verify-regen-binding`,
+// which prints BINDING-OK records=… log=… when they agree), so the real
 // verify passes; one mutated byte in the records copy must flip it to
 // PREFIX-DIVERGENCE. No signing path, no writes to repo files.
 console.log('verifyRegenBinding (real records file + published log, read-only)');
