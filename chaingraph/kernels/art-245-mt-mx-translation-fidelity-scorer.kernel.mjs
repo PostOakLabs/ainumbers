@@ -157,11 +157,12 @@ export function compute(pp) {
     truncation_risks,
     issues,
     charge_bearer_map: CHARGE_BEARER_MAP,
-    cbpr_plus_deadline: '2026-11-14',
+    cbpr_plus_deadline: null,
+    cbpr_plus_deadline_status: 'deferred by Swift on 27 Aug 2026; no new date published',
     pii_note: 'MT and pacs.008 field values are processed structurally (presence, length, code mapping). No real party PII processed. Use synthetic message fields for testing.',
     table_version: TABLE_VERSION,
     table_source: TABLE_SOURCE,
-    regulatory_basis: 'SWIFT CBPR+ mandatory migration deadline 14 Nov 2026; SWIFT MT103 Standards Release Guide; ISO 20022 pacs.008.001.10',
+    regulatory_basis: 'SWIFT CBPR+ mandatory migration; Swift notice of 27 Aug 2026 (structured-address date deferred, no new date published);SWIFT MT103 Standards Release Guide; ISO 20022 pacs.008.001.10',
   };
 
   const compliance_flags = [];
