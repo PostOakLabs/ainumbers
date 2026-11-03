@@ -671,6 +671,7 @@ import * as art782    from './art-782-modified-premium.kernel.mjs';
 import * as art788    from './art-788-csv-rfc4180-parser.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
+import * as art804    from './art-804-receipt-export-envelopes.kernel.mjs';
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
 import * as art82     from './art-82-securities-settlement-message-linter.kernel.mjs';
 import * as art83     from './art-83-buy-in-exposure-modeler.kernel.mjs';
@@ -1377,6 +1378,7 @@ export const KERNELS = {
   'art-788-csv-rfc4180-parser':                                 art788,
   'art-79-settlement-fail-predictor':                           art79,
   'art-80-ssi-conformance-checker':                             art80,
+  'art-804-receipt-export-envelopes':                           art804,
   'art-81-allocation-affirmation-conformance':                  art81,
   'art-82-securities-settlement-message-linter':                art82,
   'art-83-buy-in-exposure-modeler':                             art83,

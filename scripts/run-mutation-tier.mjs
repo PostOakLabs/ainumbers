@@ -1067,7 +1067,26 @@ export function copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath,
         .filter((f) => f.startsWith(`${kernelId}.`) && f !== fixturesFile)
         .map((f) => `chaingraph/kernels/fixtures/${f}`)
     : [];
-  const files = deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath, ...runtimeReadSiblings], repoRoot });
+  // MUTATION-TIER-SANDBOX-VENDOR-FIXTURES-1: a proptest that runtime-reads a VENDORED
+  // fixture under fixtures/vendor/ (art-804-receipt-export-envelopes.proptest.mjs:33 reads
+  // openlineage-1.55.0/OpenLineage.json to validate the exported RunEvent against the pinned
+  // upstream schema) is invisible to BOTH the import-graph derivation and the `<id>.*`
+  // sibling sweep above. The cure stays caller-side and scoped: when the proptest source
+  // names `vendor` at all, sweep every file under fixtures/vendor/ into the sandbox (the
+  // whole tree, not a guessed literal path — the same future-proofing stance as the sibling
+  // sweep; the tree is small, upstream release-pinned, and shared, so no per-kernel filter).
+  const vendorDir = path.join(fixturesDir, 'vendor');
+  const vendorFiles = [];
+  const walkVendor = (dir, relBase) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) walkVendor(path.join(dir, e.name), `${relBase}/${e.name}`);
+      else vendorFiles.push(`chaingraph/kernels/fixtures/${relBase}/${e.name}`);
+    }
+  };
+  if (existsSync(vendorDir) && /vendor/.test(readFileSync(path.join(repoRoot, proptestRelPath), 'utf8'))) {
+    walkVendor(vendorDir, 'vendor');
+  }
+  const files = deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath, ...runtimeReadSiblings, ...vendorFiles], repoRoot });
   for (const rel of files) {
     const dest = path.join(scratchRoot, rel);
     if (existsSync(dest)) continue; // already primed by an earlier kernel this process
