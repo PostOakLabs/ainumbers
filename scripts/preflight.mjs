@@ -1540,9 +1540,9 @@ const GATES = [
   // shared-derived-artifact gate below.
   ['Debt ledger freshness (DEBT-LEDGER-1)', 'node scripts/gen-debt-ledger.mjs --check'],
   // KERNEL-INPUT-USAGE-CHECK-1: declared-input-usage ratchet (baseline
-  // scripts/kernel-input-usage-baseline.json, single-writer on main). The context
-  // split lives in the checker itself: ADVISORY on pull_request, BLOCKING on
-  // main/merge_group/local — see its header; --init ran exactly once, healing is --prune.
+  // scripts/kernel-input-usage-baseline.json, single-writer on main). BLOCKING in
+  // every context, pull_request included (MAIN-ONLY-PATHS-GATE-1) — see its header;
+  // --init ran exactly once, healing is --prune.
   ['Kernel input-usage ratchet (KERNEL-INPUT-USAGE-CHECK-1)', 'node scripts/check-kernel-input-usage.mjs'],
   // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the fixture proof entry below — the
   // pairing meta-gate requires it beside every new blocking gate.
@@ -1829,6 +1829,11 @@ const GATES = [
   // <meta name="ai-tool">, role="main" landmark; down-only baseline ratchet.
   ['Node page accessibility tree (TOOLPAGE-A11Y-1)', 'node scripts/check-a11y-tree.mjs'],
   ['Node page accessibility tree controls (RED+GREEN)', 'node scripts/check-a11y-tree.mjs --self-test'],
+  // MAIN-ONLY-PATHS-GATE-1: a PR may not carry a file only main's derived regen writes (SSOT
+  // scripts/derived-artifacts.mjs COVERED; derived-artifacts-regen.yml is the single writer, SO #35).
+  // HARD on pull_request and locally; not run on merge_group / push:main, which carry the regen's commits.
+  ['Main-only derived paths (MAIN-ONLY-PATHS-GATE-1)', 'node scripts/check-main-only-paths.mjs'],
+  ['Main-only derived paths controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-main-only-paths.mjs --self-test'],
   // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: parity gate A (in-repo SSOT recompute of every
   // chain plan hash vs the committed derived set + page-literal sample) and parity
   // gate B fixtures (session-receipt Merkle; the site-side routine test is
@@ -2598,6 +2603,8 @@ const QUICK_GATES = [
   // Proven-digest freeze: measured about 0.4 s (one git diff plus one cat-file batch over changed
   // node files only), well inside the 10 s bar for the quick subset.
   ['Proven-digest freeze (quick)', 'node scripts/check-proven-digest-freeze.mjs'],
+  // MAIN-ONLY-PATHS-GATE-1: one git diff against merge-base(origin/main, HEAD); well under 1 s.
+  ['Main-only derived paths (quick)', 'node scripts/check-main-only-paths.mjs'],
 ];
 
 async function runQuickSuite(selfTest) {
