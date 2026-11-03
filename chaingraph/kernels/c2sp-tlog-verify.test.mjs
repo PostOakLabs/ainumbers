@@ -115,10 +115,29 @@ await test('RFC 6962 consistency proof verifies for every (oldSize,newSize) pair
   assert(checked === 36, `expected 36 (oldSize,newSize) pairs checked, got ${checked}`);
 });
 
-await test('RFC 6962 consistency: oldSize=0 is trivially consistent with any newRoot, empty proof', async () => {
+await test('RFC 9162 consistency: oldSize=0 (incl. 0/0) and oldSize>newSize are rejected (C2SP-TLOG-VERIFY-HEAL-1)', async () => {
   const leaf = await hashLeafNode(new TextEncoder().encode('leaf-0'));
-  const ok = await verifyConsistency({ oldSize: 0, newSize: 1, oldRoot: new Uint8Array(32), newRoot: leaf, proof: [] });
-  assert(ok, 'expected oldSize=0 to verify trivially');
+  const empty = await sha256();
+  assert(!(await verifyConsistency({ oldSize: 0, newSize: 1, oldRoot: new Uint8Array(32), newRoot: leaf, proof: [] })), 'oldSize=0 must be rejected');
+  assert(!(await verifyConsistency({ oldSize: 0, newSize: 0, oldRoot: empty, newRoot: empty, proof: [] })), '0/0 must be rejected');
+  assert(!(await verifyConsistency({ oldSize: 2, newSize: 1, oldRoot: leaf, newRoot: leaf, proof: [] })), 'oldSize>newSize must be rejected');
+  assert(await verifyConsistency({ oldSize: 1, newSize: 1, oldRoot: leaf, newRoot: leaf, proof: [] }), 'equal non-zero sizes, empty proof, equal roots must verify');
+  assert(!(await verifyConsistency({ oldSize: 1, newSize: 1, oldRoot: leaf, newRoot: leaf, proof: [leaf] })), 'equal sizes with a non-empty proof must be rejected');
+});
+
+await test('RFC 9162 inclusion: index>=size, short/long path and non-32-byte hashes are rejected (C2SP-TLOG-VERIFY-HEAL-1)', async () => {
+  const leaves = await Promise.all(Array.from({ length: 4 }, (_, i) => hashLeafNode(new TextEncoder().encode(`leaf-${i}`))));
+  const l01 = await hashInteriorNode(leaves[0], leaves[1]);
+  const l23 = await hashInteriorNode(leaves[2], leaves[3]);
+  const root = await hashInteriorNode(l01, l23);
+  const path = [leaves[1], l23];
+  assert(await verifyInclusion({ leaf: leaves[0], index: 0, size: 4, root, path }), 'control: valid proof must verify');
+  assert(!(await verifyInclusion({ leaf: leaves[0], index: 4, size: 4, root, path })), 'index == size must be rejected');
+  assert(!(await verifyInclusion({ leaf: leaves[0], index: 0, size: 4, root, path: [...path, root] })), 'trailing path element must be rejected');
+  assert(!(await verifyInclusion({ leaf: leaves[0], index: 0, size: 4, root, path: [path[0]] })), 'short path must be rejected');
+  assert(!(await verifyInclusion({ leaf: root, index: 0, size: 1, root, path: [root] })), 'size-1 tree with a non-empty path must be rejected');
+  assert(!(await verifyInclusion({ leaf: new Uint8Array(0), index: 0, size: 1, root: new Uint8Array(0), path: [] })), 'zero-length leaf/root must be rejected');
+  assert(!(await verifyInclusion({ leaf: leaves[0], index: 0, size: 4, root, path: [leaves[1].subarray(0, 31), l23] })), '31-byte path element must be rejected');
 });
 
 await test('RFC 6962 consistency: a proof extra hash or an off-by-one size is rejected', async () => {
