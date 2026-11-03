@@ -7,7 +7,7 @@ import { gitEnv } from './_git-env-lib.mjs';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cosignVocabHits, insiderHits, aiVocabHits, absolutesHits, notXCount, visibleText, panelHits, fragHeadHits, pairHeadHits } from './check-copy-hallmarks.mjs';
+import { cosignVocabHits, insiderHits, aiVocabHits, absolutesHits, anchorWordingHits, notXCount, visibleText, panelHits, fragHeadHits, pairHeadHits } from './check-copy-hallmarks.mjs';
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.error('  ✗ ' + m); } else console.log('  ✓ ' + m); };
@@ -301,6 +301,79 @@ ok(pairHeadHits('<h2>widget Header Decoder, and Payload Linter</h2>').length ===
   run = gate(withoutDR());
   out = `${run.stdout}\n${run.stderr}`;
   ok(run.status === 0 && out.includes('read from in-tree file'), `(d GREEN) no DERIVED_ROOT: in-tree read line printed, exit 0 — got exit ${run.status}`);
+}
+
+// ── COPY-CODENAME-PR-GATE-2: row codename in a node shard's `description` ────
+// Two node PRs (#2701, #2711) merged green, then main's post-merge derived
+// regen turned red on the codename heuristic — the gate scanned only the .html
+// pages a PR touches, and the hub/sitemap pages carrying node copy are
+// regenerated on main AFTER merge. Controls: (historical) the pre-heal
+// descriptions at 4f7750abb trip insiderHits while the healed bytes on main
+// score zero; (CLI) a fixture shard carrying a codename in its description
+// fails both the plain gate and the --source-shards lint, naming the field.
+{
+  const leakRe = /spec\/WU codename/;
+  for (const [rev, file] of [
+    ['4f7750abb', 'chaingraph/graph/nodes/art-488-model-replication-diff.json'],
+    ['4f7750abb', 'chaingraph/graph/nodes/art-489-model-test-battery.json'],
+  ]) {
+    const desc = String(JSON.parse(gitShow(rev, file)).description || '');
+    ok(leakRe.test(insiderHits(desc).join('; ')), `RED historical: pre-heal description at ${rev} (${file.split('/').pop()}) trips the codename detector`);
+  }
+  for (const file of ['chaingraph/graph/nodes/art-488-model-replication-diff.json', 'chaingraph/graph/nodes/art-489-model-test-battery.json']) {
+    const desc = String(JSON.parse(readFileSync(resolve(REPO, file), 'utf8')).description || '');
+    ok(insiderHits(desc).length === 0, `GREEN historical: healed description on disk (${file.split('/').pop()}) scores zero insider hits`);
+  }
+  const fixtureRel = 'chaingraph/graph/nodes/zz-copy-codename-fixture.tmp.json';
+  const fixtureAbs = resolve(REPO, fixtureRel);
+  try {
+    writeFileSync(fixtureAbs, JSON.stringify({ tool_id: 'fixture-node', description: 'Runs the WB-BRIDGE-1 workbench bridge.' }, null, 2) + '\n');
+    let run = spawnSync(process.execPath, ['scripts/check-copy-hallmarks.mjs'], { cwd: REPO, encoding: 'utf8' });
+    let out = `${run.stdout}\n${run.stderr}`;
+    ok(run.status === 1, `RED control: gate exits 1 on a fixture shard with a codename in description — got exit ${run.status}${run.status === 1 ? '' : ':\n' + out.slice(0, 800)}`);
+    ok(out.includes(fixtureRel) && out.includes('top-level description') && out.includes('WB-BRIDGE-1'), 'RED control: failure names the shard, the field and the codename');
+    run = spawnSync(process.execPath, ['scripts/check-copy-hallmarks.mjs', '--source-shards'], { cwd: REPO, encoding: 'utf8' });
+    out = `${run.stdout}\n${run.stderr}`;
+    ok(run.status === 1 && out.includes(fixtureRel), `RED control: source-shards lint exits 1 naming the fixture — got exit ${run.status}`);
+    writeFileSync(fixtureAbs, JSON.stringify({ tool_id: 'fixture-node', description: 'Bridges workbench sessions to signed verification runs.' }, null, 2) + '\n');
+    run = spawnSync(process.execPath, ['scripts/check-copy-hallmarks.mjs', '--source-shards'], { cwd: REPO, encoding: 'utf8' });
+    ok(run.status === 0, `GREEN control: source-shards lint exits 0 once the codename is rewritten — got exit ${run.status}`);
+    run = spawnSync(process.execPath, ['scripts/check-copy-hallmarks.mjs'], { cwd: REPO, encoding: 'utf8' });
+    out = `${run.stdout}\n${run.stderr}`;
+    ok(run.status === 0 && !out.includes(fixtureRel), `GREEN control: plain gate exits 0 on the rewritten shard — got exit ${run.status}${run.status === 0 ? '' : ':\n' + out.slice(0, 800)}`);
+  } finally {
+    rmSync(fixtureAbs, { force: true });
+  }
+}
+
+// ANCHOR-WORDING-GATE-1: banned anchoring wording, scoped to pages that mention
+// anchoring. tamper-proof stays with ABSOLUTES (no double count).
+{
+  const bad = '<p>We anchor it for you on an immutable, trustless ledger. A qualified timestamp, Base-only and Coinbase-first.</p>';
+  const labels = anchorWordingHits(bad).map((h) => h.replace(/ ×\d+$/, '')).sort();
+  ok(labels.length === 6, `anchorWording flags all six banned phrasings on an anchor page — got ${JSON.stringify(labels)}`);
+  ok(anchorWordingHits('<p>This ledger is immutable and trustless.</p>').length === 0, 'anchorWording is a no-op on a page that never mentions anchoring');
+  ok(anchorWordingHits('Anchors prove time, not truth: the receipt hash is committed to a public chain and the verifier recomputes it.').length === 0, 'anchorWording passes scoped, falsifiable anchoring copy');
+  ok(anchorWordingHits('The anchor is tamper-proof.').length === 0, 'tamper-proof is left to ABSOLUTES (no double count)');
+  const fixtureRel = 'anchorwording-red-control.tmp.html';
+  const fixtureAbs = resolve(REPO, fixtureRel);
+  writeFileSync(fixtureAbs, `<!doctype html>\n<html><body>${bad}</body></html>\n`);
+  try {
+    const run = spawnSync(process.execPath, ['scripts/check-copy-hallmarks.mjs'], { cwd: REPO, encoding: 'utf8' });
+    const out = `${run.stdout}\n${run.stderr}`;
+    ok(run.status === 1 && out.includes(fixtureRel) && out.includes('banned anchoring wording'), `RED control: failing fixture exits nonzero and names the page — got exit ${run.status}`);
+  } finally {
+    rmSync(fixtureAbs, { force: true });
+  }
+  const greenRel = 'anchorwording-green-control.tmp.html';
+  const greenAbs = resolve(REPO, greenRel);
+  writeFileSync(greenAbs, '<!doctype html>\n<html><body><p>Anchors prove time, not truth: the receipt hash is committed to a public chain and the verifier recomputes it.</p></body></html>\n');
+  try {
+    const run = spawnSync(process.execPath, ['scripts/check-copy-hallmarks.mjs'], { cwd: REPO, encoding: 'utf8' });
+    ok(run.status === 0, `GREEN control: passing fixture exits 0 — got exit ${run.status}${run.status === 0 ? '' : ':\n' + `${run.stdout}\n${run.stderr}`.slice(0, 1200)}`);
+  } finally {
+    rmSync(greenAbs, { force: true });
+  }
 }
 
 if (fail) {
