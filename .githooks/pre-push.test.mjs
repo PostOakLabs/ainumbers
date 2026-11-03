@@ -350,16 +350,40 @@ function loggedArgvs(dir) {
   const dir = makeTriggerSandbox('scripts/new-gate.mjs');
   const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
   const calls = loggedArgvs(dir);
-  assert(r.status === 0 && calls.length === 1 && calls[0][0] === '--changed' && calls[0][1] === 'origin/main',
-    `scripts/*.mjs diff (RED, owed): FULL leg only, quick skipped as a subset (got ${JSON.stringify(calls)})`);
-  assert(existsSync(join(dir, '.git', 'preflight-full.log')), 'full leg output is teed to .git/preflight-full.log');
+  assert(r.status === 0 && calls.length === 1 && calls[0][0] === '--push-safety' && calls[0][1] === '--changed' && calls[0][2] === 'origin/main',
+    `scripts/*.mjs diff (PREPUSH-SAFETY-LEG-1): PUSH-SAFETY leg only (quick skipped as a subset), full suite left to CI (got ${JSON.stringify(calls)})`);
+  assert(existsSync(join(dir, '.git', 'preflight-push-safety.log')), 'push-safety leg output is teed to .git/preflight-push-safety.log');
   cleanup(dir);
 }
 {
   const dir = makeTriggerSandbox('scripts/new-gate.mjs');
   const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '1' });
-  assert(r.status !== 0, 'full leg red (exit status survives the tee pipe) still BLOCKS the push');
+  assert(r.status !== 0, 'push-safety leg red (exit status survives the tee pipe) still BLOCKS the push');
   cleanup(dir);
+}
+{
+  // PREPUSH-SAFETY-LEG-1: PREFLIGHT_FULL=1 remains the explicit escape hatch —
+  // it must still force the FULL suite even on a gate-machinery diff.
+  const dir = makeTriggerSandbox('scripts/new-gate.mjs');
+  const r = runHook(dir, { PREFLIGHT_FULL: '1', MOCK_PREFLIGHT_EXIT: '0' });
+  const calls = loggedArgvs(dir);
+  assert(r.status === 0 && calls.length === 1 && calls[0][0] === '--changed' && calls[0][1] === 'origin/main',
+    `PREFLIGHT_FULL=1 on a machinery diff: the FULL leg still runs (got ${JSON.stringify(calls)})`);
+  assert(existsSync(join(dir, '.git', 'preflight-full.log')), 'PREFLIGHT_FULL=1 output is still teed to .git/preflight-full.log');
+  cleanup(dir);
+}
+{
+  // PREPUSH-SAFETY-LEG-1: the attestation echo must name the leg, never claim
+  // "all hard CI gates passed" for a push-safety-only push. Asserted statically
+  // on the hook source: the sandbox does not carry
+  // scripts/check-prepush-attestation.mjs (out of this row's fence), so the
+  // protected-path echo block never fires live here.
+  const hookText = readFileSync(HOOK_SRC, 'utf8');
+  assert(/push-safety leg ran and passed|push-safety leg/.test(hookText.split('PREFLIGHT VERIFIED')[1] || ''),
+    'attestation echo names the push-safety leg');
+  const attestLine = hookText.split('\n').find((l) => l.includes('PREFLIGHT VERIFIED')) || '';
+  assert(!attestLine.includes('all hard CI gates passed'), 'attestation echo no longer over-claims "all hard CI gates passed"');
+  assert(hookText.includes('PREPUSH-ATTEST-CHECK-1'), 'load-bearing PREPUSH-ATTEST-CHECK-1 marker is still present');
 }
 
 // ── 13. PREPUSH-PRID-ENV-1 — PR_ID_COLLISION_PR is exported to preflight only
