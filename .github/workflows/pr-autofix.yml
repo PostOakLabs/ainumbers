@@ -50,18 +50,50 @@ name: PR Autofix
 # If the tree changed: commit by EXPLICIT pathspec as the spec-sync App (the
 # same token path automerge-label.yml and derived-artifacts-regen.yml mint —
 # never GITHUB_TOKEN, whose pushes do not retrigger PR checks) and push to the
-# PR head branch, then exit 1 with "autofix pushed <sha>, re-run pending". The
-# fresh push re-runs every check; the follow-up run on the bot-authored head
-# is skipped by the loop guards, and the re-tested run reports the PR's real
-# verdicts. If the tree did not change: exit 0.
+# PR head branch, then exit 0 with a "autofix pushed <sha>" notice (it exited 1
+# by design until 2026-10-29). The fresh push re-runs every check;
+# the follow-up run on the bot-authored head is skipped by the loop guards, and
+# the re-tested run reports the PR's real verdicts. If the tree did not
+# change: exit 0.
+#
+# TRUST BOUNDARY (2026-11-03). The writers above are
+# PR-branch code. Until this row they ran in the same job that minted the
+# push-capable App token, so a PR that edited a script it runs (or wrote
+# .git/hooks, $GITHUB_ENV, $GITHUB_PATH) could act with that token. Now:
+#   - job `autofix` runs the PR's writers with NO App token and contents: read.
+#     It hands over only data: a binary patch of the writers' diff, as an
+#     artifact.
+#   - job `autofix-push` mints the token and runs NO PR-branch code: a fresh
+#     checkout, `git apply` of the patch after re-checking every path in it
+#     against the PR's touched set (+ the writers' baselines) and refusing
+#     renames, deletions, mode changes, symlinks and submodules, then commit
+#     and push with an empty hooks path.
+# A PR can still edit THIS file, and pull_request runs the PR's copy of it.
+# That edit is a workflow change, which automerge-label.yml arms only after a
+# green zizmor run, and which a reviewer sees.
+#
+# MAIN-MOVED SYNC (job `sync-main`, 2026-11-03). On push to main
+# (and workflow_dispatch, dry-run by default) it runs
+# scripts/ci/pr-sync-main.mjs from main's own checkout: merge origin/main into
+# each BEHIND/DIRTY same-repo PR (merge, never rebase or force), take main's
+# side of a conflict only in main-owned derived paths (SSOT
+# scripts/derived-artifacts.mjs), comment once per head on any other conflict.
+# Bounds and loop guards live in the script header. It never runs the PR's
+# writers itself: its App-authored merge push fires pull_request here, and the
+# two jobs above regenerate the derivables on the merged tree.
 #
 # LOOP GUARDS (both required by the row):
 #   - same-repo heads only: a fork's head repo differs from the base repo,
 #     which the App token cannot push to (same guard automerge-label.yml uses).
-#   - skip when the head commit is the App's own: the job-level `if` checks
-#     the event actor, and the guard step below additionally checks the head
-#     commit's author/committer login — a bot-authored head never re-enters
-#     the writers.
+#   - skip the App's own autofix commits: the guard step skips a head commit
+#     whose subject starts with `chore(autofix):`, and any other head commit
+#     authored/committed by the App EXCEPT a `chore(bot-sync):` merge (whose
+#     derivables are exactly what this workflow must refresh). The job-level
+#     actor check is gone for that reason: the bot-sync merge push is the
+#     App's. The chain is bounded: bot-sync merge -> one autofix commit ->
+#     skipped.
+#   - the sync job pushes only to PR branches, never to main, so it cannot
+#     retrigger its own `push: main`.
 #
 # WRITER-SCOPE CONTAINMENT (row hard stop: "a writer changes files outside the
 # PR's own touched set"): after the writers run, every changed path is checked
@@ -72,7 +104,7 @@ name: PR Autofix
 # diff.
 #
 # NOT_A_GATE in check-workflow-gate-parity.mjs: this workflow gates no merge —
-# its exit 1 on the pushing run is the "re-run pending" signal, not a required
+# its pushing run ends green with an "autofix pushed" notice, not a required
 # check verdict. The required set is unchanged (rulesets are outside this
 # row's fence); scripts-verify.yml and land-verify.yml carry the four promoted
 # PR-side gate steps that re-test the autofixed tree HARD.
@@ -82,56 +114,66 @@ on:
     # Default types (opened, synchronize, reopened) are exactly the head-push
     # lifecycle this workflow needs. Drafts are autofixed too: a bump that
     # rides the PR branch is already correct at ready_for_review time.
+  push:
+    # Main moved: job `sync-main` brings the open PRs up to date. The script
+    # waits (bounded) for derived-artifacts-regen on the pushed sha, then syncs
+    # only if main did not move meanwhile: a regen that committed hands off to
+    # its own commit's push run, and one that committed nothing (always the
+    # run on the regen bot's own commit) lets this run sync. It never exits
+    # waiting for a push that may not come. A workflow_run trigger on the
+    # regen would do the same, but zizmor flags workflow_run as a high
+    # dangerous-trigger and this job holds a push token.
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Really merge and push (default: dry-run, prints the decision per open PR)'
+        type: boolean
+        default: false
+      max_prs:
+        description: 'Most PR branches to push in this run'
+        type: string
+        default: '10'
 
 permissions:
   contents: read
 
 concurrency:
-  # Serialise per PR, never cancel: a cancelled run could die between commit
-  # and push; queueing the next run is strictly safer (the follow-up run on a
-  # bot-authored head is skipped by the loop guards above).
-  group: pr-autofix-${{ github.event.pull_request.number }}
+  # Serialise per PR (and the sync runs as one group), never cancel: a
+  # cancelled run could die between commit and push; queueing the next run is
+  # strictly safer (the follow-up run on a bot-authored head is skipped by the
+  # loop guards above). One pending sync run is kept, so a burst of main pushes
+  # collapses into one sync against the newest main.
+  group: pr-autofix-${{ github.event.pull_request.number || 'sync-main' }}
   cancel-in-progress: false
 
 jobs:
   autofix:
     name: Run the PR's own deterministic writers
-    # Same-repo heads only (fork heads are unpushable for the App token), and
-    # never a run triggered by the App's own push (the primary loop guard; the
-    # head-commit guard inside the job is the second layer).
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'ainumbers-spec-sync[bot]'
+    # Same-repo heads only (fork heads are unpushable for the App token). This
+    # job holds NO App token: it runs PR-branch code (see TRUST BOUNDARY).
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.package.outputs.changed }}
     steps:
-      - name: Mint PR push token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ secrets.SYNC_APP_CLIENT_ID }}
-          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-          permission-pull-requests: write
-          permission-contents: write
-
-      - name: Checkout PR head branch
+      - name: Checkout PR head commit
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          # The HEAD branch, not the default merge ref: the autofix commits and
-          # pushes THIS tree back to the PR branch, so it must be the PR's own
-          # head tree, byte for byte.
-          ref: ${{ github.event.pull_request.head.ref }}
+          # The HEAD commit, not the default merge ref: the patch this job
+          # hands over is applied to the PR's own head tree, byte for byte.
+          # The exact sha (not the branch name) so `autofix-push` checks out
+          # the very tree the patch was computed on.
+          ref: ${{ github.event.pull_request.head.sha }}
           # fetch-depth 0: the touched-set derivation diffs origin/main...HEAD
           # (a merge-base diff), so origin/main must resolve as a real commit.
           fetch-depth: 0
           # Do NOT persist any credential in .git/config (zizmor: artipacked).
-          # The App token is supplied only at push time, exactly as
-          # derived-artifacts-regen.yml does.
           persist-credentials: false
 
-      # Second loop-guard layer: the head commit this run would autofix must
-      # not be the App's own. grep -F (fixed-string) is load-bearing — the
-      # login contains [bot], which is a regex character class.
-      - name: Guard — skip the App's own commits
+      # Loop guard (see LOOP GUARDS above). grep -F (fixed-string) is
+      # load-bearing: the login contains [bot], which is a regex character class.
+      - name: Guard — skip the App's own autofix commits
         id: guard
         env:
           GH_TOKEN: ${{ github.token }}
@@ -140,14 +182,20 @@ jobs:
           BOT_LOGIN: ainumbers-spec-sync[bot]
         run: |
           set -euo pipefail
-          WHO="$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq '[.author.login // "", .committer.login // ""] | join(" ")')"
-          echo "head commit author/committer logins: $WHO"
-          if grep -qF "$BOT_LOGIN" <<< "$WHO"; then
-            echo "::notice title=Skipped::head commit $HEAD_SHA is authored/committed by $BOT_LOGIN — autofix already ran; nothing to do."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+          INFO="$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq '[.author.login // "", .committer.login // ""] | join(" ")')"
+          SUBJECT="$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq '.commit.message | split("\n")[0]')"
+          echo "head commit author/committer logins: $INFO"
+          echo "head commit subject: $SUBJECT"
+          SKIP=false
+          case "$SUBJECT" in
+            'chore(autofix):'*) SKIP=true ;;
+            'chore(bot-sync):'*) : ;;
+            *) if grep -qF "$BOT_LOGIN" <<< "$INFO"; then SKIP=true; fi ;;
+          esac
+          if [ "$SKIP" = "true" ]; then
+            echo "::notice title=Skipped::head commit $HEAD_SHA is the App's own autofix commit — autofix already ran; nothing to do."
           fi
+          echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node 20
         if: steps.guard.outputs.skip != 'true'
@@ -368,20 +416,19 @@ jobs:
           fi
           echo "Containment clean — every changed path is inside the PR's touched set (+ the writers' own baselines)."
 
-      - name: Commit and push the autofix diff (or exit 0 on a no-op)
+      - name: Package the autofix diff as a patch (or report a no-op)
+        id: package
         if: steps.guard.outputs.skip != 'true'
-        env:
-          APP_TOKEN: ${{ steps.app-token.outputs.token }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/autofix"
           s="$(git status --porcelain)"
           if [ -z "$s" ]; then
             echo "autofix: no derivable drift in this PR — nothing to write. Exiting 0."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "autofix will commit:"
+          echo "autofix will hand over:"
           printf '%s\n' "$s"
 
           # Explicit pathspec only, one `git add` per path — `git add` aborts
@@ -405,7 +452,101 @@ jobs:
             [ -n "$p" ] || continue
             git add -- "$p"
           done
+          git diff --cached --binary > "${RUNNER_TEMP}/autofix/autofix.patch"
+          echo "patch: $(wc -c < "${RUNNER_TEMP}/autofix/autofix.patch") bytes"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
 
+      - name: Hand the patch to the push job
+        if: steps.package.outputs.changed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: autofix-patch
+          path: ${{ runner.temp }}/autofix/autofix.patch
+          retention-days: 1
+          if-no-files-found: error
+
+  autofix-push:
+    name: Apply the writers' patch and push it as the App
+    # The only job that holds the App token. It runs NO PR-branch code: a fresh
+    # checkout, a trusted path check of the patch, `git apply`, commit, push.
+    needs: autofix
+    if: needs.autofix.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head commit (data only; nothing from it is executed)
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch the patch
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: autofix-patch
+          path: ${{ runner.temp }}/autofix
+
+      - name: Check the patch's paths, then apply it
+        run: |
+          set -euo pipefail
+          PATCH="${RUNNER_TEMP}/autofix/autofix.patch"
+          # Empty hooks dir for every git call in this job: the checkout is PR
+          # data and must not execute anything.
+          NOHOOKS="${RUNNER_TEMP}/nohooks"; mkdir -p "$NOHOOKS"
+          G=(git -c "core.hooksPath=$NOHOOKS")
+          # Shapes the writers never produce are refused outright: renames,
+          # copies, deletions, mode changes, symlinks (120000), submodules (160000).
+          SUMMARY="$("${G[@]}" apply --summary "$PATCH")"
+          if grep -Eq '^ (rename|copy|delete mode|mode change|create mode 1[26]0000)' <<< "$SUMMARY"; then
+            echo "::error::autofix-push refused the patch: it renames, deletes, changes a mode, or adds a symlink/submodule."
+            printf '%s\n' "$SUMMARY"
+            exit 1
+          fi
+          # Every path in the patch must sit inside the PR's touched set (+ the
+          # writers' baselines): the same containment the writer job checked,
+          # recomputed here from trusted code on a fresh checkout.
+          mapfile -d '' -t FILES < <("${G[@]}" diff -z --name-only origin/main...HEAD)
+          : > "${RUNNER_TEMP}/allowed.txt"
+          for f in "${FILES[@]}"; do printf '%s\n' "$f" >> "${RUNNER_TEMP}/allowed.txt"; done
+          printf '%s\n' scripts/a11y-baseline.json scripts/manifest-examples-baseline.json >> "${RUNNER_TEMP}/allowed.txt"
+          sort -u -o "${RUNNER_TEMP}/allowed.txt" "${RUNNER_TEMP}/allowed.txt"
+          : > "${RUNNER_TEMP}/patched.txt"
+          mapfile -d '' -t NUMSTAT < <("${G[@]}" apply --numstat -z "$PATCH")
+          for r in "${NUMSTAT[@]}"; do
+            [ -n "$r" ] || continue
+            printf '%s\n' "${r#*$'\t'*$'\t'}" >> "${RUNNER_TEMP}/patched.txt"
+          done
+          sort -u -o "${RUNNER_TEMP}/patched.txt" "${RUNNER_TEMP}/patched.txt"
+          ESCAPED="$(comm -23 "${RUNNER_TEMP}/patched.txt" "${RUNNER_TEMP}/allowed.txt")"
+          if [ -n "$ESCAPED" ]; then
+            echo "::error::autofix-push refused the patch: it touches files outside the PR's own touched set:"
+            printf '%s\n' "$ESCAPED"
+            exit 1
+          fi
+          "${G[@]}" apply --index "$PATCH"
+          echo "applied:"
+          "${G[@]}" diff --cached --name-only
+
+      - name: Mint PR push token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-pull-requests: write
+          permission-contents: write
+
+      - name: Commit and push the autofix diff
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          NOHOOKS="${RUNNER_TEMP}/nohooks"; mkdir -p "$NOHOOKS"
+          git config core.hooksPath "$NOHOOKS"
           git config user.name  "ainumbers-spec-sync[bot]"
           git config user.email "ainumbers-spec-sync[bot]@users.noreply.github.com"
           # Two -m flags, not one multi-line literal: an unindented continuation
@@ -413,21 +554,103 @@ jobs:
           # (measured 2026-08-16: 11 zero-job failure runs across every branch).
           git commit \
             -m "chore(autofix): apply PR derivables (#${PR_NUMBER})" \
-            -m "Automated by .github/workflows/pr-autofix.yml: the per-PR derivables (the §18 baseline bump, manifest examples, ask-agent + a11y writer stamps) are deterministic from this PR's own files and ride the PR branch."
+            -m "Automated by .github/workflows/pr-autofix.yml: the per-PR derivables (manifest examples, ask-agent + a11y writer stamps) are deterministic from this PR's own files and ride the PR branch."
 
           # App-authored push: a GITHUB_TOKEN-authored push would not retrigger
           # the PR's checks (the whole reason this row exists); the App's does.
           git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push origin "HEAD:${HEAD_REF}"
+          # A builder push landing between checkout and
+          # this push rejects it (fetch first). Rebase the one autofix commit
+          # onto the new head and retry ONCE. If the rebase conflicts or the
+          # retry still loses the race, exit 0 with a notice: the builder's
+          # newer push re-triggers this workflow, which recomputes the
+          # derivables from the newer tree, so nothing is lost.
+          if ! git push origin "HEAD:${HEAD_REF}"; then
+            if git fetch origin "${HEAD_REF}" && git rebase "origin/${HEAD_REF}" && git push origin "HEAD:${HEAD_REF}"; then
+              echo "autofix: push raced a newer head; rebased and pushed."
+            else
+              git rebase --abort 2>/dev/null || true
+              echo "::notice title=Autofix superseded::The PR head moved during this run. The newer push re-runs this workflow on the newer tree."
+              exit 0
+            fi
+          fi
           SHA="$(git rev-parse HEAD)"
           echo "autofix pushed ${SHA}, re-run pending"
           echo "### autofix pushed ${SHA}, re-run pending" >> "$GITHUB_STEP_SUMMARY"
-          # The red must name its cause in one annotation: historically this
-          # exit carried no ::error, so every by-design red looked like a
-          # mystery failure.
-          echo "::error title=Autofix pushed a fix-up commit::Commit ${SHA::7} was pushed to this PR. This run is red by design so the PR re-runs its checks on the new commit. No action is needed unless those checks fail."
-          echo "Commit ${SHA::7} was pushed to this PR. This run is red by design so the PR re-runs its checks on the new commit. No action is needed unless those checks fail." >> "$GITHUB_STEP_SUMMARY"
-          # The pushing run FAILS BY DESIGN (the autofix.ci pattern): the red
-          # is the signal that a fix-up commit was pushed and every check is
-          # re-running on it.
-          exit 1
+          echo "Commit ${SHA::7} was pushed to this PR. The App-authored push re-runs every check on the new commit. No action is needed unless those checks fail." >> "$GITHUB_STEP_SUMMARY"
+          # This run used to exit 1 by design (the
+          # autofix.ci pattern) to signal the fix-up push. That red cost more
+          # than it said: 70 of 913 failed runs from 10-01 to 10-29 were this
+          # exit, and every PR watcher spent a diagnosis on a run that had
+          # succeeded. The App-authored push already re-triggers every
+          # required check, so a notice carries the same signal without a red.
+          echo "::notice title=Autofix pushed a fix-up commit::Commit ${SHA::7} was pushed to this PR and its checks are re-running on it."
+          exit 0
+
+  sync-main:
+    name: Merge main into BEHIND/DIRTY PRs (main-owned derived conflicts only)
+    # main's own code only: a workflow_dispatch from another branch would run
+    # that branch's script with the App token, so it is refused here.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Up to 15 min waiting for the regen on the pushed sha, then at most 10 merges.
+    timeout-minutes: 40
+    permissions:
+      contents: read # checkout of main; every write goes through the App token
+      # Read with GITHUB_TOKEN: the App token carries only contents + pull-requests.
+      actions: read # derived-artifacts-regen.yml's runs, for the regen wait
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      # Fail closed: a decision function that fails its own fixtures never
+      # touches a PR branch.
+      - name: Decision tests
+        run: node scripts/ci/pr-sync-main.test.mjs
+
+      - name: Mint PR push token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-pull-requests: write
+          permission-contents: write
+
+      - name: Sync open PRs with main
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          ACTIONS_READ_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+          INPUT_APPLY: ${{ inputs.apply }}
+          INPUT_MAX_PRS: ${{ inputs.max_prs }}
+        run: |
+          set -euo pipefail
+          ARGS=(--markdown)
+          if [ "$EVENT_NAME" = "push" ]; then
+            ARGS+=(--apply --event-sha "$EVENT_SHA")
+          elif [ "$INPUT_APPLY" = "true" ]; then
+            ARGS+=(--apply)
+          else
+            ARGS+=(--dry-run)
+          fi
+          MAX="${INPUT_MAX_PRS:-10}"
+          case "$MAX" in ''|*[!0-9]*) echo "::error::max_prs must be a whole number, got '$MAX'"; exit 1 ;; esac
+          ARGS+=(--max-prs "$MAX")
+          git config user.name  "ainumbers-spec-sync[bot]"
+          git config user.email "ainumbers-spec-sync[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          node scripts/ci/pr-sync-main.mjs "${ARGS[@]}" | tee "${RUNNER_TEMP}/sync.md"
+          { echo "### bot-sync (${EVENT_NAME})"; echo; cat "${RUNNER_TEMP}/sync.md"; } >> "$GITHUB_STEP_SUMMARY"

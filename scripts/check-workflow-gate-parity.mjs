@@ -217,6 +217,8 @@ const NOT_A_GATE = new Map([
   ["automerge-label.yml",
     "pull_request: [labeled] automation that PERFORMS the merge (SO #37's label path); " +
     "it is not a required status check and blocks nothing."],
+  ["auto-arm.yml",
+    "arms labelled PRs; no merge gate."],
   ["deploy-docs.yml",
     "push main only — deploys the docs subdomain post-merge."],
   ["deploy-drift-check.yml",
@@ -253,8 +255,9 @@ const NOT_A_GATE = new Map([
     "it runs the per-PR derivable writers (SO #59 §18 baseline bump via the ephemeral " +
     "scratch assembly, gen-manifest-examples --write --only, check-ask-agent-block --write, " +
     "check-a11y-tree --write) on the PR head branch and pushes the diff back as the " +
-    "spec-sync App. It gates no merge: the pushing run's exit 1 is the 're-run pending' " +
-    "signal by design and is not a required status check; the required set is unchanged. " +
+    "spec-sync App. It gates no merge: the pushing run ends green with an 'autofix pushed' " +
+    "notice (exit 1 by design until 2026-10-29) and is not a required status " +
+    "check; the required set is unchanged. " +
     "Its writer invocations are the --write/--update-baseline legs of gate scripts, not " +
     "gate verdicts — the HARD-on-pull_request verdicts live in scripts-verify.yml's and " +
     "land-verify.yml's promoted gate steps, which are classified here as usual."],
@@ -1594,7 +1597,9 @@ const DECLARED_SOFTENERS = new Map([
   // this attest step; same pin-move.
   // SIGSTORE-BUNDLE-V03-EXPORT-8 (2026-10-26) moved it :1018 → :1024 — six
   // ordering-comment lines added inside the receipt block above; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:1024",
+  // CHANGELOG-DEPLOY-INCLUDE-1 (2026-10-31) moved it :1024 → :1026 — two
+  // --include lines added to the dry-run rsync above; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:1026",
    "attest step is advisory-first by design; promotion criterion on the step"],
   // SIGSTORE-BUNDLE-V03-EXPORT-4 (2026-10-24): the receipt-bundle index
   // attest step (continue-on-error at :829) is advisory-first for the SAME

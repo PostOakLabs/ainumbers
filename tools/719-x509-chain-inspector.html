@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>X.509 Chain Inspector · AINumbers.co</title>
+<meta name="description" content="Paste a PEM certificate chain, leaf first, and this page reads every certificate offline: subject, issuer, serial, validity against a date you set, SANs, key usage, extended key usage, basic constraints, SHA-256 fingerprint, and qcStatements decoded per ETSI EN 319 412-5 including the PSD2 roles statement of ETSI TS 119 495. Each issuer signature link is verified in the browser with WebCrypto. No revocation check and no trust decision: those need network or a policy anchor this page does not have. Runs entirely in the browser, zero network, zero storage, deterministic.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/719-x509-chain-inspector.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"X.509 Chain Inspector","url":"https://ainumbers.co/tools/719-x509-chain-inspector.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "719-x509-chain-inspector",
+  "version": "1.0.0",
+  "title": "X.509 Chain Inspector",
+  "description": "Paste a PEM certificate chain, leaf first, and this page reads every certificate offline: subject, issuer, serial, validity against a date you set, SANs, key usage, extended key usage, basic constraints, SHA-256 fingerprint, and qcStatements decoded per ETSI EN 319 412-5 including the PSD2 roles statement of ETSI TS 119 495. Each issuer signature link is verified in the browser with WebCrypto. No revocation check and no trust decision: those need network or a policy anchor this page does not have. A #selftest=1 fragment runs three bundled chains end to end (valid PSD2 pair, expired leaf, broken signature link). Runs entirely in the browser, zero network, zero storage, deterministic.",
+  "category": "open-banking-apis",
+  "tags": ["X.509","certificate chain","PEM","mTLS","FAPI","eIDAS","QWAC","QSealC","PSD2","qcStatements","ETSI EN 319 412-5","ETSI TS 119 495","DER","WebCrypto","offline"],
+  "audience": ["engineer","auditor","compliance","risk"],
+  "input_schema": {"type":"object","properties":{"pem_chain":{"type":"string","description":"One or more PEM certificates, leaf first"},"as_of":{"type":"string","description":"ISO date the validity windows are judged against, default today"}},"required":["pem_chain"]},
+  "output_schema": {"type":"object","properties":{"certificates":{"type":"array","items":{"type":"object"}},"links":{"type":"array","items":{"type":"object","properties":{"subject":{"type":"string"},"issuer_subject":{"type":"string"},"dn_match":{"type":"boolean"},"signature":{"type":"string","enum":["VERIFIED","BROKEN","UNSUPPORTED","SELF-SIGNED VERIFIED","SELF-SIGNED BROKEN","ISSUER NOT IN CHAIN"]}}}},"fingerprints":{"type":"array","items":{"type":"string"}}}},
+  "mcp_tool_definition": {"name":"inspect_x509_chain","description":"Parses a pasted PEM X.509 chain leaf first and returns per-certificate fields (subject, issuer, serial, validity at a supplied as-of date, SANs, key usage, extended key usage, basic constraints, SHA-256 fingerprint, qcStatements per ETSI EN 319 412-5 with PSD2 roles per ETSI TS 119 495) plus a signature verdict for each issuer link, verified locally with WebCrypto. No revocation and no trust-store decision.","inputSchema":{"type":"object","properties":{"pem_chain":{"type":"string","description":"PEM certificates concatenated, leaf first"},"as_of":{"type":"string","description":"ISO date used for validity windows, e.g. 2026-06-15"}},"required":["pem_chain"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/719-x509-chain-inspector.html","function_name":"inspectChain","timeout_ms":5000},
+  "ap2_export": false,
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px}
+@media(prefers-color-scheme:light){:root{--bg:#F4F7FB;--bg-2:#FFFFFF;--bg-3:#E9EFF6;--border:#D3DEEA;--border-2:#BCCBDC;--muted:#6B7F95;--body:#41586E;--text:#243B52;--bright:#12283E;--white:#0B1C2E;--teal:#0E8A7C;--teal-dim:rgba(14,138,124,.10);--gold:#9A7524;--gold-dim:rgba(154,117,36,.10);--green:#1B8A4A;--green-dim:rgba(27,138,74,.10);--red:#C53030;--red-dim:rgba(197,48,48,.10);--purple:#6D4BC4;--purple-dim:rgba(109,75,196,.10)}}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:200}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-name .lg-ai{color:var(--teal)}.logo-name .lg-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;gap:.5rem;align-items:center}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.4rem;margin-top:1.4rem}
+.panel h2{font-size:1.05rem;color:var(--bright);margin-bottom:.5rem}
+.panel p{font-size:.8rem;color:var(--body);margin-bottom:.8rem}
+.step-tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.15em;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:.4rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+label.flab{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:.3rem}
+.mono{font-family:'JetBrains Mono',monospace}
+textarea{width:100%;min-height:180px;resize:vertical;font-family:'JetBrains Mono',monospace;font-size:.68rem;line-height:1.6;color:var(--bright);background:var(--bg);border:1px solid var(--border-2);border-radius:4px;padding:.7rem .85rem}
+textarea:focus{outline:1px solid var(--teal)}
+input[type="date"]{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright);background:var(--bg);border:1px solid var(--border-2);border-radius:4px;padding:.45rem .6rem;color-scheme:dark}
+@media(prefers-color-scheme:light){input[type="date"]{color-scheme:light}}
+.btn{background:var(--teal-dim);border:1px solid var(--teal);color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;padding:.55rem 1rem;border-radius:4px;transition:background .15s}
+.btn:hover{background:var(--teal);color:var(--bg)}
+.btn.gold{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.btn.gold:hover{background:var(--gold);color:var(--bg)}
+.btnrow{display:flex;gap:.6rem;flex-wrap:wrap;margin:.6rem 0}
+.asof-row{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin:.6rem 0}
+.asof-note{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)}
+.verdict{font-family:'JetBrains Mono',monospace;font-size:.72rem;border-radius:4px;padding:.7rem .85rem;margin-top:.6rem;line-height:1.6;display:none}
+.verdict.ok{background:var(--green-dim);border:1px solid var(--green);color:var(--green)}
+.verdict.fail{background:var(--red-dim);border:1px solid var(--red);color:var(--red)}
+.verdict.warn{background:var(--gold-dim);border:1px solid var(--gold);color:var(--gold)}
+.verdict.mut{background:var(--bg);border:1px solid var(--border-2);color:var(--body)}
+.kv{display:grid;grid-template-columns:minmax(140px,220px) 1fr;gap:.35rem .9rem;font-size:.74rem;margin:.6rem 0}
+.kv .k{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding-top:.15rem}
+.kv .v{color:var(--bright);word-break:break-word}
+.badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;border-radius:3px;padding:.1rem .45rem;margin-left:.4rem;vertical-align:middle}
+.badge.ok{background:var(--green-dim);border:1px solid var(--green);color:var(--green)}
+.badge.bad{background:var(--red-dim);border:1px solid var(--red);color:var(--red)}
+.badge.warn{background:var(--gold-dim);border:1px solid var(--gold);color:var(--gold)}
+.badge.mut{background:var(--bg-3);border:1px solid var(--border-2);color:var(--muted)}
+.cert-card{background:var(--bg);border:1px solid var(--border-2);border-radius:4px;padding:1rem 1.1rem;margin-top:1rem}
+.cert-head{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--white);border-bottom:1px solid var(--border);padding-bottom:.5rem;margin-bottom:.4rem;line-height:1.6}
+.qc-table{width:100%;border-collapse:collapse;font-size:.72rem;margin:.5rem 0}
+.qc-table th{font-family:'JetBrains Mono',monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:left;padding:.3rem .5rem;border-bottom:1px solid var(--border-2)}
+.qc-table td{padding:.32rem .5rem;border-bottom:1px solid var(--border);color:var(--bright);word-break:break-word;vertical-align:top}
+.qc-table td.qoid{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body)}
+.fp{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--bright);word-break:break-all;line-height:1.7}
+.link-row{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--body);border-left:2px solid var(--border-2);padding:.45rem 0 .45rem .9rem;margin:.35rem 0;line-height:1.7}
+.honesty{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:4px;padding:.8rem 1rem;font-size:.74rem;color:var(--body);margin-top:1rem}
+.honesty .lead{color:var(--gold);font-weight:500}
+.xlinks{margin-top:1.6rem;font-size:.74rem;color:var(--body)}
+.xlinks a{color:var(--teal);border-bottom:1px solid rgba(20,184,166,.3)}
+.selftest-strip{display:none;font-family:'JetBrains Mono',monospace;font-size:.7rem;border-radius:4px;padding:.7rem .9rem;margin-top:1.4rem;line-height:1.7;white-space:pre-wrap}
+.selftest-strip.pass{display:block;background:var(--green-dim);border:1px solid var(--green);color:var(--green)}
+.selftest-strip.fail{display:block;background:var(--red-dim);border:1px solid var(--red);color:var(--red)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);margin-top:2.5rem}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);margin-top:2.5rem;padding:1.6rem 0;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)}
+footer a{color:var(--body)}footer a:hover{color:var(--teal)}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}.kv{grid-template-columns:1fr}.kv .k{padding-top:0}.qc-table{font-size:.66rem}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo-name">AINumbers<span class="lg-ai">.co</span></a>
+    <div class="nav-trail"><a href="../index.html">Home</a> / <a href="../tools.html">Tools</a> / X.509 Chain Inspector</div>
+  </div>
+</nav>
+
+<div class="container">
+  <section class="hero">
+    <div class="hero-eyebrow">Open Banking &amp; APIs · Certificate Literacy</div>
+    <h1>Inspect an X.509 certificate chain field by field</h1>
+    <p class="hero-desc">Open banking and eIDAS rely on certificates people rarely read by hand: mTLS client and server certificates, FAPI transport certs, eIDAS QWAC and QSealC, PSD2 qualified certificates with their role statements. Paste a PEM chain below, leaf certificate first, and this page reads every certificate offline with a hand-written DER parser: subject, issuer, serial, validity judged against a date you set, SANs, key usage, extended key usage, basic constraints, SHA-256 fingerprint, and qcStatements decoded per ETSI EN 319 412-5, including the PSD2 roles statement of ETSI TS 119 495. Each issuer signature link is then verified in your browser with WebCrypto, so a chain whose issuer did not actually sign its leaf is shown as broken. The page makes no revocation check and no trust-store decision; see the honesty note below for what that means.</p>
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+    <div class="btnrow">
+      <button class="btn" onclick="loadFixture('golden')">Load PSD2 fixture chain</button>
+      <button class="btn gold" onclick="loadFixture('expired')">Load expired-leaf chain</button>
+      <button class="btn gold" onclick="loadFixture('broken')">Load broken-link chain</button>
+    </div>
+    <textarea id="chainInput" spellcheck="false" placeholder="Paste PEM certificates here, leaf first. Every -----BEGIN CERTIFICATE----- block in the textarea is parsed, in order."></textarea>
+    <div class="asof-row">
+      <label class="flab" for="asOfDate" style="margin:0">As-of date</label>
+      <input type="date" id="asOfDate">
+      <span class="asof-note">validity windows are judged against this date; it defaults to today, read once at page load. The selftest pins 2026-10-30.</span>
+    </div>
+    <div class="btnrow"><button class="btn" onclick="inspectChain()">Inspect chain</button></div>
+    <div class="verdict" id="verdictBox"></div>
+  </section>
+
+  <section class="panel" id="chainPanel" style="display:none">
+    <h2>Chain links</h2>
+    <p>Each link states whether the issuer named on a certificate matches the next certificate's subject, whether that issuer's public key actually produced the certificate's signature, and whether the authority key identifier points at the issuer's subject key identifier. A self-signed final certificate is verified against its own key.</p>
+    <div id="linkRows"></div>
+  </section>
+
+  <section class="panel" id="certPanel" style="display:none">
+    <h2>Certificates</h2>
+    <p>Fields are decoded straight from DER: no field is inferred from another, and anything the page cannot decode is shown as raw bytes rather than guessed.</p>
+    <div id="certCards"></div>
+  </section>
+
+  <div class="honesty">
+    <span class="lead">What this page can and cannot decide:</span> Signature verification here proves internal consistency: each certificate was signed by the key in the next one, over the bytes presented. It is not a trust decision, because trust depends on a root you choose to anchor to, and this page holds no trust store and ranks no roots. Revocation is not checked: OCSP and CRL lookups need the network, which this page never touches, so a certificate shown valid here may still be revoked. Certificate contents can name any authority; only a path you independently anchor makes those names meaningful.
+  </div>
+
+  <div class="honesty" style="border-left-color:var(--teal)">
+    <span class="lead" style="color:var(--teal)">In the AINumbers estate:</span> the <a href="97-fapi-security-validator.html">FAPI security profile validator</a> compares certificate requirements across FAPI 1 and 2, UK Open Banking, PSD2 and Berlin as text rows; this page is the companion that reads an actual chain. The three fixture chains bundled below were generated for this page with OpenSSL against a throwaway test CA (AIN PSD2 Test CA, .example domains), never from a real PSP, and the fixture fingerprints recorded in the selftest were computed by OpenSSL at generation time.
+  </div>
+
+  <div class="selftest-strip" id="selftestStrip"></div>
+
+  <div class="xlinks">
+    Related surfaces: the <a href="97-fapi-security-validator.html">FAPI security profile validator</a> carries the per-profile certificate-type requirements (Any X.509, OBIE org certificates, eIDAS QWAC and QSealC) this inspector helps you check against, and the <a href="../tools.html">tool directory</a> groups the rest of the open banking suite.
+  </div>
+
+  <section id="mfstSec" style="margin-bottom:0">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </section>
+
+  <footer>
+    <div>AINumbers.co · X.509 Chain Inspector · runs entirely client-side, no network after load, no storage.</div>
+    <div style="margin-top:.4rem">DER parsing, qcStatements decoding and WebCrypto signature checks are hand-written for this page. Fixtures generated with OpenSSL 3.5.6 against a self-made test CA; no real certificate is embedded. Post Oak Labs. <a href="../privacy.html">Privacy</a></div>
+  </footer>
+</div>
+
+<script>
+/* ================= fixtures: self-made test PKI (OpenSSL, scratch dir) ===
+   Golden leaf: serial 1000, qcStatements per ETSI EN 319 412-5 + PSD2 roles.
+   Expired leaf: serial 1001, window 2024-01-01..2024-12-31.
+   Broken leaf: serial 2000, signed by a different CA key carrying the SAME
+   subject DN, so the presented chain has matching DNs but a false link.
+   Fingerprints below were computed by OpenSSL at generation time. */
+var FIX_GOLDEN_LEAF = `-----BEGIN CERTIFICATE-----
+MIIEJTCCAw2gAwIBAgICEAAwDQYJKoZIhvcNAQELBQAwPzELMAkGA1UEBhMCTkwx
+FTATBgNVBAoMDEFJTiBUZXN0IFBLSTEZMBcGA1UEAwwQQUlOIFBTRDIgVGVzdCBD
+QTAeFw0yNjAxMDEwMDAwMDBaFw0yNzEyMzEyMzU5NTlaMEgxCzAJBgNVBAYTAk5M
+MRUwEwYDVQQKDAxBSU4gVGVzdCBQU1AxIjAgBgNVBAMMGWFwaS5haW4tcHNkMi10
+ZXN0LmV4YW1wbGUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDpehpU
+qTPUO4MGsGo8YCap4DlzeBpdVYXAD8oQpw3fDsconrx//SVWZjjxi+dPln3X529W
+W3oz0bsWKoETOU8uxt0mNAY8+aqrlIaaR2M/8QXT+dXkS7ovTga7MXYd+e1iMJHg
+mF12xmkJqzdgFeW26rg7iO62l6oEBEAaymcExaoRIaMhRbnP5VyE50dHK35y1ZSq
+psWygN3Xr0ke4lKLLWlpWf9UZr/MzB+AiOtARG/Ig+uY5/8bQGu4eQDrJtYgD6KW
+c9C2Juk5WG4uAl7bLiQ3HcQdnzAu2AeRhAqtVsV1ziB7qeErn2Owkn2CNGKuo+8B
+RFDkz8FsD1GLFmcRAgMBAAGjggEgMIIBHDAJBgNVHRMEAjAAMA4GA1UdDwEB/wQE
+AwIFoDAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwHQYDVR0OBBYEFFnq
+VoeHASR6Fi5ANbUs9ZojdJuFMB8GA1UdIwQYMBaAFOQbodJzHe1ey/dC+xksB53S
+SkSjMEQGA1UdEQQ9MDuCGWFwaS5haW4tcHNkMi10ZXN0LmV4YW1wbGWGHnVybjpw
+c2QyOmFpbi1wc2QyLXRlc3QuZXhhbXBsZTBaBggrBgEFBQcBAwROMEwwCAYGBACO
+RgEBMBYGBgQAjkYBAjAMEwNFVVICAicQAgH+MAsGBgQAjkYBAwIBDDAbBgcEAIGY
+JwECMBAGBgQAgZgnAgYGBACBmCcFMA0GCSqGSIb3DQEBCwUAA4IBAQCrtpovn3E9
+pnql+BMgE4ICS7j79/twdcoUQL1cIp325/VbIJcUtD+t/VJ4J+YBu0DMorTeB/dB
+9PWdDFvYifCgZmcl4pQwA7xosxPucQhJK1Fo/RYS8dKI0yIu0C9lFdZ88huipDFB
+5wvXGDcHWWlh1T14rtRKknxIEgMLtms74wWAw3lziHAI2ZWM6Sik8oWbmyAMRuvC
+CbqxJfs+99BVZmvwMpd2wQz8WaC1PV1W+JRmE/hSmYweMWCoCabJayWWciGHsdLK
+XYp162m92Eg9TU6F4VG/17xpXdLXXQfvYu7tddQk0mnJmmIAxp/qlckUSQtMSOV1
+6dAbaieEwjrt
+-----END CERTIFICATE-----`;
+var FIX_EXPIRED_LEAF = `-----BEGIN CERTIFICATE-----
+MIIDpTCCAo2gAwIBAgICEAEwDQYJKoZIhvcNAQELBQAwPzELMAkGA1UEBhMCTkwx
+FTATBgNVBAoMDEFJTiBUZXN0IFBLSTEZMBcGA1UEAwwQQUlOIFBTRDIgVGVzdCBD
+QTAeFw0yNDAxMDEwMDAwMDBaFw0yNDEyMzEyMzU5NTlaMEwxCzAJBgNVBAYTAk5M
+MRUwEwYDVQQKDAxBSU4gVGVzdCBQU1AxJjAkBgNVBAMMHWV4cGlyZWQuYWluLXBz
+ZDItdGVzdC5leGFtcGxlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA
+qIYwIgq7V/4EE2jgJ9ifKjlL5XX4lpNwvQepJaPqXzUO0jbCaPpz1znmgpTK8ZOp
+ID0qsTYxiXo68wszbb2m5nGr26DIFltoRtnWqC7ZDWBaXW7iOJb//LAO/B33RwN8
+6rXA4gJZRVQ3/AP2R2nqMla5bITDFbRZ9ttx5q8a6DmZTK3Obo8fQeiTFXgDBL63
+fuCbaFML8Xdi6iBIYoZ67SlmpPUM6lmXs/PyloFVHljbbDlkNl0kGhO0sqdi6Ouo
+7XKESV7Janam2RhGmHo+qhbosV+dAx309WHS0lX6U6kMApLwxweBAASD3mnJkCw/
+FfdoVP/kimLm/OiUtrnKdQIDAQABo4GdMIGaMAkGA1UdEwQCMAAwDgYDVR0PAQH/
+BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMBMB0GA1UdDgQWBBQtsG6tyWOtQpq1
+ZbnaCpwi5f1/cjAfBgNVHSMEGDAWgBTkG6HScx3tXsv3QvsZLAed0kpEozAoBgNV
+HREEITAfgh1leHBpcmVkLmFpbi1wc2QyLXRlc3QuZXhhbXBsZTANBgkqhkiG9w0B
+AQsFAAOCAQEAdfbZZJ3Ddi4IzZMFu2DJgX+HrjqZ3HBJVJ4qES4RPQ4pAzv6e+w6
+qL/mYoNOI/te9NZycxB1FMRkRYsQvo03rmWsovxyOqpuaa78nZN+gY/5End2IVUA
+RDxv6H3HlW56c8hwSDe994kj0QLalntjkSGbADwsBZPZRjco3jqZQScVzy67k0ft
+LvbnPxW6D03e8bQYzb2/pOkAzs4zOWECwh235UmAqqtEt1OW8DQBrqQTtIQfwXSZ
+fYo0alZKHz+yKhbYFH4KxPIMpD9oSZcJUJj2jZmjIclWE7yKo6vsMmb4IhqemfAz
+fcUCLic7tei8hEs31y2V4XtmJiHd5CN+Xg==
+-----END CERTIFICATE-----`;
+var FIX_BROKEN_LEAF = `-----BEGIN CERTIFICATE-----
+MIID/zCCAuegAwIBAgICIAAwDQYJKoZIhvcNAQELBQAwPzELMAkGA1UEBhMCTkwx
+FTATBgNVBAoMDEFJTiBUZXN0IFBLSTEZMBcGA1UEAwwQQUlOIFBTRDIgVGVzdCBD
+QTAeFw0yNjAxMDEwMDAwMDBaFw0yNzEyMzEyMzU5NTlaMEsxCzAJBgNVBAYTAk5M
+MRUwEwYDVQQKDAxBSU4gVGVzdCBQU1AxJTAjBgNVBAMMHGJyb2tlbi5haW4tcHNk
+Mi10ZXN0LmV4YW1wbGUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC9
+3vBvtKZe+wEC2iGPiHdHII9mS2aeuNS6Ps+AjktISNv0ppzlMDiQlI/34zuKq/jd
+tzLEpyUf3n3r6gjZAQV3VsnfGusNJbT9wgXZdcEVuNTiNk+4650CkG1ddrKj3Ewn
+elJPF1R8iTm62/7ePg/GgMQFLbCV+Z+X9FQnRFUIrxIQrDoaPpQkQ/TwR5nrkgq8
+c2qeLfONQPdvIDuof9rHSWdmQLfG9YzzXJ7opKwL2EKxyRl9xn8BC39vhFxjVT1q
+5rc/ebTdrl4o4Ss8DX3uw1xHBanrbwxRjInmMZxpxuh9Pplk4WZOaNY+0eO8ThPR
+eymCR1MR00s80KvfNCvjAgMBAAGjgfgwgfUwCQYDVR0TBAIwADAOBgNVHQ8BAf8E
+BAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwIwHQYDVR0OBBYEFA+g4pp6MFtNWC+j
+anwpuoXxlLChMB8GA1UdIwQYMBaAFIPz1gQEbeH6Ixe+bWp8ttfU5FSpMCcGA1Ud
+EQQgMB6CHGJyb2tlbi5haW4tcHNkMi10ZXN0LmV4YW1wbGUwWgYIKwYBBQUHAQME
+TjBMMAgGBgQAjkYBATAWBgYEAI5GAQIwDBMDRVVSAgInEAIB/jALBgYEAI5GAQMC
+AQwwGwYHBACBmCcBAjAQBgYEAIGYJwIGBgQAgZgnBTANBgkqhkiG9w0BAQsFAAOC
+AQEArsnDWs2AluiUxylJeW1LIy0m/y5kAcX2n/gFdc2sfTJBR+PrJR9IIi4D8JLa
+5VDZUJxSgrfZeU/pOKDyS8kMaOGJxTw36zUD80hm6y9m62bYcWHvZx44UrzLrqQO
+YcdZ0wPwuBqSyj71qlBhyw2LLjmjPbQuKZvolcdNdBZ3fPxwpF4B2F1bVYboDY6F
+y0iZHKfdB59uywus6MaYeFrTO9Op69ajFohoGJvPRpvSoqIDpWiuKwpE4y4UX5Tw
+0B61yk0PyI5iwlzmsp1kXL33KoN0CHACOUyZED8oNl+N1Tda5ywbtgKxK0rRr0S/
+GLrFaIhWrHx3cK1yljxOgwmW6Q==
+-----END CERTIFICATE-----`;
+var FIX_CA = `-----BEGIN CERTIFICATE-----
+MIIDcjCCAlqgAwIBAgIUIqw+6OaTU3slldWRV6vxXXzxAQswDQYJKoZIhvcNAQEL
+BQAwPzELMAkGA1UEBhMCTkwxFTATBgNVBAoMDEFJTiBUZXN0IFBLSTEZMBcGA1UE
+AwwQQUlOIFBTRDIgVGVzdCBDQTAeFw0yNjEwMjkxNzI0MTNaFw0zMTEwMjgxNzI0
+MTNaMD8xCzAJBgNVBAYTAk5MMRUwEwYDVQQKDAxBSU4gVGVzdCBQS0kxGTAXBgNV
+BAMMEEFJTiBQU0QyIFRlc3QgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+AoIBAQCyOGXPPQ+rq8YfYXt3mqkb9jInnR5KXL5NWiks+9KuMMEXK6vqAw8PV2ma
+h6SEhUIUhe+D+FNDS9+Q9RgeXzmteatglQ5Yu6yWnuM9kUiejWNbhzeF71L0cFyp
+c8D3v50j0XZ5ouVqx1TN5HoWQuPx6kgBu+pUTIBA/scG0bvPJz5mBBacn4R2I/0U
+XLUDxNHlce4fu9L6vWDX5bVmiYKRGdijjlAO2N3y9uCbXJFoB9+xY7owj8yru+nY
+iWeygi8W4AwR9AX7RsApLJK8eZrZHNmvMCOyFtBoU0+fk3iGD0ZYSmnSEu4wQ2vs
++tMOlnIs2lQGnz3Fz/29eeXyKnYZAgMBAAGjZjBkMB0GA1UdDgQWBBTkG6HScx3t
+Xsv3QvsZLAed0kpEozAfBgNVHSMEGDAWgBTkG6HScx3tXsv3QvsZLAed0kpEozAS
+BgNVHRMBAf8ECDAGAQH/AgEAMA4GA1UdDwEB/wQEAwIBBjANBgkqhkiG9w0BAQsF
+AAOCAQEADwfAvyjXnirniQDmfLoyltIhNW6/WVeQs6BpvQg7AMMWPTpQOldFMbpk
+F4mb09hYakWi8I70bLRaVTHQAR4oCgcFuZOsSl+Z82H1UlaGjdZldbRerqfdNebL
+mJ8ZXbNhwlr3trv7Pi/V5cWoaH6Fg034Ey4sNPgTlYli9yseTaYD2z4sYIg12K2l
+f1bqx3mH0udV+DjT1Ll+zu58BfFvHjBBIAwf2sMQcRrjiHv6X8i2LllnX/Do/wc9
+8LswT+IptudsEITYm1zZ8yei67vluu0Tzpqbz3azi7j2dAdjb41aKwyPab+Rhq47
+SN67FsAHvmsuQbNd69vz9RuWkhRe3A==
+-----END CERTIFICATE-----`;
+var FIX_FINGERPRINTS = {
+  golden: '95:04:F3:6D:16:14:50:26:47:02:55:2D:F4:4C:FD:DB:17:06:B4:92:67:01:95:A3:59:18:13:10:1C:F7:DA:92',
+  expired: 'FB:2F:77:D0:32:B7:2B:42:E8:63:50:67:30:C8:6B:BE:F9:95:6A:D3:D8:85:0D:19:09:9E:E2:A4:8C:DA:1D:76',
+  broken: '6A:72:78:05:BD:3F:86:8E:DC:13:97:96:3A:5B:27:8E:F3:B1:A1:E3:3E:36:9F:64:06:FB:E0:5E:62:AF:A2:A5',
+  ca: '7C:AD:CF:AA:E5:9D:1F:2A:63:48:26:15:54:34:1C:35:E5:7E:A7:10:93:00:C7:DB:B6:44:35:F9:56:54:0E:77'
+};
+var SELFTEST_ASOF = '2026-10-30';
+
+var MANIFEST = {"tool_id":"719-x509-chain-inspector","version":"1.0.0","title":"X.509 Chain Inspector","category":"open-banking-apis","ap2_export":false,"mcp_tool_definition":{"name":"inspect_x509_chain"}};
+
+/* default as-of: today, read exactly once at page load */
+var DEFAULT_ASOF = new Date();
+
+/* ================= DER reader (hand-written for this page) ============== */
+function readTLV(b, o){
+  var tag = b[o];
+  var p = o + 1;
+  if (p >= b.length) throw new Error('DER: truncated at tag');
+  var l = b[p++];
+  if (l & 0x80){
+    var n = l & 0x7f;
+    if (n === 0 || n > 4) throw new Error('DER: unsupported length form');
+    l = 0;
+    for (var i = 0; i < n; i++){ if (p >= b.length) throw new Error('DER: truncated length'); l = l * 256 + b[p++]; }
+  }
+  if (p + l > b.length) throw new Error('DER: content overruns buffer');
+  return { tag: tag, content: p, len: l, next: p + l };
+}
+function oidFromTlv(b, t){
+  if (t.tag !== 0x06) throw new Error('DER: expected OID');
+  var c = b.subarray(t.content, t.next);
+  var arcs = [Math.floor(c[0] / 40), c[0] % 40];
+  var v = 0;
+  for (var i = 1; i < c.length; i++){
+    v = (v << 7) | (c[i] & 0x7f);
+    if (!(c[i] & 0x80)){ arcs.push(v); v = 0; }
+  }
+  return arcs.join('.');
+}
+function oidAt(b, o){ return oidFromTlv(b, readTLV(b, o)); }
+function hexOf(u8){
+  var s = '';
+  for (var i = 0; i < u8.length; i++) s += (u8[i] < 16 ? '0' : '') + u8[i].toString(16).toUpperCase();
+  return s;
+}
+function attrValue(b, t){
+  if (t.tag === 0x0c || t.tag === 0x13 || t.tag === 0x16){ var s = ''; for (var i = t.content; i < t.next; i++) s += String.fromCharCode(b[i]); return s; }
+  if (t.tag === 0x14){ var a = ''; for (var j = t.content; j < t.next; j++){ var ch = b[j] & 0x7f; a += (ch >= 32 && ch < 127) ? String.fromCharCode(ch) : '?'; } return a; }
+  return '0x' + hexOf(b.subarray(t.content, t.next));
+}
+var ATTR_NAMES = {
+  '2.5.4.3':'CN','2.5.4.4':'SN','2.5.4.5':'serialNumber','2.5.4.6':'C','2.5.4.7':'L','2.5.4.8':'ST',
+  '2.5.4.9':'street','2.5.4.10':'O','2.5.4.11':'OU','2.5.4.12':'title','2.5.4.42':'GN',
+  '1.2.840.113549.1.9.1':'emailAddress','0.9.2342.19200300.100.1.25':'DC','2.5.4.15':'businessCategory'
+};
+function parseName(b, nameTlv){
+  var rdns = [];
+  var o = nameTlv.content;
+  while (o < nameTlv.next){
+    var rdn = readTLV(b, o); o = rdn.next;
+    var parts = [];
+    var so = rdn.content;
+    while (so < rdn.next){
+      var atv = readTLV(b, so); so = atv.next;
+      var oidT = readTLV(b, atv.content);
+      var valT = readTLV(b, oidT.next);
+      parts.push((ATTR_NAMES[oidAt(b, atv.content)] || oidAt(b, atv.content)) + '=' + attrValue(b, valT));
+    }
+    rdns.push(parts.join('+'));
+  }
+  return rdns.join(', ');
+}
+function derTime(b, t){
+  var s = '';
+  for (var i = t.content; i < t.next; i++) s += String.fromCharCode(b[i]);
+  var y, rest;
+  if (t.tag === 0x17){ y = s.slice(0, 2); y = (+y < 50 ? '20' : '19') + y; rest = s.slice(2); }
+  else if (t.tag === 0x18){ y = s.slice(0, 4); rest = s.slice(4); }
+  else throw new Error('DER: unsupported time tag');
+  var mo = rest.slice(0, 2), d = rest.slice(2, 4), h = rest.slice(4, 6), mi = rest.slice(6, 8), se = rest.slice(8, 10);
+  if (rest.charAt(rest.length - 1) !== 'Z') throw new Error('DER: only Zulu times supported');
+  return new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +se));
+}
+function fmtUTC(d){
+  function p2(n){ return (n < 10 ? '0' : '') + n; }
+  return d.getUTCFullYear() + '-' + p2(d.getUTCMonth() + 1) + '-' + p2(d.getUTCDate()) + ' ' + p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes()) + ':' + p2(d.getUTCSeconds()) + ' UTC';
+}
+
+/* ================= X.509 certificate parser ============================= */
+function parseCertificate(der){
+  var root = readTLV(der, 0);
+  if (root.tag !== 0x30) throw new Error('X.509: not a certificate SEQUENCE');
+  var tbs = readTLV(der, root.content);
+  var sigAlgTlv = readTLV(der, tbs.next);
+  var sigAlgOid = oidAt(der, sigAlgTlv.content);
+  var sigTlv = readTLV(der, sigAlgTlv.next);
+  if (sigTlv.tag !== 0x03) throw new Error('X.509: signature not a BIT STRING');
+  if (der[sigTlv.content] !== 0) throw new Error('X.509: signature BIT STRING has unused bits');
+  var cert = {
+    der: der,
+    tbsBytes: der.subarray(root.content, tbs.next),
+    sigBytes: der.subarray(sigTlv.content + 1, sigTlv.next),
+    sigAlgOid: sigAlgOid,
+    extensions: []
+  };
+  var o = tbs.content;
+  var t = readTLV(der, o);
+  cert.version = 1;
+  if (t.tag === 0xa0){
+    var vi = readTLV(der, t.content);
+    cert.version = der[vi.content] + 1;
+    o = t.next; t = readTLV(der, o);
+  }
+  cert.serialHex = hexOf(der.subarray(t.content, t.next));
+  o = t.next;
+  var tbsSig = readTLV(der, o); o = tbsSig.next;
+  cert.tbsSigOid = oidAt(der, tbsSig.content);
+  var issuerTlv = readTLV(der, o);
+  cert.issuerStr = parseName(der, issuerTlv);
+  cert.issuerRaw = der.subarray(o, issuerTlv.next);
+  o = issuerTlv.next;
+  var valTlv = readTLV(der, o);
+  var nb = readTLV(der, valTlv.content), na = readTLV(der, nb.next);
+  cert.notBefore = derTime(der, nb);
+  cert.notAfter = derTime(der, na);
+  o = valTlv.next;
+  var subjTlv = readTLV(der, o);
+  cert.subjectStr = parseName(der, subjTlv);
+  cert.subjectRaw = der.subarray(o, subjTlv.next);
+  o = subjTlv.next;
+  var spkiTlv = readTLV(der, o);
+  cert.spkiBytes = der.subarray(o, spkiTlv.next);
+  var spkiAlg = readTLV(der, spkiTlv.content);
+  cert.spkiAlgOid = oidAt(der, spkiAlg.content);
+  if (spkiAlg.next < spkiTlv.next){
+    var paramT = readTLV(der, spkiAlg.next);
+    if (paramT.tag === 0x06) cert.spkiCurveOid = oidAt(der, spkiAlg.next);
+  }
+  o = spkiTlv.next;
+  while (o < tbs.next){
+    var u = readTLV(der, o); o = u.next;
+    if (u.tag === 0xa3){
+      var extSeq = readTLV(der, u.content);
+      var eo = extSeq.content;
+      while (eo < extSeq.next){
+        var ex = readTLV(der, eo); eo = ex.next;
+        var xo = ex.content;
+        var oidT2 = readTLV(der, xo); xo = oidT2.next;
+        var extnID = oidFromTlv(der, oidT2);
+        var critical = false;
+        var nt = readTLV(der, xo);
+        if (nt.tag === 0x01){ critical = der[nt.content] !== 0; xo = nt.next; nt = readTLV(der, xo); }
+        cert.extensions.push({ oid: extnID, critical: critical, value: der.subarray(nt.content, nt.next) });
+      }
+    }
+  }
+  return cert;
+}
+
+/* ================= extension decoders =================================== */
+var KU_BITS = ['digitalSignature','nonRepudiation','keyEncipherment','dataEncipherment','keyAgreement','keyCertSign','cRLSign','encipherOnly','decipherOnly'];
+var EKU_NAMES = {
+  '1.3.6.1.5.5.7.3.1':'serverAuth (TLS web server)',
+  '1.3.6.1.5.5.7.3.2':'clientAuth (TLS web client)',
+  '1.3.6.1.5.5.7.3.3':'codeSigning','1.3.6.1.5.5.7.3.4':'emailProtection',
+  '1.3.6.1.5.5.7.3.8':'timeStamping','1.3.6.1.5.5.7.3.9':'OCSPSigning',
+  '2.5.29.37.0':'anyExtendedKeyUsage'
+};
+var QC_NAMES = {
+  '0.4.0.1862.1.1':'QcCompliance','0.4.0.1862.1.2':'QcLimitValue',
+  '0.4.0.1862.1.3':'QcRetentionPeriod','0.4.0.1862.1.4':'QcSSCD',
+  '0.4.0.1862.1.5':'QcPDS','0.4.0.1862.1.6':'QcType'
+};
+var QCTYPE_NAMES = { '0.4.0.1862.1.6.1':'QCT-eSign','0.4.0.1862.1.6.2':'QCT-eSeal','0.4.0.1862.1.6.3':'QCT-web' };
+var PSD2_ROLE_NAMES = {
+  '0.4.0.19495.2':'PSP_AS (payment account servicing)',
+  '0.4.0.19495.3':'PSP_PI (payment initiation)',
+  '0.4.0.19495.4':'PSP_AI (account information)',
+  '0.4.0.19495.5':'PSP_IC (confirmation of the availability of funds)'
+};
+function decodeExtension(ext){
+  var v = ext.value;
+  try {
+    if (ext.oid === '2.5.29.17'){ /* subjectAltName */
+      var seq = readTLV(v, 0); var out = []; var o = seq.content;
+      while (o < seq.next){
+        var g = readTLV(v, o); o = g.next;
+        var raw = v.subarray(g.content, g.next); var s = ''; var i;
+        for (i = 0; i < raw.length; i++) s += String.fromCharCode(raw[i]);
+        if (g.tag === 0x81) out.push('email: ' + s);
+        else if (g.tag === 0x82) out.push('DNS: ' + s);
+        else if (g.tag === 0x86) out.push('URI: ' + s);
+        else if (g.tag === 0x87) out.push('IP: ' + (raw.length === 4 ? raw[0]+'.'+raw[1]+'.'+raw[2]+'.'+raw[3] : hexOf(raw)));
+        else if (g.tag === 0x88) out.push('registeredID: ' + s);
+        else if (g.tag === 0xa0) out.push('otherName (not decoded)');
+        else out.push('tag ' + g.tag.toString(16) + ': ' + s);
+      }
+      return { kind: 'san', items: out };
+    }
+    if (ext.oid === '2.5.29.15'){ /* keyUsage */
+      var bs = readTLV(v, 0);
+      var unused = v[bs.content]; var bits = [];
+      for (var bit = 0; bit < KU_BITS.length; bit++){
+        var byteIdx = bs.content + 1 + Math.floor(bit / 8);
+        var mask = 0x80 >> (bit % 8);
+        if (byteIdx < bs.next && (v[byteIdx] & mask) && !(bit >= 8 * (bs.len - 1) - unused)) bits.push(KU_BITS[bit]);
+      }
+      return { kind: 'ku', items: bits };
+    }
+    if (ext.oid === '2.5.29.37'){ /* extendedKeyUsage */
+      var ek = readTLV(v, 0); var list = []; var p = ek.content;
+      while (p < ek.next){ var tt = readTLV(v, p); p = tt.next; var dot = oidFromTlv(v, tt); list.push(dot); }
+      return { kind: 'eku', items: list.map(function(d){ return EKU_NAMES[d] || d; }) };
+    }
+    if (ext.oid === '2.5.29.19'){ /* basicConstraints */
+      var bcs = readTLV(v, 0); var ca = false; var pathLen = null; var bo = bcs.content;
+      if (bo < bcs.next){ var bt = readTLV(v, bo); if (bt.tag === 0x01){ ca = v[bt.content] !== 0; bo = bt.next; } }
+      if (bo < bcs.next){ var pt = readTLV(v, bo); pathLen = 0; for (var pi = pt.content; pi < pt.next; pi++) pathLen = pathLen * 256 + v[pi]; }
+      return { kind: 'bc', ca: ca, pathLen: pathLen };
+    }
+    if (ext.oid === '2.5.29.14'){ /* subjectKeyIdentifier */
+      var ski = readTLV(v, 0);
+      return { kind: 'ski', hex: hexOf(v.subarray(ski.content, ski.next)) };
+    }
+    if (ext.oid === '2.5.29.35'){ /* authorityKeyIdentifier */
+      var aki = readTLV(v, 0); var ao = aki.content; var keyid = null;
+      while (ao < aki.next){ var at = readTLV(v, ao); ao = at.next; if (at.tag === 0x80) keyid = hexOf(v.subarray(at.content, at.next)); }
+      return { kind: 'aki', keyid: keyid };
+    }
+    if (ext.oid === '1.3.6.1.5.5.7.1.3'){ /* qcStatements, ETSI EN 319 412-5 */
+      var qcs = readTLV(v, 0); var rows = []; var qo = qcs.content;
+      while (qo < qcs.next){
+        var st = readTLV(v, qo); qo = st.next;
+        var so2 = st.content;
+        var soidT = readTLV(v, so2);
+        var soid = oidFromTlv(v, soidT);
+        so2 = soidT.next;
+        var info = null;
+        if (so2 < st.next){ var itStart = so2; var it = readTLV(v, itStart); info = v.subarray(itStart, it.next); }
+        rows.push(decodeQcStatement(soid, info));
+      }
+      return { kind: 'qc', rows: rows };
+    }
+  } catch (e) {
+    return { kind: 'raw', note: 'decode error: ' + e.message };
+  }
+  return { kind: 'raw', note: 'not decoded (' + ext.oid + ')' };
+}
+function decodeQcStatement(soid, info){
+  var name = soid === '0.4.0.19495.1.2' ? 'id-etsi-psd2-roles' : (QC_NAMES[soid] || soid);
+  var row = { oid: soid, name: name, text: '' };
+  if (soid === '0.4.0.1862.1.1') row.text = 'present (qualified certificate claim per EU Regulation 910/2014 as profiled by ETSI EN 319 412-5)';
+  else if (soid === '0.4.0.1862.1.2'){
+    /* info is the full QcEuLimitValue TLV: SEQUENCE { currency, amount, exponent } */
+    var seq = readTLV(info, 0);
+    var cur = readTLV(info, seq.content);
+    var curBytes = info.subarray(cur.content, cur.next); var currency = '';
+    for (var i = 0; i < curBytes.length; i++) currency += String.fromCharCode(curBytes[i]);
+    var amtT = readTLV(info, cur.next); var amount = 0;
+    for (var a = amtT.content; a < amtT.next; a++) amount = amount * 256 + info[a];
+    var expT = readTLV(info, amtT.next); var neg = (info[expT.content] & 0x80) !== 0; var exponent = 0;
+    for (var x = expT.content; x < expT.next; x++) exponent = exponent * 256 + info[x];
+    if (neg) exponent = exponent - 256;
+    row.text = 'limit ' + currency + ' ' + amount + ' x 10^' + exponent + ' (amount ' + amount + ', exponent ' + exponent + ')';
+  }
+  else if (soid === '0.4.0.1862.1.3'){ var mT = readTLV(info, 0); var months = 0; for (var m = mT.content; m < mT.next; m++) months = months * 256 + info[m]; row.text = months + ' months of personal data retention'; }
+  else if (soid === '0.4.0.1862.1.4') row.text = 'present (private key on a Secure Signature Creation Device)';
+  else if (soid === '0.4.0.1862.1.5'){
+    /* info is the full TLV: SEQUENCE OF PdsLocation */
+    var pds = readTLV(info, 0); var pos = pds.content; var pdsOut = [];
+    while (pos < pds.next){ var loc = readTLV(info, pos); pos = loc.next; var lo = loc.content; var langT = readTLV(info, lo); var langBytes = info.subarray(langT.content, langT.next); var lang = ''; for (var li = 0; li < langBytes.length; li++) lang += String.fromCharCode(langBytes[li]); var uriT = readTLV(info, langT.next); var uriBytes = info.subarray(uriT.content, uriT.next); var uri = ''; for (var ui = 0; ui < uriBytes.length; ui++) uri += String.fromCharCode(uriBytes[ui]); pdsOut.push(lang + ': ' + uri); }
+    row.text = 'PDS locations: ' + pdsOut.join(' | ');
+  }
+  else if (soid === '0.4.0.1862.1.6'){
+    /* info is the full TLV: SEQUENCE OF QcType OIDs */
+    var qt = readTLV(info, 0); var qo2 = qt.content; var types = [];
+    while (qo2 < qt.next){ var toT = readTLV(info, qo2); qo2 = toT.next; var d = oidFromTlv(info, toT); types.push(d); }
+    row.text = 'QcType: ' + types.map(function(d){ return QCTYPE_NAMES[d] || d; }).join(', ');
+  }
+  else if (soid === '0.4.0.19495.1.2'){
+    /* info is the full TLV: SEQUENCE OF RoleOfPsp (ETSI TS 119 495) */
+    var rs = readTLV(info, 0); var ro = rs.content; var roles = [];
+    while (ro < rs.next){
+      var roleT = readTLV(info, ro); ro = roleT.next;
+      if (roleT.tag === 0x06){ var roleOid = oidFromTlv(info, roleT); roles.push(PSD2_ROLE_NAMES[roleOid] || roleOid); }
+      else if (roleT.tag === 0x0c){ var nb2 = info.subarray(roleT.content, roleT.next); var nm = ''; for (var ni = 0; ni < nb2.length; ni++) nm += String.fromCharCode(nb2[ni]); roles.push(nm + ' (name form)'); }
+      else roles.push('unrecognised role encoding');
+    }
+    row.text = 'PSD2 roles: ' + roles.join(', ');
+  }
+  else row.text = info ? 'statement info present (0x' + hexOf(info).slice(0, 64) + (info.length > 32 ? '...' : '') + ')' : 'present';
+  return row;
+}
+
+/* ================= signature verification (WebCrypto) =================== */
+var SIG_ALGS = {
+  '1.2.840.113549.1.1.5':  { kind:'rsa',   hash:'SHA-1',   name:'sha1WithRSAEncryption', weak:true },
+  '1.2.840.113549.1.1.11': { kind:'rsa',   hash:'SHA-256', name:'sha256WithRSAEncryption' },
+  '1.2.840.113549.1.1.12': { kind:'rsa',   hash:'SHA-384', name:'sha384WithRSAEncryption' },
+  '1.2.840.113549.1.1.13': { kind:'rsa',   hash:'SHA-512', name:'sha512WithRSAEncryption' },
+  '1.2.840.10045.4.3.2':   { kind:'ecdsa', hash:'SHA-256', name:'ecdsa-with-SHA256' },
+  '1.2.840.10045.4.3.3':   { kind:'ecdsa', hash:'SHA-384', name:'ecdsa-with-SHA384' },
+  '1.2.840.10045.4.3.4':   { kind:'ecdsa', hash:'SHA-512', name:'ecdsa-with-SHA512' }
+};
+var CURVES = { '1.2.840.10045.3.1.7': { name:'P-256', coord:32 }, '1.3.132.0.34': { name:'P-384', coord:48 }, '1.3.132.0.35': { name:'P-521', coord:66 } };
+function stripZeros(u8){ var i = 0; while (i < u8.length - 1 && u8[i] === 0) i++; return u8.subarray(i); }
+function derSigToRaw(sig, coord){
+  var seq = readTLV(sig, 0);
+  var rT = readTLV(sig, seq.content);
+  var sT = readTLV(sig, rT.next);
+  var r = stripZeros(sig.subarray(rT.content, rT.next));
+  var s = stripZeros(sig.subarray(sT.content, sT.next));
+  var out = new Uint8Array(coord * 2);
+  out.set(r, coord - r.length);
+  out.set(s, 2 * coord - s.length);
+  return out;
+}
+async function verifySignature(child, issuer){
+  var info = SIG_ALGS[child.sigAlgOid];
+  if (!info) return { state:'UNSUPPORTED', detail:'signature algorithm ' + child.sigAlgOid + ' has no local verifier' };
+  try {
+    if (info.kind === 'rsa'){
+      var rkey = await crypto.subtle.importKey('spki', issuer.spkiBytes, { name:'RSASSA-PKCS1-v1_5', hash:{ name:info.hash } }, false, ['verify']);
+      var ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', rkey, child.sigBytes, child.tbsBytes);
+      return { state: ok ? 'VERIFIED' : 'BROKEN', detail: info.name + (info.weak ? ' (SHA-1 digest: cryptographically weak)' : '') };
+    }
+    var curve = CURVES[issuer.spkiCurveOid || ''];
+    if (!curve) return { state:'UNSUPPORTED', detail:'EC curve ' + (issuer.spkiCurveOid || 'unknown') + ' has no local verifier' };
+    var ekey = await crypto.subtle.importKey('spki', issuer.spkiBytes, { name:'ECDSA', namedCurve:curve.name }, false, ['verify']);
+    var ok2 = await crypto.subtle.verify({ name:'ECDSA', hash:{ name:info.hash } }, ekey, derSigToRaw(child.sigBytes, curve.coord), child.tbsBytes);
+    return { state: ok2 ? 'VERIFIED' : 'BROKEN', detail: info.name + ' on ' + curve.name };
+  } catch (e) {
+    return { state:'UNSUPPORTED', detail:'WebCrypto error: ' + e.message };
+  }
+}
+function pubKeyLabel(cert){
+  if (cert.spkiAlgOid === '1.2.840.113549.1.1.1'){
+    var outer = readTLV(cert.spkiBytes, 0);
+    var bitT = readTLV(cert.spkiBytes, outer.content);
+    var inner = readTLV(cert.spkiBytes, bitT.content + 1);
+    var modT = readTLV(cert.spkiBytes, inner.content);
+    var modulus = cert.spkiBytes.subarray(modT.content, modT.next);
+    var lead = 0; while (lead < modulus.length && modulus[lead] === 0) lead++;
+    var bits = (modulus.length - lead - 1) * 8;
+    var first = modulus[lead];
+    var m = 0x80; while (!(first & m)){ bits++; m >>= 1; }
+    return 'RSA ' + bits + ' bit';
+  }
+  var c = CURVES[cert.spkiCurveOid || ''];
+  if (c) return 'ECDSA ' + c.name;
+  return cert.spkiAlgOid;
+}
+
+/* ================= pipeline ============================================= */
+function pemBlocksToDer(text){
+  var out = [];
+  var re = /-----BEGIN CERTIFICATE-----([A-Za-z0-9+/=\s]+?)-----END CERTIFICATE-----/g;
+  var m;
+  while ((m = re.exec(text)) !== null){
+    var b64 = m[1].replace(/\s+/g, '');
+    var bin = atob(b64);
+    var u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    out.push(u8);
+  }
+  return out;
+}
+function bytesEqual(a, b){
+  if (a.length !== b.length) return false;
+  for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+function validityStatus(cert, asOf){
+  if (asOf.getTime() < cert.notBefore.getTime()) return 'NOT YET VALID';
+  if (asOf.getTime() > cert.notAfter.getTime()) return 'EXPIRED';
+  return 'VALID';
+}
+async function inspect(pemText, asOf){
+  var ders = pemBlocksToDer(pemText);
+  if (ders.length === 0) throw new Error('no PEM certificate found. Paste at least one -----BEGIN CERTIFICATE----- block.');
+  var certs = ders.map(parseCertificate);
+  var fps = [];
+  for (var i = 0; i < certs.length; i++){
+    var dg = await crypto.subtle.digest('SHA-256', certs[i].der);
+    var h = new Uint8Array(dg); var parts = [];
+    for (var j = 0; j < h.length; j++) parts.push((h[j] < 16 ? '0' : '') + h[j].toString(16).toUpperCase());
+    fps.push(parts.join(':'));
+  }
+  var links = [];
+  for (var k = 0; k < certs.length; k++){
+    var child = certs[k];
+    if (k + 1 < certs.length){
+      var issuer = certs[k + 1];
+      var dn = bytesEqual(child.issuerRaw, issuer.subjectRaw);
+      var sig = await verifySignature(child, issuer);
+      links.push({ i: k, child: child, issuer: issuer, dnMatch: dn, sig: sig });
+    } else {
+      var selfSigned = bytesEqual(child.issuerRaw, child.subjectRaw);
+      if (selfSigned){
+        var ssig = await verifySignature(child, child);
+        links.push({ i: k, child: child, issuer: null, selfSigned: true, sig: { state: ssig.state === 'VERIFIED' ? 'SELF-SIGNED VERIFIED' : (ssig.state === 'BROKEN' ? 'SELF-SIGNED BROKEN' : 'UNSUPPORTED'), detail: ssig.detail } });
+      } else {
+        links.push({ i: k, child: child, issuer: null, selfSigned: false, sig: { state:'ISSUER NOT IN CHAIN', detail:'the chain ends at a certificate that is not self-signed; its issuer is not in the pasted set' } });
+      }
+    }
+  }
+  return { certs: certs, fps: fps, links: links, asOf: asOf };
+}
+
+/* ================= rendering ============================================ */
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function badge(state){
+  var cls = { 'VERIFIED':'ok','SELF-SIGNED VERIFIED':'ok','BROKEN':'bad','SELF-SIGNED BROKEN':'bad','UNSUPPORTED':'warn','ISSUER NOT IN CHAIN':'mut' }[state] || 'mut';
+  return '<span class="badge ' + cls + '">' + esc(state) + '</span>';
+}
+function vBadge(state){
+  return '<span class="badge ' + (state === 'VALID' ? 'ok' : 'bad') + '">' + esc(state) + '</span>';
+}
+function extOf(cert, oid){
+  for (var i = 0; i < cert.extensions.length; i++) if (cert.extensions[i].oid === oid) return cert.extensions[i];
+  return null;
+}
+function renderChain(res){
+  var rows = '';
+  res.links.forEach(function(l){
+    var who = esc(l.child.subjectStr);
+    var line = 'link ' + l.i + ': ' + who;
+    if (l.issuer){
+      line += ' issued by ' + esc(l.issuer.subjectStr);
+      line += '<br>DN chaining: ' + (l.dnMatch ? 'issuer DN matches next subject' : 'MISMATCH: issuer DN does not equal next certificate subject');
+    } else if (l.selfSigned){
+      line += ' (self-signed root)';
+    }
+    line += '<br>signature: ' + badge(l.sig.state) + ' ' + esc(l.sig.detail);
+    var aki = extOf(l.child, '2.5.29.35');
+    var ski = l.issuer ? extOf(l.issuer, '2.5.29.14') : extOf(l.child, '2.5.29.14');
+    if (aki && ski){
+      var akiDec = decodeExtension(aki);
+      var skiDec = decodeExtension(ski);
+      if (akiDec.keyid && skiDec.hex){
+        line += '<br>key identifiers: ' + (akiDec.keyid === skiDec.hex ? 'AKI matches issuer SKI' : 'AKI does NOT match issuer SKI (' + esc(akiDec.keyid.slice(0, 16)) + '... vs ' + esc(skiDec.hex.slice(0, 16)) + '...)');
+      }
+    }
+    rows += '<div class="link-row">' + line + '</div>';
+  });
+  document.getElementById('linkRows').innerHTML = rows;
+  document.getElementById('chainPanel').style.display = '';
+
+  var cards = '';
+  for (var i = 0; i < res.certs.length; i++){
+    var c = res.certs[i];
+    var vs = validityStatus(c, res.asOf);
+    var rows2 = '';
+    rows2 += kv('Position', i === 0 ? '0 (leaf)' : (i === res.certs.length - 1 && bytesEqual(c.issuerRaw, c.subjectRaw) ? (res.certs.length - 1) + ' (self-signed root)' : String(i)));
+    rows2 += kv('Subject', c.subjectStr);
+    rows2 += kv('Issuer', c.issuerStr);
+    rows2 += kv('Serial (hex)', c.serialHex);
+    rows2 += kv('Version', 'v' + c.version);
+    rows2 += kv('Signature algorithm', (SIG_ALGS[c.sigAlgOid] ? SIG_ALGS[c.sigAlgOid].name : c.sigAlgOid) + ' (' + c.sigAlgOid + ')');
+    rows2 += kv('Validity', fmtUTC(c.notBefore) + ' to ' + fmtUTC(c.notAfter) + ' · at as-of ' + res.asOf.toISOString().slice(0, 10) + ': ' + vBadge(vs));
+    rows2 += kv('Public key', pubKeyLabel(c));
+    var fp = '<span class="fp">' + esc(res.fps[i]) + '</span>';
+    rows2 += kv('SHA-256 fingerprint', fp);
+    var san = extOf(c, '2.5.29.17');
+    rows2 += kv('Subject Alt Names', san ? decodeExtension(san).items.join(' · ') : 'not present');
+    var ku = extOf(c, '2.5.29.15');
+    rows2 += kv('Key usage' + (ku && ku.critical ? ' (critical)' : ''), ku ? decodeExtension(ku).items.join(', ') : 'not present');
+    var eku = extOf(c, '2.5.29.37');
+    rows2 += kv('Extended key usage', eku ? decodeExtension(eku).items.join(', ') : 'not present');
+    var bc = extOf(c, '2.5.29.19');
+    rows2 += kv('Basic constraints', bc ? (function(d){ return (d.ca ? 'CA:TRUE' : 'CA:FALSE') + (d.pathLen !== null ? ', pathLenConstraint ' + d.pathLen : ''); })(decodeExtension(bc)) : 'not present');
+    cards += '<div class="cert-card"><div class="cert-head">Certificate ' + i + (i === 0 ? ' · leaf' : '') + '</div><div class="kv">' + rows2 + '</div>' + renderQc(c) + '</div>';
+  }
+  document.getElementById('certCards').innerHTML = cards;
+  document.getElementById('certPanel').style.display = '';
+}
+function kv(k, v){ return '<div class="k">' + esc(k) + '</div><div class="v">' + v + '</div>'; }
+function renderQc(cert){
+  var qc = extOf(cert, '1.3.6.1.5.5.7.1.3');
+  if (!qc) return '';
+  var dec = decodeExtension(qc);
+  var h = '<span class="step-tag" style="margin-top:.8rem">qcStatements (ETSI EN 319 412-5)</span>';
+  h += '<table class="qc-table"><tr><th>Statement</th><th>OID</th><th>Decoded</th></tr>';
+  dec.rows.forEach(function(r){
+    h += '<tr><td>' + esc(r.name) + '</td><td class="qoid">' + esc(r.oid) + '</td><td>' + esc(r.text) + '</td></tr>';
+  });
+  h += '</table>';
+  return h;
+}
+function showVerdict(kind, html){
+  var box = document.getElementById('verdictBox');
+  box.className = 'verdict ' + kind;
+  box.innerHTML = html;
+  box.style.display = 'block';
+}
+function asOfDate(){
+  var v = document.getElementById('asOfDate').value;
+  var d = v ? new Date(v + 'T00:00:00Z') : new Date(DEFAULT_ASOF.getTime());
+  if (isNaN(d.getTime())) d = new Date(DEFAULT_ASOF.getTime());
+  return d;
+}
+async function inspectChain(){
+  var text = document.getElementById('chainInput').value;
+  if (!text.trim()){ showVerdict('fail', 'paste a PEM chain first, or load one of the three fixture chains.'); return; }
+  try {
+    var res = await inspect(text, asOfDate());
+    renderChain(res);
+    var broken = 0, verified = 0, unsupported = 0, expired = 0, future = 0;
+    res.links.forEach(function(l){
+      if (l.sig.state === 'VERIFIED' || l.sig.state === 'SELF-SIGNED VERIFIED') verified++;
+      else if (l.sig.state === 'BROKEN' || l.sig.state === 'SELF-SIGNED BROKEN') broken++;
+      else unsupported++;
+    });
+    res.certs.forEach(function(c){ var s = validityStatus(c, res.asOf); if (s === 'EXPIRED') expired++; if (s === 'NOT YET VALID') future++; });
+    var cls, msg = res.certs.length + ' certificate' + (res.certs.length > 1 ? 's' : '') + ' parsed · ' + verified + ' signature link' + (verified === 1 ? '' : 's') + ' verified';
+    if (broken) { cls = 'fail'; msg += ' · ' + broken + ' BROKEN'; }
+    else if (unsupported) { cls = 'warn'; msg += ' · ' + unsupported + ' unsupported for local verification'; }
+    else cls = 'ok';
+    if (expired || future){ if (cls === 'ok') cls = 'warn'; msg += ' · at as-of ' + res.asOf.toISOString().slice(0, 10) + ': ' + expired + ' expired, ' + future + ' not yet valid'; }
+    msg += ' · no revocation check, no trust decision (see honesty note)';
+    showVerdict(cls, esc(msg));
+  } catch (e) {
+    showVerdict('fail', 'input rejected: ' + esc(e.message));
+  }
+}
+
+/* ================= fixtures ============================================ */
+function loadFixture(kind){
+  var chains = {
+    golden: FIX_GOLDEN_LEAF + '\n' + FIX_CA,
+    expired: FIX_EXPIRED_LEAF + '\n' + FIX_CA,
+    broken: FIX_BROKEN_LEAF + '\n' + FIX_CA
+  };
+  document.getElementById('chainInput').value = chains[kind];
+}
+
+/* ================= selftest (#selftest=1 or ?selftest=1) ================ */
+async function selftest(){
+  var strip = document.getElementById('selftestStrip');
+  var results = [];
+  function check(name, ok){ results.push({ name: name, ok: ok }); }
+  try {
+    var asOf = new Date(SELFTEST_ASOF + 'T00:00:00Z');
+    /* golden chain */
+    var g = await inspect(FIX_GOLDEN_LEAF + '\n' + FIX_CA, asOf);
+    check('golden: 2 certificates parsed', g.certs.length === 2);
+    check('golden: leaf link signature VERIFIED', g.links[0].sig.state === 'VERIFIED');
+    check('golden: DN chaining consistent at leaf link', g.links[0].dnMatch === true);
+    check('golden: CA self-signature VERIFIED', g.links[1].sig.state === 'SELF-SIGNED VERIFIED');
+    var leaf = g.certs[0];
+    check('golden: leaf VALID at 2026-10-30', validityStatus(leaf, asOf) === 'VALID');
+    var san = decodeExtension(extOf(leaf, '2.5.29.17'));
+    check('golden: SAN carries DNS and URI', san.items.join('|').indexOf('DNS: api.ain-psd2-test.example') >= 0 && san.items.join('|').indexOf('URI: urn:psd2:ain-psd2-test.example') >= 0);
+    var ku = decodeExtension(extOf(leaf, '2.5.29.15'));
+    check('golden: key usage digitalSignature + keyEncipherment', ku.items.indexOf('digitalSignature') >= 0 && ku.items.indexOf('keyEncipherment') >= 0);
+    var eku = decodeExtension(extOf(leaf, '2.5.29.37'));
+    check('golden: EKU serverAuth + clientAuth', eku.items.join(',').indexOf('serverAuth') >= 0 && eku.items.join(',').indexOf('clientAuth') >= 0);
+    var bc = decodeExtension(extOf(leaf, '2.5.29.19'));
+    check('golden: basicConstraints CA:FALSE', bc.ca === false);
+    var qc = decodeExtension(extOf(leaf, '1.3.6.1.5.5.7.1.3'));
+    var qcNames = qc.rows.map(function(r){ return r.name; });
+    check('golden: qcStatements QcCompliance present', qcNames.indexOf('QcCompliance') >= 0);
+    check('golden: qcStatements QcLimitValue decodes EUR 10000 x 10^-2', qc.rows.some(function(r){ return r.name === 'QcLimitValue' && r.text.indexOf('limit EUR 10000 x 10^-2') >= 0; }));
+    check('golden: qcStatements QcRetentionPeriod 12 months', qc.rows.some(function(r){ return r.name === 'QcRetentionPeriod' && r.text.indexOf('12 months') >= 0; }));
+    var rolesRow = qc.rows.filter(function(r){ return r.name === '0.4.0.19495.1.2' || r.text.indexOf('PSD2 roles') === 0; })[0];
+    check('golden: PSD2 roles PSP_AS + PSP_IC decoded', !!rolesRow && rolesRow.text.indexOf('PSP_AS') >= 0 && rolesRow.text.indexOf('PSP_IC') >= 0);
+    check('golden: leaf fingerprint matches OpenSSL record', g.fps[0] === FIX_FINGERPRINTS.golden);
+    check('golden: CA fingerprint matches OpenSSL record', g.fps[1] === FIX_FINGERPRINTS.ca);
+    /* expired chain */
+    var e = await inspect(FIX_EXPIRED_LEAF + '\n' + FIX_CA, asOf);
+    check('expired: leaf signature still VERIFIED', e.links[0].sig.state === 'VERIFIED');
+    check('expired: leaf EXPIRED at 2026-10-30', validityStatus(e.certs[0], asOf) === 'EXPIRED');
+    /* broken chain */
+    var b = await inspect(FIX_BROKEN_LEAF + '\n' + FIX_CA, asOf);
+    check('broken: issuer DN matches presented CA subject', b.links[0].dnMatch === true);
+    check('broken: leaf signature BROKEN against presented CA', b.links[0].sig.state === 'BROKEN');
+    check('broken: leaf fingerprint matches OpenSSL record', b.fps[0] === FIX_FINGERPRINTS.broken);
+    var pass = results.every(function(r){ return r.ok; });
+    var lines = results.map(function(r){ return (r.ok ? '  ok  ' : ' FAIL ') + r.name; });
+    lines.unshift('X.509 chain selftest · as-of ' + SELFTEST_ASOF);
+    lines.push('selftest ' + (pass ? 'PASS' : 'FAIL') + ' · ' + results.filter(function(r){ return r.ok; }).length + '/' + results.length + ' checks');
+    strip.className = 'selftest-strip ' + (pass ? 'pass' : 'fail');
+    strip.textContent = lines.join('\n');
+  } catch (err) {
+    strip.className = 'selftest-strip fail';
+    strip.textContent = 'selftest FAIL · ' + err.message;
+  }
+}
+
+/* manifest disclosure toggle (CONTRACT §1.2) */
+function toggleMfst(){
+  var body = document.getElementById('mfstBody');
+  var code = document.getElementById('mfstCode');
+  var arr = document.getElementById('mfstArr');
+  if (body.style.display === 'block'){ body.style.display = 'none'; arr.textContent = '▼'; }
+  else {
+    if (!code.textContent) code.textContent = JSON.stringify(MANIFEST, null, 2);
+    body.style.display = 'block';
+    arr.textContent = '▲';
+  }
+}
+
+/* init: default the as-of input to today, read once */
+(function(){
+  document.getElementById('asOfDate').value = DEFAULT_ASOF.toISOString().slice(0, 10);
+})();
+
+/* selftest mode: #selftest=1 fragment (estate convention) or ?selftest=1 (row wording) */
+if (/[?#&]selftest=1\b/.test(location.href)) selftest();
+</script>
+<script>window.AIN_BRIDGE_CFG={runFn:'inspectChain',intake:false,intakeTarget:null,intakeAnchor:null,share:true};</script>
+<script>
+(function(){
+'use strict';
+/* Declared ONCE and read by both AINBridge.version and AINBridge.capabilities.version,
+   so the two can never disagree. scripts/sync-ain-bridge.mjs reads this literal to
+   decide the version it stamps onto a page's header comment and bridge_version
+   metadata — the master snippet is the only place a bridge version is authored. */
+var BRIDGE_VERSION='1.3';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={
+ en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
+ es:{pf:'Campos precargados desde el enlace — revise y ejecute',ran:'Campos precargados desde el enlace y ejecutados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Suelte un .policy.json aquí, o',choose:'Elegir archivo',paste:'Pegar JSON',apply:'Aplicar',ok:'Policy Mandate importado desde',bad:'JSON de Policy Mandate no válido'},
+ fr:{pf:'Champs préremplis depuis le lien — vérifiez puis exécutez',ran:'Champs préremplis depuis le lien et exécutés',fields:'champs',it:'Importer un Policy Mandate (.policy.json)',drop:'Déposez un .policy.json ici, ou',choose:'Choisir un fichier',paste:'Coller le JSON',apply:'Appliquer',ok:'Policy Mandate importé depuis',bad:'JSON Policy Mandate non valide'},
+ ar:{pf:'تم ملء الحقول مسبقًا من الرابط — راجع ثم شغّل',ran:'تم ملء الحقول من الرابط وتنفيذها',fields:'حقول',it:'استيراد Policy Mandate (.policy.json)',drop:'أسقط ملف ‎.policy.json هنا، أو',choose:'اختر ملفًا',paste:'لصق JSON',apply:'تطبيق',ok:'تم استيراد Policy Mandate من',bad:'JSON غير صالح لـ Policy Mandate'},
+ pt:{pf:'Campos pré-preenchidos a partir do link — revise e execute',ran:'Campos pré-preenchidos a partir do link e executados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Solte um .policy.json aqui, ou',choose:'Escolher arquivo',paste:'Colar JSON',apply:'Aplicar',ok:'Policy Mandate importado de',bad:'JSON de Policy Mandate inválido'},
+ zh:{pf:'已从链接预填输入 — 请检查后运行',ran:'已从链接预填并自动执行',fields:'个字段',it:'导入 Policy Mandate (.policy.json)',drop:'将 .policy.json 拖放到此处，或',choose:'选择文件',paste:'粘贴 JSON',apply:'应用',ok:'已导入 Policy Mandate，来源：',bad:'无效的 AINumbers Policy Mandate JSON'}
+};
+function t(k){return (L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return (CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.getElementById('ainIntakeZone')||anchorEl();
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function looksLikeMandate(o){return !!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){
+  var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}
+  if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}
+  var n=0;
+  if(CFG.intakeTarget){var ta=document.getElementById(CFG.intakeTarget);
+    if(ta){ta.value=JSON.stringify(o,null,2);try{ta.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}n++;}}
+  if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);
+  if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);
+  notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');
+  return n;
+}
+function buildIntakeUI(){
+  if(!CFG.intake)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainIntakeZone';
+  z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');
+  var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');
+  var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');
+  var txt=document.createElement('span');txt.textContent=t('drop');
+  function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}
+  var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));
+  var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';
+  fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});
+  bFile.addEventListener('click',function(){fi.click();});
+  var pasteRow=document.createElement('div');pasteRow.style.display='none';pasteRow.setAttribute('style','display:none;margin-top:.6rem');
+  var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');
+  var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';
+  bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});
+  pasteRow.appendChild(ta);pasteRow.appendChild(bApply);
+  bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});
+  z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});
+  z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});
+  z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});
+  row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);
+  z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
+  a.parentNode.insertBefore(z,a);
+}
+/* ── SHARE LINK (BRIDGE-SHARE-FLAG-1, 2026-09-29) — off by default ───────────
+   Behind CFG.share===true. The button rebuilds this page's address with #in=
+   from the tool's current inputs: fragment only, clipboard only. Everything
+   after # never reaches a server, ours included; the button never calls
+   history.replaceState or pushState, never stores anything, and never makes a
+   network call. The collected field set is exactly what applyFields can write
+   back (same tag gate, keyed by id), minus file, password and hidden inputs,
+   so a shared link can only ever carry values this page's own prefill path
+   accepts. makeLink carries the encoding, so share and prefill can never
+   diverge on the wire shape. */
+function writableFields(){
+  var out={};var els=document.querySelectorAll('input[id],select[id],textarea[id]');
+  for(var i=0;i<els.length;i++){var el=els[i];
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')continue;
+    if(el.type==='file'||el.type==='password'||el.type==='hidden')continue;
+    out[el.id]=(el.type==='checkbox'||el.type==='radio')?!!el.checked:String(el.value);
+  }
+  return out;
+}
+/* Select-and-copy fallback for browsers without navigator.clipboard or when a
+   permission prompt is denied: off-screen textarea, select, execCommand. */
+function legacyCopy(text){
+  var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+  ta.setAttribute('style','position:fixed;left:-9999px;top:0');
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{ta.setSelectionRange(0,text.length);}catch(e){}
+  var ok=false;try{ok=document.execCommand('copy');}catch(e){ok=false;}
+  document.body.removeChild(ta);return ok;
+}
+function copyShareLink(){
+  if(!window.AINBridge||typeof window.AINBridge.makeLink!=='function')return;
+  var link=window.AINBridge.makeLink(writableFields(),false);
+  if(link.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to share ('+link.length+' chars).','warn');return;}
+  var report=function(ok){
+    if(ok){notice('🔗 Link copied. It reopens this tool with the same inputs. Share synthetic values only.','ok');return;}
+    notice('⚠ Copy failed. Select the link below and copy it.','warn');
+    var z=document.getElementById('ainShareZone');
+    if(!z)return;
+    var old=z.querySelector('input[data-ain-share-fallback]');
+    if(old)old.parentNode.removeChild(old);
+    var f=document.createElement('input');
+    f.type='text';f.setAttribute('readonly','');f.setAttribute('data-ain-share-fallback','');
+    f.setAttribute('style','display:inline-block;vertical-align:middle;box-sizing:border-box;max-width:100%;width:36rem;margin-left:.6rem;margin-top:.4rem;padding:.3rem .5rem;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.62rem');
+    f.value=link;
+    z.appendChild(f);
+    f.focus();f.select();
+    try{f.setSelectionRange(0,link.length);}catch(e){}
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(link).then(function(){report(true);},function(){report(legacyCopy(link));});}
+  else report(legacyCopy(link));
+}
+function buildShareUI(){
+  if(CFG.share!==true)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainShareZone';
+  z.setAttribute('style','margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace');
+  var b=document.createElement('button');b.type='button';b.id='ainShareBtn';b.textContent='🔗 Copy share link';
+  b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');
+  b.addEventListener('click',copyShareLink);
+  z.appendChild(b);
+  a.parentNode.insertBefore(z,a);
+}
+/* ONE INTAKE PATH (BRIDGE-MCP-APPS-ALIGN-1, goal 1). The `#in=` deep link and the
+   host's ui/notifications/tool-input notification carry the SAME shape — a bare
+   id→value map, or {"fields":{...}} — so both feed this routine. The MCP leg gets
+   no second parser: a divergence between the two would be invisible on the page
+   and visible only to whichever host happened to send the other shape. */
+function intakeFieldObject(obj){
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  return applyFields(fields);
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var n=intakeFieldObject(obj);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
+    else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  }
+  /* BRIDGE-SHARE-FLAG-1: a link that parsed but matches no field here must say
+     so — silence reads as "this tool accepted the link" to whoever shared it. */
+  else notice('⚠ This link had no fields matching this tool.','warn');
+}
+var HANDOFF_MAX_CHARS=2000000;
+/* ── AIN LEDGER LIVE CHANNEL v1: MESSAGE SCHEMA (B3/B4/B5) ────────────────────
+   This comment block is IDENTICAL in ledger/index.html and in
+   scripts/ain-bridge-v1.snippet.html. Change one, change both.
+
+   Transport: BroadcastChannel, name 'ain-ledger-v1'. Same-origin by
+   construction: a message only ever reaches a tab on the SAME origin, so the
+   channel carries nothing across an origin boundary. The ledger serves at BOTH
+   ainumbers.co/ledger/ (path form) and ledger.ainumbers.co (subdomain form);
+   only the path form shares an origin with a tool page, so the subdomain form
+   keeps today's fragment-only intake unchanged.
+
+   Envelope: JSON-RPC 2.0 in the MCP Apps ui/ dialect, the same envelope the AIN
+   Bridge postMessage leg carries. Both legs are notifications, so neither
+   carries an id and neither expects a JSON-RPC response object.
+
+   page to ledger:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt",
+      "params":{"v":1,"receipt":<OCG artifact>}}
+
+   ledger to page:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt-ack",
+      "params":{"v":1,"execution_hash":"<hash>",
+                "status":"added"|"duplicate"|"rejected"}}
+
+   Identity: a receipt's ledger identity is its execution_hash, the keyPath of
+   the artifact store. The ack deliberately does NOT use the name record_hash:
+   on this page record_hash already means the SPEC.md 22.8.4 escalation-record
+   hash, a different value over a different object.
+
+   params.receipt is validated exactly the way a #a=v1 fragment is, by the same
+   extractArtifact + isArtifact pair, and anything else acks 'rejected'. The
+   channel carries a receipt only, never a mandate body and never any other
+   payload: the same rule the fragment leg already follows.
+   ─────────────────────────────────────────────────────────────────────────── */
+var AIN_LEDGER_CHANNEL='ain-ledger-v1';
+var AIN_LEDGER_ACK_MS=2000;
+/* B3 origin guard. BroadcastChannel is same-origin, so a receipt can only reach a
+   ledger tab served from THIS origin, which is the path form ainumbers.co/ledger/.
+   Returns the ledger URL this page may live-update, or null when this origin has
+   no path-form ledger (ledger.ainumbers.co included: a different origin, whose
+   intake stays fragment-only). Pure: reads the origin it is handed, no globals. */
+function ainLedgerTarget(origin){
+  if(typeof origin!=='string'||!origin)return null;
+  var u;try{u=new URL(origin);}catch(e){return null;}
+  if(u.protocol!=='https:'&&u.protocol!=='http:')return null;
+  var h=u.hostname.toLowerCase();
+  if(h!=='ainumbers.co'&&h!=='localhost'&&h!=='127.0.0.1')return null;
+  return u.origin+'/ledger/';
+}
+function ainLedgerReceipt(receipt){
+  return {jsonrpc:'2.0',method:'ui/notifications/receipt',params:{v:1,receipt:receipt}};
+}
+function ainIsLedgerAck(msg){
+  if(!msg||typeof msg!=='object')return false;
+  if(msg.jsonrpc!=='2.0'||msg.method!=='ui/notifications/receipt-ack')return false;
+  var p=msg.params;
+  if(!p||typeof p!=='object'||p.v!==1)return false;
+  if(typeof p.execution_hash!=='string'&&p.execution_hash!==null)return false;
+  return p.status==='added'||p.status==='duplicate'||p.status==='rejected';
+}
+/* B3 send + B5 ack. Resolves with the ack params when a ledger tab answers inside
+   AIN_LEDGER_ACK_MS, else with null, so a page with no ledger tab open behaves
+   exactly as it did before this leg existed. */
+function ainLedgerSend(receipt,origin){
+  var target=ainLedgerTarget(origin||(typeof location!=='undefined'?location.origin:''));
+  if(!target||typeof BroadcastChannel!=='function')return Promise.resolve(null);
+  var ch;try{ch=new BroadcastChannel(AIN_LEDGER_CHANNEL);}catch(e){return Promise.resolve(null);}
+  return new Promise(function(resolve){
+    var done=false,timer=null;
+    function finish(v){if(done)return;done=true;if(timer)clearTimeout(timer);try{ch.close();}catch(e){}resolve(v);}
+    ch.onmessage=function(ev){if(ainIsLedgerAck(ev&&ev.data))finish(ev.data.params);};
+    try{ch.postMessage(ainLedgerReceipt(receipt));}catch(e){finish(null);return;}
+    timer=setTimeout(function(){finish(null);},AIN_LEDGER_ACK_MS);
+  });
+}
+function apSendToVerify(){
+  var m;try{m=window.AINBridge.getMandate();}catch(e){m=null;}
+  if(!m){notice('⚠ No Policy Mandate to send — run the tool first.','warn');return Promise.resolve(null);}
+  var json;try{json=JSON.stringify(m);}catch(e){notice('⚠ Could not serialize the mandate: '+e.message,'warn');return Promise.resolve(null);}
+  if(json.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to hand off ('+json.length+' chars).','warn');return Promise.resolve(null);}
+  /* B3/B5: hand the receipt to an open ledger tab on this origin. Fired BEFORE
+     window.open so the user gesture is not spent waiting on the ack. With no
+     ledger tab open the promise resolves null and nothing on this page changes. */
+  var ledgerAck=ainLedgerSend(m).then(function(ack){
+    if(ack&&ack.status==='added')notice('🧾 Recorded in the open Ledger tab.','ok');
+    else if(ack&&ack.status==='duplicate')notice('🧾 Already recorded in the open Ledger tab.','ok');
+    return ack;
+  });
+  /* An MCP Apps host that answered ui/initialize is told, in its own transcript,
+     that a receipt now exists (BRIDGE-MCP-APPS-ALIGN-1, goal 1). Identifiers only
+     — mcpReceiptText never carries the mandate body. The same-origin verifier
+     handoff below is unchanged and happens either way. */
+  if(MCP.ready)mcpPost(mcpMessageRequest(mcpNextId(),mcpReceiptText(m)));
+  var target=new URL('../chaingraph/verify.html',window.location.href).href;
+  var win=window.open(target,'_blank');
+  if(!win){notice('⚠ The verifier window was blocked. Allow pop-ups for this site.','warn');return ledgerAck;}
+  var sent=false,timer=null;
+  function onReady(ev){
+    if(ev.origin!==window.location.origin)return;
+    if(ev.source!==win)return;
+    var d=ev.data;
+    if(!d||typeof d!=='object'||d.type!=='ain-handoff-ready/v1')return;
+    if(sent)return;sent=true;
+    window.removeEventListener('message',onReady);
+    if(timer)clearTimeout(timer);
+    win.postMessage({type:'ain-handoff/v1',kind:'policy-mandate',mandate:json},window.location.origin);
+    notice('➡ Sent to the Artifact Verifier in the new tab.','ok');
+  }
+  window.addEventListener('message',onReady);
+  notice('Opening the Artifact Verifier…','ok');
+  timer=setTimeout(function(){
+    if(sent)return;
+    window.removeEventListener('message',onReady);
+    notice('⚠ The verifier did not answer. Export the mandate and paste it in.','warn');
+  },10000);
+  return ledgerAck;
+}
+window.apSendToVerify=apSendToVerify;
+/* ══ MCP-APPS-JSONRPC v1 START ══════════════════════════════════════════════
+   BRIDGE-MCP-APPS-ALIGN-1. Primary text: MCP Apps specification 2026-01-26
+   (modelcontextprotocol/ext-apps, specification/2026-01-26/apps.mdx). Message
+   shapes quoted from it, direction as the spec labels them:
+
+     ui/initialize                    View→Host REQUEST
+         params {protocolVersion, clientInfo, appCapabilities}
+         result {protocolVersion, hostCapabilities, hostInfo, hostContext}
+     ui/notifications/initialized     View→Host notification, after that result
+     ui/message                       View→Host request
+         params {role:'user', content:{type:'text', text}}
+     ui/open-link                     View→Host request   params {url}
+     ui/request-display-mode          View→Host request   params {mode}
+     ui/update-model-context          View→Host request   params {content?, structuredContent?}
+     ui/notifications/size-changed    View→Host notification  params {width, height}
+     tools/call                       View→Host, proxied by the host to the server
+
+     ui/notifications/tool-input          Host→View  params {arguments}  at most once
+     ui/notifications/tool-input-partial  Host→View  params {arguments}  0..n, before tool-input
+     ui/notifications/tool-result         Host→View  params CallToolResult {content, structuredContent, _meta}
+     ui/notifications/tool-cancelled      Host→View  params {reason}
+     ui/notifications/host-context-changed Host→View params {hostContext}
+     ui/resource-teardown                 Host→View  REQUEST (carries an id), result {}
+
+   ui/notifications/sandbox-proxy-ready and ui/notifications/sandbox-resource-ready
+   are RESERVED for a web host's sandbox proxy (spec, "Reserved Messages (Sandbox
+   Proxy)"): a View neither sends nor receives them, so they are absent from both
+   lists by decision, not by oversight.
+
+   NOTHING IN THIS REGION MAY REFERENCE AN IDENTIFIER DECLARED OUTSIDE IT. The
+   routines are pure: scripts/ain-bridge-jsonrpc.test.mjs cuts the region out of
+   this file and evaluates it on its own, and scripts/check-bridge-jsonrpc.mjs
+   reads the two allowlists out of it and holds them to the spec list above.
+   ────────────────────────────────────────────────────────────────────────── */
+var MCP_PROTOCOL_VERSION='2026-01-26';
+/* Host→View: the methods this View ACCEPTS. Anything else with an id is answered
+   -32601 (JSON-RPC 2.0 "Method not found"); anything else without one is dropped,
+   because a notification has no reply channel to carry an error on. */
+var MCP_HOST_METHODS=[
+  'ui/notifications/tool-input',
+  'ui/notifications/tool-input-partial',
+  'ui/notifications/tool-result',
+  'ui/notifications/tool-cancelled',
+  'ui/notifications/host-context-changed',
+  'ui/resource-teardown'
+];
+/* View→Host: the methods this View may EMIT. A send outside this list is a bug in
+   the bridge, not a host problem, so mcpEnvelopeOut refuses it locally. */
+var MCP_VIEW_METHODS=[
+  'ui/initialize',
+  'ui/notifications/initialized',
+  'ui/message',
+  'ui/open-link',
+  'ui/request-display-mode',
+  'ui/update-model-context',
+  'ui/notifications/size-changed',
+  'tools/call'
+];
+/* ain-handoff/v1 alias table (goal 3) — kept for ONE snippet version so pages
+   rolled at different times interoperate; a later row deletes it. One line each,
+   naming the MCP method the legacy type corresponds to, or null where the legacy
+   leg has no MCP twin at all (getMandate is a composer pull; the spec has no
+   Host→View "give me your state" request, so it stays ain-handoff-only). */
+var MCP_LEGACY_ALIAS={
+  'ain:prefill':'ui/notifications/tool-input',
+  'ain:run':'ui/notifications/tool-input',
+  'ain:getMandate':null
+};
+function mcpNewState(){return {hostOrigin:null,ready:false,initId:null,nextId:2,hostCapabilities:null,hostInfo:null,hostContext:null};}
+/* 'request' | 'notification' | 'response' | null. null = not a JSON-RPC 2.0
+   envelope we can act on (this includes every ain-handoff/v1 message, which the
+   legacy listener owns). */
+function mcpEnvelopeKind(d){
+  if(!d||typeof d!=='object'||d.jsonrpc!=='2.0')return null;
+  if(typeof d.method==='string')return (d.id===undefined||d.id===null)?'notification':'request';
+  if(d.id!==undefined&&('result' in d||'error' in d))return 'response';
+  return null;
+}
+function mcpError(id,code,message){return {jsonrpc:'2.0',id:id,error:{code:code,message:message}};}
+function mcpOk(id,result){return {jsonrpc:'2.0',id:id,result:result};}
+/* Pure. The outbound envelope, or null when the method is not one this View is
+   allowed to emit. */
+function mcpEnvelopeOut(method,params,id){
+  if(MCP_VIEW_METHODS.indexOf(method)===-1)return null;
+  var env={jsonrpc:'2.0',method:method};
+  if(id!==undefined&&id!==null)env.id=id;
+  if(params!==undefined)env.params=params;
+  return env;
+}
+/* appCapabilities per the spec's McpUiAppCapabilities: `tools` is omitted because
+   the page exposes no MCP-style tools TO the host (its WebMCP registrations are a
+   different surface), and the B7 capabilities object rides in `experimental`,
+   whose structure the spec leaves open. */
+function mcpAppCapabilities(caps){
+  return {experimental:{ainBridge:caps||null},availableDisplayModes:['inline','fullscreen']};
+}
+function mcpInitRequest(id,caps,version){
+  return mcpEnvelopeOut('ui/initialize',{
+    protocolVersion:MCP_PROTOCOL_VERSION,
+    clientInfo:{name:'ainumbers-ain-bridge',version:String(version||'')},
+    appCapabilities:mcpAppCapabilities(caps)
+  },id);
+}
+function mcpInitializedNotification(){return mcpEnvelopeOut('ui/notifications/initialized',{});}
+/* Origin pinning. Before the handshake the host origin is unknown, so any origin
+   may carry the ui/initialize RESPONSE; from the moment that response lands, the
+   origin it came from is the only one this View will read or write. */
+function mcpOriginOk(state,origin){
+  if(state.hostOrigin===null)return true;
+  return origin===state.hostOrigin;
+}
+/* Pure. Consume the ui/initialize response: pin the origin, keep the host's own
+   three fields. Returns the ui/notifications/initialized envelope to send, or
+   null when this is not our pending handshake (or the host answered with an
+   error, in which case the View stays unpinned and un-ready). */
+function mcpAcceptInitResponse(state,d,origin){
+  if(state.ready)return null;
+  if(state.initId===null||d.id!==state.initId)return null;
+  if(d.error)return null;
+  var r=d.result||{};
+  state.hostOrigin=origin;
+  state.ready=true;
+  state.hostCapabilities=r.hostCapabilities||null;
+  state.hostInfo=r.hostInfo||null;
+  state.hostContext=r.hostContext||null;
+  return mcpInitializedNotification();
+}
+/* Pure. One line of text naming the receipt a Send to Verify just produced —
+   identifiers only, never the mandate body: ui/message content goes into the
+   host's chat transcript, and the payload can carry the user's own inputs. */
+function mcpReceiptText(mandate){
+  var m=mandate||{};
+  var bits=['AINumbers Policy Mandate ready to verify'];
+  if(m.mandate_id)bits.push('mandate '+m.mandate_id);
+  if(m.tool_id)bits.push('tool '+m.tool_id);
+  if(m.execution_hash)bits.push('execution_hash '+m.execution_hash);
+  return bits.join(' · ');
+}
+function mcpMessageRequest(id,text){
+  return mcpEnvelopeOut('ui/message',{role:'user',content:{type:'text',text:String(text)}},id);
+}
+/**
+ * Pure. Handle one Host→View envelope.
+ * deps: {applyArguments(args,complete), renderResult(callToolResult),
+ *        cancelled(reason), hostContextChanged(hostContext)} — every one
+ * optional; a missing dep means that leg is a no-op, never a throw.
+ * Returns {responses:[envelope...], handled:<method|null>, ignored:<reason|null>}.
+ */
+function mcpHandleHostMessage(state,d,origin,deps){
+  var out={responses:[],handled:null,ignored:null};
+  var kind=mcpEnvelopeKind(d);
+  if(kind===null||kind==='response'){out.ignored='not-a-host-message';return out;}
+  if(!mcpOriginOk(state,origin)){out.ignored='origin-not-pinned-host';return out;}
+  var method=d.method,params=d.params||{},fn;
+  if(MCP_HOST_METHODS.indexOf(method)===-1){
+    if(kind==='request')out.responses.push(mcpError(d.id,-32601,'Method not found: '+method));
+    out.ignored='method-not-allowlisted';
+    return out;
+  }
+  if(method==='ui/notifications/tool-input'||method==='ui/notifications/tool-input-partial'){
+    fn=deps&&deps.applyArguments;
+    if(fn)fn(params.arguments,method==='ui/notifications/tool-input');
+  }else if(method==='ui/notifications/tool-result'){
+    fn=deps&&deps.renderResult;
+    if(fn)fn(params);
+  }else if(method==='ui/notifications/tool-cancelled'){
+    fn=deps&&deps.cancelled;
+    if(fn)fn(params.reason);
+  }else if(method==='ui/notifications/host-context-changed'){
+    state.hostContext=params.hostContext||params||null;
+    fn=deps&&deps.hostContextChanged;
+    if(fn)fn(state.hostContext);
+  }else if(method==='ui/resource-teardown'){
+    /* Responded to WITHOUT work: the page holds no host-owned resource and no
+       unsaved state of the host's, so there is nothing to flush and nothing that
+       could make the host wait (the spec has it wait for this response). */
+    if(kind==='request')out.responses.push(mcpOk(d.id,{}));
+  }
+  out.handled=method;
+  return out;
+}
+/* ══ MCP-APPS-JSONRPC v1 END ═══════════════════════════════════════════════ */
+/* DOM wiring for the region above. Everything that touches window lives HERE, so
+   the region stays evaluable on its own. */
+var MCP=mcpNewState();
+/* Every post after the handshake goes through this: no host origin, no send. The
+   targetOrigin is the pinned origin, never a wildcard. */
+function mcpPost(env){
+  if(!MCP.hostOrigin)return false;
+  if(!env)return false;
+  try{window.parent.postMessage(env,MCP.hostOrigin);}catch(e){return false;}
+  return true;
+}
+/* The ONE pre-handshake send. The host's origin is unknowable until it answers
+   ui/initialize (a sandboxed View is not told who framed it), so this single
+   message is addressed with a wildcard and carries nothing but our capability
+   declaration — no page data. Every later send is mcpPost, pinned. */
+function mcpPostInit(env){
+  if(!env)return false;
+  try{window.parent.postMessage(env,MCP.hostOrigin||'*');}catch(e){return false;} /* PRE-HANDSHAKE-ORIGIN-OK: MCP.hostOrigin is null until ui/initialize answers */
+  return true;
+}
+function mcpSend(method,params,id){return mcpPost(mcpEnvelopeOut(method,params,id));}
+function mcpNextId(){return MCP.nextId++;}
+function mcpApplyArguments(args,complete){
+  var n=intakeFieldObject(args||{});
+  if(n>0)notice((complete?'🔗 ':'… ')+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  return n;
+}
+/* The existing result hook, reused: a CallToolResult whose structuredContent is a
+   Policy Mandate goes through intakeApply — the same routine the 📥 import zone
+   and a dropped .policy.json use. Anything else is reported, not parsed. */
+function mcpRenderResult(res){
+  var r=res||{};
+  var sc=r.structuredContent;
+  if(looksLikeMandate(sc)){try{return intakeApply(JSON.stringify(sc));}catch(e){}}
+  if(sc&&typeof sc==='object'&&looksLikeMandate(sc.mandate)){try{return intakeApply(JSON.stringify(sc.mandate));}catch(e){}}
+  if(r.isError)notice('⚠ The host reported a tool error.','warn');
+  else notice('✓ Tool result received from the host.','ok');
+  return 0;
+}
+function mcpOnMessage(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  var d=e.data;
+  var kind=mcpEnvelopeKind(d);
+  if(kind===null)return; /* ain-handoff/v1 and everything else: onComposerMessage owns it */
+  if(kind==='response'){
+    var initialized=mcpAcceptInitResponse(MCP,d,e.origin);
+    if(initialized)mcpPost(initialized);
+    return;
+  }
+  var r=mcpHandleHostMessage(MCP,d,e.origin,{
+    applyArguments:mcpApplyArguments,
+    renderResult:mcpRenderResult,
+    cancelled:function(reason){notice('⚠ The host cancelled the tool call'+(reason?': '+reason:'.'),'warn');},
+    hostContextChanged:null
+  });
+  for(var i=0;i<r.responses.length;i++){
+    /* A -32601 or a teardown result before the handshake has nowhere pinned to
+       go; mcpPost refuses it rather than broadcasting. */
+    mcpPost(r.responses[i]);
+  }
+}
+function mcpBoot(){
+  if(window.parent===window)return false;
+  MCP.initId=1;
+  return mcpPostInit(mcpInitRequest(MCP.initId,window.AINBridge&&window.AINBridge.capabilities,BRIDGE_VERSION));
+}
+/* sessionRoot — COMPOSER-PLAN-AND-ROOT-WEBMCP-1. ONE ROUTINE LAW: the core below
+   is byte-identical to SESSION_ROOT_SOURCE in scripts/gen-webmcp-registrations.mjs
+   (emitted onto every chain composer page) and a port of the worker's
+   build_session_receipt (worker.mjs buildSessionReceiptCore). Asserted by
+   scripts/session-root-parity.test.mjs. Never re-derive the Merkle rule. */
+async function ainSessionRoot(executionHashes) {
+  if (!Array.isArray(executionHashes) || executionHashes.length === 0) throw new Error('execution_hashes must be a non-empty array.');
+  var normalize = function (h) { return String(h).replace(/^sha256:/, '').toLowerCase(); };
+  var level = executionHashes.map(normalize).map(function (h) { return 'sha256:' + h; });
+  var hashPair = async function (a, b) {
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalize(a) + normalize(b)));
+    return 'sha256:' + Array.from(new Uint8Array(buf)).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+  };
+  while (level.length > 1) {
+    var next = [];
+    for (var i = 0; i < level.length; i += 2) {
+      var right = level[i + 1] !== undefined ? level[i + 1] : level[i]; // duplicate last leaf when odd
+      next.push(await hashPair(level[i], right));
+    }
+    level = next;
+  }
+  return level[0];
+}
+window.AINBridge={
+  version:BRIDGE_VERSION,
+  /* capabilities — B7 (BRIDGE-SNIPPET-SYNC-GEN-1). A feature-detect surface so an
+     agent can read what this page's bridge supports instead of probing it by
+     calling functions and watching them throw. Every flag is DERIVED from the
+     routine actually present in this closure, never hand-maintained: an older
+     page carrying an older copy of this block reports the truth about itself. */
+  capabilities:{
+    version:BRIDGE_VERSION,
+    prefill:typeof applyFields==='function',
+    mandate:typeof intakeApply==='function',
+    handoff:typeof onComposerMessage==='function',
+    sendToVerify:typeof apSendToVerify==='function',
+    sessionRoot:typeof ainSessionRoot==='function',
+    liveLedger:typeof ainLedgerSend==='function',
+    mcpApps:typeof mcpHandleHostMessage==='function',
+    /* BRIDGE-SHARE-FLAG-1: derived from the page's own config, not the routine's
+       presence — every rolled page carries copyShareLink, but only a page whose
+       CFG.share is true supports it. */
+    share:CFG.share===true
+  },
+  apply:applyFields,
+  run:runTool,
+  intake:intakeApply,
+  sendToVerify:apSendToVerify,
+  sessionRoot:ainSessionRoot,
+  ledgerSend:ainLedgerSend,
+  ledgerTarget:ainLedgerTarget,
+  /* MCP Apps View legs, so a page never hand-rolls a JSON-RPC envelope: every
+     send goes through the allowlist (mcpEnvelopeOut) and the pinned origin
+     (mcpPost). Reads of the host's own three fields are copies of state. */
+  mcp:{
+    ready:function(){return MCP.ready;},
+    host:function(){return {origin:MCP.hostOrigin,info:MCP.hostInfo,capabilities:MCP.hostCapabilities,context:MCP.hostContext};},
+    send:mcpSend,
+    message:function(text){return mcpPost(mcpMessageRequest(mcpNextId(),text));},
+    openLink:function(url){return mcpPost(mcpEnvelopeOut('ui/open-link',{url:String(url)},mcpNextId()));}
+  },
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+/* Named (was an inline anonymous listener) so capabilities.handoff can be derived
+   from the routine's presence rather than asserted. Function declarations hoist,
+   so the typeof test above is true at the moment AINBridge is assigned. */
+/* Reply target for the ain-handoff/v1 legs. Once a host has answered
+   ui/initialize, the pinned origin is the only address used — the wildcard
+   below can only be reached before any handshake, on an opaque-origin page
+   (file://), where a same-origin composer has no other addressable form. */
+function legacyTarget(e){
+  if(MCP.hostOrigin)return MCP.hostOrigin;
+  return (e.origin&&e.origin!=='null')?e.origin:'*'; /* PRE-HANDSHAKE-ORIGIN-OK: MCP.hostOrigin is null, opaque-origin composer */
+}
+function onComposerMessage(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=legacyTarget(e);
+  var d=e.data||{};
+  /* MCP_LEGACY_ALIAS (goal 3) names the ui/ method each of these three legacy
+     types corresponds to; the behaviour below is unchanged, so a page rolled to
+     v1.3 and a composer still speaking ain-handoff/v1 keep working together for
+     this one snippet version. A later row deletes the alias and this listener. */
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+}
+window.addEventListener('message',onComposerMessage);
+window.addEventListener('message',mcpOnMessage);
+function boot(){buildIntakeUI();buildShareUI();initPrefill();mcpBoot();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

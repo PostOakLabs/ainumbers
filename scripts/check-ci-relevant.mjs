@@ -32,11 +32,36 @@
  */
 import { execFileSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
+import { isCreditsGateScopeFile } from './check-credits-coverage.mjs';
 import { readFileSync, appendFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+// Direct-run guard (CI-RELEVANT-VENDOR-PATHS-1): the CLI flow only runs when the
+// script is executed directly; when imported (by its test), only filesHit is handed over.
+const DIRECT_RUN = !!process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+
+// CI-RELEVANT-VENDOR-PATHS-1 (2026-11-01): relevance is no narrower than the credits
+// gate's OWN scan scope. Measured defect: PR #2802 added chaingraph/standard/vendor/
+// canonicalize/{canonicalize.js,LICENSE,PROVENANCE.md}; no ci-paths.json glob matched,
+// so both path-filtered jobs skipped the "Full preflight gate suite" that runs
+// `node scripts/check-credits-coverage.mjs repo`, the PR reported green, it merged, and
+// main went red on "Credits registry coverage (vendored-code license gate)". Any added
+// or changed file the credits gate examines (vendor/vendored path segments,
+// *.bundle.(mjs|js), data/credits-registry.json) now marks EVERY key relevant. When
+// unsure, mark relevant: a false "relevant" costs CI minutes, a false "irrelevant"
+// costs a red main. The predicate is imported, never copied — one source of truth.
+export function filesHit(key, files) {
+  const paths = JSON.parse(readFileSync(resolve(ROOT, 'scripts/ci-paths.json'), 'utf8'));
+  const globs = paths[key];
+  if (!globs) {
+    throw new Error(`check-ci-relevant: no entry "${key}" in scripts/ci-paths.json`);
+  }
+  const regexes = globs.map(globToRegex);
+  return files.some((f) => regexes.some((re) => re.test(f))) || files.some(isCreditsGateScopeFile);
+}
 
 function globToRegex(glob) {
   let re = '';
@@ -61,14 +86,12 @@ function main() {
     console.error('usage: node scripts/check-ci-relevant.mjs --key <name>');
     process.exit(1);
   }
-
-  const paths = JSON.parse(readFileSync(resolve(ROOT, 'scripts/ci-paths.json'), 'utf8'));
-  const globs = paths[key];
-  if (!globs) {
+  const ciPaths = JSON.parse(readFileSync(resolve(ROOT, 'scripts/ci-paths.json'), 'utf8'));
+  if (!ciPaths[key]) {
     console.error(`✗ check-ci-relevant: no entry "${key}" in scripts/ci-paths.json`);
     process.exit(1);
   }
-  const regexes = globs.map(globToRegex);
+
 
   const eventName = process.env.EVENT_NAME || '';
   let hit;
@@ -94,9 +117,9 @@ function main() {
       encoding: 'utf8',
     });
     const files = out.split('\n').filter(Boolean);
-    const result = files.some((f) => regexes.some((re) => re.test(f)));
-    console.log(`check-ci-relevant[${key}]: ${files.length} file(s) changed, hit=${result}`);
-    return result;
+  const hit = filesHit(key, files);
+    console.log(`check-ci-relevant[${key}]: ${files.length} file(s) changed, hit=${hit}`);
+    return hit;
   }
 
   if (eventName === 'pull_request') {
@@ -119,4 +142,4 @@ function main() {
   }
 }
 
-main();
+if (DIRECT_RUN) main();
