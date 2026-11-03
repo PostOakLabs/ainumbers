@@ -1,16 +1,16 @@
-// 811-eth-staking-accounting — class-K property-test FLOOR.
+// 813-eth-staking-accounting — class-K property-test FLOOR.
 // kernel_digest_at_authoring: sha256:b1549a874c49eae58de6a18d65788300ccd454d87ade43c27386cad23db3d88b
 // spec: research/ETH-STAKING-BUILD-SPEC-AMENDED-2026-11.md (Node A)
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/811-eth-staking-accounting.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/813-eth-staking-accounting.proptest.mjs
 
-import { compute } from '../811-eth-staking-accounting.kernel.mjs';
+import { compute } from '../813-eth-staking-accounting.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, deepEqual } from './_pbt-common.mjs';
 
-const KERNEL_ID = '811-eth-staking-accounting';
+const KERNEL_ID = '813-eth-staking-accounting';
 const INC = 1000000000n;
 
 function rngPP(rng) {

@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// 811-eth-staking-accounting: recompute one validator's one-epoch reward, penalty and
+// 813-eth-staking-accounting: recompute one validator's one-epoch reward, penalty and
 // slashing accounting in Gwei from declared consensus-layer state. Integer (BigInt) math only.
 // Recompute from the published spec on declared inputs; not an earnings forecast, no chain reads.
 //
@@ -9,7 +9,7 @@ import { executionHash } from './_hash.mjs';
 // rounds for a Uint64 input), the fixed 3-flag loop, and the inclusion list, which is capped at
 // MAX_INCLUSIONS. No loop is bounded by a caller policy value.
 
-const TOOL_ID = '811-eth-staking-accounting';
+const TOOL_ID = '813-eth-staking-accounting';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
