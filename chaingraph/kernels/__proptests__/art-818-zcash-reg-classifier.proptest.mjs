@@ -1,5 +1,5 @@
 // art-818-zcash-reg-classifier: class-K property-test FLOOR (KERNEL-SCAFFOLD-1 scaffold, authored).
-// kernel_digest_at_authoring: sha256:55b2bcbefcdbbf54a39dfd51700e0483cf6859e9d0fd80cb024a8377b2efc64a
+// kernel_digest_at_authoring: sha256:e63a3b644b37385180c551cc2febe28fbfc8ac21bc46f60e1b2e673983242e3b
 // spec: declared-property classification against MiCA Article 76(3) and AMLR Article 79(1) (pinned text)
 // human_sign_off: PENDING
 //

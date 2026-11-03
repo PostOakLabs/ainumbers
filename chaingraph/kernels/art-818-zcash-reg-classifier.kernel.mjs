@@ -162,7 +162,7 @@ export function compute(pp) {
   const refusals = validate(pp);
   if (refusals.length > 0) {
     return {
-      output_payload: { classification_scope: SCOPE, disclaimer: DISCLAIMER, refusals, rules: [] },
+      output_payload: { classification_scope: SCOPE, disclaimer: DISCLAIMER, refusals, rules: [], errors: ['INPUT_REFUSED'] },
       compliance_flags: ['INPUT_REFUSED'],
     };
   }
@@ -187,6 +187,7 @@ export function compute(pp) {
       rules,
       summary: { rules_evaluated: rules.length, within_text_count: within, not_yet_applicable_count: notYet },
       refusals: [],
+      errors: flags.slice(),
     },
     compliance_flags: flags,
   };
