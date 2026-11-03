@@ -7,7 +7,7 @@
 // approximately. Properties below run over a committed mulberry32 seed
 // (deterministic) plus a fixed corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:ecd45135a8bfa2914477eb4fae02af99493c4b310dc995deea317bed2e7d73ac
+// kernel_digest_at_authoring: sha256:2397989fc513e950d3aff26aa95ea695317c3075a79fa8b58f25abf539c91070
 // spec: VITALIK-LENS-PLANS-2026-11-02.md PLAN I step 4 — recompute total shielded
 //   supply and the no-counterfeiting arithmetic from pasted pool balances; the node
 //   states it cannot check the chain itself. Pinned text: research/clause-snapshots/
