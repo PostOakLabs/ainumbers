@@ -26,7 +26,8 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, runProcessBounded, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact } from './run-mutation-tier.mjs';
+import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, runProcessBounded, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact, loadConfig } from './run-mutation-tier.mjs';
+import { mergeMutationSiblings, loadOriginalAuthorshipAllowlist } from './lib-per-kernel-config.mjs';
 import { classifyKernelSource, tierReport } from '../chaingraph/kernels/mutation-tier-split.mjs';
 
 let passed = 0;
@@ -365,8 +366,7 @@ const RATCHET_GREEN_1_TIMEOUT_KERNELS = [
 ];
 
 test('R15 the MUTATION-RATCHET-GREEN-1 batch: every entry in the REAL config is an integer bound 600 < v <= 1500 and resolves per kernel', () => {
-  const configPath = join(import.meta.dirname, '..', 'chaingraph', 'kernels', 'mutation-tiers.config.json');
-  const realConfig = JSON.parse(readFileSync(configPath, 'utf8'));
+  const realConfig = loadConfig(); // merges the per-kernel <id>.mutation.json siblings (PER-KERNEL-CONFIG-SHARD-1)
   const bounds = realConfig.kernelTimeoutSeconds || {};
   for (const id of RATCHET_GREEN_1_TIMEOUT_KERNELS) {
     const v = bounds[id];
@@ -507,9 +507,8 @@ test('R21 ART699 vendored kind: a stale sha256 or an out-of-source range fails L
 });
 
 test('R22 the real art-699 entry: config range+sha256 match the tracked kernel, and the tracked file carries no Stryker directive', () => {
-  const configPath = join(import.meta.dirname, '..', 'chaingraph', 'kernels', 'mutation-tiers.config.json');
   const kernelPath = join(import.meta.dirname, '..', 'chaingraph', 'kernels', 'art-699-x402-permit2-evidence-recomputer.kernel.mjs');
-  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  const config = loadConfig();
   const entry = config.mutateSurfaceSplits['art-699-x402-permit2-evidence-recomputer'];
   assert(entry && entry.kind === 'vendored', 'art-699 must carry a vendored mutateSurfaceSplits entry');
   const src = readFileSync(kernelPath, 'utf8');
@@ -782,6 +781,59 @@ test('R31 with no artifact ranges the classification is EXACTLY the pre-change t
     && JSON.stringify(after.other) === JSON.stringify(before.other),
     'an empty artifactRanges default must reclassify nothing');
   assert(after.artifact.total === 0 && after.artifact.score === null, 'the empty artifact bucket reports zero');
+});
+
+// ── per-kernel sibling config (PER-KERNEL-CONFIG-SHARD-1) ────────────────
+// Per-kernel entries live in chaingraph/kernels/<id>.mutation.json and
+// <stem>.authorship.json. loadConfig() reads from the REAL checkout (repoRoot), not the
+// Stryker sandbox, so the siblings never need to be copied into a sandbox.
+
+console.log('\nrun-mutation-tier controls — per-kernel sibling config (PER-KERNEL-CONFIG-SHARD-1)');
+
+function siblingScratch(files, base = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'rmt-pkc-'));
+  cleanup.push(dir);
+  for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, name), JSON.stringify(body));
+  return { dir, base };
+}
+
+test('R32 mergeMutationSiblings merges every sibling key into its map and leaves the base untouched', () => {
+  const { dir } = siblingScratch({
+    'k-a.mutation.json': { kernelTimeoutSeconds: 1234, hookSkip: 'why' },
+    'k-b.mutation.json': { namedLead: 'lead', excluded: 'shape' },
+  });
+  const base = { moneyMathBreakFloor: 60, kernelTimeoutSeconds: { 'k-z': 9 }, hookSkipKernels: { _comment: 'c' } };
+  const m = mergeMutationSiblings(base, dir);
+  assert(m.kernelTimeoutSeconds['k-a'] === 1234 && m.kernelTimeoutSeconds['k-z'] === 9, 'sibling timeout merged alongside the base entry');
+  assert(m.hookSkipKernels['k-a'] === 'why' && m.hookSkipKernels._comment === 'c', 'hookSkip merged, _comment kept');
+  assert(m.namedLeads['k-b'] === 'lead' && m.excludedKernels['k-b'] === 'shape', 'namedLead/excluded merged into maps absent from the base');
+  assert(m.moneyMathBreakFloor === 60 && !('k-a' in base.kernelTimeoutSeconds), 'shared keys carried, base not mutated');
+});
+
+test('R33 an id present in BOTH the legacy map and a sibling, or an unknown sibling key, is a loud refusal', () => {
+  const { dir } = siblingScratch({ 'k-a.mutation.json': { kernelTimeoutSeconds: 5 } });
+  let threw = null;
+  try { mergeMutationSiblings({ kernelTimeoutSeconds: { 'k-a': 7 } }, dir); } catch (e) { threw = e; }
+  assert(threw && /already present/.test(threw.message), `duplicate must be refused, got ${threw && threw.message}`);
+  const bad = siblingScratch({ 'k-b.mutation.json': { kernelTimeoutSecond: 5 } });
+  threw = null;
+  try { mergeMutationSiblings({}, bad.dir); } catch (e) { threw = e; }
+  assert(threw && /unknown key/.test(threw.message), `unknown key must be refused, got ${threw && threw.message}`);
+});
+
+test('R34 loadOriginalAuthorshipAllowlist keys a sibling as chaingraph/kernels/<stem>.mjs and refuses a duplicate legacy key', () => {
+  const root = mkdtempSync(join(tmpdir(), 'rmt-pkc-auth-'));
+  cleanup.push(root);
+  mkdirSync(join(root, 'scripts'), { recursive: true });
+  mkdirSync(join(root, 'chaingraph', 'kernels'), { recursive: true });
+  writeFileSync(join(root, 'scripts', 'original-authorship-bundle-allowlist.json'), JSON.stringify({ _README: { reason: 'r' } }));
+  writeFileSync(join(root, 'chaingraph', 'kernels', '_x.bundle.authorship.json'), JSON.stringify({ reason: 'original' }));
+  const a = loadOriginalAuthorshipAllowlist(root);
+  assert(a['chaingraph/kernels/_x.bundle.mjs'] && a['chaingraph/kernels/_x.bundle.mjs'].reason === 'original', `sibling must key to the bundle path, got ${Object.keys(a)}`);
+  writeFileSync(join(root, 'scripts', 'original-authorship-bundle-allowlist.json'), JSON.stringify({ 'chaingraph/kernels/_x.bundle.mjs': { reason: 'dup' } }));
+  let threw = null;
+  try { loadOriginalAuthorshipAllowlist(root); } catch (e) { threw = e; }
+  assert(threw && /already present/.test(threw.message), 'a duplicate legacy+sibling entry must be refused');
 });
 
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);
