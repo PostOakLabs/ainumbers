@@ -33,11 +33,11 @@
 // rather than being hand-parsed):
 //   plain run  : a finding NOT in the baseline FAILS (exit 1) — the recurrence guard.
 //                A finding already in the baseline is printed and marked `[baselined]`.
-//                Context split, matching the row: ADVISORY on `pull_request` (warn, exit 0),
-//                BLOCKING on main / merge_group / local (fail-closed — an unknown context blocks).
-//                The baseline is single-writer on main (--init ran exactly once, in this row;
-//                --prune only removes healed entries), so a PR could not green a new finding
-//                anyway — advisory-on-PR is honest, blocking-on-main is the teeth.
+//                BLOCKING in every context: pull_request, main, merge_group, local.
+//                MAIN-ONLY-PATHS-GATE-1 (2026-11-03) removed the pull_request advisory arm:
+//                the baseline is single-writer on main, but a PR greens a new finding by
+//                fixing its kernel (implement the input or drop the declaration), and the
+//                queue blocks it anyway, so a PR-side warning only moved the red into the queue.
 //   --init     : HUMAN, ONCE: accepts every current finding, writes the baseline, exits 0.
 //                Refuses to overwrite an existing baseline (never --init again).
 //   --prune    : regen mode for main-side healing: removes accepted entries that no longer
@@ -183,10 +183,11 @@ export function diffBaseline(findings, accepted) {
   return { new: fresh, baselined, healed };
 }
 
-// Context split (exported for the self-test): advisory ONLY on a CI pull_request run; blocking on
-// main, merge_group, and locally — fail-closed on anything unrecognised, like isMainContext().
-export function advisoryContext(env) {
-  return env.GITHUB_ACTIONS === 'true' && env.GITHUB_EVENT_NAME === 'pull_request';
+// Context (exported for the self-test): no context is advisory. MAIN-ONLY-PATHS-GATE-1 removed the
+// CI pull_request arm (env.GITHUB_ACTIONS === 'true' && GITHUB_EVENT_NAME === 'pull_request'), so
+// the gate blocks on pull_request, main, merge_group and locally alike.
+export function advisoryContext(_env) {
+  return false;
 }
 
 function repoHead() {
@@ -276,10 +277,6 @@ function main() {
   if (json) console.log(JSON.stringify(jsonDoc(scan, diff, advisory))); // the LAST { line on stdout; verdict lines may follow
   if (diff.new.length === 0) {
     console.log(`OK: no new input-usage findings against the baseline (${accepted.length} accepted)${advisory ? ' · context=pull_request' : ''}`);
-    return;
-  }
-  if (advisory) {
-    console.log(`ADVISORY (context=pull_request): ${diff.new.length} new input-usage finding(s) reported, exit 0 — implement-or-remove is a farm lane draft's decision (farm/notes/INPUT-USAGE.md), and the baseline is single-writer on main.`);
     return;
   }
   console.error(`FAIL: ${diff.new.length} input-usage finding(s) not in the baseline (context=blocking). New findings are a red by design: fix the kernel (implement the input or remove the declaration), or — main-side only, after the fix — --prune the healed entries. --init will refuse: it ran exactly once.`);
