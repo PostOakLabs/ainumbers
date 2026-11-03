@@ -86,13 +86,13 @@ async function main() {
   check('Ratchet: new key is fresh', r.fresh.length === 1 && r.fresh[0].startsWith('c3#part2'), JSON.stringify(r));
   check('Ratchet: healed baseline key is STALE, un-run chain key is not', r.stale.join() === 'c2#part3:art-x', JSON.stringify(r.stale));
 
-  // Verdict: STALE-only warns on PR + merge_group, blocks on main/local; NEW blocks off-PR.
+  // Verdict: STALE-only warns on PR + merge_group, blocks on main/local; NEW blocks everywhere.
   check('Verdict: STALE-only does not block a merge_group', verdictBlocks({ fresh: 0, stale: 1, event: 'merge_group' }) === false);
   check('Verdict: STALE-only does not block a pull_request', verdictBlocks({ fresh: 0, stale: 1, event: 'pull_request' }) === false);
   check('Verdict: STALE-only blocks on main push', verdictBlocks({ fresh: 0, stale: 1, event: 'push' }) === true);
   check('Verdict: STALE-only blocks locally (no event)', verdictBlocks({ fresh: 0, stale: 1, event: undefined }) === true);
   check('Verdict: NEW blocks a merge_group', verdictBlocks({ fresh: 1, stale: 0, event: 'merge_group' }) === true);
-  check('Verdict: NEW is advisory on a pull_request', verdictBlocks({ fresh: 1, stale: 0, event: 'pull_request' }) === false);
+  check('Verdict: NEW blocks a pull_request (MAIN-ONLY-PATHS-GATE-1)', verdictBlocks({ fresh: 1, stale: 0, event: 'pull_request' }) === true);
 
   const liveRel = 'chaingraph/chains/2052a-classify-daily.html';
   const liveAbs = join(REPO, liveRel);
