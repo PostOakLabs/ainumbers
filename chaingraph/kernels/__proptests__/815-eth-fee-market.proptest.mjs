@@ -1,5 +1,5 @@
 // 815-eth-fee-market — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:ca5384afe984d3fe69a57d6de6bcf228d4f351f8a03661332b891fc173d6847e
+// kernel_digest_at_authoring: sha256:ece5f6ae119b18e933b9721f6a6a8c04bf77d3c998cf8c607f5c521dea771996
 // spec: board row ETH-FEEMARKET-NODE-1; pin note research/ETH-FEEMARKET-PIN-2026-11.md (workspace root)
 // human_sign_off: PENDING
 //

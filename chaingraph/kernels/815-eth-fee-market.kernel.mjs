@@ -29,7 +29,7 @@ const GAS_LIMIT_MINIMUM = 5000n;
 const EXCESS_RATIO_CAP = 128n;           // excess blob gas at most 128 update fractions (e^128 wei/gas)
 const MAX_TERMS = 1024;
 
-// Blob schedule per fork, plus the two EIP-1559 constants (fixed at the London fork).
+// Blob schedule per fork, plus the two EIP-1559 constants (unchanged since London).
 const FORKS = {
   cancun: { target_blobs: 3n, max_blobs: 6n, base_fee_update_fraction: 3338477n, reserve_price: false },
   prague: { target_blobs: 6n, max_blobs: 9n, base_fee_update_fraction: 5007716n, reserve_price: false },
