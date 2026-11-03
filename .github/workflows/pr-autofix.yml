@@ -115,9 +115,14 @@ on:
     # lifecycle this workflow needs. Drafts are autofixed too: a bump that
     # rides the PR branch is already correct at ready_for_review time.
   push:
-    # Main moved: job `sync-main` brings the open PRs up to date. The regen
-    # bot's own commit lands here too; the script defers while that regen is
-    # still running on the pushed sha, so PRs merge the regenerated tree.
+    # Main moved: job `sync-main` brings the open PRs up to date. The script
+    # waits (bounded) for derived-artifacts-regen on the pushed sha, then syncs
+    # only if main did not move meanwhile: a regen that committed hands off to
+    # its own commit's push run, and one that committed nothing (always the
+    # run on the regen bot's own commit) lets this run sync. It never exits
+    # waiting for a push that may not come. A workflow_run trigger on the
+    # regen would do the same, but zizmor flags workflow_run as a high
+    # dangerous-trigger and this job holds a push token.
     branches: [ main ]
   workflow_dispatch:
     inputs:
@@ -588,10 +593,12 @@ jobs:
     # that branch's script with the App token, so it is refused here.
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # Up to 15 min waiting for the regen on the pushed sha, then at most 10 merges.
+    timeout-minutes: 40
     permissions:
       contents: read # checkout of main; every write goes through the App token
       # Read with GITHUB_TOKEN: the App token carries only contents + pull-requests.
-      actions: read # derived-artifacts-regen.yml's runs, for the deferral check
+      actions: read # derived-artifacts-regen.yml's runs, for the regen wait
     steps:
       - name: Checkout main
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
