@@ -1,5 +1,5 @@
 // 808-lst-share-rate-reconciler — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:38a5dc906cb337c45e2ab04f200e8affc1ca46215b75bb96c124853657a3f9c3
+// kernel_digest_at_authoring: sha256:f6044ca84c60dfa9079d6d27691a8f235605ba96458294298aaa0f4e6dc9a8ad
 // spec: research/ETH-LST-SHARERATE-BUILD-SPEC-AMENDED-2026-11.md (rules R1-R10, fixtures F1-F8)
 // human_sign_off: PENDING
 //
