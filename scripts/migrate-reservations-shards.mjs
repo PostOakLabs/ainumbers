@@ -23,7 +23,14 @@
  *
  * Usage:
  *   node scripts/migrate-reservations-shards.mjs          # write missing shards
- *   node scripts/migrate-reservations-shards.mjs --check  # exit 1 if any legacy id lacks an equal shard
+ *   node scripts/migrate-reservations-shards.mjs --verify # exit 1 if any legacy id lacks an equal shard
+ *
+ * `--verify` is deliberately NOT a preflight freshness gate (and not spelled
+ * as the generator-coverage meta-gate's check flag): after the split, a
+ * pre-split PR merging a legacy-only line is legitimate (check-id-collision.mjs
+ * honours the union), so "every legacy id has a shard" is not an invariant of
+ * main. The invariant that is, no id with two different answers, is enforced
+ * by `check-id-collision.mjs --seed-check` and leg (b).
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
@@ -37,7 +44,7 @@ const LEGACY = resolve(REPO, 'chaingraph/graph/RESERVATIONS.json')
 const DIR = resolve(REPO, 'chaingraph/graph/reservations')
 const ID_RE = /^art-\d+$/
 
-const CHECK = process.argv.includes('--check')
+const CHECK = process.argv.includes('--verify')
 
 /** Canonical shard bytes for one entry (the gate never compares bytes, only parsed objects). */
 export function shardText(entry) {
@@ -62,6 +69,6 @@ for (const [id, entry] of Object.entries(legacy)) {
   written++
 }
 
-console.error(`migrate-reservations-shards${CHECK ? ' --check' : ''}: legacy=${Object.keys(legacy).length} ` +
+console.error(`migrate-reservations-shards${CHECK ? ' --verify' : ''}: legacy=${Object.keys(legacy).length} ` +
   `written=${written} already-equal=${same} mismatched=${mismatched}${CHECK ? ` missing=${missing}` : ''}`)
 process.exit(mismatched + missing === 0 ? 0 : 1)
