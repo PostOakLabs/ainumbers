@@ -33,9 +33,11 @@ export const meta = {
 // is ever added; the caller pastes the schedule that applies to them.
 //
 // CLAUSE. Regulation NMS Rule 610(c), as amended by the SEC's access-fee-cap rule (adopted
-// 2024-09-18, effective for quotations priced at $1.00/share or more; compliance date extended by
-// SEC order to 2026-11-02 following the D.C. Circuit's 2025 review, which upheld the cap while
-// vacating a separate provision). The $0.001/share cap applies only to protected quotations priced
+// 2024-09-18, effective for quotations priced at $1.00/share or more; the SEC granted temporary
+// exemptive relief from Rule 610(c) and related provisions until the first business day of
+// November 2027 (Release No. 34-105656, 11 June 2026), superseding Release No. 34-104172
+// (31 October 2025), which had run to the first business day of November 2026, following the
+// D.C. Circuit's 2025 review, which upheld the cap while vacating a separate provision). The $0.001/share cap applies only to protected quotations priced
 // at $1.00 or more; sub-dollar securities are governed by a different formula (0.1% of the
 // quotation price) which this kernel does not evaluate -- the caller declares whether the schedule
 // applies to quotes priced at $1.00/share or more, and the cap check is INDETERMINATE otherwise.
@@ -73,7 +75,7 @@ function abs(n) { return n < 0 ? -n : n; }
 function isDate(v) { return typeof v === 'string' && DATE_RE.test(v); }
 
 const SCOPE_NOTE = 'Fee schedules, ADV, and monthly volume are caller-declared inputs. Does not source, fetch, or maintain any exchange fee schedule; performs arithmetic only over what the caller pastes.';
-const CLAUSE_NOTE = 'Regulation NMS Rule 610(c), as amended by the SEC access-fee-cap rule (adopted 2024-09-18), caps the access fee for a protected quotation priced at $1.00/share or more at $0.001/share; compliance date extended by SEC order to 2026-11-02 following the D.C. Circuit\'s 2025 review, which upheld the cap. Sub-dollar securities are governed by a different formula (0.1% of quotation price) that this kernel does not evaluate.';
+const CLAUSE_NOTE = 'Regulation NMS Rule 610(c), as amended by the SEC access-fee-cap rule (adopted 2024-09-18), caps the access fee for a protected quotation priced at $1.00/share or more at $0.001/share; the SEC granted temporary exemptive relief from Rule 610(c) and related provisions until the first business day of November 2027 (Release No. 34-105656, 11 June 2026), superseding Release No. 34-104172 (31 October 2025), which had run to the first business day of November 2026. Sub-dollar securities are governed by a different formula (0.1% of quotation price) that this kernel does not evaluate.';
 
 function emptyResult(reason, extra, flags) {
   return {

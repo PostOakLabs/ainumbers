@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (703 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (704 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -2385,7 +2385,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "MT103 to MX Translation Fidelity Scorer",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-245-mt-mx-translation-fidelity-scorer.html",
-    "description": "Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity for CBPR+ November 2026 migration. Checks field presence mapping (:20: to ",
+    "description": "Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity for the CBPR+ migration (structured-address date deferred by Swift on 27 A",
     "consumes": [
       "art-244-gpi-tracker-lifecycle-simulator"
     ],
@@ -7755,11 +7755,23 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-782-modified-premium",
+    "display_name": "Modified Premium Calculator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-782-modified-premium.html",
+    "description": "Workers'-compensation modified premium: subject premium (total manual premium plus premium items subject to experience rating) times the exp",
+    "consumes": [
+      "art-346-compute-experience-mod"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-788-csv-rfc4180-parser",
     "display_name": "RFC 4180 CSV Parser",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/mcp.html",
-    "description": "Parses a CSV table supplied as a plain string and returns the decoded records plus a per-column summary, over the shared _csv.bundle.mjs (SH",
+    "description": "Parses a CSV table supplied as a plain string and returns the decoded records plus a per-column summary, over the shared _csv.bundle.mjs (a ",
     "consumes": [],
     "feeds": [],
     "status": "live"

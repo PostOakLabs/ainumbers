@@ -23,3 +23,13 @@ Domain: Post-Quantum Cryptography
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Before this evidence pack goes to the regulator, does every proof entry in the batch verify against the declared merkle root?
+Run the AINumbers MCP tool `run_chain` with {"chain":"pqc-audit-pack"} and read `cry-04-merkle-batch-verifier.batch_integrity`.
+Re-run with `inputs` for `cry-04-merkle-batch-verifier`, reusing the values that result echoed, with `proof_entries` changed so proof_entries carries one entry whose leaf is the 64-zero root and carries no proof siblings. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/pqc-audit-pack.html
