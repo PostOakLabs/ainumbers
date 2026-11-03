@@ -1,5 +1,5 @@
 // 812-eth-staking-queue — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:763ea5690a8a05b9498e2940eeb3ab65baa5d0e3fbf2682633de780742e0da23
+// kernel_digest_at_authoring: sha256:572c5fe067f787dfd04db12afdff90642261ea262745766d1989302747979106
 // spec: research/ETH-STAKING-BUILD-SPEC-AMENDED-2026-11.md (Node B)
 // human_sign_off: PENDING
 //

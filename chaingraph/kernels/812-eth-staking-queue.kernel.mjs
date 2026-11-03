@@ -40,7 +40,9 @@ function toBig(v) {
 }
 
 function refuse(code) {
-  return { output_payload: { refused: true, refusal_code: code }, compliance_flags: ['INPUT_REFUSED'] };
+  // `issues` mirrors compliance_flags in output_payload (ART806-MIRROR-ISSUES-1).
+  const issues = [code];
+  return { output_payload: { refused: true, refusal_code: code, issues }, compliance_flags: issues.length > 0 ? ['INPUT_REFUSED'] : [] };
 }
 
 /** @param {bigint | null} b */
@@ -213,6 +215,7 @@ export function compute(pp) {
       seconds_to_consolidation_epoch: s(epochSecs(consEpoch)),
       seconds_to_activation_epoch: s(epochSecs(activationEpoch)),
       seconds_to_sweep_target: s(secs(sweepSlots)),
+      issues: [],
     },
     compliance_flags: [],
   };
