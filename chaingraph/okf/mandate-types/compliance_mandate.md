@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-335"]
+tags: ["compliance_mandate", "count-342"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,11 +10,12 @@ status: stable
 
 # compliance_mandate
 
-335 tool(s) in this mandate-type group:
+342 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
 - [Tokenized Security Lifecycle Validator](../tools/512-tokenized-security-lifecycle-validator.md)
+- [CBR Data Return Validator](../tools/784-cbr-data-return-validator.md)
 - [Agent Identity & Authorization Attestation Checker](../tools/art-04-agent-identity-attestation-checker.md)
 - [EN 16931 / Factur-X E-Invoicing Batch Validator](../tools/art-08-en16931-einvoice-batch-validator.md)
 - [VoP Batch Match-Rate Analyser](../tools/art-11-vop-batch-match-rate-analyser.md)
@@ -344,6 +345,12 @@ status: stable
 - [Consolidation with CTA and Minority Interest](../tools/art-683-consolidation-cta-minority-interest.md)
 - [Close Posting Lineage](../tools/art-692-close-posting-lineage.md)
 - [SCO60 Group 2 Exposure Limit V2](../tools/art-711-sco60-crypto-asset-exposure-classifier-v2.md)
+- [PayPal Dispute Deadline & Evidence](../tools/art-776-paypal-dispute-deadline-evidence.md)
+- [PSP Dispute Reason Crosswalk](../tools/art-777-psp-dispute-reason-crosswalk.md)
+- [BNPL Plan Comparator](../tools/art-779-bnpl-plan-comparator.md)
+- [Solana PDA Bump and ATA Audit](../tools/art-780-solana-pda-ata-audit.md)
+- [Modified Premium Calculator](../tools/art-782-modified-premium.md)
+- [RFC 4180 CSV Parser](../tools/art-788-csv-rfc4180-parser.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)

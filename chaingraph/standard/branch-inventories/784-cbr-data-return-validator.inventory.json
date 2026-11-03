@@ -1,0 +1,139 @@
+{
+  "tool_id": "784-cbr-data-return-validator",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-10-29",
+  "error_direction": "undirected",
+  "error_direction_rationale": "The kernel is exact integer arithmetic over the return's own counts (roll-forward identity, exact count sums) plus a symmetric 0.5-percent tolerance with a floor of 1 on stated value totals; it adds no one-sided approximation of its own, and every threshold (top-corridor share 0.80, HHI 0.50, readiness band gates) is an illustrative template setting stated in the output rather than a legal limit with a conservative side. The honest direction for exact arithmetic with a symmetric tolerance and watch-only flags is undirected.",
+  "derived_from": [
+    {
+      "digest": "sha256:a029fd2f33856b8c8a0019a8336b7cde0aa4c43a8fd0aba0d43efa5e20e96783",
+      "clause_path": "CPMI correspondent banking chartpack -- active correspondents and active corridors definitions; value and volume series; key-currency value shares"
+    },
+    {
+      "digest": "sha256:05240b09399a479966152c6157ebed7893023f2962a48e5165f5c293394de06c",
+      "clause_path": "FATF revised Recommendation 16 and Interpretive Note (June 2025) -- structured ISO 20022 payment information, LEI identifiers where they exist, end-2030 transition"
+    },
+    {
+      "digest": "sha256:6fdb599e585b1f827f97d7370b8c7530598b320faabc2f266dc067e7bb8247e3",
+      "clause_path": "PIFS Pacific Strengthening CBR Project 2025 Annual Report -- Recommendation 3 data collection templates, Recommendation 8 resilience framework, Data Collection Working Group covering banks and MTOs"
+    }
+  ],
+  "branches": [
+    {
+      "id": "cbr-template-required-fields",
+      "clause": "PIFS CBR Project 2025 Annual Report, Rec 3 (templates for CBR data collection and annual reporting); CPMI chartpack metric set",
+      "branch": "A periodic return must carry profile, period, institution type, pseudonymous institution code and at least one currency block with correspondent counts and corridors; the pacific profile additionally requires its three key currencies.",
+      "disposition": "represented",
+      "evidence": "profile_definition",
+      "note": "Fixtures: complete-generic-bank-return, complete-pacific-mto-return (pacific requires USD, AUD and NZD present)."
+    },
+    {
+      "id": "cbr-template-internal-consistency",
+      "clause": "CPMI chartpack metric definitions (correspondent counts and corridor components)",
+      "branch": "Closing correspondent count must equal opening plus opened minus terminated; stated currency totals must equal the corridor sums (counts exactly, values within a stated 0.5 percent tolerance, floor 1).",
+      "disposition": "represented",
+      "evidence": "violations",
+      "note": "Fixture: arithmetic-inconsistency-violations seeds both discrepancies."
+    },
+    {
+      "id": "cbr-template-period-sanity",
+      "clause": "PIFS CBR Project 2025 Annual Report (annual reporting cycle); CPMI chartpack (monthly series)",
+      "branch": "Period dates must be real calendar dates, end on or after start, within the 2011-2100 window and spanning at most 400 days (about thirteen monthly cycles).",
+      "disposition": "represented",
+      "evidence": "computed",
+      "note": "Every fixture carries a sane period; the proptest floor exercises the parser implicitly through the fixture oracle."
+    },
+    {
+      "id": "cbr-template-code-membership",
+      "clause": "CPMI chartpack (currency-denominated series, ISO 4217 codes; corridor country pairs, ISO 3166-1 codes)",
+      "branch": "Currency leaves must be ISO 4217 alpha-3 members and country leaves ISO 3166-1 alpha-2 members.",
+      "disposition": "represented",
+      "evidence": "refused",
+      "note": "Reachability vector nonmember-country-code-reaches-refusal proves the path fires on a non-member country code."
+    },
+    {
+      "id": "cbr-template-key-currency-watch",
+      "clause": "CPMI chartpack (key-currency shares); PIFS CBR Project 2025 Annual Report (withdrawal or restriction of correspondent banking services)",
+      "branch": "Exactly one active correspondent in a profile key currency is flagged as a single-point-of-failure watch item; zero active correspondents in a key currency is a violation.",
+      "disposition": "represented",
+      "evidence": "flags",
+      "note": "Fixture: single-correspondent-key-currency-flag (valid stays true; the watch item does not fail the return)."
+    },
+    {
+      "id": "cbr-template-concentration",
+      "clause": "CPMI chartpack corridor-share statistics",
+      "branch": "Concentration over outbound-value corridor shares is computed (top share and Herfindahl-Hirschman index) and flagged above the illustrative thresholds (0.80 top share, 0.50 HHI).",
+      "disposition": "represented",
+      "evidence": "flags",
+      "note": "Fixtures: complete-pacific-mto-return (single-corridor USD block, both flags), complete-generic-bank-return (diversified blocks, no flags)."
+    },
+    {
+      "id": "cbr-template-readiness-rollup",
+      "clause": "FATF revised R.16 Interpretive Note (June 2025) -- structured ISO 20022 information, LEI where it exists, end-2030 transition",
+      "branch": "Message-quality readiness is rolled up from SUPPLIED aggregate summaries (structure mix counts and LEI validity counts) into percentages and a band; with no summaries supplied the roll-up reports not_supplied and never invents numbers.",
+      "disposition": "represented",
+      "evidence": "readiness",
+      "note": "Fixtures: complete-pacific-mto-return (MEDIUM band), message-quality-supplied-low-band (LOW band), complete-generic-bank-return (not_supplied). The per-message lints live in lint_cbpr_structured_address (art-241) and lint_lei_payment_binding (art-246); this node consumes aggregates only."
+    },
+    {
+      "id": "cbr-template-aggregate-only-refusal",
+      "clause": "Aggregate-only contract (row doctrine; PIFS Rec 3 data collection scope): the return carries counts, sums, codes, dates and enumerated types only",
+      "branch": "Any string leaf outside the enumerations (including any customer, counterparty, correspondent or institution name, BIC, LEI or account identifier) is refused, naming the JSON path only and never echoing the value. Institutions are profile-local pseudonymous codes of the FI-NNN form.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "FREE_TEXT_LEAF_REFUSED",
+        "payload_marker": "refused",
+        "reachability_vector": {
+          "profile": "generic",
+          "institution_type": "bank",
+          "institution_code": "FI-001",
+          "period": {
+            "start": "2026-01-01",
+            "end": "2026-03-31"
+          },
+          "currencies": [
+            {
+              "currency": "USD",
+              "correspondent_bank_name": "First Pacific Savings Bank Ltd",
+              "opening_correspondents": 2,
+              "active_correspondents": 2,
+              "opened": 0,
+              "terminated_restricted": 0,
+              "corridors": [
+                {
+                  "country": "US",
+                  "outbound_count": 20,
+                  "inbound_count": 15,
+                  "outbound_value": 200000,
+                  "inbound_value": 150000
+                },
+                {
+                  "country": "GB",
+                  "outbound_count": 10,
+                  "inbound_count": 8,
+                  "outbound_value": 100000,
+                  "inbound_value": 80000
+                },
+                {
+                  "country": "DE",
+                  "outbound_count": 10,
+                  "inbound_count": 7,
+                  "outbound_value": 100000,
+                  "inbound_value": 70000
+                }
+              ],
+              "totals": {
+                "outbound_count": 40,
+                "inbound_count": 30,
+                "outbound_value": 400000,
+                "inbound_value": 300000
+              }
+            }
+          ]
+        },
+        "fixture": "784-cbr-data-return-validator.fixtures.json#refusal-institution-name-leaf"
+      },
+      "note": "The refusal name in the fixture is invented for this vector and belongs to no real institution. Reachability vectors institution-name-leaf-reaches-refusal and free-text-remark-reaches-refusal prove the path fires for a name leaf and a top-level remark leaf."
+    }
+  ]
+}

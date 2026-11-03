@@ -40,10 +40,46 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadRatchetBaselineOrExit } from './ratchet-baseline.mjs';
+// LEAF import, never './derived-artifacts.mjs' (S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1):
+// THIS file sits mid-cycle — derived-artifacts.mjs → gen-receipt-bundles.mjs (computeStaleness,
+// below) → THIS file — so a static edge from HERE back to derived-artifacts.mjs left that
+// module's RECEIPT_BUNDLES_WRITES_REPORT_PATH read in TDZ whenever gen-receipt-bundles.mjs was
+// the ENTRY process (DERIVED-SET-SELFTEST-1's receipt-bundles leg: "ReferenceError: Cannot
+// access 'RECEIPT_BUNDLES_WRITES_REPORT_PATH' before initialization"). The resolver is imported
+// from the leaf instead; derived-artifacts.mjs re-exports it verbatim for its other importers.
+import { derivedResolve } from './_derived-resolve-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
-const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
+// S18_DERIVED_ROOT (2026-10-27, S18-FIXTURE-PR-DERIVED-ROOT-1): a PR-only scratch assembly that the
+// s18tree step (land-verify/scripts-verify) and local preflight mount for the §18 freshness gates.
+// A re-prove PR edits the kernel and its shard, so the COMMITTED monolith still holds the OLD journal
+// digest and every §18 freshness count lags by one until main's regen lands. This variable is read
+// by no other gate, so no other gate's PR-side disposition moves.
+// S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): DERIVED_ROOT (merge_group) wins via the
+// derivedResolve fallback — the same precedence line as check-compute-proof-coverage.mjs. Both §18
+// freshness commands are DERIVED_ROOT_GATES members, so preflight re-injects the ephemeral tree for
+// them and this gate overlay-reads the queue ref's ASSEMBLED monolith (its shards carry the
+// re-proved receipt, so an in-place kernel edit recomputes fresh there instead of stale against the
+// committed monolith — the #2730/#2795 merge-queue ejects). Where DERIVED_ROOT is unset (PR, main,
+// local) the fallback resolves to the committed monolith exactly as before.
+// ⚠ RESOLVED LAZILY and cached (env is constant for the process lifetime), and derivedResolve
+// comes from the LEAF _derived-resolve-lib.mjs, never from derived-artifacts.mjs: derived-artifacts
+// statically imports RECEIPT_BUNDLES_WRITES_REPORT_PATH from gen-receipt-bundles.mjs, which
+// imports computeStaleness from THIS file — a static edge from HERE to derived-artifacts closed
+// that cycle and TDZ-crashed the entry=gen-receipt-bundles shape (DERIVED-SET-SELFTEST-1's
+// receipt-bundles leg; the earlier entry=derived-artifacts shape crashed the same way on its REPO
+// const, which is what made this resolution lazy in the first place). The leaf's
+// function-declaration exports are hoisted and it imports nothing from this estate, so no entry
+// shape can re-enter a half-initialized module through this file.
+let cgPathCache = null;
+function resolveCgPath() {
+  if (cgPathCache) return cgPathCache;
+  cgPathCache = (!process.env.DERIVED_ROOT && process.env.S18_DERIVED_ROOT)
+    ? resolve(process.env.S18_DERIVED_ROOT, 'chaingraph', 'chaingraph.json')
+    : derivedResolve('chaingraph', 'chaingraph.json');
+  return cgPathCache;
+}
 const KDIR = resolve(REPO, 'chaingraph', 'kernels');
 const BASELINE_PATH = resolve(HERE, 's18-digest-freshness-baseline.json');
 
@@ -107,12 +143,43 @@ export async function computeStaleness(chaingraph, kernelSourceByToolId, sourceD
   return { results, stale, fresh, total: results.length };
 }
 
+// ── calibrationVerdict ────────────────────────────────────────────────────────────────────────────
+// Pure verdict for the §18 freshness calibration (S18-FIXTURE-PR-DERIVED-ROOT-1): compares a measured
+// { total, fresh, stale } against the regen-owned calibration artifact and returns a LIST of failure
+// strings (empty = pass). Two modes:
+//   · not derivedPr (main, merge_group, any context with no S18_DERIVED_ROOT, or DERIVED_ROOT set):
+//     the read monolith is the regen-owned truth of ITS context (the committed monolith on main/PR;
+//     the ephemeral DERIVED_ROOT assembly on merge_group, judged against the calibration that same
+//     assembly regenerates), so the verdict is the historical EXACT equality — byte-for-byte the
+//     same messages the fixture test asserted before this function existed. Blocking, exactly as
+//     today.
+//   · derivedPr (S18_DERIVED_ROOT set AND DERIVED_ROOT empty — the precedent's precedence, see
+//     check-compute-proof-coverage.mjs): the tree was assembled from the PR branch, so a re-prove
+//     with a matching receipt gives equality, a first-prove gives total+1/fresh+1, a stale-curing
+//     re-prove gives stale-1 — all passes. An INEQUALITY is only red when it means a receipt genuinely
+//     lags its kernel: total must not SHRINK, fresh must not SHRINK, stale must not GROW.
+export function calibrationVerdict(measured, cal, { derivedPr } = {}) {
+  const { total, fresh, stale } = measured;
+  if (!derivedPr) {
+    const failures = [];
+    if (total !== cal.total) failures.push(`recomputed in-scope gpu:false proven nodes (${total}) != calibration artifact total (${cal.total}) — chaingraph.json moved without its regen-owned calibration; the canonical writer is: node scripts/gen-s18-freshness-calibration.mjs --write`);
+    if (fresh !== cal.fresh) failures.push(`recomputed fresh (${fresh}) != calibration artifact fresh (${cal.fresh}) — same canonical writer: node scripts/gen-s18-freshness-calibration.mjs --write`);
+    if (stale !== cal.stale) failures.push(`recomputed stale (${stale}) != calibration artifact stale (${cal.stale}) — if this is a kernel-edit staleness event, name the moved node in the commit and re-run the canonical writer; the ratchet ceiling in s18-digest-freshness-baseline.json is a different control and is NOT touched`);
+    return failures;
+  }
+  const failures = [];
+  if (total < cal.total) failures.push(`PR-context §18 freshness (S18_DERIVED_ROOT): recomputed total (${total}) < calibration artifact total (${cal.total}) — the ephemeral assembly cannot lose proven nodes vs main's committed estate`);
+  if (fresh < cal.fresh) failures.push(`PR-context §18 freshness (S18_DERIVED_ROOT): recomputed fresh (${fresh}) < calibration artifact fresh (${cal.fresh}) — a receipt in the PR tree does not match its currently-deployed kernel source; re-prove the node`);
+  if (stale > cal.stale) failures.push(`PR-context §18 freshness (S18_DERIVED_ROOT): recomputed stale (${stale}) > calibration artifact stale (${cal.stale}) — a kernel edit whose receipt does not match the edited kernel source leaves a node stale; re-prove it (main/merge_group stay on the exact-equality verdict, so this PR-side red cannot soften them)`);
+  return failures;
+}
+
 // ── CLI entry point (only runs when this file is executed directly, not when imported) ─────────────
 const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (IS_MAIN) {
 
 const { sourceDigest } = await import(pathToFileURL(resolve(KDIR, '_buildid.mjs')).href);
-const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
+const cg = JSON.parse(readFileSync(resolveCgPath(), 'utf8'));
 
 // ── calibration (mandatory before trusting any mismatch, per row's done-criteria) ──────────────────
 // Prove the instrument against a node whose kernel source has NOT changed since it was proven — any
