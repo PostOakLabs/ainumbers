@@ -59,8 +59,16 @@ const CAP_CLAIMS = 32;
 const CAP_MODULES = 16;
 const CAP_COUNTRIES = 300;
 const CAP_MAP = 64;
+const TOP_KEYS = ['transfer', 'identity_registry', 'required_claim_topics', 'trusted_issuers', 'compliance_modules', 'token_state', 'fund_covenant', 'chain_id', 'network_label'];
 
 function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+
+// An explicit null at the top level reads exactly as the absent key.
+function dropTopNulls(pp) {
+  const out = {};
+  for (const k of TOP_KEYS) if (pp[k] !== undefined && pp[k] !== null) out[k] = pp[k];
+  return out;
+}
 
 function normAddr(v) {
   if (typeof v !== 'string') return null;
@@ -344,7 +352,7 @@ function covenantCheck(inp, isMint) {
 }
 
 export function compute(pp) {
-  pp = pp || {};
+  pp = isObj(pp) ? dropTopNulls(pp) : {};
   const refusals = [];
   const refuse = (r) => { if (!refusals.includes(r)) refusals.push(r); };
   const inp = parseInputs(isObj(pp) ? pp : {}, refuse);
