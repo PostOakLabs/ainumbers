@@ -53,6 +53,7 @@
  */
 import { execSync, execFileSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
+import { loadHubCategories } from './_hub-categories.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -272,7 +273,7 @@ if (!shouldStop()) {
     record({ label: 'hub-categories.json membership', status: 'FAIL', ms: Date.now() - t0, out: `${ID} not found in chaingraph.json — cannot derive whether a hub-categories.json entry is required.` });
   } else {
     try {
-      const hub = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'hub-categories.json'), 'utf8'));
+      const hub = loadHubCategories(REPO);
       const present = Object.values(hub).some((cat) => Array.isArray(cat.art_ids) && cat.art_ids.includes(ID));
       if (present) {
         record({ label: 'hub-categories.json membership', status: 'PASS', ms: Date.now() - t0, out: `${ID} present in hub-categories.json.` });
