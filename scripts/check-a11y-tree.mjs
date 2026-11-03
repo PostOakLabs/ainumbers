@@ -407,6 +407,22 @@ function midflightShardIds() {
     .filter((id) => existsSync(resolve(REPO, 'chaingraph', `${id}.html`)) || existsSync(resolve(REPO, 'manifests', `${id}.manifest.json`)));
 }
 
+/** QUEUE-EJECT-NEWNODE-ASSEMBLE-1: classify the mid-flight finding. It is a
+ *  problem (exit 1) in every isMainContext() context AND in any CI run
+ *  (GITHUB_ACTIONS=true, i.e. pull_request too), so a new-node PR that did not
+ *  commit its enrolled meta + assembled chaingraph.json reds on the PR instead
+ *  of being ejected from the merge queue (PR #2830, run 41540654983). A local
+ *  run on a feature branch (the pre-push hook) stays advisory, so a builder
+ *  whose fence forbids chaingraph.json can still push its PR. `env` and `main`
+ *  are injectable for the in-memory self-test only. */
+function midflightFinding(ids, { env = process.env, main } = {}) {
+  if (!ids.length) return { problem: null, advisory: null };
+  const msg = `node shard(s) on disk not in chaingraph.meta.json order.nodes (mid-flight): ${ids.join(', ')} — cure in the PR at its CURE-SEQUENCE-1 turn (lineage-class): merge current main, then node scripts/assemble-chaingraph.mjs --enroll (verdict must be AUTO-LAND, additive), commit chaingraph/chaingraph.meta.json + chaingraph/chaingraph.json (see #2384, #2806)`;
+  const hard = env.GITHUB_ACTIONS === 'true' || (main === undefined ? isMainContext() : main);
+  if (hard) return { problem: msg, advisory: null };
+  return { problem: null, advisory: `⚠ check-a11y-tree advisory (local feature branch — CI and the merge queue fail closed on this): ${msg}` };
+}
+
 /** SO #34c RED-then-GREEN proof, in-process (never exits non-zero). */
 function redGreen() {
   const before = collect();
@@ -430,21 +446,16 @@ function run() {
   const toolsPages = readdirSync(resolve(REPO, 'tools')).filter((f) => f.endsWith('.html')).length;
   // MERGEGROUP-A11Y-ASSEMBLY-1 Fix B: the mid-flight shard condition fails
   // CLOSED in every main context (merge_group with the assembled tree, push
-  // and workflow_run on main — isMainContext()'s fail-closed whitelist) and
-  // stays a WARNING on pull_request, where a mid-flight shard is by
-  // construction repairable inside the PR (commit the regenerated derived
-  // artifacts, the #2384 shape). This also closes the path-filter skip delay
+  // and workflow_run on main — isMainContext()'s fail-closed whitelist). A
+  // mid-flight shard is by construction repairable inside the PR (commit the
+  // enrolled meta + assembled chaingraph.json, the #2384/#2806 shape). This also closes the path-filter skip delay
   // measured on run 38188494506: the post-regen main run cannot skip past an
   // unregistered shard that carries a page or manifest.
-  const midflight = midflightShardIds();
-  if (midflight.length) {
-    const msg = `node shard(s) on disk not in chaingraph.meta.json order.nodes (mid-flight): ${midflight.join(', ')} — queue cannot prove this page passes TOOLPAGE-A11Y-1; commit the regenerated derived artifacts in the PR (see #2384)`;
-    if (isMainContext()) {
-      problems.push(msg);
-    } else {
-      console.log(`⚠ check-a11y-tree advisory (PR context — the merge queue fails closed on this): ${msg}`);
-    }
-  }
+  // QUEUE-EJECT-NEWNODE-ASSEMBLE-1: the finding now also fails on the CI
+  // pull_request run (see midflightFinding), so the PR shows the queue's red.
+  const finding = midflightFinding(midflightShardIds());
+  if (finding.problem) problems.push(finding.problem);
+  if (finding.advisory) console.log(finding.advisory);
   if (problems.length) {
     console.error(`✗ check-a11y-tree FAILED (${problems.length}):`);
     problems.forEach((p) => console.error('    ' + p));
@@ -584,8 +595,27 @@ async function selfTest() {
     assert(noFooter.includes(region) && noFooter.indexOf(region) < noFooter.indexOf('</body>'), 'fallback anchor = last </body>');
   }
 
+  // QUEUE-EJECT-NEWNODE-ASSEMBLE-1: the mid-flight finding fails on the CI
+  // pull_request run and stays advisory on a local feature branch. In-memory
+  // only: a synthetic id, an injected env, nothing read from or written to disk.
+  {
+    const ids = ['art-999-selftest-midflight'];
+    const exitOf = (f) => (f.problem ? 1 : 0);
+    const pr = midflightFinding(ids, { env: { GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request' }, main: false });
+    assert(exitOf(pr) === 1 && !pr.advisory, 'GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request + mid-flight id → problem, exit 1');
+    assert(pr.problem.startsWith('node shard(s) on disk not in chaingraph.meta.json order.nodes (mid-flight): art-999-selftest-midflight'), 'leading phrase byte-identical for existing greps');
+    assert(pr.problem.includes('node scripts/assemble-chaingraph.mjs --enroll'), 'finding names the enroll cure');
+    console.log(`  case PR-context (GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request): exit ${exitOf(pr)} — ${pr.problem.slice(0, 120)}…`);
+    const local = midflightFinding(ids, { env: {}, main: false });
+    assert(exitOf(local) === 0 && local.advisory && local.advisory.startsWith('⚠ check-a11y-tree advisory'), 'GITHUB_ACTIONS unset on a feature branch → advisory, exit 0');
+    console.log(`  case local-feature-branch (GITHUB_ACTIONS unset): exit ${exitOf(local)} — ${local.advisory.slice(0, 120)}…`);
+    const queue = midflightFinding(ids, { env: {}, main: true });
+    assert(exitOf(queue) === 1, 'main context (isMainContext() true) → problem, exit 1 (unchanged)');
+    assert(exitOf(midflightFinding([], { env: { GITHUB_ACTIONS: 'true' }, main: true })) === 0, 'no mid-flight ids → nothing');
+  }
+
   await redGreen();
-  console.log('SELF-TEST PASS (emitted script shape, attr applier purity/idempotence, region markers, script-blinded control scan, main anchor, shared canonical-position table convergence, mutation red-green).');
+  console.log('SELF-TEST PASS (mid-flight PR-context red + local advisory,emitted script shape, attr applier purity/idempotence, region markers, script-blinded control scan, main anchor, shared canonical-position table convergence, mutation red-green).');
 }
 
 function expectedRegionTest() {
