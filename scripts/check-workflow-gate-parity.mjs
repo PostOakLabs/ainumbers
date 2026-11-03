@@ -217,6 +217,8 @@ const NOT_A_GATE = new Map([
   ["automerge-label.yml",
     "pull_request: [labeled] automation that PERFORMS the merge (SO #37's label path); " +
     "it is not a required status check and blocks nothing."],
+  ["auto-arm.yml",
+    "arms labelled PRs; no merge gate."],
   ["deploy-docs.yml",
     "push main only — deploys the docs subdomain post-merge."],
   ["deploy-drift-check.yml",
