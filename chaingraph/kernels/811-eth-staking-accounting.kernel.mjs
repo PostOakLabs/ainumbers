@@ -83,7 +83,7 @@ export function compute(pp) {
   const prefix = toBig(pp.withdrawal_credential_prefix);
   const partBal = Array.isArray(pp.unslashed_participating_balance_gwei) && pp.unslashed_participating_balance_gwei.length === 3
     ? pp.unslashed_participating_balance_gwei.map(toBig) : null;
-  const incl = pp.inclusion_attestations === undefined ? [] : pp.inclusion_attestations;
+  const incl = pp.inclusion_attestations == null ? [] : pp.inclusion_attestations;
   if (!Array.isArray(incl)) return refuse('NON_NEGATIVE_INTEGER_INPUTS');
   if ([eb, T, score, slotsCounted, slotsSet, slashingsSum, slashEpoch, exitEpoch, prefix].some((x) => x === null) || partBal === null || partBal.some((x) => x === null)) {
     return refuse('NON_NEGATIVE_INTEGER_INPUTS');
