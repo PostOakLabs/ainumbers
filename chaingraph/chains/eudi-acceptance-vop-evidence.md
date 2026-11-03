@@ -23,3 +23,13 @@ Domain: EU Digital ID & Consumer Credit
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Does the bank's Verification-of-Payee response code agree with the match score we computed for this payee name?
+Run the AINumbers MCP tool `run_chain` with {"chain":"eudi-acceptance-vop-evidence"} and read `art-548-vop-readiness-diagnostic.consistent`.
+Re-run with `inputs` for `art-548-vop-readiness-diagnostic`, reusing the values that result echoed, with `psp_vop_response_code` changed so psp_vop_response_code is NMTCH while the match score stays 0.97. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/eudi-acceptance-vop-evidence.html
