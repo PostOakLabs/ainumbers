@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (704 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (705 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -199,6 +199,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/787-corridor-cost-averages.html",
     "description": "Computes one remittance corridor's cost THREE ways from caller-declared provider quotes and reports each against the SDG 10.c 3% target and ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "790-je-period-lock-gate",
+    "display_name": "Je Period Lock Gate",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/790-je-period-lock-gate.html",
+    "description": "Evaluates caller-declared journal entries against a caller-declared, time-varying period-lock policy and reports, per entry, whether the dec",
     "consumes": [],
     "feeds": [],
     "status": "live"
