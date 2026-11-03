@@ -59,7 +59,7 @@ function refused(reasons) {
       note: SCOPE_NOTE,
       reasons,
     },
-    compliance_flags: ['INPUT_REFUSED'],
+    compliance_flags: reasons.length > 0 ? ['INPUT_REFUSED'] : [],
   };
 }
 
