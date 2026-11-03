@@ -53,7 +53,9 @@ function toBig(v) {
 }
 
 function refuse(code) {
-  return { output_payload: { refused: true, refusal_code: code }, compliance_flags: ['INPUT_REFUSED'] };
+  // `issues` mirrors compliance_flags in output_payload (ART806-MIRROR-ISSUES-1).
+  const issues = [code];
+  return { output_payload: { refused: true, refusal_code: code, issues }, compliance_flags: issues.length > 0 ? ['INPUT_REFUSED'] : [] };
 }
 
 const s = (b) => b.toString();
@@ -199,6 +201,7 @@ export function compute(pp) {
       correlated_penalty_epoch: correlatedEpoch,
       net_epoch_delta_gwei: s(rewards - penalties),
       pending_pin: pending,
+      issues: [],
     },
     compliance_flags: [],
   };
