@@ -8,12 +8,32 @@
 // Note: legitimate domain acronyms are NOT flagged — only the wave-N pattern and the specific
 // deprecated slug-stems followed by `-*` or `-<lowercase>` (DTC/MiCA/etc. are not in the list).
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const cg = JSON.parse(readFileSync(resolve(HERE, '..', 'chaingraph', 'chaingraph.json'), 'utf8'));
+// REGEN-VALIDATORS-IN-QUEUE-1 step 2 (mechanism A): this gate reads the DERIVED
+// chaingraph.json (main's regen writes it, so a bad shard description only
+// surfaces here post-regen). When an ephemeral derived tree is mounted
+// (DERIVED_ROOT — merge_group queue), read the assembled copy the queue just
+// produced, so the queue simulates the regen's post-regen validator instead of
+// silently passing on a stale committed monolith. Otherwise: in-tree, unchanged.
+// Prints one line naming which file was read.
+const dr = process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim();
+let cgPath = resolve(HERE, '..', 'chaingraph', 'chaingraph.json');
+if (dr) {
+  const p = resolve(dr, 'chaingraph', 'chaingraph.json');
+  if (existsSync(p)) {
+    cgPath = p;
+    console.log(`shipped-prose: chaingraph.json read from DERIVED_ROOT copy: ${p}`);
+  } else {
+    console.log(`shipped-prose: DERIVED_ROOT set but no chaingraph/chaingraph.json under ${dr} — falling back to in-tree file`);
+  }
+} else {
+  console.log(`shipped-prose: chaingraph.json read from in-tree file: ${cgPath}`);
+}
+const cg = JSON.parse(readFileSync(cgPath, 'utf8'));
 
 const FORBIDDEN = /\bwave[- ]?\d+\b|\b(?:tcm|wts|aer|aig|cbm|sanc|sd|ec)-(?:\*|[a-z])/i;
 const hits = [];

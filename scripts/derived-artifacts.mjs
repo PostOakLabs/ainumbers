@@ -100,6 +100,7 @@ import { chainAskAgentPages } from './gen-chain-ask-agent.mjs';
 import { hubScenePages } from './gen-hub-scenes.mjs';
 import { WRITES_REPORT_PATH } from './gen-manifest-examples.mjs';
 import { PAGE_MD_TWINS_WRITES_REPORT_PATH } from './gen-page-md-twins.mjs';
+import { RECEIPT_BUNDLES_WRITES_REPORT_PATH } from './gen-receipt-bundles.mjs';
 // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: the six new bare-tree entries' report paths come
 // from the shared-constants module — importing the generators themselves would RUN
 // them (several are script-style with module-level write paths / argv dispatch).
@@ -183,6 +184,25 @@ export const COVERED = [
     writes: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     share: '8%',
+  },
+  {
+    // PROVE-BASELINE-SINGLE-WRITER-1 (2026-10-19): the §18 deferred ratchet
+    // baseline joins the single-writer set. Every prove PR and node PR used to
+    // edit scripts/compute-proof-baseline.json (count + deferred_nodes), so
+    // parallel PRs conflicted on it serially and identical "13 -> 12" hunks
+    // merged more than once. The gate now exempts brand-new deferred nodes from
+    // the ceiling and a prove PR already sits under it, so no PR has to touch
+    // the file; this entry pins the lowered count and the new names on main.
+    // A proof regression is never absorbed: the writer holds (writes nothing,
+    // ::warning, exit 0 so the pass is not stopped) and the strict gate reds main.
+    // Ordered after 'chaingraph-assemble': it reads the reassembled monolith.
+    id: 'compute-proof-baseline',
+    regen: 'node scripts/check-compute-proof-coverage.mjs --regen-baseline',
+    gate: 'node scripts/check-compute-proof-coverage.mjs --check-baseline',
+    writes: ['scripts/compute-proof-baseline.json'],
+    artifacts: ['scripts/compute-proof-baseline.json'],
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-10-19, PROVE-BASELINE-SINGLE-WRITER-1)',
   },
   {
     // CHAIN-PROMPT-INFRA-1 (Tim 2026-09-27, "every new chain ships a genuinely
@@ -1296,6 +1316,30 @@ export const COVERED = [
     artifacts: ['rss.xml'],
     share: 'n/a (new 2026-09-22, FEED-TWINS-1)',
   },
+  {
+    // RECEIPT-BUNDLE-PUBLISH-1 (2026-10-22): one RECEIPT-BUNDLE v0.1 file per live
+    // node whose receipt the §18 digest-freshness check classes FRESH, plus an
+    // index.json. A thin wrapper over receipt-bundle-build.mjs (no bundle logic of
+    // its own); scope is computeStaleness() from check-s18-digest-freshness.mjs, so a
+    // stale receipt is never published. Anchor = the published registry-lineage
+    // checkpoint, and per RECEIPT-BUNDLE §3.4 every bundle and the index say the log
+    // half commits to that checkpoint, not to the receipt. Zero network, no prover,
+    // no wall clock: --write twice is a zero diff. Runtime-named files inside one
+    // generator-owned tree, so the stage set is the attested writes report
+    // (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1) and the tree is prAbsentOk (SO #35: the
+    // PR never commits it; main's regen writes it after merge).
+    id: 'receipt-bundles',
+    regen: 'node scripts/gen-receipt-bundles.mjs --write',
+    gate: 'node scripts/gen-receipt-bundles.mjs --check',
+    writes: ['chaingraph/receipt-bundles'],
+    artifacts: ['chaingraph/receipt-bundles'],
+    writesReport: RECEIPT_BUNDLES_WRITES_REPORT_PATH,
+    writesReportRequired: true,
+    prAbsentOk: true,
+    // reads chaingraph.json (node scope + receipts) — must run AFTER the assembler
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-10-22, RECEIPT-BUNDLE-PUBLISH-1)',
+  },
 ];
 
 /**
@@ -1675,25 +1719,40 @@ export const DERIVED_ROOT_GATES = new Set([
   'python scripts/verify_repo.py',                           // deploy gate sitemap leg (SITEMAP-DEPLOY-SPLIT-1; overlay read only)
   'node scripts/check-nav-reachability.mjs',                 // nav islands (reads the monolith for dynamic roots)
   'node scripts/check-nav-reachability.mjs --baseline-check',// nav-island baseline freshness
+  // REGEN-VALIDATORS-IN-QUEUE-1 (mechanism A): the two post-regen copy
+  // validators (derived-artifacts-regen.yml "Validate the regenerated
+  // reader-facing copy") are DERIVED_ROOT-aware — under the merge_group
+  // ephemeral tree they read the just-assembled chaingraph.json, so the queue
+  // simulates the regen's post-regen validators instead of passing on stale
+  // in-tree artifacts. check-shipped-prose reads the monolith directly;
+  // check-copy-hallmarks resolves its #descriptions read through
+  // chaingraphJsonReadPath().
+  'node scripts/check-copy-hallmarks.mjs',                   // reader-facing copy (#descriptions leg is DERIVED_ROOT-aware)
+  'node scripts/check-shipped-prose.mjs',                    // shipped prose jargon/slugs (reads the monolith)
+  // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): the two §18 digest-freshness commands
+  // read the monolith (the .test.mjs also the calibration) through derivedResolve — the coverage
+  // gate's shape — so they must SEE the merge_group scratch tree. Stripped, they fell back to the
+  // COMMITTED monolith, whose OLD journal digest against the queue ref's NEW kernel source counted
+  // the edited node stale and failed the exact-equality calibration: every in-place kernel-edit PR
+  // ejected from the merge queue (#2730 twice, #2795 — PR-2730-MERGEQUEUE-EJECT-DIAG-1). Spelled
+  // exactly as preflight.mjs's GATES list runs them.
+  'node scripts/check-s18-digest-freshness.mjs',             // §18 digest-freshness ratchet (reads the monolith)
+  'node scripts/check-s18-digest-freshness.test.mjs',        // §18 freshness fixture proof (monolith + calibration)
 ]);
 
-/** The non-empty DERIVED_ROOT, or '' — CI merge_group jobs only by convention,
- *  but any caller that sets the variable explicitly opts in to the overlay. */
-export function derivedRoot() {
-  const dr = process.env.DERIVED_ROOT;
-  return dr && dr.trim() ? dr.trim() : '';
-}
-
-/** Resolve a repo-relative derived-artifact path against the ephemeral tree
- *  when one is mounted, falling back to the real repo (overlay semantics: only
- *  files the assembly actually produced come from the scratch root). Accepts
- *  path segments, e.g. derivedResolve('chaingraph', 'chaingraph.json'). */
-export function derivedResolve(...parts) {
-  const rel = parts.join('/');
-  const dr = derivedRoot();
-  const scratch = dr ? resolve(REPO, dr, ...parts) : null;
-  return scratch && existsSync(scratch) ? scratch : resolve(REPO, ...parts);
-}
+// S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM
+// to _derived-resolve-lib.mjs (a leaf — imports nothing from this estate) and re-exported here so
+// every existing importer of this module is unchanged. In-place reason: THIS file statically
+// imports RECEIPT_BUNDLES_WRITES_REPORT_PATH from gen-receipt-bundles.mjs (see the import block
+// above), which imports computeStaleness from check-s18-digest-freshness.mjs; once check-s18
+// imported derivedResolve from HERE, that cycle left RECEIPT_BUNDLES_WRITES_REPORT_PATH in TDZ at
+// the 'receipt-bundles' entry's writesReport literal below whenever gen-receipt-bundles.mjs was
+// the ENTRY process — exactly what DERIVED-SET-SELFTEST-1 executes — with "ReferenceError:
+// Cannot access 'RECEIPT_BUNDLES_WRITES_REPORT_PATH' before initialization". The leaf breaks the
+// cycle at its root; the resolver's bytes and semantics are identical (same DERIVED_ROOT overlay,
+// same existsSync fallback, same REPO base).
+import { derivedRoot } from './_derived-resolve-lib.mjs';
+export { derivedResolve, derivedRoot } from './_derived-resolve-lib.mjs';
 
 /**
  * Is this a MAIN context (gates block) or a PR context (gates warn)?
@@ -1815,6 +1874,53 @@ function classifyWithSecondPass({ regen = runRegenPass, gates = () => runVerifyG
   regen();
   unionWritesReports(before);
   return gates();
+}
+
+// ── RECEIPT-BUNDLES-SAME-RUN-PUBLISH-1 (2026-11-02, runs 41424221501 / 41428082131) ──
+// receipt-bundles is the one COVERED entry whose ANCHOR writer is not orderable
+// inside COVERED: the published registry-lineage checkpoint it byte-copies
+// (§3.4) is written by derived-artifacts-regen.yml's "Publish the registry
+// lineage log" step, which runs BETWEEN the --regen step and this --verify
+// step. On any landing that grows the F2 key set (first exercised by #2806's
+// art-782), one run does: regen writes bundles anchored at checkpoint N →
+// publish moves the log to N+1 → pass-1 gates see every bundle stale → pass 2
+// heals → the fixpoint classifier refuses, the bot commits NOTHING, and main
+// stays red forever because the external Sigsum log is already anchored at
+// N+1 while no run can ever commit the N+1-anchored bundles. No `after:` edge
+// can fix this — the writer is a workflow step, not a COVERED entry — so the
+// classifier must recognise the shape instead of refusing it.
+//
+// The recognition is PROOF-GATED and fails closed, in the same style as
+// LINEAGE-BINDING-REGEN-REPAIRABLE-1: the reclassification fires only when
+//   (1) pass 1's red set was EXACTLY [receipt-bundles] — no other gate moved;
+//   (2) pass 2 healed it and broke nothing (newlyRed empty);
+//   (3) the read-only `append-absence-lineage-record.mjs --verify-regen-binding`
+//       check proves BINDING-OK — the published log is a byte-identical prefix
+//       of the records file AND the last absence record is the recomputed root,
+//       i.e. the publish this run already ran is complete and the ONLY drift
+//       left is the bundles lagging it.
+// In that state the pass-2 tree IS the fresh, self-consistent fixpoint tree
+// (regen on the committed result is zero-drift: the publish's size-only skip
+// makes it a no-op on the next run), so committing it is the ONE-commit landing
+// the openapi edge pattern exists to produce — refusing it would demand an
+// order fix that the COVERED mechanism cannot express. Any other shape still
+// hard-fails as before.
+const SAME_RUN_PUBLISH_ENTRY_ID = 'receipt-bundles';
+export const SAME_RUN_PUBLISH_PROOF_CMD = 'node scripts/append-absence-lineage-record.mjs --verify-regen-binding';
+
+/** Pure decision (the embedded --verify --self-test drives it with an injected
+ *  exec; production runs the real read-only proof command). Throws from exec
+ *  are drift=false — an unrunnable proof can never unlock the commit path. */
+export function isSameRunPublishDrift(healed, newlyRed, exec = (cmd) =>
+  execSync(cmd, { cwd: REPO, env: { ...process.env, PYTHONIOENCODING: 'utf-8' }, stdio: ['ignore', 'pipe', 'pipe'] }).toString()
+) {
+  if (newlyRed.length) return false;
+  if (healed.length !== 1 || healed[0] !== SAME_RUN_PUBLISH_ENTRY_ID) return false;
+  try {
+    return exec(SAME_RUN_PUBLISH_PROOF_CMD).includes('BINDING-OK');
+  } catch {
+    return false;
+  }
 }
 
 /** One freshness-gate pass for --verify (MERGEGROUP-DERIVED-REGEN-FIX-1): in
@@ -2069,8 +2175,22 @@ if (isMain) {
       // documented "no --write in this checkout" behavior — manifest-examples
       // keeps it; this row did not change settled entries).
       const iEntry = { id: 'selftest-report-optional', artifacts: ['manifests/'], writesReport: join(udir, 'also-absent.json') };
-      JSON.stringify(entryCommitPaths(iEntry)) === JSON.stringify(['manifests/']) || fail('a report-optional entry must keep the declared-glob fallback');
+      JSON.stringify(entryCommitPaths(iEntry)) === JSON.stringify(['manifests/']) || fail('a report-optional entry must keep the documented declared-glob fallback');
       console.log('✓ self-test (i): a report-optional entry keeps the documented declared-glob fallback');
+
+      // (j) RECEIPT-BUNDLES-SAME-RUN-PUBLISH-1: the classifier's reclassification
+      // fires ONLY on the exact proven shape — healed set exactly [receipt-bundles],
+      // nothing newly red, and the read-only binding proof says BINDING-OK. Every
+      // other shape must stay a hard fixpoint refusal.
+      const bindOk = () => 'append-absence-lineage-record: BINDING-OK records=105 log=105 …';
+      const bindFail = () => { throw new Error('append-absence-lineage-record: BINDING-FAIL LAST-RECORD — …'); };
+      isSameRunPublishDrift(['receipt-bundles'], [], bindOk) || fail('healed=[receipt-bundles] + BINDING-OK must classify as same-run publish drift');
+      console.log('✓ self-test (j1): healed=[receipt-bundles] with a BINDING-OK proof classifies as same-run publish drift');
+      !isSameRunPublishDrift(['receipt-bundles'], [], bindFail) || fail('a failing binding proof must NOT classify as same-run publish drift');
+      !isSameRunPublishDrift(['receipt-bundles', 'trust-signals'], [], bindOk) || fail('a multi-entry healed set must NOT classify (only the proven single-entry shape)');
+      !isSameRunPublishDrift(['receipt-bundles'], ['sitemap-xml'], bindOk) || fail('a pass-2 NEW red must NOT classify (non-idempotent generator stays hard)');
+      !isSameRunPublishDrift(['openapi'], [], bindOk) || fail('a healed non-receipt-bundles entry must NOT classify');
+      console.log('✓ self-test (j2): every non-proven shape (failing proof, multi-entry, newlyRed, other entry) still hard-fails');
     } finally {
       cleanUnionDir();
     }
@@ -2134,6 +2254,11 @@ if (isMain) {
     const { failed: red2 } = classifyWithSecondPass();
     const healed = red1.filter((id) => !red2.includes(id));
     const newlyRed = red2.filter((id) => !red1.includes(id));
+    if (healed.length && isSameRunPublishDrift(healed, newlyRed)) {
+      console.warn(`::warning title=Same-run lineage publish ordering (receipt-bundles)::pass 1 was red ONLY on receipt-bundles because this run's "Publish the registry lineage log" step moved registry/lineage/checkpoint AFTER the regen pass had written the bundles (RECEIPT-BUNDLES-SAME-RUN-PUBLISH-1; runs 41424221501 / 41428082131). Pass 2 rewrote the bundles against the freshly published checkpoint, and ${SAME_RUN_PUBLISH_PROOF_CMD} proves BINDING-OK (published log is a byte-identical prefix of the records file; last absence record is the recomputed root) — so the pass-2 tree now staged is the fresh, self-consistent fixpoint tree. Committing it is the one-commit landing; no cascade, and the next run's regen is zero-drift.`);
+      console.log('\n✓ derived-artifacts --verify: same-run lineage-publish drift recognised (RECEIPT-BUNDLES-SAME-RUN-PUBLISH-1) — the healed pass-2 tree is committed as the fixpoint landing.');
+      process.exit(0);
+    }
     if (healed.length || newlyRed.length) {
       if (healed.length) {
         console.error(`\n✗ derived-artifacts --verify: the regen pass is NOT a fixpoint — ${healed.join(', ')} was stale after pass 1 and fresh after pass 2.`);

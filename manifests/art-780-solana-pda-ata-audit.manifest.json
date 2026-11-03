@@ -1,0 +1,385 @@
+{
+  "tool_id": "art-780-solana-pda-ata-audit",
+  "version": "1.0.0",
+  "title": "Solana PDA Bump and ATA Audit",
+  "description": "Audit a claimed program-derived-address tuple: paste the program id, seeds with declared encodings (utf8 or hex), the bump seed and the claimed address. The node recomputes the address the runtime rules yield for that exact bump, tests whether the derived bytes land on the Ed25519 curve, scans the canonical bump space 255 down to 1, and reports claimed-matches and bump-canonicality booleans. A second valid address at a non-canonical bump is the substitution class exposed as a fact. Optionally paste wallet, mint and token program for the associated token account under the declared program and the classic Token program side by side. Values only; nothing on-chain is read.",
+  "category": "chaingraph",
+  "tags": [
+    "solana",
+    "pda",
+    "bump-seed",
+    "canonical-bump",
+    "associated-token-account",
+    "token-2022",
+    "address-substitution",
+    "ed25519",
+    "base58",
+    "mcp:audit_solana_pda_ata"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "program_id",
+      "seeds",
+      "bump",
+      "claimed_address"
+    ],
+    "properties": {
+      "program_id": {
+        "type": "string",
+        "description": "The claimed owning program address, base58 (decodes to 32 bytes). The PDA hash mixes these bytes after the seeds and bump."
+      },
+      "seeds": {
+        "type": "array",
+        "description": "Declared seeds in derivation order, each { data, encoding } with encoding \"utf8\" or \"hex\". An empty array is valid.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "data": {
+              "type": "string"
+            },
+            "encoding": {
+              "type": "string",
+              "enum": [
+                "utf8",
+                "hex"
+              ]
+            }
+          },
+          "required": [
+            "data",
+            "encoding"
+          ]
+        }
+      },
+      "bump": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 255,
+        "description": "The claimed bump seed, one byte. The canonical scan searches 255 down to 1; a claimed bump of 0 is auditable but never canonical."
+      },
+      "claimed_address": {
+        "type": "string",
+        "description": "The address the caller believes the tuple yields, base58. Compared by string equality against the recomputation."
+      },
+      "wallet": {
+        "type": "string",
+        "description": "Optional ATA mode: wallet address, base58. Requires mint and token_program_id alongside."
+      },
+      "mint": {
+        "type": "string",
+        "description": "Optional ATA mode: the mint address, base58."
+      },
+      "token_program_id": {
+        "type": "string",
+        "description": "Optional ATA mode: the token program the mint lives under, base58 (Token-2022 or the classic Token program)."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "audit_solana_pda_ata",
+    "description": "Audit a claimed Solana program-derived-address tuple (program id, seeds, bump, claimed address): recomputed address for the claimed bump, on-curve fact, canonical bump and address over the 255-to-1 scan, claimed-matches and bump-canonicality booleans, seed limit facts, and optional side-by-side associated-token-account derivation under a declared token program versus the classic Token program (the Token-2022 wrong-derivation class). Values only; no RPC, no network, no on-chain read.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "program_id",
+        "seeds",
+        "bump",
+        "claimed_address"
+      ],
+      "properties": {
+        "program_id": {
+          "type": "string",
+          "description": "The claimed owning program address, base58 (decodes to 32 bytes). The PDA hash mixes these bytes after the seeds and bump."
+        },
+        "seeds": {
+          "type": "array",
+          "description": "Declared seeds in derivation order, each { data, encoding } with encoding \"utf8\" or \"hex\". An empty array is valid.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "string"
+              },
+              "encoding": {
+                "type": "string",
+                "enum": [
+                  "utf8",
+                  "hex"
+                ]
+              }
+            },
+            "required": [
+              "data",
+              "encoding"
+            ]
+          }
+        },
+        "bump": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "The claimed bump seed, one byte. The canonical scan searches 255 down to 1; a claimed bump of 0 is auditable but never canonical."
+        },
+        "claimed_address": {
+          "type": "string",
+          "description": "The address the caller believes the tuple yields, base58. Compared by string equality against the recomputation."
+        },
+        "wallet": {
+          "type": "string",
+          "description": "Optional ATA mode: wallet address, base58. Requires mint and token_program_id alongside."
+        },
+        "mint": {
+          "type": "string",
+          "description": "Optional ATA mode: the mint address, base58."
+        },
+        "token_program_id": {
+          "type": "string",
+          "description": "Optional ATA mode: the token program the mint lives under, base58 (Token-2022 or the classic Token program)."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-780-solana-pda-ata-audit.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-780-solana-pda-ata-audit.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: program_id, seeds, bump, claimed_address, wallet, mint, token_program_id.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+    "seeds": [
+      {
+        "data": "",
+        "encoding": "utf8"
+      }
+    ],
+    "bump": 1,
+    "claimed_address": "BwqrghZA2htAcqq8dzP1WDAhTXYTYWj7CHxF5j7TDBAe"
+  },
+  "output_example": {
+    "program_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+    "seed_count": 1,
+    "seed_count_with_bump": 2,
+    "seeds_exceeding_max_len": [],
+    "seed_count_with_bump_exceeds_max": false,
+    "derived_hash_base58": "BwqrghZA2htAcqq8dzP1WDAhTXYTYWj7CHxF5j7TDBAe",
+    "on_curve": false,
+    "create_program_address_verdict": "off_curve",
+    "claimed_bump": 1,
+    "claimed_address": "BwqrghZA2htAcqq8dzP1WDAhTXYTYWj7CHxF5j7TDBAe",
+    "claimed_matches": true,
+    "canonical_bump": 253,
+    "canonical_address": "DNKLRoKoM7XxX2iW1PTnqo6iP6CPpVDBgeN9hrpu2R2R",
+    "claimed_bump_is_canonical": false,
+    "ata_derivation": null,
+    "note": "Derivation per the pinned Solana sources: SHA-256 over seeds (declared order) then the bump byte then the program id then the bytes \"ProgramDerivedAddress\" (solana-labs/solana sdk/program/src/pubkey.rs at 7700cb3128c1f19820de67b81aa45d18f73d2ac0, create_program_address L585-L616); a result that decompresses to an Ed25519 curve point can never be a program-derived address, reported as on_curve. The canonical bump scan follows try_find_program_address (L510-L545) and its successor (anza-xyz/solana-sdk address/src/derive.rs): candidate bumps run 255 down to 1 and the first off-curve result wins, so bump 0 is outside the search space and a claimed bump of 0 is non-canonical even when its recomputed address matches; the row gloss that said 255 to 0 is corrected here per the primary text. Limits: at most 16 seeds including the bump seed, each seed at most 32 bytes (MAX_SEEDS 16, MAX_SEED_LEN 32), restated as facts, never silently dropped. ATA derivation uses seeds [wallet, token program id, mint] under program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL (solana-program/associated-token-account at 4004274dfb861e09570af873b46cb0b0919e8df0, interface/src/address.rs L67-L74); the classic-program side by side uses TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, and token_program_mismatch is true exactly when the mint is declared under Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, spl-token-2022-interface 3.1.2 src/lib.rs L29) and the two addresses differ, the wrong-derivation class the pinned ATA source itself deprecates. Off-curve testing is @noble/curves ed25519 point decompression. All comparisons are string equality on pasted values; this kernel reads nothing on-chain."
+  },
+  "example_execution_hash": "0a187c9f9026a01c81c02c8cd3e5258fbbbce6c33d94d1891b56e752c8b12a73",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "program_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "seed_count": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "seed_count_with_bump": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "seeds_exceeding_max_len": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "object",
+          "properties": {
+            "index": {
+              "type": "integer"
+            },
+            "byte_length": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "seed_count_with_bump_exceeds_max": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "derived_hash_base58": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "on_curve": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "create_program_address_verdict": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "off_curve | on_curve | max_seed_length_exceeded"
+      },
+      "claimed_bump": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "claimed_address": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "claimed_matches": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "canonical_bump": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "canonical_address": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "claimed_bump_is_canonical": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "ata_derivation": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "mint": {
+            "type": "string"
+          },
+          "token_program_id": {
+            "type": "string"
+          },
+          "declared_token_program_is_token_2022": {
+            "type": "boolean"
+          },
+          "declared_token_program_is_classic": {
+            "type": "boolean"
+          },
+          "ata_under_declared_token_program": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "bump": {
+                "type": "integer"
+              }
+            }
+          },
+          "ata_under_classic_token_program": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "bump": {
+                "type": "integer"
+              }
+            }
+          },
+          "ata_addresses_differ": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "token_program_mismatch": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "error": {
+        "type": "string"
+      },
+      "detail": {
+        "type": "string"
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "note": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    }
+  }
+}

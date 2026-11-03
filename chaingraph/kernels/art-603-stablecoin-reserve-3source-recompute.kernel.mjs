@@ -16,7 +16,7 @@
 // GENIUS", never "audit"/"examination".
 //
 // Verdict vocabulary (spec §1, fixed, no other form emitted):
-//   Per-requirement recompute checks (reserve ratio, WAM ceiling):
+//   Per-requirement recompute checks (reserve ratio):
 //     MET | NOT_MET | INDETERMINATE
 //   Per-holding GENIUS eligible-asset flag:
 //     MATCHES_CRITERION | DOES_NOT_MATCH | INDETERMINATE
@@ -82,8 +82,7 @@ const MAX_ASSET_LINES = 64;
 
 // ── design-choice constants, stated as such per spec §3/§5/§7 ──────────────
 const MAX_AS_OF_SKEW_DAYS = 10;          // spec §3 — one-third of GENIUS monthly cadence, not statutory
-const WAM_CEILING_DAYS = 20;             // spec §5 — OCC NPRM detail, re-verify at build time, not final rule
-const NPRM_CONCENTRATION_CEILING_PCT = 40; // spec §6 — OCC NPRM detail, per-institution concentration
+const CONCENTRATION_LIMIT_PCT = 40;      // per-counterparty limit, 40 percent of reserve assets (final-rule value)
 const RESERVE_TOTAL_TOLERANCE_PCT = 0.5; // breakdown-vs-top-line internal consistency, design choice
 const RECONCILE_TOLERANCE_PCT = 0.5;     // cross-leg numeric reconcile tolerance, design choice
 const WAM_CROSSCHECK_TOLERANCE_DAYS = 2; // disclosure-recomputed vs EDGAR-reported WAM, design choice
@@ -186,7 +185,7 @@ const ELIGIBLE_ASSET_ITEMS = {
   other_occ_approved:                        { item: 7, label: 'Other similarly liquid, federal-government-issued assets as approved by the OCC (catch-all)' },
   tokenized_foregoing:                       { item: 8, label: 'Tokenized forms of the foregoing' },
 };
-const NPRM_ELIGIBLE_ASSET_REF = 'GENIUS Act statutory eligible-asset enumeration (8 items) — sourced from statute text, pre-final-rule disclosure per GENIUS-FINALRULE-CHECK-1; catch-all item 7 always INDETERMINATE, never auto-matched.';
+const ELIGIBLE_ASSET_REF = 'GENIUS Act statutory eligible-asset enumeration (8 items), implemented for permitted payment stablecoin issuers by 12 CFR 15.11(b) (OCC final rule 2026-10-21, effective 2027-01-18); catch-all item 7 always INDETERMINATE, never auto-matched.';
 
 function flagAssetClass(assetClass) {
   if (assetClass === 'non_eligible') {
@@ -362,20 +361,14 @@ export function compute(pp) {
     }
   }
 
-  // WAM ceiling check (§5 last bullet) — best-available: disclosure-recomputed preferred, EDGAR-reported fallback.
-  const bestWam = wamFromDisclosure.value_days !== null ? { value: wamFromDisclosure.value_days, wam_source: 'disclosure_recomputed' } : (wamFromEdgar.value_days !== null ? { value: wamFromEdgar.value_days, wam_source: 'edgar_nmfp_reported' } : null);
-  let wamCeiling;
-  if (bestWam === null) {
-    wamCeiling = { verdict: 'INDETERMINATE', wam_source: null, detail: 'Neither WAM source is usable — ceiling check cannot be evaluated.', ceiling_days: WAM_CEILING_DAYS, ceiling_ref: 'OCC NPRM detail (research/GENIUS-FINALRULE-CHECK-2026-08-07.md) — NPRM, not final rule, re-verify at build time.' };
-  } else if (bestWam.value <= WAM_CEILING_DAYS) {
-    wamCeiling = { verdict: 'MET', wam_source: bestWam.wam_source, detail: `Best-available WAM (${bestWam.value.toFixed(2)}d, source: ${bestWam.wam_source}) is at or below the ${WAM_CEILING_DAYS}-day ceiling.`, ceiling_days: WAM_CEILING_DAYS, ceiling_ref: 'OCC NPRM detail (research/GENIUS-FINALRULE-CHECK-2026-08-07.md) — NPRM, not final rule, re-verify at build time.' };
-  } else {
-    wamCeiling = { verdict: 'NOT_MET', wam_source: bestWam.wam_source, detail: `Best-available WAM (${bestWam.value.toFixed(2)}d, source: ${bestWam.wam_source}) exceeds the ${WAM_CEILING_DAYS}-day ceiling.`, ceiling_days: WAM_CEILING_DAYS, ceiling_ref: 'OCC NPRM detail (research/GENIUS-FINALRULE-CHECK-2026-08-07.md) — NPRM, not final rule, re-verify at build time.' };
-  }
+  // No WAM ceiling verdict exists: the OCC final rule of 2026-10-21 carries no
+  // weighted average maturity requirement in its reserve-composition rule. The
+  // WAM recompute and cross-check above are rule-independent arithmetic and
+  // stay, informational only.
 
   // ── §6 GENIUS eligible-asset flag — per-holding, criteria-match only.
   //    TWO SEPARATE ARRAYS, never merged: the statutory 8-item flag list,
-  //    and the OCC NPRM concentration detail. ⛔ No overall_eligibility. ───
+  //    and the counterparty concentration detail. ⛔ No overall_eligibility.
   const genius_eligible_holdings = breakdown.map((line, idx) => {
     const flag = flagAssetClass(line?.asset_class);
     return {
@@ -386,29 +379,59 @@ export function compute(pp) {
       statutory_item: flag.item,
       statutory_item_label: flag.label,
       detail: flag.detail,
-      ref: NPRM_ELIGIBLE_ASSET_REF,
+      ref: ELIGIBLE_ASSET_REF,
     };
   });
 
-  // OCC NPRM concentration detail — separate array, per-institution, provisional (spec §6).
-  const provisional_nprm_detail = [];
+  // Counterparty concentration detail — separate array, per counterparty.
+  // Exempt asset classes (exposures to the United States Government; directly held
+  // coin and currency) are marked exempt and excluded from the limit test.
+  const CONCENTRATION_REF = 'Counterparty concentration limit of 40 percent of reserve assets per counterparty, 12 CFR 15.11(c)(2)(ii)(A) (OCC final rule 2026-10-21, 12 CFR Part 15, effective 2027-01-18); US Government exposures and directly held coin and currency are exempt under (c)(2)(ii)(B)(1) and the preamble direct-holding clarification.';
+  const CONCENTRATION_NOTE = 'Counterparty concentration limit: 40 percent of reserve assets per counterparty, 12 CFR 15.11(c)(2)(ii)(A) (OCC final rule 2026-10-21, effective 2027-01-18). Exposures to the United States Government and directly held U.S. coin and currency are marked exempt and excluded from the test per (c)(2)(ii)(B)(1) and the preamble direct-holding clarification. The custody exemption (15.11(c)(2)(ii)(B)(2) with 15.11(d)) and the centrally cleared repo exemption ((B)(3)) cannot be determined from the declared inputs and are not modelled: an exceeding result is a prompt to check those exemptions, not a finding. Federal Reserve account balances are evaluated against the limit, not exempt, because the final rule and its preamble do not exempt them.';
+  function concentrationExemptBasis(assetClass) {
+    if (assetClass === 'treasury_bill_93d_or_less') return 'Exempt under 12 CFR 15.11(c)(2)(ii)(B)(1): exposure to the United States Government.';
+    if (assetClass === 'us_coin_and_currency') return 'Exempt per the OCC preamble to 12 CFR 15.11: directly held coin and currency, the issuer cannot be its own counterparty.';
+    return null;
+  }
+  const counterparty_concentration = [];
   if (legAPresent && breakdown.length > 0 && total_reserves_usd_recomputed !== null && total_reserves_usd_recomputed > 0) {
-    const byInstitution = new Map();
+    const byCounterparty = new Map();
     for (const line of breakdown) {
       const key = line?.institution ?? line?.asset_class ?? 'unspecified';
-      byInstitution.set(key, (byInstitution.get(key) ?? 0) + Number(line?.amount_usd ?? 0));
+      const basis = concentrationExemptBasis(line?.asset_class);
+      const group = byCounterparty.get(key) ?? { exemptAmount: 0, testedAmount: 0, basis: null };
+      if (basis !== null) {
+        group.exemptAmount += Number(line?.amount_usd ?? 0);
+        group.basis = group.basis ?? basis;
+      } else {
+        group.testedAmount += Number(line?.amount_usd ?? 0);
+      }
+      byCounterparty.set(key, group);
     }
-    for (const [institution, amount] of byInstitution) {
-      const pctOfTotal = parseFloat(((amount / total_reserves_usd_recomputed) * 100).toFixed(4));
-      provisional_nprm_detail.push({
-        institution,
-        amount_usd: parseFloat(amount.toFixed(2)),
-        pct_of_recomputed_reserves: pctOfTotal,
-        exceeds_concentration_ceiling: pctOfTotal > NPRM_CONCENTRATION_CEILING_PCT,
-        provisional_nprm_detail: true,
-        ceiling_pct: NPRM_CONCENTRATION_CEILING_PCT,
-        ref: 'OCC NPRM concentration detail (≤40% at any one eligible institution) — proposed-rule detail, not statute, kept visibly separate from the statutory eligible-asset list.',
-      });
+    for (const [counterparty, group] of byCounterparty) {
+      if (group.testedAmount === 0) {
+        const pctOfTotal = parseFloat(((group.exemptAmount / total_reserves_usd_recomputed) * 100).toFixed(4));
+        counterparty_concentration.push({
+          counterparty,
+          amount_usd: parseFloat(group.exemptAmount.toFixed(2)),
+          pct_of_recomputed_reserves: pctOfTotal,
+          exempt_basis: group.basis,
+          exceeds_concentration_limit: null,
+          limit_pct: CONCENTRATION_LIMIT_PCT,
+          ref: CONCENTRATION_REF,
+        });
+      } else {
+        const pctOfTotal = parseFloat(((group.testedAmount / total_reserves_usd_recomputed) * 100).toFixed(4));
+        counterparty_concentration.push({
+          counterparty,
+          amount_usd: parseFloat(group.testedAmount.toFixed(2)),
+          pct_of_recomputed_reserves: pctOfTotal,
+          exempt_basis: null,
+          exceeds_concentration_limit: pctOfTotal > CONCENTRATION_LIMIT_PCT,
+          limit_pct: CONCENTRATION_LIMIT_PCT,
+          ref: CONCENTRATION_REF,
+        });
+      }
     }
   }
 
@@ -469,7 +492,6 @@ export function compute(pp) {
   const BAD = new Set(['NOT_MET', 'DISCREPANT', 'DOES_NOT_MATCH']);
   const allVerdicts = [
     reserveRatio.verdict,
-    wamCeiling.verdict,
     ...genius_eligible_holdings.map((h) => h.verdict),
     ...reconciles.map((r) => r.verdict),
   ];
@@ -484,7 +506,7 @@ export function compute(pp) {
   if (reserveRatio.verdict === 'NOT_MET') compliance_flags.push('RESERVE_RATIO_DEFICIENCY');
   if (reconciles.some((r) => r.verdict === 'DISCREPANT')) compliance_flags.push('CROSS_SOURCE_DISCREPANCY');
   if (genius_eligible_holdings.some((h) => h.verdict === 'DOES_NOT_MATCH')) compliance_flags.push('GENIUS_NON_ELIGIBLE_HOLDING_DECLARED');
-  if (provisional_nprm_detail.some((d) => d.exceeds_concentration_ceiling)) compliance_flags.push('NPRM_CONCENTRATION_CEILING_EXCEEDED');
+  if (counterparty_concentration.some((d) => d.exceeds_concentration_limit === true)) compliance_flags.push('CONCENTRATION_LIMIT_EXCEEDED');
 
   const output_payload = {
     overall_determination,
@@ -506,14 +528,14 @@ export function compute(pp) {
       wam_from_disclosure: wamFromDisclosure,
       wam_from_edgar: wamFromEdgar,
       wam_cross_check: wamCrossCheck,
-      wam_ceiling_check: wamCeiling,
     },
     genius_eligible_holdings,
-    provisional_nprm_detail,
+    counterparty_concentration,
+    concentration_limit_note: CONCENTRATION_NOTE,
     reconciles,
     not_proven: NOT_PROVEN,
     determination_note: 'overall_determination is a worst-of rollup of independent recompute-and-reconcile checks on disclosed figures. It is never a solvency claim, never an audit opinion, and never "satisfies GENIUS" — it states whether recomputed arithmetic, WAM, and three independently-sourced figures are internally consistent with each other, and nothing about whether the declared figures are themselves true.',
-    regulatory_framework: 'GENIUS Act reserve-composition recompute (statute-derived eligible-asset enumeration + OCC NPRM concentration/WAM detail, see art-582/art-06/art-275 for the pre-issuance/statutory-restatement/report-timeliness siblings); SEC EDGAR N-MFP Part 1 series summary (U.S. government work, freely usable); not a PCAOB audit, not a third-party sign-off, not an examination.',
+    regulatory_framework: 'GENIUS Act reserve-composition recompute (statutory eligible-asset enumeration as implemented by 12 CFR 15.11, OCC final rule 2026-10-21, effective 2027-01-18, with counterparty concentration per 12 CFR 15.11(c)(2)(ii); see art-582/art-06/art-275 for the pre-issuance/statutory-restatement/report-timeliness siblings); SEC EDGAR N-MFP Part 1 series summary (U.S. government work, freely usable); not a PCAOB audit, not a third-party sign-off, not an examination.',
   };
 
   return { output_payload, compliance_flags };

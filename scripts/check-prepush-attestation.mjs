@@ -147,6 +147,21 @@
  *       written justification, now also machine-readable).
  *   node scripts/check-prepush-attestation.mjs --print-pathspec
  *       Print the protected pathspec list for `git diff -- …` (the hook's SSOT read).
+ *
+ * ── ATTEST-BY-CHILD (ATTEST-BOT-MERGE-BY-CHILD-1, Tim's ruling 2026-10-21T23:55Z
+ *    item 4, verdict "A — attest-by-child") ────────────────────────────────────
+ * Every bot regen/merge cycle produced a bot-authored commit touching protected
+ * paths with no direct attestation; the gate redded UNATTESTED on it while its
+ * attested follow-up child was green — a by-construction red on healthy trees
+ * (f547c787 is the named instance; ORCH-507 called the pattern "reconfirmed").
+ * Ruling: when the commit under check is BOT-AUTHORED (the `isBotIdentity` shape
+ * this file already consults — no second list) and reaches this gate after every
+ * existing resolution failed, it passes iff a DIRECT CHILD commit carries a
+ * resolvable attestation note (PREFLIGHT-VERIFIED / BYPASS / ADJUDICATED), which
+ * attests the merged tree state that includes the bot commit. No child
+ * attestation = the red stands (fail-closed, unchanged). ⛔ Human commits are
+ * untouched: a non-bot committer never reaches this route and keeps the exact
+ * existing requirement — direct attestation, no exemptions inherited.
  */
 import { execFileSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
@@ -477,8 +492,18 @@ export function runCheck({
   }
 
   const range = base ? `${base}..${head}` : `${head}^..${head}`;
-  const revs = git(['rev-list', '--reverse', range], repo, { allowFail: true });
-  const shas = revs ? revs.split('\n').map((s) => s.trim()).filter(Boolean) : [];
+  // ATTEST-BOT-MERGE-BY-CHILD-1: `--children` annotates each rev with its direct
+  // children (within the listed set), giving the parent→child map the
+  // attest-by-child route reads — at no extra traversal.
+  const revs = git(['rev-list', '--reverse', '--children', range], repo, { allowFail: true });
+  const childMap = new Map();
+  const shas = [];
+  for (const line of (revs ? revs.split('\n') : [])) {
+    const parts = line.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) continue;
+    shas.push(parts[0]);
+    childMap.set(parts[0], parts.slice(1));
+  }
 
   const inScope = [];
   for (const sha of shas) {
@@ -660,6 +685,35 @@ export function runCheck({
       if (prAttested) continue;
     }
 
+    // 5. ATTEST-BY-CHILD (ATTEST-BOT-MERGE-BY-CHILD-1, ruling 2026-10-21T23:55Z
+    //    item 4). A bot-authored commit on a protected path that every earlier
+    //    resolution (note, pinned single writer, merged-PR required checks) has
+    //    declined to pass is GREEN iff a DIRECT CHILD of it carries a resolvable
+    //    attestation note — the follow-up run that attests the merged tree state.
+    //    Fail-closed: no child, or a child without a usable note, falls through to
+    //    the same UNATTESTED red as before. Human committers never enter this
+    //    route (isBotIdentity is the same list the AUTOMATION carve-out consults).
+    if (isBotIdentity(c.committerName, c.committerEmail)) {
+      const kids = childMap.get(c.sha) || [];
+      let childAttested = false;
+      for (const kid of kids) {
+        const kidBody = noteBody(repo, index, kid);
+        if (!kidBody) continue;
+        const kidNote = classifyNote(kidBody);
+        if (kidNote.kind !== 'verified' && kidNote.kind !== 'bypass' && kidNote.kind !== 'adjudicated') continue;
+        verdicts.push({ sha: c.sha, verdict: 'ATTESTED', via: `attested child ${kid.slice(0, 8)}` });
+        say(`  ✓ ATTESTED        ${label}   [attest-by-child: ${kidNote.kind === 'verified' ? 'PREFLIGHT-VERIFIED' : kidNote.kind === 'bypass' ? 'PREFLIGHT-BYPASS' : 'PREFLIGHT-ADJUDICATED'} note on direct child ${kid.slice(0, 8)} — the child run attests the merged tree state]`);
+        childAttested = true;
+        break;
+      }
+      if (childAttested) continue;
+      if (kids.length) {
+        say(`  ! bot-authored commit has direct child ${kids.map((k) => k.slice(0, 8)).join(', ')}, but no child carries a resolvable attestation — the red stands (fail-closed).`);
+      } else {
+        say('  ! bot-authored commit has no direct child in the checked range — no attest-by-child rescue.');
+      }
+    }
+
     // INDETERMINATE is reserved for a resolution that was ATTEMPTED and FAILED —
     // `gh` missing, API error. `--no-remote` is not that: it is the caller
     // declaring there is no squash-rewrite mapping to follow (a local repo, a
@@ -719,6 +773,10 @@ export const SCENARIOS = [
   'bot-wrong-user-id',      // RED:   exact bot login but a DIFFERENT user id — not the pinned single writer
   'bot-resolution-unavailable', // INDETERMINATE: both the commits API and the app lookup failed — absence not established
   'adjudicated-note',       // GREEN: retroactive adjudication note, reason printed into the log
+  // ATTEST-BOT-MERGE-BY-CHILD-1 — the ruled RED/GREEN controls for the
+  // attest-by-child route (Tim's ruling 2026-10-21T23:55Z item 4):
+  'bot-merge-child-unattested', // RED:   bot-authored protected-path commit, child exists but carries no note — the red stands (fail-closed, unchanged behavior)
+  'bot-merge-child-attested',   // GREEN: the same shape plus a PREFLIGHT-VERIFIED note on the direct child — the child run attests the merged tree state
 ];
 
 const EXPECTED = {
@@ -738,6 +796,8 @@ const EXPECTED = {
   'bot-wrong-user-id': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
   'bot-resolution-unavailable': { exitCode: 1, verdict: 'INDETERMINATE', state: 'FAIL' },
   'adjudicated-note': { exitCode: 0, verdict: 'BYPASS-DECLARED', state: 'PASS' },
+  'bot-merge-child-unattested': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
+  'bot-merge-child-attested': { exitCode: 0, verdict: 'ATTESTED', state: 'PASS' },
 };
 
 /**
@@ -806,6 +866,18 @@ function buildFixture(scenario, dir) {
   } else if (scenario === 'bot-out-of-scope') {
     botCommit([['scripts/fixture-gate.mjs', 'protected path OUTSIDE the declared derived set']],
       'chore(derived): regenerate shared derived artifacts on main');
+  } else if (scenario === 'bot-merge-child-unattested' || scenario === 'bot-merge-child-attested') {
+    // ATTEST-BOT-MERGE-BY-CHILD-1 controls. The bot-authored protected-path
+    // commit lands OUTSIDE the derived set (so the pinned-writer carve-out does
+    // not take it — the by-construction-red shape of f547c787), and is followed
+    // by an UNPROTECTED follow-up child (the regen/merge cycle's next commit).
+    // Unattested: the child carries no note → the red stands. Attested: the
+    // child carries the PREFLIGHT-VERIFIED note the follow-up run wrote → green.
+    botCommit([['scripts/fixture-merge.mjs', 'bot-authored merge of a protected surface']],
+      'chore(derived): merge registry regen into main (bot-authored)');
+    writeFileSync(join(dir, 'README.md'), 'fixture base\npost-merge follow-up\n');
+    g('add', 'README.md');
+    g('commit', '-q', '-m', 'chore: post-merge follow-up run');
   } else if (scenario === 'bot-manifest-dir-slash') {
     // MAIN-REGEN-ATTEST-PREFIX-1: the declared root for bot-written manifests is
     // 'manifests/' WITH a trailing slash (coveredPaths() artifacts entry). Before
@@ -840,8 +912,12 @@ function buildFixture(scenario, dir) {
     g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m', `PREFLIGHT-VERIFIED sha=${prHead} ts=${ts}`, prHead);
   } else if (scenario === 'bot-in-scope' || scenario === 'bot-out-of-scope' || scenario === 'bot-wrong-app'
     || scenario === 'bot-app-lookup-fails' || scenario === 'bot-wrong-user-id' || scenario === 'bot-resolution-unavailable'
-    || scenario === 'bot-manifest-dir-slash') {
+    || scenario === 'bot-manifest-dir-slash' || scenario === 'bot-merge-child-unattested') {
     g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m', `PREFLIGHT-VERIFIED sha=${base} ts=${ts}`, base);
+  } else if (scenario === 'bot-merge-child-attested') {
+    // The attested follow-up: the note the child run wrote lands on the CHILD
+    // (head), not on the bot commit — that is the entire point of this scenario.
+    g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m', `PREFLIGHT-VERIFIED sha=${head} ts=${ts}`, head);
   }
   // 'notes-ref-absent' deliberately creates no note at all.
 
