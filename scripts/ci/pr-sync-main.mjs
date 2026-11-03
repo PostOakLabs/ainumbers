@@ -44,6 +44,8 @@
  *   node scripts/ci/pr-sync-main.mjs --apply [--max-prs 10] [--event-sha <sha>]
  *   options: --repo owner/name (default $GITHUB_REPOSITORY or PostOakLabs/ainumbers)
  *            --pr <n> (one PR only)  --min-head-age-min <m> (default 10)
+ *            --regen-wait-min <m> (with --event-sha: longest wait for main's
+ *            derived-artifacts-regen on that sha, default 15; see regenGate)
  *
  * --dry-run (the default) is read-only on GitHub: one GraphQL listing, then a
  * local `git fetch` of the PR head objects (no refs written, no FETCH_HEAD) and
@@ -66,6 +68,11 @@ export const SYNC_SUBJECT_PREFIX = 'chore(bot-sync):';
 export const MAX_ATTEMPTS_PER_HEAD = 2;
 export const DEFAULT_MAX_PRS = 10;
 export const DEFAULT_MIN_HEAD_AGE_MIN = 10;
+// push:main runs wait for derived-artifacts-regen on their own sha (a run
+// takes 3-4 min); see regenGate().
+export const REGEN_WAIT_MIN = 15;
+export const REGEN_APPEAR_SEC = 90;
+export const REGEN_POLL_SEC = 20;
 const MARK_CONFLICT = 'bot-sync:conflict';
 const MARK_ATTEMPT = 'bot-sync:attempt';
 
@@ -214,6 +221,7 @@ function parseArgs(argv) {
   const o = {
     apply: false, markdown: false, json: false, repo: process.env.GITHUB_REPOSITORY || 'PostOakLabs/ainumbers',
     maxPrs: DEFAULT_MAX_PRS, pr: null, eventSha: null, minHeadAgeMin: DEFAULT_MIN_HEAD_AGE_MIN,
+    regenWaitMin: REGEN_WAIT_MIN,
   };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
@@ -227,10 +235,12 @@ function parseArgs(argv) {
     else if (a === '--pr') o.pr = Number(next());
     else if (a === '--event-sha') o.eventSha = next();
     else if (a === '--min-head-age-min') o.minHeadAgeMin = Number(next());
+    else if (a === '--regen-wait-min') o.regenWaitMin = Number(next());
     else throw new Error(`unknown argument: ${a}`);
   }
   if (!/^[\w.-]+\/[\w.-]+$/.test(o.repo)) throw new Error(`bad --repo ${o.repo}`);
   if (!Number.isInteger(o.maxPrs) || o.maxPrs < 0) throw new Error('--max-prs must be a non-negative integer');
+  if (!(o.regenWaitMin >= 0)) throw new Error('--regen-wait-min must be a non-negative number');
   return o;
 }
 
@@ -367,10 +377,57 @@ export function syncOne(pr, mainSha, allowed, repoDir = REPO) {
 
 // The App token carries only contents + pull-requests; reading Actions runs
 // uses the job's GITHUB_TOKEN (actions: read), passed as ACTIONS_READ_TOKEN.
-function regenPending(repo, sha) {
+function regenRuns(repo, sha) {
   const raw = gh(['api', `repos/${repo}/actions/workflows/derived-artifacts-regen.yml/runs?head_sha=${sha}&per_page=10`,
-    '--jq', '[.workflow_runs[] | select(.status != "completed")] | length'], undefined, process.env.ACTIONS_READ_TOKEN);
-  return Number(raw.trim()) > 0;
+    '--jq', '[(.workflow_runs | length), ([.workflow_runs[] | select(.status != "completed")] | length)] | @tsv'], undefined, process.env.ACTIONS_READ_TOKEN);
+  const [total, pending] = raw.trim().split('\t').map(Number);
+  return { total, pending };
+}
+
+function sleepSync(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+
+// Poll derived-artifacts-regen's runs on one sha until they have all
+// finished. 'absent': no run registered within appearMs (it fires on the same
+// push as this job, so it normally shows up in seconds). 'timeout': still
+// running after timeoutMs.
+export function waitForRegen(probe, { timeoutMs, appearMs, intervalMs, sleep = sleepSync, now = Date.now }) {
+  const start = now();
+  for (;;) {
+    const { total, pending } = probe();
+    const waitedMs = now() - start;
+    if (total > 0 && pending === 0) return { outcome: 'finished', waitedMs };
+    if (total === 0 && waitedMs >= appearMs) return { outcome: 'absent', waitedMs };
+    if (waitedMs >= timeoutMs) return { outcome: 'timeout', waitedMs };
+    sleep(intervalMs);
+  }
+}
+
+// Whether a push:main run syncs. It WAITS for the regen on its own sha
+// instead of exiting: a regen that commits nothing (the run on the regen
+// bot's own commit, every time) pushes nothing, so "exit and let the next
+// push re-run us" never re-ran it. After the wait, main is read again: if the
+// regen committed, main moved, and that commit's push run syncs instead. A
+// timeout still syncs, so the job can never strand itself; main-owned paths
+// it merges are re-derived by main's regen after the PR lands either way.
+export function regenGate({ eventSha, mainSha, probe, fetchMain, timeoutMs = REGEN_WAIT_MIN * 60_000,
+  appearMs = REGEN_APPEAR_SEC * 1000, intervalMs = REGEN_POLL_SEC * 1000, sleep, now }) {
+  const short = (s) => s.slice(0, 7);
+  if (eventSha !== mainSha) {
+    return { proceed: false, level: 'notice', title: 'bot-sync superseded',
+      msg: `main moved past ${short(eventSha)} (now ${short(mainSha)}); the newer push's run syncs against it.` };
+  }
+  const w = waitForRegen(probe, { timeoutMs, appearMs, intervalMs, sleep, now });
+  const after = fetchMain();
+  if (after !== mainSha) {
+    return { proceed: false, level: 'notice', title: 'bot-sync superseded', wait: w,
+      msg: `derived-artifacts-regen on ${short(mainSha)} ${w.outcome}; main moved to ${short(after)}, whose push run syncs against it.` };
+  }
+  if (w.outcome === 'timeout') {
+    return { proceed: true, level: 'warning', title: 'bot-sync regen wait timed out', wait: w,
+      msg: `derived-artifacts-regen still running on ${short(mainSha)} after ${Math.round(w.waitedMs / 60_000)} min; syncing against it anyway.` };
+  }
+  return { proceed: true, level: 'notice', title: 'bot-sync regen settled', wait: w,
+    msg: `derived-artifacts-regen on ${short(mainSha)} ${w.outcome} after ${Math.round(w.waitedMs / 1000)} s with main unchanged; syncing.` };
 }
 
 function table(rows) {
@@ -400,13 +457,15 @@ async function main() {
 
   git(['fetch', '--quiet', '--no-tags', 'origin', 'main']);
   const mainSha = git(['rev-parse', 'FETCH_HEAD^{commit}']).trim();
-  if (o.apply && o.eventSha && o.eventSha !== mainSha) {
-    console.log(`::notice title=bot-sync superseded::main moved past ${o.eventSha.slice(0, 7)} (now ${mainSha.slice(0, 7)}); the newer push's run syncs against it.`);
-    return;
-  }
-  if (o.apply && o.eventSha && regenPending(o.repo, mainSha)) {
-    console.log(`::notice title=bot-sync deferred::derived-artifacts-regen is still running on ${mainSha.slice(0, 7)}; its regen commit's push re-runs this sync against the fresh tree.`);
-    return;
+  if (o.apply && o.eventSha) {
+    const g = regenGate({
+      eventSha: o.eventSha, mainSha,
+      probe: () => regenRuns(o.repo, mainSha),
+      fetchMain: () => { git(['fetch', '--quiet', '--no-tags', 'origin', 'main']); return git(['rev-parse', 'FETCH_HEAD^{commit}']).trim(); },
+      timeoutMs: o.regenWaitMin * 60_000,
+    });
+    console.log(`::${g.level} title=${g.title}::${g.msg}`);
+    if (!g.proceed) return;
   }
 
   const owned = mainOwnedPaths();

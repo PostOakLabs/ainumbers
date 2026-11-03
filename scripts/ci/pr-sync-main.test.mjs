@@ -22,6 +22,10 @@
  *      conflict is merged (main's side of the derived path, the PR's own
  *      files kept) and pushed; a real conflict pushes nothing; a branch that
  *      moved mid-run rejects the plain push and is flagged as a race.
+ *   7. regenGate(): a push:main run waits for the regen on its sha and still
+ *      syncs when that regen committed nothing (the run on the regen bot's
+ *      own commit); hands off when the regen committed; a timeout or a regen
+ *      that never registers still syncs, so the job cannot strand itself.
  * Run: node scripts/ci/pr-sync-main.test.mjs   (exit 0 = all green)
  */
 
@@ -32,7 +36,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   decide, mainOwnedPaths, sentinelOwnedPaths, isSentinelOnlyDiff, parseMergeTree, syncOne,
-  SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD,
+  waitForRegen, regenGate, SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD,
 } from './pr-sync-main.mjs';
 import { gitEnv } from '../_git-env-lib.mjs';
 
@@ -259,6 +263,63 @@ try {
   });
 } finally {
   rmSync(root, { recursive: true, force: true });
+}
+
+console.log('7. regenGate() / waitForRegen(): push:main never strands itself');
+{
+  // A fake clock: sleep() advances it, probe() replays a scripted run list.
+  const clock = (states) => {
+    let t0 = 0, i = 0, sleeps = 0;
+    return {
+      probe: () => states[Math.min(i++, states.length - 1)],
+      sleep: (ms) => { t0 += ms; sleeps++; },
+      now: () => t0,
+      get sleeps() { return sleeps; },
+    };
+  };
+  const T = { timeoutMs: 15 * 60_000, appearMs: 90_000, intervalMs: 20_000 };
+  const RUNNING = { total: 1, pending: 1 }, DONE = { total: 1, pending: 0 }, NONE = { total: 0, pending: 0 };
+  const A = 'a'.repeat(40), B = 'b'.repeat(40);
+
+  t('regen finished with no commit (main unchanged) ⇒ sync still runs', () => {
+    // The deadlock case: the regen run on the regen bot's own commit commits
+    // nothing, so no later push would ever re-run the sync.
+    const c = clock([RUNNING, RUNNING, DONE]);
+    const g = regenGate({ eventSha: A, mainSha: A, probe: c.probe, fetchMain: () => A, ...T, sleep: c.sleep, now: c.now });
+    assert.equal(g.proceed, true);
+    assert.equal(g.wait.outcome, 'finished');
+    assert.equal(c.sleeps, 2);
+  });
+  t('regen finished and committed (main moved) ⇒ hand off, no sync', () => {
+    const c = clock([RUNNING, DONE]);
+    const g = regenGate({ eventSha: A, mainSha: A, probe: c.probe, fetchMain: () => B, ...T, sleep: c.sleep, now: c.now });
+    assert.equal(g.proceed, false);
+    assert.equal(g.title, 'bot-sync superseded');
+  });
+  t('event sha already behind main ⇒ superseded without polling', () => {
+    let probed = false;
+    const g = regenGate({ eventSha: A, mainSha: B, probe: () => { probed = true; return DONE; }, fetchMain: () => B, ...T, sleep: () => {}, now: () => 0 });
+    assert.equal(g.proceed, false);
+    assert.equal(probed, false);
+  });
+  t('regen still running at the bound ⇒ warn and sync anyway (bounded, never strands)', () => {
+    const c = clock([RUNNING]);
+    const g = regenGate({ eventSha: A, mainSha: A, probe: c.probe, fetchMain: () => A, ...T, sleep: c.sleep, now: c.now });
+    assert.equal(g.proceed, true);
+    assert.equal(g.level, 'warning');
+    assert.equal(g.wait.outcome, 'timeout');
+    assert.ok(c.now() <= T.timeoutMs + T.intervalMs);
+  });
+  t('no regen run registers ⇒ syncs after the appear window, not the full bound', () => {
+    const c = clock([NONE]);
+    const w = waitForRegen(c.probe, { ...T, sleep: c.sleep, now: c.now });
+    assert.equal(w.outcome, 'absent');
+    assert.ok(w.waitedMs >= T.appearMs && w.waitedMs < T.timeoutMs);
+  });
+  t('a run that registers late is still waited for', () => {
+    const c = clock([NONE, NONE, RUNNING, DONE]);
+    assert.equal(waitForRegen(c.probe, { ...T, sleep: c.sleep, now: c.now }).outcome, 'finished');
+  });
 }
 
 console.log(`\n${fail ? '✗' : '✓'} pr-sync-main decision tests: ${pass} passed, ${fail} failed`);
