@@ -57,7 +57,7 @@ pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius
 footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-805-agt-audit-chain-verifier.kernel.mjs. -->
-<meta name="kernel-digest" content="sha256:0359563a30ce4e46d2f2bd4c7d325c19297dc3991206938bf15ff42cb6cf066f">
+<meta name="kernel-digest" content="sha256:d3a96683e60729156f0ca539f5eec22cd1d4facd9f5a4b397b7262bdad3e54fc">
 <style>
 /* OCG-CHROME-CSS:v1 */
 /* Canonical nav — derived from chaingraph-hub.html */
@@ -352,13 +352,14 @@ async function sha256Hex(str) {
 }
 async function computeAsync(pp) {
   pp = pp || {};
-  var out = { entry_count: 0, chain_intact: false, first_break_index: null, breaks: [], recomputed_root: null, claimed_root_match: null, signature_status: 'no_keyed_signature_field_in_pinned_schema', rejected: false, rejected_fields: [] };
+  var out = { entry_count: 0, chain_intact: false, first_break_index: null, breaks: [], recomputed_root: null, claimed_root_match: null, signature_status: 'no_keyed_signature_field_in_pinned_schema', rejected: false, rejected_fields: [], issues: [] };
   var rejectedFields = [];
   Object.keys(pp).forEach(function (k) { if (k !== 'entries' && k !== 'claimed_root') rejectedFields.push(k); });
   if ('claimed_root' in pp && pp.claimed_root !== null && !isStr(pp.claimed_root)) rejectedFields.push('claimed_root');
   validateEntries(pp.entries).forEach(function (r) { rejectedFields.push(r); });
   if (rejectedFields.length > 0) {
     out.rejected = true; out.rejected_fields = rejectedFields; out.chain_intact = false; out.breaks = [];
+    out.issues = ['AGT_AUDIT_INPUT_REJECTED_SCHEMA'];
     return { output_payload: out, compliance_flags: ['AGT_AUDIT_INPUT_REJECTED_SCHEMA'] };
   }
   var entries = pp.entries;
@@ -381,8 +382,15 @@ async function computeAsync(pp) {
     out.claimed_root_match = out.recomputed_root !== null && stripped === out.recomputed_root;
   }
   var flags = [];
-  if (out.chain_intact) flags.push('AGT_AUDIT_CHAIN_INTACT'); else flags.push('AGT_AUDIT_CHAIN_BREAK_DETECTED');
-  if (out.claimed_root_match === false) flags.push('AGT_AUDIT_CLAIMED_ROOT_MISMATCH');
+  if (out.chain_intact) flags.push('AGT_AUDIT_CHAIN_INTACT');
+  else {
+    flags.push('AGT_AUDIT_CHAIN_BREAK_DETECTED');
+    breaks.forEach(function (b) { out.issues.push('AGT_AUDIT_CHAIN_BREAK:' + b.index + ':' + b.reason); });
+  }
+  if (out.claimed_root_match === false) {
+    flags.push('AGT_AUDIT_CLAIMED_ROOT_MISMATCH');
+    out.issues.push('AGT_AUDIT_CLAIMED_ROOT_MISMATCH');
+  }
   return { output_payload: out, compliance_flags: flags };
 }
 
