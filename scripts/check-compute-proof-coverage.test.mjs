@@ -32,6 +32,7 @@ import {
   findRegressions,
   ratchetBreach,
   disposition,
+  pinnedBaseline,
 } from './check-compute-proof-coverage.mjs';
 import { isMainContext } from './derived-artifacts.mjs';
 
@@ -367,6 +368,64 @@ test('MERGE_GROUP END-TO-END — the real gate is HARD on a poisoned ephemeral t
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
+});
+
+// ── PROVE-BASELINE-SINGLE-WRITER-1 — PRs never edit the baseline; main's regen is its single writer ──
+// One pinned baseline, three PR shapes, none of which touches the file. The gate's full failed predicate
+// (regressions + ratchet) is evaluated exactly as the CLI does.
+const PINNED = {
+  deferred: 2,
+  deferred_nodes: ['node_b', 'node_c'],
+  known_gpu_false_nodes: ['node_a', 'node_b', 'node_c'],
+};
+const asDeferred = (names) => names.map((name) => ({ name }));
+function prFailed(names, baseline = PINNED) {
+  const d = asDeferred(names);
+  return findRegressions(d, baseline).regressions.length > 0 || ratchetBreach(d, baseline).over;
+}
+
+test('SINGLE-WRITER RED — a PR that un-proves an existing node still fails, no baseline edit can hide it', () => {
+  assert(prFailed(['node_a', 'node_b', 'node_c']) === true, 'node_a was proven at the pin; deferring it must fail');
+  // a swap holds the count flat (one proven, one regressed) and must still fail
+  assert(prFailed(['node_a', 'node_c']) === true, 'a count-neutral swap must still fail on provenance');
+  assert(findRegressions(asDeferred(['node_a', 'node_c']), PINNED).regressions[0] === 'node_a', 'the regression is named');
+});
+
+test('SINGLE-WRITER GREEN — a PR adding a brand-new deferred node passes without a baseline edit', () => {
+  const names = ['node_b', 'node_c', 'node_new'];
+  assert(prFailed(names) === false, 'a brand-new deferred node must not breach the old ceiling');
+  const r = ratchetBreach(asDeferred(names), PINNED);
+  assert(r.count === 3 && r.counted === 2 && r.ceiling === 2, `expected counted 2 of 3 vs ceiling 2, got ${r.counted}/${r.count} vs ${r.ceiling}`);
+  assert(r.newNodes.length === 1 && r.newNodes[0] === 'node_new', `expected newNodes [node_new], got ${JSON.stringify(r.newNodes)}`);
+});
+
+test('SINGLE-WRITER GREEN — a prove PR passes without lowering the baseline', () => {
+  assert(prFailed(['node_c']) === false, 'proving node_b drops the count to 1 under ceiling 2; no edit needed');
+  assert(prFailed([]) === false, 'proving everything is clean against the old pin');
+});
+
+test('SINGLE-WRITER RED — the ceiling still binds pinned nodes (a hand-shrunk ceiling is not bypassed by the exemption)', () => {
+  const tight = { ...PINNED, deferred: 1 };
+  assert(prFailed(['node_b', 'node_c']) === false, 'control: two pinned deferred under ceiling 2 is clean');
+  assert(prFailed(['node_b', 'node_c'], tight) === true, 'two pinned deferred over ceiling 1 must fail');
+  assert(prFailed(['node_b', 'node_new'], tight) === false, 'a new node above the ceiling does not count against it');
+});
+
+test('SINGLE-WRITER FAILS CLOSED — no known_gpu_false_nodes array means no new-node exemption', () => {
+  const noProvenance = { deferred: 2, deferred_nodes: ['node_b', 'node_c'] };
+  const r = ratchetBreach(asDeferred(['node_b', 'node_c', 'node_new']), noProvenance);
+  assert(r.newNodes.length === 0 && r.over === true, `without provenance every deferred node counts; got over=${r.over} newNodes=${JSON.stringify(r.newNodes)}`);
+});
+
+test('SINGLE-WRITER regen pin — pinnedBaseline() lowers the count and appends the new name', () => {
+  const live = asDeferred(['node_c', 'node_new']);
+  const gpuFalse = ['node_a', 'node_b', 'node_c', 'node_new'].map((n) => ({ mcp_name: n }));
+  const next = pinnedBaseline(live, gpuFalse);
+  assert(next.deferred === 2, `expected deferred 2, got ${next.deferred}`);
+  assert(JSON.stringify(next.deferred_nodes) === JSON.stringify(['node_c', 'node_new']), `deferred_nodes: ${JSON.stringify(next.deferred_nodes)}`);
+  assert(next.known_gpu_false_nodes.includes('node_new'), 'the new node becomes known, so a later un-prove of it is a regression');
+  // after the pin, the next PR un-proving node_new is a regression, not "new"
+  assert(findRegressions(asDeferred(['node_c', 'node_new']), { ...next, deferred_nodes: ['node_c'] }).regressions[0] === 'node_new', 'pinned new node is protected');
 });
 
 console.log(`\n§18 coverage gate self-test — ${passed} passed, ${failed} failed`);

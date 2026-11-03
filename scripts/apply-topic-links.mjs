@@ -26,7 +26,23 @@ const MARK_END = '<!-- TOPIC-LINKS:end -->'
 function titleOf(path) {
   const html = readFileSync(resolve(root, path), 'utf8')
   const m = html.match(/<title>([^<]*)<\/title>/)
-  if (m) return m[1].split('·')[0].trim()
+  if (m) {
+    // Decode the entity set page titles actually use (&amp; LAST, one pass each),
+    // then split on the real separator. Entity-encoded middots (&middot;) must
+    // split too, or the whole title leaks into the link label (the ART-391/392
+    // node pages shipped exactly that defect).
+    const decoded = m[1]
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#0*39;|&#x0*27;/gi, "'")
+      .replace(/&middot;/gi, '·')
+      .replace(/&amp;/gi, '&')
+    // Split on every separator shape titles actually use: the middot chain
+    // ("Title · ART-391 · OpenChainGraph · AINumbers.co") and the pipe form
+    // ("Title | AINumbers.co").
+    return decoded.split(/[·|]/)[0].trim()
+  }
   return basename(path).replace(/\.html$/, '')
 }
 
@@ -51,13 +67,13 @@ function buildBlock(selfPath, topic) {
     const links = paths
       .map(p => {
         const href = relative(selfDir, resolve(root, p)).split('\\').join('/')
-        return `<a href="${href}">${titleOf(p)}</a>`
+        return `<a href="${href}" style="white-space:nowrap">${titleOf(p)}</a>`
       })
       .join(' &middot; ')
     body += `<div><span class="related-topics-label">${group}:</span> ${links}</div>`
   }
 
-  return `${MARK_START}\n<section class="related-topics" aria-label="Related ${topic.label} pages" style="border-top:1px solid var(--border);margin-top:2rem;padding-top:1rem;font-size:0.85rem;color:var(--muted)">${body}</section>\n${MARK_END}`
+  return `${MARK_START}\n<section class="related-topics" aria-label="Related ${topic.label} pages" style="border-top:1px solid var(--border);margin:2rem auto 0;padding-top:1rem;max-width:780px;font-size:0.85rem;line-height:1.7;color:var(--muted);text-align:center">${body}</section>\n${MARK_END}`
 }
 
 let changed = 0

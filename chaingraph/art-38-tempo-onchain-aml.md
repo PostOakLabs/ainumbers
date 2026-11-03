@@ -1,6 +1,6 @@
 # Tempo On-Chain AML & Travel Rule Screener
 
-Parses a batch of synthetic TIP-20 transfers (with memos), runs OFAC/SDN hit screening, checks FATF Travel Rule field completeness (originator/beneficiary name + VASP ID, threshold US$3,000), scores AML typologies (structuring $9k–$9.99k, missing identity, unusual tx), and emits SAR determination + Travel Rule attestation. Bilateral: sending VASP emits; receiving VASP re-verifies. ISO 20022 pacs.008-subset artifact; instructed_amount = batch total.
+Parses a batch of synthetic TIP-20 transfers (with memos), screens parties by substring match against a fixed three-name synthetic test list (a demonstration of the screening shape, not a sanctions screen), checks FATF Travel Rule field completeness (originator/beneficiary name + VASP ID, threshold US$3,000), scores AML typologies (structuring $9k–$9.99k, missing identity, unusual tx), and emits SAR determination + Travel Rule attestation. Bilateral: sending VASP emits; receiving VASP re-verifies. ISO 20022 pacs.008-subset artifact; instructed_amount = batch total.
 
 - Page: https://ainumbers.co/chaingraph/art-38-tempo-onchain-aml.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-38-tempo-onchain-aml.md

@@ -493,7 +493,7 @@ function cgCanon(v) {
   return v;
 }
 
-async function recomputeExecutionHash(artifact) {
+async function recomputeExecutionHash(artifact, order) {
   // §22.8.3: escalation_record / escalation_closure are hash-EXCLUDED adjacent metadata,
   // attached to output_payload AFTER the execution_hash was computed (same discipline as
   // §20 anchor_bindings) — strip them from the recompute or every escalated composite
@@ -510,7 +510,13 @@ async function recomputeExecutionHash(artifact) {
     delete op.step_compliance_flags;
   }
   const obj = { policy_parameters: artifact.policy_parameters, output_payload: op };
-  const preimage = __ocgJcs((obj));
+  // One preimage object for both orders: escalation/flag stripping cannot diverge.
+  // order === 'legacy' serializes the SAME object through the pre-2026-09-30 wrap,
+  // JSON.stringify over the cgCanon-sorted object: JavaScript enumerates array-index
+  // member names first in numeric order, so that wrap emits {"9":...,"10":...} where
+  // __ocgJcs emits RFC 8785 order ({"10":...,"9":...}). cgCanon itself is unchanged.
+  let preimage = __ocgJcs((obj));
+  if (order === 'legacy') preimage = JSON.stringify(cgCanon(obj));
   const bytes = new TextEncoder().encode(preimage);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -1129,6 +1135,22 @@ async function verifyArtifact(artifact) {
   return r;
 }
 
+// §4 hash verdict, factored so the legacy-order retry stays one surface: strict
+// recompute first; on a strict mismatch ONLY, retry the pre-2026-09-30 legacy
+// enumeration order over the same preimage object. A match on the retry is its own
+// verdict ('legacy-order'), distinct from a pass and never aggregated to 'verified';
+// a strict match never triggers the retry.
+async function _verifyExecutionHash(artifact) {
+  const computed = await recomputeExecutionHash(artifact);
+  const recorded = artifact.execution_hash;
+  if (computed === recorded) return { hash: 'pass', details: { computed, recorded, match: true } };
+  const legacy = await recomputeExecutionHash(artifact, 'legacy');
+  if (legacy === recorded) {
+    return { hash: 'legacy-order', details: { computed, legacy, recorded, match: false, legacy_match: true } };
+  }
+  return { hash: 'fail', details: { computed, recorded, match: false } };
+}
+
 async function _runVerify(artifact) {
   const out = {
     hash: null, signature: 'absent', kernelIdentity: null,
@@ -1137,12 +1159,11 @@ async function _runVerify(artifact) {
     details: {}
   };
 
-  // §4 hash recompute
+  // §4 hash recompute (verdict factored into _verifyExecutionHash above)
   try {
-    const computed = await recomputeExecutionHash(artifact);
-    const recorded = artifact.execution_hash;
-    out.hash = computed === recorded ? 'pass' : 'fail';
-    out.details.hash = { computed, recorded, match: out.hash === 'pass' };
+    const r = await _verifyExecutionHash(artifact);
+    out.hash = r.hash;
+    out.details.hash = r.details;
   } catch (e) {
     out.hash = 'fail';
     out.details.hash = { error: e.message };
@@ -1420,6 +1441,9 @@ function _aggregate(checks) {
   if (checks.gateReplay?.status === 'fail') return 'failed';
   if (checks.computeProof?.status === 'structural_fail') return 'failed';
   if (checks.computeProof?.status === 'verify_failed') return 'failed';
+  // A legacy-order match is its own verdict: partial, after all failure checks,
+  // before the non-pass fallback, never 'verified'.
+  if (checks.hash === 'legacy-order') return 'partial';
   if (checks.hash !== 'pass') return 'unchecked';
   const hasUnsupported = checks.signature?.status === 'unsupported';
   const hasStructural = checks.computeProof?.status === 'structural_pass';
@@ -2790,11 +2814,12 @@ async function showRecord(artifact) {
 
   // Verify card rows
   const hashRow = `<div class="verify-row">
-    <span class="verify-icon">${vr.hash === 'pass' ? '&#10003;' : '&#10007;'}</span>
+    <span class="verify-icon">${vr.hash === 'pass' ? '&#10003;' : vr.hash === 'legacy-order' ? '&#9888;' : '&#10007;'}</span>
     <div class="verify-label">Hash integrity (§4)
       <small class="mono">${vr.details.hash?.computed?.slice(0,20) || ''}...</small>
+      ${vr.hash === 'legacy-order' ? '<small>Hash matches the older key order this site used before 2026-09-30 (array-index names first). Treat it as verified under that older rule only.</small>' : ''}
     </div>
-    <div class="verify-chip">${chipHtml(vr.hash === 'pass' ? 'pass' : 'fail', vr.hash === 'pass' ? 'Pass' : 'Fail')}</div>
+    <div class="verify-chip">${vr.hash === 'pass' ? chipHtml('pass', 'Pass') : vr.hash === 'legacy-order' ? chipHtml('warn', 'Legacy order') : chipHtml('fail', 'Fail')}</div>
   </div>`;
 
   // FB-06/FB-07 (FLAG-CONSUMER-TIERB-1) — compliance flags rendered BESIDE the hash verdict,

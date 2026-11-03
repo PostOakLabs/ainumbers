@@ -1,0 +1,437 @@
+{
+  "tool_id": "art-778-token2022-withheld-fee-reconciler",
+  "version": "1.0.0",
+  "title": "Token-2022 Withheld-Fee Reconciler",
+  "description": "Token-2022 withheld-fee reconciliation across token accounts. Paste the mint's declared TransferFeeConfig fields (accumulated withheld_amount and withdraw_withheld_authority), a list of token accounts each carrying its withheld amount, the caller's declared total, and optionally a harvest or withdraw destination. The node recomputes the per-account withheld sum over mint-matching accounts, reconciles it against the declared total with the signed difference, projects the mint's post-harvest accumulation under the program's checked_add semantics (Overflow past u64 reported as a fact, never wrapped), flags wrong-mint accounts and duplicate addresses, and checks fee-receiver placement: the declared destination's mint against the declared mint, and the declared withdraw authority against the config's. Values only, facts only, nothing on-chain is read.",
+  "category": "chaingraph",
+  "tags": [
+    "token2022",
+    "solana",
+    "withheld-fees",
+    "transfer-fee",
+    "payment-reconciliation",
+    "harvest",
+    "bigint",
+    "mcp:reconcile_token2022_withheld"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "mint",
+      "transfer_fee_config",
+      "accounts",
+      "declared_total"
+    ],
+    "properties": {
+      "mint": {
+        "type": "string",
+        "description": "The declared mint address, pasted. Every account's mint is compared to this by string equality."
+      },
+      "transfer_fee_config": {
+        "type": "object",
+        "description": "The mint's TransferFeeConfig fields: withdraw_withheld_authority (string or null) and withheld_amount (u64 decimal string), the accumulated pot.",
+        "properties": {
+          "withdraw_withheld_authority": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "withheld_amount": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "withdraw_withheld_authority",
+          "withheld_amount"
+        ]
+      },
+      "accounts": {
+        "type": "array",
+        "description": "Token accounts, each { address, mint, withheld_amount } with withheld_amount a u64 decimal string. Empty array is valid (sum 0).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "mint": {
+              "type": "string"
+            },
+            "withheld_amount": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "address",
+            "mint",
+            "withheld_amount"
+          ]
+        }
+      },
+      "declared_total": {
+        "type": "string",
+        "description": "The caller's declared sum of withheld fees, decimal string (u64), reconciled against the recomputed sum."
+      },
+      "destination": {
+        "type": "object",
+        "description": "Optional destination { address, mint, withdraw_authority }, compared with the declared mint and the config's withdraw authority.",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "mint": {
+            "type": "string"
+          },
+          "withdraw_authority": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "address",
+          "mint",
+          "withdraw_authority"
+        ]
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "reconcile_token2022_withheld",
+    "description": "Reconcile Token-2022 withheld transfer fees across a declared list of token accounts against the mint's accumulated withheld amount: recomputed per-account sum, declared versus recomputed total with the signed difference, wrong-mint and duplicate flags, the post-harvest mint projection under checked_add semantics, and a fee-receiver placement check (destination mint and withdraw authority). Values only; no RPC, no network, no on-chain read.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "mint",
+        "transfer_fee_config",
+        "accounts",
+        "declared_total"
+      ],
+      "properties": {
+        "mint": {
+          "type": "string",
+          "description": "The declared mint address, pasted. Every account's mint is compared to this by string equality."
+        },
+        "transfer_fee_config": {
+          "type": "object",
+          "description": "The mint's TransferFeeConfig fields: withdraw_withheld_authority (string or null) and withheld_amount (u64 decimal string), the accumulated pot.",
+          "properties": {
+            "withdraw_withheld_authority": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "withheld_amount": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "withdraw_withheld_authority",
+            "withheld_amount"
+          ]
+        },
+        "accounts": {
+          "type": "array",
+          "description": "Token accounts, each { address, mint, withheld_amount } with withheld_amount a u64 decimal string. Empty array is valid (sum 0).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "mint": {
+                "type": "string"
+              },
+              "withheld_amount": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "address",
+              "mint",
+              "withheld_amount"
+            ]
+          }
+        },
+        "declared_total": {
+          "type": "string",
+          "description": "The caller's declared sum of withheld fees, decimal string (u64), reconciled against the recomputed sum."
+        },
+        "destination": {
+          "type": "object",
+          "description": "Optional destination { address, mint, withdraw_authority }, compared with the declared mint and the config's withdraw authority.",
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "mint": {
+              "type": "string"
+            },
+            "withdraw_authority": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "address",
+            "mint",
+            "withdraw_authority"
+          ]
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-778-token2022-withheld-fee-reconciler.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-778-token2022-withheld-fee-reconciler.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: mint, transfer_fee_config, accounts, declared_total, destination.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "mint": "MintXkT2WITHHELDFEES00001",
+    "transfer_fee_config": {
+      "withdraw_withheld_authority": "Auth1WithdrawAuthority1111111111111111111",
+      "withheld_amount": "500"
+    },
+    "accounts": [
+      {
+        "address": "AcctHolder1Token20220000000000000001",
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "withheld_amount": "100"
+      },
+      {
+        "address": "AcctHolder2Token20220000000000000002",
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "withheld_amount": "250"
+      },
+      {
+        "address": "AcctHolder3Token20220000000000000003",
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "withheld_amount": "100"
+      }
+    ],
+    "declared_total": "450"
+  },
+  "output_example": {
+    "mint": "MintXkT2WITHHELDFEES00001",
+    "account_count": "3",
+    "harvestable_account_count": "3",
+    "wrong_mint_account_count": "0",
+    "duplicate_address_count": "0",
+    "mint_withheld_accumulated": "500",
+    "recomputed_account_sum": "450",
+    "declared_total": "450",
+    "reconciliation": "MATCH",
+    "declared_minus_recomputed": "0",
+    "sum_over_all_declared_entries": "450",
+    "sum_exceeds_u64": false,
+    "post_harvest_mint_withheld": "950",
+    "post_harvest_would_overflow_u64": false,
+    "wrong_mint_accounts": [],
+    "duplicate_addresses": [],
+    "fee_receiver_placement": null,
+    "note": "Withheld amounts are per-account TransferFeeAmount.withheld_amount and the mint-level TransferFeeConfig.withheld_amount, both u64 in token minor units, pinned at solana-program/token-2022 commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e. recomputed_account_sum counts only accounts whose mint matches the declared mint: the harvest instruction skips a wrong-mint account with MintMismatch instead of moving its fees. post_harvest_mint_withheld is what the mint would accumulate after harvesting every mint-matching account; the on-chain addition is checked_add, so an amount past u64 fails the harvest with TokenError::Overflow, reported here as post_harvest_would_overflow_u64. Mint and authority comparisons are string equality on the pasted values; this kernel reads nothing on-chain."
+  },
+  "example_execution_hash": "47df70b025b4fb8b5a34f4eb399b77c3ca1d52074d0888a9e94368d11bcccb72",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "mint": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "account_count": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "harvestable_account_count": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "wrong_mint_account_count": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "duplicate_address_count": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "mint_withheld_accumulated": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "recomputed_account_sum": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "declared_total": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "reconciliation": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "MATCH | DECLARED_ABOVE_RECOMPUTED | DECLARED_BELOW_RECOMPUTED"
+      },
+      "declared_minus_recomputed": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Signed decimal string: 0, +N or -N."
+      },
+      "sum_over_all_declared_entries": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "sum_exceeds_u64": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "post_harvest_mint_withheld": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "post_harvest_would_overflow_u64": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "wrong_mint_accounts": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "declared_mint": {
+              "type": "string"
+            },
+            "account_mint": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "duplicate_addresses": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "declared_count": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "fee_receiver_placement": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "declared_destination_address": {
+            "type": "string"
+          },
+          "declared_destination_mint": {
+            "type": "string"
+          },
+          "declared_mint": {
+            "type": "string"
+          },
+          "destination_mint_matches_declared_mint": {
+            "type": "boolean"
+          },
+          "declared_withdraw_authority": {
+            "type": "string"
+          },
+          "config_withdraw_withheld_authority": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "declared_withdraw_authority_matches_config": {
+            "type": "boolean"
+          },
+          "authority_basis": {
+            "type": "string"
+          }
+        }
+      },
+      "error": {
+        "type": "string"
+      },
+      "detail": {
+        "type": "string"
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "note": {
+        "type": "string"
+      }
+    }
+  }
+}

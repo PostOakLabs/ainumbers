@@ -11,11 +11,18 @@
  *
  *   (a) the id is not already used on origin/main by a DIFFERENT path (minting
  *       an id main already has — modification of your own main shard is fine);
- *   (b) chaingraph/graph/RESERVATIONS.json carries `art-<id>` mapped to THIS
- *       row/PR (missing, or mapped to a different row/PR, is a refusal). The
- *       registry file is the lock: two PRs reserving the same id conflict on
- *       the same JSON line in the merge queue — git conflict = mechanical
- *       collision detection;
+ *   (b) the reservation registry carries `art-<id>` mapped to THIS row/PR
+ *       (missing, or mapped to a different row/PR, is a refusal). The registry
+ *       is the lock: since RESERVATIONS-SHARD-1 (2026-11-03) it is one file per
+ *       id, chaingraph/graph/reservations/art-<n>.json ({row, pr, reserved}).
+ *       Two PRs reserving the SAME id add the same path with different bytes
+ *       (add/add conflict in the merge queue — git conflict = mechanical
+ *       collision detection); two PRs reserving DIFFERENT ids touch different
+ *       files and no longer conflict. The legacy single-object
+ *       chaingraph/graph/RESERVATIONS.json is still read while it exists
+ *       (union: an id in either counts) so PRs opened before the split keep
+ *       passing; an id present in both with different content is a refusal.
+ *       New reservations go only to the directory;
  *   (c) no OTHER open PR already claims the id (token-free: `gh pr list` using
  *       the job's GITHUB_TOKEN; skipped on merge_group — the queue is serial —
  *       and reported, never silent, when gh is unavailable locally; SO #34c:
@@ -28,7 +35,7 @@
  *
  * Usage:
  *   node scripts/check-id-collision.mjs              # diff vs origin/main (CI + local)
- *   node scripts/check-id-collision.mjs --seed-check # RESERVATIONS.json covers every main shard id
+ *   node scripts/check-id-collision.mjs --seed-check # registry (shards ∪ legacy) covers every main node shard id, no mismatch
  *   node scripts/check-id-collision.mjs --self-test  # RED/GREEN fixture proof (SO #34c)
  *   node scripts/check-id-collision.mjs --merge-group # skip leg (c) (serial queue)
  *
@@ -36,14 +43,20 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+import { readFileSync, readdirSync, existsSync, mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { resolve, dirname, join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { isDeepStrictEqual } from 'node:util'
 import { gitEnv } from './_git-env-lib.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(__dirname, '..')
-const RESERVATIONS_PATH = resolve(REPO, 'chaingraph/graph/RESERVATIONS.json')
+const LEGACY_REL = 'chaingraph/graph/RESERVATIONS.json'
+const SHARD_DIR_REL = 'chaingraph/graph/reservations'
+const RESERVATIONS_PATH = resolve(REPO, LEGACY_REL)
+const SHARD_DIR = resolve(REPO, SHARD_DIR_REL)
+const SHARD_FILE_RE = /^(art-\d+)\.json$/
 
 const argv = process.argv.slice(2)
 const MERGE_GROUP = argv.includes('--merge-group')
@@ -81,8 +94,37 @@ function changedPaths() {
   return out.split('\n').map(s => s.trim()).filter(Boolean)
 }
 
+/**
+ * Pure core (also driven by --self-test): union of the per-id shards and the
+ * legacy object. shards / legacy: { 'art-<n>': entry } (legacy null = file gone).
+ * An id in both with different content lands in `mismatches` (leg (b) refuses
+ * it for a minted id; --seed-check refuses any).
+ */
+export function mergeReservations(shards, legacy) {
+  const reservations = { ...(legacy || {}) }
+  const mismatches = new Set()
+  for (const [id, entry] of Object.entries(shards)) {
+    if (legacy && legacy[id] && !isDeepStrictEqual(legacy[id], entry)) mismatches.add(id)
+    reservations[id] = entry // the shard wins for display; the mismatch still refuses
+  }
+  return { reservations, mismatches }
+}
+
+/** Working-tree shards: { id: entry }. Non-shard file names are ignored; bad JSON throws (refuse closed). */
+function loadShards() {
+  const out = {}
+  if (!existsSync(SHARD_DIR)) return out
+  for (const f of readdirSync(SHARD_DIR)) {
+    const m = SHARD_FILE_RE.exec(f)
+    if (!m) continue
+    out[m[1]] = JSON.parse(readFileSync(join(SHARD_DIR, f), 'utf8'))
+  }
+  return out
+}
+
 function loadReservations() {
-  return JSON.parse(readFileSync(RESERVATIONS_PATH, 'utf8'))
+  const legacy = existsSync(RESERVATIONS_PATH) ? JSON.parse(readFileSync(RESERVATIONS_PATH, 'utf8')) : null
+  return { ...mergeReservations(loadShards(), legacy), legacy }
 }
 
 /**
@@ -91,7 +133,17 @@ function loadReservations() {
  * mainPaths: Map id -> string[] (paths on main) | null (main unreadable)
  * openPrs: [{number,title}] of open PRs | null (leg (c) unavailable)
  */
-export function checkId({ id, kind, path, mainPaths, reservations, openPrs, prNumber }) {
+/**
+ * A pr=null reservation belongs to THIS PR when the PR itself added the line
+ * (mainReservations = origin/main's registry; null = unreadable, never owned
+ * by that leg) or the reserving row is this PR's head branch name.
+ */
+export function ownsNullPrReservation({ id, res, mainReservations, headRef }) {
+  if (mainReservations && !mainReservations[id]) return true
+  return Boolean(headRef && res.row && headRef.split('/').pop() === res.row)
+}
+
+export function checkId({ id, kind, path, mainPaths, reservations, openPrs, prNumber, mainReservations = null, headRef = null, mismatches = null }) {
   const refusals = []
   const onMain = mainPaths?.get(id) ?? []
 
@@ -101,19 +153,29 @@ export function checkId({ id, kind, path, mainPaths, reservations, openPrs, prNu
   if (otherOnMain.length > 0) {
     refusals.push(`REFUSAL(a) main-collision: ${id} (${kind}) is already on origin/main at ` +
       otherOnMain.join(', ') + ` — this PR (${path}) is minting a used id. Renumber: next free id = ` +
-      `max(main shards, RESERVATIONS.json, open PRs) + 1, and reserve it BEFORE the first kernel byte.`)
+      `max(main shards, reservations, open PRs) + 1, and reserve it BEFORE the first kernel byte.`)
   }
 
   // (b) reservation registry: must exist and map to this row/PR.
   const res = reservations[id]
   if (!res) {
-    refusals.push(`REFUSAL(b) missing-reservation: ${id} (${kind}, ${path}) has no entry in ` +
-      `chaingraph/graph/RESERVATIONS.json. Every node-minting PR MUST add its own line ` +
-      `("art-<id>": {"row":..., "pr":..., "reserved":...}) — the registry line is the lock; ` +
-      `two PRs reserving the same id conflict on it in the merge queue.`)
+    refusals.push(`REFUSAL(b) missing-reservation: ${id} (${kind}, ${path}) has no reservation. ` +
+      `Every node-minting PR MUST add its own file ${SHARD_DIR_REL}/${id}.json ` +
+      `({"row":..., "pr":..., "reserved":...}) — the file is the lock; ` +
+      `two PRs reserving the same id add/add-conflict on it in the merge queue.`)
+  } else if (mismatches?.has(id)) {
+    refusals.push(`REFUSAL(b) legacy-shard-mismatch: ${id} (${kind}) has different entries in ` +
+      `${SHARD_DIR_REL}/${id}.json and legacy ${LEGACY_REL} — one lock, two answers. ` +
+      `Edit only the shard file and leave the legacy line as main has it.`)
+  } else if (prNumber != null && res.pr == null && ownsNullPrReservation({ id, res, mainReservations, headRef })) {
+    // A row reserves its id before its PR exists, so
+    // the line usually carries pr=null. That is this PR's own lock when the
+    // line is new in this PR (absent from origin/main's registry: git conflict
+    // on the line is still the mechanical collision check) or its row names
+    // this PR's head branch. 26 false refusals over 10-01..10-29 were this shape.
   } else if (prNumber != null && res.pr !== prNumber) {
     refusals.push(`REFUSAL(b) reservation-mismatch: ${id} (${kind}) is reserved in ` +
-      `RESERVATIONS.json to pr=${res.pr} (row "${res.row}"), but this PR is #${prNumber}. ` +
+      `the registry to pr=${res.pr} (row "${res.row}"), but this PR is #${prNumber}. ` +
       `Two PRs claiming one id — the newer renumbers.`)
   }
 
@@ -123,7 +185,7 @@ export function checkId({ id, kind, path, mainPaths, reservations, openPrs, prNu
     for (const p of others) {
       refusals.push(`REFUSAL(c) open-PR-collision: ${id} (${kind}) is already claimed by open PR ` +
         `#${p.number} "${p.title}". Renumber this PR; next free id = ` +
-        `max(main shards, RESERVATIONS.json, open PRs) + 1.`)
+        `max(main shards, reservations, open PRs) + 1.`)
     }
   }
 
@@ -142,10 +204,29 @@ export function checkId({ id, kind, path, mainPaths, reservations, openPrs, prNu
  * with NO surface on main stays a mint and goes through checkId exactly as
  * before.
  */
-export function checkNewPath({ id, path, mainPaths, reservations, openPrs, prNumber }) {
+export function checkNewPath({ id, path, mainPaths, reservations, openPrs, prNumber, mainReservations = null, headRef = null, mismatches = null }) {
   if ((mainPaths?.get(id) ?? []).length > 0) return { backfill: true, refusals: [] }
   const kind = NODE_RE.test(path) ? 'node' : MANIFEST_RE.test(path) ? 'manifest' : 'tool'
-  return { backfill: false, refusals: checkId({ id, kind, path, mainPaths, reservations, openPrs, prNumber }) }
+  return { backfill: false, refusals: checkId({ id, kind, path, mainPaths, reservations, openPrs, prNumber, mainReservations, headRef, mismatches }) }
+}
+
+/**
+ * origin/main's registry (shards ∪ legacy), or null when unreadable (the
+ * new-in-PR leg then never fires). Only id PRESENCE is consulted
+ * (ownsNullPrReservation), so shard ids come from one ls-tree, not N blob reads.
+ */
+function loadMainReservations() {
+  let legacy = null
+  try { legacy = JSON.parse(git(['show', `origin/main:${LEGACY_REL}`])) } catch { /* gone or unreadable */ }
+  let names
+  try { names = git(['ls-tree', '--name-only', `origin/main:${SHARD_DIR_REL}`]) } catch { names = null }
+  if (!legacy && names == null) return null
+  const out = { ...(legacy || {}) }
+  for (const f of (names || '').split('\n')) {
+    const m = SHARD_FILE_RE.exec(f.trim())
+    if (m && !out[m[1]]) out[m[1]] = { shard: true }
+  }
+  return out
 }
 
 /** Which open PRs claim `id` (exact token match, not substring). null = leg unavailable. */
@@ -245,6 +326,65 @@ export function selfTest() {
     ok: mint.backfill === false && mint.refusals.some(r => r.includes('REFUSAL(b)')),
     quote: mint.refusals.find(r => r.includes('REFUSAL(b)')) || '(no refusal — UNEXPECTED GREEN)' })
 
+  // pr=null reservations (a row reserves before its PR exists).
+  const nullRes = { ...reservations, 'art-780': { row: 'SOLANA-PDA-ATA-AUDIT-1', pr: null, reserved: '2026-10-29T02:00:00Z' } }
+  // GREEN: the PR added the pr=null line itself (absent from main's registry) — the #2727 shape.
+  expectGreen('GREEN pr=null reservation added by this PR',
+    checkId({ id: 'art-780', kind: 'node', path: 'chaingraph/graph/nodes/art-780-foo.json', mainPaths, reservations: nullRes,
+      openPrs: [], prNumber: 2727, mainReservations: reservations }))
+  // GREEN: pr=null line already on main, its row is this PR's head branch.
+  expectGreen('GREEN pr=null reservation on main, row = head branch',
+    checkId({ id: 'art-780', kind: 'node', path: 'chaingraph/graph/nodes/art-780-foo.json', mainPaths, reservations: nullRes,
+      openPrs: [], prNumber: 2727, mainReservations: nullRes, headRef: 'SOLANA-PDA-ATA-AUDIT-1' }))
+  // RED: pr=null line already on main for ANOTHER row — still someone else's lock.
+  expectRed('RED(b) pr=null reservation on main held by another row',
+    checkId({ id: 'art-780', kind: 'node', path: 'chaingraph/graph/nodes/art-780-foo.json', mainPaths, reservations: nullRes,
+      openPrs: null, prNumber: 2730, mainReservations: nullRes, headRef: 'OTHER-ROW-1' }),
+    'b')
+  // RED: main's registry unreadable and no row match — fail closed.
+  expectRed('RED(b) pr=null reservation, main registry unreadable, no row match',
+    checkId({ id: 'art-780', kind: 'node', path: 'chaingraph/graph/nodes/art-780-foo.json', mainPaths, reservations: nullRes,
+      openPrs: null, prNumber: 2730, mainReservations: null, headRef: null }),
+    'b')
+
+  // RESERVATIONS-SHARD-1: shards ∪ legacy union.
+  const mine = { row: 'THIS-ROW-1', pr: 1762, reserved: '2026-11-03T01:00:00Z' }
+  // GREEN: id only in the legacy object (a PR opened before the split) still counts.
+  const legacyOnly = mergeReservations({}, { ...reservations, 'art-790': mine })
+  expectGreen('GREEN legacy-only id (pre-split PR) counts as reserved',
+    checkId({ id: 'art-790', kind: 'node', path: 'chaingraph/graph/nodes/art-790-foo.json', mainPaths,
+      ...legacyOnly, openPrs: [], prNumber: 1762 }))
+  // GREEN: id only in a shard (the new layout).
+  const shardOnly = mergeReservations({ 'art-790': mine }, reservations)
+  expectGreen('GREEN shard-only id (new layout)',
+    checkId({ id: 'art-790', kind: 'node', path: 'chaingraph/graph/nodes/art-790-foo.json', mainPaths,
+      ...shardOnly, openPrs: [], prNumber: 1762 }))
+  // GREEN: migrated id, shard equal to its legacy entry.
+  const migrated = mergeReservations({ 'art-790': { ...mine } }, { ...reservations, 'art-790': mine })
+  expectGreen('GREEN migrated id (shard equals legacy entry)',
+    checkId({ id: 'art-790', kind: 'node', path: 'chaingraph/graph/nodes/art-790-foo.json', mainPaths,
+      ...migrated, openPrs: [], prNumber: 1762 }))
+  // RED: one id, two answers (legacy says #1800, shard says #1762).
+  const split = mergeReservations({ 'art-790': mine }, { ...reservations, 'art-790': { ...mine, pr: 1800 } })
+  expectRed('RED(b) legacy vs shard mismatch for one id',
+    checkId({ id: 'art-790', kind: 'node', path: 'chaingraph/graph/nodes/art-790-foo.json', mainPaths,
+      ...split, openPrs: null, prNumber: 1762 }),
+    'b')
+
+  // The lock itself is a git property, so prove it with git: a throwaway repo,
+  // two branches off one base, `git merge-tree --write-tree` (exit 1 = conflict).
+  const lock = mergeTreeFixtures()
+  if (lock.error) {
+    results.push({ name: 'git lock fixtures', ok: false, quote: `sandbox git failed: ${lock.error}` })
+  } else {
+    results.push({ name: 'RED same id reserved in two shards (two PRs, art-790.json each) → add/add conflict',
+      ok: lock.sameId === true, quote: lock.sameId ? `merge-tree CONFLICT: ${lock.sameIdMsg}` : '(merged clean — UNEXPECTED GREEN, the lock is gone)' })
+    results.push({ name: 'GREEN different ids in two shards (art-790.json vs art-791.json) → clean merge',
+      ok: lock.diffIds === false, quote: lock.diffIds ? `(merge-tree CONFLICT — UNEXPECTED RED: ${lock.diffIdsMsg})` : 'GREEN: merge-tree clean' })
+    results.push({ name: 'CONTROL legacy single-object layout, different ids → still conflicts (why the split exists)',
+      ok: lock.legacyDiffIds === true, quote: lock.legacyDiffIds ? `merge-tree CONFLICT: ${lock.legacyDiffIdsMsg}` : '(merged clean — control did not reproduce)' })
+  }
+
   let failed = 0
   for (const r of results) {
     console.error(`  ${r.ok ? 'ok' : 'FAIL'} — ${r.name}`)
@@ -255,29 +395,100 @@ export function selfTest() {
   return failed === 0
 }
 
+/**
+ * Throwaway-repo merge-tree proof of the lock (self-test only). Every git call
+ * runs with gitEnv() and cwd = the sandbox, so a hook-leaked GIT_DIR cannot
+ * point it at the real repository. Returns { sameId, diffIds, legacyDiffIds }
+ * as booleans (true = conflict) plus the conflict lines, or { error }.
+ */
+function mergeTreeFixtures() {
+  const dir = mkdtempSync(join(tmpdir(), 'idcoll-lock-'))
+  const sg = (args) => execFileSync('git', ['-c', 'user.name=selftest', '-c', 'user.email=selftest@invalid',
+    '-c', 'commit.gpgsign=false', '-c', `core.hooksPath=${join(dir, '.nohooks')}`, '-c', 'core.autocrlf=false', ...args],
+    { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: gitEnv() })
+  const put = (rel, text) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), text) }
+  const entry = (row, pr) => JSON.stringify({ row, pr, reserved: '2026-11-03T01:00:00Z' }, null, 2) + '\n'
+  const legacyText = (obj) => JSON.stringify(obj, null, 2) + '\n'
+  const base = { 'art-788': { row: 'BASE-1', pr: null, reserved: '2026-11-01T00:00:00Z' } }
+  const branch = (name, files) => {
+    sg(['checkout', '-q', '-b', name, 'main'])
+    for (const [rel, text] of Object.entries(files)) put(rel, text)
+    sg(['add', '-A']); sg(['commit', '-q', '-m', name])
+  }
+  const conflicts = (a, b) => {
+    try { sg(['merge-tree', '--write-tree', '--name-only', a, b]); return { c: false, msg: '' } } catch (e) {
+      if (e.status !== 1) throw e
+      const lines = String(e.stdout || '').split('\n').filter(l => /CONFLICT/.test(l))
+      return { c: true, msg: lines.join(' | ') || 'exit 1' }
+    }
+  }
+  try {
+    sg(['init', '-q', '-b', 'main'])
+    put('chaingraph/graph/RESERVATIONS.json', legacyText(base))
+    put('chaingraph/graph/reservations/art-788.json', entry('BASE-1', null))
+    sg(['add', '-A']); sg(['commit', '-q', '-m', 'base'])
+    const S = 'chaingraph/graph/reservations/'
+    branch('pr-a-same', { [`${S}art-790.json`]: entry('ROW-A-1', 2001) })
+    branch('pr-b-same', { [`${S}art-790.json`]: entry('ROW-B-1', 2002) })
+    branch('pr-a-diff', { [`${S}art-790.json`]: entry('ROW-A-1', 2001) })
+    branch('pr-b-diff', { [`${S}art-791.json`]: entry('ROW-B-1', 2002) })
+    branch('legacy-a', { 'chaingraph/graph/RESERVATIONS.json': legacyText({ ...base, 'art-790': { row: 'ROW-A-1', pr: 2001, reserved: '2026-11-03T01:00:00Z' } }) })
+    branch('legacy-b', { 'chaingraph/graph/RESERVATIONS.json': legacyText({ ...base, 'art-791': { row: 'ROW-B-1', pr: 2002, reserved: '2026-11-03T01:00:00Z' } }) })
+    const same = conflicts('pr-a-same', 'pr-b-same')
+    const diff = conflicts('pr-a-diff', 'pr-b-diff')
+    const leg = conflicts('legacy-a', 'legacy-b')
+    return { sameId: same.c, sameIdMsg: same.msg, diffIds: diff.c, diffIdsMsg: diff.msg, legacyDiffIds: leg.c, legacyDiffIdsMsg: leg.msg }
+  } catch (e) {
+    return { error: String(e.stderr || e.message).trim().split('\n')[0] }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
 // ------------------------------------------------------------------- modes
 function runSeedCheck() {
   const mainPaths = mainIdPaths()
   if (!mainPaths) { console.error('check-id-collision: origin/main unreadable — cannot seed-check (fail closed).'); process.exit(1) }
-  const reservations = loadReservations()
+  let loaded
+  try { loaded = loadReservations() } catch (e) {
+    console.error(`check-id-collision --seed-check: registry unreadable (${e.message}) — fail closed.`); process.exit(1)
+  }
+  const { reservations, mismatches, legacy } = loaded
   const shardIds = [...mainPaths.keys()].filter(id =>
     mainPaths.get(id).some(p => NODE_RE.test(p)))
   const missing = shardIds.filter(id => !reservations[id])
-  for (const id of missing) console.error(`  seed-check: main shard ${id} missing from RESERVATIONS.json`)
-  console.error(`check-id-collision --seed-check: reservations=${Object.keys(reservations).length} ` +
-    `main node shards=${shardIds.length} extras=${Object.keys(reservations).length - shardIds.length}` +
-    (missing.length === 0 ? ' — seeded OK' : ''))
-  process.exit(missing.length === 0 ? 0 : 1)
+  for (const id of missing) console.error(`  seed-check: main node shard ${id} has no reservation (${SHARD_DIR_REL}/ or legacy)`)
+  for (const id of mismatches) console.error(`  seed-check: ${id} differs between ${SHARD_DIR_REL}/${id}.json and legacy ${LEGACY_REL}`)
+  const total = Object.keys(reservations).length
+  const shardCount = Object.keys(loadShards()).length
+  const legacyOnly = legacy ? Object.keys(legacy).filter(id => !existsSync(join(SHARD_DIR, `${id}.json`))).length : 0
+  console.error(`check-id-collision --seed-check: reservations=${total} (shards=${shardCount}, ` +
+    `legacy=${legacy ? Object.keys(legacy).length : 'absent'}, legacy-only=${legacyOnly}, mismatches=${mismatches.size}) ` +
+    `main node shards=${shardIds.length} extras=${total - shardIds.length}` +
+    (missing.length + mismatches.size === 0 ? ' — seeded OK' : ''))
+  process.exit(missing.length + mismatches.size === 0 ? 0 : 1)
 }
 
 function runDiff() {
   const mainPaths = mainIdPaths()
   if (!mainPaths) { console.error('check-id-collision: origin/main unreadable — refusing closed (a diff-scoped collision gate on a stale checkout is a silent green).'); process.exit(1) }
-  let reservations
-  try { reservations = loadReservations() } catch (e) {
-    console.error(`check-id-collision: RESERVATIONS.json unreadable (${e.message}) — refusing closed.`); process.exit(1)
+  let reservations, mismatches, legacy
+  try { ({ reservations, mismatches, legacy } = loadReservations()) } catch (e) {
+    console.error(`check-id-collision: reservation registry unreadable (${e.message}) — refusing closed.`); process.exit(1)
   }
   const prNumber = thisPrNumber()
+  const mainReservations = loadMainReservations()
+  // New reservations belong in the directory. A legacy line this PR added is
+  // still honoured (pre-split PRs must stay green) but named, never silent.
+  if (legacy && mainReservations) {
+    for (const id of Object.keys(legacy)) {
+      if (!mainReservations[id] && !existsSync(join(SHARD_DIR, `${id}.json`))) {
+        console.error(`check-id-collision: NOTE ${id} is reserved only in legacy ${LEGACY_REL} — ` +
+          `honoured for back-compat; new reservations go to ${SHARD_DIR_REL}/${id}.json (RESERVATIONS-SHARD-1).`)
+      }
+    }
+  }
+  const headRef = process.env.GITHUB_HEAD_REF || null
   const changed = changedPaths().filter(p => NODE_RE.test(p) || MANIFEST_RE.test(p) || TOOL_RE.test(p))
 
   // Exact-token open-PR scan, one gh call, only when there is something to check.
@@ -317,7 +528,8 @@ function runDiff() {
     if (!isNew) continue // modification of an existing main file: not a mint
     const id = `art-${m[1]}`
     const out = checkNewPath({ id, path: p, mainPaths, reservations,
-      openPrs: openByid.get(id) ?? (MERGE_GROUP ? null : (ghSkipped ? null : [])), prNumber })
+      openPrs: openByid.get(id) ?? (MERGE_GROUP ? null : (ghSkipped ? null : [])), prNumber,
+      mainReservations, headRef, mismatches })
     if (out.backfill) backfills++ // backfill of an existing id: not a mint, no refusal
     refusals.push(...out.refusals)
   }

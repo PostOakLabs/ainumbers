@@ -55,6 +55,8 @@ import { gunzipSync } from 'node:zlib';
 import {
   ASK_AGENT_END, askAgentImperative, buildAskAgentBlock, encodeAskAgentFragment,
 } from '../chaingraph/_page-chrome.mjs';
+import { chromeInsertionIndex } from './page-chrome-anchor.mjs';
+import { verifyPageMapping } from './gen-webmcp-registrations.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -64,6 +66,9 @@ const RED_GREEN = process.argv.includes('--red-green');
 // WRITER-SCOPE-1: --only <node id> scopes the WRITE pass to exactly the named
 // node's page. The CHECK pass (no --write) is ALWAYS whole-tree — the gate
 // semantics do not change — so --only without --write is a usage error (exit 2).
+// ASKAGENT-ONLY-SKIP-1: a scoped node that adjudicateNode excludes (pageless
+// live node, manifest still to land, no sample) is a printed skip with exit 0 —
+// never an error; the CHECK pass owns coverage truth.
 const onlyAt = process.argv.indexOf('--only');
 const ONLY = onlyAt !== -1 ? process.argv[onlyAt + 1] : null;
 
@@ -129,10 +134,15 @@ async function writerScopeProof() {
   const root = mkdtempSync(join(tmpdir(), 'ask-agent-writer-scope-'));
   const idA = 'scope-art-a';
   const idB = 'scope-art-b';
+  // ASKAGENT-ONLY-SKIP-1 control: live node with NO page file. It gets a
+  // manifest+kernel from the loop below like its siblings (harmless — page
+  // absence excludes first), but no page is ever written for it.
+  const idC = 'scope-art-c';
   const description = 'Validates the writer-scope fixture. Twice.';
   const nodes = [
     { tool_id: idA, status: 'live', mcp_name: 'scope_tool_a', url: `https://ainumbers.co/chaingraph/${idA}.html` },
     { tool_id: idB, status: 'live', mcp_name: 'scope_tool_b', url: `https://ainumbers.co/chaingraph/${idB}.html` },
+    { tool_id: idC, status: 'live', mcp_name: 'scope_tool_c', url: `https://ainumbers.co/chaingraph/${idC}.html` },
   ];
   mkdirSync(join(root, 'chaingraph', 'kernels'), { recursive: true });
   mkdirSync(join(root, 'manifests'), { recursive: true });
@@ -173,7 +183,68 @@ async function writerScopeProof() {
   const after = await collect(root); // whole-tree CHECK pass on the fixture tree
   assert(after.problems.length === 0, 'whole-tree check red after the scoped write: ' + after.problems[0]);
   console.log(`WRITER-SCOPE GREEN: --write --only ${idA} wrote exactly ${green.written} page (${green.scopedCount} scoped emittable of ${green.liveCount} live), sibling byte-identical; whole-tree check on the fixture tree afterwards: clean.`);
+  // ASKAGENT-ONLY-SKIP-1 GREEN: --write --only <pageless live node> is a skip
+  // with a printed reason (exit 0), never an error — the pr-autofix
+  // deterministic-writers step calls exactly this shape for every changed
+  // tools/ page whose node is pageless (measured: 38 of 678 live nodes).
+  const pageAAfterGreen = readFileSync(pageAAbs, 'utf8');
+  const skip = await writePass(root, idC);
+  if (skip.error) fail('--only on a pageless fixture node must not error: ' + skip.error);
+  assert(!!skip.skipped, '--only on a pageless fixture node must return a skip reason');
+  assert(skip.written === 0 && skip.scopedCount === 0, 'skip must write nothing');
+  assert(!existsSync(join(root, 'chaingraph', `${idC}.html`)), 'skip must not create the absent page');
+  assert(readFileSync(pageAAbs, 'utf8') === pageAAfterGreen && readFileSync(pageBAbs, 'utf8') === pageB, 'skip repainted a sibling page — scoping is broken');
+  console.log(`WRITER-SCOPE SKIP: --write --only ${idC} (live, pageless) skipped with reason "${skip.skipped}", zero bytes written, siblings byte-identical.`);
   rmSync(root, { recursive: true, force: true });
+}
+
+/** WRITER-CANON-ALIGN-1 proofs, hermetic (pure strings + the shared table,
+ *  never touches the live tree):
+ *  1. CONVERGENCE: with both chrome writers' insertions going through the ONE
+ *     shared canonical-position table, either invocation order (a11y then
+ *     ask-agent, or ask-agent then a11y) lands on byte-identical pages, in the
+ *     canonical ASK-above-A11Y-above-footer order.
+ *  2. ART-561 SHAPE (the row's eligibility guard, GREEN-only): a canonical
+ *     relocation of the chrome regions around a mapping-eligible page must NOT
+ *     flip webmcp mapping eligibility. The eligibility consult is
+ *     verifyPageMapping (scripts/gen-webmcp-registrations.mjs) — its element
+ *     consult is the id-attribute scan over the whole page source, which is
+ *     position-insensitive BY DESIGN; the art-561 red state is reproduced at
+ *     the gate level in the row record (post-#2250 bytes red
+ *     gen-webmcp-registrations --check, pristine main bytes green — the page
+ *     carried a generated region while mapping-incomplete). This test pins the
+ *     invariant so a future position-SENSITIVE consult cannot land silently:
+ *     the verdict object must be deep-equal across the relocation. */
+function canonAlignProof() {
+  const ask = '<!-- ASK-AGENT:BEGIN generator=x manifest=y -->ASK-BLOCK<!-- ASK-AGENT:END -->';
+  const a11y = '<!-- A11Y-TREE:BEGIN generator=z --><script>/* ocg */</script><!-- A11Y-TREE:END -->';
+  const insert = (src, block, aboveA11y) => {
+    const at = chromeInsertionIndex(src, { aboveA11yRegion: aboveA11y });
+    if (!at) throw new Error('no anchor');
+    return src.slice(0, at.index).replace(/\s+$/, '') + '\n\n' + block + '\n\n' + src.slice(at.index);
+  };
+  // 1. convergence over both invocation orders, abutting and content-separated.
+  const page0 = '<!doctype html><html><body><h1>p</h1><footer>site footer</footer></body></html>';
+  const aThenAsk = insert(insert(page0, a11y, false), ask, true);
+  const askThenA = insert(insert(page0, ask, true), a11y, false);
+  assert(aThenAsk === askThenA, 'both writer invocation orders converge on identical bytes');
+  assert(aThenAsk.indexOf(ask) < aThenAsk.indexOf(a11y) && aThenAsk.indexOf(a11y) < aThenAsk.indexOf('<footer>'), 'canonical order ASK above A11Y above footer');
+  const withContent = insert(insert(page0.replace('<footer>', '<div>notes</div><footer>'), ask, true), a11y, false);
+  assert(withContent.indexOf(ask) < withContent.indexOf(a11y), 'content-separated tail still converges ASK above A11Y');
+  // 2. art-561 shape: eligibility verdict invariant under chrome relocation.
+  const manifest = {
+    mcp_tool_definition: { name: 'scope_tool_a', inputSchema: { properties: { mode: { type: 'string' } } } },
+    execution: { function_name: 'runCheck' },
+  };
+  const eligibleBody = '<input id="mode"><script>function runCheck(pp){ return pp; }\nfunction runTool(){ _lastResult = runCheck(collect()); }</script>';
+  const canonical = insert(insert(page0.replace('<h1>p</h1>', '<h1>p</h1>' + eligibleBody), ask, true), a11y, false);
+  const relocated = insert(insert(page0.replace('<h1>p</h1>', '<h1>p</h1>' + eligibleBody), a11y, false), ask, true);
+  const vCanon = verifyPageMapping(manifest, canonical, 'fixture.html', null);
+  const vReloc = verifyPageMapping(manifest, relocated, 'fixture.html', null);
+  assert(!vCanon.error, 'canonical page is mapping-eligible: ' + vCanon.error);
+  assert(JSON.stringify(vCanon) === JSON.stringify(vReloc), 'chrome relocation must NOT flip mapping eligibility (art-561 shape): ' + JSON.stringify(vReloc));
+  assert(vReloc.resGlobal === '_lastResult' && vReloc.wrapper === 'runTool', 'relocated page keeps wrapper + result-global verdict');
+  console.log('CANON-ALIGN OK: both invocation orders converge byte-identically (ASK above A11Y above footer); art-561 shape — mapping eligibility verdict invariant under chrome relocation (GREEN-only: the consult, verifyPageMapping, is position-insensitive by design).');
 }
 
 function loadJson(path) {
@@ -342,8 +413,16 @@ async function writePass(repoRoot, onlyId = null) {
     }
     scoped = adjudicated.filter((d) => d.id === onlyId);
     if (scoped.length === 0) {
+      // ASKAGENT-ONLY-SKIP-1: a scoped node can be legitimately non-emittable
+      // today — a live node with no in-repo page (38 of 678, the Canton
+      // 503-515 family among them), a manifest still to land, no sample yet.
+      // The whole-tree writer skips those with a printed reason and the CHECK
+      // pass owns coverage truth; the scoped route now does the same instead
+      // of GEN-ERRORing the pr-autofix deterministic-writers step. A node id
+      // that is not live at all stays an error above — that is a caller
+      // mistake, not an exclusion.
       const why = excluded.find((e) => e.id === onlyId);
-      return { error: `--only ${onlyId}: no emittable ask-agent block today${why ? ' — ' + why.exclude : ''}`, problems, excluded };
+      return { skipped: why ? why.exclude : 'excluded with no recorded reason', written: 0, exact: 0, scoped: [], scopedCount: 0, onlyId, liveCount: live.length, excludedCount: excluded.length, excluded, problems };
     }
   }
   let written = 0;
@@ -356,30 +435,15 @@ async function writePass(repoRoot, onlyId = null) {
       base = base.slice(0, r.start) + base.slice(r.end);
     }
     let next;
-    // Visible block: insert BEFORE the first <footer> that is NOT inside a
-    // <script> span (reader-facing content belongs above the footer). Some
-    // pages build their whole body inside a template literal in a script
-    // that itself contains '<footer>' (measured: art-139/140/142/143) —
-    // injecting there breaks page parsing. Fallback: before the LAST
-    // </body> (never a first-match replace — several pages embed the
-    // literal '</body>' inside script strings, measured: art-373 etc.).
-    const scriptSpans = [];
-    {
-      const re = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
-      let m;
-      while ((m = re.exec(base)) !== null) scriptSpans.push([m.index, m.index + m[0].length]);
-    }
-    const inScript = (i) => scriptSpans.some(([a, b]) => i >= a && i < b);
-    let close = -1;
-    let f = base.indexOf('<footer>');
-    while (f !== -1) {
-      if (!inScript(f)) { close = f; break; }
-      f = base.indexOf('<footer>', f + 1);
-    }
-    if (close === -1) close = base.lastIndexOf('</body>');
-    if (close === -1) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert before`); continue; }
-    const head = base.slice(0, close).replace(/\s+$/, '');
-    next = head + '\n\n' + d.expected + '\n\n' + base.slice(close);
+    // WRITER-CANON-ALIGN-1: the insertion point comes from the ONE shared
+    // canonical-position table (scripts/page-chrome-anchor.mjs) — visible
+    // block above the footer, above an abutting A11Y-TREE region, fallback
+    // last </body>, script spans blinded. The private inline copy this file
+    // carried before is gone; the two chrome writers can no longer drift.
+    const anchorAt = chromeInsertionIndex(base, { aboveA11yRegion: true });
+    if (!anchorAt) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert before`); continue; }
+    const head = base.slice(0, anchorAt.index).replace(/\s+$/, '');
+    next = head + '\n\n' + d.expected + '\n\n' + base.slice(anchorAt.index);
     if (next !== d.pageSrc) { writeFileSync(d.pageAbs, next, 'utf8'); written++; }
     else exact++;
   }
@@ -390,6 +454,7 @@ async function run() {
   if (WRITE) {
     const r = await writePass(REPO, ONLY);
     if (r.error) fail(r.error);
+    if (r.skipped) console.log(`skip ask-agent write for ${r.onlyId} — ${r.skipped}`);
     if (r.problems.length) {
       console.error('✗ write pass hit problems:');
       r.problems.forEach((p) => console.error('    ' + p));
@@ -443,7 +508,8 @@ if (RED_GREEN) {
   assert(!gpuBlock.includes('with the parameter `claimed_hash`'), 'gpu block never promises a server-side hash');
   await redGreen();
   await writerScopeProof();
-  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, gpu sentence, sample execution, mutation red-green, writer --only scoping red-then-green).');
+  canonAlignProof();
+  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, gpu sentence, sample execution, mutation red-green, writer --only scoping red-then-green, canon-align + art-561 eligibility shape).');
 } else {
   await run();
 }

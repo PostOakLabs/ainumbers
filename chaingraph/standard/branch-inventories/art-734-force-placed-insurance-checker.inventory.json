@@ -1,0 +1,227 @@
+{
+  "tool_id": "art-734-force-placed-insurance-checker",
+  "inventory_version": 1,
+  "authored_at": "2026-10-14",
+  "error_direction": "conservative_toward_finding",
+  "error_direction_rationale": "A compliance checker that can stay silent is worse than one that over-flags: every input the kernel cannot evaluate is a named refusal or a not_applicable element carrying manual_review_required, never a quiet pass.",
+  "derived_from": [
+    {
+      "digest": "sha256:4fd8cc42328922cbdec7f9e16dcb01b0b14c40b9eb237600575bea7265ea2892",
+      "source_url": "https://www.ecfr.gov/api/versioner/v1/full/2026-10-02/title-12.xml?part=1024&section=1024.37",
+      "retrieved_at": "2026-10-06",
+      "clause_path": "12 CFR 1024.37(b), (c)(1)(i)-(iii), (c)(2), (d)(1), (f), (g), (h)(1)-(2)",
+      "id": "12 CFR 1024.37 force-placed insurance notice sequence"
+    }
+  ],
+  "branches": [
+    {
+      "id": "b-first-notice-45day-advance",
+      "clause": "12 CFR 1024.37(c)(1)(i)",
+      "branch": "Written first notice containing the (c)(2) information delivered or mailed at least 45 days before the premium charge is assessed.",
+      "disposition": "represented",
+      "evidence": "elements",
+      "note": "element first_notice_45_day_advance; calendar-day comparison of the charge date against first-notice + 45. Reachable conformance fixtures: compliant-full-sequence (met), breach-first-notice-45day (breached)."
+    },
+    {
+      "id": "b-reminder-15day-before-charge",
+      "clause": "12 CFR 1024.37(d)(1)",
+      "branch": "Reminder notice delivered or mailed at least 15 days before the premium charge is assessed.",
+      "disposition": "represented",
+      "evidence": "elements",
+      "note": "element reminder_15_days_before_charge. Reachable conformance fixtures: compliant-full-sequence (met), breach-reminder-15day-before-charge (breached)."
+    },
+    {
+      "id": "b-reminder-30day-after-first",
+      "clause": "12 CFR 1024.37(d)(1)",
+      "branch": "Reminder notice not delivered or mailed until at least 30 days after the first notice.",
+      "disposition": "represented",
+      "evidence": "elements",
+      "note": "element reminder_30_days_after_first_notice. Reachable conformance fixtures: compliant-full-sequence (met), breach-reminder-30day-after-first (breached), breach-first-notice-45day (breached co-occurrence)."
+    },
+    {
+      "id": "b-no-evidence-before-charge",
+      "clause": "12 CFR 1024.37(c)(1)(iii)",
+      "branch": "By the end of the 15-day period beginning on the reminder delivery date the servicer has not received evidence of continuous compliant coverage; a charge assessed despite such evidence is not permitted.",
+      "disposition": "represented",
+      "evidence": "elements",
+      "note": "element no_continuous_coverage_evidence_before_charge; breached when the reported evidence date falls on or before the charge date. Reachable conformance fixture: breach-charge-despite-continuous-coverage-evidence."
+    },
+    {
+      "id": "b-first-notice-content-set",
+      "clause": "12 CFR 1024.37(c)(2)",
+      "branch": "The first notice sets forth the eleven enumerated content items.",
+      "disposition": "represented",
+      "evidence": "elements",
+      "note": "element first_notice_content, evaluated only when first_notice_content_items is supplied (closed item keys c2_i..c2_xi); otherwise not_applicable with a named note. Reachable conformance fixtures: notice-content-complete-plus-first-class-mail (met), notice-content-incomplete-breached (breached)."
+    },
+    {
+      "id": "b-mail-class-first-class-floor",
+      "clause": "12 CFR 1024.37(f)",
+      "branch": "Mailed notices use a class of mail not less than first-class mail.",
+      "disposition": "represented",
+      "evidence": "elements",
+      "note": "element mail_class_at_least_first_class over the closed mail-class enum; not_applicable when notice_mail_class is not supplied. Reachable conformance fixtures: notice-content-complete-plus-first-class-mail (met), mail-class-below-first-class-breached (breached)."
+    },
+    {
+      "id": "b-cancel-refund-15day-pro-rata",
+      "clause": "12 CFR 1024.37(g)(1)-(2)",
+      "branch": "Within 15 days of receiving evidence of continuous compliant coverage the servicer must cancel the force-placed insurance and refund all premium charges and related fees for any period of overlapping insurance coverage.",
+      "disposition": "represented",
+      "evidence": "refund_evaluation",
+      "note": "values-only: refund due date = evidence + 15 calendar days; refund owed computed pro-rata over the inclusive-day overlap of the charged coverage period and the borrower coverage period. Reachable conformance fixtures: breach-charge-despite-continuous-coverage-evidence (met), refund-breach-late-and-short (breached), refund-outstanding-no-action-yet (outstanding)."
+    },
+    {
+      "id": "b-benchmark-bona-fide-reasonable",
+      "clause": "12 CFR 1024.37(h)(1)-(2)",
+      "branch": "All charges related to force-placed insurance must be bona fide and reasonable; a bona fide and reasonable charge bears a reasonable relationship to the servicer's cost.",
+      "disposition": "represented",
+      "evidence": "premium_benchmark",
+      "note": "values-only comparison table of charged premium against the borrower-provided alternative quote; the node NEVER labels a premium reasonable or unreasonable — the comparison is surfaced, the judgement is not. Reachable conformance fixtures: compliant-full-sequence (reported), benchmark-quote-missing-refused-values-only (refused on missing values)."
+    },
+    {
+      "id": "b-missing-required-date",
+      "clause": "12 CFR 1024.37(c)(1)(i), (d)(1)",
+      "branch": "A notice-sequence check without the first-notice, reminder or charge date cannot be evaluated.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "MISSING_OR_INVALID_REQUIRED_DATE_REFUSED",
+        "payload_marker": "refused_because",
+        "reachability_vector": {},
+        "fixture": "art-734-force-placed-insurance-checker.reachability.json#empty-input-reaches-refusal"
+      },
+      "note": "strict YYYY-MM-DD calendar dates within 1970-2099 only; anything else refuses."
+    },
+    {
+      "id": "b-invalid-charged-amount",
+      "clause": "12 CFR 1024.37(h)(1)",
+      "branch": "A non-numeric or negative charged premium cannot enter a values-only benchmark.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INVALID_AMOUNT_REFUSED",
+        "payload_marker": "refused_because",
+        "reachability_vector": {
+          "first_notice_date": "2026-03-01", "reminder_notice_date": "2026-04-01", "charge_date": "2026-04-20",
+          "charged_premium_amount": -5, "charge_coverage_start": "2026-04-20", "charge_coverage_end": "2027-04-19"
+        },
+        "fixture": "art-734-force-placed-insurance-checker.reachability.json#negative-premium-reaches-refusal"
+      }
+    },
+    {
+      "id": "b-inverted-charge-coverage-period",
+      "clause": "12 CFR 1024.37(g)(2)",
+      "branch": "A charged coverage period ending before it starts cannot support a pro-rata overlap computation.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INVALID_COVERAGE_PERIOD_REFUSED",
+        "payload_marker": "refused_because",
+        "reachability_vector": {
+          "first_notice_date": "2026-03-01", "reminder_notice_date": "2026-04-01", "charge_date": "2026-04-20",
+          "charged_premium_amount": 100, "charge_coverage_start": "2026-04-20", "charge_coverage_end": "2026-04-19"
+        },
+        "fixture": "art-734-force-placed-insurance-checker.reachability.json#inverted-coverage-period-reaches-refusal"
+      }
+    },
+    {
+      "id": "b-refund-inputs-missing",
+      "clause": "12 CFR 1024.37(g)(2)",
+      "branch": "Evidence of continuous coverage without the borrower coverage period cannot support a pro-rata overlapping-coverage refund.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "PRO_RATA_INPUTS_MISSING_REFUSED",
+        "payload_marker": "refused_because",
+        "reachability_vector": {
+          "first_notice_date": "2026-03-01", "reminder_notice_date": "2026-04-01", "charge_date": "2026-04-20",
+          "charged_premium_amount": 100, "charge_coverage_start": "2026-04-20", "charge_coverage_end": "2027-04-19",
+          "evidence_of_continuous_coverage_date": "2026-05-01"
+        },
+        "fixture": "art-734-force-placed-insurance-checker.reachability.json#evidence-without-borrower-coverage-reaches-refusal"
+      }
+    },
+    {
+      "id": "b-invalid-mail-class",
+      "clause": "12 CFR 1024.37(f)",
+      "branch": "A mail class outside the closed enum cannot be classified against the first-class floor.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INVALID_MAIL_CLASS_REFUSED",
+        "payload_marker": "refused_because",
+        "reachability_vector": {
+          "first_notice_date": "2026-03-01", "reminder_notice_date": "2026-04-01", "charge_date": "2026-04-20",
+          "charged_premium_amount": 100, "charge_coverage_start": "2026-04-20", "charge_coverage_end": "2027-04-19",
+          "notice_mail_class": "pigeon"
+        },
+        "fixture": "art-734-force-placed-insurance-checker.reachability.json#invalid-mail-class-reaches-refusal"
+      }
+    },
+    {
+      "id": "b-benchmark-quote-missing",
+      "clause": "12 CFR 1024.37(h)(1)-(2)",
+      "branch": "Without borrower-provided alternative-quote values the benchmark reports a refusal branch (alternative_quote_missing), never a judgement.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "FPI_BENCHMARK_QUOTE_MISSING_REFUSED",
+        "payload_marker": "premium_benchmark",
+        "reachability_vector": {
+          "first_notice_date": "2026-03-01", "reminder_notice_date": "2026-04-01", "charge_date": "2026-04-20",
+          "charged_premium_amount": 1500, "charge_coverage_start": "2026-04-20", "charge_coverage_end": "2027-04-19"
+        },
+        "fixture": "art-734-force-placed-insurance-checker.fixtures.json#benchmark-quote-missing-refused-values-only"
+      }
+    },
+    {
+      "id": "b-charge-basis-reasonable-belief",
+      "clause": "12 CFR 1024.37(b)",
+      "branch": "A servicer may not assess a charge unless it has a reasonable basis to believe the borrower failed to maintain hazard insurance.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "The charge date and amounts are supplied as facts of record; whether the servicer had a reasonable basis to charge is a fact question outside a values-only kernel.",
+        "source": "VALON reduction map §B2 item 4 scope note (row FORCE-PLACED-CHECKER-1 step 2)",
+        "owner": "FORCE-PLACED-CHECKER-1 staging (ORCH); surfaced as manual_review_required on any non-compliant verdict"
+      }
+    },
+    {
+      "id": "b-renewal-replacement-notices",
+      "clause": "12 CFR 1024.37(e)",
+      "branch": "Renewing or replacing existing force-placed insurance carries its own 45-day notice content and frequency rules.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "This node checks the initial charge sequence only; renewal/replacement (e) notices are a named exclusion, not computed.",
+        "source": "row FORCE-PLACED-CHECKER-1 step 2 named exclusions",
+        "owner": "FORCE-PLACED-CHECKER-1 staging (ORCH)"
+      }
+    },
+    {
+      "id": "b-flood-insurance-exclusion",
+      "clause": "12 CFR 1024.37(a)(2)(i), (i)",
+      "branch": "Flood-required insurance under the Flood Disaster Protection Act is not force-placed insurance under this section.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "No flood-vs-hazard distinction is drawn beyond the section's own scope; FDPA-overlay charges are a named refusal-adjacent exclusion, never computed here.",
+        "source": "row FORCE-PLACED-CHECKER-1 step 2 named exclusions (no flood-vs-hazard distinctions beyond §1024.37's scope)",
+        "owner": "FORCE-PLACED-CHECKER-1 staging (ORCH)"
+      }
+    },
+    {
+      "id": "b-state-fpi-overlays",
+      "clause": "12 CFR 1024.37(h)(1)",
+      "branch": "Charges subject to State regulation as the business of insurance are carved out of the bona fide and reasonable rule.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "No state force-placed-insurance overlays are modelled; state-law variance is a named exclusion of this node.",
+        "source": "row FORCE-PLACED-CHECKER-1 step 2 named exclusions (no state FPI overlays)",
+        "owner": "FORCE-PLACED-CHECKER-1 staging (ORCH)"
+      }
+    },
+    {
+      "id": "b-notice-format-typography",
+      "clause": "12 CFR 1024.37(c)(3), (c)(4), (d)(3), (d)(4)",
+      "branch": "Bold-text format requirements and the additional-information restriction on the written notices.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "The kernel consumes values only (dates, amounts, a closed content-item checklist); document typography and layout cannot be represented and are not evaluated.",
+        "source": "row FORCE-PLACED-CHECKER-1 step 3 inputs (values-only)",
+        "owner": "FORCE-PLACED-CHECKER-1 staging (ORCH)"
+      }
+    }
+  ]
+}

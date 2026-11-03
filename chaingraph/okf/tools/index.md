@@ -21,6 +21,10 @@ status: stable
 - [Margin Call Collateral Mobilizer](./513-margin-call-collateral-mobilizer.md) — `mobilize_margin_collateral`
 - [Tokenized Fund Collateral Validator](./514-tokenized-fund-collateral-validator.md) — `validate_fund_collateral`
 - [Collateral Swap Eligibility Validator](./515-collateral-swap-eligibility-validator.md) — `validate_collateral_swap_eligibility`
+- [Borrower Escrow Auditor](./732-borrower-escrow-auditor.md) — `audit_borrower_escrow_stmt`
+- [Servicing Compliance Clock](./733-servicing-compliance-clock.md) — `servicing_compliance_clock`
+- [CBR Data Return Validator](./784-cbr-data-return-validator.md) — `validate_cbr_data_return`
+- [Corridor Cost Averages](./787-corridor-cost-averages.md) — `compute_corridor_cost_averages`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md) — `model_x402_settlement`
@@ -629,17 +633,44 @@ status: stable
 - [Authorization Payload Linter](./art-700-authorization-payload-linter.md) — `lint_authorization_payload`
 - [Three Way Invoice Match](./art-701-three-way-invoice-match.md) — `match_invoice_three_way`
 - [Runway Goal Path](./art-702-runway-goal-path.md) — `find_runway_goal_path`
+- [Mandate Authorization Gate](./art-703-mandate-authorization-gate.md) — `authorize_payment_against_mandate`
 - [AI Token Spend](./art-704-ai-token-spend.md) — `estimate_ai_token_spend`
+- [Bond Ladder Builder](./art-705-bond-ladder-builder.md) — `build_bond_ladder`
+- [Yield Curve & G-Spread](./art-706-yield-curve-gspread.md) — `build_yield_curve_gspread`
+- [TSV Tier-Cap Ladder](./art-707-tsv-tier-cap-ladder.md) — `check_tsv_tier_cap_ladder`
+- [V4 Hook Permission Reconciler](./art-708-v4-hook-permission-reconciler.md) — `reconcile_v4_hook_permissions`
+- [V4 Hook Fee Conformance](./art-709-v4-hook-fee-conformance.md) — `check_v4_hook_fee_conformance`
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md) — `model_cbam_certificate_cost`
+- [TSV Stoppage Concurrency](./art-710-tsv-stoppage-concurrency.md) — `check_tsv_stoppage_concurrency`
 - [SCO60 Group 2 Exposure Limit V2](./art-711-sco60-crypto-asset-exposure-classifier-v2.md) — `classify_sco60_exposure_v2`
 - [Workforce Board ROI Report](./art-712-workforce-board-roi.md) — `workforce_board_roi_report`
+- [S-Corp Election Break-Even Modeler](./art-713-scorp-election-break-even.md) — `model_scorp_break_even`
+- [Token-2022 Transfer-Fee Payment Reconciler](./art-715-token2022-transfer-fee-reconciler.md) — `reconcile_token2022_transfer_fee`
 - [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md) — `aggregate_cbam_precursor_emissions`
 - [EU Taxonomy Alignment Scorer](./art-73-taxonomy-alignment-scorer.md) — `score_taxonomy_alignment`
+- [Force-Placed Insurance Notice Checker](./art-734-force-placed-insurance-checker.md) — `check_force_placed_notice`
+- [Solana DvP Pre-Funding Terms Verifier](./art-735-solana-dvp-prefund-verifier.md) — `verify_solana_dvp_terms`
 - [Taxonomy KPI & Green Asset Ratio Aggregator](./art-74-taxonomy-kpi-gar-aggregator.md) — `aggregate_taxonomy_kpi_gar`
+- [Solana Paychan Voucher Verifier](./art-749-solana-paychan-voucher-verifier.md) — `verify_solana_paychan_voucher`
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
+- [Equity Exit Waterfall Modeler](./art-754-equity-exit-waterfall.md) — `calc_equity_exit_waterfall`
+- [HDHP vs. PPO Break-Even](./art-758-hdhp-ppo-break-even.md) — `estimate_hdhp_ppo_breakeven`
+- [ISO AMT Exposure Modeler](./art-759-iso-amt-exposure-modeler.md) — `estimate_iso_amt_exposure`
 - [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md) — `apply_climate_scenario`
+- [ESPP Break-Even & Optimal Sell](./art-760-espp-break-even-optimal-sell.md) — `analyze_espp_disposition`
+- [AI Displacement Risk Screener](./art-763-ai-displacement-risk-screener.md) — `ai_displacement_risk_screener`
+- [Solo 401(k) vs. SEP-IRA Optimizer](./art-764-solo-401k-vs-sep-ira.md) — `compare_solo401k_sep_simple`
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md) — `run_t1_readiness_diagnostic`
+- [Automation Payback](./art-771-automation-payback.md) — `compute_automation_payback`
+- [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md) — `derive_beacon_fair_sample_v2`
+- [PayPal Dispute Deadline & Evidence](./art-776-paypal-dispute-deadline-evidence.md) — `compute_paypal_response`
+- [PSP Dispute Reason Crosswalk](./art-777-psp-dispute-reason-crosswalk.md) — `crosswalk_psp_dispute_reasons`
+- [Token-2022 Withheld-Fee Reconciler](./art-778-token2022-withheld-fee-reconciler.md) — `reconcile_token2022_withheld`
+- [BNPL Plan Comparator](./art-779-bnpl-plan-comparator.md) — `compare_bnpl_plans`
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md) — `calculate_csdr_penalty`
+- [Solana PDA Bump and ATA Audit](./art-780-solana-pda-ata-audit.md) — `audit_solana_pda_ata`
+- [Modified Premium Calculator](./art-782-modified-premium.md) — `compute_modified_premium`
+- [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md) — `parse_csv_table`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md) — `check_allocation_affirmation`

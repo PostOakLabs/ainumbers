@@ -151,7 +151,10 @@ const ENUM_CAP = 6; // §3.10: enums only for ≤6-member observed value sets
 //   (1) numbers are NEVER enumerated — a numeric output lives on a continuum; ≤6 observed samples is
 //       sampling, not a domain (total_score:[20], im_call:[500000] would otherwise be pinned).
 //   (2) booleans enumerate only when BOTH members were observed; a lone observed boolean stays a bare
-//       type ( shortfall:[false] is not a domain of one).
+//       type ( shortfall:[false] is not a domain of one); an observed null is NOT a boolean member —
+//       it never counts toward BOTH, and when the enum does fire the null rides in it ([false,true,
+//       null]), exactly as a string enum appends an observed null — a derived schema must validate
+//       every payload it derived from ([7F-V471], SO #34c).
 //   (3) strings enumerate only when 2..6 DISTINCT short token-like members were observed — closed
 //       vocabularies (verdict, venue, mode, hqla_tier, codec). Values that look like hashes (0x…),
 //       base32/cids, digests, timestamps, URLs, markup or prose never enumerate (each observed value
@@ -185,12 +188,16 @@ function deriveField(vals) {
   if (types.every((t) => t === 'string' || t === 'number' || t === 'boolean' || t === 'null')) {
     const schema = { type };
     if (types.includes('boolean')) {
-      const distinct = [...new Set(vals.map((v) => JSON.stringify(v)))].map((s) => JSON.parse(s));
-      if (distinct.length === 2) schema.enum = [false, true]; // both members observed → genuine domain
+      const distinct = [...new Set(vals.filter((v) => typeof v === 'boolean'))];
+      if (distinct.length === 2) { // both boolean members observed → genuine domain; an observed null stays in it
+        schema.enum = types.includes('null') ? [false, true, null] : [false, true];
+      }
     } else if (types.includes('string')) {
       const strings = vals.filter((v) => typeof v === 'string');
       const distinct = [...new Set(strings)];
-      if (stringEnumEligible(distinct)) schema.enum = distinct.sort();
+      if (stringEnumEligible(distinct)) {
+        schema.enum = types.includes('null') ? [...distinct.sort(), null] : distinct.sort(); // observed null stays in the vocabulary
+      }
     }
     // numbers and null are never enumerated (rule 1); unions keep their bare type
     return schema;

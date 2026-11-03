@@ -739,5 +739,8 @@ if (isMain) {
   }
 
   // ADVISORY: always exit 0. Hard-gate promotion is a separate, later decision.
-  process.exit(0);
+  // CHAIN-FV-STDOUT-DRAIN-1: set exitCode, never process.exit(0) here. On Linux a pipe-backed
+  // stdout is async, so process.exit() right after the ~270 KB --json write truncated the report
+  // at ~64 KB and preflight read "no parseable --json report" (PR #2437 CI, 2026-10-17).
+  process.exitCode = 0;
 }

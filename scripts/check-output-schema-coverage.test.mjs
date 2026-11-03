@@ -94,6 +94,26 @@ const selfErrs = [];
 fixtures.vectors.forEach((v, i) => validateSubset(derived, v.output_payload, `p${i}`, selfErrs));
 check('derive: derived schema validates its own fixtures (GREEN)', selfErrs.length === 0);
 
+// ── null-enum self-consistency controls ([7F-V471] sanctioned, SO #34c): an observed null is not a
+// boolean member — it never counts toward BOTH, and no emitted enum may drop it — so a {null,bool}
+// pair must NOT hallucinate enum [false,true], a {both,bools,null} set emits [false,true,null], and a
+// {null,string-vocabulary} set appends the null. RED against the pre-patch deriver by construction. ──
+const nullFixtures = { vectors: [
+  { output_payload: { maybe_flag: false, both_flag: true, venue2: 'kalshi' } },
+  { output_payload: { maybe_flag: null, both_flag: false, venue2: 'polymarket' } },
+  { output_payload: { both_flag: null, venue2: null } },
+] };
+const nullDerived = deriveSchema(nullFixtures);
+check('derive null-enum: {null,one boolean} -> NO enum (null never masquerades as the second member)',
+  !nullDerived.properties.maybe_flag.enum);
+check('derive null-enum: both booleans + observed null -> enum [false,true,null]',
+  JSON.stringify(nullDerived.properties.both_flag.enum) === JSON.stringify([false, true, null]));
+check('derive null-enum: {null,string-enum} -> observed null appended to the vocabulary',
+  JSON.stringify(nullDerived.properties.venue2.enum) === JSON.stringify(['kalshi', 'polymarket', null]));
+const nullErrs = [];
+nullFixtures.vectors.forEach((v, i) => validateSubset(nullDerived, v.output_payload, `n${i}`, nullErrs));
+check('derive null-enum: derived schema validates its own null-carrying fixtures (SO #34c GREEN)', nullErrs.length === 0);
+
 if (failures) {
   console.error(`\n✗ output-schema coverage self-test: ${failures} control(s) failed`);
   process.exit(1);

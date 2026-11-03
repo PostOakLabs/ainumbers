@@ -17,7 +17,8 @@
  * test goes red. That is the whole point: the incident was 15 hours of red main
  * produced by a green required check.
  */
-import { probeRepairable, reportProbe, regenChain, selectEntries, FULL_REGEN_CMD } from './check-regen-repairable.mjs';
+import { probeRepairable, reportProbe, regenChain, selectEntries, FULL_REGEN_CMD, BINDING_CHECK_CMD, BINDING_ENTRY_ID, isRelaxedBindingContext } from './check-regen-repairable.mjs';
+import { verifyRegenBinding } from './append-absence-lineage-record.mjs';
 
 let failures = 0;
 function check(name, cond, detail = '') {
@@ -193,6 +194,128 @@ console.log('\nEMPTY — nothing stale is a clean pass with no regen executed');
   check('no findings at all', res.notReproduced.length === 0 && res.repaired.length === 0 && res.unrepairable.length === 0);
   check('nothing executed', exec.calls.length === 0);
   check('reportProbe passes', reportProbe(res, { ci: true }).hardFail === false);
+}
+
+// ── LINEAGE-BINDING-REGEN-REPAIRABLE-1: the post-regen binding override ──────
+// The registry-absence-tree gate goes red on any key-set move because the
+// lineage PUBLISH is excluded from the regen chain (needs REGISTRY_LINEAGE_LOG_KEY;
+// it is a separate derived-artifacts-regen.yml step). In a PR / merge_group run
+// the drift is honestly regen-repairable anyway: main's single-writer regen
+// appends AND publishes after merge, provided (i) the records file carries the
+// published log as a byte-identical prefix (records length >= log size) and
+// (ii) the LAST absence record equals the tree recomputed after --regen. The
+// probe may only earn the advisory downgrade by PROVING both, read-only.
+console.log('\nBINDING OVERRIDE — LINEAGE-BINDING-REGEN-REPAIRABLE-1');
+const ABSENCE_ENTRY = { id: BINDING_ENTRY_ID, regen: 'REGEN_ABSENCE', gate: 'GATE_ABSENCE', artifacts: ['registry/absence/tree.json', 'chaingraph/kernels/registry-lineage-records.json'] };
+const ABSENCE_COVERED = [ABSENCE_ENTRY];
+
+// acceptance (a): lineage-free re-prove, binding override earns REPAIRABLE.
+{
+  const exec = scriptedExec({
+    GATE_ABSENCE: [RED('LINEAGE BINDING STALE — the lineage log\'s latest absence-tree entry'), RED('LINEAGE BINDING STALE — the lineage log\'s latest absence-tree entry')],
+    REGEN_ABSENCE: [OK],
+    [BINDING_CHECK_CMD]: [{ ok: true, output: 'BINDING-OK records=105 log=104 lastIndex=104 root=sha256:abc key_count=42' }],
+    [FULL_REGEN_CMD]: [OK],
+  });
+  const res = probeRepairable({ dir: '/scratch', entries: [ABSENCE_ENTRY], covered: ABSENCE_COVERED, exec, relaxed: true });
+  check('verdict is REPAIRABLE via the binding override', res.repaired.length === 1 && res.unrepairable.length === 0);
+  check('the override is named as the earned via', (res.repaired[0]?.via || '').includes('LINEAGE-BINDING-REGEN-REPAIRABLE'));
+  check('NO escalation was needed — the predicate itself is the proof', res.escalated === false && !exec.calls.includes(FULL_REGEN_CMD));
+  check('reportProbe passes', reportProbe(res, { ci: true }).hardFail === false);
+}
+
+// acceptance (c): a records file whose prefix diverges from the published log
+// is UNREPAIRABLE — the probe must never pass a diverged records file.
+{
+  const exec = scriptedExec({
+    GATE_ABSENCE: [RED('LINEAGE BINDING STALE'), RED('LINEAGE BINDING STALE')],
+    REGEN_ABSENCE: [OK],
+    [BINDING_CHECK_CMD]: [{ ok: false, output: 'append-absence-lineage-record: BINDING-FAIL PREFIX-DIVERGENCE — records[33] does not byte-match published log entry 33' }],
+    [FULL_REGEN_CMD]: [OK],
+  });
+  const res = probeRepairable({ dir: '/scratch', entries: [ABSENCE_ENTRY], covered: ABSENCE_COVERED, exec, relaxed: true });
+  check('diverged prefix is UNREPAIRABLE at stage=binding', res.unrepairable.length === 1 && res.unrepairable[0].stage === 'binding');
+  check('never repaired', res.repaired.length === 0);
+  check('reportProbe hard-fails', reportProbe(res, { ci: true }).hardFail === true);
+}
+
+// acceptance (e)-shape: LAST-RECORD mismatch (the dedupe/oscillation class)
+// does NOT earn the downgrade — it falls through and fails loudly.
+{
+  const exec = scriptedExec({
+    GATE_ABSENCE: [RED('LINEAGE BINDING STALE'), RED('LINEAGE BINDING STALE'), RED('LINEAGE BINDING STALE')],
+    REGEN_ABSENCE: [OK],
+    [BINDING_CHECK_CMD]: [{ ok: false, output: 'append-absence-lineage-record: BINDING-FAIL LAST-RECORD — records last absence entry (root sha256:old) != recomputed root sha256:new' }],
+    [FULL_REGEN_CMD]: [OK],
+  });
+  const res = probeRepairable({ dir: '/scratch', entries: [ABSENCE_ENTRY], covered: ABSENCE_COVERED, exec, relaxed: true });
+  check('LAST-RECORD mismatch is UNREPAIRABLE (loud, never downgraded)', res.unrepairable.length === 1 && res.repaired.length === 0);
+  check('reportProbe hard-fails', reportProbe(res, { ci: true }).hardFail === true);
+}
+
+// strict control: the override must NOT be consulted outside pull_request /
+// merge_group (and local) — push / workflow_run / CI-unknown stay strict.
+{
+  const exec = scriptedExec({
+    GATE_ABSENCE: [RED('LINEAGE BINDING STALE'), RED('LINEAGE BINDING STALE')],
+    REGEN_ABSENCE: [OK],
+    [BINDING_CHECK_CMD]: [{ ok: true, output: 'BINDING-OK records=105 log=104 lastIndex=104 root=sha256:abc key_count=42' }],
+    [FULL_REGEN_CMD]: [OK],
+  });
+  const res = probeRepairable({ dir: '/scratch', entries: [ABSENCE_ENTRY], covered: ABSENCE_COVERED, exec, relaxed: false });
+  check('relaxed:false never consults the binding predicate', !exec.calls.includes(BINDING_CHECK_CMD));
+  check('strict verdict is UNREPAIRABLE, exactly as before this row', res.unrepairable.length === 1 && res.repaired.length === 0 && res.escalated === true);
+}
+
+console.log('isRelaxedBindingContext');
+check('pull_request is relaxed', isRelaxedBindingContext({ GITHUB_EVENT_NAME: 'pull_request' }) === true);
+check('merge_group is relaxed', isRelaxedBindingContext({ GITHUB_EVENT_NAME: 'merge_group' }) === true);
+check('push is STRICT', isRelaxedBindingContext({ GITHUB_EVENT_NAME: 'push' }) === false);
+check('workflow_run is STRICT', isRelaxedBindingContext({ GITHUB_EVENT_NAME: 'workflow_run' }) === false);
+check('schedule is STRICT', isRelaxedBindingContext({ GITHUB_EVENT_NAME: 'schedule' }) === false);
+check('CI with no event name is STRICT (fails closed)', isRelaxedBindingContext({ GITHUB_ACTIONS: 'true' }) === false);
+check('local run (no env at all) is relaxed — a local pre-push run is PR-bound', isRelaxedBindingContext({}) === true);
+
+// acceptance (a)/(c) against the REAL repo bytes, read-only: main's records
+// file is in sync with the published log at the time this row was written
+// (measured 2026-11-01 with
+// `node scripts/append-absence-lineage-record.mjs --verify-regen-binding`,
+// which prints BINDING-OK records=… log=… when they agree), so the real
+// verify passes; one mutated byte in the records copy must flip it to
+// PREFIX-DIVERGENCE. No signing path, no writes to repo files.
+console.log('verifyRegenBinding (real records file + published log, read-only)');
+{
+  const res = await verifyRegenBinding({ log: () => {} });
+  check('real main-state binding verifies OK', res.ok === true && res.recordsLength >= res.logSize);
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const tmp = mkdtempSync(join(tmpdir(), 'binding-test-'));
+  try {
+    const recsDir = join(tmp, 'chaingraph', 'kernels');
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(recsDir, { recursive: true });
+    const recordsPath = join(recsDir, 'registry-lineage-records.json');
+    const parsed = JSON.parse(readRepoRecords());
+    parsed.records[10] = { ...parsed.records[10], tree_root: 'sha256:deadbeef' };
+    writeFileSync(recordsPath, JSON.stringify(parsed, null, 2) + '\n');
+    const bad = await verifyRegenBinding({ recordsPath, log: () => {} });
+    check('a mutated records byte reports PREFIX-DIVERGENCE and not ok', bad.ok === false && bad.reason === 'PREFIX-DIVERGENCE');
+    // a records file AHEAD of the log (PR appended, publish pending) with an
+    // intact prefix and a matching last record is exactly the repairable shape.
+    const ahead = JSON.parse(readRepoRecords());
+    ahead.records.push(JSON.parse(JSON.stringify(ahead.records[ahead.records.length - 1])));
+    writeFileSync(recordsPath, JSON.stringify(ahead, null, 2) + '\n');
+    const okAhead = await verifyRegenBinding({ recordsPath, log: () => {} });
+    check('records length > log size with intact prefix still verifies OK', okAhead.ok === true);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+import { readFileSync as _repoRead } from 'node:fs';
+function readRepoRecords() {
+  return _repoRead(new URL('./../chaingraph/kernels/registry-lineage-records.json', import.meta.url), 'utf8');
 }
 
 console.log('');

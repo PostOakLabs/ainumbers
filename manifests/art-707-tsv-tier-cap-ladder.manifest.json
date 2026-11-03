@@ -1,0 +1,419 @@
+{
+  "tool_id": "art-707-tsv-tier-cap-ladder",
+  "version": "1.0.0",
+  "title": "TSV Tier-Cap Ladder",
+  "description": "Replays a tokenized-stock venue's daily volume and symbol counts (aggregated across affiliated TSVs) against the SEC TSV Exemption tier caps and the condition F stepped-compliance ladder, and emits pause windows.",
+  "category": "chaingraph",
+  "tags": [
+    "tsv",
+    "tokenized-stock",
+    "sec",
+    "reg-nms",
+    "tier-caps",
+    "stepped-compliance",
+    "pause-window",
+    "compliance-evidence",
+    "luld-tier",
+    "mcp:check_tsv_tier_cap_ladder"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "tsv_id",
+      "stocks",
+      "as_of_date"
+    ],
+    "properties": {
+      "tsv_id": {
+        "type": "string",
+        "description": "Non-empty identifier of the venue being replayed; its volume is always included in the aggregate."
+      },
+      "affiliated_tsv_ids": {
+        "type": "array",
+        "description": "Identifiers of affiliated TSVs whose volume and symbols aggregate with the venue's. Never repeats tsv_id.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "stocks": {
+        "type": "array",
+        "description": "Declared universe [{ symbol, tier, prior_month_adv_shares }]. Tier is caller-declared ('tier_1'|'tier_2'); no LULD lookup.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "symbol": {
+              "type": "string"
+            },
+            "tier": {
+              "type": "string",
+              "enum": [
+                "tier_1",
+                "tier_2"
+              ]
+            },
+            "prior_month_adv_shares": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "description": "Positive integer prior-month ADV in shares, caller-declared. null reports the stock INDETERMINATE — never assumed."
+            }
+          }
+        }
+      },
+      "daily_volume": {
+        "type": "array",
+        "description": "One row per venue per day per symbol [{ date, tsv_id, symbol, shares }]; rows for the group are summed. Duplicates refused.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": "string"
+            },
+            "tsv_id": {
+              "type": "string"
+            },
+            "symbol": {
+              "type": "string"
+            },
+            "shares": {
+              "type": "integer",
+              "description": "Non-negative integer share count for that venue, day and symbol."
+            }
+          }
+        }
+      },
+      "symbols_traded": {
+        "type": "array",
+        "description": "Optional distinct-symbol record [{ date, tsv_id, symbol }]. When omitted, symbol days are derived from daily_volume.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": "string"
+            },
+            "tsv_id": {
+              "type": "string"
+            },
+            "symbol": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "prior_breaches": {
+        "type": "array",
+        "description": "Volume breaches already recorded before the replayed window [{ symbol, date }]. Consumes the stock's one-time first-breach pass.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "symbol": {
+              "type": "string"
+            },
+            "date": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "as_of_date": {
+        "type": "string",
+        "description": "YYYY-MM-DD date the pause status is evaluated as of."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "check_tsv_tier_cap_ladder",
+    "description": "Replays a TSV's daily volume and symbol counts (affiliates aggregated) against the SEC TSV Exemption tier caps and stepped-compliance ladder; emits pause windows.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "tsv_id",
+        "stocks",
+        "as_of_date"
+      ],
+      "properties": {
+        "tsv_id": {
+          "type": "string",
+          "description": "Non-empty identifier of the venue being replayed; its volume is always included in the aggregate."
+        },
+        "affiliated_tsv_ids": {
+          "type": "array",
+          "description": "Affiliated TSV identifiers whose volume and symbols aggregate with the venue's. Never repeats tsv_id.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stocks": {
+          "type": "array",
+          "description": "Declared universe [{ symbol, tier, prior_month_adv_shares }]; tier is caller-declared, no LULD lookup.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "symbol": {
+                "type": "string"
+              },
+              "tier": {
+                "type": "string",
+                "enum": [
+                  "tier_1",
+                  "tier_2"
+                ]
+              },
+              "prior_month_adv_shares": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "Positive integer prior-month ADV in shares; null reports the stock INDETERMINATE."
+              }
+            }
+          }
+        },
+        "daily_volume": {
+          "type": "array",
+          "description": "One row per venue per day per symbol; rows for the declared group are summed. Duplicates refused.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "type": "string"
+              },
+              "tsv_id": {
+                "type": "string"
+              },
+              "symbol": {
+                "type": "string"
+              },
+              "shares": {
+                "type": "integer",
+                "description": "Non-negative integer share count for that venue, day and symbol."
+              }
+            }
+          }
+        },
+        "symbols_traded": {
+          "type": "array",
+          "description": "Optional distinct-symbol record; derived from daily_volume when omitted.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "type": "string"
+              },
+              "tsv_id": {
+                "type": "string"
+              },
+              "symbol": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "prior_breaches": {
+          "type": "array",
+          "description": "Volume breaches recorded before the window; consumes the stock's one-time first-breach pass.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "symbol": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "as_of_date": {
+          "type": "string",
+          "description": "YYYY-MM-DD date the pause status is evaluated as of."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-707-tsv-tier-cap-ladder.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-707-tsv-tier-cap-ladder.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: tsv_id, affiliated_tsv_ids, stocks, daily_volume, symbols_traded, prior_breaches, as_of_date.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "tsv_id": "TSV-A",
+    "affiliated_tsv_ids": [],
+    "stocks": [
+      {
+        "symbol": "AAA",
+        "tier": "tier_1",
+        "prior_month_adv_shares": 400000
+      }
+    ],
+    "daily_volume": [
+      {
+        "date": "2026-10-01",
+        "tsv_id": "TSV-A",
+        "symbol": "AAA",
+        "shares": 1001
+      }
+    ],
+    "as_of_date": "2026-10-11"
+  },
+  "output_example": {
+    "tsv_id": "TSV-A",
+    "affiliated_tsv_ids": [],
+    "as_of_date": "2026-10-11",
+    "per_stock": [
+      {
+        "symbol": "AAA",
+        "tier": "tier_1",
+        "prior_month_adv_shares": 400000,
+        "volume_cap_bps": 25,
+        "daily_cap_shares": 1000,
+        "daily": [
+          {
+            "date": "2026-10-01",
+            "volume_shares": 1001,
+            "cap_shares": 1000,
+            "breached": true
+          }
+        ],
+        "breach_dates": [
+          "2026-10-01"
+        ],
+        "prior_breach_dates": [],
+        "breach_count_including_prior": 1,
+        "first_breach_pass_used": true,
+        "pause_windows": [],
+        "paused_as_of": "TRADING"
+      }
+    ],
+    "symbol_count": [
+      {
+        "date": "2026-10-01",
+        "tier": "tier_1",
+        "distinct_symbols": 1,
+        "symbol_cap": 75,
+        "breached": false
+      }
+    ],
+    "status_as_of": {
+      "AAA": "TRADING"
+    },
+    "obligations": [],
+    "assumptions": [
+      "Reset-window assumption: the order states no reset or look-back window for the volume-breach ladder, so the node applies none — the first-breach pass is consumed once per stock across all supplied data (prior_breaches plus the replayed window) and is never restored (91 FR 60175).",
+      "Pause arithmetic assumption: a pause starts on the breach date and the stock may resume trading three calendar months from that date (91 FR 60175), with month-end clamping when the day does not exist (31 Jan + 3 months = 30 Apr); the resume date itself is a trading day (the window is [start, resume_date)).",
+      "Rounding statement (the only rounding): the daily volume cap in integer shares is floor(prior_month_adv_shares x 25/10000) for tier_1 and floor(prior_month_adv_shares x 250/10000) for tier_2 (91 FR 60174); a breach is volume strictly greater than the cap (\"exceeds\"). The floor is the conservative direction — it never inflates a cap.",
+      "Ordering assumption: where a prior breach and an in-window breach share a date, the prior breach is treated as the earlier one.",
+      "Breach-during-pause assumption: a breach date falling inside an existing pause window is still recorded and still triggers its own three-month pause from that date; the order does not address trading that should not have occurred during a pause, so the node records rather than judges it.",
+      "Exclusions: tiers and prior-month ADV are caller-declared — the node performs no LULD Plan lookup and no effective-transaction-reporting-plan lookup (91 FR 60174 defines the ADV denominator as reported by such a plan); a stock with no declared prior-month ADV is reported INDETERMINATE rather than given an assumed ADV; aggregation covers only the declared tsv_id and affiliated_tsv_ids; the node never looks up LULD trading halts. This is an evidence artifact only: it never states or implies that the venue is, or is not, compliant."
+    ],
+    "note": "Evidence replay only: breaches, pause windows and the obligations the order states, computed over caller-supplied data. It never states that the venue is compliant."
+  },
+  "example_execution_hash": "b7ab04c8e209ea4ff4148942114963a00ac47a6dd5b47bf4fa88da4f3520eece",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "affiliated_tsv_ids": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "as_of_date": {
+        "type": "string"
+      },
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "detail": {
+        "type": "string"
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "STOCK_TIER_INVALID",
+                "VOLUME_ENTRY_DUPLICATED",
+                "VOLUME_TSV_UNKNOWN"
+              ]
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "error": {
+        "type": "string",
+        "enum": [
+          "stock_tier_invalid",
+          "volume_entry_duplicated",
+          "volume_tsv_unknown"
+        ]
+      },
+      "note": {
+        "type": "string"
+      },
+      "obligations": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "per_stock": {
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "status_as_of": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "symbol_count": {
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "tsv_id": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "assumptions",
+      "obligations",
+      "per_stock",
+      "status_as_of",
+      "symbol_count"
+    ],
+    "additionalProperties": false,
+    "x-derived-from": "fixture"
+  }
+}
