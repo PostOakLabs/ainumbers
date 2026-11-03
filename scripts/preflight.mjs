@@ -2751,7 +2751,7 @@ const SECRET_PATTERNS = [
   [/gh[pousr]_[A-Za-z0-9]{20,}/, 'GitHub token'],
   [/github_pat_[A-Za-z0-9_]{20,}/, 'GitHub fine-grained PAT'],
   [/xox[baprs]-[A-Za-z0-9-]{10,}/, 'Slack token'],
-  [/sk-(ant-)?[A-Za-z0-9_-]{20,}/, 'LLM API key'],
+  [/(?<![A-Za-z0-9_-])sk-(ant-)?[A-Za-z0-9_-]{20,}/, 'LLM API key'],
 ];
 
 const ENV_OK = /\.(example|sample|template|dist)$/;
