@@ -21,8 +21,15 @@
  *   6. syncOne() end to end against a local bare remote: a derived-only
  *      conflict is merged (main's side of the derived path, the PR's own
  *      files kept) and pushed; a real conflict pushes nothing; a branch that
- *      moved mid-run rejects the plain push and is flagged as a race.
- *   7. regenGate(): a push:main run waits for the regen on its sha and still
+ *      moved mid-run rejects the plain push and is flagged as a race. The
+ *      legacy id registry: a PR that only added ids gets main's frozen
+ *      RESERVATIONS.json plus one shard per added id (one id, two ids); a
+ *      same-id shard on main with other content is refused; main's own
+ *      check-id-collision --seed-check runs on the merged tree and a failing
+ *      seed-check pushes nothing.
+ *   7. planReservations() + decide(): adds, collisions (shard and legacy),
+ *      removed/re-pointed ids refused; registry + a real conflict stays real.
+ *   8. regenGate(): a push:main run waits for the regen on its sha and still
  *      syncs when that regen committed nothing (the run on the regen bot's
  *      own commit); hands off when the regen committed; a timeout or a regen
  *      that never registers still syncs, so the job cannot strand itself.
@@ -36,7 +43,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   decide, mainOwnedPaths, sentinelOwnedPaths, isSentinelOnlyDiff, parseMergeTree, syncOne,
-  waitForRegen, regenGate, SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD,
+  waitForRegen, regenGate, planReservations, shardBytes, RESERVATIONS_LEGACY, SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD,
 } from './pr-sync-main.mjs';
 import { gitEnv } from '../_git-env-lib.mjs';
 
@@ -258,6 +265,67 @@ try {
     assert.equal(r.race, true);
     assert.equal(G(['--git-dir', origin,'rev-parse', 'refs/heads/pr-real']).trim(), moved);
   });
+  // Legacy registry fixture: base has art-1; main froze the legacy file with
+  // one last entry (art-899) and already sharded art-898; PRs opened before
+  // the split appended their own id to the legacy file, next to art-899.
+  const LEG = (o) => `${JSON.stringify(o, null, 2)}\n`;
+  const e = (row, pr) => ({ row, pr, reserved: '2026-11-01T00:00:00Z' });
+  gw(work, 'checkout', '-q', 'main');
+  mkdirSync(join(work, 'chaingraph', 'graph'), { recursive: true });
+  writeFileSync(join(work, RESERVATIONS_LEGACY), LEG({ 'art-1': e('SEED', null) }));
+  gw(work, 'add', '.'); gw(work, 'commit', '-qm', 'registry'); gw(work, 'push', '-q', 'origin', 'HEAD:main');
+  const regBranch = (name, ids) => {
+    gw(work, 'checkout', '-qb', name, 'main');
+    writeFileSync(join(work, RESERVATIONS_LEGACY), LEG({ 'art-1': e('SEED', null), ...ids }));
+    gw(work, 'commit', '-qam', name); gw(work, 'push', '-q', 'origin', name);
+    return gw(work, 'rev-parse', 'HEAD');
+  };
+  const addOne = regBranch('pr-res-one', { 'art-900': e('ROW-900', 90) });
+  const addTwo = regBranch('pr-res-two', { 'art-901': e('ROW-901', 91), 'art-902': e('ROW-902', 92) });
+  const clash = regBranch('pr-res-clash', { 'art-898': e('OTHER-ROW', 93) });
+  gw(work, 'checkout', '-q', 'main');
+  writeFileSync(join(work, RESERVATIONS_LEGACY), LEG({ 'art-1': e('SEED', null), 'art-899': e('ROW-899', 89) }));
+  mkdirSync(join(work, 'chaingraph', 'graph', 'reservations'));
+  writeFileSync(join(work, 'chaingraph', 'graph', 'reservations', 'art-898.json'), shardBytes(e('ROW-898', 88)));
+  gw(work, 'add', '.'); gw(work, 'commit', '-qm', 'freeze legacy, shard art-898'); gw(work, 'push', '-q', 'origin', 'HEAD:main');
+  const resMain = gw(work, 'rev-parse', 'HEAD');
+  const RES = new Set([RESERVATIONS_LEGACY]);
+
+  t('merge-reservations: one added id → main\'s legacy kept, art-900 shard written, seed-check passed, pushed', () => {
+    const r = syncOne({ number: 90, headRefName: 'pr-res-one', headRefOid: addOne }, resMain, RES, work);
+    assert.equal(r.ok, true, r.why);
+    assert.equal(G(['--git-dir', origin, 'show', `${r.sha}:${RESERVATIONS_LEGACY}`]), G(['--git-dir', origin, 'show', `${resMain}:${RESERVATIONS_LEGACY}`]));
+    assert.deepEqual(JSON.parse(G(['--git-dir', origin, 'show', `${r.sha}:chaingraph/graph/reservations/art-900.json`])), e('ROW-900', 90));
+    assert.match(G(['--git-dir', origin, 'log', '-1', '--format=%b', r.sha]), /seed-check passed[\s\S]*art-900\.json/);
+    // The gate files were laid over and restored: the merge commit carries neither.
+    assert.equal(G(['--git-dir', origin, 'ls-tree', '--name-only', r.sha, 'scripts/']).trim(), '');
+  });
+  t('merge-reservations: two added ids → two shards', () => {
+    const r = syncOne({ number: 91, headRefName: 'pr-res-two', headRefOid: addTwo }, resMain, RES, work);
+    assert.equal(r.ok, true, r.why);
+    const files = G(['--git-dir', origin, 'ls-tree', '--name-only', r.sha, 'chaingraph/graph/reservations/']).trim().split('\n');
+    assert.deepEqual(files, ['art-898', 'art-901', 'art-902'].map((id) => `chaingraph/graph/reservations/${id}.json`));
+  });
+  t('same-id collision with a different shard on main → refused, nothing pushed', () => {
+    const r = syncOne({ number: 93, headRefName: 'pr-res-clash', headRefOid: clash }, resMain, RES, work);
+    assert.equal(r.ok, false);
+    assert.match(r.why, /art-898 already reserved on main for a different row/);
+    assert.equal(G(['--git-dir', origin, 'rev-parse', 'refs/heads/pr-res-clash']).trim(), clash);
+  });
+  t('seed-check really runs: a main node shard with no reservation fails it → nothing pushed', () => {
+    gw(work, 'checkout', '-qb', 'pr-res-seed', `${addOne}^`);
+    writeFileSync(join(work, RESERVATIONS_LEGACY), LEG({ 'art-1': e('SEED', null), 'art-904': e('ROW-904', 94) }));
+    gw(work, 'commit', '-qam', 'pr-res-seed'); gw(work, 'push', '-q', 'origin', 'pr-res-seed');
+    const seedHead = gw(work, 'rev-parse', 'HEAD');
+    gw(work, 'checkout', '-q', 'main');
+    mkdirSync(join(work, 'chaingraph', 'graph', 'nodes'));
+    writeFileSync(join(work, 'chaingraph', 'graph', 'nodes', 'art-950-unreserved.json'), '{}\n');
+    gw(work, 'add', '.'); gw(work, 'commit', '-qm', 'unreserved node'); gw(work, 'push', '-q', 'origin', 'HEAD:main');
+    const r = syncOne({ number: 94, headRefName: 'pr-res-seed', headRefOid: seedHead }, gw(work, 'rev-parse', 'HEAD'), RES, work);
+    assert.equal(r.ok, false);
+    assert.match(r.why, /seed-check failed[\s\S]*art-950/);
+    assert.equal(G(['--git-dir', origin, 'rev-parse', 'refs/heads/pr-res-seed']).trim(), seedHead);
+  });
   t('no throwaway worktree left registered', () => {
     assert.equal(gw(work, 'worktree', 'list', '--porcelain').split('\n').filter((l) => l.startsWith('worktree ')).length, 1);
   });
@@ -265,7 +333,61 @@ try {
   rmSync(root, { recursive: true, force: true });
 }
 
-console.log('7. regenGate() / waitForRegen(): push:main never strands itself');
+console.log('7. planReservations() + decide(): legacy id registry conflicts');
+{
+  const e = (row, pr) => ({ row, pr, reserved: '2026-11-01T00:00:00Z' });
+  const base = { 'art-1': e('SEED', null) };
+  const theirs = { ...base, 'art-899': e('ROW-899', 89) };
+  const none = () => null;
+  t('adds one id → one shard', () => {
+    const p = planReservations({ base, ours: { ...base, 'art-900': e('A', 1) }, theirs, existingShard: none });
+    assert.equal(p.ok, true);
+    assert.deepEqual(p.shards, { 'chaingraph/graph/reservations/art-900.json': e('A', 1) });
+  });
+  t('adds two ids → two shards', () => {
+    const p = planReservations({ base, ours: { ...base, 'art-900': e('A', 1), 'art-901': e('B', 2) }, theirs, existingShard: none });
+    assert.deepEqual(Object.keys(p.shards).sort(), ['chaingraph/graph/reservations/art-900.json', 'chaingraph/graph/reservations/art-901.json']);
+  });
+  t('same-id collision: a different shard already on main → refused', () => {
+    const p = planReservations({ base, ours: { ...base, 'art-900': e('A', 1) }, theirs, existingShard: (id) => (id === 'art-900' ? e('OTHER', 7) : null) });
+    assert.equal(p.ok, false);
+    assert.match(p.why, /art-900 already reserved on main for a different row/);
+  });
+  t('same-id collision: main\'s legacy carries the id for a different row → refused', () => {
+    const p = planReservations({ base, ours: { ...base, 'art-899': e('MINE', 5) }, theirs, existingShard: none });
+    assert.equal(p.ok, false);
+  });
+  t('identical shard already on main → nothing to write, still ok', () => {
+    const p = planReservations({ base, ours: { ...base, 'art-900': e('A', 1) }, theirs, existingShard: () => e('A', 1) });
+    assert.equal(p.ok, true);
+    assert.deepEqual(p.shards, {});
+  });
+  t('PR removed or re-pointed an existing id → refused', () => {
+    assert.equal(planReservations({ base, ours: {}, theirs, existingShard: none }).ok, false);
+    assert.equal(planReservations({ base, ours: { 'art-1': e('HIJACK', 9) }, theirs, existingShard: none }).ok, false);
+  });
+  const ok = { ok: true, shards: { 'chaingraph/graph/reservations/art-900.json': e('A', 1) } };
+  t('decide: registry alone + clean plan → merge-reservations', () => {
+    const d = run({ conflicts: [RESERVATIONS_LEGACY], reservations: ok });
+    assert.equal(d.action, 'merge-reservations');
+    assert.deepEqual(d.paths, [RESERVATIONS_LEGACY]);
+  });
+  t('decide: registry + main-owned paths + clean plan → merge-reservations', () => {
+    assert.equal(run({ conflicts: [RESERVATIONS_LEGACY, 'sitemap.xml'], reservations: ok }).action, 'merge-reservations');
+  });
+  t('decide: registry + a real conflict → stays conflict-real', () => {
+    const d = run({ conflicts: [RESERVATIONS_LEGACY, 'src/thing.mjs'], reservations: ok });
+    assert.equal(d.action, 'conflict-real');
+    assert.deepEqual(d.paths, [RESERVATIONS_LEGACY, 'src/thing.mjs']);
+  });
+  t('decide: registry with a collision plan → conflict-real, reason names it', () => {
+    const d = run({ conflicts: [RESERVATIONS_LEGACY], reservations: { ok: false, why: 'art-900 already reserved on main for a different row (x)' } });
+    assert.equal(d.action, 'conflict-real');
+    assert.match(d.reason, /^reservation-collision: art-900/);
+  });
+}
+
+console.log('8. regenGate() / waitForRegen(): push:main never strands itself');
 {
   // A fake clock: sleep() advances it, probe() replays a scripted run list.
   const clock = (states) => {
