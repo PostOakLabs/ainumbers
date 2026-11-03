@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Diff Evidence Bundles · ART-750 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Evidence-bundle diff as a hash-bearing kernel: classify two OCG bundles and report what moved across hash fields, versions, normalized accountability sets and the verdict, with a regression flag. Zero PII.">
+<meta name="ain:category" content="run">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-750-diff-evidence-bundles.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-750-diff-evidence-bundles.md">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-750-diff-evidence-bundles.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:693b7edea3f0a7a3d0123d9918e30abee3503aa91c3cf880d882c89fb78aab16">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.info-box{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:4px;padding:.6rem .85rem;line-height:1.55;margin:12px 0;font-size:.78rem;color:var(--text)}
+.ib-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.muted-txt{color:var(--muted);font-size:.76rem}
+.field-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 16px;margin:10px 0}
+@media(max-width:640px){.field-grid{grid-template-columns:1fr}}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px;letter-spacing:.02em}
+.field select,.field input{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:4px;padding:.4rem .5rem;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.field input[type=range]{accent-color:var(--teal)}
+.task-val{float:right;color:var(--bright)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.55rem 1.1rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.btn-2{background:var(--bg-3);color:var(--text);border:1px solid var(--border-2)}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:140px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--bright)}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.low{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.medium{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);color:var(--warn)}
+.verdict.high,.verdict.critical{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:.76rem}
+.tbl th{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:6px;border-bottom:1px solid var(--border)}
+.tbl td{padding:5px 6px;border-bottom:1px solid rgba(30,47,74,.5)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+<style>
+
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-750 · Diff Evidence Bundles</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap" role="main" aria-description="Evidence-bundle diff: paste two parsed OCG bundles, classify each side, and read what moved across hash fields, versions, normalized accountability sets and the verdict.">
+  <div class="eyebrow">OpenChainGraph Suite · ART-750 · Evidence-bundle diff kernel</div>
+  <h1>Diff Evidence Bundles</h1>
+  <p class="sub">Paste two parsed JSON bundles (artifact, chain, evidence bundle or records array) and read what moved: hash and digest fields, version fields, normalized accountability sets, and the verdict with a regression flag.</p>
+  <div style="margin-bottom:6px"><span class="flag">values-only output</span><span class="flag">shape migrations are never diff rows</span><span class="flag">depth cap 200</span><span class="flag">Zero PII</span><span class="flag">Client-side only</span></div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data; use synthetic or anonymised inputs only.</div>
+  <div class="info-box"><div class="ib-title">Scope &amp; reliance</div>Each side is classified the way the estate's verification desk classifies inputs: an OCG artifact (object carrying an execution_hash), a chain (step-artifact array or an object with a steps array), an evidence bundle (subject_hash without execution_hash, with reviewer, approver, annotation or timestamp members) or a records array; anything else is refused with a named reason. The accountability section normalizes legacy records arrays, embedded sign_off members and the converged evidence-bundle shape to the same comparison keys, so a shape migration alone never surfaces as a diff row. The verdict is taken from verification_result first, then explicit verdict-family fields, then derived from a checks array; regressed marks a move toward fail, reject or hold. The as_of field supplies the clock reading for override freshness and is required whenever an override record is present (the kernel takes no wall-clock input). Nesting is capped at 200 levels.</div>
+
+  <div class="card">
+    <div class="section-head">Bundles</div>
+    <div class="field-grid">
+      <div class="field"><label for="asOf">as_of (optional ISO timestamp; required when an override record is present)</label><input id="asOf" type="text" placeholder="e.g. 2026-12-01T00:00:00.000Z" autocomplete="off" aria-label="as_of timestamp"></div>
+    </div>
+    <div class="field-grid">
+      <div class="field"><label for="pasteA">bundle_a (baseline, JSON)</label><textarea id="pasteA" rows="8" style="width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:4px;padding:.5rem;font-family:'JetBrains Mono',monospace;font-size:.72rem" aria-label="bundle a JSON">{}</textarea></div>
+      <div class="field"><label for="pasteB">bundle_b (comparison, JSON)</label><textarea id="pasteB" rows="8" style="width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:4px;padding:.5rem;font-family:'JetBrains Mono',monospace;font-size:.72rem" aria-label="bundle b JSON">{}</textarea></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="runDiffFromPaste()">Run diff</button>
+      <button class="btn-2" onclick="loadSample()">Load sample (manifest example)</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row">
+        <div class="hero-stat"><div class="hero-val" id="heroA">n/a</div><div class="hero-lbl">Bundle A class</div></div>
+        <div class="hero-stat"><div class="hero-val" id="heroB">n/a</div><div class="hero-lbl">Bundle B class</div></div>
+        <div class="hero-stat"><div class="hero-val" id="heroIdentical">n/a</div><div class="hero-lbl">Bundles identical</div></div>
+      </div>
+      <div class="verdict medium" id="verdictBox">n/a</div>
+      <div id="sectionsBox"></div>
+      <div class="section-head">Execution hash &amp; kernel output</div>
+      <div class="muted-txt" id="hashOut">execution_hash: n/a</div>
+      <pre id="jsonOut">{}</pre>
+      <div class="info-box" style="margin-top:12px"><div class="ib-title">Proof status</div>This node ships <code>compute_proof_ready: deferred</code>. No formal correctness proof has been produced for this kernel; the result above is a deterministic recompute, verified by a property-test floor, not a proven one.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-750-diff-evidence-bundles.manifest.json -->
+<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `compute_diff_evidence_bundles`. Task: Evidence-bundle diff: classify two parsed JSON bundles (artifact, chain, evidence bundle or records array) and report values-only what moved: hash fields, versions, normalized accountability sets, verdict with regression flag.
+Call it with arguments: {"policy_parameters":{"bundle_a":{"tool_id":"art-699-example-check","tool_version":"1.0.0","chaingraph_version":"0.4.0","execution_hash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","output_payload":{"verdict":"PASS","ratio":0.75}},"bundle_b":{"tool_id":"art-699-example-check","tool_version":"1.0.0","chaingraph_version":"0.4.0","execution_hash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","output_payload":{"verdict":"PASS","ratio":0.75}}}}
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
+Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
+PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
+Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-750-diff-evidence-bundles.html#p=v1.H4sIAAAAAAAA_wHfASD-eyJidW5kbGVfYSI6eyJ0b29sX2lkIjoiYXJ0LTY5OS1leGFtcGxlLWNoZWNrIiwidG9vbF92ZXJzaW9uIjoiMS4wLjAiLCJjaGFpbmdyYXBoX3ZlcnNpb24iOiIwLjQuMCIsImV4ZWN1dGlvbl9oYXNoIjoic2hhMjU2OjExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEiLCJvdXRwdXRfcGF5bG9hZCI6eyJ2ZXJkaWN0IjoiUEFTUyIsInJhdGlvIjowLjc1fX0sImJ1bmRsZV9iIjp7InRvb2xfaWQiOiJhcnQtNjk5LWV4YW1wbGUtY2hlY2siLCJ0b29sX3ZlcnNpb24iOiIxLjAuMCIsImNoYWluZ3JhcGhfdmVyc2lvbiI6IjAuNC4wIiwiZXhlY3V0aW9uX2hhc2giOiJzaGEyNTY6MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMSIsIm91dHB1dF9wYXlsb2FkIjp7InZlcmRpY3QiOiJQQVNTIiwicmF0aW8iOjAuNzV9fX0a26MF3wEAAA</pre>
+</section>
+<!-- ASK-AGENT:END -->
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="../guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
+        <a href="../guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="clause-edge-report.html">Clause Edge Report</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Infrastructure</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../bazantic-walkthrough.html">Bazantic A/B Walkthrough</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+const MANIFEST={"tool_id":"art-750-diff-evidence-bundles","version":"1.0.0","title":"Diff Evidence Bundles","mcp_tool_definition":{"name":"compute_diff_evidence_bundles","description":"Evidence-bundle diff: classify two parsed JSON bundles (artifact, chain, evidence bundle or records array) and report as values only what moved between them across four sections: hash and digest fields, version fields, a normalized human-accountability view whose shape migrations never surface as diff rows, and the verdict with a regression flag. as_of supplies the clock reading for override freshness. Unrecognized inputs are refused by throw with a named reason. Full provenance in the manifest description."},"ap2_export":true,"chaingraph":true};
+
+/* ── same canonicalization + execution-hash algorithm as chaingraph/kernels/_hash.mjs,
+   browser leg: jcsStringify (RFC 8785-aligned) over {policy_parameters, output_payload},
+   SHA-256, bare lowercase hex ── */
+function jcsStringify(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){let s='[';for(let i=0;i<v.length;i++){if(i)s+=',';const e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':jcsStringify(e);}return s+']';}const keys=Object.keys(v).sort();let s='{',first=true;for(const k of keys){const e=v[k];if(e===undefined||typeof e==='function'||typeof e==='symbol')continue;if(!first)s+=',';first=false;s+=JSON.stringify(k)+':'+jcsStringify(e);}return s+'}';}
+async function sha256Hex(str){const bytes=new TextEncoder().encode(str);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');}
+async function executionHash(policy_parameters,output_payload){return sha256Hex(jcsStringify({policy_parameters,output_payload}));}
+
+/* ── inline port of chaingraph/kernels/art-750-diff-evidence-bundles.kernel.mjs compute():
+   same algorithm, same refusal throws, same fixed orders. Pure function of pp.
+   (A tool page cannot import a module; exports are stripped here. The page is
+   digested against the kernel file via the kernel-digest meta above.) ── */
+const MAX_DEPTH = 200;
+const VERDICT_KEYS = ['verdict', 'decision', 'status', 'outcome', 'result'];
+const STATUS_ABSENT = 'absent';
+const STATUS_UNCHANGED = 'unchanged';
+const STATUS_CHANGED = 'changed';
+const STATUS_REGRESSED = 'regressed';
+
+function walk(obj, matcher, prefix, out, depth) {
+  if (depth > MAX_DEPTH) {
+    throw new Error('Bundle nesting exceeds ' + MAX_DEPTH + ' levels at "' + prefix + '" - refusing to walk further.');
+  }
+  if (obj === null || obj === undefined) return;
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) walk(obj[i], matcher, prefix + '[' + i + ']', out, depth + 1);
+    return;
+  }
+  if (typeof obj !== 'object') return;
+  const keys = Object.keys(obj);
+  for (const k of keys) {
+    const v = obj[k];
+    const path = prefix ? prefix + '.' + k : k;
+    if (matcher(k) && (typeof v === 'string' || typeof v === 'number') && String(v).length) {
+      out[path] = String(v);
+    }
+    if (v && typeof v === 'object') walk(v, matcher, path, out, depth + 1);
+  }
+}
+function extractHashes(root) {
+  const out = {};
+  walk(root, (k) => /(_hash|_digest)$/i.test(k) || /^(hash|digest)$/i.test(k), '', out, 0);
+  return out;
+}
+function extractVersions(root) {
+  const out = {};
+  walk(root, (k) => /(^|_)version$/i.test(k), '', out, 0);
+  return out;
+}
+function extractThresholds(root) {
+  const out = {};
+  walk(root, (k) => /(threshold|gate_policy|policy_applied)/i.test(k), '', out, 0);
+  return out;
+}
+function diffMaps(a, b) {
+  const rows = [];
+  const keys = new Set(Object.keys(a).concat(Object.keys(b)));
+  Array.from(keys).sort().forEach((k) => {
+    const inA = Object.prototype.hasOwnProperty.call(a, k);
+    const inB = Object.prototype.hasOwnProperty.call(b, k);
+    if (inA && inB) { if (a[k] !== b[k]) rows.push({ path: k, kind: 'changed', from: a[k], to: b[k] }); }
+    else if (inA) rows.push({ path: k, kind: 'removed', from: a[k], to: null });
+    else rows.push({ path: k, kind: 'added', from: null, to: b[k] });
+  });
+  return rows;
+}
+function diffSets(a, b) {
+  const A = new Set(a);
+  const B = new Set(b);
+  return { added: b.filter((x) => !A.has(x)), removed: a.filter((x) => !B.has(x)) };
+}
+function classify(parsed) {
+  if (Array.isArray(parsed) && parsed.length) {
+    if (parsed[0] && parsed[0].record_type) return 'records';
+    if (parsed[0] && parsed[0].tool_id && ('execution_hash' in parsed[0])) return 'chain';
+    return 'unknown';
+  }
+  if (parsed && typeof parsed === 'object') {
+    if (parsed.steps && Array.isArray(parsed.steps)) return 'chain';
+    if (parsed.subject_hash && !parsed.execution_hash && (parsed.reviewers || parsed.approvers || parsed.annotations || parsed.timestamps)) return 'evidence_bundle';
+    if ('execution_hash' in parsed) return 'artifact';
+  }
+  return 'unknown';
+}
+function haBucket(role) { return role === 'reviewer' ? 'reviewer' : 'approver'; }
+function overrideActive(record, asOfMs) {
+  if (!record || record.record_type !== 'override' || !record.override || !record.override.expiry) return false;
+  return asOfMs < Date.parse(record.override.expiry);
+}
+function haCanon(parsed, asOfMs) {
+  const kind = classify(parsed);
+  const approvals = [];
+  const rejections = [];
+  const overrides = [];
+  let subjectHash = null;
+  let shape = 'none';
+  if (kind === 'evidence_bundle') {
+    shape = 'evidence-bundle';
+    subjectHash = parsed.subject_hash || null;
+    (parsed.approvers || []).forEach((id) => approvals.push('approver::' + id));
+    (parsed.reviewers || []).forEach((id) => approvals.push('reviewer::' + id));
+    if (parsed.exception_rationale) overrides.push('exception::' + parsed.exception_rationale);
+  } else {
+    const records = kind === 'records' ? parsed
+      : (parsed && (parsed.human_accountability_records || parsed.records)) || null;
+    if (records && records.length) {
+      shape = 'records-array';
+      records.forEach((r) => {
+        const id = (r.identity && r.identity.id) || '(unsigned)';
+        const tag = haBucket(r.role) + '::' + id;
+        if (r.record_type === 'approval') approvals.push(tag);
+        else if (r.record_type === 'rejection') rejections.push(tag);
+        else if (r.record_type === 'override') {
+          const state = asOfMs === null ? '(freshness unknown)' : (overrideActive(r, asOfMs) ? '(active)' : '(expired)');
+          overrides.push(tag + state);
+        }
+        if (r.subject_hash) subjectHash = subjectHash || r.subject_hash;
+      });
+    } else if (parsed && parsed.output_payload) {
+      const op = parsed.output_payload;
+      if (op.sign_off && op.sign_off.reviewer_statement) {
+        shape = 'legacy-sign_off';
+        approvals.push(haBucket(op.sign_off.reviewer_role) + '::(legacy sign_off, no signer identity)');
+      }
+      if (op.ha_record) {
+        shape = 'ha_record';
+        const hr = op.ha_record;
+        const id2 = (hr.identity && hr.identity.id) || '(unsigned)';
+        approvals.push(haBucket(hr.role) + '::' + id2);
+      }
+    }
+  }
+  const thresholds = (parsed && parsed.policy_parameters) ? extractThresholds(parsed.policy_parameters) : {};
+  return {
+    shape, subjectHash,
+    approvals: approvals.sort(), rejections: rejections.sort(), overrides: overrides.sort(),
+    thresholds,
+  };
+}
+function containsOverride(parsed) {
+  const hits = {};
+  walk(parsed, (k) => k === 'record_type', '', hits, 0);
+  return Object.keys(hits).some((p) => hits[p] === 'override');
+}
+function extractVerdict(parsed) {
+  if (!parsed || typeof parsed !== 'object') return { value: null, source: null };
+  if ('verification_result' in parsed && parsed.verification_result !== null && parsed.verification_result !== undefined) {
+    const vr = parsed.verification_result;
+    return { value: (typeof vr === 'string') ? vr : JSON.stringify(vr), source: 'verification_result' };
+  }
+  const op = parsed.output_payload || parsed;
+  for (let i = 0; i < VERDICT_KEYS.length; i++) {
+    const k = VERDICT_KEYS[i];
+    if (op && typeof op[k] === 'string') return { value: op[k], source: 'output_payload.' + k };
+    if (parsed[k] && typeof parsed[k] === 'string') return { value: parsed[k], source: k };
+  }
+  if (op && Array.isArray(op.checks) && op.checks.length) {
+    const allPass = op.checks.every((c) => c && c.pass === true);
+    const failed = op.checks.filter((c) => c && c.pass !== true).length;
+    return { value: allPass ? 'PASS (all checks)' : 'FAIL (' + failed + ' check(s) failed)', source: 'derived from output_payload.checks[]' };
+  }
+  return { value: null, source: null };
+}
+function mapSection(a, b, extractor) {
+  const va = extractor(a);
+  const vb = extractor(b);
+  const rows = diffMaps(va, vb);
+  if (!Object.keys(va).length && !Object.keys(vb).length) {
+    return { count_a: 0, count_b: 0, status: STATUS_ABSENT, rows: [] };
+  }
+  return {
+    count_a: Object.keys(va).length,
+    count_b: Object.keys(vb).length,
+    status: rows.length ? STATUS_CHANGED : STATUS_UNCHANGED,
+    rows,
+  };
+}
+function kernelCompute(pp) {
+  if (pp === null || typeof pp !== 'object' || Array.isArray(pp)) {
+    throw new Error('pp must be an object');
+  }
+  const { bundle_a, bundle_b, as_of } = pp;
+  if (bundle_a == null) throw new Error('bundle_a is required');
+  if (bundle_b == null) throw new Error('bundle_b is required');
+  if (as_of != null && (typeof as_of !== 'string' || Number.isNaN(Date.parse(as_of)))) {
+    throw new Error('as_of must be an ISO 8601 date string when present');
+  }
+  const kindA = classify(bundle_a);
+  const kindB = classify(bundle_b);
+  if (kindA === 'unknown') throw new Error('bundle_a is not a recognizable OCG artifact, chain, evidence bundle or records array');
+  if (kindB === 'unknown') throw new Error('bundle_b is not a recognizable OCG artifact, chain, evidence bundle or records array');
+  const needAsOf = containsOverride(bundle_a) || containsOverride(bundle_b);
+  if (needAsOf && as_of == null) {
+    throw new Error('as_of is required when either bundle carries an override record (the page reads the wall clock here; the kernel takes the reading as a policy parameter)');
+  }
+  const asOfMs = as_of == null ? null : Date.parse(as_of);
+  const hashes = mapSection(bundle_a, bundle_b, extractHashes);
+  const versions = mapSection(bundle_a, bundle_b, extractVersions);
+  const ca = haCanon(bundle_a, asOfMs);
+  const cb = haCanon(bundle_b, asOfMs);
+  const appr = diffSets(ca.approvals, cb.approvals);
+  const rej = diffSets(ca.rejections, cb.rejections);
+  const ovr = diffSets(ca.overrides, cb.overrides);
+  const thrRows = diffMaps(ca.thresholds, cb.thresholds);
+  const accRows = [];
+  appr.removed.forEach((x) => accRows.push({ path: 'approval: ' + x, kind: 'removed', from: 'present', to: null }));
+  appr.added.forEach((x) => accRows.push({ path: 'approval: ' + x, kind: 'added', from: null, to: 'present' }));
+  rej.removed.forEach((x) => accRows.push({ path: 'rejection: ' + x, kind: 'removed', from: 'present', to: null }));
+  rej.added.forEach((x) => accRows.push({ path: 'rejection: ' + x, kind: 'added', from: null, to: 'present' }));
+  ovr.removed.forEach((x) => accRows.push({ path: 'override: ' + x, kind: 'removed', from: 'present', to: null }));
+  ovr.added.forEach((x) => accRows.push({ path: 'override: ' + x, kind: 'added', from: null, to: 'present' }));
+  thrRows.forEach((r) => accRows.push({ path: 'threshold field: ' + r.path, kind: r.kind, from: r.from, to: r.to }));
+  const accChanged = accRows.length > 0;
+  const accountability = {
+    shape_a: ca.shape,
+    shape_b: cb.shape,
+    subject_hash_a: ca.subjectHash,
+    subject_hash_b: cb.subjectHash,
+    counts_a: { approvals: ca.approvals.length, rejections: ca.rejections.length, overrides: ca.overrides.length },
+    counts_b: { approvals: cb.approvals.length, rejections: cb.rejections.length, overrides: cb.overrides.length },
+    thresholds_count_a: Object.keys(ca.thresholds).length,
+    thresholds_count_b: Object.keys(cb.thresholds).length,
+    status: accChanged ? STATUS_CHANGED : ((ca.shape === 'none' && cb.shape === 'none') ? STATUS_ABSENT : STATUS_UNCHANGED),
+    rows: accRows,
+  };
+  const va = extractVerdict(bundle_a);
+  const vb = extractVerdict(bundle_b);
+  let verdictStatus;
+  if (va.value === null && vb.value === null) verdictStatus = STATUS_ABSENT;
+  else if (va.value === vb.value) verdictStatus = STATUS_UNCHANGED;
+  else verdictStatus = STATUS_CHANGED;
+  const regressed = va.value !== vb.value
+    && /fail|reject|hold/i.test(String(vb.value))
+    && !/fail|reject|hold/i.test(String(va.value));
+  if (regressed) verdictStatus = STATUS_REGRESSED;
+  const verdict = {
+    value_a: va.value, source_a: va.source,
+    value_b: vb.value, source_b: vb.source,
+    status: verdictStatus,
+    regressed,
+  };
+  const sections = [hashes.status, versions.status, accountability.status, verdict.status];
+  const changedSections = sections.filter((s) => s === STATUS_CHANGED || s === STATUS_REGRESSED).length;
+  return {
+    input_class_a: kindA,
+    input_class_b: kindB,
+    inputs_differ_in_class: kindA !== kindB,
+    hashes,
+    versions,
+    human_accountability: accountability,
+    verdict,
+    changed_section_count: changedSections,
+    bundles_identical: changedSections === 0,
+  };
+}
+
+/* ── page UI: paste two bundles, render the four sections as values ── */
+function escHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function statusChip(status){
+  const labels={unchanged:'UNCHANGED',changed:'CHANGED',regressed:'REGRESSED',absent:'NOT PRESENT'};
+  const cls={unchanged:'low',regressed:'critical',changed:'medium',absent:'medium'}[status]||'medium';
+  return '<span class="verdict '+cls+'" style="display:inline-block;padding:2px 10px;margin-left:8px">'+(labels[status]||escHtml(status))+'</span>';
+}
+function sectionCard(title,sec,renderRows){
+  let body;
+  if(sec.status==='absent') body='<div class="muted-txt">Neither bundle carries this layer.</div>';
+  else if(!sec.rows.length) body='<div class="muted-txt">Identical across A and B.</div>';
+  else body=renderRows(sec.rows);
+  return '<div class="section-head">'+escHtml(title)+statusChip(sec.status)+'</div>'+body;
+}
+function diffTable(rows){
+  return '<table class="tbl"><thead><tr><th>Path</th><th>Change</th><th>Bundle A</th><th>Bundle B</th></tr></thead><tbody>'
+    +rows.map((r)=>'<tr><td>'+escHtml(r.path)+'</td><td>'+escHtml(r.kind)+'</td><td>'+(r.from===null?'-':escHtml(String(r.from)))+'</td><td>'+(r.to===null?'-':escHtml(String(r.to)))+'</td></tr>').join('')
+    +'</tbody></table>';
+}
+function readPP(){
+  const parse=(id,label)=>{
+    const raw=document.getElementById(id).value.trim();
+    if(!raw) throw new Error(label+' is empty - paste a parsed JSON bundle');
+    let v;
+    try{ v=JSON.parse(raw); }
+    catch(e){ throw new Error(label+' is not valid JSON: '+e.message); }
+    return v;
+  };
+  const pp={ bundle_a: parse('pasteA','bundle_a'), bundle_b: parse('pasteB','bundle_b') };
+  const asOf=document.getElementById('asOf').value.trim();
+  if(asOf) pp.as_of=asOf;
+  return pp;
+}
+function loadSample(){
+  document.getElementById('pasteA').value=JSON.stringify({"tool_id":"art-699-example-check","tool_version":"1.0.0","chaingraph_version":"0.4.0","execution_hash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","output_payload":{"verdict":"PASS","ratio":0.75}},null,2);
+  document.getElementById('pasteB').value=JSON.stringify({"tool_id":"art-699-example-check","tool_version":"1.1.0","chaingraph_version":"0.4.1","execution_hash":"sha256:3333333333333333333333333333333333333333333333333333333333333333","output_payload":{"verdict":"FAIL"}},null,2);
+  document.getElementById('asOf').value='';
+}
+async function runDiffFromPaste(){
+  const pp=readPP();
+  let r;
+  try{ r=kernelCompute(pp); }
+  catch(err){
+    const vb=document.getElementById('verdictBox');
+    vb.className='verdict critical';
+    vb.textContent='Input refused: '+err.message;
+    document.getElementById('sectionsBox').innerHTML='';
+    document.getElementById('resultsPanel').classList.add('show');
+    return;
+  }
+  document.getElementById('heroA').textContent=r.input_class_a;
+  document.getElementById('heroB').textContent=r.input_class_b;
+  document.getElementById('heroIdentical').textContent=r.bundles_identical?'YES':'NO';
+  const vb=document.getElementById('verdictBox');
+  if(r.verdict.status==='absent'){ vb.className='verdict medium'; vb.textContent='Neither bundle carries an explicit verdict.'; }
+  else if(r.verdict.status==='unchanged'){ vb.className='verdict low'; vb.textContent='Verdict unchanged: '+r.verdict.value_a+' ('+r.verdict.source_a+').'; }
+  else if(r.verdict.status==='regressed'){ vb.className='verdict critical'; vb.textContent='Verdict regressed: '+r.verdict.value_a+' -> '+r.verdict.value_b+'.'; }
+  else { vb.className='verdict medium'; vb.textContent='Verdict changed: '+r.verdict.value_a+' -> '+r.verdict.value_b+'.'; }
+  let html='';
+  html+=sectionCard('1. Hash and digest fields',r.hashes,diffTable);
+  html+=sectionCard('2. Version fields',r.versions,diffTable);
+  html+=sectionCard('3. Accountability (approvals, rejections, overrides, thresholds)',r.human_accountability,diffTable);
+  html+='<div class="section-head">Shapes: A '+escHtml(r.human_accountability.shape_a)+' / B '+escHtml(r.human_accountability.shape_b)+(r.human_accountability.shape_a!==r.human_accountability.shape_b?' (shape difference alone is not a diff row)':'')+'</div>';
+  html+=sectionCard('4. Verdict',{status:r.verdict.status,rows:(r.verdict.status==='unchanged'||r.verdict.status==='absent')?[]:[{path:'verdict ('+(r.verdict.source_a||r.verdict.source_b||'')+')',kind:'changed',from:r.verdict.value_a===null?'(absent)':r.verdict.value_a,to:r.verdict.value_b===null?'(absent)':r.verdict.value_b}]},diffTable);
+  document.getElementById('sectionsBox').innerHTML=html;
+  const h=await executionHash(pp,r);
+  document.getElementById('hashOut').textContent='execution_hash: '+h;
+  const displayBody={policy_parameters:pp,output_payload:r};
+  document.getElementById('jsonOut').textContent=JSON.stringify(displayBody,null,2);
+  document.getElementById('resultsPanel').classList.add('show');
+}
+</script>
+</body>
+</html>

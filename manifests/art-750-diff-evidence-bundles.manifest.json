@@ -1,0 +1,214 @@
+{
+  "tool_id": "art-750-diff-evidence-bundles",
+  "version": "1.0.0",
+  "title": "Diff Evidence Bundles",
+  "description": "Evidence-bundle diff as a hash-bearing server kernel. From two parsed JSON bundles (bundle_a = baseline, bundle_b = comparison) plus an optional as_of timestamp, the node classifies each side the way the estate's verification desk does (OCG artifact carrying an execution_hash, chain given as a step-artifact array or a steps array, evidence bundle carrying a subject_hash without an execution_hash, or a records array) and reports, values only, what moved: hash- and digest-bearing fields, version-bearing fields, a normalized human-accountability view (approval, rejection and override membership sets plus threshold and gate-policy fields, with legacy records arrays, embedded sign_off members and the converged evidence-bundle shape all normalizing to the same comparison keys so a shape migration alone is never a diff row), and the verdict (verification_result first, then explicit verdict-family fields, then derived from a checks array) with a regressed flag when the verdict moved toward fail, reject or hold. Nesting is capped at 200 levels; unrecognized inputs, missing sides and a missing as_of on an override-bearing pair are refused by throw with a named reason. The node ports the internal comparison math of the existing root page bundle-diff.html, which stays untouched, so an MCP auditor gets an execution_hash-bearing result instead of a page-only view. Built by row BUNDLE-DIFF-KERNEL-1, 2026-10-20.",
+  "category": "chaingraph",
+  "tags": [
+    "evidence",
+    "bundle-diff",
+    "audit",
+    "verification",
+    "human-accountability",
+    "mcp:compute_diff_evidence_bundles"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "bundle_a",
+      "bundle_b"
+    ],
+    "properties": {
+      "bundle_a": {
+        "description": "Baseline: a parsed OCG artifact (execution_hash), a chain (steps), an evidence bundle (subject_hash, no execution_hash) or a records array. Required.",
+        "type": [
+          "object",
+          "array"
+        ]
+      },
+      "bundle_b": {
+        "description": "Comparison bundle, same accepted shapes as bundle_a. Required.",
+        "type": [
+          "object",
+          "array"
+        ]
+      },
+      "as_of": {
+        "description": "ISO 8601 clock reading for override freshness; required when an override record is present.",
+        "type": "string"
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_diff_evidence_bundles",
+    "description": "Evidence-bundle diff: classify two parsed JSON bundles (artifact, chain, evidence bundle or records array) and report values-only what moved: hash fields, versions, normalized accountability sets, verdict with regression flag. as_of supplies the override clock. Unrecognized inputs are refused by throw.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "bundle_a",
+        "bundle_b"
+      ],
+      "properties": {
+        "bundle_a": {
+          "description": "Baseline: a parsed OCG artifact (execution_hash), a chain (steps), an evidence bundle (subject_hash, no execution_hash) or a records array. Required.",
+          "type": [
+            "object",
+            "array"
+          ]
+        },
+        "bundle_b": {
+          "description": "Comparison bundle, same accepted shapes as bundle_a. Required.",
+          "type": [
+            "object",
+            "array"
+          ]
+        },
+        "as_of": {
+          "description": "ISO 8601 clock reading for override freshness; required when an override record is present.",
+          "type": "string"
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-750-diff-evidence-bundles.html",
+    "function_name": "kernelCompute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "input_class_a": {
+        "type": "string",
+        "description": "Classification of bundle_a: artifact, chain, evidence_bundle or records."
+      },
+      "input_class_b": {
+        "type": "string",
+        "description": "Classification of bundle_b: artifact, chain, evidence_bundle or records."
+      },
+      "inputs_differ_in_class": {
+        "type": "boolean",
+        "description": "True when the two sides classify differently."
+      },
+      "hashes": {
+        "type": "object",
+        "description": "Hash- and digest-bearing field diff: counts per side, a closed status enum (absent, unchanged, changed) and rows of path, kind (added, removed, changed), from and to."
+      },
+      "versions": {
+        "type": "object",
+        "description": "Version-bearing field diff, same shape as hashes."
+      },
+      "human_accountability": {
+        "type": "object",
+        "description": "Normalized accountability diff: shapes per side, subject hashes, membership counts, threshold-field counts, a status and rows over approvals, rejections, overrides and threshold fields. A shape migration alone yields zero rows."
+      },
+      "verdict": {
+        "type": "object",
+        "description": "Verdict comparison: values and sources per side, a status (absent, unchanged, changed, regressed) and the regressed flag (B moved toward fail, reject or hold while A did not)."
+      },
+      "changed_section_count": {
+        "type": "integer",
+        "description": "How many of the four sections are changed or regressed."
+      },
+      "bundles_identical": {
+        "type": "boolean",
+        "description": "True when no section reports a change."
+      }
+    }
+  },
+  "source": "chaingraph/kernels/art-750-diff-evidence-bundles.kernel.mjs",
+  "input_schema_provenance": "Each property is exactly the policy_parameters member the kernel reads; there is no other input surface. bundle_a and bundle_b are required and accept the four recognized input classes; as_of is the only optional property and becomes required whenever either bundle carries an override record (the kernel refuses with a named error otherwise, because the source page reads the wall clock at that point and the kernel must stay pure).",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "bundle_a": {
+      "tool_id": "art-699-example-check",
+      "tool_version": "1.0.0",
+      "chaingraph_version": "0.4.0",
+      "execution_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "output_payload": {
+        "verdict": "PASS",
+        "ratio": 0.75
+      }
+    },
+    "bundle_b": {
+      "tool_id": "art-699-example-check",
+      "tool_version": "1.1.0",
+      "chaingraph_version": "0.4.1",
+      "execution_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "output_payload": {
+        "verdict": "FAIL"
+      }
+    }
+  },
+  "output_example": {
+    "input_class_a": "artifact",
+    "input_class_b": "artifact",
+    "inputs_differ_in_class": false,
+    "hashes": {
+      "count_a": 1,
+      "count_b": 1,
+      "status": "changed",
+      "rows": [
+        {
+          "path": "execution_hash",
+          "kind": "changed",
+          "from": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "to": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ]
+    },
+    "versions": {
+      "count_a": 2,
+      "count_b": 2,
+      "status": "changed",
+      "rows": [
+        {
+          "path": "chaingraph_version",
+          "kind": "changed",
+          "from": "0.4.0",
+          "to": "0.4.1"
+        },
+        {
+          "path": "tool_version",
+          "kind": "changed",
+          "from": "1.0.0",
+          "to": "1.1.0"
+        }
+      ]
+    },
+    "human_accountability": {
+      "shape_a": "none",
+      "shape_b": "none",
+      "subject_hash_a": null,
+      "subject_hash_b": null,
+      "counts_a": {
+        "approvals": 0,
+        "rejections": 0,
+        "overrides": 0
+      },
+      "counts_b": {
+        "approvals": 0,
+        "rejections": 0,
+        "overrides": 0
+      },
+      "thresholds_count_a": 0,
+      "thresholds_count_b": 0,
+      "status": "absent",
+      "rows": []
+    },
+    "verdict": {
+      "value_a": "PASS",
+      "source_a": "output_payload.verdict",
+      "value_b": "FAIL",
+      "source_b": "output_payload.verdict",
+      "status": "regressed",
+      "regressed": true
+    },
+    "changed_section_count": 3,
+    "bundles_identical": false
+  },
+  "example_execution_hash": "6f19489fd4ffb66b1c068ee61265770f70ffe5e1635bc3624b9dcdefd7119bd3"
+}
