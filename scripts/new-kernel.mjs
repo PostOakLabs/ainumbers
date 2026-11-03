@@ -29,10 +29,13 @@
  *   chaingraph/kernels/<id>.kernel.mjs
  *   chaingraph/kernels/__proptests__/<id>.proptest.mjs
  *   chaingraph/kernels/fixtures/<id>.fixtures.json
- *   chaingraph/kernels/index.mjs                  (regenerated via gen-index.mjs --write)
  *   chaingraph/<id>.html + chaingraph/hub-categories.json   (ONLY with --with-page)
  *
- * NEVER WRITTEN, by design, regardless of flags: chaingraph.json, chaingraph.meta.json.
+ * NEVER WRITTEN, by design, regardless of flags: chaingraph.json, chaingraph.meta.json,
+ * chaingraph/kernels/index.mjs. The kernel index is a main-regen single-writer artifact
+ * (derived-artifacts.mjs id 'kernel-index'); scripts/check-main-only-paths.mjs refuses it in a
+ * PR, and every PR-side gate that reads it passes without the new entry (measured on #2777's
+ * head with the entry removed, 2026-11-03), so main's regen registers the kernel after merge.
  * `order.nodes` registration is SO #35's single-writer artifact — it belongs to
  * ASSEMBLE-LAND, never a kernel row (RIDER-KERNEL.md SO #6/#35). This script prints the
  * exact line the assemble row runs instead of writing it.
@@ -53,7 +56,6 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { execFileSync } from 'node:child_process';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -179,16 +181,14 @@ if (WITH_PAGE) {
   writeFileSync(HUB_CATEGORIES_PATH, JSON.stringify(hub, null, 2) + '\n');
 }
 
-// chaingraph/kernels/index.mjs — regenerated, never hand-edited (CONTRACT.md §A4).
-execFileSync(process.execPath, [resolve(REPO, 'chaingraph', 'kernels', 'gen-index.mjs'), '--write'], { cwd: REPO, stdio: 'inherit' });
-
 // ── report ───────────────────────────────────────────────────────────────
 console.log(`\n✓ scaffolded ${TOOL_ID} (class ${CLASS}, digest ${DIGEST}):`);
 for (const p of [KERNEL_PATH, PROPTEST_PATH, FIXTURES_PATH, SHARD_PATH, ...(WITH_PAGE ? [PAGE_PATH, HUB_CATEGORIES_PATH] : [])]) {
   console.log(`    ${p.replace(REPO + '\\', '').replace(REPO + '/', '')}`);
 }
-console.log('    chaingraph/kernels/index.mjs (regenerated)');
-console.log(`\nNOT written (SO #35 single-writer — ASSEMBLE-LAND's job): chaingraph.meta.json order.nodes.`);
+console.log(`\nNOT written (SO #35 single-writer): chaingraph/kernels/index.mjs. main's derived regen registers`);
+console.log(`  ${TOOL_ID} there after merge; do not commit index.mjs (check-main-only-paths.mjs refuses it).`);
+console.log(`NOT written (SO #35 single-writer — ASSEMBLE-LAND's job): chaingraph.meta.json order.nodes.`);
 console.log(`  Whoever runs the next ASSEMBLE-LAND adds: "${TOOL_ID}" to chaingraph.meta.json's order.nodes array.`);
 console.log(`\nNext steps:`);
 console.log(`  1. Fill compute() in chaingraph/kernels/${TOOL_ID}.kernel.mjs (replace the NOT_IMPLEMENTED throw).`);
