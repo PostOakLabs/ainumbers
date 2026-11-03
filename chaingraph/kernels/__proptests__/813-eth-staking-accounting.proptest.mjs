@@ -1,5 +1,5 @@
 // 813-eth-staking-accounting — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:b1549a874c49eae58de6a18d65788300ccd454d87ade43c27386cad23db3d88b
+// kernel_digest_at_authoring: sha256:3c67f800389a0cc0ff46a484c2793943fdc886a2d2f941562eb9eae23c90e52d
 // spec: research/ETH-STAKING-BUILD-SPEC-AMENDED-2026-11.md (Node A)
 // human_sign_off: PENDING
 //
