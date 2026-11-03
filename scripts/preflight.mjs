@@ -1568,8 +1568,10 @@ const GATES = [
   // PR-ID-COLLISION-GATE-1 (2026-09-06): art-685/art-686 each collided twice in one
   // evening across OPEN PRs, which no in-tree uniqueness gate can ever see. This gate
   // scopes NEW node/manifest/tool ids in the PR diff against (a) origin/main,
-  // (b) chaingraph/graph/RESERVATIONS.json (the lock — same-line JSON conflicts in the
-  // merge queue are the mechanical backstop), (c) other open PRs (gh, token-free;
+  // (b) chaingraph/graph/reservations/art-<n>.json, one file per id (the lock — a
+  // same-id add/add conflict in the merge queue is the mechanical backstop; the legacy
+  // RESERVATIONS.json is read as a union while it exists, RESERVATIONS-SHARD-1),
+  // (c) other open PRs (gh, token-free;
   // skipped on merge_group — serial queue — and NAMED when unavailable, never silent).
   ['ID-collision gate (PR-ID-COLLISION-GATE-1)', 'node scripts/check-id-collision.mjs'],
   ['ID-collision gate controls (RED/GREEN fixtures, SO #34c pairing)', 'node scripts/check-id-collision.mjs --self-test'],
