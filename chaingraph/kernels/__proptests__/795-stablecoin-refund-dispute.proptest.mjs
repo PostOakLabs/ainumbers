@@ -2,7 +2,7 @@
 // Spec: stablecoin refund/dispute recompute over the pinned Circle Refund Protocol rules
 // (commit a7ae494b67ceae4693b416efd52f835d7b53c690, Apache-2.0); pin note
 // research/STABLECOIN-REFUND-DISPUTE-PIN-2026-10-30.md. Synthetic data only.
-// kernel_digest_at_authoring: sha256:53b07ff3920b84ee2051aa266792efa4d1564b24d4d4ea974658b5b3622095db
+// kernel_digest_at_authoring: sha256:6732f77e7fd36d16eb53e230d2cef36876c58d2adc6c0e88e6f040fae0229c0a
 // human_sign_off: PENDING
 //
 // Run: node chaingraph/kernels/__proptests__/795-stablecoin-refund-dispute.proptest.mjs

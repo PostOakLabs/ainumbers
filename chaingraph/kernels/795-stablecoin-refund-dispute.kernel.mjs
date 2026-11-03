@@ -150,21 +150,21 @@ export function compute(pp) {
   const payments = Array.isArray(pp.payments) ? pp.payments : null;
 
   if (profile !== 'refund_protocol_a7ae494' && profile !== 'generic') {
-    return { output_payload: { refused: true, reason: 'unknown_profile', expected_profile: 'refund_protocol_a7ae494 | generic' }, compliance_flags: ['input_refused'] };
+    return { output_payload: { refused: true, reason: 'unknown_profile', expected_profile: 'refund_protocol_a7ae494 | generic', issues: ['unknown_profile'] }, compliance_flags: ['input_refused'] };
   }
   if (typeof params.lock_period_seconds !== 'number' || params.lock_period_seconds < 0 ||
       typeof params.early_withdrawal_fee_bp !== 'number' || params.early_withdrawal_fee_bp < 0 || params.early_withdrawal_fee_bp > 10000 ||
       typeof params.partial_refunds_allowed !== 'boolean') {
-    return { output_payload: { refused: true, reason: 'invalid_params' }, compliance_flags: ['input_refused'] };
+    return { output_payload: { refused: true, reason: 'invalid_params', issues: ['invalid_params'] }, compliance_flags: ['input_refused'] };
   }
   if (!payments || payments.length === 0) {
-    return { output_payload: { refused: true, reason: 'no_payments' }, compliance_flags: ['input_refused'] };
+    return { output_payload: { refused: true, reason: 'no_payments', issues: ['no_payments'] }, compliance_flags: ['input_refused'] };
   }
 
   for (const p of payments) {
     if (!p || typeof p.amount_minor !== 'number' || p.amount_minor <= 0 || !Number.isInteger(p.amount_minor) ||
         typeof p.paid_at !== 'number' || p.paid_at < 0) {
-      return { output_payload: { refused: true, reason: 'invalid_payment_record' }, compliance_flags: ['input_refused'] };
+      return { output_payload: { refused: true, reason: 'invalid_payment_record', issues: ['invalid_payment_record'] }, compliance_flags: ['input_refused'] };
     }
   }
 
@@ -173,7 +173,7 @@ export function compute(pp) {
     if (isIdentifierLike(p.payment_ref)) identRefs.push(1);
   }
   if (identRefs.length > 0) {
-    return { output_payload: { refused: true, reason: 'identifier_like_payment_ref', refused_count: identRefs.length }, compliance_flags: ['input_refused'] };
+    return { output_payload: { refused: true, reason: 'identifier_like_payment_ref', refused_count: identRefs.length, issues: ['identifier_like_payment_ref'] }, compliance_flags: ['input_refused'] };
   }
 
   const expected = [];
@@ -216,6 +216,7 @@ export function compute(pp) {
       fee_rounding: 'floor(amount_minor * early_withdrawal_fee_bp / 10000)',
       arbiter_role: params.arbiter_role != null ? String(params.arbiter_role) : null,
       expected, breaks, conservation, verdict,
+      issues: breaks.length > 0 ? breaks.map((b) => b.rule) : [],
     },
     compliance_flags: breaks.length > 0 ? ['reported_state_breaks'] : [],
   };
