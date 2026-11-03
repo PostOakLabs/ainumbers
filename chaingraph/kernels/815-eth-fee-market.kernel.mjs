@@ -96,8 +96,10 @@ export function compute(pp) {
   if (typeof forkName !== 'string' || !Object.prototype.hasOwnProperty.call(FORKS, forkName)) return refuse('UNKNOWN_FORK');
 
   // Parameters: the named fork's values, then any declared override, field by field.
-  /** @type {Record<string, any>} */
+  /** @type {{ target_blobs: bigint, max_blobs: bigint, base_fee_update_fraction: bigint, reserve_price: boolean, elasticity_multiplier: bigint, base_fee_max_change_denominator: bigint }} */
   const params = { ...FORKS[forkName], ...EL_DEFAULTS };
+  /** @type {Record<string, any>} */
+  const setParam = params;
   const over = section(pp.fork_parameters);
   if (!over) return refuse('FORK_PARAMETERS_INVALID');
   const overridden = [];
@@ -110,7 +112,7 @@ export function compute(pp) {
       } else if (BIG_PARAMS.includes(k)) {
         const b = toBig(v);
         if (b === null || b > UINT64_MAX) return refuse('FORK_PARAMETERS_INVALID');
-        params[k] = b;
+        setParam[k] = b;
       } else {
         return refuse('FORK_PARAMETERS_INVALID');
       }
