@@ -12,8 +12,13 @@
  * bytes (add/add conflict), so the lock check-id-collision.mjs relies on
  * survives.
  *
- * This script writes one shard per legacy entry, object copied as-is
- * (`{row, pr, reserved}` plus any `status`/`note`), 2-space JSON + LF. It
+ * This script writes one shard per PENDING legacy entry: an id with no node
+ * shard (chaingraph/graph/nodes/<id>-*.json) in this tree yet. Landed ids stay
+ * in the legacy file only: leg (a) already refuses re-minting them, and
+ * shipping all ~680 would put the split PR past GitHub's 300-file PR-diff cap,
+ * which the automerge-label workflow's guard reads (HTTP 406, PR #2841).
+ * Object copied as-is (`{row, pr, reserved}` plus any `status`/`note`),
+ * 2-space JSON + LF. It
  * never edits RESERVATIONS.json (kept byte-identical so open PRs that already
  * appended to it stay mergeable; check-id-collision.mjs reads the union).
  * An existing shard whose content differs from the legacy entry is reported
@@ -23,7 +28,7 @@
  *
  * Usage:
  *   node scripts/migrate-reservations-shards.mjs          # write missing shards
- *   node scripts/migrate-reservations-shards.mjs --verify # exit 1 if any legacy id lacks an equal shard
+ *   node scripts/migrate-reservations-shards.mjs --verify # exit 1 if any pending legacy id lacks an equal shard
  *
  * `--verify` is deliberately NOT a preflight freshness gate (and not spelled
  * as the generator-coverage meta-gate's check flag): after the split, a
@@ -33,7 +38,7 @@
  * by `check-id-collision.mjs --seed-check` and leg (b).
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
@@ -54,9 +59,14 @@ export function shardText(entry) {
 const legacy = JSON.parse(readFileSync(LEGACY, 'utf8'))
 if (!CHECK) mkdirSync(DIR, { recursive: true })
 
-let written = 0, same = 0, mismatched = 0, missing = 0
+/** Ids with a node shard in this tree (landed): `art-<n>` from `art-<n>-<slug>.json`. */
+const landed = new Set(readdirSync(resolve(REPO, 'chaingraph/graph/nodes'))
+  .map(f => /^(art-\d+)-[^/]+\.json$/.exec(f)?.[1]).filter(Boolean))
+
+let written = 0, same = 0, mismatched = 0, missing = 0, skippedLanded = 0
 for (const [id, entry] of Object.entries(legacy)) {
   if (!ID_RE.test(id)) { console.error(`  skip non-id key ${id}`); continue }
+  if (landed.has(id)) { skippedLanded++; continue }
   const path = resolve(DIR, `${id}.json`)
   if (existsSync(path)) {
     if (isDeepStrictEqual(JSON.parse(readFileSync(path, 'utf8')), entry)) { same++; continue }
@@ -70,5 +80,5 @@ for (const [id, entry] of Object.entries(legacy)) {
 }
 
 console.error(`migrate-reservations-shards${CHECK ? ' --verify' : ''}: legacy=${Object.keys(legacy).length} ` +
-  `written=${written} already-equal=${same} mismatched=${mismatched}${CHECK ? ` missing=${missing}` : ''}`)
+  `landed(legacy-only)=${skippedLanded} written=${written} already-equal=${same} mismatched=${mismatched}${CHECK ? ` missing=${missing}` : ''}`)
 process.exit(mismatched + missing === 0 ? 0 : 1)
