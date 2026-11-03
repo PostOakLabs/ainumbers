@@ -124,6 +124,12 @@ on:
     # regen would do the same, but zizmor flags workflow_run as a high
     # dangerous-trigger and this job holds a push token.
     branches: [ main ]
+  schedule:
+    # Drain the PRs a push run deferred at its max-prs cap (10 per run) while
+    # main sits still. Runs only job `sync-main` (the autofix job needs a
+    # pull_request event); the script's "main unchanged" and bounded-retry
+    # logic apply as on push. Offset from the hour to dodge the cron rush.
+    - cron: '7,27,47 * * * *'
   workflow_dispatch:
     inputs:
       apply:
@@ -639,7 +645,7 @@ jobs:
         run: |
           set -euo pipefail
           ARGS=(--markdown)
-          if [ "$EVENT_NAME" = "push" ]; then
+          if [ "$EVENT_NAME" = "push" ] || [ "$EVENT_NAME" = "schedule" ]; then
             ARGS+=(--apply --event-sha "$EVENT_SHA")
           elif [ "$INPUT_APPLY" = "true" ]; then
             ARGS+=(--apply)
