@@ -341,6 +341,65 @@ async function runSanctionsBinding() {
   }
 }
 
+// ── (h) Kanon x402 v2 exact/EVM/EIP-3009 corpus: art-590 -> art-591 -> art-592 ────────────
+// Ten single-fault vectors, vendored from iamonuwa/kanon at the pinned commit (Apache-2.0,
+// test DATA only). Each vector is a verbatim decoded x402 v2 payment with an expected
+// (valid, reason_code) verdict. We rebuild the digest with art-590, recover the signer with
+// art-591, run the domain/window/nonce checks with art-592, compare amounts as BigInt, then
+// map what the chain said onto Kanon's reason-code registry (schema/reason-codes.md v2.0.0)
+// in its NORMATIVE check order -- first failing check wins. SIG_MALLEABLE is sourced from
+// the nodes themselves: an art-591 'SIG_MALLEABLE' verdict, or any compliance flag ending
+// in SIGNATURE_HIGH_S on the art-590/591/592 output (the art-699 naming). Today no node in
+// the chain reports it, so x402-evm-eip3009-sig-malleable-high-s-001 FAILs (baselined);
+// whichever node gains the check flips that vector to PASS with no harness edit.
+async function runKanonX402() {
+  const set = 'kanon-x402';
+  checkProvenance(set);
+  const a590 = await import(pathToFileURL(join(KDIR, 'art-590-x402-eip712-digest-recomputer.kernel.mjs')).href);
+  const a591 = await import(pathToFileURL(join(KDIR, 'art-591-x402-signer-recovery-verifier.kernel.mjs')).href);
+  const a592 = await import(pathToFileURL(join(KDIR, 'art-592-x402-domain-nonce-window-checker.kernel.mjs')).href);
+  const base = join(VDIR, set, 'vectors', 'x402', 'exact', 'evm', 'eip3009');
+  for (const p of walkJson(base)) {
+    const v = JSON.parse(readFileSync(p, 'utf8'));
+    const id = relative(base, p).replace(/\\/g, '/').replace(/\.json$/, '');
+    const { payload, accepted } = v.input;
+    const au = payload.authorization;
+    const ctx = v.context ?? {};
+    const chainId = accepted.network.split(':')[1];
+    let ourCode;
+    try {
+      const d = a590.compute({
+        name: accepted.extra.name, version: accepted.extra.version, chainId,
+        verifyingContract: accepted.asset, ...au,
+      }).output_payload;
+      const r = a591.compute({ digest: d.digest, signature: payload.signature, claimedFrom: au.from });
+      const w = a592.compute({
+        chainId, verifyingContract: accepted.asset,
+        expected_chain_id: v.network.split(':')[1], expected_verifying_contract: accepted.asset,
+        ...au, now_unix: ctx.verification_time,
+        nonce_already_used: (ctx.seen_nonces ?? []).map((s) => String(s).toLowerCase()).includes(String(au.nonce).toLowerCase()),
+      });
+      // The high-s signal, from whichever node in the chain reports it first.
+      const flags = [r.compliance_flags ?? [], w.compliance_flags ?? []].flat();
+      const highS = r.output_payload.verdict === 'SIG_MALLEABLE'
+        || flags.some((f) => typeof f === 'string' && f.endsWith('SIGNATURE_HIGH_S'));
+      // Kanon reason codes, normative order (schema/reason-codes.md v2.0.0):
+      if (v.network !== accepted.network) ourCode = 'NETWORK_MISMATCH';
+      else if (highS) ourCode = 'SIG_MALLEABLE';
+      else if (r.output_payload.recovered_signer_matches_claimed_from !== true) ourCode = 'SIGNER_MISMATCH';
+      else if (w.output_payload.authorization_not_yet_valid === true) ourCode = 'NOT_YET_VALID';
+      else if (w.output_payload.authorization_expired === true) ourCode = 'EXPIRED';
+      else if ((ctx.seen_nonces ?? []).map((s) => String(s).toLowerCase()).includes(String(au.nonce).toLowerCase())) ourCode = 'NONCE_REPLAY';
+      else if (BigInt(au.value) < BigInt(accepted.amount)) ourCode = 'AMOUNT_INSUFFICIENT';
+      else ourCode = 'VALID';
+    } catch (e) { rec('FAIL', set, id, `chain threw ${e.message}`); continue; }
+    const oursValid = ourCode === 'VALID';
+    const want = v.expected;
+    if (oursValid === want.valid && ourCode === want.reason_code) rec('PASS', set, id, `reason_code ${ourCode}`);
+    else rec('FAIL', set, id, `wanted valid=${want.valid} reason_code=${want.reason_code}; chain gives valid=${oursValid} reason_code=${ourCode}`);
+  }
+}
+
 // ── driver ────────────────────────────────────────────────────────────────────────────────
 await runMerkle();
 await runCosignature();
@@ -349,6 +408,7 @@ await runCid();
 await runRfc9421();
 await runDidWebvh();
 await runSanctionsBinding();
+await runKanonX402();
 
 for (const r of results) console.log(`${r.verdict} ${r.set} ${r.id}${r.reason ? ' ' + r.reason : ''}`);
 const n = (v) => results.filter((r) => r.verdict === v).length;
