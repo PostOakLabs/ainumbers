@@ -19,8 +19,9 @@
 //   the untouched committed monolith and stays green.
 //
 // DERIVED_ROOT is stripped from the child env in BOTH legs — the gates give DERIVED_ROOT
-// (merge_group/main) precedence, so a leaked value would silently flip both legs onto the committed
-// monolith and the RED leg would false-green.
+// (merge_group) precedence via their derivedResolve fallback
+// (S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1), so a leaked value would silently flip both legs onto
+// that tree instead of the S18_DERIVED_ROOT one, and the RED leg could false-green.
 
 import { readFileSync, writeFileSync, mkdirSync, rmSync, mkdtempSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
