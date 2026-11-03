@@ -1,0 +1,185 @@
+{
+  "tool_id": "art-819-ucp-request-constraints",
+  "version": "1.0.0",
+  "title": "UCP Request Constraints Check",
+  "description": "Verify-only preflight of a pasted UCP request against a pasted set of ucp.request_constraints values (UCP 2026-08-25, tag v2026-08-25). Evaluates required, properties, anyOf, enum and const over the objects each value path selects, using a minimal inline RFC 9535 subset (root, child member, index, wildcard, equality filters joined by &&). Returns SATISFIED, VIOLATED or INDETERMINATE and lists each violated constraint with its path and reason. Unsupported paths, malformed values and contradictory constraints are INDETERMINATE, never a guess. Never fetches a profile, a key or a merchant endpoint.",
+  "category": "chaingraph",
+  "tags": [
+    "compliance_control",
+    "ucp",
+    "agentic-commerce",
+    "request-constraints",
+    "jsonpath",
+    "mcp:evaluate_ucp_request_constraints"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "request": {
+        "type": "object",
+        "description": "The UCP request the Platform is about to send, pasted as JSON. Bounded to 20000 JSON nodes and 64 levels of nesting in total with the constraints."
+      },
+      "constraints": {
+        "type": "array",
+        "description": "The ucp.request_constraints values from the last authoritative response, at most 64. A missing or empty set means nothing to check (SATISFIED with a NOT_EVALUATED note).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "request_constraints": {
+              "type": "object",
+              "description": "One ucp.request_constraints value: optional RFC 9535 path plus required, properties, anyOf, enum, const."
+            },
+            "ambient_path": {
+              "type": "string",
+              "description": "Normalized Path of the response object that held ucp, used only when the value omits path. Defaults to $."
+            }
+          },
+          "required": [
+            "request_constraints"
+          ]
+        }
+      }
+    },
+    "required": [
+      "request"
+    ]
+  },
+  "mcp_tool_definition": {
+    "name": "evaluate_ucp_request_constraints",
+    "description": "Checks a pasted UCP request against a pasted set of ucp.request_constraints values (UCP 2026-08-25) and returns SATISFIED, VIOLATED or INDETERMINATE with each violated constraint, its path and reason. Verify-only: no network call.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "request": {
+          "type": "object",
+          "description": "The UCP request the Platform is about to send, pasted as JSON. Bounded to 20000 JSON nodes and 64 levels of nesting in total with the constraints."
+        },
+        "constraints": {
+          "type": "array",
+          "description": "The ucp.request_constraints values from the last authoritative response, at most 64. A missing or empty set means nothing to check (SATISFIED with a NOT_EVALUATED note).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "request_constraints": {
+                "type": "object",
+                "description": "One ucp.request_constraints value: optional RFC 9535 path plus required, properties, anyOf, enum, const."
+              },
+              "ambient_path": {
+                "type": "string",
+                "description": "Normalized Path of the response object that held ucp, used only when the value omits path. Defaults to $."
+              }
+            },
+            "required": [
+              "request_constraints"
+            ]
+          }
+        }
+      },
+      "required": [
+        "request"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "server",
+    "entry": "chaingraph/kernels/art-819-ucp-request-constraints.kernel.mjs",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "verdict": {
+        "type": "string"
+      },
+      "evaluated_count": {
+        "type": "number"
+      },
+      "skipped_count": {
+        "type": "number"
+      },
+      "violations": {
+        "type": "array"
+      },
+      "indeterminate": {
+        "type": "array"
+      },
+      "contradictions": {
+        "type": "array"
+      },
+      "truncated": {
+        "type": "boolean"
+      },
+      "refusal": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "notes": {
+        "type": "array"
+      },
+      "spec_basis": {
+        "type": "string"
+      },
+      "scope_note": {
+        "type": "string"
+      }
+    }
+  },
+  "source": "authored by UCP-CONSTRAINTS-1 from the Request Constraints section of the UCP 2026-08-25 overview and the request_constraints.json / constraint_expression.json schemas, github.com/Universal-Commerce-Protocol/ucp at tag v2026-08-25 (commit 87dd4b1fcff9105d68173120897237fa784c74ef), Apache-2.0, UCP Authors. Golden fixtures use the spec examples verbatim for constraint values and paths. human_sign_off PENDING.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "request": {
+      "line_items": [
+        {
+          "id": "line_123",
+          "quantity": 99
+        }
+      ]
+    },
+    "constraints": [
+      {
+        "request_constraints": {
+          "path": "$['line_items'][?@['id'] == 'line_123']",
+          "properties": {
+            "quantity": {
+              "const": 100
+            }
+          }
+        }
+      }
+    ]
+  },
+  "output_example": {
+    "verdict": "VIOLATED",
+    "evaluated_count": 1,
+    "skipped_count": 0,
+    "violations": [
+      {
+        "constraint_index": 0,
+        "path": "$['line_items'][0]['quantity']",
+        "code": "CONST_MISMATCH",
+        "reason": "value differs from the required const"
+      }
+    ],
+    "indeterminate": [],
+    "contradictions": [],
+    "truncated": false,
+    "refusal": null,
+    "notes": [
+      "skipped values are unavailable for preflight, not a pass and not a failure (spec, Platform guidelines)"
+    ],
+    "spec_basis": "UCP 2026-08-25 overview, Request Constraints (tag v2026-08-25, commit 87dd4b1fcff9105d68173120897237fa784c74ef)",
+    "scope_note": "Verify-only preflight. Both documents are caller-pasted; no profile, key or merchant endpoint is fetched. SATISFIED covers only the constraint values this node could evaluate and says nothing about the resolved request schema or Business runtime rules. Path support is a subset of RFC 9535 (root, child member, index, wildcard, equality filters joined by &&); anything else is INDETERMINATE with UNSUPPORTED_PATH. Instances that are not objects satisfy required and properties vacuously, as in JSON Schema."
+  },
+  "example_execution_hash": "afe7120e226c595d23011dbc5e6493f4da334533f5bfd5cbb6967ef32680a230"
+}
