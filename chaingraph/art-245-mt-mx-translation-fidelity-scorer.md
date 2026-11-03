@@ -27,7 +27,7 @@ Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity for the CBPR+ 
 
 ## Outputs
 
-- cbpr_plus_deadline (string or null, optional)
+- cbpr_plus_deadline (string,null, optional)
 - cbpr_plus_deadline_status (string, optional)
 - charge_bearer_map (object, optional)
 - compliant (boolean, optional)
