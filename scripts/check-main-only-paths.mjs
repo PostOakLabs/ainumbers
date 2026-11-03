@@ -42,6 +42,9 @@
 // but two row shapes the regen cannot serve commit them in the PR. Each is allowed only when the
 // diff carries that row's signature.
 //
+// CARD HOSTS (CARD_HOSTS below, TOOL-CARD-HUNK-ALLOW-1): tools.html and index.html stay whole-file,
+// but a PR that adds tools/<n>-<slug>.html may carry card-only insertions for that page there.
+//
 // CONTEXT
 //   pull_request (CI)   HARD. Diff = merge-base(origin/$GITHUB_BASE_REF, HEAD)..HEAD.
 //   local (no event)    HARD. Diff = merge-base(origin/main, HEAD)..HEAD — the pre-push hook view;
@@ -133,6 +136,58 @@ export const TREE_AGGREGATES = [
     unless: (changes) => changes.some((c) => c.path === 'evidence/claims.json' || c.path === 'evidence/claims.src.json') },
 ];
 
+// TOOL-CARD-HUNK-ALLOW-1 (MAIN-ONLY-TOOL-CARD-ALLOW-1, 2026-11-03): tools.html and index.html are
+// whole-file via COVERED 'catalog', but only their COUNTS are regen-written; tool cards were always
+// hand-authored by the tool's own PR (regen_catalog.py never emits one; derived-artifacts.mjs T667
+// note), and check_index_sync --strict + NAV-ISLAND-1 require the card. So a PR that ADDS
+// tools/<n>-<slug>.html may modify these files when the ONLY change is inserted card element(s)
+// linking to a page that same diff adds. Verified on content, not hunks: strip from the head file
+// every whole-line `<a … href="[../]tools/<added page>" … class="…tool-card…"> … </a>` block, drop
+// blank lines on both sides, and the result must equal the base file line for line. Counts,
+// sentinels, cat-n spans, headings, other tools' cards, and any edit or removal of an existing card
+// stay refused, and the refusal names the first differing line.
+export const CARD_HOSTS = new Set(['tools.html', 'index.html']);
+export const TOOL_PAGE_RE = /^tools\/\d+-[^/]+\.html$/;
+
+const lineSplit = (t) => t.replace(/\r\n?/g, '\n').split('\n');
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Pure verdict for one card host. before/after = full file texts; pages = tools/<n>-<slug>.html
+ * paths the same diff adds. Returns { ok: true, cards } or { ok: false, why }.
+ */
+export function cardOnlyVerdict(before, after, pages) {
+  const hrefs = pages.map((p) => new RegExp(`href="(?:\\.\\./)?${escRe(p)}"`));
+  const head = lineSplit(after);
+  const kept = [];
+  const cards = [];
+  for (let i = 0; i < head.length; i++) {
+    const l = head[i];
+    const start = /^\s*<a\b/.test(l) && /class="[^"]*\btool-card\b[^"]*"/.test(l) ? hrefs.findIndex((re) => re.test(l)) : -1;
+    if (start < 0) { kept.push(l); continue; }
+    // Whole-line element: walk to the line that balances the opening <a, which must end the line.
+    let depth = 0, j = i, closed = false;
+    for (; j < head.length; j++) {
+      depth += (head[j].match(/<a\b/g) || []).length - (head[j].match(/<\/a>/g) || []).length;
+      if (depth <= 0) { closed = /<\/a>\s*$/.test(head[j]); break; }
+    }
+    if (!closed) return { ok: false, why: `unterminated or inline ${pages[start]} card starting: ${l.trim().slice(0, 120)}` };
+    cards.push(pages[start]);
+    i = j;
+  }
+  if (!cards.length) return { ok: false, why: `no card for the added page(s) ${pages.join(', ')}; only card-only hunks are allowed` };
+  const a = lineSplit(before).filter((l) => l.trim() !== '');
+  const b = kept.filter((l) => l.trim() !== '');
+  // Trim the common prefix and suffix; whatever remains on either side is the offending change.
+  let p = 0;
+  while (p < a.length && p < b.length && a[p] === b[p]) p++;
+  if (p === a.length && p === b.length) return { ok: true, cards };
+  let s = 0;
+  while (s < a.length - p && s < b.length - p && a[a.length - 1 - s] === b[b.length - 1 - s]) s++;
+  const line = (b.length - s > p ? b[p] : `(removed) ${a[p]}`).trim().slice(0, 120);
+  return { ok: false, why: `changed line outside the added tool card(s): ${line}` };
+}
+
 // A changed line in a sentinel-only file is main-owned when it carries one of these.
 export const SENTINEL_RE = /<!--\s*COUNT:|data-count=|id="[^"]*count[^"]*"[^>]*>\d+</;
 
@@ -207,8 +262,16 @@ export function parseUnifiedDiff(text) {
 export function refusals(changes, sets) {
   const out = [];
   const carried = new Set(ROW_CARRIERS.filter((r) => r.when(changes)).flatMap((r) => r.paths));
+  const pages = addedToolPages(changes);
   for (const ch of changes) {
     if (carried.has(ch.path)) continue;
+    // Card host with texts attached (collectChanges, fixtures): card-only edits for an added page
+    // pass. No added page, not a modify, or no texts: the plain whole-file refusal (fail closed).
+    if (CARD_HOSTS.has(ch.path) && sets.whole.has(ch.path) && ch.status === 'M' && pages.length && ch.before != null && ch.after != null) {
+      const v = cardOnlyVerdict(ch.before, ch.after, pages);
+      if (!v.ok) out.push({ path: ch.path, why: `card-only allowance (TOOL-CARD-HUNK-ALLOW-1) not met: ${v.why}`, hint: `keep only the inserted card element(s) for ${pages.join(', ')}; restore every other line (counts, cat-n, other cards) from origin/main, which main's regen owns` });
+      continue;
+    }
     if (sets.whole.has(ch.path)) out.push({ path: ch.path, why: `whole-file derived artifact (${ch.status})` });
     else if ((sets.aggregates || []).some((re) => re.test(ch.path))) out.push({ path: ch.path, why: `regen-owned aggregate inside a derived tree (${ch.status})` });
     else if ((sets.conditional || []).some((a) => a.re.test(ch.path) && !a.unless(changes))) out.push({ path: ch.path, why: `regen-owned snapshot with no evidence register in the diff (${ch.status})` });
@@ -219,6 +282,11 @@ export function refusals(changes, sets) {
     }
   }
   return out;
+}
+
+/** tools/<n>-<slug>.html pages the diff adds (the condition for the card-only allowance). */
+export function addedToolPages(changes) {
+  return changes.filter((c) => c.status === 'A' && TOOL_PAGE_RE.test(c.path)).map((c) => c.path);
 }
 
 /** Which mode a run takes. Returns 'hard' or 'skip'. */
@@ -251,6 +319,15 @@ export function collectChanges(baseRef, headRef, sets) {
     const lines = parseUnifiedDiff(d.out);
     for (const c of changes) if (lines.has(c.path)) c.lines = lines.get(c.path);
   }
+  if (addedToolPages(changes).length) {
+    for (const c of changes) {
+      if (!CARD_HOSTS.has(c.path) || c.status !== 'M') continue;
+      const before = git(['show', `${mb.out}:${c.path}`]);
+      const after = git(['show', `${headRef}:${c.path}`]);
+      if (!before.ok || !after.ok) return { error: `git show ${c.path} failed: ${before.err || after.err}` };
+      c.before = before.out; c.after = after.out;
+    }
+  }
   return { changes, mb: mb.out };
 }
 
@@ -261,6 +338,10 @@ function selfTest() {
   const check = (name, ok, detail = '') => { console.log(`${ok ? '  ✓' : '  ✗'} ${name}${ok || !detail ? '' : ` — ${detail}`}`); if (!ok) fails++; };
   const fx = JSON.parse(readFileSync(FIXTURES, 'utf8'));
   const sets = classify();
+
+  // Card-host cases carry before/after as "@name" references into fx.texts.
+  const txt = (v) => (typeof v === 'string' && v.startsWith('@') ? fx.texts[v.slice(1)] : v);
+  for (const c of fx.cases) for (const ch of c.changes) { if ('before' in ch) ch.before = txt(ch.before); if ('after' in ch) ch.after = txt(ch.after); }
 
   console.log('layer 1 — RED/GREEN fixtures against the live SSOT (scripts/derived-artifacts.mjs COVERED)');
   for (const c of fx.cases) {
@@ -286,6 +367,16 @@ function selfTest() {
   check('toy: a whole-file owner wins over a sentinel owner', toy.whole.has('b.html'));
   check('toy: region-only file is region', toy.region.has('c.html'));
   check('toy: directory artifact is a tree', toy.trees.has('dir') && !toy.whole.has('dir/'));
+  for (const p of CARD_HOSTS) check(`card host is whole-file (allowance narrows a real refusal): ${p}`, sets.whole.has(p));
+  const P = ['tools/900-example-tool.html'];
+  const vCount = cardOnlyVerdict(fx.texts.toolsBase, fx.texts.toolsCard900Count, P);
+  check('card verdict names the count line', !vCount.ok && /data-count="cat\.6">28/.test(vCount.why), vCount.why);
+  const vDrop = cardOnlyVerdict(fx.texts.toolsBase, fx.texts.toolsCard900Drop100, P);
+  check('card verdict names a removed existing card', !vDrop.ok && /\(removed\)/.test(vDrop.why), vDrop.why);
+  const vInline = cardOnlyVerdict(fx.texts.toolsBase, fx.texts.toolsBase.replace('    </div>', '    <a href="tools/900-example-tool.html" class="tool-card">x</a> <b>y</b>\n    </div>'), P);
+  check('card verdict refuses an inline card sharing its line', !vInline.ok, vInline.why);
+  const vRel = cardOnlyVerdict(fx.texts.toolsBase, fx.texts.toolsCard900.replace('href="tools/900', 'href="../tools/900'), P);
+  check('card verdict accepts a ../tools/ href', vRel.ok, vRel.why);
 
   console.log('layer 3 — diff parser + context');
   const parsed = parseUnifiedDiff(fx.unifiedDiff);
@@ -329,7 +420,7 @@ if (invokedAsMain) {
   if (argv.includes('--json')) console.log(JSON.stringify({ base: baseRef, head: headRef, merge_base: got.mb, changed: got.changes.length, refused }));
   if (refused.length) {
     console.error(`✗ check-main-only-paths FAILED: ${refused.length} main-only path(s) in ${baseRef}...${headRef} (merge-base ${got.mb.slice(0, 12)}):`);
-    for (const r of refused) console.error(`  • ${r.path} — ${r.why}\n      ${REFUSAL_HINT(r.path)}`);
+    for (const r of refused) console.error(`  • ${r.path} — ${r.why}\n      ${r.hint || REFUSAL_HINT(r.path)}`);
     console.error('  derived-artifacts-regen.yml is the single writer for these on main (SO #35, scripts/derived-artifacts.mjs COVERED).');
     process.exit(1);
   }
