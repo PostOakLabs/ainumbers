@@ -91,17 +91,32 @@ jobs:
           # lines carry token minting, secrets, pull_request_target or a write
           # permission. Sensitive PRs arm only after zizmor success (the
           # zizmor-gate step below); everything else arms like any other PR.
-          NAME_ONLY=$(gh pr diff "$PR" -R "$BASE_REPO" --name-only)
+          #
+          # File list and added lines come from the paginated PR files API, not
+          # `gh pr diff`: the diff endpoint answers HTTP 406 above 300 files, so
+          # big PRs could never arm. One call emits
+          # tagged lines: F=every filename, N=added workflow file, M=workflow
+          # file with no `patch` (GitHub omits it for very large files),
+          # A=added (+) line of a workflow patch. The files API stops at 3000
+          # files; past that, or with a patch missing, the PR fails closed to
+          # SENSITIVE (arms only after green zizmor), never open.
+          CHANGED=$(gh api "repos/$BASE_REPO/pulls/$PR" --jq '.changed_files')
+          FILES=$(gh api --paginate "repos/$BASE_REPO/pulls/$PR/files?per_page=100" --jq '.[] | (.filename | startswith(".github/workflows/")) as $wf | "F\t\(.filename)", (select($wf and .status == "added") | "N\t\(.filename)"), (select($wf and .patch == null and .status != "removed" and .changes > 0) | "M\t\(.filename)"), (select($wf) | (.patch // "") | split("\n")[] | select(startswith("+")) | "A\t\(.)")')
+          NAME_ONLY=$(echo "$FILES" | sed -n 's/^F\t//p')
           WF=$(echo "$NAME_ONLY" | grep -c '^\.github/workflows/' || true)
           echo "workflow_files=$WF" >> "$GITHUB_OUTPUT"
           SENSITIVE_RULE=""
+          if [ "$CHANGED" -gt 3000 ]; then
+            SENSITIVE_RULE="over-3000-files:$CHANGED"
+            echo "::notice title=Fail-closed SENSITIVE::PR changes $CHANGED files; the files API lists only 3000, so the rest cannot be inspected."
+          fi
           if [ "$(echo "$NAME_ONLY" | grep -c '^\.github/actions/' || true)" -gt 0 ]; then
-            SENSITIVE_RULE="touches-.github/actions/**"
+            [ -z "$SENSITIVE_RULE" ] && SENSITIVE_RULE="touches-.github/actions/**"
           fi
           if [ "$WF" -gt 0 ]; then
-            DIFF=$(gh pr diff "$PR" -R "$BASE_REPO")
-            ADDED_WF=$(echo "$DIFF" | awk '/^diff --git a\/[^ ]* b\/\.github\/workflows\//{w=1;next} /^diff --git /{w=0} w && /^\+\+\+/{next} w && /^\+/{print}')
-            NEW_WF=$(echo "$DIFF" | awk '/^diff --git a\/[^ ]* b\//{f=$0; sub(/^diff --git a\/[^ ]* b\//,"",f)} /^new file mode/ && f ~ /^\.github\/workflows\//{print f; f=""}')
+            ADDED_WF=$(echo "$FILES" | sed -n 's/^A\t//p')
+            NEW_WF=$(echo "$FILES" | sed -n 's/^N\t//p')
+            NOPATCH_WF=$(echo "$FILES" | sed -n 's/^M\t//p')
             SENSITIVE_LIST=" automerge-label.yml ruleset-apply.yml ruleset-drift-gate.yml derived-artifacts-regen.yml derived-regen-deadman.yml deploy-to-dreamhost.yml deploy-docs.yml deploy-drift-check.yml sync-chaingraph-spec.yml pr-autofix.yml gitlab-backup.yml swh-save.yml ci-anchor.yml scripts-verify.yml html-verify.yml jsdoc-checkjs.yml land-verify.yml zizmor.yml "
             for f in $NEW_WF; do
               [ -z "$SENSITIVE_RULE" ] && SENSITIVE_RULE="adds-workflow-file:$f"
@@ -114,6 +129,10 @@ jobs:
             if echo "$ADDED_WF" | grep -Eq 'create-github-app-token|secrets\.|pull_request_target|permissions:[[:space:]]*(write|write-all)|^\+[[:space:]]*[a-z-]+:[[:space:]]*write([[:space:]]|$)'; then
               [ -z "$SENSITIVE_RULE" ] && SENSITIVE_RULE="added-workflow-lines-sensitive"
             fi
+            for f in $NOPATCH_WF; do
+              echo "::notice title=Fail-closed SENSITIVE::GitHub returned no patch for $f, so its added lines cannot be scanned."
+              [ -z "$SENSITIVE_RULE" ] && SENSITIVE_RULE="workflow-patch-missing:$f"
+            done
           fi
           echo "sensitive_rule=$SENSITIVE_RULE" >> "$GITHUB_OUTPUT"
           if [ -n "$SENSITIVE_RULE" ]; then
@@ -365,10 +384,9 @@ jobs:
           set -euo pipefail
           FAILS=0
           for PR in $(gh pr list -R "$REPO" --label automerge --state open --draft=false --json number -q '.[].number'); do
-            VIEW=$(gh pr view "$PR" -R "$REPO" --json id,mergeStateStatus,autoMergeRequest,headRepositoryOwner,files)
+            VIEW=$(gh pr view "$PR" -R "$REPO" --json id,mergeStateStatus,autoMergeRequest,headRepositoryOwner)
             STATE=$(echo "$VIEW" | jq -r .mergeStateStatus)
             ARMED=$(echo "$VIEW" | jq -r '.autoMergeRequest')
-            WF=$(echo "$VIEW" | jq '[.files[].path | select(startswith(".github/workflows/"))] | length')
             NODE_ID=$(echo "$VIEW" | jq -r .id)
             Q=$(gh api graphql -f query='query($id: ID!){node(id:$id){... on PullRequest{mergeQueueEntry{id}}}}' -f id="$NODE_ID" | jq -r '.data.node.mergeQueueEntry')
             if [ "$ARMED" != "null" ] || [ "$Q" != "null" ]; then echo "#$PR already armed/queued"; continue; fi
@@ -376,13 +394,21 @@ jobs:
             # arm here like any other PR. Sensitive ones — same rules as the
             # labeled-path guard step — arm only after a successful zizmor run
             # on the head SHA; no PR routes to a human.
-            WF=$(echo "$VIEW" | jq '[.files[].path | select(startswith(".github/workflows/"))] | length')
-            if [ "$WF" -gt 0 ]; then
-              NAME_ONLY=$(gh pr diff "$PR" -R "$REPO" --name-only)
+            # Files come from the paginated PR files API, tagged exactly as in
+            # the guard step (F/M/A); `gh pr diff` 406s above 300 files and
+            # `gh pr view --json files` stops at 100, which could hide a
+            # workflow file on a big PR. Over 3000 files or a missing workflow
+            # patch fails closed to sensitive.
+            CHANGED=$(gh api "repos/$REPO/pulls/$PR" --jq '.changed_files')
+            FILES=$(gh api --paginate "repos/$REPO/pulls/$PR/files?per_page=100" --jq '.[] | (.filename | startswith(".github/workflows/")) as $wf | "F\t\(.filename)", (select($wf and .patch == null and .status != "removed" and .changes > 0) | "M\t\(.filename)"), (select($wf) | (.patch // "") | split("\n")[] | select(startswith("+")) | "A\t\(.)")')
+            NAME_ONLY=$(echo "$FILES" | sed -n 's/^F\t//p')
+            WF=$(echo "$NAME_ONLY" | grep -c '^\.github/workflows/' || true)
+            if [ "$WF" -gt 0 ] || [ "$CHANGED" -gt 3000 ]; then
               RULE=""
-              if [ "$(echo "$NAME_ONLY" | grep -c '^\.github/actions/' || true)" -gt 0 ]; then RULE="touches-.github/actions/**"; fi
+              if [ "$CHANGED" -gt 3000 ]; then RULE="over-3000-files:$CHANGED"; fi
+              if [ "$(echo "$NAME_ONLY" | grep -c '^\.github/actions/' || true)" -gt 0 ]; then [ -z "$RULE" ] && RULE="touches-.github/actions/**"; fi
               if [ "$WF" -gt 0 ]; then
-                ADDED_WF=$(gh pr diff "$PR" -R "$REPO" | awk '/^diff --git a\/[^ ]* b\/\.github\/workflows\//{w=1;next} /^diff --git /{w=0} w && /^\+\+\+/{next} w && /^\+/{print}')
+                ADDED_WF=$(echo "$FILES" | sed -n 's/^A\t//p')
                 SENSITIVE_LIST=" automerge-label.yml ruleset-apply.yml ruleset-drift-gate.yml derived-artifacts-regen.yml derived-regen-deadman.yml deploy-to-dreamhost.yml deploy-docs.yml deploy-drift-check.yml sync-chaingraph-spec.yml pr-autofix.yml gitlab-backup.yml swh-save.yml ci-anchor.yml scripts-verify.yml html-verify.yml jsdoc-checkjs.yml land-verify.yml zizmor.yml "
                 for base in $(echo "$NAME_ONLY" | grep '^\.github/workflows/' | xargs -n1 basename); do
                   case "$SENSITIVE_LIST" in *" $base "*) [ -z "$RULE" ] && RULE="sensitive-workflow:$base" ;; esac
@@ -390,6 +416,7 @@ jobs:
                 if echo "$ADDED_WF" | grep -Eq 'create-github-app-token|secrets\.|pull_request_target|permissions:[[:space:]]*(write|write-all)|^\+[[:space:]]*[a-z-]+:[[:space:]]*write([[:space:]]|$)'; then
                   [ -z "$RULE" ] && RULE="added-workflow-lines-sensitive"
                 fi
+                for f in $(echo "$FILES" | sed -n 's/^M\t//p'); do [ -z "$RULE" ] && RULE="workflow-patch-missing:$f"; done
               fi
               if [ -n "$RULE" ]; then
                 SHA=$(gh pr view "$PR" -R "$REPO" --json headRefOid -q .headRefOid)
