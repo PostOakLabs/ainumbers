@@ -27,7 +27,8 @@
 //               Not refused wholesale: those trees hold PR-authored or per-node files beside the
 //               generated ones. TREE_AGGREGATES names the regen-owned rollups inside four of them
 //               (fv-status/*.json, chaingraph/register/index.json, okf index/log, receipt-bundles/**),
-//               which ARE refused.
+//               which ARE refused, and source/<claim>.txt snapshots, refused unless the same diff
+//               carries evidence/claims.json or evidence/claims.src.json.
 //
 // PER-PR DERIVABLES (never refused): pr-autofix.yml writes these on the PR head branch itself —
 // see its header ("the per-PR derivables autofix"): manifest examples (manifests/*.manifest.json,
@@ -124,6 +125,12 @@ export const TREE_AGGREGATES = [
   // gen-receipt-bundles.mjs: the whole tree — the entry is prAbsentOk and says "the PR never
   // commits it; main's regen writes it after merge" (SO #35), leaves included.
   { id: 'receipt-bundles', tree: 'chaingraph/receipt-bundles', re: /^chaingraph\/receipt-bundles\// },
+  // gen-evidence-register.mjs writes source/<claim-id>.txt snapshots (additive, bot-safe). A PR may
+  // carry one only beside the register it belongs to: an evidence re-review or a new claim commits
+  // evidence/claims.json or edits evidence/claims.src.json in the same diff. A bare source/*.txt
+  // with neither is a stale-base bulk regen and is refused.
+  { id: 'evidence-register', tree: 'source', re: /^source\/[^/]+\.txt$/,
+    unless: (changes) => changes.some((c) => c.path === 'evidence/claims.json' || c.path === 'evidence/claims.src.json') },
 ];
 
 // A changed line in a sentinel-only file is main-owned when it carries one of these.
@@ -146,12 +153,13 @@ export function classify(covered = COVERED, dirOf = isDir, treeAggregates = TREE
     if (!ids.has(id)) throw new Error(`check-main-only-paths: classifier names COVERED id "${id}", which derived-artifacts.mjs no longer declares. Update SENTINEL_WRITER_IDS / REGION_WRITER_IDS — a stale id silently changes what is refused.`);
   }
   const aggregates = [];
+  const conditional = []; // aggregates a PR may carry when `unless(changes)` holds
   for (const a of treeAggregates) {
     const entry = covered.find((c) => c.id === a.id);
     if (!entry || !(entry.artifacts || []).some((p) => p.replace(/\/$/, '') === a.tree)) {
       throw new Error(`check-main-only-paths: TREE_AGGREGATES names "${a.tree}" under COVERED id "${a.id}", which derived-artifacts.mjs no longer declares. Update TREE_AGGREGATES.`);
     }
-    aggregates.push(a.re);
+    if (a.unless) conditional.push({ re: a.re, unless: a.unless }); else aggregates.push(a.re);
   }
   const owners = new Map(); // path -> Set(entry id)
   const trees = new Set();
@@ -172,7 +180,7 @@ export function classify(covered = COVERED, dirOf = isDir, treeAggregates = TREE
     else if (ids.some((id) => SENTINEL_WRITER_IDS.has(id))) (p.endsWith('.html') ? sentinel : whole).add(p);
     else region.add(p);
   }
-  return { whole, sentinel, region, trees, aggregates };
+  return { whole, sentinel, region, trees, aggregates, conditional };
 }
 
 /** Parse `git diff -U0` text into Map(path -> [changed line text, without the +/- marker]). */
@@ -203,6 +211,7 @@ export function refusals(changes, sets) {
     if (carried.has(ch.path)) continue;
     if (sets.whole.has(ch.path)) out.push({ path: ch.path, why: `whole-file derived artifact (${ch.status})` });
     else if ((sets.aggregates || []).some((re) => re.test(ch.path))) out.push({ path: ch.path, why: `regen-owned aggregate inside a derived tree (${ch.status})` });
+    else if ((sets.conditional || []).some((a) => a.re.test(ch.path) && !a.unless(changes))) out.push({ path: ch.path, why: `regen-owned snapshot with no evidence register in the diff (${ch.status})` });
     else if (sets.sentinel.has(ch.path)) {
       if (ch.status === 'A' || ch.status === 'D') { out.push({ path: ch.path, why: `count-sentinel page ${ch.status === 'A' ? 'added' : 'deleted'}` }); continue; }
       const hit = (ch.lines || []).find((l) => SENTINEL_RE.test(l));
