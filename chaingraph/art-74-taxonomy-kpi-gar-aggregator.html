@@ -302,9 +302,10 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     "type": "object",
     "properties": {
       "entity_type": {"enum": ["non-financial","credit-institution","insurer"]},
-      "activities": {"type": "array", "items": {"type": "object", "properties": {"alignment": {"enum":["aligned","eligible","not-eligible"]}, "revenue": {"type":"number"}, "capex": {"type":"number"}, "opex": {"type":"number"}}}},
-      "total_covered_assets_eur_m": {"type": "number"},
-      "aligned_covered_assets_eur_m": {"type": "number"}
+      "activities": {"type": "array", "items": {"type": "object", "properties": {"nace_code": {"type":"string"}, "alignment_verdict": {"enum":["ALIGNED","ELIGIBLE","NOT_ELIGIBLE"]}, "turnover": {"type":"number"}, "capex": {"type":"number"}, "opex": {"type":"number"}}}},
+      "covered_assets": {"type": "number", "default": 0},
+      "total_assets": {"type": "number", "default": 0},
+      "gar_numerator_items": {"type": "array", "items": {"type": "object", "properties": {"asset_type": {"type":"string"}, "amount": {"type":"number"}, "aligned": {"type":"boolean"}}}}
     }
   }
 }
@@ -318,23 +319,27 @@ function toggleGAR(){
   document.getElementById('garSection').style.display=et==='non-financial'?'none':'block';
 }
 
+const VERDICT_MAP={aligned:'ALIGNED',eligible:'ELIGIBLE','not-eligible':'NOT_ELIGIBLE'};
 function getpp(){
+  /* Kernel keys (art-74-taxonomy-kpi-gar-aggregator.kernel.mjs): activities[],
+     entity_type, covered_assets, total_assets, gar_numerator_items[]. */
+  const activities=[];
+  for(let i=1;i<=3;i++){
+    const tv=+(document.getElementById(`activity_${i}_revenue`).value||0);
+    const cv=+(document.getElementById(`activity_${i}_capex`).value||0);
+    const ov=+(document.getElementById(`activity_${i}_opex`).value||0);
+    if(tv+cv+ov>0){
+      activities.push({nace_code:'',alignment_verdict:VERDICT_MAP[document.getElementById(`activity_${i}_alignment`).value]||'NOT_ELIGIBLE',turnover:tv,capex:cv,opex:ov});
+    }
+  }
+  const covered=+document.getElementById('total_covered_assets_eur_m').value||0;
+  const aligned=+document.getElementById('aligned_covered_assets_eur_m').value||0;
   return {
     entity_type: document.getElementById('entity_type').value,
-    activity_1_alignment: document.getElementById('activity_1_alignment').value,
-    activity_1_revenue: +document.getElementById('activity_1_revenue').value||0,
-    activity_1_capex:   +document.getElementById('activity_1_capex').value||0,
-    activity_1_opex:    +document.getElementById('activity_1_opex').value||0,
-    activity_2_alignment: document.getElementById('activity_2_alignment').value,
-    activity_2_revenue: +document.getElementById('activity_2_revenue').value||0,
-    activity_2_capex:   +document.getElementById('activity_2_capex').value||0,
-    activity_2_opex:    +document.getElementById('activity_2_opex').value||0,
-    activity_3_alignment: document.getElementById('activity_3_alignment').value,
-    activity_3_revenue: +document.getElementById('activity_3_revenue').value||0,
-    activity_3_capex:   +document.getElementById('activity_3_capex').value||0,
-    activity_3_opex:    +document.getElementById('activity_3_opex').value||0,
-    total_covered_assets_eur_m:   +document.getElementById('total_covered_assets_eur_m').value||0,
-    aligned_covered_assets_eur_m: +document.getElementById('aligned_covered_assets_eur_m').value||0,
+    activities,
+    covered_assets: covered,
+    total_assets: covered,
+    gar_numerator_items: aligned>0?[{asset_type:'aligned_covered_assets_eur_m',amount:aligned,aligned:true}]:[],
   };
 }
 
@@ -362,52 +367,60 @@ function loadPreset(p){
 }
 
 function compute(pp){
-  const activities=[];
-  for(let i=1;i<=3;i++){
-    const rev=+(pp[`activity_${i}_revenue`]??0);
-    const cap=+(pp[`activity_${i}_capex`]??0);
-    const op= +(pp[`activity_${i}_opex`]??0);
-    if(rev+cap+op>0){
-      activities.push({alignment:pp[`activity_${i}_alignment`]??'not-eligible',revenue:rev,capex:cap,opex:op});
-    }
+  /* Mirrors art-74-taxonomy-kpi-gar-aggregator.kernel.mjs compute() exactly so the
+     page payload path yields the kernel's own execution_hash for the same inputs. */
+  const safe=(n,d)=>(d>0?+(n/d*100).toFixed(2):0);
+  let total_turnover=0,aligned_turnover=0,total_capex=0,aligned_capex=0,total_opex=0,aligned_opex=0;
+  const kpi_breakdown=[];
+  const activities=pp.activities??[];
+  for(const act of activities){
+    const is_aligned=act.alignment_verdict==='ALIGNED'||String(act.alignment_verdict??'').startsWith('ALIGNED');
+    const tv=+(act.turnover??0),cv=+(act.capex??0),ov=+(act.opex??0);
+    total_turnover+=tv;total_capex+=cv;total_opex+=ov;
+    if(is_aligned){aligned_turnover+=tv;aligned_capex+=cv;aligned_opex+=ov;}
+    kpi_breakdown.push({nace_code:act.nace_code??'',alignment_verdict:act.alignment_verdict??'',is_aligned,turnover:tv,capex:cv,opex:ov});
   }
-  const totalRev=activities.reduce((s,a)=>s+a.revenue,0)||1;
-  const totalCap=activities.reduce((s,a)=>s+a.capex,0)||1;
-  const totalOp =activities.reduce((s,a)=>s+a.opex,0)||1;
-  const algdRev=activities.filter(a=>a.alignment==='aligned').reduce((s,a)=>s+a.revenue,0);
-  const algdCap=activities.filter(a=>a.alignment==='aligned').reduce((s,a)=>s+a.capex,0);
-  const algdOp =activities.filter(a=>a.alignment==='aligned').reduce((s,a)=>s+a.opex,0);
-  const revenue_aligned_pct=+(algdRev/totalRev*100).toFixed(1);
-  const capex_aligned_pct  =+(algdCap/totalCap*100).toFixed(1);
-  const opex_aligned_pct   =+(algdOp/totalOp*100).toFixed(1);
-  const gar_pct=pp.entity_type!=='non-financial'
-    ?+(+(pp.aligned_covered_assets_eur_m??0)/(+(pp.total_covered_assets_eur_m??1)||1)*100).toFixed(1)
-    :null;
-
+  const entity_type=pp.entity_type??'non-financial';
+  const covered_assets=+(pp.covered_assets??0);
+  const total_assets=+(pp.total_assets??0);
+  const gar_numerator_items=pp.gar_numerator_items??[];
+  const revenue_aligned_pct=safe(aligned_turnover,total_turnover);
+  const capex_aligned_pct  =safe(aligned_capex,total_capex);
+  const opex_aligned_pct   =safe(aligned_opex,total_opex);
+  let green_asset_ratio=null,gar_detail=null;
+  if(entity_type==='credit-institution'||entity_type==='insurer'){
+    const aligned_covered=gar_numerator_items.filter(i=>i.aligned).reduce((s,i)=>s+ +(i.amount??0),0);
+    green_asset_ratio=total_assets>0?+(aligned_covered/total_assets*100).toFixed(2):0;
+    gar_detail={aligned_covered_assets:+aligned_covered.toFixed(2),total_assets:+total_assets,covered_assets:+covered_assets,gar_denominator_basis:'Total assets per Delegated Act Art 8. Verify denominator exclusions (Reg. 2021/2178 Annex V).'};
+  }
   const compliance_flags=[];
-  if(activities.some(a=>a.alignment==='eligible'))compliance_flags.push('KPI_PARTIAL_COVERAGE');
-  if(gar_pct!==null&&+(pp.total_covered_assets_eur_m??0)===0)compliance_flags.push('GAR_DENOMINATOR_ASSUMPTION');
-
-  const avg=+(( revenue_aligned_pct+capex_aligned_pct+opex_aligned_pct)/3).toFixed(1);
-  const grade=avg>=80?'A':avg>=60?'B':avg>=40?'C':avg>=20?'D':'F';
+  if(entity_type!=='non-financial'&&total_assets<=0)compliance_flags.push('GAR_DENOMINATOR_ASSUMPTION');
+  if(activities.some(a=>!a.turnover&&!a.capex&&!a.opex))compliance_flags.push('KPI_PARTIAL_COVERAGE');
+  if(revenue_aligned_pct===0&&activities.length>0)compliance_flags.push('ZERO_TAXONOMY_ALIGNMENT');
 
   const output_payload={
     revenue_aligned_pct,capex_aligned_pct,opex_aligned_pct,
-    green_asset_ratio:gar_pct,
-    entity_type:pp.entity_type,
-    total_activities:activities.length,
-    kpi_breakdown:activities.map((a,i)=>({label:`Activity ${i+1}`,...a})),
-    reference:{regulation:'EU Taxonomy Reg. (EU) 2020/852; Disclosures Delegated Act (Art 8) — GAR methodology for credit institutions/insurers. Verify current edition.'},
-    note:'DECISION-SUPPORT DRAFT — KPIs are computed from the provided activity data. Verify activity alignment verdicts against the current EU Taxonomy Delegated Acts.',
+    green_asset_ratio,gar_detail,entity_type,kpi_breakdown,
+    activity_count:activities.length,
+    aligned_count:kpi_breakdown.filter(k=>k.is_aligned).length,
+    reference:{
+      non_financial:'EU Taxonomy Disclosures Delegated Act (EU) 2021/2178, Art 8',
+      financial:'Taxonomy Delegated Act for credit institutions — GAR Annex V. Verify Omnibus I revisions (in force 28 Jan 2026).',
+    },
+    note:'DECISION-SUPPORT DRAFT — not an official Taxonomy disclosure. KPI percentages depend on the scope of activities included. GAR denominator exclusions apply — verify against Reg. 2021/2178 Annex V. Omnibus I revisions (28 Jan 2026) may affect reporting thresholds; verify current edition.',
   };
-  return{grade,revenue_aligned_pct,capex_aligned_pct,opex_aligned_pct,gar_pct,activities,compliance_flags,output_payload};
+  const gar_pct=green_asset_ratio;
+  const avg=+((revenue_aligned_pct+capex_aligned_pct+opex_aligned_pct)/3).toFixed(1);
+  const grade=avg>=80?'A':avg>=60?'B':avg>=40?'C':avg>=20?'D':'F';
+  const view=activities.map((a,i)=>({nace_code:a.nace_code??'',alignment:a.alignment_verdict??'',revenue:+(a.turnover??0),capex:+(a.capex??0),opex:+(a.opex??0)}));
+  return{grade,revenue_aligned_pct,capex_aligned_pct,opex_aligned_pct,gar_pct,activities:view,compliance_flags,output_payload};
 }
 
 const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
 async function computeHash(pp,op){
   const msg=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));
   const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(msg));
-  return 'sha256:'+Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
 const MANIFEST=JSON.parse(document.getElementById('manifest').textContent);
@@ -457,10 +470,10 @@ async function run(){
     document.getElementById('garBox').innerHTML=`
       <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Green Asset Ratio (GAR)</div>
       <div class="kpi-card" style="text-align:left;padding:12px 16px">
-        <div class="kpi-label" style="margin-bottom:6px">GAR = aligned covered assets / total covered assets</div>
+        <div class="kpi-label" style="margin-bottom:6px">GAR = aligned numerator items / total assets</div>
         <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600;color:${barColor(gar_pct)}">${gar_pct}%</div>
         <div class="kpi-bar-wrap" style="margin-top:8px"><div class="kpi-bar" style="width:${gar_pct}%;background:${barColor(gar_pct)}"></div></div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:6px">Aligned: EUR ${pp.aligned_covered_assets_eur_m}m / Total: EUR ${pp.total_covered_assets_eur_m}m</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:6px">Aligned numerator: EUR ${output_payload.gar_detail.aligned_covered_assets}m / Total assets: EUR ${output_payload.gar_detail.total_assets}m</div>
       </div>`;
   } else {
     document.getElementById('garBox').innerHTML='';
@@ -469,8 +482,8 @@ async function run(){
   // Breakdown table
   if(activities.length>0){
     const rows=activities.map((a,i)=>{
-      const cls=a.alignment==='aligned'?'al-aligned':a.alignment==='eligible'?'al-eligible':'al-not';
-      const lbl=a.alignment==='aligned'?'Aligned':a.alignment==='eligible'?'Eligible':'Not eligible';
+      const cls=a.alignment==='ALIGNED'?'al-aligned':a.alignment==='ELIGIBLE'?'al-eligible':'al-not';
+      const lbl=a.alignment==='ALIGNED'?'Aligned':a.alignment==='ELIGIBLE'?'Eligible':'Not eligible';
       return `<tr><td>Activity ${i+1}</td><td><span class="al-badge ${cls}">${lbl}</span></td><td>${a.revenue}</td><td>${a.capex}</td><td>${a.opex}</td></tr>`;
     }).join('');
     document.getElementById('breakdownTable').innerHTML=`

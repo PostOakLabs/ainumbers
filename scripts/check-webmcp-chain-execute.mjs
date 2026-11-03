@@ -50,9 +50,10 @@
  * always safe. --seed-baseline writes the file only when it does not exist yet
  * (first rollout); it never adds to an existing baseline.
  *
- * Rollout: advisory on a pull_request (GITHUB_EVENT_NAME=pull_request prints
- * ::warning and exits 0); NEW keys block everywhere else (merge_group, main,
- * local).
+ * NEW keys block everywhere: pull_request, merge_group, main, local.
+ * MAIN-ONLY-PATHS-GATE-1 (2026-11-03) removed the pull_request advisory arm:
+ * a NEW key that passed the PR as a ::warning ejected the same tree from the
+ * merge queue (runs 41476416995 / 41479207322, PRs #2817 / #2818).
  *
  * Usage:
  *   node scripts/check-webmcp-chain-execute.mjs                 # gate
@@ -277,15 +278,14 @@ export function failureKeys(row) {
 }
 
 /**
- * Pure exit verdict. NEW keys are advisory on a pull_request and block
- * everywhere else. STALE keys (a failure that went away) are never a PR's
+ * Pure exit verdict. NEW keys block in every context, pull_request included
+ * (MAIN-ONLY-PATHS-GATE-1). STALE keys (a failure that went away) are never a PR's
  * fault, so they warn on a pull_request and a merge_group and block only on
  * main and locally, where `--prune` cures them (6 queue
  * ejections in 10-23..10-24 were stale-only).
  */
 export function verdictBlocks({ fresh, stale, event }) {
-  if (event === 'pull_request') return false;
-  return fresh > 0 || (stale > 0 && event !== 'merge_group');
+  return fresh > 0 || (stale > 0 && event !== 'merge_group' && event !== 'pull_request');
 }
 
 /** Pure ratchet split. Returns { fresh, warned, stale }. */
@@ -414,7 +414,7 @@ async function main() {
   if (fresh.length || stale.length) {
     const ev = process.env.GITHUB_EVENT_NAME;
     const blocking = verdictBlocks({ fresh: fresh.length, stale: stale.length, event: ev });
-    const head = `check-webmcp-chain-execute ${blocking ? 'FAILED' : ev === 'pull_request' ? 'ADVISORY (pull_request)' : 'WARN (stale only)'} (${fresh.length} NEW, ${stale.length} STALE baseline entr${stale.length === 1 ? 'y' : 'ies'}; ${warned.length} baselined WARN) over ${line}`;
+    const head = `check-webmcp-chain-execute ${blocking ? 'FAILED' : 'WARN (stale only)'} (${fresh.length} NEW, ${stale.length} STALE baseline entr${stale.length === 1 ? 'y' : 'ies'}; ${warned.length} baselined WARN) over ${line}`;
     if (!blocking) console.log(`::warning::${head}`);
     console.error(`${blocking ? '✗' : '⚠'} ${head}:`);
     fresh.forEach((p) => console.error('    ' + p));
