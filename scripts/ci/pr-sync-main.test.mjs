@@ -34,6 +34,11 @@ import {
   decide, mainOwnedPaths, sentinelOwnedPaths, isSentinelOnlyDiff, parseMergeTree, syncOne,
   SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD,
 } from './pr-sync-main.mjs';
+import { gitEnv } from '../_git-env-lib.mjs';
+
+// Every git spawn scrubs the ambient GIT_* env (GIT-ENV-LEAK-SWEEP-1): under
+// the pre-push hook those would point at the outer repository, not the fixture.
+const G = (args, opts = {}) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: gitEnv(), ...opts });
 
 let pass = 0, fail = 0;
 function t(name, fn) {
@@ -173,7 +178,7 @@ t('empty diff → false', () => {
 
 console.log('5. parseMergeTree() on real git output');
 const dir = mkdtempSync(join(tmpdir(), 'pr-sync-main-test-'));
-const g = (...a) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'init.defaultBranch=main', '-c', 'core.autocrlf=false', ...a], { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+const g = (...a) => G(['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'init.defaultBranch=main', '-c', 'core.autocrlf=false', ...a], { cwd: dir });
 const mergeTree = (a, b) => { try { return { status: 0, out: g('merge-tree', '--write-tree', '--name-only', '--no-messages', a, b) }; } catch (e) { return { status: e.status, out: String(e.stdout) }; } };
 try {
   g('init', '-q');
@@ -204,10 +209,10 @@ try {
 console.log('6. syncOne() end to end against a throwaway bare remote (no GitHub)');
 const root = mkdtempSync(join(tmpdir(), 'pr-sync-main-e2e-'));
 const origin = join(root, 'origin.git'), work = join(root, 'work');
-const gw = (cwd, ...a) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'init.defaultBranch=main', '-c', 'core.autocrlf=false', ...a], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+const gw = (cwd, ...a) => G(['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'init.defaultBranch=main', '-c', 'core.autocrlf=false', ...a], { cwd }).trim();
 try {
-  execFileSync('git', ['init', '-q', '--bare', '-b', 'main', origin]);
-  execFileSync('git', ['clone', '-q', origin, work], { stdio: 'ignore' });
+  G(['init', '-q', '--bare', '-b', 'main', origin]);
+  G(['clone', '-q', origin, work]);
   mkdirSync(join(work, 'mcp'));
   writeFileSync(join(work, 'mcp', 'catalog.json'), '{"n":1}\n'); writeFileSync(join(work, 'src.txt'), 'base\n'); writeFileSync(join(work, 'real.txt'), 'base\n');
   gw(work, 'add', '.'); gw(work, 'commit', '-qm', 'base'); gw(work, 'push', '-q', 'origin', 'HEAD:main');
@@ -228,18 +233,18 @@ try {
   t('dirty-derived-only: merge commit pushed, main\'s catalog, the PR\'s own file kept, bot-sync subject', () => {
     const r = syncOne({ number: 7, headRefName: 'pr-derived', headRefOid: prHead }, mainSha, new Set(['mcp/catalog.json']), work);
     assert.equal(r.ok, true, r.why);
-    const tip = execFileSync('git', ['--git-dir', origin, 'rev-parse', 'refs/heads/pr-derived'], { encoding: 'utf8' }).trim();
+    const tip = G(['--git-dir', origin,'rev-parse', 'refs/heads/pr-derived']).trim();
     assert.equal(tip, r.sha);
-    assert.equal(execFileSync('git', ['--git-dir', origin, 'rev-parse', `${tip}^1`, `${tip}^2`], { encoding: 'utf8' }).trim(), `${prHead}\n${mainSha}`);
-    assert.equal(execFileSync('git', ['--git-dir', origin, 'show', `${tip}:mcp/catalog.json`], { encoding: 'utf8' }), '{"n":3}\n');
-    assert.equal(execFileSync('git', ['--git-dir', origin, 'show', `${tip}:src.txt`], { encoding: 'utf8' }), 'pr\n');
-    assert.match(execFileSync('git', ['--git-dir', origin, 'log', '-1', '--format=%s%n%b', tip], { encoding: 'utf8' }), /^chore\(bot-sync\): merge main into pr-derived \(#7\)[\s\S]*mcp\/catalog\.json/);
+    assert.equal(G(['--git-dir', origin,'rev-parse', `${tip}^1`, `${tip}^2`]).trim(), `${prHead}\n${mainSha}`);
+    assert.equal(G(['--git-dir', origin,'show', `${tip}:mcp/catalog.json`]), '{"n":3}\n');
+    assert.equal(G(['--git-dir', origin,'show', `${tip}:src.txt`]), 'pr\n');
+    assert.match(G(['--git-dir', origin,'log', '-1', '--format=%s%n%b', tip]), /^chore\(bot-sync\): merge main into pr-derived \(#7\)[\s\S]*mcp\/catalog\.json/);
   });
   t('a conflict outside the allowed set: nothing pushed, branch untouched', () => {
     const r = syncOne({ number: 8, headRefName: 'pr-real', headRefOid: realHead }, mainSha, new Set(['mcp/catalog.json']), work);
     assert.equal(r.ok, false);
     assert.match(r.why, /real\.txt/);
-    assert.equal(execFileSync('git', ['--git-dir', origin, 'rev-parse', 'refs/heads/pr-real'], { encoding: 'utf8' }).trim(), realHead);
+    assert.equal(G(['--git-dir', origin,'rev-parse', 'refs/heads/pr-real']).trim(), realHead);
   });
   t('race: the branch moved since the decision → plain push rejected, flagged race, never forced', () => {
     gw(work, 'checkout', '-q', 'pr-real'); writeFileSync(join(work, 'other.txt'), 'x\n'); gw(work, 'add', 'other.txt'); gw(work, 'commit', '-qm', 'builder push'); gw(work, 'push', '-q', 'origin', 'pr-real');
@@ -247,7 +252,7 @@ try {
     const r = syncOne({ number: 8, headRefName: 'pr-real', headRefOid: realHead }, realHead, new Set(), work);
     assert.equal(r.ok, false);
     assert.equal(r.race, true);
-    assert.equal(execFileSync('git', ['--git-dir', origin, 'rev-parse', 'refs/heads/pr-real'], { encoding: 'utf8' }).trim(), moved);
+    assert.equal(G(['--git-dir', origin,'rev-parse', 'refs/heads/pr-real']).trim(), moved);
   });
   t('no throwaway worktree left registered', () => {
     assert.equal(gw(work, 'worktree', 'list', '--porcelain').split('\n').filter((l) => l.startsWith('worktree ')).length, 1);

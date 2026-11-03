@@ -57,6 +57,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COVERED, REPO } from '../derived-artifacts.mjs';
+import { gitEnv } from '../_git-env-lib.mjs';
 
 export const BOT_LOGIN = 'ainumbers-spec-sync[bot]';
 export const BOT_EMAIL = 'ainumbers-spec-sync[bot]@users.noreply.github.com';
@@ -239,7 +240,7 @@ let HOOKS_DIR = null;
 function git(args, opts = {}) {
   HOOKS_DIR ??= mkdtempSync(join(tmpdir(), 'bot-sync-nohooks-'));
   return execFileSync('git', ['-c', `core.hooksPath=${HOOKS_DIR}`, ...args], {
-    cwd: opts.cwd || REPO, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 << 20,
+    cwd: opts.cwd || REPO, env: gitEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 << 20,
   });
 }
 function gitOk(args, opts) {
