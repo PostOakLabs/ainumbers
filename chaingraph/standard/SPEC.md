@@ -910,7 +910,7 @@ verify( receipt.seal, claim, receipt.imageId )   ->   true for a genuine receipt
 
 *Evidence (INFORMATIVE), including the correction that produced it.* The contract was settled empirically
 against real sealed receipts by an external verifier built independently of the reference implementation
-(`PostOakLabs/zkprof-web`, `docs/JOURNAL-BYTES-HYPOTHESIS.md`, headline **CONFIRMED-JCS**). The arc is recorded
+(`PostOakLabs/zkprof-harness`, `docs/JOURNAL-BYTES-HYPOTHESIS.md`, headline **CONFIRMED-JCS**). The arc is recorded
 because the first answer over-claimed: an initial run reported the contract confirmed on three fixture receipts
 whose journals were **already key-sorted**, so JCS and compact-insertion-order produced byte-identical strings
 and the experiment discriminated only whitespace, never key ordering. Review caught it, the headline was
