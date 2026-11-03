@@ -58,6 +58,7 @@ function refused(reasons) {
       unwraps: [],
       note: SCOPE_NOTE,
       reasons,
+      issues: reasons,
     },
     compliance_flags: reasons.length > 0 ? ['INPUT_REFUSED'] : [],
   };
@@ -259,6 +260,7 @@ export function compute(pp) {
       unwraps: unwrapOut,
       note: SCOPE_NOTE,
       reasons: [],
+      issues: [],
     },
     compliance_flags: [],
   };
