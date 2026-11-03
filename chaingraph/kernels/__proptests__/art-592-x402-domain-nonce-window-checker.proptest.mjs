@@ -22,6 +22,7 @@ import path from 'node:path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const results = { fixture_oracle: null, properties: [] };
 
+/** @type {{ expected_chain_id: number, expected_verifying_contract: string, chainId: number, verifyingContract: string, validAfter: number, validBefore: number, now_unix: number, nonce: string, nonce_already_used?: boolean, signature?: string, s?: string }} */
 const CLEAN_PP = {
   expected_chain_id: 1, expected_verifying_contract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
   chainId: 1, verifyingContract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
