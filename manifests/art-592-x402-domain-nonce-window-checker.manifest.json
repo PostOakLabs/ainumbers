@@ -2,7 +2,7 @@
   "tool_id": "art-592-x402-domain-nonce-window-checker",
   "version": "1.0.0",
   "title": "x402 Domain & Nonce Window Checker",
-  "description": "Checks an EIP-3009 TransferWithAuthorization's domain separation and replay-defense-adjacent fields against caller-supplied expectations. expected_chain_id and expected_verifying_contract are mandatory policy parameters, separate from the chainId/verifyingContract actually baked into the signed domain -- a mismatch on either is a hard refuse, never a soft warning (the cross-domain replay defect EIP-712 domain separation exists to prevent). Also checks the validAfter/validBefore window against a caller-supplied now_unix, and the nonce's format (bytes32, non-zero). Accepts an optional caller-supplied nonce_already_used boolean; this kernel never queries a chain -- on-chain nonce uniqueness is enforced by the token contract at settlement time, not by this verifier. Zero network calls; never a facilitator, proxy, or settlement relay.",
+  "description": "Checks an EIP-3009 TransferWithAuthorization's domain separation and replay-defense-adjacent fields against caller-supplied expectations. expected_chain_id and expected_verifying_contract are mandatory policy parameters, separate from the chainId/verifyingContract actually baked into the signed domain -- a mismatch on either is a hard refuse, never a soft warning (the cross-domain replay defect EIP-712 domain separation exists to prevent). Also checks the validAfter/validBefore window against a caller-supplied now_unix, and the nonce's format (bytes32, non-zero). Accepts an optional caller-supplied nonce_already_used boolean, and an optional signature/s form input for the EIP-2 low-s (malleability) check -- a high-s signature is a hard refuse; this kernel never queries a chain -- on-chain nonce uniqueness is enforced by the token contract at settlement time, not by this verifier. Zero network calls; never a facilitator, proxy, or settlement relay.",
   "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
   "tags": [
     "compliance_control",
@@ -51,12 +51,20 @@
       "nonce_already_used": {
         "type": "boolean",
         "description": "Optional: caller-computed boolean against the caller's own on-chain/off-chain record. This kernel never queries a chain."
+      },
+      "signature": {
+        "type": "string",
+        "description": "Optional: the 65-byte hex EIP-3009 signature (r||s||v) over the authorization. When supplied, the kernel reports signature_form.s_above_half_order and refuses hard on a high-s value (the malleable form settlement rejects under EIP-2 low-s rules)."
+      },
+      "s": {
+        "type": "string",
+        "description": "Optional: the 32-byte hex s component alone, when the caller has already split the signature. Same low-s form check as signature."
       }
     }
   },
   "mcp_tool_definition": {
     "name": "check_x402_domain_nonce_window",
-    "description": "Checks an EIP-3009 authorization's domain (expected vs. signed chainId/verifyingContract, hard refuse on mismatch), validAfter/validBefore window against a caller-supplied now_unix, and nonce format. Accepts an optional caller-supplied nonce_already_used flag. Never queries a chain.",
+    "description": "Checks an EIP-3009 authorization's domain (expected vs. signed chainId/verifyingContract, hard refuse on mismatch), validAfter/validBefore window against a caller-supplied now_unix, and nonce format. Accepts an optional caller-supplied nonce_already_used flag and an optional signature/s form input for the low-s check. Never queries a chain.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -86,6 +94,12 @@
         },
         "nonce_already_used": {
           "type": "boolean"
+        },
+        "signature": {
+          "type": "string"
+        },
+        "s": {
+          "type": "string"
         }
       }
     },
@@ -219,6 +233,20 @@
           "boolean",
           "null"
         ]
+      },
+      "signature_form": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "present": {
+            "type": "boolean"
+          },
+          "s_above_half_order": {
+            "type": "boolean"
+          }
+        }
       },
       "disclosure": {
         "type": "string"

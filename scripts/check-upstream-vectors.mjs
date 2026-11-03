@@ -349,9 +349,9 @@ async function runSanctionsBinding() {
 // map what the chain said onto Kanon's reason-code registry (schema/reason-codes.md v2.0.0)
 // in its NORMATIVE check order -- first failing check wins. SIG_MALLEABLE is sourced from
 // the nodes themselves: an art-591 'SIG_MALLEABLE' verdict, or any compliance flag ending
-// in SIGNATURE_HIGH_S on the art-590/591/592 output (the art-699 naming). Today no node in
-// the chain reports it, so x402-evm-eip3009-sig-malleable-high-s-001 FAILs (baselined);
-// whichever node gains the check flips that vector to PASS with no harness edit.
+// in SIGNATURE_HIGH_S on the art-590/591/592 output (the art-699 naming). Since
+// ART591-LOW-S-FIX-1, art-592 takes the vector's signature and refuses hard on a high-s
+// value (X402_SIGNATURE_HIGH_S), so x402-evm-eip3009-sig-malleable-high-s-001 PASSes.
 async function runKanonX402() {
   const set = 'kanon-x402';
   checkProvenance(set);
@@ -378,6 +378,7 @@ async function runKanonX402() {
         expected_chain_id: v.network.split(':')[1], expected_verifying_contract: accepted.asset,
         ...au, now_unix: ctx.verification_time,
         nonce_already_used: (ctx.seen_nonces ?? []).map((s) => String(s).toLowerCase()).includes(String(au.nonce).toLowerCase()),
+        signature: payload.signature,
       });
       // The high-s signal, from whichever node in the chain reports it first.
       const flags = [r.compliance_flags ?? [], w.compliance_flags ?? []].flat();

@@ -1,5 +1,5 @@
 // art-592-x402-domain-nonce-window-checker property-test floor (ADJACENT-HOOKS-ASSEMBLE-LAND-1).
-// kernel_digest_at_authoring: sha256:b38255c8483b8792648d21f7a06a061fa24aaaea6ffce83ffb9c9b340afab72a
+// kernel_digest_at_authoring: sha256:fa8518e439bbe1ed04ed5e3c36b0d1bd71986c5c710cd1a4a75f7fc93db082df
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED domain,
@@ -22,6 +22,7 @@ import path from 'node:path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const results = { fixture_oracle: null, properties: [] };
 
+/** @type {{ expected_chain_id: number, expected_verifying_contract: string, chainId: number, verifyingContract: string, validAfter: number, validBefore: number, now_unix: number, nonce: string, nonce_already_used?: boolean, signature?: string, s?: string }} */
 const CLEAN_PP = {
   expected_chain_id: 1, expected_verifying_contract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
   chainId: 1, verifyingContract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
@@ -132,6 +133,53 @@ function checkP5_outputShapeInvariant() {
   return { name: 'P5_output_shape_no_nan_undefined', trials: checked, violations };
 }
 
+// P6: a supplied signature whose s sits above half the secp256k1 order ALWAYS yields verdict REFUSE
+// with compliance flag X402_SIGNATURE_HIGH_S -- random 200-sample over high-s values in both the
+// 65-byte (r||s||v) and bare 32-byte s forms.
+const SECP256K1_ORDER = BigInt('0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141');
+function checkP6_highSAlwaysRefuses() {
+  let violations = 0, checked = 0;
+  const rng = mulberry32(592006);
+  for (let i = 0; i < 200; i++) {
+    const half = SECP256K1_ORDER >> 1n;
+    const sBig = half + 1n + (BigInt(Math.floor(rng() * 1e9)) * (SECP256K1_ORDER - half - 1n)) / 1000000000n;
+    const sHex = sBig.toString(16).padStart(64, '0');
+    const pp = { ...CLEAN_PP };
+    if (i % 2 === 0) pp.s = '0x' + sHex;
+    else pp.signature = '0x' + 'ab'.repeat(32) + sHex + (i % 4 === 1 ? '1b' : '1c');
+    const { output_payload, compliance_flags } = compute(pp);
+    checked++;
+    if (output_payload.verdict !== 'REFUSE') violations++;
+    if (!compliance_flags.includes('X402_SIGNATURE_HIGH_S')) violations++;
+    if (output_payload.signature_form?.s_above_half_order !== true) violations++;
+  }
+  return { name: 'P6_high_s_signature_always_refuses_with_flag_random200', trials: checked, violations };
+}
+
+// P7: omitting signature/s never emits signature_form; a low-s signature never flags
+// X402_SIGNATURE_HIGH_S nor refuses on form alone; a malformed supplied signature forces
+// INDETERMINATE with a reason and never throws.
+function checkP7_signatureFormEmissionDiscipline() {
+  let violations = 0, checked = 0;
+  const { output_payload: bare } = compute(CLEAN_PP);
+  checked++; if ('signature_form' in bare) violations++;
+  const half = SECP256K1_ORDER >> 1n;
+  const loHex = (half - 1n).toString(16).padStart(64, '0');
+  const lowS = compute({ ...CLEAN_PP, s: '0x' + loHex }).output_payload;
+  checked++; if (lowS.verdict !== 'PASS') violations++;
+  checked++; if (lowS.signature_form?.s_above_half_order !== false) violations++;
+  const malformedInputs = ['0xdead', 'not-hex', 12345, '0x' + 'ff'.repeat(129)];
+  for (const bad of malformedInputs) {
+    let out;
+    try { out = compute({ ...CLEAN_PP, signature: bad }).output_payload; } catch (e) { violations++; continue; }
+    checked++;
+    if (out.verdict !== 'INDETERMINATE' || out.reasons.length === 0) violations++;
+  }
+  const malformedS = compute({ ...CLEAN_PP, s: 'zz' }).output_payload;
+  checked++; if (malformedS.verdict !== 'INDETERMINATE') violations++;
+  return { name: 'P7_signature_form_emission_discipline', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -150,6 +198,8 @@ results.properties.push(checkP2_cleanBaselinePasses());
 results.properties.push(checkP3_windowInclusiveBoundaries());
 results.properties.push(checkP4_requiredFieldMissingForcesIndeterminate());
 results.properties.push(checkP5_outputShapeInvariant());
+results.properties.push(checkP6_highSAlwaysRefuses());
+results.properties.push(checkP7_signatureFormEmissionDiscipline());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

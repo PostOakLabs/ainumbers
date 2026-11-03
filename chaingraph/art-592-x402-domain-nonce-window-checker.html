@@ -137,7 +137,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </div>
 </nav>
 
-<div class="wrap" role="main" aria-description="Checks an EIP-3009 authorization's domain (expected vs. signed chainId/verifyingContract, hard refuse on mismatch), validAfter/validBefore window against a caller-supplied now_unix, and nonce format. Accepts an optional caller-supplied nonce_already_used flag. Never queries a chain.">
+<div class="wrap" role="main" aria-description="Checks an EIP-3009 authorization's domain (expected vs. signed chainId/verifyingContract, hard refuse on mismatch), validAfter/validBefore window against a caller-supplied now_unix, and nonce format. Accepts an optional caller-supplied nonce_already_used flag and an optional signature/s form input for the low-s check. Never queries a chain.">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-592 &middot; x402 / EIP-3009 Crypto Primitive</div>
   <h1>x402 Domain &amp; Nonce Window Checker</h1>
   <p class="sub">Checks an EIP-3009 <code>TransferWithAuthorization</code>'s domain separation against a caller-supplied expectation, and its replay-defense-adjacent fields. <code>expected_chain_id</code>/<code>expected_verifying_contract</code> are mandatory inputs, distinct from the <code>chainId</code>/<code>verifyingContract</code> actually baked into the signed domain. A mismatch on either is a hard refuse, never a soft warning. Also checks the <code>validAfter</code>/<code>validBefore</code> window against a caller-supplied <code>now_unix</code>, and the nonce's format (bytes32, non-zero).</p>
@@ -190,6 +190,15 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       </select>
       <div class="q-hint">This kernel never queries a chain. Supply this only if the caller already checked its own on-chain/off-chain record.</div>
     </div>
+    <div class="q">
+      <label class="q-label" for="signature">signature (optional, 65-byte hex r||s||v)</label>
+      <input type="text" id="signature" value="" placeholder="0x&hellip;" aria-label="signature">
+      <div class="q-hint">When supplied, the low-s form check runs: an s value above half the secp256k1 order is a hard refuse (X402_SIGNATURE_HIGH_S) , the malleable form low-s enforcing tokens reject at settlement under EIP-2/EIP-3009.</div>
+    </div>
+    <div class="q">
+      <label class="q-label" for="s">s (optional, 32-byte hex, if already split)</label>
+      <input type="text" id="s" value="" aria-label="s">
+    </div>
 
     <div style="margin-top:20px">
       <button onclick="runCheck()">&#9654; Run Check</button>
@@ -211,6 +220,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="subsection">Nonce</div>
       <div class="kv"><span class="kv-k">nonce_well_formed</span><span class="kv-v" id="nonceWellFormedBox"></span></div>
       <div class="kv"><span class="kv-k">nonce_already_used</span><span class="kv-v" id="nonceAlreadyUsedBox"></span></div>
+      <div class="kv"><span class="kv-k">signature_form</span><span class="kv-v" id="signatureFormBox"></span></div>
       <div class="subsection">Disclosure</div>
       <p class="sub" id="disclosureBox" style="margin-bottom:0"></p>
       <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
@@ -256,7 +266,7 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-592
 (function () {
   'use strict';
   var RUN_TARGET = "runCheck";
-  var TABLE = {"expected_chain_id":["expChainId",null],"expected_verifying_contract":["expVerifyingContract",null],"chainId":["sigChainId",null],"verifyingContract":["sigVerifyingContract",null],"validAfter":["validAfter",null],"validBefore":["validBefore",null],"now_unix":["nowUnix",null],"nonce":["nonce",null],"nonce_already_used":["nonceAlreadyUsed",null]};
+  var TABLE = {"expected_chain_id":["expChainId",null],"expected_verifying_contract":["expVerifyingContract",null],"chainId":["sigChainId",null],"verifyingContract":["sigVerifyingContract",null],"validAfter":["validAfter",null],"validBefore":["validBefore",null],"now_unix":["nowUnix",null],"nonce":["nonce",null],"nonce_already_used":["nonceAlreadyUsed",null],"signature":["signature",null],"s":["s",null]};
   var VERDICT_KEYS = ["verdict","final_verdict","overall_verdict","significance_verdict","classification","entity_classification","conclusion","outcome","decision","grade","overall_status","status"];
   var st = null;
   function ensureRegion() {
@@ -415,12 +425,12 @@ var MANIFEST = {
   version: '1.0.0',
   mcp_name: 'check_x402_domain_nonce_window',
   title: 'x402 Domain & Nonce Window Checker',
-  description: 'Checks an EIP-3009 authorization\'s domain (expected vs. signed chainId/verifyingContract, hard refuse on mismatch), validAfter/validBefore window against a caller-supplied now_unix, and nonce format. Accepts an optional caller-supplied nonce_already_used flag. Never queries a chain.',
+  description: 'Checks an EIP-3009 authorization\'s domain (expected vs. signed chainId/verifyingContract, hard refuse on mismatch), validAfter/validBefore window against a caller-supplied now_unix, and nonce format. Accepts an optional caller-supplied nonce_already_used flag and an optional signature/s form input for the low-s check. Never queries a chain.',
   spec_version: '0.8.0',
   chaingraph_version: '0.4.0',
   mcp_tool_definition: {
     name: 'check_x402_domain_nonce_window',
-    description: 'Checks an EIP-3009 authorization\'s domain (expected vs. signed chainId/verifyingContract, hard refuse on mismatch), validAfter/validBefore window against a caller-supplied now_unix, and nonce format. Accepts an optional caller-supplied nonce_already_used flag. Never queries a chain.',
+    description: 'Checks an EIP-3009 authorization\'s domain (expected vs. signed chainId/verifyingContract, hard refuse on mismatch), validAfter/validBefore window against a caller-supplied now_unix, and nonce format. Accepts an optional caller-supplied nonce_already_used flag and an optional signature/s form input for the low-s check. Never queries a chain.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -432,7 +442,9 @@ var MANIFEST = {
         validBefore: { type: ['string', 'number'] },
         now_unix: { type: ['string', 'number'] },
         nonce: { type: 'string' },
-        nonce_already_used: { type: ['boolean', 'null'] }
+        nonce_already_used: { type: ['boolean', 'null'] },
+        signature: { type: 'string' },
+        s: { type: 'string' }
       }
     }
   }
@@ -472,6 +484,24 @@ function _toUint256BigInt(v) {
   } catch (e) { return null; }
 }
 
+var SECP256K1_ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+var HIGH_S_REASON = 'the supplied signature carries an s value greater than half the secp256k1 group order (high-s, malleable form): such authorizations are rejected at settlement by low-s enforcing tokens, so this verifier refuses regardless of the recovered signer';
+function _parseSignatureForm(pp) {
+  var supplied = (pp.signature !== undefined && pp.signature !== null) || (pp.s !== undefined && pp.s !== null);
+  if (!supplied) return null;
+  var has65 = typeof pp.signature === 'string' && pp.signature.trim() !== '';
+  var hasS = typeof pp.s === 'string' && pp.s.trim() !== '';
+  if (!has65 && !hasS) return { error: 'signature, when supplied, must be a 65-byte hex EIP-3009 signature (r||s||v, 130 hex characters) and s, when supplied, must be a 32-byte hex value (64 hex characters)' };
+  if (has65) {
+    var body = _stripHexPrefix(pp.signature.trim());
+    if (!/^[0-9a-fA-F]{130}$/.test(body)) return { error: 'signature, when supplied, must be a 65-byte hex EIP-3009 signature (r||s||v, 130 hex characters)' };
+    return { sBig: BigInt('0x' + body.slice(64, 128)) };
+  }
+  var body2 = _stripHexPrefix(pp.s.trim());
+  if (!/^[0-9a-fA-F]{64}$/.test(body2)) return { error: 's, when supplied, must be a 32-byte hex value (64 hex characters)' };
+  return { sBig: BigInt('0x' + body2) };
+}
+
 function compute(pp) {
   pp = (pp !== null && typeof pp === 'object') ? pp : {};
   var reasons = [];
@@ -503,6 +533,9 @@ function compute(pp) {
     reasons.push('nonce_already_used, when supplied, must be a boolean');
   }
 
+  var sigForm = _parseSignatureForm(pp);
+  if (sigForm !== null && sigForm.error) reasons.push(sigForm.error);
+
   var expected_echo = { expected_chain_id: expectedChainId !== null ? expectedChainId.toString() : null, expected_verifying_contract: expectedVerifyingContract };
   var signed_domain_echo = { chain_id: signedChainId !== null ? signedChainId.toString() : null, verifying_contract: signedVerifyingContract };
   var window_echo = { valid_after: validAfter !== null ? validAfter.toString() : null, valid_before: validBefore !== null ? validBefore.toString() : null, now_unix: nowUnix !== null ? nowUnix.toString() : null };
@@ -530,16 +563,22 @@ function compute(pp) {
   var nonceWellFormed = !_isZeroBytes32(nonceNormalized);
   if (!nonceWellFormed) reasons.push('nonce failed format check: bytes32 value must be non-zero');
 
+  var sAboveHalfOrder = sigForm !== null && !sigForm.error ? sigForm.sBig > (SECP256K1_ORDER >> 1n) : null;
+  if (sAboveHalfOrder === true) reasons.push(HIGH_S_REASON);
+
   var compliance_flags = [
     domainChainMatch ? 'DOMAIN_CHAIN_MATCH' : 'DOMAIN_CHAIN_MISMATCH',
     domainContractMatch ? 'DOMAIN_CONTRACT_MATCH' : 'DOMAIN_CONTRACT_MISMATCH',
     withinWindow ? 'AUTHORIZATION_WITHIN_WINDOW' : (expired ? 'AUTHORIZATION_EXPIRED' : 'AUTHORIZATION_NOT_YET_VALID'),
     nonceWellFormed ? 'NONCE_WELL_FORMED' : 'NONCE_MALFORMED'
   ];
+  if (sAboveHalfOrder === true) compliance_flags.push('X402_SIGNATURE_HIGH_S');
 
-  var hardRefuse = !domainChainMatch || !domainContractMatch || !withinWindow || !nonceWellFormed || nonceAlreadyUsed === true;
+  var hardRefuse = sAboveHalfOrder === true || !domainChainMatch || !domainContractMatch || !withinWindow || !nonceWellFormed || nonceAlreadyUsed === true;
   var verdict = hardRefuse ? 'REFUSE' : 'PASS';
   compliance_flags.push(hardRefuse ? 'X402_DOMAIN_NONCE_REFUSE' : 'X402_DOMAIN_NONCE_PASS');
+
+  var signature_form = sigForm !== null && !sigForm.error ? { present: true, s_above_half_order: sAboveHalfOrder } : null;
 
   var output_payload = {
     verdict: verdict, reasons: reasons,
@@ -548,6 +587,7 @@ function compute(pp) {
     window: window_echo,
     authorization_within_window: withinWindow, authorization_expired: expired, authorization_not_yet_valid: notYetValid,
     nonce: nonceNormalized, nonce_well_formed: nonceWellFormed, nonce_already_used: nonceAlreadyUsed,
+    ...(signature_form !== null ? { signature_form: signature_form } : {}),
     disclosure: DISCLOSURE
   };
   return { output_payload: output_payload, compliance_flags: compliance_flags };
@@ -564,7 +604,9 @@ function runCheck() {
     validBefore: document.getElementById('validBefore').value.trim(),
     now_unix: document.getElementById('nowUnix').value.trim(),
     nonce: document.getElementById('nonce').value.trim(),
-    nonce_already_used: usedSel === '' ? null : (usedSel === 'true')
+    nonce_already_used: usedSel === '' ? null : (usedSel === 'true'),
+    signature: document.getElementById('signature').value.trim() === '' ? null : document.getElementById('signature').value.trim(),
+    s: document.getElementById('s').value.trim() === '' ? null : document.getElementById('s').value.trim()
   };
 
   var result = compute(pp);
@@ -577,7 +619,7 @@ function runCheck() {
   vBox.textContent = op.verdict;
 
   document.getElementById('flagRow').innerHTML = op.verdict !== 'INDETERMINATE'
-    ? flags.map(function(f){ return '<span class="badge ' + (f.indexOf('MISMATCH') >= 0 || f.indexOf('EXPIRED') >= 0 || f.indexOf('NOT_YET_VALID') >= 0 || f.indexOf('MALFORMED') >= 0 || f.indexOf('REFUSE') >= 0 ? 'fail' : 'ok') + '">' + f + '</span>'; }).join('')
+    ? flags.map(function(f){ return '<span class="badge ' + (f.indexOf('MISMATCH') >= 0 || f.indexOf('EXPIRED') >= 0 || f.indexOf('NOT_YET_VALID') >= 0 || f.indexOf('MALFORMED') >= 0 || f.indexOf('REFUSE') >= 0 || f.indexOf('HIGH_S') >= 0 ? 'fail' : 'ok') + '">' + f + '</span>'; }).join('')
     : (op.reasons || []).map(function(r){ return '<span class="badge fail">' + r + '</span>'; }).join('');
 
   document.getElementById('domainChainMatchBox').textContent = String(op.domain_chain_match);
@@ -587,6 +629,7 @@ function runCheck() {
   document.getElementById('notYetValidBox').textContent = String(op.authorization_not_yet_valid);
   document.getElementById('nonceWellFormedBox').textContent = String(op.nonce_well_formed);
   document.getElementById('nonceAlreadyUsedBox').textContent = String(op.nonce_already_used);
+  document.getElementById('signatureFormBox').textContent = op.signature_form ? JSON.stringify(op.signature_form) : 'not supplied';
   document.getElementById('disclosureBox').textContent = op.disclosure;
 
   document.getElementById('resultsPanel').classList.add('show');

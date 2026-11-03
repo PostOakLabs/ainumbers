@@ -23,6 +23,30 @@ import { executionHash } from './_hash.mjs';
 
 const DISCLOSURE = 'On-chain nonce uniqueness is enforced by the token contract at settlement time, not by this verifier. This tool confirms the authorization is well-formed, correctly signed, and not self-reported as already used -- it cannot confirm the nonce has never been spent on-chain.';
 
+// The secp256k1 group order. Used only for the optional low-s form check on a caller-supplied
+// EIP-3009 signature: no curve arithmetic, no vendored crypto, one BigInt comparison.
+const SECP256K1_ORDER = BigInt('0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141');
+const HIGH_S_REASON = 'the supplied signature carries an s value greater than half the secp256k1 group order (high-s, malleable form): such authorizations are rejected at settlement by low-s enforcing tokens, so this verifier refuses regardless of the recovered signer';
+
+// Parses the optional caller-supplied signature form. Returns { sBig } on a well-formed 65-byte
+// EIP-3009 signature (r||s||v) or a 32-byte s value; { error } (never a throw) when supplied but
+// unparseable; null when not supplied at all.
+function _parseSignatureForm(pp) {
+  const supplied = (pp.signature !== undefined && pp.signature !== null) || (pp.s !== undefined && pp.s !== null);
+  if (!supplied) return null;
+  const has65 = typeof pp.signature === 'string' && pp.signature.trim() !== '';
+  const hasS = typeof pp.s === 'string' && pp.s.trim() !== '';
+  if (!has65 && !hasS) return { error: 'signature, when supplied, must be a 65-byte hex EIP-3009 signature (r||s||v, 130 hex characters) and s, when supplied, must be a 32-byte hex value (64 hex characters)' };
+  if (has65) {
+    const body = _stripHexPrefix(pp.signature.trim());
+    if (!/^[0-9a-fA-F]{130}$/.test(body)) return { error: 'signature, when supplied, must be a 65-byte hex EIP-3009 signature (r||s||v, 130 hex characters)' };
+    return { sBig: BigInt('0x' + body.slice(64, 128)) };
+  }
+  const body = _stripHexPrefix(pp.s.trim());
+  if (!/^[0-9a-fA-F]{64}$/.test(body)) return { error: 's, when supplied, must be a 32-byte hex value (64 hex characters)' };
+  return { sBig: BigInt('0x' + body) };
+}
+
 function _stripHexPrefix(hex) {
   const s = String(hex ?? '');
   return s.startsWith('0x') || s.startsWith('0X') ? s.slice(2) : s;
@@ -90,6 +114,7 @@ export const meta = {
  *   validAfter?, validBefore?, now_unix?,                   -- uint256 window fields, caller-supplied
  *   nonce?,                                                 -- bytes32
  *   nonce_already_used?,                                    -- optional boolean, caller-computed, null if omitted
+ *   signature?, s?,                                         -- optional EIP-3009 signature form check: 65-byte hex (r||s||v) or 32-byte hex s; when supplied, signature_form is emitted and a high-s value is a hard REFUSE
  * }
  */
 export function compute(pp) {
@@ -122,6 +147,9 @@ export function compute(pp) {
   } else if (pp.nonce_already_used !== undefined && pp.nonce_already_used !== null) {
     reasons.push('nonce_already_used, when supplied, must be a boolean');
   }
+
+  const sigForm = _parseSignatureForm(pp);
+  if (sigForm !== null && sigForm.error) reasons.push(sigForm.error);
 
   const expected_echo = {
     expected_chain_id: expectedChainId !== null ? expectedChainId.toString() : null,
@@ -169,16 +197,22 @@ export function compute(pp) {
   const nonceWellFormed = !_isZeroBytes32(nonceNormalized);
   if (!nonceWellFormed) reasons.push('nonce failed format check: bytes32 value must be non-zero');
 
+  const sAboveHalfOrder = sigForm !== null && !sigForm.error ? sigForm.sBig > (SECP256K1_ORDER >> 1n) : null;
+  if (sAboveHalfOrder === true) reasons.push(HIGH_S_REASON);
+
   const compliance_flags = [
     domainChainMatch ? 'DOMAIN_CHAIN_MATCH' : 'DOMAIN_CHAIN_MISMATCH',
     domainContractMatch ? 'DOMAIN_CONTRACT_MATCH' : 'DOMAIN_CONTRACT_MISMATCH',
     withinWindow ? 'AUTHORIZATION_WITHIN_WINDOW' : (expired ? 'AUTHORIZATION_EXPIRED' : 'AUTHORIZATION_NOT_YET_VALID'),
     nonceWellFormed ? 'NONCE_WELL_FORMED' : 'NONCE_MALFORMED',
   ];
+  if (sAboveHalfOrder === true) compliance_flags.push('X402_SIGNATURE_HIGH_S');
 
-  const hardRefuse = !domainChainMatch || !domainContractMatch || !withinWindow || !nonceWellFormed || nonceAlreadyUsed === true;
+  const hardRefuse = sAboveHalfOrder === true || !domainChainMatch || !domainContractMatch || !withinWindow || !nonceWellFormed || nonceAlreadyUsed === true;
   const verdict = hardRefuse ? 'REFUSE' : 'PASS';
   compliance_flags.push(hardRefuse ? 'X402_DOMAIN_NONCE_REFUSE' : 'X402_DOMAIN_NONCE_PASS');
+
+  const signature_form = sigForm !== null && !sigForm.error ? { present: true, s_above_half_order: sAboveHalfOrder } : null;
 
   const output_payload = {
     verdict,
@@ -194,6 +228,7 @@ export function compute(pp) {
     nonce: nonceNormalized,
     nonce_well_formed: nonceWellFormed,
     nonce_already_used: nonceAlreadyUsed,
+    ...(signature_form !== null ? { signature_form } : {}),
     disclosure: DISCLOSURE,
   };
 
