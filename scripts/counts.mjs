@@ -73,6 +73,7 @@ import { readFileSync, readdirSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { zkCoverage } from './check-compute-proof-coverage.mjs'
+import { deriveFromGraph, trustCountKeys } from './zk-trust-inventory.mjs'
 import { deriveLiveKernels, evaluateCoverage } from './check-fv-floor-coverage.mjs'
 import { sourceDigest } from '../chaingraph/kernels/_buildid.mjs'
 import { makeNumericCountProseRegex } from './check-count-prose.mjs'
@@ -480,6 +481,9 @@ export async function deriveCounts() {
     showcasePrompts = Array.isArray(showcaseArr) ? showcaseArr.length : 0
   } catch { /* SSOT absent — sentinel stays unverified rather than guessing */ }
 
+  // trust.* -- ZK-TRUST-INVENTORY-1: stage ladder counts from the same chaingraph and L1 report read above.
+  const trustInventory = await deriveFromGraph(chaingraph, l1ReportForL2, repoRoot)
+
   return {
     'tools.browser':     toolsBrowser,
     'manifests':         manifests,
@@ -517,6 +521,7 @@ export async function deriveCounts() {
     'infra_pages':       infraPages,
     'guide_pages':       guidePages,
     'showcase_prompts':  showcasePrompts,
+    ...trustCountKeys(trustInventory),
   }
 }
 

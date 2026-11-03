@@ -289,6 +289,14 @@ const QUIET = process.argv.includes('--quiet');
 // --self-test` asserts the subset ordering and the 90 s budget on a clean tree.
 // ⛔ It removes NO gate from the full suite below — the fence of its row.
 const QUICK = process.argv.includes('--quick');
+// PREPUSH-SAFETY-LEG-1: --push-safety — the pre-push hook's leg when the diff
+// touches gate machinery. Composition: the ENTIRE quick set (QUICK_GATES), plus
+// a changed-file secret scan, plus the per-kernel preflight of every touched
+// kernel, plus the self-test / node --test of every changed gate script. It
+// removes NO gate from the full suite (which still runs in CI on the PR head
+// and the merge_group tree); it replaces only the hook's LOCAL full run, whose
+// measured ≈660 s on the shared host capped push throughput for every builder.
+const PUSH_SAFETY = process.argv.includes('--push-safety');
 let _pendingLabel = null; // under --quiet we defer printing "▶ label" until we know it failed
 function gateStart(label) { if (QUIET) { _pendingLabel = label; return; } process.stdout.write(`▶ ${label} … `); }
 function gatePass(msg)    { if (QUIET) { _pendingLabel = null; return; } console.log(msg); }
@@ -797,7 +805,7 @@ function runSelfTest() {
 // PREFLIGHT-QUICK-1: `--quick --self-test` is the QUICK suite's own control and
 // runs further down (after GATES/QUICK_GATES exist); the generic --self-test
 // above stays the reporting machinery's control and keeps exiting here.
-if (!QUICK && process.argv.includes('--self-test')) process.exit(runSelfTest());
+if (!QUICK && !PUSH_SAFETY && process.argv.includes('--self-test')) process.exit(runSelfTest());
 
 // PREPUSH-MERGE-HANG-1 (2026-10-16): the committed-vs-base leg of EVERY
 // touched-set computation below diffs against the PR base — `git merge-base
@@ -1532,9 +1540,9 @@ const GATES = [
   // shared-derived-artifact gate below.
   ['Debt ledger freshness (DEBT-LEDGER-1)', 'node scripts/gen-debt-ledger.mjs --check'],
   // KERNEL-INPUT-USAGE-CHECK-1: declared-input-usage ratchet (baseline
-  // scripts/kernel-input-usage-baseline.json, single-writer on main). The context
-  // split lives in the checker itself: ADVISORY on pull_request, BLOCKING on
-  // main/merge_group/local — see its header; --init ran exactly once, healing is --prune.
+  // scripts/kernel-input-usage-baseline.json, single-writer on main). BLOCKING in
+  // every context, pull_request included (MAIN-ONLY-PATHS-GATE-1) — see its header;
+  // --init ran exactly once, healing is --prune.
   ['Kernel input-usage ratchet (KERNEL-INPUT-USAGE-CHECK-1)', 'node scripts/check-kernel-input-usage.mjs'],
   // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the fixture proof entry below — the
   // pairing meta-gate requires it beside every new blocking gate.
@@ -1560,8 +1568,10 @@ const GATES = [
   // PR-ID-COLLISION-GATE-1 (2026-09-06): art-685/art-686 each collided twice in one
   // evening across OPEN PRs, which no in-tree uniqueness gate can ever see. This gate
   // scopes NEW node/manifest/tool ids in the PR diff against (a) origin/main,
-  // (b) chaingraph/graph/RESERVATIONS.json (the lock — same-line JSON conflicts in the
-  // merge queue are the mechanical backstop), (c) other open PRs (gh, token-free;
+  // (b) chaingraph/graph/reservations/art-<n>.json, one file per id (the lock — a
+  // same-id add/add conflict in the merge queue is the mechanical backstop; the legacy
+  // RESERVATIONS.json is read as a union while it exists, RESERVATIONS-SHARD-1),
+  // (c) other open PRs (gh, token-free;
   // skipped on merge_group — serial queue — and NAMED when unavailable, never silent).
   ['ID-collision gate (PR-ID-COLLISION-GATE-1)', 'node scripts/check-id-collision.mjs'],
   ['ID-collision gate controls (RED/GREEN fixtures, SO #34c pairing)', 'node scripts/check-id-collision.mjs --self-test'],
@@ -1821,6 +1831,11 @@ const GATES = [
   // <meta name="ai-tool">, role="main" landmark; down-only baseline ratchet.
   ['Node page accessibility tree (TOOLPAGE-A11Y-1)', 'node scripts/check-a11y-tree.mjs'],
   ['Node page accessibility tree controls (RED+GREEN)', 'node scripts/check-a11y-tree.mjs --self-test'],
+  // MAIN-ONLY-PATHS-GATE-1: a PR may not carry a file only main's derived regen writes (SSOT
+  // scripts/derived-artifacts.mjs COVERED; derived-artifacts-regen.yml is the single writer, SO #35).
+  // HARD on pull_request and locally; not run on merge_group / push:main, which carry the regen's commits.
+  ['Main-only derived paths (MAIN-ONLY-PATHS-GATE-1)', 'node scripts/check-main-only-paths.mjs'],
+  ['Main-only derived paths controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-main-only-paths.mjs --self-test'],
   // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: parity gate A (in-repo SSOT recompute of every
   // chain plan hash vs the committed derived set + page-literal sample) and parity
   // gate B fixtures (session-receipt Merkle; the site-side routine test is
@@ -2590,6 +2605,8 @@ const QUICK_GATES = [
   // Proven-digest freeze: measured about 0.4 s (one git diff plus one cat-file batch over changed
   // node files only), well inside the 10 s bar for the quick subset.
   ['Proven-digest freeze (quick)', 'node scripts/check-proven-digest-freeze.mjs'],
+  // MAIN-ONLY-PATHS-GATE-1: one git diff against merge-base(origin/main, HEAD); well under 1 s.
+  ['Main-only derived paths (quick)', 'node scripts/check-main-only-paths.mjs'],
 ];
 
 async function runQuickSuite(selfTest) {
@@ -2698,6 +2715,176 @@ async function runQuickSuite(selfTest) {
   process.exit(red.length ? 1 : 0);
 }
 if (QUICK) await runQuickSuite(process.argv.includes('--self-test'));
+
+// ── PREPUSH-SAFETY-LEG-1: the --push-safety leg ─────────────────────────────
+// The pre-push hook runs this instead of the LOCAL full suite whenever the diff
+// touches gate machinery (scripts/**, .github/**, chaingraph/kernels/_*.mjs per
+// scripts/prepush-full-trigger.mjs) — the very case where the ~660 s full run
+// capped every builder's push on the one shared host. What this leg runs:
+//   1. the ENTIRE quick set (QUICK_GATES, unchanged);
+//   2. a secret scan over the changed files (private keys, cloud/API tokens,
+//      committed .env content) — safety gates must run on EVERY push;
+//   3. scripts/kernel-preflight.mjs --fast --keep-going for every kernel whose
+//      chaingraph/kernels/<id>.kernel.mjs the diff touches;
+//   4. the --self-test (where the script supports one) and node --test (where a
+//      sibling <name>.test.mjs exists) of every changed scripts/*.mjs gate.
+// Everything else waits for CI, which still runs the full suite on the PR head
+// and the merge_group tree. PREFLIGHT_FULL=1 keeps forcing the full suite.
+const PS_REF = 'origin/main';
+
+function psChangedFiles() {
+  try {
+    // Merge-base, not PS_REF directly: origin/main can move between branch cut
+    // and push, and files DELETED on main must never be scanned as if this
+    // branch still carried them (--diff-filter=d drops deletions either side).
+    const base = execSync(`git merge-base ${PS_REF} HEAD`, { cwd: REPO, env, encoding: 'utf8' }).trim();
+    const out = execSync(`git diff --name-only --diff-filter=d ${base} HEAD`, { cwd: REPO, env, encoding: 'utf8' });
+    return out.split('\n').map((l) => l.trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+const SECRET_PATTERNS = [
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, 'private key block'],
+  [/AKIA[0-9A-Z]{16}/, 'AWS access key id'],
+  [/gh[pousr]_[A-Za-z0-9]{20,}/, 'GitHub token'],
+  [/github_pat_[A-Za-z0-9_]{20,}/, 'GitHub fine-grained PAT'],
+  [/xox[baprs]-[A-Za-z0-9-]{10,}/, 'Slack token'],
+  [/(?<![A-Za-z0-9_-])sk-(ant-)?[A-Za-z0-9_-]{20,}/, 'LLM API key'],
+];
+
+const ENV_OK = /\.(example|sample|template|dist)$/;
+function psIsEnvFile(p) {
+  const base = p.split('/').pop();
+  return base === '.env' || (base.startsWith('.env.') && !ENV_OK.test(base));
+}
+
+// Scan the COMMITTED bytes of each changed file (git show HEAD:<path>), the
+// content a push would actually publish. Binary/large files are skipped by a
+// NUL probe and a 1 MB cap; deleted paths resolve to nothing and are skipped.
+function psSecretScan(files) {
+  const hits = [];
+  for (const f of files) {
+    let content = '';
+    try {
+      content = execSync(`git show "HEAD:${f}"`, { cwd: REPO, env, encoding: 'utf8', maxBuffer: 4 << 20 });
+    } catch { continue; } // deleted, binary-unsafe as text, or unreadable — not scan content
+    if (content.includes('\u0000') || content.length > 1 << 20) continue;
+    if (psIsEnvFile(f)) { hits.push([f, 'committed .env content']); continue; }
+    for (const [re, what] of SECRET_PATTERNS) {
+      if (re.test(content)) { hits.push([f, what]); break; }
+    }
+  }
+  return hits;
+}
+
+function psTouchedKernelIds(files) {
+  const ids = new Set();
+  for (const f of files) {
+    const m = f.match(/^chaingraph\/kernels\/([^/]+)\.kernel\.mjs$/);
+    if (m) ids.add(m[1]);
+  }
+  return [...ids];
+}
+
+const PS_SELFTEST_CAP = 12;
+function psChangedGateChecks(files) {
+  const checks = [];
+  for (const f of files) {
+    const m = f.match(/^scripts\/([a-z0-9][a-z0-9._-]*\.mjs)$/);
+    if (!m) continue;
+    const name = m[1];
+    if (name.endsWith('.test.mjs')) continue;
+    let src = '';
+    try { src = readFileSync(resolve(REPO, 'scripts', name), 'utf8'); } catch { continue; }
+    if (src.includes("'--self-test'") || src.includes('"--self-test"')) {
+      checks.push([`Self-test of changed gate script scripts/${name}`, `node scripts/${name} --self-test`]);
+    }
+    const testFile = name.replace(/\.mjs$/, '.test.mjs');
+    if (existsSync(resolve(REPO, 'scripts', testFile))) {
+      checks.push([`node --test scripts/${testFile} (changed gate script)`, `node --test --test-reporter=dot scripts/${testFile}`]);
+    }
+    if (checks.length >= PS_SELFTEST_CAP * 2) break;
+  }
+  return checks;
+}
+
+async function runPushSafetySuite(selfTest) {
+  const files = psChangedFiles();
+  const kernelIds = psTouchedKernelIds(files);
+  const gates = [
+    ...QUICK_GATES,
+    ['Changed-file secret scan (PREPUSH-SAFETY-LEG-1)', '__SECRET_SCAN__'],
+    ...kernelIds.map((id) => [`Kernel gates (touched kernel ${id}, --fast --keep-going)`, `node scripts/kernel-preflight.mjs ${id} --fast --keep-going`]),
+    ...psChangedGateChecks(files),
+  ];
+  if (selfTest) {
+    // Structural assertions only — never executes the gates.
+    const failures = [];
+    const labels = gates.map(([l]) => l);
+    if (!QUICK_GATES.every(([l]) => labels.includes(l))) failures.push('push-safety does not contain the entire quick set');
+    if (!labels.some((l) => l.includes('secret scan'))) failures.push('push-safety is missing the changed-file secret scan');
+    const kId = psTouchedKernelIds(['chaingraph/kernels/999-example.kernel.mjs']);
+    if (JSON.stringify(kId) !== JSON.stringify(['999-example'])) failures.push(`kernel id mapping broken (got ${JSON.stringify(kId)})`);
+    if (psIsEnvFile('.env') === false || psIsEnvFile('.env.example') === true || psIsEnvFile('config/.env.production') === false) {
+      failures.push('.env classification broken');
+    }
+    const probe = psSecretScan(['nonexistent-file-xyz']); // deleted/absent path must not crash the scan
+    if (!Array.isArray(probe)) failures.push('secret scan not resilient to absent paths');
+    if (failures.length) {
+      for (const f of failures) console.error(`   ✗ ${f}`);
+      console.error('❌ --push-safety --self-test FAILED.');
+      process.exit(1);
+    }
+    console.log(`✅ --push-safety --self-test PASSED — quick set included, secret scan present, kernel/env classification and scan resilience green (${gates.length} gates in the leg for this tree).`);
+    process.exit(0);
+  }
+  const t0 = Date.now();
+  const red = [];
+  const green = [];
+  const waived = [];
+  for (const [label, cmd] of gates) {
+    process.stdout.write(`▶ ${label} … `);
+    if (cmd === '__SECRET_SCAN__') {
+      const hits = psSecretScan(files);
+      if (!hits.length) { console.log('✓ (0 hits)'); green.push(label); continue; }
+      console.log('✗');
+      for (const [f, what] of hits) console.log(`   ⛔ ${f}: ${what}`);
+      red.push(label);
+      break;
+    }
+    const g0 = Date.now();
+    try {
+      execSync(cmd, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] });
+      console.log(`✓ (${Date.now() - g0}ms)`);
+      green.push(label);
+    } catch (e) {
+      console.log(`✗ (${Date.now() - g0}ms)`);
+      console.log('\n' + ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).slice(0, 8000).trim() + '\n');
+      const declared = expectedRedFor(label);
+      if (declared) {
+        console.log(`   [EXPECTED-RED via --expect-red ${declared}] — waived for this invocation only`);
+        waived.push(label);
+        continue;
+      }
+      red.push(label);
+      break; // fail-fast, like --quick and the default full run
+    }
+  }
+  const wallMs = Date.now() - t0;
+  console.log('');
+  console.log(`--push-safety: ${green.length}/${gates.length} leg gates green, ${waived.length} EXPECTED-RED (declared), wall time ${(wallMs / 1000).toFixed(1)} s.`);
+  console.log('This is the push-safety leg (PREPUSH-SAFETY-LEG-1), NOT the full suite — the full suite runs in CI on the PR head and the merge_group tree.');
+  if (waived.length) console.log(`⚠ EXPECTED-RED (waived, this invocation only): ${waived.join(', ')}`);
+  if (red.length) {
+    console.log(`⛔ RED: ${red[0]}`);
+    console.log('   Fix it and re-run. (Ratchet gate only: run the --update-baseline command it names, then COMMIT the baseline.)');
+    process.exit(1);
+  }
+  process.exit(0);
+}
+if (PUSH_SAFETY) await runPushSafetySuite(process.argv.includes('--self-test'));
 // PREFLIGHT-KEEPGOING-1: per-gate outcome ledger — { label, state, ms, note }.
 // state ∈ PASS | FAIL | EXPECTED-RED | DID-NOT-RUN. Written on every path, read
 // ONLY by the --keep-going summary, so it cannot affect default behaviour.

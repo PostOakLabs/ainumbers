@@ -46,6 +46,7 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { loadRegistryUnion, readShards, shardDirFor } from '../chaingraph/standard/clause-snapshot-store.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -60,9 +61,11 @@ function truthy(v) {
 
 function registryDigests(repo) {
   const p = resolve(repo, 'chaingraph', 'standard', 'clause-snapshot-registry.json');
-  if (!existsSync(p)) return null;
-  const parsed = JSON.parse(readFileSync(p, 'utf8'));
-  const rows = Array.isArray(parsed) ? parsed : (parsed.snapshots || parsed.entries || Object.values(parsed).find(Array.isArray) || []);
+  if (!existsSync(p) && !existsSync(shardDirFor(p))) return null;
+  // CLAUSE-SNAPSHOT-SHARD-1: shards ∪ legacy file (legacy may be an array or a wrapped object in fixtures).
+  const parsed = existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : [];
+  const legacyRows = Array.isArray(parsed) ? parsed : (parsed.snapshots || parsed.entries || Object.values(parsed).find(Array.isArray) || []);
+  const rows = Array.isArray(parsed) ? loadRegistryUnion(p) : legacyRows.concat(readShards(shardDirFor(p)));
   return new Set(rows.map((r) => r.digest).filter(Boolean));
 }
 
