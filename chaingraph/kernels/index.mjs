@@ -18,6 +18,10 @@ import * as t512      from './512-tokenized-security-lifecycle-validator.kernel.
 import * as t513      from './513-margin-call-collateral-mobilizer.kernel.mjs';
 import * as t514      from './514-tokenized-fund-collateral-validator.kernel.mjs';
 import * as t515      from './515-collateral-swap-eligibility-validator.kernel.mjs';
+import * as t732      from './732-borrower-escrow-auditor.kernel.mjs';
+import * as t733      from './733-servicing-compliance-clock.kernel.mjs';
+import * as t784      from './784-cbr-data-return-validator.kernel.mjs';
+import * as t787      from './787-corridor-cost-averages.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
 import * as art03     from './art-03-x402-settlement-modeler.kernel.mjs';
@@ -627,17 +631,44 @@ import * as art70     from './art-70-cbam-default-value-resolver.kernel.mjs';
 import * as art700    from './art-700-authorization-payload-linter.kernel.mjs';
 import * as art701    from './art-701-three-way-invoice-match.kernel.mjs';
 import * as art702    from './art-702-runway-goal-path.kernel.mjs';
+import * as art703    from './art-703-mandate-authorization-gate.kernel.mjs';
 import * as art704    from './art-704-ai-token-spend.kernel.mjs';
+import * as art705    from './art-705-bond-ladder-builder.kernel.mjs';
+import * as art706    from './art-706-yield-curve-gspread.kernel.mjs';
+import * as art707    from './art-707-tsv-tier-cap-ladder.kernel.mjs';
+import * as art708    from './art-708-v4-hook-permission-reconciler.kernel.mjs';
+import * as art709    from './art-709-v4-hook-fee-conformance.kernel.mjs';
 import * as art71     from './art-71-cbam-certificate-cost-engine.kernel.mjs';
+import * as art710    from './art-710-tsv-stoppage-concurrency.kernel.mjs';
 import * as art711    from './art-711-sco60-crypto-asset-exposure-classifier-v2.kernel.mjs';
 import * as art712    from './art-712-workforce-board-roi.kernel.mjs';
+import * as art713    from './art-713-scorp-election-break-even.kernel.mjs';
+import * as art715    from './art-715-token2022-transfer-fee-reconciler.kernel.mjs';
 import * as art72     from './art-72-cbam-precursor-emissions-aggregator.kernel.mjs';
 import * as art73     from './art-73-taxonomy-alignment-scorer.kernel.mjs';
+import * as art734    from './art-734-force-placed-insurance-checker.kernel.mjs';
+import * as art735    from './art-735-solana-dvp-prefund-verifier.kernel.mjs';
 import * as art74     from './art-74-taxonomy-kpi-gar-aggregator.kernel.mjs';
+import * as art749    from './art-749-solana-paychan-voucher-verifier.kernel.mjs';
 import * as art75     from './art-75-eugb-factsheet-validator.kernel.mjs';
+import * as art754    from './art-754-equity-exit-waterfall.kernel.mjs';
+import * as art758    from './art-758-hdhp-ppo-break-even.kernel.mjs';
+import * as art759    from './art-759-iso-amt-exposure-modeler.kernel.mjs';
 import * as art76     from './art-76-climate-scenario-applicator.kernel.mjs';
+import * as art760    from './art-760-espp-break-even-optimal-sell.kernel.mjs';
+import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
+import * as art764    from './art-764-solo-401k-vs-sep-ira.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
+import * as art771    from './art-771-automation-payback.kernel.mjs';
+import * as art774    from './art-774-beacon-seeded-fair-sampling-v2.kernel.mjs';
+import * as art776    from './art-776-paypal-dispute-deadline-evidence.kernel.mjs';
+import * as art777    from './art-777-psp-dispute-reason-crosswalk.kernel.mjs';
+import * as art778    from './art-778-token2022-withheld-fee-reconciler.kernel.mjs';
+import * as art779    from './art-779-bnpl-plan-comparator.kernel.mjs';
 import * as art78     from './art-78-csdr-penalty-calculator.kernel.mjs';
+import * as art780    from './art-780-solana-pda-ata-audit.kernel.mjs';
+import * as art782    from './art-782-modified-premium.kernel.mjs';
+import * as art788    from './art-788-csv-rfc4180-parser.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
@@ -693,6 +724,10 @@ export const KERNELS = {
   '513-margin-call-collateral-mobilizer':                       t513,
   '514-tokenized-fund-collateral-validator':                    t514,
   '515-collateral-swap-eligibility-validator':                  t515,
+  '732-borrower-escrow-auditor':                                t732,
+  '733-servicing-compliance-clock':                             t733,
+  '784-cbr-data-return-validator':                              t784,
+  '787-corridor-cost-averages':                                 t787,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
   'art-03-x402-settlement-modeler':                             art03,
@@ -1302,17 +1337,44 @@ export const KERNELS = {
   'art-700-authorization-payload-linter':                       art700,
   'art-701-three-way-invoice-match':                            art701,
   'art-702-runway-goal-path':                                   art702,
+  'art-703-mandate-authorization-gate':                         art703,
   'art-704-ai-token-spend':                                     art704,
+  'art-705-bond-ladder-builder':                                art705,
+  'art-706-yield-curve-gspread':                                art706,
+  'art-707-tsv-tier-cap-ladder':                                art707,
+  'art-708-v4-hook-permission-reconciler':                      art708,
+  'art-709-v4-hook-fee-conformance':                            art709,
   'art-71-cbam-certificate-cost-engine':                        art71,
+  'art-710-tsv-stoppage-concurrency':                           art710,
   'art-711-sco60-crypto-asset-exposure-classifier-v2':          art711,
   'art-712-workforce-board-roi':                                art712,
+  'art-713-scorp-election-break-even':                          art713,
+  'art-715-token2022-transfer-fee-reconciler':                  art715,
   'art-72-cbam-precursor-emissions-aggregator':                 art72,
   'art-73-taxonomy-alignment-scorer':                           art73,
+  'art-734-force-placed-insurance-checker':                     art734,
+  'art-735-solana-dvp-prefund-verifier':                        art735,
   'art-74-taxonomy-kpi-gar-aggregator':                         art74,
+  'art-749-solana-paychan-voucher-verifier':                    art749,
   'art-75-eugb-factsheet-validator':                            art75,
+  'art-754-equity-exit-waterfall':                              art754,
+  'art-758-hdhp-ppo-break-even':                                art758,
+  'art-759-iso-amt-exposure-modeler':                           art759,
   'art-76-climate-scenario-applicator':                         art76,
+  'art-760-espp-break-even-optimal-sell':                       art760,
+  'art-763-ai-displacement-risk-screener':                      art763,
+  'art-764-solo-401k-vs-sep-ira':                               art764,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
+  'art-771-automation-payback':                                 art771,
+  'art-774-beacon-seeded-fair-sampling-v2':                     art774,
+  'art-776-paypal-dispute-deadline-evidence':                   art776,
+  'art-777-psp-dispute-reason-crosswalk':                       art777,
+  'art-778-token2022-withheld-fee-reconciler':                  art778,
+  'art-779-bnpl-plan-comparator':                               art779,
   'art-78-csdr-penalty-calculator':                             art78,
+  'art-780-solana-pda-ata-audit':                               art780,
+  'art-782-modified-premium':                                   art782,
+  'art-788-csv-rfc4180-parser':                                 art788,
   'art-79-settlement-fail-predictor':                           art79,
   'art-80-ssi-conformance-checker':                             art80,
   'art-81-allocation-affirmation-conformance':                  art81,

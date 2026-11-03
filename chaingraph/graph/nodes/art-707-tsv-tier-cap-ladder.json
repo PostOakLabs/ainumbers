@@ -1,0 +1,95 @@
+{
+  "tool_id": "art-707-tsv-tier-cap-ladder",
+  "tool_version": "1.0.0",
+  "display_name": "TSV Tier-Cap Ladder",
+  "mcp_name": "check_tsv_tier_cap_ladder",
+  "mandate_type": "compliance_control",
+  "wave": 126,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-707-tsv-tier-cap-ladder.html",
+  "description": "Replays a tokenized-stock venue's (TSV's) daily per-symbol share volume and distinct-symbol counts, aggregated across the TSV and its caller-declared affiliated TSVs, against the SEC TSV Exemption tier caps of FR 2026-19388 (91 FR 60174-76, condition F): Tier 1 is 75 symbols and 0.25 percent of the declared prior-month ADV, Tier 2 is 250 symbols and 2.5 percent; the daily volume cap in integer shares is floor(ADV x 25/10000) or floor(ADV x 250/10000), and a breach is volume strictly greater than the cap. Applies the condition F stepped-compliance ladder to volume breaches only: the first breach in a stock requires no action, every later breach forces an immediate three-month pause in that stock with affiliates included, and the node emits each pause window (breach date to breach date plus three calendar months, month-end clamped) and the notification and public-Notice obligations. Symbol-count breaches get no first-breach pass; the node reports the stated consequence (the TSV would not meet the conditions of the TSV Exemption) and imposes no pause, because the order states none. A stock with no declared prior-month ADV is reported INDETERMINATE, never given an assumed ADV. The order states no reset or look-back window for the ladder, so none is applied and the assumption is carried in the output. Evidence replay only over caller-supplied data: it never looks up LULD tiers or halts and never states or implies that a venue is compliant.",
+  "input_schema_ref": "chaingraph/art-707-tsv-tier-cap-ladder.html#manifest",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:ec31622899cd563e7242a8382b47262710dadead214839f5029e2dee08ab9e6d","valid_from":"2026-10-12"},{"system":"risc0","image_id":"sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6","valid_from":"2026-09-12"}],
+  "export_capability": ["json"],
+  "standards_basis": "implements_standard",
+  "cited_clause_digest": [
+    {
+      "digest": "sha256:8b0330def835af78831b93f415b5ffac1cf904e5e0dff1c35ec12b8d4ac339a8",
+      "source_url": "https://www.govinfo.gov/content/pkg/FR-2026-09-22/html/2026-19388.htm",
+      "retrieved_at": "2026-10-11",
+      "clause_path": "II.F Limitations on Number of Symbols and Volume of Tokenized NMS Stock Traded (incl. fn.74, fn.75)",
+      "scheme": "fr",
+      "id": "FR 2026-19388 condition F"
+    }
+  ],
+  "compute_proof_ready": "ready",
+  "standards_basis": "implements_standard",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "A2D/9SaMAINeQ33Uf6uEUc+ivp+SJmgBnjiKkecPuMYle9R0YzfqnKKITv6+Y16ATg/0eR8hwCU9YiMrhkyZ1y/wBfOPxTkwFMmzaJrdWXEoEouNlRcY1nh62RYkoJ0yLY1ah8iZVa9N4POkLQu048WRX/cD5YV7vt1gEF2LHekZR5XJUjt/c9PZFFk2fOj8Vv8/o9i2sRjNyrBw0GQogBMznLpKmEPaMTQfRYgE25I7X5v2YJy5wfsj5nCi2MeWLxcL41wkCJAR1CPXrmdgFIMSIBjYuANw4Hf6L050hJwNeNBoZaw5fjnoVywv5PqKw05zfpiPIPLSPMDkPT3DDw==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:ec31622899cd563e7242a8382b47262710dadead214839f5029e2dee08ab9e6d",
+      "output": {
+        "affiliated_tsv_ids": [],
+        "as_of_date": "2026-10-11",
+        "assumptions": [
+          "Reset-window assumption: the order states no reset or look-back window for the volume-breach ladder, so the node applies none — the first-breach pass is consumed once per stock across all supplied data (prior_breaches plus the replayed window) and is never restored (91 FR 60175).",
+          "Pause arithmetic assumption: a pause starts on the breach date and the stock may resume trading three calendar months from that date (91 FR 60175), with month-end clamping when the day does not exist (31 Jan + 3 months = 30 Apr); the resume date itself is a trading day (the window is [start, resume_date)).",
+          "Rounding statement (the only rounding): the daily volume cap in integer shares is floor(prior_month_adv_shares x 25/10000) for tier_1 and floor(prior_month_adv_shares x 250/10000) for tier_2 (91 FR 60174); a breach is volume strictly greater than the cap (\"exceeds\"). The floor is the conservative direction — it never inflates a cap.",
+          "Ordering assumption: where a prior breach and an in-window breach share a date, the prior breach is treated as the earlier one.",
+          "Breach-during-pause assumption: a breach date falling inside an existing pause window is still recorded and still triggers its own three-month pause from that date; the order does not address trading that should not have occurred during a pause, so the node records rather than judges it.",
+          "Exclusions: tiers and prior-month ADV are caller-declared — the node performs no LULD Plan lookup and no effective-transaction-reporting-plan lookup (91 FR 60174 defines the ADV denominator as reported by such a plan); a stock with no declared prior-month ADV is reported INDETERMINATE rather than given an assumed ADV; aggregation covers only the declared tsv_id and affiliated_tsv_ids; the node never looks up LULD trading halts. This is an evidence artifact only: it never states or implies that the venue is, or is not, compliant."
+        ],
+        "note": "Evidence replay only: breaches, pause windows and the obligations the order states, computed over caller-supplied data. It never states that the venue is compliant.",
+        "obligations": [],
+        "per_stock": [
+          {
+            "breach_count_including_prior": 1,
+            "breach_dates": [
+              "2026-10-01"
+            ],
+            "daily": [
+              {
+                "breached": true,
+                "cap_shares": 1000,
+                "date": "2026-10-01",
+                "volume_shares": 1001
+              }
+            ],
+            "daily_cap_shares": 1000,
+            "first_breach_pass_used": true,
+            "pause_windows": [],
+            "paused_as_of": "TRADING",
+            "prior_breach_dates": [],
+            "prior_month_adv_shares": 400000,
+            "symbol": "AAA",
+            "tier": "tier_1",
+            "volume_cap_bps": 25
+          }
+        ],
+        "status_as_of": {
+          "AAA": "TRADING"
+        },
+        "symbol_count": [
+          {
+            "breached": false,
+            "date": "2026-10-01",
+            "distinct_symbols": 1,
+            "symbol_cap": 75,
+            "tier": "tier_1"
+          }
+        ],
+        "tsv_id": "TSV-A"
+      }
+    }
+  }
+}

@@ -36,9 +36,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createPrivateKey } from 'node:crypto';
-import { jcsStringify } from '../chaingraph/kernels/_hash.mjs';
-import { rawPubkeyToDidKey } from '../chaingraph/kernels/_proof.mjs';
+import { loadSigningKey, signDetached } from './lib/detached-jws.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -66,9 +64,6 @@ function fail(msg) {
   process.exit(1);
 }
 
-const b64u = (bytes) => Buffer.from(bytes).toString('base64url');
-const enc = (s) => new TextEncoder().encode(s);
-
 if (!existsSync(KEY_PATH)) fail(`signing key not found at ${KEY_PATH} (path only — contents are never read into output)`);
 
 // ── load card, strip any existing signatures ──────────────────────────────────
@@ -76,27 +71,13 @@ const card = JSON.parse(readFileSync(CARD, 'utf8'));
 if (!card.protocolVersion) fail('card has no protocolVersion — not an A2A agent card?');
 delete card.signatures; // a re-sign replaces any prior signature; canon input never includes it
 
-// ── JCS canonical bytes (RFC 8785) — identical canon to the §16 proof path ────
-const canon = enc(jcsStringify((card)));
+// ── shared detached-JWS helper (scripts/lib/detached-jws.mjs: the ONE implementation) ──
+// Loads the PKCS#8 Ed25519 key (kid = did:key of the raw public key) and signs the
+// JCS card; typ stays 'JOSE' so already-published agent-card signatures are unchanged.
+const { privKey, kid } = await loadSigningKey(KEY_PATH);
+const entry = await signDetached(card, { privKey, kid, typ: 'JOSE' });
 
-// ── import the PKCS#8 Ed25519 key into WebCrypto; derive kid from the raw pub ─
-const pem = readFileSync(KEY_PATH, 'utf8');
-const nodeKey = createPrivateKey(pem); // validates the PEM; der never printed
-const der = nodeKey.export({ format: 'der', type: 'pkcs8' });
-const privKey = await globalThis.crypto.subtle.importKey('pkcs8', der, { name: 'Ed25519' }, true, ['sign']);
-const pubJwk = await globalThis.crypto.subtle.exportKey('jwk', privKey); // x = raw public key
-const pubKey = await globalThis.crypto.subtle.importKey(
-  'jwk', { kty: 'OKP', crv: 'Ed25519', x: pubJwk.x }, { name: 'Ed25519' }, true, ['verify'],
-);
-const kid = await rawPubkeyToDidKey(pubKey); // did:key:z… — the §16 fingerprint convention
-
-// ── detached JWS over the canonical card ──────────────────────────────────────
-const protectedHeader = { alg: 'EdDSA', kid, typ: 'JOSE' };
-const protectedB64 = b64u(enc(JSON.stringify(protectedHeader)));
-const signingInput = enc(`${protectedB64}.${b64u(canon)}`);
-const sig = new Uint8Array(await globalThis.crypto.subtle.sign('Ed25519', privKey, signingInput));
-
-card.signatures = [{ protected: protectedB64, signature: b64u(sig) }];
+card.signatures = [entry];
 
 // ⛔ Fence: signatures[] member ONLY. The card is committed prose — a whole-file
 // JSON.stringify rewrite would reformat compact arrays and touch every line, so

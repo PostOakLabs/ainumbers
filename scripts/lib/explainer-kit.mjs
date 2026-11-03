@@ -246,8 +246,8 @@ export const EXPLAINER_KIT_JS = `/* EXPLAINER-KIT:v1 (scripts/lib/explainer-kit.
   }
 
   // Staircase drawing, shared by the hero map and the presenter rail.
-  var PART_FILL = { '1': 'var(--teal-dim)', '2': 'var(--gold-dim)', '3': 'var(--purple-dim)' };
-  var PART_STROKE = { '1': 'var(--teal)', '2': 'var(--gold)', '3': 'var(--purple)' };
+  var PART_FILL = { '1': 'var(--teal-dim)', '2': 'var(--gold-dim)', '3': 'var(--purple-dim)', '4': 'var(--blue-dim)' };
+  var PART_STROKE = { '1': 'var(--teal)', '2': 'var(--gold)', '3': 'var(--purple)', '4': 'var(--blue)' };
   var NS = 'http://www.w3.org/2000/svg';
   function el(name, attrs, text) {
     var n = document.createElementNS(NS, name);

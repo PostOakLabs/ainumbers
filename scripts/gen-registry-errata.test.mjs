@@ -121,7 +121,7 @@ async function proofConstructionTest() {
     const proof = await buildConsistencyProof(0, leafHashes);
     ok(proof.length === 0, 'buildConsistencyProof(0, D) returns an empty proof');
     const accepted = await verifyConsistency({ oldSize: 0, newSize, oldRoot: new Uint8Array(32), newRoot, proof });
-    ok(accepted, 'oldSize=0 trivially accepted by verifyConsistency (first-ever publish)');
+    ok(!accepted, 'oldSize=0 REJECTED by verifyConsistency (RFC 9162; generate() checks the genesis root instead)');
   }
 }
 

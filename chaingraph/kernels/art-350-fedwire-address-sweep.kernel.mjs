@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-350-fedwire-address-sweep';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.0.1';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -9,8 +9,9 @@ export const meta = {
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
-// Payment-file pre-migration sweep for the Fedwire/CHIPS Nov 2026 structured-address
-// mandate. Batches a payment file's address records through the same per-message lint
+// Payment-file pre-migration sweep for the Fedwire/CHIPS structured-address rule state
+// (FRFS 27 August 2026: November 2026 release rescheduled to November 2027, exact date
+// TBA). Batches a payment file's address records through the same per-message lint
 // as art-349 (lint_fedwire_structured_address) and rolls the results into a
 // rejection-risk report: violation-code frequency, worst offenders, and an aggregate
 // risk score, plus a remediation-worksheet receipt (file digest + per-record findings
@@ -22,12 +23,13 @@ export const meta = {
 // `executionHash` as a global; a cross-kernel import silently resolves to `undefined`
 // inside the VM. Kernels must be single-file, importing only from `_hash.mjs`. Keep the
 // rule logic below in sync with art-349-fedwire-structured-address-linter.kernel.mjs
-// if the Nov-2026 mandate rules change.
+// if the structured-address rule state changes.
 // FEDWIRE-ADDR-BUILD-SPEC.md §FA-3.
 
-const FEDWIRE_CHIPS_DEADLINE = '2026-11-16';
-const TABLE_VERSION = 'FEDWIRE-CHIPS-STRUCTURED-ADDRESS-NOV2026-V1';
-const TABLE_SOURCE = 'Federal Reserve Financial Services, Fedwire Funds Service ISO 20022 November 2026 Release FAQ (frbservices.org/resources/financial-services/wires/iso-20022-implementation-center/november-release-faq); The Clearing House CHIPS ISO 20022 address rules (aligned to Fedwire)';
+const FEDWIRE_ADDRESS_RULE_STATUS = 'Fedwire accepts unstructured and fully-structured addresses today; hybrid becomes supported with the November 2027 release (FRFS, 2026-08-27); exact date TBA; CHIPS undated (aligned-to-Fedwire cycle, TBC)';
+const FEDWIRE_ENFORCEMENT_DATE = null; // no day-precision enforcement date published (FRFS 2026-08-27: exact date TBA); set from a sourced day to restore hard-error semantics
+const TABLE_VERSION = 'FEDWIRE-CHIPS-STRUCTURED-ADDRESS-FRFS-2026-08-27-V2';
+const TABLE_SOURCE = 'Federal Reserve Financial Services announcement of 27 August 2026: Fedwire Funds Service November 2026 release rescheduled to the November 2027 release, exact date to be announced (unstructured and fully-structured addresses accepted until then); The Clearing House CHIPS ISO 20022 address rules (aligned to Fedwire; CHIPS cycle undated, TBC)';
 const WORST_OFFENDERS_CAP = 50;
 const NETWORKS = ['fedwire', 'chips'];
 
@@ -38,6 +40,7 @@ function safeArr(v) { return Array.isArray(v) ? v : (v && typeof v === 'string' 
 function lintFedwireRecord(pp) {
   pp = pp || {};
   const network  = NETWORKS.includes(safeStr(pp.network).toLowerCase()) ? safeStr(pp.network).toLowerCase() : 'fedwire';
+  const asOfDate = safeStr(pp.as_of_date);
   const strtNm   = safeStr(pp.street_name);
   const bldgNb   = safeStr(pp.building_number);
   const pstCd    = safeStr(pp.post_code);
@@ -56,6 +59,10 @@ function lintFedwireRecord(pp) {
 
   const violations = [];
   const structured_field_count = (hasStrtNm ? 1 : 0) + (hasBldgNb ? 1 : 0) + (hasPstCd ? 1 : 0) + (hasCtrySubD ? 1 : 0);
+  // Caller-supplied as-of severity gate (pure function of inputs, never wall-clock),
+  // mirroring art-349: UNSTRUCTURED_ADDRESS is a WARN by default; ERROR only once an
+  // enforcement date is published AND the caller asserts an as_of_date on/after it.
+  const enforcement_in_force = FEDWIRE_ENFORCEMENT_DATE !== null && asOfDate !== '' && asOfDate >= FEDWIRE_ENFORCEMENT_DATE;
 
   let structure_type;
   if (!hasAdrLine && structured_field_count >= 1 && hasCtry) {
@@ -71,7 +78,7 @@ function lintFedwireRecord(pp) {
   }
 
   if (structure_type === 'UNSTRUCTURED') {
-    violations.push({ code: 'UNSTRUCTURED_ADDRESS', severity: 'ERROR' });
+    violations.push({ code: 'UNSTRUCTURED_ADDRESS', severity: enforcement_in_force ? 'ERROR' : 'WARN' });
   }
   if (structure_type === 'MIXED_INVALID') {
     violations.push({ code: 'INVALID_MIX', severity: 'ERROR' });
@@ -80,6 +87,7 @@ function lintFedwireRecord(pp) {
     violations.push({ code: 'EMPTY_ADDRESS', severity: 'ERROR' });
   }
   if (structure_type === 'HYBRID') {
+    violations.push({ code: 'HYBRID_NOT_YET_SUPPORTED', severity: 'WARN' });
     if (!hasTwnNm) violations.push({ code: 'MISSING_TOWN_NAME', severity: 'ERROR' });
     if (adrLines.length > 2) violations.push({ code: 'EXCESS_ADR_LINES', severity: 'ERROR' });
     adrLines.forEach(function(line, i) {
@@ -100,8 +108,10 @@ function lintFedwireRecord(pp) {
     violations.push({ code: 'INVALID_COUNTRY', severity: 'ERROR' });
   }
 
-  const error_count = violations.length;
-  const compliant = error_count === 0 && (structure_type === 'FULLY_STRUCTURED' || structure_type === 'HYBRID');
+  const error_count = violations.filter(function(v) { return v.severity === 'ERROR'; }).length;
+  // Mirror of art-349's formula: fully-structured is the only default-compliant state;
+  // hybrid counts as compliant only under an in-force enforcement date.
+  const compliant = error_count === 0 && (structure_type === 'FULLY_STRUCTURED' || (structure_type === 'HYBRID' && enforcement_in_force));
   return { network, structure_type, compliant, error_count, violations };
 }
 
@@ -157,6 +167,7 @@ export function compute(pp) {
   pp = pp || {};
   const fileContent = typeof pp.file_content === 'string' ? pp.file_content : '';
   const inlineRecords = Array.isArray(pp.records) ? pp.records : null;
+  const asOfDate = safeStr(pp.as_of_date);
 
   let records, parse_errors;
   if (inlineRecords) {
@@ -174,7 +185,10 @@ export function compute(pp) {
   let compliant_count = 0;
 
   for (let i = 0; i < total; i++) {
-    const r = lintFedwireRecord(records[i]);
+    const record = (asOfDate !== '' && !(records[i] && typeof records[i] === 'object' && 'as_of_date' in records[i]))
+      ? Object.assign({}, records[i], { as_of_date: asOfDate })
+      : records[i];
+    const r = lintFedwireRecord(record);
     if (r.compliant) compliant_count++;
     r.violations.forEach((v) => {
       by_rule[v.code] = (by_rule[v.code] || 0) + 1;
@@ -215,14 +229,15 @@ export function compute(pp) {
   };
 
   const output_payload = {
-    fedwire_chips_deadline: FEDWIRE_CHIPS_DEADLINE,
+    fedwire_chips_deadline: null,
+    fedwire_chips_deadline_status: FEDWIRE_ADDRESS_RULE_STATUS,
     rejection_risk_report,
     risk_score,
     disambiguation: 'sweep_fedwire_addresses batch-sweeps a payment file (CSV or pre-parsed records) through the same rules as lint_fedwire_structured_address (art-349), per record, and rolls the results into a rejection-risk report. For a single-message lint use lint_fedwire_structured_address (art-349) directly.',
     pii_note: 'All fields operate on STRUCTURAL address components only. No real party PII enters this kernel -- use synthetic or anonymised payment-file data.',
     table_version: TABLE_VERSION,
     table_source: TABLE_SOURCE,
-    regulatory_basis: 'Federal Reserve Financial Services Fedwire Funds Service ISO 20022 November 2026 Release; The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire address rules)',
+    regulatory_basis: 'Federal Reserve Financial Services announcement of 27 August 2026 (Fedwire Funds Service November 2026 release rescheduled to the November 2027 release; unstructured and fully-structured addresses accepted until then, hybrid from the November 2027 release); The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire address rules; CHIPS cycle undated, TBC)',
   };
 
   const compliance_flags = [];

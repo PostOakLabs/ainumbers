@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (673 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (704 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -160,6 +160,46 @@ window.CHAINBUILDER_CATALOG = [
       "505-tokenized-collateral-eligibility-checker",
       "507-canton-dvp-atomicity-validator"
     ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "732-borrower-escrow-auditor",
+    "display_name": "Borrower Escrow Auditor",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/732-borrower-escrow-auditor.html",
+    "description": "Audits a servicer escrow accounting statement from borrower-supplied VALUES ONLY (zero PII by schema): recomputes the aggregate accounting t",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "733-servicing-compliance-clock",
+    "display_name": "Servicing Compliance Clock",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/733-servicing-compliance-clock.html",
+    "description": "Computes servicer-compliance due dates and clock states from event dates and loan values: error-resolution and information-request clocks, l",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "784-cbr-data-return-validator",
+    "display_name": "CBR Data Return Validator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/784-cbr-data-return-validator.html",
+    "description": "Validates a bank's or money transfer operator's periodic AGGREGATE correspondent-banking data return against an illustrative, profile-driven",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "787-corridor-cost-averages",
+    "display_name": "Corridor Cost Averages",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/787-corridor-cost-averages.html",
+    "description": "Computes one remittance corridor's cost THREE ways from caller-declared provider quotes and reports each against the SDG 10.c 3% target and ",
+    "consumes": [],
     "feeds": [],
     "status": "live"
   },
@@ -1475,7 +1515,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Solvency II SCR Ratio Calculator",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-180-solvency2-scr-ratio-calculator.html",
-    "description": "Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and capital requirements. Checks the three own-funds tiering limit",
+    "description": "Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and capital requirements. Checks the own-funds SCR tiering limits ",
     "consumes": [],
     "feeds": [
       "art-181-sii-ifrs17-reconciliation-bridger"
@@ -2345,7 +2385,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "MT103 to MX Translation Fidelity Scorer",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-245-mt-mx-translation-fidelity-scorer.html",
-    "description": "Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity for CBPR+ November 2026 migration. Checks field presence mapping (:20: to ",
+    "description": "Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity for the CBPR+ migration (structured-address date deferred by Swift on 27 A",
     "consumes": [
       "art-244-gpi-tracker-lifecycle-simulator"
     ],
@@ -2892,7 +2932,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Revocation-Status Verifier",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-287-revocation-status-verifier.html",
-    "description": "Checks a receipt's optional W3C BitstringStatusList credentialStatus reference and reads the revocation bit at statusListIndex from a suppli",
+    "description": "Reads a revocation bit from an uncompressed status bitstring up to 8 KB, shaped after W3C BitstringStatusList, for a receipt's optional cred",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -3937,7 +3977,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Tempo On-Chain AML & Travel Rule Screener",
     "mandate_type": "aml_rule",
     "url": "https://ainumbers.co/chaingraph/art-38-tempo-onchain-aml.html",
-    "description": "Parses a batch of synthetic TIP-20 transfers (with memos), runs OFAC/SDN hit screening, checks FATF Travel Rule field completeness (originat",
+    "description": "Parses a batch of synthetic TIP-20 transfers (with memos), screens parties by substring match against a fixed three-name synthetic test list",
     "consumes": [
       "art-37-tempo-stablecoin-issuance"
     ],
@@ -4300,7 +4340,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Private-Input Sanctions Screen",
     "mandate_type": "analytics_mandate",
     "url": "https://ainumbers.co/chaingraph/art-413-screen-sanctions-private.html",
-    "description": "Screens a privately held party/transfer list against a pinned OFAC-SDN-style list version and emits a public verdict (screened, hit count, c",
+    "description": "Demonstrates the private-input screening shape: screens a privately held party/transfer list against a fixed three-name synthetic test list ",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -5008,7 +5048,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "EMIR Reconciliation Break Ageing",
     "mandate_type": "attestation_mandate",
     "url": "https://ainumbers.co/chaingraph/art-483-emir-break-ageing.html",
-    "description": "Diffs a current EMIR reconciliation break set (e.g. from art-482-emir-recon-adjudicator) against the prior cycle's sealed break set by stabl",
+    "description": "Diffs a current EMIR reconciliation break set (e.g. from the art-482 recon node) against the prior cycle's sealed break set by stable break_",
     "consumes": [
       "art-482-emir-recon-adjudicator"
     ],
@@ -7307,11 +7347,73 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-703-mandate-authorization-gate",
+    "display_name": "Mandate Authorization Gate",
+    "mandate_type": "payment_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-703-mandate-authorization-gate.html",
+    "description": "Automated payment approval gate with no human step, in two modes. In authorize mode a caller-supplied mandate, caller-supplied budget and ra",
+    "consumes": [
+      "art-476-map-agent-payment-mandate"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-704-ai-token-spend",
     "display_name": "AI Token Spend",
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-704-ai-token-spend.html",
     "description": "Monthly AI token spend estimator and cross-model comparator. The caller supplies an as_of date (the node never reads a clock), a usage profi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-705-bond-ladder-builder",
+    "display_name": "Bond Ladder Builder",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-705-bond-ladder-builder.html",
+    "description": "Builds a target-weight bond ladder from a total notional split across maturity rungs and reports rung-by-rung and portfolio risk analytics: ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-706-yield-curve-gspread",
+    "display_name": "Yield Curve & G-Spread",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-706-yield-curve-gspread.html",
+    "description": "Builds a par yield curve from caller-supplied benchmark points (at least 2, strictly increasing tenors; no live data, the caller's points ar",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-707-tsv-tier-cap-ladder",
+    "display_name": "TSV Tier-Cap Ladder",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-707-tsv-tier-cap-ladder.html",
+    "description": "Replays a tokenized-stock venue's (TSV's) daily per-symbol share volume and distinct-symbol counts, aggregated across the TSV and its caller",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-708-v4-hook-permission-reconciler",
+    "display_name": "V4 Hook Permission Reconciler",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-708-v4-hook-permission-reconciler.html",
+    "description": "Decodes a Uniswap v4 hook address's 14 permission bits (the low 14 bits of the address, per v4-core at the pinned commit a7cf038cd568801a79a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-709-v4-hook-fee-conformance",
+    "display_name": "V4 Hook Fee Conformance",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-709-v4-hook-fee-conformance.html",
+    "description": "Recomputes a Uniswap v4 pool's per-swap fee from v4-core's own fee rules at the pinned commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585 (Prot",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7332,6 +7434,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-710-tsv-stoppage-concurrency",
+    "display_name": "TSV Stoppage Concurrency",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-710-tsv-stoppage-concurrency.html",
+    "description": "Checks a tokenized-stock venue (TSV) against condition H of the SEC TSV Exemption (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026): a TSV",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-711-sco60-crypto-asset-exposure-classifier-v2",
     "display_name": "SCO60 Group 2 Exposure Limit V2",
     "mandate_type": "compliance_mandate",
@@ -7347,6 +7459,26 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "workforce_program_roi",
     "url": "https://ainumbers.co/chaingraph/art-712-workforce-board-roi.html",
     "description": "Workforce program ROI report generator ported from ApexLogics Apex #15 (AL-07). From a program budget, enrollment and WIOA outcome data the ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-713-scorp-election-break-even",
+    "display_name": "S-Corp Election Break-Even Modeler",
+    "mandate_type": "readiness_diagnostic",
+    "url": "https://ainumbers.co/chaingraph/art-713-scorp-election-break-even.html",
+    "description": "S-Corp election break-even modeler: from net self-employment income, a reasonable W-2 salary share and an annual admin cost, compute the sol",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-715-token2022-transfer-fee-reconciler",
+    "display_name": "Token-2022 Transfer-Fee Payment Reconciler",
+    "mandate_type": "settlement_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-715-token2022-transfer-fee-reconciler.html",
+    "description": "Recomputes the transfer fee a Token-2022 mint with the transfer-fee extension withholds and the net amount the recipient receives, given the",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7383,6 +7515,28 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-734-force-placed-insurance-checker",
+    "display_name": "Force-Placed Insurance Notice Checker",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-734-force-placed-insurance-checker.html",
+    "description": "Checks a lender-placed (force-placed) insurance event against the notice sequence required before a servicer may charge the borrower: the 45",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-735-solana-dvp-prefund-verifier",
+    "display_name": "Solana DvP Pre-Funding Terms Verifier",
+    "mandate_type": "settlement_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-735-solana-dvp-prefund-verifier.html",
+    "description": "Verifies, values-only, that a pasted Solana Foundation DvP SwapDvp record is safe to fund: owner must be the pinned DvP program id, account ",
+    "consumes": [
+      "art-715-token2022-transfer-fee-reconciler"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-74-taxonomy-kpi-gar-aggregator",
     "display_name": "Taxonomy KPI & Green Asset Ratio Aggregator",
     "mandate_type": "model_governance",
@@ -7394,6 +7548,16 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-749-solana-paychan-voucher-verifier",
+    "display_name": "Solana Paychan Voucher Verifier",
+    "mandate_type": "payment_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-749-solana-paychan-voucher-verifier.html",
+    "description": "Values-only check of a Solana payment-channels voucher message against trusted channel terms. The voucher is the 50-byte Ed25519-signed mess",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
@@ -7412,6 +7576,36 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-754-equity-exit-waterfall",
+    "display_name": "Equity Exit Waterfall Modeler",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-754-equity-exit-waterfall.html",
+    "description": "Equity exit proceeds after a liquidation-preference waterfall, ported from ApexLogics Apex #141 (AL-148). From the exit valuation, the aggre",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-758-hdhp-ppo-break-even",
+    "display_name": "HDHP vs. PPO Break-Even",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-758-hdhp-ppo-break-even.html",
+    "description": "Annual-cost comparator for an HDHP+HSA against a PPO, ported from ApexLogics #105 (AL-112). For two plan profiles (monthly premium, deductib",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-759-iso-amt-exposure-modeler",
+    "display_name": "ISO AMT Exposure Modeler",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-759-iso-amt-exposure-modeler.html",
+    "description": "AMT liability from an ISO exercise spread using the 2026 exemption amounts and phase-out thresholds, ported from ApexLogics Apex #109 (AL-11",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-76-climate-scenario-applicator",
     "display_name": "Climate Scenario Applicator (NGFS / Fit-for-55)",
     "mandate_type": "model_governance",
@@ -7424,6 +7618,36 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-760-espp-break-even-optimal-sell",
+    "display_name": "ESPP Break-Even & Optimal Sell",
+    "mandate_type": "compensation_benefits",
+    "url": "https://ainumbers.co/chaingraph/art-760-espp-break-even-optimal-sell.html",
+    "description": "ESPP disposition comparator ported from ApexLogics Apex #110 (AL-117). For an ESPP purchase (price paid after the 15% statutory discount, of",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-763-ai-displacement-risk-screener",
+    "display_name": "AI Displacement Risk Screener",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-763-ai-displacement-risk-screener.html",
+    "description": "AI-driven job-displacement risk screener ported from ApexLogics Apex #104 (AL-111). For a task-composition profile (routine cognitive/manual",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-764-solo-401k-vs-sep-ira",
+    "display_name": "Solo 401(k) vs. SEP-IRA Optimizer",
+    "mandate_type": "compensation_assessment",
+    "url": "https://ainumbers.co/chaingraph/art-764-solo-401k-vs-sep-ira.html",
+    "description": "Self-employed retirement-contribution comparator ported from ApexLogics Apex #112 (AL-119). For a tax year, net self-employment profit, age ",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
@@ -7445,6 +7669,66 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-771-automation-payback",
+    "display_name": "Automation Payback",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-771-automation-payback.html",
+    "description": "Automation Payback ranker ported from ApexLogics Apex #180 (AL-194). For a list of automation candidates (hours saved per week, loaded hourl",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-774-beacon-seeded-fair-sampling-v2",
+    "display_name": "Beacon-Seeded Fair-Sampling Deriver V2",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-774-beacon-seeded-fair-sampling-v2.html",
+    "description": "Derives a deterministic, offline-replayable audit sample, version 2 of the beacon-seeded fair-sampling family, from a caller-pasted public r",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-776-paypal-dispute-deadline-evidence",
+    "display_name": "PayPal Dispute Deadline & Evidence",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html",
+    "description": "Dispute deadline calculator and evidence-bundle producer across four payment service providers (PayPal default, plus Stripe, Adyen and Squar",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-777-psp-dispute-reason-crosswalk",
+    "display_name": "PSP Dispute Reason Crosswalk",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-777-psp-dispute-reason-crosswalk.html",
+    "description": "Dispute reason-code crosswalk across PayPal, Stripe, Adyen and Square (static and credential-free: the mapping tables ship with the kernel, ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-778-token2022-withheld-fee-reconciler",
+    "display_name": "Token-2022 Withheld-Fee Reconciler",
+    "mandate_type": "settlement_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-778-token2022-withheld-fee-reconciler.html",
+    "description": "Token-2022 withheld-fee reconciliation across token accounts (the first node added after art-715; its primary text is the Solana Token-2022 ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-779-bnpl-plan-comparator",
+    "display_name": "BNPL Plan Comparator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-779-bnpl-plan-comparator.html",
+    "description": "Side-by-side BNPL plan cost comparison on the estate's Reg Z APR maths: the APR for every plan is computed by the estate's art-215 solver co",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-78-csdr-penalty-calculator",
     "display_name": "CSDR Cash-Penalty Calculator",
     "mandate_type": "compliance_mandate",
@@ -7458,6 +7742,38 @@ window.CHAINBUILDER_CATALOG = [
       "art-84-settlement-efficiency-kpi",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-780-solana-pda-ata-audit",
+    "display_name": "Solana PDA Bump and ATA Audit",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-780-solana-pda-ata-audit.html",
+    "description": "Audit of a claimed program-derived-address tuple (program id, seeds with declared encodings, bump, claimed address), pasted values only, plu",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-782-modified-premium",
+    "display_name": "Modified Premium Calculator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-782-modified-premium.html",
+    "description": "Workers'-compensation modified premium: subject premium (total manual premium plus premium items subject to experience rating) times the exp",
+    "consumes": [
+      "art-346-compute-experience-mod"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-788-csv-rfc4180-parser",
+    "display_name": "RFC 4180 CSV Parser",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Parses a CSV table supplied as a plain string and returns the decoded records plus a per-column summary, over the shared _csv.bundle.mjs (a ",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

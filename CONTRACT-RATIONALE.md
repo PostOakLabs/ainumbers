@@ -76,6 +76,16 @@ An earlier duplicate file state was resolved; both are live and valid.
 
 Measured baseline that motivated this clause: 104 of 155 tools citing a regulation carried no reliance hedge of any kind, only 12 carried a `class="disclaimer*"` div, no estate-wide terms page existed, and this document contained the word "advice" zero times. This amendment fixes the gap going forward; it does not retrofit the 104 already-shipped tools — that retrofit is a separate, larger, future work unit and is explicitly out of scope here.
 
+### §A15 · WebMCP conformance: why two definitions, and why the marks
+
+A 2026-10-17 inventory of every earlier WebMCP audit found no normative definition anywhere: the contract and the standard were both silent, and each audit had measured a different thing (registration present, listed in the directory, executes, agrees across doors) under the same word. Counts from those audits could not be compared, and none could be counted toward a goal. A15 fixes the word before anything is counted against it.
+
+Pages and chains get separate definitions because their evidence differs. A page registers one tool and its execution is already vm-tested by the wrapper and direct gates, so three of its four parts are gated today. A chain registers the generic chain tools on its composer page, and no gate runs any of them: the only gated chain test at the time of writing is region drift. Stating both definitions with the gated or advisory mark on each part keeps the gap visible instead of letting a green generator check read as chain conformance.
+
+Two known holes are stated in the text rather than left to discovery. First, the generator's `--check` reds a region that drifted but cannot see a `composer_url` page that carries no region at all, so chain part 1 is gated for drift and advisory for presence. Second, the browser chain pages at the time of writing hash a chain definition artifact (the steps and their handoffs), not an executed composite, so they cannot satisfy chain part 4 as built; the SPEC §21.2 reopening defines the browser composite that part 4 compares, without changing any shipped hash.
+
+The program target is worded as "chains censused", not "chains conformant", because three of the four chain parts have no instrument yet. A census against a written definition is honest today; a conformance claim is not.
+
 ### repo/CLAUDE.md notes — non-normative build guidance
 
 - **`<link rel="canonical">`** uses absolute URLs intentionally — this is correct SEO practice, not a routing violation.

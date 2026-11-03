@@ -21,6 +21,15 @@
  *                          cross-entry sharing — chain-index/chaingraph-hub,
  *                          counts/debt-ledger — check-derived-declare-parity.mjs
  *                          already treats as advisory).
+ *   --changed scoping   — DERIVED-SET-SELFTEST-HOOK-SCOPE-1: entry selection
+ *                          for the hook/pre-push leg. A touched generator/gate
+ *                          script selects exactly its entry; a touched
+ *                          unrelated file selects nothing and PRINTS the skip
+ *                          reason; a touched derived-artifacts.mjs (or the
+ *                          gate's own script/test) selects ALL; two entries
+ *                          sharing one command still run it once; and a RED
+ *                          control proves a selection that MISSES a touched
+ *                          generator fails this file.
  *
  * Fixtures are synthetic, throwaway git repos under os.tmpdir() — nothing
  * under this repo's REPO is ever touched, and the real COVERED list is never
@@ -30,11 +39,12 @@
  *
  * Run: node scripts/check-derived-regen-live.test.mjs
  */
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, utimesSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runLiveScan, withinEntryDuplicates, crossEntryShares } from './check-derived-regen-live.mjs';
+import { runLiveScan, withinEntryDuplicates, crossEntryShares, selectCoveredByDiff, changedSelectionLines,
+  parseWorktreePorcelain, staleScratchWorktrees, sweepStaleScratch, hostStateLine, withScratchWorktree, ScratchSetupError } from './check-derived-regen-live.mjs';
 import { gitEnv } from './_git-env-lib.mjs';
 
 let pass = 0;
@@ -291,14 +301,19 @@ test('TIMEOUT RED - a regen command that never returns is bounded, named and kil
   commit(dir, 'init');
 
   const entry = { id: 'fixture-hang', regen: 'node gen-hang.mjs', artifacts: ['out.json'] };
+  // SO40B-SELFTEST-BUDGET-SCALE-1 (RULINGS 2026-10-21T23:55Z item 3, Tim's "A —
+  // raise/scale budget"): every fixture budget in this file sits at a flat
+  // 10 s floor so a probe's git+node child work survives concurrent FULL
+  // preflights; the production default (180 s) is untouched.
+  const HANG_KILL_BUDGET_MS = 10_000;
   const startedAt = Date.now();
-  const { timeouts, executionFailures, classA } = runLiveScan({ dir, covered: [entry], timeoutMs: 1500 });
+  const { timeouts, executionFailures, classA } = runLiveScan({ dir, covered: [entry], timeoutMs: HANG_KILL_BUDGET_MS });
   const wallMs = Date.now() - startedAt;
 
   assert(timeouts.length === 1 && timeouts[0].id === 'fixture-hang',
     `expected exactly one TIMEOUT finding naming fixture-hang, got ${JSON.stringify(timeouts)}`);
-  assert(timeouts[0].elapsedMs >= 1350, `the finding must report its elapsed time, got ${timeouts[0].elapsedMs} ms`);
-  assert(wallMs < 15000, `the bound must actually cut the 30 s hang short, whole scan took ${wallMs} ms`);
+  assert(timeouts[0].elapsedMs >= HANG_KILL_BUDGET_MS * 0.9, `the finding must report its elapsed time, got ${timeouts[0].elapsedMs} ms`);
+  assert(wallMs < HANG_KILL_BUDGET_MS + 5_000, `the bound must actually cut the 30 s hang short, whole scan took ${wallMs} ms`);
   assert(executionFailures.length === 0, `a timeout is its own state, never an execution failure: ${JSON.stringify(executionFailures)}`);
   assert(classA.length === 0, `a timed-out probe is inconclusive for CLASS A, got ${JSON.stringify(classA)}`);
 });
@@ -319,7 +334,9 @@ test('TIMEOUT - the scan continues past a hung entry so later entries still get 
     { id: 'hang', regen: 'node gen-hang.mjs', artifacts: ['a-out.json'] },
     { id: 'b', regen: 'node gen-b.mjs', artifacts: ['b-out.json'] },
   ];
-  const { timeouts, classB } = runLiveScan({ dir, covered: entries, timeoutMs: 1500 });
+  // SO40B-SELFTEST-BUDGET-SCALE-1 (RULINGS 2026-10-21T23:55Z item 3): 10 s is
+  // the file-wide flat floor, still well under the 30 s hang it must cut short.
+  const { timeouts, classB } = runLiveScan({ dir, covered: entries, timeoutMs: 10_000 });
   assert(timeouts.length === 1 && timeouts[0].id === 'hang', `expected the hang named once, got ${JSON.stringify(timeouts)}`);
   assert(classB.length === 1 && classB[0].id === 'b' && classB[0].path === 'undeclared.json',
     `entry b's escape must still be found after the hung entry, got ${JSON.stringify(classB)}`);
@@ -348,7 +365,11 @@ test('TIMEOUT - a command that exits NON-ZERO fast is still an execution failure
   commit(dir, 'init');
 
   const entry = { id: 'fixture-broken', regen: 'node gen.mjs', artifacts: ['out.json'] };
-  const { timeouts, executionFailures } = runLiveScan({ dir, covered: [entry], timeoutMs: 1500 });
+  // The bound is not under test here, only the exit-code classification. Under
+  // concurrent preflights node startup alone measured 3062 ms against the old
+  // 1500 ms bound and the fast exit was misread as a TIMEOUT, so use the same
+  // generous bound as the GREEN test.
+  const { timeouts, executionFailures } = runLiveScan({ dir, covered: [entry], timeoutMs: 60000 });
   assert(timeouts.length === 0, `a fast non-zero exit is not a timeout, got ${JSON.stringify(timeouts)}`);
   assert(executionFailures.length === 1 && executionFailures[0].id === 'fixture-broken',
     `expected one execution failure, got ${JSON.stringify(executionFailures)}`);
@@ -485,6 +506,270 @@ test('MUTEX - release never deletes a successor\u2019s lock', () => {
   } finally {
     try { rmSync(lockDir, { recursive: true, force: true }); } catch { /* fixture cleanup */ }
   }
+});
+
+// ── --changed entry scoping: DERIVED-SET-SELFTEST-HOOK-SCOPE-1 ────────────────
+// The selection runs against synthetic repos whose always-run triggers use the
+// REAL production path names (scripts/derived-artifacts.mjs, this gate's own
+// script and test), so the all-mode rules are exercised exactly as the CLI
+// names them, never a paraphrase (SO #34).
+function makeSelectionRepo() {
+  const dir = makeRepo();
+  mkdirSync(join(dir, 'scripts'), { recursive: true });
+  writeFileSync(join(dir, 'scripts/derived-artifacts.mjs'), '// fixture manifest\n');
+  writeFileSync(join(dir, 'scripts/check-derived-regen-live.mjs'), '// fixture copy of the gate itself\n');
+  writeFileSync(join(dir, 'scripts/check-derived-regen-live.test.mjs'), '// fixture copy of the gate test\n');
+  writeFileSync(join(dir, 'gen-a.mjs'), "import { writeFileSync } from 'node:fs';\nwriteFileSync('a.json', '{\"regenerated\":true}\\n');\n");
+  writeFileSync(join(dir, 'gen-b.mjs'), "import { writeFileSync } from 'node:fs';\nwriteFileSync('b.json', '{\"regenerated\":true}\\n');\n");
+  writeFileSync(join(dir, 'gen-shared.mjs'), "import { appendFileSync, writeFileSync } from 'node:fs';\nappendFileSync(process.env.DERIVED_REGEN_LIVE_SELFTEST_RUNS, process.argv[2] + '\\n');\nwriteFileSync(process.argv[2], '{\"regenerated\":true}\\n');\n");
+  writeFileSync(join(dir, 'check-a.mjs'), "import { readFileSync } from 'node:fs';\nprocess.exit(readFileSync('a.json', 'utf8') === '{\"regenerated\":true}\\n' ? 0 : 1);\n");
+  writeFileSync(join(dir, 'a.json'), '{}\n');
+  writeFileSync(join(dir, 'b.json'), '{}\n');
+  writeFileSync(join(dir, 'shared.json'), '{}\n');
+  writeFileSync(join(dir, 'unrelated.txt'), 'nothing any entry declares\n');
+  commit(dir, 'base');
+  return dir;
+}
+function selectionCovered() {
+  return [
+    { id: 'fixture-sel-a', regen: 'node gen-a.mjs', gate: 'node check-a.mjs', artifacts: ['a.json'] },
+    { id: 'fixture-sel-b', regen: 'node gen-b.mjs', artifacts: ['b.json'] },
+    { id: 'fixture-sel-shared-1', regen: 'node gen-shared.mjs shared.json', artifacts: ['shared.json'] },
+    { id: 'fixture-sel-shared-2', regen: 'node gen-shared.mjs shared.json --second-entry', artifacts: ['shared.json'] },
+  ];
+}
+function headSha(dir) {
+  return execSync('git rev-parse HEAD', { cwd: dir, ...GIT_EXEC_OPTS }).toString().trim();
+}
+function assertSelects(selection, expectedIds, msg) {
+  const got = selection.selected.map((e) => e.id).sort().join(',');
+  const want = [...expectedIds].sort().join(',');
+  if (got !== want) throw new Error(`${msg}: expected selected=[${want || '(none)'}], got [${got || '(none)'}] (mode=${selection.mode}, skipped=[${selection.skipped.join(',')}])`);
+}
+
+test('CHANGED GREEN (a) - a change to a generator script selects exactly its entry', () => {
+  const dir = makeSelectionRepo();
+  const base = headSha(dir);
+  writeFileSync(join(dir, 'gen-a.mjs'), "// touched by the diff\nimport { writeFileSync } from 'node:fs';\nwriteFileSync('a.json', '{\"regenerated\":true}\\n');\n");
+  commit(dir, 'touch generator');
+  const sel = selectCoveredByDiff({ repoPath: dir, baseRef: base, covered: selectionCovered() });
+  assert(sel.mode === 'subset', `a generator-only diff must scope, got mode=${sel.mode} (${sel.reason})`);
+  assertSelects(sel, ['fixture-sel-a'], 'generator script touched');
+});
+
+test('CHANGED GREEN (b) - a change to an unrelated file selects nothing and PRINTS the skipped reason', () => {
+  const dir = makeSelectionRepo();
+  const base = headSha(dir);
+  writeFileSync(join(dir, 'unrelated.txt'), 'still nothing any entry declares\n');
+  commit(dir, 'touch unrelated');
+  const sel = selectCoveredByDiff({ repoPath: dir, baseRef: base, covered: selectionCovered() });
+  assertSelects(sel, [], 'unrelated file touched');
+  assert(sel.skipped.length === 4, `every entry must be named as skipped, got ${JSON.stringify(sel.skipped)}`);
+  const lines = changedSelectionLines({ baseRef: base, selection: sel });
+  const skippedLine = lines.find((l) => l.includes('skipped '));
+  assert(skippedLine && skippedLine.includes(sel.reason) && skippedLine.includes('CI still runs the full live scan'),
+    `the printed skipped line must carry the skip reason and the CI backstop, got ${JSON.stringify(lines)}`);
+});
+
+test('CHANGED GREEN (c) - a change to derived-artifacts.mjs selects ALL entries (the gate own scripts too)', () => {
+  const dir = makeSelectionRepo();
+  const base = headSha(dir);
+  writeFileSync(join(dir, 'scripts/derived-artifacts.mjs'), '// fixture manifest, touched\n');
+  commit(dir, 'touch manifest');
+  const sel = selectCoveredByDiff({ repoPath: dir, baseRef: base, covered: selectionCovered() });
+  assert(sel.mode === 'all', `a manifest diff must select all, got mode=${sel.mode}`);
+  assertSelects(sel, ['fixture-sel-a', 'fixture-sel-b', 'fixture-sel-shared-1', 'fixture-sel-shared-2'], 'manifest touched');
+  assert(changedSelectionLines({ baseRef: base, selection: sel })[0].includes('running ALL 4'), 'the printed line must say ALL entries run');
+  // Same widening for the gate's OWN script or test (DERIVED-SET-SELFTEST-TRIGGER-1's
+  // reasoning: a diff that changes the verdict machinery re-proves every entry).
+  for (const gateOwn of ['scripts/check-derived-regen-live.mjs', 'scripts/check-derived-regen-live.test.mjs']) {
+    const dir2 = makeSelectionRepo();
+    const base2 = headSha(dir2);
+    writeFileSync(join(dir2, gateOwn), readFileSync(join(dir2, gateOwn), 'utf8') + '// touched\n');
+    commit(dir2, 'touch gate own');
+    const sel2 = selectCoveredByDiff({ repoPath: dir2, baseRef: base2, covered: selectionCovered() });
+    assert(sel2.mode === 'all', `${gateOwn} touched must select all, got mode=${sel2.mode}`);
+    assertSelects(sel2, ['fixture-sel-a', 'fixture-sel-b', 'fixture-sel-shared-1', 'fixture-sel-shared-2'], `${gateOwn} touched`);
+  }
+});
+
+test('CHANGED GREEN (d) - two entries sharing one command run it exactly ONCE over the selected set', () => {
+  const dir = makeSelectionRepo();
+  const base = headSha(dir);
+  writeFileSync(join(dir, 'gen-shared.mjs'), "// touched by the diff\nimport { appendFileSync, writeFileSync } from 'node:fs';\nappendFileSync(process.env.DERIVED_REGEN_LIVE_SELFTEST_RUNS, process.argv[2] + '\\n');\nwriteFileSync(process.argv[2], '{\"regenerated\":true}\\n');\n");
+  commit(dir, 'touch shared generator');
+  const sel = selectCoveredByDiff({ repoPath: dir, baseRef: base, covered: selectionCovered() });
+  assertSelects(sel, ['fixture-sel-shared-1', 'fixture-sel-shared-2'], 'shared generator touched');
+  // The counted-generator log lives OUTSIDE the fixture repo (an in-repo log
+  // would be an undeclared write, i.e. CLASS B) - same pattern as the
+  // --self-test fixture in check-derived-regen-live.mjs.
+  const runsLog = join(tmpdir(), `derived-regen-live-changedtest-runs-${process.pid}.log`);
+  process.env.DERIVED_REGEN_LIVE_SELFTEST_RUNS = runsLog;
+  try {
+    const res = runLiveScan({ dir, covered: sel.selected, timeoutMs: 60_000 });
+    const runs = existsSync(runsLog) ? readFileSync(runsLog, 'utf8').split('\n').filter(Boolean) : [];
+    assert(runs.filter((r) => r === 'shared.json').length === 1,
+      `two entries sharing one command must execute exactly ONE probe cycle over the selected set, got runs=${JSON.stringify(runs)}`);
+    assert(![...res.classA, ...res.classB, ...res.executionFailures, ...res.timeouts]
+      .some((f) => String(f.id).startsWith('fixture-sel-shared')),
+      `the shared entries must stay clean, got ${JSON.stringify([res.classA, res.classB, res.executionFailures])}`);
+  } finally {
+    delete process.env.DERIVED_REGEN_LIVE_SELFTEST_RUNS;
+    try { rmSync(runsLog, { force: true }); } catch { /* best effort */ }
+  }
+});
+
+test('CHANGED RED CONTROL (e) - a selection that MISSES a touched generator fails this file', () => {
+  // SO #34c: proves the (a) assertion is not vacuous. Feed assertSelects the
+  // selection a BROKEN --changed implementation would produce for the (a)
+  // fixture - one that misses the touched generator - and it must THROW. If a
+  // future edit to selectCoveredByDiff stops selecting a touched generator,
+  // test (a) fails through this same path.
+  const broken = { mode: 'subset', reason: 'no regen/gate script or declared artifact of these entries appears in the diff', selected: [], skipped: ['fixture-sel-a', 'fixture-sel-b', 'fixture-sel-shared-1', 'fixture-sel-shared-2'] };
+  let threw = false;
+  try { assertSelects(broken, ['fixture-sel-a'], 'RED control'); } catch { threw = true; }
+  assert(threw, 'assertSelects must FAIL when the selection misses a touched generator - this file would go red');
+});
+
+// ── scratch-setup hardening (DERIVED-REGEN-LIVE-HARDEN-1) ────────────────────
+// The three guards in withScratchWorktree: a bounded `git worktree add` that
+// FAILS on timeout, a sweep of stale scratch worktrees by exact name + age, and
+// a host-state line. Every real-git case runs against a FIXTURE repo, so the
+// real repo's worktree list is never read or changed by this file.
+
+const HOUR = 3_600_000;
+const normWt = (p) => p.replace(/\\/g, '/').toLowerCase();
+
+test('SCRATCH parse - porcelain worktree list yields paths and the locked flag', () => {
+  const text = [
+    'worktree C:/repo', 'HEAD abc', 'branch refs/heads/main', '',
+    'worktree C:/Temp/derived-regen-live-AbC123', 'HEAD def', 'detached', 'locked', '',
+    'worktree C:/Temp/derived-regen-live-XyZ789', 'HEAD 012', 'detached', 'locked reason here', '',
+    'worktree C:/Temp/derived-regen-live-Qq1111', 'HEAD 345', 'detached', '',
+  ].join('\n');
+  const got = parseWorktreePorcelain(text);
+  assert(got.length === 4, `4 entries expected, got ${got.length}`);
+  assert(got[1].locked === true && got[2].locked === true, 'both `locked` forms must set locked');
+  assert(got[0].locked === false && got[3].locked === false, 'unlocked entries stay unlocked');
+});
+
+test('SCRATCH select - only unlocked, exactly-named, old scratch directly under tmp is stale', () => {
+  const tmp = tmpdir();
+  const now = 100 * HOUR;
+  const old = now - 10 * HOUR;
+  const fresh = now - 1 * HOUR;
+  const p = (name) => join(tmp, name);
+  const ages = new Map([
+    [p('derived-regen-live-OLD111'), old],
+    [p('derived-regen-live-NEW222'), fresh],
+    [p('derived-regen-live-LCK333'), old],
+    [p('derived-regen-live-selftest-ABC444'), old],
+    [p('derived-regen-live-UNK555'), null],
+    [join(tmp, 'nested', 'derived-regen-live-NST666'), old],
+    [p('my-own-worktree'), old],
+  ]);
+  const entries = [...ages.keys()].map((path) => ({ path, locked: path.endsWith('LCK333') }));
+  const stale = staleScratchWorktrees({ entries, tmp, now, maxAgeMs: 6 * HOUR, ageOf: (x) => ages.get(x) });
+  const names = stale.map((e) => e.path);
+  assert(names.length === 1 && names[0].endsWith('derived-regen-live-OLD111'), `only OLD111 may be stale, got ${JSON.stringify(names)}`);
+  // RED control: the same matrix with a bound longer than every age selects nothing.
+  assert(staleScratchWorktrees({ entries, tmp, now, maxAgeMs: 1000 * HOUR, ageOf: (x) => ages.get(x) }).length === 0,
+    'a bound longer than every age must select nothing');
+  if (process.platform === 'win32') {
+    // git prints forward slashes and may differ in drive-letter case from os.tmpdir().
+    const gitStyle = tmp.replace(/\\/g, '/').toUpperCase() + '/derived-regen-live-OLD111';
+    assert(staleScratchWorktrees({ entries: [{ path: gitStyle, locked: false }], tmp, now, maxAgeMs: 6 * HOUR, ageOf: () => old }).length === 1,
+      'on Windows a forward-slash, case-different tmp path must still match');
+  }
+});
+
+test('SCRATCH sweep - removes an OLD leftover scratch worktree and keeps a fresh one (real git, fixture repo)', () => {
+  const repo = makeRepo();
+  writeFileSync(join(repo, 'a.txt'), 'a\n');
+  commit(repo, 'init');
+  const oldWt = mkdtempSync(join(tmpdir(), 'derived-regen-live-'));
+  const freshWt = mkdtempSync(join(tmpdir(), 'derived-regen-live-'));
+  roots.push(oldWt, freshWt);
+  // mkdtemp leaves an empty dir; `worktree add` accepts an empty existing dir.
+  execSync(`git worktree add --detach "${oldWt}" HEAD`, { cwd: repo, ...GIT_EXEC_OPTS });
+  execSync(`git worktree add --detach "${freshWt}" HEAD`, { cwd: repo, ...GIT_EXEC_OPTS });
+  const tenHoursAgo = new Date(Date.now() - 10 * HOUR);
+  utimesSync(join(oldWt, '.git'), tenHoursAgo, tenHoursAgo);
+  const lines = [];
+  // RED control first: a bound longer than the planted age removes nothing.
+  const none = sweepStaleScratch({ repo, maxAgeMs: 100 * HOUR, log: (l) => lines.push(l) });
+  assert(none.removed.length === 0, `a 100 h bound must remove nothing, removed ${JSON.stringify(none.removed)}`);
+  const res = sweepStaleScratch({ repo, maxAgeMs: 6 * HOUR, log: (l) => lines.push(l) });
+  assert(res.removed.length === 1 && res.failed.length === 0, `exactly one removal expected, got ${JSON.stringify({ removed: res.removed, failed: res.failed })}`);
+  const left = normWt(execSync('git worktree list --porcelain', { cwd: repo, ...GIT_EXEC_OPTS }).toString('utf8'));
+  assert(!left.includes(normWt(oldWt)), 'the old scratch worktree must no longer be registered');
+  assert(left.includes(normWt(freshWt)), 'the fresh scratch worktree must stay registered');
+  assert(lines.some((l) => l.includes('removed 1 of 1')), `the sweep must log what it removed, got ${JSON.stringify(lines)}`);
+  execSync(`git worktree remove --force "${freshWt}"`, { cwd: repo, ...GIT_EXEC_OPTS });
+});
+
+test('SCRATCH setup GREEN - withScratchWorktree hands fn a checked-out tree and unregisters it after', () => {
+  const repo = makeRepo();
+  writeFileSync(join(repo, 'a.txt'), 'a\n');
+  commit(repo, 'init');
+  const lines = [];
+  const seen = withScratchWorktree((dir) => existsSync(join(dir, 'a.txt')), { repo, log: (l) => lines.push(l) });
+  assert(seen === true, 'fn must see the committed file in the scratch tree');
+  const left = parseWorktreePorcelain(execSync('git worktree list --porcelain', { cwd: repo, ...GIT_EXEC_OPTS }).toString('utf8'));
+  assert(left.length === 1, `only the main worktree may remain registered, got ${left.length}`);
+  assert(lines.some((l) => l.startsWith('host state: free RAM')), `the host-state line must print before setup, got ${JSON.stringify(lines)}`);
+});
+
+test('SCRATCH setup RED - a hung `worktree add` FAILS within its bound as a host-state error, fn never runs', () => {
+  const repo = makeRepo();
+  writeFileSync(join(repo, 'a.txt'), 'a\n');
+  commit(repo, 'init');
+  let fnRan = false;
+  let err = null;
+  const t0 = Date.now();
+  try {
+    // The stand-in reaps itself after 20 s: on Windows a grandchild can outlive
+    // execSync's kill (same reason as the --self-test hang fixture).
+    withScratchWorktree(() => { fnRan = true; }, {
+      repo,
+      addTimeoutMs: 1500,
+      addCommand: 'node -e "setTimeout(() => process.exit(0), 20000)"',
+      log: () => {},
+    });
+  } catch (e) { err = e; }
+  const wall = Date.now() - t0;
+  assert(err instanceof ScratchSetupError, `a ScratchSetupError must be thrown, got ${err && err.constructor.name}: ${err && err.message}`);
+  assert(/HOST-STATE/.test(err.message) && /exceeded 2 s/.test(err.message), `the message must name the bound and host state, got: ${err.message}`);
+  assert(!fnRan, 'fn must never run when setup failed');
+  assert(wall < 15_000, `the bound must cut the hang short, wall was ${wall} ms`);
+});
+
+test('SCRATCH setup RETRY - an instant non-timeout failure is retried ONCE, then FAILS naming both attempts', () => {
+  const repo = makeRepo();
+  writeFileSync(join(repo, 'a.txt'), 'a\n');
+  commit(repo, 'init');
+  const lines = [];
+  let fnRan = false;
+  let err = null;
+  try {
+    withScratchWorktree(() => { fnRan = true; }, {
+      repo,
+      retryDelayMs: 100,
+      addCommand: 'node -e "process.exit(3)"',
+      log: (l) => lines.push(l),
+    });
+  } catch (e) { err = e; }
+  assert(err instanceof ScratchSetupError, `a ScratchSetupError must be thrown, got ${err && err.message}`);
+  assert(/attempt 2 of 2/.test(err.message) && /exit 3/.test(err.message), `the final message must name attempt 2 and the exit status, got: ${err.message}`);
+  assert(lines.some((l) => /attempt 1 of 2/.test(l) && /retrying setup once/.test(l)), `attempt 1 must log the retry, got ${JSON.stringify(lines)}`);
+  assert(!fnRan, 'fn must never run when setup failed twice');
+});
+
+test('SCRATCH host line - flags RAM below the 4 GB gate and only then', () => {
+  const low = hostStateLine({ freeBytes: 3.3 * 1024 ** 3, totalBytes: 16 * 1024 ** 3, scratchCount: 42, worktreeCount: 399 });
+  const ok = hostStateLine({ freeBytes: 5.5 * 1024 ** 3, totalBytes: 16 * 1024 ** 3, scratchCount: 0, worktreeCount: 12 });
+  assert(low.includes('BELOW the 4 GB gate') && low.includes('399') && low.includes('42'), `low line wrong: ${low}`);
+  assert(!ok.includes('BELOW'), `a 5.5 GB line must not warn: ${ok}`);
 });
 
 console.log(`\ncheck-derived-regen-live.test.mjs: ${pass} passed, ${fail} failed`);

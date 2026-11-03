@@ -1,0 +1,907 @@
+{
+  "tool_id": "art-703-mandate-authorization-gate",
+  "note": "Seventeen vectors covering F1 to F17. F1 is the clean authorize seal (the build-spec example). F2 to F11 walk each fixed-order reject code in turn as primary_reason: AMOUNT_INVALID, MANDATE_REVOKED, NOT_YET_VALID, EXPIRED (the boundary exactly at expires_at), CURRENCY_MISMATCH, PAYER_MISMATCH, PAYEE_NOT_COVERED, OVER_PER_PAYMENT_CAP, OVER_BUDGET, RAIL_NOT_ALLOWED; each failure list is single-code so each code stays primary. F12 is an authorize whose ttl is clipped by the mandate expiry (900 s requested, the mandate expires 300 s after as_of). F13 is verify_commit ok inside the window; F14 changes the committed amount by one unit and gets DIGEST_MISMATCH; F15 presents one second after not_after and gets AUTHORIZATION_EXPIRED; F16 flips the last character of the authorization_id and gets AUTHORIZATION_ID_MISMATCH. F17 is the cross-node vector: an x402 PaymentPayload pivoted by art-476 (x402.to_canonical) and mapped onto this node's mandate fields; art-476's pivot fields amount and human_not_present are not part of this node's mandate vocabulary and are not carried, the pivot's mandate_id is the x402 nonce, and the mapping is recorded in the vector comment of the generating spec. Expected decisions, primary_reason and reason codes, window edges and remaining-budget figures were hand-derived from the build spec first; digest values were pinned from the implementation and are re-verified by golden parity. human_sign_off: PENDING.",
+  "vectors": [
+    {
+      "name": "f1-clean-authorize-seal",
+      "policy_parameters": {
+        "mode": "authorize",
+        "as_of": "2026-10-01T15:00:00Z",
+        "ttl_seconds": 60,
+        "mandate": {
+          "mandate_id": "m-1",
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "currency": "USD",
+          "max_amount": "250.00",
+          "issued_at": "2026-10-01T00:00:00Z",
+          "expires_at": "2026-10-08T00:00:00Z",
+          "purpose": "groceries"
+        },
+        "extensions": {
+          "total_budget_minor": 100000,
+          "spent_minor": 72000,
+          "allowed_rails": [
+            "x402-exact-evm"
+          ],
+          "verified_payees": [
+            "merchant:42"
+          ],
+          "revoked_at": null
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 24999,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "authorize",
+        "decision": "authorize",
+        "primary_reason": null,
+        "reasons": [],
+        "domain_errors": [],
+        "authorization": {
+          "authorization_id": "8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58",
+          "operation": "pay",
+          "request_digest": "2d699e0a83ec1fcb5878a800abb38d0273587b51a3fb035fe29c13186c917970",
+          "mandate_digest": "3af9b6954e75e5b550739808f1b2eabd78de7a85d8b4377c9e9ea0af663d083e",
+          "not_before": "2026-10-01T15:00:00Z",
+          "not_after": "2026-10-01T15:01:00Z",
+          "nonce_hint": "0x8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58"
+        },
+        "remaining_budget_minor": 3001,
+        "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+      },
+      "golden_hash": "472b9bce4d002e3dc1f94dbaf07bbde8c932b91dfcea4af0c15d46e63c0b771c"
+    },
+    {
+      "name": "f2-amount-invalid",
+      "policy_parameters": {
+        "mode": "authorize",
+        "as_of": "2026-10-01T15:00:00Z",
+        "ttl_seconds": 60,
+        "mandate": {
+          "mandate_id": "m-1",
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "currency": "USD",
+          "max_amount": "250.00",
+          "issued_at": "2026-10-01T00:00:00Z",
+          "expires_at": "2026-10-08T00:00:00Z",
+          "purpose": "groceries"
+        },
+        "extensions": {
+          "total_budget_minor": 100000,
+          "spent_minor": 72000,
+          "allowed_rails": [
+            "x402-exact-evm"
+          ],
+          "verified_payees": [
+            "merchant:42"
+          ],
+          "revoked_at": null
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 0,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "authorize",
+        "decision": "reject",
+        "primary_reason": "AMOUNT_INVALID",
+        "reasons": [
+          {
+            "code": "AMOUNT_INVALID",
+            "text": "request.amount_minor must be an integer greater than zero."
+          }
+        ],
+        "domain_errors": [
+          {
+            "code": "AMOUNT_INVALID",
+            "text": "request.amount_minor must be an integer greater than zero."
+          }
+        ],
+        "authorization": null,
+        "remaining_budget_minor": null,
+        "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+      },
+      "golden_hash": "cbdefaaa7c4a938b570bba1506ccc8699849225a09d5200494b1ae2c966e7501"
+    },
+    {
+      "name": "f3-mandate-revoked",
+      "policy_parameters": {
+        "mode": "authorize",
+        "as_of": "2026-10-01T15:00:00Z",
+        "ttl_seconds": 60,
+        "mandate": {
+          "mandate_id": "m-1",
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "currency": "USD",
+          "max_amount": "250.00",
+          "issued_at": "2026-10-01T00:00:00Z",
+          "expires_at": "2026-10-08T00:00:00Z",
+          "purpose": "groceries"
+        },
+        "extensions": {
+          "total_budget_minor": 100000,
+          "spent_minor": 72000,
+          "allowed_rails": [
+            "x402-exact-evm"
+          ],
+          "verified_payees": [
+            "merchant:42"
+          ],
+          "revoked_at": "2026-10-01T12:00:00Z"
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 24999,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "authorize",
+        "decision": "reject",
+        "primary_reason": "MANDATE_REVOKED",
+        "reasons": [
+          {
+            "code": "MANDATE_REVOKED",
+            "text": "the mandate carries a revocation timestamp at or before as_of."
+          }
+        ],
+        "domain_errors": [
+          {
+            "code": "MANDATE_REVOKED",
+            "text": "the mandate carries a revocation timestamp at or before as_of."
+          }
+        ],
+        "authorization": null,
+        "remaining_budget_minor": null,
+        "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+      },
+      "golden_hash": "d1539d3fb1e3dfc49d53aab0740f42cfea59bd6cdd3786d9dcbe6548d3ab8a01"
+    },
+    {
+      "name": "f4-not-yet-valid",
+      "policy_parameters": {
+        "mode": "authorize",
+        "as_of": "2026-10-01T15:00:00Z",
+        "ttl_seconds": 60,
+        "mandate": {
+          "mandate_id": "m-1",
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "currency": "USD",
+          "max_amount": "250.00",
+          "issued_at": "2026-10-01T16:00:00Z",
+          "expires_at": "2026-10-08T00:00:00Z",
+          "purpose": "groceries"
+        },
+        "extensions": {
+          "total_budget_minor": 100000,
+          "spent_minor": 72000,
+          "allowed_rails": [
+            "x402-exact-evm"
+          ],
+          "verified_payees": [
+            "merchant:42"
+          ],
+          "revoked_at": null
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 24999,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "authorize",
+        "decision": "reject",
+        "primary_reason": "NOT_YET_VALID",
+        "reasons": [
+          {
+            "code": "NOT_YET_VALID",
+            "text": "as_of is before the mandate issue time."
+          }
+        ],
+        "domain_errors": [
+          {
+            "code": "NOT_YET_VALID",
+            "text": "as_of is before the mandate issue time."
+          }
+        ],
+        "authorization": null,
+        "remaining_budget_minor": null,
+        "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+      },
+      "golden_hash": "638c447406ea4f105e497b354dd1174ac3b6bdca3d724206d0dbebd561586948"
+    },
+    {
+      "name": "f5-expired-at-boundary",
+      "policy_parameters": {
+        "mode": "authorize",
+        "as_of": "2026-10-01T15:00:00Z",
+        "ttl_seconds": 60,
+        "mandate": {
+          "mandate_id": "m-1",
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "currency": "USD",
+          "max_amount": "250.00",
+          "issued_at": "2026-10-01T00:00:00Z",
+          "expires_at": "2026-10-01T15:00:00Z",
+          "purpose": "groceries"
+        },
+        "extensions": {
+          "total_budget_minor": 100000,
+          "spent_minor": 72000,
+          "allowed_rails": [
+            "x402-exact-evm"
+          ],
+          "verified_payees": [
+            "merchant:42"
+          ],
+          "revoked_at": null
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 24999,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "authorize",
+        "decision": "reject",
+        "primary_reason": "EXPIRED",
+        "reasons": [
+          {
+            "code": "EXPIRED",
+            "text": "as_of is at or after the mandate expiry."
+          }
+        ],
+        "domain_errors": [
+          {
+            "code": "EXPIRED",
+            "text": "as_of is at or after the mandate expiry."
+          }
+        ],
+        "authorization": null,
+        "remaining_budget_minor": null,
+        "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+      },
+      "golden_hash": "4d7eba0838a8f74879e80dd835de2ae5260263bef665cc0daf57b748fa315b4c"
+    },
+    {
+      "name": "f6-currency-mismatch",
+      "policy_parameters": {
+        "mode": "authorize",
+        "as_of": "2026-10-01T15:00:00Z",
+        "ttl_seconds": 60,
+        "mandate": {
+          "mandate_id": "m-1",
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "currency": "USD",
+          "max_amount": "250.00",
+          "issued_at": "2026-10-01T00:00:00Z",
+          "expires_at": "2026-10-08T00:00:00Z",
+          "purpose": "groceries"
+        },
+        "extensions": {
+          "total_budget_minor": 100000,
+          "spent_minor": 72000,
+          "allowed_rails": [
+            "x402-exact-evm"
+          ],
+          "verified_payees": [
+            "merchant:42"
+          ],
+          "revoked_at": null
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 24999,
+          "currency": "EUR",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "authorize",
+        "decision": "reject",
+        "primary_reason": "CURRENCY_MISMATCH",
+        "reasons": [
+          {
+            "code": "CURRENCY_MISMATCH",
+            "text": "the mandate currency and the request currency differ."
+          }
+        ],
+        "domain_errors": [
+          {
+            "code": "CURRENCY_MISMATCH",
+            "text": "the mandate currency and the request currency differ."
+          }
+        ],
+        "authorization": null,
+        "remaining_budget_minor": null,
+        "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+      },
+      "golden_hash": "0b0644be3e594d49596634cf49d9855f102f15c492f0021ccb8a559d2eb9c9e1"
+    },
+    {
+      "name": "f7-payer-mismatch",
+      "policy_parameters": {
+        "mode": "authorize",
+        "as_of": "2026-10-01T15:00:00Z",
+        "ttl_seconds": 60,
+        "mandate": {
+          "mandate_id": "m-1",
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "currency": "USD",
+          "max_amount": "250.00",
+          "issued_at": "2026-10-01T00:00:00Z",
+          "expires_at": "2026-10-08T00:00:00Z",
+          "purpose": "groceries"
+        },
+        "extensions": {
+          "total_budget_minor": 100000,
+          "spent_minor": 72000,
+          "allowed_rails": [
+            "x402-exact-evm"
+          ],
+          "verified_payees": [
+            "merchant:42"
+          ],
+          "revoked_at": null
+        },
+        "request": {
+          "payer_ref": "acct:bob",
+          "payee_ref": "merchant:42",
+          "amount_minor": 24999,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "authorize",
+        "decision": "reject",
+        "primary_reason": "PAYER_MISMATCH",
+        "reasons": [
+          {
+            "code": "PAYER_MISMATCH",
+            "text": "the request payer differs from the payer the mandate names."
+          }
+        ],
+        "domain_errors": [
+          {
+            "code": "PAYER_MISMATCH",
+            "text": "the request payer differs from the payer the mandate names."
+          }
+        ],
+        "authorization": null,
+        "remaining_budget_minor": null,
+        "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+      },
+      "golden_hash": "3cd53693ffea9a35afee86549503d0e3793fadd4e2c1e13b68a923fa23fa66d9"
+    },
+    {
+      "name": "f8-payee-not-covered",
+      "policy_parameters": {
+        "mode": "authorize",
+        "as_of": "2026-10-01T15:00:00Z",
+        "ttl_seconds": 60,
+        "mandate": {
+          "mandate_id": "m-1",
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "currency": "USD",
+          "max_amount": "250.00",
+          "issued_at": "2026-10-01T00:00:00Z",
+          "expires_at": "2026-10-08T00:00:00Z",
+          "purpose": "groceries"
+        },
+        "extensions": {
+          "total_budget_minor": 100000,
+          "spent_minor": 72000,
+          "allowed_rails": [
+            "x402-exact-evm"
+          ],
+          "verified_payees": [
+            "merchant:42"
+          ],
+          "revoked_at": null
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:99",
+          "amount_minor": 24999,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "authorize",
+        "decision": "reject",
+        "primary_reason": "PAYEE_NOT_COVERED",
+        "reasons": [
+          {
+            "code": "PAYEE_NOT_COVERED",
+            "text": "the request payee is not covered by the mandate payee and the verified payee list."
+          }
+        ],
+        "domain_errors": [
+          {
+            "code": "PAYEE_NOT_COVERED",
+            "text": "the request payee is not covered by the mandate payee and the verified payee list."
+          }
+        ],
+        "authorization": null,
+        "remaining_budget_minor": null,
+        "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+      },
+      "golden_hash": "168d92410d82a67aa033e624597c75ff359cef2c751acd6e0eaa81c6269e358d"
+    },
+    {
+      "name": "f9-over-per-payment-cap",
+      "policy_parameters": {
+        "mode": "authorize",
+        "as_of": "2026-10-01T15:00:00Z",
+        "ttl_seconds": 60,
+        "mandate": {
+          "mandate_id": "m-1",
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "currency": "USD",
+          "max_amount": "250.00",
+          "issued_at": "2026-10-01T00:00:00Z",
+          "expires_at": "2026-10-08T00:00:00Z",
+          "purpose": "groceries"
+        },
+        "extensions": {
+          "total_budget_minor": 100000,
+          "spent_minor": 72000,
+          "allowed_rails": [
+            "x402-exact-evm"
+          ],
+          "verified_payees": [
+            "merchant:42"
+          ],
+          "revoked_at": null
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 25001,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "authorize",
+        "decision": "reject",
+        "primary_reason": "OVER_PER_PAYMENT_CAP",
+        "reasons": [
+          {
+            "code": "OVER_PER_PAYMENT_CAP",
+            "text": "the requested amount exceeds the per-payment cap."
+          }
+        ],
+        "domain_errors": [
+          {
+            "code": "OVER_PER_PAYMENT_CAP",
+            "text": "the requested amount exceeds the per-payment cap."
+          }
+        ],
+        "authorization": null,
+        "remaining_budget_minor": null,
+        "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+      },
+      "golden_hash": "4e3682f561d91f9818a7b74d03ad24096d89b8057a48bfcb1df939df3cb9729b"
+    },
+    {
+      "name": "f10-over-budget",
+      "policy_parameters": {
+        "mode": "authorize",
+        "as_of": "2026-10-01T15:00:00Z",
+        "ttl_seconds": 60,
+        "mandate": {
+          "mandate_id": "m-1",
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "currency": "USD",
+          "max_amount": "250.00",
+          "issued_at": "2026-10-01T00:00:00Z",
+          "expires_at": "2026-10-08T00:00:00Z",
+          "purpose": "groceries"
+        },
+        "extensions": {
+          "total_budget_minor": 100000,
+          "spent_minor": 77000,
+          "allowed_rails": [
+            "x402-exact-evm"
+          ],
+          "verified_payees": [
+            "merchant:42"
+          ],
+          "revoked_at": null
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 24000,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "authorize",
+        "decision": "reject",
+        "primary_reason": "OVER_BUDGET",
+        "reasons": [
+          {
+            "code": "OVER_BUDGET",
+            "text": "spent plus the requested amount exceeds the declared total budget."
+          }
+        ],
+        "domain_errors": [
+          {
+            "code": "OVER_BUDGET",
+            "text": "spent plus the requested amount exceeds the declared total budget."
+          }
+        ],
+        "authorization": null,
+        "remaining_budget_minor": null,
+        "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+      },
+      "golden_hash": "935073feb3d2455e28830c41b6b9bae3faa5c6d33ac5319d4b1ab977660c1891"
+    },
+    {
+      "name": "f11-rail-not-allowed",
+      "policy_parameters": {
+        "mode": "authorize",
+        "as_of": "2026-10-01T15:00:00Z",
+        "ttl_seconds": 60,
+        "mandate": {
+          "mandate_id": "m-1",
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "currency": "USD",
+          "max_amount": "250.00",
+          "issued_at": "2026-10-01T00:00:00Z",
+          "expires_at": "2026-10-08T00:00:00Z",
+          "purpose": "groceries"
+        },
+        "extensions": {
+          "total_budget_minor": 100000,
+          "spent_minor": 72000,
+          "allowed_rails": [
+            "x402-exact-evm"
+          ],
+          "verified_payees": [
+            "merchant:42"
+          ],
+          "revoked_at": null
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 24999,
+          "currency": "USD",
+          "rail": "sepa-credit-transfer",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "authorize",
+        "decision": "reject",
+        "primary_reason": "RAIL_NOT_ALLOWED",
+        "reasons": [
+          {
+            "code": "RAIL_NOT_ALLOWED",
+            "text": "the request rail is not in the allowed rail list."
+          }
+        ],
+        "domain_errors": [
+          {
+            "code": "RAIL_NOT_ALLOWED",
+            "text": "the request rail is not in the allowed rail list."
+          }
+        ],
+        "authorization": null,
+        "remaining_budget_minor": null,
+        "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+      },
+      "golden_hash": "ae802f6c998e43834e92772053398e30df4a025536c3e3a2a3e7ec08c7dc3966"
+    },
+    {
+      "name": "f12-ttl-clipped-by-expiry",
+      "policy_parameters": {
+        "mode": "authorize",
+        "as_of": "2026-10-01T15:00:00Z",
+        "ttl_seconds": 900,
+        "mandate": {
+          "mandate_id": "m-1",
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "currency": "USD",
+          "max_amount": "250.00",
+          "issued_at": "2026-10-01T00:00:00Z",
+          "expires_at": "2026-10-01T15:05:00Z",
+          "purpose": "groceries"
+        },
+        "extensions": {
+          "total_budget_minor": 100000,
+          "spent_minor": 72000,
+          "allowed_rails": [
+            "x402-exact-evm"
+          ],
+          "verified_payees": [
+            "merchant:42"
+          ],
+          "revoked_at": null
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 24999,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "authorize",
+        "decision": "authorize",
+        "primary_reason": null,
+        "reasons": [],
+        "domain_errors": [],
+        "authorization": {
+          "authorization_id": "4c154d84e65802115619178a8032016252170a826f0c93130db5de850b0c5198",
+          "operation": "pay",
+          "request_digest": "2d699e0a83ec1fcb5878a800abb38d0273587b51a3fb035fe29c13186c917970",
+          "mandate_digest": "a252e5fd0b9d0dab1f528c250217d6a4b2142473bf5a87cfc44c2bbd80d3a525",
+          "not_before": "2026-10-01T15:00:00Z",
+          "not_after": "2026-10-01T15:05:00Z",
+          "nonce_hint": "0x4c154d84e65802115619178a8032016252170a826f0c93130db5de850b0c5198"
+        },
+        "remaining_budget_minor": 3001,
+        "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+      },
+      "golden_hash": "ebc47bd15d53c8c93a07496ad373fa2dcfaa7029f9b4eb38f5c3179509545bec"
+    },
+    {
+      "name": "f13-verify-commit-ok",
+      "policy_parameters": {
+        "mode": "verify_commit",
+        "as_of": "2026-10-01T15:00:30Z",
+        "authorization": {
+          "authorization_id": "8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58",
+          "operation": "pay",
+          "request_digest": "2d699e0a83ec1fcb5878a800abb38d0273587b51a3fb035fe29c13186c917970",
+          "mandate_digest": "3af9b6954e75e5b550739808f1b2eabd78de7a85d8b4377c9e9ea0af663d083e",
+          "not_before": "2026-10-01T15:00:00Z",
+          "not_after": "2026-10-01T15:01:00Z",
+          "nonce_hint": "0x8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58"
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 24999,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "verify_commit",
+        "decision": "commit_ok",
+        "reasons": [],
+        "domain_errors": [],
+        "authorization_id": "8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58"
+      },
+      "golden_hash": "0b8afc1588361a3ca0719d17e99e0bcd776a53776064d2cf6ff58ce2a27e4b0d"
+    },
+    {
+      "name": "f14-verify-commit-amount-off-by-one",
+      "policy_parameters": {
+        "mode": "verify_commit",
+        "as_of": "2026-10-01T15:00:30Z",
+        "authorization": {
+          "authorization_id": "8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58",
+          "operation": "pay",
+          "request_digest": "2d699e0a83ec1fcb5878a800abb38d0273587b51a3fb035fe29c13186c917970",
+          "mandate_digest": "3af9b6954e75e5b550739808f1b2eabd78de7a85d8b4377c9e9ea0af663d083e",
+          "not_before": "2026-10-01T15:00:00Z",
+          "not_after": "2026-10-01T15:01:00Z",
+          "nonce_hint": "0x8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58"
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 25000,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "verify_commit",
+        "decision": "reject",
+        "reasons": [
+          {
+            "code": "DIGEST_MISMATCH",
+            "text": "the committed request differs from the authorized request."
+          }
+        ],
+        "domain_errors": [
+          {
+            "code": "DIGEST_MISMATCH",
+            "text": "the committed request differs from the authorized request."
+          }
+        ],
+        "authorization_id": "8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58"
+      },
+      "golden_hash": "2ab1a116f60a0f2394e4762bf55d9258715343bbd50ca417018c7cfc172f344a"
+    },
+    {
+      "name": "f15-verify-commit-one-second-after-window",
+      "policy_parameters": {
+        "mode": "verify_commit",
+        "as_of": "2026-10-01T15:01:01Z",
+        "authorization": {
+          "authorization_id": "8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58",
+          "operation": "pay",
+          "request_digest": "2d699e0a83ec1fcb5878a800abb38d0273587b51a3fb035fe29c13186c917970",
+          "mandate_digest": "3af9b6954e75e5b550739808f1b2eabd78de7a85d8b4377c9e9ea0af663d083e",
+          "not_before": "2026-10-01T15:00:00Z",
+          "not_after": "2026-10-01T15:01:00Z",
+          "nonce_hint": "0x8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58"
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 24999,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "verify_commit",
+        "decision": "reject",
+        "reasons": [
+          {
+            "code": "AUTHORIZATION_EXPIRED",
+            "text": "as_of is at or after the authorization window closes."
+          }
+        ],
+        "domain_errors": [
+          {
+            "code": "AUTHORIZATION_EXPIRED",
+            "text": "as_of is at or after the authorization window closes."
+          }
+        ],
+        "authorization_id": "8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58"
+      },
+      "golden_hash": "7c444b75502085e655df81da8b70c64cc9b90561da04db4152021cc3e79bb0ce"
+    },
+    {
+      "name": "f16-tampered-authorization-id",
+      "policy_parameters": {
+        "mode": "verify_commit",
+        "as_of": "2026-10-01T15:00:30Z",
+        "authorization": {
+          "authorization_id": "8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f59",
+          "operation": "pay",
+          "request_digest": "2d699e0a83ec1fcb5878a800abb38d0273587b51a3fb035fe29c13186c917970",
+          "mandate_digest": "3af9b6954e75e5b550739808f1b2eabd78de7a85d8b4377c9e9ea0af663d083e",
+          "not_before": "2026-10-01T15:00:00Z",
+          "not_after": "2026-10-01T15:01:00Z",
+          "nonce_hint": "0x8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f58"
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 24999,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "verify_commit",
+        "decision": "reject",
+        "reasons": [
+          {
+            "code": "AUTHORIZATION_ID_MISMATCH",
+            "text": "the authorization id does not match a recomputation from the presented authorization fields."
+          }
+        ],
+        "domain_errors": [
+          {
+            "code": "AUTHORIZATION_ID_MISMATCH",
+            "text": "the authorization id does not match a recomputation from the presented authorization fields."
+          }
+        ],
+        "authorization_id": "8efafa210ff675c0f7be1929afa3395e07bc6ce4c0ffec7ff622e11ea8e92f59"
+      },
+      "golden_hash": "19be5fe9f8b5ecdd9814b5343ef4c0de8cf80ee5e92826dd9711a64be3ad6454"
+    },
+    {
+      "name": "f17-x402-canonical-pivot",
+      "policy_parameters": {
+        "mode": "authorize",
+        "as_of": "2026-10-01T15:00:00Z",
+        "ttl_seconds": 60,
+        "mandate": {
+          "mandate_id": "x402-nonce-1",
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "currency": "USD",
+          "max_amount": "250.00",
+          "issued_at": "2026-10-01T00:00:00Z",
+          "expires_at": "2026-10-08T00:00:00Z",
+          "purpose": "groceries"
+        },
+        "extensions": {
+          "allowed_rails": [
+            "x402-exact-evm"
+          ],
+          "revoked_at": null
+        },
+        "request": {
+          "payer_ref": "acct:alice",
+          "payee_ref": "merchant:42",
+          "amount_minor": 24999,
+          "currency": "USD",
+          "rail": "x402-exact-evm",
+          "purpose": "groceries"
+        }
+      },
+      "output_payload": {
+        "mode": "authorize",
+        "decision": "authorize",
+        "primary_reason": null,
+        "reasons": [],
+        "domain_errors": [],
+        "authorization": {
+          "authorization_id": "38103040704766ab4991b8c62c2c7b2cbe68ac6a1c05dbd61c4e8ccf3fc1a0bc",
+          "operation": "pay",
+          "request_digest": "2d699e0a83ec1fcb5878a800abb38d0273587b51a3fb035fe29c13186c917970",
+          "mandate_digest": "5ae5d8c2ed6cc65b2c41f0b18300df74491d38d00387863b94ccd018d228b6c5",
+          "not_before": "2026-10-01T15:00:00Z",
+          "not_after": "2026-10-01T15:01:00Z",
+          "nonce_hint": "0x38103040704766ab4991b8c62c2c7b2cbe68ac6a1c05dbd61c4e8ccf3fc1a0bc"
+        },
+        "remaining_budget_minor": null,
+        "scope_note": "The authorization is bound to the exact request digest and mandate digest and is single-use by design: the payment rail enforces single use through the nonce (pass authorization_id as the rail nonce, 0x-prefixed 32-byte hex), not this stateless node. Budget state is caller-supplied (spent_minor). The mandate signature is not verified here."
+      },
+      "golden_hash": "9a973453b043cb601f81a7946cc96d89d22c793d96e5a997cd212c274e8824de"
+    }
+  ]
+}
