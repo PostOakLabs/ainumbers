@@ -24,7 +24,10 @@
 //               PR authors (REGION_WRITER_IDS). Never refused: node, chain and hub pages are
 //               PR-authored, and pr-autofix.yml writes the ask-agent / a11y blocks per PR.
 //   tree        a declared directory prefix (tools, chaingraph, skills, source, manifests/ …).
-//               Never refused: those trees hold PR-authored files beside the generated ones.
+//               Not refused wholesale: those trees hold PR-authored or per-node files beside the
+//               generated ones. TREE_AGGREGATES names the regen-owned rollups inside four of them
+//               (fv-status/*.json, chaingraph/register/index.json, okf index/log, receipt-bundles/**),
+//               which ARE refused.
 //
 // PER-PR DERIVABLES (never refused): pr-autofix.yml writes these on the PR head branch itself —
 // see its header ("the per-PR derivables autofix"): manifest examples (manifests/*.manifest.json,
@@ -99,6 +102,28 @@ export const ROW_CARRIERS = [
     when: (changes) => changes.some((c) => c.path.startsWith('chaingraph/graph/chains/') || ((c.status === 'A' || c.status === 'D') && c.path.startsWith('chaingraph/graph/nodes/'))) },
   { paths: ['registry/absence/tree.json', 'chaingraph/kernels/registry-lineage-records.json'], row: 'lineage publish (registry/lineage/ change)',
     when: (changes) => changes.some((c) => c.path.startsWith('registry/lineage/')) },
+  // Evidence-register re-review: wording drift stays red until a human runs the builder-only
+  // `gen-evidence-register.mjs --revalidate=<id>` and commits the re-snapshot (derived-artifacts.mjs
+  // id 'evidence-register'), and a new claim is authored in evidence/claims.src.json. The regen bot
+  // can never launder a drift, so that PR carries the register beside its source/*.txt or src edit.
+  { paths: ['evidence/claims.json'], row: 'evidence re-review (source/*.txt modified or evidence/claims.src.json changed)',
+    when: (changes) => changes.some((c) => c.path === 'evidence/claims.src.json' || (c.status === 'M' && /^source\/[^/]+\.txt$/.test(c.path))) },
+];
+
+// Main-only files INSIDE declared trees. A tree is never refused wholesale (it holds per-node
+// leaves a PR may carry), but these aggregates are rewritten by every main regen, so a PR copy
+// conflicts with the next one. Each entry names the COVERED id whose declared tree it lies in
+// (drift guard in classify()); measured on the open PRs 2026-11-03 (SHARED-FILE-CONFLICTS).
+export const TREE_AGGREGATES = [
+  // gen-fv-status.mjs: one <spec-digest>.json listing every kernel id; 100% generator-owned.
+  { id: 'fv-status', tree: 'fv-status', re: /^fv-status\/[^/]+\.json$/ },
+  // gen-euc-register.mjs writes the index; per-node <tool_id>.register.json leaves stay allowed.
+  { id: 'euc-register', tree: 'chaingraph/register', re: /^chaingraph\/register\/index\.json$/ },
+  // generate-okf.mjs rollups; per-node tools/<id>.md and computations/<id>.md leaves stay allowed.
+  { id: 'okf', tree: 'chaingraph/okf', re: /^chaingraph\/okf\/(index\.md|log\.md|[^/]+\/index\.md)$/ },
+  // gen-receipt-bundles.mjs: the whole tree — the entry is prAbsentOk and says "the PR never
+  // commits it; main's regen writes it after merge" (SO #35), leaves included.
+  { id: 'receipt-bundles', tree: 'chaingraph/receipt-bundles', re: /^chaingraph\/receipt-bundles\// },
 ];
 
 // A changed line in a sentinel-only file is main-owned when it carries one of these.
@@ -115,10 +140,18 @@ function isDir(p) {
  * Classify the COVERED entries. Returns { whole, sentinel, region, trees } as Sets of paths.
  * `dirOf` is injectable for the self-test; the default reads the checkout.
  */
-export function classify(covered = COVERED, dirOf = isDir) {
+export function classify(covered = COVERED, dirOf = isDir, treeAggregates = TREE_AGGREGATES) {
   const ids = new Set(covered.map((c) => c.id));
   for (const id of [...SENTINEL_WRITER_IDS, ...REGION_WRITER_IDS]) {
     if (!ids.has(id)) throw new Error(`check-main-only-paths: classifier names COVERED id "${id}", which derived-artifacts.mjs no longer declares. Update SENTINEL_WRITER_IDS / REGION_WRITER_IDS — a stale id silently changes what is refused.`);
+  }
+  const aggregates = [];
+  for (const a of treeAggregates) {
+    const entry = covered.find((c) => c.id === a.id);
+    if (!entry || !(entry.artifacts || []).some((p) => p.replace(/\/$/, '') === a.tree)) {
+      throw new Error(`check-main-only-paths: TREE_AGGREGATES names "${a.tree}" under COVERED id "${a.id}", which derived-artifacts.mjs no longer declares. Update TREE_AGGREGATES.`);
+    }
+    aggregates.push(a.re);
   }
   const owners = new Map(); // path -> Set(entry id)
   const trees = new Set();
@@ -139,7 +172,7 @@ export function classify(covered = COVERED, dirOf = isDir) {
     else if (ids.some((id) => SENTINEL_WRITER_IDS.has(id))) (p.endsWith('.html') ? sentinel : whole).add(p);
     else region.add(p);
   }
-  return { whole, sentinel, region, trees };
+  return { whole, sentinel, region, trees, aggregates };
 }
 
 /** Parse `git diff -U0` text into Map(path -> [changed line text, without the +/- marker]). */
@@ -169,6 +202,7 @@ export function refusals(changes, sets) {
   for (const ch of changes) {
     if (carried.has(ch.path)) continue;
     if (sets.whole.has(ch.path)) out.push({ path: ch.path, why: `whole-file derived artifact (${ch.status})` });
+    else if ((sets.aggregates || []).some((re) => re.test(ch.path))) out.push({ path: ch.path, why: `regen-owned aggregate inside a derived tree (${ch.status})` });
     else if (sets.sentinel.has(ch.path)) {
       if (ch.status === 'A' || ch.status === 'D') { out.push({ path: ch.path, why: `count-sentinel page ${ch.status === 'A' ? 'added' : 'deleted'}` }); continue; }
       const hit = (ch.lines || []).find((l) => SENTINEL_RE.test(l));
@@ -238,7 +272,7 @@ function selfTest() {
     { id: 'catalog', artifacts: ['b.html'] }, { id: 'chain-ask-agent', artifacts: ['c.html'] },
     { id: 'hub-scenes', artifacts: [] }, { id: 'node-page-footers', artifacts: [] }, { id: 'mcp-activity-embed', artifacts: [] },
     { id: 'tree', artifacts: ['dir/'] },
-  ], (p) => p.endsWith('/'));
+  ], (p) => p.endsWith('/'), []);
   check('toy: sentinel-only file is sentinel', toy.sentinel.has('a.html') && !toy.whole.has('a.html'));
   check('toy: a whole-file owner wins over a sentinel owner', toy.whole.has('b.html'));
   check('toy: region-only file is region', toy.region.has('c.html'));
