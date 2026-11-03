@@ -26,7 +26,8 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, runProcessBounded, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit } from './run-mutation-tier.mjs';
+import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, runProcessBounded, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact } from './run-mutation-tier.mjs';
+import { classifyKernelSource, tierReport } from '../chaingraph/kernels/mutation-tier-split.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -346,6 +347,37 @@ test('R14 default 600 untouched when neither env nor a config entry names the ke
     'no config object at all must keep the 600 default');
 });
 
+// MUTATION-RATCHET-GREEN-1 (2026-10-26): the 10-26 nightly (run 40357657270, 20/20
+// shards) MEASUREMENT-LOST 28 pinned kernels; 27 of them as 'MUTATION-TIER TIMEOUT
+// <id> after 600s' (this list, each measured locally and landed a config bound of
+// min(2x measured local wall, 1500 s)); the 28th, art-458-attribute-sampling-plan,
+// hard-failed as 'stryker produced no report.json' (Stryker initial-test-run error at ~302 s on shard 10 — NOT a timeout, not curable by a bound; measured locally: same error at exactly 300 s). A further five of the 27 (see the config's STRICT-SOLO AMENDMENT) still hit 1500 s strictly solo — the brief's STOP — and are routed to hang rows with NO bound here; this list is the 22 landed bounds. R15 pins that batch's
+// own invariant against the REAL config file — a future edit that pushes any of these past
+// the row's 1500 s ceiling (or drops one back to an entry that cannot exceed the 600 s
+// default it was cured from) fails HERE, not at the next nightly red.
+const RATCHET_GREEN_1_TIMEOUT_KERNELS = [
+  'ml-02-credit-default-risk-scorer', 'art-189-markdown-document-converter', 'art-628-declarative-decision-tree-evaluator', 'art-330-tvm-dv01',
+  'art-280-reserve-proof-verifier', 'art-190-tabular-data-converter', 'art-326-tvm-xirr', 'art-595-ap2-cartmandate-hashchain-builder',
+  'art-286-anchored-extract-verifier', 'art-612-erc2612-permit-binding-verifier', 'art-331-tvm-convexity', 'art-652-verify-receipt',
+  'art-605-merkle-airdrop-proof-verifier', 'art-591-x402-signer-recovery-verifier', 'art-193-metadata-sanitization-prover', 'art-284-did-webvh-log-verifier',
+  'art-194-digest-manifest-builder', 'qfa-04-xva-cva-calculator', 'art-329-tvm-bond-duration', 'art-653-pta-verifier',
+  'art-02-agent-spend-policy-simulator', 'art-662-odnsf-fee-recompute',
+];
+
+test('R15 the MUTATION-RATCHET-GREEN-1 batch: every entry in the REAL config is an integer bound 600 < v <= 1500 and resolves per kernel', () => {
+  const configPath = join(import.meta.dirname, '..', 'chaingraph', 'kernels', 'mutation-tiers.config.json');
+  const realConfig = JSON.parse(readFileSync(configPath, 'utf8'));
+  const bounds = realConfig.kernelTimeoutSeconds || {};
+  for (const id of RATCHET_GREEN_1_TIMEOUT_KERNELS) {
+    const v = bounds[id];
+    assert(Number.isInteger(v), `kernelTimeoutSeconds["${id}"] must be present in the real config as an integer (got ${JSON.stringify(v)}) — the kernel reverts to the 600 s default it was cured from`);
+    assert(v > 600, `kernelTimeoutSeconds["${id}"] = ${v} must EXCEED the 600 s default (the 10-26 nightly hard-timed-out at 600 s)`);
+    assert(v <= 1500, `kernelTimeoutSeconds["${id}"] = ${v} must not exceed the row's 1500 s ceiling (min(2x measured local wall, 1500 s))`);
+    assert(kernelTimeoutSecondsForKernel(id, {}, realConfig) === v,
+      `the resolution must return the config value for "${id}" through the real config object`);
+  }
+});
+
 // ── named mutate-surface split controls (RCA01-MUTATION-TIER-COST-1) ─────
 
 console.log('\nrun-mutation-tier controls — named mutate-surface split (RCA01-MUTATION-TIER-COST-1)');
@@ -565,6 +597,192 @@ function runProcessBoundedSync(file, cwd) {
   const r = spawnSync(process.execPath, [file], { cwd, encoding: 'utf8', timeout: 30000 });
   return { code: r.status ?? -1, stderr: r.stderr || '' };
 }
+
+// ── per-mutant survivor detail (MUTATION-SURVIVORS-JSON-1) ───────────────
+// --survivors is an OPT-IN additive projection of the Stryker report the
+// harness already read: per-kernel `survivors` (every Survived / NoCoverage
+// mutant, tier as assigned, sorted line then column) plus
+// `killed_money_math_ids`. WITHOUT the flag the --json output must be
+// byte-identical to the pre-row shape. No count, tier, floor or percentage
+// is derived from any of it.
+
+console.log('\nrun-mutation-tier controls — per-mutant survivor detail (MUTATION-SURVIVORS-JSON-1)');
+
+// Fixture Stryker report, same inline convention as R7's decompose fixtures.
+// Covers: money-math Survivor (m5), money-math NoCoverage (m8), peripheral
+// Survivor (m6 inside the peripheral range), Killed (never a survivor), and
+// Ignored (excluded from the measured surface — never a survivor).
+const SURV_RANGES = [[9000, 9100]];
+const SURV_KERNEL = 'chaingraph/kernels/fixture-id.kernel.mjs';
+const SURV_FIXTURE_REPORT = { files: { [SURV_KERNEL]: { mutants: [
+  { id: 'm1', status: 'Killed', mutatorName: 'ArithmeticOperator', location: { start: { line: 10, column: 3 }, end: { line: 10, column: 8 } } },
+  { id: 'm8', status: 'NoCoverage', mutatorName: 'BlockStatement', location: { start: { line: 50, column: 1 }, end: { line: 52, column: 2 } } },
+  { id: 'm5', status: 'Survived', mutatorName: 'ConditionalExpression', location: { start: { line: 50, column: 9 }, end: { line: 50, column: 20 } } },
+  { id: 'm3', status: 'Killed', mutatorName: 'StringLiteral', location: { start: { line: 30, column: 5 }, end: { line: 30, column: 12 } } },
+  { id: 'm6', status: 'Survived', mutatorName: 'ArrowFunction', location: { start: { line: 9050, column: 7 }, end: { line: 9050, column: 15 } } },
+] } } };
+
+test('R25 survivorLocations: exactly the Survived/NoCoverage mutants, tier as assigned, sorted by line then column', () => {
+  const survivors = survivorLocations(SURV_FIXTURE_REPORT, SURV_KERNEL, SURV_RANGES);
+  assert(JSON.stringify(survivors) === JSON.stringify([
+    { id: 'm8', mutatorName: 'BlockStatement', tier: 'moneyMath', location: { start: { line: 50, column: 1 }, end: { line: 52, column: 2 } }, status: 'NoCoverage' },
+    { id: 'm5', mutatorName: 'ConditionalExpression', tier: 'moneyMath', location: { start: { line: 50, column: 9 }, end: { line: 50, column: 20 } }, status: 'Survived' },
+    { id: 'm6', mutatorName: 'ArrowFunction', tier: 'peripheral', location: { start: { line: 9050, column: 7 }, end: { line: 9050, column: 15 } }, status: 'Survived' },
+  ]), `survivors must be exactly the 3 Survived/NoCoverage mutants, line-then-column sorted, got ${JSON.stringify(survivors)}`);
+  assert(!survivors.some((s) => s.id === 'm1' || s.id === 'm3'),
+    'Killed mutants must never appear in survivors');
+});
+
+test('R26 WITHOUT --survivors the result shape is byte-identical to the pre-row `{ id, runtimeMs, tiers, decomposed }`', () => {
+  const tiers = { moneyMath: { total: 5, killed: 4, score: 80 }, peripheral: { total: 0, killed: 0, score: null } };
+  const decomposed = { total: 5, killedAsShipped: 4, propertyKills: 3, fixtureKills: 1, run2OnlyKills: 0, propertyRatio: 60 };
+  const pre = JSON.stringify({ id: 'k', runtimeMs: 1234, tiers, decomposed });
+  const after = JSON.stringify(buildJsonResult('k', 1234, tiers, decomposed, { survivors: false }, null));
+  assert(pre === after, `default output must be byte-identical to the pre-row shape:\n  pre:   ${pre}\n  after: ${after}`);
+  // Even a stray bundle must never leak into a non-flagged result:
+  const stray = JSON.stringify(buildJsonResult('k', 1234, tiers, decomposed, { survivors: false }, { survivors: [{ id: 'm5' }], killed_money_math_ids: ['m1'] }));
+  assert(pre === stray, 'a bundle passed with the flag off must be dropped — the default output never gains survivor keys');
+  // With the flag on, the keys are ADDITIVE — the base keys are unchanged:
+  const flagged = buildJsonResult('k', 1234, tiers, decomposed, { survivors: true }, { survivors: [{ id: 'm5' }], killed_money_math_ids: ['m1'] });
+  assert(flagged.id === 'k' && flagged.runtimeMs === 1234 && flagged.tiers === tiers && flagged.decomposed === decomposed,
+    'the flagged result must carry the exact same base fields');
+  assert(JSON.stringify(flagged.survivors) === '[{"id":"m5"}]' && JSON.stringify(flagged.killed_money_math_ids) === '["m1"]',
+    'the flagged result must carry survivors and killed_money_math_ids additively');
+});
+
+test('R27 RED case: a Survived mutant missing from the survivors array fails LOUDLY naming the mutant id', () => {
+  const survivors = survivorLocations(SURV_FIXTURE_REPORT, SURV_KERNEL, SURV_RANGES);
+  assertSurvivorsComplete(SURV_FIXTURE_REPORT, survivors, SURV_KERNEL, SURV_RANGES); // the honest array must pass
+  for (const dropped of survivors) {
+    const corrupted = survivors.filter((s) => s.id !== dropped.id);
+    let threw = null;
+    try { assertSurvivorsComplete(SURV_FIXTURE_REPORT, corrupted, SURV_KERNEL, SURV_RANGES); } catch (e) { threw = e; }
+    assert(threw, `dropping ${dropped.id} from survivors must fail — a survivor silently dropped from the reviewable output is the exact defect this row closes`);
+    assert(threw.message.includes(dropped.id) && /MUTATION-SURVIVORS-JSON-1/.test(threw.message),
+      `the failure must name the missing mutant id and the row:\n${threw.message}`);
+  }
+});
+
+// ── artifact-only const tier (MUTATION-ARTIFACT-CONST-TIER-1, SO #41) ──────
+// A DECLARED metric-definition change: mutants inside a top-level const whose
+// every reference provably sits in artifact-building code (buildArtifact/meta,
+// never anything reachable from compute()) leave the money-math tier and
+// report in a THIRD tier, `artifact` — counted, never scored against any
+// floor. The classifier is PROOF-ONLY: every case it cannot decide keeps the
+// pre-change money-math classification (under-claiming is the safe
+// direction — the artifact tier can never hide a compute()-reachable mutant).
+
+console.log('\nrun-mutation-tier controls — artifact-only const tier (MUTATION-ARTIFACT-CONST-TIER-1)');
+
+// Fixture kernel, canonical shape, one line per array entry so line numbers
+// are countable below. Covers every decision the classifier makes:
+//   line 3  META_BADGE      — referenced only from meta (artifact root)
+//   line 5  ARTIFACT_ONLY   — referenced only from buildArtifact (artifact root)
+//   line 9  DEEP_ARTIFACT   — referenced only from ARTIFACT_CHAIN's initializer (fixpoint)
+//   line 10 ARTIFACT_CHAIN  — referenced only from buildArtifact
+//   line 11 COMPUTE_TABLE   — read by compute() → stays money-math
+//   line 12 HELPER_DATA     — referenced from a top-level helper's body → stays money-math
+//   line 14 EXPORTED_ARTIFACT — `export const`, referenced only from buildArtifact → DENIED (cross-file reachability is undecidable; art-376's `export const __test__` is the measured case)
+//   line 16 LOCAL_DEAD      — declared inside compute(), zero references → DENIED (a local, not a top-level const)
+const ART_KERNEL_LINES = [
+  "const TOOL_ID = 'fixture-id';",                                                                       // 1
+  "const TOOL_VERSION = '1.0.0';",                                                                       // 2
+  "const META_BADGE = { shape: 'round' };",                                                              // 3
+  "export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, badge: META_BADGE };",            // 4
+  "const ARTIFACT_ONLY = {",                                                                             // 5
+  "  label: 'envelope-label',",                                                                          // 6
+  "  digest: 'sha256:abcdef',",                                                                          // 7
+  "};",                                                                                                  // 8
+  "const DEEP_ARTIFACT = { scale: 2 };",                                                                 // 9
+  "const ARTIFACT_CHAIN = { nested: DEEP_ARTIFACT };",                                                   // 10
+  "const COMPUTE_TABLE = [1, 2, 3];",                                                                    // 11
+  "const HELPER_DATA = { pad: 7 };",                                                                     // 12
+  "function padOut(x) { return x + HELPER_DATA.pad; }",                                                  // 13
+  "export const EXPORTED_ARTIFACT = { ev: 1 };",                                                         // 14
+  "export function compute(pp) {",                                                                       // 15
+  "  const LOCAL_DEAD = { z: 9 };",                                                                      // 16
+  "  return COMPUTE_TABLE[pp.i] + padOut(1);",                                                           // 17
+  "}",                                                                                                    // 18
+  "export function buildArtifact(x) {",                                                                  // 19
+  "  return { envelope: ARTIFACT_ONLY, chained: ARTIFACT_CHAIN, exported: EXPORTED_ARTIFACT };",         // 20
+  "}",                                                                                                    // 21
+];
+const ART_KERNEL = ART_KERNEL_LINES.join('\n') + '\n';
+const ART_KERNEL_REL = 'chaingraph/kernels/fixture-art.kernel.mjs';
+const { peripheralRanges: ART_PERIPHERAL } = classifyKernelSource(ART_KERNEL);
+const ART_MUTANT = (id, line, status) => ({ id, status, mutatorName: 'ObjectLiteral', location: { start: { line, column: 1 }, end: { line, column: 2 } } });
+// Stryker-report fixture: mutants at every decision line above. Artifact
+// lines (3, 6, 7, 9) carry only non-executed statuses (NoCoverage/Survived) —
+// artifact code is never run by the floors, the same shape the step-1
+// re-measure confirmed on art-348's live report.
+const ART_REPORT = { files: { [ART_KERNEL_REL]: { mutants: [
+  ART_MUTANT('a1', 3, 'NoCoverage'),   // META_BADGE decl → artifact
+  ART_MUTANT('a2', 6, 'Survived'),     // inside ARTIFACT_ONLY → artifact
+  ART_MUTANT('a3', 7, 'NoCoverage'),   // inside ARTIFACT_ONLY → artifact
+  ART_MUTANT('a4', 9, 'Survived'),     // DEEP_ARTIFACT decl → artifact
+  ART_MUTANT('m1', 11, 'Killed'),      // COMPUTE_TABLE → money-math
+  ART_MUTANT('m2', 14, 'NoCoverage'),  // EXPORTED_ARTIFACT → money-math (export denial)
+  ART_MUTANT('m3', 16, 'NoCoverage'),  // LOCAL_DEAD inside compute() → money-math
+  ART_MUTANT('m4', 17, 'Killed'),      // compute body → money-math
+  ART_MUTANT('m5', 13, 'Killed'),      // padOut helper body → money-math
+  ART_MUTANT('p1', 4, 'NoCoverage'),   // meta body → peripheral
+  ART_MUTANT('p2', 20, 'NoCoverage'),  // buildArtifact body → peripheral
+] } } };
+
+test('R28 artifactConstRanges grants EXACTLY the provably artifact-only consts — and denies every undecidable shape (proof-only, never a guess)', () => {
+  const { artifactConsts, artifactRanges } = artifactConstRanges(ART_KERNEL, ART_PERIPHERAL);
+  const granted = artifactConsts.map((c) => `${c.name}:${c.range[0]}-${c.range[1]}`).sort();
+  const expected = ['ARTIFACT_CHAIN:10-10', 'ARTIFACT_ONLY:5-8', 'DEEP_ARTIFACT:9-9', 'META_BADGE:3-3'];
+  assert(JSON.stringify(granted) === JSON.stringify(expected),
+    `granted set must be exactly ${expected.join(', ')} (meta-fed, buildArtifact-fed, and the fixpoint chain), got ${granted.join(', ')}`);
+  assert(artifactRanges.length === 4, `artifactRanges must carry the four granted ranges, got ${artifactRanges.length}`);
+  for (const denied of ['COMPUTE_TABLE', 'HELPER_DATA', 'EXPORTED_ARTIFACT', 'LOCAL_DEAD']) {
+    assert(!artifactConsts.some((c) => c.name === denied),
+      `${denied} must NEVER be granted artifact (compute-read / helper-read / exported / function-local) — granting it would hide real money-math`);
+  }
+});
+
+test('R29 RED/GREEN: the artifact tier takes ONLY the proven consts' + "' mutants; money-math keeps its kills and every other count is unchanged", () => {
+  const { artifactRanges } = artifactConstRanges(ART_KERNEL, ART_PERIPHERAL);
+  const before = tierReport(ART_REPORT, ART_KERNEL_REL, ART_PERIPHERAL);            // the pre-change classification
+  const after = tierReportWithArtifact(ART_REPORT, ART_KERNEL_REL, ART_PERIPHERAL, artifactRanges);
+  // GREEN shape: the four artifact lines moved; nothing else did.
+  assert(after.artifact.total === 4 && after.artifact.killed === 0,
+    `artifact bucket must hold exactly the 4 proven-const mutants (0 killed — never executed), got total ${after.artifact.total} killed ${after.artifact.killed}`);
+  assert(after.moneyMath.total === before.moneyMath.total - 4 && after.moneyMath.killed === before.moneyMath.killed,
+    `money-math must shrink by exactly the artifact count with kills unchanged: before ${before.moneyMath.killed}/${before.moneyMath.total}, after ${after.moneyMath.killed}/${after.moneyMath.total}`);
+  assert(after.moneyMath.score === 60 && before.moneyMath.score === 33.3,
+    `money-math score rises from 33.3% (3/9, artifact mutants in the denominator) to 60% (3/5) — got before ${before.moneyMath.score} after ${after.moneyMath.score}`);
+  assert(JSON.stringify(after.peripheral) === JSON.stringify(before.peripheral),
+    'peripheral must be byte-identical (artifact never steals from peripheral)');
+  // A const read by compute() stays money-math — the row's explicit case:
+  assert(tierOfMutantWithArtifact(ART_MUTANT('m1x', 11, 'Killed'), ART_KERNEL_REL, ART_KERNEL_REL, ART_PERIPHERAL, artifactRanges) === 'moneyMath',
+    'COMPUTE_TABLE (read by compute()) must stay money-math');
+  assert(tierOfMutantWithArtifact(ART_MUTANT('a1x', 6, 'Survived'), ART_KERNEL_REL, ART_KERNEL_REL, ART_PERIPHERAL, artifactRanges) === 'artifact',
+    'a mutant inside ARTIFACT_ONLY must classify artifact');
+});
+
+test('R30 survivorLocations labels artifact-tier survivors artifact and the completeness self-check still passes (every survivor present)', () => {
+  const { artifactRanges } = artifactConstRanges(ART_KERNEL, ART_PERIPHERAL);
+  const survivors = survivorLocations(ART_REPORT, ART_KERNEL_REL, ART_PERIPHERAL, artifactRanges);
+  const byId = Object.fromEntries(survivors.map((s) => [s.id, s]));
+  assert(byId.a1 && byId.a1.tier === 'artifact' && byId.a2 && byId.a2.tier === 'artifact' && byId.a4 && byId.a4.tier === 'artifact',
+    `artifact survivors (a1/a2/a4) must carry tier 'artifact', got ${survivors.filter((s) => s.tier === 'artifact').map((s) => s.id).join(',')}`);
+  assert(byId.m2 && byId.m2.tier === 'moneyMath' && byId.m3 && byId.m3.tier === 'moneyMath',
+    'denied-const survivors (m2 EXPORTED_ARTIFACT, m3 LOCAL_DEAD) stay moneyMath');
+  assert(byId.p1 && byId.p1.tier === 'peripheral', 'peripheral survivor keeps its tier');
+  assertSurvivorsComplete(ART_REPORT, survivors, ART_KERNEL_REL, ART_PERIPHERAL); // must not throw
+});
+
+test('R31 with no artifact ranges the classification is EXACTLY the pre-change tierReport plus an empty artifact bucket (default behavior unchanged)', () => {
+  const before = tierReport(ART_REPORT, ART_KERNEL_REL, ART_PERIPHERAL);
+  const after = tierReportWithArtifact(ART_REPORT, ART_KERNEL_REL, ART_PERIPHERAL);
+  assert(JSON.stringify(after.moneyMath) === JSON.stringify(before.moneyMath)
+    && JSON.stringify(after.peripheral) === JSON.stringify(before.peripheral)
+    && JSON.stringify(after.other) === JSON.stringify(before.other),
+    'an empty artifactRanges default must reclassify nothing');
+  assert(after.artifact.total === 0 && after.artifact.score === null, 'the empty artifact bucket reports zero');
+});
 
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -18,7 +18,7 @@ sources:
 
 > Exports a decision via MCP `check_genius_reserve_disclosure` — mandate type `compliance_mandate`.
 
-**Deadline:** 2027-01-18 — GENIUS Act effective ≤ January 2027; monthly reserve composition reports required for licensed issuers; >$50B issuers subject to annual PCAOB audit. Re-verify against final-rule text on/after 2026-07-18.
+**Deadline:** 2027-01-18 — GENIUS Act effective ≤ January 2027; monthly reserve composition reports required for licensed issuers; >$50B issuers subject to annual PCAOB audit. The OCC issued its final implementing rule on 2026-10-21 (Bulletin 2026-50, 12 CFR Part 15, effective 2027-01-18).
 
 ## Inputs
 

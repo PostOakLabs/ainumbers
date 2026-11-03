@@ -1,7 +1,8 @@
 // art-365-compute-globe-topup-tax.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C17-1).
-// kernel_digest_at_authoring: sha256:13a6650112aa3c9d98d82f8b01e865c13a0a80fedbda70988c9d012207a66e89
-// (updated by ART365-GLOBE-FIX-1, 2026-08-16 -- prior digest sha256:3a481b0f... is now stale, the
-// kernel was fixed against ART365-DIVERGENCE-CONFIRM-1's four CONFIRMED divergences)
+// kernel_digest_at_authoring: sha256:00345a29d08e888a3d52f4c6b836d8b0cdd7354058044e517c7bb94e7c4bace4
+// (updated by ART365-SBIE-TRANSITION-RATES-FIX-1, 2026-10-27 -- prior digest sha256:13a66501... is
+// now stale, the SBIE rates were fixed to the OECD Article 9.2 transitional schedule 2023-2032,
+// 5% steady state from 2033, with a fail-closed refusal for fiscal years before 2023)
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -12,7 +13,8 @@
 // length, no other loop), boundedness (top_up_rate in [0, GLOBE_MIN_RATE], etr finite,
 // sbie/income_net_sbie never negative), metamorphic (jurisdiction-array permutation invariance
 // of every suite-level total — sums are order-independent), ULP-boundary forcing on the
-// income/taxes/ETR-threshold inputs.
+// income/taxes/ETR-threshold inputs, Article 9.2 table oracle (independently written table,
+// 2023-2032), steady state from 2033, assets monotonicity, pre-2023 refusal.
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-365-compute-globe-topup-tax.proptest.mjs
@@ -168,6 +170,74 @@ function checkP4_ulp_forcing() {
   return { name: 'P4_ulp_boundary_forcing_income_taxes_etr_threshold', trials: checked, violations };
 }
 
+// ---------- P5: Article 9.2 table oracle — independently written table, 2023-2032 ----------
+const ART92_PAYROLL = [0.10, 0.098, 0.096, 0.094, 0.092, 0.09, 0.082, 0.074, 0.066, 0.058];
+const ART92_ASSETS = [0.08, 0.078, 0.076, 0.074, 0.072, 0.07, 0.066, 0.062, 0.058, 0.054];
+function r6(v) { return Number.isFinite(v) ? Math.round(v * 1e6) / 1e6 : 0; }
+function checkP5_article92_table_oracle() {
+  let violations = 0, checked = 0;
+  for (let t = 0; t < TRIALS; t++) {
+    const fy = 2023 + Math.floor(rand() * 10);
+    const payrollRate = ART92_PAYROLL[fy - 2023];
+    const assetsRate = ART92_ASSETS[fy - 2023];
+    const payroll = Math.round(rand() * 10000000);
+    const assets = Math.round(rand() * 10000000);
+    const pp = { parent_hq: 'DE', fy, jurisdictions: [{ jur: 'DE', income: 1000, taxes: 0, payroll, assets }] };
+    const { output_payload } = compute(pp);
+    checked++;
+    const row = output_payload.jurisdictions[0];
+    const expect = r6(payroll * payrollRate + assets * assetsRate);
+    if (row.sbie !== expect) violations++;
+    if (row.sbie_payroll_rate !== payrollRate) violations++;
+  }
+  return { name: 'P5_article92_table_oracle_2023_2032', trials: checked, violations };
+}
+
+// ---------- P6: steady state — fy >= 2033 both rates are 5% ----------
+function checkP6_steady_state_from_2033() {
+  let violations = 0, checked = 0;
+  for (let t = 0; t < 500; t++) {
+    const fy = 2033 + Math.floor(rand() * 50);
+    const payroll = Math.round(rand() * 10000000);
+    const assets = Math.round(rand() * 10000000);
+    const pp = { parent_hq: 'DE', fy, jurisdictions: [{ jur: 'DE', income: 1000, taxes: 0, payroll, assets }] };
+    const { output_payload } = compute(pp);
+    checked++;
+    const row = output_payload.jurisdictions[0];
+    if (row.sbie !== r6(payroll * 0.05 + assets * 0.05)) violations++;
+    if (row.sbie_payroll_rate !== 0.05) violations++;
+  }
+  return { name: 'P6_steady_state_five_percent_from_2033', trials: checked, violations };
+}
+
+// ---------- P7: monotonicity — SBIE never decreases when assets increase ----------
+function checkP7_assets_monotonicity() {
+  let violations = 0, checked = 0;
+  for (let t = 0; t < TRIALS / 3; t++) {
+    const fy = 2023 + Math.floor(rand() * 11);
+    const payroll = Math.round(rand() * 10000000);
+    const a1 = Math.round(rand() * 5000000);
+    const a2 = a1 + Math.round(rand() * 5000000);
+    const mk = (assets) => compute({ parent_hq: 'DE', fy, jurisdictions: [{ jur: 'DE', income: 1000, taxes: 0, payroll, assets }] }).output_payload.jurisdictions[0].sbie;
+    checked++;
+    if (mk(a2) < mk(a1)) violations++;
+  }
+  return { name: 'P7_sbie_never_decreases_when_assets_increase', trials: checked, violations };
+}
+
+// ---------- P8: refusal — fy < 2023 is fail-closed, no jurisdictions ----------
+function checkP8_pre2023_refusal() {
+  let violations = 0, checked = 0;
+  for (const fy of [0, 1999, 2020, 2021, 2022]) {
+    const r = compute({ parent_hq: 'DE', fy, jurisdictions: [{ jur: 'DE', income: 1000, taxes: 0, payroll: 100, assets: 100 }] });
+    checked++;
+    if (!r.compliance_flags.includes('LOOKUP_YEAR_UNAVAILABLE')) violations++;
+    if (r.output_payload.error !== 'year_not_in_table') violations++;
+    if ('jurisdictions' in r.output_payload) violations++;
+  }
+  return { name: 'P8_pre2023_fail_closed_refusal', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -179,6 +249,10 @@ results.properties.push(checkP1_termination());
 results.properties.push(checkP2_boundedness());
 results.properties.push(checkP3_permutation_invariance());
 results.properties.push(checkP4_ulp_forcing());
+results.properties.push(checkP5_article92_table_oracle());
+results.properties.push(checkP6_steady_state_from_2033());
+results.properties.push(checkP7_assets_monotonicity());
+results.properties.push(checkP8_pre2023_refusal());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
