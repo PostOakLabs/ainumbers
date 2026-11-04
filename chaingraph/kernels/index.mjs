@@ -20,6 +20,7 @@ import * as t514      from './514-tokenized-fund-collateral-validator.kernel.mjs
 import * as t515      from './515-collateral-swap-eligibility-validator.kernel.mjs';
 import * as t732      from './732-borrower-escrow-auditor.kernel.mjs';
 import * as t733      from './733-servicing-compliance-clock.kernel.mjs';
+import * as t784      from './784-cbr-data-return-validator.kernel.mjs';
 import * as t787      from './787-corridor-cost-averages.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
@@ -666,8 +667,8 @@ import * as art778    from './art-778-token2022-withheld-fee-reconciler.kernel.m
 import * as art779    from './art-779-bnpl-plan-comparator.kernel.mjs';
 import * as art78     from './art-78-csdr-penalty-calculator.kernel.mjs';
 import * as art780    from './art-780-solana-pda-ata-audit.kernel.mjs';
+import * as art782    from './art-782-modified-premium.kernel.mjs';
 import * as art788    from './art-788-csv-rfc4180-parser.kernel.mjs';
-import * as art789    from './art-789-stablecoin-admin-role-lint.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
@@ -725,6 +726,7 @@ export const KERNELS = {
   '515-collateral-swap-eligibility-validator':                  t515,
   '732-borrower-escrow-auditor':                                t732,
   '733-servicing-compliance-clock':                             t733,
+  '784-cbr-data-return-validator':                              t784,
   '787-corridor-cost-averages':                                 t787,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
@@ -1371,8 +1373,8 @@ export const KERNELS = {
   'art-779-bnpl-plan-comparator':                               art779,
   'art-78-csdr-penalty-calculator':                             art78,
   'art-780-solana-pda-ata-audit':                               art780,
+  'art-782-modified-premium':                                   art782,
   'art-788-csv-rfc4180-parser':                                 art788,
-  'art-789-stablecoin-admin-role-lint':                         art789,
   'art-79-settlement-fail-predictor':                           art79,
   'art-80-ssi-conformance-checker':                             art80,
   'art-81-allocation-affirmation-conformance':                  art81,
