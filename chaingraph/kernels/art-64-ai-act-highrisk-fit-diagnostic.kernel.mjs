@@ -130,7 +130,10 @@ export function compute(pp) {
     // Informational
     system_name  = '',
     eu_nexus     = true,
-  } = pp;
+    // Null equals absent: a null-valued key must fall through to the same
+    // default as a missing key (MR-R4-NULL-REGRESSION-GATE-1), so drop nulls
+    // before destructuring. No other logic change.
+  } = Object.fromEntries(Object.entries(pp || {}).filter(([, v]) => v !== null));
 
   // ── Dimension scores ──
   const sub = {
