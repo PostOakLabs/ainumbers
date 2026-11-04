@@ -265,6 +265,7 @@ export function compute(pp) {
     prepare_ahead_checklist,
     primary_recommendation,
     secondary_recommendations,
+    warnings: compliance_flags.slice(),   // flag-mirror per AUTHORING-STANDARD: truthy exactly when compliance_flags is non-empty
     note: 'Educational decision-support diagnostic. Outputs are not legal conformity certificates. '
       + 'Regulation (EU) 2026/1744 (adopted 8 July 2026): Annex III high-risk obligations apply from '
       + '2 Dec 2027; Art 6(1) high-risk from 2 Aug 2028. '
