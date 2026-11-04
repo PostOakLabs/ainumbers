@@ -7,7 +7,7 @@ import { gitEnv } from './_git-env-lib.mjs';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cosignVocabHits, insiderHits, aiVocabHits, absolutesHits, notXCount, visibleText, panelHits, fragHeadHits, pairHeadHits } from './check-copy-hallmarks.mjs';
+import { cosignVocabHits, insiderHits, aiVocabHits, absolutesHits, anchorWordingHits, notXCount, visibleText, panelHits, fragHeadHits, pairHeadHits } from './check-copy-hallmarks.mjs';
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.error('  ✗ ' + m); } else console.log('  ✓ ' + m); };
@@ -343,6 +343,36 @@ ok(pairHeadHits('<h2>widget Header Decoder, and Payload Linter</h2>').length ===
     ok(run.status === 0 && !out.includes(fixtureRel), `GREEN control: plain gate exits 0 on the rewritten shard — got exit ${run.status}${run.status === 0 ? '' : ':\n' + out.slice(0, 800)}`);
   } finally {
     rmSync(fixtureAbs, { force: true });
+  }
+}
+
+// ANCHOR-WORDING-GATE-1: banned anchoring wording, scoped to pages that mention
+// anchoring. tamper-proof stays with ABSOLUTES (no double count).
+{
+  const bad = '<p>We anchor it for you on an immutable, trustless ledger. A qualified timestamp, Base-only and Coinbase-first.</p>';
+  const labels = anchorWordingHits(bad).map((h) => h.replace(/ ×\d+$/, '')).sort();
+  ok(labels.length === 6, `anchorWording flags all six banned phrasings on an anchor page — got ${JSON.stringify(labels)}`);
+  ok(anchorWordingHits('<p>This ledger is immutable and trustless.</p>').length === 0, 'anchorWording is a no-op on a page that never mentions anchoring');
+  ok(anchorWordingHits('Anchors prove time, not truth: the receipt hash is committed to a public chain and the verifier recomputes it.').length === 0, 'anchorWording passes scoped, falsifiable anchoring copy');
+  ok(anchorWordingHits('The anchor is tamper-proof.').length === 0, 'tamper-proof is left to ABSOLUTES (no double count)');
+  const fixtureRel = 'anchorwording-red-control.tmp.html';
+  const fixtureAbs = resolve(REPO, fixtureRel);
+  writeFileSync(fixtureAbs, `<!doctype html>\n<html><body>${bad}</body></html>\n`);
+  try {
+    const run = spawnSync(process.execPath, ['scripts/check-copy-hallmarks.mjs'], { cwd: REPO, encoding: 'utf8' });
+    const out = `${run.stdout}\n${run.stderr}`;
+    ok(run.status === 1 && out.includes(fixtureRel) && out.includes('banned anchoring wording'), `RED control: failing fixture exits nonzero and names the page — got exit ${run.status}`);
+  } finally {
+    rmSync(fixtureAbs, { force: true });
+  }
+  const greenRel = 'anchorwording-green-control.tmp.html';
+  const greenAbs = resolve(REPO, greenRel);
+  writeFileSync(greenAbs, '<!doctype html>\n<html><body><p>Anchors prove time, not truth: the receipt hash is committed to a public chain and the verifier recomputes it.</p></body></html>\n');
+  try {
+    const run = spawnSync(process.execPath, ['scripts/check-copy-hallmarks.mjs'], { cwd: REPO, encoding: 'utf8' });
+    ok(run.status === 0, `GREEN control: passing fixture exits 0 — got exit ${run.status}${run.status === 0 ? '' : ':\n' + `${run.stdout}\n${run.stderr}`.slice(0, 1200)}`);
+  } finally {
+    rmSync(greenAbs, { force: true });
   }
 }
 
