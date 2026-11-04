@@ -830,6 +830,11 @@ export const ASK_AGENT_VERB_TABLE = {
   'Flags': 'Flag', 'Measures': 'Measure', 'Audits': 'Audit',
 };
 
+/** Abbreviations whose trailing period does not end a sentence (lower-case, with the period). */
+const ASK_AGENT_ABBREVIATIONS = new Set([
+  'u.s.', 'u.k.', 'e.u.', 'art.', 'no.', 'e.g.', 'i.e.', 'vs.', 'inc.', 'ltd.',
+]);
+
 /**
  * First sentence of a description + fixed verb-fronting. Deterministic:
  * sentence split on the first ". " (or the terminal "."), first word mapped
@@ -839,7 +844,15 @@ export const ASK_AGENT_VERB_TABLE = {
 export function askAgentImperative(description) {
   const d = String(description || '').trim();
   if (!d) return '';
-  const cut = d.indexOf('. ');
+  // ASKAGENT-TEMPLATE-FIX-1: a ". " that ends a known abbreviation is not a sentence end.
+  let cut = -1;
+  for (let from = 0; ; ) {
+    const at = d.indexOf('. ', from);
+    if (at === -1) break;
+    const word = d.slice(d.lastIndexOf(' ', at) + 1, at + 1);
+    if (!ASK_AGENT_ABBREVIATIONS.has(word.toLowerCase())) { cut = at; break; }
+    from = at + 2;
+  }
   const sentence = cut === -1 ? d : d.slice(0, cut + 1);
   const sp = sentence.indexOf(' ');
   const first = sp === -1 ? sentence : sentence.slice(0, sp);
@@ -1074,6 +1087,7 @@ export function buildAskAgentBlock({ manifestPath, toolName, description, sample
     verify,
     `Return the ledger link ${ASK_AGENT_LEDGER_URL} so a human can re-verify without contacting us.`,
     `PII rule: ${ASK_AGENT_PII_SENTENCE}`,
+    'Over MCP, the run happens on the AINumbers worker. No AINumbers server stores your inputs.',
     `Open the tool with the sample prefilled: ${deepLink}`,
   ].join('\n');
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
