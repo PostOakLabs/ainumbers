@@ -5,7 +5,7 @@ const TOOL_VERSION = '1.0.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'compute_authenticator_assurance_level',
+  mcp_name: 'compute_authn_assurance_level',
   mandate_type: 'compliance_control', gpu: false,
 };
 
