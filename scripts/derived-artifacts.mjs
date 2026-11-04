@@ -1879,15 +1879,23 @@ function snapshotWritesReports(entries = COVERED) {
  *  report on every --write run (gen-manifest-examples.mjs, empty list included), so a second
  *  pass that writes nothing new would otherwise erase the first pass's list and --paths would
  *  stage none of those files. The declared artifacts[] stay the boundary: entryCommitPaths()
- *  still drops anything outside them or absent on disk. */
+ *  still drops anything outside them or absent on disk.
+ *  MAIN-REGEN-FVSTATUS-DELETE-1 (2026-11-03): `removed` is unioned the same way. A content-
+ *  addressed rename (gen-fv-status.mjs deletes fv-status/<old digest>.json and writes the new
+ *  one) attests the deletion ONLY in pass 1; pass 2 finds no orphan left and rewrites the
+ *  report with `removed: []`, so the deletion fell out of --paths and the stage step's escape
+ *  check red-flagged a DECLARED deletion as ` D` (runs 41712547414, 41716872657). */
 function unionWritesReports(before) {
+  const list = (r, k) => (r && Array.isArray(r[k]) ? r[k] : []);
   for (const [p, prev] of before) {
-    if (!prev || !Array.isArray(prev.written)) continue;
+    if (!prev || (!Array.isArray(prev.written) && !Array.isArray(prev.removed))) continue;
     let cur = null;
     try { cur = JSON.parse(readFileSync(p, 'utf8')); } catch { /* no report after the pass: restore the earlier one */ }
-    const now = cur && Array.isArray(cur.written) ? cur.written : [];
-    const written = [...new Set([...prev.written, ...now])].sort();
-    writeFileSync(p, JSON.stringify({ ...(cur || prev), written }, null, 2) + '\n', 'utf8');
+    const written = [...new Set([...list(prev, 'written'), ...list(cur, 'written')])].sort();
+    const merged = { ...(cur || prev), written };
+    const removed = [...new Set([...list(prev, 'removed'), ...list(cur, 'removed')])].sort();
+    if (removed.length || Array.isArray((cur || prev).removed)) merged.removed = removed;
+    writeFileSync(p, JSON.stringify(merged, null, 2) + '\n', 'utf8');
   }
 }
 
@@ -2188,6 +2196,21 @@ if (isMain) {
       const stagedRemoval2 = entryCommitPaths({ id: 'selftest-removal-inject', artifacts: ['manifests/'], writesReport: rp, writesReportRequired: true, });
       stagedRemoval2.includes('manifests/INJECTED-REGEN-ESCAPE.txt') && fail('an injected path is in neither report list and must never be staged');
       console.log('✓ self-test (g3): an attested removal is staged by pathspec; an injected file is in neither list and never staged');
+
+      // (g4) MAIN-REGEN-FVSTATUS-DELETE-1: a content-addressed rename in a declared
+      // directory survives the classification pass. Pass 1 deletes <old>.json and writes
+      // <new>.json; pass 2 finds no orphan and rewrites its report with both lists empty
+      // (gen-fv-status.mjs's skip-if-unchanged path). The deletion must stay in --paths,
+      // or the stage step reds ` D fv-status/<old>.json` (runs 41712547414, 41716872657).
+      // An undeclared removal carried through the same union is still dropped.
+      const FV_OLD = 'manifests/0000-selftest-old-digest.json';
+      const FV_OUT = 'chaingraph/UNDECLARED-SELFTEST.json';
+      const fvEntry = { id: 'selftest-content-addressed', artifacts: ['manifests/'], writesReport: rp, writesReportRequired: true };
+      writeFileSync(rp, JSON.stringify({ written: [MAN_A], removed: [FV_OLD, FV_OUT] }, null, 2) + '\n', 'utf8');
+      classifyWithSecondPass({ entries: [fvEntry], regen: () => writeFileSync(rp, JSON.stringify({ written: [], removed: [] }, null, 2) + '\n', 'utf8'), gates: contentRed });
+      const stagedG4 = entryCommitPaths(fvEntry).sort();
+      JSON.stringify(stagedG4) === JSON.stringify([MAN_A, FV_OLD].sort()) || fail(`a pass-1 attested deletion must stay staged after an empty pass-2 report, and an undeclared removal must stay dropped, got ${JSON.stringify(stagedG4)}`);
+      console.log('✓ self-test (g4): a content-addressed rename (pass-1 delete + write) stays staged across an empty pass-2 report; an undeclared removal is still dropped');
 
       // (h) a report-REQUIRED entry with an ABSENT report must REFUSE loudly, never
       // fall back to the bare-tree prefix — the silent fallback would restore the
