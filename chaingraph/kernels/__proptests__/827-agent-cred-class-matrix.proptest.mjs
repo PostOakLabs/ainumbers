@@ -1,4 +1,4 @@
-// 823-agent-cred-class-matrix -- class-K property-test FLOOR.
+// 827-agent-cred-class-matrix -- class-K property-test FLOOR.
 // kernel_digest_at_authoring: sha256:28e5aab0501cdbf4be1cae2a91e14f7a405052416989327de0c9ec2fae107efe
 // spec: AGENT-CRED-CLASS-MATRIX-1 (agent credential class matrix; consumes the art-133 rail
 // verdict and chains scope/expiry/replay cells to the sibling verdicts; local facts for the two
@@ -6,22 +6,22 @@
 //
 // ZERO external dependencies -- Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/823-agent-cred-class-matrix.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/827-agent-cred-class-matrix.proptest.mjs
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
-import { compute, CLASSES, COLUMNS, CHAIN_SOURCES, LOCAL_FACT_ENUMS, REVOCATION_MECHANISMS, LEARN_FIELDS, FLAGS } from '../823-agent-cred-class-matrix.kernel.mjs';
+import { compute, CLASSES, COLUMNS, CHAIN_SOURCES, LOCAL_FACT_ENUMS, REVOCATION_MECHANISMS, LEARN_FIELDS, FLAGS } from '../827-agent-cred-class-matrix.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, pick, deepEqual, findShapeViolations } from './_pbt-common.mjs';
 
-const KERNEL_ID = '823-agent-cred-class-matrix';
+const KERNEL_ID = '827-agent-cred-class-matrix';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SPT = 'acp-checkout-shared-payment-token-linter';
 const VIC = 'visa-vic-agent-token-scope-builder';
 const MC = 'mastercard-agentic-token-builder';
 
 // Deterministic seed, committed (no Date.now()/Math.random() anywhere in this file).
-const SEED = 0x00823;
+const SEED = 0x00827;
 
 // ---------- reference inputs ----------
 function baseFull() {
@@ -173,7 +173,7 @@ function checkFlagMirror(corpus) {
 }
 
 function checkRefusalReachability() {
-  const file = JSON.parse(readFileSync(join(HERE, '..', 'fixtures', '823-agent-cred-class-matrix.reachability.json'), 'utf8'));
+  const file = JSON.parse(readFileSync(join(HERE, '..', 'fixtures', '827-agent-cred-class-matrix.reachability.json'), 'utf8'));
   let checked = 0;
   let violations = 0;
   for (const vec of file.vectors) {

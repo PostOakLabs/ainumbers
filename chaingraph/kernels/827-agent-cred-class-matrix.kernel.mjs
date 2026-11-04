@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// 823-agent-cred-class-matrix -- agent credential class matrix (AGENT-CRED-CLASS-MATRIX-1-RESUME-1).
+// 827-agent-cred-class-matrix -- agent credential class matrix (AGENT-CRED-CLASS-MATRIX-1-RESUME-1).
 //
 // One row per agent payment-credential class, five columns: scope, expiry, replay_protection,
 // revocability, what-the-agent-can-learn. Scope/expiry/replay cells are CHAINED to the sibling
@@ -19,7 +19,7 @@ import { executionHash } from './_hash.mjs';
 // DETERMINISM + GUEST SAFETY: compute() is a pure function of pp -- no Date.now()/Math.random(),
 // no network, no filesystem, no guest-absent builtins (no TextEncoder/atob/btoa/URL).
 
-const TOOL_ID = '823-agent-cred-class-matrix';
+const TOOL_ID = '827-agent-cred-class-matrix';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
