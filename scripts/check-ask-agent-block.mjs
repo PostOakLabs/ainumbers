@@ -278,9 +278,13 @@ async function adjudicateNode(node, repoRoot) {
   // private-input manifests for raw witnesses), else fixture 0 policy_parameters
   let sample = null;
   const ex = manifest.example ?? manifest.mcp_tool_definition?.example;
+  // ASKAGENT-TEMPLATE-FIX-1: a declared example whose policy_parameters is an empty
+  // object is treated as absent, so fixture 0 supplies the sample instead of "{}".
+  // Deprecated nodes (e.g. art-99) carry no block: they are not live, so never reach here.
   if (ex && typeof ex === 'object' && !Array.isArray(ex)) {
     sample = ex.policy_parameters && typeof ex.policy_parameters === 'object'
       ? ex.policy_parameters : ex;
+    if (!Array.isArray(sample) && Object.keys(sample).length === 0) sample = null;
   }
   if (!sample) {
     const fixturePath = join(repoRoot, 'chaingraph', 'kernels', 'fixtures', `${id}.fixtures.json`);
