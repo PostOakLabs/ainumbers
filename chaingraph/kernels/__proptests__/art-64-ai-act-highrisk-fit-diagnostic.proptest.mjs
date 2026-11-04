@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:20973a7834282fbca572172a11975a52e6484c6635dd3db462e519511953d297
+// kernel_digest_at_authoring: sha256:d57d7dcff49f259b2d9b55438bad348359e2abcd96a5406e8d33985ed4c557b9
 //
 // FV-PROPFLOOR-SHARD-B15-1 — property-test floor for art-64-ai-act-highrisk-fit-diagnostic.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (dim_scores[k].score and overall_score are computed

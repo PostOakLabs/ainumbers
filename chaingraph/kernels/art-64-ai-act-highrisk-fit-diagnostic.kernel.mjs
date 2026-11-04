@@ -127,9 +127,6 @@ export function compute(pp) {
   const post_market_monitoring = pp.post_market_monitoring ?? 'none';
   // Governance maturity
   const model_risk_framework = pp.model_risk_framework ?? 'none';
-  // Informational
-  const system_name = pp.system_name ?? '';
-  const eu_nexus    = pp.eu_nexus    ?? true;
   // Null equals absent: `??` falls through on a null-valued key exactly as on
   // a missing key (MR-R4-NULL-REGRESSION-GATE-1). One explicit read per input
   // keeps the derived input schema statically extractable.
