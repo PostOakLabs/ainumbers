@@ -120,6 +120,37 @@ import { gitEnv } from './_git-env-lib.mjs';
 // as one constant so the escalation below can never drift from what the bot does.
 export const FULL_REGEN_CMD = 'node scripts/derived-artifacts.mjs --regen';
 
+// ── LINEAGE-BINDING-REGEN-REPAIRABLE-1: the post-regen binding override ──────
+// The `registry-absence-tree` gate reds on any key-set move because its lineage
+// PUBLISH is not part of the regen chain: gen-registry-lineage.mjs needs the
+// REGISTRY_LINEAGE_LOG_KEY secret and is a separate derived-artifacts-regen.yml
+// step, so a scratch-worktree probe can never reproduce it. That made every
+// key-set PR probe UNREPAIRABLE and kept forcing in-PR appends — which collide
+// on the same lineage index (the #2699 → #2709/#2710 re-break class).
+//
+// In a pull_request / merge_group run (and a local pre-push run, which is
+// PR-bound by construction) the drift is honestly regen-repairable anyway: main's
+// single-writer regen appends AND publishes after merge. The probe earns the
+// advisory downgrade only if, read-only, `append-absence-lineage-record.mjs
+// --verify-regen-binding` proves BOTH: (i) the published log is a byte-identical
+// prefix of the records file (records length >= log size), and (ii) the LAST
+// absence record equals the tree recomputed after --regen. A records file whose
+// prefix DIVERGES from the published log is UNREPAIRABLE, stage 'binding', with
+// no escalation — the probe must never pass a diverged records file. The raw
+// `gen-registry-absence-tree.mjs --check` stays strict everywhere; on push to
+// main and workflow_run this override is never consulted.
+export const BINDING_ENTRY_ID = 'registry-absence-tree';
+export const BINDING_CHECK_CMD = 'node scripts/append-absence-lineage-record.mjs --verify-regen-binding';
+
+/** Only an affirmative proof of a PR context (or a local, non-CI run) may relax the binding; everything else stays strict. */
+export function isRelaxedBindingContext(env = process.env) {
+  const e = env.GITHUB_EVENT_NAME;
+  if (e === 'pull_request' || e === 'merge_group') return true;
+  // No CI markers at all = a local pre-push run. These precede a PR push, never
+  // a push to main. Under GITHUB_ACTIONS with an unknown event, fail closed.
+  return e === undefined && env.GITHUB_ACTIONS !== 'true';
+}
+
 // Same git-env hygiene as check-derived-regen-live.mjs: two COVERED generators
 // (gen-debt-ledger.mjs, gen-rule-registry.mjs) shell out to `git` themselves, and
 // preflight.mjs runs from inside `git push` via .githooks/pre-push, which exports
@@ -184,7 +215,7 @@ export function regenChain(entry, covered = COVERED) {
  *
  * @returns {{notReproduced: object[], repaired: object[], unrepairable: object[], escalated: boolean}}
  */
-export function probeRepairable({ dir, entries, covered = COVERED, exec = defaultExec }) {
+export function probeRepairable({ dir, entries, covered = COVERED, exec = defaultExec, relaxed = isRelaxedBindingContext() }) {
   const notReproduced = [];
   const repaired = [];
   const unrepairable = [];
@@ -230,6 +261,37 @@ export function probeRepairable({ dir, entries, covered = COVERED, exec = defaul
     const r = exec(entry.gate, dir);
     if (r.ok) repaired.push({ id: entry.id, gate: entry.gate, via: 'declared regen chain' });
     else stillRed.push({ entry, output: r.output });
+  }
+
+  // 2b. LINEAGE-BINDING-REGEN-REPAIRABLE-1 — post-regen binding override for the
+  //     registry-absence-tree entry ONLY, and only in a PR-proven (or local)
+  //     context. See the header block at BINDING_ENTRY_ID. Fails closed: a
+  //     PREFIX-DIVERGENCE is UNREPAIRABLE with no escalation; a LAST-RECORD
+  //     mismatch or any unrecognised output falls through to the strict path.
+  if (relaxed && stillRed.length) {
+    const relaxedOut = [];
+    for (const { entry, output } of stillRed) {
+      if (entry.id !== BINDING_ENTRY_ID) { relaxedOut.push({ entry, output }); continue; }
+      const b = exec(BINDING_CHECK_CMD, dir);
+      if (b.ok) {
+        repaired.push({ id: entry.id, gate: entry.gate, via: `lineage regen-repairable binding override (${b.output.split('—')[0].trim()}) — main's regen appends AND publishes after merge (LINEAGE-BINDING-REGEN-REPAIRABLE-1)` });
+        continue;
+      }
+      if ((b.output || '').includes('BINDING-FAIL PREFIX-DIVERGENCE')) {
+        unrepairable.push({
+          id: entry.id,
+          gate: entry.gate,
+          stage: 'binding',
+          cmd: BINDING_CHECK_CMD,
+          reason: 'the records file DIVERGES from the published-log prefix — the regen publish would refuse this, so the drift is not regen-repairable',
+          output: b.output,
+        });
+        continue;
+      }
+      relaxedOut.push({ entry, output: b.output || output });
+    }
+    stillRed.length = 0;
+    stillRed.push(...relaxedOut);
   }
 
   // 3. Escalate to the FULL regen the main-side bot actually runs, before calling

@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (703 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (704 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -2385,7 +2385,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "MT103 to MX Translation Fidelity Scorer",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-245-mt-mx-translation-fidelity-scorer.html",
-    "description": "Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity for CBPR+ November 2026 migration. Checks field presence mapping (:20: to ",
+    "description": "Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity for the CBPR+ migration (structured-address date deferred by Swift on 27 A",
     "consumes": [
       "art-244-gpi-tracker-lifecycle-simulator"
     ],
@@ -2932,7 +2932,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Revocation-Status Verifier",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-287-revocation-status-verifier.html",
-    "description": "Checks a receipt's optional W3C BitstringStatusList credentialStatus reference and reads the revocation bit at statusListIndex from a suppli",
+    "description": "Reads a revocation bit from an uncompressed status bitstring up to 8 KB, shaped after W3C BitstringStatusList, for a receipt's optional cred",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -3977,7 +3977,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Tempo On-Chain AML & Travel Rule Screener",
     "mandate_type": "aml_rule",
     "url": "https://ainumbers.co/chaingraph/art-38-tempo-onchain-aml.html",
-    "description": "Parses a batch of synthetic TIP-20 transfers (with memos), runs OFAC/SDN hit screening, checks FATF Travel Rule field completeness (originat",
+    "description": "Parses a batch of synthetic TIP-20 transfers (with memos), screens parties by substring match against a fixed three-name synthetic test list",
     "consumes": [
       "art-37-tempo-stablecoin-issuance"
     ],
@@ -4340,7 +4340,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Private-Input Sanctions Screen",
     "mandate_type": "analytics_mandate",
     "url": "https://ainumbers.co/chaingraph/art-413-screen-sanctions-private.html",
-    "description": "Screens a privately held party/transfer list against a pinned OFAC-SDN-style list version and emits a public verdict (screened, hit count, c",
+    "description": "Demonstrates the private-input screening shape: screens a privately held party/transfer list against a fixed three-name synthetic test list ",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7693,7 +7693,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "PayPal Dispute Deadline & Evidence",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html",
-    "description": "PayPal dispute deadline calculator and evidence-bundle producer, the PayPal-side PRODUCER for the existing dispute-evidence chain (hub propo",
+    "description": "Dispute deadline calculator and evidence-bundle producer across four payment service providers (PayPal default, plus Stripe, Adyen and Squar",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7755,11 +7755,23 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-782-modified-premium",
+    "display_name": "Modified Premium Calculator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-782-modified-premium.html",
+    "description": "Workers'-compensation modified premium: subject premium (total manual premium plus premium items subject to experience rating) times the exp",
+    "consumes": [
+      "art-346-compute-experience-mod"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-788-csv-rfc4180-parser",
     "display_name": "RFC 4180 CSV Parser",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/mcp.html",
-    "description": "Parses a CSV table supplied as a plain string and returns the decoded records plus a per-column summary, over the shared _csv.bundle.mjs (SH",
+    "description": "Parses a CSV table supplied as a plain string and returns the decoded records plus a per-column summary, over the shared _csv.bundle.mjs (a ",
     "consumes": [],
     "feeds": [],
     "status": "live"
