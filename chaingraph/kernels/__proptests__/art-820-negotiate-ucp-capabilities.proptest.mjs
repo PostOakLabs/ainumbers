@@ -16,6 +16,9 @@
 //   3. output shape — no undefined / NaN anywhere in output_payload across every
 //      fixture vector, every reachability vector, and compute({}).
 //   4. determinism — every input computes byte-identically twice.
+//   5. reachability pin — every reachability vector (kernel_generated, one per
+//      refusal / finding / requires / extends branch) recomputes its recorded
+//      output_payload and compliance_flags exactly (mutation-tier floor coverage).
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
@@ -131,6 +134,22 @@ function checkDeterminism() {
   return { name: 'determinism_repeat_runs_identical', checked, violations: violations.length };
 }
 
+// 5. reachability pin
+function checkReachabilityPinned() {
+  let checked = 0;
+  const violations = [];
+  for (const vec of reachability.vectors) {
+    if (vec.output_payload === undefined) continue;
+    checked++;
+    const r = compute(JSON.parse(JSON.stringify(vec.policy_parameters)));
+    if (!deepEqual(r.output_payload, vec.output_payload)) violations.push(`${vec.name}: output_payload differs from the recorded vector`);
+    if (vec.compliance_flags !== undefined && !deepEqual(r.compliance_flags, vec.compliance_flags)) {
+      violations.push(`${vec.name}: compliance_flags differ from the recorded vector`);
+    }
+  }
+  return { name: 'reachability_vectors_recompute_exactly', checked, violations: violations.length };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -143,6 +162,7 @@ const properties = [
   checkSurvivalSymmetry(),
   checkOutputShape(),
   checkDeterminism(),
+  checkReachabilityPinned(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — UCP capability negotiation.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
