@@ -4,7 +4,7 @@ Maps five agent payment credential classes (ACP shared payment token, Visa VIC /
 
 - Page: https://ainumbers.co/chaingraph/827-agent-cred-class-matrix.html
 - Markdown twin: https://ainumbers.co/chaingraph/827-agent-cred-class-matrix.md
-- MCP tool: compute_agent_cred_class_matrix (endpoint https://mcp.ainumbers.co/mcp)
+- MCP tool: compute_agent_cred_matrix (endpoint https://mcp.ainumbers.co/mcp)
 
 ## Inputs
 
@@ -57,4 +57,4 @@ Maps five agent payment credential classes (ACP shared payment token, Visa VIC /
 
 ## Verify
 
-Run the sample policy_parameters through MCP tool `compute_agent_cred_class_matrix` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+Run the sample policy_parameters through MCP tool `compute_agent_cred_matrix` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.

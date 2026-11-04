@@ -24,7 +24,7 @@ const TOOL_VERSION = '1.0.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'compute_agent_cred_class_matrix',
+  mcp_name: 'compute_agent_cred_matrix',
   mandate_type: 'compliance_mandate', gpu: false,
 };
 

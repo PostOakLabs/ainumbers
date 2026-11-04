@@ -1,5 +1,5 @@
 // 827-agent-cred-class-matrix -- class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:ef2f48f8862f9b7cbbf2b9b4a81d894206a520a2308d54756524b7162e11c0bb
+// kernel_digest_at_authoring: sha256:958f0ba4ec1952e6069a73353e103148c7b697d61cc12de33d2522c3705cdf59
 // spec: AGENT-CRED-CLASS-MATRIX-1 (agent credential class matrix; consumes the art-133 rail
 // verdict and chains scope/expiry/replay cells to the sibling verdicts; local facts for the two
 // uncovered classes). human_sign_off: PENDING
