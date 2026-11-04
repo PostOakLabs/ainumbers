@@ -1,0 +1,162 @@
+{
+  "ap2_export": false,
+  "audience": [
+    "payments",
+    "compliance",
+    "engineer"
+  ],
+  "author": "PostOakLabs",
+  "bridge_version": "1.3",
+  "category": "agentic-checkout-and-multi-rail-protocol-comparison",
+  "description": "Reconciles a pasted Universal Commerce Protocol (UCP 2026-08-25) cart, checkout or order totals block in integer minor units. Recomputes price x quantity per line (exact base-10 digit-array arithmetic, at most one rounding under the caller-declared policy, default half_even), rolls line subtotals into the document subtotal, checks the breakdown identity and the schema sign rules, and in order mode nets adjustment totals against the refund bound. Returns RECONCILED, MISMATCH or INDETERMINATE with per-finding JSON paths; structurally malformed input refuses the whole call with INPUT_REFUSED. Arithmetic consistency only: it never judges whether a tax, fee or discount amount itself was computed correctly, because UCP publishes no tax or rounding algorithm; Business-extension total types and lines priced on a different basis (item.unit_price) are skipped or reported indeterminate, never guessed. Negative totals are reported informationally (UCP issue #1025) and order discount attribution is reported as not evaluable (issue #1026). Verify-only, zero network calls, no fetched keys. Fixture provenance: derived from the UCP schema and issue material (github.com/Universal-Commerce-Protocol/ucp tag v2026-08-25, commit 7a5daa55313f8b468aba76caf01fb76851d37f84, Apache-2.0), including the repo's flower_shop reference storefront example.",
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/825-reconcile-ucp-checkout-totals.html",
+    "function_name": "TODO_FUNCTION_NAME_REVIEW",
+    "timeout_ms": 5000
+  },
+  "execution_context": "client_side_browser",
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "document"
+    ],
+    "properties": {
+      "document": {
+        "description": "The pasted UCP cart, checkout or order document; amounts are ISO 4217 minor units, integers within +/-9007199254740991 (2^53-1)",
+        "type": "object"
+      },
+      "mode": {
+        "description": "\"checkout\" (default) or \"order\"; order mode adds adjustments reconciliation, the refund bound, and discount attribution reported as NOT_EVALUATED (issue #1026)",
+        "type": "string"
+      },
+      "rounding": {
+        "description": "Line rounding policy, applied at most once per line; default half_even; one of half_even, half_up, half_down, floor, ceil",
+        "type": "string"
+      }
+    }
+  },
+  "license": "CC-BY-4.0",
+  "mcp_tool_definition": {
+    "description": "Recomputes a pasted UCP cart, checkout or order totals block in integer minor units: price x quantity per line, line-subtotal roll-up, breakdown identity, sign rules, and in order mode the refund bound over adjustments. Returns RECONCILED, MISMATCH or INDETERMINATE with per-finding JSON paths; malformed input refuses the whole call with INPUT_REFUSED. Arithmetic consistency only: no tax or discount amount is judged correct or incorrect, because UCP publishes no tax or rounding algorithm. Verify-only, zero network calls, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "document"
+      ],
+      "properties": {
+        "document": {
+          "description": "The pasted UCP cart, checkout or order document",
+          "type": "object"
+        },
+        "mode": {
+          "description": "\"checkout\" (default) or \"order\"",
+          "type": "string"
+        },
+        "rounding": {
+          "description": "Line rounding policy, default half_even",
+          "type": "string"
+        }
+      }
+    },
+    "name": "reconcile_ucp_checkout_totals",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "verdict": {
+        "description": "RECONCILED, MISMATCH or INDETERMINATE",
+        "type": "string"
+      },
+      "mode": {
+        "description": "The evaluated mode: checkout or order",
+        "type": "string"
+      },
+      "currency": {
+        "description": "The document currency when a string of 16 characters or fewer",
+        "type": "string"
+      },
+      "rounding_applied": {
+        "description": "The rounding rule applied to lines",
+        "type": "string"
+      },
+      "rounding_exercised": {
+        "description": "True when at least one fractional line actually exercised the rounding policy",
+        "type": "boolean"
+      },
+      "totals_identity_ok": {
+        "description": "True when the declared breakdown entries sum to the declared total",
+        "type": "boolean"
+      },
+      "declared_total": {
+        "description": "The declared total entry amount in minor units",
+        "type": "integer"
+      },
+      "computed_total": {
+        "description": "The recomputed breakdown sum in minor units, null when not evaluated",
+        "type": "integer"
+      },
+      "negative_total": {
+        "description": "True when the declared total is negative, reported informationally per UCP issue #1025",
+        "type": "boolean"
+      },
+      "line_count": {
+        "description": "Number of line_items in the document",
+        "type": "integer"
+      },
+      "line_results": {
+        "description": "Per-line declared and computed subtotals with price-quantity verdicts and skip codes",
+        "type": "array"
+      },
+      "violations": {
+        "description": "Sign, identity and range findings with JSON paths",
+        "type": "array"
+      },
+      "skipped": {
+        "description": "Lines or entries not evaluated, with reason codes",
+        "type": "array"
+      },
+      "indeterminate": {
+        "description": "Findings that cap the verdict below MISMATCH, with reason codes",
+        "type": "array"
+      },
+      "discount_attribution": {
+        "description": "Order-mode discount attribution finding, NOT_EVALUATED when the order record carries no code (issue #1026)",
+        "type": "string"
+      },
+      "refunds": {
+        "description": "Order-mode refund bound result",
+        "type": "object"
+      },
+      "refusal": {
+        "description": "Whole-call refusal code when the document is structurally malformed",
+        "type": "string"
+      },
+      "notes": {
+        "description": "Informational notes, e.g. the negative-total note",
+        "type": "array"
+      }
+    }
+  },
+  "pii_transmitted": false,
+  "prefill": true,
+  "tags": [
+    "UCP",
+    "Universal Commerce Protocol",
+    "checkout",
+    "totals",
+    "reconciliation",
+    "minor units",
+    "agentic commerce",
+    "order adjustments"
+  ],
+  "title": "Reconcile UCP Checkout Totals",
+  "tool_id": "825-reconcile-ucp-checkout-totals",
+  "version": "1.0.0"
+}
