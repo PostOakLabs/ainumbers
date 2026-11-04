@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-const TOOL_ID = 'art-823-authenticator-assurance-level';
+const TOOL_ID = 'art-826-authenticator-assurance-level';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {

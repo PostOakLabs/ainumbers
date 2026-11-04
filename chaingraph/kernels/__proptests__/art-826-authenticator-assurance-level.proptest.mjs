@@ -1,5 +1,5 @@
-// art-823-authenticator-assurance-level.proptest.mjs — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:cb24a9a2a82819295052445e404c9bcfbb671ce2e1dcb673165e3366f31c453e
+// art-826-authenticator-assurance-level.proptest.mjs — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
+// kernel_digest_at_authoring: sha256:c94cba237245af3ad724c1570c53b9d70c3cdea925fd6fbaf2b1733b4600c9d4
 // human_sign_off: PENDING
 //
 // spec: research/AUTHENTICATOR-ASSURANCE-PIN-2026-10-30.md (criterion→source-section map for the
@@ -20,12 +20,12 @@
 // session found:null case.
 // Zero external dependencies -- Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/art-823-authenticator-assurance-level.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-826-authenticator-assurance-level.proptest.mjs
 
-import { compute } from '../art-823-authenticator-assurance-level.kernel.mjs';
+import { compute } from '../art-826-authenticator-assurance-level.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
-const KERNEL_ID = 'art-823-authenticator-assurance-level';
+const KERNEL_ID = 'art-826-authenticator-assurance-level';
 
 const rand = mulberry32(0x823A1);
 function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
