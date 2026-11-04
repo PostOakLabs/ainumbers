@@ -20,7 +20,7 @@
  *                    MUST be globally unique — this script does not check that; run
  *                    `node ../mcp-apps-poc/scripts/check-tool-names.mjs` after filling
  *                    compute() and before landing (CLAUDE.md's MCP invariant).
- *   --with-page      Emit chaingraph/<id>.html + a hub-categories.json entry (--category
+ *   --with-page      Emit chaingraph/<id>.html + chaingraph/hub-categories/<id>.json (--category
  *                    required). DEFAULT IS OFF — see "PAGE-LESS BY DEFAULT" below.
  *
  * DECLARED FILE SET this command writes (SO #40(c) — `git status --porcelain` after one
@@ -29,7 +29,7 @@
  *   chaingraph/kernels/<id>.kernel.mjs
  *   chaingraph/kernels/__proptests__/<id>.proptest.mjs
  *   chaingraph/kernels/fixtures/<id>.fixtures.json
- *   chaingraph/<id>.html + chaingraph/hub-categories.json   (ONLY with --with-page)
+ *   chaingraph/<id>.html + chaingraph/hub-categories/<id>.json   (ONLY with --with-page)
  *
  * NEVER WRITTEN, by design, regardless of flags: chaingraph.json, chaingraph.meta.json,
  * chaingraph/kernels/index.mjs. The kernel index is a main-regen single-writer artifact
@@ -102,6 +102,7 @@ const FIXTURES_PATH = resolve(REPO, 'chaingraph', 'kernels', 'fixtures', `${TOOL
 const SHARD_PATH = resolve(REPO, 'chaingraph', 'graph', 'nodes', `${TOOL_ID}.json`);
 const PAGE_PATH = resolve(REPO, 'chaingraph', `${TOOL_ID}.html`);
 const HUB_CATEGORIES_PATH = resolve(REPO, 'chaingraph', 'hub-categories.json');
+const HUB_NODE_PATH = resolve(REPO, 'chaingraph', 'hub-categories', `${TOOL_ID}.json`);
 
 const declared = [KERNEL_PATH, PROPTEST_PATH, FIXTURES_PATH, SHARD_PATH];
 if (WITH_PAGE) declared.push(PAGE_PATH);
@@ -171,19 +172,20 @@ writeFileSync(FIXTURES_PATH, fixturesContent);
 writeFileSync(SHARD_PATH, shardContent);
 if (WITH_PAGE) {
   writeFileSync(PAGE_PATH, pageContent);
+  // Membership is one file per node (HUB-CATEGORIES-DERIVE-1); the shared
+  // chaingraph/hub-categories.json (key/order/blurb) is never edited here.
   const hub = JSON.parse(readFileSync(HUB_CATEGORIES_PATH, 'utf8'));
   if (!hub[CATEGORY]) {
-    console.error(`✗ --category "${CATEGORY}" is not a key in chaingraph/hub-categories.json — pick an existing category (kernel-preflight's own hub-categories check reads this file verbatim; this script does not invent new categories).`);
+    console.error(`✗ --category "${CATEGORY}" is not a key in chaingraph/hub-categories.json — pick an existing category (this script does not invent new categories).`);
     process.exit(1);
   }
-  if (!Array.isArray(hub[CATEGORY].art_ids)) hub[CATEGORY].art_ids = [];
-  if (!hub[CATEGORY].art_ids.includes(TOOL_ID)) hub[CATEGORY].art_ids.push(TOOL_ID);
-  writeFileSync(HUB_CATEGORIES_PATH, JSON.stringify(hub, null, 2) + '\n');
+  mkdirSync(dirname(HUB_NODE_PATH), { recursive: true });
+  writeFileSync(HUB_NODE_PATH, JSON.stringify({ category: CATEGORY }, null, 2) + '\n');
 }
 
 // ── report ───────────────────────────────────────────────────────────────
 console.log(`\n✓ scaffolded ${TOOL_ID} (class ${CLASS}, digest ${DIGEST}):`);
-for (const p of [KERNEL_PATH, PROPTEST_PATH, FIXTURES_PATH, SHARD_PATH, ...(WITH_PAGE ? [PAGE_PATH, HUB_CATEGORIES_PATH] : [])]) {
+for (const p of [KERNEL_PATH, PROPTEST_PATH, FIXTURES_PATH, SHARD_PATH, ...(WITH_PAGE ? [PAGE_PATH, HUB_NODE_PATH] : [])]) {
   console.log(`    ${p.replace(REPO + '\\', '').replace(REPO + '/', '')}`);
 }
 console.log(`\nNOT written (SO #35 single-writer): chaingraph/kernels/index.mjs. main's derived regen registers`);
