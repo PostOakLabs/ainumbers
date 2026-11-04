@@ -274,6 +274,15 @@ function classify(dueZ, actionIso) {
   return a <= dueZ ? 'met' : 'breached';
 }
 
+// Floor test: the action is lawful only ON OR AFTER the earliest date, the
+// inverse of the deadline test in classify().
+function classifyFloor(earliestZ, actionIso) {
+  if (actionIso === undefined || actionIso === null || actionIso === '') return 'within';
+  const a = parseIso(actionIso);
+  if (a === null) return null; // signal refusal upstream
+  return a >= earliestZ ? 'met' : 'breached';
+}
+
 // ---------------------------------------------------------------- compute()
 
 export function compute(pp) {
@@ -502,7 +511,7 @@ export function compute(pp) {
       // date D = D - delinquency_date in calendar days, so the earliest lawful
       // first-notice/filing date is delinquency_date + 121 days.
       const earliest = addCalendarDays(T, 121);
-      const st = classify(earliest, act);
+      const st = classifyFloor(earliest, act);
       out = obligation(rule, CITE.foreclosure_referral_120day, BASIS_CAL, null, Tiso, earliest, act,
         st === 'met' ? 'met' : st, // on/after earliest = lawful referral
         st === 'met' ? null : 'first_notice_or_filing_before_120_day_delinquency_bar_expired', {

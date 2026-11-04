@@ -24,7 +24,11 @@ import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyReport, fileBackend, harvest, titleFor, SURFACES, ALLOWED_EVENTS } from './scheduled-red-issue.mjs';
+import {
+  applyReport, fileBackend, harvest, titleFor, SURFACES, ALLOWED_EVENTS,
+  extractFailureLine, cleanLogLine, NO_GATE_LINE_FOUND,
+  statusPayload, STATUS_DESCRIPTION_MAX,
+} from './scheduled-red-issue.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = resolve(HERE, 'scheduled-red-issue.mjs');
@@ -201,4 +205,105 @@ test('every caller workflow passes a surface key the registry knows', () => {
     const viaScript = /scheduled-red-issue\.mjs/.test(wf) && new RegExp(`--surface ${key}\\b`).test(wf);
     assert.ok(viaReusable || viaScript, `${s.workflow} must call the shared tracker with surface ${key}`);
   }
+});
+
+// ── REGEN-RED-STOPS-THE-LINE-1: the failure-line extractor ──────────────────
+// Run 39936907518 (2026-10-23, issue #2557) is the incident: the regen failed
+// 14 merges in a row on two em-dashes in chaingraph.json#descriptions, and the
+// deadman's issue quoted the `##[group]Run` header instead of the gate's
+// finding line. The fixture beside this test is that run's failed-job log,
+// captured verbatim (13 lines, exact gh log shape incl. the BOM and the ^[
+// cyan echoes; no secrets — the only *** is GitHub's own mask text).
+const REGEN_EXCERPT = resolve(HERE, 'fixtures/scheduled-red-issue/regen-39936907518-copy-gate-excerpt.log');
+const EMDASH_LINE = 'chaingraph/chaingraph.json#descriptions: 2 em-dash(es) in visible text (baseline 0)';
+
+// The PRE-FIX extraction, replicated from derived-regen-deadman.yml's old
+// failure-line step: grep -m1 -E 'copy-hallmarks|shipped-prose|::error|REFUSED|Error:'.
+function legacyGrepExtract(logText) {
+  for (const raw of String(logText).split('\n')) {
+    if (/copy-hallmarks|shipped-prose|::error|REFUSED|Error:/.test(raw)) return raw.slice(0, 300);
+  }
+  return '';
+}
+
+test('EXTRACTOR (a) RED control: the pre-fix grep picked the ##[group]Run header over the gate finding', () => {
+  const log = readFileSync(REGEN_EXCERPT, 'utf8');
+  const picked = legacyGrepExtract(log);
+  // The defect, quoted: the word "copy-hallmarks" first appears in the run
+  // HEADER, so the old grep stopped there and issue #2557 carried
+  // "##[group]Run node scripts/check-copy-hallmarks.mjs" as its failure line.
+  assert.match(picked, /##\[group\]Run node scripts\/check-copy-hallmarks\.mjs/);
+  assert.doesNotMatch(picked, /em-dash/);
+  // And the fixed extractor must NOT return that header — this is the assert
+  // that FAILS if extractFailureLine ever regresses to the old behaviour.
+  assert.notEqual(extractFailureLine(log), cleanLogLine(picked).trim());
+});
+
+test('EXTRACTOR (b) GREEN: the fixed extractor returns the em-dash finding line, function and CLI both', () => {
+  const log = readFileSync(REGEN_EXCERPT, 'utf8');
+  assert.equal(extractFailureLine(log), EMDASH_LINE);
+  // The deadman pipes `gh run view --job … --log-failed` through the CLI;
+  // prove that exact path over the same captured bytes.
+  const viaCli = execFileSync(process.execPath, [SCRIPT, '--extract-failure-line'],
+    { input: log, encoding: 'utf8' });
+  assert.equal(viaCli.trim(), EMDASH_LINE);
+});
+
+test('EXTRACTOR (c) GREEN: only ##[group] noise returns the no-gate-line fallback, never the header', () => {
+  const noise = [
+    'Regenerate shared derived artifacts\tValidate the regenerated reader-facing copy (CONTRACT.md §1.4)\t2026-10-23T10:20:42.5275079Z ##[group]Run node scripts/check-copy-hallmarks.mjs',
+    'Regenerate shared derived artifacts\tValidate the regenerated reader-facing copy (CONTRACT.md §1.4)\t2026-10-23T10:20:42.5275677Z ^[[36;1mnode scripts/check-copy-hallmarks.mjs^[[0m',
+    'Regenerate shared derived artifacts\tValidate the regenerated reader-facing copy (CONTRACT.md §1.4)\t2026-10-23T10:20:42.5343906Z shell: /usr/bin/bash -e {0}',
+    'Regenerate shared derived artifacts\tValidate the regenerated reader-facing copy (CONTRACT.md §1.4)\t2026-10-23T10:20:42.5344383Z ##[endgroup]',
+    '',
+  ].join('\n');
+  const picked = extractFailureLine(noise);
+  assert.equal(picked, NO_GATE_LINE_FOUND);
+  assert.doesNotMatch(picked, /##\[group\]/, 'the header is noise and must never be picked');
+});
+
+test('EXTRACTOR: an advisory finding is never picked, and a summary-only red falls back to the summary', () => {
+  // The ADVISORY block's findings (rule-of-three triads) sit in the same
+  // fixture AFTER the failing finding; a log with ONLY the advisory block
+  // must fall through to the summary tier, not quote an advisory line.
+  const log = readFileSync(REGEN_EXCERPT, 'utf8');
+  const advisoryOnly = log.split('\n').filter((l) => !/FAILURE\(s\)|##\[error\]|descriptions: 2 em-dash/.test(l)).join('\n');
+  const picked = extractFailureLine(advisoryOnly);
+  assert.doesNotMatch(picked, /rule-of-three/, 'advisory findings are not failures');
+  assert.equal(picked, NO_GATE_LINE_FOUND, 'with the failure block removed there is no gate line at all');
+  // A gate that reds with a summary but no detail lines: the summary is the line.
+  assert.equal(
+    extractFailureLine('job\tstep\t2026-10-23T10:20:46.6676007Z ✗ some-gate FAILED (2) — the reason'),
+    '✗ some-gate FAILED (2) — the reason',
+  );
+});
+
+// ── REGEN-RED-STOPS-THE-LINE-1: the advisory derived-regen/main commit status ─
+test('STATUS: a red report posts the derived-regen/main failure status (issue target, truncated description)', () => {
+  const { store } = fresh();
+  const be = fileBackend(store);
+  const r = applyReport(be, {
+    key: 'derived-regen', state: 'red', runId: '39936907518', runUrl: 'u/39936907518',
+    failureLine: `regen run u :: ${EMDASH_LINE}`,
+  });
+  be.postStatus('b1a4a42f107adaa384be7b740cd452af1dcc6e49', statusPayload({
+    state: 'failure',
+    context: 'derived-regen/main',
+    description: EMDASH_LINE,
+    targetUrl: `https://github.com/PostOakLabs/ainumbers/issues/${r.issue}`,
+  }));
+  const db = JSON.parse(readFileSync(store, 'utf8'));
+  assert.equal(db.statuses.length, 1);
+  assert.equal(db.statuses[0].state, 'failure');
+  assert.equal(db.statuses[0].context, 'derived-regen/main');
+  assert.equal(db.statuses[0].description, EMDASH_LINE);
+  assert.equal(db.statuses[0].target_url, `https://github.com/PostOakLabs/ainumbers/issues/${r.issue}`);
+});
+
+test('STATUS: statusPayload truncates to the 140-char cap and refuses a non-status state', () => {
+  assert.equal(STATUS_DESCRIPTION_MAX, 140, 'GitHub caps a commit-status description at 140 characters');
+  const p = statusPayload({ state: 'failure', context: 'derived-regen/main', description: 'x'.repeat(300) });
+  assert.equal(p.description.length, 140);
+  assert.throws(() => statusPayload({ state: 'pending', context: 'x' }), /success\|failure/);
+  assert.throws(() => statusPayload({ state: 'failure' }), /requires a context/);
 });

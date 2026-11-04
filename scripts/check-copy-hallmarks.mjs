@@ -251,6 +251,32 @@ export function absolutesHits(text) {
   }
   return hits;
 }
+// ANCHOR_WORDING (ANCHOR-WORDING-GATE-1, 2026-11-03, Tim ruling ETH-ZK-WAVE-1):
+// banned claims about anchoring, applied ONLY to pages whose visible text
+// mentions anchoring (a page that never says "anchor" cannot over-claim about
+// it, and "immutable"/"trustless" have legitimate uses elsewhere on the site).
+// "tamper-proof" is already counted by ABSOLUTES everywhere, so it is not
+// repeated here (no double count). Same list as the anchor-suite denylist
+// (anchor-suite/scripts/check-copy.mjs, ANCHOR-COPY-GATE-1) for the terms both
+// sides share. Baseline+ratchet bucket "anchorWording": counts only go down.
+const ANCHOR_MENTION = /\banchor(?:s|ed|ing)?\b/i;
+const ANCHOR_WORDING = [
+  [/\bimmutable\b/gi, 'immutable'],
+  [/\bqualified\s+(?:electronic\s+)?time[\s-]?stamps?\b/gi, 'qualified timestamp'],
+  [/\btrustless(?:ly)?\b/gi, 'trustless'],
+  [/\bwe\s+anchor\s+(?:it|this|them|your\s+\w+)\s+for\s+you\b/gi, 'we anchor it for you'],
+  [/\bBase[\s-]only\b/gi, 'Base-only framing'],
+  [/\bCoinbase[\s-]first\b/gi, 'Coinbase-first framing'],
+];
+export function anchorWordingHits(text) {
+  if (!ANCHOR_MENTION.test(text)) return [];
+  const hits = [];
+  for (const [re, label] of ANCHOR_WORDING) {
+    const m = text.match(re) || [];
+    if (m.length) hits.push(`${label} ×${m.length}`);
+  }
+  return hits;
+}
 // PANEL: the "SCOPE box" / "what this does not do" negation-wall shape
 // (SCOPE-PANEL-COPY-AUDIT-1, 2026-08-18, Tim's ruling on agentcore-x402-hub.html's
 // SCOPE box: "very distracting, it sounds like slop ... readers care about a
@@ -604,6 +630,44 @@ function decodeDashEntities(html) {
     .replace(/&#x0*2d;/gi, '-');
 }
 
+// REGEN-VALIDATORS-IN-QUEUE-1 step 1: the chaingraph.json descriptions check
+// factored into one exported function so the DERIVED_ROOT-aware read (step 2),
+// the source-shard lint (step 5) and the self-tests all share one extractor.
+// Pure: takes the parsed chaingraph.json (or any {nodes,chains} shape), returns
+// the #descriptions finding object or null. Byte-for-byte identical to the
+// former inline block in the main-guard scan below. EMDASH is declared further
+// down as a const — module-level TDZ is fine because callers run after full
+// module evaluation.
+export function chaingraphDescriptionsFinding(cg) {
+  let cgEmdash = 0;
+  for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
+  for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
+  return cgEmdash ? { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], absolutes: [], anchorWording: [], notX: 0, panel: [], fragHead: [], pairHead: [] } : null;
+}
+
+// REGEN-VALIDATORS-IN-QUEUE-1 step 2 (mechanism A): when an ephemeral derived
+// tree is mounted (DERIVED_ROOT set — merge_group queue, or any explicit
+// opt-in, same semantics as derived-artifacts.mjs derivedRoot()) and the
+// assembled monolith exists under $DERIVED_ROOT/chaingraph/, the descriptions
+// check reads THAT copy — the tree the merge queue actually assembled —
+// instead of the committed in-tree monolith, which on a PR is stale by
+// construction. Otherwise (plain PR / push / local runs) it reads the in-tree
+// file, unchanged. Prints one line naming which file was read.
+export function chaingraphJsonReadPath() {
+  const dr = process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim();
+  if (dr) {
+    const p = resolve(dr, 'chaingraph', 'chaingraph.json');
+    if (existsSync(p)) {
+      console.log(`copy-hallmarks: chaingraph.json descriptions read from DERIVED_ROOT copy: ${p}`);
+      return p;
+    }
+    console.log(`copy-hallmarks: DERIVED_ROOT set but no chaingraph/chaingraph.json under ${dr} — falling back to in-tree file`);
+  }
+  const inTree = resolve(REPO, 'chaingraph', 'chaingraph.json');
+  console.log(`copy-hallmarks: chaingraph.json descriptions read from in-tree file: ${inTree}`);
+  return inTree;
+}
+
 /** Strip script/style/pre/code bodies + HTML comments, keep other tags intact. */
 function proseHtml(html) {
   return decodeDashEntities(html)
@@ -665,6 +729,7 @@ export function hallmarkFindings(raw) {
   const insider = insiderHits(text);
   const aiVocab = aiVocabHits(text);
   const absolutes = absolutesHits(text);
+  const anchorWording = anchorWordingHits(text);
   const notX = notXCount(text);
   const panel = panelHits(prose);
   const fragHead = fragHeadHits(prose);
@@ -726,13 +791,13 @@ export function hallmarkFindings(raw) {
     if (n) overuse[label] = n;
   }
 
-  return { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, absolutes, notX, panel, fragHead, pairHead };
+  return { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, absolutes, anchorWording, notX, panel, fragHead, pairHead };
 }
 
 /** True iff any bucket carries a hit — the CLI gate's own "record this file"
  * condition, exported with the scan so callers agree on what counts as debt. */
 export function hasHallmarkDebt(f) {
-  return Boolean(f.emdash || f.jargon.length || f.twotoneHP || f.triad || f.loadbearing || f.cosignVocab.length || f.hallmarks.length || f.emojiProse || f.bold || f.doubleEscaped || Object.keys(f.overuse).length || f.insider.length || f.aiVocab.length || f.absolutes.length || f.notX || f.panel.length || f.fragHead.length || f.pairHead.length);
+  return Boolean(f.emdash || f.jargon.length || f.twotoneHP || f.triad || f.loadbearing || f.cosignVocab.length || f.hallmarks.length || f.emojiProse || f.bold || f.doubleEscaped || Object.keys(f.overuse).length || f.insider.length || f.aiVocab.length || f.absolutes.length || f.anchorWording.length || f.notX || f.panel.length || f.fragHead.length || f.pairHead.length);
 }
 
 // Gate body runs only when this file is executed directly (node scripts/check-
@@ -740,6 +805,59 @@ export function hasHallmarkDebt(f) {
 // unit-test in isolation (check-copy-hallmarks.test.mjs) without triggering a
 // full repo scan / process.exit as an import side effect.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+
+// ── REGEN-VALIDATORS-IN-QUEUE-1 step 5 (mechanism B): source-shard lint ──────
+// `node scripts/check-copy-hallmarks.mjs --source-shards [--changed <base>]`
+// checks the TOP-LEVEL `description` of every chaingraph/graph/nodes/*.json and
+// chaingraph/graph/chains/*.json shard with the SAME step-1 extractor the
+// assembled monolith goes through (chaingraphDescriptionsFinding on a
+// one-node shape), so the em-dash that killed main's derived regen for ~9 h
+// (PR #2349 / run 39936907518) now fails at PR + pre-push time, before the
+// queue ever assembles it. Baseline semantics identical to the rest of this
+// gate: existing debt is shielded by scripts/copy-hallmarks-baseline.json
+// keyed `<shard rel path>#description` (emdash count), counts only go down
+// (--update ratchets; never grown to admit a new hit). --changed scopes the
+// run to shards touched vs <base> (pre-push quick + PR contexts); the bare
+// form scans ALL shards (CI full mode — the merge_group queue step).
+if (process.argv.includes('--source-shards')) {
+  const shardDirs = [['chaingraph/graph/nodes', 'nodes'], ['chaingraph/graph/chains', 'chains']];
+  const shardFailures = [];
+  const shardImprovements = [];
+  const baseline0 = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : {};
+  let scanned = 0;
+  for (const [dir] of shardDirs) {
+    const abs = resolve(REPO, dir);
+    if (!existsSync(abs)) continue;
+    for (const f of readdirSync(abs)) {
+      if (!f.endsWith('.json')) continue;
+      const rel = `${dir}/${f}`;
+      if (CHANGED && !isTouched(rel, CHANGED)) continue;
+      scanned++;
+      const key = `${rel}#description`;
+      const shard = JSON.parse(readFileSync(resolve(abs, f), 'utf8'));
+      const finding = chaingraphDescriptionsFinding({ nodes: [shard], chains: [] });
+      const emdash = finding ? finding.emdash : 0;
+      const allowed = baseline0[key]?.emdash || 0;
+      if (emdash > allowed) shardFailures.push(`${rel}: ${emdash} em-dash(es) in top-level description (baseline ${allowed}) — CONTRACT §1.4; this shard is what main's derived regen assembles, fix it at the source`);
+      else if (emdash < allowed) shardImprovements.push(`${rel}: em-dash ${allowed} -> ${emdash}`);
+      // COPY-CODENAME-PR-GATE-2: row-codename/insider-register ban on the
+      // top-level `description` (zero-tolerance, no baseline — measured clean
+      // over every node shard at origin/main 93d3532ee). A codename here turns
+      // main red only AFTER merge, in the derived regen; fail the PR instead.
+      if (dir === 'chaingraph/graph/nodes') {
+        const descInsider = insiderHits(decodeDashEntities(String(shard.description || '')));
+        if (descInsider.length) shardFailures.push(`${rel}: insider-register/codename hit(s) in top-level description: ${descInsider.join('; ')} — rewrite the copy; row codenames never ship in node copy (COPY-CODENAME-PR-GATE-2)`);
+      }
+    }
+  }
+  if (shardFailures.length) {
+    console.error(`\ncopy-hallmarks --source-shards: ${shardFailures.length} FAILURE(s):\n  ` + shardFailures.join('\n  '));
+    process.exit(1);
+  }
+  if (shardImprovements.length) console.log(`copy-hallmarks --source-shards: ${shardImprovements.length} shard(s) beat the baseline — tighten with --update:\n  ` + shardImprovements.join('\n  '));
+  console.log(`copy-hallmarks --source-shards: OK (${scanned} shard(s) scanned${CHANGED ? ', changed scope' : ', all shards'}, top-level descriptions em-dash clean).`);
+  process.exit(0);
+}
 
 const findings = {}; // rel path -> { emdash, jargon: [msg], twotone, hallmarks: [msg] }
 const scanFiles = CHANGED ? htmlFiles(REPO).filter((f) => isTouched(relative(REPO, f), CHANGED)) : htmlFiles(REPO);
@@ -759,11 +877,8 @@ for (const file of scanFiles) {
 // for this when chaingraph.json itself is in the touched set — never write
 // to it (out of this row's fence; this gate only reads it).
 if (!CHANGED || isTouched('chaingraph/chaingraph.json', CHANGED)) {
-  const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
-  let cgEmdash = 0;
-  for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
-  for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
-  if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], absolutes: [], notX: 0, panel: [], fragHead: [], pairHead: [] };
+  const cgFinding = chaingraphDescriptionsFinding(JSON.parse(readFileSync(chaingraphJsonReadPath(), 'utf8')));
+  if (cgFinding) findings['chaingraph/chaingraph.json#descriptions'] = cgFinding;
 }
 
 // mcp/showcase-prompts.json titles + one_lines (MCP-SHOWCASE-PROMPTS-1) — reader-facing
@@ -787,7 +902,7 @@ if (!CHANGED || isTouched('mcp/showcase-prompts.json', CHANGED)) {
       }
     }
     if (spEmdash || spTwotone || spAi.length || spAbs.length) {
-      findings['mcp/showcase-prompts.json#title-one-line'] = { emdash: spEmdash, jargon: [], twotoneHP: spTwotone, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, doubleEscaped: 0, overuse: {}, insider: [], aiVocab: spAi, absolutes: spAbs, notX: 0, panel: [], fragHead: [], pairHead: [] };
+      findings['mcp/showcase-prompts.json#title-one-line'] = { emdash: spEmdash, jargon: [], twotoneHP: spTwotone, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, doubleEscaped: 0, overuse: {}, insider: [], aiVocab: spAi, absolutes: spAbs, anchorWording: [], notX: 0, panel: [], fragHead: [], pairHead: [] };
     }
   }
 }
@@ -812,11 +927,12 @@ if (UPDATE) {
     const overDebt = {};
     for (const [k, v] of Object.entries(f.overuse || {})) if (v > OVERUSE_CAP) overDebt[k] = v;
     const notXDebt = f.notX > DEFAULT_NOTX_CAP ? f.notX : 0;
-    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length + f.insider.length + f.aiVocab.length + f.absolutes.length + (notXDebt ? 1 : 0) + f.panel.length + f.fragHead.length + f.pairHead.length;
+    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length + f.insider.length + f.aiVocab.length + f.absolutes.length + f.anchorWording.length + (notXDebt ? 1 : 0) + f.panel.length + f.fragHead.length + f.pairHead.length;
     if (debt) {
       baseline[rel] = { emdash: f.emdash, jargon: f.jargon.length, bold: f.bold, insider: f.insider.length, aiVocab: f.aiVocab.length, absolutes: f.absolutes.length };
       if (Object.keys(overDebt).length) baseline[rel].overuse = overDebt;
       if (notXDebt) baseline[rel].notX = notXDebt;
+      if (f.anchorWording.length) baseline[rel].anchorWording = f.anchorWording.length;
       if (f.panel.length) baseline[rel].panel = f.panel.length;
       if (f.fragHead.length) baseline[rel].fragHead = f.fragHead.length;
       if (f.pairHead.length) baseline[rel].pairHead = f.pairHead.length;
@@ -829,6 +945,23 @@ if (UPDATE) {
 
 const baseline = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : {};
 const failures = [];
+
+// COPY-CODENAME-PR-GATE-2: row-codename/insider-register ban on the top-level
+// `description` of every chaingraph/graph/nodes/*.json shard — zero-tolerance,
+// no baseline (measured clean over all node shards at origin/main 93d3532ee;
+// deferred_reason and display_name are OUT of scope by ruling). These shards
+// are what main's post-merge derived regen assembles into chaingraph.json and
+// the hub/sitemap, so a leak only surfaces on main AFTER merge — catch it on
+// the PR instead. Scans all shards on full runs and touched shards on
+// --changed runs, same scoping shape as the html scan above.
+for (const nodeFile of readdirSync(resolve(REPO, 'chaingraph', 'graph', 'nodes'))) {
+  if (!nodeFile.endsWith('.json')) continue;
+  const nodeRel = `chaingraph/graph/nodes/${nodeFile}`;
+  if (CHANGED && !isTouched(nodeRel, CHANGED)) continue;
+  const nodeShard = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'graph', 'nodes', nodeFile), 'utf8'));
+  const descInsider = insiderHits(decodeDashEntities(String(nodeShard.description || '')));
+  if (descInsider.length) failures.push(`${nodeRel}: insider-register/codename hit(s) in top-level description: ${descInsider.join('; ')} — rewrite the copy; row codenames never ship in node copy (COPY-CODENAME-PR-GATE-2)`);
+}
 const improvements = [];
 const advisories = [];
 
@@ -850,6 +983,9 @@ for (const [rel, f] of Object.entries(findings)) {
   else if (f.aiVocab.length < bAiVocab) improvements.push(`${rel}: AI-vocabulary ${bAiVocab} -> ${f.aiVocab.length}`);
   if (f.absolutes.length > bAbsolutes) failures.push(`${rel}: absolute/certainty-claim hit(s): ${f.absolutes.join('; ')} (baseline ${bAbsolutes}) — CONTRACT §1.4: rewrite as a falsifiable, scoped claim (e.g. hash-anchored/tamper-evident, ZK-proven, hash-committed and recomputable) instead of an unqualified guarantee`);
   else if (f.absolutes.length < bAbsolutes) improvements.push(`${rel}: absolutes ${bAbsolutes} -> ${f.absolutes.length}`);
+  const bAnchorWording = b.anchorWording || 0;
+  if (f.anchorWording.length > bAnchorWording) failures.push(`${rel}: banned anchoring wording: ${f.anchorWording.join('; ')} (baseline ${bAnchorWording}) — say what is anchored, where, and what the verifier checks; no immutability, trustlessness, qualified-timestamp, done-for-you or single-chain framing (ANCHOR-WORDING-GATE-1)`);
+  else if (f.anchorWording.length < bAnchorWording) improvements.push(`${rel}: anchorWording ${bAnchorWording} -> ${f.anchorWording.length}`);
   // PANEL (scope-box negation-wall shape): BLOCKING for new/changed pages — a
   // file absent from the baseline gets zero tolerance, same shape as jargon/
   // insider/aiVocab above. The baseline is legacy-estate shielding ONLY,

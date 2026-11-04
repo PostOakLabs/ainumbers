@@ -58,6 +58,7 @@ import {
 import { propertyIdMap, findWrapperName } from './gen-webmcp-registrations.mjs';
 import { loadManifestIndex, loadMcpNameIndex } from './check-schema-read-divergence.mjs';
 import { derivedResolve, derivedRoot, isMainContext } from './derived-artifacts.mjs';
+import { chromeInsertionIndex } from './page-chrome-anchor.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -84,6 +85,13 @@ const RED_GREEN = process.argv.includes('--red-green');
 // must never write into an ephemeral scratch tree).
 const SCRATCH = derivedRoot();
 const OVERLAY = Boolean(SCRATCH) && !WRITE && !RED_GREEN && !process.argv.includes('--self-test');
+
+// Flake fix (2026-10-17): the red-green proof used to write a mutated page to
+// the REAL tree and restore it; any concurrent gate reading/mutating the same
+// page raced it (main runs 39004556719 + 39037398003: "gate is deaf"). The
+// mutation now lives in memory only: pageAbs -> mutated source. Disk is never
+// written by --red-green / --self-test.
+const PAGE_OVERRIDE = new Map();
 
 const BASELINE_PATH = resolve(HERE, 'a11y-baseline.json');
 const WEBMCP_BEGIN = '<!-- WEBMCP:GEN-BEGIN ';
@@ -251,7 +259,7 @@ function adjudicateNode(node, repoRoot, manifestIndex, mcpNameByTool) {
   // pages the assembly did not produce fall back to the committed page.
   const pageAbs = OVERLAY ? derivedResolve('chaingraph', `${id}.html`) : resolve(repoRoot, pageRel);
   if (!existsSync(pageAbs)) return { id, outOfScope: `${pageRel} absent (no in-repo page)` };
-  const pageSrc = readFileSync(pageAbs, 'utf8');
+  const pageSrc = PAGE_OVERRIDE.has(pageAbs) ? PAGE_OVERRIDE.get(pageAbs) : readFileSync(pageAbs, 'utf8');
   if (!pageSrc.includes(WEBMCP_BEGIN)) return { id, outOfScope: `${pageRel} carries no generated WebMCP region (hand-authored node page — out of scope)` };
   const rec = manifestIndex.byTool.get(id)
     || (mcpNameByTool.get(id) ? manifestIndex.byMcp.get(mcpNameByTool.get(id)) : null)
@@ -399,6 +407,22 @@ function midflightShardIds() {
     .filter((id) => existsSync(resolve(REPO, 'chaingraph', `${id}.html`)) || existsSync(resolve(REPO, 'manifests', `${id}.manifest.json`)));
 }
 
+/** QUEUE-EJECT-NEWNODE-ASSEMBLE-1: classify the mid-flight finding. It is a
+ *  problem (exit 1) in every isMainContext() context AND in any CI run
+ *  (GITHUB_ACTIONS=true, i.e. pull_request too), so a new-node PR that did not
+ *  commit its enrolled meta + assembled chaingraph.json reds on the PR instead
+ *  of being ejected from the merge queue (PR #2830, run 41540654983). A local
+ *  run on a feature branch (the pre-push hook) stays advisory, so a builder
+ *  whose fence forbids chaingraph.json can still push its PR. `env` and `main`
+ *  are injectable for the in-memory self-test only. */
+function midflightFinding(ids, { env = process.env, main } = {}) {
+  if (!ids.length) return { problem: null, advisory: null };
+  const msg = `node shard(s) on disk not in chaingraph.meta.json order.nodes (mid-flight): ${ids.join(', ')} — cure in the PR at its CURE-SEQUENCE-1 turn (lineage-class): merge current main, then node scripts/assemble-chaingraph.mjs --enroll (verdict must be AUTO-LAND, additive), commit chaingraph/chaingraph.meta.json + chaingraph/chaingraph.json (see #2384, #2806)`;
+  const hard = env.GITHUB_ACTIONS === 'true' || (main === undefined ? isMainContext() : main);
+  if (hard) return { problem: msg, advisory: null };
+  return { problem: null, advisory: `⚠ check-a11y-tree advisory (local feature branch — CI and the merge queue fail closed on this): ${msg}` };
+}
+
 /** SO #34c RED-then-GREEN proof, in-process (never exits non-zero). */
 function redGreen() {
   const before = collect();
@@ -407,10 +431,10 @@ function redGreen() {
   if (!target) fail('no emitted region found to mutate for the red-green proof');
   const mutated = target.pageSrc.replace('Run complete. execution_hash', 'Run c0mplete. execution_hash');
   if (mutated === target.pageSrc) fail('mutation did not apply');
-  writeFileSync(target.pageAbs, mutated, 'utf8');
+  PAGE_OVERRIDE.set(target.pageAbs, mutated);
   const during = collect();
   const redOk = during.problems.some((p) => p.startsWith(target.pageRel) && (p.includes('drifted') || p.includes('Run complete')));
-  writeFileSync(target.pageAbs, target.pageSrc, 'utf8'); // restore
+  PAGE_OVERRIDE.delete(target.pageAbs); // restore (in-memory only)
   const after = collect();
   if (!redOk) fail('mutated tree did NOT red the gate — the gate is deaf');
   if (after.problems.length) fail('tree still red after restore');
@@ -422,21 +446,16 @@ function run() {
   const toolsPages = readdirSync(resolve(REPO, 'tools')).filter((f) => f.endsWith('.html')).length;
   // MERGEGROUP-A11Y-ASSEMBLY-1 Fix B: the mid-flight shard condition fails
   // CLOSED in every main context (merge_group with the assembled tree, push
-  // and workflow_run on main — isMainContext()'s fail-closed whitelist) and
-  // stays a WARNING on pull_request, where a mid-flight shard is by
-  // construction repairable inside the PR (commit the regenerated derived
-  // artifacts, the #2384 shape). This also closes the path-filter skip delay
+  // and workflow_run on main — isMainContext()'s fail-closed whitelist). A
+  // mid-flight shard is by construction repairable inside the PR (commit the
+  // enrolled meta + assembled chaingraph.json, the #2384/#2806 shape). This also closes the path-filter skip delay
   // measured on run 38188494506: the post-regen main run cannot skip past an
   // unregistered shard that carries a page or manifest.
-  const midflight = midflightShardIds();
-  if (midflight.length) {
-    const msg = `node shard(s) on disk not in chaingraph.meta.json order.nodes (mid-flight): ${midflight.join(', ')} — queue cannot prove this page passes TOOLPAGE-A11Y-1; commit the regenerated derived artifacts in the PR (see #2384)`;
-    if (isMainContext()) {
-      problems.push(msg);
-    } else {
-      console.log(`⚠ check-a11y-tree advisory (PR context — the merge queue fails closed on this): ${msg}`);
-    }
-  }
+  // QUEUE-EJECT-NEWNODE-ASSEMBLE-1: the finding now also fails on the CI
+  // pull_request run (see midflightFinding), so the PR shows the queue's red.
+  const finding = midflightFinding(midflightShardIds());
+  if (finding.problem) problems.push(finding.problem);
+  if (finding.advisory) console.log(finding.advisory);
   if (problems.length) {
     console.error(`✗ check-a11y-tree FAILED (${problems.length}):`);
     problems.forEach((p) => console.error('    ' + p));
@@ -502,24 +521,16 @@ function runWrite() {
     const metaTag = `<meta name="ai-tool" content="${escapeAttrValue(d.toolName)}">`;
     base = base.slice(0, headClose) + metaTag + '\n' + base.slice(headClose);
 
-    // 6. the runtime region: before the first non-script <footer>, else the last </body>.
-    const scriptSpans = [];
-    {
-      const re = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
-      let m;
-      while ((m = re.exec(base)) !== null) scriptSpans.push([m.index, m.index + m[0].length]);
-    }
-    const inScript = (i) => scriptSpans.some(([a, b]) => i >= a && i < b);
-    let close = -1;
-    let f = base.indexOf('<footer>');
-    while (f !== -1) {
-      if (!inScript(f)) { close = f; break; }
-      f = base.indexOf('<footer>', f + 1);
-    }
-    if (close === -1) close = base.lastIndexOf('</body>');
-    if (close === -1) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert the region before`); continue; }
-    const head = base.slice(0, close).replace(/\s+$/, '');
-    const next = head + '\n\n' + d.expected + '\n\n' + base.slice(close);
+    // 6. the runtime region: WRITER-CANON-ALIGN-1 — the insertion point comes
+    // from the ONE shared canonical-position table
+    // (scripts/page-chrome-anchor.mjs): first non-script <footer>, else the
+    // last </body>. The a11y writer inserts AT the anchor (below any abutting
+    // ASK-AGENT block — the canonical ASK-above-A11Y order falls out by
+    // construction); the private inline copy this file carried before is gone.
+    const anchorAt = chromeInsertionIndex(base, { aboveA11yRegion: false });
+    if (!anchorAt) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert the region before`); continue; }
+    const head = base.slice(0, anchorAt.index).replace(/\s+$/, '');
+    const next = head + '\n\n' + d.expected + '\n\n' + base.slice(anchorAt.index);
     if (next !== d.pageSrc) { writeFileSync(d.pageAbs, next, 'utf8'); written++; }
     else exact++;
   }
@@ -562,8 +573,49 @@ async function selfTest() {
   const anchor = mainAnchorOf(markupView('<body><nav>x</nav><div class="wrap"><input id="a"></div></body>'));
   assert(anchor && anchor.tag === '<div class="wrap">', 'main anchor = first non-script container after </nav>');
 
+  // WRITER-CANON-ALIGN-1: the runtime-region insertion goes through the ONE
+  // shared canonical-position table. Both chrome writers' invocation orders
+  // must converge byte-identically on the canonical ASK-above-A11Y-above-footer
+  // layout (the ask-agent writer inserts above an abutting A11Y region; the
+  // a11y writer inserts at the anchor, below any abutting ASK block).
+  {
+    const ask = '<!-- ASK-AGENT:BEGIN generator=x manifest=y -->ASK-BLOCK<!-- ASK-AGENT:END -->';
+    const region = '<!-- A11Y-TREE:BEGIN generator=z --><script>/* ocg */</script><!-- A11Y-TREE:END -->';
+    const page0 = '<!doctype html><html><body><h1>p</h1><footer>site footer</footer></body></html>';
+    const insert = (src, block, aboveA11y) => {
+      const at = chromeInsertionIndex(src, { aboveA11yRegion: aboveA11y });
+      assert(at, 'shared table finds the tail anchor');
+      return src.slice(0, at.index).replace(/\s+$/, '') + '\n\n' + block + '\n\n' + src.slice(at.index);
+    };
+    const aThenAsk = insert(insert(page0, region, false), ask, true);
+    const askThenA = insert(insert(page0, ask, true), region, false);
+    assert(aThenAsk === askThenA, 'both writer invocation orders converge on identical bytes (shared table)');
+    assert(aThenAsk.indexOf(ask) < aThenAsk.indexOf(region) && aThenAsk.indexOf(region) < aThenAsk.indexOf('<footer>'), 'canonical order ASK above A11Y above footer');
+    const noFooter = insert('<!doctype html><html><body>x</body></html>', region, false);
+    assert(noFooter.includes(region) && noFooter.indexOf(region) < noFooter.indexOf('</body>'), 'fallback anchor = last </body>');
+  }
+
+  // QUEUE-EJECT-NEWNODE-ASSEMBLE-1: the mid-flight finding fails on the CI
+  // pull_request run and stays advisory on a local feature branch. In-memory
+  // only: a synthetic id, an injected env, nothing read from or written to disk.
+  {
+    const ids = ['art-999-selftest-midflight'];
+    const exitOf = (f) => (f.problem ? 1 : 0);
+    const pr = midflightFinding(ids, { env: { GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request' }, main: false });
+    assert(exitOf(pr) === 1 && !pr.advisory, 'GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request + mid-flight id → problem, exit 1');
+    assert(pr.problem.startsWith('node shard(s) on disk not in chaingraph.meta.json order.nodes (mid-flight): art-999-selftest-midflight'), 'leading phrase byte-identical for existing greps');
+    assert(pr.problem.includes('node scripts/assemble-chaingraph.mjs --enroll'), 'finding names the enroll cure');
+    console.log(`  case PR-context (GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request): exit ${exitOf(pr)} — ${pr.problem.slice(0, 120)}…`);
+    const local = midflightFinding(ids, { env: {}, main: false });
+    assert(exitOf(local) === 0 && local.advisory && local.advisory.startsWith('⚠ check-a11y-tree advisory'), 'GITHUB_ACTIONS unset on a feature branch → advisory, exit 0');
+    console.log(`  case local-feature-branch (GITHUB_ACTIONS unset): exit ${exitOf(local)} — ${local.advisory.slice(0, 120)}…`);
+    const queue = midflightFinding(ids, { env: {}, main: true });
+    assert(exitOf(queue) === 1, 'main context (isMainContext() true) → problem, exit 1 (unchanged)');
+    assert(exitOf(midflightFinding([], { env: { GITHUB_ACTIONS: 'true' }, main: true })) === 0, 'no mid-flight ids → nothing');
+  }
+
   await redGreen();
-  console.log('SELF-TEST PASS (emitted script shape, attr applier purity/idempotence, region markers, script-blinded control scan, main anchor, mutation red-green).');
+  console.log('SELF-TEST PASS (mid-flight PR-context red + local advisory,emitted script shape, attr applier purity/idempotence, region markers, script-blinded control scan, main anchor, shared canonical-position table convergence, mutation red-green).');
 }
 
 function expectedRegionTest() {

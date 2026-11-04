@@ -1,7 +1,7 @@
 ---
 type: DecisionTool
 title: "Regulatory Report Period-over-Period Variance Explainer"
-description: "Computes period-over-period variance across a regulatory report instance pair -- absolute and relative movement per line item against a policy-supplied materiality threshold (default plus per-line overrides), ranked by contribution (largest absolute movement first) -- and flags which movements require a written explanation, i.e. exceed materiality with no matching explanation on file. Does not judge whether a supplied explanation is adequate; that is a human review-and-approval step downstream (RGEC-K-2's gate: an unexplained material variance routes to review_required). Pairs with art-484-regrpt-editcheck-runner's rule-based edit checks -- this node handles analytical-review variance, not rule pass/fail."
+description: "Computes period-over-period variance across a regulatory report instance pair -- absolute and relative movement per line item against a policy-supplied materiality threshold (default plus per-line overrides), ranked by contribution (largest absolute movement first) -- and flags which movements require a written explanation, i.e. exceed materiality with no matching explanation on file. Does not judge whether a supplied explanation is adequate; that is a human review-and-approval step downstream in the regrpt-submission-cycle chain (an unexplained material variance routes to review_required). Pairs with art-484-regrpt-editcheck-runner's rule-based edit checks -- this node handles analytical-review variance, not rule pass/fail."
 resource: https://ainumbers.co/chaingraph/art-485-regrpt-variance-explainer.html
 tags: ["regulatory_reporting", "wave-77", "mcp:explain_regrpt_variance"]
 timestamp: 2026-07-14

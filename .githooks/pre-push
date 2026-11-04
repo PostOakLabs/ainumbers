@@ -1,12 +1,17 @@
 #!/bin/sh
-# Pre-push shift-left gate. Runs the full preflight suite so a red tree never reaches CI
-# (green here == green in CI). Enabled per-clone via `core.hooksPath = .githooks`; run
-# `node scripts/setup-hooks.mjs` once after cloning (worktrees inherit it automatically).
+# Pre-push shift-left gate. Runs a local preflight leg so a red tree rarely
+# reaches CI: the ≤90 s --quick subset on every push (PREFLIGHT-QUICK-1), the
+# push-safety leg when the diff touches gate machinery (PREPUSH-SAFETY-LEG-1),
+# and the full suite only under PREFLIGHT_FULL=1. Enabled per-clone via
+# `core.hooksPath = .githooks`; run `node scripts/setup-hooks.mjs` once after
+# cloning (worktrees inherit it automatically).
 #
 # Emergency bypass: none documented — PREFLIGHT-QUICK-1 made the cheap path cheap
 # enough that skipping it is never the right move. Fix the red gate and re-push.
 #
-# CI remains the real backstop — this hook only enforces locally.
+# CI remains the real backstop — the full suite runs in CI on the PR head and
+# the merge_group tree before anything reaches main; this hook only enforces
+# locally, and never runs the whole suite on the shared push host by default.
 #
 # Mutation tier bound (ART699-MUTATION-SURFACE-SPLIT-1): the local mutation
 # tier runs under the existing per-kernel bound (1200 s via
@@ -183,32 +188,122 @@ fi
 # or when this diff touches the gated machinery itself (scripts/, .github/, or a
 # kernel _*.mjs). ⛔ The sanctioned answer to a red gate is FIX THE GATE, never a
 # bypass flag. (CI remains the real backstop.)
-echo "pre-push: running scripts/preflight.mjs --quick (PREFLIGHT-QUICK-1; full suite only when PREFLIGHT_FULL=1 or the diff touches scripts/, .github/, chaingraph/kernels/_*.mjs) ..."
-node scripts/preflight.mjs --quick "$@"
-status=$?
-[ "$status" -ne 0 ] && echo "pre-push: QUICK preflight RED — push will be blocked below; fix the gate and re-push." 1>&2
+#
+# PREPUSH-SAFETY-LEG-1 (2026-11-02): when the diff DOES touch gate machinery,
+# the hook no longer runs the LOCAL full suite (its ≈660 s on the one shared
+# push host capped every builder's throughput — 54% of non-regen commits paid
+# it). It runs `preflight.mjs --push-safety --changed origin/main` instead: the
+# entire quick set, plus a changed-file secret scan, plus the per-kernel
+# preflight of every touched kernel, plus the self-test / node --test of every
+# changed gate script. NOTHING is removed from CI: the full suite still runs on
+# the PR head and the merge_group tree before anything reaches main. A green
+# push-safety leg is a push-safety verdict, never "all hard CI gates passed" —
+# the attestation note below and prepush-attestation.yml say which leg ran.
+# PREFLIGHT_FULL=1 keeps forcing the full suite (explicit opt-in escape hatch).
+# HOOKSKIP-SHARD-FLOOR-GAP-1: mark THIS hook's preflight invocation as the in-hook
+# leg. run-mutation-tier.mjs applies the hookSkipKernels advisory deferral only
+# when this marker is set, so the PR CI tier shards and the nightly --all sweep
+# (which never see it) run and floor every hookSkip-listed kernel.
+export MUTATION_TIER_IN_HOOK=1
 
-# Full suite only when it can be owed (PREFLIGHT-QUICK-1) — and only after a
-# GREEN quick run: a red quick already fails the push, so the full leg has
-# nothing to add on top of it.
-if [ "$status" -eq 0 ]; then
-  need_full=0
-  if [ "$PREFLIGHT_FULL" = "1" ]; then
-    need_full=1
-    full_reason="PREFLIGHT_FULL=1"
-  else
-    merge_base_quick=$(git merge-base origin/main HEAD 2>/dev/null) || merge_base_quick=""
-    if [ -n "$merge_base_quick" ] && [ -n "$(git diff --name-only "$merge_base_quick" HEAD -- scripts/ .github/ 'chaingraph/kernels/_*.mjs')" ]; then
-      need_full=1
-      full_reason="diff touches scripts/ or .github/ or chaingraph/kernels/_*.mjs"
+# PREPUSH-PRID-ENV-1: tell check-id-collision.mjs which PR this push belongs to
+# (it reads PR_ID_COLLISION_PR; otherwise the PR's own title looks like a rival
+# claim on the id). Only when the diff ADDS a node/manifest file (a mint) is gh
+# consulted, with an 8 s cap; scripts/prepush-pr-id-env.mjs exports a number only
+# if the PR is OPEN, in PostOakLabs/ainumbers, and its headRefName equals the
+# pushed branch. ANY error leaves the variable unset; this block never fails a push.
+if [ -z "$PR_ID_COLLISION_PR" ] && [ -f scripts/prepush-pr-id-env.mjs ]; then
+  _prid_mb=$(git merge-base origin/main HEAD 2>/dev/null) || _prid_mb=""
+  if [ -n "$_prid_mb" ]; then
+    _prid_added=$(git diff --name-only --diff-filter=A "$_prid_mb" HEAD -- 'chaingraph/graph/nodes/' 'manifests/' 2>/dev/null)
+    if [ -n "$_prid_added" ]; then
+      _prid_list=$(mktemp 2>/dev/null) || _prid_list=""
+      if [ -n "$_prid_list" ]; then
+        printf '%s\n' "$_prid_added" > "$_prid_list"
+        _prid_num=$(printf '%s\n' "$refs_stdin" | node scripts/prepush-pr-id-env.mjs --head "$(git rev-parse HEAD 2>/dev/null)" --added-file "$_prid_list" 2>/dev/null) || _prid_num=""
+        rm -f "$_prid_list"
+        case "$_prid_num" in
+          ''|*[!0-9]*) ;;
+          *) export PR_ID_COLLISION_PR="$_prid_num"; echo "pre-push: PR_ID_COLLISION_PR=$_prid_num (open PR for this branch; id-collision gate will skip its own title)" ;;
+        esac
+      fi
     fi
   fi
-  if [ "$need_full" -eq 1 ]; then
-    echo "pre-push: running the FULL preflight suite ($full_reason) ..."
-    node scripts/preflight.mjs --changed origin/main "$@"
-    status=$?
-    [ "$status" -ne 0 ] && echo "pre-push: FULL preflight RED — push will be blocked below; fix the gate and re-push." 1>&2
+fi
+
+# PREPUSH-NARROW-1: decide whether the FULL suite is owed BEFORE running anything.
+# Trigger = PREFLIGHT_FULL=1, or a diff path that scripts/prepush-full-trigger.mjs
+# classifies as gate machinery or full-suite-read data (scripts/**/*.{mjs,js,cjs,py,sh,ts},
+# scripts/**/*.{json,txt,html} except the QUICK-only baselines, .github/**,
+# chaingraph/kernels/_*.mjs). Docs-only scripts/ edits (README.md, *.DEPRECATED) no
+# longer pay the full suite. The attestation block further down is INDEPENDENT of this
+# decision (it uses check-prepush-attestation.mjs --print-pathspec), so scripts/**
+# commits still get PREFLIGHT-VERIFIED notes.
+need_full=0
+full_reason=""
+if [ "$PREFLIGHT_FULL" = "1" ]; then
+  need_full=1
+  full_reason="PREFLIGHT_FULL=1"
+elif [ -f scripts/prepush-full-trigger.mjs ]; then
+  merge_base_quick=$(git merge-base origin/main HEAD 2>/dev/null) || merge_base_quick=""
+  if [ -n "$merge_base_quick" ]; then
+    full_hits=$(git diff --name-only "$merge_base_quick" HEAD 2>/dev/null | node scripts/prepush-full-trigger.mjs 2>/dev/null | head -n 3)
+    if [ -n "$full_hits" ]; then
+      need_full=1
+      full_reason="diff touches gate machinery: $(printf '%s' "$full_hits" | tr '\n' ' ')"
+    fi
   fi
+fi
+
+if [ "$need_full" -eq 1 ]; then
+  if [ "$PREFLIGHT_FULL" = "1" ]; then
+    # FULL ⊇ QUICK_GATES (every quick gate has a same-or-wider GATES entry; asserted by
+    # `preflight.mjs --quick --self-test` check (e)), so the ~90 s quick leg is skipped
+    # when the full suite runs. Full output is teed to a log inside the git dir
+    # (never tracked) so the SLOWEST 10 GATE(S) block survives a long run.
+    echo "pre-push: running the FULL preflight suite (PREFLIGHT_FULL=1); quick leg skipped (full is a superset) ..."
+    _pf_gitdir=$(git rev-parse --git-dir 2>/dev/null)
+    if [ -n "$_pf_gitdir" ] && [ -d "$_pf_gitdir" ]; then
+      _pf_log="$_pf_gitdir/preflight-full.log"
+      _pf_rc="$_pf_gitdir/preflight-full.rc"
+      rm -f "$_pf_rc"
+      { node scripts/preflight.mjs --changed origin/main "$@"; echo $? > "$_pf_rc"; } 2>&1 | tee "$_pf_log"
+      status=$(cat "$_pf_rc" 2>/dev/null)
+      [ -z "$status" ] && status=1
+      rm -f "$_pf_rc"
+      echo "pre-push: full preflight log kept at $_pf_log (SLOWEST 10 GATE(S) block is at its tail)."
+    else
+      node scripts/preflight.mjs --changed origin/main "$@"
+      status=$?
+    fi
+    [ "$status" -ne 0 ] && echo "pre-push: FULL preflight RED — push will be blocked below; fix the gate and re-push." 1>&2
+  else
+    # PREPUSH-SAFETY-LEG-1: gate-machinery diff ⇒ the push-safety leg, NOT the
+    # local full suite. Quick set + changed-file secret scan + touched-kernel
+    # gates + changed-gate self-tests; everything else waits for CI (the full
+    # suite still runs on the PR head and the merge_group tree).
+    echo "pre-push: running the PUSH-SAFETY leg (PREPUSH-SAFETY-LEG-1; $full_reason; the full suite still runs in CI on the PR head and the merge_group tree) ..."
+    _pf_gitdir=$(git rev-parse --git-dir 2>/dev/null)
+    if [ -n "$_pf_gitdir" ] && [ -d "$_pf_gitdir" ]; then
+      _pf_log="$_pf_gitdir/preflight-push-safety.log"
+      _pf_rc="$_pf_gitdir/preflight-push-safety.rc"
+      rm -f "$_pf_rc"
+      { node scripts/preflight.mjs --push-safety --changed origin/main "$@"; echo $? > "$_pf_rc"; } 2>&1 | tee "$_pf_log"
+      status=$(cat "$_pf_rc" 2>/dev/null)
+      [ -z "$status" ] && status=1
+      rm -f "$_pf_rc"
+      echo "pre-push: push-safety leg log kept at $_pf_log."
+    else
+      node scripts/preflight.mjs --push-safety --changed origin/main "$@"
+      status=$?
+    fi
+    [ "$status" -ne 0 ] && echo "pre-push: PUSH-SAFETY leg RED — push will be blocked below; fix the gate and re-push." 1>&2
+  fi
+else
+  echo "pre-push: running scripts/preflight.mjs --quick (PREFLIGHT-QUICK-1; full suite only when PREFLIGHT_FULL=1 or the diff touches gate machinery per scripts/prepush-full-trigger.mjs) ..."
+  node scripts/preflight.mjs --quick "$@"
+  status=$?
+  [ "$status" -ne 0 ] && echo "pre-push: QUICK preflight RED — push will be blocked below; fix the gate and re-push." 1>&2
 fi
 
 # Disclosure — DISCLOSURE, not permission: runs regardless of outcome, so a
@@ -315,7 +410,7 @@ if [ -n "$protected_hits" ]; then
   note_sha=$(git rev-parse HEAD)
   ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   echo "════════════════════════════════════════════════════════════════"
-  echo "✅ PREFLIGHT VERIFIED — protected path touched, all hard CI gates passed."
+  echo "✅ PREFLIGHT VERIFIED — protected path touched; the pre-push leg ran and passed (push-safety leg since PREPUSH-SAFETY-LEG-1, full suite only under PREFLIGHT_FULL=1). The full CI suite still gates this commit on the PR head and the merge_group tree."
   echo "$protected_hits" | sed 's/^/     /'
   echo "   Attesting commit $note_sha at $ts (git note, ref preflight-attestation)."
   echo "════════════════════════════════════════════════════════════════"

@@ -18,12 +18,12 @@ import { executionHash } from './_hash.mjs';
 //      afterRemoveLiquidity<-afterRemoveLiquidityReturnDelta);
 //   R2 the zero address must NOT carry a dynamic fee;
 //   R3 a non-zero hook must have at least one permission bit set OR a dynamic fee
-//      (pool_fee & 0x800000 != 0).
+//      (pool_fee == 0x800000 exactly; any other value, flag bit set or not, is a static fee).
 //
 // Input shape (step 4b): declared_permissions is accepted either as a flat object with all
 // 14 flag booleans, or in the Uniswap hooklist entry shape { hook: { address }, flags: {...},
 // properties: { dynamicFee } }. When properties.dynamicFee is supplied it is reconciled with
-// the caller's pool_fee (dynamic iff pool_fee & 0x800000). No entry names or descriptions are
+// the caller's pool_fee (dynamic iff pool_fee == 0x800000). No entry names or descriptions are
 // read or emitted (the hooklist registry carries no license); an address plus its flag
 // booleans are used as a fact with the entry URL cited in the fixture.
 //
@@ -112,7 +112,7 @@ function hasPermission(bits, bit) {
  *   hook_address: '0x' + 40 hex (checksum not required, normalised to lowercase),
  *   declared_permissions: 14 required booleans — flat, or hooklist entry
  *     { hook: { address }, flags, properties: { dynamicFee } },
- *   pool_fee?: uint24 (dynamic fee iff pool_fee & 0x800000),
+ *   pool_fee?: uint24 (dynamic fee iff pool_fee == 0x800000 exactly),
  *   declaration_source?: string (free text, e.g. "TSV Notice item (p)"),
  * }
  */
@@ -193,7 +193,7 @@ export function compute(pp) {
     .map(({ flag, bit, declared: d, actual, status }) => ({ flag, bit, declared: d, actual, status }));
 
   // ---- isValidHookAddress replica (v4-core L109-127 at the pin) ----
-  const poolDynamic = poolFee !== undefined && (poolFee & DYNAMIC_FEE_FLAG) !== 0n;
+  const poolDynamic = poolFee !== undefined && poolFee === DYNAMIC_FEE_FLAG;
   let valid = true;
   let failingRule = null;
   const baseOf = { beforeSwapReturnDelta: 'beforeSwap', afterSwapReturnDelta: 'afterSwap',

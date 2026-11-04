@@ -1,6 +1,6 @@
 # E-Invoice Transmission Receipt Builder
 
-Build a hash-anchored receipt proving a specific e-invoice's transmitted bytes were format-validated and VAT-arithmetic-checked, with the routed mandate attached. Binds to the as-transmitted document digest (and, for hybrid Factur-X, the embedded XML digest separately). Proves validation was run; never certifies tax compliance, legal validity, or clearance-platform acceptance. Carries SPEC.md §27 pre-transmission gate wiring (review_required release gate, emergency_override for a rejected batch) - schema-only, enforcement pending HA-RETRO-1. Terminal node of the einvoice-validation-pipeline chain. Zero network, zero PII.
+Build a hash-anchored receipt proving a specific e-invoice's transmitted bytes were format-validated and VAT-arithmetic-checked, with the routed mandate attached. Binds to the as-transmitted document digest (and, for hybrid Factur-X, the embedded XML digest separately). Proves validation was run; never certifies tax compliance, legal validity, or clearance-platform acceptance. Carries SPEC.md §27 pre-transmission gate wiring (review_required release gate, emergency_override for a rejected batch) - schema-only; enforcement is not yet wired. Terminal node of the einvoice-validation-pipeline chain. Zero network, zero PII.
 
 - Page: https://ainumbers.co/chaingraph/art-296-einvoice-transmission-receipt-builder.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-296-einvoice-transmission-receipt-builder.md

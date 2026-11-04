@@ -132,10 +132,12 @@ function main() {
   const excludeSet = new Set(MANIFEST.recursiveExcludeSubdirs || []);
   let chaingraphFiles = [];
   let attestationsFiles = [];
+  let researchFiles = [];
   for (const dir of MANIFEST.recursiveDirs) {
     const files = walkHtmlRecursive(resolve(REPO, dir), dir, excludeSet).sort();
     if (dir === 'chaingraph') chaingraphFiles = files;
     else if (dir === 'attestations') attestationsFiles = files;
+    else if (dir === 'research') researchFiles = files;
   }
 
   // Surfaces published to a DIFFERENT host than BASE (docs/ -> docs.ainumbers.co
@@ -188,6 +190,10 @@ function main() {
   for (const f of attestationsFiles) lines.push(urlEntry(f, lm(f), 'yearly', '0.3'));
   lines.push('');
 
+  lines.push('  <!-- Research (benchmark pages + hub) -->');
+  for (const f of researchFiles) lines.push(urlEntry(f, lm(f), 'monthly', '0.6'));
+  lines.push('');
+
   lines.push('  <!-- Trust -->');
   for (const f of trustFiles) lines.push(urlEntry(`trust/${f}`, lm(`trust/${f}`), 'monthly', '0.5'));
   lines.push('');
@@ -203,7 +209,7 @@ function main() {
 
   const externalTotal = externalSurfaces.reduce((n, s) => n + s.files.length, 0);
   const total = MANIFEST.rootPages.length + guideFiles.length + toolFiles.length +
-    chaingraphFiles.length + disclosureFiles.length + ledgerFiles.length + attestationsFiles.length + trustFiles.length + externalTotal;
+    chaingraphFiles.length + disclosureFiles.length + ledgerFiles.length + attestationsFiles.length + researchFiles.length + trustFiles.length + externalTotal;
 
   if (CHECK) {
     const current = existsSync(SITEMAP_PATH) ? readFileSync(SITEMAP_PATH, 'utf8') : '';
@@ -216,7 +222,7 @@ function main() {
   }
 
   writeFileSync(SITEMAP_PATH, output, 'utf8');
-  console.log(`regen-sitemap: written (${toolFiles.length} tools, ${guideFiles.length} guides, ${chaingraphFiles.length} chaingraph, ${disclosureFiles.length} disclosures, ${ledgerFiles.length} ledger, ${attestationsFiles.length} attestations, ${trustFiles.length} trust, ${externalTotal} external, ${total} total).`);
+  console.log(`regen-sitemap: written (${toolFiles.length} tools, ${guideFiles.length} guides, ${chaingraphFiles.length} chaingraph, ${disclosureFiles.length} disclosures, ${ledgerFiles.length} ledger, ${attestationsFiles.length} attestations, ${researchFiles.length} research, ${trustFiles.length} trust, ${externalTotal} external, ${total} total).`);
   // Named, never silent: a URL that vanished from the sitemap while its file is
   // still on disk must be explainable from this run's own output.
   const withheld = [...LENS.nonLivePaths].filter((p) => existsSync(resolve(REPO, p))).sort();

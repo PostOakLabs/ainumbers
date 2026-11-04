@@ -1,5 +1,5 @@
-# 📜 AINumbers.co — Unified Build Contract v1.11
-**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026 · **v1.6 (Amendment A6 — reader-facing copy style):** July 2026 · **v1.7 (Amendment A7 — ledger subdomain storage carve-out):** July 2026 · **v1.8 (Amendment A10 — Policy Mandate v1.1 `caveats` member):** August 2026 · **v1.9 (Amendment A12 — public changelog, generated + leak-gated):** September 2026 · **v1.10 (Amendment A13 — MCP server card: gated registry surface + schema twin):** September 2026 · **v1.11 (Amendment A14 — claim-level evidence register):** September 2026  
+# 📜 AINumbers.co — Unified Build Contract v1.12
+**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026 · **v1.6 (Amendment A6 — reader-facing copy style):** July 2026 · **v1.7 (Amendment A7 — ledger subdomain storage carve-out):** July 2026 · **v1.8 (Amendment A10 — Policy Mandate v1.1 `caveats` member):** August 2026 · **v1.9 (Amendment A12 — public changelog, generated + leak-gated):** September 2026 · **v1.10 (Amendment A13 — MCP server card: gated registry surface + schema twin):** September 2026 · **v1.11 (Amendment A14 — claim-level evidence register):** September 2026 · **v1.12 (Amendment A15: WebMCP conformance, page and chain definitions):** October 2026  
 
 > **SSOT for the OpenChainGraph standard = `repo/chaingraph/standard/SPEC.md`** (+ `openchain-graph-v0.4.schema.json`). This contract references it, does not restate it (Amendment A5). Conformance = the SPEC.md §15 gate suite.
 **License:** CC BY 4.0 · **Scope:** All browser-based financial tools, hubs, and MCP integrations  
@@ -728,6 +728,44 @@ The evidence register is the pair `repo/evidence/claims.json` (generated) + `rep
 
 ### A14.3 · Drift reds until re-review
 When a source surface drifts from its snapshot, the register MUST go red and stay red until the claim is re-reviewed and re-validated. No workflow, bot, or writer may silence that red by regenerating the snapshot or the register: laundering the drift would defeat the register's reason to exist. A claim whose review date passes is a review-debt event of the same class. The paired mutation self-test (`repo/scripts/check-evidence-register.test.mjs`) proves every verdict class can go red.
+
+## Amendment A15 · WebMCP conformance: page and chain definitions (October 2026)
+
+*Applied October 2026. Both definitions were ratified on 2026-10-17. Numbered §A15 because §A1 to §A14 are occupied; nothing renumbers, nothing displaces. Before this amendment the contract and the standard were both silent on WebMCP: the working definition lived only inside the generator and its gates, so "conformant" had no normative source to count against. Rationale: [`CONTRACT-RATIONALE.md` §A15](CONTRACT-RATIONALE.md).*
+
+**Program target (stated verbatim): every tool page and node page conformant; chains censused.**
+
+Each part below names its mechanical test and carries one of two marks. **Gated**: the named script runs in preflight and a regression reds the push. **Advisory**: the test is defined, but no blocking gate runs it today, so a failure is reported and never blocks. A part marked advisory is still part of the definition: a page or chain that fails it is **not conformant**, and nothing may count it as conformant because no gate went red.
+
+### A15.1 · WebMCP-conformant page (RFC 2119: MUST)
+A tool page (`tools/*.html`) or node page (`chaingraph/art-*.html`) is **WebMCP-conformant** when all four parts hold:
+
+| Part | Requirement | Mechanical test | Mark |
+|---|---|---|---|
+| 1 | The page carries a generator-made WebMCP registration, byte-exact | `node scripts/gen-webmcp-registrations.mjs --check` | Gated |
+| 2 | The registered tool name and input schema match the page's manifest (`manifests/*.manifest.json`) or the node's chaingraph `mcp_name` | the generator's manifest-shape and entry checks under `--check`, plus `node scripts/check-webmcp-name-uniqueness.mjs` | Gated |
+| 3 | The registered tool executes in the vm gate the page's mode uses | `node scripts/check-webmcp-wrapper-execute.mjs` (wrapper mode) or `node scripts/check-webmcp-direct-execute.mjs` (direct mode) | Gated as a ratchet: a new failure reds; a page held on the gate's baseline as WARN does not pass part 3 |
+| 4 | The page tool's output hash equals the worker's MCP tool output hash for the same input | `node scripts/webmcp-triple-hash.mjs` (cross-door comparison) | Advisory: report-only today |
+
+A page the generator excludes carries no registration and fails part 1. Exclusion is a reason recorded by the generator, never a pass.
+
+### A15.2 · WebMCP-conformant chain (RFC 2119: MUST)
+A chain (a `chaingraph.json` `chains[]` entry) is **WebMCP-conformant** when all four parts hold:
+
+| Part | Requirement | Mechanical test | Mark |
+|---|---|---|---|
+| 1 | The chain is registered on its composer page: the page named by the chain's `composer_url` carries the generator-made chain region | `node scripts/gen-webmcp-registrations.mjs --check` (chain region on the `composer_url` page) | Gated for drift of a region that exists. Advisory for presence: a `composer_url` page with no region at all is not caught by `--check` and is found only by the census |
+| 2 | `plan_chain` executes with a stable hash: run in a vm, it returns a v0.4 plan whose `execution_hash` comes from `chaingraph/kernels/_hash.mjs` and is identical across repeated runs | a chain-execution vm gate analogous to part 3 of A15.1 | Advisory: no instrument exists yet |
+| 3 | Every step node is registered: each step's `tool_id` resolves to a registered node tool | step resolution against the registered node set | Advisory: not measured by any gate today |
+| 4 | Browser and server composite hashes agree: the browser leg's composite `execution_hash` equals the server composite's, both computed per SPEC.md §21.2 | browser leg `run-chain-browser.mjs` against server leg `run-chain-corpus.mjs` (worker repo) | Advisory: report-only, compared by a person; SPEC.md §21.2 defines the browser preimage this part tests |
+
+Marks measured 2026-10-18: parts 2 to 4 are advisory. To see where this stands, run `grep -n "webmcp" scripts/preflight.mjs`: a chain-execution vm gate wired there is what moves parts 2 to 4, and the amendment that wires it changes the marks in this table; no other text in A15 moves.
+
+### A15.3 · Counts are derived, never typed
+Any published count of conformant pages or chains is **derived from a sentinel and date-stamped** (`<!--COUNT:key-->` per the count-drift gate, with the date of the census that produced it). A hand-typed conformance count, in this contract or on any shipped surface, is forbidden. This contract states no conformance figure for either definition.
+
+### A15.4 · What A15 does not change
+A15 adds definitions and marks only. It changes no generator, gate, kernel, page or hash. The chain composite preimage is the standard's (SPEC.md §21.2); A15 cites it and does not restate it (Amendment A5).
 ---
 
 ## 🧾 §15 Claim-coverage matrix — every normative claim carries an enforcement disposition
@@ -788,6 +826,8 @@ When a source surface drifts from its snapshot, the register MUST go red and sta
 | 46 | A12 public changelog generated-only, seed fail-closed, leak-gated, under-reporting stated | `gen-changelog.mjs` + `gen-changelog.selftest.mjs` | HOLDS (134 classified merge entries at authoring; leak-gate RED-then-GREEN demonstrated; advisory-on-PR/blocking-on-main via COVERED id `changelog`) |
 | 47 | A13 the MCP server card conforms to `chaingraph/standard/mcp-server-card.schema.json`; `tool_count` == `mcp.live`; served schema twin byte-identical; `openapi_url` == apex root alias | `check-server-card-schema.mjs` | HOLDS (new with Amendment A13) |
 | 48 | A14 registered claims carry source+scope+as_of+review_by+snapshot; snapshots are evidence (never regen-repaired); reviews only move forward | `check-evidence-register.mjs` | HOLDS (born 2026-09-22, EVREG-1: gate + pairing in preflight, COVERED id `evidence-register`) |
+| 49 | A15.1 page conformance parts 1 to 3 (generator-made registration byte-exact; name and schema match manifest or `mcp_name`; executes in the vm gate) | `gen-webmcp-registrations.mjs`, `check-webmcp-name-uniqueness.mjs`, `check-webmcp-wrapper-execute.mjs`, `check-webmcp-direct-execute.mjs` | PARTIAL (new 2026-10-18): parts 1 to 3 gated, part 3 as a baseline ratchet; part 4 (cross-door output hash) advisory via report-only `webmcp-triple-hash.mjs` |
+| 50 | A15.2 chain conformance parts 1 to 4 and A15.3 derived, date-stamped counts | `gen-webmcp-registrations.mjs` | PARTIAL (new 2026-10-18): part 1 gated for drift only; region presence, parts 2 to 4 and A15.3 are DISCIPLINE until the chain-execution vm gate lands |
 ---
 
 **END OF CONTRACT**  
