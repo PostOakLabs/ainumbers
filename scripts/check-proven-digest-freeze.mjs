@@ -34,8 +34,9 @@
 // a second canonicalization in this file. Unchanged blobs are skipped because identical bytes cannot move
 // a digest; every candidate that did change is digested on both trees.
 //
-// CONTEXT SPLIT (mirrors the in-gate split of check-compute-proof-coverage.mjs): advisory (warn, exit 0)
-// on a GitHub pull_request run; blocking everywhere else, including merge_group, main and local preflight.
+// CONTEXT: blocking everywhere, pull_request included (merge_group, main, local preflight).
+// MAIN-ONLY-PATHS-GATE-1 (2026-11-03) removed the pull_request advisory arm: the queue refuses the same
+// tree, so a PR-side warning only moved the red into the merge queue.
 // Put the REPROVE-AUTHORIZED line in a COMMIT MESSAGE: a merge_group or main run has no PR body to read.
 //
 // Usage:
@@ -207,7 +208,6 @@ const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(im
 if (IS_MAIN) {
   const argv = process.argv.slice(2);
   const argVal = (flag) => { const i = argv.indexOf(flag); return i >= 0 ? argv[i + 1] : undefined; };
-  const advisory = process.env.GITHUB_ACTIONS === 'true' && process.env.GITHUB_EVENT_NAME === 'pull_request';
   const t0 = Date.now();
 
   const base = resolveBase(argVal('--base'));
@@ -259,15 +259,10 @@ if (IS_MAIN) {
   for (const n of notes) console.log(`  note: ${n}`);
   for (const a of allowed) console.log(`  ✓ ${a.id}: ${a.reason}`);
   if (refused.length) {
-    const head = advisory ? '⚠ proven-digest freeze (ADVISORY on pull_request; blocking on merge_group and main)' : '✗ proven-digest freeze FAILED';
-    console.error(`\n${head}: ${refused.length} proven node(s) refused (base ${base.how} @ ${base.sha.slice(0, 12)}):`);
+    console.error(`\n✗ proven-digest freeze FAILED: ${refused.length} proven node(s) refused (base ${base.how} @ ${base.sha.slice(0, 12)}):`);
     for (const r of refused) console.error(`  • ${r.id}: ${r.reason}`);
     console.error('  A proven kernel changes only when an audit finds it broken. Cite the finding in a commit message as');
     console.error('  "REPROVE-AUTHORIZED: art-<n> <audit path>#<finding id>" and attach the fresh receipt in the same change.');
-    if (advisory) {
-      console.log(`::warning::proven-digest freeze: ${refused.length} proven node(s) refused; this blocks in the merge queue`);
-      process.exit(0);
-    }
     process.exit(1);
   }
   console.log(`✓ proven-digest freeze clean: ${idList.length} changed node file(s) examined against ${base.how} @ ${base.sha.slice(0, 12)}, ${allowed.length} authorized re-prove(s), ${ms} ms`);

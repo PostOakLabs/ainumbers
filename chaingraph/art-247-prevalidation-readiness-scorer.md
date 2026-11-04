@@ -21,7 +21,8 @@ Aggregate CBPR+ pre-validation readiness check for a single pacs.008 payment ins
 
 ## Outputs
 
-- cbpr_plus_deadline (string, optional)
+- cbpr_plus_deadline (string,null, optional)
+- cbpr_plus_deadline_status (string, optional)
 - chain_gate_note (string, optional)
 - check_details (object, optional)
 - checks_passed (integer, optional)
