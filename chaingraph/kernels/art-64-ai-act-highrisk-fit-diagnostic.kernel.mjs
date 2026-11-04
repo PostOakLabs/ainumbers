@@ -106,34 +106,33 @@ const PREPARE_AHEAD_ITEMS = {
 };
 
 export function compute(pp) {
-  const {
-    // In-force screens
-    prohibited_practice_exposure = 'none',
-    ai_literacy_programme        = 'none',
-    // GPAI
-    foundation_model_dependency  = 'none',
-    // Classification
-    use_case        = 'other',
-    annex_iii_match = 'out-of-scope',
-    // Role
-    actor_role = 'deployer',
-    // Articles 9-15
-    risk_mgmt_system        = 'none',
-    data_governance         = 'none',
-    technical_documentation = 'none',
-    logging_oversight       = 'none',
-    // Deployer duties
-    fria_status          = 'not-started',
-    post_market_monitoring = 'none',
-    // Governance maturity
-    model_risk_framework = 'none',
-    // Informational
-    system_name  = '',
-    eu_nexus     = true,
-    // Null equals absent: a null-valued key must fall through to the same
-    // default as a missing key (MR-R4-NULL-REGRESSION-GATE-1), so drop nulls
-    // before destructuring. No other logic change.
-  } = Object.fromEntries(Object.entries(pp || {}).filter(([, v]) => v !== null));
+  pp = pp || {};
+  // In-force screens
+  const prohibited_practice_exposure = pp.prohibited_practice_exposure ?? 'none';
+  const ai_literacy_programme        = pp.ai_literacy_programme        ?? 'none';
+  // GPAI
+  const foundation_model_dependency  = pp.foundation_model_dependency  ?? 'none';
+  // Classification
+  const use_case        = pp.use_case        ?? 'other';
+  const annex_iii_match = pp.annex_iii_match ?? 'out-of-scope';
+  // Role
+  const actor_role = pp.actor_role ?? 'deployer';
+  // Articles 9-15
+  const risk_mgmt_system        = pp.risk_mgmt_system        ?? 'none';
+  const data_governance         = pp.data_governance         ?? 'none';
+  const technical_documentation = pp.technical_documentation ?? 'none';
+  const logging_oversight       = pp.logging_oversight       ?? 'none';
+  // Deployer duties
+  const fria_status           = pp.fria_status           ?? 'not-started';
+  const post_market_monitoring = pp.post_market_monitoring ?? 'none';
+  // Governance maturity
+  const model_risk_framework = pp.model_risk_framework ?? 'none';
+  // Informational
+  const system_name = pp.system_name ?? '';
+  const eu_nexus    = pp.eu_nexus    ?? true;
+  // Null equals absent: `??` falls through on a null-valued key exactly as on
+  // a missing key (MR-R4-NULL-REGRESSION-GATE-1). One explicit read per input
+  // keeps the derived input schema statically extractable.
 
   // ── Dimension scores ──
   const sub = {
