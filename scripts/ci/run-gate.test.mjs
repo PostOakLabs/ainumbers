@@ -83,7 +83,13 @@ test('count-drift still delegates to scripts/run-gate.mjs verbatim (the split lo
 
 test('missing root files read as empty roots — the committed-tree path never throws', () => {
   const p = plan('s18-digest-freshness', 'push', {});
-  assert.deepEqual(p.env, { S18_DERIVED_ROOT: '' });
+  assert.deepEqual(p.env, { S18_DERIVED_ROOT: '', DERIVED_ROOT: '' });
+  assert.equal(p.eventOverride, null);
+});
+
+test('merge_group context: §18 digest-freshness gets the derived root (#2798), exactly as the YAML did', () => {
+  const p = plan('s18-digest-freshness', 'merge_group', { 'derived-root.txt': '/scratch/derived' });
+  assert.deepEqual(p.env, { S18_DERIVED_ROOT: '', DERIVED_ROOT: '/scratch/derived' });
   assert.equal(p.eventOverride, null);
 });
 

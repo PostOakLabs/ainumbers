@@ -95,12 +95,13 @@ const GATES = {
     ],
   },
   // land-verify.yml — "§18 digest-freshness ratchet": env S18_DERIVED_ROOT =
-  // steps.s18tree.outputs.root (empty off pull_request). The step's third
-  // command (check-s18-freshness-fixture-derived-root.test.mjs) stayed literal
-  // in the YAML — it is context-independent and its basename must stay visible
-  // in workflow text for check-workflow-gate-parity.mjs axis 3.
+  // steps.s18tree.outputs.root (empty off pull_request), DERIVED_ROOT =
+  // steps.derived.outputs.root (#2798: the merge_group assembled tree). The
+  // step's third command (check-s18-freshness-fixture-derived-root.test.mjs)
+  // stayed literal in the YAML — it is context-independent and its basename
+  // must stay visible in workflow text for check-workflow-gate-parity.mjs axis 3.
   's18-digest-freshness': {
-    env: (c) => ({ S18_DERIVED_ROOT: c.s18Root }),
+    env: (c) => ({ S18_DERIVED_ROOT: c.s18Root, DERIVED_ROOT: c.derivedRoot }),
     commands: [
       'node scripts/check-s18-digest-freshness.mjs',
       'node scripts/check-s18-digest-freshness.test.mjs',
