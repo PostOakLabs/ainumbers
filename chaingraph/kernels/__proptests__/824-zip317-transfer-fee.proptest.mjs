@@ -6,7 +6,7 @@
 // totality claim is made over it. Properties below run over a committed
 // mulberry32 seed (deterministic) plus a fixed corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:86764baa11260981f1a4d10e9d67b2c28aabee9c00ab6a9c6f503589eed4138b
+// kernel_digest_at_authoring: sha256:38023a18209f0dc06831183dbfc13980e8cc7c746cec450a21bc0f97710b8068
 // spec: recompute the conventional transfer fee from a declared transaction
 //   shape, built to the pinned fee-rule excerpt
 //   (research/clause-snapshots/zcash-2026-11/zip-0317-fee-calculation.revision0.excerpt.txt).
