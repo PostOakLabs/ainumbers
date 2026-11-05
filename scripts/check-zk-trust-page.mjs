@@ -25,6 +25,15 @@
 // entry's regen command is --fix: it heals drifted sentinels main-side
 // (derived-artifacts-regen.yml), so main never holds a standing count red.
 //
+// PR-2888-DERIVED-PAGE-READ-1 (2026-11-05): the CHECK form reads the page
+// through derivedResolve() too, not only chaingraph.json. The trust.* sentinels
+// are regen-written (this script's --fix is the COVERED writer), so on
+// merge_group `derived-artifacts --out` puts the freshly healed page in
+// DERIVED_ROOT. Reading the checkout's page there compared a stale page (main-
+// only, the PR cannot refresh it) against a fresh inventory and redded the
+// queue by construction (run 41909245697: S0 0 vs 2, S1 461 vs 459, sealed
+// 702 vs 700). The --fix form still writes the in-tree page only.
+//
 // Usage:
 //   node scripts/check-zk-trust-page.mjs                     # check (gate form)
 //   node scripts/check-zk-trust-page.mjs --fix               # heal drifted sentinels (regen form)
@@ -116,7 +125,14 @@ export function bannedWording(html) {
 export function pageSentinels(html) {
   const out = {};
   const re = /<!--\s*COUNT:(trust\.[A-Za-z0-9_.]+)\s*-->(\d+)<!--\s*\/COUNT\s*-->/g;
-  for (let m = re.exec(html); m; m = re.exec(html)) out[m[1]] = { value: Number(m[2]), index: m.index };
+  // PR-2888-DERIVED-PAGE-READ-1: a key may appear more than once (the page
+  // states trust.sealed twice). `value`/`index` stay the FIRST occurrence;
+  // `values` carries every occurrence so the check judges all of them.
+  for (let m = re.exec(html); m; m = re.exec(html)) {
+    const v = Number(m[2]);
+    if (out[m[1]]) out[m[1]].values.push(v);
+    else out[m[1]] = { value: v, index: m.index, values: [v] };
+  }
   return out;
 }
 
@@ -129,8 +145,11 @@ export function checkCounts(inv, html) {
   const drifts = [];
   for (const [key, expected] of Object.entries(counts)) {
     const s = sentinels[key];
-    if (!s) drifts.push({ key, expected, got: null });
-    else if (s.value !== expected) drifts.push({ key, expected, got: s.value });
+    if (!s) { drifts.push({ key, expected, got: null }); continue; }
+    // every occurrence must match, not only the last one the map kept
+    for (const v of s.values || [s.value]) {
+      if (v !== expected) drifts.push({ key, expected, got: v });
+    }
   }
   for (const key of Object.keys(sentinels)) {
     if (!(key in counts)) drifts.push({ key, expected: null, got: sentinels[key].value });
@@ -146,11 +165,15 @@ export function fixCounts(inv, html) {
   let out = html;
   const changed = [];
   for (const [key, expected] of Object.entries(counts)) {
-    const re = new RegExp(`(<!--\\s*COUNT:${key}\\s*-->)(\\d+)(<!--\\s*\\/COUNT\\s*-->)`);
-    const m = out.match(re);
-    if (m && Number(m[2]) !== expected) {
+    // PR-2888-DERIVED-PAGE-READ-1: heal EVERY occurrence (global), and escape
+    // the key's dots. The non-global form healed only the first trust.sealed
+    // while the check read the second, so --fix was not a fixpoint.
+    const esc = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(<!--\\s*COUNT:${esc}\\s*-->)(\\d+)(<!--\\s*\\/COUNT\\s*-->)`, 'g');
+    const stale = [...out.matchAll(re)].map((m) => m[2]).filter((v) => Number(v) !== expected);
+    if (stale.length) {
       out = out.replace(re, `$1${expected}$3`);
-      changed.push(`${key} ${m[2]}->${expected}`);
+      changed.push(`${key} ${[...new Set(stale)].join('/')}->${expected}${stale.length > 1 ? ` (x${stale.length})` : ''}`);
     }
   }
   return { html: out, changed };
@@ -205,7 +228,9 @@ async function main() {
   if (selftest) process.exit(await selftest$());
 
   // ── real mode ──────────────────────────────────────────────────────────────
-  const pagePath = resolve(REPO, PAGE_REL);
+  // --fix writes the in-tree page (the writer's target); the check reads the
+  // DERIVED_ROOT copy when one is mounted, else the checkout (derivedResolve).
+  const pagePath = fix ? resolve(REPO, PAGE_REL) : derivedResolve(...PAGE_REL.split('/'));
   if (!existsSync(pagePath)) { console.error(`check-zk-trust-page: page not found: ${PAGE_REL}`); process.exit(2); }
   let inv;
   try {
@@ -229,7 +254,7 @@ async function main() {
   }
   const { drifts, banned } = checkCounts(inv, html);
   if (drifts.length || banned.length) {
-    console.log(`zk-trust-page: RED — page ${PAGE_REL} vs recomputed inventory (source: ${derivedResolve('chaingraph', 'chaingraph.json')}):`);
+    console.log(`zk-trust-page: RED — page ${pagePath} vs recomputed inventory (source: ${derivedResolve('chaingraph', 'chaingraph.json')}):`);
     printFindings(drifts, banned);
     process.exit(1);
   }
@@ -326,6 +351,19 @@ async function selftest$() {
     check('post-fix re-check is green', f2.code === 0, `exit=${f2.code}`);
     const f3 = spawnSync(process.execPath, [script, '--fixture', invPath, '--page', fixTarget, '--fix'], { encoding: 'utf8' });
     check('--fix second pass is a no-op (idempotent)', f3.status === 0 && (f3.stdout || '').includes('already fresh'), `exit=${f3.status} out=${(f3.stdout || '').slice(0, 120)}`);
+
+    // PR-2888-DERIVED-PAGE-READ-1: the page states trust.sealed twice. Drift only
+    // the SECOND occurrence: the check must see it, and --fix must heal it (the
+    // non-global heal fixed only the first, so --fix was not a fixpoint).
+    const SECOND = 'carry a seal';
+    const dupPage = PASS_PAGE.replace(`<!--COUNT:trust.sealed-->2<!--/COUNT--> ${SECOND}`, `<!--COUNT:trust.sealed-->7<!--/COUNT--> ${SECOND}`);
+    const dupTarget = write('dup.html', dupPage);
+    const dd = run(dupTarget);
+    check('RED drift on a repeated key\'s second occurrence exits 1', dd.code === 1 && dd.out.includes('DRIFT trust.sealed expected=2 got=7'), `exit=${dd.code} out=${dd.out.slice(0, 160)}`);
+    const df = spawnSync(process.execPath, [script, '--fixture', invPath, '--page', dupTarget, '--fix'], { encoding: 'utf8' });
+    check('--fix heals every occurrence of a repeated key', df.status === 0 && (df.stdout || '').includes('healed trust.sealed 7->2'), `exit=${df.status} out=${(df.stdout || '').slice(0, 120)}`);
+    const dg = run(dupTarget);
+    check('post-fix re-check of the repeated key is green', dg.code === 0, `exit=${dg.code} out=${dg.out.slice(0, 160)}`);
 
     if (fixtures.length) {
       console.error(`\ncheck-zk-trust-page --selftest: ${fixtures.length} control(s) FAILED:`);
