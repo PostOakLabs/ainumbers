@@ -1,5 +1,5 @@
 // art-826-authenticator-assurance-level.proptest.mjs — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:ed871635b70259bba55d86d4df84a064ecc7ec98ce1ae2332b5f6b5060ba20cc
+// kernel_digest_at_authoring: sha256:753097999c8df944333000a9093ba2448c0aec45306ed0f6aa21d19d8f437227
 // human_sign_off: PENDING
 //
 // spec: research/AUTHENTICATOR-ASSURANCE-PIN-2026-10-30.md (criterion→source-section map for the

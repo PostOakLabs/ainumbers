@@ -278,6 +278,8 @@ export function compute(pp) {
     unmet_criteria: unmet,
     undecidable_count: undecidable.length,
     undecidable,
+    // Flag-mirror doctrine: warnings is truthy exactly when compliance_flags is non-empty.
+    warnings: compliance_flags.slice(),
     note: 'Rates a DECLARED authenticator set and session policy against a caller-supplied, versioned assurance framework -- never a hardcoded one. Every threshold, required factor category and restriction comes from the framework the caller declares; the kernel never interprets a framework it was not given. A criterion the definition cannot express (malformed criterion value) is reported as AAL_DEFINITION_INSUFFICIENT, distinct from AAL_SHORTFALL (declared data failing a well-formed criterion, reported per criterion as {criterion, required, found}) -- the two are never conflated. When the target level is not met, achieved_level falls back to the highest fully-met level below it. Measures declared capabilities only: it does not assert anyone controls any authenticator, and carries no user identifiers.',
   };
 
