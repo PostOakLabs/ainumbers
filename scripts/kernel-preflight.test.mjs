@@ -13,6 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { writeFileSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PREFLIGHT = resolve(REPO, 'scripts', 'kernel-preflight.mjs');
@@ -46,12 +47,12 @@ test('RED: a new unconditional flag emission fails the flags-computed step', () 
   // intent-to-add for the run and unregister it in `finally`.
   const rel = `chaingraph/kernels/${id}.kernel.mjs`;
   try {
-    spawnSync('git', ['add', '-N', '--', rel], { cwd: REPO });
+    spawnSync('git', ['add', '-N', '--', rel], { cwd: REPO, env: gitEnv() });
     const out = preflight(id);
     assert.match(out, /✗ FAIL\s+\d+ms\s+Flags-computed/, out);
     assert.match(out, new RegExp(`${id} is named by node scripts/check-flags-computed\\.mjs`), out);
   } finally {
-    spawnSync('git', ['rm', '--cached', '-q', '-f', '--', rel], { cwd: REPO });
+    spawnSync('git', ['rm', '--cached', '-q', '-f', '--', rel], { cwd: REPO, env: gitEnv() });
     rmSync(file, { force: true });
   }
 });
