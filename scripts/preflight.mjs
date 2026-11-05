@@ -1624,7 +1624,7 @@ const GATES = [
   // sentinels main-side after merge); it stays blocking on main and —
   // DERIVED_ROOT-aware — in the merge queue.
   ['ZK trust page counts + wording (ZK-TRUST-STAGES-GATE-1)', 'node scripts/check-zk-trust-page.mjs'],
-  ['ZK trust page gate controls (RED/GREEN fixtures, SO #34c pairing)', 'node scripts/check-zk-trust-page.mjs --selftest'],
+  ['ZK trust page gate controls (RED/GREEN fixtures, GATE-SELFTEST-META-1 pair)', 'node scripts/check-zk-trust-page.selftest.mjs'],
   // HUBSCENE-BUILD-1 (2026-10-07): the generated chain-flow scene region on
   // every hub guide page. ONE main-side writer (scripts/gen-hub-scenes.mjs,
   // derived-artifacts COVERED id 'hub-scenes'); this --check entry's command

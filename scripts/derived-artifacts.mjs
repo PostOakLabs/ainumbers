@@ -1764,8 +1764,10 @@ export const DERIVED_ROOT_GATES = new Set([
   // ZK-TRUST-STAGES-GATE-1 (2026-11-03): the trust-page count gate overlay-reads
   // the queue's ephemeral assembled monolith via derivedResolve (the count
   // source), so the merge_group tree is exactly the tree that will be main and
-  // the gate can go HARD there. The page itself is hand-authored and always
-  // in-tree; only chaingraph.json resolves through the overlay.
+  // the gate can go HARD there. The page's prose is hand-authored, but its
+  // trust.* sentinels are regen-written (this entry's --fix), so the CHECK
+  // reads the page through the overlay too: `--out` puts the freshly healed
+  // page in DERIVED_ROOT (PR-2888-DERIVED-PAGE-READ-1).
   'node scripts/check-zk-trust-page.mjs',                    // trust-page stage counts (reads the monolith)
 ]);
 
