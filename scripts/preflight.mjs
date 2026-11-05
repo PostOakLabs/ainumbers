@@ -2690,7 +2690,7 @@ async function runQuickSuite(selfTest) {
   if (waived.length) console.log(`⚠ EXPECTED-RED (waived, this invocation only): ${waived.join(', ')}`);
   if (red.length) {
     console.log(`⛔ RED: ${red[0]}`);
-    console.log('   Fix it and re-run. (Ratchet gate only: run the --update-baseline command it names, then COMMIT the baseline.)');
+    console.log('   Fix it and re-run. (A ceiling ratchet is fixed in your code, never by raising the pin: BUILD-RIGHT-FIRST-1.)');
   }
   console.log(`Gates NOT run by --quick (${notRun.length} of the full ${RUN_LIST_SIZE}-gate suite — run \`node scripts/preflight.mjs\` for all of them):`);
   let wrap = '';
@@ -2916,7 +2916,7 @@ async function runPushSafetySuite(selfTest) {
   if (waived.length) console.log(`⚠ EXPECTED-RED (waived, this invocation only): ${waived.join(', ')}`);
   if (red.length) {
     console.log(`⛔ RED: ${red[0]}`);
-    console.log('   Fix it and re-run. (Ratchet gate only: run the --update-baseline command it names, then COMMIT the baseline.)');
+    console.log('   Fix it and re-run. (A ceiling ratchet is fixed in your code, never by raising the pin: BUILD-RIGHT-FIRST-1.)');
     process.exit(1);
   }
   process.exit(0);
