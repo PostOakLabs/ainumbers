@@ -304,6 +304,16 @@ else
   node scripts/preflight.mjs --quick "$@"
   status=$?
   [ "$status" -ne 0 ] && echo "pre-push: QUICK preflight RED — push will be blocked below; fix the gate and re-push." 1>&2
+  # AFFECTED-GATES-PREPUSH-1 (2026-11-05): then the full-suite gates for this
+  # diff's path classes (kernel / node / manifest / page / mcp surface), so a
+  # builder sees the reds CI would show before the push, not after. Measured
+  # 73-80 s on real PR branches. Skipped when --quick is already red.
+  if [ "$status" -eq 0 ]; then
+    echo "pre-push: running scripts/preflight.mjs --affected (AFFECTED-GATES-PREPUSH-1) ..."
+    node scripts/preflight.mjs --affected --changed origin/main --keep-going --quiet "$@"
+    status=$?
+    [ "$status" -ne 0 ] && echo "pre-push: AFFECTED preflight RED — a gate CI runs on this diff is red; fix it and re-push (ratchet ceilings are fixed in the code, never by raising the pin)." 1>&2
+  fi
 fi
 
 # Disclosure — DISCLOSURE, not permission: runs regardless of outcome, so a
