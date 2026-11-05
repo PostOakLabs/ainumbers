@@ -35,7 +35,7 @@ const SCOPE_NOTE =
   'Values-only audit of a declared curator allocation snapshot against per-market caps ' +
   '(absolute + relative) and a caller-declared mandate. No on-chain reads, no pricing: ' +
   'share pricing is the art-610 (ERC-4626 share math) domain and async redemption state ' +
-  'is the art-611 (ERC-7540 request accounting) domain — this node consumes declared ' +
+  'is the art-611 (ERC-7540 request accounting) domain — this node reads declared' +
   'minor-unit values only. Asset classes are a fixed declared enum. No curator or ' +
   'platform is named by this node.';
 
