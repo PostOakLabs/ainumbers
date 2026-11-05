@@ -132,7 +132,12 @@ async function selfTest() {
     writeFileSync(schemaPath, schemaBytes);
     const twinPath = join(tmp, 'twin.json');
     writeFileSync(twinPath, schemaBytes);
-    const base = { cardPath: join(tmp, 'card.json'), schemaPath, twinPath, expectedCount: await mcpLiveCount() };
+    // MCPCARD-SELFTEST-ADVISORY-ON-PR-1 (2026-11-05): tamper cases compare against the real card's own
+    // tool_count, so the 1185 case mismatches in EVERY context and the twin-drift case is red for the
+    // drift alone (it used to be red for the count on a new-node PR, masking itself). The live count
+    // (mcp.live) is checked only by the green baseline below, under the same isMainContext() policy as
+    // the main gate (#2898).
+    const base = { cardPath: join(tmp, 'card.json'), schemaPath, twinPath, expectedCount: realCard.tool_count };
 
     const tampered = (mutate) => {
       const c = JSON.parse(JSON.stringify(realCard));
@@ -156,7 +161,17 @@ async function selfTest() {
     // Green baseline: the REAL card + REAL twin must validate clean.
     writeFileSync(base.cardPath, JSON.stringify(realCard, null, 2));
     writeFileSync(twinPath, schemaBytes);
-    const realGreen = runGate(base);
+    // Green baseline against the LIVE count. On a PR (new node carried, mcp.live = N+1 while the
+    // main-only card still says N) a tool_count finding is advisory, exactly as in the main gate;
+    // on main and merge_group it stays hard. Before this row the baseline was hard everywhere and
+    // failed every new-node PR (run 41889746218: "SELFTEST-FAIL untampered real card validates clean").
+    const realAll = runGate({ ...base, expectedCount: await mcpLiveCount() });
+    const { isMainContext: isMainCtx } = await import('./derived-artifacts.mjs');
+    const baselineCountAdvisory = !isMainCtx();
+    const realGreen = baselineCountAdvisory ? realAll.filter((f) => !f.startsWith('tool_count:')) : realAll;
+    for (const f of realAll.filter((f) => baselineCountAdvisory && f.startsWith('tool_count:'))) {
+      console.log(`::warning::self-test baseline ${f} (advisory on a PR, MCPCARD-SELFTEST-ADVISORY-ON-PR-1)`);
+    }
 
     let pass = 0;
     for (const [name, findings] of cases) {
