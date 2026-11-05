@@ -373,6 +373,14 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── ZK-TRUST-STAGES-GATE-1 / PR-2888-SELFTEST-PAIR-1 (2026-11-05) ───────────
+  ["check-zk-trust-page.mjs",
+    "Advisory-on-PR COVERED freshness gate (derived-artifacts.mjs id 'zk-trust-page': its regen is " +
+    "--fix, its gate is this check). CI enforces it HARD through `derived-artifacts.mjs --verify`, not " +
+    "as a standalone step: scripts-verify.yml's merge-group-shadow and merge_group runs under " +
+    "DERIVED_ROOT (it is a DERIVED_ROOT_GATES member), land-verify.yml, and derived-artifacts-regen.yml " +
+    "on main. A direct blocking-workflow wire would only duplicate that call site."],
+  ["check-zk-trust-page.selftest.mjs", SELF_TEST],
   // ── SIGSTORE-BUNDLE-V03-EXPORT-7 (2026-10-26) ───────────────────────────────
   ["receipt-bundle-attest-subjects.mjs",
     "Network-free receipt-bundle attest-subjects lister, run pre-push in preflight; its " +
