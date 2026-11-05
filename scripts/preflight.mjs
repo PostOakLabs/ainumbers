@@ -2828,6 +2828,12 @@ function psTouchedKernelIds(files) {
 const PS_SELFTEST_CAP = 12;
 function psChangedGateChecks(files) {
   const checks = [];
+  // BUILD-RIGHT-FIRST-1 (2026-11-05, measured on PR #2901's own first push): a change to the hook itself
+  // went red in CI on its fixture test, which this leg did not run. Run the hook's test when the hook moves.
+  if (files.some((f) => f === '.githooks/pre-push' || f === '.githooks/pre-push.test.mjs')
+      && existsSync(resolve(REPO, '.githooks/pre-push.test.mjs'))) {
+    checks.push(['Pre-push hook fixture test (changed hook)', 'node .githooks/pre-push.test.mjs']);
+  }
   for (const f of files) {
     const m = f.match(/^scripts\/([a-z0-9][a-z0-9._-]*\.mjs)$/);
     if (!m) continue;
