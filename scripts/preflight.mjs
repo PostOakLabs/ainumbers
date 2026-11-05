@@ -1613,6 +1613,19 @@ const GATES = [
   // declare no @keyframes and no animation property of its own.
   ['EXPLAINER-KIT inline copies + one animation system (EXPLAINER-KIT-1)', 'node scripts/sync-explainer-kit.mjs --check'],
   ['EXPLAINER-KIT gate controls (RED/GREEN mutations, SO #34c pairing)', 'node scripts/sync-explainer-kit.mjs --selftest'],
+  // ZK-TRUST-STAGES-GATE-1 (2026-11-03): the trust-model page's stage counts are
+  // derived, never typed — this gate recomputes the estate inventory
+  // (scripts/zk-trust-inventory.mjs, same ladder + classifier as the §18 estate
+  // gates) and fails on any trust.* sentinel drift on
+  // chaingraph/zk-trust-stages.html, plus bans the trust-model wording class
+  // there (trustless, tamper-proof, immutable, "one imageId covers all" outside
+  // a negated disclaimer sentence). The count source (chaingraph.json) is SO #35
+  // main-regenerated, so the generic ADVISORY_ON_PR categorisation downgrades it
+  // on a PR via the COVERED entry ('zk-trust-page', whose --fix heals the
+  // sentinels main-side after merge); it stays blocking on main and —
+  // DERIVED_ROOT-aware — in the merge queue.
+  ['ZK trust page counts + wording (ZK-TRUST-STAGES-GATE-1)', 'node scripts/check-zk-trust-page.mjs'],
+  ['ZK trust page gate controls (RED/GREEN fixtures, GATE-SELFTEST-META-1 pair)', 'node scripts/check-zk-trust-page.selftest.mjs'],
   // HUBSCENE-BUILD-1 (2026-10-07): the generated chain-flow scene region on
   // every hub guide page. ONE main-side writer (scripts/gen-hub-scenes.mjs,
   // derived-artifacts COVERED id 'hub-scenes'); this --check entry's command
