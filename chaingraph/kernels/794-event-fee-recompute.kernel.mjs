@@ -176,7 +176,7 @@ function isCalendarDate(s) {
 }
 
 function refuse(flags, because, field, extra) {
-  flags.push('REFUSED_MALFORMED_OR_IDENTIFIER_INPUT');
+  if (!flags.includes('REFUSED_MALFORMED_OR_IDENTIFIER_INPUT')) flags.push('REFUSED_MALFORMED_OR_IDENTIFIER_INPUT');
   const payload = {
     verdict: 'refused',
     refused_because: because,
