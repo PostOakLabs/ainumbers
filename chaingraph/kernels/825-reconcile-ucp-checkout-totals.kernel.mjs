@@ -200,7 +200,9 @@ function measure(root, budget) {
 }
 
 function result(payload, refused) {
-  return { output_payload: payload, compliance_flags: refused ? ['INPUT_REFUSED'] : [] };
+  const flags = refused ? ['INPUT_REFUSED'] : [];
+  // Flag-mirror doctrine: warnings is truthy exactly when compliance_flags is non-empty.
+  return { output_payload: Object.assign({}, payload, { warnings: flags.slice() }), compliance_flags: flags };
 }
 function shell(verdict, extra) {
   return Object.assign({

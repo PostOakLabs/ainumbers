@@ -7,7 +7,7 @@
 // fixed corpus of structural cases: rounding-policy conformance at exact ties,
 // the 2^53 boundary, one-unit mutations, and line-order invariance.
 //
-// kernel_digest_at_authoring: sha256:b13886293e623c2a9f1191776a7fcb5a23868a1bae8d40ae48648cb932f09d79
+// kernel_digest_at_authoring: sha256:9a5c782686ba02ea75b2ea3cdbe73e6edfb8abc4e3061119c1cad45ede1fc7bd
 // spec: research/UCP-WAVE-BUILD-SPEC-2026-11-03.md — reconcile a pasted UCP
 //   (Universal Commerce Protocol, tag v2026-08-25) cart/checkout/order totals
 //   block in integer minor units; RECONCILED / MISMATCH / INDETERMINATE;
