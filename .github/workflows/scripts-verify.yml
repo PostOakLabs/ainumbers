@@ -165,7 +165,20 @@ jobs:
         run: node scripts/check-ci-relevant.mjs --key scripts-verify
 
   scripts-verify:
-    name: Full preflight gate suite
+    # CI-PREFLIGHT-SHARD-1 (2026-11-05): the suite runs as a matrix of 4 shards.
+    # Measured before: merge_group run 42115294848's "Preflight (full gate suite)"
+    # step took 9 m 24 s of this job's 10 m 37 s. Each leg runs preflight with
+    # PREFLIGHT_SHARD=<i>/<N>: preflight computes the FULL gate list exactly as an
+    # unsharded run does, partitions it deterministically
+    # (scripts/lib/preflight-shard.mjs, balanced by
+    # scripts/ci/preflight-gate-timings.json) and runs only shard i's entries, so
+    # across the legs every gate runs exactly once (`node scripts/preflight.mjs
+    # --shard-plan 4` prints the plan and asserts union == whole). Shard 0 also
+    # carries the ordering-dependent work (the serial mutation-tier entry, the
+    # inline mfstSec check, the post-loop blocks) and the named per-PR steps
+    # below, which run once, on shard 0. N comes from strategy.job-total, so the
+    # matrix list is the only place the count lives.
+    name: Full preflight gate suite — shard ${{ matrix.shard }}/${{ strategy.job-total }}
     needs: relevant
     # DRAFTCI-2 (2026-07-20): expected-red proof/shard PRs open as drafts by
     # doctrine (they ride the next assemble-and-land step, which regenerates
@@ -204,6 +217,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    strategy:
+      # Every shard reports its own verdict; one red shard never cancels the others.
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - name: Report dispatch mode
         if: github.event_name == 'workflow_dispatch'
@@ -359,8 +377,12 @@ jobs:
         # scripts/ci/run-gate.mjs under this name ($RUNNER_TEMP/derived-root.txt
         # / s18-derived-root.txt). The literal env entries below stay — they are
         # constants, not resolved context.
+        #
+        # CI-PREFLIGHT-SHARD-1: PREFLIGHT_SHARD scopes this leg to its slice of the
+        # full list (see the job comment); run-gate.mjs passes the env through.
         env:
           PREFLIGHT_TIER_LEG: skip
+          PREFLIGHT_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/ci/run-gate.mjs preflight
 
@@ -394,7 +416,11 @@ jobs:
       #     own name instead of a buried preflight failure.
       # Everything else keeps its downgrade: count-drift, sitemap, trust-signals
       # and the other main-side single-writer artifacts keep their downgrade untouched.
+      # CI-PREFLIGHT-SHARD-1: these named steps (through Citation drift) run once,
+      # on shard 0 (`if: matrix.shard == 0`); the scratch-tree steps above and the
+      # clean-tree assertion run on every shard, because every shard builds its own.
       - name: §18 ratchet + provenance (HARD on pull_request — per-PR derivables promotion)
+        if: matrix.shard == 0
         # thin-YAML (2026-11-01): the body (S18_DERIVED_ROOT from steps.s18tree, plus the
         # shell-level GITHUB_EVENT_NAME=push presentation on pull_request — the
         # per-PR derivables promotion) moved verbatim into scripts/ci/run-gate.mjs
@@ -402,15 +428,18 @@ jobs:
         run: node scripts/ci/run-gate.mjs s18-ratchet
 
       - name: Manifest examples drift (HARD on pull_request — per-PR derivables promotion)
+        if: matrix.shard == 0
         run: node scripts/gen-manifest-examples.mjs --check
 
       - name: Ask-agent block freshness (HARD on pull_request — per-PR derivables promotion)
+        if: matrix.shard == 0
         run: node scripts/check-ask-agent-block.mjs
 
       # Main-only paths: a PR may not carry a file only main's derived regen writes
       # (SSOT scripts/derived-artifacts.mjs COVERED). HARD on pull_request; the script itself
       # reports "not run" on merge_group / push / workflow_run, which carry the regen's commits.
       - name: Main-only derived paths (HARD on pull_request)
+        if: matrix.shard == 0
         run: node scripts/check-main-only-paths.mjs
 
       - name: Node page accessibility tree (HARD on pull_request — per-PR derivables promotion)
@@ -438,6 +467,7 @@ jobs:
         # check-workflow-gate-parity.mjs axis 3 reads workflow TEXT (comment-blind)
         # for reverse presence, so routing this gate through scripts/ci/run-gate.mjs
         # reads as "unwired". Its merge_group-only DERIVED_ROOT ternary stays here.
+        if: matrix.shard == 0
         env:
           DERIVED_ROOT: ${{ github.event_name == 'merge_group' && steps.derived.outputs.root || '' }}
         run: node scripts/check-a11y-tree.mjs
@@ -468,6 +498,7 @@ jobs:
         # workspace-root snapshot excerpts, so this always runs in the degraded
         # shape (digest-resolution only; the value-match check reports
         # SKIPPED-NO-SNAPSHOT, never a pass).
+        if: matrix.shard == 0
         run: node scripts/check-citation-drift.mjs
 
   scripts-verify-tier-shard:
@@ -658,6 +689,14 @@ jobs:
     # needs.*.result is `failure` if ANY leg failed, so one overrunning shard
     # dying at its own 330-min timeout is enough to red the required context —
     # and `skipped` never fails it, so the always-report shape is preserved.
+    #
+    # CI-PREFLIGHT-SHARD-1: scripts-verify is now a 4-leg matrix too, and the
+    # same rule covers it: needs.scripts-verify.result is `success` only if
+    # EVERY leg succeeded. The check below is strict: anything other than
+    # success or skipped (failure, cancelled, or a leg that never reported)
+    # fails the required context. Skipped stays a pass because the legs share
+    # one `if:`; they skip together (irrelevant PR, draft, superseded run) or
+    # not at all.
     needs: [relevant, scripts-verify, scripts-verify-tier-shard]
     if: always()
     runs-on: ubuntu-latest
@@ -671,7 +710,10 @@ jobs:
         run: |
           echo "scripts-verify result: $RESULT"
           echo "scripts-verify-tier-shard result: $TIER_RESULT"
-          if [ "$RESULT" = "failure" ] || [ "$RESULT" = "cancelled" ] || [ "$TIER_RESULT" = "failure" ] || [ "$TIER_RESULT" = "cancelled" ]; then
-            exit 1
-          fi
+          for r in "$RESULT" "$TIER_RESULT"; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "::error::a required leg reported '${r:-<none>}' (not success/skipped)"; exit 1 ;;
+            esac
+          done
           exit 0
