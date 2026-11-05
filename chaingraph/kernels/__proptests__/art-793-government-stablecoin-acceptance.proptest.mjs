@@ -1,5 +1,5 @@
 // art-793-government-stablecoin-acceptance — class-K property test floor.
-// kernel_digest_at_authoring: sha256:9e57be65901673a355047239fe807a51a163c0f3bba2e4a67adaf39ea05df977
+// kernel_digest_at_authoring: sha256:d44f492e6dce3ac9d6b9ea5064405ca5b994b83c4df9fa45ed2ca8732a00f812
 // spec: GOV-STABLECOIN-ACCEPTANCE-1 contract (aggregate-only acceptor-side acceptance audit)
 // human_sign_off: PENDING
 //

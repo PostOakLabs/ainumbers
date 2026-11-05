@@ -37,6 +37,7 @@ function refused(reason, text) {
       exposure: null,
       totals: null,
       verdict: 'REFUSED',
+      warnings: [reason],
     },
     compliance_flags: [reason],
   };
@@ -228,6 +229,7 @@ export function compute(pp) {
       exposure,
       totals,
       verdict,
+      warnings: verdict === 'CONFORMS' ? [] : [verdict],
     },
     compliance_flags: verdict === 'CONFORMS' ? [] : [verdict],
   };
