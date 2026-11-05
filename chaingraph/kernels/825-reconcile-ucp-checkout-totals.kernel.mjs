@@ -307,8 +307,9 @@ function reconcileTotalsArray(entries, pathPrefix, violations, indeterminate, ou
 export function compute(pp) {
   pp = pp || {};
   const doc = pp.document;
-  const mode = hasOwn(pp, 'mode') ? pp.mode : 'checkout';
-  const policy = hasOwn(pp, 'rounding') ? pp.rounding : 'half_even';
+  // R4: an explicit null reads as absent, so both fall to the default.
+  const mode = hasOwn(pp, 'mode') && pp.mode !== null ? pp.mode : 'checkout';
+  const policy = hasOwn(pp, 'rounding') && pp.rounding !== null ? pp.rounding : 'half_even';
   if (mode !== 'checkout' && mode !== 'order') {
     return result(shell('INDETERMINATE', { refusal: 'MODE_INVALID', notes: ['mode must be "checkout" or "order"'] }), true);
   }
