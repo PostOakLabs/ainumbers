@@ -56,6 +56,10 @@ function isInt(v) {
 }
 
 function malformed(reasons) {
+  const flags = [];
+  for (const f of ['CURATOR_VAULT_CAPS_INDETERMINATE', 'CURATOR_VAULT_CAPS_MALFORMED_INPUT']) {
+    if (!flags.includes(f)) flags.push(f);
+  }
   return {
     output_payload: {
       profile: null,
@@ -65,10 +69,11 @@ function malformed(reasons) {
       concentration: null,
       coverage: null,
       verdict: 'INDETERMINATE',
+      warnings: [...flags],
       scope_note: SCOPE_NOTE,
       reasons,
     },
-    compliance_flags: ['CURATOR_VAULT_CAPS_INDETERMINATE', 'CURATOR_VAULT_CAPS_MALFORMED_INPUT'],
+    compliance_flags: flags,
   };
 }
 
@@ -82,7 +87,7 @@ export function compute(pp) {
   const reasons = [];
   const profile = pp.profile;
   if (!PROFILES.includes(profile)) {
-    reasons.push(`profile must be one of ${PROFILES.join(' | ')} (got ${JSON.stringify(profile) ?? 'undefined'}); generic carries caller-declared cap semantics`);
+    reasons.push(`profile must be one of ${PROFILES.join(' | ')} (got ${profile == null ? 'undefined' : (JSON.stringify(profile) ?? 'undefined')}); generic carries caller-declared cap semantics`);
   }
   const snap = pp.snapshot || {};
   const total = snap.total_assets_minor;
@@ -101,9 +106,9 @@ export function compute(pp) {
         reasons.push(`${at}.asset_class must be one of ${ASSET_CLASSES.join(' | ')}`);
       }
       if (!isInt(m.allocated_minor) || m.allocated_minor < 0) reasons.push(`${at}.allocated_minor must be a non-negative safe integer`);
-      if (m.abs_cap_minor !== undefined && (!isInt(m.abs_cap_minor) || m.abs_cap_minor < 0)) reasons.push(`${at}.abs_cap_minor must be a non-negative safe integer when declared`);
-      if (m.rel_cap_bp !== undefined && (!isInt(m.rel_cap_bp) || m.rel_cap_bp < 0 || m.rel_cap_bp > 1000000)) reasons.push(`${at}.rel_cap_bp must be an integer in [0, 1000000] when declared`);
-      if (m.withdrawable_minor !== undefined && (!isInt(m.withdrawable_minor) || m.withdrawable_minor < 0)) reasons.push(`${at}.withdrawable_minor must be a non-negative safe integer when declared`);
+      if (m.abs_cap_minor != null && (!isInt(m.abs_cap_minor) || m.abs_cap_minor < 0)) reasons.push(`${at}.abs_cap_minor must be a non-negative safe integer when declared`);
+      if (m.rel_cap_bp != null && (!isInt(m.rel_cap_bp) || m.rel_cap_bp < 0 || m.rel_cap_bp > 1000000)) reasons.push(`${at}.rel_cap_bp must be an integer in [0, 1000000] when declared`);
+      if (m.withdrawable_minor != null && (!isInt(m.withdrawable_minor) || m.withdrawable_minor < 0)) reasons.push(`${at}.withdrawable_minor must be a non-negative safe integer when declared`);
     });
   }
   const man = pp.mandate || {};
@@ -114,8 +119,8 @@ export function compute(pp) {
     else if (!isInt(classCaps[k]) || classCaps[k] < 0 || classCaps[k] > 1000000) reasons.push(`mandate.max_per_asset_class_bp.${k} must be an integer in [0, 1000000]`);
   }
   if (!isInt(man.min_idle_bp) || man.min_idle_bp < 0 || man.min_idle_bp > 1000000) reasons.push('mandate.min_idle_bp must be an integer in [0, 1000000]');
-  if (man.min_rwa_bp !== undefined && (!isInt(man.min_rwa_bp) || man.min_rwa_bp < 0 || man.min_rwa_bp > 1000000)) reasons.push('mandate.min_rwa_bp must be an integer in [0, 1000000] when declared');
-  if (man.max_defi_bp !== undefined && (!isInt(man.max_defi_bp) || man.max_defi_bp < 0 || man.max_defi_bp > 1000000)) reasons.push('mandate.max_defi_bp must be an integer in [0, 1000000] when declared');
+  if (man.min_rwa_bp != null && (!isInt(man.min_rwa_bp) || man.min_rwa_bp < 0 || man.min_rwa_bp > 1000000)) reasons.push('mandate.min_rwa_bp must be an integer in [0, 1000000] when declared');
+  if (man.max_defi_bp != null && (!isInt(man.max_defi_bp) || man.max_defi_bp < 0 || man.max_defi_bp > 1000000)) reasons.push('mandate.max_defi_bp must be an integer in [0, 1000000] when declared');
   let red = null;
   if (pp.redemptions !== undefined && pp.redemptions !== null) {
     red = pp.redemptions;
@@ -138,7 +143,7 @@ export function compute(pp) {
   //    max share of total assets, cross-multiplied, no division) ──────────────────────
   const cap_breaches = [];
   for (const m of markets) {
-    if (m.abs_cap_minor !== undefined && BigInt(m.allocated_minor) > BigInt(m.abs_cap_minor)) {
+    if (m.abs_cap_minor != null && BigInt(m.allocated_minor) > BigInt(m.abs_cap_minor)) {
       cap_breaches.push({
         market_label: m.market_label,
         kind: 'absolute',
@@ -147,7 +152,7 @@ export function compute(pp) {
         excess_minor: Number(BigInt(m.allocated_minor) - BigInt(m.abs_cap_minor)),
       });
     }
-    if (m.rel_cap_bp !== undefined && BigInt(m.allocated_minor) * 10000n > BigInt(m.rel_cap_bp) * totalBig) {
+    if (m.rel_cap_bp != null && BigInt(m.allocated_minor) * 10000n > BigInt(m.rel_cap_bp) * totalBig) {
       cap_breaches.push({
         market_label: m.market_label,
         kind: 'relative',
@@ -174,7 +179,7 @@ export function compute(pp) {
   for (const c of ASSET_CLASSES) classSum[c] = 0n;
   for (const m of markets) classSum[m.asset_class] += BigInt(m.allocated_minor);
   for (const c of ASSET_CLASSES) {
-    if (classCaps[c] !== undefined && classSum[c] * 10000n > BigInt(classCaps[c]) * totalBig) {
+    if (classCaps[c] != null &&classSum[c] * 10000n > BigInt(classCaps[c]) * totalBig) {
       mandate_breaches.push({
         scope: 'asset_class',
         label: c,
@@ -195,7 +200,7 @@ export function compute(pp) {
   }
   // split limits: minimum RWA share, maximum DeFi share
   const rwaSum = classSum.rwa_treasury + classSum.rwa_credit;
-  if (man.min_rwa_bp !== undefined && rwaSum * 10000n < BigInt(man.min_rwa_bp) * totalBig) {
+  if (man.min_rwa_bp != null && rwaSum * 10000n < BigInt(man.min_rwa_bp) * totalBig) {
     mandate_breaches.push({
       scope: 'asset_class',
       label: 'rwa_treasury+rwa_credit',
@@ -204,7 +209,7 @@ export function compute(pp) {
       direction: 'below_min',
     });
   }
-  if (man.max_defi_bp !== undefined && classSum.defi_lending * 10000n > BigInt(man.max_defi_bp) * totalBig) {
+  if (man.max_defi_bp != null && classSum.defi_lending * 10000n > BigInt(man.max_defi_bp) * totalBig) {
     mandate_breaches.push({
       scope: 'asset_class',
       label: 'defi_lending',
@@ -227,14 +232,14 @@ export function compute(pp) {
   let coverage = null;
   if (red) {
     let withdrawable = 0n;
-    for (const m of markets) if (m.withdrawable_minor !== undefined) withdrawable += BigInt(m.withdrawable_minor);
+    for (const m of markets) if (m.withdrawable_minor != null) withdrawable += BigInt(m.withdrawable_minor);
     const available = idleBig + withdrawable;
     const pending = BigInt(red.pending_minor);
     coverage = {
       horizon_hours: red.horizon_hours,
       pending_minor: red.pending_minor,
       available_minor: Number(available),
-      available_is_floor: markets.some((m) => m.withdrawable_minor === undefined),
+      available_is_floor: markets.some((m) => m.withdrawable_minor == null),
       shortfall_minor: available >= pending ? 0 : Number(pending - available),
       covered: available >= pending,
     };
@@ -271,6 +276,7 @@ export function compute(pp) {
       concentration: { largest_market: largest, herfindahl_bp2: herfindahl },
       coverage,
       verdict,
+      warnings: [...compliance_flags],
       scope_note: SCOPE_NOTE,
       primary_text: 'Morpho docs, Liquidity curation concepts page, pinned edition 2026-10-30 (sha256 in research/CURATOR-VAULT-CAP-PIN-2026-10-30.md)',
     },

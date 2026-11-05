@@ -1,5 +1,5 @@
 // 792-curator-vault-cap-auditor — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:9669b37921883a2f008cced06af7614440803b1548615191a49d4bf1ec53b081
+// kernel_digest_at_authoring: sha256:e78052ea0485eed949e52297eb7b3cdff4b4923a2dc3c92b4f28b340c2109d63
 // spec: CURATOR-VAULT-CAP-AUDIT-1 row; primary text pinned in research/CURATOR-VAULT-CAP-PIN-2026-10-30.md
 // human_sign_off: PENDING
 //
