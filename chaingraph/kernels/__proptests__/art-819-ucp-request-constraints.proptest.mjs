@@ -1,5 +1,5 @@
 // art-819-ucp-request-constraints — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:65ec476d91d169d889904012052d958edee30e7405f7bedc78989628d280667f
+// kernel_digest_at_authoring: sha256:4a5187312e049580210fd22d0251703f75812c440d72262fa7286ad1afe624d0
 // spec: board/claimed/UCP-CONSTRAINTS-1.md (UCP 2026-08-25 Request Constraints)
 // human_sign_off: PENDING
 //

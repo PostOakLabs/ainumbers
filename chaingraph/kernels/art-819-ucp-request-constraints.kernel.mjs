@@ -391,7 +391,9 @@ function contradictions(values, selections) {
 }
 
 function result(payload, refusal) {
-  return { output_payload: payload, compliance_flags: refusal ? ['INPUT_REFUSED'] : [] };
+  const compliance_flags = refusal ? ['INPUT_REFUSED'] : [];
+  // flag mirror: `warnings` is non-empty exactly when a conditional flag is raised
+  return { output_payload: Object.assign({}, payload, { warnings: compliance_flags.slice() }), compliance_flags };
 }
 
 function shell(verdict, extra) {
