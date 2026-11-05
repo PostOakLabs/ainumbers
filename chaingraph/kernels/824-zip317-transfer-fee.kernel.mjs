@@ -163,6 +163,9 @@ export function compute(pp) {
 // Refusal payload: structured non-verdict naming the branch; the refused value
 // is never echoed. manual_review_required mirrors the INPUT_REFUSED flag.
 function buildRefusal(r) {
+  // The flag is earned by the refusal reason being named, not emitted as a constant.
+  const compliance_flags = [];
+  if (r.because) compliance_flags.push('INPUT_REFUSED');
   return {
     output_payload: {
       verdict: 'refused',
@@ -180,7 +183,7 @@ function buildRefusal(r) {
       },
       manual_review_required: true,
     },
-    compliance_flags: ['INPUT_REFUSED'],
+    compliance_flags,
   };
 }
 
