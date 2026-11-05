@@ -76,6 +76,7 @@ import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { derivedRoot, derivedResolve } from './_derived-resolve-lib.mjs';
+import { gitEnv } from './_git-env-lib.mjs';
 import { spawnSync } from 'node:child_process';
 import * as vm from 'node:vm';
 import { executionHash } from '../chaingraph/kernels/_hash.mjs';
@@ -344,7 +345,7 @@ async function pageTable(registry) {
 
 /** Files the working tree changes against origin/main (committed, uncommitted, untracked). */
 export function changedFilesVsMain(repo) {
-  const git = (args) => spawnSync('git', ['-C', repo, ...args], { encoding: 'utf8' });
+  const git = (args) => spawnSync('git', ['-C', repo, ...args], { encoding: 'utf8', env: gitEnv() });
   const out = new Set();
   let known = false;
   for (const args of [['diff', '--name-only', 'origin/main...HEAD'], ['diff', '--name-only', 'HEAD'], ['ls-files', '--others', '--exclude-standard']]) {
