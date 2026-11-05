@@ -30,6 +30,10 @@ import { executionHash } from './_hash.mjs';
 const TOOL_ID = '837-issuer-yield-share';
 const TOOL_VERSION = '1.0.0';
 
+// R4 (absent equals explicit null): refusal detail text names a missing value the same
+// way whether the input was absent or null.
+const show = (v) => (v === undefined || v === null ? 'absent' : String(v));
+
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
   mcp_name: 'check_issuer_reserve_yield_share',
@@ -68,14 +72,14 @@ export function compute(pp) {
 
   // -- profile: only the enacted statutory profile is pinned by this row.
   if (pp.profile !== PROFILE) {
-    return refuse('profile_must_be_genius_enacted', String(pp.profile).slice(0, 60));
+    return refuse('profile_must_be_genius_enacted', show(pp.profile).slice(0, 60));
   }
 
   // -- period: integer days >= 1; either a declared income or (avg value, annual bp).
   const period = pp.period || {};
   const days = period.days;
   if (typeof days !== 'number' || !isFinite(days) || days !== Math.floor(days) || days < 1 || days > 366) {
-    return refuse('period_days_must_be_integer_1_to_366', String(days));
+    return refuse('period_days_must_be_integer_1_to_366', show(days));
   }
   const declaredIncome = period.reserve_income_minor;
   let declaredIncomeMinor = null;
@@ -83,17 +87,17 @@ export function compute(pp) {
   let bp = null;
   if (declaredIncome !== undefined && declaredIncome !== null) {
     if (typeof declaredIncome !== 'number' || !isFinite(declaredIncome) || declaredIncome !== Math.floor(declaredIncome) || declaredIncome < 0) {
-      return refuse('reserve_income_minor_must_be_nonnegative_integer', String(declaredIncome));
+      return refuse('reserve_income_minor_must_be_nonnegative_integer', show(declaredIncome));
     }
     declaredIncomeMinor = declaredIncome;
   } else {
     avg = period.avg_reserve_value_minor;
     bp = period.reserve_yield_bp;
     if (typeof avg !== 'number' || !isFinite(avg) || avg !== Math.floor(avg) || avg < 0) {
-      return refuse('avg_reserve_value_minor_must_be_nonnegative_integer', String(avg));
+      return refuse('avg_reserve_value_minor_must_be_nonnegative_integer', show(avg));
     }
     if (typeof bp !== 'number' || !isFinite(bp) || bp !== Math.floor(bp) || bp < 0 || bp > 100000) {
-      return refuse('reserve_yield_bp_must_be_integer_0_to_100000', String(bp));
+      return refuse('reserve_yield_bp_must_be_integer_0_to_100000', show(bp));
     }
   }
 
@@ -105,7 +109,7 @@ export function compute(pp) {
   // -- split: 1..16 parties, each share_bp (0..10000) or fixed_minor (>= 0), not both.
   const split = pp.split;
   if (!Array.isArray(split) || split.length < 1 || split.length > 16) {
-    return refuse('split_must_be_array_1_to_16', String(Array.isArray(split) ? split.length : typeof split));
+    return refuse('split_must_be_array_1_to_16', show(Array.isArray(split) ? split.length : (split === undefined || split === null ? null : typeof split)));
   }
   const ROLE_RE = /^[a-z_]{3,24}$/;
   const shares = [];
@@ -115,7 +119,7 @@ export function compute(pp) {
   for (let i = 0; i < split.length; i++) {
     const e = split[i] || {};
     if (typeof e.party_role !== 'string' || !ROLE_RE.test(e.party_role)) {
-      return refuse('split_party_role_must_be_snake_case', String(e.party_role).slice(0, 40));
+      return refuse('split_party_role_must_be_snake_case', show(e.party_role).slice(0, 40));
     }
     const hasBpEntry = e.share_bp !== undefined && e.share_bp !== null;
     const hasFixed = e.fixed_minor !== undefined && e.fixed_minor !== null;
@@ -125,7 +129,7 @@ export function compute(pp) {
     if (hasBpEntry) {
       const b = e.share_bp;
       if (typeof b !== 'number' || !isFinite(b) || b !== Math.floor(b) || b < 0 || b > 10000) {
-        return refuse('share_bp_must_be_integer_0_to_10000', String(b));
+        return refuse('share_bp_must_be_integer_0_to_10000', show(b));
       }
       hasBp = true;
       sumBp += b;
@@ -133,7 +137,7 @@ export function compute(pp) {
     } else {
       const f = e.fixed_minor;
       if (typeof f !== 'number' || !isFinite(f) || f !== Math.floor(f) || f < 0) {
-        return refuse('fixed_minor_must_be_nonnegative_integer', String(f));
+        return refuse('fixed_minor_must_be_nonnegative_integer', show(f));
       }
       sumFixed += f;
       shares.push({ party_role: e.party_role, basis: 'fixed_minor', amount_minor: f });
@@ -148,10 +152,10 @@ export function compute(pp) {
   // -- holder_rewards: 0..64 entries.
   const rewards = pp.holder_rewards;
   if (rewards === undefined || rewards === null) {
-    return refuse('holder_rewards_must_be_present_use_empty_array', String(rewards));
+    return refuse('holder_rewards_must_be_present_use_empty_array', show(rewards));
   }
   if (!Array.isArray(rewards) || rewards.length > 64) {
-    return refuse('holder_rewards_must_be_array_0_to_64', String(Array.isArray(rewards) ? rewards.length : typeof rewards));
+    return refuse('holder_rewards_must_be_array_0_to_64', show(Array.isArray(rewards) ? rewards.length : (rewards === undefined || rewards === null ? null : typeof rewards)));
   }
   const FUND_FROM = { reserve_income: true, distributor_margin: true, other: true };
   const COND_ON = { holding: true, activity: true, none: true };
@@ -161,17 +165,17 @@ export function compute(pp) {
   for (let i = 0; i < rewards.length; i++) {
     const r = rewards[i] || {};
     if (typeof r.payer_role !== 'string' || !ROLE_RE.test(r.payer_role)) {
-      return refuse('reward_payer_role_must_be_snake_case', String(r.payer_role).slice(0, 40));
+      return refuse('reward_payer_role_must_be_snake_case', show(r.payer_role).slice(0, 40));
     }
     if (!FUND_FROM[r.funded_from]) {
-      return refuse('reward_funded_from_must_be_enumerated', String(r.funded_from).slice(0, 40));
+      return refuse('reward_funded_from_must_be_enumerated', show(r.funded_from).slice(0, 40));
     }
     const v = r.value_minor;
     if (typeof v !== 'number' || !isFinite(v) || v !== Math.floor(v) || v < 0) {
-      return refuse('reward_value_minor_must_be_nonnegative_integer', String(v));
+      return refuse('reward_value_minor_must_be_nonnegative_integer', show(v));
     }
     if (!COND_ON[r.conditioned_on]) {
-      return refuse('reward_conditioned_on_must_be_enumerated', String(r.conditioned_on).slice(0, 40));
+      return refuse('reward_conditioned_on_must_be_enumerated', show(r.conditioned_on).slice(0, 40));
     }
     const payerIsIssuer = r.payer_role === 'issuer';
     const fromIssuerFlow = r.funded_from === 'reserve_income';
