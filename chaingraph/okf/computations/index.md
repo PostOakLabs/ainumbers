@@ -679,6 +679,7 @@ status: stable
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md)
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md)
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md)
+- [Privacy Coin Regulatory Classifier (MiCA and AMLR)](./art-818-zcash-reg-classifier.md)
 - [Securities-Settlement Message Linter (ISO 20022 sese/semt)](./art-82-securities-settlement-message-linter.md)
 - [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md)
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md)
