@@ -64,6 +64,13 @@ import { sourceDigest } from './_buildid.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// RENUMBER-RESTAMP-1: fixture children run in dirs with no git history. Pin the CI-context env they would
+// otherwise inherit (pull_request makes an undeterminable touched set fail CLOSED); only the T7 control sets
+// GITHUB_EVENT_NAME explicitly, per child.
+delete process.env.GITHUB_EVENT_NAME;
+delete process.env.GITHUB_ACTIONS;
+delete process.env.KERNELID_TOUCHED_IDS;
+
 // ── VERBATIM real node text, art-18/19/20, origin/main@47779a2929cc8e29e4bbb5cd74f6b490d1bd07a4 ──
 // (see the file header above for provenance and extraction method)
 const ART18 = `{
