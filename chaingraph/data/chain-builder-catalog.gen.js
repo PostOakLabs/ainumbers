@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (708 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (709 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7850,6 +7850,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-82-securities-settlement-message-linter",
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-814-qf-pairwise-recompute",
+    "display_name": "Quadratic Funding Round Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-814-qf-pairwise-recompute.html",
+    "description": "Recomputes how a quadratic funding round splits a matching pool from contribution amounts you supply, in two modes. Plain mode gives each pr",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
