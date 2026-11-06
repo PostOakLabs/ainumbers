@@ -1528,6 +1528,17 @@ export const EXCLUDED = [
        + 'artifact here for main to own. Listed so the coverage gate reads it as a decision, not a gap.',
   },
   {
+    what: 'scripts/renumber-node.mjs (manual node-rename tool)',
+    script: 'scripts/renumber-node.mjs',
+    share: 'n/a — a manual tool, not a derived-artifact generator',
+    why: 'NOT A DERIVED GENERATOR. It is a human-invoked rename helper: it moves and rewrites one '
+       + 'unenrolled node\'s own source files (shard, page, kernel, proptest, fixtures, reservation) and '
+       + 'restamps them through gen-kernel-identity. It never writes a shared derived artifact '
+       + '(chaingraph.json, meta, index.mjs, catalogs) and refuses an enrolled node, so there is nothing '
+       + 'for main\'s regen to own and no regen command that could converge. Listed so the fan-out gate '
+       + 'reads a decision rather than a gap.',
+  },
+  {
     what: 'scripts/check-derived-declare-parity.mjs (DERIVED-DECLARE-PARITY-1)',
     script: 'scripts/check-derived-declare-parity.mjs',
     share: 'n/a — a gate, not a generator',
