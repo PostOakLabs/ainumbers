@@ -64,6 +64,13 @@ import { sourceDigest } from './_buildid.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// RENUMBER-RESTAMP-1: fixture children run in dirs with no git history. Pin the CI-context env they would
+// otherwise inherit (pull_request makes an undeterminable touched set fail CLOSED); only the T7 control sets
+// GITHUB_EVENT_NAME explicitly, per child.
+delete process.env.GITHUB_EVENT_NAME;
+delete process.env.GITHUB_ACTIONS;
+delete process.env.KERNELID_TOUCHED_IDS;
+
 // ── VERBATIM real node text, art-18/19/20, origin/main@47779a2929cc8e29e4bbb5cd74f6b490d1bd07a4 ──
 // (see the file header above for provenance and extraction method)
 const ART18 = `{
@@ -172,6 +179,8 @@ function makeSandbox() {
   // Real modules, copied verbatim — never a reproduction of their content.
   cpSync(resolve(__dirname, 'gen-kernel-identity.mjs'), join(kdir, 'gen-kernel-identity.mjs'));
   cpSync(resolve(__dirname, '_buildid.mjs'), join(kdir, '_buildid.mjs'));
+  mkdirSync(join(dir, 'scripts'), { recursive: true });
+  cpSync(resolve(__dirname, '..', '..', 'scripts', '_git-env-lib.mjs'), join(dir, 'scripts', '_git-env-lib.mjs'));
   writeFileSync(join(kdir, 'index.mjs'), INDEX_STUB);
   for (const id of IDS) writeFileSync(join(kdir, id + '.kernel.mjs'), STUB_KERNEL_SRC);
   return { dir, kdir };
@@ -340,6 +349,94 @@ function makeSandbox() {
       check('T3: missing shard + stale monolith exits non-zero', status === 1, `status=${status}\n${out}`);
       check('T3: red names the FAILED coverage class', /coverage FAILED/.test(out), out);
       check('T3: red says the shard is MISSING or unreadable', /MISSING or unreadable/.test(out), out);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  // ── T4-T6: RENUMBER-RESTAMP-1 touched-kernel sweep (the #2860 hole; SO #40b RED/GREEN pair) ──
+  // #2860 renumbered art-811 -> art-813: kernel id strings changed (digest moved), the shard kept the
+  // old stamp, and the node was in neither index.mjs nor the monolith on the PR, so both checks skipped
+  // it and only main went red. A kernel the change touches (KERNELID_TOUCHED_IDS stands in for the git
+  // probe) is now always checked against its own shard stamp. PENDING-ASSEMBLY stays for T1 only.
+  const runTouched = (dir, kdir, touched) => {
+    const env = { ...process.env };
+    if (touched === null) delete env.KERNELID_TOUCHED_IDS; else env.KERNELID_TOUCHED_IDS = touched;
+    const r = spawnSync('node', ['gen-kernel-identity.mjs', '--check'], { cwd: kdir, encoding: 'utf8', env });
+    return { status: r.status, out: (r.stdout || '') + (r.stderr || '') };
+  };
+  const emptyMonolith = '{\n  "nodes": []\n}\n';
+  const seedShard = (dir, digest) => {
+    mkdirSync(join(dir, 'chaingraph', 'graph', 'nodes'), { recursive: true });
+    writeFileSync(join(dir, 'chaingraph', 'graph', 'nodes', IDS[0] + '.json'), shardTxt(digest));
+  };
+
+  // T4 RED: touched kernel, shard stamp stale, node absent from the monolith (the exact #2860 shape).
+  {
+    const { dir, kdir } = makeSandbox();
+    try {
+      writeFileSync(join(dir, 'chaingraph', 'chaingraph.json'), emptyMonolith);
+      seedShard(dir, staleDigest);
+      const { status, out } = runTouched(dir, kdir, IDS[0]);
+      check('T4 RED: touched kernel + stale shard stamp exits non-zero even though the monolith lacks the node', status === 1, `status=${status}\n${out}`);
+      check('T4 RED: red names TOUCHED-KERNEL STALE STAMP', /TOUCHED-KERNEL STALE STAMP/.test(out), out);
+      check('T4 RED: not misreported as PENDING-ASSEMBLY', !/⏳ PENDING-ASSEMBLY/.test(out), out);
+      // Control that proves the pre-fix blindness: same tree, kernel NOT touched by the change -> not this check's business.
+      const blind = runTouched(dir, kdir, null);
+      check('T4 control: same tree with no touched kernel passes (the monolith has no node to look at)', blind.status === 0, `status=${blind.status}\n${blind.out}`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  // T5 GREEN: touched kernel, shard correctly stamped, node absent from the monolith.
+  {
+    const { dir, kdir } = makeSandbox();
+    try {
+      writeFileSync(join(dir, 'chaingraph', 'chaingraph.json'), emptyMonolith);
+      seedShard(dir, recomputed);
+      const { status, out } = runTouched(dir, kdir, IDS[0]);
+      check('T5 GREEN: touched kernel + current shard stamp exits 0', status === 0, `status=${status}\n${out}`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  // T6 GREEN: the designed PENDING-ASSEMBLY case survives with the kernel marked touched.
+  {
+    const { dir, kdir } = makeSandbox();
+    try {
+      writeFileSync(join(dir, 'chaingraph', 'chaingraph.json'), staleMonolithDoc);
+      seedShard(dir, recomputed);
+      const { status, out } = runTouched(dir, kdir, IDS[0]);
+      check('T6 GREEN: stamped shard + stale monolith + touched kernel still passes as PENDING-ASSEMBLY', status === 0 && /PENDING-ASSEMBLY/.test(out), `status=${status}\n${out}`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  // T7 RED/GREEN pair: touched set UNDETERMINABLE (sandbox is not a git checkout). In a pull_request or
+  // merge_group run the gate must fail CLOSED; locally it warns and the full-scan checks still apply.
+  {
+    const { dir, kdir } = makeSandbox();
+    try {
+      writeFileSync(join(dir, 'chaingraph', 'chaingraph.json'), emptyMonolith);
+      seedShard(dir, recomputed);
+      const run = (ev) => {
+        const env = { ...process.env, GIT_CEILING_DIRECTORIES: dirname(dir) };
+        delete env.KERNELID_TOUCHED_IDS; delete env.GITHUB_EVENT_NAME;
+        if (ev) env.GITHUB_EVENT_NAME = ev;
+        const r = spawnSync('node', ['gen-kernel-identity.mjs', '--check'], { cwd: kdir, encoding: 'utf8', env });
+        return { status: r.status, out: (r.stdout || '') + (r.stderr || '') };
+      };
+      for (const ev of ['pull_request', 'merge_group']) {
+        const r = run(ev);
+        check(`T7 RED: undeterminable touched set on ${ev} fails CLOSED`, r.status === 1 && /UNDETERMINABLE/.test(r.out) && /CLOSED/.test(r.out), `status=${r.status}\n${r.out}`);
+      }
+      const l = run('');
+      check('T7 GREEN: undeterminable touched set locally warns loudly and passes', l.status === 0 && /UNDETERMINABLE/.test(l.out), `status=${l.status}\n${l.out}`);
+      const push = run('push');
+      check('T7 GREEN: push (main) event passes (HEAD is the base, full scan covers)', push.status === 0, `status=${push.status}\n${push.out}`);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

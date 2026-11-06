@@ -297,6 +297,16 @@ if [ "$need_full" -eq 1 ]; then
       node scripts/preflight.mjs --push-safety --changed origin/main "$@"
       status=$?
     fi
+    # PREPUSH-HYGIENE-ALWAYS-1: the push-safety leg does not contain the whole-repo
+    # hygiene set (git-env scrub, internal-lang leak, copy hallmarks, JS syntax, PII
+    # banner, tool-number uniqueness; about 10 s), so run it here: a gate-machinery
+    # diff is exactly where a new git spawn site or a leaked id slips through. The
+    # --quick/--affected branch below already includes it; the full suite is a superset.
+    if [ "$status" -eq 0 ]; then
+      echo "pre-push: running scripts/preflight.mjs --hygiene (PREPUSH-HYGIENE-ALWAYS-1) ..."
+      node scripts/preflight.mjs --hygiene --keep-going --quiet "$@"
+      status=$?
+    fi
     [ "$status" -ne 0 ] && echo "pre-push: PUSH-SAFETY leg RED — push will be blocked below; fix the gate and re-push." 1>&2
   fi
 else
