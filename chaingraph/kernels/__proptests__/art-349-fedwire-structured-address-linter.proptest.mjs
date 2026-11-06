@@ -1,5 +1,5 @@
 // art-349-fedwire-structured-address-linter.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:5d00ddaa78f298a5fa938bf6f520102ef38a75b1de34b7fdb631905ef13cadc8
+// kernel_digest_at_authoring: sha256:809f84acec184e0f58a1ba119c5745f23171d8f0138189902c8da6e5d93452ea
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -7,9 +7,13 @@
 // no arithmetic comparison of caller-supplied numbers anywhere in the kernel).
 // Checks: fixture-oracle gate, termination (violations[] is bounded by address_lines.length plus
 // a fixed set of structural checks; readiness_pct always stays in [0,100]), a differential
-// re-derivation of error_count/compliant from violations[], and forced categorical boundary
+// re-derivation of error_count/compliant from violations[], forced categorical boundary
 // cases at the four structural thresholds (MAX_ADR_LINE_LEN=70 chars, MAX_ADR_LINES=2,
-// ISO-3166-1 alpha-2 country-code length=2, the silent-fail-duplication length>=3 threshold).
+// ISO-3166-1 alpha-2 country-code length=2, the silent-fail-duplication length>=3 threshold),
+// and a date-honesty floor (CBPR-KERNEL-DATE-CONSUMER-MAP-1 §4): fedwire_chips_deadline is
+// null, the status string always travels, UNSTRUCTURED_ADDRESS is WARN while no enforcement
+// day is published (caller as_of_date cannot arm the inert ERROR branch), hybrid carries the
+// not-yet-supported note, and the renamed UNSTRUCTURED_ADDRESS_FLAGGED flag mirrors the rule.
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-349-fedwire-structured-address-linter.proptest.mjs
@@ -90,7 +94,10 @@ function checkP2_error_count_differential() {
     checked++;
     const expectedErrors = output_payload.violations.filter((v) => v.severity === 'ERROR').length;
     if (output_payload.error_count !== expectedErrors) violations++;
-    const expectedCompliant = expectedErrors === 0 && (output_payload.structure_type === 'FULLY_STRUCTURED' || output_payload.structure_type === 'HYBRID');
+    // Map §4 formula: fully-structured is the only default-compliant state; hybrid joins only
+    // under a caller-asserted as_of_date on/after a PUBLISHED enforcement date — that branch is
+    // inert while the kernel's enforcement constant is null, and randomPP never asserts one.
+    const expectedCompliant = expectedErrors === 0 && output_payload.structure_type === 'FULLY_STRUCTURED';
     if (output_payload.compliant !== expectedCompliant) violations++;
     if (!expectedCompliant !== compliance_flags.includes('FEDWIRE_ADDRESS_NON_COMPLIANT')) violations++;
     const expectedReadiness = expectedCompliant ? 100 : Math.max(0, 100 - expectedErrors * 20);
@@ -150,6 +157,27 @@ function checkP3_categorical_boundary_forcing() {
   return { name: 'P3_categorical_boundary_forcing_four_thresholds', trials: checked, violations };
 }
 
+// ---------- P4: date-honesty floor (map CBPR-KERNEL-DATE-CONSUMER-MAP-1 §4) ----------
+// Boundary cases are keyed on the CALLER's as_of_date, never on calendar constants: with no
+// published enforcement day the WARN default holds for every asserted as_of_date value.
+function checkP4_status_not_date() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = randomPP(rand);
+    pp.as_of_date = pick(rand, ['', '2026-11-16', '2027-11-30', 'not-a-date']);
+    const { output_payload, compliance_flags } = compute(pp);
+    checked++;
+    if (output_payload.fedwire_chips_deadline !== null) violations++;
+    if (typeof output_payload.fedwire_chips_deadline_status !== 'string' || output_payload.fedwire_chips_deadline_status.length === 0) violations++;
+    const unr = output_payload.violations.find((v) => v.code === 'UNSTRUCTURED_ADDRESS');
+    if (unr && unr.severity !== 'WARN') violations++;
+    if (output_payload.violations.some((v) => v.code === 'UNSTRUCTURED_ADDRESS') !== compliance_flags.includes('UNSTRUCTURED_ADDRESS_FLAGGED')) violations++;
+    if (output_payload.structure_type === 'HYBRID' && !output_payload.violations.some((v) => v.code === 'HYBRID_NOT_YET_SUPPORTED')) violations++;
+    if (output_payload.structure_type === 'HYBRID' && output_payload.compliant) violations++;
+  }
+  return { name: 'P4_deadline_null_status_string_as_of_inert', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -160,6 +188,7 @@ if (!oracleOk) {
 results.properties.push(checkP1_termination());
 results.properties.push(checkP2_error_count_differential());
 results.properties.push(checkP3_categorical_boundary_forcing());
+results.properties.push(checkP4_status_not_date());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
