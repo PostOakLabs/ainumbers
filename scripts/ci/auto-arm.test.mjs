@@ -65,3 +65,23 @@ test('isLineageClass', () => {
   assert.equal(isLineageClass(['registry/x']), true);
   assert.equal(isLineageClass(['tools/x.html']), false);
 });
+test('isLineageClass: tooling-only kernels/ files are exempt', () => {
+  const K = 'chaingraph/kernels/';
+  // tooling-only change set is not lineage
+  assert.equal(isLineageClass([
+    K + 'gen-foo.mjs', K + 'lint-bar.mjs', K + 'fix-baz.mjs', K + 'check-q.mjs',
+    K + 'x.test.mjs', K + 'y.selftest.mjs', 'scripts/preflight.mjs',
+  ]), false);
+  // shared hash helper alone is exempt, but with registry/ it is lineage
+  assert.equal(isLineageClass([K + '_hash.mjs']), false);
+  assert.equal(isLineageClass([K + '_hash.mjs', 'registry/a.json']), true);
+  // gen-index.mjs is not exempt
+  assert.equal(isLineageClass([K + 'gen-index.mjs']), true);
+  // kernel plus lint stays lineage
+  assert.equal(isLineageClass([K + 'art-1.kernel.mjs', K + 'lint-x.mjs']), true);
+  // other lineage paths stay lineage
+  assert.equal(isLineageClass([K + 'index.mjs']), true);
+  assert.equal(isLineageClass([K + '_other.mjs']), true);
+  assert.equal(isLineageClass([K + 'fixtures/a.json']), true);
+  assert.equal(isLineageClass([K + 'sub/lint-x.mjs']), true);
+});
