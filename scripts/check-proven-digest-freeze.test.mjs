@@ -10,6 +10,7 @@ import { resolve, dirname, join } from 'node:path';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { evaluateFreeze, parseAuthorizations, nodeNumber, isProven } from './check-proven-digest-freeze.mjs';
 import { computeStaleness } from './check-s18-digest-freshness.mjs';
@@ -118,7 +119,7 @@ results.push(await run('deferred node edit passes', {
 // gate's real CLI inside a temp git repo that carries a copy of the real scripts/ and kernel helpers.
 const tmp = mkdtempSync(join(tmpdir(), 'freeze-merges-'));
 const sh = (args, cwd = tmp) => {
-  const r = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', ...args], { cwd, encoding: 'utf8' });
+  const r = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', ...args], { cwd, encoding: 'utf8', env: gitEnv() });
   if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${r.stderr}`);
   return r.stdout.trim();
 };
@@ -150,7 +151,7 @@ async function mergeCase(name, { mergeMsg, sideMsg }, expectRefused) {
   sh(['add', shardRel, kernelRel]);
   sh(['commit', '-q', '-m', 'Fix rounding']);
   sh(['merge', '-q', '--no-ff', 'side', '-m', mergeMsg]);
-  const r = spawnSync(process.execPath, [join(tmp, 'scripts', 'check-proven-digest-freeze.mjs'), '--base', baseSha], { cwd: tmp, encoding: 'utf8', env: { ...process.env, PR_BODY: '' } });
+  const r = spawnSync(process.execPath, [join(tmp, 'scripts', 'check-proven-digest-freeze.mjs'), '--base', baseSha], { cwd: tmp, encoding: 'utf8', env: { ...gitEnv(), PR_BODY: '' } });
   const got = r.status !== 0;
   const ok = got === expectRefused;
   console.log(`${ok ? '✓' : '✗'} ${name}: ${got ? 'RED' : 'GREEN'} (expected ${expectRefused ? 'RED' : 'GREEN'})${ok ? '' : '\n' + r.stdout + r.stderr}`);
