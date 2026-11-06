@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-108"]
+tags: ["compliance_control", "count-109"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-108 tool(s) in this mandate-type group:
+109 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Event Contract Terms Lint](../tools/806-event-contract-terms-lint.md)
@@ -120,3 +120,4 @@ status: stable
 - [TSV Stoppage Concurrency](../tools/art-710-tsv-stoppage-concurrency.md)
 - [HDHP vs. PPO Break-Even](../tools/art-758-hdhp-ppo-break-even.md)
 - [Beacon-Seeded Fair-Sampling Deriver V2](../tools/art-774-beacon-seeded-fair-sampling-v2.md)
+- [Quadratic Funding Round Recompute](../tools/art-814-qf-pairwise-recompute.md)
