@@ -784,8 +784,9 @@ function runSelfTest() {
   const hygGates = AFFECTED_HYGIENE_CMDS.map((c) => ['hygiene ' + c, c]);
   const emptyPlan = affectedPlan(hygGates, []);
   check('empty touched set: all hygiene gates picked, loud notice', emptyPlan.picked.length === hygGates.length && emptyPlan.loud === true, emptyPlan.note);
-  const nullPlan = affectedPlan(hygGates, null);
-  check('undeterminable touched set: all hygiene gates picked, loud notice', nullPlan.picked.length === hygGates.length && nullPlan.loud === true, nullPlan.note);
+  const fullGates = [...hygGates, ['some other gate', 'node scripts/other.mjs']];
+  const nullFull = affectedPlan(fullGates, null);
+  check('undeterminable touched set: fails closed to the FULL list (hygiene included), loud notice', nullFull.picked.length === fullGates.length && nullFull.loud === true, nullFull.note);
   const quietPlan = affectedPlan(hygGates, ['README.md']);
   check('a determinable diff keeps the hygiene gates and stays quiet', quietPlan.picked.length === hygGates.length && quietPlan.loud === false, quietPlan.note);
   check('a hygiene command missing from the gate list is reported, not skipped silently', missingHygiene(hygGates.slice(1)).length === 1, missingHygiene(hygGates.slice(1)).join(', '));
@@ -2612,7 +2613,7 @@ function affectedRunList(gates) {
     process.exit(2);
   }
   if (HYGIENE_ONLY) {
-    const picked = affectedPlan(gates, null).picked;
+    const picked = affectedPlan(gates, []).picked;
     AFFECTED_NOTE = `--hygiene: only the ${picked.length} always-on whole-repo hygiene gates`;
     return picked;
   }

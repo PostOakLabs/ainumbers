@@ -84,17 +84,24 @@ export function affectedSelection(gates, files) {
 }
 
 // Plan for `--affected`: never zero gates. `files` is the touched set, or null
-// when it could not be determined. An empty or undeterminable set falls back to
+// when it could not be determined (then the FULL list runs, fail closed). An EMPTY set falls back to
 // the hygiene set alone and says so loudly (`loud: true`); a determinable set
 // gets hygiene plus its path-class gates.
 export function affectedPlan(gates, files) {
   const hygieneCount = gates.filter(([, cmd]) => AFFECTED_HYGIENE_CMDS.includes(cmd)).length;
-  if (files === null || files.length === 0) {
-    const why = files === null ? 'changed files UNDETERMINABLE' : 'touched set is EMPTY';
+  if (files === null) {
+    // Undeterminable (git error, missing base): fail closed exactly as before, the
+    // FULL list (which contains the hygiene set). Never weaker than the old behaviour.
+    return {
+      classes: [], picked: gates, loud: true,
+      note: `WARNING changed files UNDETERMINABLE, so the FULL list of ${gates.length} gates runs (fail closed; includes the ${hygieneCount} hygiene gates). Check that origin/main resolves`,
+    };
+  }
+  if (files.length === 0) {
     const picked = gates.filter(([, cmd]) => AFFECTED_HYGIENE_CMDS.includes(cmd));
     return {
       classes: [], picked, loud: true,
-      note: `WARNING ${why}, so ONLY the ${hygieneCount} always-on hygiene gates run (not a diff-scoped selection). Check that origin/main resolves and the branch has commits`,
+      note: `WARNING touched set is EMPTY, so ONLY the ${hygieneCount} always-on hygiene gates run (not a diff-scoped selection). Check that the branch has commits`,
     };
   }
   const { classes, picked } = affectedSelection(gates, files);

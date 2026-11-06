@@ -100,10 +100,11 @@ test('plan: empty touched set falls back to hygiene only, loudly, never zero gat
   assert.match(p.note, /EMPTY/);
 });
 
-test('plan: undeterminable touched set (null) falls back to hygiene only, loudly', () => {
+test('plan: undeterminable touched set (null) fails closed to the FULL list, which includes hygiene, loudly', () => {
   const p = affectedPlan(WITH_HYGIENE, null);
   assert.equal(p.loud, true);
-  assert.equal(p.picked.length, AFFECTED_HYGIENE_CMDS.length);
+  assert.equal(p.picked.length, WITH_HYGIENE.length);
+  assert.ok(AFFECTED_HYGIENE_CMDS.every((c) => p.picked.some(([, cmd]) => cmd === c)));
   assert.match(p.note, /UNDETERMINABLE/);
 });
 
