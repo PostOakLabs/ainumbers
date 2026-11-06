@@ -74,3 +74,60 @@ test('docs-only diff picks nothing (the --quick leg covers it)', () => {
   assert.deepEqual(r.classes, []);
   assert.equal(r.picked.length, 0);
 });
+
+// ── PREPUSH-HYGIENE-ALWAYS-1: the always-on hygiene set and the never-zero plan ──
+import { AFFECTED_HYGIENE_CMDS, affectedPlan, missingHygiene } from './affected-gates.mjs';
+
+const HYG = AFFECTED_HYGIENE_CMDS.map((cmd, i) => [`Hygiene gate ${i} (self-test controls)`, cmd]);
+const WITH_HYGIENE = [...GATES, ...HYG];
+
+test('hygiene gates are picked for a diff that touches no gated path class (even with "controls" in the label)', () => {
+  const r = affectedSelection(WITH_HYGIENE, ['README.md']);
+  assert.deepEqual(r.classes, []);
+  assert.deepEqual(r.picked.map(([, c]) => c).sort(), [...AFFECTED_HYGIENE_CMDS].sort());
+});
+
+test('hygiene gates ride along with the path-class gates, in GATES order', () => {
+  const r = affectedSelection(WITH_HYGIENE, ['chaingraph/kernels/824-zip317-transfer-fee.kernel.mjs']);
+  assert.ok(AFFECTED_HYGIENE_CMDS.every((c) => r.picked.some(([, cmd]) => cmd === c)));
+  assert.ok(r.picked.some(([l]) => l.startsWith('Flags-computed lint (')));
+});
+
+test('plan: empty touched set falls back to hygiene only, loudly, never zero gates', () => {
+  const p = affectedPlan(WITH_HYGIENE, []);
+  assert.equal(p.loud, true);
+  assert.equal(p.picked.length, AFFECTED_HYGIENE_CMDS.length);
+  assert.match(p.note, /EMPTY/);
+});
+
+test('plan: undeterminable touched set (null) falls back to hygiene only, loudly', () => {
+  const p = affectedPlan(WITH_HYGIENE, null);
+  assert.equal(p.loud, true);
+  assert.equal(p.picked.length, AFFECTED_HYGIENE_CMDS.length);
+  assert.match(p.note, /UNDETERMINABLE/);
+});
+
+test('plan: a determinable diff is quiet and counts hygiene plus class gates', () => {
+  const p = affectedPlan(WITH_HYGIENE, ['manifests/824-zip317-transfer-fee.manifest.json']);
+  assert.equal(p.loud, false);
+  assert.ok(p.picked.length > AFFECTED_HYGIENE_CMDS.length);
+  assert.match(p.note, /manifest/);
+});
+
+test('plan: never selects zero gates for any touched set when the hygiene commands exist', () => {
+  for (const files of [null, [], ['README.md'], ['docs/x.md'], ['guides/x.html']]) {
+    assert.ok(affectedPlan(WITH_HYGIENE, files).picked.length >= AFFECTED_HYGIENE_CMDS.length, JSON.stringify(files));
+  }
+});
+
+test('missingHygiene names a hygiene command that no gate runs (RED), none when all present (GREEN)', () => {
+  assert.deepEqual(missingHygiene(WITH_HYGIENE), []);
+  const dropped = WITH_HYGIENE.filter(([, c]) => c !== 'node scripts/check-git-env-scrub.mjs');
+  assert.deepEqual(missingHygiene(dropped), ['node scripts/check-git-env-scrub.mjs']);
+});
+
+test('the hygiene set covers the gates that went red in CI on 2026-11-06', () => {
+  for (const c of ['check-git-env-scrub.mjs', 'check-internal-lang-leak.mjs', 'check-copy-hallmarks.mjs']) {
+    assert.ok(AFFECTED_HYGIENE_CMDS.includes(`node scripts/${c}`), c);
+  }
+});

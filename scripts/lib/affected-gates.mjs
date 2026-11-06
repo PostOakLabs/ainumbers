@@ -49,9 +49,58 @@ export const AFFECTED_CLASSES = [
 export const AFFECTED_SLOW = /FV toolchain-digest|Groth16 seal parity|VM.worker parity|^verify_repo/i;
 export const AFFECTED_SKIP = /controls|fixture proof|self-?test|selftest|mutation|SO #34c|SO #40b|GATE-SELFTEST-META|Mutation tier/i;
 
+// Whole-repo hygiene gates that ALWAYS run under `--affected` (and alone under
+// `--hygiene`), whatever the touched set is. Chosen from preflight's own GATES by
+// measured wall time (2026-11-06, one warm Windows checkout, whole-repo scan):
+//   git-env scrub 2.9 s, internal-lang leak 0.3 s, copy hallmarks 5.2 s,
+//   JS syntax 1.2 s, PII banner 0.7 s, tool-number uniqueness 0.1 s (total ~10 s).
+// All are static scans with no network and no per-diff scoping, so a new spawn
+// site, a leaked internal id in a workflow comment, an em-dash or a syntax slip
+// is caught on any push, including one whose diff touches no gated path class.
+// Matching is by exact command, not label, so a label reword cannot drop one;
+// `missingHygiene` makes a renamed or removed command a loud error.
+export const AFFECTED_HYGIENE_CMDS = [
+  'node scripts/check-git-env-scrub.mjs',
+  'node scripts/check-internal-lang-leak.mjs',
+  'node scripts/check-copy-hallmarks.mjs',
+  'node scripts/check_tools.js',
+  'node scripts/check-pii-banner.mjs',
+  'node scripts/check-tool-number-unique.mjs',
+];
+
+// Hygiene commands that no entry of `gates` runs (a rename would otherwise
+// silently shrink the always-on set).
+export function missingHygiene(gates) {
+  const have = new Set(gates.map(([, cmd]) => cmd));
+  return AFFECTED_HYGIENE_CMDS.filter((c) => !have.has(c));
+}
+
 export function affectedSelection(gates, files) {
   const classes = AFFECTED_CLASSES.filter(([, pathTest]) => files.some(pathTest));
-  const picked = gates.filter(([label]) => !AFFECTED_SKIP.test(label) && !AFFECTED_SLOW.test(label)
-    && classes.some(([, , labelTest]) => labelTest.test(label)));
+  const hygiene = new Set(AFFECTED_HYGIENE_CMDS);
+  const picked = gates.filter(([label, cmd]) => hygiene.has(cmd) || (!AFFECTED_SKIP.test(label) && !AFFECTED_SLOW.test(label)
+    && classes.some(([, , labelTest]) => labelTest.test(label))));
   return { classes: classes.map(([c]) => c), picked };
+}
+
+// Plan for `--affected`: never zero gates. `files` is the touched set, or null
+// when it could not be determined. An empty or undeterminable set falls back to
+// the hygiene set alone and says so loudly (`loud: true`); a determinable set
+// gets hygiene plus its path-class gates.
+export function affectedPlan(gates, files) {
+  const hygieneCount = gates.filter(([, cmd]) => AFFECTED_HYGIENE_CMDS.includes(cmd)).length;
+  if (files === null || files.length === 0) {
+    const why = files === null ? 'changed files UNDETERMINABLE' : 'touched set is EMPTY';
+    const picked = gates.filter(([, cmd]) => AFFECTED_HYGIENE_CMDS.includes(cmd));
+    return {
+      classes: [], picked, loud: true,
+      note: `WARNING ${why}, so ONLY the ${hygieneCount} always-on hygiene gates run (not a diff-scoped selection). Check that origin/main resolves and the branch has commits`,
+    };
+  }
+  const { classes, picked } = affectedSelection(gates, files);
+  const classPicked = picked.length - hygieneCount;
+  return {
+    classes, picked, loud: false,
+    note: `${hygieneCount} always-on hygiene gate(s) + ${classPicked} for ${classes.length ? `path class(es) ${classes.join(', ')}` : 'no gated path class'} over ${files.length} changed file(s)`,
+  };
 }
