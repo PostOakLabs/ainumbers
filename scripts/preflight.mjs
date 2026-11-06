@@ -2208,7 +2208,7 @@ const GATES = [
   ['SO #36 sealed-kernel receipt controls (SO #40b pairing)', 'node scripts/check-sealed-kernel-receipt.test.mjs'],
   // Proven-digest freeze: a change may not move the sourceDigest() of a proven node unless a commit
   // message cites an audit finding (REPROVE-AUTHORIZED: art-<n> <path>#<id>) and the same change carries
-  // a fresh receipt. The advisory-on-PR split lives inside the gate; locally it blocks.
+  // a fresh receipt. Blocking everywhere since MAIN-ONLY-PATHS-GATE-1 (#2842).
   ['Proven-digest freeze (audit-cited re-prove only)', 'node scripts/check-proven-digest-freeze.mjs'],
   ['Proven-digest freeze fixture proof (RED/GREEN)', 'node scripts/check-proven-digest-freeze.test.mjs'],
   // S18-FRESHNESS-DURABLE-FIX-1: the regen-owned calibration artifact's own freshness — a COVERED
