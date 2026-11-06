@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-107"]
+tags: ["compliance_control", "count-108"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,10 +10,11 @@ status: stable
 
 # compliance_control
 
-107 tool(s) in this mandate-type group:
+108 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Event Contract Terms Lint](../tools/806-event-contract-terms-lint.md)
+- [Ethereum Epoch Accounting Recompute](../tools/813-eth-staking-accounting.md)
 - [Ethereum Base Fee and Blob Base Fee Recompute](../tools/815-eth-fee-market.md)
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
