@@ -66,7 +66,18 @@ export const meta = {
  */
 export function compute(pp) {
   pp = pp || {};
-  throw new Error('NOT_IMPLEMENTED: {{TOOL_ID}} compute() is a KERNEL-SCAFFOLD-1 stub — replace this with real logic before shipping.');
+  // SCAFFOLD-STUB (NEW-NODE-SCAFFOLD-FULL-1): a deterministic placeholder shaped to pass the
+  // recurring new-node gates from the first commit. Replace the body with real logic and keep
+  // the three habits it demonstrates:
+  //   - R4 null-as-absent: `== null` treats null and undefined alike (check-mr-r4-null-ratchet).
+  //   - conditional flags: pushed only when a condition holds (check-flags-computed).
+  //   - flag mirror: `warnings` is truthy exactly when a conditional flag is present
+  //     (AUTHORING-STANDARD.md, flag-mirror doctrine; gate check-flag-mirror).
+  const subject = pp.subject == null ? null : String(pp.subject);
+  const compliance_flags = [];
+  if (subject === null) compliance_flags.push('SUBJECT_ABSENT');
+  const warnings = compliance_flags.slice();
+  return { output_payload: { subject, warnings }, compliance_flags };
 }
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
