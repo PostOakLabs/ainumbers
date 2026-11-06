@@ -675,6 +675,7 @@ import * as art788    from './art-788-csv-rfc4180-parser.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
+import * as art818    from './art-818-zcash-reg-classifier.kernel.mjs';
 import * as art82     from './art-82-securities-settlement-message-linter.kernel.mjs';
 import * as art83     from './art-83-buy-in-exposure-modeler.kernel.mjs';
 import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
@@ -1384,6 +1385,7 @@ export const KERNELS = {
   'art-79-settlement-fail-predictor':                           art79,
   'art-80-ssi-conformance-checker':                             art80,
   'art-81-allocation-affirmation-conformance':                  art81,
+  'art-818-zcash-reg-classifier':                               art818,
   'art-82-securities-settlement-message-linter':                art82,
   'art-83-buy-in-exposure-modeler':                             art83,
   'art-84-settlement-efficiency-kpi':                           art84,
