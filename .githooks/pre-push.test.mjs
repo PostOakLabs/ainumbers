@@ -91,7 +91,7 @@ import { writeFileSync, appendFileSync } from 'node:fs';
 const args = process.argv.slice(2);
 // AFFECTED-GATES-PREPUSH-1: the hook's second (--affected) leg is recorded in its own dump, so
 // MOCK_ARGV_DUMP keeps meaning "the quick/full/push-safety leg" for every assertion below.
-if (args[0] === '--affected') { if (process.env.MOCK_AFFECTED_DUMP) writeFileSync(process.env.MOCK_AFFECTED_DUMP, JSON.stringify(args)); }
+if (args[0] === '--affected' || args[0] === '--hygiene') { if (process.env.MOCK_AFFECTED_DUMP) writeFileSync(process.env.MOCK_AFFECTED_DUMP, JSON.stringify(args)); }
 else writeFileSync(process.env.MOCK_ARGV_DUMP, JSON.stringify(args));
 if (process.env.MOCK_ARGV_LOG) appendFileSync(process.env.MOCK_ARGV_LOG, JSON.stringify(args) + '\\n');
 if (process.env.MOCK_ENV_LOG) appendFileSync(process.env.MOCK_ENV_LOG, 'PR=' + (process.env.PR_ID_COLLISION_PR || '') + '\\n');
@@ -378,8 +378,10 @@ function loggedArgvs(dir) {
   const dir = makeTriggerSandbox('scripts/new-gate.mjs');
   const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
   const calls = loggedArgvs(dir);
-  assert(r.status === 0 && calls.length === 1 && calls[0][0] === '--push-safety' && calls[0][1] === '--changed' && calls[0][2] === 'origin/main',
-    `scripts/*.mjs diff (PREPUSH-SAFETY-LEG-1): PUSH-SAFETY leg only (quick skipped as a subset), full suite left to CI (got ${JSON.stringify(calls)})`);
+  assert(r.status === 0 && calls.length === 2 && calls[0][0] === '--push-safety' && calls[0][1] === '--changed' && calls[0][2] === 'origin/main',
+    `scripts/*.mjs diff (PREPUSH-SAFETY-LEG-1): PUSH-SAFETY leg (quick skipped as a subset), full suite left to CI (got ${JSON.stringify(calls)})`);
+  assert(calls[1] && calls[1][0] === '--hygiene',
+    `PREPUSH-HYGIENE-ALWAYS-1: the push-safety branch then runs the always-on --hygiene leg (got ${JSON.stringify(calls[1])})`);
   assert(existsSync(join(dir, '.git', 'preflight-push-safety.log')), 'push-safety leg output is teed to .git/preflight-push-safety.log');
   cleanup(dir);
 }
