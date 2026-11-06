@@ -119,6 +119,15 @@ t('fresh head (builder may still be pushing) → skip; same head past the window
   assert.equal(run({ pr: { headCommittedAt: '2026-11-03T11:55:00Z' } }).reason, 'fresh-head');
   assert.equal(run({ pr: { headCommittedAt: '2026-11-03T11:55:00Z' }, minHeadAgeMs: 60_000 }).action, 'merge-clean');
 });
+t('CI pending on a recent head → skip checks-running; pending past the window or SUCCESS → acts', () => {
+  assert.equal(run({ pr: { checksState: 'PENDING', headCommittedAt: '2026-11-03T11:30:00Z' } }).reason, 'checks-running');
+  assert.equal(run({ pr: { checksState: 'PENDING', headCommittedAt: OLD } }).action, 'merge-clean');
+  assert.equal(run({ pr: { checksState: 'SUCCESS', headCommittedAt: '2026-11-03T11:30:00Z' } }).action, 'merge-clean');
+});
+t('armed + BEHIND clean → skip (queue rebuilds); armed + derived-DIRTY still acts (queue cannot take a conflict)', () => {
+  assert.equal(run({ pr: { labels: ['automerge'] } }).reason, 'armed-queue-rebuilds');
+  assert.equal(run({ pr: { labels: ['automerge'] }, conflicts: ['mcp/catalog.json'] }).action, 'merge-derived');
+});
 t('guard order: a draft fork is reported as fork (the cheapest, unconditional skip first)', () => {
   assert.equal(run({ pr: { isDraft: true, isCrossRepository: true } }).reason, 'fork');
 });
