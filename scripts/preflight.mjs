@@ -97,6 +97,8 @@ import { execSync, exec } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
 import { checkPreflightCap, refusalMessage } from './lib/preflight-cap.mjs';
 import { affectedSelection } from './lib/affected-gates.mjs';
+import { parseShardSpec, planShards, loadTimings } from './lib/preflight-shard.mjs';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir, freemem } from 'node:os';
@@ -2577,10 +2579,99 @@ function affectedRunList(gates) {
     : `no gated path class in ${files.length} changed file(s), so 0 extra gates (the --quick leg covers this diff)`;
   return picked;
 }
-const RUN_GATES = TIER_LEG === 'only'
+const FULL_RUN_GATES = TIER_LEG === 'only'
   ? GATES.filter(([l]) => l.startsWith(TIER_GATE_LABEL_PREFIX))
   : AFFECTED ? affectedRunList(GATES) : GATES;
 if (AFFECTED) console.log(`▶ --affected (AFFECTED-GATES-PREPUSH-1): ${AFFECTED_NOTE}. The full suite still runs in CI.`);
+
+// SERIAL_GATES (PREFLIGHT-PARALLEL-FAILFAST-1, see the pool comment further down):
+// labels matching a prefix are pulled out of the pool and run one at a time, in
+// list order, ahead of it. Declared here because the shard plan below pins them.
+const SERIAL_GATES_PREFIXES = [
+  // 'Mutation tier floor' — run-mutation-tier.mjs is the ONLY gate in GATES
+  // whose contract is "mutate a kernel copy, run the suite, revert": it never
+  // shares the machine with a peer gate. Every other entry is a read-only
+  // checker over the working tree or a self-test that mutates only its own
+  // mkdtemp()/tmpdir() fixture (shared scratch candidates were audited:
+  // ensureS18PrDerivedRoot() and MERGE_GROUP_DERIVED_ROOT both assemble their
+  // ephemeral tree synchronously and memoize it before any subprocess spawns,
+  // so two gates can never race its build) — and PREFLIGHT-KEEPGOING-1 has
+  // run the whole list concurrently at cap 8 since 2026-08 with zero
+  // shared-scratch collisions. The set starts at exactly one entry: the one
+  // deliberate mutator.
+  'Mutation tier floor',
+];
+
+// ── CI-PREFLIGHT-SHARD-1: `--shard i/N` (or PREFLIGHT_SHARD=i/N) ─────────────
+// The FULL run list above is computed exactly as an unsharded run computes it,
+// then partitioned by scripts/lib/preflight-shard.mjs and this invocation keeps
+// only shard i's entries, in declaration order. Every shard derives the same plan
+// from the same tree, so across i = 0..N-1 every gate runs exactly once.
+// Balance comes from scripts/ci/preflight-gate-timings.json when present
+// (round-robin by label otherwise); weights never select, skip or reorder a gate.
+// Ordering-dependent work stays together on shard 0:
+//   • SERIAL_GATES_PREFIXES (the mutation-tier floor, the one gate that mutates a
+//     kernel copy and must never share the machine with a peer gate);
+//   • the inline mfstSec check and every post-loop block (L1/L2 chain contracts,
+//     the AIN Bridge drift BLOCKING check, the advisory reports), which read the
+//     tree once after the loop and are not GATES entries.
+// The regen-repairable probe and the covered-red classification run on EVERY
+// shard over that shard's own advisory/covered reds, because they consume
+// results only the shard that ran the gate holds.
+// Unset (every local run and the pre-push hook) = byte-identical behaviour.
+// `--shard-plan N` prints the whole list, the N shard lists and the union check,
+// then exits without running a gate.
+const SHARD_ARG_IDX = process.argv.indexOf('--shard');
+const SHARD_SPEC = SHARD_ARG_IDX !== -1 ? (process.argv[SHARD_ARG_IDX + 1] || '') : (process.env.PREFLIGHT_SHARD || '');
+const SHARD_PLAN_IDX = process.argv.indexOf('--shard-plan');
+const SHARD_PLAN_COUNT = SHARD_PLAN_IDX !== -1 ? Number(process.argv[SHARD_PLAN_IDX + 1]) : null;
+const SHARD = SHARD_SPEC ? parseShardSpec(SHARD_SPEC) : null;
+if (SHARD_SPEC && !SHARD) {
+  console.error(`❌ --shard / PREFLIGHT_SHARD="${SHARD_SPEC}" is not i/N with 0 <= i < N — refusing to guess (CI-PREFLIGHT-SHARD-1).`);
+  process.exit(2);
+}
+if (SHARD_PLAN_IDX !== -1 && !(Number.isInteger(SHARD_PLAN_COUNT) && SHARD_PLAN_COUNT >= 1)) {
+  console.error('❌ --shard-plan needs a shard count N >= 1 (e.g. --shard-plan 4).');
+  process.exit(2);
+}
+if ((SHARD || SHARD_PLAN_IDX !== -1) && (QUICK || PUSH_SAFETY || AFFECTED || TIER_LEG === 'only')) {
+  console.error('❌ --shard / --shard-plan partitions the FULL suite only; it cannot combine with --quick, --push-safety, --affected or PREFLIGHT_TIER_LEG=only.');
+  process.exit(2);
+}
+const SHARD_TIMINGS_PATH = resolve(REPO, 'scripts', 'ci', 'preflight-gate-timings.json');
+const shardPinned = (label) => SERIAL_GATES_PREFIXES.some((p) => label.startsWith(p));
+function shardPlanFor(count) {
+  const timings = loadTimings(SHARD_TIMINGS_PATH);
+  return { timings, owner: planShards(FULL_RUN_GATES.map(([l]) => l), count, { timings, pinned: shardPinned }) };
+}
+// The digest every shard prints: equal digests = the shards partitioned the same list.
+const FULL_LIST_SHA = createHash('sha256').update(FULL_RUN_GATES.map(([l, c]) => `${l}\t${c}`).join('\n')).digest('hex').slice(0, 16);
+if (SHARD_PLAN_IDX !== -1) {
+  const { timings, owner } = shardPlanFor(SHARD_PLAN_COUNT);
+  const whole = [...FULL_RUN_GATES.map(([l]) => l), MFSTSEC_LABEL];
+  const union = [];
+  console.log(`SHARD-PLAN N=${SHARD_PLAN_COUNT} balance=${timings ? 'timings' : 'round-robin'} full-list-sha=${FULL_LIST_SHA} event=${process.env.GITHUB_EVENT_NAME || '<local>'} merge_group_derived_root=${MERGE_GROUP_DERIVED_ROOT ? 'set' : 'unset'} main_context=${MAIN_CONTEXT}`);
+  console.log(`WHOLE ${whole.length}`);
+  for (const l of whole) console.log(`  W\t${l}`);
+  for (let s = 0; s < SHARD_PLAN_COUNT; s++) {
+    const mine = FULL_RUN_GATES.filter((_, i) => owner[i] === s).map(([l]) => l);
+    if (s === 0) mine.push(MFSTSEC_LABEL);
+    const est = mine.reduce((a, l) => a + (timings && Number.isFinite(timings[l]) ? timings[l] : 0), 0);
+    console.log(`SHARD ${s}/${SHARD_PLAN_COUNT} ${mine.length} gate(s), recorded ${(est / 1000).toFixed(1)} s${s === 0 ? ' (+ the post-loop checks)' : ''}`);
+    for (const l of mine) console.log(`  S${s}\t${l}`);
+    union.push(...mine);
+  }
+  const same = JSON.stringify([...union].sort()) === JSON.stringify([...whole].sort());
+  console.log(`UNION ${union.length} vs WHOLE ${whole.length}: ${same ? 'EQUAL (every gate in exactly one shard)' : 'MISMATCH'}`);
+  process.exit(same ? 0 : 1);
+}
+const SHARD_OWNER = SHARD ? shardPlanFor(SHARD.count).owner : null;
+const RUN_GATES = SHARD ? FULL_RUN_GATES.filter((_, i) => SHARD_OWNER[i] === SHARD.index) : FULL_RUN_GATES;
+// Shard 0 (or an unsharded run) carries the inline mfstSec check and the post-loop blocks.
+const SHARD_OWNS_POSTLOOP = !SHARD || SHARD.index === 0;
+if (SHARD) {
+  console.log(`▶ preflight shard ${SHARD.index}/${SHARD.count} (CI-PREFLIGHT-SHARD-1): ${RUN_GATES.length} of ${FULL_RUN_GATES.length} gates${SHARD_OWNS_POSTLOOP ? ' + the inline and post-loop checks' : ''}; full-list sha ${FULL_LIST_SHA} (equal on every shard of one run); balance ${loadTimings(SHARD_TIMINGS_PATH) ? 'by recorded timings' : 'round-robin'}.`);
+}
 if (TIER_LEG === 'only' && RUN_GATES.length !== 1) {
   console.error(`❌ tier-leg scoping: PREFLIGHT_TIER_LEG=only matched ${RUN_GATES.length} GATES entries by label prefix "${TIER_GATE_LABEL_PREFIX}" (expected exactly 1) — refusing to run a scope this file cannot account for.`);
   process.exit(2);
@@ -2589,14 +2680,15 @@ const TIER_ONLY_SCOPE = TIER_LEG === 'only'; // read by the inline mfstSec guard
 // PREFLIGHT-KEEPGOING-1: the run list is GATES plus that inline check. DERIVED at
 // runtime — a gate added to GATES raises this by itself, and nothing anywhere
 // hardcodes how many gates preflight runs.
-const RUN_LIST_SIZE = RUN_GATES.length + (TIER_ONLY_SCOPE ? 0 : 1);
+const RUN_LIST_SIZE = RUN_GATES.length + (TIER_ONLY_SCOPE || !SHARD_OWNS_POSTLOOP ? 0 : 1);
 
 // PREFLIGHT-KEEPGOING-1: an --expect-red id that matches no gate would waive
 // nothing while reading as diligence, so it is a hard error before any gate runs.
 if (EXPECT_RED.length) {
   // AFFECTED-GATES-PREPUSH-1: the hook hands --quick and --affected the same
   // --expect-red ids, so under --affected an id is valid if it names ANY gate.
-  const labels = [...(AFFECTED ? GATES : RUN_GATES).map(([l]) => l), ...(TIER_ONLY_SCOPE ? [] : [MFSTSEC_LABEL])];
+  // CI-PREFLIGHT-SHARD-1: same under --shard — the id may name a gate another shard owns.
+  const labels = [...(AFFECTED || SHARD ? GATES : RUN_GATES).map(([l]) => l), ...(TIER_ONLY_SCOPE ? [] : [MFSTSEC_LABEL])];
   const unmatched = EXPECT_RED.filter((id) => !labels.some((l) => l.toLowerCase().includes(id.toLowerCase())));
   if (unmatched.length) {
     console.error(`❌ --expect-red: no gate label matches ${unmatched.map((u) => `"${u}"`).join(', ')}.`);
@@ -2961,22 +3053,10 @@ const suiteStart = Date.now();
 //      order — the named gate, the printed output and the exit code are
 //      exactly what the old serial loop produced; the gates behind it still
 //      report nothing, exactly as before.
-//   2. SERIAL_GATES: labels matching a prefix below are pulled out of the
-//      pool entirely and run one at a time, in list order, ahead of the pool.
-const SERIAL_GATES_PREFIXES = [
-  // 'Mutation tier floor' — run-mutation-tier.mjs is the ONLY gate in GATES
-  // whose contract is "mutate a kernel copy, run the suite, revert": it never
-  // shares the machine with a peer gate. Every other entry is a read-only
-  // checker over the working tree or a self-test that mutates only its own
-  // mkdtemp()/tmpdir() fixture (shared scratch candidates were audited:
-  // ensureS18PrDerivedRoot() and MERGE_GROUP_DERIVED_ROOT both assemble their
-  // ephemeral tree synchronously and memoize it before any subprocess spawns,
-  // so two gates can never race its build) — and PREFLIGHT-KEEPGOING-1 has
-  // run the whole list concurrently at cap 8 since 2026-08 with zero
-  // shared-scratch collisions. The set starts at exactly one entry: the one
-  // deliberate mutator.
-  'Mutation tier floor',
-];
+//   2. SERIAL_GATES: labels matching a prefix in SERIAL_GATES_PREFIXES
+//      (declared with the run list above, where the shard plan pins them) are
+//      pulled out of the pool entirely and run one at a time, in list order,
+//      ahead of the pool.
 
 // RAM-bound cap (PREFLIGHT-PARALLEL-FAILFAST-1): min(env override, 8,
 // floor(free RAM GB / 1.5)), never below 1. Free RAM is sampled once, here,
@@ -3149,7 +3229,9 @@ if (KEEP_GOING) {
 // PREFLIGHT_TIER_LEG=only scoped the run list to the tier leg alone
 // (SCRIPTS-VERIFY-TIER-SHARD-1): the shard job carrying that scope runs no
 // other gate, and RUN_LIST_SIZE above already reflects the same thing.
-if (!TIER_ONLY_SCOPE && (!failed || KEEP_GOING)) {
+// `SHARD_OWNS_POSTLOOP` sits it out on shards 1..N-1 (CI-PREFLIGHT-SHARD-1):
+// shard 0 runs it, once.
+if (!TIER_ONLY_SCOPE && SHARD_OWNS_POSTLOOP && (!failed || KEEP_GOING)) {
   gateStart('mfstSec presence (every tool)');
   const t0 = Date.now();
   const missing = readdirSync(resolve(REPO, 'tools'))
@@ -3373,6 +3455,15 @@ if (advisoryFailures.length) {
   console.log('    These are single-writer artifacts (SO #35). ⛔ Do NOT regenerate them in a shard PR —');
   console.log('    that is the merge-ref conflict that silently removed CI from PR #1199 (SO #34c).');
   console.log("    main's Derived Artifacts Regen workflow owns them and will commit the fix after merge.");
+}
+
+// CI-PREFLIGHT-SHARD-1: shards 1..N-1 end here. Their gates' verdict is fully
+// carried by the exits above; everything below is the post-loop work shard 0
+// runs once for the whole suite (see the shard block at the run list).
+if (!SHARD_OWNS_POSTLOOP) {
+  printUnavailableBlock();
+  console.log(`\n✅ preflight shard ${SHARD.index}/${SHARD.count} PASSED — ${RUN_GATES.length} of ${FULL_RUN_GATES.length} gates green (full-list sha ${FULL_LIST_SHA}). NOT the full suite: the other shards carry the rest, and scripts-verify / required fails if any shard fails or does not run.${unavailableClause(unavailableAdvisories.length)}`);
+  process.exit(0);
 }
 
 // ── Advisory (non-blocking): worker vendor owed ─────────────────────────────
@@ -3713,6 +3804,8 @@ if (KEEP_GOING && waivedCount) {
 } else if (AFFECTED) {
   // AFFECTED-GATES-PREPUSH-1: a subset verdict must never read as the full suite (SO #34c).
   console.log(`\n✅ preflight --affected PASSED — the ${RUN_GATES.length} gate(s) for this diff's path classes are green. NOT the full suite: CI still runs every gate on the PR head and the merge_group tree.${UNAVAILABLE_CLAUSE}`);
+} else if (SHARD) {
+  console.log(`\n✅ preflight shard ${SHARD.index}/${SHARD.count} PASSED — ${RUN_GATES.length} of ${FULL_RUN_GATES.length} gates + the inline and post-loop checks green (full-list sha ${FULL_LIST_SHA}). NOT the full suite: the other shards carry the rest, and scripts-verify / required fails if any shard fails or does not run.${UNAVAILABLE_CLAUSE}`);
 } else {
   console.log(`\n✅ preflight PASSED — all hard CI gates green. Safe to push.${UNAVAILABLE_CLAUSE}`);
 }
