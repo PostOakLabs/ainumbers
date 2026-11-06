@@ -581,8 +581,17 @@ function buildArtifact(pp, output_payload, compliance_flags, execHash) {
       signatures: []
     }
   };
-  document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
   return __artifactResult;
+}
+
+// Artifact-returning entry point (manifest execution.function_name): takes the
+// full policy_parameters ({ dvp_structure }), returns the hashed artifact,
+// touches no DOM and triggers no download. The form path and the WebMCP direct
+// path both call it.
+async function computeArtifact(pp) {
+  const { output_payload, compliance_flags } = computeCantonPartition(pp.dvp_structure || {});
+  const execHash = await executionHashLocal(pp, output_payload);
+  return buildArtifact(pp, output_payload, compliance_flags, execHash);
 }
 
 // ─── GET POLICY PARAMETERS FROM FORM ────────────────────────────────────────
@@ -608,28 +617,25 @@ function getPP() {
 
 // ─── MAIN RUN ────────────────────────────────────────────────────────────────
 async function run() {
-  const pp = getPP();
-  const { output_payload, compliance_flags } = computeCantonPartition(pp.dvp_structure);
-  const execHash = await executionHashLocal(pp, output_payload);
-  const artifact = buildArtifact(pp, output_payload, compliance_flags, execHash);
-
-  lastArtifact = artifact;
-  lastPP = pp;
-  lastOP = output_payload;
-  lastFlags = compliance_flags;
-  _lastResult = artifact;
+  _lastResult = await computeArtifact(getPP());
   paintResult();
 }
 
 // WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
 // paints the stored result global, so the agent path and the form path paint
-// through the same code. Reads _lastResult only; never assigns it.
+// through the same code. Reads _lastResult only; never assigns it. It also
+// syncs the export state, so exports always match what is on screen.
 function paintResult(){
   if(!_lastResult) return;
   const artifact = _lastResult;
-  const output_payload = lastOP || artifact.output_payload;
-  const compliance_flags = lastFlags || artifact.compliance_flags || [];
+  lastArtifact = artifact;
+  lastPP = artifact.policy_parameters;
+  lastOP = artifact.output_payload;
+  lastFlags = artifact.compliance_flags || [];
+  const output_payload = artifact.output_payload;
+  const compliance_flags = lastFlags;
   const execHash = String(artifact.execution_hash || '').replace(/^sha256:/, '');
+  document.getElementById('generatedAt').textContent = 'generated_at ' + artifact.generated_at;
 
   // Verdict hero
   const verdictHero = document.getElementById('verdictHero');
@@ -766,5 +772,6 @@ function toggleMfst() {
   if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
 }
 </script>
+
 </body>
 </html>

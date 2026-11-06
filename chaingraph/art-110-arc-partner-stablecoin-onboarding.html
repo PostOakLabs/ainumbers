@@ -703,14 +703,18 @@ function getCheckedValues(groupId) {
     .map(cb => cb.value);
 }
 
+// Same policy_parameters shape as the kernel and its fixtures ({ issuer_profile }),
+// so the form path and the agent path hash the same preimage.
 function getPP() {
   return {
-    ccy: (document.getElementById('ccy').value || 'UNKNOWN').trim().toUpperCase(),
-    home_regime: document.getElementById('home_regime').value,
-    attestation_cadence: document.getElementById('attestation_cadence').value,
-    technical_caps: getCheckedValues('tech_caps_group'),
-    reserve_composition: getCheckedValues('reserve_group'),
-    risk_mgmt_controls: getCheckedValues('risk_group')
+    issuer_profile: {
+      ccy: (document.getElementById('ccy').value || 'UNKNOWN').trim().toUpperCase(),
+      home_regime: document.getElementById('home_regime').value,
+      attestation_cadence: document.getElementById('attestation_cadence').value,
+      technical_caps: getCheckedValues('tech_caps_group'),
+      reserve_composition: getCheckedValues('reserve_group'),
+      risk_mgmt_controls: getCheckedValues('risk_group')
+    }
   };
 }
 
@@ -744,8 +748,15 @@ async function buildArtifact(pp, op, complianceFlags) {
       signatures: []
     }
   };
-  document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
   return __artifactResult;
+}
+
+// Artifact-returning entry point (manifest execution.function_name): takes the
+// full policy_parameters, returns the hashed artifact, touches no DOM and
+// triggers no download. The form path and the WebMCP direct path both call it.
+async function computeArtifact(pp) {
+  const { output_payload: op, compliance_flags } = computePartnerOnboarding(pp.issuer_profile || {});
+  return await buildArtifact(pp, op, compliance_flags);
 }
 
 // ─── GRADE COLOR HELPER ───────────────────────────────────────────────────────
@@ -764,36 +775,23 @@ function scoreColor(score) {
 
 // ─── MAIN RUN ─────────────────────────────────────────────────────────────────
 async function runTool() {
-  const pp = getPP();
-
-  // Map form field names to kernel field names
-  const issuerProfile = {
-    ccy: pp.ccy,
-    home_regime: pp.home_regime,
-    attestation_cadence: pp.attestation_cadence,
-    technical_caps: pp.technical_caps,
-    reserve_composition: pp.reserve_composition,
-    risk_mgmt_controls: pp.risk_mgmt_controls
-  };
-
-  const { output_payload: op, compliance_flags } = computePartnerOnboarding(issuerProfile);
-  const artifact = await buildArtifact(pp, op, compliance_flags);
-
-  lastArtifact = artifact;
-  lastPP = pp;
-  lastOP = op;
-  _lastResult = artifact;
+  _lastResult = await computeArtifact(getPP());
   paintResult();
 }
 
 // WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
 // paints the stored result global, so the agent path and the form path paint
-// through the same code. Reads _lastResult only; never assigns it.
+// through the same code. Reads _lastResult only; never assigns it. It also
+// syncs the export state, so exports always match what is on screen.
 function paintResult(){
   if(!_lastResult) return;
   const artifact = _lastResult;
-  const op = lastOP || artifact.output_payload;
+  lastArtifact = artifact;
+  lastPP = artifact.policy_parameters;
+  lastOP = artifact.output_payload;
+  const op = artifact.output_payload;
   const compliance_flags = artifact.compliance_flags || [];
+  document.getElementById('generatedAt').textContent = 'generated_at ' + artifact.generated_at;
 
   // ── Grade hero ──
   const gradeEl = document.getElementById('gradeVal');
@@ -954,5 +952,6 @@ function toggleMfst() {
   if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
 }
 </script>
+
 </body>
 </html>
