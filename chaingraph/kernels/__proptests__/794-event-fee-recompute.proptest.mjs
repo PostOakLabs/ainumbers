@@ -1,5 +1,5 @@
 // 794-event-fee-recompute — class-K property-test FLOOR per FV-PBT-FLOOR-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:0a362342261e84e5c2a0d247fefc6e643ce9b7f2498187b9e227fa1719dbfed1
+// kernel_digest_at_authoring: sha256:891846e7b92888b8bba41daa1512764a18d2061178c5fe7b1644ca0a2b4cf0d7
 // spec: research/kalshi-event-contract-rows-2026-10-30.md section 3.3 + research/EVENT-FEE-RECOMPUTE-PIN-2026-10-30.md
 // human_sign_off: TIM-PENDING-2026-10-31
 //
@@ -357,9 +357,9 @@ function checkExactFees() {
 
   // parabolic: 7% of C x p x (1-p): 2 x 0.25 x 0.07 = 0.035 dollars = 35000 micro
   t.ok(fee0(one(GP())) === 35000, 'parabolic 35000');
-  // flat declares a zero effective theta and echoes its family (the per-fill pricing of
-  // generic flat/linear is not asserted here: see the row report)
-  let r = one(GP({ fee_family: 'flat', flat_fee_micro: 700 }), ORD({ fills: fills(3, 123456) }));
+  // flat declares a zero effective theta and echoes its family (per-fill pricing of
+  // generic flat/linear/multiplier is asserted against the BigInt oracle in P10)
+  let r =one(GP({ fee_family: 'flat', flat_fee_micro: 700 }), ORD({ fills: fills(3, 123456) }));
   t.ok(r.output_payload.verdict === 'completed' && r.output_payload.fee_family === 'flat', 'flat family echo');
   t.ok(r.output_payload.effective_theta.taker.num === 0 && r.output_payload.effective_theta.taker.den === 1, 'flat theta zero');
   // multiplier family takes the parabolic path
@@ -525,6 +525,49 @@ function checkGenericRowsAndEcho() {
   return { name: 'P9_generic_rows_and_echoed_fields', checked: t.checked, violations: t.violations, failed: t.failed };
 }
 
+// P10 — GENERIC PER-FAMILY ORACLE: every generic family prices by its OWN formula
+// and honours a caller-declared series multiplier. The oracle is written from the
+// family definitions in the kernel header, independent of rawFillFee:
+//   parabolic / multiplier: ceil(theta x C x p x (1-p) x m)
+//   linear:                 ceil(theta x C x m)          (dollars per contract, p-free)
+//   flat:                   floor(flat_micro x C x m)    (exact path, no fill rounding)
+// all in micro-dollars, ceil mode, fill unit 1. Regression for the defect where generic
+// flat/linear fell to the parabolic formula and the generic multiplier was dropped.
+function oracleFee(fam, thN, thD, flat, mN, mD, C, p) {
+  const M = 1000000n;
+  const cd = (a, b) => (a + b - 1n) / b;
+  const [tn, td, f, mn, md, c, pm] = [thN, thD, flat, mN, mD, C, p].map(BigInt);
+  if (fam === 'flat') return (f * c * mn) / md;
+  if (fam === 'linear') return cd(tn * c * M * mn, td * md);
+  return cd(tn * c * pm * (M - pm) * mn, td * M * md);
+}
+function checkGenericFamilyOracle() {
+  const t = tally();
+  const priced = (params, c, p) => BigInt(fee0(GEN(params, ORD({ fills: [{ contracts: c, price_micro: p }] }))));
+
+  // pinned regression goldens: 10 contracts at $0.20, ceil, unit 1
+  t.ok(priced(GP({ theta_taker_num: 7, theta_taker_den: 100 }), 10, 200000) === 112000n, 'parabolic 7/100 -> 112000');
+  t.ok(priced(GP({ fee_family: 'linear', theta_taker_num: 7, theta_taker_den: 100 }), 10, 200000) === 700000n, 'linear 7/100 -> 700000');
+  t.ok(priced(GP({ fee_family: 'flat', flat_fee_micro: 1000 }), 10, 200000) === 10000n, 'flat 1000 -> 10000');
+  t.ok(priced(GP({ fee_family: 'multiplier', series_multiplier_num: 3, series_multiplier_den: 2 }), 10, 200000) === 168000n, 'multiplier 3/2 -> 168000');
+
+  // randomized: every family, multipliers 1..4 over 1..3
+  const rng = mulberry32(SEED + 10);
+  const fams = ['parabolic', 'multiplier', 'linear', 'flat'];
+  for (let i = 0; i < N; i++) {
+    const fam = fams[i % fams.length];
+    const thN = Math.floor(rng() * 10); const thD = 1 + Math.floor(rng() * 500);
+    const flat = Math.floor(rng() * 5000);
+    const mN = 1 + Math.floor(rng() * 4); const mD = 1 + Math.floor(rng() * 3);
+    const C = 1 + Math.floor(rng() * 1000); const p = 1 + Math.floor(rng() * 999999);
+    const params = GP({ fee_family: fam, theta_taker_num: thN, theta_taker_den: thD, series_multiplier_num: mN, series_multiplier_den: mD });
+    if (fam === 'flat') params.flat_fee_micro = flat;
+    const want = oracleFee(fam, thN, thD, flat, mN, mD, C, p);
+    t.ok(priced(params, C, p) === want, fam + ' oracle #' + i);
+  }
+  return { name: 'P10_generic_family_bigint_oracle', checked: t.checked, violations: t.violations, failed: t.failed };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -542,6 +585,7 @@ const properties = [
   checkCalendar(),
   checkExactFees(),
   checkGenericRowsAndEcho(),
+  checkGenericFamilyOracle(),
 ];
 for (const p of properties) if (p.failed && p.failed.length) console.error(p.name + ' FAILED: ' + p.failed.slice(0, 40).join(' | '));
 console.log(`[${KERNEL_ID}] class-K floor property test`);

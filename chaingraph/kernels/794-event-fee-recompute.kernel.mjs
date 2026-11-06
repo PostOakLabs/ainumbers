@@ -198,7 +198,9 @@ function selectRow(rows, asOf) {
 }
 
 // ---------- raw fee numerator/denominator per fill (exact BigInt, micro-dollars) ----------
-function rawFillFee(row, theta, C, pm, usComboActive) {
+// family + mult arrive already resolved by compute(): a generic row carries
+// fee_family / series_multiplier_num/den, not family / series_multiplier.
+function rawFillFee(row, family, mult, theta, C, pm, usComboActive) {
   if (usComboActive) {
     // Fee = C x p x [0.0695(1-p) + 0.04(1-p)^4] dollars:
     // micro = C * pm * (695*(1e6-pm)*1e16 + 4*(1e6-pm)^4) / 1e26
@@ -206,8 +208,6 @@ function rawFillFee(row, theta, C, pm, usComboActive) {
     const num = B(C) * B(pm) * (695n * oneMinus * 10000000000000000n + 4n * oneMinus * oneMinus * oneMinus * oneMinus);
     return { num, den: 100000000000000000000000000n };
   }
-  const family = row.family;
-  const mult = row.series_multiplier || { num: 1, den: 1 };
   if (family === 'flat') {
     const flat = row.flat_fee_micro !== undefined ? B(row.flat_fee_micro) : 0n;
     return { num: flat * B(C) * B(mult.num), den: B(mult.den), exact: true };
@@ -418,7 +418,7 @@ export function compute(pp) {
         fillsTotal++;
         if (fillsTotal > MAX_FILLS_TOTAL) return refuse(flags, 'fills_exceed_bounded_domain_500', group.at);
         const usComboThisFill = profileId === 'polymarket_us' && usComboActive && kind === 'combo';
-        const raw = rawFillFee(shipped ? row : genActive, theta, f.contracts, f.price_micro, usComboThisFill);
+        const raw = rawFillFee(shipped ? row : genActive, family, effMult, theta, f.contracts, f.price_micro, usComboThisFill);
         let trade;
         if (raw.exact) {
           trade = raw.num / raw.den; // flat family: exact micro per contract
@@ -442,7 +442,7 @@ export function compute(pp) {
           carry = carry - rebate;
           net = gross - rebate;
         } else if (family === 'rebate_share' && role === 'maker') {
-          const takerRaw = rawFillFee(shipped ? row : genActive, takerTheta, f.contracts, f.price_micro, false);
+          const takerRaw = rawFillFee(shipped ? row : genActive, family, effMult, takerTheta, f.contracts, f.price_micro, false);
           const takerEquiv = roundFee(takerRaw.num, takerRaw.den, roundingMode, unitBig, floorMinBig);
           rebate = (takerEquiv * B(rebateShareBp)) / B(10000);
           if (rebate > trade) rebate = trade;
