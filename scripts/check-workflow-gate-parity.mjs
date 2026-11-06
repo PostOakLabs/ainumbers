@@ -1052,6 +1052,7 @@ const PREFLIGHT_ONLY = new Map([
   ["check-binary-bytes.test.mjs", SELF_TEST],
   ["jsdoc-checkjs-gate.test.mjs", SELF_TEST],
   ["gen-kernel-identity.test.mjs", SELF_TEST],
+  ["renumber-node.mjs", SELF_TEST],
   ["check-guest-builtin-safety.test.mjs", SELF_TEST],
   ["quantization-parity.test.mjs", SELF_TEST],
   ["seed-replay.test.mjs", SELF_TEST],
