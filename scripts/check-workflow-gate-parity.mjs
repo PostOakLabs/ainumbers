@@ -1051,6 +1051,7 @@ const PREFLIGHT_ONLY = new Map([
 
   // ── paired self-tests / mutation controls (66) ──────────────────────────────
   ["pre-push.test.mjs", SELF_TEST],
+  ["pre-commit.test.mjs", SELF_TEST],
   ["check-binary-bytes.test.mjs", SELF_TEST],
   ["jsdoc-checkjs-gate.test.mjs", SELF_TEST],
   ["gen-kernel-identity.test.mjs", SELF_TEST],
