@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (704 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (708 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -199,6 +199,36 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/787-corridor-cost-averages.html",
     "description": "Computes one remittance corridor's cost THREE ways from caller-declared provider quotes and reports each against the SDG 10.c 3% target and ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "806-event-contract-terms-lint",
+    "display_name": "Event Contract Terms Lint",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/806-event-contract-terms-lint.html",
+    "description": "Lints a prediction-market event contract's DECLARED settlement terms (source agency kind, unresolvable-outcome fallback, revision rule, expi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "813-eth-staking-accounting",
+    "display_name": "Ethereum Epoch Accounting Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/813-eth-staking-accounting.html",
+    "description": "Recomputes one validator's reward, penalty and slashing accounting for one epoch, in Gwei, from the Electra consensus specification and the ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "815-eth-fee-market",
+    "display_name": "Ethereum Base Fee and Blob Base Fee Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/815-eth-fee-market.html",
+    "description": "Recomputes the next Ethereum block's base fee per gas (EIP-1559) and its base fee per blob gas (EIP-4844, with the EIP-7918 reserve-price ru",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7820,6 +7850,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-82-securities-settlement-message-linter",
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-818-zcash-reg-classifier",
+    "display_name": "Privacy Coin Regulatory Classifier (MiCA and AMLR)",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-818-zcash-reg-classifier.html",
+    "description": "Places caller-declared properties of a privacy-feature coin and of the declaring entity against two pinned provisions of the Official Journa",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

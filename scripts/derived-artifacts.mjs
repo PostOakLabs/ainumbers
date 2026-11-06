@@ -1528,6 +1528,17 @@ export const EXCLUDED = [
        + 'artifact here for main to own. Listed so the coverage gate reads it as a decision, not a gap.',
   },
   {
+    what: 'scripts/renumber-node.mjs (manual node-rename tool)',
+    script: 'scripts/renumber-node.mjs',
+    share: 'n/a — a manual tool, not a derived-artifact generator',
+    why: 'NOT A DERIVED GENERATOR. It is a human-invoked rename helper: it moves and rewrites one '
+       + 'unenrolled node\'s own source files (shard, page, kernel, proptest, fixtures, reservation) and '
+       + 'restamps them through gen-kernel-identity. It never writes a shared derived artifact '
+       + '(chaingraph.json, meta, index.mjs, catalogs) and refuses an enrolled node, so there is nothing '
+       + 'for main\'s regen to own and no regen command that could converge. Listed so the fan-out gate '
+       + 'reads a decision rather than a gap.',
+  },
+  {
     what: 'scripts/check-derived-declare-parity.mjs (DERIVED-DECLARE-PARITY-1)',
     script: 'scripts/check-derived-declare-parity.mjs',
     share: 'n/a — a gate, not a generator',
@@ -1742,6 +1753,10 @@ export const DERIVED_ROOT_GATES = new Set([
   'python scripts/verify_repo.py',                           // deploy gate sitemap leg (SITEMAP-DEPLOY-SPLIT-1; overlay read only)
   'node scripts/check-nav-reachability.mjs',                 // nav islands (reads the monolith for dynamic roots)
   'node scripts/check-nav-reachability.mjs --baseline-check',// nav-island baseline freshness
+  // CHAIN-ADD-PR-SIDE-EXECUTE-1 (2026-11-05): the chain-execute gate reads the monolith through
+  // derivedResolve, so the queue judges the assembled speculative tree (a chain-add PR's new
+  // chain) instead of the committed monolith that main's later regen would then red (#2736).
+  'node scripts/check-webmcp-chain-execute.mjs',             // chain-execute (reads the monolith's chains)
   // REGEN-VALIDATORS-IN-QUEUE-1 (mechanism A): the two post-regen copy
   // validators (derived-artifacts-regen.yml "Validate the regenerated
   // reader-facing copy") are DERIVED_ROOT-aware — under the merge_group

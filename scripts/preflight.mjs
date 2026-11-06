@@ -96,7 +96,7 @@
 import { execSync, exec } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
 import { checkPreflightCap, refusalMessage } from './lib/preflight-cap.mjs';
-import { affectedSelection } from './lib/affected-gates.mjs';
+import { affectedPlan, missingHygiene, AFFECTED_HYGIENE_CMDS } from './lib/affected-gates.mjs';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir, freemem } from 'node:os';
@@ -777,6 +777,20 @@ function runSelfTest() {
     rmSync(tmpRoot, { recursive: true, force: true });
   }
 
+  // PREPUSH-HYGIENE-ALWAYS-1 — --affected never selects 0 gates. Drives the REAL
+  // affectedPlan() over synthetic gate lists: RED = an empty or undeterminable touched
+  // set must still pick the hygiene set AND say so loudly; GREEN = a normal diff is quiet.
+  console.log('\nPREPUSH-HYGIENE-ALWAYS-1 —--affected falls back to the hygiene set, loudly, never to zero gates:');
+  const hygGates = AFFECTED_HYGIENE_CMDS.map((c) => ['hygiene ' + c, c]);
+  const emptyPlan = affectedPlan(hygGates, []);
+  check('empty touched set: all hygiene gates picked, loud notice', emptyPlan.picked.length === hygGates.length && emptyPlan.loud === true, emptyPlan.note);
+  const fullGates = [...hygGates, ['some other gate', 'node scripts/other.mjs']];
+  const nullFull = affectedPlan(fullGates, null);
+  check('undeterminable touched set: fails closed to the FULL list (hygiene included), loud notice', nullFull.picked.length === fullGates.length && nullFull.loud === true, nullFull.note);
+  const quietPlan = affectedPlan(hygGates, ['README.md']);
+  check('a determinable diff keeps the hygiene gates and stays quiet', quietPlan.picked.length === hygGates.length && quietPlan.loud === false, quietPlan.note);
+  check('a hygiene command missing from the gate list is reported, not skipped silently', missingHygiene(hygGates.slice(1)).length === 1, missingHygiene(hygGates.slice(1)).join(', '));
+
   // END-TO-END RENDERER PROOF. Drives the REAL reporting path — the same
   // gateUnavailable() and printUnavailableBlock() the live advisories call — over a
   // REAL failed subprocess, so what a session would actually see is printed here
@@ -1176,6 +1190,10 @@ const GATES = [
   // against a mocked preflight — never the real gate suite, never a real push.
   // Was authored (PREREQ-EXPECTRED-FLAG-1) but never wired into GATES, so it
   // could rot unrun exactly like the reporting self-test above warns against.
+  // PREPUSH-HYGIENE-ALWAYS-1: the always-on hygiene set and the never-zero --affected
+  // plan, RED (empty / undeterminable / dropped command) and GREEN, over in-memory gate lists.
+  ['Affected-gates selection + hygiene fallback fixture proof (PREPUSH-HYGIENE-ALWAYS-1)',
+    'node scripts/lib/affected-gates.test.mjs'],
   ['Pre-push expect-red fixture proof (env + file routes, EXPECTRED-ENVPREFIX-GAP-1)',
     'node .githooks/pre-push.test.mjs'],
   // PREPUSH-NARROW-1: red/green controls for the hook's full-suite trigger
@@ -1242,6 +1260,8 @@ const GATES = [
   ['Hash RFC 8785 vectors red-proof (GATE-SELFTEST-META-1 pair)', 'node chaingraph/standard/jcs-rfc8785-vectors.test.mjs --self-test'],
   ['Canonicalizer limits + __proto__ (HASH-PROTO-DEPTH-GUARD-1)', 'node chaingraph/kernels/_hash.test.mjs'],
   ['Kernel-identity monolith upsert controls (GENKERNELID-UPSERT-FIX-1)', 'node chaingraph/kernels/gen-kernel-identity.test.mjs'],
+  // RENUMBER-RESTAMP-1: renumber tool + its RED/GREEN self-test (SO #40b pair; the gate-side pair is T4-T6 in the test above).
+  ['Renumber-node tool self-test (RENUMBER-RESTAMP-1)', 'node scripts/renumber-node.mjs --self-test'],
   ['Determinism replay (N=3 + JCS)', 'node chaingraph/kernels/determinism-replay.test.mjs'],
   ['VM↔worker parity (§24)',       'node chaingraph/kernels/vm-parity-gate.mjs --strict'],
   ['Guest builtin safety (GUEST-BUILTIN-GATE-1)', 'node chaingraph/kernels/check-guest-builtin-safety.mjs'],
@@ -2206,7 +2226,7 @@ const GATES = [
   ['SO #36 sealed-kernel receipt controls (SO #40b pairing)', 'node scripts/check-sealed-kernel-receipt.test.mjs'],
   // Proven-digest freeze: a change may not move the sourceDigest() of a proven node unless a commit
   // message cites an audit finding (REPROVE-AUTHORIZED: art-<n> <path>#<id>) and the same change carries
-  // a fresh receipt. The advisory-on-PR split lives inside the gate; locally it blocks.
+  // a fresh receipt. Blocking everywhere since MAIN-ONLY-PATHS-GATE-1 (#2842).
   ['Proven-digest freeze (audit-cited re-prove only)', 'node scripts/check-proven-digest-freeze.mjs'],
   ['Proven-digest freeze fixture proof (RED/GREEN)', 'node scripts/check-proven-digest-freeze.test.mjs'],
   // S18-FRESHNESS-DURABLE-FIX-1: the regen-owned calibration artifact's own freshness — a COVERED
@@ -2558,29 +2578,59 @@ const MFSTSEC_LABEL = 'mfstSec presence (every tool)';
 // mutation controls) are skipped here: a diff that touches gate machinery
 // already gets the push-safety leg instead (prepush-full-trigger.mjs).
 // Selection logic + tests: scripts/lib/affected-gates.mjs (+ .test.mjs).
-const AFFECTED = process.argv.includes('--affected');
+// PREPUSH-HYGIENE-ALWAYS-1: `--affected` never selects 0 gates. The whole-repo
+// hygiene set (AFFECTED_HYGIENE_CMDS in scripts/lib/affected-gates.mjs) always runs;
+// an empty or undeterminable touched set falls back to it with a loud notice.
+// `--hygiene` runs that set alone (the hook uses it on the push-safety leg, which
+// does not already contain it). Both share the --affected reporting path.
+const HYGIENE_ONLY = process.argv.includes('--hygiene');
+const AFFECTED = process.argv.includes('--affected') || HYGIENE_ONLY;
+// The touched set: committed work vs merge-base(origin/main, HEAD), plus, when NOT
+// running inside the pre-push hook, staged + unstaged + untracked files. A hook run
+// judges the commits being pushed; a hand run (a builder checking before commit)
+// must see work that is not committed yet. null = could not be determined.
+const IN_PUSH_HOOK = process.env.MUTATION_TIER_IN_HOOK === '1';
 function affectedChangedFiles() {
+  const lines = (out) => out.split('\n').map((l) => l.trim()).filter(Boolean);
   try {
     const base = execSync('git merge-base origin/main HEAD', { cwd: REPO, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-    return execSync(`git diff --name-only --diff-filter=d ${base} HEAD`, { cwd: REPO, env, encoding: 'utf8' }).split('\n').map((l) => l.trim()).filter(Boolean);
+    const files = new Set(lines(execSync(`git diff --name-only --diff-filter=d ${base} HEAD`, { cwd: REPO, env, encoding: 'utf8' })));
+    if (!IN_PUSH_HOOK) {
+      for (const cmd of ['git diff --name-only --diff-filter=d HEAD', 'git diff --name-only --diff-filter=d --cached', 'git ls-files --others --exclude-standard']) {
+        for (const f of lines(execSync(cmd, { cwd: REPO, env, encoding: 'utf8' }))) files.add(f);
+      }
+    }
+    return [...files];
   } catch {
-    return null; // undeterminable: the caller fails closed to the whole list
+    return null; // undeterminable: affectedPlan falls back to the hygiene set, loudly
   }
 }
 let AFFECTED_NOTE = '';
+let AFFECTED_LOUD = false;
 function affectedRunList(gates) {
-  const files = affectedChangedFiles();
-  if (files === null) { AFFECTED_NOTE = 'changed files undeterminable, so the FULL list runs (fail closed)'; return gates; }
-  const { classes, picked } = affectedSelection(gates, files);
-  AFFECTED_NOTE = classes.length
-    ? `${picked.length} of ${gates.length} gates for path class(es) ${classes.join(', ')} over ${files.length} changed file(s)`
-    : `no gated path class in ${files.length} changed file(s), so 0 extra gates (the --quick leg covers this diff)`;
-  return picked;
+  // A renamed or removed hygiene command would silently shrink the always-on set.
+  const missing = missingHygiene(gates);
+  if (missing.length) {
+    console.error(`❌ --affected: always-on hygiene command(s) no longer in GATES: ${missing.join(', ')}. Update AFFECTED_HYGIENE_CMDS in scripts/lib/affected-gates.mjs.`);
+    process.exit(2);
+  }
+  if (HYGIENE_ONLY) {
+    const picked = affectedPlan(gates, []).picked;
+    AFFECTED_NOTE = `--hygiene: only the ${picked.length} always-on whole-repo hygiene gates`;
+    return picked;
+  }
+  const plan = affectedPlan(gates, affectedChangedFiles());
+  AFFECTED_NOTE = plan.note;
+  AFFECTED_LOUD = plan.loud && !HYGIENE_ONLY;
+  return plan.picked;
 }
 const RUN_GATES = TIER_LEG === 'only'
   ? GATES.filter(([l]) => l.startsWith(TIER_GATE_LABEL_PREFIX))
   : AFFECTED ? affectedRunList(GATES) : GATES;
-if (AFFECTED) console.log(`▶ --affected (AFFECTED-GATES-PREPUSH-1): ${AFFECTED_NOTE}. The full suite still runs in CI.`);
+if (AFFECTED) {
+  console.log(`▶ ${HYGIENE_ONLY ? '--hygiene' : '--affected'} (PREPUSH-HYGIENE-ALWAYS-1): ${AFFECTED_NOTE}. The full suite still runs in CI.`);
+  if (AFFECTED_LOUD) console.log('⚠⚠⚠ --affected could not scope this diff. It did NOT select 0 gates; it fell back to the hygiene set. Do not read this as a diff-scoped green.');
+}
 if (TIER_LEG === 'only' && RUN_GATES.length !== 1) {
   console.error(`❌ tier-leg scoping: PREFLIGHT_TIER_LEG=only matched ${RUN_GATES.length} GATES entries by label prefix "${TIER_GATE_LABEL_PREFIX}" (expected exactly 1) — refusing to run a scope this file cannot account for.`);
   process.exit(2);
@@ -3712,7 +3762,7 @@ if (KEEP_GOING && waivedCount) {
   console.log('   This is NOT an unqualified pass. The waived gate(s) above are still red.');
 } else if (AFFECTED) {
   // AFFECTED-GATES-PREPUSH-1: a subset verdict must never read as the full suite (SO #34c).
-  console.log(`\n✅ preflight --affected PASSED — the ${RUN_GATES.length} gate(s) for this diff's path classes are green. NOT the full suite: CI still runs every gate on the PR head and the merge_group tree.${UNAVAILABLE_CLAUSE}`);
+  console.log(`\n✅ preflight --affected PASSED — the ${RUN_GATES.length} gate(s) (always-on hygiene set plus this diff's path classes) are green. NOT the full suite: CI still runs every gate on the PR head and the merge_group tree.${UNAVAILABLE_CLAUSE}`);
 } else {
   console.log(`\n✅ preflight PASSED — all hard CI gates green. Safe to push.${UNAVAILABLE_CLAUSE}`);
 }

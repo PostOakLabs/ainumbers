@@ -22,6 +22,9 @@ import * as t732      from './732-borrower-escrow-auditor.kernel.mjs';
 import * as t733      from './733-servicing-compliance-clock.kernel.mjs';
 import * as t784      from './784-cbr-data-return-validator.kernel.mjs';
 import * as t787      from './787-corridor-cost-averages.kernel.mjs';
+import * as t806      from './806-event-contract-terms-lint.kernel.mjs';
+import * as t813      from './813-eth-staking-accounting.kernel.mjs';
+import * as t815      from './815-eth-fee-market.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
 import * as art03     from './art-03-x402-settlement-modeler.kernel.mjs';
@@ -672,6 +675,7 @@ import * as art788    from './art-788-csv-rfc4180-parser.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
+import * as art818    from './art-818-zcash-reg-classifier.kernel.mjs';
 import * as art82     from './art-82-securities-settlement-message-linter.kernel.mjs';
 import * as art83     from './art-83-buy-in-exposure-modeler.kernel.mjs';
 import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
@@ -728,6 +732,9 @@ export const KERNELS = {
   '733-servicing-compliance-clock':                             t733,
   '784-cbr-data-return-validator':                              t784,
   '787-corridor-cost-averages':                                 t787,
+  '806-event-contract-terms-lint':                              t806,
+  '813-eth-staking-accounting':                                 t813,
+  '815-eth-fee-market':                                         t815,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
   'art-03-x402-settlement-modeler':                             art03,
@@ -1378,6 +1385,7 @@ export const KERNELS = {
   'art-79-settlement-fail-predictor':                           art79,
   'art-80-ssi-conformance-checker':                             art80,
   'art-81-allocation-affirmation-conformance':                  art81,
+  'art-818-zcash-reg-classifier':                               art818,
   'art-82-securities-settlement-message-linter':                art82,
   'art-83-buy-in-exposure-modeler':                             art83,
   'art-84-settlement-efficiency-kpi':                           art84,

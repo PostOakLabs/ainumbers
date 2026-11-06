@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1259 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1263 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -3531,6 +3531,9 @@
       "name": "event market pnl"
     },
     {
+      "name": "event-contracts"
+    },
+    {
       "name": "evidence"
     },
     {
@@ -4614,6 +4617,9 @@
       "name": "mcp:lint_authorization_payload"
     },
     {
+      "name": "mcp:lint_event_contract_terms"
+    },
+    {
       "name": "mcp:match_invoice_three_way"
     },
     {
@@ -5292,6 +5298,9 @@
       "name": "policy-decision-point"
     },
     {
+      "name": "policy-lint"
+    },
+    {
       "name": "portfolio"
     },
     {
@@ -5329,6 +5338,9 @@
     },
     {
       "name": "prediction market"
+    },
+    {
+      "name": "prediction-markets"
     },
     {
       "name": "prefunding"
@@ -6145,6 +6157,9 @@
     },
     {
       "name": "settlement summary"
+    },
+    {
+      "name": "settlement-terms"
     },
     {
       "name": "sft"
@@ -50748,6 +50763,305 @@
         "x-ap2-export": true
       }
     },
+    "/v1/tools/lint_event_contract_terms": {
+      "post": {
+        "operationId": "lint_event_contract_terms",
+        "summary": "Event Contract Terms Lint",
+        "description": "Lints a prediction-market event contract's declared settlement terms (source agency, fallbacks, revision rule, discretion, dispute window, outcome review, early close) against a caller-declared policy. One PASS or FINDING line per policy item plus one intrinsic consistency check; verdict PASS, PASS_WITH_FINDINGS or FAIL. Enums, flags, integers and opaque labels only; URLs and identifier-like values are refused. Never a legality or fairness opinion.\n\n**Tool URL:** https://ainumbers.co/chaingraph/806-event-contract-terms-lint.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "prediction-markets",
+          "event-contracts",
+          "settlement-terms",
+          "policy-lint",
+          "mcp:lint_event_contract_terms"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "profile",
+                  "as_of",
+                  "terms"
+                ],
+                "properties": {
+                  "profile": {
+                    "type": "string",
+                    "enum": [
+                      "kalshi_rulebook_v1_29",
+                      "generic"
+                    ],
+                    "description": "Venue profile. kalshi_rulebook_v1_29 pins finding bases to the rulebook passages on the page; generic takes all rules from caller policy."
+                  },
+                  "as_of": {
+                    "type": "string",
+                    "description": "Effective date for the profile selection, YYYY-MM-DD. Required."
+                  },
+                  "terms": {
+                    "type": "object",
+                    "description": "The contract's DECLARED settlement terms: enums, booleans, integers and one opaque label only. No prose, no URLs, no identifiers.",
+                    "required": [
+                      "contract_label",
+                      "carveout_clause",
+                      "unresolvable_fallback",
+                      "revision_after_settlement",
+                      "source_agency_kind",
+                      "fallback_sources_count",
+                      "revision_rule",
+                      "expiration_value_rule",
+                      "discretion_clause",
+                      "outcome_review_available",
+                      "dispute_window_hours",
+                      "settlement_delay_hours_max",
+                      "early_close_rule",
+                      "outcomes_exhaustive",
+                      "outcomes_exclusive"
+                    ],
+                    "properties": {
+                      "contract_label": {
+                        "type": "string",
+                        "description": "Opaque label, 1..64 chars over [A-Za-z0-9 _.-]. Anything that looks like a URL, address or hash is refused and never echoed."
+                      },
+                      "carveout_clause": {
+                        "type": "boolean",
+                        "description": "Whether the contract declares a carve-out clause (for example a death or violence carve-out)."
+                      },
+                      "unresolvable_fallback": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "last_price",
+                          "void",
+                          "refund"
+                        ],
+                        "description": "What the contract declares happens when the outcome cannot be resolved."
+                      },
+                      "revision_after_settlement": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "allowed_within_window"
+                        ],
+                        "description": "Whether the contract allows the declared terms to be revised after settlement."
+                      },
+                      "source_agency_kind": {
+                        "type": "string",
+                        "enum": [
+                          "government_statistic",
+                          "official_body",
+                          "exchange_price",
+                          "media_consensus",
+                          "venue_determination",
+                          "other"
+                        ],
+                        "description": "The declared kind of the source agency that publishes the underlying or expiration value."
+                      },
+                      "fallback_sources_count": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "How many fallback sources the contract declares."
+                      },
+                      "revision_rule": {
+                        "type": "string",
+                        "enum": [
+                          "first_release",
+                          "final_release",
+                          "as_of_expiration"
+                        ],
+                        "description": "Which release of the source data the contract declares as governing."
+                      },
+                      "expiration_value_rule": {
+                        "type": "string",
+                        "enum": [
+                          "point",
+                          "average",
+                          "max",
+                          "min",
+                          "threshold_cross"
+                        ],
+                        "description": "The declared shape of the expiration-value computation."
+                      },
+                      "discretion_clause": {
+                        "type": "boolean",
+                        "description": "Whether the contract declares that the venue keeps discretion to interpret the terms."
+                      },
+                      "outcome_review_available": {
+                        "type": "boolean",
+                        "description": "Whether the contract declares an outcome review process."
+                      },
+                      "dispute_window_hours": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "How long a dispute stays open, in hours, as declared."
+                      },
+                      "settlement_delay_hours_max": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "The declared maximum settlement delay in hours."
+                      },
+                      "early_close_rule": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "on_event",
+                          "venue_discretion"
+                        ],
+                        "description": "The declared early-close rule."
+                      },
+                      "outcomes_exhaustive": {
+                        "type": "boolean",
+                        "description": "Whether the declared outcomes are exhaustive."
+                      },
+                      "outcomes_exclusive": {
+                        "type": "boolean",
+                        "description": "Whether the declared outcomes are mutually exclusive."
+                      }
+                    }
+                  },
+                  "policy": {
+                    "type": "object",
+                    "description": "The caller policy. Every item optional; only declared items produce finding lines. forbid/require mismatches drive FAIL; thresholds drive findings.",
+                    "properties": {
+                      "forbid_carveout_clause": {
+                        "type": "boolean",
+                        "description": "Policy forbids a carve-out clause."
+                      },
+                      "require_unresolvable_fallback": {
+                        "type": "boolean",
+                        "description": "Policy requires a declared unresolvable-outcome fallback (not 'none')."
+                      },
+                      "forbid_revision_after_settlement": {
+                        "type": "boolean",
+                        "description": "Policy forbids revision after settlement."
+                      },
+                      "min_fallback_sources": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Policy minimum for fallback_sources_count (threshold class)."
+                      },
+                      "max_dispute_window_hours": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Policy maximum for dispute_window_hours (threshold class)."
+                      },
+                      "max_settlement_delay_hours": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Policy maximum for settlement_delay_hours_max (threshold class)."
+                      },
+                      "forbid_discretion_clause": {
+                        "type": "boolean",
+                        "description": "Policy forbids a discretion clause."
+                      },
+                      "require_outcome_review": {
+                        "type": "boolean",
+                        "description": "Policy requires outcome review to be available."
+                      },
+                      "require_exhaustive_exclusive": {
+                        "type": "boolean",
+                        "description": "Policy requires outcomes to be exhaustive and exclusive."
+                      },
+                      "allowed_source_kinds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "government_statistic",
+                            "official_body",
+                            "exchange_price",
+                            "media_consensus",
+                            "venue_determination",
+                            "other"
+                          ]
+                        },
+                        "description": "Policy allow-list for source_agency_kind."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "refused": {
+                      "type": "boolean"
+                    },
+                    "reason_code": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "field": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "profile_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "profile_venue_label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "as_of": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "contract_label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "findings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "evaluated_items": {
+                      "type": "integer"
+                    },
+                    "verdict": {
+                      "type": "string"
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "lint_event_contract_terms",
+        "x-tool-url": "https://ainumbers.co/chaingraph/806-event-contract-terms-lint.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
     "/v1/tools/audit_iso20022_migration": {
       "post": {
         "operationId": "audit_iso20022_migration",
@@ -77697,7 +78011,7 @@
       "post": {
         "operationId": "lint_fedwire_structured_address",
         "summary": "Fedwire Structured Address Linter",
-        "description": "Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the Fedwire structured-address end state (network param selects fedwire or chips; rules verified byte-identical between the two networks at build time). Federal Reserve Financial Services rescheduled the Fedwire ISO 20022 structured-address release from 16 November 2026 to the November 2027 release on 27 August 2026; the exact date is to be announced, fully-unstructured addresses remain accepted on Fedwire until then, and the hybrid format becomes supported only with that release. CHIPS has no published dated structured-address mandate. At the end state Town Name and Country are always required, with up to 2 supplemental AdrLine elements of 70 chars each. Detects unstructured AdrLine-only addresses (prohibited), hybrid silent-fail duplication (AdrLine echoing structured field values, which causes STP rejection without a visible error code), and address structure type (FULLY_STRUCTURED, HYBRID, UNSTRUCTURED, EMPTY). For the SWIFT CBPR+ cross-border equivalent use lint_cbpr_structured_address (art-241).\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-349-fedwire-structured-address-linter.html",
+        "description": "Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the Fedwire structured-address end state (network param selects fedwire or chips; rules verified byte-identical between the two networks at build time). Federal Reserve Financial Services rescheduled the Fedwire ISO 20022 structured-address release from 16 November 2026 to the November 2027 release on 27 August 2026; the exact date is to be announced, fully-unstructured addresses remain accepted on Fedwire until then, and the hybrid format becomes supported only with that release. CHIPS has no published dated structured-address mandate. At the end state Town Name and Country are always required, with up to 2 supplemental AdrLine elements of 70 chars each. Detects unstructured AdrLine-only addresses (WARN-class while no enforcement date is published; ERROR once an as-of date on a published enforcement day is asserted), hybrid silent-fail duplication (AdrLine echoing structured field values, which causes STP rejection without a visible error code), and address structure type (FULLY_STRUCTURED, HYBRID, UNSTRUCTURED, EMPTY). For the SWIFT CBPR+ cross-border equivalent use lint_cbpr_structured_address (art-241).\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-349-fedwire-structured-address-linter.html",
         "tags": [
           "TODO_TAGS_REVIEW",
           "TODO_AP2_EXPORT_REVIEW"
@@ -77710,6 +78024,7 @@
                 "type": "object",
                 "required": [
                   "address_lines",
+                  "as_of_date",
                   "building_number",
                   "country",
                   "country_subdivision",
@@ -77720,6 +78035,9 @@
                 ],
                 "properties": {
                   "address_lines": {
+                    "description": "type not evidenced by kernel source"
+                  },
+                  "as_of_date": {
                     "description": "type not evidenced by kernel source"
                   },
                   "building_number": {
@@ -77766,6 +78084,12 @@
                       "type": "integer"
                     },
                     "fedwire_chips_deadline": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "fedwire_chips_deadline_status": {
                       "type": "string"
                     },
                     "network": {
@@ -137613,6 +137937,86 @@
         "x-ap2-export": true
       }
     },
+    "/v1/tools/recompute_eth_epoch_accounting": {
+      "post": {
+        "operationId": "recompute_eth_epoch_accounting",
+        "summary": "Ethereum Epoch Accounting Recompute",
+        "description": "Recomputes one validator's reward, penalty and slashing accounting for one epoch, in Gwei, from the Electra consensus specification and the state the caller declares: effective balance, withdrawal credential prefix, total active balance, the three participation flags with the participating balance behind each, whether the chain is in an inactivity leak, the validator's inactivity score, its sync committee slots, the attestations it included as a proposer, and any slashing. It returns the base reward, the three flag rewards and penalties, the proposer inclusion reward, the sync committee delta, the updated inactivity score, the initial slashing penalty and whistleblower split, the epoch at which the correlated slashing penalty lands, and the net epoch delta. All arithmetic is integer, and amounts above 2^53 are exchanged as decimal strings. Two figures depend on constants from the Bellatrix specification that are not yet pinned in the clause snapshot: the inactivity penalty and the correlated slashing penalty. The node returns null for them and lists them under pending_pin, except where the result does not depend on the missing constant (a zero score, or a slashed total at or above the whole stake). It is a recompute of the published rules on declared inputs. It is not an earnings forecast, reads no chain, and says nothing about any live network.\n\n**Tool URL:** https://ainumbers.co/chaingraph/813-eth-staking-accounting.html\n**Wave:** 142\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/813-eth-staking-accounting.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "recompute_eth_epoch_accounting",
+        "x-tool-url": "https://ainumbers.co/chaingraph/813-eth-staking-accounting.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 142
+      }
+    },
+    "/v1/tools/recompute_eth_fee_market": {
+      "post": {
+        "operationId": "recompute_eth_fee_market",
+        "summary": "Ethereum Base Fee and Blob Base Fee Recompute",
+        "description": "Recomputes the next Ethereum block's base fee per gas (EIP-1559) and its base fee per blob gas (EIP-4844, with the EIP-7918 reserve-price rule from Osaka on) from parent-header values the caller declares. The base-fee section takes the parent gas limit, gas used and base fee and returns the parent gas target, the new base fee, the change in wei and its direction; given the child block's gas limit it also says whether that limit is within the protocol's adjustment bounds. The blob section takes the parent excess blob gas, blob gas used and, on reserve-price forks, the parent base fee, and returns the new excess blob gas, the blob base fee per gas and per blob, the parent's blob base fee under the same schedule, and whether the reserve-price branch fired. Fork parameters (blob target, blob maximum, update fraction, reserve-price switch, elasticity multiplier and change denominator) default to the named fork's published values for Cancun, Prague, Osaka, BPO1 or BPO2 (BPO2 when no fork is named), and any of them can be declared instead; the output says which were used and whether any were overridden. All arithmetic is integer. Recompute from the published formula and your declared parameters; not a prediction of future fees. The node reads no chain, does not cover the London fork-transition block, priority fees or L2 fee models, and checks no header beyond the values supplied.\n\n**Tool URL:** https://ainumbers.co/chaingraph/815-eth-fee-market.html\n**Wave:** 142\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/815-eth-fee-market.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "recompute_eth_fee_market",
+        "x-tool-url": "https://ainumbers.co/chaingraph/815-eth-fee-market.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 142
+      }
+    },
     "/v1/tools/assess_ai_act_conformity": {
       "post": {
         "operationId": "assess_ai_act_conformity",
@@ -138531,6 +138935,46 @@
         "x-ap2-export": true,
         "x-mandate-type": "compliance_control",
         "x-ocg-wave": 117
+      }
+    },
+    "/v1/tools/classify_privacy_coin_regulatory_treatment": {
+      "post": {
+        "operationId": "classify_privacy_coin_regulatory_treatment",
+        "summary": "Privacy Coin Regulatory Classifier (MiCA and AMLR)",
+        "description": "Places caller-declared properties of a privacy-feature coin and of the declaring entity against two pinned provisions of the Official Journal text: Article 76(3) of Regulation (EU) 2023/1114 (operating rules of a trading platform for crypto-assets and an inbuilt anonymisation function, with the unless clause on identifiability of holders and transaction history) and Article 79(1) of Regulation (EU) 2024/1624 (the prohibition on accounts allowing anonymisation or increased obfuscation of transactions, including through anonymity-enhancing coins). Application dates come from the text: 30 December 2024 for the first (Article 149(2)), 10 July 2027 for the second, or 10 July 2029 for obliged entities in Article 3(3) points (n) and (o) (Article 90); before those dates the rule is reported as not yet applicable and is never presented as in force. Each rule cites its pinned paragraph. The output is a classification of the declared inputs against the text: whether a coin has an inbuilt anonymisation function, or whether an account allows anonymisation or obfuscation, is declared by the caller and is not judged here, and the declarations are not verified. This is technical documentation, not legal advice. Malformed input is refused with INPUT_REFUSED.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-818-zcash-reg-classifier.html\n**Wave:** 142\n**mandate_type:** compliance_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-818-zcash-reg-classifier.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "classify_privacy_coin_regulatory_treatment",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-818-zcash-reg-classifier.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_mandate",
+        "x-ocg-wave": 142
       }
     }
   },
