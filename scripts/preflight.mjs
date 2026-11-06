@@ -96,6 +96,7 @@
 import { execSync, exec } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
 import { checkPreflightCap, refusalMessage } from './lib/preflight-cap.mjs';
+import { affectedSelection } from './lib/affected-gates.mjs';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir, freemem } from 'node:os';
@@ -1612,6 +1613,19 @@ const GATES = [
   // declare no @keyframes and no animation property of its own.
   ['EXPLAINER-KIT inline copies + one animation system (EXPLAINER-KIT-1)', 'node scripts/sync-explainer-kit.mjs --check'],
   ['EXPLAINER-KIT gate controls (RED/GREEN mutations, SO #34c pairing)', 'node scripts/sync-explainer-kit.mjs --selftest'],
+  // ZK-TRUST-STAGES-GATE-1 (2026-11-03): the trust-model page's stage counts are
+  // derived, never typed — this gate recomputes the estate inventory
+  // (scripts/zk-trust-inventory.mjs, same ladder + classifier as the §18 estate
+  // gates) and fails on any trust.* sentinel drift on
+  // chaingraph/zk-trust-stages.html, plus bans the trust-model wording class
+  // there (trustless, tamper-proof, immutable, "one imageId covers all" outside
+  // a negated disclaimer sentence). The count source (chaingraph.json) is SO #35
+  // main-regenerated, so the generic ADVISORY_ON_PR categorisation downgrades it
+  // on a PR via the COVERED entry ('zk-trust-page', whose --fix heals the
+  // sentinels main-side after merge); it stays blocking on main and —
+  // DERIVED_ROOT-aware — in the merge queue.
+  ['ZK trust page counts + wording (ZK-TRUST-STAGES-GATE-1)', 'node scripts/check-zk-trust-page.mjs'],
+  ['ZK trust page gate controls (RED/GREEN fixtures, GATE-SELFTEST-META-1 pair)', 'node scripts/check-zk-trust-page.selftest.mjs'],
   // HUBSCENE-BUILD-1 (2026-10-07): the generated chain-flow scene region on
   // every hub guide page. ONE main-side writer (scripts/gen-hub-scenes.mjs,
   // derived-artifacts COVERED id 'hub-scenes'); this --check entry's command
@@ -2192,7 +2206,7 @@ const GATES = [
   ['SO #36 sealed-kernel receipt controls (SO #40b pairing)', 'node scripts/check-sealed-kernel-receipt.test.mjs'],
   // Proven-digest freeze: a change may not move the sourceDigest() of a proven node unless a commit
   // message cites an audit finding (REPROVE-AUTHORIZED: art-<n> <path>#<id>) and the same change carries
-  // a fresh receipt. The advisory-on-PR split lives inside the gate; locally it blocks.
+  // a fresh receipt. Blocking everywhere since MAIN-ONLY-PATHS-GATE-1 (#2842).
   ['Proven-digest freeze (audit-cited re-prove only)', 'node scripts/check-proven-digest-freeze.mjs'],
   ['Proven-digest freeze fixture proof (RED/GREEN)', 'node scripts/check-proven-digest-freeze.test.mjs'],
   // S18-FRESHNESS-DURABLE-FIX-1: the regen-owned calibration artifact's own freshness — a COVERED
@@ -2530,9 +2544,43 @@ const MFSTSEC_LABEL = 'mfstSec presence (every tool)';
 // scoped this invocation to the tier leg alone, in which case exactly that one
 // entry runs (and the inline mfstSec check below sits out with it). Default
 // and 'skip' scopes run the whole list — unchanged.
+// AFFECTED-GATES-PREPUSH-1 (2026-11-05, Tim: "build it correct the first time"):
+// `--affected` narrows the run list to the full-suite gates that judge the
+// path classes this branch touches (vs merge-base origin/main). It exists
+// because builders ran only `--quick` before pushing, and measured 2026-11-05,
+// ~30 of 52 red PRs first-failed on a gate --quick does not contain but that
+// runs in seconds to a minute on the PR's own files (flags-computed, R4
+// null-class, flag-mirror, clause digest, kernel preflight, server card,
+// WebMCP freshness). research/HEAL-ROWS-VS-FIRST-TIME-RIGHT-2026-11-05.md.
+// The pre-push hook runs it after --quick for content diffs. It removes NO
+// gate from the full suite, which still runs in CI on the PR head and the
+// merge_group tree. Gate-machinery controls (selftests, fixture proofs,
+// mutation controls) are skipped here: a diff that touches gate machinery
+// already gets the push-safety leg instead (prepush-full-trigger.mjs).
+// Selection logic + tests: scripts/lib/affected-gates.mjs (+ .test.mjs).
+const AFFECTED = process.argv.includes('--affected');
+function affectedChangedFiles() {
+  try {
+    const base = execSync('git merge-base origin/main HEAD', { cwd: REPO, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return execSync(`git diff --name-only --diff-filter=d ${base} HEAD`, { cwd: REPO, env, encoding: 'utf8' }).split('\n').map((l) => l.trim()).filter(Boolean);
+  } catch {
+    return null; // undeterminable: the caller fails closed to the whole list
+  }
+}
+let AFFECTED_NOTE = '';
+function affectedRunList(gates) {
+  const files = affectedChangedFiles();
+  if (files === null) { AFFECTED_NOTE = 'changed files undeterminable, so the FULL list runs (fail closed)'; return gates; }
+  const { classes, picked } = affectedSelection(gates, files);
+  AFFECTED_NOTE = classes.length
+    ? `${picked.length} of ${gates.length} gates for path class(es) ${classes.join(', ')} over ${files.length} changed file(s)`
+    : `no gated path class in ${files.length} changed file(s), so 0 extra gates (the --quick leg covers this diff)`;
+  return picked;
+}
 const RUN_GATES = TIER_LEG === 'only'
   ? GATES.filter(([l]) => l.startsWith(TIER_GATE_LABEL_PREFIX))
-  : GATES;
+  : AFFECTED ? affectedRunList(GATES) : GATES;
+if (AFFECTED) console.log(`▶ --affected (AFFECTED-GATES-PREPUSH-1): ${AFFECTED_NOTE}. The full suite still runs in CI.`);
 if (TIER_LEG === 'only' && RUN_GATES.length !== 1) {
   console.error(`❌ tier-leg scoping: PREFLIGHT_TIER_LEG=only matched ${RUN_GATES.length} GATES entries by label prefix "${TIER_GATE_LABEL_PREFIX}" (expected exactly 1) — refusing to run a scope this file cannot account for.`);
   process.exit(2);
@@ -2546,7 +2594,9 @@ const RUN_LIST_SIZE = RUN_GATES.length + (TIER_ONLY_SCOPE ? 0 : 1);
 // PREFLIGHT-KEEPGOING-1: an --expect-red id that matches no gate would waive
 // nothing while reading as diligence, so it is a hard error before any gate runs.
 if (EXPECT_RED.length) {
-  const labels = [...RUN_GATES.map(([l]) => l), ...(TIER_ONLY_SCOPE ? [] : [MFSTSEC_LABEL])];
+  // AFFECTED-GATES-PREPUSH-1: the hook hands --quick and --affected the same
+  // --expect-red ids, so under --affected an id is valid if it names ANY gate.
+  const labels = [...(AFFECTED ? GATES : RUN_GATES).map(([l]) => l), ...(TIER_ONLY_SCOPE ? [] : [MFSTSEC_LABEL])];
   const unmatched = EXPECT_RED.filter((id) => !labels.some((l) => l.toLowerCase().includes(id.toLowerCase())));
   if (unmatched.length) {
     console.error(`❌ --expect-red: no gate label matches ${unmatched.map((u) => `"${u}"`).join(', ')}.`);
@@ -2653,7 +2703,7 @@ async function runQuickSuite(selfTest) {
   if (waived.length) console.log(`⚠ EXPECTED-RED (waived, this invocation only): ${waived.join(', ')}`);
   if (red.length) {
     console.log(`⛔ RED: ${red[0]}`);
-    console.log('   Fix it and re-run. (Ratchet gate only: run the --update-baseline command it names, then COMMIT the baseline.)');
+    console.log('   Fix it and re-run. (A ceiling ratchet is fixed in your code, never by raising the pin: BUILD-RIGHT-FIRST-1.)');
   }
   console.log(`Gates NOT run by --quick (${notRun.length} of the full ${RUN_LIST_SIZE}-gate suite — run \`node scripts/preflight.mjs\` for all of them):`);
   let wrap = '';
@@ -2791,6 +2841,12 @@ function psTouchedKernelIds(files) {
 const PS_SELFTEST_CAP = 12;
 function psChangedGateChecks(files) {
   const checks = [];
+  // BUILD-RIGHT-FIRST-1 (2026-11-05, measured on PR #2901's own first push): a change to the hook itself
+  // went red in CI on its fixture test, which this leg did not run. Run the hook's test when the hook moves.
+  if (files.some((f) => f === '.githooks/pre-push' || f === '.githooks/pre-push.test.mjs')
+      && existsSync(resolve(REPO, '.githooks/pre-push.test.mjs'))) {
+    checks.push(['Pre-push hook fixture test (changed hook)', 'node .githooks/pre-push.test.mjs']);
+  }
   for (const f of files) {
     const m = f.match(/^scripts\/([a-z0-9][a-z0-9._-]*\.mjs)$/);
     if (!m) continue;
@@ -2879,7 +2935,7 @@ async function runPushSafetySuite(selfTest) {
   if (waived.length) console.log(`⚠ EXPECTED-RED (waived, this invocation only): ${waived.join(', ')}`);
   if (red.length) {
     console.log(`⛔ RED: ${red[0]}`);
-    console.log('   Fix it and re-run. (Ratchet gate only: run the --update-baseline command it names, then COMMIT the baseline.)');
+    console.log('   Fix it and re-run. (A ceiling ratchet is fixed in your code, never by raising the pin: BUILD-RIGHT-FIRST-1.)');
     process.exit(1);
   }
   process.exit(0);
@@ -3654,6 +3710,9 @@ if (KEEP_GOING && waivedCount) {
   // red, and saying "PASSED" here would be the exact overclaim this mode removes.
   console.log(`\n⚠️  preflight COMPLETE — every gate reached; ${waivedCount} DECLARED-RED gate(s) waived (${EXPECT_RED.join(', ')}), every other gate green.${UNAVAILABLE_CLAUSE}`);
   console.log('   This is NOT an unqualified pass. The waived gate(s) above are still red.');
+} else if (AFFECTED) {
+  // AFFECTED-GATES-PREPUSH-1: a subset verdict must never read as the full suite (SO #34c).
+  console.log(`\n✅ preflight --affected PASSED — the ${RUN_GATES.length} gate(s) for this diff's path classes are green. NOT the full suite: CI still runs every gate on the PR head and the merge_group tree.${UNAVAILABLE_CLAUSE}`);
 } else {
   console.log(`\n✅ preflight PASSED — all hard CI gates green. Safe to push.${UNAVAILABLE_CLAUSE}`);
 }

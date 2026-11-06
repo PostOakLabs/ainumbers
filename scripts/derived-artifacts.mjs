@@ -304,6 +304,29 @@ export const COVERED = [
     share: 'n/a (new 2026-09-17, S18-FRESHNESS-DURABLE-FIX-1)',
   },
   {
+    // ZK-TRUST-STAGES-GATE-1 (2026-11-03): the trust-model page's trust.* COUNT
+    // sentinels (chaingraph/zk-trust-stages.html) join the single-writer set.
+    // The count source is the estate inventory recomputed from chaingraph.json
+    // (scripts/zk-trust-inventory.mjs) — main-regenerated — so the gate command
+    // is advisory-on-PR via the generic ADVISORY_ON_PR categorisation and
+    // blocking on main; it is also DERIVED_ROOT-aware (DERIVED_ROOT_GATES
+    // below: on merge_group it overlay-reads the queue's ephemeral assembled
+    // monolith through derivedResolve). --fix heals ONLY the sentinel spans
+    // (writeIfChanged semantics: a second pass over a healed page is a no-op,
+    // no wall clock); banned wording on the page is content red the bot cannot
+    // heal — the writer holds and the strict gate owns it. The page's prose is
+    // hand-authored: this entry is the ONLY writer of its trust.* sentinels
+    // (verify-counts' scan list has no trust.* keys — measured at authoring).
+    id: 'zk-trust-page',
+    regen: 'node scripts/check-zk-trust-page.mjs --fix',
+    gate: 'node scripts/check-zk-trust-page.mjs',
+    writes: ['chaingraph/zk-trust-stages.html'],
+    artifacts: ['chaingraph/zk-trust-stages.html'],
+    // Reads the assembled monolith — assembler precedes it in the pass.
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-11-03, ZK-TRUST-STAGES-GATE-1)',
+  },
+  {
     id: 'catalog',
     // SO #28's "catalog counts". Python, but ubuntu-latest ships python3 and
     // preflight already shells to python for check_index_sync.py.
@@ -1719,6 +1742,10 @@ export const DERIVED_ROOT_GATES = new Set([
   'python scripts/verify_repo.py',                           // deploy gate sitemap leg (SITEMAP-DEPLOY-SPLIT-1; overlay read only)
   'node scripts/check-nav-reachability.mjs',                 // nav islands (reads the monolith for dynamic roots)
   'node scripts/check-nav-reachability.mjs --baseline-check',// nav-island baseline freshness
+  // CHAIN-ADD-PR-SIDE-EXECUTE-1 (2026-11-05): the chain-execute gate reads the monolith through
+  // derivedResolve, so the queue judges the assembled speculative tree (a chain-add PR's new
+  // chain) instead of the committed monolith that main's later regen would then red (#2736).
+  'node scripts/check-webmcp-chain-execute.mjs',             // chain-execute (reads the monolith's chains)
   // REGEN-VALIDATORS-IN-QUEUE-1 (mechanism A): the two post-regen copy
   // validators (derived-artifacts-regen.yml "Validate the regenerated
   // reader-facing copy") are DERIVED_ROOT-aware — under the merge_group
@@ -1738,6 +1765,14 @@ export const DERIVED_ROOT_GATES = new Set([
   // exactly as preflight.mjs's GATES list runs them.
   'node scripts/check-s18-digest-freshness.mjs',             // §18 digest-freshness ratchet (reads the monolith)
   'node scripts/check-s18-digest-freshness.test.mjs',        // §18 freshness fixture proof (monolith + calibration)
+  // ZK-TRUST-STAGES-GATE-1 (2026-11-03): the trust-page count gate overlay-reads
+  // the queue's ephemeral assembled monolith via derivedResolve (the count
+  // source), so the merge_group tree is exactly the tree that will be main and
+  // the gate can go HARD there. The page's prose is hand-authored, but its
+  // trust.* sentinels are regen-written (this entry's --fix), so the CHECK
+  // reads the page through the overlay too: `--out` puts the freshly healed
+  // page in DERIVED_ROOT (PR-2888-DERIVED-PAGE-READ-1).
+  'node scripts/check-zk-trust-page.mjs',                    // trust-page stage counts (reads the monolith)
 ]);
 
 // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM
