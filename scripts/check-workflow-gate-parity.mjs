@@ -398,6 +398,8 @@ const PREFLIGHT_ONLY = new Map([
     "the gate or the page through a full preflight."],
   // ── ENGINE-BUNDLE-ESM-LINT-1 (2026-10-15) ───────────────────────────────────
   ["check-engine-parity.bundle.test.mjs", SELF_TEST],
+  // ── PREPUSH-HYGIENE-ALWAYS-1 (2026-11-06) ──────────────────────────────────
+  ["affected-gates.test.mjs", SELF_TEST],
   // ── CHAIN-PAGES-CANON-ORDER-FIX-1 (2026-10-24) ──────────────────────────────
   ["check-chain-pages-canon-order.selftest.mjs", SELF_TEST],
   // ── WEBMCP-META-LINT-CEILING-1 (2026-10-01) ─────────────────────────────────
