@@ -47,7 +47,7 @@ export const AFFECTED_CLASSES = [
 //   sitemap.xml as missing pages (false red on green PR #2736); CI downgrades it
 //   on pull_request. Its PII part is covered by the --quick PII banner gate.
 export const AFFECTED_SLOW = /FV toolchain-digest|Groth16 seal parity|VM.worker parity|^verify_repo/i;
-export const AFFECTED_SKIP = /controls|fixture proof|self-?test|selftest|mutation|SO #34|SO #40b|GATE-SELFTEST-META|Mutation tier/i;
+export const AFFECTED_SKIP = /controls|fixture proof|self-?test|selftest|mutation|SO #34c|SO #40b|GATE-SELFTEST-META|Mutation tier/i;
 
 export function affectedSelection(gates, files) {
   const classes = AFFECTED_CLASSES.filter(([, pathTest]) => files.some(pathTest));
