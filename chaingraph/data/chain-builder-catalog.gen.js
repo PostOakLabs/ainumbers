@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (704 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (705 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -199,6 +199,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/787-corridor-cost-averages.html",
     "description": "Computes one remittance corridor's cost THREE ways from caller-declared provider quotes and reports each against the SDG 10.c 3% target and ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "815-eth-fee-market",
+    "display_name": "Ethereum Base Fee and Blob Base Fee Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/815-eth-fee-market.html",
+    "description": "Recomputes the next Ethereum block's base fee per gas (EIP-1559) and its base fee per blob gas (EIP-4844, with the EIP-7918 reserve-price ru",
     "consumes": [],
     "feeds": [],
     "status": "live"
