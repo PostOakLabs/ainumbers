@@ -48,6 +48,8 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+import { isMainContext } from './derived-artifacts.mjs';
 import { recomputeJournalOutput, SANDBOX_MECHANISM, KERNELS_DIR } from './recompute-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -84,6 +86,32 @@ export function evaluateResults(results, quarantine) {
   return { failures, cured, excused, matched, staleQuarantineEntries: stale, ok: failures.length === 0 && cured.length === 0 && stale.length === 0 };
 }
 
+/**
+ * QUARANTINE-SELF-PRUNE-1. Decide which cured (stale) quarantine entries BLOCK in this context.
+ *   - main / merge_group (mainContext true): every cured entry blocks, as before.
+ *   - pull_request: a cured entry blocks only if THIS PR's diff touches that node (a changed path
+ *     containing the tool_id, i.e. its kernel, fixtures or shard): the cure PR must delete its own entry.
+ *     A stale entry the PR did not cause is advisory ("main-side fix owed") and must not block unrelated PRs.
+ *   - changedFiles === null (diff undeterminable): FAIL CLOSED, every cured entry blocks.
+ * Pure: context is injected so the self-test can drive it.
+ */
+export function classifyCured(cured, { mainContext, changedFiles }) {
+  if (mainContext || !Array.isArray(changedFiles)) return { blocking: cured, advisory: [] };
+  const norm = changedFiles.map((f) => String(f).replaceAll('\\', '/'));
+  const touched = (id) => norm.some((f) => f.includes(id) && !f.endsWith('recompute-equality-quarantine.json'));
+  return { blocking: cured.filter((c) => touched(c.tool_id)), advisory: cured.filter((c) => !touched(c.tool_id)) };
+}
+
+/** Files changed by this PR/branch vs main, or null when it cannot be determined. */
+function changedFilesVsMain() {
+  const git = (...a) => execFileSync('git', a, { cwd: REPO, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const base = process.env.GITHUB_BASE_REF || 'main';
+  for (const args of [['diff', '--name-only', `origin/${base}...HEAD`], ['diff', '--name-only', `origin/${base}`, 'HEAD'], ['diff', '--name-only', 'HEAD^1', 'HEAD']]) {
+    try { return git(...args); } catch { /* try the next strategy */ }
+  }
+  return null;
+}
+
 const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (IS_MAIN) {
   const SUMMARY = process.argv.includes('--summary');
@@ -111,6 +139,12 @@ if (IS_MAIN) {
   // Under --only the examined set is deliberately a subset, so "this quarantine entry names a node the
   // gate did not examine" is meaningless there — the stale-entry check is a FULL-RUN invariant.
   const verdict = evaluateResults(results, ONLY ? { nodes: (quarantine.nodes ?? []).filter((q) => q.tool_id === ONLY) } : quarantine);
+  // QUARANTINE-SELF-PRUNE-1: on a PR, only a cure this PR caused blocks; others are advisory.
+  const mainCtx = isMainContext();
+  const { blocking: blockingCured, advisory: advisoryCured } = classifyCured(verdict.cured, { mainContext: mainCtx, changedFiles: mainCtx || !verdict.cured.length ? [] : changedFilesVsMain() });
+  verdict.cured = blockingCured;
+  verdict.advisoryCured = advisoryCured;
+  verdict.ok = verdict.failures.length === 0 && blockingCured.length === 0 && verdict.staleQuarantineEntries.length === 0;
 
   if (JSON_OUT) {
     console.log(JSON.stringify({ elapsed_ms: elapsed, examined: results.length, skippedPrivate, ...verdict }, null, 2));
