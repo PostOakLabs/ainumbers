@@ -26,6 +26,7 @@
  * DECLARED FILE SET this command writes (SO #40(c) — `git status --porcelain` after one
  * run must touch exactly these paths, nothing else):
  *   chaingraph/graph/nodes/<id>.json
+ *   chaingraph/graph/reservations/<art-n>.json   ({row, pr, reserved}; pass --row <ROW-ID>)
  *   chaingraph/kernels/<id>.kernel.mjs
  *   chaingraph/kernels/__proptests__/<id>.proptest.mjs
  *   chaingraph/kernels/fixtures/<id>.fixtures.json
@@ -90,6 +91,7 @@ const MANDATE_TYPE = flag('mandate-type', 'compliance_control');
 const MCP_NAME = flag('mcp-name', `compute_${slug.replace(/-/g, '_')}`);
 const WITH_PAGE = argv.includes('--with-page');
 const CATEGORY = flag('category', null);
+const ROW = flag('row', 'TODO-ROW'); // board row / branch that owns the id reservation; edit before push if left default
 if (WITH_PAGE && !CATEGORY) {
   console.error('✗ --with-page requires --category "<hub category name>" (must match a key in chaingraph/hub-categories.json).');
   process.exit(2);
@@ -101,10 +103,11 @@ const PROPTEST_PATH = resolve(REPO, 'chaingraph', 'kernels', '__proptests__', `$
 const FIXTURES_PATH = resolve(REPO, 'chaingraph', 'kernels', 'fixtures', `${TOOL_ID}.fixtures.json`);
 const SHARD_PATH = resolve(REPO, 'chaingraph', 'graph', 'nodes', `${TOOL_ID}.json`);
 const PAGE_PATH = resolve(REPO, 'chaingraph', `${TOOL_ID}.html`);
+const RESERVATION_PATH = resolve(REPO, 'chaingraph', 'graph', 'reservations', `${artId}.json`);
 const HUB_CATEGORIES_PATH = resolve(REPO, 'chaingraph', 'hub-categories.json');
 const HUB_NODE_PATH = resolve(REPO, 'chaingraph', 'hub-categories', `${TOOL_ID}.json`);
 
-const declared = [KERNEL_PATH, PROPTEST_PATH, FIXTURES_PATH, SHARD_PATH];
+const declared = [KERNEL_PATH, PROPTEST_PATH, FIXTURES_PATH, SHARD_PATH, RESERVATION_PATH];
 if (WITH_PAGE) declared.push(PAGE_PATH);
 
 const existing = declared.filter((p) => existsSync(p));
@@ -149,7 +152,12 @@ const { sourceDigest } = await import(pathToFileURL(resolve(REPO, 'chaingraph', 
 const DIGEST = await sourceDigest(kernelContent);
 
 const proptestContent = render('proptest.template.mjs', { TOOL_ID, CLASS, DIGEST });
-const fixturesContent = render('fixtures.template.json', { TOOL_ID });
+// Pin each stub vector's golden_hash with the repo's own executionHash() so VM-1a parity and
+// golden-parity see a consistent fixture from the first commit (never a hand-built preimage).
+const { executionHash } = await import(pathToFileURL(resolve(REPO, 'chaingraph', 'kernels', '_hash.mjs')).href);
+const fixturesDoc = JSON.parse(render('fixtures.template.json', { TOOL_ID }));
+for (const v of fixturesDoc.vectors) v.golden_hash = await executionHash(v.policy_parameters, v.output_payload);
+const fixturesContent = JSON.stringify(fixturesDoc, null, 2) + '\n';
 const shardContent = render('shard.template.json', {
   TOOL_ID, DISPLAY_NAME, MCP_NAME, MANDATE_TYPE, WAVE, URL_SLUG, DIGEST, TODAY,
 });
@@ -159,8 +167,14 @@ JSON.parse(shardContent);
 
 let pageContent = null;
 if (WITH_PAGE) {
-  pageContent = render('node-page.template.txt', { TOOL_ID, DISPLAY_NAME });
+  // The stamp line comes from check-page-kernel-digest.mjs's own emitter shape and the digest
+  // from sourceDigest() above -- never hand-rolled (PAGE-KERNEL-DIGEST-SENTINEL-1).
+  pageContent = render('node-page.template.txt', {
+    TOOL_ID, DISPLAY_NAME, KERNEL_DIGEST_META: `<meta name="kernel-digest" content="${DIGEST}">`,
+  });
 }
+// Reservation: one file per id (RESERVATIONS-REPOINT-1); the legacy RESERVATIONS.json is frozen.
+const reservationContent = JSON.stringify({ row: ROW, pr: null, reserved: TODAY }, null, 2) + '\n';
 
 // ── write (declared set only, in dependency order) ──────────────────────────
 mkdirSync(dirname(PROPTEST_PATH), { recursive: true });
@@ -170,6 +184,8 @@ writeFileSync(KERNEL_PATH, kernelContent);
 writeFileSync(PROPTEST_PATH, proptestContent);
 writeFileSync(FIXTURES_PATH, fixturesContent);
 writeFileSync(SHARD_PATH, shardContent);
+mkdirSync(dirname(RESERVATION_PATH), { recursive: true });
+writeFileSync(RESERVATION_PATH, reservationContent);
 if (WITH_PAGE) {
   writeFileSync(PAGE_PATH, pageContent);
   // Membership is one file per node (HUB-CATEGORIES-DERIVE-1); the shared
@@ -185,7 +201,7 @@ if (WITH_PAGE) {
 
 // ── report ───────────────────────────────────────────────────────────────
 console.log(`\n✓ scaffolded ${TOOL_ID} (class ${CLASS}, digest ${DIGEST}):`);
-for (const p of [KERNEL_PATH, PROPTEST_PATH, FIXTURES_PATH, SHARD_PATH, ...(WITH_PAGE ? [PAGE_PATH, HUB_NODE_PATH] : [])]) {
+for (const p of [KERNEL_PATH, PROPTEST_PATH, FIXTURES_PATH, SHARD_PATH, RESERVATION_PATH, ...(WITH_PAGE ? [PAGE_PATH, HUB_NODE_PATH] : [])]) {
   console.log(`    ${p.replace(REPO + '\\', '').replace(REPO + '/', '')}`);
 }
 console.log(`\nNOT written (SO #35 single-writer): chaingraph/kernels/index.mjs. main's derived regen registers`);
@@ -193,7 +209,7 @@ console.log(`  ${TOOL_ID} there after merge; do not commit index.mjs (check-main
 console.log(`NOT written (SO #35 single-writer — ASSEMBLE-LAND's job): chaingraph.meta.json order.nodes.`);
 console.log(`  Whoever runs the next ASSEMBLE-LAND adds: "${TOOL_ID}" to chaingraph.meta.json's order.nodes array.`);
 console.log(`\nNext steps:`);
-console.log(`  1. Fill compute() in chaingraph/kernels/${TOOL_ID}.kernel.mjs (replace the NOT_IMPLEMENTED throw).`);
+console.log(`  1. Fill compute() in chaingraph/kernels/${TOOL_ID}.kernel.mjs (replace the SCAFFOLD-STUB body; keep null-as-absent reads, conditional flag pushes and the warnings mirror).`);
 console.log(`  2. Replace the placeholder vector in chaingraph/kernels/fixtures/${TOOL_ID}.fixtures.json with real golden vectors.`);
 console.log(`  3. Replace the placeholder property in chaingraph/kernels/__proptests__/${TOOL_ID}.proptest.mjs with real properties.`);
 console.log(`  4. Cite primary text (SO #38) in chaingraph/graph/nodes/${TOOL_ID}.json's cited_clause_digest[], or set standards_basis to "not_applicable".`);
