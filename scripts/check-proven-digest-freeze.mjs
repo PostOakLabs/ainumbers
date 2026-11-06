@@ -38,6 +38,7 @@
 // MAIN-ONLY-PATHS-GATE-1 (2026-11-03) removed the pull_request advisory arm: the queue refuses the same
 // tree, so a PR-side warning only moved the red into the merge queue.
 // Put the REPROVE-AUTHORIZED line in a COMMIT MESSAGE: a merge_group or main run has no PR body to read.
+// It must be a NON-merge commit: the queue squashes and merge-commit messages are dropped.
 //
 // Usage:
 //   node scripts/check-proven-digest-freeze.mjs                 compare merge-base(origin/main, HEAD) with the work tree
@@ -235,7 +236,7 @@ if (IS_MAIN) {
   const readHead = (rel) => { const p = resolve(REPO, rel); return existsSync(p) ? readFileSync(p, 'utf8') : undefined; };
 
   // Citation sources: commit messages in base..HEAD, the PR body (env), and an optional body file.
-  let citeText = git(['log', '--format=%B', `${base.sha}..HEAD`]).out;
+  let citeText = git(['log', '--no-merges', '--format=%B', `${base.sha}..HEAD`]).out;
   if (process.env.PR_BODY) citeText += '\n' + process.env.PR_BODY;
   const bodyFile = argVal('--body-file');
   if (bodyFile && existsSync(bodyFile)) citeText += '\n' + readFileSync(bodyFile, 'utf8');
