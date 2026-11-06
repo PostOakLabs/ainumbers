@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (706 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (707 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -209,6 +209,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/806-event-contract-terms-lint.html",
     "description": "Lints a prediction-market event contract's DECLARED settlement terms (source agency kind, unresolvable-outcome fallback, revision rule, expi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "813-eth-staking-accounting",
+    "display_name": "Ethereum Epoch Accounting Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/813-eth-staking-accounting.html",
+    "description": "Recomputes one validator's reward, penalty and slashing accounting for one epoch, in Gwei, from the Electra consensus specification and the ",
     "consumes": [],
     "feeds": [],
     "status": "live"
