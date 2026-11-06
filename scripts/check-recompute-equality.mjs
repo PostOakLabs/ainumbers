@@ -50,6 +50,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { isMainContext } from './derived-artifacts.mjs';
+import { gitEnv } from './_git-env-lib.mjs';
 import { recomputeJournalOutput, SANDBOX_MECHANISM, KERNELS_DIR } from './recompute-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -104,7 +105,7 @@ export function classifyCured(cured, { mainContext, changedFiles }) {
 
 /** Files changed by this PR/branch vs main, or null when it cannot be determined. */
 function changedFilesVsMain() {
-  const git = (...a) => execFileSync('git', a, { cwd: REPO, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const git = (...a) => execFileSync('git', a, { cwd: REPO, env: gitEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const base = process.env.GITHUB_BASE_REF || 'main';
   for (const args of [['diff', '--name-only', `origin/${base}...HEAD`], ['diff', '--name-only', `origin/${base}`, 'HEAD'], ['diff', '--name-only', 'HEAD^1', 'HEAD']]) {
     try { return git(...args); } catch { /* try the next strategy */ }
