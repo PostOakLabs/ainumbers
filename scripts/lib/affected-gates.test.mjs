@@ -28,6 +28,16 @@ test('kernel diff picks the kernel content gates, never controls or the tier flo
   assert.ok(!labels(r).some((l) => /controls|fixture proof|Mutation tier/.test(l)));
 });
 
+test('kernel diff picks the §18 recompute-equality gate; an "SO #34c" control label stays skipped', () => {
+  const g = [
+    ['§18 recompute-equality (SO #34)', 'r'],
+    ['Query-string privacy gate controls (RED/GREEN, SO #34c pairing)', 's'],
+    ['cgCanon twin-parity red-proof (SO #34c, AUD-CGCANON-TWIN-GATE-1)', 't'],
+  ];
+  const r = affectedSelection(g, ['chaingraph/kernels/824-zip317-transfer-fee.kernel.mjs']);
+  assert.deepEqual(labels(r), ['§18 recompute-equality (SO #34)']);
+});
+
 test('kernel-machinery file (_hash.mjs) is not a kernel content diff', () => {
   const r = affectedSelection(GATES, ['chaingraph/kernels/_hash.mjs']);
   assert.deepEqual(r.classes, []);
