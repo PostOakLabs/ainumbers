@@ -200,6 +200,56 @@ if (!shouldStop()) {
   }
 }
 
+// 7a. estate ratchets (KERNEL-PREFLIGHT-RATCHETS-1). None of these three scripts takes
+// `--only <id>`: each runs estate-wide against its own baseline/ceiling. READY must still
+// mean "this kernel adds no new ratchet debt", so run the script as-is and judge ONLY the
+// lines that name this exact kernel id. Another kernel's baselined debt never fails this
+// kernel's preflight. The scripts are not re-implemented here.
+const idToken = new RegExp(`(?<![A-Za-z0-9_-])${ID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9_])`);
+
+/** Run `cmd` estate-wide; FAIL iff `pick(out)` returns lines naming ${ID}. */
+function runRatchet(label, cmd, pick) {
+  const r = run(label, cmd);
+  if (r.status === 'PASS') return { ...r, out: `${cmd}: exit 0, ${ID} adds no new violation.` };
+  const hits = pick(r.out).filter((l) => idToken.test(l));
+  if (hits.length) return { ...r, out: `${ID} is named by ${cmd}:\n${hits.map((l) => l.trimEnd()).join('\n')}` };
+  return { ...r, status: 'PASS', out: `${cmd} is red estate-wide but names no violation for ${ID} (other kernels' debt, not this kernel's).` };
+}
+
+// flag-mirror prints violating kernel ids, one per indented line, under the
+// "raise conditional flags with NO mirrored output_payload member" header. The stale-entry
+// list below it also names ids but is a baseline burn-down, not a violation, so scope to
+// the violation section only.
+function flagMirrorViolations(out) {
+  const lines = out.split('\n');
+  const start = lines.findIndex((l) => l.includes('raise conditional flags with NO mirrored'));
+  if (start < 0) return [];
+  const section = [];
+  for (const l of lines.slice(start + 1)) {
+    if (!/^\s+\S/.test(l) || /^\s+Add one of/.test(l)) break;
+    section.push(l);
+  }
+  return section;
+}
+
+if (!shouldStop()) {
+  record(runRatchet('Flag-mirror (AUTHORING-STANDARD §2)', 'node scripts/check-flag-mirror.mjs', flagMirrorViolations));
+}
+
+// R4 null-class: regressions print as "  ⛔ <kernel>: ..." lines.
+if (!shouldStop()) {
+  record(runRatchet('R4 null-class (MR-R4-NULL-REGRESSION-GATE-1)', 'node scripts/check-mr-r4-null-ratchet.mjs', (out) => out.split('\n').filter((l) => l.includes('⛔'))));
+}
+
+// flags-computed: failures print as indented lines after the "FAILURE(s)" header.
+if (!shouldStop()) {
+  record(runRatchet('Flags-computed (FLAGS-COMPUTED-LINT-1)', 'node scripts/check-flags-computed.mjs', (out) => {
+    const lines = out.split('\n');
+    const start = lines.findIndex((l) => /FAILURE\(s\)/.test(l));
+    return start < 0 ? [] : lines.slice(start + 1).filter((l) => /^\s+\S/.test(l));
+  }));
+}
+
 // 7b. floor digest stamp (FV-FLOOR-DIGEST-GATE-1) — only meaningful once the
 // floor file exists; reuses check-fv-floor-coverage.mjs's own --verify-authoring
 // mode, which is already scoped to exactly the files it's given.
