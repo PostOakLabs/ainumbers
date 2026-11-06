@@ -106,11 +106,26 @@ function detectTouchedKernelIds() {
   const ids = new Set();
   const git = (args) => execFileSync('git', args, { cwd: HERE, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   const take = (out) => { for (const f of out.split(/\r?\n/)) { const m = /^([^/]+)\.kernel\.mjs$/.exec(f.trim()); if (m) ids.add(m[1]); } };
+  // CI contract: on pull_request the checkout is refs/pull/N/merge, so HEAD^1 is the base and
+  // `diff HEAD^1 HEAD` is exactly the PR's own delta (needs depth >= 2; scripts-verify uses fetch-depth 0).
+  // If the touched set cannot be determined in a PR or merge_group run, FAIL CLOSED: an empty set would
+  // silently disable the sweep. On push-to-main nothing is detectable by design (HEAD is the base), the
+  // full-scan checks cover it. Locally an undeterminable set only warns, loudly.
+  const ev = process.env.GITHUB_EVENT_NAME || '';
+  const ciGated = ev === 'pull_request' || ev === 'merge_group';
   try {
-    const base = git(['merge-base', 'HEAD', process.env.KERNELID_BASE_REF || 'origin/main']).trim();
-    take(git(['diff', '--name-only', '--relative', '--diff-filter=ACMR', base, '--', '.']));
-    take(git(['ls-files', '--others', '--exclude-standard', '--', '.']));
-  } catch { /* no git / no origin/main: nothing detectable, full-scan checks still apply */ }
+    if (ev === 'pull_request') {
+      take(git(['diff', '--name-only', '--relative', '--diff-filter=ACMR', 'HEAD^1', 'HEAD', '--', '.']));
+    } else {
+      const base = git(['merge-base', 'HEAD', process.env.KERNELID_BASE_REF || 'origin/main']).trim();
+      take(git(['diff', '--name-only', '--relative', '--diff-filter=ACMR', base, '--', '.']));
+      take(git(['ls-files', '--others', '--exclude-standard', '--', '.']));
+    }
+  } catch {
+    const msg = 'TOUCHED-KERNEL SET UNDETERMINABLE (git error: ' + (ev === 'pull_request' ? 'HEAD^1..HEAD, checkout depth < 2?' : 'merge-base with ' + (process.env.KERNELID_BASE_REF || 'origin/main') + ' unresolved, not fetched?') + '); the touched-kernel sweep cannot run.';
+    if (ciGated && mode === 'check') { console.error('✗ §17 ' + msg + ' Failing CLOSED. Fix the checkout (fetch-depth: 0 or >= 2).'); process.exit(1); }
+    if (mode === 'check') console.error('⚠ §17 ' + msg + ' Only the full-scan checks apply; run git fetch origin main to enable the sweep.');
+  }
   return ids;
 }
 const touchedIds = detectTouchedKernelIds();

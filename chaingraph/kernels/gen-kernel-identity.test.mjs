@@ -405,6 +405,33 @@ function makeSandbox() {
       rmSync(dir, { recursive: true, force: true });
     }
   }
+
+  // T7 RED/GREEN pair: touched set UNDETERMINABLE (sandbox is not a git checkout). In a pull_request or
+  // merge_group run the gate must fail CLOSED; locally it warns and the full-scan checks still apply.
+  {
+    const { dir, kdir } = makeSandbox();
+    try {
+      writeFileSync(join(dir, 'chaingraph', 'chaingraph.json'), emptyMonolith);
+      seedShard(dir, recomputed);
+      const run = (ev) => {
+        const env = { ...process.env, GIT_CEILING_DIRECTORIES: dirname(dir) };
+        delete env.KERNELID_TOUCHED_IDS; delete env.GITHUB_EVENT_NAME;
+        if (ev) env.GITHUB_EVENT_NAME = ev;
+        const r = spawnSync('node', ['gen-kernel-identity.mjs', '--check'], { cwd: kdir, encoding: 'utf8', env });
+        return { status: r.status, out: (r.stdout || '') + (r.stderr || '') };
+      };
+      for (const ev of ['pull_request', 'merge_group']) {
+        const r = run(ev);
+        check(`T7 RED: undeterminable touched set on ${ev} fails CLOSED`, r.status === 1 && /UNDETERMINABLE/.test(r.out) && /CLOSED/.test(r.out), `status=${r.status}\n${r.out}`);
+      }
+      const l = run('');
+      check('T7 GREEN: undeterminable touched set locally warns loudly and passes', l.status === 0 && /UNDETERMINABLE/.test(l.out), `status=${l.status}\n${l.out}`);
+      const push = run('push');
+      check('T7 GREEN: push (main) event passes (HEAD is the base, full scan covers)', push.status === 0, `status=${push.status}\n${push.out}`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
 }
 
 console.log(`\n${fail === 0 ? '✓' : '✗'} gen-kernel-identity.test.mjs — ${pass} passed, ${fail} failed.`);
