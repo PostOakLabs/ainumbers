@@ -51,6 +51,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { sourceDigest } from './_buildid.mjs';
+import { gitEnv } from '../../scripts/_git-env-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const KDIR = HERE;
@@ -104,7 +105,7 @@ function detectTouchedKernelIds() {
     return new Set(process.env.KERNELID_TOUCHED_IDS.split(',').map((x) => x.trim()).filter(Boolean));
   }
   const ids = new Set();
-  const git = (args) => execFileSync('git', args, { cwd: HERE, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const git = (args) => execFileSync('git', args, { cwd: HERE, encoding: 'utf8', env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] });
   const take = (out) => { for (const f of out.split(/\r?\n/)) { const m = /^([^/]+)\.kernel\.mjs$/.exec(f.trim()); if (m) ids.add(m[1]); } };
   // CI contract: on pull_request the checkout is refs/pull/N/merge, so HEAD^1 is the base and
   // `diff HEAD^1 HEAD` is exactly the PR's own delta (needs depth >= 2; scripts-verify uses fetch-depth 0).

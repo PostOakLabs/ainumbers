@@ -38,6 +38,7 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -82,7 +83,7 @@ function planFor(root, oldId, newId) {
 function gitMv(root, from, to) {
   mkdirSync(dirname(resolve(root, to)), { recursive: true });
   if (existsSync(resolve(root, '.git'))) {
-    const r = spawnSync('git', ['mv', from, to], { cwd: root, encoding: 'utf8' });
+    const r = spawnSync('git', ['mv', from, to], { cwd: root, encoding: 'utf8', env: gitEnv() });
     if (r.status === 0) return;
   }
   renameSync(resolve(root, from), resolve(root, to));
@@ -164,6 +165,8 @@ async function selfTest() {
     const K = resolve(dir, 'chaingraph/kernels');
     mkdirSync(K, { recursive: true });
     for (const f of ['gen-kernel-identity.mjs', '_buildid.mjs']) cpSync(resolve(REPO, 'chaingraph/kernels', f), resolve(K, f));
+    mkdirSync(resolve(dir, 'scripts'), { recursive: true });
+    cpSync(resolve(REPO, 'scripts/_git-env-lib.mjs'), resolve(dir, 'scripts/_git-env-lib.mjs'));   // gen-kernel-identity imports it
     w('chaingraph/kernels/index.mjs', 'export const KERNELS = {\n};\n');   // unregistered, like a PR-side new node
     w('chaingraph/chaingraph.meta.json', JSON.stringify({ order: { nodes: [] } }));
     const { sourceDigest } = await import(pathToFileURL(resolve(K, '_buildid.mjs')).href);

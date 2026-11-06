@@ -179,6 +179,8 @@ function makeSandbox() {
   // Real modules, copied verbatim — never a reproduction of their content.
   cpSync(resolve(__dirname, 'gen-kernel-identity.mjs'), join(kdir, 'gen-kernel-identity.mjs'));
   cpSync(resolve(__dirname, '_buildid.mjs'), join(kdir, '_buildid.mjs'));
+  mkdirSync(join(dir, 'scripts'), { recursive: true });
+  cpSync(resolve(__dirname, '..', '..', 'scripts', '_git-env-lib.mjs'), join(dir, 'scripts', '_git-env-lib.mjs'));
   writeFileSync(join(kdir, 'index.mjs'), INDEX_STUB);
   for (const id of IDS) writeFileSync(join(kdir, id + '.kernel.mjs'), STUB_KERNEL_SRC);
   return { dir, kdir };
