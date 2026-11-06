@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// MQ-EJECT-HOLD-1: bookkeeping for automerge-label.yml's merge-queue eject hold.
+// Bookkeeping for automerge-label.yml's merge-queue eject hold.
 // A PR dequeued for a failed check gets the `mq-ejected` label plus ONE comment
 // that names the failing workflow, step and run and records the head sha it
 // failed at. While the label is present and the head is unchanged nothing

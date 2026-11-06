@@ -1,4 +1,4 @@
-// MQ-EJECT-HOLD-1: unit test for scripts/mq-eject-hold.mjs. No network, no gh.
+// Unit test for scripts/mq-eject-hold.mjs. No network, no gh.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { holdComment, isHoldComment, recordedSha, isHeld, LABEL } from './mq-eject-hold.mjs';

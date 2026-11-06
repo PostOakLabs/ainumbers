@@ -326,7 +326,7 @@ jobs:
           VERDICT=$(gh run view "$RUN" -R "$REPO" --log-failed 2>/dev/null | node scripts/mq-eject-classify.mjs || echo '{"kind":"other","gates":[]}')
           KIND=$(echo "$VERDICT" | jq -r .kind)
           echo "run $RUN classified: $VERDICT"
-          # MQ-EJECT-HOLD-1: any failed-check ejection that is not the checkout-fatal
+          # Eject hold: any failed-check ejection that is not the checkout-fatal
           # class is held at this head: `mq-ejected` label + ONE comment (updated in
           # place on a repeat) naming the failing workflow, step, run and head sha.
           # rearm-recovered and merge-lane skip the PR until a new head clears it.
@@ -429,7 +429,7 @@ jobs:
 
           gh pr comment "$PR" -R "$REPO" --body "auto-merge enabled by automerge-label.yml; GitHub merges this PR itself once every required check passes. No further \`gh pr merge\` needed."
 
-  # MQ-EJECT-HOLD-1: a new head commit clears the hold. Removing the label by
+  # Eject hold: a new head commit clears the hold. Removing the label by
   # hand (with a `[MQ-EJECT-OVERRIDE] #n <reason>` channel line) is the only
   # other way to re-arm at the same head.
   clear-mq-eject:
@@ -481,7 +481,7 @@ jobs:
           FAILS=0
           for PR in $(gh pr list -R "$REPO" --label automerge --state open --draft=false --json number -q '.[].number'); do
             VIEW=$(gh pr view "$PR" -R "$REPO" --json id,mergeStateStatus,autoMergeRequest,headRepositoryOwner,labels)
-            # MQ-EJECT-HOLD-1: ejected for a failed check and the head has not changed.
+            # Eject hold: ejected for a failed check and the head has not changed.
             if echo "$VIEW" | jq -e '[.labels[].name] | index("mq-ejected")' > /dev/null; then echo "#$PR mq-ejected hold; not re-arming"; continue; fi
             STATE=$(echo "$VIEW" | jq -r .mergeStateStatus)
             ARMED=$(echo "$VIEW" | jq -r '.autoMergeRequest')
