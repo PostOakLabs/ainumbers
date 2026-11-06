@@ -23,6 +23,7 @@ import * as t733      from './733-servicing-compliance-clock.kernel.mjs';
 import * as t784      from './784-cbr-data-return-validator.kernel.mjs';
 import * as t787      from './787-corridor-cost-averages.kernel.mjs';
 import * as t806      from './806-event-contract-terms-lint.kernel.mjs';
+import * as t813      from './813-eth-staking-accounting.kernel.mjs';
 import * as t815      from './815-eth-fee-market.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
@@ -731,6 +732,7 @@ export const KERNELS = {
   '784-cbr-data-return-validator':                              t784,
   '787-corridor-cost-averages':                                 t787,
   '806-event-contract-terms-lint':                              t806,
+  '813-eth-staking-accounting':                                 t813,
   '815-eth-fee-market':                                         t815,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
