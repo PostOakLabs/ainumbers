@@ -27,6 +27,7 @@ status: stable
 - [Servicing Compliance Clock](./733-servicing-compliance-clock.md)
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md)
 - [Corridor Cost Averages](./787-corridor-cost-averages.md)
+- [Event Contract Terms Lint](./806-event-contract-terms-lint.md)
 - [Ethereum Base Fee and Blob Base Fee Recompute](./815-eth-fee-market.md)
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md)
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md)
