@@ -73,7 +73,14 @@ export const SKIP_LABEL = 'no-bot-sync';
 export const SYNC_SUBJECT_PREFIX = 'chore(bot-sync):';
 export const MAX_ATTEMPTS_PER_HEAD = 2;
 export const DEFAULT_MAX_PRS = 10;
-export const DEFAULT_MIN_HEAD_AGE_MIN = 10;
+export const DEFAULT_MIN_HEAD_AGE_MIN = 15;
+// Head-merge ownership: a merge into a PR head restarts its full CI, so the
+// bot stands down when CI is already running on that head (rollup PENDING, only
+// believed for CHECKS_PENDING_MAX_MIN after the head commit so a stuck rollup
+// cannot park a PR forever) and, for a clean BEHIND PR, when it is armed (the
+// merge queue rebuilds on the current main anyway).
+export const ARMED_LABEL = 'automerge';
+export const CHECKS_PENDING_MAX_MIN = 45;
 // push:main runs wait for derived-artifacts-regen on their own sha (a run
 // takes 3-4 min); see regenGate().
 export const REGEN_WAIT_MIN = 15;
@@ -184,7 +191,7 @@ export function parseMergeTree(stdout) {
  * The decision for one PR. Pure: everything it needs is in `input`.
  * @param {object} input
  * @param {object} input.pr  {number, isDraft, isCrossRepository, baseRefName,
- *                            headRefName, labels:string[], inMergeQueue, headCommittedAt}
+ *                            headRefName, labels:string[], inMergeQueue, headCommittedAt, checksState}
  * @param {boolean} input.behind      head does not contain main
  * @param {string[]|null} input.conflicts  predicted conflicted paths ([] = clean)
  * @param {Set<string>} input.mainOwned
@@ -265,6 +272,8 @@ export function decide(input) {
   if (attempts >= MAX_ATTEMPTS_PER_HEAD) return skip(`attempts:${attempts}`);
   const committed = pr.headCommittedAt ? Date.parse(pr.headCommittedAt) : NaN;
   if (Number.isFinite(committed) && now - committed < minAge) return skip('fresh-head');
+  if (pr.checksState === 'PENDING' && Number.isFinite(committed) && now - committed < CHECKS_PENDING_MAX_MIN * 60_000) return skip('checks-running');
+  if (conflicts.length === 0 && (pr.labels || []).includes(ARMED_LABEL)) return skip('armed-queue-rebuilds');
 
   if (conflicts.length === 0) return { action: 'merge-clean', reason: 'behind', paths: [] };
   const sentinelOk = input.sentinelOk || new Set();
@@ -332,7 +341,7 @@ const PR_QUERY = `query($owner:String!,$name:String!,$cursor:String){repository(
     nodes{number title isDraft isCrossRepository baseRefName headRefName headRefOid
       mergeable mergeStateStatus mergeQueueEntry{state}
       labels(first:50){nodes{name}}
-      commits(last:1){nodes{commit{committedDate}}}}}}}`;
+      commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}}}}}}`;
 
 function listOpenPrs(repo) {
   const [owner, name] = repo.split('/');
@@ -349,6 +358,7 @@ function listOpenPrs(repo) {
         mergeable: n.mergeable, mergeStateStatus: n.mergeStateStatus, inMergeQueue: !!n.mergeQueueEntry,
         labels: n.labels.nodes.map((l) => l.name),
         headCommittedAt: n.commits.nodes[0]?.commit?.committedDate || null,
+        checksState: n.commits.nodes[0]?.commit?.statusCheckRollup?.state || null,
       });
     }
     if (!page.pageInfo.hasNextPage) break;
