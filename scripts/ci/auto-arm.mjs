@@ -30,8 +30,17 @@ import { dirname, resolve } from 'node:path';
 export const LABEL = 'automerge';
 export const LINEAGE_PREFIXES = ['chaingraph/kernels/', 'registry/'];
 
+// Tooling-only files directly under chaingraph/kernels/ cannot move the
+// lineage key set, so they do not make a PR lineage-class on their own:
+// the shared hash helper, gen-* generators (except gen-index.mjs), lint-*,
+// fix-* and check-* scripts, and *.test.mjs / *.selftest.mjs files.
+// Mirrors the workspace classifier scripts/lib/lineage-class.mjs exactly.
+export const LINEAGE_TOOLING_EXEMPT =
+  /^chaingraph\/kernels\/(?:_hash\.mjs|gen-(?!index\.mjs$)[^/]*\.mjs|(?:lint|fix|check)-[^/]*\.mjs|[^/]*\.(?:test|selftest)\.mjs)$/;
+
 export const isLineageClass = (files) =>
-  files.some((f) => LINEAGE_PREFIXES.some((p) => f.startsWith(p)));
+  files.some((f) => LINEAGE_PREFIXES.some((p) => f.startsWith(p))
+    && !LINEAGE_TOOLING_EXEMPT.test(f));
 
 // pr: {number, isDraft, labels:[names], files:[paths], branch}
 // checks: [{name, bucket}] for REQUIRED checks on the current head
