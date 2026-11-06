@@ -344,6 +344,67 @@ function makeSandbox() {
       rmSync(dir, { recursive: true, force: true });
     }
   }
+
+  // ── T4-T6: RENUMBER-RESTAMP-1 touched-kernel sweep (the #2860 hole; SO #40b RED/GREEN pair) ──
+  // #2860 renumbered art-811 -> art-813: kernel id strings changed (digest moved), the shard kept the
+  // old stamp, and the node was in neither index.mjs nor the monolith on the PR, so both checks skipped
+  // it and only main went red. A kernel the change touches (KERNELID_TOUCHED_IDS stands in for the git
+  // probe) is now always checked against its own shard stamp. PENDING-ASSEMBLY stays for T1 only.
+  const runTouched = (dir, kdir, touched) => {
+    const env = { ...process.env };
+    if (touched === null) delete env.KERNELID_TOUCHED_IDS; else env.KERNELID_TOUCHED_IDS = touched;
+    const r = spawnSync('node', ['gen-kernel-identity.mjs', '--check'], { cwd: kdir, encoding: 'utf8', env });
+    return { status: r.status, out: (r.stdout || '') + (r.stderr || '') };
+  };
+  const emptyMonolith = '{\n  "nodes": []\n}\n';
+  const seedShard = (dir, digest) => {
+    mkdirSync(join(dir, 'chaingraph', 'graph', 'nodes'), { recursive: true });
+    writeFileSync(join(dir, 'chaingraph', 'graph', 'nodes', IDS[0] + '.json'), shardTxt(digest));
+  };
+
+  // T4 RED: touched kernel, shard stamp stale, node absent from the monolith (the exact #2860 shape).
+  {
+    const { dir, kdir } = makeSandbox();
+    try {
+      writeFileSync(join(dir, 'chaingraph', 'chaingraph.json'), emptyMonolith);
+      seedShard(dir, staleDigest);
+      const { status, out } = runTouched(dir, kdir, IDS[0]);
+      check('T4 RED: touched kernel + stale shard stamp exits non-zero even though the monolith lacks the node', status === 1, `status=${status}\n${out}`);
+      check('T4 RED: red names TOUCHED-KERNEL STALE STAMP', /TOUCHED-KERNEL STALE STAMP/.test(out), out);
+      check('T4 RED: not misreported as PENDING-ASSEMBLY', !/⏳ PENDING-ASSEMBLY/.test(out), out);
+      // Control that proves the pre-fix blindness: same tree, kernel NOT touched by the change -> not this check's business.
+      const blind = runTouched(dir, kdir, null);
+      check('T4 control: same tree with no touched kernel passes (the monolith has no node to look at)', blind.status === 0, `status=${blind.status}\n${blind.out}`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  // T5 GREEN: touched kernel, shard correctly stamped, node absent from the monolith.
+  {
+    const { dir, kdir } = makeSandbox();
+    try {
+      writeFileSync(join(dir, 'chaingraph', 'chaingraph.json'), emptyMonolith);
+      seedShard(dir, recomputed);
+      const { status, out } = runTouched(dir, kdir, IDS[0]);
+      check('T5 GREEN: touched kernel + current shard stamp exits 0', status === 0, `status=${status}\n${out}`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  // T6 GREEN: the designed PENDING-ASSEMBLY case survives with the kernel marked touched.
+  {
+    const { dir, kdir } = makeSandbox();
+    try {
+      writeFileSync(join(dir, 'chaingraph', 'chaingraph.json'), staleMonolithDoc);
+      seedShard(dir, recomputed);
+      const { status, out } = runTouched(dir, kdir, IDS[0]);
+      check('T6 GREEN: stamped shard + stale monolith + touched kernel still passes as PENDING-ASSEMBLY', status === 0 && /PENDING-ASSEMBLY/.test(out), `status=${status}\n${out}`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
 }
 
 console.log(`\n${fail === 0 ? '✓' : '✗'} gen-kernel-identity.test.mjs — ${pass} passed, ${fail} failed.`);
