@@ -2504,6 +2504,10 @@ const GATES = [
   // ABSENCE cases (stale declaration, argument drift, uncalled gate, unparseable
   // `on:` block, an unmodelled softener) are the ones this family is made of.
   ['Workflow gate parity controls (status + reverse-presence axes, mutation)', 'node scripts/check-workflow-gate-parity.test.mjs'],
+  // MERGE-GROUP-SHADOW-SQUASH-SIM-1: every merge_group-only workflow step is replayed by the
+  // merge-group-shadow job or exempted with a reason, so a new queue-only red cannot appear unseen.
+  ['Merge-group shadow parity (queue-only steps replayed or exempt)', 'node scripts/check-mg-shadow-parity.mjs'],
+  ['Merge-group shadow parity + squash-sim controls (RED/GREEN)', 'node scripts/check-mg-shadow-parity.test.mjs'],
   // CONTRACT-CLAIM-COVERAGE-1: the mirror of RULINGS 2026-08-22's "no gate without a
   // normative source" — no normative source without an enforcement disposition. Asserts
   // every CONTRACT.md §15 claim row names a gate that EXISTS, or the honest values

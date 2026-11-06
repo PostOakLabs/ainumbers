@@ -281,6 +281,12 @@ const NOT_A_GATE = new Map([
 // node gates that legitimately run ONLY in CI, each with the reason it cannot run
 // pre-push. Keep tight — every entry is a hole in "green preflight ⇒ green CI".
 const CI_ONLY = new Map([
+  ["mg-shadow-squash-tree.mjs",
+    "MERGE-GROUP-SHADOW-SQUASH-SIM-1's builder for the merge-group-shadow job: squashes a pull_request's " +
+    "head (github.event.pull_request.head.sha) onto origin/main in a throwaway worktree. Not a gate " +
+    "(it builds the tree the queue-only gates then read), and a local push has no PR head or title to " +
+    "squash. Its pre-push coverage is scripts/check-mg-shadow-parity.test.mjs, which IS in " +
+    "preflight.mjs's GATES and drives this script's buildSquashTree() on real temp-repo fixtures."],
   ["check-node-surface-parity.mjs",
     "runs in unwired-gates.yml in REPORT MODE ONLY (continue-on-error + summary artifact): " +
     "it is red on main today (171/624 compared page<->kernel pairs divergent), so adding it " +
@@ -373,6 +379,12 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── MERGE-GROUP-SHADOW-SQUASH-SIM-1 (2026-11-05) ────────────────────────────
+  ["check-mg-shadow-parity.mjs",
+    "Static read of land-verify.yml and scripts-verify.yml (does merge-group-shadow keep pace with the " +
+    "merge_group-only steps?). It judges workflow text, not a PR's tree, so a CI call site would only " +
+    "repeat what preflight already runs in the main job's full gate suite."],
+  ["check-mg-shadow-parity.test.mjs", SELF_TEST],
   // ── ZK-TRUST-STAGES-GATE-1 / PR-2888-SELFTEST-PAIR-1 (2026-11-05) ───────────
   ["check-zk-trust-page.mjs",
     "Advisory-on-PR COVERED freshness gate (derived-artifacts.mjs id 'zk-trust-page': its regen is " +

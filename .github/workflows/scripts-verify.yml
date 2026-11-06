@@ -630,6 +630,40 @@ jobs:
           set -euo pipefail
           DERIVED_ROOT="${RUNNER_TEMP}/derived-tree" GITHUB_EVENT_NAME=merge_group node scripts/derived-artifacts.mjs --verify
 
+      # Squash-faithful replay: the queue lands a SQUASH (setting
+      # squash_merge_commit_message=COMMIT_MESSAGES, title COMMIT_OR_PR_TITLE), so
+      # text living only in a merge commit of the PR branch (#2342: a
+      # REPROVE-AUTHORIZED line) is gone from the commit message the queue's gates
+      # read, while the pull_request merge ref still carries it. This step builds
+      # origin/main + the PR head as ONE squash commit in a throwaway worktree under
+      # RUNNER_TEMP (never the job's checkout), and the next step runs the
+      # queue-only blocking gates there. PR_BODY stays unset (a queue run has no PR
+      # body); the PR title and head cross via env:, never spliced into run:.
+      - name: Squash-faithful tree (origin/main + PR head as one commit)
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          node scripts/mg-shadow-squash-tree.mjs --head "${PR_HEAD_SHA}" --title "${PR_TITLE}" --out "${RUNNER_TEMP}/squash-tree"
+          echo "${RUNNER_TEMP}/derived-tree" > "${RUNNER_TEMP}/derived-root.txt"
+
+      - name: Proven-digest freeze on the squash-faithful tree (HARD)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/squash-tree"
+          unset PR_BODY
+          GITHUB_EVENT_NAME=merge_group node scripts/check-proven-digest-freeze.mjs
+
+      - name: Post-regen copy validators on the squash-faithful tree (HARD)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/squash-tree"
+          GITHUB_EVENT_NAME=merge_group node scripts/ci/run-gate.mjs post-regen-copy-validators
+
       - name: Assert clean tree (nothing derived was committed)
         shell: bash
         run: |
