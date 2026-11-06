@@ -1,0 +1,20 @@
+#!/bin/sh
+# Pre-commit shift-left gate: the cheap hygiene gates on the STAGED diff, so a bad commit never
+# forms. The gate set is the one `node scripts/preflight.mjs --hygiene` runs on push
+# (AFFECTED_HYGIENE_CMDS in scripts/lib/affected-gates.mjs); scripts/precommit-hygiene.mjs only
+# scopes each gate to the staged paths. Enabled per-clone via `core.hooksPath = .githooks`
+# (`node scripts/setup-hooks.mjs`); worktrees inherit it.
+#
+# Bypass: the standard `git commit --no-verify`. Pre-push and CI still run the full gates.
+
+# Run from the worktree top so scripts/ resolves in linked worktrees too.
+top=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+cd "$top" || exit 0
+
+# Branches that predate the helper (or non-site checkouts) have nothing to gate.
+[ -f scripts/precommit-hygiene.mjs ] || exit 0
+
+# The staged list is computed here, with git's own index env intact (a `git commit -a` or
+# `git commit <path>` uses a temporary index), and piped in; the node side scrubs GIT_* from
+# every child.
+git diff --cached --name-only --diff-filter=ACMR | node scripts/precommit-hygiene.mjs
