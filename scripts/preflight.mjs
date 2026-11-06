@@ -1196,6 +1196,8 @@ const GATES = [
     'node scripts/lib/affected-gates.test.mjs'],
   ['Pre-push expect-red fixture proof (env + file routes, EXPECTRED-ENVPREFIX-GAP-1)',
     'node .githooks/pre-push.test.mjs'],
+  ['Pre-commit hygiene hook fixture proof (staged scoping, red blocks with gate and fix, green passes)',
+    'node .githooks/pre-commit.test.mjs'],
   // PREPUSH-NARROW-1: red/green controls for the hook's full-suite trigger
   // (which diff paths owe the FULL leg; docs-only scripts/ edits no longer do).
   ['Pre-push full-suite trigger controls (RED/GREEN path classes, PREPUSH-NARROW-1)',
@@ -2896,6 +2898,10 @@ function psChangedGateChecks(files) {
   if (files.some((f) => f === '.githooks/pre-push' || f === '.githooks/pre-push.test.mjs')
       && existsSync(resolve(REPO, '.githooks/pre-push.test.mjs'))) {
     checks.push(['Pre-push hook fixture test (changed hook)', 'node .githooks/pre-push.test.mjs']);
+  }
+  if (files.some((f) => f === '.githooks/pre-commit' || f === '.githooks/pre-commit.test.mjs' || f === 'scripts/precommit-hygiene.mjs' || f === 'scripts/_changed-files-lib.js')
+      && existsSync(resolve(REPO, '.githooks/pre-commit.test.mjs'))) {
+    checks.push(['Pre-commit hook fixture test (changed hook)', 'node .githooks/pre-commit.test.mjs']);
   }
   for (const f of files) {
     const m = f.match(/^scripts\/([a-z0-9][a-z0-9._-]*\.mjs)$/);
