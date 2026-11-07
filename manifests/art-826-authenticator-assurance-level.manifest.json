@@ -1,0 +1,176 @@
+{
+  "tool_id": "art-826-authenticator-assurance-level",
+  "version": "1.0.0",
+  "title": "Authenticator Assurance Level Evaluator",
+  "description": "Rates whether a declared authenticator set and session policy reach a target level of a caller-supplied, versioned authentication assurance framework. Framework-agnostic: every threshold and restriction is input data, never hardcoded. Distinguishes a definition that cannot express a criterion (AAL_DEFINITION_INSUFFICIENT) from declared data that fails a well-formed one (AAL_SHORTFALL, reported per criterion as {criterion, required, found}).",
+  "category": "bank-capital-ratios-and-idv-kyc-evidence",
+  "tags": [
+    "authentication",
+    "AAL",
+    "NIST SP 800-63B",
+    "eIDAS",
+    "phishing-resistant",
+    "compliance"
+  ],
+  "audience": [
+    "compliance",
+    "risk",
+    "engineer"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "framework",
+      "target_level",
+      "authenticators"
+    ],
+    "properties": {
+      "framework": {
+        "type": "object",
+        "description": "Versioned assurance framework: levels[] ordered lowest-to-highest, each carrying criteria in the shared generic vocabulary (min_factors, required_factor_kinds, phishing_resistant_required, verifier_impersonation_resistant_required, hardware_bound_required, dynamic_authentication_required, max_reauth_interval_minutes, max_idle_minutes, restricted_authenticator_kinds)"
+      },
+      "target_level": {
+        "type": "string",
+        "description": "level_id of the target level within the declared framework"
+      },
+      "authenticators": {
+        "type": "array",
+        "description": "Declared authenticator set; kind values from the node's closed enum, factor_kinds from the caller's own category vocabulary (tested for set membership only)"
+      },
+      "session": {
+        "type": "object",
+        "description": "Optional declared session policy; reauthentication and idle intervals in minutes"
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "framework_ref": {
+        "type": "object"
+      },
+      "target_level": {
+        "type": "string"
+      },
+      "target_level_found": {
+        "type": "boolean"
+      },
+      "levels_defined": {
+        "type": "integer"
+      },
+      "authenticator_count": {
+        "type": "integer"
+      },
+      "session_declared": {
+        "type": "boolean"
+      },
+      "criteria_evaluated": {
+        "type": "integer"
+      },
+      "achieved_level": {
+        "type": "string"
+      },
+      "meets_target": {
+        "type": "boolean"
+      },
+      "unmet_criteria": {
+        "type": "array"
+      },
+      "undecidable_count": {
+        "type": "integer"
+      },
+      "undecidable": {
+        "type": "array"
+      },
+      "note": {
+        "type": "string"
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_authn_assurance_level",
+    "description": "Given a versioned framework (levels[] ordered lowest-to-highest, each carrying generic authentication criteria), a declared authenticators[] set from the node kind enum, a declared session policy, and a target_level, return achieved_level, meets_target, per-criterion unmet_criteria as {criterion, required, found}, compliance flags, and the framework_ref.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "framework": {
+          "type": "object"
+        },
+        "target_level": {
+          "type": "string"
+        },
+        "authenticators": {
+          "type": "array"
+        },
+        "session": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-826-authenticator-assurance-level.html",
+    "function_name": "runCombined",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "framework": {
+      "id": "eidas-example",
+      "version": "2015-09",
+      "levels": [
+        {
+          "level_id": "low",
+          "min_factors": 1
+        },
+        {
+          "level_id": "substantial",
+          "min_factors": 2,
+          "dynamic_authentication_required": true
+        },
+        {
+          "level_id": "high",
+          "min_factors": 2,
+          "dynamic_authentication_required": true,
+          "hardware_bound_required": true
+        }
+      ]
+    },
+    "target_level": "low",
+    "authenticators": [
+      {
+        "kind": "password",
+        "factor_kinds": [
+          "knowledge"
+        ],
+        "phishing_resistant": false,
+        "hardware_bound": false
+      }
+    ]
+  },
+  "output_example": {
+    "framework_ref": {
+      "id": "eidas-example",
+      "version": "2015-09"
+    },
+    "target_level": "low",
+    "target_level_found": true,
+    "levels_defined": 3,
+    "authenticator_count": 1,
+    "session_declared": false,
+    "criteria_evaluated": 1,
+    "achieved_level": "low",
+    "meets_target": true,
+    "unmet_criteria": [],
+    "undecidable_count": 0,
+    "undecidable": [],
+    "warnings": [
+      "AAL_MET"
+    ],
+    "note": "Rates a DECLARED authenticator set and session policy against a caller-supplied, versioned assurance framework -- never a hardcoded one. Every threshold, required factor category and restriction comes from the framework the caller declares; the kernel never interprets a framework it was not given. A criterion the definition cannot express (malformed criterion value) is reported as AAL_DEFINITION_INSUFFICIENT, distinct from AAL_SHORTFALL (declared data failing a well-formed criterion, reported per criterion as {criterion, required, found}) -- the two are never conflated. When the target level is not met, achieved_level falls back to the highest fully-met level below it. Measures declared capabilities only: it does not assert anyone controls any authenticator, and carries no user identifiers."
+  },
+  "example_execution_hash": "cd9da1fb883205b2473be71a7f92766db4a9e6be9237c1b343c0f58d3c230efc"
+}
