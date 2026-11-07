@@ -60,6 +60,7 @@ const SHARD_FILE_RE = /^(art-\d+)\.json$/
 
 const argv = process.argv.slice(2)
 const MERGE_GROUP = argv.includes('--merge-group')
+const IN_MERGE_GROUP = isMergeGroupRun({ flag: MERGE_GROUP, eventName: process.env.GITHUB_EVENT_NAME || '', refName: process.env.GITHUB_REF_NAME || '' })
 
 const NODE_RE = /^chaingraph\/graph\/nodes\/art-(\d+)-[^/]+\.json$/
 const MANIFEST_RE = /^manifests\/art-(\d+)-[^/]+\.manifest\.json$/
@@ -88,9 +89,38 @@ function mainIdPaths() {
   return byId
 }
 
-/** Changed paths vs origin/main (three-dot merge-base, same scoping as check-node-complete). */
-function changedPaths() {
-  const out = git(['diff', '--name-only', 'origin/main...HEAD'])
+/**
+ * Is this run a merge-queue group build? The queue's checkout is a commit
+ * ON TOP OF the entries ahead of this PR, so origin/main...HEAD would also
+ * contain their files (a stacked group is the normal case at
+ * max_entries_to_build > 1). Pure: driven by --self-test.
+ */
+export function isMergeGroupRun({ flag = false, eventName = '', refName = '' } = {}) {
+  return Boolean(flag) || eventName === 'merge_group' || /^gh-readonly-queue\//.test(refName)
+}
+
+/**
+ * Pure core: the git range holding ONLY this PR's own changes. pull_request
+ * keeps the three-dot range vs origin/main. In a merge group the HEAD commit
+ * is this entry's own commit and its first parent is the previous entry (or
+ * main), so HEAD^1..HEAD is this PR alone. Fails closed (error, no range)
+ * when the PR number or the parent cannot be determined.
+ */
+export function ownChangeRange({ mergeGroup, prNumber, hasParent }) {
+  if (!mergeGroup) return { range: ['origin/main...HEAD'] }
+  if (prNumber == null || Number.isNaN(prNumber)) return { error: 'merge_group run but this PR number is undeterminable from PR_ID_COLLISION_PR / GITHUB_REF_NAME' }
+  if (!hasParent) return { error: 'merge_group run but HEAD has no first parent to scope this entry own changes' }
+  return { range: ['HEAD^1', 'HEAD'] }
+}
+
+/** Changed paths of this PR alone (see ownChangeRange). null = undeterminable, caller refuses closed. */
+function changedPaths(cwd = REPO, mergeGroup = IN_MERGE_GROUP, prNumber = null) {
+  const gitIn = (args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: gitEnv() })
+  let hasParent = false
+  try { gitIn(['rev-parse', '--verify', '-q', 'HEAD^1']); hasParent = true } catch { /* no parent */ }
+  const r = ownChangeRange({ mergeGroup, prNumber, hasParent })
+  if (r.error) { console.error(`check-id-collision: ${r.error} - refusing closed.`); return null }
+  const out = gitIn(['diff', '--name-only', ...r.range])
   return out.split('\n').map(s => s.trim()).filter(Boolean)
 }
 
@@ -326,6 +356,30 @@ export function selfTest() {
     ok: mint.backfill === false && mint.refusals.some(r => r.includes('REFUSAL(b)')),
     quote: mint.refusals.find(r => r.includes('REFUSAL(b)')) || '(no refusal — UNEXPECTED GREEN)' })
 
+  // STACKED MERGE GROUP: the group tree carries earlier entries' files; only
+  // this entry's own commit (HEAD^1..HEAD) is checked.
+  const stack = stackedGroupFixture()
+  results.push({ name: 'GREEN stacked merge_group: id reserved to an earlier entry (art-770, pr=2524) is not this PR change',
+    ok: stack.ownPaths !== null && stack.ownPaths.length === 1 && stack.ownPaths[0] === 'scripts/sync.mjs',
+    quote: `own paths: ${JSON.stringify(stack.ownPaths)}` })
+  expectGreen('GREEN stacked merge_group: no node file in own range, no refusal', (stack.ownPaths || ['<null>']).filter(p => NODE_RE.test(p) || p === '<null>'))
+  results.push({ name: 'CONTROL pull_request three-dot range still sees the whole tree (earlier entry file included)',
+    ok: stack.wholeIncludesEarlier === true, quote: `whole range has earlier entry file: ${stack.wholeIncludesEarlier}` })
+  expectRed('RED merge_group: the current PR OWN minted id reserved to another PR still refuses',
+    checkId({ id: 'art-770', kind: 'node', path: 'chaingraph/graph/nodes/art-770-foo.json', mainPaths, reservations: { ...reservations, 'art-770': { row: 'OTHER-1', pr: 2524, reserved: '2026-11-07T00:00:00Z' } }, openPrs: null, prNumber: 2948 }),
+    'b')
+  const noPr = ownChangeRange({ mergeGroup: true, prNumber: null, hasParent: true })
+  const noParent = ownChangeRange({ mergeGroup: true, prNumber: 2948, hasParent: false })
+  results.push({ name: 'RED merge_group undeterminable (no PR number / no parent) fails closed',
+    ok: Boolean(noPr.error) && Boolean(noParent.error) && !noPr.range && !noParent.range,
+    quote: noPr.error || '(no error - UNEXPECTED GREEN)' })
+  results.push({ name: 'GREEN pull_request range unchanged (origin/main...HEAD)',
+    ok: ownChangeRange({ mergeGroup: false, prNumber: null, hasParent: false }).range?.join(' ') === 'origin/main...HEAD',
+    quote: 'origin/main...HEAD' })
+  results.push({ name: 'GREEN merge_group detection (flag, event, queue ref); a pull_request ref is not mis-detected',
+    ok: isMergeGroupRun({ eventName: 'merge_group' }) && isMergeGroupRun({ refName: 'gh-readonly-queue/main/pr-2948-abc' }) && isMergeGroupRun({ flag: true }) && !isMergeGroupRun({ eventName: 'pull_request', refName: '2948/merge' }),
+    quote: 'detection ok' })
+
   // pr=null reservations (a row reserves before its PR exists).
   const nullRes = { ...reservations, 'art-780': { row: 'SOLANA-PDA-ATA-AUDIT-1', pr: null, reserved: '2026-10-29T02:00:00Z' } }
   // GREEN: the PR added the pr=null line itself (absent from main's registry) — the #2727 shape.
@@ -393,6 +447,29 @@ export function selfTest() {
   }
   console.error(`check-id-collision --self-test: ${results.length - failed}/${results.length} fixtures as expected`)
   return failed === 0
+}
+
+/**
+ * Throwaway repo: base, then an earlier queue entry (adds a node file), then
+ * this entry (adds a script). Returns the own-range paths and whether the
+ * pull_request-style whole range would also include the earlier entry's file.
+ */
+function stackedGroupFixture() {
+  const dir = mkdtempSync(join(tmpdir(), 'idcoll-stack-'))
+  const sg = (args) => execFileSync('git', ['-c', 'user.name=selftest', '-c', 'user.email=selftest@invalid', '-c', 'commit.gpgsign=false', ...args],
+    { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: gitEnv() })
+  try {
+    sg(['init', '-q', '-b', 'main'])
+    writeFileSync(join(dir, 'base.txt'), 'base\n'); sg(['add', '.']); sg(['commit', '-q', '-m', 'base'])
+    sg(['update-ref', 'refs/remotes/origin/main', 'HEAD'])
+    mkdirSync(join(dir, 'chaingraph/graph/nodes'), { recursive: true })
+    writeFileSync(join(dir, 'chaingraph/graph/nodes/art-770-earlier.json'), '{}\n'); sg(['add', '.']); sg(['commit', '-q', '-m', 'earlier entry (#2524)'])
+    mkdirSync(join(dir, 'scripts'), { recursive: true })
+    writeFileSync(join(dir, 'scripts/sync.mjs'), '//\n'); sg(['add', '.']); sg(['commit', '-q', '-m', 'this entry (#2948)'])
+    const ownPaths = changedPaths(dir, true, 2948)
+    const whole = sg(['diff', '--name-only', 'origin/main...HEAD']).split('\n')
+    return { ownPaths, wholeIncludesEarlier: whole.includes('chaingraph/graph/nodes/art-770-earlier.json') }
+  } finally { rmSync(dir, { recursive: true, force: true }) }
 }
 
 /**
@@ -489,7 +566,9 @@ function runDiff() {
     }
   }
   const headRef = process.env.GITHUB_HEAD_REF || null
-  const changed = changedPaths().filter(p => NODE_RE.test(p) || MANIFEST_RE.test(p) || TOOL_RE.test(p))
+  const own = changedPaths(REPO, IN_MERGE_GROUP, prNumber)
+  if (own === null) process.exit(1)
+  const changed = own.filter(p => NODE_RE.test(p) || MANIFEST_RE.test(p) || TOOL_RE.test(p))
 
   // Exact-token open-PR scan, one gh call, only when there is something to check.
   const needIds = new Set()
