@@ -666,6 +666,7 @@ status: stable
 - [AI Displacement Risk Screener](./art-763-ai-displacement-risk-screener.md)
 - [Solo 401(k) vs. SEP-IRA Optimizer](./art-764-solo-401k-vs-sep-ira.md)
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md)
+- [Total Cost of Homeownership](./art-770-total-cost-of-homeownership.md)
 - [Automation Payback](./art-771-automation-payback.md)
 - [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md)
 - [PayPal Dispute Deadline & Evidence](./art-776-paypal-dispute-deadline-evidence.md)
