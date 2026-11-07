@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Stablecoin Admin Role Lint · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Lint a stablecoin token's declared admin-role configuration for separation of duties, key concentration and issuance-policy fit, over role labels only.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-789-stablecoin-admin-role-lint.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem}
+.hero h1{font-size:clamp(1.6rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:1.5rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.85rem;margin-bottom:.85rem}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.1rem;line-height:1.4}
+input[type="number"],input[type="text"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input:focus,select:focus{border-color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-bottom:1.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+.results-panel{display:none;flex-direction:column;gap:1rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* Overall grade */
+.grade-row{display:flex;align-items:center;gap:1.4rem;flex-wrap:wrap;margin-bottom:1rem}
+.grade-badge{font-family:'DM Serif Display',serif;font-size:3.2rem;line-height:1;padding:.6rem 1.3rem;border-radius:var(--radius-lg);border:2px solid var(--border-2)}
+.grade-meta{flex:1;min-width:220px}
+.grade-title{font-size:1.1rem;color:var(--white);margin-bottom:.2rem}
+.grade-sub{font-size:.78rem;color:var(--body);line-height:1.6}
+/* Lint checks */
+.check-list{display:flex;flex-direction:column;gap:.6rem}
+.check-item{display:flex;gap:.75rem;align-items:flex-start;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem .9rem}
+.check-icon{font-family:'JetBrains Mono',monospace;font-size:.7rem;width:24px;flex-shrink:0;margin-top:.1rem}
+.check-icon.pass{color:var(--green)}.check-icon.fail{color:var(--red)}.check-icon.warn{color:var(--warn)}.check-icon.info{color:var(--teal)}
+.check-content{}
+.check-title{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.06em;text-transform:uppercase;color:var(--bright);margin-bottom:.2rem}
+.check-detail{font-size:.78rem;color:var(--body);line-height:1.6}
+.check-ref{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.25rem}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}.btn-ghost.ready:hover{background:var(--bg-4)}.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+.hash-row{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);word-break:break-all;padding:.5rem .7rem;background:var(--bg-4);border-radius:var(--radius);border:1px solid var(--border);margin-top:.75rem}
+.hash-label{color:var(--teal);margin-right:.5rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer;margin-top:2rem}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--teal)">ART-789 · Stablecoin Admin Role Lint</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="tool-body"><div class="container">
+  <div class="hero">
+    <div class="hero-eyebrow">ART-789 · OpenChainGraph · Stablecoin Admin Role Lint</div>
+    <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem">v1.0.0</span>
+    <h1>Stablecoin Admin Role Lint</h1>
+    <p class="hero-desc">Lint a stablecoin token's declared admin-role configuration for separation of duties, key concentration and issuance-policy fit. Profiles follow the published role models of the Circle FiatToken contracts and the Paxos USDP contracts; every input is a role label such as "org-treasury-msig". Addresses, public keys and private keys are refused by design. This is an independent compliance tool: it is affiliated with no issuer, implies no endorsement by Circle or Paxos, and its output is configuration guidance, not legal advice.</p>
+    <div class="hero-meta">
+      <span class="badge badge-teal">AP2 Export</span>
+      
+      <span class="badge badge-gold">Role labels only</span>
+      <span class="badge badge-purple">Separation of duties</span>
+      <span class="badge badge-green">Deterministic · Zero PII</span>
+      <span class="badge badge-muted">compliance_control</span>
+    </div>
+  </div>
+
+  <div class="tool-body">
+    <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data. Use synthetic or anonymised inputs only.</div>
+
+    <div class="panel">
+      <div class="panel-label">Role Configuration (role labels only)</div>
+      <div class="panel-row">
+        <div class="field-group">
+          <span class="field-label">Profile</span>
+          <select id="profile">
+            <option value="fiattoken">fiattoken (Circle FiatToken role model)</option>
+            <option value="usdp">usdp (Paxos USDP role model)</option>
+            <option value="generic">generic (caller-declared roles)</option>
+          </select>
+          <span class="field-hint">Determines the role set, critical roles, default distinctness pairs and capability mapping. Use of a profile name describes the role model only and implies no endorsement.</span>
+        </div>
+      </div>
+      <div class="panel-row">
+        <div class="field-group" style="flex:1">
+          <span class="field-label">Holders: one per line: label, kind, threshold, signers_count</span>
+          <textarea id="holdersText" rows="6" spellcheck="false"></textarea>
+          <span class="field-hint">kind is one of: eoa, multisig, timelock, hsm_service. Threshold and signers_count apply to multisig holders.</span>
+        </div>
+      </div>
+      <div class="panel-row">
+        <div class="field-group" style="flex:1">
+          <span class="field-label">Roles: JSON map of role to holder label</span>
+          <textarea id="rolesText" rows="5" spellcheck="false"></textarea>
+          <span class="field-hint">fiattoken roles: owner, proxy_admin, master_minter, pauser, blacklister, rescuer. usdp roles: owner, pauser, asset_protection, supply_controller.</span>
+        </div>
+      </div>
+      <div class="panel-row">
+        <div class="field-group" style="flex:1">
+          <span class="field-label">Minters: JSON array of {holder_label, allowance_minor}</span>
+          <textarea id="mintersText" rows="3" spellcheck="false"></textarea>
+          <span class="field-hint">Minor-unit allowances per minter label. Compared against the policy ceilings.</span>
+        </div>
+      </div>
+      <div class="panel-row">
+        <div class="field-group" style="flex:1">
+          <span class="field-label">Policy JSON: max_single_minter_allowance_minor, max_total_allowance_minor, require_multisig_for, require_distinct</span>
+          <textarea id="policyText" rows="4" spellcheck="false"></textarea>
+          <span class="field-hint">Caller-declared issuance policy and control requirements. Distinctness pairs are [roleA, roleB] arrays.</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runLint()">&#9654; Lint admin-role configuration</button>
+
+    <div class="results-panel" id="resultsPanel">
+      <div class="generated-at" id="generatedAt"></div>
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">Verdict</span></div>
+        <div class="out-body">
+          <div class="grade-row">
+            <div class="grade-badge" id="gradeBadge">&#183;</div>
+            <div class="grade-meta">
+              <div class="grade-title" id="gradeTitle"></div>
+              <div class="grade-sub" id="gradeSub"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">Findings</span></div>
+        <div class="out-body"><div class="check-list" id="checkList"></div></div>
+      </div>
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">Capabilities</span></div>
+        <div class="out-body"><div class="check-list" id="capList"></div></div>
+      </div>
+      <div class="results-export-row">
+        <button class="btn btn-ghost" id="ap2Btn" disabled onclick="exportAP2()">
+          {} Export OpenChainGraph Artifact<span class="btn-subtitle">chaingraph_version: 0.4.0 &middot; execution_hash</span>
+        </button>
+        <button class="btn btn-ghost" id="signArtifactBtn" onclick="signArtifact()" disabled>&#11015; Sign artifact (Ed25519 &middot; &sect;16)</button>
+        <button class="btn btn-ghost" id="verifySigBtn" onclick="verifySignature()">&#128274; Verify signature (&sect;16)</button>
+      </div>
+      <div class="hash-row" id="hashRow" style="display:none">
+        <span class="hash-label">sha256:</span><span id="hashVal"></span>
+      </div>
+    </div>
+
+    <button class="mfst-btn" onclick="toggleMfst()" aria-expanded="false" aria-controls="mfstBody">
+      <span>{} MCP Manifest (ART-789)</span><span id="mfstArrow">&#9660;</span>
+    </button>
+    <div class="mfst-body" id="mfstBody" aria-hidden="true"><pre id="mfstPre"></pre></div>
+  </div>
+</div></div>
+
+<footer><div class="container">art-789-stablecoin-admin-role-lint &middot; CC BY 4.0 &middot; Zero PII &middot; role labels only; addresses and keys are refused</div></footer>
+
+<script>
+'use strict';
+/* ART-789 · Stablecoin Admin Role Lint — client-side UI logic.
+   Mirrors chaingraph/kernels/art-789-stablecoin-admin-role-lint.kernel.mjs compute()
+   semantics over ROLE LABELS ONLY. Deterministic. Zero PII.
+   NOTE: outputs are configuration guidance, not legal advice. */
+
+const MANIFEST = {
+  tool_id: 'art-789-stablecoin-admin-role-lint',
+  version: '1.0.0',
+  title: 'Stablecoin Admin Role Lint',
+  mcp_tool_definition: {
+    name: 'lint_stablecoin_admin_roles',
+    description: 'Lints a stablecoin token\'s declared admin-role configuration for separation of duties, key concentration and issuance-policy fit, over role labels only. Profiles: fiattoken (Circle FiatToken role model), usdp (Paxos USDP role model), generic (caller-declared). Refuses any value resembling an address or key.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        profile: { type: 'string', enum: ['fiattoken', 'usdp', 'generic'] },
+        holders: { type: 'array', items: { type: 'object', properties: { label: { type: 'string' }, kind: { type: 'string', enum: ['eoa', 'multisig', 'timelock', 'hsm_service'] }, threshold: { type: 'number' }, signers_count: { type: 'number' } }, required: ['label', 'kind'] } },
+        roles: { type: 'object', description: 'role name to holder label' },
+        minters: { type: 'array', items: { type: 'object', properties: { holder_label: { type: 'string' }, allowance_minor: { type: 'number' } }, required: ['holder_label', 'allowance_minor'] } },
+        policy: { type: 'object', properties: {
+          max_single_minter_allowance_minor: { type: 'number' },
+          max_total_allowance_minor: { type: 'number' },
+          require_multisig_for: { type: 'array', items: { type: 'string' } },
+          require_distinct: { type: 'array', items: { type: 'array', items: { type: 'string' } } }
+        } }
+      },
+      required: ['profile', 'holders', 'roles']
+    }
+  },
+  ap2_export: true,
+  chaingraph: true
+};
+
+const PROFILES = {
+  fiattoken: {
+    roles: ['owner', 'proxy_admin', 'master_minter', 'pauser', 'blacklister', 'rescuer'],
+    critical: ['owner', 'proxy_admin', 'master_minter', 'pauser', 'blacklister', 'rescuer'],
+    require_distinct: [['owner', 'master_minter'], ['owner', 'proxy_admin'], ['master_minter', 'pauser']],
+    cite: 'Circle stablecoin-evm (pinned fc85788b): Pausable / Blacklistable / Rescuable / MasterMinter / AdminUpgradeabilityProxy',
+    capabilities: { pause: 'pauser', freeze: 'blacklister', upgrade: 'proxy_admin' }
+  },
+  usdp: {
+    roles: ['owner', 'pauser', 'asset_protection', 'supply_controller'],
+    critical: ['owner', 'pauser', 'asset_protection', 'supply_controller'],
+    require_distinct: [['owner', 'supply_controller']],
+    cite: 'Paxos usdp-contracts (pinned 1af2c7f0 / 674ac104): PaxosTokenV2 setSupplyControl, pause, freeze, increaseSupply',
+    capabilities: { pause: 'pauser', freeze: 'asset_protection', upgrade: null }
+  },
+  generic: {
+    roles: [], critical: null, require_distinct: [],
+    cite: 'caller-declared policy',
+    capabilities: { pause: 'pauser', freeze: 'blacklister', upgrade: 'proxy_admin' }
+  }
+};
+
+const ADDRESS_LIKE = [
+  { name: 'evm_address', re: /0x[0-9a-fA-F]{20,}/ },
+  { name: 'long_hex_key', re: /\b[0-9a-fA-F]{64,}\b/ },
+  { name: 'base58_address', re: /\b[1-9A-HJ-NP-Za-km-z]{26,44}\b/ }
+];
+
+function labelIsKeyMaterial(label) {
+  const s = String(label);
+  for (const p of ADDRESS_LIKE) if (p.re.test(s)) return p.name;
+  return null;
+}
+
+function isMultisig(h) {
+  if (!h) return false;
+  const th = Number(h.threshold || 0), sg = Number(h.signers_count || 0);
+  return (h.kind === 'multisig' || h.kind === 'timelock' || h.kind === 'hsm_service') &&
+    (th >= 2 || sg >= 2 || (th === 0 && sg === 0 && h.kind !== 'multisig'));
+}
+
+function computeLint(pp) {
+  const holders = Array.isArray(pp.holders) ? pp.holders : [];
+  const roles = pp.roles && typeof pp.roles === 'object' ? pp.roles : null;
+  const minters = Array.isArray(pp.minters) ? pp.minters : [];
+  const policy = pp.policy && typeof pp.policy === 'object' ? pp.policy : {};
+  const flags = [];
+  const prof = PROFILES[pp.profile];
+  if (!prof || !roles || !holders.length) {
+    return { verdict: 'REFUSED', reason: 'profile must be fiattoken, usdp or generic; roles map and at least one holder are required', findings: [] };
+  }
+  const refused = [];
+  for (const h of holders) {
+    const hit = h && h.label != null ? labelIsKeyMaterial(h.label) : null;
+    if (hit) refused.push({ field: 'holders.label', kind: hit });
+  }
+  for (const rn of Object.keys(roles)) {
+    const hit = roles[rn] != null ? labelIsKeyMaterial(roles[rn]) : null;
+    if (hit) refused.push({ field: 'roles.' + rn, kind: hit });
+  }
+  if (refused.length) {
+    return { verdict: 'REFUSED', reason: 'a holder or role value looks like an address, public key or private key. This tool accepts role labels only.', refused: refused };
+  }
+  const holderByLabel = {};
+  for (const h of holders) holderByLabel[String(h.label)] = h;
+  const declared = pp.profile === 'generic' ? Object.keys(roles).filter((r) => roles[r] != null) : prof.roles;
+  const criticalSet = new Set(pp.profile === 'generic' ? declared : prof.critical);
+
+  const pairs = [];
+  const seen = {};
+  const addPair = (a, b, cite) => {
+    const k = [a, b].sort().join('|');
+    if (!seen[k]) { seen[k] = true; pairs.push([a, b, cite]); }
+  };
+  if (pp.profile !== 'generic') for (const pr of prof.require_distinct) addPair(pr[0], pr[1], prof.cite);
+  for (const pr of (Array.isArray(policy.require_distinct) ? policy.require_distinct : [])) {
+    if (Array.isArray(pr) && pr.length === 2) addPair(String(pr[0]), String(pr[1]), 'caller-declared policy (require_distinct)');
+  }
+
+  const findings = [];
+  const separation = { checked_pairs: [], violations: [] };
+  for (const [a, b, cite] of pairs) {
+    if (roles[a] == null || roles[b] == null) continue;
+    const violated = String(roles[a]) === String(roles[b]);
+    separation.checked_pairs.push({ pair: [a, b], holder: String(roles[a]), violated: violated });
+    if (violated) {
+      findings.push({ domain: 'separation', severity: 'fail', message: 'roles "' + a + '" and "' + b + '" are held by the same label "' + String(roles[a]) + '"', cite: cite });
+      separation.violations.push({ pair: [a, b], holder: String(roles[a]), cite: cite });
+    }
+  }
+
+  const labelRoles = {};
+  for (const rn of declared) {
+    const lbl = roles[rn];
+    if (lbl == null) continue;
+    (labelRoles[String(lbl)] = labelRoles[String(lbl)] || []).push(rn);
+  }
+  const concentration = { multi_role_labels: [], single_signer_critical: [] };
+  for (const lbl of Object.keys(labelRoles)) {
+    const held = labelRoles[lbl];
+    if (held.length > 1 && held.filter((r) => criticalSet.has(r)).length > 1) {
+      concentration.multi_role_labels.push({ label: lbl, roles: held });
+      findings.push({ domain: 'concentration', severity: held.length >= 3 ? 'fail' : 'warn', message: 'label "' + lbl + '" holds ' + held.length + ' critical roles (' + held.join(', ') + ')', cite: prof.cite });
+    }
+    for (const rn of held) {
+      if (!criticalSet.has(rn)) continue;
+      const h = holderByLabel[lbl];
+      if (h && (h.kind === 'eoa' || (Number(h.signers_count || 0) === 1 && !h.threshold))) {
+        concentration.single_signer_critical.push({ label: lbl, role: rn, kind: h.kind });
+        findings.push({ domain: 'concentration', severity: 'warn', message: 'critical role "' + rn + '" held by single-signer "' + lbl + '" (kind ' + String(h.kind) + ')', cite: 'caller-declared policy (key concentration)' });
+      }
+    }
+  }
+
+  const maxSingle = policy.max_single_minter_allowance_minor;
+  const maxTotal = policy.max_total_allowance_minor;
+  const issuance = { per_minter: [], total_breach: null };
+  let total = 0;
+  for (const m of minters) {
+    const allow = Number(m && m.allowance_minor || 0);
+    total += allow;
+    const over = maxSingle != null && allow > Number(maxSingle);
+    issuance.per_minter.push({ holder_label: String(m && m.holder_label), allowance_minor: allow, over_single_ceiling: over });
+    if (over) findings.push({ domain: 'issuance', severity: 'fail', message: 'minter "' + String(m && m.holder_label) + '" allowance ' + allow + ' exceeds single-minter ceiling ' + Number(maxSingle), cite: 'caller-declared policy (max_single_minter_allowance_minor)' });
+  }
+  if (maxTotal != null && total > Number(maxTotal)) {
+    issuance.total_breach = { total_allowance_minor: total, ceiling: Number(maxTotal) };
+    findings.push({ domain: 'issuance', severity: 'fail', message: 'total minter allowance ' + total + ' exceeds policy ceiling ' + Number(maxTotal), cite: 'caller-declared policy (max_total_allowance_minor)' });
+  }
+
+  const capabilities = {};
+  for (const cap of ['pause', 'freeze', 'upgrade']) {
+    const rn = prof.capabilities[cap];
+    if (!rn) { capabilities[cap] = { exists: false }; continue; }
+    const present = declared.indexOf(rn) !== -1 && roles[rn] != null;
+    capabilities[cap] = { exists: present, role: rn, holder: present ? String(roles[rn]) : null };
+  }
+
+  for (const rn of (Array.isArray(policy.require_multisig_for) ? policy.require_multisig_for : [])) {
+    const lbl = roles[rn];
+    if (lbl == null) continue;
+    const h = holderByLabel[String(lbl)];
+    if (!isMultisig(h)) findings.push({ domain: 'multisig', severity: 'fail', message: 'role "' + rn + '" requires a multisig holder but "' + String(lbl) + '" is kind ' + String(h && h.kind) + ' with threshold ' + String(h && h.threshold) + ' signers ' + String(h && h.signers_count), cite: 'caller-declared policy (require_multisig_for)' });
+  }
+
+  const failCount = findings.filter((f) => f.severity === 'fail').length;
+  const warnCount = findings.filter((f) => f.severity === 'warn').length;
+  const verdict = failCount > 0 ? 'FAIL' : warnCount > 0 ? 'PASS_WITH_FINDINGS' : 'PASS';
+  if (failCount > 0) flags.push('FAIL_ADMIN_ROLE_FINDINGS');
+  if (warnCount > 0) flags.push('WARN_ADMIN_ROLE_FINDINGS');
+  flags.push('VERDICT_' + verdict);
+  return { verdict: verdict, profile: pp.profile, separation: separation, concentration: concentration, issuance: issuance, capabilities: capabilities, findings: findings, fail_count: failCount, warn_count: warnCount, _flags: flags };
+}
+
+let _result = null;
+let _artifact = null;
+
+function sampleFor(profile) {
+  if (profile === 'usdp') {
+    return {
+      holders: 'gov-timelock, timelock\npause-msig, multisig, 2, 3\nasset-protection-msig, multisig, 2, 3\nsupply-ops-msig, multisig, 3, 5',
+      roles: JSON.stringify({ owner: 'gov-timelock', pauser: 'pause-msig', asset_protection: 'asset-protection-msig', supply_controller: 'supply-ops-msig' }, null, 1),
+      minters: '[]',
+      policy: JSON.stringify({ require_multisig_for: ['owner', 'pauser', 'asset_protection', 'supply_controller'], require_distinct: [['pauser', 'asset_protection']] }, null, 1)
+    };
+  }
+  if (profile === 'generic') {
+    return {
+      holders: 'ops-admin-msig, multisig, 2, 3',
+      roles: JSON.stringify({ admin: 'ops-admin-msig', pauser: 'ops-admin-msig' }, null, 1),
+      minters: '[]',
+      policy: JSON.stringify({ require_distinct: [['admin', 'pauser']] }, null, 1)
+    };
+  }
+  return {
+    holders: 'org-treasury-msig, multisig, 3, 5\nupgrade-timelock, timelock\nminting-ops-msig, multisig, 2, 4\nrisk-pause-msig, multisig, 2, 3\ncompliance-blacklist-msig, multisig, 2, 3\nrescue-hsm, hsm_service',
+    roles: JSON.stringify({ owner: 'org-treasury-msig', proxy_admin: 'upgrade-timelock', master_minter: 'minting-ops-msig', pauser: 'risk-pause-msig', blacklister: 'compliance-blacklist-msig', rescuer: 'rescue-hsm' }, null, 1),
+    minters: JSON.stringify([{ holder_label: 'minting-ops-msig', allowance_minor: 400000000000 }], null, 1),
+    policy: JSON.stringify({ max_single_minter_allowance_minor: 1000000000000, max_total_allowance_minor: 5000000000000, require_multisig_for: ['owner', 'proxy_admin', 'master_minter', 'pauser', 'blacklister', 'rescuer'], require_distinct: [] }, null, 1)
+  };
+}
+
+function applySample() {
+  const s = sampleFor(document.getElementById('profile').value);
+  document.getElementById('holdersText').value = s.holders;
+  document.getElementById('rolesText').value = s.roles;
+  document.getElementById('mintersText').value = s.minters;
+  document.getElementById('policyText').value = s.policy;
+}
+
+function parseHolders(text) {
+  const out = [];
+  for (const line of text.split('\n')) {
+    const t = line.trim();
+    if (!t) continue;
+    const parts = t.split(',').map((x) => x.trim());
+    const h = { label: parts[0], kind: parts[1] || 'eoa' };
+    if (parts[2] !== undefined && parts[2] !== '') h.threshold = Number(parts[2]);
+    if (parts[3] !== undefined && parts[3] !== '') h.signers_count = Number(parts[3]);
+    out.push(h);
+  }
+  return out;
+}
+
+async function runLint() {
+  let pp;
+  try {
+    pp = {
+      profile: document.getElementById('profile').value,
+      holders: parseHolders(document.getElementById('holdersText').value),
+      roles: JSON.parse(document.getElementById('rolesText').value || '{}'),
+      minters: JSON.parse(document.getElementById('mintersText').value || '[]'),
+      policy: JSON.parse(document.getElementById('policyText').value || '{}')
+    };
+  } catch (e) {
+    alert('Input JSON could not be parsed: ' + e.message);
+    return;
+  }
+
+  let out;
+  try {
+    out = computeLint(pp);
+  } catch (e) {
+    alert('Lint failed: ' + e.message);
+    return;
+  }
+  _result = out;
+  const flags = out._flags || [];
+  document.getElementById('generatedAt').textContent = 'Generated ' + new Date().toISOString();
+
+  const badge = document.getElementById('gradeBadge');
+  const titleEl = document.getElementById('gradeTitle');
+  const subEl = document.getElementById('gradeSub');
+  const colors = { PASS: 'var(--green, #22c55e)', PASS_WITH_FINDINGS: 'var(--gold, #d4a017)', FAIL: 'var(--red, #ef4444)', REFUSED: 'var(--muted, #64748b)' };
+  badge.textContent = out.verdict === 'PASS' ? 'PASS' : out.verdict === 'PASS_WITH_FINDINGS' ? 'PASS+' : out.verdict === 'REFUSED' ? 'REF' : 'FAIL';
+  badge.style.background = colors[out.verdict] || 'var(--muted)';
+  titleEl.textContent = out.verdict;
+  subEl.textContent = out.verdict === 'REFUSED'
+    ? (out.reason || 'refused')
+    : out.fail_count + ' fail(s), ' + out.warn_count + ' warning(s) across separation, concentration, issuance and multisig checks.';
+
+  const list = document.getElementById('checkList');
+  list.innerHTML = '';
+  if (out.verdict === 'REFUSED') {
+    const div = document.createElement('div');
+    div.className = 'check-item';
+    div.innerHTML = '<strong>REFUSED</strong> ' + escapeHtml(out.reason) +
+      (out.refused && out.refused.length ? ' (' + out.refused.map((r) => escapeHtml(r.field)).join(', ') + ')' : '');
+    list.appendChild(div);
+  } else if (!out.findings.length) {
+    const div = document.createElement('div');
+    div.className = 'check-item';
+    div.textContent = 'No findings: distinctness, concentration, allowance and multisig requirements all satisfied.';
+    list.appendChild(div);
+  } else {
+    for (const f of out.findings) {
+      const div = document.createElement('div');
+      div.className = 'check-item';
+      const icon = f.severity === 'fail' ? '&#10060;' : '&#9888;';
+      div.innerHTML = icon + ' <strong>' + escapeHtml(f.domain) + '</strong>: ' + escapeHtml(f.message) +
+        ' <em style="color:var(--muted)">[' + escapeHtml(f.cite) + ']</em>';
+      list.appendChild(div);
+    }
+  }
+
+  const caps = document.getElementById('capList');
+  caps.innerHTML = '';
+  if (out.capabilities) {
+    for (const cap of ['pause', 'freeze', 'upgrade']) {
+      const c = out.capabilities[cap];
+      const div = document.createElement('div');
+      div.className = 'check-item';
+      div.innerHTML = (c && c.exists ? '&#9989;' : '&#9940;') + ' <strong>' + cap + '</strong>: ' +
+        (c && c.exists ? 'held by "' + escapeHtml(c.holder) + '" (role ' + escapeHtml(c.role) + ')' : 'absent in this profile/configuration');
+      caps.appendChild(div);
+    }
+  }
+
+  buildArtifact(pp, out, flags);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function buildArtifact(pp, out, flags) {
+  const payload = {};
+  for (const k of Object.keys(out)) if (k !== '_flags') payload[k] = out[k];
+  const art = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_control',
+    tool_id: MANIFEST.tool_id,
+    tool_version: MANIFEST.version,
+    generated_at: new Date().toISOString(),
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: __ocgCanon(pp),
+    output_payload: __ocgCanon(payload),
+    compliance_flags: flags,
+    compute_mode: 'client',
+    compute_proof_ready: 'deferred',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] }
+  };
+  try {
+    const preimage = __ocgCanonStr({ policy_parameters: art.policy_parameters, output_payload: art.output_payload, tool_id: art.tool_id });
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(preimage)));
+    let hex = '';
+    for (const b of digest) hex += b.toString(16).padStart(2, '0');
+    art.execution_hash = 'sha256:' + hex;
+    document.getElementById('hashRow').style.display = 'flex';
+    document.getElementById('hashVal').textContent = hex;
+  } catch (e) {
+    art.execution_hash = null;
+  }
+  _artifact = art;
+  document.getElementById('ap2Btn').disabled = false;
+  document.getElementById('signArtifactBtn').disabled = true;
+}
+
+function exportAP2() {
+  if (!_artifact) return;
+  const blob = new Blob([JSON.stringify(_artifact, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = MANIFEST.tool_id + '_' + Date.now() + '.ap2.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  const body = document.getElementById('mfstBody');
+  const arrow = document.getElementById('mfstArrow');
+  const open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  body.setAttribute('aria-hidden', open ? 'true' : 'false');
+  document.getElementById('mfstBtn') && document.getElementById('mfstBtn').setAttribute('aria-expanded', open ? 'false' : 'true');
+  arrow.innerHTML = open ? '&#9660;' : '&#9650;';
+  if (!open) document.getElementById('mfstPre').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+document.getElementById('profile').addEventListener('change', applySample);
+applySample();
+
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
+/* Signs through __ocgJcs (the OCG-CANON v1 block's serializer — single canon path; RFC 8785 §3.2.3-exact for array-index member names, same bytes as kernels/_proof.mjs jcsStringify since JCS-CANON-FIX-1). */
+/* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
+   __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(__ocgJcs(o));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+<script>
+/* OCG-§16-UI v1 (nodes) — Sign + Verify + enable shim. DO NOT hand-edit; injected by scripts/add_proof_binding_nodes.mjs. */
+function __ocgGetArt(){
+  var cands=['_artifact','_result','_lastArtifact','lastArtifact','_ap2'];
+  for(var i=0;i<cands.length;i++){var v=window[cands[i]];if(v&&typeof v==='object'&&v.chaingraph_version)return v;}
+  var el=document.getElementById('exportPre')||document.getElementById('exportOutput')||document.getElementById('chainOutput');
+  if(el){var t=el.value||el.textContent;try{var vv=JSON.parse(t);if(vv&&vv.chaingraph_version)return vv;}catch(e){}}
+  return null;
+}
+async function signArtifact(){
+  var art=__ocgGetArt();
+  if(!art){alert('Run the tool first to generate an artifact (no §4 execution_hash found).');return;}
+  if(!confirm('Signing binds this run to a one-time key and de-anonymizes it (OCG §16.2). Continue?'))return;
+  var kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);
+  var did=await __ocgDidKeyFromPub(kp.publicKey);
+  var signed=await __ocgSign(art,{verificationMethod:did,created:art.generated_at||new Date().toISOString(),privateKey:kp.privateKey});
+  var ts=new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);
+  var fn=(art.tool_id||'artifact')+'_'+ts+'.signed.json';
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));
+  a.download=fn;a.click();URL.revokeObjectURL(a.href);
+}
+async function verifySignature(){
+  var t=window.prompt('Paste a signed OCG artifact JSON to verify its §16 signature:');if(!t)return;
+  var art;try{art=JSON.parse(t);}catch(e){alert('✗ not valid JSON');return;}
+  var pr=art&&art.audit_signature&&art.audit_signature.proof;
+  if(!pr){alert('✗ no §16 proof on this artifact');return;}
+  try{var pub=await __ocgPubFromDidKey(pr.verificationMethod);alert(await __ocgVerify(art,pub)?'✓ §16 signature valid':'✗ signature invalid / tampered');}
+  catch(e){alert('✗ '+(e&&e.message?e.message:'verify failed'));}
+}
+(function(){
+  var ids=['ap2ExportBtn','ap2Btn','exportBtn'];
+  for(var i=0;i<ids.length;i++){
+    var el=document.getElementById(ids[i]);
+    if(!el)continue;
+    var obs=new MutationObserver(function(){
+      var sab=document.getElementById('signArtifactBtn');
+      if(sab){sab.disabled=false;}
+      obs.disconnect();
+    });
+    obs.observe(el,{attributes:true,attributeFilter:['disabled']});
+    break;
+  }
+})();
+</script>
+</body>
+</html>
+
+</body>
+</html>
