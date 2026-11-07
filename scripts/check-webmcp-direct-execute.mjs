@@ -51,7 +51,7 @@ import { fileURLToPath } from 'node:url';
 import * as vm from 'node:vm';
 import { executionHash } from '../chaingraph/kernels/_hash.mjs';
 import { readOutcome } from '../chaingraph/kernels/_shape.mjs';
-import { deriveTargets, adjudicateTool, directAdjudication } from './gen-webmcp-registrations.mjs';
+import { deriveTargets, adjudicateTool, directAdjudication, probeFunctionExecutes } from './gen-webmcp-registrations.mjs';
 import { makeExecuteSandbox, extractInlineScripts, judgeExecute } from './check-webmcp-wrapper-execute.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -432,6 +432,28 @@ export async function runDirectRunPath(toolId, pageAbs, pageRel, fixture, resGlo
   return { ok: true, executionHash: String(hash), resultGlobal: rg };
 }
 
+/* ── same-change rule: the pieces a direct-eligible page must ship together ── */
+
+/**
+ * The pieces a direct-eligible page lacks. `leg1` is runDirectExecute's result:
+ * an empty modelContext capture means the page carries no direct block; a missing
+ * RUN_PATH_ADAPTERS entry is read straight from the table.
+ */
+export function missingDirectPieces(toolId, leg1, adapters = RUN_PATH_ADAPTERS) {
+  const missing = [];
+  if (!leg1.ok && /^page registered no WebMCP tool/.test(leg1.error || '')) {
+    missing.push('the direct registration block on the page (generator: node scripts/gen-webmcp-registrations.mjs --direct)');
+  }
+  if (!adapters[toolId]) {
+    missing.push(`a RUN_PATH_ADAPTERS entry for '${toolId}' in scripts/check-webmcp-direct-execute.mjs naming the page's no-arg run wrapper`);
+  }
+  return missing;
+}
+
+export function sameChangeFinding(manifestFile, missing) {
+  return `manifest ${manifestFile} makes this page direct-eligible, but the same change must also ship: ${missing.join('; and ')}`;
+}
+
 /* ── main ─────────────────────────────────────────────────────────────────── */
 
 async function collectFailures() {
@@ -460,6 +482,15 @@ async function collectFailures() {
     // Leg 1 — the registered tool's execute() settles with the golden hash.
     const leg1 = await runDirectExecute(pageAbs, page, fx.policy_parameters);
     const v1 = await judgeDirectExecute(leg1, fx.golden_hash, fx.policy_parameters);
+
+    // Same-change rule: a page that is direct-eligible must carry its direct
+    // block AND its RUN_PATH_ADAPTERS entry. One finding names the manifest and
+    // every missing piece, instead of two leg messages a repointer must decode.
+    const missing = missingDirectPieces(id, leg1);
+    if (missing.length) {
+      problems.push(`${page}: leg 1 (execute): ${sameChangeFinding(v.detail.manifest, missing)}`);
+      continue;
+    }
     if (!v1.ok) {
       problems.push(`${page}: leg 1 (execute): ${v1.problem}`);
     } else if (JSONMODE) {
@@ -604,6 +635,22 @@ async function selfTest() {
     // RED, fail-closed: a derived page with no adapter can never skip leg 2.
     const l2u = await runDirectRunPath('unwired_tool', pageAbs, 'selftest.html', { policy_parameters: pp0 }, '_lastResult');
     if (l2u.ok || !l2u.error.includes('no run-path adapter wired')) fails.push('self-test fail-closed control expected the unwired-adapter RED');
+
+    // Same-change rule. RED: no direct block and no adapter => ONE finding naming
+    // the manifest and both pieces. GREEN: block + adapter present => nothing.
+    const noBlock = { ok: false, error: 'page registered no WebMCP tool (modelContext capture empty)' };
+    const redMissing = missingDirectPieces('unwired_tool', noBlock);
+    const redText = sameChangeFinding('manifests/unwired_tool.manifest.json', redMissing);
+    if (redMissing.length !== 2 || !redText.includes('manifests/unwired_tool.manifest.json') || !redText.includes('direct registration block') || !redText.includes('RUN_PATH_ADAPTERS')) {
+      fails.push(`same-change RED control expected one finding naming the manifest and both missing pieces, got: ${redText}`);
+    }
+    if (missingDirectPieces('selftest_tool', { ok: true })[0]) fails.push('same-change GREEN control (block + adapter present) expected no missing piece');
+
+    // fn-exec probe. GREEN: returns a hashable object. RED: sync helper that returns nothing.
+    const execGreen = await probeFunctionExecutes('<script>function compute(p) { return { output_payload: { echo: p.x } }; }</script>', 'compute', pp0, 2000);
+    if (execGreen !== null) fails.push(`fn-exec GREEN control expected null, got: ${execGreen}`);
+    const execRed = await probeFunctionExecutes('<script>function exportIt(p) { document.body.appendChild({}); }</script>', 'exportIt', pp0, 2000);
+    if (execRed === null || !execRed.includes('returned undefined')) fails.push(`fn-exec RED control (returns nothing) expected a returned-undefined reason, got: ${execRed}`);
   } finally {
     delete RUN_PATH_ADAPTERS.selftest_tool;
     rmSync(dir, { recursive: true, force: true });
@@ -615,7 +662,7 @@ async function selfTest() {
     process.exitCode = 1;
     return;
   }
-  console.log('✓ check-webmcp-direct-execute --self-test clean — leg-1 GREEN + hash-mismatch RED + never-settles RED; leg-2 GREEN + run-throw RED + wrong-hash RED + unwired-adapter fail-closed RED.');
+  console.log('✓ check-webmcp-direct-execute --self-test clean — leg-1 GREEN + hash-mismatch RED + never-settles RED; leg-2 GREEN + run-throw RED + wrong-hash RED + unwired-adapter fail-closed RED; same-change RED + GREEN; fn-exec RED + GREEN.');
 }
 
 const invokedAsMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
