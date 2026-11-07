@@ -21,7 +21,7 @@ status: stable
 - [consumer_finance](./consumer_finance.md) (6)
 - [credit_assessment](./credit_assessment.md) (3)
 - [crypto_regulatory_mandate](./crypto_regulatory_mandate.md) (1)
-- [cryptographic_mandate](./cryptographic_mandate.md) (13)
+- [cryptographic_mandate](./cryptographic_mandate.md) (14)
 - [currency_basket_index](./currency_basket_index.md) (1)
 - [derivatives_margin_health](./derivatives_margin_health.md) (3)
 - [disclosure_template](./disclosure_template.md) (1)

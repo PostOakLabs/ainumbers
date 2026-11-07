@@ -28,6 +28,7 @@ status: stable
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md) — `lint_event_contract_terms`
 - [Ethereum Epoch Accounting Recompute](./813-eth-staking-accounting.md) — `recompute_eth_epoch_accounting`
 - [Ethereum Base Fee and Blob Base Fee Recompute](./815-eth-fee-market.md) — `recompute_eth_fee_market`
+- [Zcash Supply Check](./822-zcash-supply-check.md) — `audit_zcash_pool_supply`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md) — `model_x402_settlement`
