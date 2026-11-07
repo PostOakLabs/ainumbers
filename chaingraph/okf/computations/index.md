@@ -30,6 +30,7 @@ status: stable
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md)
 - [Ethereum Epoch Accounting Recompute](./813-eth-staking-accounting.md)
 - [Ethereum Base Fee and Blob Base Fee Recompute](./815-eth-fee-market.md)
+- [Zcash Supply Check](./822-zcash-supply-check.md)
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md)
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md)
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md)

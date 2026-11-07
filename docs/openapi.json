@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1265 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1266 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -2778,6 +2778,9 @@
       "name": "consent policy"
     },
     {
+      "name": "conservation-check"
+    },
+    {
       "name": "consolidation"
     },
     {
@@ -4509,6 +4512,9 @@
       "name": "mcp:audit_solana_pda_ata"
     },
     {
+      "name": "mcp:audit_zcash_pool_supply"
+    },
+    {
       "name": "mcp:authorize_payment_against_mandate"
     },
     {
@@ -6195,6 +6201,9 @@
       "name": "sharing-deadline"
     },
     {
+      "name": "shielded-supply"
+    },
+    {
       "name": "shift"
     },
     {
@@ -6949,6 +6958,9 @@
     },
     {
       "name": "yield_curve"
+    },
+    {
+      "name": "zcash"
     },
     {
       "name": "zero network"
@@ -51245,6 +51257,123 @@
         },
         "x-mcp-tool-name": "optimize_a2a_rail",
         "x-tool-url": "https://ainumbers.co/tools/82-a2a-rail-command-center.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/audit_zcash_pool_supply": {
+      "post": {
+        "operationId": "audit_zcash_pool_supply",
+        "summary": "Zcash Supply Check",
+        "description": "Audits user pasted Zcash chain value pool balances (the four pinned pools, integer zatoshi) against a claimed total supply: exact pool sum, non-negative pools, and the conservation identity that the four pools equal the claimed supply. Values only: it cannot read the chain and never verifies the pasted numbers are true, so chain_verified is false on every payload. Refuses non-numeric values, unknown pool names, a missing pool, an absent supply, fractional zatoshi, and over-bound values.\n\n**Tool URL:** https://ainumbers.co/chaingraph/822-zcash-supply-check.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "zcash",
+          "shielded-supply",
+          "conservation-check",
+          "mcp:audit_zcash_pool_supply"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pools": {
+                    "type": "object",
+                    "description": "Four chain value pool balances in integer zatoshi, keyed transparent, sprout, sapling, orchard. All four required; unknown keys refused, never zeroed.",
+                    "properties": {
+                      "transparent": {
+                        "type": "number",
+                        "description": "Transparent pool balance in integer zatoshi."
+                      },
+                      "sprout": {
+                        "type": "number",
+                        "description": "Sprout pool balance in integer zatoshi."
+                      },
+                      "sapling": {
+                        "type": "number",
+                        "description": "Sapling pool balance in integer zatoshi."
+                      },
+                      "orchard": {
+                        "type": "number",
+                        "description": "Orchard pool balance in integer zatoshi."
+                      }
+                    }
+                  },
+                  "claimed_supply_zat": {
+                    "type": "number",
+                    "description": "The claimed total supply the identity is tested against, in integer zatoshi. Absent, fractional, or over-bound values are refused, never assumed."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verdict": {
+                      "type": "string"
+                    },
+                    "method": {
+                      "type": "string"
+                    },
+                    "pools": {
+                      "type": "object"
+                    },
+                    "recomputed_total_zat": {
+                      "type": "integer"
+                    },
+                    "claimed_supply_zat": {
+                      "type": "integer"
+                    },
+                    "delta_zat": {
+                      "type": "integer"
+                    },
+                    "negative_pools": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "refused_because": {
+                      "type": "string"
+                    },
+                    "refused_field": {
+                      "type": "string"
+                    },
+                    "refused_fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "manual_review_required": {
+                      "type": "boolean"
+                    },
+                    "evidence": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "audit_zcash_pool_supply",
+        "x-tool-url": "https://ainumbers.co/chaingraph/822-zcash-supply-check.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
