@@ -1,0 +1,267 @@
+{
+  "tool_id": "art-756-sales-ote-commission-analyzer",
+  "version": "1.0.0",
+  "title": "Sales OTE & Commission Analyzer",
+  "description": "Gross W-2 model for a sales OTE offer: base plus variable by quota attainment, with an optional accelerator tier and recoverable draw. Reports the base commission rate, at-target variable and total, a flat-rate after-tax figure, the split with a risk label, a six-level attainment ladder and draw payback months with a clawback flag. No tax liability, no FLSA regular rate, no overtime. Refuses ote <= base and base <= 0 by name. The Apex || zero-coercion is reproduced and reported per field.",
+  "category": "chaingraph",
+  "tags": [
+    "sales_comp_record",
+    "compensation",
+    "ote",
+    "commission",
+    "quota",
+    "accelerator",
+    "draw-clawback",
+    "explicit-as-of",
+    "not-tax-advice",
+    "mcp:analyze_sales_ote_commission"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "as_of",
+      "base_salary",
+      "ote",
+      "quota",
+      "attainment_pct",
+      "federal_tax_rate_pct",
+      "has_accelerator",
+      "accelerator_threshold_pct",
+      "accelerator_multiplier",
+      "has_draw",
+      "draw_monthly"
+    ],
+    "properties": {
+      "as_of": {
+        "type": "string",
+        "description": "Calendar date as YYYY-MM-DD, a real date. The node reads no clock; this is the only date the kernel sees. Invalid dates are refused REFUSED_BAD_AS_OF."
+      },
+      "base_salary": {
+        "type": "number",
+        "description": "Annual base salary USD, strictly positive and below ote, else refused BASE_NOT_POSITIVE or OTE_NOT_ABOVE_BASE. Explicit 0 coerces to default 0."
+      },
+      "ote": {
+        "type": "number",
+        "description": "On-Target Earnings USD: total target W-2. Must strictly exceed base_salary; equal is refused OTE_NOT_ABOVE_BASE."
+      },
+      "quota": {
+        "type": "number",
+        "description": "Annual quota in USD. Scales only the displayed base commission rate (ote - base)/quota; it cancels in the accelerated branch. Coerced to 1 when 0."
+      },
+      "attainment_pct": {
+        "type": "number",
+        "description": "Quota attainment percent (100 = 100%). At-target column always uses 100%; this selects the highlighted ladder row. Coerced to 100 when 0."
+      },
+      "federal_tax_rate_pct": {
+        "type": "number",
+        "description": "Flat federal rate percent on gross W-2. NOT a tax computation: no standard deduction, bracket stacking, state tax or FICA. Coerced to 32 when 0."
+      },
+      "has_accelerator": {
+        "type": "boolean",
+        "description": "True to apply the accelerator tier. The accelerator fields are still read unconditionally but never affect any output when false."
+      },
+      "accelerator_threshold_pct": {
+        "type": "number",
+        "description": "Attainment percent above which the multiplier applies; STRICTLY inactive at the threshold. Coerced to 100 when 0."
+      },
+      "accelerator_multiplier": {
+        "type": "number",
+        "description": "Multiplier on the base commission rate above the threshold, e.g. 1.5 = 150%. Applied only when has_accelerator is true. Coerced to 1.5 when 0."
+      },
+      "has_draw": {
+        "type": "boolean",
+        "description": "True to model a recoverable draw against future commissions. When false the draw block is absent and draw_monthly is read but unused."
+      },
+      "draw_monthly": {
+        "type": "number",
+        "description": "Monthly draw advance in USD, applied only when has_draw is true and > 0. Annual draw is draw_monthly * 12. Coerced to 0 when 0, disabling the block."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "analyze_sales_ote_commission",
+    "description": "Gross W-2 model for a sales OTE offer: base plus variable by quota attainment, with an optional accelerator tier and recoverable draw. Reports the base commission rate, at-target variable and total, a flat-rate after-tax figure, the split with a risk label, a six-level attainment ladder and draw payback months with a clawback flag. No tax liability, no FLSA regular rate, no overtime. Refuses ote <= base and base <= 0 by name. The Apex || zero-coercion is reproduced and reported per field.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "as_of",
+        "base_salary",
+        "ote",
+        "quota",
+        "attainment_pct",
+        "federal_tax_rate_pct",
+        "has_accelerator",
+        "accelerator_threshold_pct",
+        "accelerator_multiplier",
+        "has_draw",
+        "draw_monthly"
+      ],
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "description": "Calendar date as YYYY-MM-DD, a real date. The node reads no clock; this is the only date the kernel sees. Invalid dates are refused REFUSED_BAD_AS_OF."
+        },
+        "base_salary": {
+          "type": "number",
+          "description": "Annual base salary USD, strictly positive and below ote, else refused BASE_NOT_POSITIVE or OTE_NOT_ABOVE_BASE. Explicit 0 coerces to default 0."
+        },
+        "ote": {
+          "type": "number",
+          "description": "On-Target Earnings USD: total target W-2. Must strictly exceed base_salary; equal is refused OTE_NOT_ABOVE_BASE."
+        },
+        "quota": {
+          "type": "number",
+          "description": "Annual quota in USD. Scales only the displayed base commission rate (ote - base)/quota; it cancels in the accelerated branch. Coerced to 1 when 0."
+        },
+        "attainment_pct": {
+          "type": "number",
+          "description": "Quota attainment percent (100 = 100%). At-target column always uses 100%; this selects the highlighted ladder row. Coerced to 100 when 0."
+        },
+        "federal_tax_rate_pct": {
+          "type": "number",
+          "description": "Flat federal rate percent on gross W-2. NOT a tax computation: no standard deduction, bracket stacking, state tax or FICA. Coerced to 32 when 0."
+        },
+        "has_accelerator": {
+          "type": "boolean",
+          "description": "True to apply the accelerator tier. The accelerator fields are still read unconditionally but never affect any output when false."
+        },
+        "accelerator_threshold_pct": {
+          "type": "number",
+          "description": "Attainment percent above which the multiplier applies; STRICTLY inactive at the threshold. Coerced to 100 when 0."
+        },
+        "accelerator_multiplier": {
+          "type": "number",
+          "description": "Multiplier on the base commission rate above the threshold, e.g. 1.5 = 150%. Applied only when has_accelerator is true. Coerced to 1.5 when 0."
+        },
+        "has_draw": {
+          "type": "boolean",
+          "description": "True to model a recoverable draw against future commissions. When false the draw block is absent and draw_monthly is read but unused."
+        },
+        "draw_monthly": {
+          "type": "number",
+          "description": "Monthly draw advance in USD, applied only when has_draw is true and > 0. Annual draw is draw_monthly * 12. Coerced to 0 when 0, disabling the block."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-756-sales-ote-commission-analyzer.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "description": "output_payload: as_of, the nine echoed inputs plus has_accelerator/has_draw, base_commission_rate, variable_at_target, total_w2_at_target, after_tax_at_target, base_split_pct, variable_split_pct, risk_label, risk_rank, accelerator_insight{attainment_pct,variable,total_w2,threshold_pct,multiplier}|null, attainment_scenarios[]{attainment_pct,variable,total_w2,after_tax,vs_ote_pct,meets_or_exceeds_ote,highlighted}, draw{applies,draw_monthly,annual_draw,monthly_variable_at_target,months_to_payback,months_to_payback_rounded_1dp,payback_computable,clawback_elevated}|null, apex_zero_coercion_applied[], refusal_reason, domain_errors[], flsa_commission_basis, scope_note, constants_version."
+  },
+  "source": "chaingraph/kernels/art-756-sales-ote-commission-analyzer.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads, one property per input: as_of, base_salary, ote, quota, attainment_pct, federal_tax_rate_pct, has_accelerator, accelerator_threshold_pct, accelerator_multiplier, has_draw, draw_monthly. All eleven are listed required because the kernel dereferences all eleven unconditionally on every run (the Apex page reads every control, including the accelerator and draw fields, before any branch). The numeric `type` on each is the type the kernel actually reads it as (Number / boolean) — none is asserted from a label.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "as_of": "2026-10-13",
+    "base_salary": 75000,
+    "ote": 150000,
+    "quota": 1000000,
+    "attainment_pct": 100,
+    "federal_tax_rate_pct": 32,
+    "accelerator_threshold_pct": 100,
+    "accelerator_multiplier": 1.5,
+    "draw_monthly": 5000,
+    "has_accelerator": true,
+    "has_draw": false
+  },
+  "output_example": {
+    "as_of": "2026-10-13",
+    "base_salary": 75000,
+    "ote": 150000,
+    "quota": 1000000,
+    "attainment_pct": 100,
+    "federal_tax_rate_pct": 32,
+    "accelerator_threshold_pct": 100,
+    "accelerator_multiplier": 1.5,
+    "draw_monthly": 5000,
+    "has_accelerator": true,
+    "has_draw": false,
+    "base_commission_rate": 0.075,
+    "variable_at_target": 75000,
+    "total_w2_at_target": 150000,
+    "after_tax_at_target": 101999.99999999999,
+    "base_split_pct": 50,
+    "variable_split_pct": 50,
+    "risk_label": "moderate",
+    "risk_rank": 2,
+    "accelerator_insight": {
+      "attainment_pct": 150,
+      "variable": 131250,
+      "total_w2": 206250,
+      "threshold_pct": 100,
+      "multiplier": 1.5
+    },
+    "attainment_scenarios": [
+      {
+        "attainment_pct": 50,
+        "variable": 37500,
+        "total_w2": 112500,
+        "after_tax": 76500,
+        "vs_ote_pct": -25,
+        "meets_or_exceeds_ote": false,
+        "highlighted": false
+      },
+      {
+        "attainment_pct": 75,
+        "variable": 56250,
+        "total_w2": 131250,
+        "after_tax": 89249.99999999999,
+        "vs_ote_pct": -12.5,
+        "meets_or_exceeds_ote": false,
+        "highlighted": false
+      },
+      {
+        "attainment_pct": 100,
+        "variable": 75000,
+        "total_w2": 150000,
+        "after_tax": 101999.99999999999,
+        "vs_ote_pct": 0,
+        "meets_or_exceeds_ote": true,
+        "highlighted": true
+      },
+      {
+        "attainment_pct": 125,
+        "variable": 103125,
+        "total_w2": 178125,
+        "after_tax": 121124.99999999999,
+        "vs_ote_pct": 18.75,
+        "meets_or_exceeds_ote": true,
+        "highlighted": false
+      },
+      {
+        "attainment_pct": 150,
+        "variable": 131250,
+        "total_w2": 206250,
+        "after_tax": 140250,
+        "vs_ote_pct": 37.5,
+        "meets_or_exceeds_ote": true,
+        "highlighted": false
+      },
+      {
+        "attainment_pct": 200,
+        "variable": 187500,
+        "total_w2": 262500,
+        "after_tax": 178499.99999999997,
+        "vs_ote_pct": 75,
+        "meets_or_exceeds_ote": true,
+        "highlighted": false
+      }
+    ],
+    "draw": null,
+    "apex_zero_coercion_applied": [],
+    "refusal_reason": null,
+    "domain_errors": [],
+    "flsa_commission_basis": "29 CFR 778.117 (commission payments are payments for hours worked and must be included in the regular rate)",
+    "scope_note": "Models the gross W-2 of an OTE offer only: base salary plus variable pay as a function of quota attainment, with an optional accelerator tier and an optional recoverable draw. It computes NO tax liability: after_tax_at_target is gross W-2 times a single caller-supplied flat federal rate, which ignores the standard deduction and the 2026 marginal bracket schedule in Rev. Proc. 2025-32 sec. 4.01 (recorded above as named literals, not applied). No state tax, no FICA, no pre-tax deductions, no benefits load. It computes NO FLSA regular rate and NO overtime: see FLSA_COMMISSION_BASIS and cross-reference node art-340-compute-flsa-regular-rate, and note the duty test at 29 CFR 541.500. The risk labels (high/moderate/low at 60%/40% of OTE in variable pay), the 6-month clawback threshold and the 25-point highlight bucket are the Apex tool's own editorial constants with no cited source; they are not regulatory. The draw/clawback figures are arithmetic on the caller-supplied draw, not a reading of any offer letter or of wage law. NOT TAX ADVICE, NOT WAGE-HOUR LEGAL ADVICE, NOT COMPENSATION ADVICE.",
+    "constants_version": "2026"
+  },
+  "example_execution_hash": "d2da5a3a10c87403a739e4a9963aaa4e8099376d6dfde0470d13d2d673a8589b"
+}
