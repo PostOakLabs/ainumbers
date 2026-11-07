@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-343"]
+tags: ["compliance_mandate", "count-344"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_mandate
 
-343 tool(s) in this mandate-type group:
+344 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -351,6 +351,7 @@ status: stable
 - [Solana PDA Bump and ATA Audit](../tools/art-780-solana-pda-ata-audit.md)
 - [Modified Premium Calculator](../tools/art-782-modified-premium.md)
 - [RFC 4180 CSV Parser](../tools/art-788-csv-rfc4180-parser.md)
+- [ERC-3643 Transfer Decision Recompute](../tools/art-807-erc3643-transfer-decision.md)
 - [Privacy Coin Regulatory Classifier (MiCA and AMLR)](../tools/art-818-zcash-reg-classifier.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
