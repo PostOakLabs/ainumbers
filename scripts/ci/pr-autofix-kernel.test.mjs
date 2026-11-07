@@ -49,3 +49,33 @@ test('an untouched root page is never allowed', () => {
   const a = allowlists(['chaingraph/kernels/art-1-x.kernel.mjs'], COVERED, yes);
   assert.ok(!a['root-chrome'].includes('about.html'));
 });
+
+// ---- non-applicable writer preconditions skip; real errors still fail ----
+import { classifyIdentity, identityStep } from './pr-autofix-kernel.mjs';
+
+const NOT_IN_SCOPE = '✗ art-816-x: not in scope for §17 identity (need status:live, gpu:false, kernel registered in index.mjs, and a .kernel.mjs on disk)';
+
+test('non-live shard: exit 3 with the not-in-scope line is a skip, not a failure', () => {
+  assert.equal(classifyIdentity({ status: 3, output: NOT_IN_SCOPE }), 'skip');
+  assert.equal(identityStep('art-816-x', () => ({ status: 3, output: NOT_IN_SCOPE }), () => true), 'skip');
+});
+
+test('live shard drift: exit 0 is ok (the writer stamped it)', () => {
+  const calls = [];
+  const run = (a) => { calls.push(a); return { status: 0, output: 'stamped' }; };
+  assert.equal(identityStep('art-1-x', run, () => true), 'ok');
+  assert.deepEqual(calls[0], ['chaingraph/kernels/gen-kernel-identity.mjs', '--write', '--shard=art-1-x']);
+});
+
+test('real writer errors fail: other exit codes and exit 3 without the not-in-scope line', () => {
+  assert.equal(classifyIdentity({ status: 4, output: 'SAFETY: stamped shard does not parse' }), 'fail');
+  assert.equal(classifyIdentity({ status: 1, output: NOT_IN_SCOPE }), 'fail');
+  assert.equal(classifyIdentity({ status: 3, output: 'shard x.json does not parse as JSON' }), 'fail');
+  assert.equal(identityStep('art-1-x', () => ({ status: 3, output: 'boom' }), () => true), 'fail');
+});
+
+test('missing shard: skipped without running the writer', () => {
+  let ran = false;
+  assert.equal(identityStep('art-9-x', () => { ran = true; return { status: 0, output: '' }; }, () => false), 'skip');
+  assert.equal(ran, false);
+});
