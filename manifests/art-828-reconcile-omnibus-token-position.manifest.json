@@ -1,0 +1,341 @@
+{
+  "tool_id": "art-828-reconcile-omnibus-token-position",
+  "version": "1.0.0",
+  "title": "Omnibus Token Position Reconciliation",
+  "description": "Reconciles a declared tokenized-securities omnibus token position against the sum of declared registered-wallet balances and a declared custodian book-entry position: exact integer deltas per leg, an inclusive tolerance, a SHA-256 chained head over declared mint, burn, forced-transfer and transfer events, and a RECONCILED / MISMATCH / UNDECIDABLE verdict. An unregistered wallet holding a balance forces MISMATCH under the DTS profile. Arithmetic only: reads no ledger, proves no balance real.",
+  "category": "chaingraph",
+  "tags": [
+    "tokenization",
+    "omnibus-account",
+    "reconciliation",
+    "dtc",
+    "mcp:reconcile_omnibus_position"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "profile": {
+        "type": "string",
+        "description": "dtc_dts applies the registered-wallet rule from the pinned no-action letter (an unregistered wallet holding a balance forces MISMATCH); generic_omnibus omits that rule. Absent defaults to generic_omnibus, flagged; other values refused."
+      },
+      "as_of": {
+        "type": "string",
+        "description": "Caller-declared snapshot date label, YYYY-MM-DD. No clock is read; anything outside that shape is refused."
+      },
+      "omnibus_balance": {
+        "type": "string",
+        "description": "The omnibus token position in integer base units as a decimal string. Numbers, fractional, signed, or malformed values are refused, never coerced."
+      },
+      "book_entry_position": {
+        "type": "string",
+        "description": "The custodian's book-entry position for the same holding, integer base units as a decimal string, same refusal domain as omnibus_balance."
+      },
+      "tolerance_units": {
+        "type": "number",
+        "description": "Inclusive tolerance band in integer base units applied to both legs' absolute deltas; 0 when absent. Negative or fractional values are refused."
+      },
+      "wallets": {
+        "type": "array",
+        "description": "Per-wallet declared balances under opaque labels: wallet_label (opaque, unique; identifier-shaped labels refused as PII, never echoed), balance (decimal string; missing refused, never assumed zero), registered (boolean).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "wallet_label": {
+              "type": "string",
+              "description": "Opaque wallet handle, [A-Za-z0-9_-]{1,40}, unique within the declaration."
+            },
+            "balance": {
+              "type": "string",
+              "description": "Wallet balance in integer base units as a decimal string."
+            },
+            "registered": {
+              "type": "boolean",
+              "description": "Whether the wallet is a registered wallet under the declared profile."
+            }
+          }
+        }
+      },
+      "events": {
+        "type": "array",
+        "description": "Declared event log entries chained in seq order: seq (unique non-negative integer), kind (mint, burn, forced_transfer, or transfer), amount (decimal string), wallet_label (same opaque-label domain).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "seq": {
+              "type": "number",
+              "description": "Unique non-negative integer sequence position."
+            },
+            "kind": {
+              "type": "string",
+              "description": "One of mint, burn, forced_transfer, transfer."
+            },
+            "amount": {
+              "type": "string",
+              "description": "Event amount in integer base units as a decimal string."
+            },
+            "wallet_label": {
+              "type": "string",
+              "description": "Opaque wallet handle the event concerns."
+            }
+          }
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "reconcile_omnibus_position",
+    "description": "Reconciles a declared tokenized-securities omnibus token position against the sum of declared registered-wallet balances and a declared custodian book-entry position: exact integer deltas per leg, an inclusive tolerance, a SHA-256 chained head over declared mint, burn, forced-transfer and transfer events, and a RECONCILED / MISMATCH / UNDECIDABLE verdict. An unregistered wallet holding a balance forces MISMATCH under the DTS profile. Arithmetic only: reads no ledger, proves no balance real.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "description": "dtc_dts applies the registered-wallet rule from the pinned no-action letter; generic_omnibus omits it. Absent defaults to generic_omnibus with a flag."
+        },
+        "as_of": {
+          "type": "string",
+          "description": "Caller-declared snapshot date label, YYYY-MM-DD. No clock is read."
+        },
+        "omnibus_balance": {
+          "type": "string",
+          "description": "The omnibus token position in integer base units as a decimal string. Numbers, fractional, signed, or malformed values are refused, never coerced."
+        },
+        "book_entry_position": {
+          "type": "string",
+          "description": "The custodian's book-entry position, integer base units as a decimal string, same refusal domain as omnibus_balance."
+        },
+        "tolerance_units": {
+          "type": "number",
+          "description": "Inclusive tolerance band in integer base units applied to both legs; 0 when absent. Negative or fractional values are refused."
+        },
+        "wallets": {
+          "type": "array",
+          "description": "Per-wallet declared balances under opaque labels: wallet_label (opaque, unique, PII-shaped refused), balance (decimal string), registered (boolean)."
+        },
+        "events": {
+          "type": "array",
+          "description": "Declared log entries chained in seq order: seq (unique integer), kind (mint, burn, forced_transfer, transfer), amount (decimal string), wallet_label."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-828-reconcile-omnibus-token-position.html",
+    "function_name": "runCompute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-828-reconcile-omnibus-token-position.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: profile, as_of, omnibus_balance, book_entry_position, tolerance_units, wallets, events. No required array: the kernel flags absent-but-well-formed legs (the receipt states what it could not reconcile) and refuses malformed values with structured refusal payloads, so every refusal branch stays reachable through every call path.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "profile": "dtc_dts",
+    "as_of": "2026-11-07",
+    "omnibus_balance": "1000000",
+    "book_entry_position": "1000000",
+    "tolerance_units": 0,
+    "wallets": [
+      {
+        "wallet_label": "w1",
+        "balance": "400000",
+        "registered": true
+      },
+      {
+        "wallet_label": "w2",
+        "balance": "600000",
+        "registered": true
+      }
+    ],
+    "events": [
+      {
+        "seq": 0,
+        "kind": "mint",
+        "amount": "1000000",
+        "wallet_label": "w1"
+      },
+      {
+        "seq": 1,
+        "kind": "transfer",
+        "amount": "600000",
+        "wallet_label": "w2"
+      }
+    ]
+  },
+  "output_example": {
+    "verdict": "RECONCILED",
+    "profile": "dtc_dts",
+    "as_of": "2026-11-07",
+    "tolerance_units": 0,
+    "omnibus_balance": "1000000",
+    "book_entry_position": "1000000",
+    "wallet_count": 2,
+    "registered_wallet_count": 2,
+    "unregistered_wallet_count": 0,
+    "unregistered_wallets_holding_balance": 0,
+    "sum_wallets": "1000000",
+    "omnibus_vs_wallets_delta": "0",
+    "omnibus_vs_book_delta": "0",
+    "legs": {
+      "wallets_leg_computable": true,
+      "book_leg_computable": true,
+      "omnibus_vs_wallets_within_tolerance": true,
+      "omnibus_vs_book_within_tolerance": true
+    },
+    "event_log_head": "sha256:e43652dc2eb1c4b90408d084fa123e4f5ce72e0236638794046d95387913bc6d",
+    "events_counted": 2,
+    "event_counts": {
+      "mint": 1,
+      "burn": 0,
+      "forced_transfer": 0,
+      "transfer": 1
+    },
+    "forced_transfer_count": 0,
+    "warnings": [],
+    "evidence": {
+      "record_type": "omnibus_token_reconciliation",
+      "tool_id": "art-828-reconcile-omnibus-token-position",
+      "tool_version": "1.0.0",
+      "method": "declared_state_recompute",
+      "balances_caller_asserted": true,
+      "reads_no_ledger": true,
+      "arithmetic_only": true,
+      "pii_carried": false,
+      "refused": false
+    },
+    "manual_review_required": false
+  },
+  "example_execution_hash": "01d2a1388c59da83e12a3162a97c4cac6ebbd4a1dfc8a00dfe4bdca3867e6826",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "verdict": {
+        "type": "string"
+      },
+      "profile": {
+        "type": "string"
+      },
+      "as_of": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "tolerance_units": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "omnibus_balance": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "book_entry_position": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "wallet_count": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "registered_wallet_count": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "unregistered_wallet_count": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "unregistered_wallets_holding_balance": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "sum_wallets": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "omnibus_vs_wallets_delta": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "omnibus_vs_book_delta": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "legs": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "event_log_head": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "events_counted": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "event_counts": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "forced_transfer_count": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "refused_because": {
+        "type": "string"
+      },
+      "refused_field": {
+        "type": "string"
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "evidence": {
+        "type": "object"
+      },
+      "manual_review_required": {
+        "type": "boolean"
+      }
+    }
+  }
+}

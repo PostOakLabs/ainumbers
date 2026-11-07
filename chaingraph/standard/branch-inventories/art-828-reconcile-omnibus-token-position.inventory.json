@@ -1,0 +1,401 @@
+{
+  "tool_id": "art-828-reconcile-omnibus-token-position",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-11-07",
+  "error_direction": "undirected",
+  "error_direction_rationale": "The kernel is an exact BigInt recompute of two differences and one chained digest over declared integers: no rounding, threshold approximation, cap or floor enters the arithmetic, so there is no directional arithmetic error to declare. The two honesty gaps (declared balances may not be real; the event log may be incomplete) are not arithmetic errors of the recompute -- they are carried as declared boundaries by evidence.reads_no_ledger / balances_caller_asserted and the unrepresented_known rows below, not scored as fill quality.",
+  "derived_from": [
+    {
+      "digest": "sha256:c2f9912c30ada6aca65edbfe20a66db622aa78c5c17b6de552b37f27fa013f05",
+      "clause_path": "staff response facts: Registered Wallets, Tokenization Instruction, Digital Omnibus Account (reflects the sum of all Tokenized Entitlements held in all Registered Wallets), Factory mint, de-tokenization burn, LedgerScan as DTC's official books and records, Cede and Co., double-spend lock; request letter II.a Operational Flow, II.c Conditions Requiring Reversal, II.e Design Controls (No Double Spend, Only Participants May Register Wallets, Transfers Only to Registered Wallets, Override Keys); three-year withdrawal term"
+    }
+  ],
+  "branches": [
+    {
+      "id": "omnibus-equals-wallet-sum",
+      "clause": "staff response facts: the Digital Omnibus Account reflects the sum of all Tokenized Entitlements held in all Registered Wallets",
+      "branch": "The omnibus position is reconciled against the sum of every declared wallet balance; no wallet is dropped from the sum, including rule-violating ones.",
+      "disposition": "represented",
+      "evidence": "sum_wallets",
+      "note": "fixtures reconciled-clean-two-wallets and wallet-leg-mismatch pin the sum both ways."
+    },
+    {
+      "id": "omnibus-vs-wallets-delta",
+      "clause": "staff response facts: the Digital Omnibus Account reflects the sum of all Tokenized Entitlements held in all Registered Wallets",
+      "branch": "The wallets-leg difference is omnibus_balance minus sum_wallets, exact integer, signed.",
+      "disposition": "represented",
+      "evidence": "omnibus_vs_wallets_delta",
+      "note": "carried at omnibus_vs_wallets_delta; within/without stated in legs.omnibus_vs_wallets_within_tolerance."
+    },
+    {
+      "id": "book-entry-leg",
+      "clause": "staff response facts: LedgerScan constitutes DTC's official books and records; the tokenized position is held through the book-entry system (Cede and Co.)",
+      "branch": "The custodial leg is omnibus_balance minus the declared book-entry position, exact integer, signed.",
+      "disposition": "represented",
+      "evidence": "omnibus_vs_book_delta",
+      "note": "fixture book-leg-mismatch pins a nonzero book delta."
+    },
+    {
+      "id": "tolerance-compare-inclusive",
+      "clause": "declared input contract: tolerance_units is a caller-declared non-negative integer band around exact deltas",
+      "branch": "Each computable leg is compared inclusively (|delta| <= tolerance); the verdict flip sits exactly at the band edge.",
+      "disposition": "represented",
+      "evidence": "legs",
+      "note": "fixtures tolerance-edge-inclusive and tolerance-edge-one-below pin both sides of the edge."
+    },
+    {
+      "id": "transfers-only-to-registered-wallets-rule",
+      "clause": "request letter II.e Design Controls: Transfers Only to Registered Wallets (and Only Participants May Register Wallets)",
+      "branch": "Under the dtc_dts profile an unregistered wallet holding a positive balance contradicts the registered-only rule: flagged UNREGISTERED_WALLET_BALANCE, never dropped from the sum, and the verdict is MISMATCH even when both deltas tie.",
+      "disposition": "represented",
+      "evidence": "unregistered_wallets_holding_balance",
+      "note": "fixtures unregistered-holder-forces-mismatch-under-dtc-profile, generic-profile-unregistered-holder-reconciles (rule is profile-scoped) and unregistered-zero-balance-not-a-rule-breach (fires on holding, not on registration state)."
+    },
+    {
+      "id": "mint-and-burn-events",
+      "clause": "staff response facts: Factory mint on a Tokenization Instruction; de-tokenization burn",
+      "branch": "Declared mint and burn events are counted by kind and chained in seq order.",
+      "disposition": "represented",
+      "evidence": "event_counts",
+      "note": "event_counts.mint / event_counts.burn; chained alongside the other kinds."
+    },
+    {
+      "id": "forced-transfer-events",
+      "clause": "request letter II.e Design Controls: Override Keys; request letter II.c Conditions Requiring Reversal",
+      "branch": "Declared forced transfers (override/reversal movements) are counted separately and chained; their presence is recorded without changing the balance arithmetic.",
+      "disposition": "represented",
+      "evidence": "forced_transfer_count",
+      "note": "fixture forced-transfer-present-still-reconciled pins a verdict that stays RECONCILED with a forced transfer on the log."
+    },
+    {
+      "id": "hash-chained-event-log",
+      "clause": "declared input contract: the event log is sequenced and each entry digests the previous entry (tamper-evident ordering over what was declared)",
+      "branch": "The chained SHA-256 head over JCS-canonical {prev, seq, kind, amount, wallet_label} entries in seq order; null when no events are declared.",
+      "disposition": "represented",
+      "evidence": "event_log_head",
+      "note": "head expectations in the conformance fixtures are recomputed through node:crypto, independent of the kernel's inlined core."
+    },
+    {
+      "id": "undecidable-when-no-leg",
+      "clause": "declared input contract: a receipt must state exactly what it could and could not reconcile",
+      "branch": "When neither leg is computable (no omnibus balance, or both other legs absent) the verdict is UNDECIDABLE with every absent-input flag named; absent-but-well-formed inputs are never refused.",
+      "disposition": "represented",
+      "evidence": "verdict",
+      "note": "fixture undecidable-nothing-declared pins the empty declaration; the absent flags ride in warnings."
+    },
+    {
+      "id": "profile-not-in-enum",
+      "clause": "declared input contract: profile is one of the two declared reconciliation profiles (dtc_dts, generic_omnibus); the pinned letter grounds the DTS profile only",
+      "branch": "A caller declaring an unknown profile is refused before any arithmetic.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "profile": "erc20" },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#profile-not-in-enum-reaches-refusal"
+      }
+    },
+    {
+      "id": "as-of-malformed",
+      "clause": "declared input contract: as_of is a caller-declared YYYY-MM-DD snapshot label (no clock is read)",
+      "branch": "An as_of outside the date shape is refused rather than reinterpreted.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "as_of": "2026/11/07" },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#as-of-malformed-reaches-refusal"
+      }
+    },
+    {
+      "id": "tolerance-out-of-domain",
+      "clause": "declared input contract: tolerance_units is a non-negative integer count of base units",
+      "branch": "A negative or fractional tolerance is refused rather than clamped.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "tolerance_units": -1 },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#tolerance-negative-reaches-refusal"
+      }
+    },
+    {
+      "id": "number-in-balance-field",
+      "clause": "declared input contract: balances and amounts are exact integer base units as decimal strings; a JSON number is never a decimal string here (floats included)",
+      "branch": "A JSON number in any balance or amount field is refused before any coercion and never echoed.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "omnibus_balance": 100 },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#integer-as-number-omnibus-reaches-refusal"
+      }
+    },
+    {
+      "id": "fractional-units-string",
+      "clause": "declared input contract: units are exact non-negative integers; tokenized entitlements reconcile in whole base units",
+      "branch": "A decimal point or exponent in a balance or amount string is refused as fractional.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "wallets": [{ "wallet_label": "w1", "balance": "1.5", "registered": true }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#fractional-string-balance-reaches-refusal"
+      }
+    },
+    {
+      "id": "negative-units-string",
+      "clause": "declared input contract: balances are non-negative integer base units; a signed string is located before any parse",
+      "branch": "A leading minus in a balance or amount string is refused as negative.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "wallets": [{ "wallet_label": "w1", "balance": "-10", "registered": true }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.fixtures.json#negative-balance-refused"
+      }
+    },
+    {
+      "id": "malformed-decimal-string",
+      "clause": "declared input contract: a balance string is a bare non-negative integer decimal (leading zeros collapse via normalization)",
+      "branch": "An empty or non-digit balance string is refused as malformed.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "omnibus_balance": "10a" },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#malformed-decimal-reaches-refusal"
+      }
+    },
+    {
+      "id": "absent-balance-member",
+      "clause": "declared input contract: a wallet or event entry carries its balance or amount member; absence is a malformed entry, not a zero",
+      "branch": "A wallet entry with no balance member is refused (an absent balance would be silently mistakable for a zero balance).",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "wallets": [{ "wallet_label": "w1", "registered": true }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#wallet-balance-absent-reaches-refusal"
+      }
+    },
+    {
+      "id": "wallets-not-an-array",
+      "clause": "declared input contract: wallets is an array of per-wallet entries",
+      "branch": "A non-array wallets value is refused before iteration.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "wallets": "w1" },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#wallets-not-array-reaches-refusal"
+      }
+    },
+    {
+      "id": "wallet-entry-not-object",
+      "clause": "declared input contract: each wallets[] entry is an object",
+      "branch": "A non-object wallet entry is refused.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "wallets": ["w1"] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#wallet-entry-not-object-reaches-refusal"
+      }
+    },
+    {
+      "id": "wallet-label-charset",
+      "clause": "declared input contract: labels are opaque handles matching [A-Za-z0-9_-]{1,40}, never identity fields",
+      "branch": "A label outside the charset or length bound is refused.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "wallets": [{ "wallet_label": "w 1!", "balance": "1", "registered": true }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#wallet-label-charset-reaches-refusal"
+      }
+    },
+    {
+      "id": "duplicate-wallet-label",
+      "clause": "declared input contract: wallet labels are unique identifiers within one declaration (a duplicate would double-count or alias a balance)",
+      "branch": "A second wallet entry reusing an earlier label is refused.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "wallets": [{ "wallet_label": "w1", "balance": "1", "registered": true }, { "wallet_label": "w1", "balance": "2", "registered": true }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#wallet-label-duplicate-reaches-refusal"
+      }
+    },
+    {
+      "id": "email-shaped-label",
+      "clause": "declared input contract: labels are opaque handles; an identifier-shaped label is PII and is refused before the charset check, never echoed",
+      "branch": "An email-shaped wallet or event label is refused as pii_email_shaped_label.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "wallets": [{ "wallet_label": "desk1@firm", "balance": "1", "registered": true }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#email-shaped-label-reaches-refusal"
+      }
+    },
+    {
+      "id": "lei-shaped-label",
+      "clause": "declared input contract: labels are opaque handles; an identifier-shaped label is PII and is refused before the charset check, never echoed",
+      "branch": "A 20-character LEI-shaped label is refused as pii_lei_shaped_label.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "wallets": [{ "wallet_label": "529900T8BM49AURSDO55", "balance": "1", "registered": true }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#lei-shaped-label-reaches-refusal"
+      }
+    },
+    {
+      "id": "iban-shaped-label",
+      "clause": "declared input contract: labels are opaque handles; an identifier-shaped label is PII and is refused before the charset check, never echoed",
+      "branch": "An IBAN-shaped label is refused as pii_iban_shaped_label on wallets and on event entries alike.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "events": [{ "seq": 0, "kind": "mint", "amount": "1", "wallet_label": "DE89370400440532013000" }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#event-iban-shaped-label-reaches-refusal"
+      }
+    },
+    {
+      "id": "account-number-shaped-label",
+      "clause": "declared input contract: labels are opaque handles; a long digit run is account-number-shaped PII, refused before the charset check, never echoed",
+      "branch": "A 9-or-more-digit label is refused as pii_account_number_shaped_label.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "wallets": [{ "wallet_label": "123456789", "balance": "5", "registered": true }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.fixtures.json#account-number-shaped-label-refused"
+      }
+    },
+    {
+      "id": "wallet-registered-not-boolean",
+      "clause": "request letter II.e: Only Participants May Register Wallets -- the registered state is a declared boolean fact per wallet",
+      "branch": "A registered member that is not a boolean is refused rather than coerced.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "wallets": [{ "wallet_label": "w1", "balance": "1", "registered": "yes" }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#wallet-registered-not-boolean-reaches-refusal"
+      }
+    },
+    {
+      "id": "events-not-an-array",
+      "clause": "declared input contract: events is an array of log entries",
+      "branch": "A non-array events value is refused before iteration.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "events": "none" },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#events-not-array-reaches-refusal"
+      }
+    },
+    {
+      "id": "event-entry-not-object",
+      "clause": "declared input contract: each events[] entry is an object",
+      "branch": "A non-object event entry is refused.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "events": ["x"] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#event-entry-not-object-reaches-refusal"
+      }
+    },
+    {
+      "id": "event-seq-out-of-domain",
+      "clause": "declared input contract: seq is a non-negative integer position in the log; the chain is order-sensitive",
+      "branch": "A negative, fractional, or otherwise non-integer seq is refused.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "events": [{ "seq": -1, "kind": "mint", "amount": "1", "wallet_label": "w1" }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#event-seq-negative-reaches-refusal"
+      }
+    },
+    {
+      "id": "event-seq-duplicate",
+      "clause": "declared input contract: seq values are unique within the log (a duplicate would fork the chain)",
+      "branch": "A second event reusing an earlier seq is refused.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "events": [{ "seq": 1, "kind": "mint", "amount": "1", "wallet_label": "w1" }, { "seq": 1, "kind": "burn", "amount": "1", "wallet_label": "w1" }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#event-seq-duplicate-reaches-refusal"
+      }
+    },
+    {
+      "id": "event-kind-not-in-enum",
+      "clause": "staff response facts + request letter II.c/II.e: the log records mint, burn, forced transfer (override/reversal) and transfer movements only",
+      "branch": "An event kind outside the four-value enum is refused.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "events": [{ "seq": 0, "kind": "reorg", "amount": "1", "wallet_label": "w1" }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#event-kind-not-in-enum-reaches-refusal"
+      }
+    },
+    {
+      "id": "event-amount-domain",
+      "clause": "declared input contract: event amounts obey the same exact-integer decimal-string domain as balances (a number, or an absent member, is refused)",
+      "branch": "An event amount that is a JSON number or is missing entirely is refused.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "events": [{ "seq": 0, "kind": "mint", "amount": 10, "wallet_label": "w1" }] },
+        "fixture": "art-828-reconcile-omnibus-token-position.reachability.json#event-amount-number-reaches-refusal"
+      }
+    },
+    {
+      "id": "wallet-balances-are-real",
+      "clause": "staff response facts: the omnibus/wallet/book state lives in DTC's systems (LedgerScan as official books and records); this kernel reads none of them",
+      "branch": "Whether each declared wallet balance is the real on-chain/book balance is outside the input entirely.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "per-wallet balances, omnibus balance and book-entry position as of the declared date",
+        "source": "the custodian's own records (LedgerScan / book-entry statements) pasted by the declaring party",
+        "owner": "the declaring participant's operations desk, which attests the pasted aggregates before the receipt is relied on"
+      }
+    },
+    {
+      "id": "book-entry-position-accuracy",
+      "clause": "staff response facts: LedgerScan constitutes DTC's official books and records; the book-entry position is a custodian-side fact",
+      "branch": "Whether the declared book_entry_position matches DTC's books is outside the input.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the book-entry position of the omnibus holding as of the declared date",
+        "source": "DTC book-entry / LedgerScan records",
+        "owner": "the custodian's reconciliation team supplying the book figure"
+      }
+    },
+    {
+      "id": "event-log-completeness",
+      "clause": "request letter II.c Conditions Requiring Reversal + II.e Override Keys: reversals and overrides are recorded movements; the kernel chains only what was declared",
+      "branch": "A withheld, backdated or off-log event is invisible: the chained head covers exactly the declared entries, so it proves ordering and coverage of the declared log, not completeness of the underlying history.",
+      "disposition": "unrepresented_known",
+      "error_direction": "conservative_toward_no_finding",
+      "note": "No runtime path can exist: log completeness is a property of the custodian's systems, not of the declared shape. A withheld event leaves the arithmetic self-consistent, so the error lands toward no-finding (RECONCILED on an incomplete log). events_counted and event_log_head carry exactly what was chained; manual review treats the head as an integrity marker over the declared log only."
+    },
+    {
+      "id": "declared-state-reality",
+      "clause": "staff response facts: the reconciliation relations hold in DTC's systems; this kernel recomputes the arithmetic over caller-asserted aggregates and reads no ledger",
+      "branch": "All three legs can tie exactly while every underlying record is wrong: the kernel proves the arithmetic over the declaration, never that the declaration is true.",
+      "disposition": "unrepresented_known",
+      "error_direction": "conservative_toward_no_finding",
+      "note": "Inherent to a declared-state recompute, not closable by more arithmetic. evidence.balances_caller_asserted, evidence.reads_no_ledger and the node page scope note carry the boundary on every receipt. The out_of_scope_by_input rows above name the owners of the underlying facts; this row records that the residual risk points toward no-finding."
+    }
+  ]
+}
