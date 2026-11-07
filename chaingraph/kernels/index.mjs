@@ -25,6 +25,7 @@ import * as t787      from './787-corridor-cost-averages.kernel.mjs';
 import * as t806      from './806-event-contract-terms-lint.kernel.mjs';
 import * as t813      from './813-eth-staking-accounting.kernel.mjs';
 import * as t815      from './815-eth-fee-market.kernel.mjs';
+import * as t822      from './822-zcash-supply-check.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
 import * as art03     from './art-03-x402-settlement-modeler.kernel.mjs';
@@ -737,6 +738,7 @@ export const KERNELS = {
   '806-event-contract-terms-lint':                              t806,
   '813-eth-staking-accounting':                                 t813,
   '815-eth-fee-market':                                         t815,
+  '822-zcash-supply-check':                                     t822,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
   'art-03-x402-settlement-modeler':                             art03,
