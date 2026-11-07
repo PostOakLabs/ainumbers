@@ -413,7 +413,7 @@ test('CLASS C — cross-entry sharing is NOT a within-entry duplicate (legitimat
 // exit-137 mid-scan: its owner.json names a pid that no longer exists, and a
 // waiter that could not detect that would wait forever — the exact
 // "several at cpu=0s, all parents alive" freeze this row heals.
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { withScanLock, readLockOwner, isPidAlive } from './check-derived-regen-live.mjs';
 
 function lockFixture() {
@@ -422,15 +422,22 @@ function lockFixture() {
   return join(dir, 'scan.lock');
 }
 
-/** A pid proven dead: spawn `node -e ""` and poll until the OS reaps it. */
+/**
+ * A pid proven dead: run `node -e ""` to completion with spawnSync, which
+ * reaps the child before returning. An async spawn cannot prove death from a
+ * synchronous loop: the Atomics.wait poll blocks the event loop, so libuv
+ * never waitpid()s the exited child and POSIX keeps it in the process table
+ * as a zombie — which still answers signal 0, so isPidAlive reports the dead
+ * owner alive forever and this subtest held the lock for the full 600 s
+ * stealMs on the Linux CI runner (win32 has no zombies, which is why the
+ * fixture only red there). The reuse guard turns a recycled pid into a fast
+ * loud failure instead of a planted live owner.
+ */
 function deadPidSync() {
-  const child = spawn(process.execPath, ['-e', ''], { stdio: 'ignore' });
-  const deadline = Date.now() + 10_000;
-  while (isPidAlive(child.pid) && Date.now() < deadline) sleepTest(25);
-  return child.pid;
-}
-function sleepTest(ms) {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  const r = spawnSync(process.execPath, ['-e', ''], { stdio: 'ignore' });
+  if (r.error || !Number.isFinite(r.pid)) throw new Error(`dead-pid fixture failed to spawn a reaped child: ${r.error?.message ?? String(r.pid)}`);
+  if (isPidAlive(r.pid)) throw new Error(`dead-pid fixture pid ${r.pid} answers signal 0 after a reaped exit (recycled?)`);
+  return r.pid;
 }
 
 test('MUTEX GREEN - a free lock acquires, runs the body and releases', () => {
