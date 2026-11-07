@@ -2217,6 +2217,8 @@ const GATES = [
   // scripts/compute-proof-baseline.json (advisory on a PR, repaired by main's regen).
   ['§18 compute-proof baseline fresh (derived)', 'node scripts/check-compute-proof-coverage.mjs --check-baseline'],
   ['§18 coverage split controls (RED/GREEN-on-PR/HARD-on-main)', 'node scripts/check-compute-proof-coverage.test.mjs'],
+  // PREPUSH-DERIVED-ADVISORY-1: the context oracle's local arm (detached HEAD ahead of origin/main = PR proof; main/behind/undeterminable stay HARD).
+  ['Derived-gate context controls, detached HEAD (RED/GREEN, PREPUSH-DERIVED-ADVISORY-1)', 'node scripts/derived-context-detached.test.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
   ['§18 freshness PR derived-root e2e (S18-FIXTURE-PR-DERIVED-ROOT-1)', 'node scripts/check-s18-freshness-fixture-derived-root.test.mjs'],
