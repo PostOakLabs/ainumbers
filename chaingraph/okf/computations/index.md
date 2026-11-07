@@ -681,6 +681,7 @@ status: stable
 - [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md)
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md)
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md)
+- [ERC-3643 Transfer Decision Recompute](./art-807-erc3643-transfer-decision.md)
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md)
 - [Quadratic Funding Round Recompute](./art-814-qf-pairwise-recompute.md)
 - [Privacy Coin Regulatory Classifier (MiCA and AMLR)](./art-818-zcash-reg-classifier.md)

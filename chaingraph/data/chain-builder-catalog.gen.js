@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (712 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (713 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7865,6 +7865,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-79-settlement-fail-predictor",
       "art-84-settlement-efficiency-kpi"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-807-erc3643-transfer-decision",
+    "display_name": "ERC-3643 Transfer Decision Recompute",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-807-erc3643-transfer-decision.html",
+    "description": "Recomputes whether one proposed ERC-3643 (T-REX) transfer or mint would go through, from caller-declared state only: identity registry entri",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
