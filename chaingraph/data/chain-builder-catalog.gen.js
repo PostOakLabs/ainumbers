@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (709 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (710 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7696,6 +7696,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-83-buy-in-exposure-modeler",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-770-total-cost-of-homeownership",
+    "display_name": "Total Cost of Homeownership",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-770-total-cost-of-homeownership.html",
+    "description": "Total cost of homeownership comparator ported from ApexLogics Apex #153 (AL-167). Given purchase price, loan terms, recurring costs, growth ",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
