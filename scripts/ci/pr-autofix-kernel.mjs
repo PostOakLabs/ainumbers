@@ -109,9 +109,41 @@ function readNul(file) {
   return readFileSync(file, 'utf8').split('\0').filter(Boolean);
 }
 
+/** Run a node script, echo its output, and return { status, output } for classification. */
 function runNode(args) {
   console.log(`> node ${args.join(' ')}`);
-  return spawnSync(process.execPath, args, { cwd: REPO, stdio: 'inherit' }).status;
+  const r = spawnSync(process.execPath, args, { cwd: REPO, encoding: 'utf8' });
+  if (r.stdout) process.stdout.write(r.stdout);
+  if (r.stderr) process.stderr.write(r.stderr);
+  return { status: r.status, output: `${r.stdout || ''}${r.stderr || ''}` };
+}
+
+/** The identity writer exits 3 with this line when the shard is not live/enrolled yet. */
+const NOT_APPLICABLE_RE = /not in scope for \S{0,3}17 identity/;
+
+/**
+ * Classify one identity-writer run: 'ok' (exit 0), 'skip' (known not-applicable precondition:
+ * exit 3 AND the not-in-scope message), or 'fail' (anything else, a real writer error).
+ */
+export function classifyIdentity({ status, output }) {
+  if (status === 0) return 'ok';
+  if (status === 3 && NOT_APPLICABLE_RE.test(output || '')) return 'skip';
+  return 'fail';
+}
+
+/**
+ * Run the identity writer for one id. Returns 'ok' | 'skip' | 'fail'. Missing shard (node not
+ * yet in the monolith or assembler-owned) is a skip. `run` and `hasShard` are injectable.
+ */
+export function identityStep(id, run, hasShard) {
+  if (!hasShard(id)) {
+    console.log(`::notice title=kernel-identity skipped for ${id}::no node shard (the assembler path owns it)`);
+    return 'skip';
+  }
+  const res = classifyIdentity(run(['chaingraph/kernels/gen-kernel-identity.mjs', '--write', `--shard=${id}`]));
+  if (res === 'skip') console.log(`::notice title=kernel-identity skipped for ${id}::shard is not live/enrolled yet, nothing to stamp`);
+  else if (res === 'fail') console.error(`::error title=gen-kernel-identity failed for ${id}::the writer exited non-zero`);
+  return res;
 }
 
 async function main() {
@@ -146,17 +178,12 @@ async function main() {
   }
 
   for (const id of ids) {
-    if (!existsSync(resolve(REPO, `chaingraph/graph/nodes/${id}.json`))) {
-      console.log(`  skip kernel-identity for ${id}: no node shard (the assembler path owns it)`);
-    } else if (runNode(['chaingraph/kernels/gen-kernel-identity.mjs', '--write', `--shard=${id}`]) !== 0) {
-      console.error(`::error title=gen-kernel-identity failed for ${id}::the writer exited non-zero`);
-      failed = true;
-    }
+    if (identityStep(id, runNode, (i) => existsSync(resolve(REPO, `chaingraph/graph/nodes/${i}.json`))) === 'fail') failed = true;
     fence('kernel-identity', true);
 
     // Best effort: a non-zero exit means the id is outside the backfill plan or the
     // schema is hand-curated, which is a hand edit for the PR author, not a fix.
-    if (runNode(['scripts/gen-input-schemas.mjs', '--write', '--only', id]) !== 0) {
+    if (runNode(['scripts/gen-input-schemas.mjs', '--write', '--only', id]).status !== 0) {
       console.log(`::warning title=gen-input-schemas --only ${id} exited non-zero::nothing to backfill, or a hand-curated schema.`);
     }
     fence('input-schema', true);
