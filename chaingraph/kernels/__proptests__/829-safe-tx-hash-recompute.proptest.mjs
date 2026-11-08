@@ -209,6 +209,25 @@ function checkMalformedAndDeterminism() {
   return { name: 'malformed_inputs_refuse_without_throwing_and_deterministic', checked: n, violations: v };
 }
 
+function checkComplianceFlags() {
+  let v = 0; let n = 0;
+  // compliance_flags sits beside output_payload, so the fixture oracle (which deep-compares
+  // output_payload only) is structurally blind to it; these exact-array checks are its coverage.
+  const cases = [
+    [BASE, ['SAFE_TX_HASH_COMPUTED']],
+    [{ ...BASE, to: BASE.safe, value: '1' }, ['SAFE_TX_HASH_COMPUTED', 'SAFE_TX_VALUE_SENT_TO_SELF']],
+    [{ ...BASE, operation: 1, data: '0x' + '11'.repeat(5) }, ['SAFE_TX_HASH_COMPUTED', 'SAFE_TX_CALL_NOT_DECODED', 'SAFE_TX_DELEGATECALL']],
+  ];
+  for (const [p, want] of cases) {
+    n++;
+    if (JSON.stringify(compute(p).compliance_flags) !== JSON.stringify(want)) v++;
+  }
+  n++;
+  const refused = compute({ ...BASE, version: '1.2.0' }).compliance_flags;
+  if (JSON.stringify(refused) !== JSON.stringify(['INPUT_REFUSED', 'SAFE_TX_HASH_NOT_COMPUTED'])) v++;
+  return { name: 'compliance_flags_mirror_risk_and_verdict', checked: n, violations: v };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -225,6 +244,7 @@ const properties = [
   checkVersionRefusal(),
   checkFieldSensitivity(),
   checkMalformedAndDeterminism(),
+  checkComplianceFlags(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
